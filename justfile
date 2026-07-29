@@ -17,11 +17,23 @@ cache:
 
 # Build the CasDsl library (and the worker it depends on)
 build:
-    @lake build CasDsl
+    @lake build CasDsl CasDslTests nbdsl_worker
 
-# Run the repository QC gate
+# One-time dev setup: venv, kernel adapter, casdsl kernelspec
+setup:
+    @uv venv .venv
+    @uv pip install -p .venv/bin/python nbclient \
+        'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel#subdirectory=nbdsl_kernel'
+    @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
+        --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
+
+# Run the repository QC gate (roundtrip talks to real Sage; E2E drives the
+# installed casdsl kernelspec — `just setup` first)
 test: build
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
+    @python3 -m py_compile backends/sage_adapter.py tests/roundtrip.py
+    @python3 tests/roundtrip.py
+    @.venv/bin/pytest tests/test_e2e.py -q
 
 [private]
 test-commit: test

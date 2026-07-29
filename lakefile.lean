@@ -18,7 +18,10 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.32.0"
 
 @[default_target]
-lean_lib CasDsl
+lean_lib CasDsl where
+  -- the prelude module `CasDsl.Notebook` imports the root, not vice versa,
+  -- so the lib must glob submodules or the kernelspec's olean is never built
+  globs := #[.andSubmodules `CasDsl]
 
 /-- Elaboration-time tests (`#guard` + `run_cmd` assertions); not part of
 the shipped prelude import graph. -/
