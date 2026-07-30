@@ -513,6 +513,87 @@ def test_infinite_receivers_are_the_honest_gap(kernel: Kernel) -> None:
     assert "NoImplementation" in text
 
 
+# -- 13 · set comprehensions and images ------------------------------------
+# SPEC.md §Set comprehensions. `S`, `E` and the binder names used here appear
+# nowhere else in this file.
+
+def test_a_finite_comprehension_is_decided(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let S := {n ∈ ℤ | n² ≤ 20}")
+    ok(kc, "assert S in 𝒫(ℤ)")
+    ok(kc, "assert S = {-4, -3, -2, -1, 0, 1, 2, 3, 4}")
+    ok(kc, "assert |S| = 9")
+    # exact on both sides of the boundary
+    ok(kc, "assert 4 ∈ S")
+    ok(kc, "assert 5 ∉ S")
+    assert "false" in err(kc, "assert |S| = 10").lower()
+    # SPEC.md §Ellipses spells the binder with the ASCII `in` too
+    ok(kc, "assert {n in ℤ | n² ≤ 20} = S")
+
+
+def test_an_infinite_comprehension_is_its_progression(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "let E := {2n | n ∈ ℕ}")
+    assert "{0, 2, ...}" in text
+    ok(kc, "assert E in 𝒫(ℕ)")
+    ok(kc, "assert 8 ∈ E")
+    ok(kc, "assert 9 ∉ E")
+    ok(kc, "assert |E| = ℵ₀")
+    # membership is SOLVED, not enumerated: nothing counts to 10¹²
+    ok(kc, "assert 1000000000000 ∈ E")
+    ok(kc, "assert 1000000000001 ∉ E")
+    assert "false" in err(kc, "assert 9 ∈ E").lower()
+
+
+def test_the_image_of_a_function_is_that_same_set(kernel: Kernel) -> None:
+    _, kc = kernel
+    # e : ℕ → ℕ := n ↦ 2n, bound in the functions section above
+    ok(kc, "assert e(ℕ) = E")
+    ok(kc, "assert e.image() = E")
+    text = ok(kc, "#explain_route e.image()")
+    assert "FunctionElems" in text and "func_image" in text
+    # applying a function to a set that is not its source is refused
+    text = err(kc, "e(ℤ)")
+    assert "is not its source" in text
+
+
+def test_a_bounded_image_comprehension_enumerates_exactly(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "{e(n) | n ∈ ℕ, 0 ≤ n < 6}")
+    assert "{0, 2, 4, 6, 8, 10}" in text
+    ok(kc, "assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}")
+    assert "false" in err(
+        kc, "assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8}").lower()
+
+
+def test_an_undecidable_comprehension_is_refused_at_the_binding(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # a predicate the polynomial engine does not reach: a structured gap, not
+    # a sampled guess and not a truncated enumeration
+    text = err(kc, "let notdecided := {n in ℕ | n.is_prime()}")
+    assert "polynomial comparison" in text
+    # an infinite solution set is reported as infinite, never cut off
+    text = err(kc, "let notdecided := {n ∈ ℤ | n² ≥ 20}")
+    assert "infinite" in text
+    # an image that is not a progression is a gap too
+    text = err(kc, "let notdecided := {n² | n ∈ ℕ}")
+    assert "arithmetic progression" in text
+
+
+def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let cn := 100 in ℤ")
+    # the binder shadows the session binding inside the braces…
+    ok(kc, "assert {cn ∈ ℤ | cn² ≤ 20} = S")
+    # …leaves it untouched outside them…
+    ok(kc, "assert cn = 100")
+    # …and publishes nothing: the binder name is still unbound afterwards
+    ok(kc, "let cmset := {cmb ∈ ℤ | cmb² ≤ 1}")
+    text = err(kc, "cmb")
+    assert "'cmb' is not bound" in text
+
+
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     _, kc = kernel
     # unbound, `z` would be the indeterminate of ℤ[z] exactly as `x` is above.

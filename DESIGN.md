@@ -106,6 +106,7 @@ inductive Value
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
   | idealV (gens : Array Value) (ring : Domain)    -- e.g. annihilator result
   | setV (elems : Array Value) (dom : Domain)      -- e.g. p.roots()
+  | progV (dom : Domain) (first step : Value) (last? : Option Value)  -- e.image()
   | cardinal (c : Cardinality)     -- finite n | countablyInfinite
   | bool (b : Bool)
   | func (src tgt : Domain) (binder : Name) (body : Value)   -- binder ↦ body
@@ -114,6 +115,8 @@ inductive SetPresentation
   | finite (dom : Domain) (elems : Array Value)
   | arithProg (dom : Domain) (first step : Value) (last? : Option Value)
   | domainSet (d : Domain)         -- the underlying set of ℤ, ℕ, ℚ, …
+  | product (a b : SetPresentation)     -- A × B, denoted
+  | powerset (s : SetPresentation)      -- 𝒫(A) / 2^A, denoted
 
 inductive Obj                       -- the thing a notebook binding names
   | elem (dom : Domain) (v : Value)         -- 360 ∈ ℤ, q ∈ ℚ[x], M ∈ Mat₂(ℚ)
@@ -122,11 +125,14 @@ inductive Obj                       -- the thing a notebook binding names
   | cyclicModule (n : Nat)                  -- the ℤ-module ℤ/n (module fixture)
 ```
 
-`setV` is the one shape a BACKEND may return as a set (`p.roots()`);
-`Denote.ofValue` turns it into the ordinary `setObj (.finite …)`, so a
-returned set is a set object like any literal one — same profile rules, same
-`contains`, same set equality — rather than a second notion of set. CEILING:
-an explicit finite list, nothing wider.
+`setV` and `progV` are the two shapes a BACKEND may return as a set
+(`p.roots()`, `e.image()`); `Denote.ofValue` turns them into the ordinary
+`setObj (.finite …)` / `setObj (.arithProg …)`, so a returned set is a set
+object like any literal one — same profile rules, same `contains`, same set
+equality — rather than a second notion of set. CEILING: an explicit finite
+list or an arithmetic progression, nothing wider. `product` and `powerset`
+are DENOTED sets (see §Sets): presentations whose elements — pairs, and sets
+— no `Value` presents.
 
 Set equality (`X = ℕ`) is presentation normalization: `arithProg 0 1 none`
 over ℕ normalizes to `domainSet nat`, etc. This is a documented ceiling,
@@ -196,9 +202,12 @@ Decisions, all load-bearing:
   `g`'s binder and requires the domains to meet — composing along a mismatch
   is a mathematical error, not something to coerce past.
 
-Functions consequently register NO category, method or route: nothing about
-them is a computability question this slice can route, so the registries are
-untouched.
+Functions register exactly ONE category, method and route: `image`
+(see §Comprehensions and images). Everything else about them — calling,
+composing, equality, the ascription check — is elaboration-inserted and
+routes nothing, because none of it is a computability question this slice
+can route. What a map does to a whole SET is one, so it is a method like any
+other.
 
 ## Sets (`SPEC.md` §Finite sets, issue #24)
 
@@ -244,6 +253,51 @@ router, except the two that construct rather than compute.
   answers to no integer, and `2^|A|` exponentiates by a finite cardinal —
   which is what makes `|𝒫(A)| = 2^|A|` a computed identity. `2^ℵ₀` has no
   exponent here and says so.
+
+## Comprehensions and images (`SPEC.md` §Set comprehensions, issue #24)
+
+`{x ∈ X | P(x)}` and `{f(x) | x ∈ X, P(x)}` are ONE node
+(`CasExpr.comprehension`): the filtering spelling is the image of the
+identity, so one evaluator decides both. What it may decide is deliberately
+narrow, and everything outside it is refused at the binding rather than
+approximated — the move §Functions already makes for `t ↦ sin(t)`.
+
+- **A guarded comprehension is DECIDED, never sampled.** Each comparison in
+  the guard is rewritten as `p(n) ⋈ 0` (both sides evaluated with the binder
+  as the indeterminate, then subtracted), and a Cauchy-style bound
+  `N = max(1, ⌈(S+1)/|a_d|⌉)` with `S = Σ_{i<d}|a_i|` puts every root of `p`
+  inside `±N`. `p` therefore keeps one sign on each tail, so evaluating it at
+  `±N` decides whether that tail satisfies the guard: if it does, the
+  comprehension is INFINITE and says so; if it does not, every solution lies
+  in the bound and each candidate is tested exactly. A conjunction (the chain
+  `0 ≤ n < 6`) intersects the two conjuncts' bounds, which is what makes a
+  guard bounded by neither conjunct alone decidable. There is no enumeration
+  cutoff: the candidate count past `comprehensionCap` is a loud failure.
+- **An unguarded comprehension is presented only when its image IS a
+  presentation the slice has.** `{2n | n ∈ ℕ}` is the arithmetic progression
+  `{0, 2, 4, …}` — SPEC.md's own identity (`Y = {2n | n in ℕ}`) — so its
+  membership is the progression's exact solve (`8 ∈ E` and `9 ∉ E` are
+  decided, and `10¹² ∈ E` costs nothing), its cardinality is ℵ₀, and its
+  equality with the literal is presentation normalization. A non-linear image
+  or an index that is not ℕ is a structured gap.
+- **The index set is ℕ or ℤ.** Filtering an arbitrary finite set is not
+  implemented (nothing in `SPEC.md` §Set comprehensions needs it), and says
+  so rather than half-working.
+- **The binder is a real local binding scoped to the braces**
+  (`EvalCtx.local?`): consulted BEFORE the session bindings, so it shadows a
+  `let n := …` INSIDE the comprehension and leaves it untouched outside, and
+  it publishes nothing — a bare binder name elsewhere is still the loud "not
+  bound" error. This is ordinary scoping and does not widen the name
+  resolution §Functions narrowed.
+- **`e.image()` is the one method functions own** (`FunctionElems`,
+  registered because what a map does to a whole set is a computability
+  question), and `e(ℕ)` — applying a function to its SOURCE — desugars to it,
+  so there is one implementation and two spellings. Applying a function to
+  any other set is refused. The image of a linear map on ℕ is returned as
+  `Value.progV`, the second shape an executor may return as a set: like
+  `setV` it is reflected by `Denote.ofValue` into the ordinary
+  `SetPresentation`, so `e.image()`, `e(ℕ)`, `{2n | n ∈ ℕ}` and
+  `{0, 2, 4, …}` are all the same set object.
 
 ## Categories (`Category.lean`, `Registry.lean`)
 
@@ -496,6 +550,8 @@ assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
 assert x ∈ ℤ[x]       assert p ∈ ℚ[x]
 assert A ⊆ A ∪ B      assert A in 𝒫(ℤ)    -- `in` is SPEC.md's ASCII `∈`
+{n ∈ ℤ | n² ≤ 20}   {2n | n ∈ ℕ}   {e(n) | n ∈ ℕ, 0 ≤ n < 6}
+e(ℕ)   e.image()                          -- the image, one method two spellings
 #explain_route <expr>   #capabilities   #capability_gaps
 ```
 

@@ -63,6 +63,11 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "set"), ("elems", Json.arr (elems.map valueToJson)),
          ("dom", domainToJson dom)]
+  | .progV dom first step last? =>
+      Json.mkObj
+        [("t", "progression"), ("dom", domainToJson dom),
+         ("first", valueToJson first), ("step", valueToJson step),
+         ("last", match last? with | some l => valueToJson l | none => Json.null)]
   | .cardinal c => cardinalToJson c
   | .bool b => Json.mkObj [("t", "bool"), ("v", Json.bool b)]
   | .func s t binder body =>
@@ -161,6 +166,12 @@ partial def valueFromJson (j : Json) : Except String Value := do
   | "set" =>
       let elems ← (← arrField j "elems").mapM valueFromJson
       return .setV elems (← domainFromJson (← field j "dom"))
+  | "progression" =>
+      let lastJ ← field j "last"
+      let last? : Option Value ←
+        if lastJ.isNull then pure none else Option.some <$> valueFromJson lastJ
+      return .progV (← domainFromJson (← field j "dom"))
+        (← valueFromJson (← field j "first")) (← valueFromJson (← field j "step")) last?
   | "cardinal" => return .cardinal (← cardinalFromJson j)
   | "func" =>
       let src ← domainFromJson (← field j "src")

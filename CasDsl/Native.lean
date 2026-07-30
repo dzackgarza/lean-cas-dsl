@@ -606,6 +606,26 @@ this slice presents no value for")
   | "set_symdiff" =>
       binarySetOp "set_symdiff" o args fun a b =>
         a.filter (!memOf b ·) ++ b.filter (!memOf a ·)
+  | "func_image" =>
+      match o with
+      | .elem (.funcs src tgt) (.func _ _ _ body) =>
+          -- the body is the exact polynomial the binder generates, so the
+          -- image of ℕ under a LINEAR one is exactly an arithmetic
+          -- progression — the presentation `{0, 2, 4, ...}` already has
+          let cs := match body with
+            | .poly _ coeffs => coeffs
+            | v => #[v]
+          if cs.size ≤ 1 then
+            .ok (.setV #[cs[0]?.getD (zeroOf tgt)] tgt)
+          else if src == .nat && cs.size == 2 then
+            .ok (.progV tgt cs[0]! cs[1]! none)
+          else
+            .error (.badRequest
+              s!"the native backend presents the image of a constant map, and of a \
+linear map on ℕ (an arithmetic progression). The image of {body.render} on \
+{src.render} is neither, so it is a gap rather than a guess")
+      | o => .error (.badRequest
+          s!"func_image expects a function receiver, got {o.presentation}")
   | "annihilator_cyclic" =>
       match o with
       | .cyclicModule n => .ok (.idealV #[.int (Int.ofNat n)] .int)
@@ -642,7 +662,8 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "set_intersect", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_diff", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_symdiff", accepts := #[.finiteSet] },
-  { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] }
+  { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] },
+  { backend := `native, opId := "func_image", accepts := #[.elemOf .anyFuncs] }
 ]
 
 run_cmd nativeOpSigs.forM registerOpSig!

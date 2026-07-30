@@ -59,6 +59,8 @@ inductive DomainPattern where
   /-- `ℤ/n` for EVERY modulus `n` — what makes `ℤ → ℤ/n` one embedding rule
   instead of one per modulus. -/
   | anyMod
+  /-- `src → tgt` for every pair: what a function element presents. -/
+  | anyFuncs
   | anyDom
   deriving BEq, Repr, Inhabited
 
@@ -89,6 +91,8 @@ partial def accepts : DomainPattern → Domain → Bool
   | .matrixOver _, _ => false
   | .anyMod, .mod _ => true
   | .anyMod, _ => false
+  | .anyFuncs, .funcs .. => true
+  | .anyFuncs, _ => false
   | .anyDom, _ => true
 
 /-- `p.implies q`: every domain accepted by `p` is accepted by `q` — the
@@ -101,6 +105,7 @@ partial def implies : DomainPattern → DomainPattern → Bool
   | .polyOver p, .polyOver q => p.implies q
   | .matrixOver p, .matrixOver q => p.implies q
   | .anyMod, .anyMod => true
+  | .anyFuncs, .anyFuncs => true
   | _, _ => false
 
 end DomainPattern

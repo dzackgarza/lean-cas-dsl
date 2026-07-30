@@ -81,6 +81,11 @@ inductive CasExpr where
   /-- `a ≤ b` and the chain `a ≤ b < c`, which is its conjunction. -/
   | cmp (op : CmpOp) (a b : CasExpr)
   | conj (a b : CasExpr)
+  /-- A comprehension `{head | binder ∈ index, guard}`. SPEC.md's filtering
+  spelling `{n ∈ ℤ | P}` is this node with `head = binder` — one shape, so
+  one evaluator decides both. -/
+  | comprehension (head : CasExpr) (binder : Name) (index : CasExpr)
+      (guard? : Option CasExpr)
   deriving Inhabited
 
 /-! ## Pure core -/
@@ -119,6 +124,7 @@ partial def renderDomainPattern : DomainPattern → String
   | .polyOver p => s!"{renderDomainPattern p}[x]"
   | .matrixOver p => s!"Mat(_, {renderDomainPattern p})"
   | .anyMod => "ℤ/_"
+  | .anyFuncs => "_ → _"
   | .anyDom => "_"
 
 def renderCanonicalMap (r : CanonicalMap) : String :=
@@ -428,6 +434,88 @@ progression starting {first.render} with step {step.render}"
   return .arithProg d (← coerceValue rules d first) (← coerceValue rules d step)
     (← last?.mapM (coerceValue rules d))
 
+/-! ### Deciding a comprehension guard
+
+`{n ∈ ℤ | n² ≤ 20}` is a claim about ALL integers, so it is decided rather
+than sampled: the guard is rewritten as `p(n) ⋈ 0` for an exact polynomial
+`p` (each side is evaluated with the binder as the indeterminate, and the
+difference taken), and a Cauchy-style bound `N` is extracted with
+
+    |p(n)| ≥ |n|^{d-1}(|a_d||n| − S) ≥ 1 > 0   for |n| ≥ N := max(1, ⌈(S+1)/|a_d|⌉)
+
+where `S = Σ_{i<d}|a_i|`. `p` has no root beyond `±N`, so it keeps ONE sign
+on each tail, and evaluating it at `±N` says whether that tail satisfies the
+guard: if it does the comprehension is infinite and says so; if it does not,
+every solution lies inside the bound and is found by testing each integer
+exactly. Nothing here samples, and nothing cuts an enumeration short.
+
+A guard the rewriting does not reach (`n.is_prime()`, a membership test) has
+no bound, and the comprehension is REFUSED at the binding — the same move
+§Functions makes for a body the polynomial engine cannot express. -/
+
+/-- The bounds on a comprehension binder; `none` = that side is unbounded. -/
+structure BinderBounds where
+  lo : Option Int := none
+  hi : Option Int := none
+  deriving Repr, Inhabited
+
+/-- Conjunction of guards intersects their bounds: `0 ≤ n < 6` is bounded
+below by one conjunct and above by the other, and by neither alone. -/
+def BinderBounds.meet (a b : BinderBounds) : BinderBounds where
+  lo := match a.lo, b.lo with
+    | some x, some y => some (max x y)
+    | some x, none | none, some x => some x
+    | none, none => none
+  hi := match a.hi, b.hi with
+    | some x, some y => some (min x y)
+    | some x, none | none, some x => some x
+    | none, none => none
+
+/-- Ceiling of a rational. `den > 0`, so Euclidean division of the negated
+numerator is the floor of `−q`. -/
+def ratCeil (q : Rat) : Int := -(Int.ediv (-q.num) (Int.ofNat q.den))
+
+private def absRat (v : Value) : Option Rat :=
+  (Native.toRat? v).map fun q => if q.blt 0 then -q else q
+
+/-- `N ≥ 1` with `p(n) ≠ 0` for every `|n| ≥ N`, from the coefficient bound
+above. `none` = the coefficients are not ordered rationals (a `ℤ/n`
+polynomial has no such bound), or the polynomial is constant — neither is a
+failure of the search, and both are reported as the refusal they are. -/
+def polyTailBound (coeffs : Array Value) : Option Int := do
+  if coeffs.size < 2 then none
+  else
+    let d := coeffs.size - 1
+    let lead ← absRat coeffs[d]!
+    if lead == 0 then none
+    else
+      let s ← (coeffs.extract 0 d).foldlM (init := (0 : Rat))
+        fun acc v => do return acc + (← absRat v)
+      return max 1 (ratCeil ((s + 1) / lead))
+
+/-- Does `v ⋈ 0` hold? `none` = `v` is not ordered against zero. -/
+def cmpAgainstZero (op : CmpOp) (v : Value) : Option Bool :=
+  (Native.scalarCmp v (.int 0)).map fun ord =>
+    match op with
+    | .le => ord != .gt
+    | .lt => ord == .lt
+    | .ge => ord != .lt
+    | .gt => ord == .gt
+
+/-- The binder bounds one comparison `p(n) ⋈ 0` imposes. A tail that
+SATISFIES the guard leaves that side unbounded — reported as such, so the
+caller can refuse an infinite comprehension instead of truncating it. -/
+def boundsOfPoly (op : CmpOp) (coeffs : Array Value) : Except String BinderBounds := do
+  let some n := polyTailBound coeffs
+    | .error "the guard is not a polynomial comparison with an extractable bound"
+  let at? (k : Int) : Except String Bool := do
+    let v ← Native.polyEval .int coeffs (.int k)
+    match cmpAgainstZero op v with
+    | some b => .ok b
+    | none => .error s!"the guard does not order {v.render} against 0"
+  return { lo := if ← at? (-n) then none else some (-n + 1)
+           hi := if ← at? n then none else some (n - 1) }
+
 /-! ### `D[x]` versus `e[k]`
 
 DESIGN.md: brackets containing a lone identifier that is not a binding name
@@ -506,6 +594,7 @@ the usual profile rules rather than through a second notion of set. -/
 def ofValue (v : Value) : Denote :=
   match v with
   | .setV elems dom => .obj (.setObj (.finite dom elems))
+  | .progV dom first step last? => .obj (.setObj (.arithProg dom first step last?))
   | v =>
     match valueDom? v with
     | some d => .obj (.elem d v)
@@ -637,6 +726,13 @@ structure EvalCtx where
   ordinary "not bound" error. Consulted after the bindings, so a `let t := …`
   still wins. -/
   callBinder? : Option (Name × Domain) := none
+  /-- A comprehension's binder, bound to the candidate element being tested.
+  This is a REAL local binding, scoped to the braces: it is consulted BEFORE
+  the session bindings (the binder wins inside its own comprehension, which
+  is ordinary scoping), it is set only while the head and guard are being
+  evaluated, and it publishes nothing — outside the braces the name is
+  unbound and says so. -/
+  local? : Option (Name × Obj) := none
 
 abbrev EvalM := ExceptT EvalError IO
 
@@ -652,6 +748,7 @@ def EvalCtx.canonMaps (ctx : EvalCtx) : Array CanonicalMap := canonicalMaps ctx.
 
 def EvalCtx.isBound (ctx : EvalCtx) (n : Name) : Bool :=
   (binding? ctx.env n).isSome || ctx.indet?.any (·.1 == n)
+    || ctx.local?.any (·.1 == n)
 
 /-- A literal read in the ambient domain. -/
 def EvalCtx.literal (ctx : EvalCtx) (z : Int) : Value :=
@@ -683,11 +780,31 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
       | .error e => throw (.exec e)
       | .ok v => return Denote.ofValue v
 
+private def asValueOf (r : Denote) : Except String Value :=
+  match r.value? with
+  | some v => .ok v
+  | none => .error s!"{r.presentation} is not an element value"
+
+private def asObjOf (r : Denote) : Except String Obj :=
+  match r.obj? with
+  | some o => .ok o
+  | none => .error s!"{r.render} is not an object"
+
+/-- How many candidates a comprehension may test before the operation fails
+honestly. A loud ceiling, never a truncated answer. -/
+private def comprehensionCap : Int := 100000
+
+mutual
+
 partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
   | .num z => return .obj (.elem (ctx.ambient?.getD .int) (ctx.literal z))
   | .lit v => return Denote.ofValue v
   | .dom d => return .obj (.domainObj d)
   | .ref n => do
+      -- the comprehension binder is the innermost scope: inside `{n ∈ ℤ | …}`
+      -- the braces' `n` wins over a session `let n := …`, and nowhere else
+      if let some (b, o) := ctx.local? then
+        if b == n then return .obj o
       if let some (x, c) := ctx.indet? then
         if x == n then
           return .obj (.elem (.poly c) (← ofStr (indeterminateValue ctx.canonMaps c)))
@@ -809,9 +926,20 @@ no other reading of an exponent over {s.render}")
           let some ring := binderRing src body
             | throw (.msg s!"{body.render} is not a polynomial body")
           let arg ← eval { ctx with callBinder? := some (binder, ring) } args[0]!
-          let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
-          let y ← ofStr (applyPoly ctx.canonMaps body x)
-          return Denote.ofValue (← ofStr (atDomain ctx.canonMaps tgt y))
+          -- SPEC.md's `e(ℕ)`: applying a function to its SOURCE is the image,
+          -- which is the `image` method — one implementation, two spellings
+          match arg.asSet? with
+          | some (.domainSet d) =>
+              if d == src then callMethod ctx (← ofStr (asObjOf fv)) `image #[]
+              else throw (.msg s!"{fv.render} is declared on {src.render}, so \
+{d.render} is not its source: this slice images the source domain only")
+          | some s =>
+              throw (.msg s!"this slice computes the image of a function's SOURCE \
+domain, not of {s.render}")
+          | none =>
+            let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
+            let y ← ofStr (applyPoly ctx.canonMaps body x)
+            return Denote.ofValue (← ofStr (atDomain ctx.canonMaps tgt y))
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
@@ -851,15 +979,105 @@ each side")
   | .lam binder _ =>
       throw (.msg s!"`{binder} ↦ …` is a function definition: bind it with the \
 domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
-where
-  asValueOf (r : Denote) : Except String Value :=
-    match r.value? with
-    | some v => .ok v
-    | none => .error s!"{r.presentation} is not an element value"
-  asObjOf (r : Denote) : Except String Obj :=
-    match r.obj? with
-    | some o => .ok o
-    | none => .error s!"{r.render} is not an object"
+  | .comprehension head binder index guard? =>
+      evalComprehension ctx head binder index guard?
+
+/-- The bounds a guard puts on the comprehension binder, decided by
+`boundsOfPoly` after each comparison is rewritten as `p(n) ⋈ 0`. A guard
+shape the rewriting does not reach is refused here, loudly. -/
+partial def guardBounds (ctx : EvalCtx) (binder : Name) (dom : Domain)
+    : CasExpr → EvalM BinderBounds
+  | .conj a b => do
+      return (← guardBounds ctx binder dom a).meet (← guardBounds ctx binder dom b)
+  | .cmp op a b => do
+      -- the binder is the INDETERMINATE here: the guard is read as an exact
+      -- polynomial claim about every candidate at once, not sampled at one
+      let ictx := { ctx with indet? := some (binder, dom) }
+      let x ← ofStr (asValueOf (← eval ictx a))
+      let y ← ofStr (asValueOf (← eval ictx b))
+      match ← ofStr (valueBin ctx.canonMaps .sub x y) with
+      | .poly _ cs => ofStr (boundsOfPoly op cs)
+      | v =>
+          -- the guard does not mention the binder: it holds for all
+          -- candidates or for none, and neither is a bound to extract
+          match cmpAgainstZero op v with
+          | some true => return {}
+          | some false => return { lo := some 0, hi := some (-1) }
+          | none => throw (.msg s!"the guard does not order {v.render} against 0")
+  | _ =>
+      throw (.msg s!"this slice decides a comprehension whose guard is a \
+polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
+`0 ≤ {binder} < 6` — and this guard is not one. The comprehension is a \
+structured gap rather than a guess: no elements are enumerated, and no \
+membership is sampled")
+
+/-- `{head | binder ∈ index, guard}`.
+
+Two decided shapes, and nothing in between:
+
+- **guarded** — the guard bounds the binder to a finite candidate range, and
+  every candidate in it is TESTED exactly; the head is then evaluated at the
+  survivors. This is what makes `{n ∈ ℤ | n² ≤ 20}` the nine integers it is,
+  and `{e(n) | n ∈ ℕ, 0 ≤ n < 6}` the six values it is;
+- **unguarded over ℕ with a linear head** — the image is exactly an
+  arithmetic PROGRESSION, the presentation `{0, 2, 4, ...}` already has, so
+  `{2n | n ∈ ℕ}` is that set (SPEC.md's own `Y = {2n | n in ℕ}` identity) and
+  its membership, cardinality and equality are the ones ℕ already has.
+
+Everything else — an unbounded guard, an index that is not ℕ or ℤ, a
+non-linear head with no guard — is refused at the binding. -/
+partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
+    (index : CasExpr) (guard? : Option CasExpr) : EvalM Denote := do
+  let idx ← eval ctx index
+  let some (.domainSet dom) := idx.asSet?
+    | throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
+{idx.presentation}")
+  unless dom == .nat || dom == .int do
+    throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
+{dom.render}")
+  match guard? with
+  | none =>
+      let hv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, dom) } head))
+      match hv with
+      | .poly c cs =>
+          if cs.size == 2 && dom == .nat then
+            return .obj (.setObj (.arithProg c cs[0]! cs[1]! none))
+          else if cs.size ≤ 1 then
+            -- a constant map: its image is the one value it takes
+            return .obj (.setObj (.finite c #[cs[0]?.getD (.int 0)]))
+          else
+            throw (.msg s!"an unguarded comprehension is presented only when its \
+image is an arithmetic progression — a linear map on ℕ. {hv.render} over \
+{dom.render} is not one, so this is a gap rather than a guess")
+      | v =>
+          let d ← ofStr (elemsDomain ctx.canonMaps #[v])
+          return .obj (.setObj (.finite d #[v]))
+  | some g =>
+      let b ← guardBounds ctx binder dom g
+      -- ℕ contributes its own lower bound; the guard must supply the rest
+      let lo? := if dom == .nat then some (max 0 (b.lo.getD 0)) else b.lo
+      let some lo := lo?
+        | throw (.msg s!"the guard does not bound '{binder}' from below, so this \
+comprehension is infinite: this slice presents a decided finite set or nothing")
+      let some hi := b.hi
+        | throw (.msg s!"the guard does not bound '{binder}' from above, so this \
+comprehension is infinite: this slice presents a decided finite set or nothing")
+      if hi - lo + 1 > comprehensionCap then
+        throw (.msg s!"the guard bounds '{binder}' to {hi - lo + 1} candidates; \
+this slice tests at most {comprehensionCap}")
+      let mut out : Array Value := #[]
+      for i in [0 : (max 0 (hi - lo + 1)).toNat] do
+        let k := lo + Int.ofNat i
+        let kv ← ofStr (coerceValue ctx.canonMaps dom (.int k))
+        let kctx := { ctx with local? := some (binder, .elem dom kv) }
+        match ← ofStr (asValueOf (← eval kctx g)) with
+        | .bool true => out := out.push (← ofStr (asValueOf (← eval kctx head)))
+        | .bool false => pure ()
+        | v => throw (.msg s!"the guard did not decide at {binder} = {k}: {v.render}")
+      let d ← ofStr (elemsDomain ctx.canonMaps out)
+      return .obj (.setObj (.finite d (← ofStr (out.mapM (coerceValue ctx.canonMaps d)))))
+
+end
 
 /-- Run the evaluator; the syntax layer lifts this into `CommandElabM`. -/
 def runEval (ctx : EvalCtx) (e : CasExpr) : IO (Except EvalError Denote) :=

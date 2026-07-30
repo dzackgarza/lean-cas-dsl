@@ -190,6 +190,68 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 #guard domainAlias? `R == some .real
 #guard domainAlias? `Reals == none
 
+/-! ## Comprehension bounds
+
+The decision procedure's core, as pure claims: the tail bound really does
+put every root inside `±N`, and a guard whose tail SATISFIES it is reported
+as unbounded rather than truncated. -/
+
+#guard ratCeil (mkRat 7 2) == 4
+#guard ratCeil (mkRat (-7) 2) == -3
+#guard ratCeil (mkRat 4 2) == 2
+
+/-- `n² − 20`, the difference SPEC.md's `n² ≤ 20` is rewritten to. -/
+private def nSq20 : Array Value := #[.int (-20), .int 0, .int 1]
+
+-- N = max(1, ⌈(S+1)/|a_d|⌉) = 21, and 21² − 20 > 0: no root is missed
+#guard polyTailBound nSq20 == some 21
+#guard polyTailBound #[.int 0, .int 1] == some 1
+#guard polyTailBound #[.int (-6), .int 1] == some 7
+-- a constant has no bound to extract, and neither has an unordered ring
+#guard polyTailBound #[.int 3] == none
+#guard polyTailBound #[.mod 5 1, .mod 5 1] == none
+
+-- `n² ≤ 20` is bounded on both sides, and every solution lies inside
+#guard (boundsOfPoly .le nSq20).toOption.map (fun b => (b.lo, b.hi))
+  == some (some (-20), some 20)
+-- `n² ≥ 20` satisfies BOTH tails: unbounded, and reported as such rather
+-- than silently cut off at the bound
+#guard (boundsOfPoly .ge nSq20).toOption.map (fun b => (b.lo, b.hi))
+  == some (none, none)
+-- `n ≥ 0` bounds below only, `n < 6` above only — and their meet is finite,
+-- which is exactly what makes `0 ≤ n < 6` decidable
+#guard (boundsOfPoly .ge #[.int 0, .int 1]).toOption.map (fun b => (b.lo, b.hi))
+  == some (some 0, none)
+#guard (boundsOfPoly .lt #[.int (-6), .int 1]).toOption.map (fun b => (b.lo, b.hi))
+  == some (none, some 6)
+#guard (BinderBounds.meet { lo := some 0 } { hi := some 6 }).lo == some 0
+#guard (BinderBounds.meet { lo := some 0 } { hi := some 6 }).hi == some 6
+#guard (BinderBounds.meet { lo := some 0 } { lo := some 3 }).lo == some 3
+#guard (BinderBounds.meet { hi := some 9 } { hi := some 6 }).hi == some 6
+
+/-! ## The image of a function (`SPEC.md`'s `e.image()`) -/
+
+-- `n ↦ 2n` on ℕ: the image IS the progression `{0, 2, 4, ...}`
+#guard (Native.run "func_image" Std.doubling #[]).toOption
+  == some (Value.progV .nat (.int 0) (.int 2) none)
+-- …and it reflects into the ordinary set object a literal produces
+#guard (Denote.ofValue (.progV .nat (.int 0) (.int 2) none)).obj?
+  == some (Obj.setObj (.arithProg .nat (.int 0) (.int 2) none))
+-- a constant map images to the one value it takes
+#guard (Native.run "func_image"
+    (.elem (.funcs .nat .nat) (.func .nat .nat `n (.int 7))) #[]).toOption
+  == some (Value.setV #[.int 7] .nat)
+-- a quadratic image on ℕ is not a progression: a loud gap, never a guess
+#guard (Native.run "func_image"
+    (.elem (.funcs .nat .nat)
+      (.func .nat .nat `n (Value.mkPoly .int #[.int 0, .int 0, .int 1]))) #[]).toOption
+  == none
+-- …and neither is a linear image on ℤ, which runs both ways
+#guard (Native.run "func_image"
+    (.elem (.funcs .int .int)
+      (.func .int .int `n (Value.mkPoly .int #[.int 0, .int 2]))) #[]).toOption
+  == none
+
 /-! ## `D[x]` versus `e[k]`, and the `Matₙ` spelling -/
 
 private def bound (n : Name) : Bool := n == `p
@@ -420,6 +482,55 @@ assert A ∪ B ∉ 𝒫(A)
 #guard (Native.run "subset" (.setObj (.finite .int #[.int 1, .int 2, .int 3]))
     #[.setObj (.finite .int #[.int 3, .int 4, .int 5])]).toOption
   == some (Value.bool false)
+
+/-! ## SPEC.md's Set comprehensions section, verbatim
+
+Every line runs here. The finite comprehension is DECIDED (bounded, then
+every candidate tested exactly), and the infinite one is the arithmetic
+progression its image is — so its membership, cardinality and equality are
+the ones the progression presentation already decides. -/
+
+let S := {n ∈ ℤ | n² ≤ 20}
+assert S in 𝒫(ℤ)
+
+assert S = {-4, -3, -2, -1, 0, 1, 2, 3, 4}
+assert |S| = 9
+-- the decision is exact on both sides of the boundary: 4² = 16 ≤ 20 < 25
+assert 4 ∈ S
+assert 5 ∉ S
+assert -4 ∈ S
+assert S ≠ {-4, -3, -2, -1, 0, 1, 2, 3}
+
+let E := {2n | n ∈ ℕ}
+assert E in 𝒫(ℕ)
+
+assert 8 ∈ E
+assert 9 ∉ E
+assert |E| = ℵ₀
+-- membership is SOLVED, not enumerated: no candidate list reaches 10¹²
+assert 1000000000000 ∈ E
+assert 1000000000001 ∉ E
+assert E ≠ {0, 3, ...}
+
+-- `e` was bound in the Functions section above; both spellings of its image
+-- are the same set, and equal to the comprehension by normalization
+assert e(ℕ) = E
+assert e.image() = E
+assert e.image() ≠ {0, 4, ...}
+
+assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}
+assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} ≠ {0, 2, 4, 6, 8}
+
+-- SPEC.md §Ellipses spells the binder with the ASCII `in` too
+assert {n in ℤ | n² ≤ 20} = S
+
+/- The comprehension binder is a REAL local binding scoped to the braces: it
+shadows a session binding INSIDE them (ordinary scoping), leaves it untouched
+outside, and publishes nothing. `n` is bound to 360 nowhere near here, so the
+shadowing claim is made against a binding introduced for it. -/
+let cn := 100 in ℤ
+assert {cn ∈ ℤ | cn² ≤ 20} = S
+assert cn = 100
 
 /-- A genuine Lean command in a cell is unaffected by the low-priority
 bare-expression production. -/

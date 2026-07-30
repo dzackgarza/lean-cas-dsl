@@ -56,6 +56,19 @@ syntax:max (name := casSet) "{" casSetItem,* "}" : casTerm
 syntax casRow := casTerm,+
 syntax:max (name := casMat) "[" sepBy1(casRow, "; ") "]" : casTerm
 
+/-! SPEC.md writes comprehensions two ways — `{x ∈ X | P(x)}` and
+`{f(x) | x ∈ X, P(x)}` — and both binder spellings, `∈` and the ASCII `in`.
+The two shapes are told apart by what stands before the bar; a set literal
+has no bar at all, so the three productions do not overlap. -/
+
+syntax casBinderIn := " ∈ " <|> " in "
+
+syntax:max (name := casFilterSet)
+  "{" ident casBinderIn casTerm " | " casTerm "}" : casTerm
+
+syntax:max (name := casImageSet)
+  "{" casTerm " | " ident casBinderIn casTerm ("," casTerm)? "}" : casTerm
+
 syntax (name := casEllipsis) "..." : casSetItem
 syntax (name := casSetElem) casTerm : casSetItem
 
@@ -216,6 +229,14 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
               | some (recv, m) => return .method (.ref recv) m args
               | none => return .app (.ref nm) args
       | f => return .app f args
+  -- `{n ∈ ℤ | P}` IS `{n | n ∈ ℤ, P}`: the filtering spelling is the image
+  -- of the identity, so one node reaches one evaluator
+  | ``casFilterSet =>
+      return .comprehension (.ref stx[1].getId) stx[1].getId (← toExpr stx[3])
+        (some (← toExpr stx[5]))
+  | ``casImageSet => do
+      let guard? ← if stx[6].isNone then pure none else some <$> toExpr stx[6][1]
+      return .comprehension (← toExpr stx[1]) stx[3].getId (← toExpr stx[5]) guard?
   | ``casSet => do
       let items := stx[1].getSepArgs
       let ellipses := (items.toList.zipIdx).filterMap fun (it, i) =>

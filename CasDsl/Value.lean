@@ -59,6 +59,13 @@ inductive Value where
   set; it is a `Value` only because that is what crosses the backend wire.
   CEILING: a backend can return an explicit finite set, nothing wider. -/
   | setV (elems : Array Value) (dom : Domain)
+  /-- The other set an executor may return: an arithmetic progression, which
+  is what the image of a linear map on ℕ is (`e.image()`). Like `setV` it is
+  a `Value` only because that is what an executor returns; `Denote.ofValue`
+  turns it into the ordinary `SetPresentation.arithProg` a `{0, 2, 4, ...}`
+  literal produces, so there is ONE notion of set, not a second one.
+  CEILING: these two shapes — an explicit finite list and a progression. -/
+  | progV (dom : Domain) (first step : Value) (last? : Option Value)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
@@ -174,6 +181,9 @@ partial def render : Value → String
       "(" ++ ", ".intercalate (gens.toList.map render) ++ ")"
   | .setV elems _ =>
       "{" ++ ", ".intercalate (elems.toList.map render) ++ "}"
+  | .progV _ first step last? =>
+      let tail := match last? with | some l => s!", ..., {render l}" | none => ", ..."
+      s!"\{{render first}, step {render step}{tail}}"
   | .cardinal (.finite n) => toString n
   | .cardinal .countablyInfinite => "ℵ₀"
   | .bool b => toString b

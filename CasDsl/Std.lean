@@ -62,6 +62,11 @@ def mat2Q : Obj :=
 and powerset representatives. -/
 def finSet123 : SetPresentation := .finite .int #[.int 1, .int 2, .int 3]
 
+/-- `n ↦ 2n` in `ℕ → ℕ` — SPEC.md §Set comprehensions' `e`, whose image is
+the progression `{0, 2, 4, ...}`. -/
+def doubling : Obj :=
+  .elem (.funcs .nat .nat) (.func .nat .nat `n (Value.mkPoly .int #[.int 0, .int 2]))
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -104,7 +109,13 @@ a UFD)" },
   -- edge — ℤ[x] reaches `factor` through FactorizationElems and `deg`
   -- through here, and neither membership implies the other.
   { name := `PolynomialElems,
-    doc := "elements of a univariate polynomial ring; params (the ring)" }
+    doc := "elements of a univariate polynomial ring; params (the ring)" },
+  -- Functions were a pure elaboration surface until the image arrived
+  -- (SPEC.md's `e.image()`): what a map does to a whole set is a
+  -- computability question, so it is a method, and a method needs a category
+  -- to own it. Nothing else about functions became registry data.
+  { name := `FunctionElems,
+    doc := "elements of a function domain src → tgt; params (that domain)" }
 ]
 
 run_cmd stdCategories.forM registerCategory!
@@ -180,7 +191,11 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
     doc := "the difference A \\ B: the elements of A that are not in B" },
   { id := `symdiff, receiver := `Sets, arity := 1,
     argDoc := "another set", resultDoc := "a set",
-    doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" }
+    doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" },
+  { id := `image, receiver := `FunctionElems,
+    resultDoc := "the set of values the function takes on its source",
+    doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
+`f(ℕ)` denotes as well" }
 ]
 
 run_cmd stdMethods.forM registerMethod!
@@ -224,6 +239,8 @@ private def stdProfileRules : Array ProfileRule := #[
   -- matrices carry their instantiation data
   { pattern := .elemOf (.matrixOver .anyDom), cat := `MatrixElems,
     slots := #[.matSize, .matEntry] },
+  -- a function element carries the arrow it was declared over
+  { pattern := .elemOf .anyFuncs, cat := `FunctionElems, slots := #[.elemDom] },
   -- ℕ, ℤ and ℚ as objects, and the same domains used as sets
   { pattern := .domainIs (.exact .nat), cat := `CountableSets, slots := #[.setDom] },
   { pattern := .domainSetOf (.exact .nat), cat := `CountableSets, slots := #[.setDom] },
@@ -392,7 +409,12 @@ private def stdRoutes : Array Route := #[
   { method := `intersect, pattern := .finiteSet, backend := `native,
     opId := "set_intersect" },
   { method := `diff, pattern := .finiteSet, backend := `native, opId := "set_diff" },
-  { method := `symdiff, pattern := .finiteSet, backend := `native, opId := "set_symdiff" }
+  { method := `symdiff, pattern := .finiteSet, backend := `native, opId := "set_symdiff" },
+  -- the image: presented for a constant map, and for a linear map on ℕ (an
+  -- arithmetic progression). Anything else is a loud refusal at execution —
+  -- a partiality WITHIN the routed shape, like the zero polynomial's degree
+  { method := `image, pattern := .elemOf .anyFuncs, backend := `native,
+    opId := "func_image" }
 ]
 
 run_cmd stdRoutes.forM registerRoute!
@@ -425,7 +447,8 @@ private def stdRepresentatives : Array Representative := #[
   -- carrying the honest gaps for every operation that would need an element
   -- list (the binary operations, and `nth`)
   ("{1,2,3} × {1,2,3}", .setObj (.product finSet123 finSet123)),
-  ("𝒫({1,2,3})", .setObj (.powerset finSet123))
+  ("𝒫({1,2,3})", .setObj (.powerset finSet123)),
+  ("n ↦ 2n ∈ ℕ → ℕ", doubling)
 ]
 
 run_cmd stdRepresentatives.forM registerRepresentative!
@@ -586,6 +609,10 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- pattern over one presentation can state for a denoted set, and `nth`
   -- is declared strictly below, on CountableSets
   expectNotApplicable env (.setObj (.powerset finSet123)) `nth
+  -- SPEC.md's `e.image()`: the image is the one method functions own
+  expectRouted env doubling `image [] `native
+  -- …and it does not leak to the values a function takes
+  expectNotApplicable env (.elem .int (.int 360)) `image
 
 run_cmd acceptanceProofs (← getEnv)
 

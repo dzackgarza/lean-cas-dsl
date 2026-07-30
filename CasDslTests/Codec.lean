@@ -42,6 +42,8 @@ private def samples : Array Value := #[
   .idealV #[.int 6] .int,
   .setV #[.int 1] .int,
   .setV #[] .rat,
+  .progV .nat (.int 0) (.int 2) none,
+  .progV .int (.int 1) (.int (-3)) (some (.int (-8))),
   .cardinal (.finite 5),
   .cardinal .countablyInfinite,
   .bool true,
