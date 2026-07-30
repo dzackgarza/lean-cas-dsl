@@ -191,6 +191,23 @@ open Native
 #guard intEnum 3 == 2
 #guard intEnum 4 == -2
 
+-- the ℚ convention: 0, then the Cantor zigzag interleaved with negatives
+#guard ratEnum 0 == 0
+#guard ratEnum 1 == 1
+#guard ratEnum 2 == -1
+#guard ratEnum 3 == mkRat 1 2
+#guard ratEnum 4 == -(mkRat 1 2)
+#guard ratEnum 5 == 2
+#guard ratEnum 6 == -2
+#guard ratEnum 7 == mkRat 1 3
+#guard ratEnum 9 == 3
+#guard ratEnum 11 == mkRat 1 4
+#guard ratEnum 13 == mkRat 2 3
+#guard ratEnum 15 == mkRat 3 2
+#guard ratEnum 17 == 4
+-- injectivity on a prefix: no fraction repeats (reduced-skipping works)
+#guard ((List.range 100).map ratEnum).eraseDups.length == 100
+
 /-! ## Native executors -/
 
 private def ints (vs : List Int) : Array Value := (vs.map Value.int).toArray
@@ -215,10 +232,10 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 
 #guard out "poly_eval" (.elem .int (.int 3)) #[.elem .int (.int 1)] == none
 
--- nth: ℕ, then the registered ℤ convention 0, 1, −1, 2, −2, …
+-- nth: ℕ, the registered ℤ convention 0, 1, −1, 2, −2, …, and the ℚ zigzag
 #guard out "nth" (.domainObj .nat) #[.elem .nat (.int 7)] == some (.int 7)
 #guard out "nth" (.setObj (.domainSet .int)) #[.elem .nat (.int 4)] == some (.int (-2))
-#guard out "nth" (.domainObj .rat) #[.elem .nat (.int 0)] == none
+#guard out "nth" (.domainObj .rat) #[.elem .nat (.int 3)] == some (.rat (mkRat 1 2))
 
 -- nth on a finite set is partial outside its cardinality
 #guard out "nth" (.setObj (.finite .int (ints [10, 20, 30]))) #[.elem .nat (.int 1)] ==

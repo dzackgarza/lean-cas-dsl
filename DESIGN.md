@@ -389,12 +389,13 @@ routed against the image. `annihilator` on the same object still resolves
 directly through the inclusion edge, untransported; both claims are asserted
 in `acceptanceProofs`.
 
-Deliberate capability gaps shipped in the slice (honest, auditable):
-`ℚ` is countable — `nth` is semantically available — but no enumeration
-route is registered, so `ℚ[3]` fails with a structured gap. Same for
-`factor` on `ℤ[x]` elements (a UFD, so declared; only `ℚ[x]` routed).
-Both now have user-decided closure paths (#17, #18) — each must preserve
-or replace the pedagogy it currently carries.
+The deliberate capability gap shipped by the universe (honest, auditable):
+`det`/`inverse` on matrices whose entry domain is not ℚ — `det` is
+meaningful on any `MatrixElems` member, only ℚ-entry matrices are routed,
+and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. (The
+original gaps — `nth` on ℚ and `factor` on ℤ[x] — were routed in round
+three per the user-decided closure paths, #17/#18; the ℚ enumeration is
+the registered Cantor zigzag, revisitable like ℤ's convention.)
 
 ## Decisions inherited from the anti-drift record (binding)
 
@@ -447,7 +448,6 @@ Formerly open questions, now user-decided — none was silently resolved:
   zero-based — a *registered choice*, revisitable);
 - the concrete declaration syntax for notebook-level categories (proposal
   owed under issue #6);
-- the replacement structured-gap demo once `ℚ[3]` is implemented (#17);
 - the logging layer's level surface and directive syntax (#8);
 - which methods beyond `unit_group` the GAP bridge routes first (#3).
 

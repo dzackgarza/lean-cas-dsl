@@ -135,6 +135,29 @@ def intEnum (k : Nat) : Int :=
   else if k % 2 == 1 then Int.ofNat ((k + 1) / 2)
   else -(Int.ofNat (k / 2))
 
+/-- The `k`-th positive rational of the Cantor zigzag: diagonals
+`num + den = 2, 3, …`, numerator ascending within a diagonal, non-reduced
+fractions skipped — `1, 1/2, 2, 1/3, 3, 1/4, 2/3, 3/2, 4, …`. -/
+def ratPosEnum (k : Nat) : Rat := Id.run do
+  let mut cnt := 0
+  -- diagonal d always contributes at least 1/(d−1), so k+3 diagonals suffice
+  for d in [2 : k + 3] do
+    for num in [1 : d] do
+      if Nat.gcd num (d - num) == 1 then
+        if cnt == k then return mkRat (Int.ofNat num) (d - num)
+        cnt := cnt + 1
+  panic! s!"ratPosEnum: exhausted {k + 3} diagonals before index {k} (unreachable)"
+
+/-- The registered enumeration convention for `ℚ` (design review 2026-07-30,
+issue #17): the Cantor zigzag — `0`, then positives and negatives
+interleaved exactly like `intEnum`: `0, 1, −1, 1/2, −1/2, 2, −2, 1/3, …`.
+A registered CHOICE like ℤ's, never a claim that ℚ is intrinsically
+ordered this way. -/
+def ratEnum (k : Nat) : Rat :=
+  if k == 0 then 0
+  else if k % 2 == 1 then ratPosEnum ((k - 1) / 2)
+  else -(ratPosEnum (k / 2 - 1))
+
 /-- Cardinality of a domain used as a set. `ℤ/0 ≅ ℤ` is infinite. -/
 def domainCard : Domain → Cardinality
   | .nat | .int | .rat => .countablyInfinite
@@ -341,6 +364,7 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
       match o with
       | .setObj (.domainSet .nat) | .domainObj .nat => return .int (Int.ofNat k)
       | .setObj (.domainSet .int) | .domainObj .int => return .int (intEnum k)
+      | .setObj (.domainSet .rat) | .domainObj .rat => return .rat (ratEnum k)
       | .setObj (.finite _ elems) =>
           match elems[k]? with
           | some v => return v
@@ -394,6 +418,7 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "nth",
     accepts := #[.domainIs (.exact .nat), .domainSetOf (.exact .nat),
                  .domainIs (.exact .int), .domainSetOf (.exact .int),
+                 .domainIs (.exact .rat), .domainSetOf (.exact .rat),
                  .finiteSet, .progression .anyDom] },
   { backend := `native, opId := "cardinality", accepts := #[.anySet] },
   { backend := `native, opId := "contains", accepts := #[.anySet] },

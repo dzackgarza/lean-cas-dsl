@@ -153,6 +153,8 @@ def test_countable_indexing_and_cardinality(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "ℤ[3]")   # registered convention 0, 1, −1, 2, −2, …
     assert "2" in text
+    text = ok(kc, "ℚ[3]")   # Cantor zigzag: 0, 1, −1, 1/2, … (#17)
+    assert "1/2" in text
     text = ok(kc, "X.cardinality()")
     assert "ℵ₀" in text
 
@@ -161,9 +163,11 @@ def test_countable_indexing_and_cardinality(kernel: Kernel) -> None:
 
 def test_capability_gap_is_structured_not_semantic(kernel: Kernel) -> None:
     _, kc = kernel
-    text = err(kc, "ℚ[3]")
+    # det is meaningful on any MatrixElems member; only ℚ entries are routed
+    ok(kc, "let A := [1, 2; 3, 4] in Mat₂(ℤ/5)")
+    text = err(kc, "A.det()")
     assert "NoImplementation" in text
-    assert "nth" in text
+    assert "det" in text
     # the gap is an execution-layer record, not a parse/type/category error
     assert "unknown" not in text.lower() or "method" not in text.lower()
 
@@ -171,7 +175,7 @@ def test_capability_gap_is_structured_not_semantic(kernel: Kernel) -> None:
 def test_capability_gaps_audit_surface(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "#capability_gaps")
-    assert "nth" in text and "ℚ" in text
+    assert "det" in text and "Mat₂(ℤ/5)" in text
 
 
 def test_failed_cell_commits_nothing_prior_state_intact(kernel: Kernel) -> None:

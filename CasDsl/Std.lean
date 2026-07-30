@@ -20,12 +20,14 @@ Two load-bearing separations are visible in the layout below:
   ability to run them.
 
 The universe ships one DELIBERATE capability gap (semantically available,
-no route): `nth` on ℚ. It is an honest backlog item and is asserted as
-such by the proofs at the end of this file. (`factor` on ℤ[x] elements was
-the second such gap until round three routed it, #18.) Repairing a gap by
-narrowing a category, adding a capability-shaped category, or registering
-a route to an operation that does not implement it is forbidden (DESIGN.md
-§Decisions inherited from the anti-drift record, 4).
+no route): `det`/`inverse` on matrices whose entry domain is not ℚ —
+Mat₂(ℤ/5) is the audit representative. It is an honest backlog item and is
+asserted as such by the proofs at the end of this file. (The previous gaps
+— `factor` on ℤ[x] and `nth` on ℚ — were routed in round three, #18/#17.)
+Repairing a gap by narrowing a category, adding a capability-shaped
+category, or registering a route to an operation that does not implement
+it is forbidden (DESIGN.md §Decisions inherited from the anti-drift
+record, 4).
 -/
 import CasDsl.Register
 import CasDsl.Route
@@ -55,6 +57,13 @@ def polyQ : Obj :=
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℚ)`. -/
 def mat2Q : Obj :=
   .elem (.matrix 2 .rat) (.mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]])
+
+/-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
+exact linear algebra over a finite field is meaningful (`MatrixElems`), and
+only ℚ-entry matrices are routed. -/
+def mat2Mod5 : Obj :=
+  .elem (.matrix 2 (.mod 5)) (.mat 2 (.mod 5)
+    #[#[Value.mkMod 5 1, Value.mkMod 5 2], #[Value.mkMod 5 3, Value.mkMod 5 4]])
 
 /-! ## 1 · The category graph
 
@@ -114,8 +123,9 @@ private def stdMethods : Array MethodDecl := #[
     argDoc := "a nonnegative index (0-based)",
     resultDoc := "the element at that index",
     doc := "the element at an index of the REGISTERED enumeration of this set \
-(for ℤ: 0, 1, −1, 2, −2, …) — a documented, revisitable choice, never a claim \
-that the set is intrinsically ordered that way" },
+(for ℤ: 0, 1, −1, 2, −2, …; for ℚ: the Cantor zigzag 0, 1, −1, 1/2, −1/2, 2, \
+−2, 1/3, …) — a documented, revisitable choice, never a claim that the set is \
+intrinsically ordered that way" },
   { id := `cardinality, receiver := `Sets,
     resultDoc := "a cardinal (finite n, or ℵ₀)",
     doc := "the number of elements" },
@@ -259,11 +269,12 @@ convention: each backend registers the receiver signatures of its ops
 undeclared op or a pattern its op does not accept (design review
 2026-07-30).
 
-One route is deliberately ABSENT and must stay absent:
+One family of routes is deliberately ABSENT and must stay absent:
 
-- `nth` on ℚ (`domainIs`/`domainSetOf (exact rat)`): ℚ is countable, so
-  `nth` is semantically available, but no enumeration of ℚ is implemented.
-  `ℚ[3]` is the acceptance proof's structured gap. -/
+- `det`/`inverse` on matrices with entry domain other than ℚ: the
+  `matrixOver (exact rat)` patterns below are the whole routed family, so
+  a matrix over ℤ/5 resolves (MatrixElems) and then reports the honest
+  structured gap. `Mat₂(ℤ/5).det()` is the acceptance proof's gap. -/
 
 private def stdRoutes : Array Route := #[
   -- factorization
@@ -287,6 +298,8 @@ private def stdRoutes : Array Route := #[
   { method := `nth, pattern := .domainSetOf (.exact .nat), backend := `native, opId := "nth" },
   { method := `nth, pattern := .domainIs (.exact .int), backend := `native, opId := "nth" },
   { method := `nth, pattern := .domainSetOf (.exact .int), backend := `native, opId := "nth" },
+  { method := `nth, pattern := .domainIs (.exact .rat), backend := `native, opId := "nth" },
+  { method := `nth, pattern := .domainSetOf (.exact .rat), backend := `native, opId := "nth" },
   { method := `nth, pattern := .progression .anyDom, backend := `native, opId := "nth" },
   { method := `nth, pattern := .finiteSet, backend := `native, opId := "nth" },
   -- set operations; `anySet` also accepts a domain used as a set
@@ -311,6 +324,7 @@ private def stdRepresentatives : Array Representative := #[
   ("x^3 − 2x + 1 ∈ ℤ[x]", polyZ),
   ("sample q ∈ ℚ[x]", polyQ),
   ("[1,2;3,4] ∈ Mat₂(ℚ)", mat2Q),
+  ("[1,2;3,4] ∈ Mat₂(ℤ/5)", mat2Mod5),
   ("ℤ/4 as ℤ-module", .cyclicModule 4),
   ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none))
 ]
@@ -404,9 +418,13 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- transport, even though a functor out of Modules is registered: round one
   -- wins unconditionally, so round two can never take this method away
   expectRouted env (.cyclicModule 4) `annihilator [`Modules] `native (functor? := none)
-  -- THE central separation: ℚ is countable, so `nth` is available; no
-  -- enumeration of ℚ is implemented, so executing it is a gap
-  expectGap env (.domainObj .rat) `nth []
+  -- ℚ is countable and, since round three (#17), enumerable: the Cantor
+  -- zigzag is its registered convention, so `nth` routes
+  expectRouted env (.domainObj .rat) `nth [] `native
+  -- THE central separation: `det` is meaningful on any MatrixElems member,
+  -- and only ℚ-entry matrices are routed — Mat₂(ℤ/5) is the honest gap
+  expectRouted env mat2Q `det [] `sage
+  expectGap env mat2Mod5 `det []
   -- ℤ[x] is a UFD, so `factor` is meaningful where the polynomial lives —
   -- and since round three (#18) it is routed there, not only on ℚ[x]
   expectRouted env polyZ `factor [] `sage
