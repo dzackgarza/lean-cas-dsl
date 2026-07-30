@@ -72,6 +72,10 @@ by hand, like the polynomial fixtures above: a FIXTURE states the value it
 means, while every value the surface produces goes through `Value.mkAlg`. -/
 def z2plus2i : Obj := .elem .complex (.alg 2 2 (-1))
 
+/-- `√2 ∈ ℝ` — the real surd the acceptance proofs route the complex methods
+on, and a fixture like the one above. -/
+def sqrt2 : Obj := .elem .real (.alg 0 1 2)
+
 /-- The same cubic after SPEC.md's `q := map p to ℂ[x]`, where it splits. The
 coefficients are the integers `map` was given: ℤ ⊆ ℂ moves no data. -/
 def polyC : Obj :=
@@ -571,10 +575,29 @@ private def stdRepresentatives : Array Representative := #[
   -- which is a set — an UNCOUNTABLE one, so the binary set operations gap on
   -- it exactly as they do on ℤ
   ("2 + 2i ∈ ℂ", z2plus2i),
+  ("√2 ∈ ℝ", sqrt2),
   ("ℂ", .domainObj .complex)
 ]
 
 run_cmd stdRepresentatives.forM registerRepresentative!
+
+/- Every shipped fixture is in NORMAL FORM. Decoding runs a value through its
+normalizing constructors, so a value that survives the wire codec unchanged is
+exactly one whose parts are their own `mkAlg`/`mkPoly`/`mkMod` images — one
+round trip is the whole check, and it covers fixtures added later (a surd
+COEFFICIENT inside a polynomial included). Worth checking because these are
+the objects `#capability_gaps` ships: `2 + 2i` written out of normal form
+renders `2 + 2i√4` and compares unequal to its own value. -/
+run_cmd do
+  let vals := (representatives (← getEnv)).flatMap fun (label, o) =>
+    match o with
+    | .elem _ v => #[(label, v)]
+    | .setObj (.finite _ es) => es.map ((label, ·))
+    | _ => #[]
+  for (label, v) in vals do
+    unless (Codec.valueFromJson (Codec.valueToJson v)).toOption == some v do
+      throwError s!"the representative '{label}' is not in normal form: \
+{v.render} does not survive its own codec"
 
 /-! ## 6 · Proofs of the universe
 
@@ -749,8 +772,7 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- on the ℝ inside it, natively — they are structural reads of `a + b√d`
   for m in [`re, `im, `bar, `abs] do
     expectRouted env z2plus2i m [] `native
-    -- `√2`, in normal form by hand: a fixture, exactly like `z2plus2i`
-    expectRouted env (.elem .real (.alg 0 1 2)) m [] `native
+    expectRouted env sqrt2 m [] `native
   -- …and they do NOT reach the domains whose membership in ℂ is a missed
   -- specificity rather than a registration: `3.re()` and `|3|` say so
   expectNotApplicable env (.elem .int (.int 3)) `re
