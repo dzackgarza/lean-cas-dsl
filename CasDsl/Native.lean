@@ -367,6 +367,12 @@ private def domainMember (d : Domain) (x : Value) : Except ExecError Bool :=
 private def domainContains (d : Domain) (x : Value) : Except ExecError Value := do
   return .bool (← domainMember d x)
 
+/-- `x ∈ a - b`: in the first domain and not in the second. The ONE decision
+behind a difference set, so `x ∈ ℂ - ℚ` and `S ⊆ ℂ - ℚ` cannot disagree —
+they are two spellings of this, not two implementations of it. -/
+private def diffMember (a b : Domain) (x : Value) : Except ExecError Bool := do
+  return (← domainMember a x) && !(← domainMember b x)
+
 private def progContains (first step : Value) (last? : Option Value) (x : Value)
     : Except ExecError Value := do
   let some f := toRat? first
@@ -707,7 +713,7 @@ this slice presents no value for")
       -- membership test the domains already have
       | .setObj (.domainDiff p m) => do
           let x ← scalarArg "contains" args
-          return .bool ((← domainMember p x) && !(← domainMember m x))
+          return .bool (← diffMember p m x)
       | o =>
         let x ← scalarArg "contains" args
         match o with
@@ -731,7 +737,7 @@ this slice presents no value for")
           match o with
           | .setObj (.finite _ elems) =>
               return .bool (← elems.foldlM (init := true) fun acc x => do
-                return acc && (← domainMember p x) && !(← domainMember m x))
+                return acc && (← diffMember p m x))
           | o => .error (.badRequest
               s!"the native backend decides inclusion in {rhs.presentation} for an \
 explicit finite set only, and {o.presentation} is not one")
