@@ -515,10 +515,11 @@ def test_membership_and_inclusion(kernel: Kernel) -> None:
     ok(kc, "assert A ∪ B ∉ 𝒫(A)")
     # a finite set against a countably infinite domain is decided elementwise
     ok(kc, "assert A ⊆ ℤ")
-    # a domain inclusion is the canonical-map registry's claim, and the set
-    # layer refuses to restate it rather than answering it twice
-    text = err(kc, "assert ℕ ⊆ ℤ")
-    assert "canonical-map registry" in text
+    # a domain inclusion is the canonical-map registry's claim — and it is now
+    # ANSWERED from there (see the number-systems section at the end of this
+    # file). The set layer still refuses to restate it, which the native
+    # `subset` guard in CasDslTests/Core.lean pins.
+    ok(kc, "assert ℕ ⊆ ℤ")
 
 
 def test_infinite_receivers_are_the_honest_gap(kernel: Kernel) -> None:
@@ -809,6 +810,46 @@ def test_the_value_payload_carries_a_set_result(kernel: Kernel) -> None:
     # a DENOTED set has no wire value and says so — that is the honest answer
     b = bundle(kc, "𝒫({1, 2})")
     assert b["application/vnd.casdsl.value+json"]["value"] is None
+
+
+# -- 13 · exact number systems: the ⊆-chain -----------------------------------
+# SPEC.md §Exact number systems. Inclusion between two DOMAINS is decided from
+# the canonical-map registry, so every claim here is a claim about that
+# registry — and `and` is a conjunction of assertions, not a term operator.
+
+def test_the_number_system_chain(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ")   # SPEC.md, verbatim
+    # each link on its own, and the ones nobody registered are false
+    ok(kc, "assert ℚ ⊆ ℂ")
+    assert "false" in err(kc, "assert ℝ ⊆ ℚ").lower()
+    assert "false" in err(kc, "assert ℚ ⊆ ℤ").lower()
+    # a registered canonical map that is NOT an inclusion: the quotient
+    # ℤ → ℤ/5 exists — `map n to ℤ/7` above uses its sibling — and does not
+    # make ℤ a subset of ℤ/5
+    assert "false" in err(kc, "assert ℤ ⊆ ℤ/5").lower()
+    # a chain is decided conjunct by conjunct, and says WHICH one failed
+    text = err(kc, "assert ℤ ⊆ ℚ and ℝ ⊆ ℚ and ℝ ⊆ ℂ")
+    assert "false" in text.lower() and "ℝ ⊆ ℚ" in text
+    # …and a chain of true claims is one commit with one check-mark
+    text = ok(kc, "assert 2 + 3 = 5 and 4 ∉ {1, 2, 3}")
+    assert "✓ 2 + 3 = 5 and 4 ∉ {1, 2, 3}" in text
+
+
+def test_a_domain_is_a_receiver_too(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `ℝ.cardinality()` lexes as ONE identifier, so the domain reaches the
+    # evaluator as a NAME. It used to fail with "'ℝ' is not bound"; the honest
+    # answer is that ℝ is uncountable and this slice cannot state that cardinal
+    text = err(kc, "ℝ.cardinality()")
+    assert "cannot express the cardinality of ℝ" in text
+    assert "not bound" not in text
+    # the countable ones answer through the same path
+    assert "ℵ₀" in ok(kc, "ℤ.cardinality()")
+    # …and ℝ is a set that is not a COUNTABLE one, so indexing it does not
+    # even resolve: `nth` is declared on CountableSets
+    text = err(kc, "ℝ[3]")
+    assert "not a method of any category" in text
 
 
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:

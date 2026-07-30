@@ -233,6 +233,35 @@ partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
           | some r => r.op.apply d v
           | none => noEmbedding
 
+/-- `D ⊆ E`: **there is a preferred canonical map of `D` into `E` and it is an
+inclusion**. SPEC.md's `assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ` is exactly that
+claim, and the canonical-map registry owns it — DESIGN.md §Coercions already
+says which domains include which, and the set layer refuses to restate it
+(`Native.normalSubset`), so this is the ONE place it is answered.
+
+The recursion is `coerceValue`'s, for the same reason: a canonical map of
+coefficient/entry domains INDUCES the one on polynomials and matrices, and a
+scalar is its own constant polynomial (`ℤ ⊆ ℤ[x]`). It bottoms out in the
+registry, so unregistering a rule takes the corresponding inclusion with it.
+
+`false` where nothing is registered is not a guess: `⊆` between two domains
+MEANS identification along the preferred canonical map, and no such map is
+exactly the absence of that identification. `.error` stays the registry's own
+defect report. -/
+partial def domainSubset (rules : Array CanonicalMap)
+    : Domain → Domain → Except String Bool
+  | .poly a, .poly b => domainSubset rules a b
+  | .matrix n a, .matrix m b =>
+      if n == m then domainSubset rules a b else return false
+  -- a scalar is an element of its own constant polynomials
+  | a, .poly c => domainSubset rules a c
+  | a, b =>
+      if a == b then return true
+      else do
+        match ← canonicalMapFor rules a b with
+        | some r => return r.op.isInclusion
+        | none => return false
+
 /-! ### Polynomial arithmetic
 
 Coefficients ride on `Native`'s exact scalar operations (which promote along
@@ -553,11 +582,25 @@ def prefixMethodCall? (isBound : Name → Bool) (env : Environment)
   | _ => none
 
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
-own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`). Consulted only
-after the bindings, so `let R := …` still shadows the alias — an alias is a
-spelling, not a reserved word. -/
+own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`), `CC` is ℂ.
+
+The Unicode names are here for a PARSER reason rather than a spelling one:
+`ℝ.cardinality()` lexes as one hierarchical identifier (Lean's `ident` eats
+the dot, and `ℝ` is an identifier character), so a domain used as a METHOD
+RECEIVER arrives as a name and never as its own token. Without these arms
+`ℝ.cardinality()` was the misleading "'ℝ' is not bound" instead of the honest
+"this backend cannot express the cardinality of ℝ".
+
+Consulted only after the bindings, so `let R := …` still shadows the alias —
+an alias is a spelling, not a reserved word. -/
 def domainAlias? : Name → Option Domain
   | `R | `RR => some .real
+  | `CC => some .complex
+  | `ℕ => some .nat
+  | `ℤ => some .int
+  | `ℚ => some .rat
+  | `ℝ => some .real
+  | `ℂ => some .complex
   | _ => none
 
 /-! ## Evaluation results and errors -/
@@ -1356,11 +1399,19 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
       let res ← boolOf (← callMethod ctx (← objOf b) `contains #[← objOf a])
       return some (if rel == .mem then res else !res)
   | .subset =>
-      -- inclusion is a Sets method like membership and equality, so it
-      -- resolves and routes exactly as they do
       let a ← eval ctx l
       let b ← eval ctx r
-      return some (← boolOf (← callMethod ctx (← objOf a) `subset #[← objOf b]))
+      match a, b with
+      -- Inclusion between two DOMAINS is the canonical-map registry's claim
+      -- (`domainSubset`), so it is answered from the registry by elaboration
+      -- — the move `A × B` and `𝒫(A)` already make — and NOT by the set
+      -- layer, which keeps refusing to restate it. One owner, one answer.
+      | .obj (.domainObj d), .obj (.domainObj e) =>
+          return some (← ofStr (domainSubset ctx.canonMaps d e))
+      -- everything else is inclusion of SETS: a Sets method like membership
+      -- and equality, resolved and routed exactly as they are
+      | _, _ =>
+          return some (← boolOf (← callMethod ctx (← objOf a) `subset #[← objOf b]))
   | _ =>
       let a ← eval ctx l
       let b ← eval ctx r

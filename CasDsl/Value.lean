@@ -16,11 +16,15 @@ inductive Domain where
   | nat
   | int
   | rat
-  /-- `ℝ`, spelled `ℝ`, `R` or `RR`. An ASCRIPTION DOMAIN TAG in this slice
-  (SPEC.md's `in ℝ → ℝ`): it names the domain a function is declared over and
-  carries no analysis semantics — there are no `Value`s presenting it, and
-  every operation that would need them fails honestly. -/
+  /-- `ℝ`, spelled `ℝ`, `R` or `RR`. Its inhabitants here are the exact
+  ALGEBRAIC reals `Value.alg` presents (`√2`); the reals this slice cannot
+  present symbolically are still elements of ℝ, so the domain is inhabited
+  without being enumerated, measured, or ordered. No analysis semantics
+  (DESIGN.md §Exact number systems). -/
   | real
+  /-- `ℂ`, spelled `ℂ` or `CC`. Inhabited by the same exact algebraic values,
+  with a NEGATIVE radicand: `√(-1)` is `i`. -/
+  | complex
   /-- `ℤ/n`. -/
   | mod (n : Nat)
   /-- Univariate polynomials `coeff[x]`. -/
@@ -118,6 +122,7 @@ partial def render : Domain → String
   | .int => "ℤ"
   | .rat => "ℚ"
   | .real => "ℝ"
+  | .complex => "ℂ"
   | .mod n => s!"ℤ/{n}"
   | .poly c => s!"{c.render}[x]"
   | .matrix n e => s!"Mat{subscript n}({e.render})"
@@ -136,6 +141,7 @@ partial def latex : Domain → String
   | .int => "\\mathbb{Z}"
   | .rat => "\\mathbb{Q}"
   | .real => "\\mathbb{R}"
+  | .complex => "\\mathbb{C}"
   | .mod n => "\\mathbb{Z}/" ++ toString n ++ "\\mathbb{Z}"
   | .poly c => c.latex ++ "[x]"
   | .matrix n e => "\\mathrm{Mat}_{" ++ toString n ++ "}(" ++ e.latex ++ ")"

@@ -92,7 +92,7 @@ env extensions, so no closures):
 ```lean
 inductive Domain
   | nat | int | rat
-  | real                           -- ℝ: an ascription TAG, no analysis semantics
+  | real | complex                 -- ℝ, ℂ: inhabited by exact algebraic values
   | mod (n : Nat)                  -- ℤ/n
   | poly (coeff : Domain)          -- coeff[x], univariate
   | matrix (n : Nat) (entry : Domain)   -- Matₙ(entry), square in the slice
@@ -140,8 +140,9 @@ over ℕ normalizes to `domainSet nat`, etc. This is a documented ceiling,
 not a general decision procedure.
 
 `Cardinality` has no uncountable constructor, so `domainCard` is partial:
-`ℝ` and a function domain report that the slice CANNOT state their size
-rather than being given `ℵ₀`.
+`ℝ`, `ℂ` and a function domain report that the slice CANNOT state their size
+rather than being given `ℵ₀`. Giving ℝ and ℂ inhabitants does not change
+that — see §Exact number systems.
 
 ## Functions (`SPEC.md` §Functions, issue #25)
 
@@ -246,12 +247,16 @@ router, except the two that construct rather than compute.
   the structured gap. Mixing ELEMENT domains inside one operation is refused
   rather than joined: the pure native backend cannot read the preferred-
   canonical-map registry the surface joins literals with.
-- **Domain inclusion is the canonical-map registry's claim.** `ℕ ⊆ ℤ` is
-  refused by the set layer rather than answered there — DESIGN.md §Coercions
-  already owns which domains include which, and answering it twice would be
-  two places to get it wrong. Inclusion answers `false` without a decision
-  procedure only where the normal forms make it a theorem (a countably
-  infinite domain or an unbounded progression is not inside a finite list).
+- **Domain inclusion is the canonical-map registry's claim, and the registry
+  answers it.** `ℕ ⊆ ℤ` is still refused by the SET layer — §Coercions owns
+  which domains include which, and answering it twice would be two places to
+  get it wrong — but the surface no longer stops there: `D ⊆ E` between two
+  domains is decided by `Eval.domainSubset` against the registry, by
+  elaboration, exactly as `A × B` and `𝒫(A)` are built there. One owner, one
+  answer, and `Native.run "subset"` on two domains keeps saying so.
+  Inclusion of SETS answers `false` without a decision procedure only where
+  the normal forms make it a theorem (a countably infinite domain or an
+  unbounded progression is not inside a finite list).
 - **A finite cardinal answers to the integer counting it** (`|A| = 3`), ℵ₀
   answers to no integer, and `2^|A|` exponentiates by a finite cardinal —
   which is what makes `|𝒫(A)| = 2^|A|` a computed identity. `2^ℵ₀` has no
@@ -461,11 +466,34 @@ Every coercion the surface inserts — `map e to D`, a mixed-domain join, the
 element promotion of a set or matrix literal, a domain ascription — goes
 through `coerceValue`/`domJoin`, and the BASE CASE (one scalar domain into
 another) is decided by the registered `CanonicalMap`s. The prelude registers
-`ℕ ⊆ ℤ`, `ℕ ⊆ ℚ`, `ℤ ⊆ ℚ` and the quotient `ℤ → ℤ/n`; `ℤ ⊆ ℚ` in the
-surface is sugar for the registered map (decision 6). No engine module knows
-those particular facts: unregister a rule and the corresponding `map` stops
-working, with the honest "there is no preferred canonical map of … into …"
-error.
+`ℕ ⊆ ℤ`, `ℕ ⊆ ℚ`, `ℤ ⊆ ℚ`, the quotient `ℤ → ℤ/n`, and SPEC.md's number-system
+chain `ℚ ⊆ ℝ ⊆ ℂ` with the ℕ/ℤ links; `ℤ ⊆ ℚ` in the surface is sugar for the
+registered map (decision 6). No engine module knows those particular facts:
+unregister a rule and the corresponding `map` stops working, with the honest
+"there is no preferred canonical map of … into …" error.
+
+The chain is registered as the TRANSITIVE CLOSURE — ℕ/ℤ/ℚ → ℝ, ℕ/ℤ/ℚ/ℝ → ℂ —
+for the reason `ℕ ⊆ ℚ` is registered next to `ℕ ⊆ ℤ` and `ℤ ⊆ ℚ`: a coercion
+applies ONE rule and rules do not compose, so the closure is what makes both
+`assert ℚ ⊆ ℝ` and `map p to ℂ[x]` (the ℤ → ℂ image, coefficient-wise) work.
+Every link is `CanonOp.identity`: a value this slice can present is carried by
+the same `Value` in all of them, so the inclusion moves no data.
+
+**`D ⊆ E` is that same registry, read as a judgment** (`Eval.domainSubset`,
+SPEC.md's `assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ`): it means *the preferred
+canonical map of `D` into `E` exists and is an INCLUSION*, and it recurses
+exactly as `coerceValue` does (congruence under `poly`/`matrix`, a scalar as
+its own constant polynomial, reflexivity), bottoming out in the rules.
+`CanonOp.isInclusion` is where each transform states whether it is one — the
+quotient `ℤ → ℤ/n` is the one that is not, which is what makes `ℤ ⊆ ℤ/5`
+FALSE rather than true-because-a-map-exists. An unregistered pair is false by
+the same definition: no preferred map is exactly the absence of the
+identification the symbol asserts.
+
+A visible consequence, decided rather than inherited: **`let r := 3 in ℝ` now
+succeeds**, binding `3 ∈ ℝ`. Registering ℤ → ℂ is forced by `map p to ℂ[x]`,
+and a registry that carried ℤ → ℂ but not ℤ → ℝ would contradict the very
+chain SPEC.md asserts.
 
 Exactly one applicable rule coerces. Zero is that honest error. MORE than one
 — or two rules mapping two domains into each other, which leaves a join
@@ -581,6 +609,7 @@ let A := {1, 2, 3} in 𝒫(ℤ)                -- powerset ascription (also 2^�
 A ∪ B   A ∩ B   A \ B   A △ B             -- the Sets methods, spelled
 A × B   𝒫(A)   |A|   2^|A|                -- denoted sets, and cardinality
 assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
+assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ         -- `and` chains ASSERTIONS
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
 assert x ∈ ℤ[x]       assert p ∈ ℚ[x]
 assert A ⊆ A ∪ B      assert A in 𝒫(ℤ)    -- `in` is SPEC.md's ASCII `∈`
@@ -602,9 +631,18 @@ Parser decisions (load-bearing):
 - a superscript exponent (`t²`, `x³`) is `^` in SPEC.md's other spelling.
   CEILING: one digit — `assert h = hp` is exactly the claim that the two
   spellings agree, and larger exponents have `^`;
-- `→` and `->` build a function domain; `ℝ` is a token like `ℕ`/`ℤ`/`ℚ`,
-  while its ASCII spellings `R`/`RR` are ordinary identifiers resolved after
-  the bindings;
+- `→` and `->` build a function domain; `ℝ` and `ℂ` are tokens like
+  `ℕ`/`ℤ`/`ℚ`, while the ASCII spellings `R`/`RR`/`CC` are ordinary
+  identifiers resolved after the bindings. The Unicode names are registered as
+  aliases too (`Eval.domainAlias?`), for a lexing reason rather than a
+  spelling one: `ℝ.cardinality()` lexes as ONE hierarchical identifier, so a
+  domain used as a method RECEIVER arrives as a name and never as its own
+  token — without the alias it was the misleading "'ℝ' is not bound";
+- **`and` chains ASSERTIONS, not terms.** SPEC.md's ⊆-chain is three claims,
+  each decided on its own, under one ambient `in D`; the first that is not
+  true stops the cell NAMING ITSELF, so a chain never reports "false" without
+  saying which link was. It is a non-reserved keyword (`&"and"`), so `and`
+  remains an ordinary identifier everywhere else;
 - **`f(a, b, …)` is the PREFIX spelling of a method call** — SPEC.md writes
   `gcd(84, 30)`, which is `84.gcd(30)`. It reads that way only when `f` is
   UNBOUND *and* some category declares it as a method, so it converts an
@@ -737,7 +775,9 @@ Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
 `n ∈ ℤ` (elem) ∈ {EuclideanElems(ℤ)}; `q ∈ ℚ[x]` ∈ {EuclideanElems(ℚ[x]),
 PolynomialElems(ℚ[x])}; `M ∈ Mat₂(ℚ)` ∈ {MatrixElems(2, ℚ)};
 `cyclicModule n` ∈ {SmallModules(ℤ)}. `ℤ[x]`/`ℚ[x]` as domainObjs are
-CountableSets, which is what `p ∈ ℤ[x]` asks of them.
+CountableSets, which is what `p ∈ ℤ[x]` asks of them. `ℝ` and `ℂ` are `Sets`
+and nothing narrower — both are uncountable, so `nth` (declared on
+CountableSets) correctly does not reach them, while membership does.
 
 Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`
 on PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on

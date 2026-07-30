@@ -46,6 +46,7 @@ syntax:max (name := casNatDom) "ℕ" : casTerm
 syntax:max (name := casIntDom) "ℤ" : casTerm
 syntax:max (name := casRatDom) "ℚ" : casTerm
 syntax:max (name := casRealDom) "ℝ" : casTerm
+syntax:max (name := casComplexDom) "ℂ" : casTerm
 syntax:max (name := casAleph) "ℵ₀" : casTerm
 syntax:max (name := casImplMul) num noWs ident : casTerm
 syntax:max (name := casNum) num : casTerm
@@ -125,6 +126,11 @@ position, where the `in D` ambient tail cannot be: that tail follows a
 complete relation. -/
 syntax (name := casRelIn) "in" : casRel
 
+/-- One assertion — `l R r`. SPEC.md chains several with `and`
+(`assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ`), so the command below is a sequence of
+these rather than one triple. -/
+syntax casAssertion := casTerm casRel casTerm
+
 /-! ## Syntax → `CasExpr` -/
 
 private def subscriptDigit? (c : Char) : Option Nat :=
@@ -176,6 +182,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casIntDom => return .dom .int
   | ``casRatDom => return .dom .rat
   | ``casRealDom => return .dom .real
+  | ``casComplexDom => return .dom .complex
   | ``casAleph => return .lit (.cardinal .countablyInfinite)
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
   | ``casImplMul =>
@@ -339,25 +346,42 @@ def elabCasLetPoly (idStx xStx valStx ascStx : Syntax) : CommandElabM Unit := do
   let a ← parseCas ascStx
   bindObj idStx.getId (← runCas (evalPolyBinding (← casCtx) xStx.getId e a))
 
-def elabCasAssert (lhs relStx rhs : Syntax) (tail? : Option Syntax)
+private def relOf (relStx : Syntax) : CommandElabM AssertRel :=
+  match relStx.getKind with
+  | ``casRelEq => pure .eq
+  | ``casRelNe => pure .ne
+  | ``casRelMem | ``casRelIn => pure .mem
+  | ``casRelNotMem => pure .notMem
+  | ``casRelSubset => pure .subset
+  | k => throwError s!"unsupported assertion relation '{k}'"
+
+/-- `assert l R r (and l R r)* [in D]`.
+
+`and` is the conjunction SPEC.md writes (§Exact number systems' ⊆-chain), and
+it is a conjunction of ASSERTIONS rather than a term operator: each conjunct
+is decided on its own, the ambient `in D` covers them all, and the FIRST one
+that is not true stops the cell naming itself — a chain never reports "false"
+without saying which claim was. -/
+def elabCasAssert (parts : Array Syntax) (tail? : Option Syntax)
     : CommandElabM Unit := do
-  let rel : AssertRel ← match relStx.getKind with
-    | ``casRelEq => pure .eq
-    | ``casRelNe => pure .ne
-    | ``casRelMem | ``casRelIn => pure .mem
-    | ``casRelNotMem => pure .notMem
-    | ``casRelSubset => pure .subset
-    | k => throwError s!"unsupported assertion relation '{k}'"
-  let l ← parseCas lhs
-  let r ← parseCas rhs
   let ctx ← casCtx (← ambientOf tail?)
-  let stated := s!"{src lhs} {rel.render} {src rhs}"
+  let mut claims : Array (AssertRel × Syntax × Syntax) := #[]
+  for p in parts do
+    claims := claims.push (← relOf p[1], p[0], p[2])
+  let one := fun (rel, l, r) => s!"{src l} {rel.render} {src r}"
+  let stated := " and ".intercalate (claims.toList.map one)
     ++ (tail?.elim "" fun t => s!" in {src t}")
-  match ← runCas (evalAssert ctx rel l r) with
-  | some true => logInfo s!"✓ {stated}"
-  | some false => throwError s!"assertion is false: {stated}"
-  | none => throwError s!"the assertion outcome is unknown: the two sides of \
-{stated} are not comparable"
+  for claim in claims do
+    let (rel, lhs, rhs) := claim
+    -- a chain says which conjunct failed; a single assertion is worded
+    -- exactly as it always was
+    let which := if claims.size == 1 then stated else s!"{one claim} (of {stated})"
+    match ← runCas (evalAssert ctx rel (← parseCas lhs) (← parseCas rhs)) with
+    | some true => pure ()
+    | some false => throwError s!"assertion is false: {which}"
+    | none => throwError s!"the assertion outcome is unknown: the two sides of \
+{which} are not comparable"
+  logInfo s!"✓ {stated}"
 
 /-- A bare expression cell: display the value as text and as a structured
 MIME bundle. LaTeX-first (#16): a value with a natural LaTeX form carries it
@@ -399,7 +423,7 @@ type is the same ascription the trailing `in T` carries, checked identically. -/
 syntax (name := casLetTyped)
   "let " ident " : " casTerm " := " casTerm : command
 
-/-- `assert l (= | ≠ | ∈ | ∉) r [in D]` — a TRUSTED COMPUTATIONAL assertion
+/-- `assert l (= | ≠ | ∈ | ∉ | ⊆) r (and …)* [in D]` — a TRUSTED COMPUTATIONAL assertion
 in the ordinary CAS sense. The predicate is computed and believed; no Lean
 proposition is created, no theorem is generated, and no certificate is
 required. The outcome is fourfold — `true | false | unknown | error` — and
@@ -407,7 +431,7 @@ only `true` lets the cell commit, so a failed assertion rolls the cell's
 registrations back with the worker's cell atomicity. `in D` sets the ambient
 domain the literals and arithmetic are read in. -/
 syntax (name := casAssert)
-  "assert " casTerm casRel casTerm (" in " casTerm)? : command
+  "assert " casAssertion (&"and" casAssertion)* (" in " casTerm)? : command
 
 /-- A bare expression cell displays its value. Low priority, so every
 genuine Lean command in a cell still parses as Lean. -/
@@ -427,7 +451,7 @@ def elabLetTypedCmd : CommandElab := fun stx =>
 
 @[command_elab casAssert]
 def elabAssertCmd : CommandElab := fun stx =>
-  elabCasAssert stx[1] stx[2] stx[3] (optTail? stx[4])
+  elabCasAssert (#[stx[1]] ++ stx[2].getArgs.map (·[1])) (optTail? stx[3])
 
 @[command_elab casShow]
 def elabShowCmd : CommandElab := fun stx => elabCasShow stx[0]

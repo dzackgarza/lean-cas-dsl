@@ -184,13 +184,13 @@ def ratEnum (k : Nat) : Rat :=
 
 /-- Cardinality of a domain used as a set. `ℤ/0 ≅ ℤ` is infinite.
 
-`none` = this slice's `Cardinality` cannot state it: ℝ is uncountable and a
-function domain is a set of maps nothing here enumerates. Reporting that
-absence is the honest answer; inventing `ℵ₀` for either would be a wrong
-mathematical claim. -/
+`none` = this slice's `Cardinality` cannot state it: ℝ and ℂ are uncountable
+and a function domain is a set of maps nothing here enumerates. Reporting
+that absence is the honest answer; inventing `ℵ₀` for either would be a wrong
+mathematical claim — and giving ℝ and ℂ INHABITANTS does not change it. -/
 def domainCard : Domain → Option Cardinality
   | .nat | .int | .rat => some .countablyInfinite
-  | .real | .funcs .. => none
+  | .real | .complex | .funcs .. => none
   | .mod 0 => some .countablyInfinite
   | .mod n => some (.finite n)
   | .poly c =>
@@ -271,6 +271,15 @@ private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
   -- an integer names its residue class
   | .mod _, .int _ => some true
   | .mod _, _ => some false
+  -- ℝ and ℂ: every rational is one, and the exact algebraic values are the
+  -- others — a NEGATIVE radicand is not real (DESIGN.md §Exact number
+  -- systems). Deciding membership does not claim the domain is enumerated:
+  -- the reals this slice cannot present are still elements of ℝ, and a value
+  -- it CAN present is placed exactly
+  | .real, .int _ | .real, .rat _ => some true
+  | .real, _ => some false
+  | .complex, .int _ | .complex, .rat _ => some true
+  | .complex, _ => some false
   | .poly c, .poly _ cs => cs.foldlM (init := true) fun acc v =>
       (inDomain? c v).map (acc && ·)
   | .poly c, v => inDomain? c v

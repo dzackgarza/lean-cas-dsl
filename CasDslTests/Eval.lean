@@ -185,10 +185,19 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 -- polynomials comparing unequal
 #guard Value.mkPoly (.mod 5) #[.mod 5 1, .mod 5 0] == .poly (.mod 5) #[.mod 5 1]
 
--- `R` and `RR` are spellings of ℝ; every other identifier is a name
+-- `R` and `RR` are spellings of ℝ, `CC` of ℂ; every other identifier is a name
 #guard domainAlias? `RR == some .real
 #guard domainAlias? `R == some .real
+#guard domainAlias? `CC == some .complex
 #guard domainAlias? `Reals == none
+-- the Unicode names are aliases too, for the receiver path: `ℝ.cardinality()`
+-- lexes as ONE identifier, so a domain used as a method receiver arrives here
+-- as a name and never as its own token
+#guard domainAlias? `ℝ == some .real
+#guard domainAlias? `ℂ == some .complex
+#guard domainAlias? `ℤ == some .int
+#guard domainAlias? `ℚ == some .rat
+#guard domainAlias? `ℕ == some .nat
 
 /-! ## Comprehension bounds
 
@@ -449,6 +458,22 @@ the intended polynomial. -/
 let f := x ↦ 3*x² + x + 1 in ℚ[x]
 assert f.deg() = 2
 assert f(2) = 15
+
+/-! ## SPEC.md §Exact number systems: the ⊆-chain
+
+`and` is a conjunction of ASSERTIONS, and each link is the canonical-map
+registry's claim rather than a set-layer computation (`domainSubset`). The
+false cases cannot be written as an `assert` — a false one is a build error —
+so they are pinned as `#guard`s in `CasDslTests/CanonicalMaps.lean` and as
+surface failures in `tests/test_e2e.py`. -/
+
+assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ
+
+-- the link the sets unit refused and pointed here for, now answered
+assert ℕ ⊆ ℤ
+-- the chain composes as inclusions do, and each conjunct stands alone
+assert ℕ ⊆ ℂ
+assert ℤ ⊆ ℝ
 
 /-! ## SPEC.md's Finite sets section, verbatim
 

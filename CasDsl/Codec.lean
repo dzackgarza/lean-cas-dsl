@@ -25,6 +25,7 @@ partial def domainToJson : Domain → Json
   | .int => Json.mkObj [("d", "int")]
   | .rat => Json.mkObj [("d", "rat")]
   | .real => Json.mkObj [("d", "real")]
+  | .complex => Json.mkObj [("d", "complex")]
   | .mod n => Json.mkObj [("d", "mod"), ("n", toJson n)]
   | .poly c => Json.mkObj [("d", "poly"), ("coeff", domainToJson c)]
   | .matrix n e =>
@@ -109,6 +110,7 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | "int" => return .int
   | "rat" => return .rat
   | "real" => return .real
+  | "complex" => return .complex
   | "mod" => return .mod (← natField j "n")
   | "poly" => return .poly (← domainFromJson (← field j "coeff"))
   | "matrix" => return .matrix (← natField j "n") (← domainFromJson (← field j "entry"))

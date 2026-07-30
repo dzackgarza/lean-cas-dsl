@@ -287,6 +287,18 @@ inductive CanonOp where
 
 namespace CanonOp
 
+/-- Is this transform an INCLUSION — does the map identify its source with a
+SUBSET of its target? That is exactly the question `D ⊆ E` asks of the
+registry (DESIGN.md §Coercions), and it is a per-constructor mathematical
+claim rather than a property inferred from a pair of domains.
+
+`identity` moves no data and `intToRat` is the fraction field's injection;
+the quotient `ℤ → ℤ/n` is the one that is NOT one, which is what makes
+`ℤ ⊆ ℤ/5` false rather than true-because-a-map-exists. -/
+def isInclusion : CanonOp → Bool
+  | .identity | .intToRat => true
+  | .intToMod => false
+
 /-- Apply the transform. `tgt` is the CONCRETE target domain: the pattern
 that matched need not determine it (`intToMod` needs the modulus). A value
 the transform is not defined on means the RULE was registered for a source it

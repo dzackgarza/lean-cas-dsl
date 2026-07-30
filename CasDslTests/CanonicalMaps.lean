@@ -41,6 +41,18 @@ private def std : Array CanonicalMap := #[
   { src := .exact .int, tgt := .anyMod, op := .intToMod }
 ]
 
+/-- …and the number-system chain SPEC.md §Exact number systems asserts, added
+to them: `ℚ ⊆ ℝ ⊆ ℂ` with the ℤ/ℕ links the one-hop rule needs. -/
+private def chain : Array CanonicalMap := std ++ #[
+  { src := .exact .nat, tgt := .exact .real, op := .identity },
+  { src := .exact .int, tgt := .exact .real, op := .identity },
+  { src := .exact .rat, tgt := .exact .real, op := .identity },
+  { src := .exact .nat, tgt := .exact .complex, op := .identity },
+  { src := .exact .int, tgt := .exact .complex, op := .identity },
+  { src := .exact .rat, tgt := .exact .complex, op := .identity },
+  { src := .exact .real, tgt := .exact .complex, op := .identity }
+]
+
 /-- Two rules that both accept `(ℤ, ℚ)`: a defective registration. -/
 private def twoWays : Array CanonicalMap := #[
   { src := .exact .int, tgt := .exact .rat, op := .intToRat,
@@ -139,6 +151,48 @@ between two domains; registering nothing may not change any of them. -/
 #guard (domJoin #[] .int .rat).toOption == some none
 #guard (domJoin #[] .int .int).toOption == some (some .int)
 
+/-! ## `D ⊆ E` is read off the same registry
+
+SPEC.md's `assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ`. Inclusion MEANS "the preferred
+canonical map exists and is one", so each claim below is a claim about the
+registry — and the pivotal pair is the same one the coercions make: with no
+rules registered, the chain is gone. -/
+
+private def subs (rules : Array CanonicalMap) (a b : Domain) : Option Bool :=
+  (domainSubset rules a b).toOption
+
+-- the chain itself
+#guard subs chain .int .rat == some true
+#guard subs chain .rat .real == some true
+#guard subs chain .real .complex == some true
+#guard subs chain .nat .int == some true
+-- …and it is the REGISTRY's: unregister everything and no link survives
+#guard subs #[] .int .rat == some false
+#guard subs #[] .rat .real == some false
+-- the other direction is not registered, and is not invented
+#guard subs chain .rat .int == some false
+#guard subs chain .real .rat == some false
+#guard subs chain .complex .real == some false
+-- a registered map that is NOT an inclusion answers false: the quotient
+-- ℤ → ℤ/5 exists and does not make ℤ a subset of ℤ/5
+#guard subs chain .int (.mod 5) == some false
+#guard (coerceValue chain (.mod 5) (.int 7)).toOption == some (Value.mod 5 2)
+-- reflexivity is engine-level, exactly as the identity coercion is
+#guard subs #[] .int .int == some true
+#guard subs #[] (.mod 5) (.mod 5) == some true
+#guard subs #[] (.funcs .real .real) (.funcs .real .real) == some true
+-- structural congruence, the coercion layer's own recursion
+#guard subs chain (.poly .int) (.poly .rat) == some true
+#guard subs chain (.poly .rat) (.poly .int) == some false
+#guard subs chain (.matrix 2 .int) (.matrix 2 .rat) == some true
+#guard subs chain (.matrix 2 .int) (.matrix 3 .rat) == some false
+-- …including a scalar as its own constant polynomial
+#guard subs chain .int (.poly .int) == some true
+#guard subs chain .int (.poly .rat) == some true
+#guard subs chain (.poly .int) .rat == some false
+-- a defective registry is reported, never averaged into an answer
+#guard subs twoWays .int .rat == none
+
 /-! ## Defective registrations are loud, and name the rules
 
 The whole point: an ambiguous or contradictory registry is never resolved by
@@ -167,14 +221,18 @@ private def defect : Except String Value → String := errOf
 run_cmd do
   let env ← getEnv
   let shipped := (canonicalMaps env).map fun r => (r.src, r.tgt, r.op)
-  let expected : Array (DomainPattern × DomainPattern × CanonOp) := #[
-    (.exact .nat, .exact .int, .identity),
-    (.exact .nat, .exact .rat, .intToRat),
-    (.exact .int, .exact .rat, .intToRat),
-    (.exact .int, .anyMod, .intToMod)]
+  let expected : Array (DomainPattern × DomainPattern × CanonOp) :=
+    chain.map fun r => (r.src, r.tgt, r.op)
   unless shipped.size == expected.size && expected.all (shipped.contains ·) do
-    throwError s!"the registered embeddings are {repr shipped}, expected the four \
+    throwError s!"the registered embeddings are {repr shipped}, expected the \
 canonical injections {repr expected}"
+  -- the number-system chain is the CLOSURE, not a path: the coercion layer
+  -- takes one hop, so a missing pair is a missing coercion
+  for (src, tgt) in [(Domain.nat, Domain.real), (.int, .real), (.rat, .real),
+      (.nat, .complex), (.int, .complex), (.rat, .complex), (.real, .complex)] do
+    unless (domainSubset (canonicalMaps env) src tgt).toOption == some true do
+      throwError s!"{src.render} ⊆ {tgt.render} does not hold against the \
+registered canonical maps"
   -- registry data documents itself: an undocumented rule is a mistake
   if let some bad := (canonicalMaps env).find? (·.doc.isEmpty) then
     throwError s!"the registered canonical map {renderCanonicalMap bad} carries no doc"

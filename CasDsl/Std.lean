@@ -267,6 +267,15 @@ private def stdProfileRules : Array ProfileRule := #[
     slots := #[.setDom] },
   { pattern := .domainIs (.polyOver (.exact .rat)), cat := `CountableSets,
     slots := #[.setDom] },
+  -- ℝ and ℂ as objects, and used as sets. `Sets` is their true strength and
+  -- nothing narrower: both are UNCOUNTABLE, so `nth` — declared on
+  -- CountableSets — correctly does not reach them, and `ℝ.cardinality()`
+  -- routes and then reports that this slice cannot state it, rather than
+  -- answering ℵ₀. What they DO answer is membership: `√2 ∈ ℝ`, `2 + 2i ∈ ℂ`.
+  { pattern := .domainIs (.exact .real), cat := `Sets },
+  { pattern := .domainSetOf (.exact .real), cat := `Sets },
+  { pattern := .domainIs (.exact .complex), cat := `Sets },
+  { pattern := .domainSetOf (.exact .complex), cat := `Sets },
   -- an arithmetic progression is countable; a BOUNDED one is finite, but
   -- `PresPattern.progression` cannot see the bound, so it enters at
   -- CountableSets — a missed specificity, never a false claim
@@ -342,7 +351,34 @@ is this rule applied coefficient-wise" },
   { src := .exact .int, tgt := .anyMod, op := .intToMod,
     doc := "ℤ → ℤ/n for EVERY modulus n (one rule, by `anyMod`): the ring \
 quotient — an integer naming its residue class, which is what an ascription \
-such as `let x := 7 in ℤ/5` inserts" }
+such as `let x := 7 in ℤ/5` inserts" },
+  -- SPEC.md §Exact number systems' chain `ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ`. The
+  -- TRANSITIVE CLOSURE is registered, exactly as ℕ ⊆ ℚ is registered next to
+  -- ℕ ⊆ ℤ and ℤ ⊆ ℚ: the coercion layer takes one hop, so the closure is what
+  -- makes both `assert ℚ ⊆ ℝ` and `map p to ℂ[x]` (coefficient-wise ℤ → ℂ)
+  -- work — and leaving a pair out would be a hole `#canonical_maps` displays
+  -- while the ⊆-chain asserted its absence away.
+  -- Every one of them is `identity`: an element of ℚ, ℝ or ℂ this slice can
+  -- present is carried by the SAME `Value` in all of them (a rational stays a
+  -- rational, an exact algebraic value stays itself), so the inclusion moves
+  -- no data — the reason ℕ ⊆ ℤ is `identity` too.
+  { src := .exact .nat, tgt := .exact .real, op := .identity,
+    doc := "ℕ ⊆ ℝ: a natural number is a real number" },
+  { src := .exact .int, tgt := .exact .real, op := .identity,
+    doc := "ℤ ⊆ ℝ: an integer is a real number" },
+  { src := .exact .rat, tgt := .exact .real, op := .identity,
+    doc := "ℚ ⊆ ℝ: SPEC.md's own chain link — every rational IS a real, and \
+the value presenting it does not change" },
+  { src := .exact .nat, tgt := .exact .complex, op := .identity,
+    doc := "ℕ ⊆ ℂ: a natural number is a complex number" },
+  { src := .exact .int, tgt := .exact .complex, op := .identity,
+    doc := "ℤ ⊆ ℂ: an integer is a complex number — applied coefficient-wise \
+this is SPEC.md's `map p to ℂ[x]`" },
+  { src := .exact .rat, tgt := .exact .complex, op := .identity,
+    doc := "ℚ ⊆ ℂ: a rational is a complex number" },
+  { src := .exact .real, tgt := .exact .complex, op := .identity,
+    doc := "ℝ ⊆ ℂ: the other link of SPEC.md's chain — a real number is a \
+complex number with no imaginary part" }
 ]
 
 run_cmd stdCanonicalMaps.forM registerCanonicalMap!
