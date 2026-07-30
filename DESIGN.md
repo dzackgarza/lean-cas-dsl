@@ -2,9 +2,16 @@
 
 A categorically organized CAS hosted in Lean, shipped as a DSL plugin for
 [lean-jupyter-kernel](https://github.com/dzackgarza/lean-jupyter-kernel).
-Governing plans live in the project vault
-(`FEATURE-LEAN-CAS-DSL`, `SPEC-CATEGORICAL-CAS-PROBLEM`,
-`PLAN-CAS-TYPE-PREPASS`, `PLAN-CAS-VERTICAL-SLICE`,
+
+**The governing surface spec is [`SPEC.md`](SPEC.md)** — the user's original
+guiding document ("Elementary mathematics"), authored 2026-07-29 and recovered
+into the repo verbatim on 2026-07-30. Every surface decision here subordinates
+to it; the vertical slice's fixtures (`x³ − 2x + 1`, `[1,2;3,4] ∈ Mat₂(ℚ)`,
+`360.factor()`, the ellipses, ℝ/O(ε)) come from it directly.
+
+Derived planning artifacts live in the project vault (`FEATURE-LEAN-CAS-DSL`,
+`SPEC-CATEGORICAL-CAS-PROBLEM` — an agent-authored problem *statement*, not
+the user's spec — `PLAN-CAS-TYPE-PREPASS`, `PLAN-CAS-VERTICAL-SLICE`,
 `DECISION-CAS-DSL-ANTI-DRIFT`). This file is the implementation-facing
 contract: the module map, the core data model, and the decisions every
 module must respect.
