@@ -62,8 +62,8 @@ initialize profileRuleExt :
     addImportedFn := fun arrs => arrs.flatten
   }
 
-initialize embedRuleExt :
-    SimplePersistentEnvExtension EmbedRule (Array EmbedRule) ←
+initialize canonicalMapExt :
+    SimplePersistentEnvExtension CanonicalMap (Array CanonicalMap) ←
   registerSimplePersistentEnvExtension {
     addEntryFn := Array.push
     addImportedFn := fun arrs => arrs.flatten
@@ -95,10 +95,10 @@ def functors (env : Environment) : Array FunctorDecl := functorExt.getState env
 
 def profileRules (env : Environment) : Array ProfileRule := profileRuleExt.getState env
 
-/-- The registered preferred embeddings — everything the surface may insert
+/-- The registered preferred canonical maps — everything the surface may insert
 as a coercion. An empty registry means the surface performs no coercion at
 all except the engine-level cases documented in `Eval.coerceValue`. -/
-def embedRules (env : Environment) : Array EmbedRule := embedRuleExt.getState env
+def canonicalMaps (env : Environment) : Array CanonicalMap := canonicalMapExt.getState env
 
 def bindings (env : Environment) : Array Binding := bindingExt.getState env
 
@@ -122,8 +122,8 @@ def addFunctor (env : Environment) (f : FunctorDecl) : Environment :=
 def addProfileRule (env : Environment) (r : ProfileRule) : Environment :=
   profileRuleExt.addEntry env r
 
-def addEmbedRule (env : Environment) (r : EmbedRule) : Environment :=
-  embedRuleExt.addEntry env r
+def addCanonicalMap (env : Environment) (r : CanonicalMap) : Environment :=
+  canonicalMapExt.addEntry env r
 
 def addBinding (env : Environment) (b : Binding) : Environment :=
   bindingExt.addEntry env b
@@ -201,13 +201,13 @@ already registered"
 same `(source, target)` pair would make a coercion ambiguous, and the
 coercion layer refuses to pick between them (it reports both). Catching the
 clash at registration is what keeps that from ever being observed. -/
-def addEmbedRuleChecked (env : Environment) (r : EmbedRule)
+def addCanonicalMapChecked (env : Environment) (r : CanonicalMap)
     : Except String Environment :=
-  if (embedRules env).any (fun r' => r'.src == r.src && r'.tgt == r.tgt) then
-    .error s!"a preferred embedding of {repr r.src} into {repr r.tgt} is \
+  if (canonicalMaps env).any (fun r' => r'.src == r.src && r'.tgt == r.tgt) then
+    .error s!"a preferred canonical map of {repr r.src} into {repr r.tgt} is \
 already registered"
   else
-    .ok (addEmbedRule env r)
+    .ok (addCanonicalMap env r)
 
 /-- Representative presentations are keyed by their label so an audit lists
 each fixture once. -/

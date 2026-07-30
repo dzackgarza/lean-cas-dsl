@@ -207,24 +207,26 @@ methods (cardinality, contains, nth) apply to it" }
 
 run_cmd stdFunctors.forM registerFunctor!
 
-/-! ## 3c · Preferred embeddings — the coercions the surface may insert
+/-! ## 3c · Preferred canonical maps — the coercions the surface may insert
 
-The canonical injections of the standard universe, and the whole content of
-`ℤ ⊆ ℚ` as the surface understands it: `map p to ℚ[x]`, a matrix literal of
-integers ascribed to Mat₂(ℚ), `1 + 1/2`, and `let x := 7 in ℤ/5` all coerce
-through exactly these rules. The engine knows none of these facts —
+The preferred canonical maps of the standard universe, and the whole content
+of `ℤ ⊆ ℚ` as the surface understands it: `map p to ℚ[x]`, a matrix literal
+of integers ascribed to Mat₂(ℚ), `1 + 1/2`, and `let x := 7 in ℤ/5` all
+coerce through exactly these rules. The engine knows none of these facts —
 unregister a rule and the corresponding `map` stops working, with the honest
-"there is no preferred embedding" error (`CasDslTests/Embed.lean` proves it).
+"there is no preferred canonical map" error (`CasDslTests/CanonicalMaps.lean`
+proves it).
 
-Only CANONICAL structure-preserving maps belong here: the inclusions, plus
-the ring quotient ℤ → ℤ/n, the one non-injective member (a residue class is
-what an integer canonically names there). There is deliberately no rule out
-of ℚ — `ℚ → ℤ` is not defined everywhere, and the partial `ℕ ← ℤ` reading
-stays an engine-level CHECK rather than becoming a registered map — and none
-for the coefficient- or entry-wise image of a rule, which `coerceValue`
-induces structurally instead. -/
+A canonical map is a preferred choice, not necessarily an injection (design
+review 2026-07-30): the inclusions are monomorphisms, while ℤ → ℤ/n is the
+ring quotient — supplied by its universal property, as cokernels and other
+canonical choices would be. There is deliberately no rule out of ℚ —
+`ℚ → ℤ` is not defined everywhere, and the partial `ℕ ← ℤ` reading stays an
+engine-level CHECK rather than becoming a registered map — and none for the
+coefficient- or entry-wise image of a rule, which `coerceValue` induces
+structurally instead. -/
 
-private def stdEmbedRules : Array EmbedRule := #[
+private def stdCanonicalMaps : Array CanonicalMap := #[
   { src := .exact .nat, tgt := .exact .int, op := .identity,
     doc := "ℕ ⊆ ℤ: an element of ℕ already IS an integer (they share the \
 `Value.int` representation), so the injection moves no data" },
@@ -240,7 +242,7 @@ quotient — an integer naming its residue class, which is what an ascription \
 such as `let x := 7 in ℤ/5` inserts" }
 ]
 
-run_cmd stdEmbedRules.forM registerEmbedRule!
+run_cmd stdCanonicalMaps.forM registerCanonicalMap!
 
 /-! ## 4 · Capability routes — what can currently be executed
 

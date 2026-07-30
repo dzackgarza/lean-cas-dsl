@@ -1,6 +1,6 @@
 /-
-Elaboration-time tests for the coercion layer: preferred embeddings as
-REGISTRY DATA (`CasDsl/Category.lean`'s `EmbedRule`, consulted by
+Elaboration-time tests for the coercion layer: preferred canonical maps as
+REGISTRY DATA (`CasDsl/Category.lean`'s `CanonicalMap`, consulted by
 `Eval.coerceValue`/`Eval.domJoin`).
 
 The first half is `#guard` over fixture rule arrays, so every claim about
@@ -23,7 +23,7 @@ pair nobody registered.
 -/
 import CasDsl
 
-namespace CasDslTests.Embed
+namespace CasDslTests.CanonicalMaps
 
 open Lean Elab Command
 open CasDsl
@@ -34,7 +34,7 @@ Spelled out here rather than imported from `CasDsl/Std.lean`, so a guard that
 passes is a claim about the coercion layer and not about the prelude. -/
 
 /-- The canonical injections of the standard universe. -/
-private def std : Array EmbedRule := #[
+private def std : Array CanonicalMap := #[
   { src := .exact .nat, tgt := .exact .int, op := .identity },
   { src := .exact .nat, tgt := .exact .rat, op := .intToRat },
   { src := .exact .int, tgt := .exact .rat, op := .intToRat },
@@ -42,7 +42,7 @@ private def std : Array EmbedRule := #[
 ]
 
 /-- Two rules that both accept `(ℤ, ℚ)`: a defective registration. -/
-private def twoWays : Array EmbedRule := #[
+private def twoWays : Array CanonicalMap := #[
   { src := .exact .int, tgt := .exact .rat, op := .intToRat,
     doc := "the fraction field of ℤ" },
   { src := .exact .int, tgt := .anyDom, op := .identity,
@@ -51,7 +51,7 @@ private def twoWays : Array EmbedRule := #[
 
 /-- ℤ and ℚ registered as embedding into EACH OTHER: neither is the preferred
 common domain, and a join may not pick. -/
-private def bothWays : Array EmbedRule := #[
+private def bothWays : Array CanonicalMap := #[
   { src := .exact .int, tgt := .exact .rat, op := .intToRat, doc := "ℤ ⊆ ℚ" },
   { src := .exact .rat, tgt := .exact .int, op := .identity,
     doc := "a bogus ℚ → ℤ" }
@@ -72,7 +72,7 @@ from `coerceValue` and the second half of every pair breaks. -/
 #guard (coerceValue std .rat (.int 3)).toOption == some (Value.rat 3)
 #guard (coerceValue #[] .rat (.int 3)).toOption == none
 #guard contains (errOf (coerceValue #[] .rat (.int 3)))
-  "there is no preferred embedding of 3 into ℚ"
+  "there is no preferred canonical map of 3 into ℚ"
 
 #guard (coerceValue std (.mod 5) (.int 7)).toOption == some (Value.mod 5 2)
 #guard (coerceValue #[] (.mod 5) (.int 7)).toOption == none
@@ -95,7 +95,7 @@ from `coerceValue` and the second half of every pair breaks. -/
 #guard (coerceValue std .int (.rat (1/2))).toOption == none
 #guard (coerceValue std (.mod 5) (.rat (1/2))).toOption == none
 #guard contains (errOf (coerceValue std (.mod 5) (.rat (1/2))))
-  "there is no preferred embedding of 1/2 into ℤ/5"
+  "there is no preferred canonical map of 1/2 into ℤ/5"
 -- a value with no presented domain (a truth value) embeds nowhere
 #guard (coerceValue std .int (.bool true)).toOption == none
 
@@ -166,8 +166,8 @@ private def defect : Except String Value → String := errOf
 
 run_cmd do
   let env ← getEnv
-  let shipped := (embedRules env).map fun r => (r.src, r.tgt, r.op)
-  let expected : Array (DomainPattern × DomainPattern × EmbedOp) := #[
+  let shipped := (canonicalMaps env).map fun r => (r.src, r.tgt, r.op)
+  let expected : Array (DomainPattern × DomainPattern × CanonOp) := #[
     (.exact .nat, .exact .int, .identity),
     (.exact .nat, .exact .rat, .intToRat),
     (.exact .int, .exact .rat, .intToRat),
@@ -176,15 +176,15 @@ run_cmd do
     throwError s!"the registered embeddings are {repr shipped}, expected the four \
 canonical injections {repr expected}"
   -- registry data documents itself: an undocumented rule is a mistake
-  if let some bad := (embedRules env).find? (·.doc.isEmpty) then
-    throwError s!"the registered embedding {renderEmbedRule bad} carries no doc"
+  if let some bad := (canonicalMaps env).find? (·.doc.isEmpty) then
+    throwError s!"the registered canonical map {renderCanonicalMap bad} carries no doc"
   -- re-registering the same pair is a clash, never a silent second rule
-  if (addEmbedRuleChecked env
+  if (addCanonicalMapChecked env
       { src := .exact .int, tgt := .exact .rat, op := .intToRat }).toOption.isSome then
     throwError "re-registering an imported embedding was not detected as a clash"
 
 run_cmd do
-  let rules := embedRules (← getEnv)
+  let rules := canonicalMaps (← getEnv)
   let .elem _ pz := Std.polyZ
     | throwError "the ℤ[x] fixture is not an element"
   let .elem _ pq := Std.polyQ
@@ -205,13 +205,13 @@ run_cmd do
   match coerceValue rules (.mod 5) (.rat (1/2)) with
   | .ok v => throwError s!"ℚ → ℤ/5 was invented, producing {v.render}"
   | .error m =>
-      unless contains m "there is no preferred embedding of 1/2 into ℤ/5" do
+      unless contains m "there is no preferred canonical map of 1/2 into ℤ/5" do
         throwError s!"the unregistered ℚ → ℤ/5 failed with the wrong message: {m}"
 
 /-! ## The surface path
 
 `map`, a mixed-domain literal and an ascription all reach the registry
-through `EvalCtx.embeds`; the values are asserted through the evaluator so a
+through `EvalCtx.canonMaps`; the values are asserted through the evaluator so a
 coercion dropped at the surface cannot hide behind the pure guards above. -/
 
 let p(x) := x^3 - 2x + 1 in ℤ[x]
@@ -238,7 +238,7 @@ run_cmd do
   match ← runEval { env } (.mapTo (.ref `q) (.index (.dom .int) (.ref `x))) with
   | .ok d => throwError s!"map q to ℤ[x] was invented, producing {d.render}"
   | .error e =>
-      unless contains e.render "there is no preferred embedding" do
+      unless contains e.render "there is no preferred canonical map" do
         throwError s!"map q to ℤ[x] failed with the wrong message: {e.render}"
 
-end CasDslTests.Embed
+end CasDslTests.CanonicalMaps

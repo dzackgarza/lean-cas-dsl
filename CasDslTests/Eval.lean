@@ -9,9 +9,9 @@ the polynomial binder, `map`, and a bare expression cell — plus the proof
 that an ordinary Lean command in a cell still elaborates as Lean.
 
 The coercions here are REGISTRY-driven (`CasDsl/Category.lean`'s
-`EmbedRule`), so the pure guards below carry their own rule array and the
+`CanonicalMap`), so the pure guards below carry their own rule array and the
 command smoke needs the prelude's registrations: hence the import of the
-standard universe. `CasDslTests/Embed.lean` owns the claims about the
+standard universe. `CasDslTests/CanonicalMaps.lean` owns the claims about the
 registry itself.
 -/
 import CasDsl.Diagnostics
@@ -25,7 +25,7 @@ open CasDsl
 /-- The canonical injections of the standard universe, spelled out so every
 guard below is a pure claim about the coercion layer: polynomial arithmetic
 joins coefficient domains through these rules too. -/
-private def embeds : Array EmbedRule := #[
+private def embeds : Array CanonicalMap := #[
   { src := .exact .nat, tgt := .exact .int, op := .identity },
   { src := .exact .nat, tgt := .exact .rat, op := .intToRat },
   { src := .exact .int, tgt := .exact .rat, op := .intToRat },
@@ -67,7 +67,7 @@ private def cubic : Except String Value := do
 The rules are spelled out here rather than read from the registry, so these
 stay pure `#guard`s over the coercion layer. That the prelude registers the
 same ones — and that an EMPTY registry makes these coercions fail — is
-`CasDslTests/Embed.lean`'s business. -/
+`CasDslTests/CanonicalMaps.lean`'s business. -/
 
 #guard (coerceValue embeds .rat (.int 3)).toOption == some (Value.rat 3)
 #guard (coerceValue embeds (.mod 5) (.int 7)).toOption == some (Value.mod 5 2)

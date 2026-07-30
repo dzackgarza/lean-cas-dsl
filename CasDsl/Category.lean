@@ -202,27 +202,35 @@ structure FunctorDecl where
   doc : String := ""
   deriving BEq, Repr, Inhabited
 
-/-! ## Preferred embeddings (the coercion layer)
+/-! ## Preferred canonical maps (the coercion layer)
 
 `map e to D`, a mixed-domain join, the element promotion of a set or matrix
-literal and a domain ascription all insert THE canonical injection of one
-domain into another. *Which* injections exist is registry data, exactly like
-profile rules and functors: the prelude registers `ℕ ⊆ ℤ ⊆ ℚ` and
-`ℤ → ℤ/n`, and no engine module knows those particular facts.
+literal and a domain ascription all insert THE preferred canonical map of
+one domain into another, when one is registered — and fail honestly
+otherwise. *Which* maps exist is registry data, exactly like profile rules
+and functors: the prelude registers `ℕ ⊆ ℤ ⊆ ℚ` and `ℤ → ℤ/n`, and no
+engine module knows those particular facts.
+
+A canonical map is a PREFERRED CHOICE, not necessarily an injection
+(design review 2026-07-30): it may be a monomorphism in some category
+(`ℤ ⊆ ℚ`), or supplied by a universal property — the quotient `ℤ → ℤ/n`,
+cokernels — and, behind the same lookup, a later round may let transport
+along a preferred functor supply one. What every entry must be is THE
+canonical such map for its pair, by convention or universal property.
 
 `ℤ ⊆ ℚ` in the surface is therefore sugar for the registered preferred
 structure-preserving map (anti-drift record: mathematician-facing coercions
 are inserted by elaboration). An unregistered pair has no coercion — an
 honest error, never widened to a "reasonable" conversion. -/
 
-/-- The value transform of a registered embedding, as registry data.
+/-- The value transform of a registered canonical map, as registry data.
 
-CEILING (the same shape as `ObjMap`'s and `DomainPattern`'s): an embedding
-whose transform is not one of these constructors adds a constructor here.
-That is a deliberate, visible edit to the engine's vocabulary rather than a
-closure smuggled into the environment; nothing infers a transform from the
-two domains. -/
-inductive EmbedOp where
+CEILING (the same shape as `ObjMap`'s and `DomainPattern`'s): a canonical
+map whose transform is not one of these constructors adds a constructor
+here. That is a deliberate, visible edit to the engine's vocabulary rather
+than a closure smuggled into the environment; nothing infers a transform
+from the two domains. -/
+inductive CanonOp where
   /-- The value representation is unchanged — `ℕ ⊆ ℤ`, whose elements are
   already carried as `Value.int`. -/
   | identity
@@ -231,37 +239,39 @@ inductive EmbedOp where
   | intToMod
   deriving BEq, Repr, Inhabited
 
-namespace EmbedOp
+namespace CanonOp
 
 /-- Apply the transform. `tgt` is the CONCRETE target domain: the pattern
 that matched need not determine it (`intToMod` needs the modulus). A value
 the transform is not defined on means the RULE was registered for a source it
 cannot carry — a defective registration, reported as such. -/
-def apply : EmbedOp → Domain → Value → Except String Value
+def apply : CanonOp → Domain → Value → Except String Value
   | .identity, _, v => .ok v
   | .intToRat, _, .int z => .ok (.rat (Rat.ofInt z))
   | .intToMod, .mod n, .int z => .ok (Value.mkMod n z)
-  | op, tgt, v => .error s!"the registered embedding op {repr op} does not apply to \
+  | op, tgt, v => .error s!"the registered canonical-map op {repr op} does not apply to \
 {v.render} → {tgt.render}: that registration is defective"
 
-end EmbedOp
+end CanonOp
 
-/-- A registered preferred embedding: THE canonical injection from every
+/-- A registered preferred canonical map: THE canonical map from every
 domain matching `src` into every domain matching `tgt`.
 
 Patterns on both sides is what keeps `ℤ → ℤ/n` a single rule. A rule is a
-mathematical claim (this map exists and is the preferred one), so nothing
-here names a backend, and a non-injective or non-structure-preserving map is
-not registrable data — it is a registration mistake. -/
-structure EmbedRule where
+mathematical claim (this map exists and is the preferred one — an
+inclusion, a quotient, or any universal-property-supplied choice), so
+nothing here names a backend. What is a registration mistake is a SECOND
+rule for the same pair, or a map that is not the canonical choice: the
+registry records preferences, it does not rank alternatives. -/
+structure CanonicalMap where
   src : DomainPattern
   tgt : DomainPattern
-  op : EmbedOp
+  op : CanonOp
   doc : String := ""
   deriving BEq, Repr, Inhabited
 
 /-- Does this rule carry the concrete `srcDom` into the concrete `tgtDom`? -/
-def EmbedRule.applies (r : EmbedRule) (srcDom tgtDom : Domain) : Bool :=
+def CanonicalMap.applies (r : CanonicalMap) (srcDom tgtDom : Domain) : Bool :=
   r.src.accepts srcDom && r.tgt.accepts tgtDom
 
 /-- Execution-layer failure (distinct from `ResolveError` and

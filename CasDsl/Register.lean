@@ -42,8 +42,8 @@ def registerFunctor! (f : FunctorDecl) : CommandElabM Unit :=
 def registerProfileRule! (r : ProfileRule) : CommandElabM Unit :=
   registerWith addProfileRuleChecked r
 
-def registerEmbedRule! (r : EmbedRule) : CommandElabM Unit :=
-  registerWith addEmbedRuleChecked r
+def registerCanonicalMap! (r : CanonicalMap) : CommandElabM Unit :=
+  registerWith addCanonicalMapChecked r
 
 def registerRepresentative! (r : Representative) : CommandElabM Unit :=
   registerWith addRepresentativeChecked r

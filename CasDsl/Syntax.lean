@@ -258,7 +258,7 @@ Declared last (see the header note). Every elaborator below is one call. -/
 
 /-- `let x := e [in T]` binds `x` to the value of `e`. The ascription `T` is
 a checked membership judgment, not an annotation: a domain must admit the
-preferred embedding, and a registered category must actually contain the
+preferred canonical map, and a registered category must actually contain the
 object. Set literals need no ascription. -/
 syntax (name := casLet) "let " ident " := " casTerm (" in " casTerm)? : command
 

@@ -12,9 +12,9 @@ Two disciplines are load-bearing here:
 - **A pure core.** Arithmetic, coefficient embeddings, progression
   construction and the `D[x]`-vs-`e[k]` disambiguation are `Except String`
   functions over plain data, so they are `#guard`-testable without an
-  `Environment` and without `IO` — the embedding registry reaches them as a
-  threaded `Array EmbedRule`, not as an environment read. `eval` adds registry
-  reads and executor calls, nothing else.
+  `Environment` and without `IO` — the canonical-map registry reaches them
+  as a threaded `Array CanonicalMap`, not as an environment read. `eval`
+  adds registry reads and executor calls, nothing else.
 -/
 import CasDsl.Native
 
@@ -75,16 +75,18 @@ def valueDom? : Value → Option Domain
 
 Every coercion the surface inserts (`map e to D`, a mixed-domain join, the
 element promotion of a set or matrix literal, a domain ascription) asks the
-EMBEDDING REGISTRY which canonical injections exist. The engine keeps only
-the cases that are not injections between two domains at all — they are
-listed, with their reasons, on `coerceValue` below.
+CANONICAL-MAP REGISTRY which preferred maps exist — `map` means "apply the
+preferred canonical map when one is registered, fail otherwise", and the
+registered maps need not be injections (`ℤ → ℤ/n` is a quotient). The
+engine keeps only the cases that are not a preferred-map choice at all —
+they are listed, with their reasons, on `coerceValue` below.
 
-The registry is threaded as a plain `Array EmbedRule` rather than read from
+The registry is threaded as a plain `Array CanonicalMap` rather than read from
 the `Environment` here, so the whole layer stays `#guard`-testable; `eval`
-passes `embedRules ctx.env`. -/
+passes `canonicalMaps ctx.env`. -/
 
 /-- Mathematician-facing rendering of a pattern. Defined here because the
-embedding-registry defect messages name the two rules that clashed; the
+canonical-map-registry defect messages name the two rules that clashed; the
 diagnostics below share it. -/
 partial def renderDomainPattern : DomainPattern → String
   | .exact d => d.render
@@ -93,41 +95,41 @@ partial def renderDomainPattern : DomainPattern → String
   | .anyMod => "ℤ/_"
   | .anyDom => "_"
 
-def renderEmbedRule (r : EmbedRule) : String :=
+def renderCanonicalMap (r : CanonicalMap) : String :=
   let base := s!"{renderDomainPattern r.src} → {renderDomainPattern r.tgt} \
 (op {repr r.op})"
   if r.doc.isEmpty then base else s!"{base}: {r.doc}"
 
-/-- The registered preferred embedding of `srcDom` into `tgtDom`.
+/-- The registered preferred canonical map of `srcDom` into `tgtDom`.
 
 `.ok none` = none is registered (the caller reports that in its own words);
 `.ok (some r)` = exactly one. MORE than one applicable rule is a defective
 registration and is reported with both rules named — the same discipline as
 the resolver's `ambiguous`: a coercion is never chosen by registration
 order, array position, or specificity invented here. -/
-def embedRuleFor (rules : Array EmbedRule) (srcDom tgtDom : Domain)
-    : Except String (Option EmbedRule) :=
+def canonicalMapFor (rules : Array CanonicalMap) (srcDom tgtDom : Domain)
+    : Except String (Option CanonicalMap) :=
   let ms := rules.filter (·.applies srcDom tgtDom)
   match ms[0]?, ms[1]?, ms.size with
   | some r, _, 1 => .ok (some r)
   | none, _, _ => .ok none
   | some r1, some r2, n =>
-      .error s!"the embedding registry is defective: {n} registered rules give a \
-preferred embedding of {srcDom.render} into {tgtDom.render} — \
-{renderEmbedRule r1} and {renderEmbedRule r2}. A coercion does not rank them; \
+      .error s!"the canonical-map registry is defective: {n} registered rules give a \
+preferred canonical map of {srcDom.render} into {tgtDom.render} — \
+{renderCanonicalMap r1} and {renderCanonicalMap r2}. A coercion does not rank them; \
 unregister one."
   | _, _, _ => .ok none
 
-/-- The preferred common domain of two presentations: the one the other
-embeds into, per the registered embeddings (`ℕ ⊆ ℤ ⊆ ℚ` as the prelude
-registers them), and the same judgment applied under `poly`/`matrix`.
+/-- The preferred common domain of two presentations: the one the other has
+a registered canonical map into (`ℕ ⊆ ℤ ⊆ ℚ` as the prelude registers
+them), and the same judgment applied under `poly`/`matrix`.
 
-`.ok none` = neither embeds into the other, so there is no canonical join —
+`.ok none` = neither maps into the other, so there is no canonical join —
 the caller words that failure. `.error` = a DEFECTIVE registration: both
-directions are registered, and a join between two domains that embed into
+directions are registered, and a join between two domains that map into
 each other has no preferred answer. It is surfaced, never resolved by
 picking a side. -/
-partial def domJoin (rules : Array EmbedRule)
+partial def domJoin (rules : Array CanonicalMap)
     : Domain → Domain → Except String (Option Domain)
   | .poly a, .poly b => do return (← domJoin rules a b).map .poly
   | .matrix n a, .matrix m b =>
@@ -136,40 +138,40 @@ partial def domJoin (rules : Array EmbedRule)
   | a, b =>
       if a == b then return some a
       else do
-        match ← embedRuleFor rules a b, ← embedRuleFor rules b a with
+        match ← canonicalMapFor rules a b, ← canonicalMapFor rules b a with
         | some ab, some ba =>
-            .error s!"the embedding registry is defective: {a.render} and \
-{b.render} embed into each other ({renderEmbedRule ab} and \
-{renderEmbedRule ba}), so neither is the preferred common domain. Unregister one."
+            .error s!"the canonical-map registry is defective: {a.render} and \
+{b.render} have canonical maps into each other ({renderCanonicalMap ab} and \
+{renderCanonicalMap ba}), so neither is the preferred common domain. Unregister one."
         | some _, none => return some b
         | none, some _ => return some a
         | none, none => return none
 
-/-- The canonical embedding of a value into `d`, and the ONLY coercion the
-surface performs. The BASE CASE — one scalar domain into another — is
-decided by the registered embeddings: exactly one applicable rule applies,
-none is an honest error, several is a loud registration defect.
+/-- The preferred canonical map of a value into `d`, and the ONLY coercion
+the surface performs. The BASE CASE — one scalar domain into another — is
+decided by the registered canonical maps: exactly one applicable rule
+applies, none is an honest error, several is a loud registration defect.
 
-Four cases stay ENGINE-LEVEL, each because it is not a canonical injection
+Four cases stay ENGINE-LEVEL, each because it is not a preferred-map choice
 between two domains and so cannot be registry data:
 
 - **structural congruence** under `poly`/`matrix` (and a scalar as a constant
-  polynomial): an embedding of coefficient/entry domains INDUCES the one on
-  polynomials and matrices, so registering `ℤ[x] → ℚ[x]` separately would be
-  a second place to state `ℤ ⊆ ℚ` — and a second place to get it wrong. The
-  recursion bottoms out in the registry-driven base case;
+  polynomial): a canonical map of coefficient/entry domains INDUCES the one
+  on polynomials and matrices, so registering `ℤ[x] → ℚ[x]` separately would
+  be a second place to state `ℤ ⊆ ℚ` — and a second place to get it wrong.
+  The recursion bottoms out in the registry-driven base case;
 - **identity**, when the value already presents the target: the identity of a
   domain is not a preferred choice the prelude gets to make (and `ℤ/n → ℤ/n`
   would need one rule per modulus);
-- **`ℕ ← ℤ`**, which is a CHECK, not an injection: the map is partial, so
-  this is the membership judgment "is this integer in ℕ?" and a registry of
-  canonical injections must not be able to state it;
+- **`ℕ ← ℤ`**, which is a CHECK, not a map: it is partial, so this is the
+  membership judgment "is this integer in ℕ?" and a registry of total
+  preferred maps must not be able to state it;
 - **`ℤ/m` vs `ℤ/n`**, where the reported fact is the ABSENCE of a canonical
   map between two different rings — no rule can express that.
 
 Nothing here may be widened by adding a "reasonable" conversion: an
 unregistered pair is an honest error. -/
-partial def coerceValue (rules : Array EmbedRule) (d : Domain) (v : Value)
+partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
     : Except String Value :=
   match d, v with
   -- structural congruence
@@ -193,9 +195,9 @@ partial def coerceValue (rules : Array EmbedRule) (d : Domain) (v : Value)
       -- the base case: registry data decides
       | d, v => do
           let noEmbedding : Except String Value :=
-            .error s!"there is no preferred embedding of {v.render} into {d.render}"
+            .error s!"there is no preferred canonical map of {v.render} into {d.render}"
           let some src := valueDom? v | noEmbedding
-          match ← embedRuleFor rules src d with
+          match ← canonicalMapFor rules src d with
           | some r => r.op.apply d v
           | none => noEmbedding
 
@@ -252,7 +254,7 @@ private def exponentNat? : Value → Option Nat
 operation into the polynomial ring over the joined coefficient domain (the
 join, and the coefficient embeddings into it, come from the registry);
 otherwise this is `Native`'s exact scalar arithmetic. -/
-def valueBin (rules : Array EmbedRule) (op : BinOp) (a b : Value)
+def valueBin (rules : Array CanonicalMap) (op : BinOp) (a b : Value)
     : Except String Value := do
   let isPoly : Value → Bool := fun | .poly .. => true | _ => false
   if isPoly a || isPoly b then
@@ -293,7 +295,7 @@ def valueNeg (a : Value) : Except String Value :=
 /-! ### Set literals -/
 
 /-- Element domain of a literal element list. -/
-def elemsDomain (rules : Array EmbedRule) (vs : Array Value)
+def elemsDomain (rules : Array CanonicalMap) (vs : Array Value)
     : Except String Domain :=
   vs.foldlM (init := Domain.int) fun d v =>
     match valueDom? v with
@@ -307,7 +309,7 @@ def elemsDomain (rules : Array EmbedRule) (vs : Array Value)
 inferred from the two leading elements (one leading element means step 1),
 and EVERY leading element must lie on the inferred progression — a literal
 that is not one is a mistake, not a set to guess at. -/
-def progressionOf (rules : Array EmbedRule) (leading : Array Value)
+def progressionOf (rules : Array CanonicalMap) (leading : Array Value)
     (last? : Option Value) : Except String SetPresentation := do
   let some first := leading[0]?
     | .error "a progression literal needs at least one leading element"
@@ -495,10 +497,10 @@ private def ofStr (r : Except String α) : EvalM α :=
   | .ok a => pure a
   | .error m => throw (.msg m)
 
-/-- The registered preferred embeddings — every coercion the surface is
+/-- The registered preferred canonical maps — every coercion the surface is
 allowed to insert. Read from the environment, exactly like the categories and
 routes: nothing in this module knows which embeddings the prelude ships. -/
-def EvalCtx.embeds (ctx : EvalCtx) : Array EmbedRule := embedRules ctx.env
+def EvalCtx.canonMaps (ctx : EvalCtx) : Array CanonicalMap := canonicalMaps ctx.env
 
 def EvalCtx.isBound (ctx : EvalCtx) (n : Name) : Bool :=
   (binding? ctx.env n).isSome || ctx.indet?.any (·.1 == n)
@@ -540,8 +542,8 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       if let some (x, c) := ctx.indet? then
         if x == n then
           return .obj (.elem (.poly c) (Value.mkPoly c
-            #[← ofStr (coerceValue ctx.embeds c (.int 0)),
-              ← ofStr (coerceValue ctx.embeds c (.int 1))]))
+            #[← ofStr (coerceValue ctx.canonMaps c (.int 0)),
+              ← ofStr (coerceValue ctx.canonMaps c (.int 1))]))
       match binding? ctx.env n with
       | some o => return .obj o
       | none => throw (.msg s!"'{n}' is not bound; introduce it with `let {n} := …`")
@@ -563,12 +565,12 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           else throw (.msg s!"ℤ/{n} needs a positive modulus")
       | _, _ =>
           return Denote.ofValue
-            (← ofStr (valueBin ctx.embeds .div (← ofStr (asValueOf x))
+            (← ofStr (valueBin ctx.canonMaps .div (← ofStr (asValueOf x))
               (← ofStr (asValueOf y))))
   | .bin op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))
-      return Denote.ofValue (← ofStr (valueBin ctx.embeds op x y))
+      return Denote.ofValue (← ofStr (valueBin ctx.canonMaps op x y))
   | .method recv m args => do
       let r ← ofStr (asObjOf (← eval ctx recv))
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
@@ -595,27 +597,27 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      let d ← ofStr (elemsDomain ctx.embeds vs)
-      return .obj (.setObj (.finite d (← ofStr (vs.mapM (coerceValue ctx.embeds d)))))
+      let d ← ofStr (elemsDomain ctx.canonMaps vs)
+      return .obj (.setObj (.finite d (← ofStr (vs.mapM (coerceValue ctx.canonMaps d)))))
   | .progSet leading last? => do
       let vs ← leading.mapM fun e => do ofStr (asValueOf (← eval ctx e))
       let l ← last?.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      return .obj (.setObj (← ofStr (progressionOf ctx.embeds vs l)))
+      return .obj (.setObj (← ofStr (progressionOf ctx.canonMaps vs l)))
   | .matLit rows cols entries => do
       if rows != cols then
         throw (.msg s!"the slice presents square matrices only, got {rows}×{cols}")
       let vs ← entries.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      let d ← ofStr (elemsDomain ctx.embeds vs)
+      let d ← ofStr (elemsDomain ctx.canonMaps vs)
       let rs ← (Array.range rows).mapM fun i =>
         ofStr ((Array.range cols).mapM fun j =>
-          coerceValue ctx.embeds d vs[i * cols + j]!)
+          coerceValue ctx.canonMaps d vs[i * cols + j]!)
       return .obj (.elem (.matrix rows d) (.mat rows d rs))
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
         | throw (.msg s!"`map … to` needs a domain, got {t.presentation}")
       let v ← ofStr (asValueOf (← eval ctx e))
-      return .obj (.elem d (← ofStr (coerceValue ctx.embeds d v)))
+      return .obj (.elem d (← ofStr (coerceValue ctx.canonMaps d v)))
 where
   asValueOf (r : Denote) : Except String Value :=
     match r.value? with
@@ -667,7 +669,7 @@ def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
 registered category")
 
 /-- Apply and CHECK an ascription. Membership is a judgment: a domain
-ascription must admit the preferred embedding, and a category ascription
+ascription must admit the preferred canonical map, and a category ascription
 must actually hold in the object's profile.
 
 CEILING: the only ascription-directed reinterpretation is `ℤ/n` read as the
@@ -676,7 +678,7 @@ reinterpretation registry-driven is the documented generalization. -/
 def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
   | .domain d => do
       match o with
-      | .elem _ v => return .elem d (← ofStr (coerceValue ctx.embeds d v))
+      | .elem _ v => return .elem d (← ofStr (coerceValue ctx.canonMaps d v))
       | .domainObj d' =>
           if d' == d then return o
           else throw (.msg s!"{d'.render} is not an element of {d.render}")

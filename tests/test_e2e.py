@@ -226,4 +226,4 @@ def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
     _, kc = kernel
     # q ∈ ℚ[x] from the polynomial test; ℚ → ℤ is not a registered embedding
     text = err(kc, "map q to ℤ[x]")
-    assert "no preferred embedding" in text
+    assert "no preferred canonical map" in text
