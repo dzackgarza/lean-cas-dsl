@@ -176,3 +176,42 @@ def test_failed_cell_commits_nothing_prior_state_intact(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "n.factor()")  # n from test_factor_integer, still bound
     assert "2^3 * 3^2 * 5" in text
+
+
+# -- 8 · transport along preferred functors --------------------------------
+
+def test_cardinality_transported_along_forgetful_functor(kernel: Kernel) -> None:
+    _, kc = kernel
+    # F := ℤ/4 in SmallModules(ℤ), bound by the annihilator test; cardinality
+    # is declared on Sets and arrives via UnderlyingSet : Modules → Sets
+    text = ok(kc, "F.cardinality()")
+    assert "4" in text
+    ok(kc, "assert 2 ∈ F")
+
+
+def test_transport_step_visible_only_in_diagnostics(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "#explain_route F.cardinality()")
+    assert "UnderlyingSet" in text
+    assert "Modules" in text and "Sets" in text
+
+
+def test_transport_does_not_preempt_direct_resolution(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "F.annihilator()")  # still direct, through SmallModules ≤ Modules
+    assert "(4)" in text
+
+
+# -- 9 · registry-driven embeddings -----------------------------------------
+
+def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "map n to ℤ/7")  # n = 360 ≡ 3 (mod 7); ℤ → ℤ/n is ONE rule
+    assert "3" in text
+
+
+def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
+    _, kc = kernel
+    # q ∈ ℚ[x] from the polynomial test; ℚ → ℤ is not a registered embedding
+    text = err(kc, "map q to ℤ[x]")
+    assert "no preferred embedding" in text
