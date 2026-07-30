@@ -180,13 +180,17 @@ of the {n}×{n} matrix it was asked about is one")
   | v => .error (.protocolError
       s!"sage: mat_charpoly_q returned {v.render}, which is not a polynomial")
 
-/-- The companion matrix of a degree-`d` polynomial is `d × d`, and its TRACE
-is `−a_{d−1}/a_d` — the sum of the roots. Those are the two invariants every
-one of Sage's companion LAYOUTS shares (similar matrices have equal traces),
-so checking them holds the adapter to the mathematics without this side
-taking a position on a convention that is the backend's (decision 7). Reading
-the whole matrix off the coefficients would be doing the op here, and would
-break the moment the adapter chose a different layout. -/
+/-- The companion matrix of a degree-`d` polynomial is `d × d`, its TRACE is
+`−a_{d−1}/a_d` (the sum of the roots) and its DETERMINANT is `(−1)^d·a₀/a_d`
+(their product). Those are invariants every one of Sage's companion LAYOUTS
+shares — they are similar matrices — so checking them holds the adapter to the
+mathematics without this side taking a position on a convention that is the
+backend's (decision 7). Reading the whole matrix off the coefficients would be
+doing the op here, and would break the moment the adapter chose a different
+layout.
+
+Both numbers are checked, because neither alone is enough: the ZERO matrix has
+the right trace whenever `a_{d−1}` is 0, which SPEC.md's own cubic is. -/
 private def checkCompanion (coeffs : Array Value) (v : Value) : Except ExecError Value := do
   let d := coeffs.size - 1
   let .mat n _ rows := v
@@ -196,18 +200,29 @@ private def checkCompanion (coeffs : Array Value) (v : Value) : Except ExecError
     .error (.protocolError s!"sage: poly_companion_q returned a {n}×{n} matrix \
 for a polynomial of degree {d}: the companion matrix has the polynomial's own size")
   else
-    let some diag := (Array.range n).mapM fun i => (rows[i]?.bind (·[i]?)).bind ratOf?
+    let some rats := rows.mapM (·.mapM ratOf?)
       | .error (.protocolError
-          "sage: poly_companion_q returned a matrix whose diagonal is not rational")
+          "sage: poly_companion_q returned a matrix that is not over ℚ")
     let some lead := ratOf? coeffs[d]!
     | .error (.badRequest "the leading coefficient is not a rational")
     let some sub := ratOf? coeffs[d - 1]!
     | .error (.badRequest "the second coefficient is not a rational")
-    if diag.foldl (· + ·) 0 == -(sub / lead) then .ok v
-    else .error (.protocolError s!"sage: poly_companion_q returned a matrix of \
-trace {(Value.ofRat (diag.foldl (· + ·) 0)).render}, but the companion matrix of \
-this polynomial has trace {(Value.ofRat (-(sub / lead))).render} — the sum of its \
-roots, which every companion layout shares")
+    let some const := ratOf? coeffs[0]!
+    | .error (.badRequest "the constant coefficient is not a rational")
+    let trace := (Array.range n).foldl (fun acc i => acc + rats[i]![i]!) 0
+    let expectTrace := -(sub / lead)
+    let expectDet := (if d % 2 == 0 then 1 else -1) * const / lead
+    if trace != expectTrace then
+      .error (.protocolError s!"sage: poly_companion_q returned a matrix of \
+trace {(Value.ofRat trace).render}, but the companion matrix of this polynomial \
+has trace {(Value.ofRat expectTrace).render} — the sum of its roots, which every \
+companion layout shares")
+    else if Value.detQ n rats != expectDet then
+      .error (.protocolError s!"sage: poly_companion_q returned a matrix of \
+determinant {(Value.ofRat (Value.detQ n rats)).render}, but the companion matrix \
+of this polynomial has determinant {(Value.ofRat expectDet).render} — the product \
+of its roots, which every companion layout shares")
+    else .ok v
 
 /-- The decoded reply must be the kind of value the op promises; a
 well-formed value of the wrong kind is an adapter defect, not a result.

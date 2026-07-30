@@ -490,6 +490,32 @@ def rref (n : Nat) (rows : Array (Array Rat)) : Array (Array Rat) := Id.run do
   -- anywhere would have made its column a pivot column
   return rs.extract 0 pivot
 
+/-- The determinant over ℚ, by the same elimination `rref` runs — except that
+this one KEEPS the scale `rref` normalizes away (the pivots' product, and a
+sign per row swap), which is the whole of a determinant.
+
+It exists so a reply CAN be checked against an invariant that is a number
+rather than a shape (`Backends/Sage.lean`'s companion check); nothing routes
+to it, and `det` on the surface is still the backend's. -/
+def detQ (n : Nat) (rows : Array (Array Rat)) : Rat := Id.run do
+  let mut rs := rows
+  let mut d : Rat := 1
+  for col in [0:n] do
+    match (Array.range n).find? (fun i => col ≤ i && rs[i]![col]! != 0) with
+    | none => return 0     -- a zero column: the matrix is singular
+    | some i =>
+        if i != col then
+          let (ri, rc) := (rs[i]!, rs[col]!)
+          rs := (rs.set! col ri).set! i rc
+          d := -d
+        let p := rs[col]![col]!
+        d := d * p
+        for j in [col + 1 : n] do
+          let f := rs[j]![col]! / p
+          if f != 0 then
+            rs := rs.set! j ((Array.range n).map fun k => rs[j]![k]! - f * rs[col]![k]!)
+  return d
+
 /-- The rational components of a vector of `ℚⁿ`. `none` = it is not one —
 the wrong length, not a vector at all, or a component this slice cannot read
 as a rational (a surd above all: `√2·u` lies in the ℝ-span, not the ℚ-one, and

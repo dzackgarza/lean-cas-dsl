@@ -683,6 +683,15 @@ private def wBasis : Array Value := #[qv [1, 0, 1], qv [0, 1, 1]]
 #guard (Value.spanContains 3 wBasis (.vec 3 .real #[.alg 0 1 2, .int 0, .alg 0 1 2])).toOption
   == none
 
+-- `detQ` keeps the scale `rref` normalizes away, which is what lets a reply be
+-- checked against a NUMBER rather than a shape (the companion check)
+#guard Value.detQ 2 #[#[1, 2], #[3, 4]] == -2
+#guard Value.detQ 2 #[#[0, 1], #[1, 0]] == -1     -- one row swap, one sign
+#guard Value.detQ 3 #[#[0, 0, 0], #[0, 0, 0], #[0, 0, 0]] == 0
+-- SPEC.md's own companion matrix: trace 0 and determinant −1, the two numbers
+-- the adapter's reply is held to
+#guard Value.detQ 3 #[#[0, 0, -1], #[1, 0, 2], #[0, 1, 0]] == -1
+
 #guard (Value.spanV 3 wBasis).render == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
 #guard (Value.spanV 2 #[]).render == "span_ℚ{} ≤ ℚ²"
 #guard (Value.spanV 2 #[]).latex?

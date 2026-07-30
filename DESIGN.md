@@ -929,11 +929,15 @@ Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `factor_poly_c`,
 `approx_real`. The last two are CHECKED against this call's receiver, the
 discipline `approx_real` set: a characteristic polynomial must be monic of
 the matrix's own degree, and a companion matrix must have the polynomial's
-degree and its TRACE — the sum of the roots. That is deliberately not a
-positional read of the companion's entries: which of the four LAYOUTS the
-adapter uses is its own convention (decision 7), and similar matrices share a
-trace, so the check holds the backend to the mathematics without this side
-taking a position on a convention that is not its own.
+degree, its TRACE (the sum of the roots) and its DETERMINANT (their product).
+That is deliberately not a positional read of the companion's entries: which
+of the four LAYOUTS the adapter uses is its own convention (decision 7), and
+similar matrices share both numbers, so the check holds the backend to the
+mathematics without this side taking a position on a convention that is not
+its own. BOTH numbers, because neither alone is enough — the zero matrix has
+the right trace whenever `a_{d−1}` is 0, which SPEC.md's own cubic is.
+`Value.detQ` is the determinant that check needs: the elimination `rref`
+already runs, keeping the scale `rref` normalizes away.
 The two ℂ ops work in `QQbar`, whose elements PRINT
 as decimal approximations — so the adapter never reads a printed form: it
 takes the coefficients of an algebraic number from its own minimal polynomial
@@ -1000,11 +1004,14 @@ Parser decisions (load-bearing):
   `NAME ∈ D[NAME]` membership below — and it is pinned as such.
 - implicit multiplication is supported only as `numeral ident` (`2x`);
 - **application by JUXTAPOSITION** (`M v`, `M⁻¹ b`) and the inverse's `⁻¹` are
-  three productions rooted at an `ident` on the LEFT. That is the same hazard
-  control as the `noWs` before `(` and `[`: a term followed by a newline can
-  only be swallowed when BOTH lines are bare names, and every other cell shape
-  ends the term. The residual is documented rather than closed — Lean's
-  command parser spans lines, so nothing here can require "the same line";
+  three productions rooted at an `ident` on the LEFT — the same hazard control
+  as the `noWs` before `(` and `[`, and narrower than it. The residual, stated
+  exactly: a cell swallows its next line when the previous line ENDS in a bare
+  identifier and the next line BEGINS with one. NEITHER LINE NEED BE A BARE
+  NAME — `k1 + 1` and `k1.is_prime()` end in a numeral and a `)` and do not
+  swallow, while SPEC.md's own `let W := span_QQ{…} \leq ℚ³ in QQ-Mod` ends in
+  `Mod` and does. Documented rather than closed — Lean's command parser spans
+  lines, so nothing here can require "the same line" — and on the ledger (#24);
 - **`span_QQ{…}` leads with an `ident` and checks the NAME** in `toExpr`,
   which is what keeps `span_QQ` an ordinary identifier: a leading
   `&"span_QQ"` is not indexed by a first token, so the bare-name production
@@ -1016,7 +1023,15 @@ Parser decisions (load-bearing):
   names the registered category `A-B` when there is one and is the ordinary
   error when there is not. Lean escapes such a name as `«QQ-Mod»`; the
   guillemets are its syntax for WRITING the name, so `Eval.renderName` drops
-  them wherever a name reaches the mathematician;
+  them wherever a name reaches the mathematician.
+  KNOWN INTERACTION with the juxtaposition above, and the reason that
+  "neither name is bound" justification does not survive a following line: a
+  bare name on the NEXT line becomes the right operand of `Mod`, so the
+  ascription reads `QQ - Mod(next)` and fails with the misleading "'QQ' is not
+  bound". Teaching `categoryAscription?` that shape would bind the category —
+  and SILENTLY DROP the swallowed statement, which is a wrong answer where the
+  error is only a confusing one, so it is not a contained fix. On the ledger
+  (#24) with the juxtaposition residual it belongs to;
 - **`x^{k}` is the braced exponent**, the spelling this system's own LaTeX
   renderer produces and the one `SPEC.md` writes its tolerance in
   (`1/10^{10}`). A single-element brace in EXPONENT position is therefore that

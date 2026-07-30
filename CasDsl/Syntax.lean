@@ -107,11 +107,16 @@ matrix to a vector by JUXTAPOSITION — `M⁻¹ b`, `M v` — alongside the expl
 `inverse` METHOD, and juxtaposition is the product.
 
 The three productions below are rooted at an `ident` on the LEFT, which is the
-same hazard control as the `noWs` before `(` and `[`: a term followed by a
-newline can only be swallowed when BOTH lines are bare names, and every other
-cell shape (a literal, a bracket, a command keyword, an operator) ends the
-term. That residual is documented rather than closed — Lean's command parser
-spans lines, so nothing here can require "the same line". -/
+same hazard control as the `noWs` before `(` and `[` — but it is narrower than
+that, and the residual is stated exactly: a cell swallows its next line when
+the previous line ENDS in a bare identifier and the next line BEGINS with one.
+Neither line need be a bare name. `k1 + 1` and `k1.is_prime()` end in a
+numeral and a `)`, so neither swallows; SPEC.md's own
+`let W := span_QQ{…} \leq ℚ³ in QQ-Mod` ends in `Mod`, so a following bare
+name is read as its argument and the cell fails with the misleading
+"'QQ' is not bound". Documented rather than closed — Lean's command parser
+spans lines, so nothing here can require "the same line", and the ledger
+(#24) carries the fix. -/
 
 syntax:max (name := casInv) ident noWs "⁻¹" : casTerm
 syntax:70 (name := casJuxtApp) ident ident : casTerm

@@ -740,9 +740,11 @@ private def setNormalEq : SetNormal → SetNormal → Bool
 `A ⊆ B` is decided from the same canonical forms as equality, and refuses
 loudly wherever the presentations do not settle it. Only two things are ever
 answered `false` without a decision procedure, and both are theorems about
-the forms themselves: a `dom` normal form is countably infinite here (finite
-domains expand to `fin`), and a `prog` normal form is unbounded — neither
-fits inside a finite list.
+the forms themselves: a `dom` normal form is INFINITE — finite domains are
+the ones that expand to `fin`, and the rest reach this form whether their
+size is countable or, since ℝ and ℂ normalize for comparison, not statable at
+all — and a `prog` normal form is unbounded. Neither fits inside a finite
+list.
 
 The deliberate hole: `dom ⊆ dom` between DIFFERENT domains. `ℕ ⊆ ℤ ⊆ ℚ` is
 the preferred-canonical-map registry's claim (DESIGN.md §Coercions), not a
