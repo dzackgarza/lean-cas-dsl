@@ -26,24 +26,6 @@ def toRat? : Value → Option Rat
   | .rat q => some q
   | _ => none
 
-/-- Bring two scalars into a common domain: `ℤ ⊆ ℚ`, and an integer into
-`ℤ/n` as its residue class. `none` = the kinds are incomparable. -/
-def promote : Value → Value → Option (Value × Value)
-  | .int a, .rat q => some (.rat (Rat.ofInt a), .rat q)
-  | .rat q, .int a => some (.rat q, .rat (Rat.ofInt a))
-  | .int a, .mod n v => if n == 0 then none else some (Value.mkMod n a, .mod n v)
-  | .mod n v, .int a => if n == 0 then none else some (.mod n v, Value.mkMod n a)
-  | a@(.int _), b@(.int _) => some (a, b)
-  | a@(.rat _), b@(.rat _) => some (a, b)
-  | a@(.mod n _), b@(.mod n' _) => if n == n' then some (a, b) else none
-  | a@(.poly ..), b@(.poly ..) => some (a, b)
-  | a@(.mat ..), b@(.mat ..) => some (a, b)
-  | a@(.factorization ..), b@(.factorization ..) => some (a, b)
-  | a@(.idealV ..), b@(.idealV ..) => some (a, b)
-  | a@(.cardinal _), b@(.cardinal _) => some (a, b)
-  | a@(.bool _), b@(.bool _) => some (a, b)
-  | _, _ => none
-
 /-! ### Exact algebraic arithmetic (`a + b√d`)
 
 Closed inside ONE quadratic field over ℚ: two operands must name the same
@@ -71,22 +53,59 @@ private def surdPair (x y : Value) : Option ((Rat × Rat) × (Rat × Rat) × Int
   let py ← surdParts? d y
   return (px, py, d)
 
-/-- Run `f` on both operands in the quadratic field they share.
+/-- Two operands in the kind they SHARE — the result of `promote`.
 
-`none` = NEITHER operand is a surd, so the caller's ordinary scalar path
-applies; `some (.error …)` = one of them is and they do not share a field, or
-the other operand is not a number here. -/
-private def onSurds (what : String) (x y : Value)
-    (f : Rat × Rat → Rat × Rat → Int → Except String Value)
-    : Option (Except String Value) :=
-  match radicand? x, radicand? y with
-  | none, none => none
-  | _, _ =>
-    match surdPair x y with
-    | some (px, py, d) => some (f px py d)
-    | none => some (.error s!"{what} of {x.render} and {y.render} leaves the \
-exact form a + b√d this slice presents (one square root over ℚ, and both \
-operands in it): that is a gap, not an approximation")
+TAGGED rather than a pair of `Value`s, and that is the load-bearing part: the
+surd kind is not a pair of values at all (it is two `(a, b)` coefficient pairs
+in one named field), and a tag makes every caller STATE what it does with each
+kind. `scalarCmp` refuses to order surds in its own match rather than
+inheriting an order from whatever shape a pair happened to have. -/
+inductive Common where
+  | int (x y : Int)
+  | rat (x y : Rat)
+  /-- Residue classes of one modulus, as their normalized representatives. -/
+  | mod (n : Nat) (x y : Nat)
+  /-- Both operands read in ONE quadratic field `ℚ(√d)`, as `(a, b)` with
+  `v = a + b√d`. -/
+  | alg (x y : Rat × Rat) (d : Int)
+  /-- One shape, no scalar arithmetic here: two polynomials, two matrices, … -/
+  | same (x y : Value)
+  deriving BEq, Repr
+
+/-- Equality inside one kind. Two operands of a quadratic field are equal iff
+both coefficient pairs are — `d` is shared by construction. -/
+def Common.eq : Common → Bool
+  | .int x y | .mod _ x y => x == y
+  | .rat x y => x == y
+  | .alg x y _ => x == y
+  | .same x y => x == y
+
+/-- Bring two operands into the kind they share: `ℤ ⊆ ℚ`, an integer into
+`ℤ/n` as its residue class, and — since round four — two operands of a surd
+operation read in the ONE quadratic field they name. `none` = the kinds are
+incomparable, which is never `false` and never an approximation.
+
+The surd arms come FIRST because a rational against a surd belongs in the
+surd's field (`a + 0√d`) rather than promoted along `ℤ ⊆ ℚ`. A value with no
+arithmetic here reaches no arm at all, and is then refused by every caller. -/
+def promote : Value → Value → Option Common
+  | x@(.alg ..), y | x, y@(.alg ..) => do
+      let (px, py, d) ← surdPair x y
+      return .alg px py d
+  | .int a, .int b => some (.int a b)
+  | .int a, .rat q => some (.rat (Rat.ofInt a) q)
+  | .rat q, .int a => some (.rat q (Rat.ofInt a))
+  | .rat x, .rat y => some (.rat x y)
+  | .int a, .mod n v => if n == 0 then none else some (.mod n (a.emod n).toNat v)
+  | .mod n v, .int a => if n == 0 then none else some (.mod n v (a.emod n).toNat)
+  | .mod n x, .mod n' y => if n == n' then some (.mod n x y) else none
+  | a@(.poly ..), b@(.poly ..) => some (.same a b)
+  | a@(.mat ..), b@(.mat ..) => some (.same a b)
+  | a@(.factorization ..), b@(.factorization ..) => some (.same a b)
+  | a@(.idealV ..), b@(.idealV ..) => some (.same a b)
+  | a@(.cardinal _), b@(.cardinal _) => some (.same a b)
+  | a@(.bool _), b@(.bool _) => some (.same a b)
+  | _, _ => none
 
 /-- A cardinal against an integer. SPEC.md writes `|A| = 3` and `|E| = ℵ₀`,
 so a FINITE cardinal answers to the natural number counting it; ℵ₀ answers
@@ -114,45 +133,65 @@ def valueEq (a b : Value) : Option Bool :=
   | .int _, .alg .. | .rat _, .alg .. => some false
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
-      else (promote fb gb).map fun (x, y) => x == y
+      else (promote fb gb).map Common.eq
   | .cardinal c, .int z | .int z, .cardinal c => some (cardEqInt c z)
-  | _, _ => (promote a b).map fun (x, y) => x == y
+  | _, _ => (promote a b).map Common.eq
 
 private def ratCmp (x y : Rat) : Ordering :=
   if x.blt y then .lt else if y.blt x then .gt else .eq
 
 /-- Order on scalars. On `ℤ/n` this orders by the normalized representative:
-a canonicalization key for element lists, not a claim that `ℤ/n` is ordered. -/
+a canonicalization key for element lists, not a claim that `ℤ/n` is ordered.
+
+The `alg` kind is refused HERE, one arm above the answer it could give:
+exact algebraic values are UNORDERED at the surface (DESIGN.md §Ceilings), so
+`√2 ≤ 2` is the honest refusal even though the squaring comparison that would
+decide it already exists (`nonNegSurd`). Stating the refusal as its own arm is
+what keeps a later kind from inheriting an order nobody declared. -/
 def scalarCmp (a b : Value) : Option Ordering :=
   match promote a b with
-  | some (.int x, .int y) => some (compare x y)
-  | some (.rat x, .rat y) => some (ratCmp x y)
-  | some (.mod _ x, .mod _ y) => some (compare x y)
-  | _ => none
+  | some (.int x y) => some (compare x y)
+  | some (.rat x y) => some (ratCmp x y)
+  | some (.mod _ x y) => some (compare x y)
+  | some (.alg ..) | some (.same ..) | none => none
 
-private def binOp (op : String) (fi : Int → Int → Int) (fr : Rat → Rat → Rat)
+/-- Why two operands have no common kind — the ONE place the reasons are
+worded, so they cannot drift apart: a surd that left its quadratic field is a
+gap in the exact presentation, which is a different failure from operands that
+were never numbers together. -/
+private def noCommonKind (op what : String) (a b : Value) : String :=
+  if (radicand? a).isSome || (radicand? b).isSome then
+    s!"{what} of {a.render} and {b.render} leaves the exact form a + b√d this \
+slice presents (one square root over ℚ, and both operands in it): that is a \
+gap, not an approximation"
+  else s!"{op} is not defined on {a.render} and {b.render}"
+
+/-- A binary operation, one arm per common kind. `fa` is the quadratic
+field's, which is why the surd arithmetic is no longer a fallback layer in
+front of this function. -/
+private def binOp (op what : String) (fi : Int → Int → Int) (fr : Rat → Rat → Rat)
+    (fa : Rat × Rat → Rat × Rat → Int → Except String Value)
     (a b : Value) : Except String Value :=
   match promote a b with
-  | some (.int x, .int y) => .ok (.int (fi x y))
-  | some (.rat x, .rat y) => .ok (.rat (fr x y))
-  | some (.mod n x, .mod _ y) => .ok (Value.mkMod n (fi (Int.ofNat x) (Int.ofNat y)))
-  | _ => .error s!"{op} is not defined on {a.render} and {b.render}"
+  | some (.int x y) => .ok (.int (fi x y))
+  | some (.rat x y) => .ok (.rat (fr x y))
+  | some (.mod n x y) => .ok (Value.mkMod n (fi (Int.ofNat x) (Int.ofNat y)))
+  | some (.alg x y d) => fa x y d
+  | some (.same ..) | none => .error (noCommonKind op what a b)
 
 def scalarAdd (a b : Value) : Except String Value :=
-  (onSurds "the sum" a b fun (xa, xb) (ya, yb) d =>
-    Value.mkAlg (xa + ya) (xb + yb) d).getD
-    (binOp "addition" (· + ·) (· + ·) a b)
+  binOp "addition" "the sum" (· + ·) (· + ·)
+    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa + ya) (xb + yb) d) a b
 
 def scalarSub (a b : Value) : Except String Value :=
-  (onSurds "the difference" a b fun (xa, xb) (ya, yb) d =>
-    Value.mkAlg (xa - ya) (xb - yb) d).getD
-    (binOp "subtraction" (· - ·) (· - ·) a b)
+  binOp "subtraction" "the difference" (· - ·) (· - ·)
+    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa - ya) (xb - yb) d) a b
 
 /-- `(xa + xb√d)(ya + yb√d) = (xa·ya + xb·yb·d) + (xa·yb + xb·ya)√d`. -/
 def scalarMul (a b : Value) : Except String Value :=
-  (onSurds "the product" a b fun (xa, xb) (ya, yb) d =>
-    Value.mkAlg (xa * ya + xb * yb * Rat.ofInt d) (xa * yb + xb * ya) d).getD
-    (binOp "multiplication" (· * ·) (· * ·) a b)
+  binOp "multiplication" "the product" (· * ·) (· * ·)
+    (fun (xa, xb) (ya, yb) d =>
+      Value.mkAlg (xa * ya + xb * yb * Rat.ofInt d) (xa * yb + xb * ya) d) a b
 
 /-- Unary; the arity of negation is one, so this deviates from the sibling
 binary signatures on purpose. -/
@@ -188,21 +227,23 @@ def scalarPow (a e : Value) : Except String Value :=
 result is a `.rat` even when it is integral. Division in `ℤ/n` is not
 provided (that ring is a field only for prime `n`) and fails loudly. -/
 def scalarDiv (a b : Value) : Except String Value :=
+  match promote a b with
   -- in a quadratic field, division is multiplication by the conjugate over
   -- the NORM `ya² − yb²d`, which vanishes only for the zero divisor (`d` is
   -- not a square, so `ya² = yb²d` forces both to be zero)
-  match onSurds "the quotient" a b fun (xa, xb) (ya, yb) d =>
+  | some (.alg (xa, xb) (ya, yb) d) =>
       let n := ya * ya - yb * yb * Rat.ofInt d
       if n == 0 then .error "division by zero"
       else Value.mkAlg ((xa * ya - xb * yb * Rat.ofInt d) / n)
-        ((xb * ya - xa * yb) / n) d with
-  | some r => r
-  | none =>
-    match toRat? a, toRat? b with
-    | some x, some y =>
-        if y == 0 then .error "division by zero"
-        else .ok (.rat (x / y))
-    | _, _ => .error s!"division is not defined on {a.render} and {b.render}"
+        ((xb * ya - xa * yb) / n) d
+  | some (.int x y) => ratDiv (Rat.ofInt x) (Rat.ofInt y)
+  | some (.rat x y) => ratDiv x y
+  -- `ℤ/n` is a field only for prime `n`, so division there is not provided
+  | some (.mod ..) | some (.same ..) | none =>
+      .error (noCommonKind "division" "the quotient" a b)
+where
+  ratDiv (x y : Rat) : Except String Value :=
+    if y == 0 then .error "division by zero" else .ok (.rat (x / y))
 
 /-! ## Presentation helpers -/
 

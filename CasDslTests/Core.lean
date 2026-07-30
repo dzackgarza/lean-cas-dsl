@@ -159,9 +159,25 @@ private def ambiguousCount : Except ResolveError Resolution → Nat
 
 open Native
 
-#guard promote (.int 3) (.rat (mkRat 1 2)) == some (.rat 3, .rat (mkRat 1 2))
-#guard promote (.int 7) (.mod 5 3) == some (.mod 5 2, .mod 5 3)
+-- `promote` names the kind two operands SHARE, and every caller matches on
+-- that name. The kind is the claim: ℤ against ℚ is a rational pair, an
+-- integer against ℤ/5 is a residue pair, and a pair with no shared kind is
+-- `none` — never a shape that happens to compare.
+#guard promote (.int 3) (.rat (mkRat 1 2)) == some (.rat 3 (mkRat 1 2))
+#guard promote (.int 7) (.mod 5 3) == some (.mod 5 2 3)
+#guard promote (.int 7) (.mod 0 3) == none
+#guard promote (.mod 4 3) (.mod 5 3) == none
 #guard promote (.int 1) (.bool true) == none
+-- the surd kind: BOTH operands read in the one quadratic field one of them
+-- names, a rational riding in it as `a + 0√d` — which is what keeps
+-- `√2 + 1/2` inside ℚ(√2) instead of promoting it along ℤ ⊆ ℚ
+#guard promote (.alg 1 2 3) (.alg 4 5 3) == some (.alg (1, 2) (4, 5) 3)
+#guard promote (.int 4) (.alg 1 2 3) == some (.alg (4, 0) (1, 2) 3)
+#guard promote (.alg 1 2 3) (.rat (mkRat 1 2)) == some (.alg (1, 2) (mkRat 1 2, 0) 3)
+-- …and two DIFFERENT fields share no kind, which is the refusal `√2 + √5`
+-- reports rather than an approximation
+#guard promote (.alg 0 1 2) (.alg 0 1 5) == none
+#guard promote (.alg 0 1 2) (.bool true) == none
 #guard valueEq (.int 2) (.rat 2) == some true
 #guard valueEq (.int 2) (.bool true) == none
 
