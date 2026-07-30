@@ -202,11 +202,14 @@ equality, membership and set operations decide on these values at all.
   factors with exact `a + b√d` coefficients. Its CONTENT is what is pinned —
   each displayed root evaluates to zero, and a near miss does not — because
   the factor ORDER and the unit convention are the backend's (decision 7).
-  DISCLOSED: SPEC.md writes `assert q.roots() ⊆ ℂ - ℚ` for `q ∈ ℚ[x]`, where
-  `q.roots()` is EMPTY, so that line runs and holds VACUOUSLY. The contentful
-  claim is the same one after `map q to ℂ[x]`, where the root set is
-  `{√2, -√2}`; both are pinned, and `roots` reaching into an extension by
-  itself would be exactly the silent reach §Standard universe forbids.
+  DISCLOSED, and OPEN: SPEC.md writes `assert q.roots() ⊆ ℂ - ℚ` for
+  `q ∈ ℚ[x]`, where `q.roots()` is EMPTY — so that line runs and holds
+  VACUOUSLY, checking nothing. The contentful claim is the same one after
+  `map q to ℂ[x]`, where the root set is `{√2, -√2}`; both are pinned, side by
+  side, everywhere they appear. Which of the two `roots` should DEFAULT to is
+  an open question escalated to the project owner (§Open questions) — reaching
+  into an extension by itself would be exactly the silent reach §Standard
+  universe forbids, so the ring stays the default until that is ruled on.
 
 ## Functions (`SPEC.md` §Functions, issue #25)
 
@@ -969,6 +972,17 @@ Formerly open questions, now user-decided — none was silently resolved:
   signatures, not left to runtime defensive arms (see §Routing and gaps).
 
 ## Open questions (kept open — do not silently resolve)
+
+- **does `roots` default to the coefficient RING or to the splitting field?**
+  Today it is the ring, and that default is pinned. `SPEC.md` writes
+  `assert q.roots() ⊆ ℂ - ℚ` for `q = x² - 2 in ℚ[x]`, where the root set is
+  EMPTY — so the line runs and is TRUE, but only vacuously, and its
+  closure-reading (`{√2, -√2}`) needs the explicit `map q to ℂ[x]`. Both
+  readings ship, side by side, in `CasDslTests`, `tests/test_e2e.py` and
+  notebook §12, so the gap between what the line says and what it checks is
+  visible in every artifact. Escalated to the project owner (unit U5, 2026-07-30):
+  changing a pinned surface default is not this repo's call, and nothing here
+  may quietly adopt the closure reading in the meantime;
 
 - default enumeration convention for `ℤ` (slice: 0, 1, −1, 2, −2, …,
   zero-based — a *registered choice*, revisitable);

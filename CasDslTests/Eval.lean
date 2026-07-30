@@ -150,9 +150,18 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 #guard (composeFuncs embeds (pow `t 2) (.func .nat .nat `s (xTo 3))).toOption == none
 #guard (composeFuncs embeds (pow `t 2) (.int 3)).toOption == none
 
--- ℝ is an ascription tag: it admits no canonical map, so nothing lands in it
+/- These two used to read "ℝ admits no canonical map, so nothing lands in
+it". That is no longer true of ℝ: the prelude registers the chain ℚ ⊆ ℝ ⊆ ℂ
+and its closure (DESIGN.md §Coercions), so `let r := 3 in ℝ` succeeds and
+`CasDslTests/CanonicalMaps.lean` pins the shipped registry. What the two
+guards claim is what they always mechanically claimed — that this LOCAL rule
+array has no rule into ℝ, and the coercion layer therefore refuses. The
+change was deliberate; the pin below states its real subject. -/
 #guard (coerceValue embeds .real (.int 3)).toOption == none
 #guard (domJoin embeds .real .rat).toOption == some none
+-- …and with the rule registered, the same call succeeds and moves NO data
+#guard (coerceValue #[{ src := .exact .int, tgt := .exact .real, op := .identity }]
+    .real (.int 3)).toOption == some (Value.int 3)
 
 /-! ### The `src → tgt` ascription is checked at the call boundary -/
 
@@ -161,7 +170,10 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 #guard (atDomain embeds .nat (.int 3)).toOption == some (.int 3)
 -- …and a result lands IN the target: t + 3 at 4 is 2 in ℤ/5, never 7
 #guard (atDomain embeds (.mod 5) (.int 7)).toOption == some (.mod 5 2)
--- ℝ has no elements to check — that is the whole content of "ascription tag"
+-- an ℝ arrow passes through unchecked. NOT because ℝ has no elements — it has
+-- them since the ℂ unit — but because a check there would re-tag the symbolic
+-- path's ℤ[x] expression as ℝ[x] and restate SPEC.md's `(f ∘ g)(t) = t⁶` in
+-- another ring (DESIGN.md §Functions). Kept deliberately, with the new reason
 #guard (atDomain embeds .real (.int (-1))).toOption == some (.int (-1))
 -- the symbolic path travels coefficient-wise, so it lands in the domain too:
 -- `t + 7` reduces to `t + 2` over ℤ/5 instead of staying an unreduced ℤ poly
@@ -169,11 +181,12 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
   == some (Value.mkPoly (.mod 5) #[.mod 5 2, .mod 5 1])
 #guard (atDomain embeds .nat (xTo 1)).toOption
   == some (Value.mkPoly .nat #[.int 0, .int 1])
--- an ℝ arrow checks nothing, in either path — that is the tag exception
+-- …in either path, which is what keeps the identity in ℤ[x] where it was stated
 #guard (atDomain embeds .real (xTo 1)).toOption == some (xTo 1)
 
--- the binder is the indeterminate of the SOURCE domain; ℝ has no elements,
--- so there the body's own ring stands in
+-- the binder is the indeterminate of the SOURCE domain; ℝ has no polynomial
+-- ring of its own here — its inhabitants are the exact algebraic values, not
+-- an indeterminate — so there the body's own ring stands in
 #guard binderRing (.mod 5) (xTo 2) == some (.mod 5)
 #guard binderRing .nat (xTo 2) == some .nat
 #guard binderRing .real (xTo 2) == some .int
