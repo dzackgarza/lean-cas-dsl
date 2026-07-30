@@ -295,7 +295,11 @@ private partial def powerOfTen? (n : Nat) : Option Nat :=
 ten as `1/10^{10}` — which is also valid input again — and any other rational
 as itself. ONE spelling for plain text and LaTeX, because it already satisfies
 both display conventions (an inline solidus for the rational, a braced
-exponent) and because SPEC.md's own displayed line is exactly this. -/
+exponent) and because SPEC.md's own displayed line is exactly this.
+
+`backends/sage_adapter.py`'s `tol_text` is the reciprocal of this: the backend
+words its own refusals in the same spelling, so a tolerance reads alike whether
+this side or that one reports it. -/
 def tolText (q : Rat) : String :=
   match (if q.num == 1 && q.den > 1 then powerOfTen? q.den else none) with
   | some k => s!"1/10^\{{k}}"

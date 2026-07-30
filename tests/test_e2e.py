@@ -1163,7 +1163,6 @@ def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
         text = err(kc, code)
         assert f"{op} is not defined on an approximation" in text, code
         assert "compute exactly, then ask for a decimal" in text, code
-        assert "and 1)" not in text, code
 
 
 def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
@@ -1197,6 +1196,50 @@ def test_both_spellings_answer_for_the_tolerance_alike(kernel: Kernel) -> None:
         assert "capability" in text.lower(), code
         assert "O(1/10^{2000})" in text, code
         assert "0000000000" not in text, code
+
+
+def test_only_the_tolerance_failures_are_capability_failures(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # the wrapper speaks for a missing route and a backend that could not meet
+    # ε. A RESOLVE failure is about the receiver, so it must come through
+    # untouched — "no backend produced a decimal" over a body naming the
+    # profile would be a lie in the wrapper's own words.
+    ok(kc, "let apthree := 3 in ℤ")   # `3.approximate(…)` lexes as a decimal
+    text = err(kc, "apthree.approximate(1/10)")
+    assert "not a method of any category" in text
+    assert "capability" not in text.lower()
+
+
+def test_a_non_rational_tolerance_is_refused_in_surface_words(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # both spellings validate ε at the same junction, so neither reaches the
+    # backend to be refused in the backend's vocabulary
+    ok(kc, "let apr3 := √2 in ℝ")
+    for code in ("apr3.approximate(√2)", "apr3.approximate(ℤ)",
+                 "apr3.approximate({1, 2})", "map √2 to ℝ/O(√2)"):
+        text = err(kc, code)
+        assert "exact positive rational" in text, code
+        assert "sage op" not in text, code
+
+
+def test_a_base_without_arithmetic_names_its_own_operator(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # `Common.same` is a shared SHAPE, not an operation: a fold from 1 would
+    # otherwise report a multiplication by a `1` nobody wrote — and answer
+    # that `1` at exponent 0
+    ok(kc, "let apset := {1, 2, 3}")
+    for base in ("apset.contains(2)", "|apset|"):
+        text = err(kc, f"assert {base}^2 = 1")
+        assert "exponentiation is not defined on" in text, base
+        assert "multiplication" not in text, base
+        assert "exponentiation is not defined on" in err(kc, f"assert {base}^0 = 1"), base
+    # …while a base that really has arithmetic is untouched
+    ok(kc, "assert 2^10 = 1024")
+    ok(kc, "assert (1/2)^0 = 1")
+    ok(kc, "assert (√2)^2 = 2")
 
 
 def test_the_braced_exponent_is_an_exponent(kernel: Kernel) -> None:

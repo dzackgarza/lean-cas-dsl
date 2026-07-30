@@ -110,6 +110,16 @@ def promote : Value → Value → Option Common
   | a@(.bool _), b@(.bool _) => some (.same a b)
   | _, _ => none
 
+/-- Does this value have SCALAR arithmetic — one of the kinds `binOp` actually
+computes with? `Common.same` is NOT one: two polynomials (or two truth values)
+share a shape, not an operation, and a fold that starts from `1` would report
+the accumulator rather than the refusal. Named because more than one caller
+asks it (the power path here; products over a range next). -/
+def hasScalarArithmetic (v : Value) : Bool :=
+  match promote v v with
+  | some (.int ..) | some (.rat ..) | some (.mod ..) | some (.alg ..) => true
+  | some (.same ..) | none => false
+
 /-- A cardinal against an integer. SPEC.md writes `|A| = 3` and `|E| = ℵ₀`,
 so a FINITE cardinal answers to the natural number counting it; ℵ₀ answers
 to no integer, and a negative integer counts nothing — both are `false`, not
@@ -238,9 +248,10 @@ def scalarPow (a e : Value) : Except String Value :=
   match exponent? e with
   | none => .error s!"exponentiation needs a nonnegative integer exponent, got {e.render}"
   | some k =>
-      -- the fold multiplies up from 1, so a base with no arithmetic at all
+      -- the fold multiplies up from 1, so a base without scalar arithmetic
       -- would otherwise be reported as a multiplication by a `1` nobody wrote
-      if (promote a a).isNone then .error (noArithmetic "exponentiation" a) else
+      -- — or, at exponent 0, answer with that `1`
+      if !hasScalarArithmetic a then .error (noArithmetic "exponentiation" a) else
       let one : Value := match a with
         | .rat _ => .rat 1
         | .mod n _ => Value.mkMod n 1

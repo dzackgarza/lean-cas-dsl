@@ -148,8 +148,12 @@ private def approxRealArgs (receiver : Obj) (args : Array Obj)
   match receiver, args with
   | .elem .real v, #[.elem _ eps] => do
       return Json.mkObj [("value", ← algArg v), ("eps", ← ratArg eps)]
-  | .elem .real _, #[o] => .error (.badRequest
-      s!"sage op \"approx_real\" expects a rational tolerance, got {o.presentation}")
+  -- unreachable while the surface guard holds: `Eval.approxEps?` validates the
+  -- tolerance for EVERY spelling of the request, so reaching this means that
+  -- guard was bypassed — a defect here, not a user error
+  | .elem .real _, #[o] => .error (.protocolError
+      s!"sage: approx_real received the tolerance {o.presentation}, which the \
+surface guard should already have refused")
   | .elem .real _, as => .error (.badRequest
       s!"sage op \"approx_real\" takes one argument, got {as.size}")
   | o, _ => .error (offSignature "approx_real" o)

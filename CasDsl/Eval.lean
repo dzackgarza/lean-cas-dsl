@@ -134,6 +134,12 @@ The registry is threaded as a plain `Array CanonicalMap` rather than read from
 the `Environment` here, so the whole layer stays `#guard`-testable; `eval`
 passes `canonicalMaps ctx.env`. -/
 
+/-- A value with no domain is a RESULT, not an element of one — the shared
+wording, so a set literal and a coercion refuse it for the same stated reason. -/
+def notAnElement (v : Value) (what : String) : String :=
+  s!"{v.render} is a RESULT and not an element of any domain — like a \
+factorization or a cardinal, and an approximation with it — so {what}"
+
 /-- Mathematician-facing rendering of a pattern. Defined here because the
 canonical-map-registry defect messages name the two rules that clashed; the
 diagnostics below share it. -/
@@ -247,9 +253,7 @@ partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
           let noEmbedding : Except String Value :=
             .error s!"there is no preferred canonical map of {v.render} into {d.render}"
           let some src := valueDom? v
-            | .error s!"{v.render} is a RESULT and not an element of any domain \
-— like a factorization or a cardinal, and an approximation with it — so there \
-is nothing to carry into {d.render}"
+            | .error (notAnElement v s!"there is nothing to carry into {d.render}")
           match ← canonicalMapFor rules src d with
           | some r => r.op.apply d v
           | none => noEmbedding
@@ -461,7 +465,7 @@ def elemsDomain (rules : Array CanonicalMap) (vs : Array Value)
     : Except String Domain :=
   vs.foldlM (init := Domain.int) fun d v =>
     match valueDom? v with
-    | none => .error s!"{v.render} cannot be an element of a set literal"
+    | none => .error (notAnElement v "it cannot be an element of a set literal")
     | some d' => do
         match ← domJoin rules d d' with
         | some j => .ok j
@@ -712,12 +716,12 @@ an irrational number, so an absolute tolerance is a POSITIVE rational"
     s!"O({Value.tolText q}) is not a tolerance: an absolute tolerance is a \
 POSITIVE rational, and a negative bound is not one a decimal could ever meet"
 
-def toleranceOf (d : Denote) : Except String Rat :=
-  match d.value?.bind Native.toRat? with
+def toleranceOf (v? : Option Value) (presentation : String) : Except String Rat :=
+  match v?.bind Native.toRat? with
   | some q => if Rat.blt 0 q then .ok q else .error (notATolerance q)
   | none =>
       .error s!"the tolerance of `ℝ/O(ε)` is an exact positive rational, and \
-{d.presentation} is not one"
+{presentation} is not one"
 
 inductive EvalError where
   | msg (m : String)
@@ -896,11 +900,12 @@ def EvalCtx.literal (ctx : EvalCtx) (z : Int) : Value :=
 for the tolerance the same way (issue #7, criterion 3, which is not
 spelling-scoped); the guard therefore sits in `callMethod`, where every
 spelling meets. `none` = not an approximation request. -/
-private def approxEps? (m : Name) (args : Array Obj) : Option Rat :=
+private def approxEps? (m : Name) (args : Array Obj) : Option (Except String Rat) :=
   if m != `approximate then none
   else match (args[0]? : Option Obj) with
-    | some (.elem _ v) => Native.toRat? v
-    | _ => none
+    | some (.elem _ v) => some (toleranceOf (some v) v.render)
+    | some o => some (toleranceOf none o.presentation)
+    | none => some (toleranceOf none "no argument")
 
 /-- Resolve (semantics), route (computability), execute — the ONLY path from
 the surface to an implementation.
@@ -932,15 +937,23 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
   match approxEps? m args with
   | none => runMethod ctx recv m args
-  | some eps =>
-      unless Rat.blt 0 eps do throw (.msg (notATolerance eps))
-      tryCatch (runMethod ctx recv m args) fun err => throw (.approxRequest eps err)
+  | some eps? =>
+      let eps ← ofStr eps?
+      -- ONLY the failures a tolerance could be the reason for: a missing route
+      -- and a backend that could not meet it. A resolve or arity failure is
+      -- about the receiver or the call, and saying "no backend produced a
+      -- decimal" over a body that names the profile would be a lie in the
+      -- wrapper's own words.
+      tryCatch (runMethod ctx recv m args) fun err =>
+        match err with
+        | .gap _ | .exec _ => throw (.approxRequest eps err)
+        | err => throw err
 
-/-- A `let` binds an OBJECT, and a result with no domain is not one. Shared by
-the two places that ask for one, so the cause is stated wherever it bites. -/
+/-- A result with no domain is not an object. Shared by the two places that ask
+for one, so the cause is stated wherever it bites. -/
 def notAnObject (rendered : String) : String :=
-  s!"{rendered} is not an object: a `let` binds an object, and a RESULT with no \
-domain — a factorization, a cardinal, an approximation — has none"
+  s!"{rendered} is not an object: a RESULT with no domain — a factorization, a \
+cardinal, an approximation — has none"
 
 private def asValueOf (r : Denote) (what : String := "this position") : Except String Value :=
   match r.value? with
@@ -1187,10 +1200,11 @@ domain, not of {s.render}")
   -- decides whether a decimal to that tolerance can be COMPUTED. `ℝ/O(ε)` is
   -- not a domain, so no third judgment about it exists to get wrong.
   | .mapTo e (.approxTarget epsE) => do
-      let eps ← ofStr (toleranceOf (← eval ctx epsE))
+      let d ← eval ctx epsE
+      let eps ← ofStr (toleranceOf d.value? d.presentation)
       let v ← ofStr (asValueOf (← eval ctx e) "`map … to ℝ/O(ε)`")
       let r ← ofStr (coerceValue ctx.canonMaps .real v)
-      callMethod ctx (.elem .real r) `approximate #[.elem .rat (.rat eps)]
+      callMethod ctx (.elem .real r) `approximate #[.elem .rat (Value.ofRat eps)]
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
