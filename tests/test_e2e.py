@@ -1112,6 +1112,30 @@ def test_the_approximation_target_is_not_a_domain(kernel: Kernel) -> None:
         assert "not a domain" in text and "not transitive" in text, code
 
 
+def test_the_tolerance_is_read_from_the_surface_spelling(kernel: Kernel) -> None:
+    _, kc = kernel
+    # ε is an exact rational, whatever the spelling computes to — a reciprocal
+    # power of TWO is displayed as the rational it is, since only a power of
+    # ten has the `1/10^{k}` spelling SPEC.md writes
+    assert ("1.4142135623730950 + O(1/9007199254740992)"
+            in ok(kc, "map √2 to ℝ/O(1/2^{53})"))
+    assert "1.4 + O(1/3)" in ok(kc, "map √2 to ℝ/O(1/3)")
+
+
+def test_an_approximation_is_a_result_not_a_binding(kernel: Kernel) -> None:
+    _, kc = kernel
+    # DISCLOSED, and shared with every other domainless result (a
+    # factorization, an ideal, a cardinal): a `let` binds an OBJECT, and an
+    # approximation presents no domain — it is not an element of ℝ/O(ε),
+    # because there is nothing to be an element of. It displays and it fails
+    # loudly; it does not bind to something it is not.
+    assert "is not an object" in err(kc, "let ap := map √2 to ℝ/O(1/10^{4})")
+    assert "is not an object" in err(kc, "let apf := n.factor()")   # n = 360
+    # …and two approximations are not compared: |a − b| < ε is not transitive,
+    # so the honest outcome is `unknown` rather than a decided equality
+    assert "unknown" in err(kc, "assert (map √2 to ℝ/O(1/10^{4})) = 1")
+
+
 def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
     _, kc = kernel
     # a requested tolerance is not an error term, and this slice does not
