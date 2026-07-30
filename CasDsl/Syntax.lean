@@ -46,6 +46,7 @@ syntax:max (name := casNatDom) "ℕ" : casTerm
 syntax:max (name := casIntDom) "ℤ" : casTerm
 syntax:max (name := casRatDom) "ℚ" : casTerm
 syntax:max (name := casRealDom) "ℝ" : casTerm
+syntax:max (name := casAleph) "ℵ₀" : casTerm
 syntax:max (name := casImplMul) num noWs ident : casTerm
 syntax:max (name := casNum) num : casTerm
 syntax:max (name := casIdent) ident : casTerm
@@ -61,6 +62,15 @@ syntax (name := casSetElem) casTerm : casSetItem
 syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
 syntax:max (name := casApply) casTerm:max noWs "(" casTerm,* ")" : casTerm
 
+/-- `|A|` — SPEC.md's cardinality bars, which ARE the `cardinality` method:
+the bars are a spelling, and a receiver that is not a set gets the ordinary
+"not a method of any category this object belongs to" error. -/
+syntax:max (name := casCard) "|" casTerm "|" : casTerm
+
+/-- `𝒫(A)`. SPEC.md's other spelling, `2^A`, is the ordinary `^` production
+read against a set (`Eval`). -/
+syntax:max (name := casPowerset) "𝒫" noWs "(" casTerm ")" : casTerm
+
 /-- Superscript exponents (`t²`, `x³`) — SPEC.md spells powers both ways, and
 `assert h = hp` is precisely the claim that the two spellings agree. CEILING:
 one digit; `^` covers everything larger. -/
@@ -72,8 +82,22 @@ syntax:75 (name := casComp) casTerm:75 " ∘ " casTerm:76 : casTerm
 syntax:75 (name := casNeg) "-" casTerm:75 : casTerm
 syntax:70 (name := casMul) casTerm:70 " * " casTerm:71 : casTerm
 syntax:70 (name := casDiv) casTerm:70 " / " casTerm:71 : casTerm
+syntax:70 (name := casInter) casTerm:70 " ∩ " casTerm:71 : casTerm
+syntax:70 (name := casProd) casTerm:70 " × " casTerm:71 : casTerm
 syntax:65 (name := casAdd) casTerm:65 " + " casTerm:66 : casTerm
 syntax:65 (name := casSub) casTerm:65 " - " casTerm:66 : casTerm
+syntax:65 (name := casUnion) casTerm:65 " ∪ " casTerm:66 : casTerm
+syntax:65 (name := casSetDiff) casTerm:65 " \\ " casTerm:66 : casTerm
+syntax:65 (name := casSymDiff) casTerm:65 " △ " casTerm:66 : casTerm
+
+/-- Order comparisons, and the CHAIN `0 ≤ n < 6` SPEC.md writes in a bounded
+comprehension. The chain is a separate production rather than a fold, because
+`(0 ≤ n) < 6` is not what a mathematician wrote. -/
+syntax casCmpOp := " ≤ " <|> " < " <|> " ≥ " <|> " > "
+
+syntax:50 (name := casCmp) casTerm:51 casCmpOp casTerm:51 : casTerm
+syntax:50 (name := casCmpChain)
+  casTerm:51 casCmpOp casTerm:51 casCmpOp casTerm:51 : casTerm
 syntax:25 (name := casArrow) casTerm:26 (" → " <|> " -> ") casTerm:25 : casTerm
 syntax:20 (name := casMap) "map " casTerm:21 " to " casTerm:21 : casTerm
 syntax:10 (name := casLam) casTerm:11 " ↦ " casTerm:10 : casTerm
@@ -82,6 +106,11 @@ syntax (name := casRelEq) "=" : casRel
 syntax (name := casRelNe) "≠" : casRel
 syntax (name := casRelMem) "∈" : casRel
 syntax (name := casRelNotMem) "∉" : casRel
+syntax (name := casRelSubset) "⊆" : casRel
+/-- SPEC.md's ASCII spelling of `∈` (`assert S in 𝒫(ℤ)`). It sits in relation
+position, where the `in D` ambient tail cannot be: that tail follows a
+complete relation. -/
+syntax (name := casRelIn) "in" : casRel
 
 /-! ## Syntax → `CasExpr` -/
 
@@ -119,12 +148,22 @@ private def natLit (stx : Syntax) : Except String Nat :=
   | some n => .ok n
   | none => .error s!"expected a numeral, got {stx}"
 
+/-- The comparison a `casCmpOp` node spells. -/
+private def cmpOp (stx : Syntax) : Except String CmpOp :=
+  match (stx[0].reprint.getD "").trimAscii.toString with
+  | "≤" => .ok .le
+  | "<" => .ok .lt
+  | "≥" => .ok .ge
+  | ">" => .ok .gt
+  | other => .error s!"{other} is not a comparison"
+
 partial def toExpr (stx : Syntax) : Except String CasExpr := do
   match stx.getKind with
   | ``casNatDom => return .dom .nat
   | ``casIntDom => return .dom .int
   | ``casRatDom => return .dom .rat
   | ``casRealDom => return .dom .real
+  | ``casAleph => return .lit (.cardinal .countablyInfinite)
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
   | ``casImplMul =>
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.ref stx[1].getId)
@@ -143,6 +182,20 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
       return .bin .pow (← toExpr stx[0]) (.num (Int.ofNat k))
   | ``casComp => return .comp (← toExpr stx[0]) (← toExpr stx[2])
   | ``casArrow => return .arrow (← toExpr stx[0]) (← toExpr stx[2])
+  -- the set operations ARE the Sets methods, so they desugar to the calls
+  -- `eval` dispatches on and `#explain_route` explains
+  | ``casUnion => return .method (← toExpr stx[0]) `union #[← toExpr stx[2]]
+  | ``casInter => return .method (← toExpr stx[0]) `intersect #[← toExpr stx[2]]
+  | ``casSetDiff => return .method (← toExpr stx[0]) `diff #[← toExpr stx[2]]
+  | ``casSymDiff => return .method (← toExpr stx[0]) `symdiff #[← toExpr stx[2]]
+  | ``casCard => return .method (← toExpr stx[1]) `cardinality #[]
+  | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casPowerset => return .powersetOf (← toExpr stx[2])
+  | ``casCmp => return .cmp (← cmpOp stx[1]) (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casCmpChain => do
+      let mid ← toExpr stx[2]
+      return .conj (.cmp (← cmpOp stx[1]) (← toExpr stx[0]) mid)
+        (.cmp (← cmpOp stx[3]) mid (← toExpr stx[4]))
   | ``casLam => do
       match ← toExpr stx[0] with
       | .ref b => return .lam b (← toExpr stx[2])
@@ -258,8 +311,9 @@ def elabCasAssert (lhs relStx rhs : Syntax) (tail? : Option Syntax)
   let rel : AssertRel ← match relStx.getKind with
     | ``casRelEq => pure .eq
     | ``casRelNe => pure .ne
-    | ``casRelMem => pure .mem
+    | ``casRelMem | ``casRelIn => pure .mem
     | ``casRelNotMem => pure .notMem
+    | ``casRelSubset => pure .subset
     | k => throwError s!"unsupported assertion relation '{k}'"
   let l ← parseCas lhs
   let r ← parseCas rhs

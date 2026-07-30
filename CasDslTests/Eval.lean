@@ -375,6 +375,52 @@ let f := x ↦ 3*x² + x + 1 in ℚ[x]
 assert f.deg() = 2
 assert f(2) = 15
 
+/-! ## SPEC.md's Finite sets section, verbatim
+
+Every line of `SPEC.md` §Finite sets runs here, so a false assertion fails
+the build. Both powerset ascriptions are exercised (`𝒫(ℤ)` and `2^ℤ`), and
+each operator family carries its false case — as an `≠` where the surface
+can state one, and as a `Native.run` guard where a false `assert` would
+simply be a build error. -/
+
+let A := {1, 2, 3} in 𝒫(ℤ)
+let B := {3, 4, 5} in 2^ℤ
+
+assert A ∪ B = {1, 2, 3, 4, 5}
+assert A ∩ B = {3}
+assert A \ B = {1, 2}
+assert A △ B = {1, 2, 4, 5}
+
+assert |A| = 3
+assert |A × B| = 9
+assert |𝒫(A)| = 2^|A|
+
+assert 2 ∈ A
+assert 4 ∉ A
+assert A ⊆ A ∪ B
+assert A ∩ B ⊆ A
+
+-- each operator family gets a wrong answer it must reject
+assert A ∪ B ≠ {1, 2, 3, 4}
+assert A ∩ B ≠ {3, 4}
+assert A \ B ≠ {1, 2, 3}
+assert A △ B ≠ {1, 2, 4}
+assert |A| ≠ 4
+assert |A × B| ≠ 8
+assert |𝒫(A)| ≠ 2^|A ∪ B|
+
+-- the ascription is a CHECKED membership judgment, in the surface's own
+-- spelling too: SPEC.md writes the ASCII `in` for `∈`
+assert A in 𝒫(ℤ)
+assert A ∈ 𝒫(ℤ)
+assert A ∪ B ∉ 𝒫(A)
+
+-- an inclusion the presentations settle to FALSE (a false `assert` is a
+-- build error, so the negative case is stated through the executor)
+#guard (Native.run "subset" (.setObj (.finite .int #[.int 1, .int 2, .int 3]))
+    #[.setObj (.finite .int #[.int 3, .int 4, .int 5])]).toOption
+  == some (Value.bool false)
+
 /-- A genuine Lean command in a cell is unaffected by the low-priority
 bare-expression production. -/
 def foo : Nat := 1

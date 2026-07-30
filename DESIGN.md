@@ -200,6 +200,51 @@ Functions consequently register NO category, method or route: nothing about
 them is a computability question this slice can route, so the registries are
 untouched.
 
+## Sets (`SPEC.md` §Finite sets, issue #24)
+
+The set operations SPEC.md writes — `∪ ∩ \ △ × 𝒫 |·| ⊆ ∈` — are all
+category-owned methods on `Sets`, reached by the ordinary resolver and
+router, except the two that construct rather than compute.
+
+- **`A × B` and `𝒫(A)` are PRESENTATIONS, not element lists.** Their
+  elements are pairs and sets, and `Value` presents neither; a `SetPresentation`
+  constructor is therefore the only honest way to denote them, exactly as
+  `arithProg` denotes `{0, 2, 4, …}`. They are built by elaboration like a set
+  literal — no method, no route — and the consequences are stated rather
+  than hidden: `|A × B|` and `|𝒫(A)|` are exact cardinal arithmetic
+  (`Native.presCard`), while everything that would need an element list
+  (`nth`, `contains` on a product, set equality, the binary operations)
+  fails loudly. `𝒫` of a countably infinite set is UNCOUNTABLE, which
+  `Cardinality` deliberately cannot state, so `|𝒫(ℕ)|` reports that it
+  cannot be stated — never `ℵ₀`.
+- **`|·|` is the `cardinality` method and `⊆` is `subset`**; the bars and the
+  symbol are spellings, so `|3|` is the ordinary "not a method of any
+  category this object belongs to" error rather than a second notion of size.
+  Likewise `X ∈ 𝒫(A)` and `X ⊆ A` are ONE decision procedure with two
+  spellings: `contains` on a powerset receiver is the inclusion judgment.
+- **`let A := {1,2,3} in 𝒫(ℤ)` is set membership**, and both SPEC.md
+  spellings of the ascription (`𝒫(ℤ)`, `2^ℤ`) build the same presentation —
+  `2^X` is read as the powerset only when the base is the literal `2` and the
+  exponent is a set. An ascription naming a SET is checked through the same
+  routed `contains` the surface's `∈` uses, so the ascription cannot decide
+  membership differently from the assertion.
+- **Only explicit finite receivers are routed for `∪ ∩ \ △`.** The operations
+  are declared on `Sets`, where they are meaningful for every presentation;
+  the native routes accept `finiteSet`, so `ℤ ∪ A` resolves and then reports
+  the structured gap. Mixing ELEMENT domains inside one operation is refused
+  rather than joined: the pure native backend cannot read the preferred-
+  canonical-map registry the surface joins literals with.
+- **Domain inclusion is the canonical-map registry's claim.** `ℕ ⊆ ℤ` is
+  refused by the set layer rather than answered there — DESIGN.md §Coercions
+  already owns which domains include which, and answering it twice would be
+  two places to get it wrong. Inclusion answers `false` without a decision
+  procedure only where the normal forms make it a theorem (a countably
+  infinite domain or an unbounded progression is not inside a finite list).
+- **A finite cardinal answers to the integer counting it** (`|A| = 3`), ℵ₀
+  answers to no integer, and `2^|A|` exponentiates by a finite cardinal —
+  which is what makes `|𝒫(A)| = 2^|A|` a computed identity. `2^ℵ₀` has no
+  exponent here and says so.
+
 ## Categories (`Category.lean`, `Registry.lean`)
 
 ```lean
@@ -444,9 +489,13 @@ p.deg()   p.roots()   a.gcd(30)            -- polynomial and UFD methods
 gcd(84, 30)                               -- …and the PREFIX spelling of one
 q(1)   h(3)   h(-t)   (f ∘ g)(t)          -- call/compose: inserted coercions
 ℤ[3]                                      -- nth element (numeral ⇒ index)
+let A := {1, 2, 3} in 𝒫(ℤ)                -- powerset ascription (also 2^ℤ)
+A ∪ B   A ∩ B   A \ B   A △ B             -- the Sets methods, spelled
+A × B   𝒫(A)   |A|   2^|A|                -- denoted sets, and cardinality
 assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
 assert x ∈ ℤ[x]       assert p ∈ ℚ[x]
+assert A ⊆ A ∪ B      assert A in 𝒫(ℤ)    -- `in` is SPEC.md's ASCII `∈`
 #explain_route <expr>   #capabilities   #capability_gaps
 ```
 

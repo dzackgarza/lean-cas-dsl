@@ -44,6 +44,14 @@ def promote : Value → Value → Option (Value × Value)
   | a@(.bool _), b@(.bool _) => some (a, b)
   | _, _ => none
 
+/-- A cardinal against an integer. SPEC.md writes `|A| = 3` and `|E| = ℵ₀`,
+so a FINITE cardinal answers to the natural number counting it; ℵ₀ answers
+to no integer, and a negative integer counts nothing — both are `false`, not
+"unknown", because the comparison is perfectly decided. -/
+private def cardEqInt : Cardinality → Int → Bool
+  | .finite n, z => Int.ofNat n == z
+  | .countablyInfinite, _ => false
+
 /-- Equality after promotion; `none` = incomparable kinds (never `false`,
 which would claim a mathematical judgment we did not make).
 
@@ -56,6 +64,7 @@ def valueEq (a b : Value) : Option Bool :=
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
       else (promote fb gb).map fun (x, y) => x == y
+  | .cardinal c, .int z | .int z, .cardinal c => some (cardEqInt c z)
   | _, _ => (promote a b).map fun (x, y) => x == y
 
 private def ratCmp (x y : Rat) : Ordering :=
@@ -98,6 +107,10 @@ def scalarNeg : Value → Except String Value
 private def exponent? : Value → Option Nat
   | .int z => if z < 0 then none else some z.toNat
   | .rat q => if q.den == 1 && q.num ≥ 0 then some q.num.toNat else none
+  -- SPEC.md's `|𝒫(A)| = 2^|A|`: a FINITE cardinal is the number it counts.
+  -- `2^ℵ₀` has no exponent here and fails loudly — this slice's `Cardinality`
+  -- has no uncountable constructor, so the honest outcome is the refusal
+  | .cardinal (.finite n) => some n
   | _ => none
 
 /-- Exponent must be a nonnegative integer: no rational powers, no inverses
@@ -290,6 +303,47 @@ private def progContains (first step : Value) (last? : Option Value) (x : Value)
       -- `t ≤ (last − first)/step` is the bound in either direction
       return .bool (!((lv - f) / s).blt t)
 
+/-! ## Cardinality of a presentation
+
+`|A|` reads every presentation, including the two that are DENOTED rather
+than listed: the product and the powerset multiply and exponentiate
+cardinals exactly. `𝒫` of a countably infinite set is uncountable, which
+this slice's `Cardinality` deliberately cannot state — so it fails loudly
+instead of inventing ℵ₀. -/
+
+private def cardMul : Cardinality → Cardinality → Cardinality
+  -- the empty factor wins: |∅ × ℕ| = 0, not ℵ₀
+  | .finite 0, _ | _, .finite 0 => .finite 0
+  | .finite m, .finite n => .finite (m * n)
+  | _, _ => .countablyInfinite
+
+/-- Exponent past which `2^n` stops being a number worth materializing.
+A loud ceiling, not a fallback: `𝒫(ℤ/100000)` says so rather than hanging. -/
+private def powersetExpCap : Nat := 4096
+
+partial def presCard : SetPresentation → Except ExecError Cardinality
+  | .finite _ elems => .ok (.finite (dedupValues elems).size)
+  | .domainSet d =>
+      match domainCard d with
+      | some c => .ok c
+      | none => .error (.badRequest
+          s!"the native backend cannot express the cardinality of {d.render}")
+  | .arithProg _ first step last? => do
+      match ← progCount first step last? with
+      | none => return .countablyInfinite
+      | some n => return .finite n
+  | .product a b => do return cardMul (← presCard a) (← presCard b)
+  | .powerset s => do
+      match ← presCard s with
+      | .finite n =>
+          if n ≤ powersetExpCap then return .finite (2 ^ n)
+          else .error (.badRequest
+            s!"2^{n} is too large to present as a cardinal here (cap {powersetExpCap})")
+      | .countablyInfinite =>
+          .error (.badRequest
+            "the powerset of a countably infinite set is uncountable, which this \
+slice's Cardinality cannot state")
+
 /-! ## Set equality by presentation normalization
 
 The documented ceiling (DESIGN.md): canonical forms compare ELEMENT SETS,
@@ -332,6 +386,11 @@ is not expressible here")
       | d => .error (.badRequest
           s!"the native backend cannot expand {d.render} ({n} elements) for comparison")
 
+/-- A rational back as the value presenting it: an integral rational is the
+integer, so a normalized element list compares with a literal one. -/
+private def ofRat (q : Rat) : Value :=
+  if q.den == 1 then .int q.num else .rat q
+
 private def normalizeProg (first step : Value) (last? : Option Value)
     : Except ExecError SetNormal := do
   let some f := toRat? first
@@ -348,8 +407,7 @@ private def normalizeProg (first step : Value) (last? : Option Value)
 {expansionCap} for comparison")
       else
         return .fin <| sortDedup <| (Array.range n).map fun i =>
-          let q := f + Rat.ofInt (Int.ofNat i) * s
-          if q.den == 1 then Value.int q.num else Value.rat q
+          ofRat (f + Rat.ofInt (Int.ofNat i) * s)
 
 private def normalizeSet : Obj → Except ExecError SetNormal
   | .setObj (.finite _ elems) =>
@@ -358,6 +416,11 @@ private def normalizeSet : Obj → Except ExecError SetNormal
         "set equality compares scalar elements only (documented ceiling)")
   | .setObj (.domainSet d) | .domainObj d => normalizeDomain d
   | .setObj (.arithProg _ first step last?) => normalizeProg first step last?
+  -- a denoted set has no canonical form here: comparing `A × B` or `𝒫(A)`
+  -- with anything would need element lists this ontology does not present
+  | o@(.setObj (.product ..)) | o@(.setObj (.powerset _)) =>
+      .error (.badRequest s!"the native backend cannot normalize {o.presentation} \
+for comparison: a denoted set has no element list here")
   | o => .error (.badRequest s!"{o.presentation} is not a set")
 
 private def setNormalEq : SetNormal → SetNormal → Bool
@@ -367,6 +430,60 @@ private def setNormalEq : SetNormal → SetNormal → Bool
   | .dom d1, .dom d2 => d1 == d2
   | _, _ => false
 
+/-! ## Inclusion by presentation normalization
+
+`A ⊆ B` is decided from the same canonical forms as equality, and refuses
+loudly wherever the presentations do not settle it. Only two things are ever
+answered `false` without a decision procedure, and both are theorems about
+the forms themselves: a `dom` normal form is countably infinite here (finite
+domains expand to `fin`), and a `prog` normal form is unbounded — neither
+fits inside a finite list.
+
+The deliberate hole: `dom ⊆ dom` between DIFFERENT domains. `ℕ ⊆ ℤ ⊆ ℚ` is
+the preferred-canonical-map registry's claim (DESIGN.md §Coercions), not a
+fact this backend may restate — so it is refused here rather than answered
+twice. -/
+
+private def normalSubset : SetNormal → SetNormal → Except ExecError Bool
+  | .fin a, .fin b =>
+      .ok (a.all fun x => b.any fun y => valueEq x y == some true)
+  | .fin a, .dom d =>
+      a.foldlM (init := true) fun acc x =>
+        match inDomain? d x with
+        | some m => .ok (acc && m)
+        | none => .error (.badRequest
+            s!"the native backend has no membership test for {d.render}")
+  | .fin a, .prog f s =>
+      a.foldlM (init := true) fun acc x => do
+        match ← progContains (ofRat f) (ofRat s) none x with
+        | .bool m => return acc && m
+        | v => .error (.badRequest s!"membership returned {v.render}")
+  -- {f + k·s : k ≥ 0} ⊆ d, decided from the two rationals presenting it
+  | .prog f s, .dom d =>
+      match d with
+      | .rat => .ok true
+      | .int | .mod _ => .ok (f.den == 1 && s.den == 1)
+      | .nat => .ok (f.den == 1 && s.den == 1 && !f.blt 0 && !s.blt 0)
+      | d => .error (.badRequest
+          s!"the native backend cannot decide inclusion of a progression in {d.render}")
+  | .dom d1, .dom d2 =>
+      if d1 == d2 then .ok true
+      else .error (.badRequest
+        s!"whether {d1.render} ⊆ {d2.render} is the preferred-canonical-map \
+registry's claim, not one presentation normalization decides")
+  -- an infinite normal form (a countably infinite domain, an unbounded
+  -- progression) is not contained in a finite list
+  | .dom _, .fin _ | .prog .., .fin _ => .ok false
+  | .prog f1 s1, .prog f2 s2 =>
+      if f1 == f2 && s1 == s2 then .ok true
+      else .error (.badRequest
+        "the native backend decides inclusion between two progressions only when \
+they are the same progression")
+  | .dom d, .prog f s =>
+      .error (.badRequest
+        s!"the native backend cannot decide whether {d.render} lies inside the \
+progression starting {(ofRat f).render} with step {(ofRat s).render}")
+
 /-! ## Operations -/
 
 private def scalarArg (op : String) (args : Array Obj) : Except ExecError Value :=
@@ -374,6 +491,38 @@ private def scalarArg (op : String) (args : Array Obj) : Except ExecError Value 
   | some (.elem _ v) => .ok v
   | some o => .error (.badRequest s!"{op} expects a scalar argument, got {o.presentation}")
   | none => .error (.badRequest s!"{op} expects one argument")
+
+/-- The explicit element list of a finite set. The binary set operations are
+routed for `finiteSet` receivers only, so this is the receiver's routed
+shape; the ARGUMENT is validated here (this slice validates arguments at
+execution). -/
+private def finiteElems (op : String) (o : Obj) : Except ExecError (Domain × Array Value) :=
+  match o with
+  | .setObj (.finite d es) => .ok (d, es)
+  | o => .error (.badRequest
+      s!"{op} needs an explicit finite set, got {o.presentation}")
+
+private def setArg (op : String) (args : Array Obj) : Except ExecError Obj :=
+  match (args[0]? : Option Obj) with
+  | some o => .ok o
+  | none => .error (.badRequest s!"{op} expects one set argument")
+
+private def memOf (elems : Array Value) (x : Value) : Bool :=
+  elems.any fun e => valueEq e x == some true
+
+/-- A binary operation on two explicit finite sets over ONE element domain.
+CEILING: mixing element domains is refused rather than joined — the
+preferred-canonical-map registry the surface joins literals with is not
+readable from this pure backend. -/
+private def binarySetOp (op : String) (o : Obj) (args : Array Obj)
+    (combine : Array Value → Array Value → Array Value) : Except ExecError Value := do
+  let (d, a) ← finiteElems op o
+  let (d', b) ← finiteElems op (← setArg op args)
+  if d != d' then
+    .error (.badRequest s!"{op} needs both sets over one element domain, got \
+{d.render} and {d'.render}")
+  else
+    return .setV (dedupValues (combine a b)) d
 
 private def natIndex (args : Array Obj) : Except ExecError Nat :=
   match (args[0]? : Option Obj) with
@@ -419,33 +568,44 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
       | .setObj (.arithProg _ first step last?) => progNth first step last? k
       | o => .error (.badRequest
           s!"the native backend cannot enumerate {o.presentation}")
-  | "cardinality" =>
+  | "cardinality" => do
       match o with
-      | .setObj (.finite _ elems) => .ok (.cardinal (.finite (dedupValues elems).size))
-      | .setObj (.domainSet d) | .domainObj d =>
-          match domainCard d with
-          | some c => .ok (.cardinal c)
-          | none => .error (.badRequest
-              s!"the native backend cannot express the cardinality of {d.render}")
-      | .setObj (.arithProg _ first step last?) => do
-          match ← progCount first step last? with
-          | none => return .cardinal .countablyInfinite
-          | some n => return .cardinal (.finite n)
+      | .setObj s => return .cardinal (← presCard s)
+      | .domainObj d => return .cardinal (← presCard (.domainSet d))
       | o => .error (.badRequest s!"the native backend cannot count {o.presentation}")
   | "contains" => do
-      let x ← scalarArg "contains" args
       match o with
-      | .setObj (.finite _ elems) =>
-          return .bool (elems.any fun e => valueEq e x == some true)
-      | .setObj (.arithProg _ first step last?) => progContains first step last? x
-      | .setObj (.domainSet d) | .domainObj d => domainContains d x
-      | o => .error (.badRequest s!"{o.presentation} is not a set")
+      -- membership in a powerset IS the inclusion judgment, so `X ∈ 𝒫(A)`
+      -- and `X ⊆ A` are one decision procedure with two spellings
+      | .setObj (.powerset s) =>
+          let x ← setArg "contains" args
+          return .bool (← normalSubset (← normalizeSet x) (← normalizeSet (.setObj s)))
+      | .setObj (.product ..) =>
+          .error (.badRequest s!"{o.presentation} has pairs for elements, which \
+this slice presents no value for")
+      | o =>
+        let x ← scalarArg "contains" args
+        match o with
+        | .setObj (.finite _ elems) => return .bool (memOf elems x)
+        | .setObj (.arithProg _ first step last?) => progContains first step last? x
+        | .setObj (.domainSet d) | .domainObj d => domainContains d x
+        | o => .error (.badRequest s!"{o.presentation} is not a set")
   | "set_eq" => do
-      let some rhs := args[0]?
-        | .error (.badRequest "set_eq expects one set argument")
+      let rhs ← setArg "set_eq" args
       let a ← normalizeSet o
       let b ← normalizeSet rhs
       return .bool (setNormalEq a b)
+  | "subset" => do
+      let rhs ← setArg "subset" args
+      return .bool (← normalSubset (← normalizeSet o) (← normalizeSet rhs))
+  | "set_union" => binarySetOp "set_union" o args (· ++ ·)
+  | "set_intersect" =>
+      binarySetOp "set_intersect" o args fun a b => a.filter (memOf b)
+  | "set_diff" =>
+      binarySetOp "set_diff" o args fun a b => a.filter (!memOf b ·)
+  | "set_symdiff" =>
+      binarySetOp "set_symdiff" o args fun a b =>
+        a.filter (!memOf b ·) ++ b.filter (!memOf a ·)
   | "annihilator_cyclic" =>
       match o with
       | .cyclicModule n => .ok (.idealV #[.int (Int.ofNat n)] .int)
@@ -475,6 +635,13 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "cardinality", accepts := #[.anySet] },
   { backend := `native, opId := "contains", accepts := #[.anySet] },
   { backend := `native, opId := "set_eq", accepts := #[.anySet] },
+  { backend := `native, opId := "subset", accepts := #[.anySet] },
+  -- the binary set operations build an explicit element list, so they accept
+  -- explicit finite receivers ONLY: `ℤ ∪ A` is the honest capability gap
+  { backend := `native, opId := "set_union", accepts := #[.finiteSet] },
+  { backend := `native, opId := "set_intersect", accepts := #[.finiteSet] },
+  { backend := `native, opId := "set_diff", accepts := #[.finiteSet] },
+  { backend := `native, opId := "set_symdiff", accepts := #[.finiteSet] },
   { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] }
 ]
 

@@ -314,6 +314,81 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 #guard out "set_eq" (.setObj (.arithProg .nat (.int 0) (.int 1) (some (.int 100000))))
     #[.domainObj .nat] == none
 
+/-! ### SPEC.md §Finite sets: the binary operations, inclusion, and the two
+DENOTED presentations
+
+`A × B` and `𝒫(A)` are presentations rather than element lists (`Value` has
+no pair and no set-as-element), so `cardinality` reads them by exact cardinal
+arithmetic while every operation that would need their elements refuses. -/
+
+private def finSet (vs : List Int) : Obj := .setObj (.finite .int (ints vs))
+
+private def A123 : SetPresentation := .finite .int (ints [1, 2, 3])
+
+#guard out "set_union" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
+  some (.setV (ints [1, 2, 3, 4, 5]) .int)
+#guard out "set_intersect" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
+  some (.setV (ints [3]) .int)
+#guard out "set_diff" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
+  some (.setV (ints [1, 2]) .int)
+#guard out "set_symdiff" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
+  some (.setV (ints [1, 2, 4, 5]) .int)
+-- the result is a SET: a repeated element is not a second one
+#guard out "set_union" (finSet [1, 1]) #[finSet [1]] == some (.setV (ints [1]) .int)
+-- mixing element domains is refused, never joined: this backend cannot read
+-- the preferred-canonical-map registry the surface joins literals with
+#guard out "set_union" (finSet [1])
+    #[.setObj (.finite .rat #[.rat (mkRat 1 2)])] == none
+-- …and an infinite ARGUMENT is refused too, though only the receiver is routed
+#guard out "set_union" (finSet [1]) #[.domainObj .int] == none
+
+#guard out "subset" (finSet [1, 2]) #[finSet [1, 2, 3]] == some (.bool true)
+#guard out "subset" (finSet [1, 4]) #[finSet [1, 2, 3]] == some (.bool false)
+#guard out "subset" (finSet [1, 2]) #[.domainObj .int] == some (.bool true)
+#guard out "subset" (.setObj (.finite .rat #[.rat (mkRat 1 2)])) #[.domainObj .int] ==
+  some (.bool false)
+#guard out "subset" (.setObj (.arithProg .nat (.int 0) (.int 2) none))
+    #[.domainObj .nat] == some (.bool true)
+-- a progression running the other way leaves ℕ at once
+#guard out "subset" (.setObj (.arithProg .int (.int 0) (.int (-2)) none))
+    #[.domainObj .nat] == some (.bool false)
+-- an infinite normal form is not inside a finite list — provably false
+#guard out "subset" (.domainObj .int) #[finSet [1, 2]] == some (.bool false)
+-- …but ℕ ⊆ ℤ is the canonical-map registry's claim, and this backend refuses
+-- to restate it rather than answering it twice
+#guard out "subset" (.domainObj .nat) #[.domainObj .int] == none
+
+#guard out "cardinality" (.setObj (.product A123 (.finite .int (ints [3, 4, 5])))) #[] ==
+  some (.cardinal (.finite 9))
+#guard out "cardinality" (.setObj (.powerset A123)) #[] == some (.cardinal (.finite 8))
+-- the empty factor wins over an infinite one
+#guard out "cardinality" (.setObj (.product (.finite .int #[]) (.domainSet .nat))) #[] ==
+  some (.cardinal (.finite 0))
+#guard out "cardinality" (.setObj (.product (.domainSet .nat) (.domainSet .nat))) #[] ==
+  some (.cardinal .countablyInfinite)
+-- 𝒫(ℕ) is uncountable: this slice says it cannot state that, never ℵ₀
+#guard out "cardinality" (.setObj (.powerset (.domainSet .nat))) #[] == none
+
+-- membership in a powerset IS inclusion, decided by the same procedure
+#guard out "contains" (.setObj (.powerset A123)) #[finSet [1, 2]] == some (.bool true)
+#guard out "contains" (.setObj (.powerset A123)) #[finSet [1, 4]] == some (.bool false)
+-- a product has pairs for elements, which no `Value` presents
+#guard out "contains" (.setObj (.product A123 A123)) #[.elem .int (.int 1)] == none
+-- neither denoted set has a canonical form to compare
+#guard out "set_eq" (.setObj (.powerset A123)) #[.setObj (.powerset A123)] == none
+
+-- SPEC.md's `|A| = 3` and `|E| = ℵ₀`: a finite cardinal answers to the
+-- number counting it, and ℵ₀ answers to no integer
+#guard valueEq (.cardinal (.finite 3)) (.int 3) == some true
+#guard valueEq (.int 3) (.cardinal (.finite 3)) == some true
+#guard valueEq (.cardinal (.finite 3)) (.int 4) == some false
+#guard valueEq (.cardinal (.finite 3)) (.int (-1)) == some false
+#guard valueEq (.cardinal .countablyInfinite) (.int 3) == some false
+#guard valueEq (.cardinal .countablyInfinite) (.cardinal .countablyInfinite) == some true
+-- …and `2^|A|` exponentiates by it, while `2^ℵ₀` has no exponent here
+#guard (scalarPow (.int 2) (.cardinal (.finite 3))).toOption == some (.int 8)
+#guard (scalarPow (.int 2) (.cardinal .countablyInfinite)).toOption == none
+
 #guard out "annihilator_cyclic" (.cyclicModule 12) #[] ==
   some (.idealV #[.int 12] .int)
 #guard out "annihilator_cyclic" (.domainObj .int) #[] == none
@@ -336,6 +411,10 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 #guard PresPattern.implies (.progression .anyDom) .anySet
 #guard !PresPattern.implies .anySet (.domainIs (.exact .rat))
 #guard PresPattern.implies .cyclicMod .anyObj
+#guard PresPattern.implies .productSet .anySet
+#guard PresPattern.implies .powersetSet .anySet
+#guard !PresPattern.implies .anySet .powersetSet
+#guard !PresPattern.implies .productSet .powersetSet
 -- an element is not a set: no cross-shape leniency
 #guard !PresPattern.implies (.elemOf .anyDom) .anySet
 

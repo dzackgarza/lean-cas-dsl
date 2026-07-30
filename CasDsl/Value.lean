@@ -80,6 +80,15 @@ inductive SetPresentation where
   | arithProg (dom : Domain) (first step : Value) (last? : Option Value)
   /-- The underlying set of a domain (`ℤ` used as a set). -/
   | domainSet (d : Domain)
+  /-- `A × B`. A PRESENTATION rather than an element list because `Value` has
+  no pair: the product is denoted exactly, and the operations that need its
+  elements (`nth`, `contains`, set equality) fail honestly, while the one
+  SPEC.md asks for — `|A × B|` — is exact cardinal arithmetic. -/
+  | product (a b : SetPresentation)
+  /-- `𝒫(A)`, spelled `𝒫(A)` or `2^A`. A presentation for the same reason:
+  its elements are SETS, which no `Value` presents. `|𝒫(A)| = 2^|A|` is
+  cardinal arithmetic, and `X ∈ 𝒫(A)` is the subset judgment. -/
+  | powerset (s : SetPresentation)
   deriving BEq, Repr, Inhabited
 
 /-- The thing a notebook binding names: an object with a presentation.
@@ -208,7 +217,7 @@ end Value
 
 namespace SetPresentation
 
-def render : SetPresentation → String
+partial def render : SetPresentation → String
   | .finite _ elems =>
       "{" ++ ", ".intercalate (elems.toList.map (·.render)) ++ "}"
   | .arithProg _ first step none =>
@@ -222,6 +231,8 @@ def render : SetPresentation → String
         | _, _ => "…"
       s!"\{{first.render}, {second}, ..., {last.render}}"
   | .domainSet d => d.render
+  | .product a b => s!"{render a} × {render b}"
+  | .powerset s => s!"𝒫({render s})"
 
 instance : ToString SetPresentation := ⟨render⟩
 

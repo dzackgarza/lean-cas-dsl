@@ -58,6 +58,10 @@ def polyQ : Obj :=
 def mat2Q : Obj :=
   .elem (.matrix 2 .rat) (.mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]])
 
+/-- `{1, 2, 3}` — SPEC.md §Finite sets' `A`, and the factor of the product
+and powerset representatives. -/
+def finSet123 : SetPresentation := .finite .int #[.int 1, .int 2, .int 3]
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -156,7 +160,27 @@ intrinsically ordered that way" },
     argDoc := "another set",
     resultDoc := "a boolean",
     doc := "equality of two sets, by presentation normalization (a documented \
-ceiling, not a general decision procedure)" }
+ceiling, not a general decision procedure)" },
+  { id := `subset, receiver := `Sets, arity := 1,
+    argDoc := "another set",
+    resultDoc := "a boolean",
+    doc := "inclusion: every element of the receiver is an element of the \
+argument — the same judgment `X ∈ 𝒫(A)` asks" },
+  -- The binary set operations are declared where they first make sense: on
+  -- SETS, all of them, whatever presentation. Only explicit finite ones are
+  -- routed, so `ℤ ∪ A` is the honest structured gap.
+  { id := `union, receiver := `Sets, arity := 1,
+    argDoc := "another set", resultDoc := "a set",
+    doc := "the union of two sets" },
+  { id := `intersect, receiver := `Sets, arity := 1,
+    argDoc := "another set", resultDoc := "a set",
+    doc := "the intersection of two sets" },
+  { id := `diff, receiver := `Sets, arity := 1,
+    argDoc := "another set", resultDoc := "a set",
+    doc := "the difference A \\ B: the elements of A that are not in B" },
+  { id := `symdiff, receiver := `Sets, arity := 1,
+    argDoc := "another set", resultDoc := "a set",
+    doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" }
 ]
 
 run_cmd stdMethods.forM registerMethod!
@@ -224,6 +248,13 @@ private def stdProfileRules : Array ProfileRule := #[
   -- CountableSets — a missed specificity, never a false claim
   { pattern := .progression .anyDom, cat := `CountableSets, slots := #[.setDom] },
   { pattern := .finiteSet, cat := `FiniteSets, slots := #[.setDom] },
+  -- `A × B` and `𝒫(A)` are DENOTED sets: a pattern over one presentation
+  -- cannot see the factors, and their strength is exactly what the factors
+  -- decide (𝒫 of a finite set is finite, 𝒫(ℤ) is uncountable), so the only
+  -- membership statable here is `Sets`. A missed specificity, never a false
+  -- claim — the same reason a bounded progression enters at CountableSets.
+  { pattern := .productSet, cat := `Sets },
+  { pattern := .powersetSet, cat := `Sets },
   -- the module fixture: ℤ/n as a ℤ-module, in the PROPER subcategory only.
   -- `Modules` membership arrives through the inclusion edge, which is what
   -- makes `annihilator` a real inheritance demonstration.
@@ -353,7 +384,15 @@ private def stdRoutes : Array Route := #[
   -- set operations; `anySet` also accepts a domain used as a set
   { method := `cardinality, pattern := .anySet, backend := `native, opId := "cardinality" },
   { method := `contains, pattern := .anySet, backend := `native, opId := "contains" },
-  { method := `set_eq, pattern := .anySet, backend := `native, opId := "set_eq" }
+  { method := `set_eq, pattern := .anySet, backend := `native, opId := "set_eq" },
+  { method := `subset, pattern := .anySet, backend := `native, opId := "subset" },
+  -- the binary operations build an explicit element list, so only explicit
+  -- finite receivers are routed: `ℤ ∪ A` resolves and then gaps honestly
+  { method := `union, pattern := .finiteSet, backend := `native, opId := "set_union" },
+  { method := `intersect, pattern := .finiteSet, backend := `native,
+    opId := "set_intersect" },
+  { method := `diff, pattern := .finiteSet, backend := `native, opId := "set_diff" },
+  { method := `symdiff, pattern := .finiteSet, backend := `native, opId := "set_symdiff" }
 ]
 
 run_cmd stdRoutes.forM registerRoute!
@@ -381,7 +420,12 @@ private def stdRepresentatives : Array Representative := #[
   ("x + 1 ∈ ℤ/5[x]", .elem (.poly (.mod 5))
     (Value.mkPoly (.mod 5) #[Value.mkMod 5 1, Value.mkMod 5 1])),
   ("ℤ/4 as ℤ-module", .cyclicModule 4),
-  ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none))
+  ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none)),
+  -- the two DENOTED sets: countable/counted by cardinal arithmetic, and
+  -- carrying the honest gaps for every operation that would need an element
+  -- list (the binary operations, and `nth`)
+  ("{1,2,3} × {1,2,3}", .setObj (.product finSet123 finSet123)),
+  ("𝒫({1,2,3})", .setObj (.powerset finSet123))
 ]
 
 run_cmd stdRepresentatives.forM registerRepresentative!
@@ -522,6 +566,26 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
     (functor? := `UnderlyingSet)
   expectRouted env (.cyclicModule 4) `nth [`CountableSets] `native
     (functor? := `UnderlyingSet)
+  -- SPEC.md §Finite sets: the binary operations are declared on Sets and
+  -- routed for explicit finite receivers…
+  expectRouted env (.setObj finSet123) `union [`CountableSets, `Sets] `native
+  expectRouted env (.setObj finSet123) `intersect [`CountableSets, `Sets] `native
+  expectRouted env (.setObj finSet123) `diff [`CountableSets, `Sets] `native
+  expectRouted env (.setObj finSet123) `symdiff [`CountableSets, `Sets] `native
+  expectRouted env (.setObj finSet123) `subset [`CountableSets, `Sets] `native
+  -- …so a union with an infinite presentation on the LEFT is available and
+  -- not executable: the honest gap, exactly like det over ℤ/5
+  expectGap env (.domainObj .int) `union [`Sets]
+  -- a denoted set is a set: it is counted and included…
+  expectRouted env (.setObj (.powerset finSet123)) `cardinality [] `native
+  expectRouted env (.setObj (.product finSet123 finSet123)) `cardinality [] `native
+  expectRouted env (.setObj (.powerset finSet123)) `contains [] `native
+  -- …the operations needing an element list of it are the honest gaps…
+  expectGap env (.setObj (.product finSet123 finSet123)) `union []
+  -- …and `nth` does not even reach it: `Sets` is the only membership a
+  -- pattern over one presentation can state for a denoted set, and `nth`
+  -- is declared strictly below, on CountableSets
+  expectNotApplicable env (.setObj (.powerset finSet123)) `nth
 
 run_cmd acceptanceProofs (← getEnv)
 

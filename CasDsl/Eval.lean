@@ -33,8 +33,18 @@ inductive BinOp where
   | add | sub | mul | div | pow
   deriving BEq, Repr, Inhabited
 
+/-- The order comparisons a set-comprehension guard is written with
+(`n² ≤ 20`, `0 ≤ n < 6`). Equality is deliberately absent: `=` is the
+assertion relation, category-bound, and reading it as a term-level
+comparison here would give the surface two meanings for one symbol. -/
+inductive CmpOp where
+  | le | lt | ge | gt
+  deriving BEq, Repr, Inhabited
+
 inductive CasExpr where
   | num (z : Int)
+  /-- A literal that is not a numeral: `ℵ₀`, `true`, `false`. -/
+  | lit (v : Value)
   /-- A binding name, or the bound polynomial indeterminate. -/
   | ref (n : Name)
   /-- An atomic domain term (`ℕ`, `ℤ`, `ℚ`). -/
@@ -63,6 +73,14 @@ inductive CasExpr where
   | arrow (src tgt : CasExpr)
   /-- `f ∘ g`. -/
   | comp (f g : CasExpr)
+  /-- `A × B` and `𝒫(A)` / `2^A`. Both DENOTE a set rather than compute one
+  (their elements are pairs and sets, which no `Value` presents), so they
+  build a presentation exactly as a set literal does — no method, no route. -/
+  | setProduct (a b : CasExpr)
+  | powersetOf (a : CasExpr)
+  /-- `a ≤ b` and the chain `a ≤ b < c`, which is its conjunction. -/
+  | cmp (op : CmpOp) (a b : CasExpr)
+  | conj (a b : CasExpr)
   deriving Inhabited
 
 /-! ## Pure core -/
@@ -474,6 +492,13 @@ def obj? : Denote → Option Obj
   | .obj o => some o
   | .val v => (valueDom? v).map fun d => Obj.elem d v
 
+/-- The set presentation this denotes — a domain used as a set is one, which
+is what lets `𝒫(ℤ)` and `A × ℕ` be written at all. -/
+def asSet? : Denote → Option SetPresentation
+  | .obj (.setObj s) => some s
+  | .obj (.domainObj d) => some (.domainSet d)
+  | _ => none
+
 /-- Wrap an executor result: it becomes an object when it presents one. A
 set-valued result becomes the ordinary set OBJECT, so `p.roots()` is a set
 like any other — the set methods, `∈` and set equality all reach it through
@@ -512,6 +537,8 @@ def renderPattern : PresPattern → String
   | .finiteSet => "a finite set"
   | .progression d => s!"a progression over {renderDomainPattern d}"
   | .domainSetOf d => s!"the underlying set of {renderDomainPattern d}"
+  | .productSet => "a cartesian product"
+  | .powersetSet => "a powerset"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .anyObj => "any object"
@@ -658,6 +685,7 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
 
 partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
   | .num z => return .obj (.elem (ctx.ambient?.getD .int) (ctx.literal z))
+  | .lit v => return Denote.ofValue v
   | .dom d => return .obj (.domainObj d)
   | .ref n => do
       if let some (x, c) := ctx.indet? then
@@ -697,10 +725,50 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           return Denote.ofValue
             (← ofStr (valueBin ctx.canonMaps .div (← ofStr (asValueOf x))
               (← ofStr (asValueOf y))))
+  | .bin .pow a b => do
+      -- `2^X` is SPEC.md's other spelling of `𝒫(X)`; every other `^` is
+      -- exponentiation, including `2^|A|` (a cardinal is not a set)
+      let y ← eval ctx b
+      match y.asSet? with
+      | some s =>
+          match a with
+          | .num 2 => return .obj (.setObj (.powerset s))
+          | _ => throw (.msg s!"only `2^X` denotes the powerset of a set; there is \
+no other reading of an exponent over {s.render}")
+      | none =>
+          let x ← ofStr (asValueOf (← eval ctx a))
+          return Denote.ofValue
+            (← ofStr (valueBin ctx.canonMaps .pow x (← ofStr (asValueOf y))))
   | .bin op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))
       return Denote.ofValue (← ofStr (valueBin ctx.canonMaps op x y))
+  | .setProduct a b => do
+      let x ← eval ctx a
+      let y ← eval ctx b
+      match x.asSet?, y.asSet? with
+      | some sa, some sb => return .obj (.setObj (.product sa sb))
+      | _, _ => throw (.msg s!"`×` is the cartesian product of two sets; got \
+{x.presentation} and {y.presentation}")
+  | .powersetOf a => do
+      let x ← eval ctx a
+      match x.asSet? with
+      | some s => return .obj (.setObj (.powerset s))
+      | none => throw (.msg s!"𝒫(…) needs a set, got {x.presentation}")
+  | .cmp op a b => do
+      let x ← ofStr (asValueOf (← eval ctx a))
+      let y ← ofStr (asValueOf (← eval ctx b))
+      let some ord := Native.scalarCmp x y
+        | throw (.msg s!"{x.render} and {y.render} are not comparable")
+      return .val (.bool (match op with
+        | .le => ord != .gt | .lt => ord == .lt
+        | .ge => ord != .lt | .gt => ord == .gt))
+  | .conj a b => do
+      let x ← ofStr (asValueOf (← eval ctx a))
+      let y ← ofStr (asValueOf (← eval ctx b))
+      match x, y with
+      | .bool p, .bool q => return .val (.bool (p && q))
+      | _, _ => throw (.msg s!"`{x.render}` and `{y.render}` are not truth values")
   | .method recv m args => do
       let r ← ofStr (asObjOf (← eval ctx recv))
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
@@ -807,6 +875,10 @@ module category is the ℤ-module), anything else is a domain. -/
 inductive Ascription where
   | domain (d : Domain)
   | category (c : CatRef)
+  /-- `let A := {1, 2, 3} in 𝒫(ℤ)`: the ascription names a SET, and the
+  judgment is membership in it — decided by the same routed `contains` the
+  surface's `∈` uses, which on a powerset is the inclusion `A ⊆ ℤ`. -/
+  | member (s : Obj)
 
 /-- The category an ascription term names, if any. Only the two shapes the
 surface produces (`C` and `C(p₁, …)`) are category ascriptions. -/
@@ -830,8 +902,9 @@ def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
   | none =>
       match ← eval ctx e with
       | .obj (.domainObj d) => return .domain d
-      | other => throw (.msg s!"{other.presentation} is neither a domain nor a \
-registered category")
+      | .obj (.setObj s) => return .member (.setObj s)
+      | other => throw (.msg s!"{other.presentation} is neither a domain, a set, \
+nor a registered category")
 
 /-- Apply and CHECK an ascription. Membership is a judgment: a domain
 ascription must admit the preferred canonical map, and a category ascription
@@ -857,6 +930,14 @@ def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
         let prof := ", ".intercalate ((profileOf ctx.env o').toList.map renderCat)
         throw (.msg s!"{o'.presentation} is not in {renderCat c} \
 (its profile is {if prof.isEmpty then "empty" else prof})")
+  | .member s => do
+      match (← callMethod ctx s `contains #[o]).value? with
+      | some (.bool true) => return o
+      | some (.bool false) =>
+          throw (.msg s!"{o.presentation} is not an element of {s.presentation}")
+      | other =>
+          throw (.msg s!"membership of {o.presentation} in {s.presentation} did not \
+decide: {other.elim "no value" (·.render)}")
 
 /-! ## The three notebook judgments -/
 
@@ -914,11 +995,11 @@ def evalPolyBinding (ctx : EvalCtx) (x : Name) (e : CasExpr) (asc : CasExpr)
   evalBinderBinding ctx x e (← evalAscription ctx asc)
 
 inductive AssertRel where
-  | eq | ne | mem | notMem
+  | eq | ne | mem | notMem | subset
   deriving BEq, Inhabited
 
 def AssertRel.render : AssertRel → String
-  | .eq => "=" | .ne => "≠" | .mem => "∈" | .notMem => "∉"
+  | .eq => "=" | .ne => "≠" | .mem => "∈" | .notMem => "∉" | .subset => "⊆"
 
 private def boolOf (d : Denote) : EvalM Bool :=
   match d.value? with
@@ -986,6 +1067,12 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
       let a ← eval ctx l
       let res ← boolOf (← callMethod ctx (← objOf b) `contains #[← objOf a])
       return some (if rel == .mem then res else !res)
+  | .subset =>
+      -- inclusion is a Sets method like membership and equality, so it
+      -- resolves and routes exactly as they do
+      let a ← eval ctx l
+      let b ← eval ctx r
+      return some (← boolOf (← callMethod ctx (← objOf a) `subset #[← objOf b]))
   | _ =>
       let a ← eval ctx l
       let b ← eval ctx r

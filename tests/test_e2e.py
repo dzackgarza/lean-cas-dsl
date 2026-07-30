@@ -444,6 +444,75 @@ def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
     assert "7 ∈ ℤ is not callable" in text
 
 
+# -- 12 · finite sets and set algebra -------------------------------------
+# SPEC.md §Finite sets. `A` is rebound here (it named the Mat₂(ℤ/5) gap
+# fixture above, whose tests are all before this point); `B` appears nowhere
+# else in this file.
+
+def test_both_powerset_ascriptions_are_checked_membership(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let A := {1, 2, 3} in 𝒫(ℤ)")
+    ok(kc, "let B := {3, 4, 5} in 2^ℤ")     # SPEC.md's other spelling
+    # the ascription is a JUDGMENT, not an annotation: a set that does not
+    # lie in the ascribed powerset is refused at the binding
+    text = err(kc, "let bad3 := {1, 1/2} in 𝒫(ℤ)")
+    assert "is not an element of" in text
+
+
+def test_the_four_binary_operations(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert A ∪ B = {1, 2, 3, 4, 5}")
+    ok(kc, "assert A ∩ B = {3}")
+    ok(kc, "assert A \\ B = {1, 2}")
+    ok(kc, "assert A △ B = {1, 2, 4, 5}")
+    # each one rejects a wrong answer
+    for wrong in ("A ∪ B = {1, 2, 3, 4}", "A ∩ B = {4}",
+                  "A \\ B = {1, 2, 3}", "A △ B = {1, 2, 4}"):
+        assert "false" in err(kc, f"assert {wrong}").lower()
+
+
+def test_cardinality_product_and_powerset(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert |A| = 3")
+    ok(kc, "assert |A × B| = 9")
+    ok(kc, "assert |𝒫(A)| = 2^|A|")
+    assert "false" in err(kc, "assert |A| = 4").lower()
+    # the product and the powerset are DENOTED, not listed
+    text = ok(kc, "A × B")
+    assert "{1, 2, 3} × {3, 4, 5}" in text
+    text = ok(kc, "𝒫(A)")
+    assert "𝒫({1, 2, 3})" in text
+    # 𝒫 of a countably infinite set is uncountable: the slice says it cannot
+    # state that cardinality rather than inventing ℵ₀
+    text = err(kc, "|2^ℕ|")
+    assert "uncountable" in text
+
+
+def test_membership_and_inclusion(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert 2 ∈ A")
+    ok(kc, "assert 4 ∉ A")
+    ok(kc, "assert A ⊆ A ∪ B")
+    ok(kc, "assert A ∩ B ⊆ A")
+    assert "false" in err(kc, "assert A ⊆ B").lower()
+    # membership in a powerset IS inclusion — SPEC.md's ASCII `in` spelling
+    ok(kc, "assert A in 𝒫(ℤ)")
+    ok(kc, "assert A ∪ B ∉ 𝒫(A)")
+    # a domain inclusion is the canonical-map registry's claim, and the set
+    # layer refuses to restate it rather than answering it twice
+    text = err(kc, "assert ℕ ⊆ ℤ")
+    assert "canonical-map registry" in text
+
+
+def test_infinite_receivers_are_the_honest_gap(kernel: Kernel) -> None:
+    _, kc = kernel
+    # union is meaningful for every set; only explicit finite ones are routed
+    text = err(kc, "ℤ ∪ A")
+    assert "NoImplementation" in text and "union" in text
+    text = err(kc, "𝒫(A) ∪ A")
+    assert "NoImplementation" in text
+
+
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     _, kc = kernel
     # unbound, `z` would be the indeterminate of ℤ[z] exactly as `x` is above.

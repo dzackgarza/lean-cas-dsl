@@ -69,6 +69,11 @@ inductive PresPattern where
   | finiteSet
   | progression (dom : DomainPattern)
   | domainSetOf (d : DomainPattern)
+  /-- `A × B`; the factors are not inspected (a pattern language over one
+  presentation cannot state their strength — see the profile rules). -/
+  | productSet
+  /-- `𝒫(A)`, likewise. -/
+  | powersetSet
   | anySet
   | cyclicMod
   | anyObj
@@ -108,6 +113,8 @@ def accepts : PresPattern → Obj → Bool
   | .finiteSet, .setObj (.finite ..) => true
   | .progression p, .setObj (.arithProg d ..) => p.accepts d
   | .domainSetOf p, .setObj (.domainSet d) => p.accepts d
+  | .productSet, .setObj (.product ..) => true
+  | .powersetSet, .setObj (.powerset _) => true
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
@@ -124,12 +131,16 @@ def implies : PresPattern → PresPattern → Bool
   | .domainSetOf p, .domainSetOf q => p.implies q
   | .progression p, .progression q => p.implies q
   | .finiteSet, .finiteSet => true
+  | .productSet, .productSet => true
+  | .powersetSet, .powersetSet => true
   | .cyclicMod, .cyclicMod => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
   | .domainSetOf _, .anySet => true
   | .finiteSet, .anySet => true
   | .progression _, .anySet => true
+  | .productSet, .anySet => true
+  | .powersetSet, .anySet => true
   | _, _ => false
 
 end PresPattern
