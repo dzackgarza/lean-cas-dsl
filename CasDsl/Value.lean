@@ -282,7 +282,9 @@ partial def latex? : Value → Option String
       let core := " \\cdot ".intercalate fs.toList
       match unit with
       | .int 1 => return if fs.isEmpty then "1" else core
-      | .rat q => return if q == 1 then core else s!"{q.num}/{q.den} \\cdot {core}"
+      -- the unit is a scalar like any other: it goes through this renderer, so
+      -- an integral rational is an integer (`2`, never `2/1`)
+      | .rat q => if q == 1 then return core else return (← latex? (.rat q)) ++ " \\cdot " ++ core
       | u => do
           let us ← latex? u
           return if fs.isEmpty then us else s!"{us} \\cdot {core}"
@@ -310,7 +312,11 @@ partial def latex? : Value → Option String
       let b ← match body with
         | .poly _ cs => some (renderPolyWith t latexSup render cs)
         | v => latex? v
-      return t ++ " \\mapsto " ++ b
+      -- the binder is the mathematician's own name, and a `θ` reaches math
+      -- mode as raw Unicode, which MathJax does not typeset and pdflatex
+      -- rejects outright: no LaTeX form, so the cell falls back to plain text
+      if t.all (fun c : Char => c.val < 128) then return t ++ " \\mapsto " ++ b
+      else none
 
 end Value
 

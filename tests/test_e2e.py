@@ -699,19 +699,26 @@ def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     # show() call; `text/plain` stays in the bundle as the fallback.
     ok(kc, "let ln := 360 in ℤ")
     b = bundle(kc, "ln.factor()")
-    assert b["text/latex"] == r"$2^{3} \cdot 3^{2} \cdot 5$"
+    assert b["text/latex"] == r"$$2^{3} \cdot 3^{2} \cdot 5$$"
     assert b["text/plain"] == "2^3 * 3^2 * 5"
 
     ok(kc, "let lM := [1, 2; 3, 4] in Mat₂(ℚ)")
     b = bundle(kc, "lM.inverse()")
     assert b["text/latex"] == (
-        r"$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$")
+        r"$$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$$")
     assert b["text/plain"] == "[-2, 1; 3/2, -1/2]"
 
     ok(kc, "let lq(x) := x^3 - 2x + 1 in ℤ[x]")
     b = bundle(kc, "lq")
-    assert b["text/latex"] == r"$x^{3} - 2x + 1$"
+    assert b["text/latex"] == r"$$x^{3} - 2x + 1$$"
     assert b["text/plain"] == "x^3 - 2x + 1"
+
+    # a ℚ[x] factorization with non-unit content: the unit is a scalar like
+    # any other, so an integral rational is an integer and never `2/1`
+    ok(kc, "let lr(x) := 2*x^2 - 2 in ℚ[x]")
+    b = bundle(kc, "lr.factor()")
+    assert b["text/latex"] == r"$$2 \cdot (x - 1) \cdot (x + 1)$$"
+    assert b["text/plain"] == "2 * (x - 1) * (x + 1)"
 
 
 def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
@@ -719,14 +726,14 @@ def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
     # every LaTeX payload is math-mode LaTeX: MathJax does not typeset the raw
     # ℤ/↦/ℵ₀ the plain rendering uses, so nothing non-ASCII may reach it
     for code, expected in (
-            ("lq.roots()", r"$\{1\}$"),
-            ("{0, 2, 4, ...}", r"$\{0, 2, \ldots\}$"),
-            ("{1, 2, 3}", r"$\{1, 2, 3\}$"),
-            ("𝒫({1, 2})", r"$\mathcal{P}(\{1, 2\})$"),
-            ("ℤ", r"$\mathbb{Z}$"),
-            ("ℤ/5", r"$\mathbb{Z}/5\mathbb{Z}$"),
-            ("|{0, 2, 4, ...}|", r"$\aleph_0$"),
-            ("|{1, 2, 3}|", "$3$")):
+            ("lq.roots()", r"$$\{1\}$$"),
+            ("{0, 2, 4, ...}", r"$$\{0, 2, \ldots\}$$"),
+            ("{1, 2, 3}", r"$$\{1, 2, 3\}$$"),
+            ("𝒫({1, 2})", r"$$\mathcal{P}(\{1, 2\})$$"),
+            ("ℤ", r"$$\mathbb{Z}$$"),
+            ("ℤ/5", r"$$\mathbb{Z}/5\mathbb{Z}$$"),
+            ("|{0, 2, 4, ...}|", r"$$\aleph_0$$"),
+            ("|{1, 2, 3}|", "$$3$$")):
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
         assert b["text/latex"].isascii(), code
@@ -748,6 +755,16 @@ def test_a_value_with_no_latex_form_emits_plain_text_only(
     b = bundle(kc, "lF")
     assert b["text/plain"] == "ℤ/4 as ℤ-module"
     assert "text/latex" not in b
+    # a non-ASCII BINDER: `θ` is not a LaTeX command, and raw Unicode in math
+    # mode does not typeset, so the whole function falls back to plain text
+    ok(kc, "let lθ := θ ↦ θ + 1 in ℝ → ℝ")
+    b = bundle(kc, "lθ")
+    assert b["text/plain"] == "θ ↦ θ + 1"
+    assert "text/latex" not in b
+    # …while an ASCII binder still typesets, so the guard narrows nothing else
+    ok(kc, "let lt := t ↦ t² + 1 in ℝ → ℝ")
+    b = bundle(kc, "lt")
+    assert b["text/latex"] == r"$$t \mapsto t^{2} + 1$$"
 
 
 def test_assertions_and_diagnostics_stay_textual(kernel: Kernel) -> None:

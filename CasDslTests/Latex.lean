@@ -77,6 +77,14 @@ braces are unconditional. -/
 -- a unit that is not 1 stays in front
 #guard Value.latex? (.factorization (.int (-1)) #[(.int 2, 1)] .int)
   == some "-1 \\cdot 2"
+-- …and a RATIONAL unit is a scalar like any other, so an integral one is an
+-- integer: `2 * (x - 1) * (x + 1)` is what ℚ[x] factorization returns, and
+-- `2/1` there would contradict the scalar convention pinned above
+#guard Value.latex?
+    (.factorization (.rat (mkRat 2 1))
+      #[(.poly .rat #[.int (-1), .int 1], 1), (.poly .rat #[.int 1, .int 1], 1)]
+      (.poly .rat))
+  == some "2 \\cdot (x - 1) \\cdot (x + 1)"
 
 /-! ## Sets -/
 
@@ -110,6 +118,10 @@ alone. -/
 
 #guard Value.latex? (.bool true) == none
 #guard Value.latex? (.bool false) == none
+-- a binder the mathematician spelled with a non-ASCII letter: `θ` is not a
+-- LaTeX command, and raw Unicode in math mode is a hard error downstream, so
+-- the whole function falls back to plain text rather than shipping it
+#guard Value.latex? (.func .real .real `θ (.poly .real #[.int 1, .int 1])) == none
 -- the module fixture: `\mathbb{Z}/4\mathbb{Z}` typeset alone is the RING, and
 -- equality here is category-bound
 #guard Obj.latex? (.cyclicModule 4) == none

@@ -358,16 +358,19 @@ def elabCasAssert (lhs relStx rhs : Syntax) (tail? : Option Syntax)
 
 /-- A bare expression cell: display the value as text and as a structured
 MIME bundle. LaTeX-first (#16): a value with a natural LaTeX form carries it
-as `text/latex`, wrapped in `$…$` so the notebook's MathJax picks it up
+as `text/latex`, wrapped in `$$…$$` so the notebook's MathJax picks it up
 without a `show()`, and `text/plain` stays in the bundle as the fallback
-every consumer can read. A value with no LaTeX form emits plain text alone. -/
+every consumer can read. A value with no LaTeX form emits plain text alone.
+DISPLAY register, like Sage's `backend_ipython` and IPython's `display.Math`:
+a cell RESULT is displayed math, and inline `$…$` typesets a `pmatrix` at
+text size with undersized delimiters. -/
 def elabCasShow (stx : Syntax) : CommandElabM Unit := do
   let d ← runCas (eval (← casCtx) (← parseCas stx))
   logInfo d.render
   emitOutput {
     data :=
       [("text/plain", .str d.render)]
-      ++ (d.latex?.toList.map fun l => ("text/latex", Json.str s!"${l}$"))
+      ++ (d.latex?.toList.map fun l => ("text/latex", Json.str s!"$${l}$$"))
       ++ [("application/vnd.casdsl.value+json", denoteJson d)]
   }
 

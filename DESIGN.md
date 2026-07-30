@@ -657,14 +657,15 @@ elements have no form has none either.
 `elabCasShow` is the one emission seam. Its bundle is `text/plain`, then
 `text/latex` when there is one, then the `vnd.casdsl.value+json` payload —
 plain text is in EVERY bundle, so a consumer that does not render LaTeX
-loses nothing. The LaTeX payload is the math wrapped in `$…$`: the renderers
-produce bodies (composable, and what the `#guard` pins state), and the
-delimiters that make MathJax pick the payload up are added at emission.
+loses nothing. The LaTeX payload is the math wrapped in `$$…$$`: the
+renderers produce bodies (composable, and what the `#guard` pins state), and
+the delimiters that make MathJax pick the payload up are added at emission.
 
 Conventions (one spelling each, chosen once):
 
 | shape | LaTeX |
 |----|----|
+| delimiters | `$$…$$`, the DISPLAY register — a cell result is displayed math, as in Sage's `backend_ipython` and IPython's `display.Math`; inline `$…$` shrinks `pmatrix` to text size |
 | exponent | braced always — `x^{3}`, `2^{3}` (`x^12` typesets as x¹·2) |
 | rational | inline solidus `3/2`, never `\frac`; `(1/2)x` as a coefficient |
 | number systems | `\mathbb{N} \mathbb{Z} \mathbb{Q} \mathbb{R}`, and `\mathbb{Z}/5\mathbb{Z}` (`\mathbb{Z}/5` reads as a quotient by an element) |
@@ -692,7 +693,13 @@ Values with NO natural form, deliberately:
   prose, not mathematics;
 - the module fixture `cyclicModule n` — `\mathbb{Z}/4\mathbb{Z}` typeset
   alone is the RING, and equality here is category-bound (§Surface), so it
-  would be a display-level lie.
+  would be a display-level lie;
+- a function whose BINDER is not ASCII (`θ ↦ θ + 1`). The binder is the
+  mathematician's own name and the only path by which arbitrary text could
+  reach a payload; `θ` is not a LaTeX command, so the function falls back to
+  plain text whole rather than shipping math mode something that does not
+  typeset. This is what keeps the no-raw-Unicode rule above true rather than
+  aspirational.
 
 The `value+json` payload of a set result: RESOLVED, in the display seam.
 `Denote.value?` is element-shaped by design (it feeds arithmetic and
