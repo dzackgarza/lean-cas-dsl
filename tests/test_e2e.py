@@ -228,6 +228,12 @@ def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
     assert "3" in text
 
 
+def test_canonical_maps_audit_surface(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "#canonical_maps")
+    assert "ℕ → ℤ" in text and "ℤ → ℤ/_" in text and "intToMod" in text
+
+
 def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
     _, kc = kernel
     # q ∈ ℚ[x] from the polynomial test; ℚ → ℤ is not a registered embedding

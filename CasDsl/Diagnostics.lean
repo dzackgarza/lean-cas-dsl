@@ -262,6 +262,46 @@ def elabCapabilityGaps : CommandElabM Unit := do
         Json.mkObj [("gaps", .arr js), ("implemented", .num implemented)])]
   }
 
+/-! ## `#canonical_maps`
+
+The coercion layer's audit surface (#9): the complete list of preferred
+canonical maps the surface may insert, from the registry the prelude
+filled. Semantic-layer data — unlike the other diagnostics it names no
+backend, because there is none to name. -/
+
+private def canonOpTag : CanonOp → String
+  | .identity => "identity"
+  | .intToRat => "intToRat"
+  | .intToMod => "intToMod"
+
+def elabCanonicalMaps : CommandElabM Unit := do
+  let env ← getEnv
+  let rules := canonicalMaps env
+  let mut lines : Array String := #[]
+  let mut js : Array Json := #[]
+  for r in rules do
+    let edge := s!"{renderDomainPattern r.src} → {renderDomainPattern r.tgt}"
+    lines := lines.push s!"  {pad edge 12}{canonOpTag r.op}"
+    if !r.doc.isEmpty then
+      lines := lines.push s!"  {pad "" 12}{r.doc}"
+    js := js.push <| Json.mkObj
+      [("src", .str (renderDomainPattern r.src)),
+       ("tgt", .str (renderDomainPattern r.tgt)),
+       ("op", .str (canonOpTag r.op)), ("doc", .str r.doc)]
+  let text :=
+    if rules.isEmpty then
+      "  (no preferred canonical maps are registered — the surface inserts \
+no coercions)"
+    else
+      String.intercalate "\n" (s!"  {pad "map" 12}op" :: lines.toList)
+  logInfo text
+  emitOutput {
+    data :=
+      [("text/plain", .str text),
+       ("application/vnd.casdsl.canonicalmaps+json",
+        Json.mkObj [("canonicalMaps", .arr js)])]
+  }
+
 /-! ## Commands -/
 
 /-- `#explain_route e.m(…)` reports how `m` became available for `e` and
@@ -278,6 +318,10 @@ with the declared methods, reporting every pair that is mathematically
 available but not currently executable. -/
 syntax (name := casCapabilityGaps) "#capability_gaps" : command
 
+/-- `#canonical_maps` — every registered preferred canonical map: the
+complete, auditable list of coercions the surface may insert. -/
+syntax (name := casCanonicalMaps) "#canonical_maps" : command
+
 @[command_elab casExplainRoute]
 def elabExplainRouteCmd : CommandElab := fun stx => elabExplainRoute stx[1]
 
@@ -286,5 +330,8 @@ def elabCapabilitiesCmd : CommandElab := fun _ => elabCapabilities
 
 @[command_elab casCapabilityGaps]
 def elabCapabilityGapsCmd : CommandElab := fun _ => elabCapabilityGaps
+
+@[command_elab casCanonicalMaps]
+def elabCanonicalMapsCmd : CommandElab := fun _ => elabCanonicalMaps
 
 end CasDsl
