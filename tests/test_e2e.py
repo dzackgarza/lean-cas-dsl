@@ -276,6 +276,27 @@ def test_lambda_without_a_domain_is_refused(kernel: Kernel) -> None:
     assert "ascription" in text
 
 
+def test_body_the_polynomial_engine_cannot_express_is_refused(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a value, but not one `asPolyCoeffs` reads
+    text = err(kc, "let bad := t ↦ [1, 2; 3, 4] in ℝ → ℝ")
+    assert "[1, 2; 3, 4] is not a polynomial body" in text
+    # not an element value at all
+    text = err(kc, "let bad2 := t ↦ ℕ in ℝ → ℝ")
+    assert "ℕ is not a function body" in text
+
+
+def test_a_function_in_scope_publishes_its_binder(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `h := t ↦ …` is bound above, so the bare name `t` is that indeterminate
+    text = ok(kc, "t")
+    assert "x ∈ ℤ[x]" in text
+    ok(kc, "assert t = t")
+    # a name no function binds is still the loud error
+    text = err(kc, "assert zzz = 1")
+    assert "'zzz' is not bound" in text
+
+
 # -- 10 · registry-driven embeddings ----------------------------------------
 
 def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
