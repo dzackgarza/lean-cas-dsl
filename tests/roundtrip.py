@@ -186,8 +186,9 @@ def check_is_prime_int(adapter):
 
     assert is_prime(7) is True
     assert is_prime(8) is False
-    # the boundary conventions are the BACKEND's (DESIGN.md decision 7), and
-    # this is what Sage's are — pinned so a change is visible, not guessed
+    # the boundary cases the METHOD declares (normalized primality: −7 is
+    # irreducible but 7 is the normalized representative of its associate
+    # class), pinned here so backend and declaration cannot drift apart
     assert is_prime(1) is False
     assert is_prime(0) is False
     assert is_prime(-7) is False

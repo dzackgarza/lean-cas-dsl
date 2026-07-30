@@ -271,8 +271,16 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   comprehension is INFINITE and says so; if it does not, every solution lies
   in the bound and each candidate is tested exactly. A conjunction (the chain
   `0 ≤ n < 6`) intersects the two conjuncts' bounds, which is what makes a
-  guard bounded by neither conjunct alone decidable. There is no enumeration
-  cutoff: the candidate count past `comprehensionCap` is a loud failure.
+  guard bounded by neither conjunct alone decidable. A guard that does not
+  mention the binder at all is a CONSTANT — including `0*n` and `n - n`,
+  which reduce to the zero polynomial — and answers with the whole index set
+  (refused as infinite) or the empty one (decided), never with a complaint
+  about an unextractable bound. There is no enumeration cutoff: the candidate
+  count past `comprehensionCap` is a loud failure. Its practical reach is
+  smaller than that number suggests over ℤ, because the tail bound is
+  symmetric about the origin: an offset window costs ~2×|offset| candidates,
+  so |offset| ≲ 50000 is the real ceiling there. Over ℕ the lower bound is 0
+  and a window costs |offset| + width.
 - **An unguarded comprehension is presented only when its image IS a
   presentation the slice has.** `{2n | n ∈ ℕ}` is the arithmetic progression
   `{0, 2, 4, …}` — SPEC.md's own identity (`Y = {2n | n in ℕ}`) — so its
@@ -290,13 +298,17 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   bound" error. This is ordinary scoping and does not widen the name
   resolution §Functions narrowed.
 - **Two `SPEC.md` §Ellipses lines stay uncovered, deliberately.**
-  `{n in ℕ | f(n) ∈ 2ℕ}` needs a MEMBERSHIP guard (not a polynomial
-  comparison) and the scaling spelling `2ℕ`, which the grammar does not
-  have — the guard is refused at the binding and `2ℕ` does not parse.
-  `{n in ℕ | n.is_prime()}` is refused the same way, even though
+  `{n in ℕ | f(n) ∈ 2ℕ}` needs a MEMBERSHIP guard, which is not a polynomial
+  comparison, so the comprehension is refused at the binding. It also needs
+  the scaling spelling `2ℕ`, and there is NO scaling production: `2ℕ` is read
+  as two juxtaposed terms (the numeral, then the domain), so `SPEC.md`'s
+  `assert Y = 2ℕ` asserts `Y = 2` and displays `ℕ` after it. That reading is
+  the statement splitter's, not this surface's — a decided answer to a
+  DIFFERENT claim, which is why the line is listed here rather than trusted.
+  `{n in ℕ | n.is_prime()}` is refused like the first, even though
   `n.is_prime()` itself ships as a method: primality is not a polynomial
-  comparison. Both are gaps on the `SPEC.md` ledger (#24), not silent
-  approximations.
+  comparison. All of it is on the `SPEC.md` ledger (#24), none of it is a
+  silent approximation.
 - **`e.image()` is the one method functions own** (`FunctionElems`,
   registered because what a map does to a whole set is a computability
   question), and `e(ℕ)` — applying a function to its SOURCE — desugars to it,

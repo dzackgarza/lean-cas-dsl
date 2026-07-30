@@ -229,6 +229,19 @@ private def nSq20 : Array Value := #[.int (-20), .int 0, .int 1]
 #guard (BinderBounds.meet { lo := some 0 } { lo := some 3 }).lo == some 3
 #guard (BinderBounds.meet { hi := some 9 } { hi := some 6 }).hi == some 6
 
+/- A guard that does not mention the binder is a CONSTANT, and the two
+answers it has are both decided: every candidate (unbounded, so the
+comprehension is infinite and refused as such) or none (the EMPTY range,
+which enumerates to `{}`). `0*n` and `n - n` reach this through the zero
+polynomial, so the poly arm below degree 1 must land here too — diagnosing
+them as a polynomial with no extractable bound reported an unsupported guard
+where the honest answer was infinite. -/
+#guard (constantBounds .le (.int 0)).toOption.map (fun b => (b.lo, b.hi))
+  == some (none, none)
+#guard (constantBounds .lt (.int 0)).toOption.map (fun b => (b.lo, b.hi))
+  == some (some 0, some (-1))
+#guard (constantBounds .le (.bool true)).toOption.isNone
+
 /-! ## The image of a function (`SPEC.md`'s `e.image()`) -/
 
 -- `n ↦ 2n` on ℕ: the image IS the progression `{0, 2, 4, ...}`
@@ -523,6 +536,11 @@ assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} ≠ {0, 2, 4, 6, 8}
 
 -- SPEC.md §Ellipses spells the binder with the ASCII `in` too
 assert {n in ℤ | n² ≤ 20} = S
+
+-- a constant guard that no candidate satisfies is DECIDED empty, including
+-- when it reaches the constant through the zero polynomial (`n - n`)
+assert {n ∈ ℤ | n - n < 0} = {}
+assert {n ∈ ℤ | 0*n > 0} = {}
 
 /- The comprehension binder is a REAL local binding scoped to the braces: it
 shadows a session binding INSIDE them (ordinary scoping), leaves it untouched

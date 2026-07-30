@@ -139,8 +139,11 @@ private def stdMethods : Array MethodDecl := #[
 where the operation first makes sense" },
   { id := `is_prime, receiver := `FactorizationElems,
     resultDoc := "a boolean",
-    doc := "primality: is this element irreducible (prime, up to units)? \
-Declared where primes first make sense — the elements of a UFD" },
+    doc := "primality in the NORMALIZED sense: is this element irreducible AND \
+the normalized representative of its associate class? In ℤ that is the ordinary \
+'is a prime number', so −7 answers FALSE — it is irreducible, but 7 is the \
+normalized representative of {7, −7}. Declared where irreducibility first makes \
+sense: the elements of a UFD" },
   { id := `deg, receiver := `PolynomialElems,
     resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },

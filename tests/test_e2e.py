@@ -581,6 +581,23 @@ def test_an_undecidable_comprehension_is_refused_at_the_binding(
     assert "arithmetic progression" in text
 
 
+def test_a_constant_guard_is_decided_not_misdiagnosed(kernel: Kernel) -> None:
+    _, kc = kernel
+    # A guard that does not mention the binder holds for every candidate or
+    # for none. `0*n` and `n - n` reach that through the ZERO polynomial, and
+    # both answers must be the constant ones — infinite, or the empty set —
+    # never "no extractable bound", which describes a different failure.
+    for g in ("0*n ≤ 0", "n - n ≤ 0", "1 ≤ 2"):
+        text = err(kc, "let z1 := {n ∈ ℤ | %s}" % g)
+        assert "infinite" in text, g
+        assert "extractable bound" not in text, g
+    ok(kc, "assert {n ∈ ℤ | n - n < 0} = {}")
+    ok(kc, "assert {n ∈ ℕ | 0*n > 0} = {}")
+    # over ℕ the lower bound is 0, so a constant-true guard is unbounded ABOVE
+    text = err(kc, "let z2 := {n ∈ ℕ | 0*n ≤ 0}")
+    assert "from above" in text and "infinite" in text
+
+
 def test_is_prime_is_a_ufd_method(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC.md §Ellipses writes `n.is_prime()`; primality is declared where

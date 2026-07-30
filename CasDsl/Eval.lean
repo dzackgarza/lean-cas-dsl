@@ -502,6 +502,16 @@ def cmpAgainstZero (op : CmpOp) (v : Value) : Option Bool :=
     | .ge => ord != .lt
     | .gt => ord == .gt
 
+/-- A guard that does not mention the binder: it holds for every candidate or
+for none, and neither is a bound to extract. "For none" is carried as the
+EMPTY range, which enumerates to the empty set — a decided answer, not a
+refusal. -/
+def constantBounds (op : CmpOp) (v : Value) : Except String BinderBounds :=
+  match cmpAgainstZero op v with
+  | some true => .ok {}
+  | some false => .ok { lo := some 0, hi := some (-1) }
+  | none => .error s!"the guard does not order {v.render} against 0"
+
 /-- The binder bounds one comparison `p(n) ⋈ 0` imposes. A tail that
 SATISFIES the guard leaves that side unbounded — reported as such, so the
 caller can refuse an infinite comprehension instead of truncating it. -/
@@ -996,14 +1006,14 @@ partial def guardBounds (ctx : EvalCtx) (binder : Name) (dom : Domain)
       let x ← ofStr (asValueOf (← eval ictx a))
       let y ← ofStr (asValueOf (← eval ictx b))
       match ← ofStr (valueBin ctx.canonMaps .sub x y) with
-      | .poly _ cs => ofStr (boundsOfPoly op cs)
-      | v =>
-          -- the guard does not mention the binder: it holds for all
-          -- candidates or for none, and neither is a bound to extract
-          match cmpAgainstZero op v with
-          | some true => return {}
-          | some false => return { lo := some 0, hi := some (-1) }
-          | none => throw (.msg s!"the guard does not order {v.render} against 0")
+      -- a difference of degree ≤ 0 is a CONSTANT however it is presented:
+      -- `0*n` and `n - n` reduce to the zero polynomial, and diagnosing those
+      -- as a polynomial with no extractable bound would misreport an infinite
+      -- (or empty) comprehension as an unsupported guard
+      | .poly _ cs =>
+          ofStr (if cs.size ≤ 1 then constantBounds op (cs[0]?.getD (.int 0))
+                 else boundsOfPoly op cs)
+      | v => ofStr (constantBounds op v)
   | _ =>
       throw (.msg s!"this slice decides a comprehension whose guard is a \
 polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
