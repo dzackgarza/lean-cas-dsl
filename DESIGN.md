@@ -377,7 +377,9 @@ in `acceptanceProofs`.
 Deliberate capability gaps shipped in the slice (honest, auditable):
 `ℚ` is countable — `nth` is semantically available — but no enumeration
 route is registered, so `ℚ[3]` fails with a structured gap. Same for
-`factor` on `ℤ/6` elements (declared, no route).
+`factor` on `ℤ[x]` elements (a UFD, so declared; only `ℚ[x]` routed).
+Both now have user-decided closure paths (#17, #18) — each must preserve
+or replace the pedagogy it currently carries.
 
 ## Decisions inherited from the anti-drift record (binding)
 
@@ -401,15 +403,36 @@ route is registered, so `ℚ[3]` fails with a structured gap. Same for
 8. Eager reflection of small values is a slice choice, not a permanent
    semantic requirement (future: typed computation descriptions + caches).
 
+## Decided by user review, 2026-07-30 (vault: DECISION-CAS-ROUND2-REVIEW)
+
+Formerly open questions, now user-decided — none was silently resolved:
+
+- **user-defined categories**: the declaration surface SHIPS (issue #6);
+  the concrete syntax returns as a proposal for review first;
+- **backend provenance**: never default output — an opt-in `info`-level
+  logging layer with per-line/per-cell verbosity directives (issue #8);
+  results themselves become LaTeX-first with plain-text fallback (#16);
+- **retry/migration policy**: ADOPTED — no automatic retry or migration,
+  ever. Backend failure is a structured report; re-running a cell is the
+  user's explicit act and re-routes from scratch. Revisit only when
+  long-running computations exist (#4, deferred until a workload hurts);
+- **which backend follows Sage**: GAP, direct adapter, justified by
+  `unit_group` on ℤ/n (issue #3);
+- **enumeration of ℚ**: Cantor zigzag (reduced-fraction skipping), a
+  registered revisitable choice like ℤ's; implementing it must also
+  replace the notebook's fails-on-purpose `ℚ[3]` demo (issue #17);
+- **`factor` on ℤ[x]**: routed via Sage, content × primitive (#18) — the
+  `map p to ℚ[x]` demo stays, reframed as the canonical-map demo.
+
 ## Open questions (kept open — do not silently resolve)
 
-- user-defined categories in the notebook (slice: prelude-registered only);
 - default enumeration convention for `ℤ` (slice: 0, 1, −1, 2, −2, …,
   zero-based — a *registered choice*, revisitable);
-- backend provenance in normal output (slice: diagnostics only);
-- retry/migration policy for failed long computations (slice: fail loudly,
-  no retry);
-- which backend follows Sage.
+- the concrete declaration syntax for notebook-level categories (proposal
+  owed under issue #6);
+- the replacement structured-gap demo once `ℚ[3]` is implemented (#17);
+- the logging layer's level surface and directive syntax (#8);
+- which methods beyond `unit_group` the GAP bridge routes first (#3).
 
 ## Ceilings (deliberate, documented)
 
