@@ -695,8 +695,9 @@ def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> Non
 def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
     # issue #16's three expected shapes, exactly. The payload is the math
-    # wrapped in `$…$`, which is what makes a notebook typeset it with no
-    # show() call; `text/plain` stays in the bundle as the fallback.
+    # wrapped in `$$…$$` — the display register, which is what makes a
+    # notebook typeset it with no show() call; `text/plain` stays in the
+    # bundle as the fallback.
     ok(kc, "let ln := 360 in ℤ")
     b = bundle(kc, "ln.factor()")
     assert b["text/latex"] == r"$$2^{3} \cdot 3^{2} \cdot 5$$"
@@ -720,6 +721,13 @@ def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     assert b["text/latex"] == r"$$2 \cdot (x - 1) \cdot (x + 1)$$"
     assert b["text/plain"] == "2 * (x - 1) * (x + 1)"
 
+    # …and a CONSTANT has no factors at all: the unit alone is the answer, in
+    # both spellings. An empty core would publish `$$$$` and an empty plain
+    ok(kc, "let lc(x) := 1 in ℚ[x]")
+    b = bundle(kc, "lc.factor()")
+    assert b["text/latex"] == "$$1$$"
+    assert b["text/plain"] == "1"
+
 
 def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
@@ -737,6 +745,8 @@ def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
         assert b["text/latex"].isascii(), code
+        # nothing may ship as bare delimiters around nothing
+        assert b["text/latex"].strip("$").strip() != "", code
         assert "text/plain" in b, code
 
 
@@ -761,7 +771,13 @@ def test_a_value_with_no_latex_form_emits_plain_text_only(
     b = bundle(kc, "lθ")
     assert b["text/plain"] == "θ ↦ θ + 1"
     assert "text/latex" not in b
-    # …while an ASCII binder still typesets, so the guard narrows nothing else
+    # an ASCII binder that is not LaTeX-safe either: `x_1_2` is a double
+    # subscript, which pdflatex rejects outright
+    ok(kc, "let lu := x_1_2 ↦ x_1_2 + 1 in ℝ → ℝ")
+    b = bundle(kc, "lu")
+    assert b["text/plain"] == "x_1_2 ↦ x_1_2 + 1"
+    assert "text/latex" not in b
+    # …while a plain ASCII binder still typesets, so the guard narrows nothing
     ok(kc, "let lt := t ↦ t² + 1 in ℝ → ℝ")
     b = bundle(kc, "lt")
     assert b["text/latex"] == r"$$t \mapsto t^{2} + 1$$"

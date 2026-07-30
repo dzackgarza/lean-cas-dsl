@@ -279,7 +279,10 @@ private def valueJson (d : Denote) : Json :=
   | none, some (.finite dom elems) => Codec.valueToJson (.setV elems dom)
   | none, some (.arithProg dom first step last?) =>
       Codec.valueToJson (.progV dom first step last?)
-  | none, _ => Json.null
+  -- spelled out rather than a wildcard: a new set presentation must fail this
+  -- build and be decided, not silently publish `null`
+  | none, some (.domainSet _) | none, some (.product _ _) | none, some (.powerset _)
+  | none, none => Json.null
 
 private def denoteJson (d : Denote) : Json :=
   Json.mkObj

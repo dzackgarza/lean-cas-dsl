@@ -74,6 +74,16 @@ braces are unconditional. -/
       #[(.poly .int #[.int (-1), .int 1], 1),
         (.poly .int #[.int (-1), .int 1, .int 1], 1)] (.poly .int))
   == some "(x - 1) \\cdot (x^{2} + x - 1)"
+-- the factorization of a CONSTANT: no factors, unit 1, in both spellings of
+-- the unit. An empty `core` would ship `$$$$`, which is not a display
+#guard Value.latex? (.factorization (.rat (mkRat 1 1)) #[] (.poly .rat)) == some "1"
+#guard Value.render (.factorization (.rat (mkRat 1 1)) #[] (.poly .rat)) == "1"
+#guard Value.latex? (.factorization (.int 1) #[] .int) == some "1"
+-- a REPEATED polynomial factor keeps its multiplicity: the exponent is the
+-- part a `do`-block `return` in the factor loop silently drops
+#guard Value.latex?
+    (.factorization (.int 1) #[(.poly .int #[.int (-1), .int 1], 2)] (.poly .int))
+  == some "(x - 1)^{2}"
 -- a unit that is not 1 stays in front
 #guard Value.latex? (.factorization (.int (-1)) #[(.int 2, 1)] .int)
   == some "-1 \\cdot 2"
@@ -122,6 +132,18 @@ alone. -/
 -- LaTeX command, and raw Unicode in math mode is a hard error downstream, so
 -- the whole function falls back to plain text rather than shipping it
 #guard Value.latex? (.func .real .real `θ (.poly .real #[.int 1, .int 1])) == none
+-- …and an ASCII binder that is not LaTeX-safe either: `x_1_2` is a double
+-- subscript (a pdflatex error) and `x_ab` typesets as x_a b, silently wrong.
+-- Subscript typography is NOT invented here; the fallback is plain text
+#guard Value.latex? (.func .real .real `x_1_2 (.poly .real #[.int 1, .int 1])) == none
+#guard Value.latex? (.func .real .real `x_ab (.poly .real #[.int 1, .int 1])) == none
+-- a coefficient with no LaTeX form takes the whole polynomial with it,
+-- exactly as an element does for a set — otherwise the plain spelling of a
+-- value this renderer cannot typeset would go RAW into a math-mode payload
+#guard Value.latex? (.poly .int #[.bool true]) == none
+#guard Value.render (.poly .int #[.bool true]) == "true"
+#guard Value.latex? (.func .real .real `t (.poly .real #[.int 1, .bool true])) == none
+#guard Value.latex? (.factorization (.int 1) #[(.poly .int #[.bool true], 1)] .int) == none
 -- the module fixture: `\mathbb{Z}/4\mathbb{Z}` typeset alone is the RING, and
 -- equality here is category-bound
 #guard Obj.latex? (.cyclicModule 4) == none

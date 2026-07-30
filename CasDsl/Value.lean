@@ -173,16 +173,17 @@ private def plainSup (i : Nat) : String := "^" ++ toString i
 private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
 
 /-- Term-joining for polynomials, shared by the plain and LaTeX renderers:
-the two differ only in the exponent spelling, so that is the parameter.
-Coefficients are scalars (`int`/`rat`/`mod`) whose two spellings agree, so
-the caller passes the plain coefficient renderer in both cases. -/
+the two differ in the exponent spelling and in how a COEFFICIENT is spelled,
+so the caller renders the coefficients itself and passes the strings. That is
+what makes the LaTeX path propagate a coefficient with no LaTeX form (its
+`mapM latex?` fails before this is reached) instead of silently substituting
+the plain spelling of a value it cannot typeset. -/
 private def renderPolyWith (x : String) (sup : Nat → String)
-    (coeff : Value → String) (coeffs : Array Value) : String := Id.run do
+    (coeffs : Array String) : String := Id.run do
   if coeffs.isEmpty then return "0"
   let mut terms : List String := []
   for i in [0:coeffs.size] do
-    let c := coeffs[i]!
-    let cs := coeff c
+    let cs := coeffs[i]!
     if cs == "0" then continue
     let term :=
       if i == 0 then cs
@@ -206,7 +207,7 @@ partial def render : Value → String
   | .int z => toString z
   | .rat q => if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
   | .mod _ v => toString v
-  | .poly _ coeffs => renderPolyWith "x" plainSup render coeffs
+  | .poly _ coeffs => renderPolyWith "x" plainSup (coeffs.map render)
   | .mat _ _ rows =>
       let r := rows.toList.map fun row =>
         ", ".intercalate (row.toList.map render)
@@ -215,15 +216,16 @@ partial def render : Value → String
       let fs := factors.toList.map fun (f, m) =>
         let base := match f with
           | .poly _ cs =>
-              if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then
-                s!"({renderPolyWith "x" plainSup render cs})"
-              else renderPolyWith "x" plainSup render cs
+              let p := renderPolyWith "x" plainSup (cs.map render)
+              if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then s!"({p})" else p
           | v => v.render
         if m == 1 then base else s!"{base}^{m}"
       let core := " * ".intercalate fs
       match unit with
       | .int 1 => if fs.isEmpty then "1" else core
-      | .rat q => if q == 1 then core else s!"{render (.rat q)} * {core}"
+      | .rat q =>
+          if q == 1 then (if fs.isEmpty then "1" else core)
+          else s!"{render (.rat q)} * {core}"
       | u => if fs.isEmpty then u.render else s!"{u.render} * {core}"
   | .idealV gens _ =>
       "(" ++ ", ".intercalate (gens.toList.map render) ++ ")"
@@ -240,17 +242,17 @@ partial def render : Value → String
       -- the `x` a bare polynomial renders with
       let t := toString binder
       let b := match body with
-        | .poly _ cs => renderPolyWith t plainSup render cs
+        | .poly _ cs => renderPolyWith t plainSup (cs.map render)
         | v => v.render
       s!"{t} ↦ {b}"
 
 instance : ToString Value := ⟨render⟩
 
 /-- The element a progression shows after its first (`{0, 2, …}` needs the
-`2`), when the step is one the presentation can actually take. -/
-private def progSecondLatex : Value → Value → String
+`2`), or `ell` when the step is not one the presentation can take. -/
+private def progSecond (ell : String) : Value → Value → String
   | .int a, .int d => toString (a + d)
-  | _, _ => "\\ldots"
+  | _, _ => ell
 
 /-- The LaTeX form of a value, or `none` when it has no natural one — in
 which case the cell emits `text/plain` alone (DESIGN.md §LaTeX-first
@@ -265,7 +267,7 @@ partial def latex? : Value → Option String
   | .int z => some (toString z)
   | .rat q => some (if q.den == 1 then toString q.num else s!"{q.num}/{q.den}")
   | .mod _ v => some (toString v)
-  | .poly _ coeffs => some (renderPolyWith "x" latexSup render coeffs)
+  | .poly _ coeffs => (coeffs.mapM latex?).map (renderPolyWith "x" latexSup)
   | .mat _ _ rows => do
       let rs ← rows.mapM fun row => do
         let cs ← row.mapM latex?
@@ -275,8 +277,9 @@ partial def latex? : Value → Option String
       let fs ← factors.mapM fun (f, m) => do
         let base ← match f with
           | .poly _ cs =>
-              let p := renderPolyWith "x" latexSup render cs
-              some (if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then s!"({p})" else p)
+              (cs.mapM latex?).map fun ls =>
+                let p := renderPolyWith "x" latexSup ls
+                if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then s!"({p})" else p
           | v => latex? v
         return if m == 1 then base else base ++ latexSup m
       let core := " \\cdot ".intercalate fs.toList
@@ -284,7 +287,9 @@ partial def latex? : Value → Option String
       | .int 1 => return if fs.isEmpty then "1" else core
       -- the unit is a scalar like any other: it goes through this renderer, so
       -- an integral rational is an integer (`2`, never `2/1`)
-      | .rat q => if q == 1 then return core else return (← latex? (.rat q)) ++ " \\cdot " ++ core
+      | .rat q =>
+          if q == 1 then return (if fs.isEmpty then "1" else core)
+          else return (← latex? (.rat q)) ++ " \\cdot " ++ core
       | u => do
           let us ← latex? u
           return if fs.isEmpty then us else s!"{us} \\cdot {core}"
@@ -301,7 +306,7 @@ partial def latex? : Value → Option String
       let tail ← match last? with
         | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
         | none => some ", \\ldots"
-      return "\\{" ++ f ++ ", " ++ progSecondLatex first step ++ tail ++ "\\}"
+      return "\\{" ++ f ++ ", " ++ progSecond "\\ldots" first step ++ tail ++ "\\}"
   | .cardinal (.finite n) => some (toString n)
   | .cardinal .countablyInfinite => some "\\aleph_0"
   -- a truth value is the documented no-natural-form case: `\text{true}` is
@@ -310,13 +315,12 @@ partial def latex? : Value → Option String
   | .func _ _ binder body => do
       let t := toString binder
       let b ← match body with
-        | .poly _ cs => some (renderPolyWith t latexSup render cs)
+        | .poly _ cs => (cs.mapM latex?).map (renderPolyWith t latexSup)
         | v => latex? v
       -- the binder is the mathematician's own name, and a `θ` reaches math
       -- mode as raw Unicode, which MathJax does not typeset and pdflatex
       -- rejects outright: no LaTeX form, so the cell falls back to plain text
-      if t.all (fun c : Char => c.val < 128) then return t ++ " \\mapsto " ++ b
-      else none
+      if t.all Char.isAlphanum then return t ++ " \\mapsto " ++ b else none
 
 end Value
 
@@ -326,15 +330,9 @@ partial def render : SetPresentation → String
   | .finite _ elems =>
       "{" ++ ", ".intercalate (elems.toList.map (·.render)) ++ "}"
   | .arithProg _ first step none =>
-      let second := match first, step with
-        | .int a, .int d => Value.int (a + d) |>.render
-        | _, _ => "…"
-      s!"\{{first.render}, {second}, ...}"
+      s!"\{{first.render}, {Value.progSecond "…" first step}, ...}"
   | .arithProg _ first step (some last) =>
-      let second := match first, step with
-        | .int a, .int d => Value.int (a + d) |>.render
-        | _, _ => "…"
-      s!"\{{first.render}, {second}, ..., {last.render}}"
+      s!"\{{first.render}, {Value.progSecond "…" first step}, ..., {last.render}}"
   | .domainSet d => d.render
   | .product a b => s!"{render a} × {render b}"
   | .powerset s => s!"𝒫({render s})"
@@ -352,7 +350,7 @@ partial def latex? : SetPresentation → Option String
       let tail ← match last? with
         | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
         | none => some ", \\ldots"
-      return "\\{" ++ f ++ ", " ++ Value.progSecondLatex first step ++ tail ++ "\\}"
+      return "\\{" ++ f ++ ", " ++ Value.progSecond "\\ldots" first step ++ tail ++ "\\}"
   | .domainSet d => some d.latex
   | .product a b => do return (← latex? a) ++ " \\times " ++ (← latex? b)
   | .powerset s => do return "\\mathcal{P}(" ++ (← latex? s) ++ ")"

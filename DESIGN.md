@@ -673,7 +673,8 @@ Conventions (one spelling each, chosen once):
 | factorization | `\cdot` between every factor; polynomial factors parenthesized as in plain text |
 | sets | `\{ \}`, progressions `\{0, 2, \ldots\}`, powerset `\mathcal{P}(A)`, product `\times` |
 | cardinals, functions | `\aleph_0`, `t \mapsto t^{2} + 1` |
-| matrices' domain | `\mathrm{Mat}_{2}(\mathbb{Q})` |
+| ideals | generators in parentheses — `(4)`, `(2, x)` |
+| domains | `\mathbb{Z}[x]`, `\mathrm{Mat}_{2}(\mathbb{Q})`, and the arrow `\mathbb{R} \to \mathbb{R}` |
 
 Everything emitted is math-mode LaTeX: no raw `ℤ`, `↦` or `ℵ₀` survives into
 a payload, because MathJax does not typeset them.
@@ -694,12 +695,20 @@ Values with NO natural form, deliberately:
 - the module fixture `cyclicModule n` — `\mathbb{Z}/4\mathbb{Z}` typeset
   alone is the RING, and equality here is category-bound (§Surface), so it
   would be a display-level lie;
-- a function whose BINDER is not ASCII (`θ ↦ θ + 1`). The binder is the
-  mathematician's own name and the only path by which arbitrary text could
-  reach a payload; `θ` is not a LaTeX command, so the function falls back to
-  plain text whole rather than shipping math mode something that does not
-  typeset. This is what keeps the no-raw-Unicode rule above true rather than
-  aspirational.
+- a function whose BINDER is not LaTeX-safe — not ASCII (`θ ↦ θ + 1`), or
+  ASCII but not typesettable as written (`x_1_2` is a double subscript,
+  which pdflatex rejects; `x_ab` would typeset as x_a b, silently wrong).
+  The rule is ASCII letters and digits only; subscript typography is NOT
+  invented here. The binder is the mathematician's own name and the only
+  path by which arbitrary text could reach a payload, so the function falls
+  back to plain text whole. This is what keeps the no-raw-Unicode rule above
+  true rather than aspirational;
+- a polynomial, factorization or function whose COEFFICIENT has no LaTeX
+  form. `none` propagates out of a polynomial exactly as it does out of a
+  set: the coefficients are rendered by `latex?` and the joiner receives
+  strings, so a value this renderer cannot typeset can never reach a payload
+  in its plain spelling. (Today every constructible coefficient is a scalar
+  with a form; this is the seam that keeps that true when it stops being.)
 
 The `value+json` payload of a set result: RESOLVED, in the display seam.
 `Denote.value?` is element-shaped by design (it feeds arithmetic and
