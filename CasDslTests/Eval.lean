@@ -539,6 +539,14 @@ assert pc((-1 - √5) / 2) = 0
 assert pc((-1 + √5) / 3) ≠ 0
 assert pc(√2) ≠ 0
 
+-- SPEC.md §Polynomials, verbatim: an exact irrational is a root of an exact
+-- polynomial, decided rather than sampled — `√2 · √2` is 2 and not 1.9999999
+let qsq := x ↦ x² - 2 in ℚ[x]
+assert qsq(√2) = 0
+assert qsq(-√2) = 0
+assert qsq(√2) ≠ 1
+assert qsq(2) ≠ 0
+
 -- `ℂ - ℚ` decides membership pointwise, and that is all it claims
 assert √2 ∈ ℂ - ℚ
 assert 2 + 2i ∈ ℂ - ℚ
