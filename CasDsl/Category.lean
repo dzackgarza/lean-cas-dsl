@@ -76,6 +76,8 @@ inductive PresPattern where
   | productSet
   /-- `𝒫(A)`, likewise. -/
   | powersetSet
+  /-- `ℂ - ℚ`, likewise: the two domains are not inspected here. -/
+  | domainDiffSet
   | anySet
   | cyclicMod
   | anyObj
@@ -120,6 +122,7 @@ def accepts : PresPattern → Obj → Bool
   | .domainSetOf p, .setObj (.domainSet d) => p.accepts d
   | .productSet, .setObj (.product ..) => true
   | .powersetSet, .setObj (.powerset _) => true
+  | .domainDiffSet, .setObj (.domainDiff ..) => true
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
@@ -138,6 +141,7 @@ def implies : PresPattern → PresPattern → Bool
   | .finiteSet, .finiteSet => true
   | .productSet, .productSet => true
   | .powersetSet, .powersetSet => true
+  | .domainDiffSet, .domainDiffSet => true
   | .cyclicMod, .cyclicMod => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
@@ -146,6 +150,7 @@ def implies : PresPattern → PresPattern → Bool
   | .progression _, .anySet => true
   | .productSet, .anySet => true
   | .powersetSet, .anySet => true
+  | .domainDiffSet, .anySet => true
   | _, _ => false
 
 end PresPattern

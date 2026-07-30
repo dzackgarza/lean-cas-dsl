@@ -14,7 +14,7 @@ import json
 import sys
 
 try:
-    from sage.all import Integer, Matrix, PolynomialRing, QQ, ZZ, factor, gcd
+    from sage.all import Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ, factor, gcd
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -74,8 +74,10 @@ def write_frame(obj):
 
 RAT_DOM = {"d": "rat"}
 INT_DOM = {"d": "int"}
+COMPLEX_DOM = {"d": "complex"}
 POLY_RAT_DOM = {"d": "poly", "coeff": RAT_DOM}
 POLY_INT_DOM = {"d": "poly", "coeff": INT_DOM}
+POLY_COMPLEX_DOM = {"d": "poly", "coeff": COMPLEX_DOM}
 
 
 def enc_int(z):
@@ -108,8 +110,64 @@ def dec_rows(j):
     return [[dec_rat(x) for x in row] for row in j]
 
 
+def enc_alg(alpha):
+    """An exact algebraic number, as the caller's `a + b*sqrt(d)`.
+
+    QQbar elements PRINT as decimal approximations, so nothing here reads a
+    printed form: the coefficients come from the element's own minimal
+    polynomial, and which of the two conjugate roots it is is settled by an
+    exact QQbar comparison. Degree > 2 over QQ leaves the presentation and is
+    a loud refusal — never a decimal, and never the wrong conjugate.
+    """
+    alpha = QQbar(alpha)
+    if alpha in QQ:
+        return enc_rat(QQ(alpha))
+    f = alpha.minpoly()
+    if f.degree() != 2:
+        raise BackendError(
+            "not_expressible",
+            "the caller presents a + b*sqrt(d) over QQ; %s has minimal polynomial "
+            "%s, of degree %d" % (alpha, f, f.degree()),
+        )
+    # monic over QQ: x^2 + p x + q, roots (-p +/- sqrt(p^2 - 4q))/2
+    p, q = QQ(f[1]), QQ(f[0])
+    disc = p * p - 4 * q
+    a = -p / 2
+    # sqrt(n/m) = sqrt(n*m)/m, with the square part of n*m moved out front
+    nm = ZZ(disc.numerator()) * ZZ(disc.denominator())
+    core = nm.squarefree_part()
+    b = QQ(ZZ((nm / core).sqrt())) / (2 * disc.denominator())
+    for sign in (1, -1):
+        if QQbar(a) + sign * QQbar(b) * QQbar(core).sqrt() == alpha:
+            return {"t": "alg", "a": enc_rat(a), "b": enc_rat(sign * b), "d": str(core)}
+    raise BackendError(
+        "not_expressible",
+        "neither conjugate root of %s is %s: the exact form was not recovered"
+        % (f, alpha),
+    )
+
+
+def dec_alg(j):
+    """An exact number from the wire: an integer, a rational, or `a + b*sqrt(d)`."""
+    if not isinstance(j, dict):
+        raise BackendError("bad_request", "expected an exact number, got %r" % (j,))
+    tag = j.get("t")
+    if tag == "int":
+        return QQbar(dec_int(j))
+    if tag == "rat":
+        return QQbar(dec_rat(j))
+    if tag == "alg":
+        d = Integer(j["d"])
+        return QQbar(dec_rat(j["a"])) + QQbar(dec_rat(j["b"])) * QQbar(d).sqrt()
+    raise BackendError("bad_request", "expected an exact number, got %r" % (j,))
+
+
 def enc_poly_q(f):
     return {"t": "poly", "coeff": RAT_DOM, "coeffs": [enc_rat(c) for c in f.list()]}
+
+
+def enc_poly_c(f):
+    return {"t": "poly", "coeff": COMPLEX_DOM, "coeffs": [enc_alg(c) for c in f.list()]}
 
 
 def enc_poly_z(f):
@@ -152,6 +210,20 @@ def op_factor_poly_z(args):
     }
 
 
+def op_factor_poly_c(args):
+    """Factor over the algebraic numbers — SPEC.md's `map p to CC[x]` then
+    `q.factor()`. Over a field the factors are monic, so the unit carries the
+    leading coefficient; both are Sage's own conventions, passed through.
+    """
+    fac = PolynomialRing(QQbar, "x")([dec_alg(c) for c in args["coeffs"]]).factor()
+    return {
+        "t": "factorization",
+        "unit": enc_alg(fac.unit()),
+        "factors": [[enc_poly_c(g), int(m)] for g, m in fac],
+        "dom": POLY_COMPLEX_DOM,
+    }
+
+
 def op_gcd_int(args):
     return enc_int(gcd(Integer(args["a"]), Integer(args["b"])))
 
@@ -189,6 +261,18 @@ def op_roots_poly_q(args):
     )
 
 
+def op_roots_poly_c(args):
+    """The roots in ℂ, exactly. Over QQbar a nonzero polynomial splits, so
+    this is where `x^2 - 2` finally has roots — the two irrational ones.
+    """
+    return _roots(
+        PolynomialRing(QQbar, "x"),
+        [dec_alg(c) for c in args["coeffs"]],
+        enc_alg,
+        COMPLEX_DOM,
+    )
+
+
 def op_mat_det_q(args):
     return enc_rat(Matrix(QQ, dec_rows(args["rows"])).det())
 
@@ -211,10 +295,12 @@ OPS = {
     "factor_int": op_factor_int,
     "factor_poly_q": op_factor_poly_q,
     "factor_poly_z": op_factor_poly_z,
+    "factor_poly_c": op_factor_poly_c,
     "gcd_int": op_gcd_int,
     "is_prime_int": op_is_prime_int,
     "roots_poly_z": op_roots_poly_z,
     "roots_poly_q": op_roots_poly_q,
+    "roots_poly_c": op_roots_poly_c,
     "mat_det_q": op_mat_det_q,
     "mat_inv_q": op_mat_inv_q,
 }

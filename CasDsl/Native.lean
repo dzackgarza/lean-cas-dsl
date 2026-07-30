@@ -355,11 +355,17 @@ private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
   | .poly c, v => inDomain? c v
   | _, _ => none
 
-private def domainContains (d : Domain) (x : Value) : Except ExecError Value :=
+/-- `x ∈ d`, or the loud refusal that this backend has no test for `d` — the
+one place that judgment is made, so a difference set cannot decide membership
+differently from the domain it was built from. -/
+private def domainMember (d : Domain) (x : Value) : Except ExecError Bool :=
   match inDomain? d x with
-  | some b => .ok (.bool b)
+  | some b => .ok b
   | none => .error (.badRequest
       s!"the native backend has no membership test for {d.render}")
+
+private def domainContains (d : Domain) (x : Value) : Except ExecError Value := do
+  return .bool (← domainMember d x)
 
 private def progContains (first step : Value) (last? : Option Value) (x : Value)
     : Except ExecError Value := do
@@ -414,6 +420,11 @@ partial def presCard : SetPresentation → Except ExecError Cardinality
       | none => return .countablyInfinite
       | some n => return .finite n
   | .product a b => do return cardMul (← presCard a) (← presCard b)
+  -- `|ℂ - ℚ|` is not a cardinal this slice can state, and neither is the
+  -- general shape: an honest refusal, never a subtraction of cardinals
+  | .domainDiff a b => .error (.badRequest
+      s!"the native backend cannot state the cardinality of {a.render} - {b.render}: \
+this presentation decides membership, not size")
   | .powerset s => do
       match ← presCard s with
       | .finite n =>
@@ -486,22 +497,29 @@ private def normalizeProg (first step : Value) (last? : Option Value)
           Value.ofRat (f + Rat.ofInt (Int.ofNat i) * s)
 
 private def normalizeSet : Obj → Except ExecError SetNormal
+  -- Scalars sort, which is the cheap dedupe; anything else — an exact
+  -- algebraic value, where ORDER would be a claim ℂ does not support —
+  -- dedupes by comparison instead. Equality below is order-free either way.
   | .setObj (.finite _ elems) =>
-      if scalarSortable elems then .ok (.fin (sortDedup elems))
-      else .error (.badRequest
-        "set equality compares scalar elements only (documented ceiling)")
+      .ok (.fin (if scalarSortable elems then sortDedup elems else dedupValues elems))
   | .setObj (.domainSet d) | .domainObj d => normalizeDomain d
   | .setObj (.arithProg _ first step last?) => normalizeProg first step last?
-  -- a denoted set has no canonical form here: comparing `A × B` or `𝒫(A)`
-  -- with anything would need element lists this ontology does not present
-  | o@(.setObj (.product ..)) | o@(.setObj (.powerset _)) =>
+  -- a denoted set has no canonical form here: comparing `A × B`, `𝒫(A)` or
+  -- `ℂ - ℚ` with anything would need element lists this ontology does not
+  -- present. (`ℂ - ℚ` is decided as the RIGHT side of an inclusion, below,
+  -- where pointwise membership settles it without a canonical form.)
+  | o@(.setObj (.product ..)) | o@(.setObj (.powerset _))
+  | o@(.setObj (.domainDiff ..)) =>
       .error (.badRequest s!"the native backend cannot normalize {o.presentation} \
 for comparison: a denoted set has no element list here")
   | o => .error (.badRequest s!"{o.presentation} is not a set")
 
 private def setNormalEq : SetNormal → SetNormal → Bool
+  -- both sides are deduped, so equal sizes plus one-way membership IS
+  -- equality — and it does not depend on an order the elements of ℂ have no
+  -- honest one of
   | .fin a, .fin b =>
-      a.size == b.size && (a.zip b).all fun (x, y) => valueEq x y == some true
+      a.size == b.size && a.all fun x => b.any fun y => valueEq x y == some true
   | .prog f1 s1, .prog f2 s2 => f1 == f2 && s1 == s2
   | .dom d1, .dom d2 => d1 == d2
   | _, _ => false
@@ -684,6 +702,12 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
       | .setObj (.product ..) =>
           .error (.badRequest s!"{o.presentation} has pairs for elements, which \
 this slice presents no value for")
+      -- `x ∈ ℂ - ℚ` is decided POINTWISE, which is the whole content of this
+      -- presentation: in the first domain and not in the second, both by the
+      -- membership test the domains already have
+      | .setObj (.domainDiff p m) => do
+          let x ← scalarArg "contains" args
+          return .bool ((← domainMember p x) && !(← domainMember m x))
       | o =>
         let x ← scalarArg "contains" args
         match o with
@@ -698,7 +722,20 @@ this slice presents no value for")
       return .bool (setNormalEq a b)
   | "subset" => do
       let rhs ← setArg "subset" args
-      return .bool (← normalSubset (← normalizeSet o) (← normalizeSet rhs))
+      match rhs with
+      -- SPEC.md's `q.roots() ⊆ ℂ - ℚ`: a difference of domains has no
+      -- canonical form to normalize, and needs none — inclusion in it is the
+      -- pointwise membership above, taken over an EXPLICIT element list. Any
+      -- other receiver refuses rather than guessing at one.
+      | .setObj (.domainDiff p m) =>
+          match o with
+          | .setObj (.finite _ elems) =>
+              return .bool (← elems.foldlM (init := true) fun acc x => do
+                return acc && (← domainMember p x) && !(← domainMember m x))
+          | o => .error (.badRequest
+              s!"the native backend decides inclusion in {rhs.presentation} for an \
+explicit finite set only, and {o.presentation} is not one")
+      | rhs => return .bool (← normalSubset (← normalizeSet o) (← normalizeSet rhs))
   | "set_union" => binarySetOp "set_union" o args (· ++ ·)
   | "set_intersect" =>
       binarySetOp "set_intersect" o args fun a b => a.filter (memOf b)

@@ -511,6 +511,40 @@ private def r2 : Obj := .elem .real (.alg 0 1 2)
 -- ℝ and ℂ are uncountable, and this slice says so rather than answering ℵ₀
 #guard out "cardinality" (.domainObj .complex) #[] == none
 
+/-! ### `ℂ - ℚ` (SPEC.md §Polynomials)
+
+A DENOTED difference of two domains: membership is decided pointwise, and
+everything that would need an element list refuses. The minimal presentation
+the assertion needs, and nothing wider. -/
+
+private def cMinusQ : Obj := .setObj (.domainDiff .complex .rat)
+
+#guard out "contains" cMinusQ #[r2] == some (.bool true)
+#guard out "contains" cMinusQ #[zC] == some (.bool true)
+-- a rational is in ℂ and in ℚ, so it is NOT in the difference
+#guard out "contains" cMinusQ #[.elem .int (.int 1)] == some (.bool false)
+#guard out "contains" cMinusQ #[.elem .rat (.rat (mkRat 1 2))] == some (.bool false)
+-- …and the first domain still has to hold: a residue class is in neither
+#guard out "contains" cMinusQ #[.elem (.mod 5) (Value.mkMod 5 2)] == some (.bool false)
+-- SPEC.md's `q.roots() ⊆ ℂ - ℚ`, over an explicit finite set
+#guard out "subset" (.setObj (.finite .complex #[.alg 0 1 2, .alg 0 (-1) 2]))
+    #[cMinusQ] == some (.bool true)
+#guard out "subset" (.setObj (.finite .complex #[.alg 0 1 2, .int 1]))
+    #[cMinusQ] == some (.bool false)
+-- everything that would need an element list of it refuses, loudly
+#guard out "cardinality" cMinusQ #[] == none
+#guard out "set_eq" cMinusQ #[cMinusQ] == none
+#guard out "subset" cMinusQ #[cMinusQ] == none
+#guard out "nth" cMinusQ #[.elem .nat (.int 0)] == none
+-- a set of exact algebraic values compares as a SET: dedupe and equality are
+-- order-free, because ℂ has no order this slice would be honest claiming
+#guard out "set_eq" (.setObj (.finite .complex #[.alg 0 1 2, .alg 0 (-1) 2]))
+    #[.setObj (.finite .complex #[.alg 0 (-1) 2, .alg 0 1 2])] == some (.bool true)
+#guard out "set_eq" (.setObj (.finite .complex #[.alg 0 1 2]))
+    #[.setObj (.finite .complex #[.alg 0 1 5])] == some (.bool false)
+#guard out "cardinality" (.setObj (.finite .complex #[.alg 0 1 2, .alg 0 1 2])) #[]
+  == some (.cardinal (.finite 1))
+
 #guard out "annihilator_cyclic" (.cyclicModule 12) #[] ==
   some (.idealV #[.int 12] .int)
 #guard out "annihilator_cyclic" (.domainObj .int) #[] == none

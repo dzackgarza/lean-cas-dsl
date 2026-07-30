@@ -22,10 +22,12 @@ OPS = [
     "factor_int",
     "factor_poly_q",
     "factor_poly_z",
+    "factor_poly_c",
     "gcd_int",
     "is_prime_int",
     "roots_poly_z",
     "roots_poly_q",
+    "roots_poly_c",
     "mat_det_q",
     "mat_inv_q",
 ]
@@ -86,6 +88,19 @@ def rat(j):
 def int_v(j):
     assert j["t"] == "int", "expected an integer, got %r" % (j,)
     return j["v"]
+
+
+def exact(j):
+    """An exact number from the wire: a rational, or `a + b*sqrt(d)`.
+
+    Nothing here parses a decimal, because nothing on this wire carries one:
+    a QQbar element that reached the caller as a printed approximation would
+    fail this decode outright.
+    """
+    if j["t"] == "rat":
+        return rat(j)
+    assert j["t"] == "alg", "expected an exact number, got %r" % (j,)
+    return "%s + %s*sqrt(%s)" % (rat(j["a"]), rat(j["b"]), j["d"])
 
 
 def factor_dict(value, decode):
@@ -165,6 +180,67 @@ def check_factor_poly_z(adapter):
     assert int_v(value["unit"]) == "-1", value["unit"]
     assert factors(value) == {(("2",), 1), (("1", "1"), 1)}, value
     print("factor_poly_z: ok")
+
+
+def check_factor_poly_c(adapter):
+    # SPEC.md §Polynomials: x^3 - 2x + 1 over the algebraic numbers SPLITS,
+    # into (x - 1) and the two factors whose roots are (-1 +/- sqrt 5)/2.
+    # Each factor is monic, so its constant term is the negated root — and it
+    # is EXACT: an approximation could not be written in this form at all.
+    value = adapter.ok(
+        "factor_poly_c",
+        {"coeffs": [{"t": "int", "v": v} for v in ("1", "-2", "0", "1")]},
+    )
+    assert value["t"] == "factorization", value
+    assert value["dom"] == {"d": "poly", "coeff": {"d": "complex"}}, value
+    assert rat(value["unit"]) == "1/1", value["unit"]
+    got = set()
+    for base, mult in value["factors"]:
+        assert base["t"] == "poly" and base["coeff"] == {"d": "complex"}, base
+        got.add((tuple(exact(c) for c in base["coeffs"]), mult))
+    expected = {
+        (("-1/1", "1/1"), 1),
+        (("1/2 + -1/2*sqrt(5)", "1/1"), 1),
+        (("1/2 + 1/2*sqrt(5)", "1/1"), 1),
+    }
+    assert got == expected, "got %r, expected %r" % (got, expected)
+
+    # …and a factor this presentation cannot carry is a LOUD refusal rather
+    # than a decimal: x^5 - 1 has roots of degree 4 over QQ
+    reply = adapter.call(
+        "factor_poly_c",
+        {"coeffs": [{"t": "int", "v": v} for v in ("-1", "0", "0", "0", "0", "1")]},
+    )
+    assert reply["status"] == "error", reply
+    assert reply["kind"] == "not_expressible", reply
+    print("factor_poly_c: ok")
+
+
+def check_roots_poly_c(adapter):
+    def elems(value):
+        assert value["t"] == "set" and value["dom"] == {"d": "complex"}, value
+        return sorted(exact(e) for e in value["elems"])
+
+    # x^2 - 2 has NO rational root (checked above) and exactly two in C
+    value = adapter.ok("roots_poly_c", {"coeffs": [q(-2), q(0), q(1)]})
+    assert elems(value) == ["0/1 + -1/1*sqrt(2)", "0/1 + 1/1*sqrt(2)"], value
+
+    # x^2 + 1: the imaginary unit and its conjugate, as a NEGATIVE radicand
+    value = adapter.ok("roots_poly_c", {"coeffs": [q(1), q(0), q(1)]})
+    assert elems(value) == ["0/1 + -1/1*sqrt(-1)", "0/1 + 1/1*sqrt(-1)"], value
+
+    # a surd on the way IN as well as out: (x - sqrt 2)(x + sqrt 2) = x^2 - 2
+    value = adapter.ok(
+        "roots_poly_c",
+        {
+            "coeffs": [
+                {"t": "alg", "a": q(0), "b": q(-1), "d": "2"},
+                {"t": "rat", "num": "1", "den": "1"},
+            ]
+        },
+    )
+    assert elems(value) == ["0/1 + 1/1*sqrt(2)"], value
+    print("roots_poly_c: ok")
 
 
 def q(n, d=1):
@@ -275,6 +351,8 @@ def main():
         check_factor_int(adapter)
         check_factor_poly_q(adapter)
         check_factor_poly_z(adapter)
+        check_factor_poly_c(adapter)
+        check_roots_poly_c(adapter)
         check_gcd_int(adapter)
         check_is_prime_int(adapter)
         check_roots(adapter)

@@ -931,6 +931,66 @@ def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
     assert bundle(kc, "√2")["text/plain"] == "√2"
 
 
+# -- 15 · ℂ[x]: where the cubic splits ---------------------------------------
+# SPEC.md §Polynomials' last two blocks. `p` (x³ - 2x + 1 over ℤ) and `q`
+# (x² - 2 over ℚ) are bound in §3 above; `pc` and `qc` are new here.
+
+def test_a_polynomial_evaluated_at_an_exact_irrational(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md, verbatim: q = x² - 2 in ℚ[x] has √2 for a root, exactly —
+    # √2 · √2 is 2 and not 1.9999999
+    ok(kc, "assert q(√2) = 0")
+    ok(kc, "assert q(-√2) = 0")
+    assert "false" in err(kc, "assert q(√2) = 1").lower()
+    assert "false" in err(kc, "assert q(2) = 0").lower()
+
+
+def test_the_cubic_splits_over_the_complex_numbers(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let pc := map p to ℂ[x]")     # SPEC.md's `q := map p to ℂ[x]`
+    text = ok(kc, "pc.factor()")
+    # the CONTENT, not one string: Sage owns the factor order and the unit
+    # convention (DESIGN.md decision 7), so what is pinned here is that three
+    # linear factors came back and that the roots SPEC.md displays are roots.
+    assert text.count("(x") >= 2 and "√5" in text
+    ok(kc, "assert pc((-1 + √5) / 2) = 0")
+    ok(kc, "assert pc((-1 - √5) / 2) = 0")
+    ok(kc, "assert pc(1) = 0")
+    assert "false" in err(kc, "assert pc((-1 + √5) / 3) = 0").lower()
+    # a factorization whose factors do not lie in a + b√d is a loud refusal
+    # from the adapter, not a decimal: x⁵ - 1 has roots of degree 4 over ℚ
+    ok(kc, "let pf := x ↦ x^5 - 1 in ℂ[x]")
+    text = err(kc, "pf.factor()")
+    assert "not_expressible" in text
+
+
+def test_roots_in_the_complex_numbers_and_the_difference_set(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md writes `assert q.roots() ⊆ ℂ - ℚ` for q ∈ ℚ[x]. `roots` answers
+    # in the polynomial's OWN coefficient ring — the pinned decision above —
+    # so over ℚ that set is EMPTY and the inclusion holds VACUOUSLY. It runs,
+    # and the honest version of the claim is the next three lines.
+    ok(kc, "assert q.roots() = {}")
+    ok(kc, "assert q.roots() ⊆ ℂ - ℚ")
+    ok(kc, "let qc := map q to ℂ[x]")
+    text = ok(kc, "qc.roots()")
+    assert "√2" in text and "2.41" not in text and "1.41" not in text
+    ok(kc, "assert qc.roots() = {√2, -√2}")
+    ok(kc, "assert qc.roots() ⊆ ℂ - ℚ")     # …with two elements in it
+    ok(kc, "assert √2 ∈ qc.roots()")
+    assert "false" in err(kc, "assert qc.roots() = {√2}").lower()
+    assert "false" in err(kc, "assert 2 ∈ qc.roots()").lower()
+    # the difference set decides membership pointwise and refuses the rest
+    ok(kc, "assert 2 + 2i ∈ ℂ - ℚ")
+    assert "false" in err(kc, "assert 1 ∈ ℂ - ℚ").lower()
+    text = err(kc, "|ℂ - ℚ|")
+    assert "cannot state the cardinality" in text
+    b = bundle(kc, "ℂ - ℚ")
+    assert b["text/latex"] == r"$$\mathbb{C} \setminus \mathbb{Q}$$"
+    assert b["text/plain"] == "ℂ - ℚ"
+
+
 def test_i_is_a_constant_a_binding_shadows(kernel: Kernel) -> None:
     _, kc = kernel
     # `i` names the imaginary unit only while it is UNBOUND, exactly like the

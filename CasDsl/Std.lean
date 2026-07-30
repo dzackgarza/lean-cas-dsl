@@ -70,6 +70,11 @@ def doubling : Obj :=
 /-- `2 + 2i ∈ ℂ` — SPEC.md §Exact number systems' `z`. -/
 def z2plus2i : Obj := .elem .complex (.alg 2 2 (-1))
 
+/-- The same cubic after SPEC.md's `q := map p to ℂ[x]`, where it splits. The
+coefficients are the integers `map` was given: ℤ ⊆ ℂ moves no data. -/
+def polyC : Obj :=
+  .elem (.poly .complex) (Value.mkPoly .complex #[.int 1, .int (-2), .int 0, .int 1])
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -251,6 +256,10 @@ private def stdProfileRules : Array ProfileRule := #[
   { pattern := .elemOf (.exact .int), cat := `EuclideanElems, slots := #[.elemDom] },
   { pattern := .elemOf (.polyOver (.exact .rat)), cat := `EuclideanElems,
     slots := #[.elemDom] },
+  -- ℂ[x] is euclidean for the reason ℚ[x] is: ℂ is a field. It is where
+  -- SPEC.md's `map p to ℂ[x]` lands, and where a cubic finally splits
+  { pattern := .elemOf (.polyOver (.exact .complex)), cat := `EuclideanElems,
+    slots := #[.elemDom] },
   -- ℤ[x] is a UFD, not a euclidean domain
   { pattern := .elemOf (.polyOver (.exact .int)), cat := `FactorizationElems,
     slots := #[.elemDom] },
@@ -301,6 +310,9 @@ private def stdProfileRules : Array ProfileRule := #[
     slots := #[.setDom] },
   { pattern := .domainIs (.polyOver (.exact .rat)), cat := `CountableSets,
     slots := #[.setDom] },
+  -- ℂ[x] is a set too, and an UNCOUNTABLE one: `Sets` is its true strength,
+  -- so `p ∈ ℂ[x]` is decided and `ℂ[x][3]` is not even applicable
+  { pattern := .domainIs (.polyOver (.exact .complex)), cat := `Sets },
   -- ℝ and ℂ as objects, and used as sets. `Sets` is their true strength and
   -- nothing narrower: both are UNCOUNTABLE, so `nth` — declared on
   -- CountableSets — correctly does not reach them, and `ℝ.cardinality()`
@@ -322,6 +334,9 @@ private def stdProfileRules : Array ProfileRule := #[
   -- claim — the same reason a bounded progression enters at CountableSets.
   { pattern := .productSet, cat := `Sets },
   { pattern := .powersetSet, cat := `Sets },
+  -- `ℂ - ℚ` is a set and nothing narrower, for the same reason: its strength
+  -- is whatever the two domains decide
+  { pattern := .domainDiffSet, cat := `Sets },
   -- the module fixture: ℤ/n as a ℤ-module, in the PROPER subcategory only.
   -- `Modules` membership arrives through the inclusion edge, which is what
   -- makes `annihilator` a real inheritance demonstration.
@@ -443,6 +458,9 @@ private def stdRoutes : Array Route := #[
     backend := `sage, opId := "factor_poly_q" },
   { method := `factor, pattern := .elemOf (.polyOver (.exact .int)),
     backend := `sage, opId := "factor_poly_z" },
+  -- over ℂ the factors are linear: SPEC.md's own `q := map p to ℂ[x]`
+  { method := `factor, pattern := .elemOf (.polyOver (.exact .complex)),
+    backend := `sage, opId := "factor_poly_c" },
   -- gcd: routed for ℤ only. It stays meaningful on every UFD element, so
   -- `p.gcd(q)` in ℤ[x] is the honest structured gap the audit lists
   { method := `gcd, pattern := .elemOf (.exact .int),
@@ -460,6 +478,10 @@ private def stdRoutes : Array Route := #[
     backend := `sage, opId := "roots_poly_z" },
   { method := `roots, pattern := .elemOf (.polyOver (.exact .rat)),
     backend := `sage, opId := "roots_poly_q" },
+  -- …and in ℂ, where a nonzero polynomial splits: `x² − 2` has its two
+  -- irrational roots here and nowhere below
+  { method := `roots, pattern := .elemOf (.polyOver (.exact .complex)),
+    backend := `sage, opId := "roots_poly_c" },
   -- exact matrix algebra over ℚ
   { method := `det, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `sage, opId := "mat_det_q" },
@@ -663,6 +685,11 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env polyQ `deg [] `native
   expectRouted env polyZ `roots [] `sage
   expectRouted env polyQ `roots [] `sage
+  -- SPEC.md §Polynomials: over ℂ the same two operations are routed to their
+  -- own ops — which is where the cubic splits and where `x² − 2` has roots
+  expectRouted env polyC `factor [`FactorizationElems] `sage
+  expectRouted env polyC `roots [] `sage
+  expectRouted env polyC `deg [] `native
   -- a polynomial over ℤ/5 is still a polynomial: `deg` is a structural read
   -- and routes, `roots` is not implemented there and gaps
   expectRouted env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))

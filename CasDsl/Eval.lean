@@ -706,6 +706,7 @@ def renderPattern : PresPattern → String
   | .domainSetOf d => s!"the underlying set of {renderDomainPattern d}"
   | .productSet => "a cartesian product"
   | .powersetSet => "a powerset"
+  | .domainDiffSet => "a difference of two domains"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .anyObj => "any object"
@@ -968,6 +969,19 @@ no other reading of an exponent over {s.render}")
           let x ← ofStr (asValueOf (← eval ctx a))
           return Denote.ofValue
             (← ofStr (valueBin ctx.canonMaps .pow x (← ofStr (asValueOf y))))
+  | .bin .sub a b => do
+      -- `ℂ - ℚ` (SPEC.md §Polynomials) DENOTES the difference of two domains,
+      -- exactly as `A × B` and `𝒫(A)` denote: no method, no route, membership
+      -- decided pointwise. Only domains — the difference of two finite sets
+      -- is `A \ B`, which computes.
+      let x ← eval ctx a
+      let y ← eval ctx b
+      match x, y with
+      | .obj (.domainObj p), .obj (.domainObj m) =>
+          return .obj (.setObj (.domainDiff p m))
+      | _, _ =>
+          return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .sub
+            (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
   | .bin op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))

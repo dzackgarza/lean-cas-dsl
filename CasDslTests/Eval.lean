@@ -518,6 +518,38 @@ assert |s2| = √2
 -- and `i` is a CONSTANT, not a binding: a `let` shadows it exactly as one
 -- shadows the `R` spelling of ℝ. (Bound last in this file on purpose —
 -- nothing below reads `i`.)
+/-! ### `map p to ℂ[x]` and `ℂ - ℚ` (SPEC.md §Polynomials)
+
+The coercion and the difference set are decided here; the FACTORIZATION and
+the roots over ℂ are Sage's, so they are pinned semantically by the routing
+proofs in `CasDsl/Std.lean` and executed against the real adapter by
+`tests/roundtrip.py` and `tests/test_e2e.py` — this build stays backend-free. -/
+
+let pc := map p to ℂ[x]
+assert pc ∈ ℂ[x]
+assert pc.deg() = 3
+
+-- The CONTENT of SPEC.md's displayed factorization `(x-1)(x - (-1+√5)/2)(x -
+-- (-1-√5)/2)`, checked without a backend: each displayed root is a root, and
+-- a near miss is not. What the adapter actually returns is pinned in
+-- tests/roundtrip.py; this is the claim that makes the display true.
+assert pc(1) = 0
+assert pc((-1 + √5) / 2) = 0
+assert pc((-1 - √5) / 2) = 0
+assert pc((-1 + √5) / 3) ≠ 0
+assert pc(√2) ≠ 0
+
+-- `ℂ - ℚ` decides membership pointwise, and that is all it claims
+assert √2 ∈ ℂ - ℚ
+assert 2 + 2i ∈ ℂ - ℚ
+assert 1 ∉ ℂ - ℚ
+assert 1 / 2 ∉ ℂ - ℚ
+-- SPEC.md's `q.roots() ⊆ ℂ - ℚ`, over the root set ℂ[x] gives it (spelled
+-- out here; that the backend RETURNS this set is tests/roundtrip.py's claim)
+assert {√2, -√2} ⊆ ℂ - ℚ
+-- (the false case has no surface spelling — there is no `⊄` relation — so it
+-- is a `#guard` over the executor in CasDslTests/Core.lean)
+
 let i := 5 in ℤ
 assert 2 + 2i = 12
 

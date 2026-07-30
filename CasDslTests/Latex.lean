@@ -149,6 +149,11 @@ braces are unconditional. -/
   == some "\\{1\\} \\times \\mathbb{N}"
 #guard SetPresentation.latex? (.powerset (.finite .int #[.int 1, .int 2]))
   == some "\\mathcal{P}(\\{1, 2\\})"
+-- `ℂ - ℚ`: a minus between two SETS is `\setminus` in math mode, and the
+-- plain rendering keeps SPEC.md's own spelling
+#guard SetPresentation.latex? (.domainDiff .complex .rat)
+  == some "\\mathbb{C} \\setminus \\mathbb{Q}"
+#guard SetPresentation.render (.domainDiff .complex .rat) == "ℂ - ℚ"
 
 /-! ## Cardinals, functions, ideals -/
 

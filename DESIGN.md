@@ -118,6 +118,7 @@ inductive SetPresentation
   | domainSet (d : Domain)         -- the underlying set of ℤ, ℕ, ℚ, …
   | product (a b : SetPresentation)     -- A × B, denoted
   | powerset (s : SetPresentation)      -- 𝒫(A) / 2^A, denoted
+  | domainDiff (a b : Domain)           -- ℂ - ℚ, denoted
 
 inductive Obj                       -- the thing a notebook binding names
   | elem (dom : Domain) (v : Value)         -- 360 ∈ ℤ, q ∈ ℚ[x], M ∈ Mat₂(ℚ)
@@ -193,6 +194,19 @@ equality, membership and set operations decide on these values at all.
 - **`i` is a CONSTANT, not a binding** (`Eval.constantValue?`), consulted
   after the session bindings and the domain aliases — so `let i := 5 in ℤ`
   shadows it exactly as `let R := …` shadows ℝ, and `2 + 2i` is then 12.
+- **ℂ[x] is where the cubic splits**, and `roots` STILL answers in the
+  polynomial's own coefficient ring. `map p to ℂ[x]` is the ordinary
+  registered coercion (ℤ ⊆ ℂ, coefficient-wise), `factor` and `roots` are
+  routed there to their own Sage ops, and SPEC.md's displayed factorization
+  `(x-1)(x - (-1+√5)/2)(x - (-1-√5)/2)` comes back as three monic linear
+  factors with exact `a + b√d` coefficients. Its CONTENT is what is pinned —
+  each displayed root evaluates to zero, and a near miss does not — because
+  the factor ORDER and the unit convention are the backend's (decision 7).
+  DISCLOSED: SPEC.md writes `assert q.roots() ⊆ ℂ - ℚ` for `q ∈ ℚ[x]`, where
+  `q.roots()` is EMPTY, so that line runs and holds VACUOUSLY. The contentful
+  claim is the same one after `map q to ℂ[x]`, where the root set is
+  `{√2, -√2}`; both are pinned, and `roots` reaching into an extension by
+  itself would be exactly the silent reach §Standard universe forbids.
 
 ## Functions (`SPEC.md` §Functions, issue #25)
 
@@ -285,6 +299,16 @@ router, except the two that construct rather than compute.
   cannot be stated — never `ℵ₀`. A FINITE powerset has the other ceiling:
   `powersetExpCap` (2^4096) is where `2^n` stops being a number worth
   materializing, and `|𝒫(ℤ/5000)|` says so rather than hanging.
+- **`ℂ - ℚ` is DENOTED, and it is not a second spelling of `\`.** SPEC.md
+  writes both: `A \ B` (§Finite sets) computes an element list and is the
+  `diff` method, routed for explicit finite receivers; `ℂ - ℚ` (§Polynomials)
+  is a `SetPresentation.domainDiff` built by elaboration, like `A × B` and
+  `𝒫(A)`. Only two DOMAINS build one — the minus between two finite sets is
+  the ordinary arithmetic error it always was — and the presentation claims
+  exactly what the assertion needs: MEMBERSHIP, decided pointwise by the two
+  domains' own tests (so `x ∈ ℂ - ℚ` and `S ⊆ ℂ - ℚ` for an explicit finite
+  `S` are decided), while a cardinality, a canonical form to compare, an
+  enumeration and an inclusion with a non-finite left side all refuse.
 - **`|·|` names a method and `⊆` is `subset`**; the bars and the symbol are
   spellings, not operations of their own. Which method the bars name is the
   receiver's business — `cardinality` for a set, `abs` for an element of ℝ or
@@ -638,8 +662,14 @@ Typed values on the wire (bignums as strings):
 `{"t":"alg","a":rat,"b":rat,"d":"5"}` (the exact `a + b√d`, decoded THROUGH
 `Value.mkAlg` so a frame carrying `√8` becomes the `2√2` it denotes).
 
-Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `gcd_int`,
-`roots_poly_z`, `roots_poly_q`, `mat_det_q`, `mat_inv_q`.
+Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `factor_poly_c`,
+`gcd_int`, `is_prime_int`, `roots_poly_z`, `roots_poly_q`, `roots_poly_c`,
+`mat_det_q`, `mat_inv_q`. The two ℂ ops work in `QQbar`, whose elements PRINT
+as decimal approximations — so the adapter never reads a printed form: it
+takes the coefficients of an algebraic number from its own minimal polynomial
+and settles which conjugate it is by an exact `QQbar` comparison. A root of
+degree > 2 over ℚ leaves the `a + b√d` presentation and is the loud
+`not_expressible` refusal, never a decimal.
 The adapter (`backends/sage_adapter.py`) runs under `sage -python`, builds
 native Sage parents/elements from the typed request, and returns trusted
 typed results with provenance versions. It never receives generated Sage
@@ -670,6 +700,7 @@ q(1)   h(3)   h(-t)   (f ∘ g)(t)          -- call/compose: inserted coercions
 let A := {1, 2, 3} in 𝒫(ℤ)                -- powerset ascription (also 2^ℤ)
 A ∪ B   A ∩ B   A \ B   A △ B             -- the Sets methods, spelled
 A × B   𝒫(A)   |A|   2^|A|                -- denoted sets, and cardinality
+ℂ - ℚ                                     -- …and a denoted domain difference
 assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
 assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ         -- `and` chains ASSERTIONS
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
@@ -859,7 +890,9 @@ ring, including ones where factorization does not; a polynomial therefore
 inhabits the divisibility hierarchy and this one INDEPENDENTLY, and neither
 membership is allowed to imply the other. `roots` returns the roots in the
 polynomial's own coefficient ring — an empty result (`x² − 2` over ℚ) is the
-answer, never a silent reach into an extension.
+answer, never a silent reach into an extension. ℂ[x] is a routed coefficient
+ring like the others, so the roots that ring DOES have are one explicit
+`map q to ℂ[x]` away (§Exact number systems).
 
 One functor ships: `UnderlyingSet : Modules → Sets` (object map: the
 ℤ-module ℤ/n to the finite set of its residues). It is what makes
@@ -874,7 +907,7 @@ The deliberate capability gaps shipped by the universe (honest, auditable):
 meaningful on any `MatrixElems` member, only ℚ-entry matrices are routed,
 and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. Alongside it,
 `gcd` and `is_prime` outside ℤ (both are meaningful in every UFD; only the
-ℤ routes are registered), `roots` outside ℤ[x]/ℚ[x], `nth` on ℤ[x]
+ℤ routes are registered), `roots` outside ℤ[x]/ℚ[x]/ℂ[x], `nth` on ℤ[x]
 (countable, no enumeration registered), and the binary set operations on any
 receiver that is not an explicit finite list (`ℤ ∪ A`, `𝒫(A) ∪ A`) — each one
 available, none executable, all asserted as gaps by the proofs at the end of

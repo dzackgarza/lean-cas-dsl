@@ -113,6 +113,14 @@ inductive SetPresentation where
   its elements are SETS, which no `Value` presents. `|𝒫(A)| = 2^|A|` is
   cardinal arithmetic, and `X ∈ 𝒫(A)` is the subset judgment. -/
   | powerset (s : SetPresentation)
+  /-- `ℂ - ℚ` (SPEC.md §Polynomials). A presentation again, and the minimal
+  one the assertion needs: MEMBERSHIP is decided pointwise (`x ∈ a` and
+  `x ∉ b`), which is what `q.roots() ⊆ ℂ - ℚ` asks, and everything that would
+  need an element list — a cardinality, a canonical form to compare — refuses.
+  DOMAINS on both sides deliberately: the difference of two finite sets is
+  `A \ B`, which COMPUTES (§Sets), and this constructor is not a second
+  spelling of it. -/
+  | domainDiff (a b : Domain)
   deriving BEq, Repr, Inhabited
 
 /-- The thing a notebook binding names: an object with a presentation.
@@ -437,6 +445,7 @@ partial def render : SetPresentation → String
   | .domainSet d => d.render
   | .product a b => s!"{render a} × {render b}"
   | .powerset s => s!"𝒫({render s})"
+  | .domainDiff a b => s!"{a.render} - {b.render}"
 
 instance : ToString SetPresentation := ⟨render⟩
 
@@ -457,6 +466,8 @@ partial def latex? : SetPresentation → Option String
   | .domainSet d => some d.latex
   | .product a b => do return (← latex? a) ++ " \\times " ++ (← latex? b)
   | .powerset s => do return "\\mathcal{P}(" ++ (← latex? s) ++ ")"
+  -- `\setminus` is what the minus between two SETS means in math mode
+  | .domainDiff a b => some (a.latex ++ " \\setminus " ++ b.latex)
 
 end SetPresentation
 

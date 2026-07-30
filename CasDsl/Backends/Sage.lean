@@ -91,6 +91,19 @@ private def factorPolyZArgs : Obj → Except ExecError Json
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM intArg))]
   | o => .error (offSignature "factor_poly_z" o)
 
+/-- Exact algebraic coefficients on the wire. An integer or a rational rides
+as itself — ℤ ⊆ ℚ ⊆ ℂ, so `map p to ℂ[x]` sends the coefficients it was
+given — and a surd rides as its normal form `a + b√d`. -/
+private def algArg (v : Value) : Except ExecError Json :=
+  match v with
+  | .int _ | .rat _ | .alg .. => .ok (Codec.valueToJson v)
+  | other => .error (.badRequest s!"expected an exact number, got {other.render}")
+
+private def polyCArgs (op : String) : Obj → Except ExecError Json
+  | .elem (.poly .complex) (.poly _ coeffs) => do
+      return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM algArg))]
+  | o => .error (offSignature op o)
+
 private def matQArgs (op : String) : Obj → Except ExecError Json
   | .elem (.matrix _ .rat) (.mat _ _ rows) => do
       let rs ← rows.mapM fun row => return Json.arr (← row.mapM ratArg)
@@ -133,6 +146,7 @@ private def expectKind (op : String) (v : Value) : Except ExecError Value :=
   | "factor_int", .factorization .. => .ok v
   | "factor_poly_q", .factorization .. => .ok v
   | "factor_poly_z", .factorization .. => .ok v
+  | "factor_poly_c", .factorization .. => .ok v
   | "mat_det_q", .rat _ => .ok v
   | "mat_inv_q", .mat .. => .ok v
   | "gcd_int", .int _ => .ok v
@@ -141,6 +155,9 @@ private def expectKind (op : String) (v : Value) : Except ExecError Value :=
   -- own coefficient ring (x² − 2 over ℚ), so it is a result like any other
   | "roots_poly_z", .setV .. => .ok v
   | "roots_poly_q", .setV .. => .ok v
+  -- over ℂ a nonzero polynomial splits, so this set is never empty — but the
+  -- kind check is the same one: a factorization here would be an adapter bug
+  | "roots_poly_c", .setV .. => .ok v
   | _, _ =>
       .error (.protocolError
         s!"sage: op {repr op} returned {v.render}, which is not the value kind it promises")
@@ -157,6 +174,8 @@ def executor : Executor := fun opId receiver args => do
     | "factor_int" => factorIntArgs receiver
     | "factor_poly_q" => factorPolyQArgs receiver
     | "factor_poly_z" => factorPolyZArgs receiver
+    | "factor_poly_c" => polyCArgs "factor_poly_c" receiver
+    | "roots_poly_c" => polyCArgs "roots_poly_c" receiver
     | "mat_det_q" => matQArgs "mat_det_q" receiver
     | "mat_inv_q" => matQArgs "mat_inv_q" receiver
     | "roots_poly_z" => rootsPolyZArgs receiver
@@ -196,7 +215,11 @@ private def sageOpSigs : Array OpSig := #[
   { backend := `sage, opId := "roots_poly_z",
     accepts := #[.elemOf (.polyOver (.exact .int))] },
   { backend := `sage, opId := "roots_poly_q",
-    accepts := #[.elemOf (.polyOver (.exact .rat))] }
+    accepts := #[.elemOf (.polyOver (.exact .rat))] },
+  { backend := `sage, opId := "factor_poly_c",
+    accepts := #[.elemOf (.polyOver (.exact .complex))] },
+  { backend := `sage, opId := "roots_poly_c",
+    accepts := #[.elemOf (.polyOver (.exact .complex))] }
 ]
 
 run_cmd sageOpSigs.forM registerOpSig!
