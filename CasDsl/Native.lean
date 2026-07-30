@@ -601,6 +601,10 @@ partial def presCard : SetPresentation → Except ExecError Cardinality
       match ← progCount first step last? with
       | none => return .countablyInfinite
       | some n => return .finite n
+  -- a subspace of ℚⁿ is countable, and the TRIVIAL one is the single-element
+  -- set {0}: the basis size decides which, exactly as it decides the dimension
+  | .span _ basis =>
+      .ok (if basis.isEmpty then .finite 1 else .countablyInfinite)
   | .product a b => do return cardMul (← presCard a) (← presCard b)
   -- `|ℂ - ℚ|` is not a cardinal this slice can state, and neither is the
   -- general shape: an honest refusal, never a subtraction of cardinals
@@ -632,6 +636,9 @@ private inductive SetNormal where
   | fin (elems : Array Value)
   | prog (first step : Rat)
   | dom (d : Domain)
+  /-- A subspace of ℚⁿ, by its REDUCED basis — which is canonical, so this
+  normal form compares as data exactly like the two above. -/
+  | span (n : Nat) (basis : Array Value)
 
 private def scalarSortable (vs : Array Value) : Bool :=
   vs.all (fun v => match v with | .int _ | .rat _ => true | _ => false)
@@ -686,6 +693,9 @@ private def normalizeSet : Obj → Except ExecError SetNormal
       .ok (.fin (if scalarSortable elems then sortDedup elems else dedupValues elems))
   | .setObj (.domainSet d) | .domainObj d => normalizeDomain d
   | .setObj (.arithProg _ first step last?) => normalizeProg first step last?
+  -- the basis arrives reduced (`Value.mkSpanBasis` is the only constructor),
+  -- so the presentation IS the normal form
+  | .setObj (.span n basis) => .ok (.span n basis)
   -- a denoted set has no canonical form here: comparing `A × B`, `𝒫(A)` or
   -- `ℂ - ℚ` with anything would need element lists this ontology does not
   -- present. (`ℂ - ℚ` is decided as the RIGHT side of an inclusion, below,
@@ -710,6 +720,17 @@ private def setNormalEq : SetNormal → SetNormal → Bool
           || a.all fun x => b.any fun y => valueEq x y == some true)
   | .prog f1 s1, .prog f2 s2 => f1 == f2 && s1 == s2
   | .dom d1, .dom d2 => d1 == d2
+  -- the reduced echelon basis is a FUNCTION of the subspace, so two spans are
+  -- equal exactly when their bases are — no search, no double inclusion
+  | .span n a, .span m b => n == m && a == b
+  -- SPEC.md's `assert M.ker() = {0}`. A span is finite only when it is the
+  -- TRIVIAL subspace, and then it is the one-element set {0} — where `0` is
+  -- the mathematician's own spelling of the zero of the ambient space, the
+  -- one element every additive group shares (`Value.isSpanZero`, which reads
+  -- a scalar zero and nothing else across that boundary). A span with a
+  -- nonempty basis is infinite and is inside no finite list.
+  | .span n a, .fin es | .fin es, .span n a =>
+      a.isEmpty && es.size == 1 && Value.isSpanZero n es[0]!
   | _, _ => false
 
 /-! ## Inclusion by presentation normalization
@@ -760,6 +781,29 @@ they are the same progression")
       .error (.badRequest
         s!"the native backend cannot decide whether {d.render} lies inside the \
 progression starting {(Value.ofRat f).render} with step {(Value.ofRat s).render}")
+  -- one subspace lies in another exactly when each of its basis vectors does,
+  -- which is the same solved reduction membership is
+  | .span n a, .span m b =>
+      if n != m then .ok false
+      else Except.mapError ExecError.badRequest <|
+        a.foldlM (init := true) fun acc v => do return acc && (← Value.spanContains m b v)
+  | .fin es, .span n b =>
+      Except.mapError ExecError.badRequest <|
+        es.foldlM (init := true) fun acc v => do return acc && (← Value.spanContains n b v)
+  -- a span is inside a finite list only when it IS finite — the trivial
+  -- subspace {0}, the same theorem the two arms above it use for a countably
+  -- infinite domain and an unbounded progression
+  | .span n a, .fin es =>
+      .ok (a.isEmpty && es.any (Value.isSpanZero n))
+  | .span .., rhs | rhs, .span .. =>
+      let what := match rhs with
+        | .dom d => d.render
+        | .prog f s => s!"the progression starting {(Value.ofRat f).render} with \
+step {(Value.ofRat s).render}"
+        | _ => "that presentation"
+      .error (.badRequest
+        s!"the native backend decides inclusion between a subspace of ℚⁿ and an \
+explicit finite set or another subspace; {what} is neither")
 
 /-! ## Operations -/
 
@@ -815,6 +859,37 @@ private def algElem (op : String) : Obj → Except ExecError Value
 reach), and that refusal is this backend's own loud failure. -/
 private def algValue (r : Except String Value) : Except ExecError Value :=
   Except.mapError ExecError.badRequest r
+
+/-- A ℚ-entry matrix receiver, as exact rationals. Partiality WITHIN the
+routed shape: the routes send only `Mat(ℚ)` here, and an entry that is not a
+rational inside one is the loud error a zero polynomial's degree is. -/
+private def ratMatrix (op : String) : Obj → Except ExecError (Nat × Array (Array Rat))
+  | .elem (.matrix n _) (.mat _ _ rows) =>
+      match rows.mapM (·.mapM toRat?) with
+      | some rs =>
+          if rs.size == n && rs.all (·.size == n) then .ok (n, rs)
+          else .error (.badRequest s!"{op}: the matrix is not {n}×{n}")
+      | none => .error (.badRequest
+          s!"{op} reads a matrix over ℚ, and this one has an entry that is not \
+a rational")
+  | o => .error (.badRequest s!"{op} expects a matrix receiver, got {o.presentation}")
+
+/-- A generating set of `{v : M v = 0}`, read off the reduced row echelon form
+of `M`: each column carrying no pivot is FREE, and setting it to 1 while the
+pivot columns take the negated entries of that column is the kernel vector it
+contributes. The generators go through `Value.mkSpanBasis` like every other
+span, which is what reduces them to the presentation's normal form. -/
+private def kernelGens (n : Nat) (rows : Array (Array Rat)) : Array Value := Id.run do
+  let red := Value.rref n rows
+  let pivots := red.filterMap fun row => (Array.range n).find? (fun k => row[k]! != 0)
+  let mut gens : Array Value := #[]
+  for free in [0:n] do
+    if !pivots.contains free then
+      let mut comps := (Array.replicate n (0 : Rat)).set! free 1
+      for i in [0:pivots.size] do
+        comps := comps.set! pivots[i]! (-(red[i]![free]!))
+      gens := gens.push (.vec n .rat (comps.map Value.rat))
+  return gens
 
 private def natIndex (args : Array Obj) : Except ExecError Nat :=
   match (args[0]? : Option Obj) with
@@ -881,6 +956,12 @@ this slice presents no value for")
       | .setObj (.domainDiff p m) => do
           let x ← scalarArg "contains" args
           return .bool (diffMember p m x)
+      -- SPEC.md's `(1, 1, 2) ∈ W` and `(1, 1, 0) ∉ W`: the linear system is
+      -- SOLVED against the reduced basis, so both DECIDE
+      | .setObj (.span n basis) => do
+          let x ← scalarArg "contains" args
+          return .bool (← Except.mapError ExecError.badRequest
+            (Value.spanContains n basis x))
       | o =>
         let x ← scalarArg "contains" args
         match o with
@@ -968,6 +1049,23 @@ linear map on ℕ (an arithmetic progression). The image of {body.render} on \
           let some q := toRat? v
             | .error (.badRequest s!"{v.render} has no modulus here")
           return Value.ofRat (if q.blt 0 then -q else q)
+  -- SPEC.md §Subspaces and spans: the dimension is the SIZE of the reduced
+  -- basis, which is what the echelon form was computed for
+  | "span_dim" =>
+      match o with
+      | .setObj (.span _ basis) => .ok (.int (Int.ofNat basis.size))
+      | o => .error (.badRequest
+          s!"span_dim expects a subspace, got {o.presentation}")
+  -- SPEC.md §Vectors and matrices: `M.rank()` and `M.ker()`. Both are reads of
+  -- the SAME reduced row echelon form the span presentation already owns — the
+  -- rank is its row count and the kernel is its free columns — so they are
+  -- exact native decisions and no backend is asked
+  | "mat_rank" => do
+      let (n, rows) ← ratMatrix "mat_rank" o
+      return .int (Int.ofNat (Value.rref n rows).size)
+  | "mat_ker" => do
+      let (n, rows) ← ratMatrix "mat_ker" o
+      Except.mapError ExecError.badRequest (Value.mkSpan n (kernelGens n rows))
   | "annihilator_cyclic" =>
       match o with
       | .cyclicModule n => .ok (.idealV #[.int (Int.ofNat n)] .int)
@@ -1005,6 +1103,12 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "set_diff", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_symdiff", accepts := #[.finiteSet] },
   { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] },
+  -- the subspace of ℚⁿ, and the two reads of a ℚ matrix's echelon form
+  { backend := `native, opId := "span_dim", accepts := #[.spanSet] },
+  { backend := `native, opId := "mat_rank",
+    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  { backend := `native, opId := "mat_ker",
+    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
   -- the complex plane, on the two domains whose elements are exact numbers
   { backend := `native, opId := "alg_re",
     accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },

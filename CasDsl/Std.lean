@@ -81,6 +81,13 @@ coefficients are the integers `map` was given: ℤ ⊆ ℂ moves no data. -/
 def polyC : Obj :=
   .elem (.poly .complex) (Value.mkPoly .complex #[.int 1, .int (-2), .int 0, .int 1])
 
+/-- SPEC.md §Subspaces and spans' `W` — `span_QQ{(1,0,1), (0,1,1)} ≤ ℚ³`,
+already in the reduced echelon form `Value.mkSpanBasis` puts a span in (the
+leading ones sit in columns 0 and 1), like the other fixtures here. -/
+def spanW : SetPresentation :=
+  .span 3 #[.vec 3 .rat #[.rat 1, .rat 0, .rat 1],
+            .vec 3 .rat #[.rat 0, .rat 1, .rat 1]]
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -137,7 +144,18 @@ a UFD)" },
   { name := `ComplexElems,
     doc := "elements of ℂ, or of a subfield of it that this slice presents \
 (ℝ): the real and imaginary parts, conjugation and the modulus; params (the \
-domain the element was presented in)" }
+domain the element was presented in)" },
+  -- SPEC.md §Subspaces and spans writes `let W := span_QQ{u₁, u₂} \leq ℚ³ in
+  -- QQ-Mod`, and the name is taken from it verbatim. At this stage it is an
+  -- ASCRIPTION TAG — the same standing `ℝ → ℝ` had before ℝ was inhabited:
+  -- the membership it states is real and checked, but the CATEGORY (its
+  -- morphisms, its limits, the subobject lattice `≤` really lives in) is
+  -- deferred to CategoryGraph per the trajectory ruling. Nothing here may
+  -- grow into that ontology; what it owns is `dim`.
+  { name := `«QQ-Mod»,
+    doc := "ℚ-modules. SPEC.md's own name for the category a subspace of ℚⁿ \
+is a subobject of; at this stage an ascription TAG carrying `dim`, with the \
+categorical structure deferred to CategoryGraph" }
 ]
 
 run_cmd stdCategories.forM registerCategory!
@@ -179,6 +197,18 @@ the polynomial has no root there, not that none exists in an extension" },
   { id := `inverse, receiver := `MatrixElems,
     resultDoc := "a matrix over the entry domain (or its fraction field)",
     doc := "the multiplicative inverse, when it exists" },
+  -- SPEC.md §Vectors and matrices' `M.rank()` and `M.ker()`
+  { id := `rank, receiver := `MatrixElems,
+    resultDoc := "a nonnegative integer, at most the size of the matrix",
+    doc := "the rank: the dimension of the row (equivalently column) space" },
+  { id := `ker, receiver := `MatrixElems,
+    resultDoc := "the subspace {v : M v = 0} of the matrix's own vector space",
+    doc := "the KERNEL of the matrix read as a linear map — the vectors it \
+sends to zero, presented as a subspace by a basis" },
+  -- …and the one method a subspace owns
+  { id := `dim, receiver := `«QQ-Mod»,
+    resultDoc := "a nonnegative integer",
+    doc := "the dimension: the number of vectors in a basis" },
   { id := `annihilator, receiver := `Modules,
     resultDoc := "an ideal of the base ring",
     doc := "the annihilator ideal of the module" },
@@ -356,6 +386,15 @@ private def stdProfileRules : Array ProfileRule := #[
   -- `ℂ - ℚ` is a set and nothing narrower, for the same reason: its strength
   -- is whatever the two domains decide
   { pattern := .domainDiffSet, cat := `Sets },
+  -- A subspace of ℚⁿ is a SET whose elements are vectors, so `∈`, `=` and `⊆`
+  -- reach it through the ordinary set hierarchy — and it is COUNTABLE (a
+  -- subspace of ℚⁿ is), which is its true strength. `nth` is then the honest
+  -- gap ℤ[x] already carries: no enumeration of a subspace is registered.
+  { pattern := .spanSet, cat := `CountableSets },
+  -- …and it is the object SPEC.md ascribes to QQ-Mod, which is where `dim`
+  -- lives. Two INDEPENDENT memberships, exactly like a polynomial's: being a
+  -- set does not make it a module, and neither implies the other
+  { pattern := .spanSet, cat := `«QQ-Mod» },
   -- the module fixture: ℤ/n as a ℤ-module, in the PROPER subcategory only.
   -- `Modules` membership arrives through the inclusion edge, which is what
   -- makes `annihilator` a real inheritance demonstration.
@@ -506,6 +545,15 @@ private def stdRoutes : Array Route := #[
     backend := `sage, opId := "mat_det_q" },
   { method := `inverse, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `sage, opId := "mat_inv_q" },
+  -- …and the two reads of a ℚ matrix's reduced row echelon form, which the
+  -- subspace presentation already owns: the rank is its row count and the
+  -- kernel its free columns, so both are exact NATIVE decisions. Only ℚ
+  -- entries are routed, so Mat₂(ℤ/5) carries the same honest gap `det` does
+  { method := `rank, pattern := .elemOf (.matrixOver (.exact .rat)),
+    backend := `native, opId := "mat_rank" },
+  { method := `ker, pattern := .elemOf (.matrixOver (.exact .rat)),
+    backend := `native, opId := "mat_ker" },
+  { method := `dim, pattern := .spanSet, backend := `native, opId := "span_dim" },
   -- modules
   { method := `annihilator, pattern := .cyclicMod,
     backend := `native, opId := "annihilator_cyclic" },
@@ -595,6 +643,9 @@ private def stdRepresentatives : Array Representative := #[
   -- the complex plane: an element (whose four methods route) and ℂ itself,
   -- which is a set — an UNCOUNTABLE one, so the binary set operations gap on
   -- it exactly as they do on ℤ
+  -- the subspace: a countable SET (so `∈`, `=` and `⊆` reach it) that is also
+  -- the QQ-Mod object carrying `dim`, and carries the `nth` gap ℤ[x] does
+  ("span_ℚ{(1,0,1), (0,1,1)} ≤ ℚ³", .setObj spanW),
   ("2 + 2i ∈ ℂ", z2plus2i),
   ("√2 ∈ ℝ", sqrt2),
   ("ℂ", .domainObj .complex)
@@ -714,6 +765,27 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- and only ℚ-entry matrices are routed — Mat₂(ℤ/5) is the honest gap
   expectRouted env mat2Q `det [] `sage
   expectGap env mat2Mod5 `det []
+  -- SPEC.md §Vectors and matrices: `rank` and `ker` are reads of the reduced
+  -- row echelon form, so they are NATIVE — and routed for ℚ entries only, so
+  -- Mat₂(ℤ/5) carries exactly the gap `det` does
+  expectRouted env mat2Q `rank [] `native
+  expectRouted env mat2Q `ker [] `native
+  expectGap env mat2Mod5 `rank []
+  expectGap env mat2Mod5 `ker []
+  -- SPEC.md §Subspaces and spans: the subspace is a countable SET (so `∈`,
+  -- `=` and `⊆` reach it through the ordinary hierarchy) and INDEPENDENTLY
+  -- the QQ-Mod object that owns `dim` — neither membership implies the other
+  expectRouted env (.setObj spanW) `contains [`Sets] `native
+  expectRouted env (.setObj spanW) `set_eq [`Sets] `native
+  expectRouted env (.setObj spanW) `subset [`Sets] `native
+  expectRouted env (.setObj spanW) `cardinality [`Sets] `native
+  expectRouted env (.setObj spanW) `dim [] `native
+  -- …and no enumeration of a subspace is registered, so `nth` is the honest
+  -- gap ℤ[x] carries, not a narrower category
+  expectGap env (.setObj spanW) `nth []
+  -- `dim` does not leak to the sets that are not modules, nor to a matrix
+  expectNotApplicable env (.setObj finSet123) `dim
+  expectNotApplicable env mat2Q `dim
   -- ℤ[x] is a UFD, so `factor` is meaningful where the polynomial lives —
   -- and since round three (#18) it is routed there, not only on ℚ[x]
   expectRouted env polyZ `factor [] `sage

@@ -1332,3 +1332,70 @@ def test_the_action_is_shape_checked_and_decides_the_wrong_vector(
     text = err(kc, "assert M*v = (5, 12)")
     assert "false" in text.lower()
     assert "does not apply" not in text
+
+
+# -- 18 · subspaces and spans -------------------------------------------------
+# SPEC.md §Subspaces and spans, and the two §Vectors lines that read a matrix's
+# echelon form. `u₁`, `u₂`, `W` are SPEC.md's own names and appear nowhere else.
+# A subspace is presented by a REDUCED basis, which is what makes dim,
+# membership and equality decidable from the presentation alone.
+
+def test_rank_and_kernel_of_a_matrix(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert M.rank() = 2")
+    ok(kc, "assert M.rank() ≠ 3")
+    # SPEC.md's own `M.ker() = {0}`: an invertible matrix kills nothing, and
+    # the trivial subspace IS the one-element set whose element is the zero of
+    # the ambient space — which is what `0` spells there
+    ok(kc, "assert M.ker() = {0}")
+    text = ok(kc, "M.ker()")
+    assert "span_ℚ{}" in text and "ℚ²" in text
+
+
+def test_the_span_answers_dim_membership_and_equality(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let u₁ := (1, 0, 1) in ℚ³")
+    ok(kc, "let u₂ := (0, 1, 1) in ℚ³")
+    # SPEC.md's own line, `\leq` spelling included
+    ok(kc, r"let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod")
+    ok(kc, "assert W.dim() = 2")
+    ok(kc, "assert (1, 1, 2) ∈ W")
+    ok(kc, "assert (1, 1, 0) ∉ W")
+    # the ∉ line DECIDES false rather than refusing…
+    text = err(kc, "assert (1, 1, 0) ∈ W")
+    assert "false" in text.lower()
+    # …and the display carries the reduced basis and the ambient
+    bd = bundle(kc, "W")
+    assert bd["text/plain"] == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
+    assert bd["text/latex"] == (
+        r"$$\mathrm{span}_{\mathbb{Q}}\{(1, 0, 1), (0, 1, 1)\} "
+        r"\leq \mathbb{Q}^{3}$$")
+    assert bd["text/latex"].isascii()
+
+
+def test_the_subobject_ascription_is_checked(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `\leq` means SUBOBJECT here (SPEC.md's own note), and the ambient is
+    # checked rather than taken on trust
+    text = err(kc, "let Wbad := span_QQ{u₁, u₂} ≤ ℚ² in QQ-Mod")
+    assert "is not a subobject of ℚ²" in text
+    # …the QQ-Mod ascription is a real membership judgment: a set that is not
+    # a subspace is not in it
+    text = err(kc, "let Wbad := {1, 2, 3} in QQ-Mod")
+    assert "QQ-Mod" in text and "«" not in text
+    # …and only SPEC.md's own span spelling is a construction
+    text = err(kc, "span_ZZ{u₁}")
+    assert "span_QQ" in text
+
+
+def test_the_subspace_is_a_set_and_a_qq_module(kernel: Kernel) -> None:
+    _, kc = kernel
+    # both memberships are real and INDEPENDENT: the set methods reach it
+    # through the ordinary hierarchy, `dim` through QQ-Mod
+    ok(kc, "assert span_QQ{u₁} ⊆ W")
+    ok(kc, "assert W = span_QQ{(1, 1, 2), (0, 1, 1)}")
+    ok(kc, "assert W ≠ span_QQ{(1, 0, 0), (0, 1, 1)}")
+    ok(kc, "assert |W| = ℵ₀")
+    text = ok(kc, "#explain_route W.dim()")
+    assert "QQ-Mod" in text and "native" in text and "span_dim" in text
+    assert "«" not in text

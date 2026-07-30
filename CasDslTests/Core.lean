@@ -613,6 +613,65 @@ private def m1234 : Value := .mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]]
 #guard (Domain.vector 10 .rat).render == "ℚ¹⁰"
 #guard (Domain.vector 3 .rat).latex == "\\mathbb{Q}^{3}"
 
+/-! ## Subspaces of ℚⁿ (SPEC.md §Subspaces and spans)
+
+The reduced echelon basis is a FUNCTION of the subspace, which is what makes
+`dim`, membership and equality decidable from the presentation alone. -/
+
+private def qv (cs : List Rat) : Value :=
+  .vec cs.length .rat (cs.toArray.map Value.rat)
+
+private def basisOf (n : Nat) (gens : List Value) : Option (Array Value) :=
+  (Value.mkSpanBasis n gens.toArray).toOption
+
+/-- SPEC.md's `W = span_QQ{(1,0,1), (0,1,1)}`, already reduced. -/
+private def wBasis : Array Value := #[qv [1, 0, 1], qv [0, 1, 1]]
+
+#guard basisOf 3 [qv [1, 0, 1], qv [0, 1, 1]] == some wBasis
+-- a DEPENDENT generator contributes nothing, and the dimension is what is
+-- left: a basis is not a generating list
+#guard basisOf 3 [qv [1, 0, 1], qv [0, 1, 1], qv [1, 1, 2]] == some wBasis
+#guard basisOf 3 [qv [2, 0, 2], qv [0, 3, 3]] == some wBasis
+-- …and a DIFFERENT generating list of the same subspace reduces to the same
+-- basis, which is the whole reason equality can be the bases compared as data
+#guard basisOf 3 [qv [1, 1, 2], qv [0, 1, 1]] == some wBasis
+#guard basisOf 3 [qv [1, 1, 2], qv [1, 0, 1]] == some wBasis
+-- an independent generating set of a DIFFERENT subspace does not
+#guard basisOf 3 [qv [1, 0, 0], qv [0, 1, 1]] != some wBasis
+-- the zero vector spans the trivial subspace, whose basis is EMPTY
+#guard basisOf 2 [qv [0, 0]] == some #[]
+#guard basisOf 2 [] == some #[]
+-- a generator that is not a vector of ℚⁿ is a loud refusal, never dropped
+#guard basisOf 3 [qv [1, 0]] == none
+#guard basisOf 3 [.int 1] == none
+#guard (Value.mkSpanBasis 2 #[.vec 2 .real #[.alg 0 1 2, .int 0]]).toOption == none
+
+-- membership is SOLVED against that basis, and decides both ways
+#guard (Value.spanContains 3 wBasis (qv [1, 1, 2])).toOption == some true
+#guard (Value.spanContains 3 wBasis (qv [1, 1, 0])).toOption == some false
+#guard (Value.spanContains 3 wBasis (qv [0, 0, 0])).toOption == some true
+-- an integer vector is read in ℚ³ like any other…
+#guard (Value.spanContains 3 wBasis (.vec 3 .int #[.int 2, .int 3, .int 5])).toOption
+  == some true
+-- …a vector of the WRONG length is not an element of the ambient at all, and
+-- neither is a scalar — both are decided false rather than refused
+#guard (Value.spanContains 3 wBasis (qv [1, 1])).toOption == some false
+#guard (Value.spanContains 3 wBasis (.int 5)).toOption == some false
+-- …the scalar ZERO is the one exception: it is the mathematician's spelling
+-- of the zero of the ambient space, and 0 lies in every subspace
+#guard (Value.spanContains 3 wBasis (.int 0)).toOption == some true
+#guard (Value.spanContains 2 #[] (.int 0)).toOption == some true
+#guard (Value.spanContains 2 #[] (qv [1, 0])).toOption == some false
+-- …and a component this slice cannot read as a rational is a REFUSAL: √2·u
+-- lies in the ℝ-span, not the ℚ-one, and either answer would be a claim
+#guard (Value.spanContains 3 wBasis (.vec 3 .real #[.alg 0 1 2, .int 0, .alg 0 1 2])).toOption
+  == none
+
+#guard (Value.spanV 3 wBasis).render == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
+#guard (Value.spanV 2 #[]).render == "span_ℚ{} ≤ ℚ²"
+#guard (Value.spanV 2 #[]).latex?
+  == some "\\mathrm{span}_{\\mathbb{Q}}\\{\\} \\leq \\mathbb{Q}^{2}"
+
 #guard valueEq (.cardinal (.finite 3)) (.int 3) == some true
 #guard valueEq (.int 3) (.cardinal (.finite 3)) == some true
 #guard valueEq (.cardinal (.finite 3)) (.int 4) == some false

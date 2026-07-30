@@ -84,6 +84,9 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "set"), ("elems", Json.arr (elems.map valueToJson)),
          ("dom", domainToJson dom)]
+  | .spanV n basis =>
+      Json.mkObj
+        [("t", "span"), ("n", toJson n), ("basis", Json.arr (basis.map valueToJson))]
   | .progV dom first step last? =>
       Json.mkObj
         [("t", "progression"), ("dom", domainToJson dom),
@@ -219,6 +222,12 @@ partial def valueFromJson (j : Json) : Except String Value := do
   | "set" =>
       let elems ← (← arrField j "elems").mapM valueFromJson
       return .setV elems (← domainFromJson (← field j "dom"))
+  | "span" =>
+      -- decoded THROUGH the normalizing constructor, exactly as `alg` is
+      -- decoded through `mkAlg`: a frame carrying a dependent or unreduced
+      -- generating set becomes the REDUCED basis it denotes, so a decoded span
+      -- compares equal to the same subspace built any other way
+      Value.mkSpan (← natField j "n") (← (← arrField j "basis").mapM valueFromJson)
   | "progression" =>
       let lastJ ← field j "last"
       let last? : Option Value ←

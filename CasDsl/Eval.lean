@@ -68,6 +68,11 @@ inductive CasExpr where
   /-- `(1, 2)` — a vector of `Eⁿ`, where `E` is the join of its components'
   domains and `n` their count (SPEC.md §Vectors and matrices). -/
   | vecLit (comps : Array CasExpr)
+  /-- `span_QQ{u₁, u₂}` — the subspace of `ℚⁿ` the generators span. DENOTED
+  like a set literal (no method, no route): what the span IS follows from the
+  generators, and the reduction that normalizes them is a presentation's
+  normal form rather than a computation a backend owns. -/
+  | spanOf (gens : Array CasExpr)
   | mapTo (e target : CasExpr)
   /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and
   meaningful ONLY there. It is not a domain, not a set and not a quotient
@@ -707,6 +712,7 @@ def ofValue (v : Value) : Denote :=
   match v with
   | .setV elems dom => .obj (.setObj (.finite dom elems))
   | .progV dom first step last? => .obj (.setObj (.arithProg dom first step last?))
+  | .spanV n basis => .obj (.setObj (.span n basis))
   | v =>
     match valueDom? v with
     | some d => .obj (.elem d v)
@@ -758,9 +764,16 @@ def renderParam : ParamVal → String
   | .dom d => d.render
   | .nat n => toString n
 
+/-- A registered name as the mathematician spells it. Lean escapes a name
+that is not an identifier — the category SPEC.md writes `QQ-Mod` prints as
+`«QQ-Mod»` — and those guillemets are Lean's syntax for WRITING the name, not
+part of it. -/
+def renderName (n : Name) : String :=
+  ((toString n).replace "«" "").replace "»" ""
+
 def renderCat (c : CatRef) : String :=
-  if c.params.isEmpty then toString c.name
-  else s!"{c.name}({", ".intercalate (c.params.toList.map renderParam)})"
+  if c.params.isEmpty then renderName c.name
+  else s!"{renderName c.name}({", ".intercalate (c.params.toList.map renderParam)})"
 
 def renderPattern : PresPattern → String
   | .elemOf d => s!"element of {renderDomainPattern d}"
@@ -771,6 +784,7 @@ def renderPattern : PresPattern → String
   | .productSet => "a cartesian product"
   | .powersetSet => "a powerset"
   | .domainDiffSet => "a difference of two domains"
+  | .spanSet => "a subspace of ℚⁿ"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .anyObj => "any object"
@@ -783,7 +797,7 @@ op {repr r.opId}, priority {r.priority}"
 diagnostics and the gap share. -/
 def renderVia (entry : CatRef) (via : List Name) : String :=
   if via.isEmpty then s!"declared directly on {renderCat entry}"
-  else s!"inherited through {" ≤ ".intercalate (renderCat entry :: via.map toString)}"
+  else s!"inherited through {" ≤ ".intercalate (renderCat entry :: via.map renderName)}"
 
 /-- The full semantic chain, transport step included. A transported
 resolution's `entry`/`via` describe the IMAGE, so reporting them alone would
@@ -819,15 +833,15 @@ def renderResolveError : ResolveError → String
   | .unknownMethod m => s!"there is no method named '{m}' in the registry"
   | .notApplicable m profile declaredOn =>
       let prof := ", ".intercalate (profile.toList.map renderCat)
-      let decl := ", ".intercalate (declaredOn.toList.map toString)
+      let decl := ", ".intercalate (declaredOn.toList.map renderName)
       s!"'{m}' is not a method of any category this object belongs to.\n  \
 profile:      {if prof.isEmpty then "(none)" else prof}\n  \
 declared on:  {if decl.isEmpty then "(nowhere)" else decl}"
   | .ambiguous m cands =>
       let cs := ", ".intercalate (cands.toList.map fun r =>
         match r.viaFunctor with
-        | some step => s!"{r.decl.receiver} (transported by functor '{step.functor}')"
-        | none => s!"{r.decl.receiver} (via {renderCat r.profileEntry})")
+        | some step => s!"{renderName r.decl.receiver} (transported by functor '{step.functor}')"
+        | none => s!"{renderName r.decl.receiver} (via {renderCat r.profileEntry})")
       s!"'{m}' reaches this object along more than one incomparable path: {cs}. \
 Declare it on a common subcategory, remove one declaration, or unregister one \
 of the competing functors — the resolver does not rank them."
@@ -1134,13 +1148,28 @@ difference of sets that have elements is `\\`, which computes it — \
       let o ← ofStr (asObjOf r)
       callMethod ctx o (if r.asSet?.isSome then `cardinality else `abs) #[]
   | .cmp op a b => do
-      let x ← ofStr (asValueOf (← eval ctx a))
-      let y ← ofStr (asValueOf (← eval ctx b))
-      let some ord := Native.scalarCmp x y
-        | throw (.msg s!"{x.render} and {y.render} are not comparable")
-      return .val (.bool (match op with
-        | .le => ord != .gt | .lt => ord == .lt
-        | .ge => ord != .lt | .gt => ord == .gt))
+      let x ← eval ctx a
+      let y ← eval ctx b
+      -- SPEC.md's `span_QQ{u₁, u₂} \leq ℚ³`, with its own note: "\leq means
+      -- SUBOBJECT in a category". Which reading `≤` has is the operands'
+      -- business, exactly as the receiver decides which method `|·|` names
+      -- and as two domains decide that `-` denotes a difference: between a
+      -- subspace and its ambient space it is the ascription, and the ambient
+      -- is CHECKED rather than taken on trust
+      match op, x.asSet?, y with
+      | .le, some (.span n basis), .obj (.domainObj d) =>
+          if d == .vector n .rat then return .obj (.setObj (.span n basis))
+          else throw (.msg s!"{(SetPresentation.span n basis).render} is not a \
+subobject of {d.render}: a subspace of {(Domain.vector n .rat).render} lies in \
+that space and in no other")
+      | _, _, _ =>
+        let xv ← ofStr (asValueOf x)
+        let yv ← ofStr (asValueOf y)
+        let some ord := Native.scalarCmp xv yv
+          | throw (.msg s!"{xv.render} and {yv.render} are not comparable")
+        return .val (.bool (match op with
+          | .le => ord != .gt | .lt => ord == .lt
+          | .ge => ord != .lt | .gt => ord == .gt))
   | .conj a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))
@@ -1234,6 +1263,20 @@ domain, not of {s.render}")
       let d ← ofStr (elemsDomain ctx.canonMaps vs)
       return .obj (.elem (.vector vs.size d)
         (.vec vs.size d (← ofStr (vs.mapM (coerceValue ctx.canonMaps d)))))
+  | .spanOf gens => do
+      let vs ← gens.mapM fun e => do ofStr (asValueOf (← eval ctx e))
+      -- the ambient is the generators' own length, and every one of them
+      -- enters ℚⁿ through the ordinary preferred canonical map: `span_QQ` is
+      -- spanned OVER ℚ, so an integer generator is its image there
+      let some n := vs[0]?.bind fun v => match v with | .vec m .. => some m | _ => none
+        | throw (.msg (match vs[0]? with
+            | some v => s!"`span_QQ\{…}` spans a subspace of ℚⁿ, so its generators \
+are vectors: {v.render} is not a vector"
+            | none => "`span_QQ{}` names no ambient space: the ℚⁿ a span lies in \
+is read off its generators, so the TRIVIAL subspace is written with the zero \
+vector of the space meant — `span_QQ{(0, 0)}` — or obtained, as `M.ker()`"))
+      let cs ← ofStr (vs.mapM (coerceValue ctx.canonMaps (.vector n .rat)))
+      return .obj (.setObj (.span n (← ofStr (Value.mkSpanBasis n cs))))
   -- SPEC.md §Exact number systems' `map √2 to ℝ/O(1/10^{10})`. TWO registries
   -- answer, in this order, and neither answers the other's question: the
   -- canonical-map registry decides whether the value may be presented in ℝ at
@@ -1419,6 +1462,14 @@ surface produces (`C` and `C(p₁, …)`) are category ascriptions. -/
 def categoryAscription? (env : Environment) : CasExpr → Option (Name × Array CasExpr)
   | .ref n => if (catDecl? env n).isSome then some (n, #[]) else none
   | .app (.ref n) args => if (catDecl? env n).isSome then some (n, args) else none
+  -- SPEC.md writes a HYPHENATED category name — `in QQ-Mod` — which the term
+  -- grammar reads as a subtraction of two names. In ASCRIPTION position that
+  -- reading has no other meaning (neither name is bound, and a difference of
+  -- two unbound names is an error), so `A-B` names the registered category
+  -- `A-B` when there is one, and is the ordinary error when there is not
+  | .bin .sub (.ref a) (.ref b) =>
+      let n := Name.mkSimple s!"{a}-{b}"
+      if (catDecl? env n).isSome then some (n, #[]) else none
   | _ => none
 
 private def paramOf : Denote → Except String ParamVal

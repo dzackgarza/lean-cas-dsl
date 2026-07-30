@@ -74,6 +74,19 @@ inductive Value where
   set; it is a `Value` only because that is what crosses the backend wire.
   CEILING: a backend can return an explicit finite set, nothing wider. -/
   | setV (elems : Array Value) (dom : Domain)
+  /-- The third set an executor may return: a SUBSPACE of `ℚⁿ`, presented by
+  a basis in reduced row echelon form (`Value.mkSpanBasis`). SPEC.md's
+  `span_QQ{u₁, u₂}` and `M.ker()` are both this.
+
+  The RREF is what makes the presentation answer the three questions SPEC.md
+  asks of it: `dim` is the basis SIZE, membership is the reduction of a vector
+  against the basis, and equality is the basis compared as data — the reduced
+  echelon form of a subspace is CANONICAL, so two spans are equal exactly when
+  their normalized bases are.
+
+  CEILING: over ℚ, which is `span_QQ`'s own base and the entry domain of every
+  matrix this slice routes. -/
+  | spanV (n : Nat) (basis : Array Value)
   /-- The other set an executor may return: an arithmetic progression, which
   is what the image of a linear map on ℕ is (`e.image()`). Like `setV` it is
   a `Value` only because that is what an executor returns; `Denote.ofValue`
@@ -141,6 +154,12 @@ inductive SetPresentation where
   its elements are SETS, which no `Value` presents. `|𝒫(A)| = 2^|A|` is
   cardinal arithmetic, and `X ∈ 𝒫(A)` is the subset judgment. -/
   | powerset (s : SetPresentation)
+  /-- `span_QQ{u₁, u₂} ≤ ℚⁿ` — a SUBSPACE of `ℚⁿ`, presented by a basis in
+  reduced row echelon form. A set like any other (its elements are vectors,
+  which `Value.vec` presents), so `∈`, `=` and `⊆` reach it through the
+  ordinary `Sets` methods; what it adds is `dim`, and the RREF is what makes
+  all four decidable. See `Value.mkSpanBasis`. -/
+  | span (n : Nat) (basis : Array Value)
   /-- `ℂ - ℚ` (SPEC.md §Polynomials). A presentation again, and the minimal
   one the assertion needs: MEMBERSHIP is decided pointwise (`x ∈ a` and
   `x ∉ b`), which is what `q.roots() ⊆ ℂ - ℚ` asks, and everything that would
@@ -408,6 +427,12 @@ partial def render : Value → String
       "(" ++ ", ".intercalate (gens.toList.map render) ++ ")"
   | .setV elems _ =>
       "{" ++ ", ".intercalate (elems.toList.map render) ++ "}"
+  -- the AMBIENT is part of the display, in SPEC.md's own subobject notation:
+  -- without it the trivial subspace would render as an empty `span_ℚ{}` that
+  -- says nothing about which space it is the zero of
+  | .spanV n basis =>
+      "span_ℚ{" ++ ", ".intercalate (basis.toList.map render) ++ "} ≤ "
+        ++ (Domain.vector n .rat).render
   | .progV _ first step last? =>
       let tail := match last? with | some l => s!", ..., {render l}" | none => ", ..."
       s!"\{{render first}, step {render step}{tail}}"
@@ -424,6 +449,128 @@ partial def render : Value → String
       s!"{t} ↦ {b}"
 
 instance : ToString Value := ⟨render⟩
+
+/-! ## Subspaces of `ℚⁿ` (`SPEC.md` §Subspaces and spans)
+
+A subspace is presented by a basis, and the basis is kept in REDUCED ROW
+ECHELON FORM. That one normalization is what answers all three questions
+SPEC.md asks of a span: the dimension is the basis size (the echelon form has
+dropped every dependent generator), membership is one reduction of the
+candidate against the basis, and equality is the bases compared as data —
+because the reduced echelon form of a subspace does not depend on which
+generators produced it.
+
+Exact `Rat` arithmetic, and it lives here rather than in a backend for the
+reason `mkAlg` does: it is the NORMAL FORM of a presentation, so every way a
+span can be built — the surface's `span_QQ{…}`, an executor's `M.ker()`, a
+decoded frame — must go through the same one or two spans denoting the same
+subspace would compare unequal. -/
+
+/-- Reduced row echelon form of `rows` over ℚ, with zero rows dropped: the
+pivot columns are scanned left to right, each pivot is scaled to 1 and cleared
+from every other row, and the smallest eligible row is always chosen — so the
+result is a FUNCTION of the row space and nothing else. -/
+def rref (n : Nat) (rows : Array (Array Rat)) : Array (Array Rat) := Id.run do
+  let mut rs := rows
+  let mut pivot := 0
+  for col in [0:n] do
+    match (Array.range rs.size).find? (fun i => pivot ≤ i && rs[i]![col]! != 0) with
+    | none => pure ()
+    | some i =>
+        let (ri, rp) := (rs[i]!, rs[pivot]!)
+        rs := (rs.set! pivot ri).set! i rp
+        let p := rs[pivot]![col]!
+        rs := rs.set! pivot (rs[pivot]!.map (· / p))
+        for j in [0:rs.size] do
+          if j != pivot && rs[j]![col]! != 0 then
+            let f := rs[j]![col]!
+            rs := rs.set! j ((Array.range n).map fun k => rs[j]![k]! - f * rs[pivot]![k]!)
+        pivot := pivot + 1
+  -- every row past the last pivot is zero in every column: a nonzero entry
+  -- anywhere would have made its column a pivot column
+  return rs.extract 0 pivot
+
+/-- The rational components of a vector of `ℚⁿ`. `none` = it is not one —
+the wrong length, not a vector at all, or a component this slice cannot read
+as a rational (a surd above all: `√2·u` lies in the ℝ-span, not the ℚ-one, and
+guessing either way would be a claim). -/
+def ratComps? (n : Nat) : Value → Option (Array Rat)
+  | .vec m _ comps =>
+      if m != n || comps.size != n then none
+      else comps.mapM fun
+        | .int z => some (Rat.ofInt z)
+        | .rat q => some q
+        | _ => none
+  | _ => none
+
+/-- THE constructor of a span's basis: the generators, reduced. Every span in
+the system is built from this — the surface's `span_QQ{…}`, an executor's
+kernel, and a decoded frame — which is what makes equality of two spans the
+equality of their bases. -/
+def mkSpanBasis (n : Nat) (gens : Array Value) : Except String (Array Value) := do
+  let rows ← gens.mapM fun g =>
+    match ratComps? n g with
+    | some r => .ok r
+    | none => .error s!"{g.render} is not a vector of {(Domain.vector n .rat).render}: \
+this slice spans subspaces over ℚ, and a generator outside it is a gap rather \
+than a guess"
+  return (rref n rows).map fun r => .vec n .rat (r.map Value.rat)
+
+/-- The span as a `Value` — what an executor returns for `M.ker()`.
+`Denote.ofValue` turns it into the ordinary set OBJECT, exactly as it does a
+returned finite set or progression. -/
+def mkSpan (n : Nat) (gens : Array Value) : Except String Value := do
+  return .spanV n (← mkSpanBasis n gens)
+
+/-- Is `v` the ZERO of a subspace of `ℚⁿ`? The zero vector, and the scalar
+`0` — which is the mathematician's own spelling of the zero of the ambient
+space, and the one SPEC.md writes in `assert M.ker() = {0}`.
+
+The reading is exactly that narrow: only a ZERO is read across the boundary,
+because 0 is the one element every additive group shares. Any other scalar is
+not an element of `ℚⁿ` and answers false. -/
+def isSpanZero (n : Nat) : Value → Bool
+  | .int z => z == 0
+  | .rat q => q == 0
+  | v => match ratComps? n v with
+         | some cs => cs.all (· == 0)
+         | none => false
+
+/-- Is `v` an element of the subspace the RREF `basis` presents?
+
+The linear system is SOLVED rather than searched: each basis row has a leading
+1 in a pivot column no other row touches, so the only linear combination that
+could produce `v` is the one reading its coefficient off that column. Subtract
+it, and what is left is zero exactly when `v` was in the span.
+
+Three outcomes, all decided: a vector of the ambient reduces; a vector of a
+DIFFERENT length is not an element of the ambient at all and is `false`, as is
+anything that is not a vector; and a vector with a component this slice cannot
+read as a rational is a loud refusal, because `√2·u` lies in the ℝ-span rather
+than the ℚ-one and answering either way would be a claim. -/
+def spanContains (n : Nat) (basis : Array Value) (v : Value)
+    : Except String Bool := do
+  if isSpanZero n v then return true
+  match v with
+  | .vec m _ _ =>
+      if m != n then return false
+      let some cs := ratComps? n v
+        | .error s!"{v.render} has a component this slice cannot read as a \
+rational, so its membership in a ℚ-subspace is a gap rather than a guess"
+      let rows ← basis.mapM fun r =>
+        match ratComps? n r with
+        | some row => .ok row
+        | none => .error s!"the basis vector {r.render} is not over ℚ: this span \
+was not built through `Value.mkSpanBasis`"
+      let mut w := cs
+      for row in rows do
+        if let some p := (Array.range n).find? (fun k => row[k]! != 0) then
+          let f := w[p]!
+          if f != 0 then
+            w := (Array.range n).map fun k => w[k]! - f * row[k]!
+      return w.all (· == 0)
+  | _ => return false
+
 
 /-- The element a progression shows after its first (`{0, 2, …}` needs the
 `2`), or `ell` when the step is not one the presentation can take. -/
@@ -495,6 +642,10 @@ partial def latex? : Value → Option String
   | .setV elems _ => do
       let es ← elems.mapM latex?
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
+  | .spanV n basis => do
+      let bs ← basis.mapM latex?
+      return "\\mathrm{span}_{\\mathbb{Q}}\\{" ++ ", ".intercalate bs.toList
+        ++ "\\} \\leq " ++ (Domain.vector n .rat).latex
   | .progV _ first step last? => do
       let f ← first.latex?
       -- `some …`, not `return …`: a `return` inside a match arm returns from
@@ -603,6 +754,9 @@ partial def render : SetPresentation → String
       s!"\{{first.render}, {Value.progSecond "…" first step}, ...}"
   | .arithProg _ first step (some last) =>
       s!"\{{first.render}, {Value.progSecond "…" first step}, ..., {last.render}}"
+  | .span n basis =>
+      "span_ℚ{" ++ ", ".intercalate (basis.toList.map (·.render)) ++ "} ≤ "
+        ++ (Domain.vector n .rat).render
   | .domainSet d => d.render
   | .product a b => s!"{render a} × {render b}"
   | .powerset s => s!"𝒫({render s})"
@@ -624,6 +778,10 @@ partial def latex? : SetPresentation → Option String
         | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
         | none => some ", \\ldots"
       return "\\{" ++ f ++ ", " ++ Value.progSecond "\\ldots" first step ++ tail ++ "\\}"
+  | .span n basis => do
+      let bs ← basis.mapM Value.latex?
+      return "\\mathrm{span}_{\\mathbb{Q}}\\{" ++ ", ".intercalate bs.toList
+        ++ "\\} \\leq " ++ (Domain.vector n .rat).latex
   | .domainSet d => some d.latex
   | .product a b => do return (← latex? a) ++ " \\times " ++ (← latex? b)
   | .powerset s => do return "\\mathcal{P}(" ++ (← latex? s) ++ ")"

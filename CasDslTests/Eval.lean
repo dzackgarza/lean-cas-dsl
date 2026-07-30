@@ -744,6 +744,65 @@ run_cmd do
   -- different operation, which this slice does not present
   refuses env (.bin .mul (.ref `vv) m) "multiplication is not defined on"
 
+/-! ## Subspaces and spans (SPEC.md §Subspaces and spans)
+
+Every line of the section runs here except the two that need a multi-binder
+lambda (`φ`, `W = ker φ`), which are the disclosed gap DESIGN.md records.
+Nothing here reaches a backend: the reduced echelon basis is a presentation's
+normal form, and `dim`, membership and equality are read off it. -/
+
+let u₁ := (1, 0, 1) in ℚ³
+let u₂ := (0, 1, 1) in ℚ³
+let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod
+
+assert W.dim() = 2
+assert (1, 1, 2) ∈ W
+assert (1, 1, 0) ∉ W
+
+-- the dimension is the size of a BASIS, not of a generating list: a
+-- dependent generator adds nothing, and a different generating list of the
+-- same subspace is the same subspace
+let Wdep := span_QQ{u₁, u₂, (1, 1, 2)} ≤ ℚ³ in QQ-Mod
+assert Wdep.dim() = 2
+assert Wdep = W
+assert span_QQ{(1, 1, 2), (0, 1, 1)} = W
+assert span_QQ{(1, 0, 0), (0, 1, 1)} ≠ W
+-- …and the wrong dimension, which the same read must reject
+assert W.dim() ≠ 3
+
+-- a subspace is a SET: inclusion and the trivial subspace are the ordinary
+-- set judgments, decided from the same basis
+assert span_QQ{u₁} ⊆ W
+assert W ⊆ W
+assert |W| = ℵ₀
+-- …and the TRIVIAL subspace is the one-element set {0}: written with the zero
+-- vector of the space meant, since the ambient is read off the generators
+let Wzero := span_QQ{(0, 0)} ≤ ℚ² in QQ-Mod
+assert |Wzero| = 1
+assert Wzero.dim() = 0
+-- SPEC.md's own `M.ker() = {0}`, in the form that needs no backend: the
+-- trivial subspace IS the one-element set whose element is the zero of the
+-- ambient space, which is what `0` spells there
+assert Wzero = {0}
+assert Wzero ≠ W
+assert 0 ∈ Wzero
+assert (1, 0) ∉ Wzero
+
+run_cmd do
+  let env ← Lean.getEnv
+  -- the ambient of the subobject ascription is CHECKED, not taken on trust
+  refuses env (.cmp .le (.ref `W) (.bin .pow (.dom .rat) (.num 2)))
+    "is not a subobject of ℚ²"
+  -- a generator outside ℚⁿ is a loud refusal rather than a dropped term
+  refuses env (.spanOf #[.num 1]) "is not a vector"
+  -- …and a generator of a DIFFERENT ambient is refused by the ordinary
+  -- coercion, before any reduction: a span has one ambient space
+  refuses env (.spanOf #[.ref `u₁, .vecLit #[.num 1, .num 1]])
+    "a vector of length 2 is not an element of ℚ³"
+  -- an empty brace has no ambient to span in, and points at the two ways the
+  -- trivial subspace IS written
+  refuses env (.spanOf #[]) "names no ambient space"
+
 run_cmd do
   let env ← Lean.getEnv
   for (name, rendered, presented) in

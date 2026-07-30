@@ -78,6 +78,9 @@ inductive PresPattern where
   | powersetSet
   /-- `ℂ - ℚ`, likewise: the two domains are not inspected here. -/
   | domainDiffSet
+  /-- `span_ℚ{…} ≤ ℚⁿ`; the ambient length is not inspected (a pattern over
+  one presentation cannot state a strength that depends on it). -/
+  | spanSet
   | anySet
   | cyclicMod
   | anyObj
@@ -123,6 +126,7 @@ def accepts : PresPattern → Obj → Bool
   | .productSet, .setObj (.product ..) => true
   | .powersetSet, .setObj (.powerset _) => true
   | .domainDiffSet, .setObj (.domainDiff ..) => true
+  | .spanSet, .setObj (.span ..) => true
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
@@ -142,6 +146,7 @@ def implies : PresPattern → PresPattern → Bool
   | .productSet, .productSet => true
   | .powersetSet, .powersetSet => true
   | .domainDiffSet, .domainDiffSet => true
+  | .spanSet, .spanSet => true
   | .cyclicMod, .cyclicMod => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
@@ -151,6 +156,7 @@ def implies : PresPattern → PresPattern → Bool
   | .productSet, .anySet => true
   | .powersetSet, .anySet => true
   | .domainDiffSet, .anySet => true
+  | .spanSet, .anySet => true
   | _, _ => false
 
 end PresPattern

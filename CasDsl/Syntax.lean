@@ -115,6 +115,17 @@ syntax:max (name := casSqrtMul) num noWs "√" noWs casTerm:max : casTerm
 read against a set (`Eval`). -/
 syntax:max (name := casPowerset) "𝒫" noWs "(" casTerm ")" : casTerm
 
+/-- SPEC.md's `span_QQ{u₁, u₂}` — the subspace of ℚⁿ its generators span.
+
+The production leads with an `ident` and the NAME is checked in `toExpr`,
+which is what keeps `span_QQ` an ordinary identifier: a leading
+`&"span_QQ"` is not indexed by a first token, so the bare-name production
+wins the longest match and the braces become a set literal on the next
+statement. Any other name gets a refusal naming the one spelling there is.
+CEILING: over ℚ, which is the base `span_QQ` names and the entry domain of
+every matrix this slice routes. -/
+syntax:max (name := casSpan) ident noWs "{" casTerm,* "}" : casTerm
+
 /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and a
 production of its own because it is NOT a domain term: it is a requested
 tolerance, meaningful only after `map … to` (`Eval`). `O` is a non-reserved
@@ -145,8 +156,14 @@ syntax:65 (name := casSymDiff) casTerm:65 " △ " casTerm:66 : casTerm
 
 /-- Order comparisons, and the CHAIN `0 ≤ n < 6` SPEC.md writes in a bounded
 comprehension. The chain is a separate production rather than a fold, because
-`(0 ≤ n) < 6` is not what a mathematician wrote. -/
-syntax casCmpOp := " ≤ " <|> " < " <|> " ≥ " <|> " > "
+`(0 ≤ n) < 6` is not what a mathematician wrote.
+
+`\leq` is SPEC.md's own spelling of `≤` in the subobject ascription
+(`span_QQ{u₁, u₂} \leq ℚ³`), and it is the SAME relation: which reading it has
+is the operands' business, decided in `Eval` — between a subspace and its
+ambient space it is the subobject ascription, and between two scalars it is
+the order comparison it always was. -/
+syntax casCmpOp := " ≤ " <|> " \\leq " <|> " < " <|> " ≥ " <|> " > "
 
 syntax:50 (name := casCmp) casTerm:51 casCmpOp casTerm:51 : casTerm
 syntax:50 (name := casCmpChain)
@@ -223,7 +240,7 @@ private def natLit (stx : Syntax) : Except String Nat :=
 /-- The comparison a `casCmpOp` node spells. -/
 private def cmpOp (stx : Syntax) : Except String CmpOp :=
   match (stx[0].reprint.getD "").trimAscii.toString with
-  | "≤" => .ok .le
+  | "≤" | "\\leq" => .ok .le
   | "<" => .ok .lt
   | "≥" => .ok .ge
   | ">" => .ok .gt
@@ -270,6 +287,12 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casCard => return .magnitude (← toExpr stx[1])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
+  | ``casSpan =>
+      let n := stx[0].getId
+      if n != `span_QQ then
+        .error s!"`{n}\{…}` is not a construction of this surface: the span \
+SPEC.md writes is `span_QQ\{…}`, the subspace of ℚⁿ its generators span"
+      else return .spanOf (← stx[2].getSepArgs.mapM toExpr)
   | ``casCmp => return .cmp (← cmpOp stx[1]) (← toExpr stx[0]) (← toExpr stx[2])
   | ``casCmpChain => do
       let mid ← toExpr stx[2]
@@ -350,6 +373,7 @@ private def valueJson (d : Denote) : Json :=
   | none, some (.finite dom elems) => Codec.valueToJson (.setV elems dom)
   | none, some (.arithProg dom first step last?) =>
       Codec.valueToJson (.progV dom first step last?)
+  | none, some (.span n basis) => Codec.valueToJson (.spanV n basis)
   -- spelled out rather than a wildcard: a new set presentation must fail this
   -- build and be decided, not silently publish `null`
   | none, some (.domainSet _) | none, some (.product _ _) | none, some (.powerset _)

@@ -115,7 +115,7 @@ private def explanationJson (x : Explanation) : Json :=
      ("transport", transport),
      ("profileEntry", .str (renderCat x.res.profileEntry)),
      ("via", .arr ((x.res.via.map fun n => Json.str n.toString)).toArray),
-     ("declaredOn", .str x.res.decl.receiver.toString),
+     ("declaredOn", .str (renderName x.res.decl.receiver)),
      ("routing", decision)]
 
 def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
@@ -144,11 +144,11 @@ private def capabilityLines (env : Environment) : Array String × Array Json := 
       if rs.isEmpty then "NO ROUTE"
       else "; ".intercalate (rs.toList.map fun r =>
         s!"{renderPattern r.pattern} → {r.backend}:{r.opId}")
-    lines := lines.push s!"  {pad d.id.toString 14}{pad d.receiver.toString 22}{impl}"
+    lines := lines.push s!"  {pad d.id.toString 14}{pad (renderName d.receiver) 22}{impl}"
     if !d.doc.isEmpty then
       lines := lines.push s!"  {pad "" 36}{d.doc}"
     js := js.push <| Json.mkObj
-      [("method", .str d.id.toString), ("receiver", .str d.receiver.toString),
+      [("method", .str d.id.toString), ("receiver", .str (renderName d.receiver)),
        ("arity", .num d.arity), ("doc", .str d.doc),
        ("routes", .arr (rs.map routeJson))]
   return (lines, js)
