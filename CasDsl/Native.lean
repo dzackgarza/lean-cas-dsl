@@ -137,7 +137,9 @@ def scalarDiv (a b : Value) : Except String Value :=
 
 /-! ## Presentation helpers -/
 
-private def zeroOf : Domain → Value
+/-- The zero of a domain — the constant term of a degree-≤0 polynomial
+wherever one is read out, so `ℤ/5`'s zero is `.mod 5 0` and not `.int 0`. -/
+def zeroOf : Domain → Value
   | .rat => .rat 0
   | .mod n => Value.mkMod n 0
   | _ => .int 0

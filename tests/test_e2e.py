@@ -498,6 +498,8 @@ def test_membership_and_inclusion(kernel: Kernel) -> None:
     # membership in a powerset IS inclusion — SPEC.md's ASCII `in` spelling
     ok(kc, "assert A in 𝒫(ℤ)")
     ok(kc, "assert A ∪ B ∉ 𝒫(A)")
+    # a finite set against a countably infinite domain is decided elementwise
+    ok(kc, "assert A ⊆ ℤ")
     # a domain inclusion is the canonical-map registry's claim, and the set
     # layer refuses to restate it rather than answering it twice
     text = err(kc, "assert ℕ ⊆ ℤ")
@@ -543,6 +545,9 @@ def test_an_infinite_comprehension_is_its_progression(kernel: Kernel) -> None:
     ok(kc, "assert 1000000000000 ∈ E")
     ok(kc, "assert 1000000000001 ∉ E")
     assert "false" in err(kc, "assert 9 ∈ E").lower()
+    # inclusion against a progression is decided elementwise: A has odd
+    # members, so it is not inside the evens
+    assert "false" in err(kc, "assert A ⊆ E").lower()
 
 
 def test_the_image_of_a_function_is_that_same_set(kernel: Kernel) -> None:
@@ -581,6 +586,22 @@ def test_an_undecidable_comprehension_is_refused_at_the_binding(
     assert "arithmetic progression" in text
 
 
+def test_a_guard_that_only_the_indeterminate_understands_is_refused(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # The bounds are read with the binder as an INDETERMINATE, where `n.deg()`
+    # answers 1 — while for an integer it is a resolver error. The candidate
+    # loop re-reads the guard in the element world, so any range that
+    # enumerates something is validated by construction; these three enumerate
+    # NOTHING (two collapse to an empty range, one to the infinite refusal) and
+    # would otherwise ship a verdict no element-world reading supported.
+    for g in ("{n ∈ ℤ | n.deg() ≤ 0}", "{n ∈ ℕ | n.deg() ≤ 0}",
+              "{n ∈ ℤ | n.deg() ≤ 1}"):
+        text = err(kc, "let zz := %s" % g)
+        assert "polynomial comparison" in text, g
+        assert "infinite" not in text, g
+
+
 def test_a_constant_guard_is_decided_not_misdiagnosed(kernel: Kernel) -> None:
     _, kc = kernel
     # A guard that does not mention the binder holds for every candidate or
@@ -591,11 +612,23 @@ def test_a_constant_guard_is_decided_not_misdiagnosed(kernel: Kernel) -> None:
         text = err(kc, "let z1 := {n ∈ ℤ | %s}" % g)
         assert "infinite" in text, g
         assert "extractable bound" not in text, g
+    # …and where the two readings AGREE constant, the empty set is decided
     ok(kc, "assert {n ∈ ℤ | n - n < 0} = {}")
     ok(kc, "assert {n ∈ ℕ | 0*n > 0} = {}")
     # over ℕ the lower bound is 0, so a constant-true guard is unbounded ABOVE
     text = err(kc, "let z2 := {n ∈ ℕ | 0*n ≤ 0}")
     assert "from above" in text and "infinite" in text
+
+
+def test_both_caps_fail_loudly_rather_than_truncating(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a bound the guard really does impose, past what the slice will test
+    text = err(kc, "let big := {n ∈ ℤ | n² ≤ 10000000000}")
+    assert "tests at most" in text and "20000000001" in text
+    # 2^n past `powersetExpCap` stops being worth materializing
+    assert "1024" in ok(kc, "|𝒫(ℤ/10)|")
+    text = err(kc, "|𝒫(ℤ/5000)|")
+    assert "too large" in text
 
 
 def test_is_prime_is_a_ufd_method(kernel: Kernel) -> None:

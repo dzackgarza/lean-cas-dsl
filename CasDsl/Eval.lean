@@ -737,6 +737,11 @@ structure EvalCtx where
   still wins. -/
   callBinder? : Option (Name × Domain) := none
   /-- A comprehension's binder, bound to the candidate element being tested.
+  ONE slot, deliberately: a comprehension may not index over another (the
+  index must be ℕ or ℤ), so the only way to nest one is inside a guard or
+  head, where the inner binder would shadow the outer for the rest of that
+  expression. Losing the outer name there is a LOUD "not bound" error, never
+  a wrong answer, which is why one slot is enough.
   This is a REAL local binding, scoped to the braces: it is consulted BEFORE
   the session bindings (the binder wins inside its own comprehension, which
   is ordinary scoping), it is set only while the head and guard are being
@@ -790,10 +795,10 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
       | .error e => throw (.exec e)
       | .ok v => return Denote.ofValue v
 
-private def asValueOf (r : Denote) : Except String Value :=
+private def asValueOf (r : Denote) (what : String := "this position") : Except String Value :=
   match r.value? with
   | some v => .ok v
-  | none => .error s!"{r.presentation} is not an element value"
+  | none => .error s!"{what} needs an element value, and {r.presentation} is not one"
 
 private def asObjOf (r : Denote) : Except String Obj :=
   match r.obj? with
@@ -801,8 +806,20 @@ private def asObjOf (r : Denote) : Except String Obj :=
   | none => .error s!"{r.render} is not an object"
 
 /-- How many candidates a comprehension may test before the operation fails
-honestly. A loud ceiling, never a truncated answer. -/
+honestly. A loud ceiling, never a truncated answer. Its reach over ℤ is
+smaller than the number suggests — the tail bound is symmetric about the
+origin, so an offset window costs ~2×|offset| candidates. -/
 private def comprehensionCap : Int := 100000
+
+/-- The one refusal for a guard this slice does not decide. Shared by the two
+places that can reach it — a shape the bound extraction cannot read, and a
+guard whose ELEMENT-world reading does not produce a truth value — so an
+undecidable guard cannot be reported two ways depending on which one noticed. -/
+private def undecidableGuard (binder : Name) : EvalError :=
+  .msg s!"this slice decides a comprehension whose guard is a polynomial \
+comparison in the binder ('{binder}') — `{binder}² ≤ 20`, `0 ≤ {binder} < 6` — \
+and this guard is not one. The comprehension is a structured gap rather than a \
+guess: no elements are enumerated, and no membership is sampled"
 
 mutual
 
@@ -854,7 +871,9 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
               (← ofStr (asValueOf y))))
   | .bin .pow a b => do
       -- `2^X` is SPEC.md's other spelling of `𝒫(X)`; every other `^` is
-      -- exponentiation, including `2^|A|` (a cardinal is not a set)
+      -- exponentiation, including `2^|A|` (a cardinal is not a set). The
+      -- EXPONENT is evaluated first — it is what decides which reading this
+      -- is — so an error on the right is reported before one on the left
       let y ← eval ctx b
       match y.asSet? with
       | some s =>
@@ -1010,16 +1029,11 @@ partial def guardBounds (ctx : EvalCtx) (binder : Name) (dom : Domain)
       -- `0*n` and `n - n` reduce to the zero polynomial, and diagnosing those
       -- as a polynomial with no extractable bound would misreport an infinite
       -- (or empty) comprehension as an unsupported guard
-      | .poly _ cs =>
-          ofStr (if cs.size ≤ 1 then constantBounds op (cs[0]?.getD (.int 0))
+      | .poly c cs =>
+          ofStr (if cs.size ≤ 1 then constantBounds op (cs[0]?.getD (Native.zeroOf c))
                  else boundsOfPoly op cs)
       | v => ofStr (constantBounds op v)
-  | _ =>
-      throw (.msg s!"this slice decides a comprehension whose guard is a \
-polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
-`0 ≤ {binder} < 6` — and this guard is not one. The comprehension is a \
-structured gap rather than a guess: no elements are enumerated, and no \
-membership is sampled")
+  | _ => throw (undecidableGuard binder)
 
 /-- `{head | binder ∈ index, guard}`.
 
@@ -1047,14 +1061,15 @@ partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
 {dom.render}")
   match guard? with
   | none =>
-      let hv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, dom) } head))
+      let hv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, dom) } head)
+        s!"the head of a comprehension over {dom.render}")
       match hv with
       | .poly c cs =>
           if cs.size == 2 && dom == .nat then
             return .obj (.setObj (.arithProg c cs[0]! cs[1]! none))
           else if cs.size ≤ 1 then
             -- a constant map: its image is the one value it takes
-            return .obj (.setObj (.finite c #[cs[0]?.getD (.int 0)]))
+            return .obj (.setObj (.finite c #[cs[0]?.getD (Native.zeroOf c)]))
           else
             throw (.msg s!"an unguarded comprehension is presented only when its \
 image is an arithmetic progression — a linear map on ℕ. {hv.render} over \
@@ -1064,14 +1079,32 @@ image is an arithmetic progression — a linear map on ℕ. {hv.render} over \
           return .obj (.setObj (.finite d #[v]))
   | some g =>
       let b ← guardBounds ctx binder dom g
+      -- The bounds were read with the binder as an INDETERMINATE, where a
+      -- guard that is meaningless for elements can still answer: `n.deg()` is
+      -- 1 for the indeterminate and a resolver error for an integer. Every
+      -- candidate the loop tests re-reads the guard in the ELEMENT world, so a
+      -- range that enumerates something validates itself — but the two ends
+      -- that enumerate NOTHING (the empty range, and the infinite refusal)
+      -- would otherwise ship a verdict no element-world reading ever
+      -- supported. They probe once, at a candidate of the index domain.
+      let probe : EvalM Unit := do
+        let kv ← ofStr (coerceValue ctx.canonMaps dom (.int 0))
+        let read ← tryCatch (do return (← eval { ctx with
+          local? := some (binder, .elem dom kv) } g).value?) fun _ => pure none
+        match read with
+        | some (.bool _) => pure ()
+        | _ => throw (undecidableGuard binder)
       -- ℕ contributes its own lower bound; the guard must supply the rest
       let lo? := if dom == .nat then some (max 0 (b.lo.getD 0)) else b.lo
       let some lo := lo?
-        | throw (.msg s!"the guard does not bound '{binder}' from below, so this \
+        | do probe
+             throw (.msg s!"the guard does not bound '{binder}' from below, so this \
 comprehension is infinite: this slice presents a decided finite set or nothing")
       let some hi := b.hi
-        | throw (.msg s!"the guard does not bound '{binder}' from above, so this \
+        | do probe
+             throw (.msg s!"the guard does not bound '{binder}' from above, so this \
 comprehension is infinite: this slice presents a decided finite set or nothing")
+      if hi < lo then probe
       if hi - lo + 1 > comprehensionCap then
         throw (.msg s!"the guard bounds '{binder}' to {hi - lo + 1} candidates; \
 this slice tests at most {comprehensionCap}")
@@ -1080,8 +1113,10 @@ this slice tests at most {comprehensionCap}")
         let k := lo + Int.ofNat i
         let kv ← ofStr (coerceValue ctx.canonMaps dom (.int k))
         let kctx := { ctx with local? := some (binder, .elem dom kv) }
-        match ← ofStr (asValueOf (← eval kctx g)) with
-        | .bool true => out := out.push (← ofStr (asValueOf (← eval kctx head)))
+        match ← ofStr (asValueOf (← eval kctx g) s!"the guard at {binder} = {k}") with
+        | .bool true =>
+            out := out.push (← ofStr (asValueOf (← eval kctx head)
+              s!"the head at {binder} = {k}"))
         | .bool false => pure ()
         | v => throw (.msg s!"the guard did not decide at {binder} = {k}: {v.render}")
       let d ← ofStr (elemsDomain ctx.canonMaps out)

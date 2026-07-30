@@ -225,7 +225,9 @@ router, except the two that construct rather than compute.
   (`nth`, `contains` on a product, set equality, the binary operations)
   fails loudly. `𝒫` of a countably infinite set is UNCOUNTABLE, which
   `Cardinality` deliberately cannot state, so `|𝒫(ℕ)|` reports that it
-  cannot be stated — never `ℵ₀`.
+  cannot be stated — never `ℵ₀`. A FINITE powerset has the other ceiling:
+  `powersetExpCap` (2^4096) is where `2^n` stops being a number worth
+  materializing, and `|𝒫(ℤ/5000)|` says so rather than hanging.
 - **`|·|` is the `cardinality` method and `⊆` is `subset`**; the bars and the
   symbol are spellings, so `|3|` is the ordinary "not a method of any
   category this object belongs to" error rather than a second notion of size.
@@ -276,7 +278,15 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   which reduce to the zero polynomial — and answers with the whole index set
   (refused as infinite) or the empty one (decided), never with a complaint
   about an unextractable bound. There is no enumeration cutoff: the candidate
-  count past `comprehensionCap` is a loud failure. Its practical reach is
+  count past `comprehensionCap` is a loud failure. And the bounds are read
+  with the binder as an INDETERMINATE, where a guard that is meaningless for
+  elements can still answer — `n.deg()` is 1 for the indeterminate and a
+  resolver error for an integer — so a verdict is never shipped without one
+  element-world reading behind it: every enumerated candidate re-reads the
+  guard as an element, and the two ends that enumerate NOTHING (the empty
+  range, and the infinite refusal) probe once before they are trusted. A
+  guard whose element-world reading errors gets the undecidable refusal, the
+  same one an unreadable guard shape gets. Its practical reach is
   smaller than that number suggests over ℤ, because the tail bound is
   symmetric about the origin: an offset window costs ~2×|offset| candidates,
   so |offset| ≲ 50000 is the real ceiling there. Over ℕ the lower bound is 0
@@ -297,16 +307,18 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   it publishes nothing — a bare binder name elsewhere is still the loud "not
   bound" error. This is ordinary scoping and does not widen the name
   resolution §Functions narrowed.
-- **Two `SPEC.md` §Ellipses lines stay uncovered, deliberately.**
-  `{n in ℕ | f(n) ∈ 2ℕ}` needs a MEMBERSHIP guard, which is not a polynomial
-  comparison, so the comprehension is refused at the binding. It also needs
-  the scaling spelling `2ℕ`, and there is NO scaling production: `2ℕ` is read
-  as two juxtaposed terms (the numeral, then the domain), so `SPEC.md`'s
-  `assert Y = 2ℕ` asserts `Y = 2` and displays `ℕ` after it. That reading is
-  the statement splitter's, not this surface's — a decided answer to a
-  DIFFERENT claim, which is why the line is listed here rather than trusted.
-  `{n in ℕ | n.is_prime()}` is refused like the first, even though
-  `n.is_prime()` itself ships as a method: primality is not a polynomial
+- **Two `SPEC.md` §Ellipses lines stay uncovered, and they fail
+  DIFFERENTLY.** `{n in ℕ | f(n) ∈ 2ℕ}` does not parse at all: `∈` is an
+  assertion relation, not a term operator, so the guard position rejects it
+  and the statement splitter runs what is left as fragments — `2` and `ℕ`
+  print as results next to the parse error. `2ℕ` compounds it: there is NO
+  scaling production, so it reads as two juxtaposed terms and `SPEC.md`'s
+  `assert Y = 2ℕ` asserts `Y = 2`, displaying `ℕ` after it. Both of those
+  readings are the splitter's, not this surface's — decided answers to
+  DIFFERENT claims, which is why the line is listed here rather than trusted.
+  `{n in ℕ | n.is_prime()}` is the other kind: it parses, and gets the
+  structured undecidable-guard refusal AT THE BINDING, even though
+  `n.is_prime()` itself ships as a method — primality is not a polynomial
   comparison. All of it is on the `SPEC.md` ledger (#24), none of it is a
   silent approximation.
 - **`e.image()` is the one method functions own** (`FunctionElems`,

@@ -325,6 +325,9 @@ private def finSet (vs : List Int) : Obj := .setObj (.finite .int (ints vs))
 
 private def A123 : SetPresentation := .finite .int (ints [1, 2, 3])
 
+/-- `{0, 2, 4, ...}` — the progression SPEC.md's `{2n | n ∈ ℕ}` denotes. -/
+private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
+
 #guard out "set_union" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
   some (.setV (ints [1, 2, 3, 4, 5]) .int)
 #guard out "set_intersect" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
@@ -354,6 +357,15 @@ private def A123 : SetPresentation := .finite .int (ints [1, 2, 3])
     #[.domainObj .nat] == some (.bool false)
 -- an infinite normal form is not inside a finite list — provably false
 #guard out "subset" (.domainObj .int) #[finSet [1, 2]] == some (.bool false)
+-- against a PROGRESSION: an explicit list is decided elementwise…
+#guard out "subset" (finSet [2, 4]) #[evens] == some (.bool true)
+#guard out "subset" (finSet [1, 2, 3]) #[evens] == some (.bool false)
+-- …the same progression contains itself…
+#guard out "subset" evens #[evens] == some (.bool true)
+-- …and the two the presentations do NOT settle refuse rather than guess:
+-- {0,4,8,…} ⊆ {0,2,4,…} is true and ℕ ⊆ {0,½,1,…} would be too
+#guard out "subset" (.setObj (.arithProg .nat (.int 0) (.int 4) none)) #[evens] == none
+#guard out "subset" (.domainObj .nat) #[evens] == none
 -- …but ℕ ⊆ ℤ is the canonical-map registry's claim, and this backend refuses
 -- to restate it rather than answering it twice
 #guard out "subset" (.domainObj .nat) #[.domainObj .int] == none
@@ -368,12 +380,20 @@ private def A123 : SetPresentation := .finite .int (ints [1, 2, 3])
   some (.cardinal .countablyInfinite)
 -- 𝒫(ℕ) is uncountable: this slice says it cannot state that, never ℵ₀
 #guard out "cardinality" (.setObj (.powerset (.domainSet .nat))) #[] == none
+-- and 2^n stops being worth materializing past `powersetExpCap`: a loud
+-- ceiling either side of it, never a hang
+#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 12)))) #[]
+  == some (.cardinal (.finite 4096))
+#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 5000)))) #[] == none
 
 -- membership in a powerset IS inclusion, decided by the same procedure
 #guard out "contains" (.setObj (.powerset A123)) #[finSet [1, 2]] == some (.bool true)
 #guard out "contains" (.setObj (.powerset A123)) #[finSet [1, 4]] == some (.bool false)
 -- a product has pairs for elements, which no `Value` presents
 #guard out "contains" (.setObj (.product A123 A123)) #[.elem .int (.int 1)] == none
+-- …and an ELEMENT is not a candidate for membership in a powerset, whose
+-- members are sets: the argument is refused rather than read as a singleton
+#guard out "contains" (.setObj (.powerset A123)) #[.elem .int (.int 1)] == none
 -- neither denoted set has a canonical form to compare
 #guard out "set_eq" (.setObj (.powerset A123)) #[.setObj (.powerset A123)] == none
 
