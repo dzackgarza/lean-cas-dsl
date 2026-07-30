@@ -16,6 +16,26 @@ the user's spec — `PLAN-CAS-TYPE-PREPASS`, `PLAN-CAS-VERTICAL-SLICE`,
 contract: the module map, the core data model, and the decisions every
 module must respect.
 
+## Program trajectory (user ruling, 2026-07-30)
+
+This repo is stage one of a three-stage program:
+
+1. **Spike**: a proof of concept that is genuinely useful for standard
+   Wolfram-Alpha-style undergraduate queries as sketched in `SPEC.md`, with
+   slightly more mathematical rigour (`assert`, honest structured gaps) and
+   *shadows* of the eventual language design (category-flavored ascription,
+   the resolver seam). The spike's work queue is the `SPEC.md` coverage
+   ledger (#24).
+2. **Evaluation**: after the spike, real use judges actual usefulness,
+   likely refining how the base language works (#13 is the mechanism).
+3. **Rewrite** on the full proper categorical foundations — which this repo
+   deliberately does NOT know yet; lean-lattices/CategoryGraph provides them
+   (#12/#14/#15 track that boundary).
+
+Binding consequence: **engine deepening is frozen at current depth** — no
+further foundational machinery in this repo unless a `SPEC.md` item forces
+it. Breadth of spec surface outranks foundation work until the evaluation.
+
 ## The invariant pipeline
 
 ```text
@@ -430,13 +450,14 @@ the registered Cantor zigzag, revisitable like ℤ's convention.)
 
 Formerly open questions, now user-decided — none was silently resolved:
 
-- **user-defined categories**: the declaration surface SHIPS, re-scoped
-  after cross-referencing the CategoryGraph roadmap (#12): a notebook
-  declaration is an explicit LOCAL-ORIGIN registry entry — a leaf
-  category (no inclusion edges; an inclusion is a mathematical claim
-  whose witness lives in CategoryGraph, reached by promotion via #13),
-  membership by shape rule or ascription, methods DERIVED only (bodies
-  are DSL expressions). Revised syntax awaits ratification on #6;
+- **user-defined categories**: DEFERRED behind the stage-2 evaluation
+  (trajectory ruling, later 2026-07-30, superseding the same-day "ships
+  now" ruling). The local-origin re-scope recorded on #6 — leaf categories
+  only, membership by shape rule or ascription, methods derived only —
+  stands as the design of record for when it returns. The spike implements
+  `SPEC.md`'s *functions* section instead (`t ↦` lambdas, typed ascription,
+  equality, composition), which delivers the derived-method value with no
+  category machinery;
 - **backend provenance**: never default output — an opt-in `info`-level
   logging layer with per-line/per-cell verbosity directives (issue #8);
   results themselves become LaTeX-first with plain-text fallback (#16);
