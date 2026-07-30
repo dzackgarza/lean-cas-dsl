@@ -151,10 +151,13 @@ that — see §Exact number systems.
 `a + b√d` — `Value.alg` with `a`, `b` rational, `d` a square-free integer
 other than 0 and 1, and `b ≠ 0`. `√(-1)` is `i`, so the SIGN of the radicand
 decides which domain a value presents (ℝ for `d > 0`, ℂ for `d < 0`), and
-`Value.mkAlg` is the only constructor: it moves the square part of `d` into
-`b` and returns the RATIONAL when `b` vanishes. That is what makes `√8`
-literally `2√2` and keeps a surd out of ℚ, which in turn is what lets
-equality, membership and set operations decide on these values at all.
+`Value.mkAlg` is the constructor every value the surface produces goes
+through: it moves the square part of `d` into `b` and returns the RATIONAL
+when `b` vanishes (the prelude and test FIXTURES are written in normal form
+directly, stating the value they mean — nothing computed skips it). That is
+what makes `√8` literally `2√2` and keeps a surd out of ℚ, which in turn is
+what lets equality, membership and set operations decide on these values at
+all.
 
 - **Everything here is exact, and nothing in this section approximates.**
   `√2`, `i`, `2√2`, `(-1+√5)/2` are algebraic numbers, not decimals; the
