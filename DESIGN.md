@@ -423,8 +423,13 @@ the registered Cantor zigzag, revisitable like ℤ's convention.)
 
 Formerly open questions, now user-decided — none was silently resolved:
 
-- **user-defined categories**: the declaration surface SHIPS (issue #6);
-  the concrete syntax returns as a proposal for review first;
+- **user-defined categories**: the declaration surface SHIPS, re-scoped
+  after cross-referencing the CategoryGraph roadmap (#12): a notebook
+  declaration is an explicit LOCAL-ORIGIN registry entry — a leaf
+  category (no inclusion edges; an inclusion is a mathematical claim
+  whose witness lives in CategoryGraph, reached by promotion via #13),
+  membership by shape rule or ascription, methods DERIVED only (bodies
+  are DSL expressions). Revised syntax awaits ratification on #6;
 - **backend provenance**: never default output — an opt-in `info`-level
   logging layer with per-line/per-cell verbosity directives (issue #8);
   results themselves become LaTeX-first with plain-text fallback (#16);
