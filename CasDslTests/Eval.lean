@@ -104,6 +104,61 @@ same ones — and that an EMPTY registry makes these coercions fail — is
 
 #guard (elemsDomain embeds #[.int 1, .rat (1/2)]).toOption == some .rat
 
+/-! ## Functions
+
+SPEC.md's function claims are identities of function EXPRESSIONS, so the pure
+core is where they are decided: `applyPoly` substitutes a polynomial argument
+into a polynomial body, which settles `h(-t) = h(t)` and `(f ∘ g)(t) = t⁶`
+exactly, and evaluates ordinary points by the same Horner pass. -/
+
+/-- `t ↦ t² + 1` — the body of SPEC.md's `h`, both spellings of which must
+normalize to it. -/
+private def sq1 : Value := Value.mkPoly .int #[.int 1, .int 0, .int 1]
+
+private def xTo (k : Nat) : Value :=
+  Value.mkPoly .int ((Array.replicate k (Value.int 0)).push (.int 1))
+
+-- a scalar argument evaluates: h(0) = 1, h(3) = 10
+#guard (applyPoly embeds sq1 (.int 0)).toOption == some (.int 1)
+#guard (applyPoly embeds sq1 (.int 3)).toOption == some (.int 10)
+-- a polynomial argument SUBSTITUTES: h(-t) is h(t), not a sample of it
+#guard (applyPoly embeds sq1 (Value.mkPoly .int #[.int 0, .int (-1)])).toOption
+  == some sq1
+#guard (applyPoly embeds sq1 (xTo 1)).toOption == some sq1
+-- and a genuinely different argument is a genuinely different body
+#guard (applyPoly embeds sq1 (Value.mkPoly .int #[.int 1, .int 1])).toOption
+  == some (Value.mkPoly .int #[.int 2, .int 2, .int 1])
+-- a body the polynomial engine cannot read is refused, never approximated
+#guard (applyPoly embeds (.bool true) (.int 0)).toOption == none
+
+/-- `t ↦ tᵏ in ℝ → ℝ`. -/
+private def pow (binder : Name) (k : Nat) : Value := .func .real .real binder (xTo k)
+
+-- (f ∘ g)(t) = t⁶ from f = t², g = t³ — and the composite keeps g's binder
+#guard (composeFuncs embeds (pow `t 2) (pow `s 3)).toOption == some (pow `s 6)
+
+/-- `t ↦ t + 1 in ℝ → ℝ` — the shift, whose two composites with `t²` differ. -/
+private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .int 1])
+
+-- the order is substitution order, not an unordered pairing: (t + 1)² is the
+-- one composite and t² + 1 the other
+#guard (composeFuncs embeds (pow `t 2) shift).toOption
+  == some (.func .real .real `t (Value.mkPoly .int #[.int 1, .int 2, .int 1]))
+#guard (composeFuncs embeds shift (pow `t 2)).toOption
+  == some (.func .real .real `t (Value.mkPoly .int #[.int 1, .int 0, .int 1]))
+-- domains must meet: ℕ → ℕ followed by ℝ → ℝ does not compose
+#guard (composeFuncs embeds (pow `t 2) (.func .nat .nat `s (xTo 3))).toOption == none
+#guard (composeFuncs embeds (pow `t 2) (.int 3)).toOption == none
+
+-- ℝ is an ascription tag: it admits no canonical map, so nothing lands in it
+#guard (coerceValue embeds .real (.int 3)).toOption == none
+#guard (domJoin embeds .real .rat).toOption == some none
+
+-- `R` and `RR` are spellings of ℝ; every other identifier is a name
+#guard domainAlias? `RR == some .real
+#guard domainAlias? `R == some .real
+#guard domainAlias? `Reals == none
+
 /-! ## `D[x]` versus `e[k]`, and the `Matₙ` spelling -/
 
 private def bound (n : Name) : Bool := n == `p
@@ -172,6 +227,49 @@ assert p(2) = 5
 -- a bare expression cell displays its value
 2 + 3
 q
+
+/-! ## SPEC.md's Functions section, verbatim
+
+Every line of the section runs here, so a false assertion fails the build
+rather than the notebook. Both binder spellings and both domain spellings are
+exercised, and `assert h = hp` is the claim that they agree. -/
+
+let h := t ↦ t² + 1 in ℝ → ℝ
+let hp(t) := t^2 + 1 in R->R
+assert h = hp
+assert h(0) = 1
+assert h(3) = 10
+assert h(-t) = h(t)
+
+let e: ℕ → ℕ := n ↦ 2n
+
+let f(t) = t^2 in RR->RR
+let g(t) = t^3 in RR->RR
+assert (f ∘ g)(t) = t^6
+
+-- the composite is a function like any other: it evaluates at a point, and
+-- equality tells it apart from its factors
+assert (f ∘ g)(2) = 64
+assert h ≠ f
+
+run_cmd do
+  let env ← Lean.getEnv
+  let expect : List (Name × String × String) :=
+    [(`h, "t ↦ t^2 + 1", "t ↦ t^2 + 1 ∈ ℝ → ℝ"),
+     (`hp, "t ↦ t^2 + 1", "t ↦ t^2 + 1 ∈ ℝ → ℝ"),
+     (`e, "n ↦ 2n", "n ↦ 2n ∈ ℕ → ℕ"),
+     (`g, "t ↦ t^3", "t ↦ t^3 ∈ ℝ → ℝ")]
+  for (name, rendered, presented) in expect do
+    match CasDsl.binding? env name with
+    | none => throwError "'{name}' was not bound"
+    | some o =>
+        if o.render != rendered then
+          throwError "'{name}' rendered as {o.render}, expected {rendered}"
+        if o.presentation != presented then
+          throwError "'{name}' presented as {o.presentation}, expected {presented}"
+  -- the two spellings really are one value, binder included
+  unless CasDsl.binding? env `h == CasDsl.binding? env `hp do
+    throwError "the ↦ and f(t) spellings of the same function differ"
 
 -- The bindings above really landed in the environment extension, and the
 -- `let` command did not shadow `let` inside this `do` block.

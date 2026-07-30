@@ -24,10 +24,13 @@ partial def domainToJson : Domain → Json
   | .nat => Json.mkObj [("d", "nat")]
   | .int => Json.mkObj [("d", "int")]
   | .rat => Json.mkObj [("d", "rat")]
+  | .real => Json.mkObj [("d", "real")]
   | .mod n => Json.mkObj [("d", "mod"), ("n", toJson n)]
   | .poly c => Json.mkObj [("d", "poly"), ("coeff", domainToJson c)]
   | .matrix n e =>
       Json.mkObj [("d", "matrix"), ("n", toJson n), ("entry", domainToJson e)]
+  | .funcs s t =>
+      Json.mkObj [("d", "funcs"), ("src", domainToJson s), ("tgt", domainToJson t)]
 
 private def cardinalToJson : Cardinality → Json
   | .finite n => Json.mkObj [("t", "cardinal"), ("v", "finite"), ("n", toJson n)]
@@ -58,6 +61,10 @@ partial def valueToJson : Value → Json
          ("ring", domainToJson ring)]
   | .cardinal c => cardinalToJson c
   | .bool b => Json.mkObj [("t", "bool"), ("v", Json.bool b)]
+  | .func s t binder body =>
+      Json.mkObj
+        [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
+         ("binder", Json.str binder.toString), ("body", valueToJson body)]
 
 /-! ## Decoding -/
 
@@ -92,9 +99,12 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | "nat" => return .nat
   | "int" => return .int
   | "rat" => return .rat
+  | "real" => return .real
   | "mod" => return .mod (← natField j "n")
   | "poly" => return .poly (← domainFromJson (← field j "coeff"))
   | "matrix" => return .matrix (← natField j "n") (← domainFromJson (← field j "entry"))
+  | "funcs" =>
+      return .funcs (← domainFromJson (← field j "src")) (← domainFromJson (← field j "tgt"))
   | other => .error s!"unknown domain tag {repr other} in {j.compress}"
 
 private def cardinalFromJson (j : Json) : Except String Cardinality := do
@@ -145,6 +155,14 @@ partial def valueFromJson (j : Json) : Except String Value := do
       let gens ← (← arrField j "gens").mapM valueFromJson
       return .idealV gens (← domainFromJson (← field j "ring"))
   | "cardinal" => return .cardinal (← cardinalFromJson j)
+  | "func" =>
+      let src ← domainFromJson (← field j "src")
+      let tgt ← domainFromJson (← field j "tgt")
+      let binder ← strField j "binder"
+      if binder.isEmpty then
+        .error s!"a function's binder must be a name in {j.compress}"
+      else
+        return .func src tgt (Lean.Name.mkSimple binder) (← valueFromJson (← field j "body"))
   | "bool" =>
       match (← field j "v").getBool? with
       | .ok b => return .bool b

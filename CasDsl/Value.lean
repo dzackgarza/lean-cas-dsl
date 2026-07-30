@@ -16,12 +16,19 @@ inductive Domain where
   | nat
   | int
   | rat
+  /-- `ℝ`, spelled `ℝ`, `R` or `RR`. An ASCRIPTION DOMAIN TAG in this slice
+  (SPEC.md's `in ℝ → ℝ`): it names the domain a function is declared over and
+  carries no analysis semantics — there are no `Value`s presenting it, and
+  every operation that would need them fails honestly. -/
+  | real
   /-- `ℤ/n`. -/
   | mod (n : Nat)
   /-- Univariate polynomials `coeff[x]`. -/
   | poly (coeff : Domain)
   /-- Square `n × n` matrices over `entry` (square-only in this slice). -/
   | matrix (n : Nat) (entry : Domain)
+  /-- `src → tgt`, the domain a function binding is ascribed to. -/
+  | funcs (src tgt : Domain)
   deriving BEq, Repr, Hashable, Inhabited
 
 /-- Cardinality values the slice can express. -/
@@ -48,6 +55,12 @@ inductive Value where
   | idealV (gens : Array Value) (ring : Domain)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
+  /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
+  binder generates, so the identities SPEC.md asserts about functions
+  (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`) are decided by the polynomial engine
+  rather than sampled. The binder is a BOUND NAME, not data: equality
+  compares domains and bodies (`Native.valueEq`). -/
+  | func (src tgt : Domain) (binder : Lean.Name) (body : Value)
   deriving BEq, Repr, Inhabited
 
 /-- Presentation of a set object. Semantic sets are not replaced by ordered
@@ -82,9 +95,11 @@ partial def render : Domain → String
   | .nat => "ℕ"
   | .int => "ℤ"
   | .rat => "ℚ"
+  | .real => "ℝ"
   | .mod n => s!"ℤ/{n}"
   | .poly c => s!"{c.render}[x]"
   | .matrix n e => s!"Mat{subscript n}({e.render})"
+  | .funcs s t => s!"{s.render} → {t.render}"
 where
   subscript (n : Nat) : String :=
     let digits := "₀₁₂₃₄₅₆₇₈₉"
@@ -113,7 +128,7 @@ partial def render : Value → String
   | .int z => toString z
   | .rat q => if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
   | .mod _ v => toString v
-  | .poly _ coeffs => renderPoly coeffs
+  | .poly _ coeffs => renderPoly "x" coeffs
   | .mat _ _ rows =>
       let r := rows.toList.map fun row =>
         ", ".intercalate (row.toList.map render)
@@ -123,8 +138,8 @@ partial def render : Value → String
         let base := match f with
           | .poly _ cs =>
               if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then
-                s!"({renderPoly cs})"
-              else renderPoly cs
+                s!"({renderPoly "x" cs})"
+              else renderPoly "x" cs
           | v => v.render
         if m == 1 then base else s!"{base}^{m}"
       let core := " * ".intercalate fs
@@ -137,8 +152,16 @@ partial def render : Value → String
   | .cardinal (.finite n) => toString n
   | .cardinal .countablyInfinite => "ℵ₀"
   | .bool b => toString b
+  | .func _ _ binder body =>
+      -- the body is written back in the mathematician's own binder, not in
+      -- the `x` a bare polynomial renders with
+      let t := toString binder
+      let b := match body with
+        | .poly _ cs => renderPoly t cs
+        | v => v.render
+      s!"{t} ↦ {b}"
 where
-  renderPoly (coeffs : Array Value) : String := Id.run do
+  renderPoly (x : String) (coeffs : Array Value) : String := Id.run do
     if coeffs.isEmpty then return "0"
     let mut terms : List String := []
     for i in [0:coeffs.size] do
@@ -148,11 +171,11 @@ where
       let term :=
         if i == 0 then cs
         else
-          let x := if i == 1 then "x" else s!"x^{i}"
-          if cs == "1" then x
-          else if cs == "-1" then s!"-{x}"
-          else if cs.contains '/' then s!"({cs}){x}"
-          else s!"{cs}{x}"
+          let p := if i == 1 then x else s!"{x}^{i}"
+          if cs == "1" then p
+          else if cs == "-1" then s!"-{p}"
+          else if cs.contains '/' then s!"({cs}){p}"
+          else s!"{cs}{p}"
       terms := term :: terms
     if terms.isEmpty then return "0"
     -- terms is highest-degree first; join with signs
@@ -195,6 +218,13 @@ def render : Obj → String
   | .domainObj d => d.render
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
+
+/-- The binder of a bound function. A function in scope is what makes its
+binder name an indeterminate the surface may use freely (SPEC.md writes
+`assert h(-t) = h(t)` and `(f ∘ g)(t) = t⁶` without ever binding `t`). -/
+def funcBinder? : Obj → Option Lean.Name
+  | .elem _ (.func _ _ b _) => some b
+  | _ => none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String

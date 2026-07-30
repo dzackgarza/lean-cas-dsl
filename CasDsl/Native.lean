@@ -45,9 +45,18 @@ def promote : Value → Value → Option (Value × Value)
   | _, _ => none
 
 /-- Equality after promotion; `none` = incomparable kinds (never `false`,
-which would claim a mathematical judgment we did not make). -/
+which would claim a mathematical judgment we did not make).
+
+Two functions are equal when they are declared over the same domains and
+their bodies agree — the binder is a BOUND NAME, so `t ↦ t² + 1` and
+`s ↦ s² + 1` are the same function, and SPEC.md's `assert h = hp` compares
+the two spellings of one body through the polynomial normal form. -/
 def valueEq (a b : Value) : Option Bool :=
-  (promote a b).map fun (x, y) => x == y
+  match a, b with
+  | .func s t _ fb, .func s' t' _ gb =>
+      if s != s' || t != t' then some false
+      else (promote fb gb).map fun (x, y) => x == y
+  | _, _ => (promote a b).map fun (x, y) => x == y
 
 private def ratCmp (x y : Rat) : Ordering :=
   if x.blt y then .lt else if y.blt x then .gt else .eq
@@ -158,19 +167,27 @@ def ratEnum (k : Nat) : Rat :=
   else if k % 2 == 1 then ratPosEnum ((k - 1) / 2)
   else -(ratPosEnum (k / 2 - 1))
 
-/-- Cardinality of a domain used as a set. `ℤ/0 ≅ ℤ` is infinite. -/
-def domainCard : Domain → Cardinality
-  | .nat | .int | .rat => .countablyInfinite
-  | .mod 0 => .countablyInfinite
-  | .mod n => .finite n
+/-- Cardinality of a domain used as a set. `ℤ/0 ≅ ℤ` is infinite.
+
+`none` = this slice's `Cardinality` cannot state it: ℝ is uncountable and a
+function domain is a set of maps nothing here enumerates. Reporting that
+absence is the honest answer; inventing `ℵ₀` for either would be a wrong
+mathematical claim. -/
+def domainCard : Domain → Option Cardinality
+  | .nat | .int | .rat => some .countablyInfinite
+  | .real | .funcs .. => none
+  | .mod 0 => some .countablyInfinite
+  | .mod n => some (.finite n)
   | .poly c =>
       match domainCard c with
-      | .finite k => if k ≤ 1 then .finite 1 else .countablyInfinite
-      | .countablyInfinite => .countablyInfinite
+      | some (.finite k) => some (if k ≤ 1 then .finite 1 else .countablyInfinite)
+      | some .countablyInfinite => some .countablyInfinite
+      | none => none
   | .matrix n e =>
       match domainCard e with
-      | .finite k => .finite (k ^ (n * n))
-      | .countablyInfinite => if n == 0 then .finite 1 else .countablyInfinite
+      | some (.finite k) => some (.finite (k ^ (n * n)))
+      | some .countablyInfinite => some (if n == 0 then .finite 1 else .countablyInfinite)
+      | none => none
 
 /-- Quadratic dedupe, used only on hand-written finite set literals. -/
 private def dedupValues (vs : Array Value) : Array Value :=
@@ -286,8 +303,12 @@ private def sortDedup (vs : Array Value) : Array Value :=
 
 private def normalizeDomain (d : Domain) : Except ExecError SetNormal :=
   match domainCard d with
-  | .countablyInfinite => .ok (.dom d)
-  | .finite n =>
+  | none =>
+      .error (.badRequest
+        s!"the native backend cannot compare {d.render} as a set: its cardinality \
+is not expressible here")
+  | some .countablyInfinite => .ok (.dom d)
+  | some (.finite n) =>
       match d with
       | .mod m =>
           if m ≤ expansionCap then
@@ -376,7 +397,11 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
   | "cardinality" =>
       match o with
       | .setObj (.finite _ elems) => .ok (.cardinal (.finite (dedupValues elems).size))
-      | .setObj (.domainSet d) | .domainObj d => .ok (.cardinal (domainCard d))
+      | .setObj (.domainSet d) | .domainObj d =>
+          match domainCard d with
+          | some c => .ok (.cardinal c)
+          | none => .error (.badRequest
+              s!"the native backend cannot express the cardinality of {d.render}")
       | .setObj (.arithProg _ first step last?) => do
           match ← progCount first step last? with
           | none => return .cardinal .countablyInfinite

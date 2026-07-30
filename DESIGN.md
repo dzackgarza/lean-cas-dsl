@@ -91,9 +91,11 @@ env extensions, so no closures):
 ```lean
 inductive Domain
   | nat | int | rat
+  | real                           -- ℝ: an ascription TAG, no analysis semantics
   | mod (n : Nat)                  -- ℤ/n
   | poly (coeff : Domain)          -- coeff[x], univariate
   | matrix (n : Nat) (entry : Domain)   -- Matₙ(entry), square in the slice
+  | funcs (src tgt : Domain)       -- src → tgt
 
 inductive Value
   | int (z : Int)                  -- also ℕ elements
@@ -105,6 +107,7 @@ inductive Value
   | idealV (gens : Array Value) (ring : Domain)    -- e.g. annihilator result
   | cardinal (c : Cardinality)     -- finite n | countablyInfinite
   | bool (b : Bool)
+  | func (src tgt : Domain) (binder : Name) (body : Value)   -- binder ↦ body
 
 inductive SetPresentation
   | finite (dom : Domain) (elems : Array Value)
@@ -121,6 +124,48 @@ inductive Obj                       -- the thing a notebook binding names
 Set equality (`X = ℕ`) is presentation normalization: `arithProg 0 1 none`
 over ℕ normalizes to `domainSet nat`, etc. This is a documented ceiling,
 not a general decision procedure.
+
+`Cardinality` has no uncountable constructor, so `domainCard` is partial:
+`ℝ` and a function domain report that the slice CANNOT state their size
+rather than being given `ℵ₀`.
+
+## Functions (`SPEC.md` §Functions, issue #25)
+
+A function is `binder ↦ body` in an ascribed `src → tgt`. Both surface
+spellings — `let h := t ↦ e in ℝ → ℝ` and `let h(t) := e in ℝ → ℝ` — reach
+the same `evalBinderBinding`, where the ASCRIPTION decides what the binder
+means: a polynomial domain reads it as the indeterminate of `D[x]`, a
+function domain builds the `Value.func`. Equality is therefore the ordinary
+value equality of two bodies, and the binder is a bound name — `t ↦ t² + 1`
+and `s ↦ s² + 1` are one function (`Native.valueEq`).
+
+Decisions, all load-bearing:
+
+- **bodies are exact polynomials.** SPEC.md's claims here (`h(-t) = h(t)`,
+  `(f ∘ g)(t) = t⁶`) are identities of function EXPRESSIONS, not samples, so
+  they are settled by substituting one polynomial into another
+  (`Eval.applyPoly`, Horner over `valueBin` rather than `Native.polyEval`'s
+  scalar Horner). A body the polynomial engine cannot express — `t ↦ sin(t)`,
+  `t ↦ e^t` — is refused AT THE BINDING and stays a gap until the calculus
+  sections land; it is never approximated;
+- **`ℝ` is an ascription tag.** It names where a function is declared and
+  carries no analysis semantics at this stage: no `Value` presents it, no
+  canonical map lands in it, and every operation needing its elements fails
+  honestly. `R` and `RR` are registered spellings of it (`Eval.domainAlias?`),
+  consulted after the bindings so `let R := …` still shadows them;
+- **a function in scope publishes its binder** as the indeterminate of the
+  ring its body lives in — that is what lets SPEC.md write `h(-t) = h(t)` and
+  `(f ∘ g)(t) = t⁶` without ever binding `t`. A name no function in scope
+  binds is still the loud "not bound" error: the reading is earned by a
+  definition, never assumed for an unknown identifier;
+- **calling and composing are elaboration-inserted**, exactly like calling a
+  polynomial (decision 6): no method, no route, no backend. `f ∘ g` keeps
+  `g`'s binder and requires the domains to meet — composing along a mismatch
+  is a mathematical error, not something to coerce past.
+
+Functions consequently register NO category, method or route: nothing about
+them is a computability question this slice can route, so the registries are
+untouched.
 
 ## Categories (`Category.lean`, `Registry.lean`)
 
@@ -356,8 +401,11 @@ let p(x) := x^3 - 2x + 1 in ℤ[x]          -- univariate polynomial binding
 let q := map p to ℚ[x]                    -- explicit coercion along ℤ ⊆ ℚ
 let X := {0, 1, 2, ...}                   -- progression set literals
 let M := [1, 2; 3, 4] in Mat₂(ℚ)          -- matrix literal
+let h := t ↦ t² + 1 in ℝ → ℝ              -- function, lambda spelling
+let f(t) = t^2 in RR->RR                  -- …and the f(t) spelling, ASCII
+let e: ℕ → ℕ := n ↦ 2n                    -- leading-ascription spelling
 n.factor()   M.det()   M.inverse()  F.annihilator()   X.cardinality()
-q(1)                                      -- polynomial call coercion
+q(1)   h(3)   h(-t)   (f ∘ g)(t)          -- call/compose: inserted coercions
 ℤ[3]                                      -- nth element (numeral ⇒ index)
 assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
@@ -370,6 +418,12 @@ Parser decisions (load-bearing):
   indeterminate; `D[numeral/expr]` is nth-element indexing (matches the
   plans' `ℤ[3]`; ring adjunction `ℤ[√2]` is out of scope — ceiling).
 - implicit multiplication is supported only as `numeral ident` (`2x`);
+- a superscript exponent (`t²`, `x³`) is `^` in SPEC.md's other spelling.
+  CEILING: one digit — `assert h = hp` is exactly the claim that the two
+  spellings agree, and larger exponents have `^`;
+- `→` and `->` build a function domain; `ℝ` is a token like `ℕ`/`ℤ`/`ℚ`,
+  while its ASCII spellings `R`/`RR` are ordinary identifiers resolved after
+  the bindings;
 - a bare `casTerm` cell displays its value (our own command production, low
   priority so genuine Lean commands still parse);
 - `assert` outcomes are fourfold — `true | false | unknown | error` — only

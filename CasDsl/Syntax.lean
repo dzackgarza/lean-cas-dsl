@@ -45,6 +45,7 @@ declare_syntax_cat casRel
 syntax:max (name := casNatDom) "ℕ" : casTerm
 syntax:max (name := casIntDom) "ℤ" : casTerm
 syntax:max (name := casRatDom) "ℚ" : casTerm
+syntax:max (name := casRealDom) "ℝ" : casTerm
 syntax:max (name := casImplMul) num noWs ident : casTerm
 syntax:max (name := casNum) num : casTerm
 syntax:max (name := casIdent) ident : casTerm
@@ -60,13 +61,22 @@ syntax (name := casSetElem) casTerm : casSetItem
 syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
 syntax:max (name := casApply) casTerm:max noWs "(" casTerm,* ")" : casTerm
 
+/-- Superscript exponents (`t²`, `x³`) — SPEC.md spells powers both ways, and
+`assert h = hp` is precisely the claim that the two spellings agree. CEILING:
+one digit; `^` covers everything larger. -/
+syntax casSup := "⁰" <|> "¹" <|> "²" <|> "³" <|> "⁴" <|> "⁵" <|> "⁶" <|> "⁷" <|> "⁸" <|> "⁹"
+
+syntax:80 (name := casSupPow) casTerm:81 noWs casSup : casTerm
 syntax:80 (name := casPow) casTerm:81 " ^ " casTerm:80 : casTerm
+syntax:75 (name := casComp) casTerm:75 " ∘ " casTerm:76 : casTerm
 syntax:75 (name := casNeg) "-" casTerm:75 : casTerm
 syntax:70 (name := casMul) casTerm:70 " * " casTerm:71 : casTerm
 syntax:70 (name := casDiv) casTerm:70 " / " casTerm:71 : casTerm
 syntax:65 (name := casAdd) casTerm:65 " + " casTerm:66 : casTerm
 syntax:65 (name := casSub) casTerm:65 " - " casTerm:66 : casTerm
+syntax:25 (name := casArrow) casTerm:26 (" → " <|> " -> ") casTerm:25 : casTerm
 syntax:20 (name := casMap) "map " casTerm:21 " to " casTerm:21 : casTerm
+syntax:10 (name := casLam) casTerm:11 " ↦ " casTerm:10 : casTerm
 
 syntax (name := casRelEq) "=" : casRel
 syntax (name := casRelNe) "≠" : casRel
@@ -91,6 +101,14 @@ def matSize? (n : Name) : Option Nat :=
         else ds.foldlM (init := 0) fun acc c => (subscriptDigit? c).map (10 * acc + ·)
   | _ => none
 
+/-- `t²` → 2. Superscript digits are not one contiguous code block — `¹ ² ³`
+sit in Latin-1 and the rest in Superscripts and Subscripts — so they are
+spelled out. -/
+private def superscriptDigit? : Char → Option Nat
+  | '⁰' => some 0 | '¹' => some 1 | '²' => some 2 | '³' => some 3 | '⁴' => some 4
+  | '⁵' => some 5 | '⁶' => some 6 | '⁷' => some 7 | '⁸' => some 8 | '⁹' => some 9
+  | _ => none
+
 /-- Split a dotted name into receiver and final component. -/
 private def splitMethod? : Name → Option (Name × Name)
   | .str p s => if p == .anonymous then none else some (p, Name.mkSimple s)
@@ -106,6 +124,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casNatDom => return .dom .nat
   | ``casIntDom => return .dom .int
   | ``casRatDom => return .dom .rat
+  | ``casRealDom => return .dom .real
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
   | ``casImplMul =>
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.ref stx[1].getId)
@@ -117,6 +136,19 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casMul => return .bin .mul (← toExpr stx[0]) (← toExpr stx[2])
   | ``casDiv => return .bin .div (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casSupPow => do
+      let some c := (stx[1].reprint.getD "").trimAscii.toString.toList.head?
+        | .error "a superscript exponent is missing its digit"
+      let some k := superscriptDigit? c
+        | .error s!"'{c}' is not a superscript digit"
+      return .bin .pow (← toExpr stx[0]) (.num (Int.ofNat k))
+  | ``casComp => return .comp (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casArrow => return .arrow (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casLam => do
+      match ← toExpr stx[0] with
+      | .ref b => return .lam b (← toExpr stx[2])
+      | _ => .error s!"the binder of a `↦` definition must be a name, got \
+{(stx[0].reprint.getD "").trimAscii.toString}"
   | ``casMap => return .mapTo (← toExpr stx[1]) (← toExpr stx[3])
   | ``casIndex => return .index (← toExpr stx[0]) (← toExpr stx[2])
   | ``casApply => do
@@ -262,11 +294,17 @@ preferred canonical map, and a registered category must actually contain the
 object. Set literals need no ascription. -/
 syntax (name := casLet) "let " ident " := " casTerm (" in " casTerm)? : command
 
-/-- `let p(x) := e in D[x]` binds a univariate polynomial: the ascription
-supplies the coefficient domain, and `x` denotes the indeterminate inside
-`e`. -/
+/-- `let p(x) := e in T` binds a definition with a BINDER: `x` denotes the
+indeterminate inside `e`, and the ascription decides what that means — the
+indeterminate of `ℤ[x]`, or the variable of a function `ℝ → ℝ`. SPEC.md
+spells the definition both `:=` and `=`, so both are accepted. -/
 syntax (name := casLetPoly)
-  "let " ident noWs "(" ident ")" " := " casTerm " in " casTerm : command
+  "let " ident noWs "(" ident ")" (" := " <|> " = ") casTerm " in " casTerm : command
+
+/-- `let e: ℕ → ℕ := n ↦ 2n` — SPEC.md's leading-ascription spelling. The
+type is the same ascription the trailing `in T` carries, checked identically. -/
+syntax (name := casLetTyped)
+  "let " ident " : " casTerm " := " casTerm : command
 
 /-- `assert l (= | ≠ | ∈ | ∉) r [in D]` — a TRUSTED COMPUTATIONAL assertion
 in the ordinary CAS sense. The predicate is computed and believed; no Lean
@@ -289,6 +327,10 @@ def elabLetCmd : CommandElab := fun stx =>
 @[command_elab casLetPoly]
 def elabLetPolyCmd : CommandElab := fun stx =>
   elabCasLetPoly stx[1] stx[3] stx[6] stx[8]
+
+@[command_elab casLetTyped]
+def elabLetTypedCmd : CommandElab := fun stx =>
+  elabCasLet stx[1] stx[5] (some stx[3])
 
 @[command_elab casAssert]
 def elabAssertCmd : CommandElab := fun stx =>

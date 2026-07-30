@@ -165,6 +165,19 @@ open Native
 #guard valueEq (.int 2) (.rat 2) == some true
 #guard valueEq (.int 2) (.bool true) == none
 
+/-- `t ↦ t² + 1`, the SPEC.md function, with the binder given by name. -/
+private def sq1 (binder : Name) : Value :=
+  .func .real .real binder (Value.mkPoly .int #[.int 1, .int 0, .int 1])
+
+-- the binder is a BOUND name: `t ↦ t² + 1` and `s ↦ s² + 1` are one function
+#guard valueEq (sq1 `t) (sq1 `s) == some true
+-- …but the domains it is declared over are data
+#guard valueEq (sq1 `t) (.func .nat .nat `t (Value.mkPoly .int #[.int 1, .int 0, .int 1]))
+  == some false
+#guard valueEq (sq1 `t) (.func .real .real `t (Value.mkPoly .int #[.int 1])) == some false
+-- a function is not comparable with a scalar: `unknown`, never a false claim
+#guard valueEq (sq1 `t) (.int 1) == none
+
 #guard (scalarAdd (.int 2) (.rat (mkRat 1 2))).toOption == some (.rat (mkRat 5 2))
 #guard (scalarMul (.mod 5 3) (.int 4)).toOption == some (.mod 5 2)
 #guard (scalarSub (.int 2) (.int 5)).toOption == some (.int (-3))
@@ -180,10 +193,15 @@ open Native
 #guard Value.mkPoly .int #[.int 1, .int 0, .int 0] == .poly .int #[.int 1]
 #guard Value.mkPoly .int #[.int 0] == .poly .int #[]
 
-#guard domainCard (.mod 6) == .finite 6
-#guard domainCard (.mod 0) == .countablyInfinite
-#guard domainCard (.poly .rat) == .countablyInfinite
-#guard domainCard (.matrix 2 (.mod 3)) == .finite 81
+#guard domainCard (.mod 6) == some (.finite 6)
+#guard domainCard (.mod 0) == some .countablyInfinite
+#guard domainCard (.poly .rat) == some .countablyInfinite
+#guard domainCard (.matrix 2 (.mod 3)) == some (.finite 81)
+-- ℝ is uncountable and a function domain is not enumerated here: the slice
+-- reports that it cannot state the cardinality rather than inventing ℵ₀
+#guard domainCard .real == none
+#guard domainCard (.funcs .real .real) == none
+#guard domainCard (.poly .real) == none
 
 #guard intEnum 0 == 0
 #guard intEnum 1 == 1
@@ -260,6 +278,9 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
   some (.cardinal .countablyInfinite)
 #guard out "cardinality" (.domainObj .rat) #[] == some (.cardinal .countablyInfinite)
 #guard out "cardinality" (.domainObj (.mod 6)) #[] == some (.cardinal (.finite 6))
+-- a cardinality this slice cannot state is a loud failure, not a guess
+#guard out "cardinality" (.domainObj .real) #[] == none
+#guard out "set_eq" (.domainObj .real) #[.domainObj .real] == none
 
 -- contains
 #guard out "contains" (.setObj (.arithProg .nat (.int 0) (.int 2) none))

@@ -56,6 +56,13 @@ inductive CasExpr where
   /-- Row-major; `rows * cols = entries.size`. -/
   | matLit (rows cols : Nat) (entries : Array CasExpr)
   | mapTo (e target : CasExpr)
+  /-- `binder ↦ body` — a function definition, meaningful only where an
+  ascription says which domains it runs between (`evalBinderBinding`). -/
+  | lam (binder : Name) (body : CasExpr)
+  /-- `S → T` / `S -> T` — a function domain. -/
+  | arrow (src tgt : CasExpr)
+  /-- `f ∘ g`. -/
+  | comp (f g : CasExpr)
   deriving Inhabited
 
 /-! ## Pure core -/
@@ -69,6 +76,7 @@ def valueDom? : Value → Option Domain
   | .mod n _ => some (.mod n)
   | .poly c _ => some (.poly c)
   | .mat n e _ => some (.matrix n e)
+  | .func s t _ _ => some (.funcs s t)
   | _ => none
 
 /-! ### The coercion layer
@@ -292,6 +300,48 @@ def valueNeg (a : Value) : Except String Value :=
   | .poly c cs => do return Value.mkPoly c (← polyNeg cs)
   | v => Native.scalarNeg v
 
+/-! ### Functions
+
+SPEC.md's functions are `binder ↦ body` with a domain tag (`in ℝ → ℝ`), and
+its claims about them — `h(0) = 1`, `h(-t) = h(t)`, `(f ∘ g)(t) = t⁶` — are
+IDENTITIES of function expressions, not pointwise samples. They are decided
+here by the exact polynomial engine above: every body SPEC.md writes in this
+section is a polynomial, and substituting one polynomial into another settles
+both the composition and the symmetry claim exactly.
+
+Non-polynomial bodies (`t ↦ sin(t)`, `t ↦ e^t`) are therefore not expressible
+yet, and say so at the binding rather than being approximated. -/
+
+/-- The indeterminate of `c[x]` as a surface value — `x` itself. -/
+def indeterminateValue (rules : Array CanonicalMap) (c : Domain)
+    : Except String Value := do
+  return Value.mkPoly c
+    #[← coerceValue rules c (.int 0), ← coerceValue rules c (.int 1)]
+
+/-- Substitute `arg` into a polynomial body, by Horner over `valueBin`.
+
+Deliberately NOT `Native.polyEval`: that one is scalar Horner, which is all a
+polynomial CALL needs. Here the argument may itself be a polynomial (`h(-t)`,
+`f ∘ g`), which is exactly what makes the SPEC.md identities identities. -/
+def applyPoly (rules : Array CanonicalMap) (body arg : Value)
+    : Except String Value := do
+  let some (_, cs) := asPolyCoeffs body
+    | .error s!"{body.render} is not a polynomial body"
+  cs.reverse.foldlM (init := Value.int 0) fun acc c => do
+    valueBin rules .add (← valueBin rules .mul acc arg) c
+
+/-- `f ∘ g` = `binder ↦ f(g(binder))`, keeping `g`'s binder.
+
+The domains must meet: composing along `g : A → B` and `f : C → D` with
+`B ≠ C` is a mathematical error, never something to coerce past. -/
+def composeFuncs (rules : Array CanonicalMap) : Value → Value → Except String Value
+  | .func fs ft _ fb, .func gs gt gbinder gb =>
+      if fs != gt then
+        .error s!"{gs.render} → {gt.render} and {fs.render} → {ft.render} do not \
+compose: the target of the right factor is not the source of the left"
+      else do return .func gs ft gbinder (← applyPoly rules fb gb)
+  | a, b => .error s!"∘ composes two functions; got {a.render} and {b.render}"
+
 /-! ### Set literals -/
 
 /-- Element domain of a literal element list. -/
@@ -333,6 +383,14 @@ needs only the "is this name bound?" predicate, so it stays pure. -/
 
 def indeterminate? (isBound : Name → Bool) : CasExpr → Option Name
   | .ref n => if isBound n then none else some n
+  | _ => none
+
+/-- The domains SPEC.md spells as ordinary identifiers rather than as their
+own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`). Consulted only
+after the bindings, so `let R := …` still shadows the alias — an alias is a
+spelling, not a reserved word. -/
+def domainAlias? : Name → Option Domain
+  | `R | `RR => some .real
   | _ => none
 
 /-! ## Evaluation results and errors -/
@@ -541,12 +599,21 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
   | .ref n => do
       if let some (x, c) := ctx.indet? then
         if x == n then
-          return .obj (.elem (.poly c) (Value.mkPoly c
-            #[← ofStr (coerceValue ctx.canonMaps c (.int 0)),
-              ← ofStr (coerceValue ctx.canonMaps c (.int 1))]))
+          return .obj (.elem (.poly c) (← ofStr (indeterminateValue ctx.canonMaps c)))
       match binding? ctx.env n with
       | some o => return .obj o
-      | none => throw (.msg s!"'{n}' is not bound; introduce it with `let {n} := …`")
+      | none =>
+        if let some d := domainAlias? n then
+          return .obj (.domainObj d)
+        -- A bound function's binder names the indeterminate of the ring its
+        -- body lives in, so SPEC.md may write `h(-t) = h(t)` and
+        -- `(f ∘ g)(t) = t⁶` without ever binding `t`. A name no function in
+        -- scope binds is still the loud "not bound" error: this reading is
+        -- earned by a definition, never assumed for an unknown identifier.
+        if (bindings ctx.env).any (fun (_, o) => o.funcBinder? == some n) then
+          return .obj (.elem (.poly .int)
+            (← ofStr (indeterminateValue ctx.canonMaps .int)))
+        throw (.msg s!"'{n}' is not bound; introduce it with `let {n} := …`")
   | .matDom size entry => do
       match ← eval ctx entry with
       | .obj (.domainObj d) => return .obj (.domainObj (.matrix size d))
@@ -594,6 +661,15 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
             throw (.msg s!"a polynomial is called with exactly one argument, got {args.size}")
           let x ← ofStr (asValueOf (← eval ctx args[0]!))
           return Denote.ofValue (← ofStr (Native.polyEval c coeffs x))
+      | some (.func _ _ _ body) =>
+          -- Calling a function substitutes into its body: a scalar argument
+          -- evaluates it, a polynomial argument composes with it. Same
+          -- elaboration-inserted move as calling a polynomial — no route, no
+          -- backend (DESIGN.md decision 6).
+          if args.size != 1 then
+            throw (.msg s!"a function is called with exactly one argument, got {args.size}")
+          let x ← ofStr (asValueOf (← eval ctx args[0]!))
+          return Denote.ofValue (← ofStr (applyPoly ctx.canonMaps body x))
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
@@ -618,6 +694,21 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
         | throw (.msg s!"`map … to` needs a domain, got {t.presentation}")
       let v ← ofStr (asValueOf (← eval ctx e))
       return .obj (.elem d (← ofStr (coerceValue ctx.canonMaps d v)))
+  | .arrow src tgt => do
+      let s ← eval ctx src
+      let t ← eval ctx tgt
+      match s, t with
+      | .obj (.domainObj a), .obj (.domainObj b) => return .obj (.domainObj (.funcs a b))
+      | _, _ =>
+          throw (.msg s!"`{s.presentation} → {t.presentation}` needs a domain on \
+each side")
+  | .comp f g => do
+      let fv ← ofStr (asValueOf (← eval ctx f))
+      let gv ← ofStr (asValueOf (← eval ctx g))
+      return Denote.ofValue (← ofStr (composeFuncs ctx.canonMaps fv gv))
+  | .lam binder _ =>
+      throw (.msg s!"`{binder} ↦ …` is a function definition: bind it with the \
+domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
 where
   asValueOf (r : Denote) : Except String Value :=
     match r.value? with
@@ -700,24 +791,53 @@ private def objOf (d : Denote) : EvalM Obj :=
   | some o => pure o
   | none => throw (.msg s!"{d.render} is not an object")
 
-/-- `let x := e [in T]`. -/
+/-- A binding that introduces a BINDER — `let p(x) := e in D[x]`,
+`let h := t ↦ e in ℝ → ℝ`, `let e: ℕ → ℕ := n ↦ …`. The ascription decides
+what the binder means, and is therefore evaluated FIRST:
+
+- a polynomial domain reads the binder as the indeterminate of `D[x]`;
+- a function domain enters the binder as the indeterminate of `ℤ[x]` and
+  keeps whatever the body's own arithmetic makes of it. The ascribed domains
+  do NOT supply that coefficient ring: `ℝ → ℝ` is an ascription DOMAIN TAG
+  (SPEC.md's spelling) with no analysis semantics at this stage, so a body
+  is exactly as exact as the polynomial engine can make it. -/
+def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
+    (asc : Ascription) : EvalM Obj := do
+  match asc with
+  | .domain (.poly c) =>
+      let o ← objOf (← eval { ctx with indet? := some (binder, c) } body)
+      ascribe ctx o (.domain (.poly c))
+  | .domain (.funcs src tgt) =>
+      let d ← eval { ctx with indet? := some (binder, .int) } body
+      let some v := d.value?
+        | throw (.msg s!"{d.presentation} is not a function body")
+      if (asPolyCoeffs v).isNone then
+        throw (.msg s!"{v.render} is not a polynomial body: the slice grounds \
+functions in the exact polynomial engine, so a body it cannot express is a \
+gap, not an approximation")
+      return .elem (.funcs src tgt) (.func src tgt binder v)
+  | _ =>
+      throw (.msg s!"a `{binder} ↦ …` definition must be ascribed to a polynomial \
+domain such as ℤ[x] or to a function domain such as ℝ → ℝ")
+
+/-- `let x := e [in T]`; a `↦` lambda on the right is a binder definition. -/
 def evalBinding (ctx : EvalCtx) (e : CasExpr) (asc? : Option CasExpr) : EvalM Obj := do
-  match asc? with
-  | none => objOf (← eval ctx e)
-  | some a =>
+  match e, asc? with
+  | .lam binder body, some a =>
+      evalBinderBinding ctx binder body (← evalAscription ctx a)
+  | .lam binder _, none =>
+      throw (.msg s!"`{binder} ↦ …` needs an ascription naming the domains it \
+runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
+  | _, none => objOf (← eval ctx e)
+  | _, some a =>
       let asc ← evalAscription ctx a
       ascribe ctx (← objOf (← eval ctx e)) asc
 
-/-- `let p(x) := e in D[x]`. The ascription is evaluated FIRST: it supplies
-the coefficient domain the indeterminate is read in. -/
+/-- `let p(x) := e in T` — the same binder definition, spelled with the
+argument on the left. -/
 def evalPolyBinding (ctx : EvalCtx) (x : Name) (e : CasExpr) (asc : CasExpr)
     : EvalM Obj := do
-  let a ← evalAscription ctx asc
-  let .domain (.poly c) := a
-    | throw (.msg "a `let p(x) := …` binding must be ascribed to a polynomial \
-domain such as ℤ[x]")
-  let o ← objOf (← eval { ctx with indet? := some (x, c) } e)
-  ascribe ctx o (.domain (.poly c))
+  evalBinderBinding ctx x e (← evalAscription ctx asc)
 
 inductive AssertRel where
   | eq | ne | mem | notMem

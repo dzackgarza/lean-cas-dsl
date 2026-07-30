@@ -220,7 +220,63 @@ def test_bare_equality_is_category_bound(kernel: Kernel) -> None:
     assert "true" in text
 
 
-# -- 9 · registry-driven embeddings -----------------------------------------
+# -- 9 · functions ---------------------------------------------------------
+
+def test_both_binder_spellings_denote_the_same_function(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "let h := t ↦ t² + 1 in ℝ → ℝ")
+    assert "t ↦ t^2 + 1" in text and "ℝ → ℝ" in text
+    ok(kc, "let hp(t) := t^2 + 1 in R->R")   # ASCII domain, superscript-free body
+    ok(kc, "assert h = hp")
+
+
+def test_function_evaluates_at_a_point(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert h(0) = 1")
+    ok(kc, "assert h(3) = 10")
+    text = err(kc, "assert h(3) = 11")
+    assert "false" in text.lower()
+
+
+def test_function_identity_is_normalized_not_sampled(kernel: Kernel) -> None:
+    _, kc = kernel
+    # both sides substitute a polynomial into the body; `t` is available
+    # because a function binding it is in scope
+    ok(kc, "assert h(-t) = h(t)")
+    # the value really is the substituted body, not a number: a bare
+    # polynomial renders in its own indeterminate `x`
+    text = ok(kc, "h(-t)")
+    assert "x^2 + 1" in text
+
+
+def test_typed_colon_ascription_spelling(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "let e: ℕ → ℕ := n ↦ 2n")
+    assert "n ↦ 2n" in text and "ℕ → ℕ" in text
+
+
+def test_composition_is_an_identity_of_function_expressions(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let f(t) = t^2 in RR->RR")   # SPEC.md spells the definition with `=`
+    ok(kc, "let g(t) = t^3 in RR->RR")
+    ok(kc, "assert (f ∘ g)(t) = t^6")
+    ok(kc, "assert (f ∘ g)(2) = 64")
+
+
+def test_non_composable_domains_fail_loudly(kernel: Kernel) -> None:
+    _, kc = kernel
+    # e : ℕ → ℕ from the typed-ascription test; f : ℝ → ℝ
+    text = err(kc, "assert (f ∘ e)(t) = t")
+    assert "do not compose" in text
+
+
+def test_lambda_without_a_domain_is_refused(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = err(kc, "let bad := t ↦ t^2")
+    assert "ascription" in text
+
+
+# -- 10 · registry-driven embeddings ----------------------------------------
 
 def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
     _, kc = kernel
