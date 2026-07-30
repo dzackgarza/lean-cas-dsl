@@ -42,6 +42,8 @@ private def samples : Array Value := #[
   .mod 6 4,
   .poly .rat #[.rat (mkRat 1 2), .int 0, .rat 3],
   .mat 2 .rat #[#[.rat 1, .rat 2], #[.rat (mkRat 3 2), .rat (mkRat (-1) 2)]],
+  .vec 2 .rat #[.rat 1, .rat 2],
+  .vec 3 .int #[.int 1, .int 0, .int 1],
   .factorization (.int (-1)) #[(.int 2, 2), (.int 3, 1)] .int,
   .idealV #[.int 6] .int,
   .setV #[.int 1] .int,
@@ -60,7 +62,8 @@ private def samples : Array Value := #[
 
 private def domains : Array Domain :=
   #[.nat, .int, .rat, .real, .complex, .mod 7, .poly .rat,
-    .matrix 3 (.poly .int), .funcs .real .real, .poly .complex]
+    .matrix 3 (.poly .int), .funcs .real .real, .poly .complex,
+    .vector 2 .rat, .vector 3 .rat, .matrix 2 (.vector 2 .rat)]
 
 #guard samples.all roundTrips
 #guard domains.all domainRoundTrips
@@ -125,6 +128,11 @@ private def accepts (j : Json) : Bool := !rejects j
 #guard rejects (Json.mkObj
   [("t", "mat"), ("n", (2 : Nat)), ("entry", Json.mkObj [("d", "rat")]),
    ("rows", Json.arr #[Json.arr #[Json.mkObj [("t", "int"), ("v", "1")]]])])
+-- …and a vector whose declared LENGTH contradicts its components: the length
+-- is the whole shape, and matrix application is checked against exactly it
+#guard rejects (Json.mkObj
+  [("t", "vec"), ("n", (3 : Nat)), ("entry", Json.mkObj [("d", "rat")]),
+   ("comps", Json.arr #[Json.mkObj [("t", "int"), ("v", "1")]])])
 #guard rejects (Json.mkObj [("t", "quaternion"), ("v", "1")])
 #guard rejects (Json.str "not an object")
 -- a function whose binder is empty is not a function: `Name.mkSimple ""` would

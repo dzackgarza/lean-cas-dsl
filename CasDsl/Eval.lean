@@ -65,6 +65,9 @@ inductive CasExpr where
   | progSet (leading : Array CasExpr) (last? : Option CasExpr)
   /-- Row-major; `rows * cols = entries.size`. -/
   | matLit (rows cols : Nat) (entries : Array CasExpr)
+  /-- `(1, 2)` — a vector of `Eⁿ`, where `E` is the join of its components'
+  domains and `n` their count (SPEC.md §Vectors and matrices). -/
+  | vecLit (comps : Array CasExpr)
   | mapTo (e target : CasExpr)
   /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and
   meaningful ONLY there. It is not a domain, not a set and not a quotient
@@ -117,6 +120,7 @@ def valueDom? : Value → Option Domain
   | .alg _ _ d => some (if d < 0 then .complex else .real)
   | .poly c _ => some (.poly c)
   | .mat n e _ => some (.matrix n e)
+  | .vec n e _ => some (.vector n e)
   | .func s t _ _ => some (.funcs s t)
   | _ => none
 
@@ -191,6 +195,9 @@ partial def domJoin (rules : Array CanonicalMap)
   | .matrix n a, .matrix m b =>
       if n == m then do return (← domJoin rules a b).map (Domain.matrix n)
       else return none
+  | .vector n a, .vector m b =>
+      if n == m then do return (← domJoin rules a b).map (Domain.vector n)
+      else return none
   | a, b =>
       if a == b then return some a
       else do
@@ -238,6 +245,11 @@ partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
         .error s!"a {m}×{m} matrix is not an element of Mat{n}(…)"
       else do
         return .mat n e (← rows.mapM (·.mapM (coerceValue rules e)))
+  | .vector n e, .vec m _ comps =>
+      if n != m then
+        .error s!"a vector of length {m} is not an element of {(Domain.vector n e).render}"
+      else do
+        return .vec n e (← comps.mapM (coerceValue rules e))
   | d, v =>
       -- identity
       if valueDom? v == some d then .ok v
@@ -277,6 +289,8 @@ partial def domainSubset (rules : Array CanonicalMap)
     : Domain → Domain → Except String Bool
   | .poly a, .poly b => domainSubset rules a b
   | .matrix n a, .matrix m b =>
+      if n == m then domainSubset rules a b else return false
+  | .vector n a, .vector m b =>
       if n == m then domainSubset rules a b else return false
   -- a scalar is an element of its own constant polynomials
   | a, .poly c => domainSubset rules a c
@@ -1059,9 +1073,20 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           | _ => throw (.msg s!"only `2^X` denotes the powerset of a set; there is \
 no other reading of an exponent over {s.render}")
       | none =>
-          let x ← ofStr (asValueOf (← eval ctx a))
-          return Denote.ofValue
-            (← ofStr (valueBin ctx.canonMaps .pow x (← ofStr (asValueOf y))))
+          let x ← eval ctx a
+          -- `ℚ²`, `ℚ³`: a DOMAIN raised to a positive integer denotes the
+          -- vectors of that length over it — SPEC.md's own spelling, and the
+          -- one `Domain.render` produces. Like `2^X` this is a DENOTATION
+          -- built by elaboration; there is no exponentiation of domains here
+          match x, y.value? with
+          | .obj (.domainObj d), some (.int n) =>
+              if n > 0 then return .obj (.domainObj (.vector n.toNat d))
+              else throw (.msg s!"{d.render}^{n} is not a domain: the vectors of \
+{d.render} have a POSITIVE length, and this slice presents no other")
+          | _, _ =>
+            let xv ← ofStr (asValueOf x)
+            return Denote.ofValue
+              (← ofStr (valueBin ctx.canonMaps .pow xv (← ofStr (asValueOf y))))
   | .bin .sub a b => do
       -- `ℂ - ℚ` (SPEC.md §Polynomials) DENOTES the difference of two domains,
       -- exactly as `A × B` and `𝒫(A)` denote: no method, no route, membership
@@ -1194,6 +1219,11 @@ domain, not of {s.render}")
         ofStr ((Array.range cols).mapM fun j =>
           coerceValue ctx.canonMaps d vs[i * cols + j]!)
       return .obj (.elem (.matrix rows d) (.mat rows d rs))
+  | .vecLit comps => do
+      let vs ← comps.mapM fun e => do ofStr (asValueOf (← eval ctx e))
+      let d ← ofStr (elemsDomain ctx.canonMaps vs)
+      return .obj (.elem (.vector vs.size d)
+        (.vec vs.size d (← ofStr (vs.mapM (coerceValue ctx.canonMaps d)))))
   -- SPEC.md §Exact number systems' `map √2 to ℝ/O(1/10^{10})`. TWO registries
   -- answer, in this order, and neither answers the other's question: the
   -- canonical-map registry decides whether the value may be presented in ℝ at

@@ -31,6 +31,13 @@ inductive Domain where
   | poly (coeff : Domain)
   /-- Square `n × n` matrices over `entry` (square-only in this slice). -/
   | matrix (n : Nat) (entry : Domain)
+  /-- `Eⁿ` — the vectors of length `n` over `E`, SPEC.md's `ℚ²` and `ℚ³`.
+
+  A vector is NOT a matrix here: `matrix` is square by construction, and a
+  column of length `n` is not an `n × n` object. Keeping them apart is what
+  lets matrix application be SHAPE-CHECKED (`Mat₂(ℚ)` applied to a vector of
+  ℚ³ is a loud refusal) instead of silently reinterpreting one as the other. -/
+  | vector (n : Nat) (entry : Domain)
   /-- `src → tgt`, the domain a function binding is ascribed to. -/
   | funcs (src tgt : Domain)
   deriving BEq, Repr, Hashable, Inhabited
@@ -52,6 +59,10 @@ inductive Value where
   /-- Coefficients ascending by degree, no trailing zeros. -/
   | poly (coeff : Domain) (coeffs : Array Value)
   | mat (n : Nat) (entry : Domain) (rows : Array (Array Value))
+  /-- An element of `Eⁿ`, SPEC.md's `(1, 2)`. `n` is the LENGTH — matrix
+  application is shape-checked against it, and two vectors of different
+  lengths are unequal rather than incomparable. -/
+  | vec (n : Nat) (entry : Domain) (comps : Array Value)
   /-- Unit convention and factor order belong to the backend that produced
   it; only this neutral shape is semantic. -/
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
@@ -164,10 +175,14 @@ partial def render : Domain → String
   | .mod n => s!"ℤ/{n}"
   | .poly c => s!"{c.render}[x]"
   | .matrix n e => s!"Mat{subscript n}({e.render})"
+  | .vector n e => s!"{e.render}{superscript n}"
   | .funcs s t => s!"{s.render} → {t.render}"
 where
-  subscript (n : Nat) : String :=
-    let digits := "₀₁₂₃₄₅₆₇₈₉"
+  subscript (n : Nat) : String := digitsOf "₀₁₂₃₄₅₆₇₈₉" n
+  /-- SPEC.md writes the vector domains in superscript (`ℚ²`, `ℚ³`), which is
+  also the spelling the surface reads back (`Syntax.casSupPow`). -/
+  superscript (n : Nat) : String := digitsOf "⁰¹²³⁴⁵⁶⁷⁸⁹" n
+  digitsOf (digits : String) (n : Nat) : String :=
     String.ofList <| (toString n).toList.map fun c =>
       if c.isDigit then digits.toList[c.toNat - '0'.toNat]! else c
 
@@ -183,6 +198,7 @@ partial def latex : Domain → String
   | .mod n => "\\mathbb{Z}/" ++ toString n ++ "\\mathbb{Z}"
   | .poly c => c.latex ++ "[x]"
   | .matrix n e => "\\mathrm{Mat}_{" ++ toString n ++ "}(" ++ e.latex ++ ")"
+  | .vector n e => e.latex ++ "^{" ++ toString n ++ "}"
   | .funcs s t => s.latex ++ " \\to " ++ t.latex
 
 instance : ToString Domain := ⟨render⟩
@@ -372,6 +388,7 @@ partial def render : Value → String
       let r := rows.toList.map fun row =>
         ", ".intercalate (row.toList.map render)
       "[" ++ "; ".intercalate r ++ "]"
+  | .vec _ _ comps => "(" ++ ", ".intercalate (comps.toList.map render) ++ ")"
   | .factorization unit factors _ =>
       let fs := factors.toList.map fun (f, m) =>
         let base := match f with
@@ -443,6 +460,13 @@ partial def latex? : Value → Option String
         let cs ← row.mapM latex?
         return " & ".intercalate cs.toList
       return "\\begin{pmatrix} " ++ " \\\\ ".intercalate rs.toList ++ " \\end{pmatrix}"
+  -- the TUPLE spelling, which is SPEC.md's own (`(1, 2)`) and the one this
+  -- surface reads back. Parentheses and commas are math mode's own spellings,
+  -- so a column `pmatrix` here would typeset something the plain rendering —
+  -- and the input syntax — does not say
+  | .vec _ _ comps => do
+      let cs ← comps.mapM latex?
+      return "(" ++ ", ".intercalate cs.toList ++ ")"
   | .factorization unit factors _ => do
       let fs ← factors.mapM fun (f, m) => do
         let base ← match f with

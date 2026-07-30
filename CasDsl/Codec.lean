@@ -30,6 +30,8 @@ partial def domainToJson : Domain → Json
   | .poly c => Json.mkObj [("d", "poly"), ("coeff", domainToJson c)]
   | .matrix n e =>
       Json.mkObj [("d", "matrix"), ("n", toJson n), ("entry", domainToJson e)]
+  | .vector n e =>
+      Json.mkObj [("d", "vector"), ("n", toJson n), ("entry", domainToJson e)]
   | .funcs s t =>
       Json.mkObj [("d", "funcs"), ("src", domainToJson s), ("tgt", domainToJson t)]
 
@@ -64,6 +66,10 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "mat"), ("n", toJson n), ("entry", domainToJson e),
          ("rows", Json.arr (rows.map fun r => Json.arr (r.map valueToJson)))]
+  | .vec n e comps =>
+      Json.mkObj
+        [("t", "vec"), ("n", toJson n), ("entry", domainToJson e),
+         ("comps", Json.arr (comps.map valueToJson))]
   | .factorization unit factors dom =>
       Json.mkObj
         [("t", "factorization"), ("unit", valueToJson unit),
@@ -128,6 +134,7 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | "mod" => return .mod (← natField j "n")
   | "poly" => return .poly (← domainFromJson (← field j "coeff"))
   | "matrix" => return .matrix (← natField j "n") (← domainFromJson (← field j "entry"))
+  | "vector" => return .vector (← natField j "n") (← domainFromJson (← field j "entry"))
   | "funcs" =>
       return .funcs (← domainFromJson (← field j "src")) (← domainFromJson (← field j "tgt"))
   | other => .error s!"unknown domain tag {repr other} in {j.compress}"
@@ -183,6 +190,17 @@ partial def valueFromJson (j : Json) : Except String Value := do
         .error s!"matrix is not {n}×{n} in {j.compress}"
       else
         return .mat n entry rows
+  | "vec" =>
+      let n ← natField j "n"
+      let entry ← domainFromJson (← field j "entry")
+      let comps ← (← arrField j "comps").mapM valueFromJson
+      -- the length is the whole shape of a vector, so a frame whose component
+      -- count disagrees with it is a protocol failure rather than a value to
+      -- read leniently — matrix application is checked against exactly this
+      if comps.size != n then
+        .error s!"a vector of length {n} carries {comps.size} components in {j.compress}"
+      else
+        return .vec n entry comps
   | "factorization" =>
       let unit ← valueFromJson (← field j "unit")
       let dom ← domainFromJson (← field j "dom")

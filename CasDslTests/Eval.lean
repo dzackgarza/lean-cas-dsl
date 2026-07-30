@@ -78,6 +78,12 @@ same ones — and that an EMPTY registry makes these coercions fail — is
 #guard (coerceValue embeds (.matrix 2 .rat)
     (.mat 2 .int #[#[.int 1, .int 2], #[.int 3, .int 4]])).toOption
   == some (Value.mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]])
+-- a vector coerces COMPONENT-WISE, exactly as a matrix does entry-wise…
+#guard (coerceValue embeds (.vector 2 .rat) (.vec 2 .int #[.int 1, .int 2])).toOption
+  == some (Value.vec 2 .rat #[.rat 1, .rat 2])
+-- …and the LENGTH is not something a coercion may change
+#guard (coerceValue embeds (.vector 3 .rat) (.vec 2 .int #[.int 1, .int 2])).toOption
+  == none
 -- ℚ → ℤ is not an embedding, and is not invented
 #guard (coerceValue embeds .int (.rat (1/2))).toOption == none
 #guard (coerceValue embeds .nat (.int (-1))).toOption == none
@@ -679,6 +685,36 @@ shadowing claim is made against a binding introduced for it. -/
 let cn := 100 in ℤ
 assert {cn ∈ ℤ | cn² ≤ 20} = S
 assert cn = 100
+
+/-! ## Vectors (SPEC.md §Vectors and matrices)
+
+`ℚ²` is SPEC.md's own superscript spelling of the vector domain, and the one
+`Domain.render` produces — so a vector domain reads back exactly as it
+displays. Nothing here reaches a backend. -/
+
+let vv := (1, 2) in ℚ²
+let vb := (5, 11) in ℚ²
+
+assert vv = (1, 2)
+assert vv ≠ vb
+-- the LENGTH is part of the vector, so a longer one is unequal rather than
+-- incomparable — and a vector is not the scalar its single component is
+assert vv ≠ (1, 2, 3)
+-- a vector literal needs TWO components: `(1)` is the parenthesized scalar it
+-- always was, and a scalar against a vector stays INCOMPARABLE (Core.lean)
+assert (1) = 1
+
+run_cmd do
+  let env ← Lean.getEnv
+  for (name, rendered, presented) in
+      [(`vv, "(1, 2)", "(1, 2) ∈ ℚ²"), (`vb, "(5, 11)", "(5, 11) ∈ ℚ²")] do
+    match CasDsl.binding? env name with
+    | none => throwError "'{name}' was not bound"
+    | some o =>
+        if o.render != rendered then
+          throwError "'{name}' rendered as {o.render}, expected {rendered}"
+        if o.presentation != presented then
+          throwError "'{name}' presented as {o.presentation}, expected {presented}"
 
 /-! ## Numerical approximation (SPEC.md §Exact number systems, #7)
 

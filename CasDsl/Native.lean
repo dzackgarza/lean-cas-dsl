@@ -144,6 +144,16 @@ def valueEq (a b : Value) : Option Bool :=
   | .alg a b d, .alg a' b' d' => some (a == a' && b == b' && d == d')
   | .alg .., .int _ | .alg .., .rat _
   | .int _, .alg .. | .rat _, .alg .. => some false
+  -- Two vectors agree when they have the same LENGTH and their components do.
+  -- The entry domain is a presentation tag and does not decide: `(1, 2)` of ℤ²
+  -- and of ℚ² are the same vector, exactly as `1` and `1/1` are one number.
+  -- CEILING: the components are compared as SCALARS (`promote`), so a vector
+  -- whose components are themselves vectors is INCOMPARABLE here rather than
+  -- being given an answer no shipped surface line asks for.
+  | .vec _ _ xs, .vec _ _ ys =>
+      if xs.size != ys.size then some false
+      else (xs.zip ys).foldlM (init := true) fun acc (x, y) => do
+        return acc && (← (promote x y).map Common.eq)
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
       else (promote fb gb).map Common.eq
@@ -284,9 +294,12 @@ where
 
 /-- The zero of a domain — the constant term of a degree-≤0 polynomial
 wherever one is read out, so `ℤ/5`'s zero is `.mod 5 0` and not `.int 0`. -/
-def zeroOf : Domain → Value
+partial def zeroOf : Domain → Value
   | .rat => .rat 0
   | .mod n => Value.mkMod n 0
+  -- the zero of `Eⁿ` is the zero VECTOR: a scalar `0` is not an element of it,
+  -- and giving one here would put a scalar where a vector is expected
+  | .vector n e => .vec n e (Array.replicate n (zeroOf e))
   | _ => .int 0
 
 /-- Horner evaluation. Mixed `ℤ`/`ℚ` coefficients and argument promote along
@@ -346,6 +359,11 @@ def domainCard : Domain → Option Cardinality
   | .matrix n e =>
       match domainCard e with
       | some (.finite k) => some (.finite (k ^ (n * n)))
+      | some .countablyInfinite => some (if n == 0 then .finite 1 else .countablyInfinite)
+      | none => none
+  | .vector n e =>
+      match domainCard e with
+      | some (.finite k) => some (.finite (k ^ n))
       | some .countablyInfinite => some (if n == 0 then .finite 1 else .countablyInfinite)
       | none => none
 
@@ -433,6 +451,10 @@ private partial def inDomain? (d : Domain) (x : Value) : Bool :=
   -- a function's domain is the arrow it was declared over
   | .matrix n e, .mat m _ rows => n == m && rows.all (·.all (inDomain? e))
   | .matrix .., _ => false
+  -- …and a vector is one of `Eⁿ` when its LENGTH agrees and every component
+  -- is in `E`, the same judgment one level down
+  | .vector n e, .vec m _ comps => n == m && comps.all (inDomain? e)
+  | .vector .., _ => false
   | .funcs s t, .func s' t' _ _ => s == s' && t == t'
   | .funcs .., _ => false
 

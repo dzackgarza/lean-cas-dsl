@@ -347,6 +347,10 @@ private def approx (exact : Value) (dec : String) (eps achieved : Rat) : Option 
 #guard domainCard (.mod 0) == some .countablyInfinite
 #guard domainCard (.poly .rat) == some .countablyInfinite
 #guard domainCard (.matrix 2 (.mod 3)) == some (.finite 81)
+-- a vector domain counts its LENGTH many entries, not n² of them
+#guard domainCard (.vector 2 (.mod 3)) == some (.finite 9)
+#guard domainCard (.vector 3 .rat) == some .countablyInfinite
+#guard domainCard (.vector 2 .real) == none
 -- ℝ is uncountable and a function domain is not enumerated here: the slice
 -- reports that it cannot state the cardinality rather than inventing ℵ₀
 #guard domainCard .real == none
@@ -557,6 +561,29 @@ private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
 
 -- SPEC.md's `|A| = 3` and `|E| = ℵ₀`: a finite cardinal answers to the
 -- number counting it, and ℵ₀ answers to no integer
+/-! ## Vectors (SPEC.md §Vectors and matrices) -/
+
+-- the LENGTH decides, and the entry domain is a presentation tag: `(1, 2)` of
+-- ℤ² and of ℚ² are one vector, and a shorter one is UNEQUAL, not incomparable
+#guard valueEq (.vec 2 .int #[.int 1, .int 2]) (.vec 2 .rat #[.rat 1, .rat 2])
+  == some true
+#guard valueEq (.vec 2 .int #[.int 1, .int 2]) (.vec 2 .int #[.int 1, .int 3])
+  == some false
+#guard valueEq (.vec 2 .int #[.int 1, .int 2]) (.vec 3 .int #[.int 1, .int 2, .int 0])
+  == some false
+-- a vector is not a scalar and not a matrix: neither comparison is answered
+#guard valueEq (.vec 1 .int #[.int 1]) (.int 1) == none
+#guard valueEq (.vec 2 .int #[.int 1, .int 2])
+  (.mat 2 .int #[#[.int 1, .int 2], #[.int 0, .int 0]]) == none
+-- the zero of a vector domain is the zero VECTOR, never a scalar `0`
+#guard zeroOf (.vector 2 .rat) == Value.vec 2 .rat #[.rat 0, .rat 0]
+
+#guard (Value.vec 2 .rat #[.rat 1, .rat (mkRat 3 2)]).render == "(1, 3/2)"
+#guard (Value.vec 2 .rat #[.rat 1, .rat (mkRat 3 2)]).latex? == some "(1, 3/2)"
+#guard (Domain.vector 2 .rat).render == "ℚ²"
+#guard (Domain.vector 10 .rat).render == "ℚ¹⁰"
+#guard (Domain.vector 3 .rat).latex == "\\mathbb{Q}^{3}"
+
 #guard valueEq (.cardinal (.finite 3)) (.int 3) == some true
 #guard valueEq (.int 3) (.cardinal (.finite 3)) == some true
 #guard valueEq (.cardinal (.finite 3)) (.int 4) == some false

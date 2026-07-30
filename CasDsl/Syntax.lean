@@ -52,6 +52,12 @@ syntax:max (name := casImplMul) num noWs ident : casTerm
 syntax:max (name := casNum) num : casTerm
 syntax:max (name := casIdent) ident : casTerm
 syntax:max (name := casParen) "(" casTerm ")" : casTerm
+
+/-- SPEC.md's vectors — `(1, 2)`, `(1, 0, 1)`. TWO components at least, which
+is what keeps it disjoint from the parenthesized term above; the `noWs` on
+`casApply` is what keeps a tuple written after a name from being read as a
+call's argument list. -/
+syntax:max (name := casTuple) "(" casTerm ", " casTerm,+ ")" : casTerm
 syntax:max (name := casSet) "{" casSetItem,* "}" : casTerm
 
 syntax casRow := casTerm,+
@@ -220,6 +226,9 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.ref stx[1].getId)
   | ``casIdent => return .ref stx[0].getId
   | ``casParen => toExpr stx[1]
+  | ``casTuple => do
+      let rest ← stx[3].getSepArgs.mapM toExpr
+      return .vecLit (#[← toExpr stx[1]] ++ rest)
   | ``casNeg => return .neg (← toExpr stx[1])
   | ``casAdd => return .bin .add (← toExpr stx[0]) (← toExpr stx[2])
   | ``casSub => return .bin .sub (← toExpr stx[0]) (← toExpr stx[2])
