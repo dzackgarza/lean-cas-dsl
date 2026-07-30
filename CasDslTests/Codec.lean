@@ -29,8 +29,12 @@ private def rejects (j : Json) : Bool :=
   | .error _ => true
 
 /-- One of every `Value` constructor, including an integer far past 64 bits
-(the reason magnitudes travel as decimal strings). -/
+(the reason magnitudes travel as decimal strings) and BOTH signs of radicand
+(a sign flip in either direction of the alg codec is a different number). -/
 private def samples : Array Value := #[
+  .alg 0 1 2,
+  .alg (mkRat (-1) 2) (mkRat 1 2) 5,
+  .alg 2 (-2) (-1),
   .int 0,
   .int (-123456789012345678901234567890),
   .rat (mkRat 3 4),
@@ -50,11 +54,24 @@ private def samples : Array Value := #[
   .func .real .real `t (.poly .int #[.int 1, .int 0, .int 1])]
 
 private def domains : Array Domain :=
-  #[.nat, .int, .rat, .real, .mod 7, .poly .rat, .matrix 3 (.poly .int),
-    .funcs .real .real]
+  #[.nat, .int, .rat, .real, .complex, .mod 7, .poly .rat,
+    .matrix 3 (.poly .int), .funcs .real .real, .poly .complex]
 
 #guard samples.all roundTrips
 #guard domains.all domainRoundTrips
+
+-- An alg frame is NORMALIZED on the way in: a backend that sends `√8` gets
+-- the `2√2` it denotes, so a decoded surd obeys the same invariant a computed
+-- one does and compares equal to it
+#guard (CasDsl.Codec.valueFromJson (Json.mkObj
+  [("t", "alg"), ("a", CasDsl.Codec.valueToJson (.rat 0)),
+   ("b", CasDsl.Codec.valueToJson (.rat 1)), ("d", "8")])).toOption
+  == some (Value.alg 0 2 2)
+-- …and a frame whose radical vanishes is the RATIONAL it denotes
+#guard (CasDsl.Codec.valueFromJson (Json.mkObj
+  [("t", "alg"), ("a", CasDsl.Codec.valueToJson (.rat 3)),
+   ("b", CasDsl.Codec.valueToJson (.rat 0)), ("d", "5")])).toOption
+  == some (Value.int 3)
 
 -- Malformed frames: a non-decimal magnitude, a zero denominator, a matrix
 -- whose declared size contradicts its rows, and unknown/ill-typed tags.

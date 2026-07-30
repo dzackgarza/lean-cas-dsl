@@ -287,6 +287,9 @@ def asPolyCoeffs : Value → Option (Domain × Array Value)
   | v@(.int _) => some (.int, #[v])
   | v@(.rat _) => some (.rat, #[v])
   | v@(.mod n _) => some (.mod n, #[v])
+  -- an exact algebraic number is a constant of ℝ[x] or ℂ[x], which is what
+  -- lets `x² - √2 in ℂ[x]` be written at all
+  | v@(.alg _ _ d) => some (if d < 0 then .complex else .real, #[v])
   | _ => none
 
 private def pad (cs : Array Value) (i : Nat) : Value :=
@@ -983,6 +986,11 @@ no other reading of an exponent over {s.render}")
       | .obj (.domainObj p), .obj (.domainObj m) =>
           return .obj (.setObj (.domainDiff p m))
       | _, _ =>
+        if x.asSet?.isSome && y.asSet?.isSome then
+          throw (.msg s!"`-` denotes the difference of two DOMAINS; the \
+difference of sets that have elements is `\\`, which computes it — \
+{x.presentation} \\ {y.presentation}")
+        else
           return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .sub
             (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
   | .bin op a b => do

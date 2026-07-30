@@ -1005,6 +1005,28 @@ def test_roots_in_the_complex_numbers_and_the_difference_set(
     assert b["text/plain"] == "ℂ - ℚ"
 
 
+def test_a_surd_coefficient_crosses_the_wire(kernel: Kernel) -> None:
+    _, kc = kernel
+    # The Lean alg ENCODER runs only for a ℂ[x] polynomial that actually
+    # carries a surd, and only against real Sage. `x - √2` is the sharp case:
+    # a sign flip anywhere in that codec sends `x + √2` and comes back with
+    # the other root.
+    ok(kc, "let ps := x ↦ x - √2 in ℂ[x]")
+    ok(kc, "assert ps.roots() = {√2}")
+    assert "false" in err(kc, "assert ps.roots() = {-√2}").lower()
+    text = ok(kc, "ps.factor()")
+    assert "√2" in text and "1.41" not in text
+
+
+def test_set_equality_stays_linear_on_sorted_sides(kernel: Kernel) -> None:
+    _, kc = kernel
+    # Two sorted sides of 9999 elements (a bounded progression expands to an
+    # explicit list). Under a quadratic comparison this cell takes ~30s; the
+    # zip settles it in one pass, so a regression shows up as a stall rather
+    # than as a wrong answer.
+    ok(kc, "assert {1, 2, ..., 9999} = {1, 2, ..., 9999}")
+
+
 def test_i_is_a_constant_a_binding_shadows(kernel: Kernel) -> None:
     _, kc = kernel
     # `i` names the imaginary unit only while it is UNBOUND, exactly like the

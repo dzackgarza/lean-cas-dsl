@@ -229,6 +229,19 @@ def check_roots_poly_c(adapter):
     value = adapter.ok("roots_poly_c", {"coeffs": [q(1), q(0), q(1)]})
     assert elems(value) == ["0/1 + -1/1*sqrt(-1)", "0/1 + 1/1*sqrt(-1)"], value
 
+    # an ASYMMETRIC root, so a branch flip cannot permute the expected set
+    # into itself: x - (1 + 2i) has the one root 1 + 2i and not its conjugate
+    value = adapter.ok(
+        "roots_poly_c",
+        {
+            "coeffs": [
+                {"t": "alg", "a": q(-1), "b": q(-2), "d": "-1"},
+                {"t": "rat", "num": "1", "den": "1"},
+            ]
+        },
+    )
+    assert elems(value) == ["1/1 + 2/1*sqrt(-1)"], value
+
     # a surd on the way IN as well as out: (x - sqrt 2)(x + sqrt 2) = x^2 - 2
     value = adapter.ok(
         "roots_poly_c",

@@ -353,7 +353,15 @@ private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
   | .poly c, .poly _ cs => cs.foldlM (init := true) fun acc v =>
       (inDomain? c v).map (acc && ·)
   | .poly c, v => inDomain? c v
-  | _, _ => none
+  -- TOTAL over `Domain` on purpose: no wildcard tail, so a domain added later
+  -- fails this match instead of silently answering "no membership test".
+  -- A matrix is one of Matₙ(e) when its size agrees and every entry is in e;
+  -- a function's domain is the arrow it was declared over.
+  | .matrix n e, .mat m _ rows =>
+      some (n == m && rows.all fun row => row.all fun v => inDomain? e v == some true)
+  | .matrix .., _ => some false
+  | .funcs s t, .func s' t' _ _ => some (s == s' && t == t')
+  | .funcs .., _ => some false
 
 /-- `x ∈ d`, or the loud refusal that this backend has no test for `d` — the
 one place that judgment is made, so a difference set cannot decide membership
@@ -525,7 +533,13 @@ private def setNormalEq : SetNormal → SetNormal → Bool
   -- equality — and it does not depend on an order the elements of ℂ have no
   -- honest one of
   | .fin a, .fin b =>
-      a.size == b.size && a.all fun x => b.any fun y => valueEq x y == some true
+      -- both sides are deduped, so equal sizes plus one-way membership IS
+      -- equality. The zip settles two SORTED sides in one pass; the quadratic
+      -- fallback runs only for elements that have no order here (exact
+      -- algebraic values), where the answer cannot be read off a sequence
+      a.size == b.size &&
+        ((a.zip b).all (fun (x, y) => valueEq x y == some true)
+          || a.all fun x => b.any fun y => valueEq x y == some true)
   | .prog f1 s1, .prog f2 s2 => f1 == f2 && s1 == s2
   | .dom d1, .dom d2 => d1 == d2
   | _, _ => false

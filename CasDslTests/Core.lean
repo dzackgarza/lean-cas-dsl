@@ -494,6 +494,11 @@ private def r2 : Obj := .elem .real (.alg 0 1 2)
 #guard out "alg_abs" (.elem .real (.alg 0 (-1) 2)) #[] == some (.alg 0 1 2)
 #guard out "alg_abs" (.elem .real (.alg 1 (-1) 2)) #[] == some (.alg (-1) 1 2)
 #guard out "alg_abs" (.elem .real (.alg 2 (-1) 2)) #[] == some (.alg 2 (-1) 2)
+-- the OTHER inverted quadrant, `b > 0 > a`, where the comparison flips: the
+-- sign is `a² ⋛ b²d` read the other way round, so −1 + √2 (≈ 0.41) stays and
+-- −3 + 2√2 (≈ −0.17) turns over. Both decided by squaring, never by a decimal
+#guard out "alg_abs" (.elem .real (.alg (-1) 1 2)) #[] == some (.alg (-1) 1 2)
+#guard out "alg_abs" (.elem .real (.alg (-3) 2 2)) #[] == some (.alg 3 (-2) 2)
 #guard out "alg_abs" (.elem .real (.rat (mkRat (-3) 2))) #[] == some (.rat (mkRat 3 2))
 -- a receiver carrying no exact number is the loud runtime error partiality
 -- inside a routed shape always gets
