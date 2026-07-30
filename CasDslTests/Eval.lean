@@ -403,10 +403,14 @@ let expo := t ↦ e^t in ℝ → ℝ
 let sine: ℝ → ℝ := t ↦ sin(t)
 let recip := t ↦ 1/t in ℝ → ℝ
 
--- the polynomial reading is preferred where it applies, so a polynomial body
--- is untouched by any of this: `h` above is still a polynomial and still
--- decides its identity
+/- The polynomial reading is PREFERRED, and these two are the sentinels that
+say so rather than the comment: both are identities of function EXPRESSIONS,
+and only the polynomial reading decides them — a symbolic body evaluates at no
+point and compares with nothing, so if the order ever flipped, these fail.
+(`f` and `g` are bound below and re-asserted there for the composition; `h` is
+bound above.) -/
 assert h(-t) = h(t)
+assert h(3) = 10
 
 let e: ℕ → ℕ := n ↦ 2n
 

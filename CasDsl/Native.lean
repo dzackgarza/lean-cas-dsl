@@ -550,12 +550,17 @@ private partial def inDomain? (d : Domain) (x : Value) : Bool :=
   | .complex, _ => false
   | .poly c, .poly _ cs => cs.all (inDomain? c)
   | .poly c, v => inDomain? c v
-  -- SPEC.md's `assert Tf ∈ ℝ[[t]]`: a series is one of `E[[t]]` when its own
-  -- coefficient domain sits in `E`. The coefficients are rationals by
-  -- construction (SeriesGen's ceiling), so this is a judgment about the
-  -- DOMAIN TAG, and it is stated as one
-  | .series e, .seriesV c _ => e == c || (e == .real && c == .rat)
-    || (e == .rat && c == .int) || (e == .real && c == .int)
+  -- SPEC.md's `assert Tf ∈ ℝ[[t]]`: a series is one of `E[[t]]` when its
+  -- coefficient domain IS `E`, and that is the whole judgment made here.
+  -- The tag is a NORMAL FORM rather than a guess — `coerceValue`'s structural
+  -- congruence maintains it at every boundary a series crosses (the
+  -- ascription, the wire decode) — so the ascription this answers for always
+  -- meets a matching tag. A MISMATCH is not answered at all: `ℚ[[t]] ⊆ ℝ[[t]]`
+  -- is the canonical-map registry's claim and this backend may not restate it
+  -- (`normalSubset` refuses `dom ⊆ dom` for exactly that reason), so the
+  -- executor refuses there rather than returning a `false` that would be a
+  -- wrong answer. `anything else` is a theorem: no other value is a series.
+  | .series e, .seriesV c _ => e == c
   | .series _, _ => false
   -- a matrix is one of Matₙ(e) when its size agrees and every entry is in e;
   -- a function's domain is the arrow it was declared over
@@ -1095,6 +1100,21 @@ this slice presents no value for")
         match o with
         | .setObj (.finite _ elems) => return .bool (memOf elems x)
         | .setObj (.arithProg _ first step last?) => progContains first step last? x
+        -- a series against a series RING whose coefficient domains differ is
+        -- the one membership this backend will not answer: the inclusion
+        -- between two coefficient domains belongs to the canonical-map
+        -- registry, and `false` here would be a wrong answer rather than a
+        -- missing one. Ascribe the series to the ring you mean.
+        | .setObj (.domainSet (.series e)) | .domainObj (.series e) =>
+            match x with
+            | .seriesV c _ =>
+                if e == c then return .bool true
+                else .error (.badRequest
+                  s!"whether a series over {c.render} lies in \
+{(Domain.series e).render} is the preferred-canonical-map registry's claim, \
+not one this backend restates: ascribe the series to the ring you mean, as \
+`let Tf := … in {(Domain.series e).render}`")
+            | _ => return .bool false
         | .setObj (.domainSet d) | .domainObj d => return domainContains d x
         | o => .error (.badRequest s!"{o.presentation} is not a set")
   | "set_eq" => do

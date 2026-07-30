@@ -304,6 +304,14 @@ everything about that line is a REQUEST rather than a new number system.
   evaluate would have no `realParts?` and is refused rather than trusted
   silently; when such values arrive, this is the seam where trust would have
   to be declared, and the declaration would have to be visible here.
+  THAT HAS HAPPENED, and the declaration is §Elementary calculus': a symbolic
+  LIMIT and a symbolic definite integral have no finite exact computation on
+  this side that could check them, so their replies are trusted and only their
+  KIND is verified. The two statements are one policy, and it reads the same
+  in both directions — a reply is trusted only where no exact check exists,
+  the absence of the check is named where it bites, and what is still checked
+  is written down. Nothing else in this slice is trusted: everything with an
+  exact check has one.
   What is checked in the ADAPTER's reply rather than in the constructor is
   that the approximation is OF the value that was sent — a certificate that
   holds for some other number is still a wrong answer to this call.
@@ -545,12 +553,19 @@ into it.
   none, the slot a factorization and a cardinal already occupy), no
   arithmetic (`Native.noArithmetic` words that refusal beside the
   approximation's, for the same reason — there is nothing here that would not
-  be invented), and no value at a point: `sine(0)` is a loud refusal naming
-  the body, because a decimal for `sin(0)` is an APPROXIMATION and that is a
-  separate operation on an exact element. Two symbolic bodies are
+  be invented), and no value at a point: `sine(0)` AND `recip(2)` are both
+  loud refusals naming the body, because a decimal for `sin(0)` — or for
+  `1/t` at 2 — is an APPROXIMATION, and that is a separate operation on an
+  exact element. A RATIONAL body gains no pointwise evaluation either; no
+  `SPEC.md` line calls one, and inventing it would be that approximation. Two symbolic bodies are
   INCOMPARABLE rather than unequal — `1/t` and `t^(-1)` are one function and
   two trees, so `false` would be a claim this slice cannot make.
-- **TWO readings, in a fixed order with a stated reason.** A `↦` binding tries
+- **TWO readings, in a fixed order, and the order is PINNED rather than
+  commented.** `h = hp`, `h(0) = 1`, `h(3) = 10` and `h(-t) = h(t)` are the
+  sentinels: all four are identities or evaluations only the POLYNOMIAL
+  reading decides, so flipping the order kills them — verified by mutation
+  (`h = hp` becomes "unknown" and the three calls become the symbolic-body
+  refusal). The reason for the order is unchanged: A `↦` binding tries
   the POLYNOMIAL reading first and keeps it wherever it applies, because that
   is the reading that decides (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`, and equality
   of two bodies). Only a body it cannot express is read symbolically. This is
@@ -597,7 +612,10 @@ one is the ordinary structured gap.
   value this slice presents, so a decimal, a factorization or an unevaluated
   expression coming back is still an adapter defect rather than an answer.
   §Numerical approximation said such a seam "would have to be declared, and
-  the declaration would have to be visible here". This is it.
+  the declaration would have to be visible here". This is it, and that section
+  now points here: ONE policy, stated from both ends — a reply is trusted only
+  where no exact check exists, the absence is named where it bites, and what
+  is still checked is written down.
   The definite integral sits on the same boundary; the Taylor expansion is
   checked one step further — its coefficients must be exact RATIONALS, and a
   coefficient that is not one is refused rather than turned into a decimal.
@@ -640,6 +658,14 @@ spelling per ring is what keeps a display readable back as input.
   writes has them (`n²`, and the `1/n!` of a Taylor expansion), and holding
   `Value`s would make `SeriesGen` mutually recursive with `Value` for no gain
   the surface asks for.
+- **Series membership is as narrow as the ascription needs.** `Tf ∈ ℝ[[t]]`
+  is decided by the coefficient domain MATCHING, and the tag is a normal form
+  rather than a guess — `coerceValue`'s structural congruence maintains it at
+  every boundary a series crosses, so the ascription always meets a matching
+  tag. A MISMATCH is refused rather than answered: `ℚ[[t]] ⊆ ℝ[[t]]` is the
+  canonical-map registry's claim, and this backend restating it is exactly
+  what `normalSubset` already refuses to do for `dom ⊆ dom`. A `false` there
+  would be a wrong answer where the refusal is only a missing one.
 - **A series RING is a `Sets` member and nothing narrower**: a formal power
   series is an arbitrary SEQUENCE of coefficients, so `ℤ[[t]]` is
   UNCOUNTABLE — the standing ℂ[x] already has. Membership routes; `nth` is

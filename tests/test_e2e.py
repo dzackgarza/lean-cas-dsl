@@ -527,6 +527,15 @@ def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
     # and the refusal says so rather than approximating
     text = err(kc, "sine(0)")
     assert "SYMBOLIC body" in text and "approximation" in text
+    # …and a RATIONAL body is refused at a point for the same reason: `1/t` is
+    # an expression this slice presents, not a function it evaluates
+    text = err(kc, "recip(2)")
+    assert "SYMBOLIC body" in text and "approximation" in text
+    # the POLYNOMIAL reading is preferred wherever it applies, and these are
+    # the sentinels: both are identities of function expressions, which only
+    # that reading decides
+    ok(kc, "assert h(-t) = h(t)")
+    ok(kc, "assert h(3) = 10")
     # …and the vocabulary is a CLOSED list, named in the refusal
     text = err(kc, "let bad := t ↦ arctan(t) in ℝ → ℝ")
     assert "arctan" in text and "sin" in text and "vocabulary" in text
