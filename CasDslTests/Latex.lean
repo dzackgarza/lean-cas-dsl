@@ -209,10 +209,54 @@ alone. -/
 #guard Value.latex? (.approx (.rat (mkRat 1 3)) "0.33" (mkRat 1 3) (mkRat 1 100))
   == some "0.33 + O(1/3)"
 
+/-! ## The calculus shapes (`SPEC.md` §Differentials … §Ellipses)
+
+Every one of these is an EXACT string, for the reason the rest of this file
+is: the payload is read by MathJax, and no raw Unicode may survive into it —
+`π` becomes `\pi`, `∞` becomes `\infty`, and a differential's thin space is
+what separates a coefficient from `dx`. -/
+
+-- a 1-form: the coefficient parenthesized as a factor, and a thin space
+-- before `dx`
+#guard Value.latex? (.diff1 .rat (Value.mkPoly .rat #[.rat 1, .rat 6]))
+  == some "(6x + 1)\\,dx"
+#guard Value.latex? (.diff1 .int (.int 3)) == some "3\\,dx"
+-- the two derivations have NO form: their renderings are prose ABOUT an
+-- operation, which is the documented no-natural-form case a truth value is
+#guard Value.latex? (.derivation true) == none
+#guard Value.latex? (.derivation false) == none
+
+-- a coset: the offset, then the kernel as its own domain
+#guard Value.latex? (.cosetV (Value.mkPoly .rat #[.rat 0, .rat 1]) .rat)
+  == some "x + \\mathbb{Q}"
+
+-- a SERIES says which reading it is: a rule ends in `\ldots` (every
+-- coefficient is known), terms end in `O(t^{n})` (exactly these are), and
+-- both are written ASCENDING — a series has no highest term
+#guard Value.latex? (.seriesV .int (.rule #[0, 0, 1]))
+  == some "t + 4t^{2} + 9t^{3} + 16t^{4} + \\ldots"
+#guard Value.latex? (.seriesV .rat (.terms #[1, 1, mkRat 1 2]))
+  == some "1 + t + (1/2)t^{2} + O(t^{3})"
+#guard Domain.latex (.series .real) == "\\mathbb{R}[[t]]"
+
+-- symbolic expressions: `\sin`, a braced exponent, and no raw `π` or `∞`
+#guard Value.latex? (.sym (.app `sin (.var `t))) == some "\\sin(t)"
+#guard Value.latex? (.sym (.pow (.const `e) (.var `t))) == some "e^{t}"
+#guard Value.latex? (.sym (.const `pi)) == some "\\pi"
+#guard Value.latex? (.sym (.const `infinity)) == some "\\infty"
+#guard Value.latex? (.sym (.div (.num 1) (.var `t))) == some "1/t"
+-- …and a variable that is not typesettable as written has NO form, the rule
+-- a function's binder already follows
+#guard Value.latex? (.sym (.app `sin (.var `θ))) == none
+
 /-! ## Objects -/
 
 #guard Obj.latex? (.elem .int (.int 7)) == some "7"
 #guard Obj.latex? (.domainObj (.poly .int)) == some "\\mathbb{Z}[x]"
 #guard Obj.latex? (.setObj (.finite .int #[.int 1])) == some "\\{1\\}"
+-- `\mathrm{Spec}` is the operator name, as `\mathrm{Mat}` and
+-- `\mathrm{span}` already are in this table
+#guard Obj.latex? (.specOf (.poly .rat)) == some "\\mathrm{Spec}\\, \\mathbb{Q}[x]"
+#guard Obj.latex? (.symObj (.const `pi)) == some "\\pi"
 
 end CasDslTests
