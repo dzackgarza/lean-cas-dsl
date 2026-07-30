@@ -836,6 +836,20 @@ def test_the_number_system_chain(kernel: Kernel) -> None:
     assert "✓ 2 + 3 = 5 and 4 ∉ {1, 2, 3}" in text
 
 
+def test_an_integer_is_a_real_number(kernel: Kernel) -> None:
+    _, kc = kernel
+    # The visible consequence of registering the chain's transitive closure
+    # (DESIGN.md §Coercions): a domain ascription to ℝ or ℂ now goes through a
+    # registered canonical map, where it used to have none to apply.
+    text = ok(kc, "let rr := 3 in ℝ")
+    assert "3 ∈ ℝ" in text
+    text = ok(kc, "map 3 to ℂ")
+    assert "3" in text
+    # …and a pair nobody registered is still the honest error
+    text = err(kc, "let bad4 := 3 in ℝ → ℝ")
+    assert "no preferred canonical map" in text or "not an element" in text
+
+
 def test_a_domain_is_a_receiver_too(kernel: Kernel) -> None:
     _, kc = kernel
     # `ℝ.cardinality()` lexes as ONE identifier, so the domain reaches the
