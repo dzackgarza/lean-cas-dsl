@@ -320,66 +320,53 @@ private def isIntegral : Value → Bool
   | .rat q => q.den == 1
   | _ => false
 
-/-- Is `x` an element of `d`? `none` = this backend has no membership test
-for that domain, which is a loud error at the call site and never `false`.
+/-- Is `x` an element of `d`? TOTAL over `Domain` — every domain decides, so
+a domain added later fails this match instead of reaching a "no membership
+test" path that no longer exists.
 
 `c[x]` recurses on the COEFFICIENTS, so `x ∈ ℤ[x]` and `p ∈ ℤ[x]` are settled
 by the same judgment that settles `-3 ∈ ℤ` — and a polynomial over ℤ is an
 element of ℚ[x] for the reason it always was, coefficient by coefficient. A
 scalar is its own constant polynomial. -/
-private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
+private partial def inDomain? (d : Domain) (x : Value) : Bool :=
   match d, x with
-  | .nat, .int z => some (z ≥ 0)
-  | .nat, .rat q => some (q.den == 1 && q.num ≥ 0)
-  | .nat, _ => some false
-  | .int, v => some (isIntegral v)
-  | .rat, .int _ => some true
-  | .rat, .rat _ => some true
-  | .rat, _ => some false
-  | .mod n, .mod m _ => some (m == n)
+  | .nat, .int z => z ≥ 0
+  | .nat, .rat q => q.den == 1 && q.num ≥ 0
+  | .nat, _ => false
+  | .int, v => isIntegral v
+  | .rat, .int _ => true
+  | .rat, .rat _ => true
+  | .rat, _ => false
+  | .mod n, .mod m _ => m == n
   -- an integer names its residue class
-  | .mod _, .int _ => some true
-  | .mod _, _ => some false
+  | .mod _, .int _ => true
+  | .mod _, _ => false
   -- ℝ and ℂ: every rational is one, and the exact algebraic values are the
   -- others — a NEGATIVE radicand is not real (DESIGN.md §Exact number
   -- systems). Deciding membership does not claim the domain is enumerated:
   -- the reals this slice cannot present are still elements of ℝ, and a value
   -- it CAN present is placed exactly
-  | .real, .alg _ _ d => some (d > 0)
-  | .real, .int _ | .real, .rat _ => some true
-  | .real, _ => some false
-  | .complex, .int _ | .complex, .rat _ | .complex, .alg .. => some true
-  | .complex, _ => some false
-  | .poly c, .poly _ cs => cs.foldlM (init := true) fun acc v =>
-      (inDomain? c v).map (acc && ·)
+  | .real, .alg _ _ d => d > 0
+  | .real, .int _ | .real, .rat _ => true
+  | .real, _ => false
+  | .complex, .int _ | .complex, .rat _ | .complex, .alg .. => true
+  | .complex, _ => false
+  | .poly c, .poly _ cs => cs.all (inDomain? c)
   | .poly c, v => inDomain? c v
-  -- TOTAL over `Domain` on purpose: no wildcard tail, so a domain added later
-  -- fails this match instead of silently answering "no membership test".
-  -- A matrix is one of Matₙ(e) when its size agrees and every entry is in e;
-  -- a function's domain is the arrow it was declared over.
-  | .matrix n e, .mat m _ rows =>
-      some (n == m && rows.all fun row => row.all fun v => inDomain? e v == some true)
-  | .matrix .., _ => some false
-  | .funcs s t, .func s' t' _ _ => some (s == s' && t == t')
-  | .funcs .., _ => some false
+  -- a matrix is one of Matₙ(e) when its size agrees and every entry is in e;
+  -- a function's domain is the arrow it was declared over
+  | .matrix n e, .mat m _ rows => n == m && rows.all (·.all (inDomain? e))
+  | .matrix .., _ => false
+  | .funcs s t, .func s' t' _ _ => s == s' && t == t'
+  | .funcs .., _ => false
 
-/-- `x ∈ d`, or the loud refusal that this backend has no test for `d` — the
-one place that judgment is made, so a difference set cannot decide membership
-differently from the domain it was built from. -/
-private def domainMember (d : Domain) (x : Value) : Except ExecError Bool :=
-  match inDomain? d x with
-  | some b => .ok b
-  | none => .error (.badRequest
-      s!"the native backend has no membership test for {d.render}")
-
-private def domainContains (d : Domain) (x : Value) : Except ExecError Value := do
-  return .bool (← domainMember d x)
+private def domainContains (d : Domain) (x : Value) : Value := .bool (inDomain? d x)
 
 /-- `x ∈ a - b`: in the first domain and not in the second. The ONE decision
 behind a difference set, so `x ∈ ℂ - ℚ` and `S ⊆ ℂ - ℚ` cannot disagree —
 they are two spellings of this, not two implementations of it. -/
-private def diffMember (a b : Domain) (x : Value) : Except ExecError Bool := do
-  return (← domainMember a x) && !(← domainMember b x)
+private def diffMember (a b : Domain) (x : Value) : Bool :=
+  inDomain? a x && !inDomain? b x
 
 private def progContains (first step : Value) (last? : Option Value) (x : Value)
     : Except ExecError Value := do
@@ -561,12 +548,7 @@ twice. -/
 private def normalSubset : SetNormal → SetNormal → Except ExecError Bool
   | .fin a, .fin b =>
       .ok (a.all fun x => b.any fun y => valueEq x y == some true)
-  | .fin a, .dom d =>
-      a.foldlM (init := true) fun acc x =>
-        match inDomain? d x with
-        | some m => .ok (acc && m)
-        | none => .error (.badRequest
-            s!"the native backend has no membership test for {d.render}")
+  | .fin a, .dom d => .ok (a.all (inDomain? d))
   | .fin a, .prog f s =>
       a.foldlM (init := true) fun acc x => do
         match ← progContains (Value.ofRat f) (Value.ofRat s) none x with
@@ -727,13 +709,13 @@ this slice presents no value for")
       -- membership test the domains already have
       | .setObj (.domainDiff p m) => do
           let x ← scalarArg "contains" args
-          return .bool (← diffMember p m x)
+          return .bool (diffMember p m x)
       | o =>
         let x ← scalarArg "contains" args
         match o with
         | .setObj (.finite _ elems) => return .bool (memOf elems x)
         | .setObj (.arithProg _ first step last?) => progContains first step last? x
-        | .setObj (.domainSet d) | .domainObj d => domainContains d x
+        | .setObj (.domainSet d) | .domainObj d => return domainContains d x
         | o => .error (.badRequest s!"{o.presentation} is not a set")
   | "set_eq" => do
       let rhs ← setArg "set_eq" args
@@ -750,8 +732,7 @@ this slice presents no value for")
       | .setObj (.domainDiff p m) =>
           match o with
           | .setObj (.finite _ elems) =>
-              return .bool (← elems.foldlM (init := true) fun acc x => do
-                return acc && (← diffMember p m x))
+              return .bool (elems.all (diffMember p m))
           | o => .error (.badRequest
               s!"the native backend decides inclusion in {rhs.presentation} for an \
 explicit finite set only, and {o.presentation} is not one")

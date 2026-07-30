@@ -1016,6 +1016,11 @@ def test_a_surd_coefficient_crosses_the_wire(kernel: Kernel) -> None:
     assert "false" in err(kc, "assert ps.roots() = {-√2}").lower()
     text = ok(kc, "ps.factor()")
     assert "√2" in text and "1.41" not in text
+    # …and once more with a NEGATIVE radicand, which a symmetric flip of both
+    # halves of the codec cannot survive: Sage answers d = -1 either way
+    ok(kc, "let pim := x ↦ x - i in ℂ[x]")
+    ok(kc, "assert pim.roots() = {i}")
+    assert "false" in err(kc, "assert pim.roots() = {-i}").lower()
 
 
 def test_set_equality_stays_linear_on_sorted_sides(kernel: Kernel) -> None:

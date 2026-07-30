@@ -353,6 +353,14 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 #guard out "contains" (.setObj (.finite .rat #[.rat (mkRat 1 2)]))
     #[.elem .rat (.rat (mkRat 2 4))] == some (.bool true)
 #guard out "contains" (.domainObj .nat) #[.elem .int (.int (-1))] == some (.bool false)
+-- a matrix belongs to Matₙ(e) when its SIZE agrees and its entries do; a
+-- function's domain is the arrow it was declared over. Both are decided, so
+-- both false cases are answers rather than refusals
+#guard out "contains" (.domainObj (.matrix 2 .rat)) #[Std.mat2Q] == some (.bool true)
+#guard out "contains" (.domainObj (.matrix 3 .rat)) #[Std.mat2Q] == some (.bool false)
+#guard out "contains" (.domainObj (.matrix 2 (.mod 5))) #[Std.mat2Q] == some (.bool false)
+#guard out "contains" (.domainObj (.funcs .nat .nat)) #[Std.doubling] == some (.bool true)
+#guard out "contains" (.domainObj (.funcs .nat .int)) #[Std.doubling] == some (.bool false)
 #guard out "contains" (.domainObj .int) #[.elem .rat (.rat (mkRat 1 2))] ==
   some (.bool false)
 
