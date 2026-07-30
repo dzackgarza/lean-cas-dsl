@@ -362,8 +362,9 @@ def op_poly_companion_q(args):
     """The companion matrix of a MONIC polynomial over QQ.
 
     Which of Sage's four layouts is used is this adapter's own convention
-    (DESIGN.md decision 7), so the caller checks the two things every layout
-    shares: the size, and the trace.
+    (DESIGN.md decision 7), so the caller checks the three things every layout
+    shares: the size, the trace, and the determinant. Both numbers, because
+    the zero matrix has the right trace whenever a_{d-1} is 0.
     """
     f = PolynomialRing(QQ, "x")([dec_rat(c) for c in args["coeffs"]])
     if f.degree() < 1:

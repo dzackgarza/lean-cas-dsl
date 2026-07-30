@@ -1449,10 +1449,9 @@ def test_the_root_set_over_c_and_its_aggregations(kernel: Kernel) -> None:
     ok(kc, "assert 1 ∈ roots")
     ok(kc, "assert ∑_{a ∈ roots} a = 0")
     ok(kc, "assert ∏_{a ∈ roots} a = -1")
-    # the aggregations are EXACT over the surds the cubic splits into — the
-    # displayed sum is 0 and not 0.0000001
-    text = ok(kc, "roots")
-    assert "√5" in text and "." not in text.split("√5")[0].split("{")[-1]
+    # the roots are EXACT surds, not decimals — asserted as the rendering it
+    # is rather than by hunting for an absent "." in a slice of the output
+    assert bundle(kc, "roots")["text/plain"] == "{-1/2 - (1/2)√5, -1/2 + (1/2)√5, 1}"
 
 
 def test_the_index_domain_decides_where_the_roots_are_sought(
@@ -1480,3 +1479,29 @@ def test_the_multi_binder_lambda_is_a_named_gap(kernel: Kernel) -> None:
     assert "ker φ" in text
     # …and the single-binder lambda it did not break
     ok(kc, "let φ1 := t ↦ t + 1 in ℚ[x]")
+
+
+def test_the_and_chain_survives_identifier_conjuncts(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `and` is an identifier token, so the juxtaposition production would eat
+    # it as an argument. Every conjunct here ENDS in a name — the shape the
+    # committed `and` chains (all over domain tokens) never exercised.
+    ok(kc, "assert v = v and b = b")
+    ok(kc, "assert M v = b and v = v")
+    # …and a chain still NAMES the conjunct that failed rather than reporting
+    # a bare "false", with identifier conjuncts too
+    text = err(kc, "assert v = v and v = b")
+    assert "v = b" in text and "of v = v and v = b" in text
+
+
+def test_the_juxtaposition_residual_has_a_workaround(kernel: Kernel) -> None:
+    _, kc = kernel
+    # An identifier token following an identifier token is an application
+    # wherever the two sit, so a statement ending in a name joins a following
+    # one that begins with a name…
+    ok(kc, "let jx := 5 in ℤ")
+    text = err(kc, "jx\njx")
+    assert "not callable" in text
+    # …and parenthesizing the following statement is the workaround, because
+    # `(` is not an identifier token
+    ok(kc, "jx\n(jx)")

@@ -866,8 +866,8 @@ private def foldSet (op what : String) (seed : Value)
   for v in elems do
     unless hasScalarArithmetic v do
       .error (.badRequest s!"{what} over this set is not defined: {v.render} has \
-no arithmetic here, and a fold seeded with {seed.render} would report that \
-{seed.render} rather than refuse")
+no arithmetic here, so the fold would report its own seed ({seed.render}) \
+instead of refusing")
   Except.mapError ExecError.badRequest (elems.foldlM step seed)
 
 /-- The receiver of a complex-plane method: an element carrying an exact

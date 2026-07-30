@@ -106,21 +106,31 @@ matrix to a vector by JUXTAPOSITION — `M⁻¹ b`, `M v` — alongside the expl
 `M*v`. Both are spellings of operations this surface already has: `⁻¹` is the
 `inverse` METHOD, and juxtaposition is the product.
 
-The three productions below are rooted at an `ident` on the LEFT, which is the
-same hazard control as the `noWs` before `(` and `[` — but it is narrower than
-that, and the residual is stated exactly: a cell swallows its next line when
-the previous line ENDS in a bare identifier and the next line BEGINS with one.
-Neither line need be a bare name. `k1 + 1` and `k1.is_prime()` end in a
-numeral and a `)`, so neither swallows; SPEC.md's own
-`let W := span_QQ{…} \leq ℚ³ in QQ-Mod` ends in `Mod`, so a following bare
-name is read as its argument and the cell fails with the misleading
-"'QQ' is not bound". Documented rather than closed — Lean's command parser
-spans lines, so nothing here can require "the same line", and the ledger
-(#24) carries the fix. -/
+The rule these productions add, stated as what it IS rather than as where it
+was first noticed: AN IDENTIFIER TOKEN FOLLOWING AN IDENTIFIER TOKEN IS AN
+APPLICATION, wherever the two sit. Lines do not enter into it — a newline is
+whitespace to Lean's command parser — so everything below follows from that
+one rule:
+
+- `M v` and `M⁻¹ b` are the applications SPEC.md writes;
+- `and` is a NON-RESERVED keyword, hence an identifier token, so it would be
+  eaten as an argument and `assert p = q and r = s` would lose its
+  conjunction. The `notFollowedBy` below is what keeps SPEC.md's ⊆-chain
+  working; it is the rule's ONE exception, and it belongs to the rule rather
+  than to `assert` — every other non-reserved keyword this surface adds in
+  argument position will need the same guard;
+- a cell whose previous statement ENDS in an identifier and whose next BEGINS
+  with one joins them. NEITHER STATEMENT NEED BE A BARE NAME: `k1 + 1` and
+  `k1.is_prime()` end in a numeral and a `)` and do not join, while SPEC.md's
+  `let W := span_QQ{…} \leq ℚ³ in QQ-Mod` ends in `Mod` and does — failing
+  with the misleading "'QQ' is not bound". Parenthesize the following
+  statement or reorder; documented rather than closed, and on the ledger
+  (#24). -/
 
 syntax:max (name := casInv) ident noWs "⁻¹" : casTerm
-syntax:70 (name := casJuxtApp) ident ident : casTerm
-syntax:70 (name := casInvJuxtApp) ident noWs "⁻¹" ident : casTerm
+syntax:70 (name := casJuxtApp) ident notFollowedBy(&"and") ident : casTerm
+syntax:70 (name := casInvJuxtApp)
+  ident noWs "⁻¹" notFollowedBy(&"and") ident : casTerm
 
 /-- `|A|`, `|z|` — SPEC.md's bars, which ARE a method: `cardinality` for a
 set, `abs` for an element of ℝ or ℂ. The bars are a spelling, so a receiver

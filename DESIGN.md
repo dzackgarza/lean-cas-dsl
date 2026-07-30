@@ -65,6 +65,7 @@ or picks a different operation.
 ```text
 CasDsl/Value.lean       Domain, Value, SetPresentation, Obj  (core data model)
                         + their plain-text and LaTeX renderings
+                        + the shared EXACT-ARITHMETIC FLOOR (see below)
 CasDsl/Category.lean    CatRef, category/method/functor/route/canonical-map TYPES
 CasDsl/Registry.lean    env extensions + registration API (semantic state)
 CasDsl/Resolve.lean     the method resolver (the ONE lookup boundary)
@@ -83,6 +84,24 @@ tests/                  Lean #guard test module + Python roundtrip + E2E noteboo
 
 Dependency arrows flow downward only. `Port.lean` knows nothing about Sage
 operations; `Backends/Sage.lean` knows nothing about surface syntax.
+
+**`Value.lean` is the shared exact-arithmetic FLOOR** — the only module both
+backends may import, and therefore where exact arithmetic goes when more than
+one of them needs it. A backend that must compute something to CHECK a
+certificate puts that computation here, not in its own half: a backend does
+not import another backend, so a copy in `Backends/Sage.lean` would be the
+second implementation of arithmetic that already exists. Nothing in this
+module may route, execute, or name a backend — it is data, normal forms, and
+the arithmetic those normal forms are made of. `mkAlg`, `rref`, `spanContains`
+and `detQ` are all there for that reason.
+
+PRE-RULING for the next unit (recorded as such, project-owner call): U8's
+certificate arithmetic — polynomial add/sub/mul for the derivative and
+integral reply checks — goes DOWN into this floor under the same rule. Not
+duplicated in `Backends/Sage.lean`, and no import exception. `Eval.lean`'s
+polynomial helpers stay where they are and keep serving the surface; what a
+certificate needs gets a `Value`-level twin, and only as certificates demand
+it — not preemptively.
 
 ## Core data model (`Value.lean`)
 

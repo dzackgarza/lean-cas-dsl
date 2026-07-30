@@ -170,7 +170,7 @@ private def ratOf? : Value → Option Rat
 /-- The characteristic polynomial of an `n × n` matrix is MONIC of degree `n`.
 Checked against THIS call's receiver, like `approx_real`'s certificate: a
 well-formed polynomial that is not one is a wrong answer to this call. -/
-private def checkCharpoly (n : Nat) (v : Value) : Except ExecError Value :=
+def checkCharpoly (n : Nat) (v : Value) : Except ExecError Value :=
   match v with
   | .poly _ cs =>
       if cs.size == n + 1 && (cs[n]?.bind ratOf?) == some 1 then .ok v
@@ -191,7 +191,7 @@ layout.
 
 Both numbers are checked, because neither alone is enough: the ZERO matrix has
 the right trace whenever `a_{d−1}` is 0, which SPEC.md's own cubic is. -/
-private def checkCompanion (coeffs : Array Value) (v : Value) : Except ExecError Value := do
+def checkCompanion (coeffs : Array Value) (v : Value) : Except ExecError Value := do
   let d := coeffs.size - 1
   let .mat n _ rows := v
     | .error (.protocolError
@@ -227,12 +227,17 @@ of its roots, which every companion layout shares")
 /-- The decoded reply must be the kind of value the op promises; a
 well-formed value of the wrong kind is an adapter defect, not a result.
 
+Public, with the two checks above, because a check nothing can call is a check
+nothing can prove: `CasDslTests/Core.lean` `#guard`s this seam, so deleting
+either a check or its call site here fails the build. All three are pure
+functions of the request and the reply — no port, no process.
+
 `approx_real` is checked against the RECEIVER as well: the decimal's own
 certificate is verified inside the codec (`Value.mkApprox`, at decode), and
 what is left to check here is that the reply approximates the value that was
 actually sent — a certificate that holds for some other number is still a
 wrong answer to this call. -/
-private def expectKind (op : String) (o : Obj) (v : Value) : Except ExecError Value :=
+def expectKind (op : String) (o : Obj) (v : Value) : Except ExecError Value :=
   match op, v with
   | "approx_real", .approx exact .. =>
       match o with

@@ -728,6 +728,50 @@ private def finiteOf (d : Domain) (vs : Array Value) : Obj :=
 -- the aggregations need an EXPLICIT finite receiver, like the binary ones
 #guard (Native.run "set_sum" (.domainObj .int) #[]).toOption == none
 
+/-! ## The Sage adapter's reply checks (SPEC.md §A composed computation)
+
+Stated against `expectKind`, the seam the executor actually calls, so deleting
+a CHECK or its CALL SITE fails here. Pure functions of the request and the
+reply: no port, no process, no Sage. -/
+
+private def replyOK (op : String) (o : Obj) (v : Value) : Bool :=
+  (CasDsl.Sage.expectKind op o v).toOption == some v
+
+private def qm (rows : List (List Rat)) : Value :=
+  .mat rows.length .rat (rows.map (fun r => (r.map Value.rat).toArray)).toArray
+
+/-- `x² − 3x + 2` ascending, monic of degree 2 — the characteristic polynomial
+of the matrix below it. -/
+private def cp2 : Value := .poly .rat #[.rat 2, .rat (-3), .rat 1]
+private def m2 : Obj := .elem (.matrix 2 .rat) (qm [[0, -2], [1, 3]])
+
+#guard replyOK "mat_charpoly_q" m2 cp2
+-- NOT monic: a scalar multiple of the right answer is still a wrong one
+#guard !replyOK "mat_charpoly_q" m2 (.poly .rat #[.rat 4, .rat (-6), .rat 2])
+-- …nor the right DEGREE: an n×n matrix's is n
+#guard !replyOK "mat_charpoly_q" m2 (.poly .rat #[.rat 2, .rat 1])
+#guard !replyOK "mat_charpoly_q" m2 (.poly .rat #[.rat 0, .rat 0, .rat 0, .rat 1])
+-- …and a well-formed value of the wrong KIND is an adapter defect
+#guard !replyOK "mat_charpoly_q" m2 (.rat 2)
+
+/-- SPEC.md's own cubic `x³ − 2x + 1`, ascending, and its companion matrix. -/
+private def cubic : Obj :=
+  .elem (.poly .rat) (.poly .rat #[.rat 1, .rat (-2), .rat 0, .rat 1])
+private def comp3 : Value :=
+  qm [[0, 0, -1], [1, 0, 2], [0, 1, 0]]
+
+#guard replyOK "poly_companion_q" cubic comp3
+-- the TRACE is the sum of the roots, which every companion layout shares
+#guard !replyOK "poly_companion_q" cubic
+  (qm [[1, 0, -1], [1, 0, 2], [0, 1, 0]])
+-- …and the DETERMINANT is their product. The ZERO matrix is why both are
+-- checked: its trace is 0, which is the right one for this cubic
+#guard !replyOK "poly_companion_q" cubic
+  (qm [[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+-- …and the size is the polynomial's own degree
+#guard !replyOK "poly_companion_q" cubic (qm [[0, -1], [1, 0]])
+#guard !replyOK "poly_companion_q" cubic (.rat 2)
+
 #guard valueEq (.cardinal (.finite 3)) (.int 3) == some true
 #guard valueEq (.int 3) (.cardinal (.finite 3)) == some true
 #guard valueEq (.cardinal (.finite 3)) (.int 4) == some false

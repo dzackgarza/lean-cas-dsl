@@ -726,6 +726,15 @@ assert M(vv) = vb
 assert M*vv ≠ vv
 assert M*vv ≠ (5, 12)
 
+/- `and` is a NON-RESERVED keyword, hence an identifier token, so the
+juxtaposition production would eat it as an argument and SPEC.md's ⊆-chain
+would be lost for any conjunct ENDING in a name. Every conjunct below ends in
+one, which is what the corpus's `and` chains — all of them over domain tokens
+— never exercised. -/
+assert vv = vv and vb = vb
+assert M vv = vb and vv = vv
+assert M*vv = vb and M vv = vb and vb = vb
+
 run_cmd do
   let env ← Lean.getEnv
   let m : CasExpr := .ref `M
