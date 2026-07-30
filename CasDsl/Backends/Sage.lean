@@ -97,19 +97,20 @@ private def matQArgs (op : String) : Obj → Except ExecError Json
       return Json.mkObj [("rows", Json.arr rs)]
   | o => .error (offSignature op o)
 
-/-- `gcd` is the one shipped op with an ARGUMENT, and the argument is
+/-- `gcd_int` is the one shipped op with an ARGUMENT, and the argument is
 validated here (this slice validates arguments at execution): the receiver's
-shape is the routed invariant, a second integer is not. -/
+shape is the routed invariant, but neither the argument's shape nor the
+COUNT is — `OpSig` constrains receivers only, so a method declared with the
+wrong arity would reach an executor unchecked. -/
 private def gcdIntArgs (receiver : Obj) (args : Array Obj) : Except ExecError Json :=
-  match receiver with
-  | .elem .int (.int a) =>
-      match (args[0]? : Option Obj) with
-      | some (.elem _ (.int b)) =>
-          .ok (Json.mkObj [("a", toString a), ("b", toString b)])
-      | some o => .error (.badRequest
-          s!"gcd expects an integer argument, got {o.presentation}")
-      | none => .error (.badRequest "gcd expects one integer argument")
-  | o => .error (offSignature "gcd_int" o)
+  match receiver, args with
+  | .elem .int (.int a), #[.elem _ (.int b)] =>
+      .ok (Json.mkObj [("a", toString a), ("b", toString b)])
+  | .elem .int (.int _), #[o] => .error (.badRequest
+      s!"sage op \"gcd_int\" expects an integer argument, got {o.presentation}")
+  | .elem .int (.int _), as => .error (.badRequest
+      s!"sage op \"gcd_int\" takes one argument, got {as.size}")
+  | o, _ => .error (offSignature "gcd_int" o)
 
 private def rootsPolyZArgs : Obj → Except ExecError Json
   | .elem (.poly .int) (.poly _ coeffs) => do
@@ -141,20 +142,20 @@ private def expectKind (op : String) (v : Value) : Except ExecError Value :=
 
 /-- The registered `sage` executor. -/
 def executor : Executor := fun opId receiver args => do
-  -- every op but `gcd_int` takes its receiver alone; a stray argument is a
-  -- defective method declaration, reported rather than silently dropped
-  let nullary (j : Except ExecError Json) : Except ExecError Json :=
-    if args.isEmpty then j
-    else .error (.badRequest s!"sage op {repr opId} takes no arguments, got {args.size}")
+  -- DEFAULT-DENY on arguments: every op takes its receiver alone unless it is
+  -- named here, so an op added later rejects a stray argument instead of
+  -- silently dropping it. A defective method declaration is reported.
+  if !args.isEmpty && opId != "gcd_int" then
+    return .error (.badRequest s!"sage op {repr opId} takes no arguments, got {args.size}")
   let payload : Except ExecError Json :=
     match opId with
-    | "factor_int" => nullary (factorIntArgs receiver)
-    | "factor_poly_q" => nullary (factorPolyQArgs receiver)
-    | "factor_poly_z" => nullary (factorPolyZArgs receiver)
-    | "mat_det_q" => nullary (matQArgs "mat_det_q" receiver)
-    | "mat_inv_q" => nullary (matQArgs "mat_inv_q" receiver)
-    | "roots_poly_z" => nullary (rootsPolyZArgs receiver)
-    | "roots_poly_q" => nullary (rootsPolyQArgs receiver)
+    | "factor_int" => factorIntArgs receiver
+    | "factor_poly_q" => factorPolyQArgs receiver
+    | "factor_poly_z" => factorPolyZArgs receiver
+    | "mat_det_q" => matQArgs "mat_det_q" receiver
+    | "mat_inv_q" => matQArgs "mat_inv_q" receiver
+    | "roots_poly_z" => rootsPolyZArgs receiver
+    | "roots_poly_q" => rootsPolyQArgs receiver
     | "gcd_int" => gcdIntArgs receiver args
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with

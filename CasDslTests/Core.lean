@@ -359,6 +359,18 @@ private def probe (backend : Name) (opId : String) : Route :=
   let r ← execute (probe `native "annihilator_cyclic") (.cyclicModule 12) #[]
   unless r.toOption == some (.idealV #[.int 12] .int) do
     throw <| IO.userError "the native executor did not run through `execute`"
+  -- The sage executor's ARGUMENT contract, which no `OpSig` covers (those
+  -- constrain receivers). Both checks reject before the adapter is reached,
+  -- so nothing here starts Sage.
+  -- default-deny: a nullary op handed an argument REFUSES it, never drops it
+  match ← Sage.executor "factor_int" (.elem .int (.int 360)) #[.elem .int (.int 2)] with
+  | .error (.badRequest _) => pure ()
+  | _ => throw <| IO.userError "a nullary sage op accepted an argument"
+  -- …and the one op that takes an argument checks the count itself
+  match ← Sage.executor "gcd_int" (.elem .int (.int 84))
+      #[.elem .int (.int 30), .elem .int (.int 5)] with
+  | .error (.badRequest _) => pure ()
+  | _ => throw <| IO.userError "gcd_int accepted two arguments"
 
 /-! ## Registries
 

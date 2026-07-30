@@ -373,6 +373,13 @@ private def stdRepresentatives : Array Representative := #[
   ("sample q ∈ ℚ[x]", polyQ),
   ("[1,2;3,4] ∈ Mat₂(ℚ)", mat2Q),
   ("[1,2;3,4] ∈ Mat₂(ℤ/5)", mat2Mod5),
+  -- ℤ[x] AS A SET: countable, with no registered enumeration, so the audit
+  -- carries the `nth` gap
+  ("ℤ[x]", .domainObj (.poly .int)),
+  -- a polynomial over a ring whose roots are not routed: `deg` is structural
+  -- and works, `roots` is the gap
+  ("x + 1 ∈ ℤ/5[x]", .elem (.poly (.mod 5))
+    (Value.mkPoly (.mod 5) #[Value.mkMod 5 1, Value.mkMod 5 1])),
   ("ℤ/4 as ℤ-module", .cyclicModule 4),
   ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none))
 ]

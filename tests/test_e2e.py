@@ -117,6 +117,10 @@ def test_gcd_is_the_prefix_spelling_of_a_method(kernel: Kernel) -> None:
     ok(kc, "assert a.gcd(30) = 6")
     text = ok(kc, "#explain_route a.gcd(30)")
     assert "sage" in text.lower() and "gcd" in text
+    # the diagnostic explains the prefix spelling too — it is the same call,
+    # rewritten by the same function `eval` dispatches on
+    text = ok(kc, "#explain_route gcd(84, 30)")
+    assert "sage" in text.lower() and "gcd" in text
     # …and a name that is neither a binding nor a declared method is still
     # the honest error: the prefix reading never invents an operation
     text = err(kc, "assert nosuchop(84, 30) = 6")
@@ -426,8 +430,9 @@ def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
 
 # -- 11 · a binding always wins ---------------------------------------------
 # Both readings a name can acquire — the prefix spelling of a method call, and
-# the indeterminate of a polynomial ring — apply to UNBOUND names only. These
-# run last because they bind `det` and `x`, which earlier cells need free.
+# the indeterminate of a polynomial ring — apply to UNBOUND names only. The
+# names bound here (`det`, `z`) appear nowhere else, so these tests do not
+# depend on running after anything.
 
 def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
     _, kc = kernel
@@ -441,12 +446,12 @@ def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
 
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     _, kc = kernel
-    # `x` was the indeterminate in `assert x ∈ ℤ[x]` above. Bind the name and
-    # the brackets are an INDEX again — the registered ℤ enumeration
+    # unbound, `z` would be the indeterminate of ℤ[z] exactly as `x` is above.
+    # Bound, the brackets are an INDEX — the registered ℤ enumeration
     # 0, 1, −1, 2, −2, 3 — so no bound name is ever read as an indeterminate.
-    ok(kc, "let x := 5 in ℤ")
-    text = ok(kc, "ℤ[x]")
+    ok(kc, "let z := 5 in ℤ")
+    text = ok(kc, "ℤ[z]")
     assert "'3'" in text
     # …and the membership assertion asks about that integer, not about a ring
-    text = err(kc, "assert x ∈ ℤ[x]")
+    text = err(kc, "assert z ∈ ℤ[z]")
     assert "'contains' is not a method" in text

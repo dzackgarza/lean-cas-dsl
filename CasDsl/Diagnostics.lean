@@ -46,7 +46,8 @@ private structure Explanation where
   outcome : RouteOutcome
 
 private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
-  let .method recvE m _ := e
+  -- the prefix spelling IS a method call, rewritten exactly as `eval` does it
+  let .method recvE m _ := (prefixMethodCall? ctx.isBound ctx.env e).getD e
     | throw (.msg "#explain_route needs a method call, e.g. `#explain_route n.factor()`")
   -- only the receiver is evaluated: explaining a route must not take it
   let some recv := (← eval ctx recvE).obj?

@@ -420,6 +420,22 @@ def indeterminate? (isBound : Name → Bool) : CasExpr → Option Name
   | .ref n => if isBound n then none else some n
   | _ => none
 
+/-- SPEC.md's PREFIX spelling of a method call, as the rewrite it is:
+`gcd(84, 30)` is `84.gcd(30)`.
+
+A name reads this way only when it is UNBOUND and some category declares it
+as a method, so the rewrite can never shadow a binding or invent an
+operation — it turns what would be a "not bound" error into the call the
+mathematician wrote. `eval` dispatches on the rewritten call and
+`#explain_route` explains it, so the diagnostic cannot disagree with what
+runs. -/
+def prefixMethodCall? (isBound : Name → Bool) (env : Environment)
+    : CasExpr → Option CasExpr
+  | .app (.ref n) args =>
+      if isBound n || (methodDecls env n).isEmpty then none
+      else args[0]?.map fun recv => .method recv n (args.extract 1 args.size)
+  | _ => none
+
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
 own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`). Consulted only
 after the bindings, so `let R := …` still shadows the alias — an alias is a
@@ -697,21 +713,10 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           let o ← ofStr (asObjOf r)
           let k ← ofStr (asObjOf (← eval ctx arg))
           callMethod ctx o `nth #[k]
-  | .app f args => do
-      -- SPEC.md writes `gcd(84, 30)`: the PREFIX spelling of a method call,
-      -- `84.gcd(30)`. It reads that way only for a name that is UNBOUND and
-      -- that some category actually declares as a method, so it turns an
-      -- honest "not bound" error into the call the mathematician wrote and
-      -- can never shadow a binding or invent a method.
-      if let .ref n := f then
-        if !ctx.isBound n && !(methodDecls ctx.env n).isEmpty then
-          let some recvE := args[0]?
-            | throw (.msg s!"'{n}' is a method: it needs a receiver, as in \
-`{n}(x, …)`")
-          let recv ← ofStr (asObjOf (← eval ctx recvE))
-          let rest ← (args.extract 1 args.size).mapM fun a => do
-            ofStr (asObjOf (← eval ctx a))
-          return (← callMethod ctx recv n rest)
+  | e@(.app f args) => do
+      -- SPEC.md's prefix spelling of a method call is exactly that call
+      if let some call := prefixMethodCall? ctx.isBound ctx.env e then
+        return (← eval ctx call)
       -- Calling a polynomial evaluates it through the preferred compatible
       -- coefficient map. This is elaboration-inserted coercion, not a
       -- method: no route, no backend, no ceremony (DESIGN.md decision 6).

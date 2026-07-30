@@ -454,7 +454,11 @@ Parser decisions (load-bearing):
 
 - brackets after a domain: `D[ident]` is a polynomial ring in that
   indeterminate; `D[numeral/expr]` is nth-element indexing (matches the
-  plans' `ℤ[3]`; ring adjunction `ℤ[√2]` is out of scope — ceiling).
+  plans' `ℤ[3]`; ring adjunction `ℤ[√2]` is out of scope — ceiling). The
+  ident must be UNBOUND to name an indeterminate: after `let z := 5 in ℤ`,
+  `ℤ[z]` is the index `ℤ[5]`, not a polynomial ring. That is what makes a
+  binding win over both readings a bare name can acquire — this one and the
+  `NAME ∈ D[NAME]` membership below — and it is pinned as such.
 - implicit multiplication is supported only as `numeral ident` (`2x`);
 - a superscript exponent (`t²`, `x³`) is `^` in SPEC.md's other spelling.
   CEILING: one digit — `assert h = hp` is exactly the claim that the two
