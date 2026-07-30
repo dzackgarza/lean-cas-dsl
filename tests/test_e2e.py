@@ -852,6 +852,94 @@ def test_a_domain_is_a_receiver_too(kernel: Kernel) -> None:
     assert "not a method of any category" in text
 
 
+# -- 14 · √2, i, and the complex plane ---------------------------------------
+# SPEC.md §Exact number systems. Everything here is EXACT — `√2`, `2√2`,
+# `2 + 2i` are algebraic numbers in the normal form a + b√d, and no cell in
+# this section produces a decimal. `z` is rebound here (SPEC.md's own name for
+# it); the test that bound it before is above.
+
+def test_exact_algebraic_membership(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert √2 ∈ ℝ")            # SPEC.md, verbatim
+    ok(kc, "assert 2 + 2i ∈ ℂ")        # SPEC.md, verbatim
+    # the memberships that must fail, one per reason
+    assert "false" in err(kc, "assert √2 ∈ ℚ").lower()
+    assert "false" in err(kc, "assert 2 + 2i ∈ ℝ").lower()
+    # the value is a normal form, not a decimal: `√8` IS `2√2`
+    text = ok(kc, "√8")
+    assert "2√2" in text and "2.82" not in text
+    ok(kc, "assert √8 = 2√2")
+    ok(kc, "assert √2 · √2 = 2")
+
+
+def test_the_complex_methods(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let z := 2 + 2i in ℂ")     # SPEC.md, verbatim, and so are the five
+    ok(kc, "assert z.re() = 2")
+    ok(kc, "assert z.im() = 2")
+    ok(kc, "assert z.bar() = 2 - 2i")
+    ok(kc, "assert z · z.bar() = 8")
+    ok(kc, "assert |z| = 2√2")
+    # each one rejects a wrong answer
+    for wrong in ("z.re() = 3", "z.im() = 0", "z.bar() = 2 + 2i",
+                  "z · z.bar() = 4", "|z| = 2"):
+        assert "false" in err(kc, f"assert {wrong}").lower(), wrong
+    # the modulus is exact: |2 + 2i| is 2√2 and never 2.828…
+    text = ok(kc, "|z|")
+    assert "2√2" in text and "2.8" not in text
+    # …and the four are native, not a backend's answer
+    text = ok(kc, "#explain_route z.bar()")
+    assert "native" in text and "ComplexElems" in text
+
+
+def test_the_bars_are_one_spelling_of_two_methods(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a SET is counted, an element of ℝ or ℂ is measured, and a receiver that
+    # is neither gets the ordinary not-a-method error — the bars invent nothing
+    assert "3" in ok(kc, "|{1, 2, 3}|")
+    assert "2√2" in ok(kc, "|z|")
+    text = err(kc, "|3|")
+    assert "'abs' is not a method of any category" in text
+    text = ok(kc, "#explain_route z.abs()")
+    assert "alg_abs" in text
+
+
+def test_the_exact_form_has_a_ceiling_and_says_so(kernel: Kernel) -> None:
+    _, kc = kernel
+    # two different quadratic fields leave the presentation: a loud gap, never
+    # a dropped term and never a decimal
+    text = err(kc, "√2 + √5")
+    assert "gap, not an approximation" in text
+    # …while one field is closed under the arithmetic
+    ok(kc, "assert (1 + √2) · (1 - √2) = -1")
+    # √ of something that is not a rational is refused rather than approximated
+    text = err(kc, "√(1 + √2)")
+    assert "does not approximate" in text
+
+
+def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
+    _, kc = kernel
+    for code, expected in (
+            ("√2", r"$$\sqrt{2}$$"),
+            ("2√2", r"$$2\sqrt{2}$$"),
+            ("2 + 2i", "$$2 + 2i$$"),
+            ("ℂ", r"$$\mathbb{C}$$")):
+        b = bundle(kc, code)
+        assert b["text/latex"] == expected, code
+        assert b["text/latex"].isascii(), code   # no `√`, no `ℂ` in a payload
+        assert "text/plain" in b, code
+    assert bundle(kc, "√2")["text/plain"] == "√2"
+
+
+def test_i_is_a_constant_a_binding_shadows(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `i` names the imaginary unit only while it is UNBOUND, exactly like the
+    # `R` spelling of ℝ. Nothing below this test may read `i` as that constant.
+    ok(kc, "let i := 5 in ℤ")
+    ok(kc, "assert 2 + 2i = 12")
+    ok(kc, "assert i = 5")
+
+
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     _, kc = kernel
     # unbound, `z` would be the indeterminate of ℤ[z] exactly as `x` is above.

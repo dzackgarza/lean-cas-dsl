@@ -70,6 +70,19 @@ inductive Value where
   literal produces, so there is ONE notion of set, not a second one.
   CEILING: these two shapes — an explicit finite list and a progression. -/
   | progV (dom : Domain) (first step : Value) (last? : Option Value)
+  /-- An exact ALGEBRAIC number `a + b√d`: `a` and `b` rational, `d` a
+  SQUARE-FREE integer other than 0 and 1, `b ≠ 0`. The sign of `d` is the
+  imaginary direction — `√(-1)` is `i` — so it also decides which domain the
+  value presents: ℝ when `d > 0`, ℂ when `d < 0`.
+
+  `Value.mkAlg` is the only way to build one: it moves the square part of `d`
+  into `b` and returns the RATIONAL when `b` comes out zero, so `√8` IS `2√2`
+  and a surd is never a rational in disguise. Everything stays exact —
+  nothing here is ever a float.
+
+  CEILING: ONE square root over ℚ. `√2 + √5` leaves this presentation and is
+  a loud refusal, never an approximation and never a dropped term. -/
+  | alg (a b : Rat) (d : Int)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
@@ -166,6 +179,54 @@ private def isZeroCoeff : Value → Bool
   | .mod _ v => v == 0
   | _ => false
 
+/-- A rational as the value presenting it: an integral rational is the
+INTEGER, so a computed result compares with a literal one. -/
+def ofRat (q : Rat) : Value := if q.den == 1 then .int q.num else .rat q
+
+/-- Where trial division stops looking for a square factor of a radicand.
+Past it, certifying square-freeness would need a prime above the cap, so the
+answer is a loud refusal rather than an unnormalized radical — which would
+compare unequal to its own normal form and quietly break `√8 = 2√2`. -/
+def squareFactorCap : Nat := 100000
+
+/-- `d = s²·core` with `core` square-free and `s > 0`: the normal form a
+radical is kept in. The sign rides on `core`, since `√(-4)` is `2i`. -/
+def squareFreePart (d : Int) : Except String (Int × Nat) := Id.run do
+  let sign : Int := if d < 0 then -1 else 1
+  let mut n : Nat := d.natAbs
+  let mut s : Nat := 1
+  let mut k : Nat := 2
+  while k ≤ squareFactorCap && k * k ≤ n do
+    while k * k ≤ n && n % (k * k) == 0 do
+      n := n / (k * k)
+      s := s * k
+    k := k + 1
+  if k * k ≤ n then
+    return .error s!"the square-free part of {d} cannot be decided here: no \
+square factor below {squareFactorCap} remains, and certifying that needs a \
+larger search"
+  return .ok (sign * Int.ofNat n, s)
+
+/-- The one constructor of `Value.alg`: normalize `a + b√d` (see the
+constructor's own docs). A radicand this slice cannot decide the square-free
+part of is a loud failure, never an unnormalized value. -/
+def mkAlg (a b : Rat) (d : Int) : Except String Value := do
+  if b == 0 || d == 0 then return ofRat a
+  if d == 1 then return ofRat (a + b)
+  let (core, s) ← squareFreePart d
+  let b' := b * Rat.ofInt (Int.ofNat s)
+  if core == 1 then return ofRat (a + b') else return .alg a b' core
+
+/-- `√q` for a rational `q`, exactly: `√(n/m)` is `√(nm)/m`, with the square
+part of `nm` moved out front. A NEGATIVE `q` gives the imaginary root, on the
+principal branch the constructor's `√(-1) = i` fixes. -/
+def sqrtOfRat (q : Rat) : Except String Value := do
+  if q == 0 then return .int 0
+  let neg := q.blt 0
+  let a := if neg then -q else q
+  let (core, s) ← squareFreePart (a.num * Int.ofNat a.den)
+  mkAlg 0 (mkRat (Int.ofNat s) a.den) (if neg then -core else core)
+
 /-- Strip trailing zero coefficients (the zero polynomial is `#[]`). -/
 def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
   let mut cs := coeffs
@@ -177,6 +238,28 @@ def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
 always, so a multi-digit exponent does not fall out of the superscript). -/
 private def plainSup (i : Nat) : String := "^" ++ toString i
 private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
+
+/-- A rational, in the one spelling both renderers use: an inline solidus, and
+an integral rational as the integer (`4`, never `4/1`). -/
+private def ratText (q : Rat) : String :=
+  if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
+
+/-- `a + b√d`, given how the caller spells a square root. The two spellings a
+sign gives the radical are the whole difference between the real and the
+imaginary case: `√5`, and `i` / `i√3` for a negative radicand. -/
+private def algText (sqrt : Nat → String) (a b : Rat) (d : Int) : String :=
+  let rad :=
+    if d == -1 then "i"
+    else if d < 0 then "i" ++ sqrt d.natAbs
+    else sqrt d.natAbs
+  let term (q : Rat) : String :=
+    if q == 1 then rad
+    else if q == -1 then "-" ++ rad
+    else if q.den == 1 then toString q.num ++ rad
+    else s!"({ratText q}){rad}"
+  if a == 0 then term b
+  else if b.blt 0 then s!"{ratText a} - {term (-b)}"
+  else s!"{ratText a} + {term b}"
 
 /-- Term-joining for polynomials, shared by the plain and LaTeX renderers:
 the two differ in the exponent spelling and in how a COEFFICIENT is spelled,
@@ -195,10 +278,15 @@ private def renderPolyWith (x : String) (sup : Nat → String)
       if i == 0 then cs
       else
         let p := if i == 1 then x else s!"{x}{sup i}"
+        let plainInt :=
+          cs.all Char.isDigit || (cs.startsWith "-" && (cs.drop 1).all Char.isDigit)
         if cs == "1" then p
         else if cs == "-1" then s!"-{p}"
-        else if cs.contains '/' then s!"({cs}){p}"
-        else s!"{cs}{p}"
+        -- anything that is not a plain integer is parenthesized: `(1/2)x`
+        -- reads as a product rather than as one rational, and `(2 + 2i)x` as
+        -- a product rather than as a sum that swallowed the indeterminate
+        else if plainInt then s!"{cs}{p}"
+        else s!"({cs}){p}"
     terms := term :: terms
   if terms.isEmpty then return "0"
   -- terms is highest-degree first; join with signs
@@ -211,8 +299,9 @@ private def renderPolyWith (x : String) (sup : Nat → String)
 
 partial def render : Value → String
   | .int z => toString z
-  | .rat q => if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
+  | .rat q => ratText q
   | .mod _ v => toString v
+  | .alg a b d => algText (fun n => "√" ++ toString n) a b d
   | .poly _ coeffs => renderPolyWith "x" plainSup (coeffs.map render)
   | .mat _ _ rows =>
       let r := rows.toList.map fun row =>
@@ -271,8 +360,12 @@ set braces. Every string is math-mode LaTeX: no raw Unicode (`ℤ`, `↦`)
 survives here, because MathJax does not typeset it. -/
 partial def latex? : Value → Option String
   | .int z => some (toString z)
-  | .rat q => some (if q.den == 1 then toString q.num else s!"{q.num}/{q.den}")
+  | .rat q => some (ratText q)
   | .mod _ v => some (toString v)
+  -- `\sqrt{2}` and `i` are math mode's own spellings, so an exact algebraic
+  -- value always has a form — the `√` and the raw `i` of the plain rendering
+  -- are what MathJax would not typeset
+  | .alg a b d => some (algText (fun n => "\\sqrt{" ++ toString n ++ "}") a b d)
   | .poly _ coeffs => (coeffs.mapM latex?).map (renderPolyWith "x" latexSup)
   | .mat _ _ rows => do
       let rs ← rows.mapM fun row => do
@@ -309,6 +402,8 @@ partial def latex? : Value → Option String
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
   | .progV _ first step last? => do
       let f ← first.latex?
+      -- `some …`, not `return …`: a `return` inside a match arm returns from
+      -- the ENCLOSING `do`, so it would ship the tail as the whole payload
       let tail ← match last? with
         | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
         | none => some ", \\ldots"
@@ -353,6 +448,8 @@ partial def latex? : SetPresentation → Option String
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
   | .arithProg _ first step last? => do
       let f ← first.latex?
+      -- `some …`, not `return …`: a `return` inside a match arm returns from
+      -- the ENCLOSING `do`, so it would ship the tail as the whole payload
       let tail ← match last? with
         | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
         | none => some ", \\ldots"

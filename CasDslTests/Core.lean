@@ -193,6 +193,63 @@ private def sq1 (binder : Name) : Value :=
 #guard Value.mkPoly .int #[.int 1, .int 0, .int 0] == .poly .int #[.int 1]
 #guard Value.mkPoly .int #[.int 0] == .poly .int #[]
 
+/-! ### Exact algebraic numbers (`a + b√d`)
+
+The normal form is the whole contract: `√8` IS `2√2`, a surd whose rational
+part swallows its radical IS that rational, and two operands must share one
+quadratic field or the operation refuses. Nothing here is ever a float. -/
+
+private def alg (a b : Rat) (d : Int) : Option Value := (Value.mkAlg a b d).toOption
+
+-- the square part of the radicand moves out front, so one value has one form
+#guard alg 0 1 8 == some (.alg 0 2 2)
+#guard alg 0 1 2 == some (.alg 0 1 2)
+#guard alg 0 3 (-4) == some (.alg 0 6 (-1))
+-- …and a radical that disappears leaves the RATIONAL, never a surd in disguise
+#guard alg 3 0 5 == some (.int 3)
+#guard alg 3 2 1 == some (.int 5)
+#guard alg 3 2 0 == some (.int 3)
+#guard alg (mkRat 1 2) 0 5 == some (.rat (mkRat 1 2))
+-- `√q` for a rational, exactly: √8 = 2√2, √(1/2) = (1/2)√2, √(-4) = 2i
+#guard (Value.sqrtOfRat 8).toOption == some (.alg 0 2 2)
+#guard (Value.sqrtOfRat (mkRat 1 2)).toOption == some (.alg 0 (mkRat 1 2) 2)
+#guard (Value.sqrtOfRat (-4)).toOption == some (.alg 0 2 (-1))
+#guard (Value.sqrtOfRat 9).toOption == some (.int 3)
+#guard (Value.sqrtOfRat 0).toOption == some (.int 0)
+#guard (Value.squareFreePart 12).toOption == some (3, 2)
+#guard (Value.squareFreePart (-4)).toOption == some (-1, 2)
+-- a radicand whose square-free part is out of reach is a LOUD refusal, not an
+-- unnormalized value that would compare unequal to its own normal form
+#guard (Value.squareFreePart (1000003 * 1000003 * 5)).toOption == none
+
+-- SPEC.md's `z · z.bar() = 8` and `|z| = 2√2`, as arithmetic
+#guard (scalarMul (.alg 2 2 (-1)) (.alg 2 (-2) (-1))).toOption == some (.int 8)
+#guard (scalarAdd (.int 2) (.alg 0 2 (-1))).toOption == some (.alg 2 2 (-1))
+#guard (scalarSub (.int 2) (.alg 0 2 (-1))).toOption == some (.alg 2 (-2) (-1))
+#guard (scalarNeg (.alg 2 2 (-1))).toOption == some (.alg (-2) (-2) (-1))
+-- √2 · √2 = 2 exactly, which is what makes `q(√2) = 0` an identity
+#guard (scalarMul (.alg 0 1 2) (.alg 0 1 2)).toOption == some (.int 2)
+#guard (scalarPow (.alg 0 1 2) (.int 2)).toOption == some (.int 2)
+#guard (scalarDiv (.int 1) (.alg 0 1 2)).toOption == some (.alg 0 (mkRat 1 2) 2)
+#guard (scalarDiv (.alg 0 2 (-1)) (.alg 0 2 (-1))).toOption == some (.int 1)
+-- two different quadratic fields: a loud gap, never a dropped term
+#guard (scalarAdd (.alg 0 1 2) (.alg 0 1 5)).toOption == none
+#guard (scalarMul (.alg 0 1 2) (.bool true)).toOption == none
+-- a rational rides in every field
+#guard (scalarAdd (.alg 0 1 2) (.rat (mkRat 1 2))).toOption
+  == some (.alg (mkRat 1 2) 1 2)
+
+-- equality is the normal form, and its two `false`s are theorems: a surd is
+-- irrational, and different square-free radicands give different fields
+#guard valueEq (.alg 0 1 2) (.alg 0 1 2) == some true
+#guard valueEq (.alg 0 1 2) (.alg 0 1 5) == some false
+#guard valueEq (.alg 0 1 2) (.int 1) == some false
+#guard valueEq (.int 1) (.alg 0 1 2) == some false
+#guard valueEq (.alg 0 1 2) (.rat (mkRat 3 2)) == some false
+#guard valueEq (.alg 0 1 2) (.bool true) == none
+-- ℂ is not ordered here, and nothing pretends otherwise
+#guard scalarCmp (.alg 0 1 2) (.int 2) == none
+
 #guard domainCard (.mod 6) == some (.finite 6)
 #guard domainCard (.mod 0) == some .countablyInfinite
 #guard domainCard (.poly .rat) == some .countablyInfinite
@@ -408,6 +465,51 @@ private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
 -- …and `2^|A|` exponentiates by it, while `2^ℵ₀` has no exponent here
 #guard (scalarPow (.int 2) (.cardinal (.finite 3))).toOption == some (.int 8)
 #guard (scalarPow (.int 2) (.cardinal .countablyInfinite)).toOption == none
+
+/-! ### SPEC.md §Exact number systems: the complex plane
+
+`z.re()`, `z.im()`, `z.bar()`, `|z|` — structural reads of `a + b√d`, so the
+engine decides them and no backend is asked. A REAL receiver is its own real
+part, has no imaginary part, and is its own conjugate: ℝ ⊆ ℂ, spelled out. -/
+
+private def zC : Obj := .elem .complex (.alg 2 2 (-1))
+private def r2 : Obj := .elem .real (.alg 0 1 2)
+
+#guard out "alg_re" zC #[] == some (.int 2)
+#guard out "alg_im" zC #[] == some (.int 2)
+#guard out "alg_conj" zC #[] == some (.alg 2 (-2) (-1))
+#guard out "alg_abs" zC #[] == some (.alg 0 2 2)
+-- the imaginary part is the REAL coefficient of i, and it carries the radical
+-- when the radicand is not −1: im(2i√3) is 2√3
+#guard out "alg_im" (.elem .complex (.alg 0 2 (-3))) #[] == some (.alg 0 2 3)
+-- a real receiver, in all four
+#guard out "alg_re" r2 #[] == some (.alg 0 1 2)
+#guard out "alg_im" r2 #[] == some (.int 0)
+#guard out "alg_conj" r2 #[] == some (.alg 0 1 2)
+#guard out "alg_abs" r2 #[] == some (.alg 0 1 2)
+-- …and the modulus of a real surd is exact on both sides of zero: the sign of
+-- `a + b√d` is decided by squaring, never by evaluating a decimal
+#guard out "alg_abs" (.elem .real (.alg 0 (-1) 2)) #[] == some (.alg 0 1 2)
+#guard out "alg_abs" (.elem .real (.alg 1 (-1) 2)) #[] == some (.alg (-1) 1 2)
+#guard out "alg_abs" (.elem .real (.alg 2 (-1) 2)) #[] == some (.alg 2 (-1) 2)
+#guard out "alg_abs" (.elem .real (.rat (mkRat (-3) 2))) #[] == some (.rat (mkRat 3 2))
+-- a receiver carrying no exact number is the loud runtime error partiality
+-- inside a routed shape always gets
+#guard out "alg_re" (.elem .real (.bool true)) #[] == none
+#guard out "alg_re" (.domainObj .complex) #[] == none
+
+-- membership in ℝ and ℂ, which is what SPEC.md's `√2 ∈ ℝ` and `2 + 2i ∈ ℂ` ask
+#guard out "contains" (.domainObj .real) #[r2] == some (.bool true)
+#guard out "contains" (.domainObj .complex) #[zC] == some (.bool true)
+-- …and the two that must NOT hold: a non-real surd is not in ℝ, and no surd
+-- is rational
+#guard out "contains" (.domainObj .real) #[zC] == some (.bool false)
+#guard out "contains" (.domainObj .rat) #[r2] == some (.bool false)
+#guard out "contains" (.domainObj .complex) #[.elem .int (.int 3)] == some (.bool true)
+#guard out "contains" (.domainObj .real) #[.elem (.mod 5) (Value.mkMod 5 2)]
+  == some (.bool false)
+-- ℝ and ℂ are uncountable, and this slice says so rather than answering ℵ₀
+#guard out "cardinality" (.domainObj .complex) #[] == none
 
 #guard out "annihilator_cyclic" (.cyclicModule 12) #[] ==
   some (.idealV #[.int 12] .int)

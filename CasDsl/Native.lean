@@ -44,6 +44,50 @@ def promote : Value → Value → Option (Value × Value)
   | a@(.bool _), b@(.bool _) => some (a, b)
   | _, _ => none
 
+/-! ### Exact algebraic arithmetic (`a + b√d`)
+
+Closed inside ONE quadratic field over ℚ: two operands must name the same
+square-free radicand, and `√2 + √5` — which leaves this presentation — is a
+loud refusal rather than a value silently reinterpreted or approximated.
+Everything is exact `Rat` arithmetic; there is no float anywhere near it. -/
+
+/-- The radicand an operand names, if it is a surd at all. -/
+private def radicand? : Value → Option Int
+  | .alg _ _ d => some d
+  | _ => none
+
+/-- `(a, b)` with `v = a + b√d`. A rational rides in every quadratic field, so
+it reads as `a + 0√d` for whichever one the other operand named. -/
+private def surdParts? (d : Int) : Value → Option (Rat × Rat)
+  | .int z => some (Rat.ofInt z, 0)
+  | .rat q => some (q, 0)
+  | .alg a b d' => if d' == d then some (a, b) else none
+  | _ => none
+
+/-- Both operands, read in the quadratic field one of them names. -/
+private def surdPair (x y : Value) : Option ((Rat × Rat) × (Rat × Rat) × Int) := do
+  let d ← radicand? x <|> radicand? y
+  let px ← surdParts? d x
+  let py ← surdParts? d y
+  return (px, py, d)
+
+/-- Run `f` on both operands in the quadratic field they share.
+
+`none` = NEITHER operand is a surd, so the caller's ordinary scalar path
+applies; `some (.error …)` = one of them is and they do not share a field, or
+the other operand is not a number here. -/
+private def onSurds (what : String) (x y : Value)
+    (f : Rat × Rat → Rat × Rat → Int → Except String Value)
+    : Option (Except String Value) :=
+  match radicand? x, radicand? y with
+  | none, none => none
+  | _, _ =>
+    match surdPair x y with
+    | some (px, py, d) => some (f px py d)
+    | none => some (.error s!"{what} of {x.render} and {y.render} leaves the \
+exact form a + b√d this slice presents (one square root over ℚ, and both \
+operands in it): that is a gap, not an approximation")
+
 /-- A cardinal against an integer. SPEC.md writes `|A| = 3` and `|E| = ℵ₀`,
 so a FINITE cardinal answers to the natural number counting it; ℵ₀ answers
 to no integer, and a negative integer counts nothing — both are `false`, not
@@ -61,6 +105,13 @@ their bodies agree — the binder is a BOUND NAME, so `t ↦ t² + 1` and
 the two spellings of one body through the polynomial normal form. -/
 def valueEq (a b : Value) : Option Bool :=
   match a, b with
+  -- An exact algebraic value equals only the same normal form. Both `false`s
+  -- are theorems about that form rather than a comparison this slice ducked:
+  -- `b ≠ 0` with a square-free `d ∉ {0, 1}` keeps a surd out of ℚ, and two
+  -- different square-free radicands generate different quadratic fields.
+  | .alg a b d, .alg a' b' d' => some (a == a' && b == b' && d == d')
+  | .alg .., .int _ | .alg .., .rat _
+  | .int _, .alg .. | .rat _, .alg .. => some false
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
       else (promote fb gb).map fun (x, y) => x == y
@@ -87,14 +138,21 @@ private def binOp (op : String) (fi : Int → Int → Int) (fr : Rat → Rat →
   | some (.mod n x, .mod _ y) => .ok (Value.mkMod n (fi (Int.ofNat x) (Int.ofNat y)))
   | _ => .error s!"{op} is not defined on {a.render} and {b.render}"
 
-def scalarAdd : Value → Value → Except String Value :=
-  binOp "addition" (· + ·) (· + ·)
+def scalarAdd (a b : Value) : Except String Value :=
+  (onSurds "the sum" a b fun (xa, xb) (ya, yb) d =>
+    Value.mkAlg (xa + ya) (xb + yb) d).getD
+    (binOp "addition" (· + ·) (· + ·) a b)
 
-def scalarSub : Value → Value → Except String Value :=
-  binOp "subtraction" (· - ·) (· - ·)
+def scalarSub (a b : Value) : Except String Value :=
+  (onSurds "the difference" a b fun (xa, xb) (ya, yb) d =>
+    Value.mkAlg (xa - ya) (xb - yb) d).getD
+    (binOp "subtraction" (· - ·) (· - ·) a b)
 
-def scalarMul : Value → Value → Except String Value :=
-  binOp "multiplication" (· * ·) (· * ·)
+/-- `(xa + xb√d)(ya + yb√d) = (xa·ya + xb·yb·d) + (xa·yb + xb·ya)√d`. -/
+def scalarMul (a b : Value) : Except String Value :=
+  (onSurds "the product" a b fun (xa, xb) (ya, yb) d =>
+    Value.mkAlg (xa * ya + xb * yb * Rat.ofInt d) (xa * yb + xb * ya) d).getD
+    (binOp "multiplication" (· * ·) (· * ·) a b)
 
 /-- Unary; the arity of negation is one, so this deviates from the sibling
 binary signatures on purpose. -/
@@ -102,6 +160,7 @@ def scalarNeg : Value → Except String Value
   | .int z => .ok (.int (-z))
   | .rat q => .ok (.rat (-q))
   | .mod n v => .ok (Value.mkMod n (-(Int.ofNat v)))
+  | .alg a b d => Value.mkAlg (-a) (-b) d
   | v => .error s!"negation is not defined on {v.render}"
 
 private def exponent? : Value → Option Nat
@@ -129,11 +188,21 @@ def scalarPow (a e : Value) : Except String Value :=
 result is a `.rat` even when it is integral. Division in `ℤ/n` is not
 provided (that ring is a field only for prime `n`) and fails loudly. -/
 def scalarDiv (a b : Value) : Except String Value :=
-  match toRat? a, toRat? b with
-  | some x, some y =>
-      if y == 0 then .error "division by zero"
-      else .ok (.rat (x / y))
-  | _, _ => .error s!"division is not defined on {a.render} and {b.render}"
+  -- in a quadratic field, division is multiplication by the conjugate over
+  -- the NORM `ya² − yb²d`, which vanishes only for the zero divisor (`d` is
+  -- not a square, so `ya² = yb²d` forces both to be zero)
+  match onSurds "the quotient" a b fun (xa, xb) (ya, yb) d =>
+      let n := ya * ya - yb * yb * Rat.ofInt d
+      if n == 0 then .error "division by zero"
+      else Value.mkAlg ((xa * ya - xb * yb * Rat.ofInt d) / n)
+        ((xb * ya - xa * yb) / n) d with
+  | some r => r
+  | none =>
+    match toRat? a, toRat? b with
+    | some x, some y =>
+        if y == 0 then .error "division by zero"
+        else .ok (.rat (x / y))
+    | _, _ => .error s!"division is not defined on {a.render} and {b.render}"
 
 /-! ## Presentation helpers -/
 
@@ -276,9 +345,10 @@ private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
   -- systems). Deciding membership does not claim the domain is enumerated:
   -- the reals this slice cannot present are still elements of ℝ, and a value
   -- it CAN present is placed exactly
+  | .real, .alg _ _ d => some (d > 0)
   | .real, .int _ | .real, .rat _ => some true
   | .real, _ => some false
-  | .complex, .int _ | .complex, .rat _ => some true
+  | .complex, .int _ | .complex, .rat _ | .complex, .alg .. => some true
   | .complex, _ => some false
   | .poly c, .poly _ cs => cs.foldlM (init := true) fun acc v =>
       (inDomain? c v).map (acc && ·)
@@ -397,11 +467,6 @@ is not expressible here")
       | d => .error (.badRequest
           s!"the native backend cannot expand {d.render} ({n} elements) for comparison")
 
-/-- A rational back as the value presenting it: an integral rational is the
-integer, so a normalized element list compares with a literal one. -/
-private def ofRat (q : Rat) : Value :=
-  if q.den == 1 then .int q.num else .rat q
-
 private def normalizeProg (first step : Value) (last? : Option Value)
     : Except ExecError SetNormal := do
   let some f := toRat? first
@@ -418,7 +483,7 @@ private def normalizeProg (first step : Value) (last? : Option Value)
 {expansionCap} for comparison")
       else
         return .fin <| sortDedup <| (Array.range n).map fun i =>
-          ofRat (f + Rat.ofInt (Int.ofNat i) * s)
+          Value.ofRat (f + Rat.ofInt (Int.ofNat i) * s)
 
 private def normalizeSet : Obj → Except ExecError SetNormal
   | .setObj (.finite _ elems) =>
@@ -466,7 +531,7 @@ private def normalSubset : SetNormal → SetNormal → Except ExecError Bool
             s!"the native backend has no membership test for {d.render}")
   | .fin a, .prog f s =>
       a.foldlM (init := true) fun acc x => do
-        match ← progContains (ofRat f) (ofRat s) none x with
+        match ← progContains (Value.ofRat f) (Value.ofRat s) none x with
         | .bool m => return acc && m
         | v => .error (.badRequest s!"membership returned {v.render}")
   -- {f + k·s : k ≥ 0} ⊆ d, decided from the two rationals presenting it
@@ -493,7 +558,7 @@ they are the same progression")
   | .dom d, .prog f s =>
       .error (.badRequest
         s!"the native backend cannot decide whether {d.render} lies inside the \
-progression starting {(ofRat f).render} with step {(ofRat s).render}")
+progression starting {(Value.ofRat f).render} with step {(Value.ofRat s).render}")
 
 /-! ## Operations -/
 
@@ -534,6 +599,31 @@ private def binarySetOp (op : String) (o : Obj) (args : Array Obj)
 {d.render} and {d'.render}")
   else
     return .setV (dedupValues (combine a b)) d
+
+/-- The receiver of a complex-plane method: an element carrying an exact
+number. Anything else inside the routed shape (a matrix entry domain that is
+ℝ, say) is the loud runtime error partiality always gets here. -/
+private def algElem (op : String) : Obj → Except ExecError Value
+  | .elem _ v@(.int _) | .elem _ v@(.rat _) | .elem _ v@(.alg ..) => .ok v
+  | .elem _ v => .error (.badRequest
+      s!"{op} expects an exact number, got {v.render}")
+  | o => .error (.badRequest
+      s!"{op} expects an element receiver, got {o.presentation}")
+
+/-- Normalization can refuse (a radicand whose square-free part is out of
+reach), and that refusal is this backend's own loud failure. -/
+private def algValue (r : Except String Value) : Except ExecError Value :=
+  Except.mapError ExecError.badRequest r
+
+/-- Is the REAL surd `a + b√d` (`d > 0`) nonnegative? Exact: with `a` and `b`
+of opposite signs the comparison squares to `a² ⋛ b²d`, and the two cannot be
+equal (`d` is not a square). -/
+private def nonNegSurd (a b : Rat) (d : Int) : Bool :=
+  let n := a * a - b * b * Rat.ofInt d
+  if !a.blt 0 && !b.blt 0 then true
+  else if a.blt 0 && b.blt 0 then false
+  else if !a.blt 0 then !n.blt 0        -- a ≥ 0 > b: positive iff a² ≥ b²d
+  else !Rat.blt 0 n                     -- b > 0 > a: positive iff a² ≤ b²d
 
 private def natIndex (args : Array Obj) : Except ExecError Nat :=
   match (args[0]? : Option Obj) with
@@ -637,6 +727,38 @@ linear map on ℕ (an arithmetic progression). The image of {body.render} on \
 {src.render} is neither, so it is a gap rather than a guess")
       | o => .error (.badRequest
           s!"func_image expects a function receiver, got {o.presentation}")
+  -- SPEC.md §Exact number systems: `z.re()`, `z.im()`, `z.bar()`, `|z|`.
+  -- All four are structural reads of the exact form `a + b√d` — the engine
+  -- genuinely decides them, so they are native and no backend is asked.
+  -- A REAL receiver (`d > 0`, or a rational) is its own real part, has no
+  -- imaginary part, and is its own conjugate: ℝ ⊆ ℂ, spelled out.
+  | "alg_re" => do
+      match ← algElem "alg_re" o with
+      | v@(.alg a _ d) => return if d < 0 then Value.ofRat a else v
+      | v => return v
+  | "alg_im" => do
+      match ← algElem "alg_im" o with
+      -- `√d = i√(-d)` for `d < 0`, so the imaginary part is `b√(-d)` — `b`
+      -- itself only when `d = -1`, which `mkAlg` normalizes to the rational
+      | .alg _ b d => if d < 0 then algValue (Value.mkAlg 0 b (-d)) else return .int 0
+      | _ => return .int 0
+  | "alg_conj" => do
+      match ← algElem "alg_conj" o with
+      | v@(.alg a b d) => if d < 0 then algValue (Value.mkAlg a (-b) d) else return v
+      | v => return v
+  | "alg_abs" => do
+      match ← algElem "alg_abs" o with
+      | v@(.alg a b d) =>
+          if d < 0 then
+            -- |a + b√d|² = a² − b²d is rational, and its square root is the
+            -- exact `2√2` SPEC.md writes for |2 + 2i| — never a decimal
+            algValue (Value.sqrtOfRat (a * a - b * b * Rat.ofInt d))
+          else if nonNegSurd a b d then return v
+          else algValue (Value.mkAlg (-a) (-b) d)
+      | v =>
+          let some q := toRat? v
+            | .error (.badRequest s!"{v.render} has no modulus here")
+          return Value.ofRat (if q.blt 0 then -q else q)
   | "annihilator_cyclic" =>
       match o with
       | .cyclicModule n => .ok (.idealV #[.int (Int.ofNat n)] .int)
@@ -674,6 +796,15 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "set_diff", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_symdiff", accepts := #[.finiteSet] },
   { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] },
+  -- the complex plane, on the two domains whose elements are exact numbers
+  { backend := `native, opId := "alg_re",
+    accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },
+  { backend := `native, opId := "alg_im",
+    accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },
+  { backend := `native, opId := "alg_conj",
+    accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },
+  { backend := `native, opId := "alg_abs",
+    accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },
   { backend := `native, opId := "func_image", accepts := #[.elemOf .anyFuncs] }
 ]
 

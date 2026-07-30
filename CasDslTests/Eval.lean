@@ -475,6 +475,52 @@ assert ℕ ⊆ ℤ
 assert ℕ ⊆ ℂ
 assert ℤ ⊆ ℝ
 
+/-! ## SPEC.md §Exact number systems: √2, i, and the complex plane
+
+Every value here is EXACT. `√2`, `i`, `2√2` and `2 + 2i` are algebraic
+numbers in the normal form `a + b√d`, never decimals — approximation is a
+separate operation on an exact element (SPEC.md's `map √2 to ℝ/O(ε)`, #7) and
+nothing in this section performs one. -/
+
+assert √2 ∈ ℝ
+assert 2 + 2i ∈ ℂ
+-- …and the two memberships that must fail: √2 is irrational, and a number
+-- with an imaginary part is not real
+assert √2 ∉ ℚ
+assert 2 + 2i ∉ ℝ
+
+let z := 2 + 2i in ℂ
+assert z.re() = 2
+assert z.im() = 2
+assert z.bar() = 2 - 2i
+assert z · z.bar() = 8
+assert |z| = 2√2
+
+-- each of those with a wrong answer, which the surface can state as `≠`
+assert z.re() ≠ 3
+assert z.im() ≠ 0
+assert z.bar() ≠ 2 + 2i
+assert z · z.bar() ≠ 4
+assert |z| ≠ 2
+
+-- the normal form is one value with one spelling: √8 IS 2√2, and the square
+-- root of a square is the integer
+assert √8 = 2√2
+assert √9 = 3
+assert √2 · √2 = 2
+-- a real surd is its own real part and its own conjugate — ℝ ⊆ ℂ, spelled
+-- out. (A method call takes a NAME receiver, so the surd is bound first.)
+let s2 := √2 in ℝ
+assert s2.re() = √2
+assert s2.im() = 0
+assert s2.bar() = √2
+assert |s2| = √2
+-- and `i` is a CONSTANT, not a binding: a `let` shadows it exactly as one
+-- shadows the `R` spelling of ℝ. (Bound last in this file on purpose —
+-- nothing below reads `i`.)
+let i := 5 in ℤ
+assert 2 + 2i = 12
+
 /-! ## SPEC.md's Finite sets section, verbatim
 
 Every line of `SPEC.md` §Finite sets runs here, so a false assertion fails

@@ -73,6 +73,14 @@ inductive CasExpr where
   | arrow (src tgt : CasExpr)
   /-- `f ∘ g`. -/
   | comp (f g : CasExpr)
+  /-- `√e` — the exact square root of a rational (SPEC.md's `√2`, `2√2`). -/
+  | sqrt (e : CasExpr)
+  /-- `|e|` — SPEC.md's bars, ONE spelling of "the size of e" whose METHOD
+  depends on the receiver: `cardinality` for a set, `abs` for an element of
+  ℝ or ℂ. Both are ordinary category methods; the bars invent nothing, so
+  `|3|` is still the honest "not a method of any category this object
+  belongs to". -/
+  | magnitude (e : CasExpr)
   /-- `A × B` and `𝒫(A)` / `2^A`. Both DENOTE a set rather than compute one
   (their elements are pairs and sets, which no `Value` presents), so they
   build a presentation exactly as a set literal does — no method, no route. -/
@@ -97,6 +105,9 @@ def valueDom? : Value → Option Domain
   | .int _ => some .int
   | .rat _ => some .rat
   | .mod n _ => some (.mod n)
+  -- the SIGN of the radicand is what a surd presents: `√2` is a real number
+  -- and `2 + 2i` is not
+  | .alg _ _ d => some (if d < 0 then .complex else .real)
   | .poly c _ => some (.poly c)
   | .mat n e _ => some (.matrix n e)
   | .func s t _ _ => some (.funcs s t)
@@ -581,6 +592,14 @@ def prefixMethodCall? (isBound : Name → Bool) (env : Environment)
       else args[0]?.map fun recv => .method recv n (args.extract 1 args.size)
   | _ => none
 
+/-- The names SPEC.md writes for a CONSTANT rather than for a binding: `i`,
+the imaginary unit (`2 + 2i`). Consulted after the bindings and after the
+domain aliases, so `let i := 3 in ℤ` shadows it exactly as `let R := …`
+shadows ℝ — a constant is a spelling, not a reserved word. -/
+def constantValue? : Name → Option Value
+  | `i => some (.alg 0 1 (-1))
+  | _ => none
+
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
 own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`), `CC` is ℂ.
 
@@ -902,6 +921,8 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       | none =>
         if let some d := domainAlias? n then
           return .obj (.domainObj d)
+        if let some v := constantValue? n then
+          return Denote.ofValue v
         -- Inside a call's argument the callee's binder names the
         -- indeterminate of the ring its body lives in, which is what makes
         -- SPEC.md's `h(-t) = h(t)` and `(f ∘ g)(t) = t⁶` identities. The
@@ -963,6 +984,18 @@ no other reading of an exponent over {s.render}")
       match x.asSet? with
       | some s => return .obj (.setObj (.powerset s))
       | none => throw (.msg s!"𝒫(…) needs a set, got {x.presentation}")
+  | .sqrt e => do
+      let v ← ofStr (asValueOf (← eval ctx e) "√")
+      let some q := Native.toRat? v
+        | throw (.msg s!"√ presents the exact square root of a rational; \
+{v.render} is not one, and this slice does not approximate it")
+      return Denote.ofValue (← ofStr (Value.sqrtOfRat q))
+  | .magnitude e => do
+      -- the bars are a SPELLING: which method they name is the receiver's
+      -- business, and both answers are ordinary category methods
+      let r ← eval ctx e
+      let o ← ofStr (asObjOf r)
+      callMethod ctx o (if r.asSet?.isSome then `cardinality else `abs) #[]
   | .cmp op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))

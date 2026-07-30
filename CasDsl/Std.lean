@@ -67,6 +67,9 @@ the progression `{0, 2, 4, ...}`. -/
 def doubling : Obj :=
   .elem (.funcs .nat .nat) (.func .nat .nat `n (Value.mkPoly .int #[.int 0, .int 2]))
 
+/-- `2 + 2i ∈ ℂ` — SPEC.md §Exact number systems' `z`. -/
+def z2plus2i : Obj := .elem .complex (.alg 2 2 (-1))
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -115,7 +118,15 @@ a UFD)" },
   -- computability question, so it is a method, and a method needs a category
   -- to own it. Nothing else about functions became registry data.
   { name := `FunctionElems,
-    doc := "elements of a function domain src → tgt; params (that domain)" }
+    doc := "elements of a function domain src → tgt; params (that domain)" },
+  -- The complex plane's own operations. ℝ ⊆ ℂ, so an element of ℝ inhabits
+  -- this category too — its real part is itself, its imaginary part is 0, and
+  -- it is its own conjugate. No parent edge: re/im/conjugation/modulus are
+  -- structure of ℂ and of nothing above it in this graph.
+  { name := `ComplexElems,
+    doc := "elements of ℂ, or of a subfield of it that this slice presents \
+(ℝ): the real and imaginary parts, conjugation and the modulus; params (the \
+domain the element was presented in)" }
 ]
 
 run_cmd stdCategories.forM registerCategory!
@@ -199,6 +210,22 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
   { id := `symdiff, receiver := `Sets, arity := 1,
     argDoc := "another set", resultDoc := "a set",
     doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" },
+  -- SPEC.md §Exact number systems' complex methods. `bar` and `|·|` are the
+  -- surface's own spellings of conjugation and the modulus.
+  { id := `re, receiver := `ComplexElems,
+    resultDoc := "a real number",
+    doc := "the real part" },
+  { id := `im, receiver := `ComplexElems,
+    resultDoc := "a real number",
+    doc := "the imaginary part — the REAL coefficient of i, so `(2 + 2i).im()` \
+is 2 and not 2i" },
+  { id := `bar, receiver := `ComplexElems,
+    resultDoc := "an element of the same domain",
+    doc := "complex conjugation; a real number is its own conjugate" },
+  { id := `abs, receiver := `ComplexElems,
+    resultDoc := "a nonnegative real number",
+    doc := "the modulus |z| — the bars are its surface spelling, and on a real \
+number it is the absolute value" },
   { id := `image, receiver := `FunctionElems,
     resultDoc := "the set of values the function takes on its source",
     doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
@@ -248,6 +275,13 @@ private def stdProfileRules : Array ProfileRule := #[
     slots := #[.matSize, .matEntry] },
   -- a function element carries the arrow it was declared over
   { pattern := .elemOf .anyFuncs, cat := `FunctionElems, slots := #[.elemDom] },
+  -- elements of ℂ, and of ℝ inside it. Registered one domain at a time for
+  -- the reason ℤ/n is: membership is stated at its true strength, and the
+  -- ones NOT registered here (an integer, a rational) are a missed
+  -- specificity rather than a claim — `3.re()` is the honest "not a method of
+  -- any category this object belongs to", and `|3|` with it.
+  { pattern := .elemOf (.exact .complex), cat := `ComplexElems, slots := #[.elemDom] },
+  { pattern := .elemOf (.exact .real), cat := `ComplexElems, slots := #[.elemDom] },
   -- ℕ, ℤ and ℚ as objects, and the same domains used as sets
   { pattern := .domainIs (.exact .nat), cat := `CountableSets, slots := #[.setDom] },
   { pattern := .domainSetOf (.exact .nat), cat := `CountableSets, slots := #[.setDom] },
@@ -456,6 +490,20 @@ private def stdRoutes : Array Route := #[
     opId := "set_intersect" },
   { method := `diff, pattern := .finiteSet, backend := `native, opId := "set_diff" },
   { method := `symdiff, pattern := .finiteSet, backend := `native, opId := "set_symdiff" },
+  -- the complex plane: structural reads of the exact form `a + b√d`, which
+  -- the engine genuinely decides, so they are native and exact
+  { method := `re, pattern := .elemOf (.exact .complex), backend := `native, opId := "alg_re" },
+  { method := `re, pattern := .elemOf (.exact .real), backend := `native, opId := "alg_re" },
+  { method := `im, pattern := .elemOf (.exact .complex), backend := `native, opId := "alg_im" },
+  { method := `im, pattern := .elemOf (.exact .real), backend := `native, opId := "alg_im" },
+  { method := `bar, pattern := .elemOf (.exact .complex), backend := `native,
+    opId := "alg_conj" },
+  { method := `bar, pattern := .elemOf (.exact .real), backend := `native,
+    opId := "alg_conj" },
+  { method := `abs, pattern := .elemOf (.exact .complex), backend := `native,
+    opId := "alg_abs" },
+  { method := `abs, pattern := .elemOf (.exact .real), backend := `native,
+    opId := "alg_abs" },
   -- the image: presented for a constant map, and for a linear map on ℕ (an
   -- arithmetic progression). Anything else is a loud refusal at execution —
   -- a partiality WITHIN the routed shape, like the zero polynomial's degree
@@ -494,7 +542,12 @@ private def stdRepresentatives : Array Representative := #[
   -- list (the binary operations, and `nth`)
   ("{1,2,3} × {1,2,3}", .setObj (.product finSet123 finSet123)),
   ("𝒫({1,2,3})", .setObj (.powerset finSet123)),
-  ("n ↦ 2n ∈ ℕ → ℕ", doubling)
+  ("n ↦ 2n ∈ ℕ → ℕ", doubling),
+  -- the complex plane: an element (whose four methods route) and ℂ itself,
+  -- which is a set — an UNCOUNTABLE one, so the binary set operations gap on
+  -- it exactly as they do on ℤ
+  ("2 + 2i ∈ ℂ", z2plus2i),
+  ("ℂ", .domainObj .complex)
 ]
 
 run_cmd stdRepresentatives.forM registerRepresentative!
@@ -663,6 +716,23 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env doubling `image [] `native
   -- …and it does not leak to the values a function takes
   expectNotApplicable env (.elem .int (.int 360)) `image
+  -- SPEC.md §Exact number systems: the complex plane's four methods, on ℂ and
+  -- on the ℝ inside it, natively — they are structural reads of `a + b√d`
+  for m in [`re, `im, `bar, `abs] do
+    expectRouted env z2plus2i m [] `native
+    expectRouted env (.elem .real (.alg 0 1 2)) m [] `native
+  -- …and they do NOT reach the domains whose membership in ℂ is a missed
+  -- specificity rather than a registration: `3.re()` and `|3|` say so
+  expectNotApplicable env (.elem .int (.int 3)) `re
+  expectNotApplicable env (.elem .int (.int 3)) `abs
+  -- ℝ and ℂ are sets, and uncountable ones: membership routes, indexing is
+  -- not even applicable (`nth` is declared on CountableSets)
+  -- …and `Sets` is where they enter, so `contains` is declared DIRECTLY on
+  -- their profile entry rather than inherited (ℤ reaches it through
+  -- CountableSets ≤ Sets, and that difference is the point of recording via)
+  expectRouted env (.domainObj .complex) `contains [] `native
+  expectRouted env (.domainObj .real) `contains [] `native
+  expectNotApplicable env (.domainObj .real) `nth
 
 run_cmd acceptanceProofs (← getEnv)
 

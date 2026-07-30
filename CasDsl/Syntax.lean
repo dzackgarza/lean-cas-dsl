@@ -76,10 +76,18 @@ syntax (name := casSetElem) casTerm : casSetItem
 syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
 syntax:max (name := casApply) casTerm:max noWs "(" casTerm,* ")" : casTerm
 
-/-- `|A|` — SPEC.md's cardinality bars, which ARE the `cardinality` method:
-the bars are a spelling, and a receiver that is not a set gets the ordinary
-"not a method of any category this object belongs to" error. -/
+/-- `|A|`, `|z|` — SPEC.md's bars, which ARE a method: `cardinality` for a
+set, `abs` for an element of ℝ or ℂ. The bars are a spelling, so a receiver
+neither category covers gets the ordinary "not a method of any category this
+object belongs to" error rather than a third notion of size. -/
 syntax:max (name := casCard) "|" casTerm "|" : casTerm
+
+/-- SPEC.md's exact square root — `√2`, and `2√2` as the implicit product it
+writes. The product is its OWN production for the reason `2x` is: implicit
+multiplication here is only ever a numeral against one atom, so a line
+starting with `√` can never be swallowed by the line above it. -/
+syntax:max (name := casSqrt) "√" noWs casTerm:max : casTerm
+syntax:max (name := casSqrtMul) num noWs "√" noWs casTerm:max : casTerm
 
 /-- `𝒫(A)`. SPEC.md's other spelling, `2^A`, is the ordinary `^` production
 read against a set (`Eval`). -/
@@ -95,6 +103,8 @@ syntax:80 (name := casPow) casTerm:81 " ^ " casTerm:80 : casTerm
 syntax:75 (name := casComp) casTerm:75 " ∘ " casTerm:76 : casTerm
 syntax:75 (name := casNeg) "-" casTerm:75 : casTerm
 syntax:70 (name := casMul) casTerm:70 " * " casTerm:71 : casTerm
+/-- SPEC.md's other spelling of multiplication (`z · z.bar() = 8`). -/
+syntax:70 (name := casCdot) casTerm:70 " · " casTerm:71 : casTerm
 syntax:70 (name := casDiv) casTerm:70 " / " casTerm:71 : casTerm
 syntax:70 (name := casInter) casTerm:70 " ∩ " casTerm:71 : casTerm
 syntax:70 (name := casProd) casTerm:70 " × " casTerm:71 : casTerm
@@ -192,7 +202,10 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casNeg => return .neg (← toExpr stx[1])
   | ``casAdd => return .bin .add (← toExpr stx[0]) (← toExpr stx[2])
   | ``casSub => return .bin .sub (← toExpr stx[0]) (← toExpr stx[2])
-  | ``casMul => return .bin .mul (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casMul | ``casCdot => return .bin .mul (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casSqrt => return .sqrt (← toExpr stx[1])
+  | ``casSqrtMul =>
+      return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.sqrt (← toExpr stx[2]))
   | ``casDiv => return .bin .div (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr stx[2])
   | ``casSupPow => do
@@ -208,7 +221,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casInter => return .method (← toExpr stx[0]) `intersect #[← toExpr stx[2]]
   | ``casSetDiff => return .method (← toExpr stx[0]) `diff #[← toExpr stx[2]]
   | ``casSymDiff => return .method (← toExpr stx[0]) `symdiff #[← toExpr stx[2]]
-  | ``casCard => return .method (← toExpr stx[1]) `cardinality #[]
+  | ``casCard => return .magnitude (← toExpr stx[1])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
   | ``casCmp => return .cmp (← cmpOp stx[1]) (← toExpr stx[0]) (← toExpr stx[2])

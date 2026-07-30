@@ -37,6 +37,44 @@ open CasDsl
 #guard Value.latex? (.rat (mkRat 4 1)) == some "4"
 #guard Value.latex? (.mod 5 3) == some "3"
 
+/-! ### Exact algebraic numbers
+
+`\sqrt{}` and `i` are math mode's own spellings, so a surd always HAS a form —
+the `√` of the plain rendering is exactly what MathJax would not typeset. A
+rational coefficient is parenthesized as in a polynomial, and the imaginary
+unit is written `i` rather than `\sqrt{-1}`. -/
+
+#guard Domain.latex .complex == "\\mathbb{C}"
+#guard Value.latex? (.alg 0 1 2) == some "\\sqrt{2}"
+#guard Value.latex? (.alg 0 2 2) == some "2\\sqrt{2}"
+#guard Value.latex? (.alg 0 1 (-1)) == some "i"
+#guard Value.latex? (.alg 0 (-1) (-1)) == some "-i"
+#guard Value.latex? (.alg 2 2 (-1)) == some "2 + 2i"
+#guard Value.latex? (.alg 2 (-2) (-1)) == some "2 - 2i"
+#guard Value.latex? (.alg 0 2 (-3)) == some "2i\\sqrt{3}"
+-- SPEC.md's ℂ[x] factorization writes the roots (−1 ± √5)/2, which this
+-- presentation spells with the inline solidus its rationals already use
+#guard Value.latex? (.alg (mkRat (-1) 2) (mkRat 1 2) 5)
+  == some "-1/2 + (1/2)\\sqrt{5}"
+-- (that every payload is ASCII math mode — no `√`, no `ℂ` — is asserted over
+-- the real bundles in tests/test_e2e.py, where `str.isascii` lives)
+
+-- the plain renderings, in the same order
+#guard Value.render (.alg 0 1 2) == "√2"
+#guard Value.render (.alg 0 2 2) == "2√2"
+#guard Value.render (.alg 2 2 (-1)) == "2 + 2i"
+#guard Value.render (.alg 2 (-2) (-1)) == "2 - 2i"
+#guard Value.render (.alg 0 2 (-3)) == "2i√3"
+#guard Value.render (.alg (mkRat (-1) 2) (mkRat 1 2) 5) == "-1/2 + (1/2)√5"
+
+-- a coefficient that is not a plain integer is parenthesized, so a surd
+-- coefficient reads as a product rather than as a sum that swallowed the
+-- indeterminate
+#guard Value.render (.poly .complex #[.int 1, .alg 2 2 (-1)]) == "(2 + 2i)x + 1"
+#guard Value.latex? (.poly .complex #[.int 1, .alg 2 2 (-1)])
+  == some "(2 + 2i)x + 1"
+#guard Value.render (.poly .real #[.int 0, .alg 0 2 2]) == "(2√2)x"
+
 /-! ## Polynomials
 
 The issue's showcase shape, plus the cases that break a naive renderer: a

@@ -42,6 +42,12 @@ partial def valueToJson : Value → Json
   | .rat q =>
       Json.mkObj [("t", "rat"), ("num", toString q.num), ("den", toString q.den)]
   | .mod n v => Json.mkObj [("t", "mod"), ("n", toJson n), ("v", toJson v)]
+  -- `a + b√d`, with the radicand a decimal string like every other magnitude
+  -- on this wire (`a` and `b` ride in the ordinary rational form)
+  | .alg a b d =>
+      Json.mkObj
+        [("t", "alg"), ("a", valueToJson (.rat a)), ("b", valueToJson (.rat b)),
+         ("d", Json.str (toString d))]
   | .poly c coeffs =>
       Json.mkObj
         [("t", "poly"), ("coeff", domainToJson c),
@@ -135,6 +141,14 @@ partial def valueFromJson (j : Json) : Except String Value := do
       else
         return .rat (mkRat num den.toNat)
   | "mod" => return .mod (← natField j "n") (← natField j "v")
+  | "alg" =>
+      -- decoded THROUGH the normalizing constructor: a frame carrying `√8` or
+      -- a zero coefficient becomes the value it denotes, so a decoded surd
+      -- obeys the same invariant a computed one does
+      match ← valueFromJson (← field j "a"), ← valueFromJson (← field j "b") with
+      | .rat a, .rat b => Value.mkAlg a b (← intField j "d")
+      | a, b => .error s!"an algebraic value needs rational parts, got \
+{a.render} and {b.render} in {j.compress}"
   | "poly" =>
       let coeff ← domainFromJson (← field j "coeff")
       let coeffs ← (← arrField j "coeffs").mapM valueFromJson

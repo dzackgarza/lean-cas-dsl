@@ -144,6 +144,56 @@ not a general decision procedure.
 rather than being given `ℵ₀`. Giving ℝ and ℂ inhabitants does not change
 that — see §Exact number systems.
 
+## Exact number systems (`SPEC.md` §Exact number systems, issue #24)
+
+ℝ and ℂ are INHABITED, by exact algebraic numbers in the normal form
+`a + b√d` — `Value.alg` with `a`, `b` rational, `d` a square-free integer
+other than 0 and 1, and `b ≠ 0`. `√(-1)` is `i`, so the SIGN of the radicand
+decides which domain a value presents (ℝ for `d > 0`, ℂ for `d < 0`), and
+`Value.mkAlg` is the only constructor: it moves the square part of `d` into
+`b` and returns the RATIONAL when `b` vanishes. That is what makes `√8`
+literally `2√2` and keeps a surd out of ℚ, which in turn is what lets
+equality, membership and set operations decide on these values at all.
+
+- **Everything here is exact, and nothing in this section approximates.**
+  `√2`, `i`, `2√2`, `(-1+√5)/2` are algebraic numbers, not decimals; the
+  arithmetic is `Rat` arithmetic inside one quadratic field
+  (`Native.scalarAdd`/`Mul`/`Div` grow surd arms, and `√2 · √2 = 2` exactly,
+  which is what makes `q(√2) = 0` an identity rather than a sample).
+  Numerical approximation is a separate OPERATION on an exact element —
+  `SPEC.md`'s `map √2 to ℝ/O(1/10^{10})`, issue #7 — and it is not here.
+- **CEILING: one square root over ℚ.** `√2 + √5` leaves the presentation and
+  is a loud refusal naming itself as a gap ("that is a gap, not an
+  approximation"); `√` of anything but a rational is refused the same way.
+  A second ceiling sits under the first: `Value.squareFactorCap` bounds the
+  trial division that certifies a square-free radicand, and a radicand past
+  it is refused rather than left unnormalized — an unnormalized radical would
+  compare unequal to its own normal form and quietly break `√8 = 2√2`.
+- **`re`, `im`, `bar` and `abs` are NATIVE.** They are structural reads of
+  `a + b√d` that the engine genuinely decides (`im` carries the radical:
+  `im(2i√3)` is `2√3`, and the modulus of a Gaussian rational is the exact
+  `√(a² - b²d)`), so nothing is asked of a backend. A REAL receiver is its
+  own real part, has no imaginary part and is its own conjugate — ℝ ⊆ ℂ,
+  spelled out — and the sign of a real surd is decided by SQUARING, never by
+  evaluating a decimal. They are declared on `ComplexElems`, whose profile
+  rules name ℂ and ℝ one domain at a time (the convention `ℤ/n` already
+  follows): `3.re()` is therefore the honest "not a method of any category
+  this object belongs to", a missed specificity rather than a claim.
+- **`|·|` is ONE spelling of two methods** — `cardinality` for a set, `abs`
+  for an element — chosen by the receiver in `Eval`, both ordinary category
+  methods resolved and routed like any other. `|3|` stays the not-a-method
+  error it always was; only the method named in it changed.
+- **ℝ and ℂ are `Sets` and nothing narrower.** Both are uncountable:
+  `domainCard` still cannot state their size (`ℝ.cardinality()` says so), and
+  `nth` — declared on `CountableSets` — does not reach them at all. What they
+  gained is MEMBERSHIP: `√2 ∈ ℝ`, `2 + 2i ∈ ℂ`, `√2 ∉ ℚ` are decided from the
+  presentation. A domain used as a method RECEIVER arrives as a name, not as
+  its own token, which is why `Eval.domainAlias?` carries the Unicode
+  spellings (§Surface).
+- **`i` is a CONSTANT, not a binding** (`Eval.constantValue?`), consulted
+  after the session bindings and the domain aliases — so `let i := 5 in ℤ`
+  shadows it exactly as `let R := …` shadows ℝ, and `2 + 2i` is then 12.
+
 ## Functions (`SPEC.md` §Functions, issue #25)
 
 A function is `binder ↦ body` in an ascribed `src → tgt`. Both surface
@@ -174,13 +224,18 @@ Decisions, all load-bearing:
   coefficient-wise into `D[x]`, so `k(t)` is `t + 2` in ℤ/5 rather than an
   unreduced ℤ polynomial escaping its own domain. Only `.real` passes
   through unchecked, having no `Value`s to check;
-- **`ℝ` is an ascription tag.** It names where a function is declared and
-  carries no analysis semantics at this stage: no `Value` presents it, no
-  canonical map lands in it, and every operation needing its elements fails
-  honestly — including `atDomain`, which is exactly why an ℝ arrow checks
-  nothing. `R` and `RR` are registered spellings of it
-  (`Eval.domainAlias?`), consulted after the bindings so `let R := …` still
-  shadows them;
+- **an ℝ arrow still checks nothing, and the reason CHANGED.** It used to be
+  that no `Value` presented ℝ; §Exact number systems ended that, and
+  `atDomain`'s `.real` pass-through is kept deliberately anyway. A check
+  there would buy the rejection of values no canonical map carries into ℝ (a
+  residue class, a matrix) and would cost the SYMBOLIC path its ring:
+  `coerceValue (.poly .real)` re-tags a ℤ[x] function expression as ℝ[x], and
+  `SPEC.md`'s `(f ∘ g)(t) = t⁶` would then be stated in a different ring from
+  its right-hand side and compare unequal. Disclosed residue, unchanged by
+  this unit: an ℝ-declared function applied to a residue class computes in
+  ℤ/n, and says so in its result's presentation. `R` and `RR` are registered
+  spellings of ℝ, `CC` of ℂ (`Eval.domainAlias?`), consulted after the
+  bindings so `let R := …` still shadows them;
 - **a callee's binder is in scope only where it is called.** Inside a call's
   argument, and across an assertion that contains such a call
   (`Eval.calledBinder?`), the binder names the indeterminate of
@@ -230,9 +285,12 @@ router, except the two that construct rather than compute.
   cannot be stated — never `ℵ₀`. A FINITE powerset has the other ceiling:
   `powersetExpCap` (2^4096) is where `2^n` stops being a number worth
   materializing, and `|𝒫(ℤ/5000)|` says so rather than hanging.
-- **`|·|` is the `cardinality` method and `⊆` is `subset`**; the bars and the
-  symbol are spellings, so `|3|` is the ordinary "not a method of any
-  category this object belongs to" error rather than a second notion of size.
+- **`|·|` names a method and `⊆` is `subset`**; the bars and the symbol are
+  spellings, not operations of their own. Which method the bars name is the
+  receiver's business — `cardinality` for a set, `abs` for an element of ℝ or
+  ℂ (§Exact number systems) — so `|3|` is still the ordinary "not a method of
+  any category this object belongs to" error rather than a third notion of
+  size.
   Likewise `X ∈ 𝒫(A)` and `X ⊆ A` are ONE decision procedure with two
   spellings: `contains` on a powerset receiver is the inclusion judgment.
 - **`let A := {1,2,3} in 𝒫(ℤ)` is set membership**, and both SPEC.md
@@ -576,7 +634,9 @@ Typed values on the wire (bignums as strings):
 `{"t":"int","v":"360"}`, `{"t":"rat","num":"1","den":"2"}`,
 `{"t":"poly","coeffs":[rat…]}`, `{"t":"mat","rows":[[rat…]…]}`,
 `{"t":"factorization","unit":…,"factors":[[value,mult]…]}`,
-`{"t":"set","elems":[value…],"dom":domain}`.
+`{"t":"set","elems":[value…],"dom":domain}`,
+`{"t":"alg","a":rat,"b":rat,"d":"5"}` (the exact `a + b√d`, decoded THROUGH
+`Value.mkAlg` so a frame carrying `√8` becomes the `2√2` it denotes).
 
 Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `gcd_int`,
 `roots_poly_z`, `roots_poly_q`, `mat_det_q`, `mat_inv_q`.
@@ -597,6 +657,8 @@ let p(x) := x^3 - 2x + 1 in ℤ[x]          -- univariate polynomial binding
 let q := map p to ℚ[x]                    -- explicit coercion along ℤ ⊆ ℚ
 let X := {0, 1, 2, ...}                   -- progression set literals
 let M := [1, 2; 3, 4] in Mat₂(ℚ)          -- matrix literal
+let z := 2 + 2i in ℂ                      -- exact algebraic value; `i` is a constant
+√2   2√2   z.re()  z.im()  z.bar()  |z|   -- one square root over ℚ, exactly
 let h := t ↦ t² + 1 in ℝ → ℝ              -- function, lambda spelling
 let f(t) = t^2 in RR->RR                  -- …and the f(t) spelling, ASCII
 let e: ℕ → ℕ := n ↦ 2n                    -- leading-ascription spelling
@@ -711,6 +773,7 @@ Conventions (one spelling each, chosen once):
 | factorization | `\cdot` between every factor; polynomial factors parenthesized as in plain text |
 | sets | `\{ \}`, progressions `\{0, 2, \ldots\}`, powerset `\mathcal{P}(A)`, product `\times` |
 | cardinals, functions | `\aleph_0`, `t \mapsto t^{2} + 1` |
+| exact algebraic numbers | `\sqrt{2}`, `2\sqrt{2}`, `2 + 2i`, `-1/2 + (1/2)\sqrt{5}` — `i` rather than `\sqrt{-1}`, and a non-integer coefficient parenthesized as in a polynomial |
 | ideals | generators in parentheses — `(4)`, `(2, x)` |
 | domains | `\mathbb{Z}[x]`, `\mathrm{Mat}_{2}(\mathbb{Q})`, and the arrow `\mathbb{R} \to \mathbb{R}` |
 
@@ -769,6 +832,7 @@ SmallModules ≤ Modules            (the plan's inheritance demo)
 MatrixElems                       (dets/inverses; params (n, entry))
 PolynomialElems                   (deg/roots; params (the ring))
 FunctionElems                     (image; params (the arrow src → tgt))
+ComplexElems                      (re/im/bar/abs; params (ℂ or the ℝ in it))
 ```
 
 Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
@@ -781,7 +845,8 @@ CountableSets) correctly does not reach them, while membership does.
 
 Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`
 on PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on
-Modules; `image` on FunctionElems; `nth`, `cardinality`, `contains`,
+Modules; `image` on FunctionElems; `re`, `im`, `bar`, `abs` on ComplexElems;
+`nth`, `cardinality`, `contains`,
 `set_eq`, `subset`, `union`, `intersect`, `diff`, `symdiff` on the set
 hierarchy. Inheritance is
 exercised twice for real: `factor` reaches integers via `EuclideanElems ≤
@@ -881,6 +946,8 @@ Formerly open questions, now user-decided — none was silently resolved:
 
 ## Ceilings (deliberate, documented)
 
+- exact algebraic numbers are `a + b√d` — ONE square root over ℚ, and a
+  square-free radicand certified only up to `squareFactorCap`;
 - set equality by presentation normalization only;
 - argument validation at execution, not declaration;
 - receiver transport is ONE hop, with no result lifting and no
