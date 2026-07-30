@@ -4,17 +4,33 @@ Elaboration-time tests for the surface layer.
 Two halves: `#guard` over the evaluator's PURE core (polynomial arithmetic,
 canonical embeddings, progression construction, the `D[x]`-vs-`e[k]`
 disambiguation, the `Matₙ` spelling), and a parser/command smoke that
-exercises every command form which needs no registry — arithmetic
-assertions, bindings, ascriptions, the polynomial binder, `map`, and a bare
-expression cell — plus the proof that an ordinary Lean command in a cell
-still elaborates as Lean.
+exercises every command form — arithmetic assertions, bindings, ascriptions,
+the polynomial binder, `map`, and a bare expression cell — plus the proof
+that an ordinary Lean command in a cell still elaborates as Lean.
+
+The coercions here are REGISTRY-driven (`CasDsl/Category.lean`'s
+`EmbedRule`), so the pure guards below carry their own rule array and the
+command smoke needs the prelude's registrations: hence the import of the
+standard universe. `CasDslTests/Embed.lean` owns the claims about the
+registry itself.
 -/
 import CasDsl.Diagnostics
+import CasDsl.Std
 
 namespace CasDslTests
 
 open Lean (Name)
 open CasDsl
+
+/-- The canonical injections of the standard universe, spelled out so every
+guard below is a pure claim about the coercion layer: polynomial arithmetic
+joins coefficient domains through these rules too. -/
+private def embeds : Array EmbedRule := #[
+  { src := .exact .nat, tgt := .exact .int, op := .identity },
+  { src := .exact .nat, tgt := .exact .rat, op := .intToRat },
+  { src := .exact .int, tgt := .exact .rat, op := .intToRat },
+  { src := .exact .int, tgt := .anyMod, op := .intToMod }
+]
 
 /-! ## Polynomial arithmetic -/
 
@@ -34,9 +50,9 @@ private def x : Array Value := #[.int 0, .int 1]
 /-- The notebook's `x^3 - 2x + 1`, evaluated as the surface evaluator does. -/
 private def cubic : Except String Value := do
   let xv := Value.mkPoly .int x
-  let x3 ← valueBin .pow xv (.int 3)
-  let lin ← valueBin .mul (.int 2) xv
-  valueBin .add (← valueBin .sub x3 lin) (.int 1)
+  let x3 ← valueBin embeds .pow xv (.int 3)
+  let lin ← valueBin embeds .mul (.int 2) xv
+  valueBin embeds .add (← valueBin embeds .sub x3 lin) (.int 1)
 
 #guard cubic.toOption
   == some (Value.poly .int #[.int 1, .int (-2), .int 0, .int 1])
@@ -46,39 +62,47 @@ private def cubic : Except String Value := do
 #guard (do Native.polyEval .int #[.int 1, .int (-2), .int 0, .int 1] (.int 1)).toOption
   == some (Value.int 0)
 
-/-! ## Canonical embeddings (`map … to`, and ascription) -/
+/-! ## Canonical embeddings (`map … to`, and ascription)
 
-#guard (coerceValue .rat (.int 3)).toOption == some (Value.rat 3)
-#guard (coerceValue (.mod 5) (.int 7)).toOption == some (Value.mod 5 2)
-#guard (coerceValue (.poly .rat) (.poly .int #[.int 1, .int 2])).toOption
+The rules are spelled out here rather than read from the registry, so these
+stay pure `#guard`s over the coercion layer. That the prelude registers the
+same ones — and that an EMPTY registry makes these coercions fail — is
+`CasDslTests/Embed.lean`'s business. -/
+
+#guard (coerceValue embeds .rat (.int 3)).toOption == some (Value.rat 3)
+#guard (coerceValue embeds (.mod 5) (.int 7)).toOption == some (Value.mod 5 2)
+#guard (coerceValue embeds (.poly .rat) (.poly .int #[.int 1, .int 2])).toOption
   == some (Value.poly .rat #[.rat 1, .rat 2])
-#guard (coerceValue (.poly .int) (.int 4)).toOption
+#guard (coerceValue embeds (.poly .int) (.int 4)).toOption
   == some (Value.poly .int #[.int 4])
-#guard (coerceValue (.matrix 2 .rat) (.mat 2 .int #[#[.int 1, .int 2], #[.int 3, .int 4]])).toOption
+#guard (coerceValue embeds (.matrix 2 .rat)
+    (.mat 2 .int #[#[.int 1, .int 2], #[.int 3, .int 4]])).toOption
   == some (Value.mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]])
 -- ℚ → ℤ is not an embedding, and is not invented
-#guard (coerceValue .int (.rat (1/2))).toOption == none
-#guard (coerceValue .nat (.int (-1))).toOption == none
+#guard (coerceValue embeds .int (.rat (1/2))).toOption == none
+#guard (coerceValue embeds .nat (.int (-1))).toOption == none
 
-#guard domJoin .int .rat == some .rat
-#guard domJoin (.poly .int) (.poly .rat) == some (.poly .rat)
-#guard domJoin (.mod 4) (.mod 5) == none
+#guard (domJoin embeds .int .rat).toOption == some (some .rat)
+#guard (domJoin embeds (.poly .int) (.poly .rat)).toOption
+  == some (some (.poly .rat))
+-- `some none` = no canonical join; a bare `none` would be a REGISTRY DEFECT
+#guard (domJoin embeds (.mod 4) (.mod 5)).toOption == some none
 
 /-! ## Progression literals: the step is inferred, and then CHECKED -/
 
-#guard (progressionOf #[.int 0, .int 1, .int 2] none).toOption
+#guard (progressionOf embeds #[.int 0, .int 1, .int 2] none).toOption
   == some (SetPresentation.arithProg .int (.int 0) (.int 1) none)
-#guard (progressionOf #[.int 0, .int 2, .int 4] none).toOption
+#guard (progressionOf embeds #[.int 0, .int 2, .int 4] none).toOption
   == some (SetPresentation.arithProg .int (.int 0) (.int 2) none)
 -- one leading element means step 1 (the Haskell `{a, ...}` reading)
-#guard (progressionOf #[.int 5] none).toOption
+#guard (progressionOf embeds #[.int 5] none).toOption
   == some (SetPresentation.arithProg .int (.int 5) (.int 1) none)
-#guard (progressionOf #[.int 1, .int 3] (some (.int 9))).toOption
+#guard (progressionOf embeds #[.int 1, .int 3] (some (.int 9))).toOption
   == some (SetPresentation.arithProg .int (.int 1) (.int 2) (some (.int 9)))
 -- a literal that is not a progression is a mistake, not a set to guess at
-#guard (progressionOf #[.int 0, .int 2, .int 5] none).toOption == none
+#guard (progressionOf embeds #[.int 0, .int 2, .int 5] none).toOption == none
 
-#guard (elemsDomain #[.int 1, .rat (1/2)]).toOption == some .rat
+#guard (elemsDomain embeds #[.int 1, .rat (1/2)]).toOption == some .rat
 
 /-! ## `D[x]` versus `e[k]`, and the `Matₙ` spelling -/
 
@@ -125,8 +149,9 @@ private def qGap : CapabilityGap := {
 
 /-! ## Command smoke
 
-Everything below needs no registry: scalar equality is `Native.valueEq`,
-and bindings, ascriptions and `map` are pure evaluation. -/
+Scalar equality is `Native.valueEq`; the coercions in `map p to ℚ[x]` and in
+the Mat₂(ℚ) ascription come from the imported standard universe's registered
+embeddings. -/
 
 assert 2 + 3 = 5
 assert 2 + 3 = 0 in ℤ/5

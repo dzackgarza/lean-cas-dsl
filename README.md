@@ -42,8 +42,8 @@ Three invariants, enforced end to end:
 The worked proof is
 [`notebooks/categorical-cas.ipynb`](notebooks/categorical-cas.ipynb) — a
 pedagogical notebook covering trusted assertions (`assert 2 + 3 = 0 in
-ℤ/5`), Sage-backed factorization over ℤ and ℚ[x], the `ℤ ⊆ ℚ` preferred
-embedding (`map p to ℚ[x]`), calling a polynomial as a function
+ℤ/5`), Sage-backed factorization over ℤ and ℚ[x], the registered `ℤ ⊆ ℚ`
+preferred embedding (`map p to ℚ[x]`), calling a polynomial as a function
 (`q(1)`), exact matrix inverses over ℚ, inherited `annihilator`,
 progression sets with Haskell-style ellipses, countable indexing
 (`ℤ[3]` under the registered `0, 1, −1, 2, −2, …` choice), and a final

@@ -56,6 +56,9 @@ inductive DomainPattern where
   | exact (d : Domain)
   | polyOver (coeff : DomainPattern)
   | matrixOver (entry : DomainPattern)
+  /-- `ℤ/n` for EVERY modulus `n` — what makes `ℤ → ℤ/n` one embedding rule
+  instead of one per modulus. -/
+  | anyMod
   | anyDom
   deriving BEq, Repr, Inhabited
 
@@ -79,6 +82,8 @@ partial def accepts : DomainPattern → Domain → Bool
   | .polyOver _, _ => false
   | .matrixOver p, .matrix _ e => p.accepts e
   | .matrixOver _, _ => false
+  | .anyMod, .mod _ => true
+  | .anyMod, _ => false
   | .anyDom, _ => true
 
 end DomainPattern
@@ -196,6 +201,68 @@ structure FunctorDecl where
   objMap : ObjMap
   doc : String := ""
   deriving BEq, Repr, Inhabited
+
+/-! ## Preferred embeddings (the coercion layer)
+
+`map e to D`, a mixed-domain join, the element promotion of a set or matrix
+literal and a domain ascription all insert THE canonical injection of one
+domain into another. *Which* injections exist is registry data, exactly like
+profile rules and functors: the prelude registers `ℕ ⊆ ℤ ⊆ ℚ` and
+`ℤ → ℤ/n`, and no engine module knows those particular facts.
+
+`ℤ ⊆ ℚ` in the surface is therefore sugar for the registered preferred
+structure-preserving map (anti-drift record: mathematician-facing coercions
+are inserted by elaboration). An unregistered pair has no coercion — an
+honest error, never widened to a "reasonable" conversion. -/
+
+/-- The value transform of a registered embedding, as registry data.
+
+CEILING (the same shape as `ObjMap`'s and `DomainPattern`'s): an embedding
+whose transform is not one of these constructors adds a constructor here.
+That is a deliberate, visible edit to the engine's vocabulary rather than a
+closure smuggled into the environment; nothing infers a transform from the
+two domains. -/
+inductive EmbedOp where
+  /-- The value representation is unchanged — `ℕ ⊆ ℤ`, whose elements are
+  already carried as `Value.int`. -/
+  | identity
+  | intToRat
+  /-- An integer names its residue class in the target `ℤ/n`. -/
+  | intToMod
+  deriving BEq, Repr, Inhabited
+
+namespace EmbedOp
+
+/-- Apply the transform. `tgt` is the CONCRETE target domain: the pattern
+that matched need not determine it (`intToMod` needs the modulus). A value
+the transform is not defined on means the RULE was registered for a source it
+cannot carry — a defective registration, reported as such. -/
+def apply : EmbedOp → Domain → Value → Except String Value
+  | .identity, _, v => .ok v
+  | .intToRat, _, .int z => .ok (.rat (Rat.ofInt z))
+  | .intToMod, .mod n, .int z => .ok (Value.mkMod n z)
+  | op, tgt, v => .error s!"the registered embedding op {repr op} does not apply to \
+{v.render} → {tgt.render}: that registration is defective"
+
+end EmbedOp
+
+/-- A registered preferred embedding: THE canonical injection from every
+domain matching `src` into every domain matching `tgt`.
+
+Patterns on both sides is what keeps `ℤ → ℤ/n` a single rule. A rule is a
+mathematical claim (this map exists and is the preferred one), so nothing
+here names a backend, and a non-injective or non-structure-preserving map is
+not registrable data — it is a registration mistake. -/
+structure EmbedRule where
+  src : DomainPattern
+  tgt : DomainPattern
+  op : EmbedOp
+  doc : String := ""
+  deriving BEq, Repr, Inhabited
+
+/-- Does this rule carry the concrete `srcDom` into the concrete `tgtDom`? -/
+def EmbedRule.applies (r : EmbedRule) (srcDom tgtDom : Domain) : Bool :=
+  r.src.accepts srcDom && r.tgt.accepts tgtDom
 
 /-- Execution-layer failure (distinct from `ResolveError` and
 `CapabilityGap`: by the time an `ExecError` exists, the method was

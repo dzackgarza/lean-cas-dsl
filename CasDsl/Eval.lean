@@ -12,8 +12,9 @@ Two disciplines are load-bearing here:
 - **A pure core.** Arithmetic, coefficient embeddings, progression
   construction and the `D[x]`-vs-`e[k]` disambiguation are `Except String`
   functions over plain data, so they are `#guard`-testable without an
-  `Environment` and without `IO`. `eval` adds registry reads and executor
-  calls, nothing else.
+  `Environment` and without `IO` — the embedding registry reaches them as a
+  threaded `Array EmbedRule`, not as an environment read. `eval` adds registry
+  reads and executor calls, nothing else.
 -/
 import CasDsl.Native
 
@@ -70,54 +71,140 @@ def valueDom? : Value → Option Domain
   | .mat n e _ => some (.matrix n e)
   | _ => none
 
-/-- The preferred common domain of two presentations: `ℕ ⊆ ℤ ⊆ ℚ`, and the
-same inclusion applied under `poly`/`matrix`. `none` = no canonical
-embedding of either into the other. -/
-partial def domJoin : Domain → Domain → Option Domain
-  | .nat, .nat => some .nat
-  | .nat, .int | .int, .nat | .int, .int => some .int
-  | .nat, .rat | .rat, .nat | .int, .rat | .rat, .int | .rat, .rat => some .rat
-  | .mod n, .mod m => if n == m then some (.mod n) else none
-  | .poly a, .poly b => (domJoin a b).map .poly
+/-! ### The coercion layer
+
+Every coercion the surface inserts (`map e to D`, a mixed-domain join, the
+element promotion of a set or matrix literal, a domain ascription) asks the
+EMBEDDING REGISTRY which canonical injections exist. The engine keeps only
+the cases that are not injections between two domains at all — they are
+listed, with their reasons, on `coerceValue` below.
+
+The registry is threaded as a plain `Array EmbedRule` rather than read from
+the `Environment` here, so the whole layer stays `#guard`-testable; `eval`
+passes `embedRules ctx.env`. -/
+
+/-- Mathematician-facing rendering of a pattern. Defined here because the
+embedding-registry defect messages name the two rules that clashed; the
+diagnostics below share it. -/
+partial def renderDomainPattern : DomainPattern → String
+  | .exact d => d.render
+  | .polyOver p => s!"{renderDomainPattern p}[x]"
+  | .matrixOver p => s!"Mat(_, {renderDomainPattern p})"
+  | .anyMod => "ℤ/_"
+  | .anyDom => "_"
+
+def renderEmbedRule (r : EmbedRule) : String :=
+  let base := s!"{renderDomainPattern r.src} → {renderDomainPattern r.tgt} \
+(op {repr r.op})"
+  if r.doc.isEmpty then base else s!"{base}: {r.doc}"
+
+/-- The registered preferred embedding of `srcDom` into `tgtDom`.
+
+`.ok none` = none is registered (the caller reports that in its own words);
+`.ok (some r)` = exactly one. MORE than one applicable rule is a defective
+registration and is reported with both rules named — the same discipline as
+the resolver's `ambiguous`: a coercion is never chosen by registration
+order, array position, or specificity invented here. -/
+def embedRuleFor (rules : Array EmbedRule) (srcDom tgtDom : Domain)
+    : Except String (Option EmbedRule) :=
+  let ms := rules.filter (·.applies srcDom tgtDom)
+  match ms[0]?, ms[1]?, ms.size with
+  | some r, _, 1 => .ok (some r)
+  | none, _, _ => .ok none
+  | some r1, some r2, n =>
+      .error s!"the embedding registry is defective: {n} registered rules give a \
+preferred embedding of {srcDom.render} into {tgtDom.render} — \
+{renderEmbedRule r1} and {renderEmbedRule r2}. A coercion does not rank them; \
+unregister one."
+  | _, _, _ => .ok none
+
+/-- The preferred common domain of two presentations: the one the other
+embeds into, per the registered embeddings (`ℕ ⊆ ℤ ⊆ ℚ` as the prelude
+registers them), and the same judgment applied under `poly`/`matrix`.
+
+`.ok none` = neither embeds into the other, so there is no canonical join —
+the caller words that failure. `.error` = a DEFECTIVE registration: both
+directions are registered, and a join between two domains that embed into
+each other has no preferred answer. It is surfaced, never resolved by
+picking a side. -/
+partial def domJoin (rules : Array EmbedRule)
+    : Domain → Domain → Except String (Option Domain)
+  | .poly a, .poly b => do return (← domJoin rules a b).map .poly
   | .matrix n a, .matrix m b =>
-      if n == m then (domJoin a b).map (Domain.matrix n) else none
-  | _, _ => none
+      if n == m then do return (← domJoin rules a b).map (Domain.matrix n)
+      else return none
+  | a, b =>
+      if a == b then return some a
+      else do
+        match ← embedRuleFor rules a b, ← embedRuleFor rules b a with
+        | some ab, some ba =>
+            .error s!"the embedding registry is defective: {a.render} and \
+{b.render} embed into each other ({renderEmbedRule ab} and \
+{renderEmbedRule ba}), so neither is the preferred common domain. Unregister one."
+        | some _, none => return some b
+        | none, some _ => return some a
+        | none, none => return none
 
 /-- The canonical embedding of a value into `d`, and the ONLY coercion the
-surface performs. It is deliberately a small closed set — `ℤ ⊆ ℚ`, an
-integer naming its residue class in `ℤ/n`, the coefficient- and
-entry-wise images of those, and a scalar as a constant polynomial.
+surface performs. The BASE CASE — one scalar domain into another — is
+decided by the registered embeddings: exactly one applicable rule applies,
+none is an honest error, several is a loud registration defect.
 
-CEILING: the preferred embeddings are code-level. Registry-driven
-embeddings (a `Functor`/`Embedding` registry the notebook could extend) are
-the documented future extension; nothing here may be widened by adding a
-"reasonable" conversion — a missing embedding is an honest error. -/
-partial def coerceValue (d : Domain) (v : Value) : Except String Value :=
+Four cases stay ENGINE-LEVEL, each because it is not a canonical injection
+between two domains and so cannot be registry data:
+
+- **structural congruence** under `poly`/`matrix` (and a scalar as a constant
+  polynomial): an embedding of coefficient/entry domains INDUCES the one on
+  polynomials and matrices, so registering `ℤ[x] → ℚ[x]` separately would be
+  a second place to state `ℤ ⊆ ℚ` — and a second place to get it wrong. The
+  recursion bottoms out in the registry-driven base case;
+- **identity**, when the value already presents the target: the identity of a
+  domain is not a preferred choice the prelude gets to make (and `ℤ/n → ℤ/n`
+  would need one rule per modulus);
+- **`ℕ ← ℤ`**, which is a CHECK, not an injection: the map is partial, so
+  this is the membership judgment "is this integer in ℕ?" and a registry of
+  canonical injections must not be able to state it;
+- **`ℤ/m` vs `ℤ/n`**, where the reported fact is the ABSENCE of a canonical
+  map between two different rings — no rule can express that.
+
+Nothing here may be widened by adding a "reasonable" conversion: an
+unregistered pair is an honest error. -/
+partial def coerceValue (rules : Array EmbedRule) (d : Domain) (v : Value)
+    : Except String Value :=
   match d, v with
-  | .int, .int _ => .ok v
-  | .nat, .int z =>
-      if z ≥ 0 then .ok v
-      else .error s!"{z} is not an element of ℕ"
-  | .rat, .int z => .ok (.rat (Rat.ofInt z))
-  | .rat, .rat _ => .ok v
-  | .mod n, .int z => .ok (Value.mkMod n z)
-  | .mod n, .mod m _ =>
-      if n == m then .ok v
-      else .error s!"ℤ/{m} and ℤ/{n} are different rings"
-  | .poly c, .poly _ cs => do return Value.mkPoly c (← cs.mapM (coerceValue c))
-  | .poly c, s => do return Value.mkPoly c #[← coerceValue c s]
+  -- structural congruence
+  | .poly c, .poly _ cs => do return Value.mkPoly c (← cs.mapM (coerceValue rules c))
+  | .poly c, s => do return Value.mkPoly c #[← coerceValue rules c s]
   | .matrix n e, .mat m _ rows =>
       if n != m then
         .error s!"a {m}×{m} matrix is not an element of Mat{n}(…)"
       else do
-        return .mat n e (← rows.mapM (·.mapM (coerceValue e)))
-  | d, v => .error s!"there is no preferred embedding of {v.render} into {d.render}"
+        return .mat n e (← rows.mapM (·.mapM (coerceValue rules e)))
+  | d, v =>
+      -- identity
+      if valueDom? v == some d then .ok v
+      else match d, v with
+      -- the `ℕ ← ℤ` check
+      | .nat, .int z =>
+          if z ≥ 0 then .ok v
+          else .error s!"{z} is not an element of ℕ"
+      -- different rings, no canonical map
+      | .mod n, .mod m _ => .error s!"ℤ/{m} and ℤ/{n} are different rings"
+      -- the base case: registry data decides
+      | d, v => do
+          let noEmbedding : Except String Value :=
+            .error s!"there is no preferred embedding of {v.render} into {d.render}"
+          let some src := valueDom? v | noEmbedding
+          match ← embedRuleFor rules src d with
+          | some r => r.op.apply d v
+          | none => noEmbedding
 
 /-! ### Polynomial arithmetic
 
-Coefficients ride on `Native`'s exact scalar operations (which already
-promote along `ℤ ⊆ ℚ`); this layer only manages degrees and the resulting
-coefficient domain. -/
+Coefficients ride on `Native`'s exact scalar operations (which promote along
+`ℤ ⊆ ℚ` internally — the executor's own implementation detail, not a surface
+coercion); this layer only manages degrees and the resulting coefficient
+domain, which is the registry-driven `domJoin`. -/
 
 /-- A value as `(coefficient domain, ascending coefficients)`; a scalar is
 its own constant polynomial. -/
@@ -162,9 +249,11 @@ private def exponentNat? : Value → Option Nat
   | _ => none
 
 /-- Binary arithmetic on values. A polynomial operand pulls the whole
-operation into the polynomial ring over the joined coefficient domain;
+operation into the polynomial ring over the joined coefficient domain (the
+join, and the coefficient embeddings into it, come from the registry);
 otherwise this is `Native`'s exact scalar arithmetic. -/
-def valueBin (op : BinOp) (a b : Value) : Except String Value := do
+def valueBin (rules : Array EmbedRule) (op : BinOp) (a b : Value)
+    : Except String Value := do
   let isPoly : Value → Bool := fun | .poly .. => true | _ => false
   if isPoly a || isPoly b then
     match op with
@@ -175,19 +264,19 @@ def valueBin (op : BinOp) (a b : Value) : Except String Value := do
           | .error s!"{a.render} is not a polynomial"
         let some k := exponentNat? b
           | .error s!"exponentiation needs a nonnegative integer exponent, got {b.render}"
-        return Value.mkPoly ca (← (← polyPow as k).mapM (coerceValue ca))
+        return Value.mkPoly ca (← (← polyPow as k).mapM (coerceValue rules ca))
     | _ =>
         let some (ca, as) := asPolyCoeffs a
           | .error s!"{a.render} is not a polynomial"
         let some (cb, bs) := asPolyCoeffs b
           | .error s!"{b.render} is not a polynomial"
-        let some d := domJoin ca cb
+        let some d ← domJoin rules ca cb
           | .error s!"{ca.render}[x] and {cb.render}[x] have no common coefficient domain"
         let cs ← match op with
           | .add => polyAdd as bs
           | .sub => polySub as bs
           | _ => polyMul as bs
-        return Value.mkPoly d (← cs.mapM (coerceValue d))
+        return Value.mkPoly d (← cs.mapM (coerceValue rules d))
   else
     match op with
     | .add => Native.scalarAdd a b
@@ -204,12 +293,13 @@ def valueNeg (a : Value) : Except String Value :=
 /-! ### Set literals -/
 
 /-- Element domain of a literal element list. -/
-def elemsDomain (vs : Array Value) : Except String Domain :=
+def elemsDomain (rules : Array EmbedRule) (vs : Array Value)
+    : Except String Domain :=
   vs.foldlM (init := Domain.int) fun d v =>
     match valueDom? v with
     | none => .error s!"{v.render} cannot be an element of a set literal"
-    | some d' =>
-        match domJoin d d' with
+    | some d' => do
+        match ← domJoin rules d d' with
         | some j => .ok j
         | none => .error s!"{d.render} and {d'.render} have no common domain"
 
@@ -217,8 +307,8 @@ def elemsDomain (vs : Array Value) : Except String Domain :=
 inferred from the two leading elements (one leading element means step 1),
 and EVERY leading element must lie on the inferred progression — a literal
 that is not one is a mistake, not a set to guess at. -/
-def progressionOf (leading : Array Value) (last? : Option Value)
-    : Except String SetPresentation := do
+def progressionOf (rules : Array EmbedRule) (leading : Array Value)
+    (last? : Option Value) : Except String SetPresentation := do
   let some first := leading[0]?
     | .error "a progression literal needs at least one leading element"
   let step ← match leading[1]? with
@@ -229,9 +319,9 @@ def progressionOf (leading : Array Value) (last? : Option Value)
     if Native.valueEq expect leading[i]! != some true then
       .error s!"{leading[i]!.render} is not the element at index {i} of the \
 progression starting {first.render} with step {step.render}"
-  let d ← elemsDomain (leading ++ (last?.toArray))
-  return .arithProg d (← coerceValue d first) (← coerceValue d step)
-    (← last?.mapM (coerceValue d))
+  let d ← elemsDomain rules (leading ++ (last?.toArray))
+  return .arithProg d (← coerceValue rules d first) (← coerceValue rules d step)
+    (← last?.mapM (coerceValue rules d))
 
 /-! ### `D[x]` versus `e[k]`
 
@@ -298,12 +388,6 @@ def renderParam : ParamVal → String
 def renderCat (c : CatRef) : String :=
   if c.params.isEmpty then toString c.name
   else s!"{c.name}({", ".intercalate (c.params.toList.map renderParam)})"
-
-partial def renderDomainPattern : DomainPattern → String
-  | .exact d => d.render
-  | .polyOver p => s!"{renderDomainPattern p}[x]"
-  | .matrixOver p => s!"Mat(_, {renderDomainPattern p})"
-  | .anyDom => "_"
 
 def renderPattern : PresPattern → String
   | .elemOf d => s!"element of {renderDomainPattern d}"
@@ -411,6 +495,11 @@ private def ofStr (r : Except String α) : EvalM α :=
   | .ok a => pure a
   | .error m => throw (.msg m)
 
+/-- The registered preferred embeddings — every coercion the surface is
+allowed to insert. Read from the environment, exactly like the categories and
+routes: nothing in this module knows which embeddings the prelude ships. -/
+def EvalCtx.embeds (ctx : EvalCtx) : Array EmbedRule := embedRules ctx.env
+
 def EvalCtx.isBound (ctx : EvalCtx) (n : Name) : Bool :=
   (binding? ctx.env n).isSome || ctx.indet?.any (·.1 == n)
 
@@ -450,8 +539,9 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
   | .ref n => do
       if let some (x, c) := ctx.indet? then
         if x == n then
-          return .obj (.elem (.poly c) (Value.mkPoly c #[← ofStr (coerceValue c (.int 0)),
-            ← ofStr (coerceValue c (.int 1))]))
+          return .obj (.elem (.poly c) (Value.mkPoly c
+            #[← ofStr (coerceValue ctx.embeds c (.int 0)),
+              ← ofStr (coerceValue ctx.embeds c (.int 1))]))
       match binding? ctx.env n with
       | some o => return .obj o
       | none => throw (.msg s!"'{n}' is not bound; introduce it with `let {n} := …`")
@@ -473,11 +563,12 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           else throw (.msg s!"ℤ/{n} needs a positive modulus")
       | _, _ =>
           return Denote.ofValue
-            (← ofStr (valueBin .div (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
+            (← ofStr (valueBin ctx.embeds .div (← ofStr (asValueOf x))
+              (← ofStr (asValueOf y))))
   | .bin op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))
-      return Denote.ofValue (← ofStr (valueBin op x y))
+      return Denote.ofValue (← ofStr (valueBin ctx.embeds op x y))
   | .method recv m args => do
       let r ← ofStr (asObjOf (← eval ctx recv))
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
@@ -504,26 +595,27 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      let d ← ofStr (elemsDomain vs)
-      return .obj (.setObj (.finite d (← ofStr (vs.mapM (coerceValue d)))))
+      let d ← ofStr (elemsDomain ctx.embeds vs)
+      return .obj (.setObj (.finite d (← ofStr (vs.mapM (coerceValue ctx.embeds d)))))
   | .progSet leading last? => do
       let vs ← leading.mapM fun e => do ofStr (asValueOf (← eval ctx e))
       let l ← last?.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      return .obj (.setObj (← ofStr (progressionOf vs l)))
+      return .obj (.setObj (← ofStr (progressionOf ctx.embeds vs l)))
   | .matLit rows cols entries => do
       if rows != cols then
         throw (.msg s!"the slice presents square matrices only, got {rows}×{cols}")
       let vs ← entries.mapM fun e => do ofStr (asValueOf (← eval ctx e))
-      let d ← ofStr (elemsDomain vs)
+      let d ← ofStr (elemsDomain ctx.embeds vs)
       let rs ← (Array.range rows).mapM fun i =>
-        ofStr ((Array.range cols).mapM fun j => coerceValue d vs[i * cols + j]!)
+        ofStr ((Array.range cols).mapM fun j =>
+          coerceValue ctx.embeds d vs[i * cols + j]!)
       return .obj (.elem (.matrix rows d) (.mat rows d rs))
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
         | throw (.msg s!"`map … to` needs a domain, got {t.presentation}")
       let v ← ofStr (asValueOf (← eval ctx e))
-      return .obj (.elem d (← ofStr (coerceValue d v)))
+      return .obj (.elem d (← ofStr (coerceValue ctx.embeds d v)))
 where
   asValueOf (r : Denote) : Except String Value :=
     match r.value? with
@@ -584,7 +676,7 @@ reinterpretation registry-driven is the documented generalization. -/
 def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
   | .domain d => do
       match o with
-      | .elem _ v => return .elem d (← ofStr (coerceValue d v))
+      | .elem _ v => return .elem d (← ofStr (coerceValue ctx.embeds d v))
       | .domainObj d' =>
           if d' == d then return o
           else throw (.msg s!"{d'.render} is not an element of {d.render}")

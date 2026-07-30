@@ -37,7 +37,7 @@ or picks a different operation.
 
 ```text
 CasDsl/Value.lean       Domain, Value, SetPresentation, Obj  (core data model)
-CasDsl/Category.lean    CatRef, category/method/functor/route registry TYPES
+CasDsl/Category.lean    CatRef, category/method/functor/route/embedding TYPES
 CasDsl/Registry.lean    env extensions + registration API (semantic state)
 CasDsl/Resolve.lean     the method resolver (the ONE lookup boundary)
 CasDsl/Route.lean       capability router + structured gaps
@@ -147,6 +147,16 @@ structure FunctorDecl where
   doc    : String
 ```
 
+- **Preferred embeddings** are the coercion layer, and registry data too:
+
+```lean
+structure EmbedRule where
+  src : DomainPattern           -- patterns on BOTH sides, so ℤ → ℤ/n is ONE rule
+  tgt : DomainPattern
+  op  : EmbedOp                 -- first-order value transform (no closures)
+  doc : String
+```
+
 - **Bindings** (`let` results) are an env-extension map `Name → Obj`.
   Every registry is a `SimplePersistentEnvExtension`: cell atomicity,
   restart replay, and the olean session cache come for free from the
@@ -199,6 +209,47 @@ registry); **no result lifting** (the image's result is the answer; no
 shipped transported method needs a value carried back along `F`); and the
 `ObjMap` ceiling — an object map that is not expressible adds a constructor,
 exactly as `DomainPattern` does.
+
+## Coercions (`Eval.lean` + the embedding registry)
+
+Every coercion the surface inserts — `map e to D`, a mixed-domain join, the
+element promotion of a set or matrix literal, a domain ascription — goes
+through `coerceValue`/`domJoin`, and the BASE CASE (one scalar domain into
+another) is decided by the registered `EmbedRule`s. The prelude registers the
+canonical injections `ℕ ⊆ ℤ`, `ℕ ⊆ ℚ`, `ℤ ⊆ ℚ` and the quotient `ℤ → ℤ/n`;
+`ℤ ⊆ ℚ` in the surface is sugar for the registered map (decision 6). No
+engine module knows those particular facts: unregister a rule and the
+corresponding `map` stops working, with the honest "there is no preferred
+embedding of … into …" error.
+
+Exactly one applicable rule coerces. Zero is that honest error. MORE than one
+— or two rules embedding two domains into each other, which leaves a join
+with no preferred answer — is a defective registration, reported loudly with
+both rules named. A coercion is never chosen by registration order, array
+position, or invented specificity: the same discipline as the resolver's
+`ambiguous` and the router's tied routes.
+
+Four cases stay ENGINE-LEVEL because they are not canonical injections
+between two domains and so cannot be registry data:
+
+- **structural congruence** under `poly`/`matrix`, plus a scalar as a constant
+  polynomial: an embedding of coefficient/entry domains *induces* the one on
+  polynomials and matrices, so a registered `ℤ[x] → ℚ[x]` would be a second
+  place to state `ℤ ⊆ ℚ`. The recursion bottoms out in the registry;
+- **identity**, when the value already presents the target domain;
+- **`ℕ ← ℤ`**, a partial CHECK (a membership judgment, "is this integer in
+  ℕ?"), not an injection — a registry of canonical injections must not be
+  able to state it;
+- **`ℤ/m` vs `ℤ/n`**, where the fact reported is the ABSENCE of a canonical
+  map between different rings.
+
+Two neighbouring mechanisms are deliberately NOT embeddings. `Native.lean`'s
+internal scalar promotion (`toRat?`/`promote` inside the executors) is the
+trusted computation layer's own implementation detail — the analogue of
+Sage's internal coercions — and stays code-level: it decides how an executor
+computes `1 + 1/2`, never which domains the surface may move a value between.
+And reading a literal in an ambient domain (`assert 2 + 3 = 0 in ℤ/5`) is
+literal interpretation, not a map applied to an existing value.
 
 ## Routing and gaps (`Route.lean`)
 
@@ -327,7 +378,10 @@ route is registered, so `ℚ[3]` fails with a structured gap. Same for
 5. Results are trusted CAS values: no certificates, no theorem generation,
    no recomputation, no proof obligations on ordinary computation.
 6. Mathematician-facing coercions (polynomial call, `ℤ ⊆ ℚ`) are inserted
-   by elaboration; internal distinctions stay internal.
+   by elaboration; internal distinctions stay internal. `ℤ ⊆ ℚ` denotes the
+   REGISTERED preferred structure-preserving map, not a code-level
+   conversion, and an unregistered pair of domains has no coercion at all —
+   it is never widened to a "reasonable" one.
 7. Backend owns factorization order/unit convention; we keep only the
    neutral result shape.
 8. Eager reflection of small values is a slice choice, not a permanent
@@ -350,6 +404,12 @@ route is registered, so `ℚ[3]` fails with a structured gap. Same for
 - receiver transport is ONE hop, with no result lifting and no
   preferred-path registry; an object map that is not one of `ObjMap`'s
   constructors is not registrable;
+- an embedding whose value transform is not one of `EmbedOp`'s constructors
+  is not registrable either (the `ObjMap`/`DomainPattern` ceiling again: a
+  new transform is a visible edit to the engine's vocabulary, never a closure
+  in the environment);
+- a coercion applies ONE rule: rules do not compose, which is why `ℕ ⊆ ℚ` is
+  registered explicitly next to `ℕ ⊆ ℤ` and `ℤ ⊆ ℚ`;
 - no backend-call cancellation beyond process teardown with the kernel;
 - `#capability_gaps` crosses declared methods with registered
   representative presentations (not all conceivable objects);

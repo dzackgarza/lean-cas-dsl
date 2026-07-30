@@ -62,6 +62,13 @@ initialize profileRuleExt :
     addImportedFn := fun arrs => arrs.flatten
   }
 
+initialize embedRuleExt :
+    SimplePersistentEnvExtension EmbedRule (Array EmbedRule) ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := Array.push
+    addImportedFn := fun arrs => arrs.flatten
+  }
+
 initialize bindingExt :
     SimplePersistentEnvExtension Binding (Array Binding) ←
   registerSimplePersistentEnvExtension {
@@ -88,6 +95,11 @@ def functors (env : Environment) : Array FunctorDecl := functorExt.getState env
 
 def profileRules (env : Environment) : Array ProfileRule := profileRuleExt.getState env
 
+/-- The registered preferred embeddings — everything the surface may insert
+as a coercion. An empty registry means the surface performs no coercion at
+all except the engine-level cases documented in `Eval.coerceValue`. -/
+def embedRules (env : Environment) : Array EmbedRule := embedRuleExt.getState env
+
 def bindings (env : Environment) : Array Binding := bindingExt.getState env
 
 def representatives (env : Environment) : Array Representative :=
@@ -109,6 +121,9 @@ def addFunctor (env : Environment) (f : FunctorDecl) : Environment :=
 
 def addProfileRule (env : Environment) (r : ProfileRule) : Environment :=
   profileRuleExt.addEntry env r
+
+def addEmbedRule (env : Environment) (r : EmbedRule) : Environment :=
+  embedRuleExt.addEntry env r
 
 def addBinding (env : Environment) (b : Binding) : Environment :=
   bindingExt.addEntry env b
@@ -181,6 +196,18 @@ def addProfileRuleChecked (env : Environment) (r : ProfileRule)
 already registered"
   else
     .ok (addProfileRule env r)
+
+/-- Embeddings are keyed by the PAIR of patterns: two rules accepting the
+same `(source, target)` pair would make a coercion ambiguous, and the
+coercion layer refuses to pick between them (it reports both). Catching the
+clash at registration is what keeps that from ever being observed. -/
+def addEmbedRuleChecked (env : Environment) (r : EmbedRule)
+    : Except String Environment :=
+  if (embedRules env).any (fun r' => r'.src == r.src && r'.tgt == r.tgt) then
+    .error s!"a preferred embedding of {repr r.src} into {repr r.tgt} is \
+already registered"
+  else
+    .ok (addEmbedRule env r)
 
 /-- Representative presentations are keyed by their label so an audit lists
 each fixture once. -/

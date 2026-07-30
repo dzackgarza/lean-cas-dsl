@@ -151,11 +151,13 @@ private def stdProfileRules : Array ProfileRule := #[
   -- ℤ/n is a commutative ring; for composite n it is not a domain, so its
   -- elements stop at CommRingElems — and `factor`, declared strictly below
   -- on FactorizationElems, correctly does not reach them.
-  -- CEILING: `DomainPattern` cannot say "ℤ/n for every n" (it offers only
-  -- `exact`, `polyOver`, `matrixOver`, `anyDom`), so the moduli this slice
-  -- exercises are registered one at a time. An unregistered modulus has no
-  -- profile at all, which resolves as an honest `notApplicable` — never a
-  -- wrong membership.
+  -- CEILING: the moduli this slice exercises are registered one at a time.
+  -- `DomainPattern.anyMod` (added for the embedding rules below) could match
+  -- every modulus in ONE rule, but a profile rule must state membership at its
+  -- true strength and that strength differs per modulus — ℤ/5 is a field while
+  -- ℤ/6 is not even a domain — so a blanket rule would have to state one of
+  -- them wrongly. An unregistered modulus has no profile at all, which
+  -- resolves as an honest `notApplicable` — never a wrong membership.
   { pattern := .elemOf (.exact (.mod 5)), cat := `CommRingElems, slots := #[.elemDom] },
   -- matrices carry their instantiation data
   { pattern := .elemOf (.matrixOver .anyDom), cat := `MatrixElems,
@@ -204,6 +206,41 @@ methods (cardinality, contains, nth) apply to it" }
 ]
 
 run_cmd stdFunctors.forM registerFunctor!
+
+/-! ## 3c · Preferred embeddings — the coercions the surface may insert
+
+The canonical injections of the standard universe, and the whole content of
+`ℤ ⊆ ℚ` as the surface understands it: `map p to ℚ[x]`, a matrix literal of
+integers ascribed to Mat₂(ℚ), `1 + 1/2`, and `let x := 7 in ℤ/5` all coerce
+through exactly these rules. The engine knows none of these facts —
+unregister a rule and the corresponding `map` stops working, with the honest
+"there is no preferred embedding" error (`CasDslTests/Embed.lean` proves it).
+
+Only CANONICAL structure-preserving maps belong here: the inclusions, plus
+the ring quotient ℤ → ℤ/n, the one non-injective member (a residue class is
+what an integer canonically names there). There is deliberately no rule out
+of ℚ — `ℚ → ℤ` is not defined everywhere, and the partial `ℕ ← ℤ` reading
+stays an engine-level CHECK rather than becoming a registered map — and none
+for the coefficient- or entry-wise image of a rule, which `coerceValue`
+induces structurally instead. -/
+
+private def stdEmbedRules : Array EmbedRule := #[
+  { src := .exact .nat, tgt := .exact .int, op := .identity,
+    doc := "ℕ ⊆ ℤ: an element of ℕ already IS an integer (they share the \
+`Value.int` representation), so the injection moves no data" },
+  { src := .exact .nat, tgt := .exact .rat, op := .intToRat,
+    doc := "ℕ ⊆ ℚ: the composite of ℕ ⊆ ℤ ⊆ ℚ, registered explicitly because \
+the coercion layer takes ONE hop (it does not compose rules)" },
+  { src := .exact .int, tgt := .exact .rat, op := .intToRat,
+    doc := "ℤ ⊆ ℚ: the fraction field of ℤ — the notebook's `map p to ℚ[x]` \
+is this rule applied coefficient-wise" },
+  { src := .exact .int, tgt := .anyMod, op := .intToMod,
+    doc := "ℤ → ℤ/n for EVERY modulus n (one rule, by `anyMod`): the ring \
+quotient — an integer naming its residue class, which is what an ascription \
+such as `let x := 7 in ℤ/5` inserts" }
+]
+
+run_cmd stdEmbedRules.forM registerEmbedRule!
 
 /-! ## 4 · Capability routes — what can currently be executed
 
