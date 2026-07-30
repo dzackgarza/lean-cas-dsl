@@ -96,6 +96,7 @@ inductive Domain
   | mod (n : Nat)                  -- ℤ/n
   | poly (coeff : Domain)          -- coeff[x], univariate
   | matrix (n : Nat) (entry : Domain)   -- Matₙ(entry), square in the slice
+  | vector (n : Nat) (entry : Domain)   -- Eⁿ, SPEC.md's ℚ² and ℚ³
   | funcs (src tgt : Domain)       -- src → tgt
 
 inductive Value
@@ -104,10 +105,12 @@ inductive Value
   | mod (n : Nat) (v : Nat)        -- normalized v < n on construction
   | poly (coeff : Domain) (coeffs : Array Value)   -- ascending, no trailing zeros
   | mat (n : Nat) (entry : Domain) (rows : Array (Array Value))
+  | vec (n : Nat) (entry : Domain) (comps : Array Value)   -- (1, 2) ∈ ℚ²
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
   | idealV (gens : Array Value) (ring : Domain)    -- e.g. annihilator result
   | setV (elems : Array Value) (dom : Domain)      -- e.g. p.roots()
   | progV (dom : Domain) (first step : Value) (last? : Option Value)  -- e.image()
+  | spanV (n : Nat) (basis : Array Value)          -- M.ker(), a subspace of ℚⁿ
   | cardinal (c : Cardinality)     -- finite n | countablyInfinite
   | bool (b : Bool)
   | func (src tgt : Domain) (binder : Name) (body : Value)   -- binder ↦ body
@@ -116,6 +119,7 @@ inductive SetPresentation
   | finite (dom : Domain) (elems : Array Value)
   | arithProg (dom : Domain) (first step : Value) (last? : Option Value)
   | domainSet (d : Domain)         -- the underlying set of ℤ, ℕ, ℚ, …
+  | span (n : Nat) (basis : Array Value)   -- span_ℚ{…} ≤ ℚⁿ, by a REDUCED basis
   | product (a b : SetPresentation)     -- A × B, denoted
   | powerset (s : SetPresentation)      -- 𝒫(A) / 2^A, denoted
   | domainDiff (a b : Domain)           -- ℂ - ℚ, denoted
@@ -127,14 +131,15 @@ inductive Obj                       -- the thing a notebook binding names
   | cyclicModule (n : Nat)                  -- the ℤ-module ℤ/n (module fixture)
 ```
 
-`setV` and `progV` are the two shapes a BACKEND may return as a set
-(`p.roots()`, `e.image()`); `Denote.ofValue` turns them into the ordinary
-`setObj (.finite …)` / `setObj (.arithProg …)`, so a returned set is a set
-object like any literal one — same profile rules, same `contains`, same set
-equality — rather than a second notion of set. CEILING: an explicit finite
-list or an arithmetic progression, nothing wider. `product` and `powerset`
-are DENOTED sets (see §Sets): presentations whose elements — pairs, and sets
-— no `Value` presents.
+`setV`, `progV` and `spanV` are the three shapes an EXECUTOR may return as a
+set (`p.roots()`, `e.image()`, `M.ker()`); `Denote.ofValue` turns them into
+the ordinary `setObj (.finite …)` / `setObj (.arithProg …)` /
+`setObj (.span …)`, so a returned set is a set object like any literal one —
+same profile rules, same `contains`, same set equality — rather than a second
+notion of set. CEILING: an explicit finite list, an arithmetic progression,
+and a subspace of ℚⁿ, nothing wider. `product` and `powerset` are DENOTED
+sets (see §Sets): presentations whose elements — pairs, and sets — no `Value`
+presents.
 
 Set equality (`X = ℕ`) is presentation normalization: `arithProg 0 1 none`
 over ℕ normalizes to `domainSet nat`, etc. This is a documented ceiling,
@@ -519,6 +524,153 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   `SetPresentation`, so `e.image()`, `e(ℕ)`, `{2n | n ∈ ℕ}` and
   `{0, 2, 4, …}` are all the same set object.
 
+## Vectors, matrices and subspaces (`SPEC.md` §Vectors and matrices,
+§Subspaces and spans, issue #24)
+
+**A vector is not a matrix.** `Domain.matrix` is SQUARE by construction, so a
+column of length `n` is not an `n × n` object and reusing it would make every
+shape check a lie. `Domain.vector`/`Value.vec` are their own constructors and
+the LENGTH is what they carry: `Mat₂(ℚ)` applied to a vector of ℚ³ is a loud
+refusal naming both shapes, which is the whole return on keeping them apart.
+`ℚ²` is SPEC.md's superscript spelling and the one `Domain.render` produces,
+so a vector domain reads back as it displays; the LaTeX form of a vector is
+the TUPLE, because that is what the surface writes and a column `pmatrix`
+would typeset something the input syntax does not say. Equality is by length
+and components, and the entry domain is a presentation tag that does not
+decide — `(1, 2)` of ℤ² and of ℚ² are one vector, as `1` and `1/1` are one
+number.
+
+**The action joins `Common`.** A matrix and a vector are the one operand pair
+that is not two elements of a shared kind — a matrix ACTS — so the pair is a
+`Common` constructor rather than a layer in front of `promote`, and every
+operation must STATE what it does with it: multiplication applies, addition
+and subtraction say that a matrix acts rather than combines, division points
+at the inverse, `scalarCmp` refuses in an arm of its own, and
+`hasScalarArithmetic` answers false so no fold reports a seed. `Native.matApply`
+CHECKS the shape, and REFUSES to join two entry domains for the reason the
+binary set operations refuse: the canonical-map registry is not readable from
+that backend. Both refusals name the fix, and SPEC.md ascribes both operands.
+SPEC.md's four spellings of the action — `M*v`, `M v`, `M⁻¹ b`, `M(M⁻¹ b)` —
+are one operation: `⁻¹` is the `inverse` METHOD's spelling and juxtaposition
+is the product (§Surface).
+
+**A subspace is a SET, presented by a REDUCED basis.** SPEC.md asks a
+subobject for `dim`, `∈`, `∉` and `=`, and `M.ker() = {0}` for a fifth, so it
+does NOT join the domainless-result family: its elements are vectors, which
+`Value.vec` presents, and `∈ = ⊆ |·|` reach it through the ordinary `Sets`
+hierarchy. One normalization answers all of it — the basis is kept in reduced
+row echelon form, which is a FUNCTION of the subspace and of nothing else:
+
+- `dim` is the basis SIZE, so a dependent generator contributes nothing;
+- membership is one SOLVED reduction of the candidate against the basis (each
+  row has a leading 1 in a pivot column no other row touches, so the only
+  combination that could work is the one read off those columns), which is
+  what makes `(1, 1, 0) ∉ W` DECIDE false rather than refuse;
+- equality is the bases compared as data, and inclusion is membership of each
+  basis vector. No search, no double inclusion, no cutoff.
+
+`Value.mkSpanBasis` is the ONE constructor, the discipline `mkAlg` has: the
+surface's `span_QQ{…}`, `M.ker()` and a decoded frame all go through it, which
+is what makes two spans of one subspace compare equal. The reduction is exact
+`Rat` arithmetic and lives in `Value.lean` beside `mkAlg` because it is a
+presentation's NORMAL FORM rather than a computation a backend owns.
+
+- **CEILING: over ℚ**, which is `span_QQ`'s own base and the entry domain of
+  every matrix this slice routes. A generator this slice cannot read as a
+  rational vector is a loud refusal — `√2·u` lies in the ℝ-span, not the
+  ℚ-one, and either answer would be a claim.
+- **`M.ker() = {0}` is decided**, and the reading is stated once, in one
+  place: a span is finite exactly when it is TRIVIAL, and the scalar `0` on
+  the other side is the mathematician's own spelling of the zero of the
+  ambient space — the one element every additive group shares.
+  `Value.isSpanZero` is where that crosses, and a scalar is the only thing
+  that crosses: every other scalar is not an element of ℚⁿ and answers false.
+- **The AMBIENT is part of the presentation and of the display**
+  (`span_ℚ{…} ≤ ℚ³`): without it the trivial subspace would render as an
+  empty brace saying nothing about which space it is the zero of. It is also
+  why a span literal needs a generator — the ambient is read off them, so the
+  trivial subspace is written with the zero vector of the space meant.
+- **`≤` is the SUBOBJECT ascription** between a subspace and its ambient, and
+  the ambient is CHECKED. Which reading `≤` has is the operands' business,
+  exactly as the receiver decides which method `|·|` names and two domains
+  decide that `-` denotes a difference. SPEC.md's `\leq` is a second spelling
+  of the same relation.
+- **`QQ-Mod` is an ASCRIPTION TAG at this stage**, registered under the name
+  SPEC.md spells and owning `dim` alone. The membership it states is real and
+  checked, but the CATEGORY — its morphisms, its limits, the subobject
+  lattice `≤` really lives in — is deferred to CategoryGraph per the
+  trajectory ruling. Nothing here may grow into that ontology. A subspace
+  inhabits `CountableSets` and `QQ-Mod` INDEPENDENTLY, exactly as a
+  polynomial inhabits the divisibility and structural hierarchies.
+- **`rank` and `ker` are NATIVE**, because both are reads of the same echelon
+  form the presentation already owns — the rank is its row count, the kernel
+  its free columns. No backend is asked and none can lie. Routed for ℚ
+  entries only, so Mat₂(ℤ/5) carries the gap `det` already carries.
+- **`trace` is native too** and defined over every entry domain (it reads the
+  diagonal), so Mat₂(ℤ/5) HAS a trace where its `det` gaps: the two judgments,
+  visible in one object. `charpoly` and `companion_matrix` are the backend's,
+  with the reply checked against this call's receiver (§The port).
+- DISCLOSED GAP: SPEC.md's `φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c` and the
+  `W = ker φ` that reads it. Functions here are grounded in the UNIVARIATE
+  polynomial engine (§Functions), so a body in three variables is not
+  expressible; the multi-binder lambda is refused where it is written, in
+  words that name it as a gap rather than a syntax error. Nothing else in
+  that SPEC.md section needs it.
+- DISCLOSED, and not closed here: `elemsDomain` seeds a set literal's element
+  domain with ℤ, so `{u₁, u₂}` — a set literal of VECTORS — has no common
+  domain and is refused. `span_QQ{…}` does not go through it, so no SPEC.md
+  line is affected, and a set of vectors has no shipped operation to be
+  useful for yet.
+
+## Aggregation (`SPEC.md` §A composed computation, issue #24)
+
+`∑_{x ∈ X} body` and `∏` are ordinary category methods with a surface
+spelling: `sum` and `prod`, declared on FINITE sets and folded natively.
+
+`FiniteSets` rather than `Sets` is where they first make sense — aggregation
+is a finite algebraic operation, and the sum over an infinite set is a limit
+this slice has no notion of, so `∑_{n ∈ ℕ} n` is honestly not a method of ℕ
+rather than a missing route. Residue: a BOUNDED progression is finite but
+presents as `progression`, which enters at CountableSets because a pattern
+cannot see the bound, so it misses this specificity as it misses FiniteSets.
+
+Three decisions, each pinned: a SET counts each element once however the
+literal was written; the empty sum is 0 and the empty product is 1, which are
+the mathematical answers; and elements with no scalar arithmetic are a
+REFUSAL naming the value, never the seed — the guard is
+`Native.hasScalarArithmetic`, the predicate the power path already asks,
+rather than a second derivation of it. A body other than the binder
+aggregates the IMAGE, built by elaboration as a set literal is; the body binds
+TIGHTLY, so `= 0` on the right of an assertion ends the sum where the
+mathematician wrote it.
+
+## The root set (`SPEC.md` §A composed computation, issue #24)
+
+`{x ∈ D | p(x) = q(x)}` is the set of SOLUTIONS in `D` — a production of its
+own, and the deliberate special form SPEC.md's `{a ∈ ℂ | r(a) = 0}` needs.
+
+It is NOT the guarded comprehension's decision procedure: that one bounds a
+binder over ℕ or ℤ from a polynomial COMPARISON and tests candidates
+(§Comprehensions and images). Solving an equation is a different operation,
+and one the surface already has — the equation is read with the binder as the
+INDETERMINATE, moved to `p − q`, presented in `D[x]`, and handed to `roots`.
+Same method, same route, same backend, one implementation.
+
+`=` gains no term-level meaning by this: it appears inside this production and
+nowhere else in a term, so the guarded comprehension is untouched and still
+takes an order comparison. The INDEX DOMAIN decides where the roots are
+sought, which is the mathematics rather than a default — `{a ∈ ℚ | r(a) = 0}`
+is `{1}` and `{a ∈ ℂ | r(a) = 0}` has three elements — and it leaves the open
+question about `roots`' default ring untouched, because this spelling names
+the ring explicitly.
+
+Two things it rests on: calling a polynomial at a POLYNOMIAL substitutes (the
+move `f ∘ g` already makes), and a domain whose SIZE this slice cannot state
+still normalizes for COMPARISON, so `S ⊆ ℂ` and `S ∈ 𝒫(ℂ)` are decided from
+the elements and `ℝ = ℝ` answers true. Those two questions used to be tied
+together by one normal form; the refusal that belongs to the cardinality
+(`ℂ.cardinality()`) is unchanged.
+
 ## Categories (`Category.lean`, `Registry.lean`)
 
 ```lean
@@ -763,11 +915,26 @@ Typed values on the wire (bignums as strings):
 `{"t":"approx","exact":value,"decimal":"1.4142135623","eps":rat,
 "achieved":rat}` (decoded THROUGH `Value.mkApprox`, which VERIFIES the
 certificate: a decimal that does not present its own exact value within the
-bound never becomes a value — §Numerical approximation).
+bound never becomes a value — §Numerical approximation),
+`{"t":"vec","n":2,"entry":domain,"comps":[value…]}` (a frame whose component
+count contradicts its declared LENGTH is refused, as a matrix that is not
+n×n is), `{"t":"span","n":3,"basis":[value…]}` (decoded THROUGH
+`Value.mkSpan`, which REDUCES: a frame carrying a dependent or unreduced
+generating set becomes the basis it denotes — §Vectors, matrices and
+subspaces).
 
 Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `factor_poly_c`,
 `gcd_int`, `is_prime_int`, `roots_poly_z`, `roots_poly_q`, `roots_poly_c`,
-`mat_det_q`, `mat_inv_q`, `approx_real`. The two ℂ ops work in `QQbar`, whose elements PRINT
+`mat_det_q`, `mat_inv_q`, `mat_charpoly_q`, `poly_companion_q`,
+`approx_real`. The last two are CHECKED against this call's receiver, the
+discipline `approx_real` set: a characteristic polynomial must be monic of
+the matrix's own degree, and a companion matrix must have the polynomial's
+degree and its TRACE — the sum of the roots. That is deliberately not a
+positional read of the companion's entries: which of the four LAYOUTS the
+adapter uses is its own convention (decision 7), and similar matrices share a
+trace, so the check holds the backend to the mathematics without this side
+taking a position on a convention that is not its own.
+The two ℂ ops work in `QQbar`, whose elements PRINT
 as decimal approximations — so the adapter never reads a printed form: it
 takes the coefficients of an algebraic number from its own minimal polynomial
 and settles which conjugate it is by an exact `QQbar` comparison. A root of
@@ -790,6 +957,13 @@ let p(x) := x^3 - 2x + 1 in ℤ[x]          -- univariate polynomial binding
 let q := map p to ℚ[x]                    -- explicit coercion along ℤ ⊆ ℚ
 let X := {0, 1, 2, ...}                   -- progression set literals
 let M := [1, 2; 3, 4] in Mat₂(ℚ)          -- matrix literal
+let v := (1, 2) in ℚ²                     -- vector literal, and the Eⁿ domain
+M*v   M v   M⁻¹ b   M(M⁻¹ b)              -- the action, in SPEC.md's spellings
+M.rank()   M.ker()   M.trace()   M.charpoly()   r.companion_matrix()
+let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod  -- the subobject ascription
+W.dim()   (1, 1, 2) ∈ W                   -- a subspace is a set with a dim
+∑_{a ∈ roots} a    ∏_{a ∈ roots} a        -- aggregation over a finite set
+{a ∈ ℂ | r(a) = 0}                        -- the root set of an equation
 let z := 2 + 2i in ℂ                      -- exact algebraic value; `i` is a constant
 map √2 to ℝ/O(1/10^{10})                  -- a requested tolerance, not a quotient
 √2   2√2   z.re()  z.im()  z.bar()  |z|   -- one square root over ℚ, exactly
@@ -825,6 +999,24 @@ Parser decisions (load-bearing):
   binding win over both readings a bare name can acquire — this one and the
   `NAME ∈ D[NAME]` membership below — and it is pinned as such.
 - implicit multiplication is supported only as `numeral ident` (`2x`);
+- **application by JUXTAPOSITION** (`M v`, `M⁻¹ b`) and the inverse's `⁻¹` are
+  three productions rooted at an `ident` on the LEFT. That is the same hazard
+  control as the `noWs` before `(` and `[`: a term followed by a newline can
+  only be swallowed when BOTH lines are bare names, and every other cell shape
+  ends the term. The residual is documented rather than closed — Lean's
+  command parser spans lines, so nothing here can require "the same line";
+- **`span_QQ{…}` leads with an `ident` and checks the NAME** in `toExpr`,
+  which is what keeps `span_QQ` an ordinary identifier: a leading
+  `&"span_QQ"` is not indexed by a first token, so the bare-name production
+  wins the longest match and the braces become a set literal on the next
+  statement. Any other name gets a refusal naming the one spelling there is;
+- **a hyphenated CATEGORY name is read in ascription position only**
+  (`in QQ-Mod`): the term grammar reads `A-B` as a subtraction of two names,
+  which in that position has no other meaning — neither name is bound — so it
+  names the registered category `A-B` when there is one and is the ordinary
+  error when there is not. Lean escapes such a name as `«QQ-Mod»`; the
+  guillemets are its syntax for WRITING the name, so `Eval.renderName` drops
+  them wherever a name reaches the mathematician;
 - **`x^{k}` is the braced exponent**, the spelling this system's own LaTeX
   renderer produces and the one `SPEC.md` writes its tolerance in
   (`1/10^{10}`). A single-element brace in EXPONENT position is therefore that
@@ -915,6 +1107,8 @@ Conventions (one spelling each, chosen once):
 | rational | inline solidus `3/2`, never `\frac`; `(1/2)x` as a coefficient |
 | number systems | `\mathbb{N} \mathbb{Z} \mathbb{Q} \mathbb{R}`, and `\mathbb{Z}/5\mathbb{Z}` (`\mathbb{Z}/5` reads as a quotient by an element) |
 | matrix | `\begin{pmatrix} … \\ … \end{pmatrix}` |
+| vectors | the TUPLE `(1, 2)` — SPEC.md's own spelling and the one the surface reads back; parentheses and commas are math mode's own, and a column `pmatrix` would typeset something the input syntax does not say. The domain is `\mathbb{Q}^{2}` |
+| subspaces | `\mathrm{span}_{\mathbb{Q}}\{ … \} \leq \mathbb{Q}^{3}` — the AMBIENT is part of the display, without which the trivial subspace is an empty brace saying nothing |
 | factorization | `\cdot` between every factor; polynomial factors parenthesized as in plain text |
 | sets | `\{ \}`, progressions `\{0, 2, \ldots\}`, powerset `\mathcal{P}(A)`, product `\times` |
 | cardinals, functions | `\aleph_0`, `t \mapsto t^{2} + 1` |
@@ -975,10 +1169,13 @@ Category graph (names; `≤` = registered parent edge):
 FiniteSets ≤ CountableSets ≤ Sets
 EuclideanElems ≤ FactorizationElems ≤ CommRingElems
 SmallModules ≤ Modules            (the plan's inheritance demo)
-MatrixElems                       (dets/inverses; params (n, entry))
-PolynomialElems                   (deg/roots; params (the ring))
+MatrixElems                       (det/inverse/rank/ker/trace/charpoly;
+                                   params (n, entry))
+PolynomialElems                   (deg/roots/companion_matrix; params (the ring))
 FunctionElems                     (image; params (the arrow src → tgt))
 ComplexElems                      (re/im/bar/abs; params (ℂ or the ℝ in it))
+QQ-Mod                            (dim; an ascription TAG at this stage —
+                                   §Vectors, matrices and subspaces)
 ```
 
 Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
@@ -989,13 +1186,14 @@ CountableSets, which is what `p ∈ ℤ[x]` asks of them. `ℝ` and `ℂ` are `S
 and nothing narrower — both are uncountable, so `nth` (declared on
 CountableSets) correctly does not reach them, while membership does.
 
-Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`
-on PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on
+Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`,
+`companion_matrix` on PolynomialElems; `det`, `inverse`, `rank`, `ker`,
+`trace`, `charpoly` on MatrixElems; `annihilator` on
 Modules; `image` on FunctionElems; `re`, `im`, `bar`, `abs`, `approximate` on
-ComplexElems;
+ComplexElems; `dim` on QQ-Mod;
 `nth`, `cardinality`, `contains`,
 `set_eq`, `subset`, `union`, `intersect`, `diff`, `symdiff` on the set
-hierarchy. Inheritance is
+hierarchy, and `sum`/`prod` on FiniteSets (§Aggregation). Inheritance is
 exercised twice for real: `factor` reaches integers via `EuclideanElems ≤
 FactorizationElems`, and `annihilator` reaches the fixture via
 `SmallModules ≤ Modules` with **no forwarding declaration**.
@@ -1019,9 +1217,13 @@ directly through the inclusion edge, untransported; both claims are asserted
 in `acceptanceProofs`.
 
 The deliberate capability gaps shipped by the universe (honest, auditable):
-`det`/`inverse` on matrices whose entry domain is not ℚ — `det` is
-meaningful on any `MatrixElems` member, only ℚ-entry matrices are routed,
-and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. Alongside it,
+`det`/`inverse`/`rank`/`ker`/`charpoly` on matrices whose entry domain is not
+ℚ — each is meaningful on any `MatrixElems` member, only ℚ-entry matrices are
+routed, and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. The
+same object shows the other side of the separation: its `trace` DOES route,
+because reading a diagonal is native and needs no ℚ. Alongside them,
+`companion_matrix` outside ℚ[x] (`map r to ℚ[x]` is one explicit step away),
+`nth` on a subspace (countable, no enumeration registered), and
 `gcd` and `is_prime` outside ℤ (both are meaningful in every UFD; only the
 ℤ routes are registered), `roots` outside ℤ[x]/ℚ[x]/ℂ[x], `nth` on ℤ[x]
 (countable, no enumeration registered), and the binary set operations on any
@@ -1124,6 +1326,14 @@ Formerly open questions, now user-decided — none was silently resolved:
   separate decision: a `scalarCmp` arm, deliberately not taken here, and
   `Native.scalarCmp` states its refusal as its own arm so that the internal use
   cannot quietly become a surface answer;
+- a subspace is spanned over ℚ, and presented by its REDUCED basis: a
+  generator this slice cannot read as a rational vector is a loud refusal
+  (§Vectors, matrices and subspaces), and a lambda with several binders — the
+  `φ` of SPEC.md's own `W = ker φ` — is a disclosed gap that names itself;
+- a matrix and a vector must be over ONE entry domain: this backend does not
+  join them, for the reason the binary set operations do not;
+- aggregation is over an EXPLICIT finite set; the sum over an infinite one is
+  a limit this slice has no notion of, and says so as a non-method;
 - set equality by presentation normalization only;
 - argument validation at execution, not declaration;
 - receiver transport is ONE hop, with no result lifting and no

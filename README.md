@@ -56,10 +56,19 @@ the ⊆-chain read off the canonical-map registry, the cubic split over ℂ[x],
 numerical approximation as an operation ON an exact value
 (`map √2 to ℝ/O(1/10^{10})`, whose decimal is certified against the value it
 presents and whose tolerance is a request rather than a quotient),
-and seven cells that **fail on purpose**: one square root over ℚ is the
-documented ceiling, `Mat₂(ℤ/5).det()` is the structured capability gap, and
-five refusals in the approximation section keep a request, a registry gap, a
-capability failure and the absence of error propagation apart.
+vectors and the shape-checked linear action in SPEC.md's four spellings
+(`M*v`, `M v`, `M⁻¹ b`, `M(M⁻¹ b)`), subspaces presented by a reduced basis
+(`span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod`, which answers `dim`, `∈`, `∉` and `=`
+from that one normal form), the root set of an equation
+(`{a ∈ ℂ | r(a) = 0}`) with `∑` and `∏` folded exactly over its surds, and
+the companion matrix closing the loop on its own characteristic polynomial —
+and nine cells that **fail on purpose**: one square root over ℚ is the
+documented ceiling, `Mat₂(ℤ/5).det()` is the structured capability gap
+(whose `trace` routes, because reading a diagonal needs no ℚ), a matrix
+applied to a vector of the wrong length names both shapes, a lambda with
+several binders names itself as a disclosed gap, and five refusals in the
+approximation section keep a request, a registry gap, a capability failure
+and the absence of error propagation apart.
 
 ## Quickstart
 
