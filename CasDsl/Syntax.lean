@@ -141,7 +141,13 @@ syntax:max (name := casBigProd)
 syntax (name := casEllipsis) "..." : casSetItem
 syntax (name := casSetElem) casTerm : casSetItem
 
-syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
+/-- `D[x]` (a polynomial ring) and `e[k]` (an index). The `notFollowedBy` is
+what keeps `ℤ[[t]]` — the formal power series below — from ALSO reading as
+this production applied to the one-row matrix literal `[t]`, which would be a
+parse of exactly the same length. An index is never written with a matrix
+literal as its subscript, so nothing that parses today loses a reading. -/
+syntax:max (name := casIndex)
+  casTerm:max noWs "[" notFollowedBy("[") casTerm "]" : casTerm
 
 /-- `f(args…)` — a call — and, with the optional ASCRIPTION tail, SPEC.md
 §Indefinite integration's `kernel(d/dx : ℚ[x] → ℚ[x])`.
@@ -214,6 +220,53 @@ ends it exactly where the mathematician wrote it, and a wider integrand is
 parenthesized. -/
 syntax:max (name := casIntegral) "∫" casTerm:max "dx" : casTerm
 
+/-! SPEC.md's formal power series — `ℝ[[t]]`, `ℤ[[t]]`, the truncation
+`map … to ℝ[[t]]/(t^6)`, the generating sum `∑_{n ∈ ℕ} n² tⁿ`, and the
+coefficient extraction `[t²]f`.
+
+The double bracket is TWO `[` tokens with no whitespace between them, not a
+`[[` token of its own: a `[[` token would be produced by the tokenizer
+everywhere, including inside Lean's own `#[…]` array literals in this very
+file. What keeps `ℤ[[t]]` from ALSO parsing as the index `ℤ[…]` applied to
+the one-row matrix `[t]` — a parse of exactly the same length, so an
+ambiguity rather than a spelling — is the `notFollowedBy` on `casIndex`
+above: an index is never written with a matrix literal as its subscript. -/
+
+syntax:max (name := casSeries)
+  casTerm:max noWs "[" noWs "[" ident "]" noWs "]" : casTerm
+
+/-- `ℝ[[t]]/(t^6)` and `ℤ[[t]] / O(t^5)` — ONE truncation REQUEST with two
+spellings, on the `ℝ/O(ε)` precedent: it is not a quotient domain, it is
+meaningful only after `map … to`, and written anywhere else it is a loud
+refusal saying so.
+
+All three are declared with `casTerm:max` as their FIRST element rather than
+through a shared named rule, and that is not a style choice: a named rule
+starting with `casTerm` makes the production look like a LEADING parser to
+Lean, which is left-recursive and overflows the stack while the grammar is
+being built. Written out, they are trailing parsers keyed by `[[`. -/
+syntax:max (name := casTruncTarget)
+  casTerm:max noWs "[" noWs "[" ident "]" noWs "]" " / " "(" casTerm ")" : casTerm
+syntax:max (name := casTruncTargetO)
+  casTerm:max noWs "[" noWs "[" ident "]" noWs "]" " / " &"O" noWs
+    "(" casTerm ")" : casTerm
+
+/-- SPEC.md's `∑_{n ∈ ℕ} n^2 t^n` — a series given by its GENERATING RULE.
+
+A production of its own rather than the aggregation `∑`, whose body is an
+atom: the shape here is the whole content — a rule in the binder, against
+`tⁿ` — and spelling it out is what lets the rule be read exactly rather than
+guessed at from a product this grammar has no general form for. -/
+syntax:max (name := casSeriesSum)
+  "∑" noWs "_" noWs "{" ident casBinderIn casTerm "}" casTerm:76
+    ident noWs "^" noWs ident : casTerm
+
+/-- SPEC.md's `[t^2]f` — the coefficient of a power in a series, and a THIRD
+reading of the brackets beside the polynomial ring and the index. It is told
+apart by what follows: a matrix literal ends at its `]`, and this one has a
+receiver against it with no space between. -/
+syntax:max (name := casCoeffOf) "[" casTerm "]" noWs casTerm:max : casTerm
+
 /-- SPEC.md §Differentials' `Spec ℚ[x]` — the affine scheme of a ring, and an
 ASCRIPTION TAG at this stage (DESIGN.md §Differentials).
 
@@ -271,6 +324,41 @@ one digit; `^` covers everything larger. -/
 syntax casSup := "⁰" <|> "¹" <|> "²" <|> "³" <|> "⁴" <|> "⁵" <|> "⁶" <|> "⁷" <|> "⁸" <|> "⁹"
 
 syntax:80 (name := casSupPow) casTerm:81 noWs casSup : casTerm
+
+/-! SPEC.md §Elementary calculus' three analysis operations. All three are
+ordinary METHODS on a FUNCTION — `limit`, `definite_integral`,
+`taylor_expansion` — and these productions are spellings that build the
+function by elaboration, exactly as `{a ∈ ℂ | r(a) = 0}` builds the
+polynomial it hands to `roots`. `lim` is a TOKEN for the reason `dx` and
+`Spec` are.
+
+CEILING on the definite integral's bounds, and it is SPEC.md's own spelling
+rather than a general one: the LOWER bound is a subscript digit and the upper
+is either a superscript digit or `^` followed by an atom. `∫₀¹` and `∫₀^π`
+are what SPEC.md writes; a wider bound is parenthesized after `^`. -/
+
+syntax casSubDigit :=
+  "₀" <|> "₁" <|> "₂" <|> "₃" <|> "₄" <|> "₅" <|> "₆" <|> "₇" <|> "₈" <|> "₉"
+
+/-- The differential that closes a definite integral, and NAMES its variable:
+`dt` binds `t`, `dx` binds `x`. `dt` may stay a non-reserved keyword because
+it sits in the middle of a production keyed by `∫` — the position `&"O"` sits
+in after `ℝ/`, where the leading-token lore does not bite. -/
+syntax casIntVar := &"dt" <|> "dx"
+
+/-- The token is `lim_`, underscore included, and that is lexical rather than
+stylistic: `_` is an identifier character, so `lim_{t → 0}` lexes `lim_` as
+one IDENTIFIER and a bare `lim` token is never seen. (`∑_{…}` has no such
+problem — `∑` is not an identifier character, so its `_` is the ordinary
+token.) -/
+syntax:max (name := casLimit)
+  "lim_" noWs "{" ident " → " casTerm "}" casTerm:70 : casTerm
+
+syntax:max (name := casDefIntSup)
+  "∫" noWs casSubDigit noWs casSup casTerm:76 casIntVar : casTerm
+syntax:max (name := casDefIntCaret)
+  "∫" noWs casSubDigit noWs "^" noWs casTerm:max casTerm:76 casIntVar : casTerm
+
 syntax:80 (name := casPow) casTerm:81 " ^ " casTerm:80 : casTerm
 syntax:75 (name := casComp) casTerm:75 " ∘ " casTerm:76 : casTerm
 syntax:75 (name := casNeg) "-" casTerm:75 : casTerm
@@ -344,6 +432,45 @@ private def superscriptDigit? : Char → Option Nat
   | '⁰' => some 0 | '¹' => some 1 | '²' => some 2 | '³' => some 3 | '⁴' => some 4
   | '⁵' => some 5 | '⁶' => some 6 | '⁷' => some 7 | '⁸' => some 8 | '⁹' => some 9
   | _ => none
+
+/-- The ORDER a truncation asks for, read from `(t^6)` or `O(t^5)`, and the
+POWER `[t^2]f` asks for — one reading, because they are one question about a
+shape. STRUCTURAL rather than evaluated: `t` names no binding, it is the
+series' own indeterminate, so the exponent is read off the shape and anything
+else is a loud refusal. -/
+private def seriesOrder : CasExpr → Except String Nat
+  | .bin .pow (.ref `t) (.num k) =>
+      if k ≥ 0 then .ok k.toNat
+      else .error "a power of the series' indeterminate is nonnegative"
+  | .ref `t => .ok 1
+  | .num 0 => .ok 0
+  | _ => .error "this asks for a power of the series' indeterminate — \
+`ℝ[[t]]/(t^6)`, `ℤ[[t]] / O(t^5)`, `[t^2]f` — and is not one"
+
+/-- The check that a series' indeterminate is the `t` this slice spells one
+with. A `Domain` records no name, so one spelling per ring is the convention
+(`x` for the polynomial ring), and a second one would be a display that
+disagrees with its own input syntax. -/
+private def seriesIndet (n : Name) : Except String Unit :=
+  if n == `t then .ok ()
+  else .error s!"the indeterminate of a formal power series is spelled `t` \
+here, and `{n}` is not it"
+
+/-- The digit a `casSubDigit` node spells — the LOWER bound of SPEC.md's
+`∫₀¹`. Subscript digits are one contiguous block, unlike the superscripts. -/
+private def subLit (stx : Syntax) : Except String Nat :=
+  match (stx[0].reprint.getD "").trimAscii.toString.toList.head? with
+  | some c =>
+      if c.toNat ≥ '₀'.toNat && c.toNat ≤ '₉'.toNat then .ok (c.toNat - '₀'.toNat)
+      else .error s!"{stx} is not a subscript digit"
+  | none => .error s!"{stx} is not a subscript digit"
+
+/-- The variable a definite integral's differential NAMES: `dt` binds `t`. -/
+private def intVar (stx : Syntax) : Except String Name :=
+  match (stx[0].reprint.getD "").trimAscii.toString with
+  | "dt" => .ok `t
+  | "dx" => .ok `x
+  | other => .error s!"{other} does not name an integration variable"
 
 /-- `x^{k}` is the BRACED exponent spelling — the one this system's own LaTeX
 renderer produces (`x^{3}`, DESIGN.md §LaTeX-first display) and the one SPEC.md
@@ -423,6 +550,34 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casDxAtom => return .diffForm (.num 1)
   | ``casSpec => return .specOf (← toExpr stx[1])
   | ``casIntegral => return .integral (← toExpr stx[1])
+  | ``casSeries => do
+      seriesIndet stx[3].getId
+      return .seriesDom (← toExpr stx[0])
+  | ``casTruncTarget => do
+      seriesIndet stx[3].getId
+      return .truncTarget (← seriesOrder (← toExpr stx[8]))
+  | ``casTruncTargetO => do
+      seriesIndet stx[3].getId
+      return .truncTarget (← seriesOrder (← toExpr stx[9]))
+  | ``casSeriesSum => do
+      let binder := stx[3].getId
+      seriesIndet stx[8].getId
+      if stx[10].getId != binder then
+        .error s!"the exponent of `t` in a generating sum is the sum's own \
+binder ('{binder}'), and `{stx[10].getId}` is not it"
+      return .seriesSum binder (← toExpr stx[5]) (← toExpr stx[7])
+  | ``casCoeffOf => return .coeffOf (← seriesOrder (← toExpr stx[1])) (← toExpr stx[3])
+  | ``casLimit =>
+      return .limitOf stx[2].getId (← toExpr stx[4]) (← toExpr stx[6])
+  | ``casDefIntSup => do
+      let some k := (stx[2].reprint.getD "").trimAscii.toString.toList.head?.bind
+        superscriptDigit?
+        | .error s!"{stx[2]} is not a superscript digit"
+      return .defIntegral (← intVar stx[4]) (.num (Int.ofNat (← subLit stx[1])))
+        (.num (Int.ofNat k)) (← toExpr stx[3])
+  | ``casDefIntCaret => do
+      return .defIntegral (← intVar stx[5]) (.num (Int.ofNat (← subLit stx[1])))
+        (← toExpr stx[3]) (← toExpr stx[4])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
   | ``casBigSum => return .aggregate `sum stx[3].getId (← toExpr stx[5]) (← toExpr stx[7])
@@ -669,9 +824,12 @@ syntax (name := casLet) "let " ident " := " casTerm (" in " casTerm)? : command
 /-- `let p(x) := e in T` binds a definition with a BINDER: `x` denotes the
 indeterminate inside `e`, and the ascription decides what that means — the
 indeterminate of `ℤ[x]`, or the variable of a function `ℝ → ℝ`. SPEC.md
-spells the definition both `:=` and `=`, so both are accepted. -/
+spells the definition both `:=` and `=`, so both are accepted — and it spells
+the ascription both `in` and `∈` (`let f(t) = ∑… ∈ ℤ[[t]]`), which is the
+ASCII/Unicode pair the assertion relation already carries. -/
 syntax (name := casLetPoly)
-  "let " ident noWs "(" ident ")" (" := " <|> " = ") casTerm " in " casTerm : command
+  "let " ident noWs "(" ident ")" (" := " <|> " = ") casTerm
+    (" in " <|> " ∈ ") casTerm : command
 
 /-- `let e: ℕ → ℕ := n ↦ 2n` — SPEC.md's leading-ascription spelling. The
 type is the same ascription the trailing `in T` carries, checked identically. -/

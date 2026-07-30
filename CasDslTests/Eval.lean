@@ -590,6 +590,27 @@ let threeMinus := x ↦ 3-x in ℤ[x]
 assert threeMinus(1) = 2
 assert threeMinus(1) ≠ -3
 
+/-! ### SPEC.md §Ellipses' generating series
+
+`∑_{n ∈ ℕ} n² tⁿ ∈ ℤ[[t]]` is a series given by its RULE, so every
+coefficient is known and a bare display shows a few and `…`. The truncation
+`map … to ℤ[[t]] / O(t^5)` turns the rule into TERMS, which is what the
+`O(t^5)` in its display says. (The Taylor expansions of §Elementary calculus
+route to a backend, so they are `tests/test_e2e.py`'s claim; everything here
+needs none.) -/
+
+let ser(t) = ∑_{n ∈ ℕ} n^2 t^n ∈ ℤ[[t]]
+
+assert ser ∈ ℤ[[t]]
+assert [t^2]ser = 4
+assert [t^3]ser = 9
+assert [t^0]ser = 0
+-- …and the wrong coefficient, which the same read must reject
+assert [t^2]ser ≠ 5
+-- the braced exponent is the same spelling everywhere: `unbrace` applies in
+-- an exponent slot, and `[t^{2}]` is one
+assert [t^{2}]ser = 4
+
 /-! ## SPEC.md §Exact number systems: the ⊆-chain
 
 `and` is a conjunction of ASSERTIONS, and each link is the canonical-map

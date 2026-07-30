@@ -28,6 +28,7 @@ partial def domainToJson : Domain → Json
   | .complex => Json.mkObj [("d", "complex")]
   | .mod n => Json.mkObj [("d", "mod"), ("n", toJson n)]
   | .poly c => Json.mkObj [("d", "poly"), ("coeff", domainToJson c)]
+  | .series c => Json.mkObj [("d", "series"), ("coeff", domainToJson c)]
   | .matrix n e =>
       Json.mkObj [("d", "matrix"), ("n", toJson n), ("entry", domainToJson e)]
   | .vector n e =>
@@ -128,6 +129,16 @@ partial def valueToJson : Value → Json
   | .cosetV offset kernel =>
       Json.mkObj
         [("t", "coset"), ("offset", valueToJson offset), ("kernel", domainToJson kernel)]
+  -- a series carries WHICH reading it is, because that is the claim: a rule
+  -- knows every coefficient, terms know exactly the ones they carry
+  | .seriesV c (.rule inN) =>
+      Json.mkObj
+        [("t", "series"), ("coeff", domainToJson c), ("gen", "rule"),
+         ("cs", Json.arr (inN.map ratToJson))]
+  | .seriesV c (.terms cs) =>
+      Json.mkObj
+        [("t", "series"), ("coeff", domainToJson c), ("gen", "terms"),
+         ("cs", Json.arr (cs.map ratToJson))]
   | .func s t binder body =>
       Json.mkObj
         [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
@@ -170,6 +181,7 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | "complex" => return .complex
   | "mod" => return .mod (← natField j "n")
   | "poly" => return .poly (← domainFromJson (← field j "coeff"))
+  | "series" => return .series (← domainFromJson (← field j "coeff"))
   | "matrix" => return .matrix (← natField j "n") (← domainFromJson (← field j "entry"))
   | "vector" => return .vector (← natField j "n") (← domainFromJson (← field j "entry"))
   | "funcs" =>
@@ -329,6 +341,17 @@ partial def valueFromJson (j : Json) : Except String Value := do
       match (← field j "as_form").getBool? with
       | .ok b => return .derivation b
       | .error _ => .error s!"field 'as_form' must be a boolean in {j.compress}"
+  | "series" =>
+      let c ← domainFromJson (← field j "coeff")
+      let cs ← (← arrField j "cs").mapM fun q => do
+        let num ← intField q "num"
+        let den ← intField q "den"
+        if den ≤ 0 then .error s!"rational denominator must be positive in {j.compress}"
+        else return mkRat num den.toNat
+      match ← strField j "gen" with
+      | "rule" => return .seriesV c (.rule cs)
+      | "terms" => return .seriesV c (.terms cs)
+      | other => .error s!"unknown series generator {repr other} in {j.compress}"
   | "coset" =>
       -- decoded THROUGH the canonicalizing constructor, exactly as `alg` is
       -- decoded through `mkAlg` and `span` through `mkSpan`: a frame carrying

@@ -40,6 +40,11 @@ inductive Domain where
   | vector (n : Nat) (entry : Domain)
   /-- `src → tgt`, the domain a function binding is ascribed to. -/
   | funcs (src tgt : Domain)
+  /-- Formal power series `coeff[[t]]` — SPEC.md's `ℝ[[t]]` and `ℤ[[t]]`.
+  Its indeterminate is spelled `t`, exactly as the polynomial ring's is
+  spelled `x`: a `Domain` records no name, and one spelling per ring is the
+  convention this surface already keeps. -/
+  | series (coeff : Domain)
   deriving BEq, Repr, Hashable, Inhabited
 
 /-- Cardinality values the slice can express. -/
@@ -78,6 +83,29 @@ inductive SymExpr where
   | mul (a b : SymExpr)
   | div (a b : SymExpr)
   | pow (a b : SymExpr)
+  deriving BEq, Repr, Inhabited
+
+/-- How a formal power series' coefficients are KNOWN.
+
+The two shapes are genuinely different claims, and the DISPLAY says which: a
+RULE knows every coefficient (so a bare series shows a few and `…`), while
+TERMS knows exactly the ones it carries (so it shows them and `O(tⁿ)`). A
+truncation is then a real operation on the presentation — it turns a rule
+into terms — rather than a second value shape meaning the same thing.
+
+CEILING: the coefficients are exact RATIONALS. Every series `SPEC.md` writes
+has rational coefficients (`n²`, and the `1/n!` of a Taylor expansion), and
+holding `Value`s here would make this type mutually recursive with `Value`
+for no gain the surface asks for. -/
+inductive SeriesGen where
+  /-- `[tⁿ] = p(n)` for EVERY n, with `p` given by its coefficients ascending
+  in `n`: SPEC.md's `∑_{n ∈ ℕ} n² tⁿ` has the rule `#[0, 0, 1]`. Any
+  coefficient and any truncation is available. -/
+  | rule (inN : Array Rat)
+  /-- The coefficients of `t⁰ … t^(size-1)`, known exactly and no further —
+  what a Taylor expansion comes back as. A truncation past the last one is a
+  loud refusal naming the ceiling, never a shorter answer. -/
+  | terms (coeffs : Array Rat)
   deriving BEq, Repr, Inhabited
 
 /-- A trusted CAS value. Backend results reflect into these; small values
@@ -196,6 +224,9 @@ inductive Value where
   or span: the indefinite integral is a COSET of `ker(d/dx)`, which is a set
   of primitives and not a primitive. -/
   | cosetV (offset : Value) (kernel : Domain)
+  /-- A formal power series in `t` — SPEC.md's `∑_{n ∈ ℕ} n² tⁿ ∈ ℤ[[t]]` and
+  the Taylor expansions of §Elementary calculus. -/
+  | seriesV (coeff : Domain) (gen : SeriesGen)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
   binder generates, so the identities SPEC.md asserts about functions
   (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`) are decided by the polynomial engine
@@ -271,6 +302,16 @@ inductive Obj where
   its sheaf, its morphisms — because that ontology is CategoryGraph's per
   the trajectory ruling, and nothing here may grow into it. -/
   | specOf (ring : Domain)
+  /-- A SYMBOLIC expression as an object — `π`, `∞`, and the points a limit
+  or a definite integral runs between.
+
+  It exists because a method ARGUMENT is an `Obj`, and `SPEC.md` writes
+  `lim_{t → ∞}` and `∫₀^π`: neither point is an element of a domain, so
+  neither has an `Obj.elem` to be. Giving one a domain would be a display
+  that lies (`∞ ∈ ℝ` is false), and this is the honest slot instead. It has
+  NO profile — no method reaches it — which is exactly right: an expression
+  is something operations are performed WITH, not ON. -/
+  | symObj (e : SymExpr)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -284,6 +325,7 @@ partial def render : Domain → String
   | .complex => "ℂ"
   | .mod n => s!"ℤ/{n}"
   | .poly c => s!"{c.render}[x]"
+  | .series c => s!"{c.render}[[t]]"
   | .matrix n e => s!"Mat{subscript n}({e.render})"
   | .vector n e => s!"{e.render}{superscript n}"
   | .funcs s t => s!"{s.render} → {t.render}"
@@ -307,6 +349,7 @@ partial def latex : Domain → String
   | .complex => "\\mathbb{C}"
   | .mod n => "\\mathbb{Z}/" ++ toString n ++ "\\mathbb{Z}"
   | .poly c => c.latex ++ "[x]"
+  | .series c => c.latex ++ "[[t]]"
   | .matrix n e => "\\mathrm{Mat}_{" ++ toString n ++ "}(" ++ e.latex ++ ")"
   | .vector n e => e.latex ++ "^{" ++ toString n ++ "}"
   | .funcs s t => s.latex ++ " \\to " ++ t.latex
@@ -534,7 +577,7 @@ what makes the LaTeX path propagate a coefficient with no LaTeX form (its
 `mapM latex?` fails before this is reached) instead of silently substituting
 the plain spelling of a value it cannot typeset. -/
 private def renderPolyWith (x : String) (sup : Nat → String)
-    (coeffs : Array String) : String := Id.run do
+    (coeffs : Array String) (ascending : Bool := false) : String := Id.run do
   if coeffs.isEmpty then return "0"
   let mut terms : List String := []
   for i in [0:coeffs.size] do
@@ -555,13 +598,57 @@ private def renderPolyWith (x : String) (sup : Nat → String)
         else s!"({cs}){p}"
     terms := term :: terms
   if terms.isEmpty then return "0"
-  -- terms is highest-degree first; join with signs
+  -- `terms` came out highest-degree first, which is how a POLYNOMIAL is
+  -- written. A SERIES is written the other way — it has no highest term, and
+  -- its tail (`+ …`, `+ O(tⁿ)`) belongs at the end — so it asks for the
+  -- ascending order instead
+  let ordered := if ascending then terms.reverse else terms
   let mut out := ""
-  for t in terms do
+  for t in ordered do
     if out.isEmpty then out := t
     else if t.startsWith "-" then out := out ++ " - " ++ (t.drop 1)
     else out := out ++ " + " ++ t
   return out
+
+/-! ## Formal power series (`SPEC.md` §Elementary calculus, §Ellipses)
+
+A series is presented by finitely many coefficients PLUS the generating rule
+where one exists. Both readings answer the same three questions — a
+coefficient, a truncation, and a display — and the display is what says which
+reading is in hand: `…` when every coefficient is known, `O(tⁿ)` when exactly
+the carried ones are. -/
+
+/-- How many terms a bare series SHOWS, and how far a Taylor expansion is
+computed. A documented ceiling, not a fallback: a truncation past what a
+`terms` series carries is a loud refusal naming this number. -/
+def seriesTerms : Nat := 12
+
+/-- How many terms a bare series displays before its tail. `SPEC.md` shows
+`t + 4t^2 + 9t^3 + 16 t^4 + ...`, which is the coefficients of `t⁰ … t⁴`. -/
+def seriesShown : Nat := 5
+
+/-- The coefficient of `tⁿ`, when the presentation knows it. `none` = a
+`terms` series was asked past its ceiling, which is the one thing about a
+series this slice will not guess. -/
+def seriesCoeff? : SeriesGen → Nat → Option Rat
+  -- Horner in `n`, exactly: the rule is a polynomial with rational
+  -- coefficients and `n` is a natural number
+  | .rule inN, n =>
+      some (inN.foldr (init := (0 : Rat)) fun c acc => acc * Rat.ofInt (Int.ofNat n) + c)
+  | .terms cs, n => cs[n]?
+
+/-- The coefficients of `t⁰ … t^(k-1)`, or `none` when a `terms` series does
+not know them all. -/
+def seriesUpTo? (g : SeriesGen) (k : Nat) : Option (Array Rat) :=
+  (Array.range k).mapM (seriesCoeff? g)
+
+/-- A series' visible terms and its TAIL, which says which reading is in
+hand: `+ ...` for a rule (every coefficient is known, and there are infinitely
+many), `+ O(tᵏ)` for terms (exactly these are known). -/
+private def seriesParts : SeriesGen → Array Rat × String
+  | .rule inN => ((Array.range seriesShown).map (fun n => (seriesCoeff? (.rule inN) n).getD 0),
+      " + ...")
+  | .terms cs => (cs, s!" + O(t^{cs.size})")
 
 partial def render : Value → String
   | .int z => toString z
@@ -628,6 +715,9 @@ R → Ω¹_{R / k} ≅ R dx"
   | .derivation false =>
       "d/dx : k[x] → k[x], differentiation with respect to the indeterminate"
   | .cosetV offset kernel => s!"{offset.render} + {kernel.render}"
+  | .seriesV _ gen =>
+      let (cs, tail) := seriesParts gen
+      renderPolyWith "t" plainSup (cs.map ratText) (ascending := true) ++ tail
   | .func _ _ binder body =>
       -- the body is written back in the mathematician's own binder, not in
       -- the `x` a bare polynomial renders with
@@ -940,6 +1030,14 @@ partial def latex? : Value → Option String
   -- value is: their renderings are prose ABOUT an operation, not mathematics
   | .derivation _ => none
   | .cosetV offset kernel => do return (← latex? offset) ++ " + " ++ kernel.latex
+  -- `\ldots` and `O(t^{5})` are math mode's own spellings; the braced
+  -- exponent is the table's convention
+  | .seriesV _ gen =>
+      let (cs, _) := seriesParts gen
+      let tail := match gen with
+        | .rule _ => " + \\ldots"
+        | .terms ts => s!" + O(t^\{{ts.size}})"
+      some (renderPolyWith "t" latexSup (cs.map ratText) (ascending := true) ++ tail)
   | .func _ _ binder body => do
       let t := toString binder
       let b ← match body with
@@ -1082,6 +1180,7 @@ def render : Obj → String
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
   | .specOf r => s!"Spec {r.render}"
+  | .symObj e => e.render
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -1095,6 +1194,7 @@ def latex? : Obj → Option String
   -- `\mathrm{Spec}` is the operator name, as `\mathrm{Mat}` and
   -- `\mathrm{span}` already are in this renderer's table
   | .specOf r => some ("\\mathrm{Spec}\\, " ++ r.latex)
+  | .symObj e => if e.latexSafe then some e.latex else none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -1103,6 +1203,7 @@ def presentation : Obj → String
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
   | .specOf r => s!"Spec {r.render}"
+  | .symObj e => e.render
 
 instance : ToString Obj := ⟨render⟩
 

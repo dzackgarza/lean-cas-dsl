@@ -464,6 +464,81 @@ def check_unsupported(adapter):
     print("unsupported op: ok")
 
 
+# --- the symbolic operations -----------------------------------------------
+
+def _sym_var(n="t"):
+    return {"s": "var", "n": n}
+
+
+def _sym_num(n, d=1):
+    return {"s": "num", "q": {"t": "rat", "num": str(n), "den": str(d)}}
+
+
+def _sym_func(body, binder="t"):
+    return {"binder": binder, "body": body}
+
+
+def check_sym_limit(adapter):
+    """SPEC.md §Elementary calculus' two limits, exactly.
+
+    These are the TRUSTED replies: the caller has no exact computation that
+    decides a limit, so this is where the answer is actually checked against
+    the mathematics. `sin(t)/t → 1` at 0 and `1/t → 0` at infinity.
+    """
+    v = adapter.ok("sym_limit", {
+        "f": _sym_func({"s": "div", "a": {"s": "app", "f": "sin", "a": _sym_var()},
+                        "b": _sym_var()}),
+        "point": _sym_num(0)})
+    assert rat(v) == "1/1", v
+    v = adapter.ok("sym_limit", {
+        "f": _sym_func({"s": "div", "a": _sym_num(1), "b": _sym_var()}),
+        "point": {"s": "const", "n": "infinity"}})
+    assert rat(v) == "0/1", v
+    # a name outside the shared vocabulary is refused HERE too, not only at
+    # the caller: the closed list is what keeps the surface backend-blind
+    reply = adapter.call("sym_limit", {
+        "f": _sym_func({"s": "app", "f": "arctan", "a": _sym_var()}),
+        "point": _sym_num(0)})
+    assert reply["status"] == "error", reply
+    assert "arctan" in reply["message"], reply
+    print("sym_limit: ok")
+
+
+def check_sym_definite_integral(adapter):
+    """SPEC.md's `∫₀¹ t² dt = 1/3` and `∫₀^π sin(t) dt = 2`."""
+    v = adapter.ok("sym_definite_integral", {
+        "f": _sym_func({"s": "pow", "a": _sym_var(), "b": _sym_num(2)}),
+        "lo": _sym_num(0), "hi": _sym_num(1)})
+    assert rat(v) == "1/3", v
+    v = adapter.ok("sym_definite_integral", {
+        "f": _sym_func({"s": "app", "f": "sin", "a": _sym_var()}),
+        "lo": _sym_num(0), "hi": {"s": "const", "n": "pi"}})
+    assert rat(v) == "2/1", v
+    print("sym_definite_integral: ok")
+
+
+def check_sym_taylor(adapter):
+    """SPEC.md's two expansions: e^t and sin(t) about 0, exactly.
+
+    The coefficients are RATIONALS — 1/n! and the alternating odd ones — and
+    a coefficient that is not one is a refusal rather than a decimal.
+    """
+    v = adapter.ok("sym_taylor", {
+        "f": _sym_func({"s": "pow", "a": {"s": "const", "n": "e"}, "b": _sym_var()}),
+        "point": _sym_num(0), "order": 6})
+    assert v["gen"] == "terms", v
+    got = [(c["num"], c["den"]) for c in v["cs"]]
+    assert got == [("1", "1"), ("1", "1"), ("1", "2"), ("1", "6"),
+                   ("1", "24"), ("1", "120")], got
+    v = adapter.ok("sym_taylor", {
+        "f": _sym_func({"s": "app", "f": "sin", "a": _sym_var()}),
+        "point": _sym_num(0), "order": 8})
+    got = [(c["num"], c["den"]) for c in v["cs"]]
+    assert got == [("0", "1"), ("1", "1"), ("0", "1"), ("-1", "6"),
+                   ("0", "1"), ("1", "120"), ("0", "1"), ("-1", "5040")], got
+    print("sym_taylor: ok")
+
+
 def main():
     sage = shutil.which("sage")
     if sage is None:
@@ -494,6 +569,9 @@ def main():
         check_matrices(adapter)
         check_charpoly_and_companion(adapter)
         check_approx_real(adapter)
+        check_sym_limit(adapter)
+        check_sym_definite_integral(adapter)
+        check_sym_taylor(adapter)
         check_unsupported(adapter)
     except BaseException:
         proc.kill()

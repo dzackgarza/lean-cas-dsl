@@ -341,6 +341,30 @@ tolerance. `ℝ/O(ε)` is SUGAR for that request and NOT a quotient — |a - b| 
 is not transitive, so there are no classes — and the exact value is kept, not \
 replaced. Which numeric strategy meets the tolerance (interval, ball, adaptive) \
 is the backend's own business and is named nowhere in this surface" },
+  -- SPEC.md §Elementary calculus' three analysis operations, all declared on
+  -- FunctionElems: each is asked of a FUNCTION, and each answers with an
+  -- exact value or a series rather than with anything approximate
+  { id := `limit, receiver := `FunctionElems, arity := 1,
+    argDoc := "the point the variable runs to — an exact rational, or one of \
+the symbolic constants (π, ∞)",
+    resultDoc := "an exact value",
+    doc := "the limit of the function's body as its variable runs to a point. \
+TRUSTED: there is no finite exact computation on this side that decides a \
+limit, so what is checked of the reply is its KIND — an exact value, never a \
+decimal. This surface claims no epsilon-delta semantics and ℝ gains none; the \
+limit is an OPERATION whose answer is exact or a refusal" },
+  { id := `definite_integral, receiver := `FunctionElems, arity := 2,
+    argDoc := "the lower and upper bounds",
+    resultDoc := "an exact value",
+    doc := "the definite integral of the body between two bounds. TRUSTED in \
+the same sense the limit is, and refused rather than approximated when the \
+answer is not one of the exact values this slice presents" },
+  { id := `taylor_expansion, receiver := `FunctionElems, arity := 1,
+    argDoc := "the point to expand about",
+    resultDoc := "a formal power series, known to a documented number of terms",
+    doc := "the Taylor expansion about a point, as a formal power series in \
+t. The number of terms is a documented CEILING of this slice, not something \
+the call negotiates: a truncation past it is a loud refusal naming it" },
   { id := `image, receiver := `FunctionElems,
     resultDoc := "the set of values the function takes on its source",
     doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
@@ -427,6 +451,14 @@ private def stdProfileRules : Array ProfileRule := #[
   -- ℂ[x] is a set too, and an UNCOUNTABLE one: `Sets` is its true strength,
   -- so `p ∈ ℂ[x]` is decided and `ℂ[x][3]` is not even applicable
   { pattern := .domainIs (.polyOver (.exact .complex)), cat := `Sets },
+  -- SPEC.md's `ℝ[[t]]` and `ℤ[[t]]` AS SETS, which is what `Tf ∈ ℝ[[t]]` asks
+  -- of them. `Sets` is their true strength and nothing narrower: a formal
+  -- power series is an arbitrary SEQUENCE of coefficients, so the ring is
+  -- UNCOUNTABLE — the standing ℂ[x] already has. Registered one coefficient
+  -- domain at a time for the reason ℤ/n is
+  { pattern := .domainIs (.exact (.series .int)), cat := `Sets },
+  { pattern := .domainIs (.exact (.series .rat)), cat := `Sets },
+  { pattern := .domainIs (.exact (.series .real)), cat := `Sets },
   -- ℝ and ℂ as objects, and used as sets. `Sets` is their true strength and
   -- nothing narrower: both are UNCOUNTABLE, so `nth` — declared on
   -- CountableSets — correctly does not reach them, and `ℝ.cardinality()`
@@ -700,7 +732,17 @@ private def stdRoutes : Array Route := #[
   -- arithmetic progression). Anything else is a loud refusal at execution —
   -- a partiality WITHIN the routed shape, like the zero polynomial's degree
   { method := `image, pattern := .elemOf .anyFuncs, backend := `native,
-    opId := "func_image" }
+    opId := "func_image" },
+  -- the three analysis operations are the backend's: a symbolic limit, a
+  -- symbolic definite integral and a Taylor expansion are exactly what this
+  -- side has no exact computation for, which is why they are ROUTED rather
+  -- than native — and why the limit's reply is trusted rather than certified
+  { method := `limit, pattern := .elemOf .anyFuncs, backend := `sage,
+    opId := "sym_limit" },
+  { method := `definite_integral, pattern := .elemOf .anyFuncs, backend := `sage,
+    opId := "sym_definite_integral" },
+  { method := `taylor_expansion, pattern := .elemOf .anyFuncs, backend := `sage,
+    opId := "sym_taylor" }
 ]
 
 run_cmd stdRoutes.forM registerRoute!
@@ -745,7 +787,8 @@ private def stdRepresentatives : Array Representative := #[
   ("span_ℚ{(1,0,1), (0,1,1)} ≤ ℚ³", .setObj spanW),
   ("2 + 2i ∈ ℂ", z2plus2i),
   ("√2 ∈ ℝ", sqrt2),
-  ("ℂ", .domainObj .complex)
+  ("ℂ", .domainObj .complex),
+  ("ℤ[[t]]", .domainObj (.series .int))
 ]
 
 run_cmd stdRepresentatives.forM registerRepresentative!
@@ -1011,8 +1054,15 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- for ℤ — so irreducibility in ℤ[x] is available and not executable
   expectRouted env (.elem .int (.int 7)) `is_prime [`FactorizationElems] `sage
   expectGap env polyZ `is_prime []
-  -- SPEC.md's `e.image()`: the image is the one method functions own
+  -- SPEC.md's `e.image()`: the image is the one method functions own natively
   expectRouted env doubling `image [] `native
+  -- …and SPEC.md §Elementary calculus' three, which are the backend's
+  expectRouted env doubling `limit [] `sage
+  expectRouted env doubling `definite_integral [] `sage
+  expectRouted env doubling `taylor_expansion [] `sage
+  -- none of them leaks off a function receiver
+  expectNotApplicable env (.elem .int (.int 360)) `limit
+  expectNotApplicable env polyQ `taylor_expansion
   -- …and it does not leak to the values a function takes
   expectNotApplicable env (.elem .int (.int 360)) `image
   -- SPEC.md §Exact number systems: the complex plane's four methods, on ℂ and
@@ -1037,6 +1087,10 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env (.domainObj .complex) `contains [] `native
   expectRouted env (.domainObj .real) `contains [] `native
   expectNotApplicable env (.domainObj .real) `nth
+  -- SPEC.md §Elementary calculus: a series RING is a set — uncountable, like
+  -- ℂ[x] — so membership routes and indexing is not even applicable
+  expectRouted env (.domainObj (.series .int)) `contains [] `native
+  expectNotApplicable env (.domainObj (.series .int)) `nth
 
 run_cmd acceptanceProofs (← getEnv)
 

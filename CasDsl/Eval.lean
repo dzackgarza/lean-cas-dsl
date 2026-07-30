@@ -105,6 +105,22 @@ inductive CasExpr where
   /-- `∫ f dx` — the complete set of primitives of `f`, a COSET of
   `ker(d/dx)`. The `antiderivative` method, applied by elaboration. -/
   | integral (f : CasExpr)
+  /-- `lim_{t → a} body` — the `limit` METHOD on the function `t ↦ body`,
+  which this node builds by elaboration. -/
+  | limitOf (binder : Name) (point body : CasExpr)
+  /-- `∫₀¹ t² dt` — the `definite_integral` METHOD on `t ↦ body`, likewise. -/
+  | defIntegral (binder : Name) (lo hi body : CasExpr)
+  /-- `ℝ[[t]]` — the formal power series over a coefficient domain. -/
+  | seriesDom (coeff : CasExpr)
+  /-- `ℝ[[t]]/(t^6)` and `ℤ[[t]] / O(t^5)` — a TRUNCATION REQUEST, on the
+  `ℝ/O(ε)` precedent: meaningful only after `map … to`, and a loud refusal
+  anywhere else. It is not a quotient domain, and there is no `Domain`
+  constructor for it, so it answers no membership or cardinality question. -/
+  | truncTarget (order : Nat)
+  /-- `∑_{n ∈ ℕ} n² tⁿ` — a series given by its GENERATING RULE. -/
+  | seriesSum (binder : Name) (index rule : CasExpr)
+  /-- `[t²]f` — one coefficient of a series. -/
+  | coeffOf (power : Nat) (series : CasExpr)
   /-- `kernel(d/dx : ℚ[x] → ℚ[x])` — the kernel of a DERIVATION, which is the
   constants of its ring. The arrow is ascribed rather than inferred because a
   derivation names no domains of its own. -/
@@ -149,6 +165,7 @@ def valueDom? : Value → Option Domain
   | .mat n e _ => some (.matrix n e)
   | .vec n e _ => some (.vector n e)
   | .func s t _ _ => some (.funcs s t)
+  | .seriesV c _ => some (.series c)
   | _ => none
 
 /-! ### The coercion layer
@@ -272,6 +289,17 @@ partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
         .error s!"a {m}×{m} matrix is not an element of Mat{n}(…)"
       else do
         return .mat n e (← rows.mapM (·.mapM (coerceValue rules e)))
+  -- structural congruence under `series`, for the reason it holds under
+  -- `poly`: a canonical map of coefficient domains INDUCES the one on series.
+  -- The coefficients are exact RATIONALS by construction, and every rule this
+  -- prelude registers between them moves no data, so the image is a re-tag
+  | .series c, .seriesV c' gen =>
+      if c == c' then .ok (.seriesV c gen)
+      else do
+        match ← canonicalMapFor rules c' c with
+        | some _ => return .seriesV c gen
+        | none => .error s!"there is no preferred canonical map of \
+{(Domain.series c').render} into {(Domain.series c).render}"
   | .vector n e, .vec m _ comps =>
       if n != m then
         .error s!"a vector of length {m} is not an element of {(Domain.vector n e).render}"
@@ -319,6 +347,7 @@ partial def domainSubset (rules : Array CanonicalMap)
       if n == m then domainSubset rules a b else return false
   | .vector n a, .vector m b =>
       if n == m then domainSubset rules a b else return false
+  | .series a, .series b => domainSubset rules a b
   -- a scalar is an element of its own constant polynomials
   | a, .poly c => domainSubset rules a c
   | a, b =>
@@ -671,6 +700,18 @@ binder '{binder}' at a point. The members of a coset differ by a constant, so \
 that shape solves for the constant EXACTLY; any other shape is a gap rather \
 than a fit"
 
+/-- A series asked past what it KNOWS — a truncation or a coefficient beyond
+the terms a `terms` presentation carries. ONE wording, shared by both, because
+they are one fact about the presentation: this is what a documented ceiling
+says when it is reached, and it is never a shorter answer returned as if it
+had been requested. -/
+def pastSeriesCeiling (k : Nat) (gen : SeriesGen) : String :=
+  match gen with
+  | .terms cs =>
+      s!"this series is known to {cs.size} terms (t^0 … t^{cs.size - 1}), and t^{k} is past that ceiling. A series presented by finitely many coefficients does not invent the next one, and a shorter answer would not be the one asked for"
+  | .rule _ =>
+      s!"t^{k} is not a coefficient of this series"
+
 /-- Is `a / b` SPEC.md's derivation `d/dx` rather than a quotient? Only when
 both names are free: a binding wins, exactly as it does over a constant. The
 LETTER needs no check: `dx` is the surface's own token for the differential of
@@ -782,6 +823,15 @@ where
     | .sqrt _ => "a square root"
     | _ => "that shape"
 
+/-- The function a limit or a definite integral is taken OF: `binder ↦ body`
+with the body read symbolically. `ℝ → ℝ` is the ascription tag these
+operations run under — the arrow carries no analysis semantics here, and the
+OPERATION is what the backend answers. -/
+def symFunction (isBound : Name → Bool) (binder : Name) (body : CasExpr)
+    : Except String Obj := do
+  return .elem (.funcs .real .real)
+    (.func .real .real binder (.sym (← toSymExpr isBound binder body)))
+
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
 own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`), `CC` is ℂ.
 
@@ -857,6 +907,10 @@ def ofValue (v : Value) : Denote :=
   | .progV dom first step last? => .obj (.setObj (.arithProg dom first step last?))
   | .spanV n basis => .obj (.setObj (.span n basis))
   | .cosetV offset kernel => .obj (.setObj (.coset offset kernel))
+  -- a symbolic expression becomes an OBJECT, which is what lets it be a
+  -- method argument: `lim_{t → ∞}` and `∫₀^π` write points that are not
+  -- elements of any domain
+  | .sym e => .obj (.symObj e)
   | v =>
     match valueDom? v with
     | some d => .obj (.elem d v)
@@ -933,6 +987,7 @@ def renderPattern : PresPattern → String
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .specObj => "an affine scheme"
+  | .symbolic => "a symbolic expression"
   | .anyObj => "any object"
 
 def renderRoute (r : Route) : String :=
@@ -1321,6 +1376,51 @@ differential 1-form here is a POLYNOMIAL against the free generator `dx`")
   | .integral f => do
       let recv ← ofStr (asObjOf (← eval ctx f))
       callMethod ctx recv `antiderivative #[]
+  -- SPEC.md §Elementary calculus. All three analysis operations are ordinary
+  -- METHODS on a FUNCTION — the spelling builds the function by elaboration,
+  -- exactly as `{a ∈ ℂ | r(a) = 0}` builds the polynomial it hands to `roots`
+  -- — so `#explain_route` explains them and a missing backend is the ordinary
+  -- structured gap. The body is read SYMBOLICALLY: a limit and a definite
+  -- integral are asked of an EXPRESSION, and the polynomial reading would
+  -- decide nothing extra about either.
+  | .limitOf binder point body => do
+      let f ← ofStr (symFunction ctx.isBound binder body)
+      let a ← ofStr (asObjOf (← eval ctx point))
+      callMethod ctx f `limit #[a]
+  | .defIntegral binder lo hi body => do
+      let f ← ofStr (symFunction ctx.isBound binder body)
+      let a ← ofStr (asObjOf (← eval ctx lo))
+      let b ← ofStr (asObjOf (← eval ctx hi))
+      callMethod ctx f `definite_integral #[a, b]
+  | .seriesDom coeff => do
+      let c ← eval ctx coeff
+      let .obj (.domainObj d) := c
+        | throw (.msg s!"`E[[t]]` is the formal power series over a DOMAIN, and {c.presentation} is not one")
+      return .obj (.domainObj (.series d))
+  | .truncTarget k =>
+      throw (.msg s!"`E[[t]]/(t^{k})` is the TARGET of `map … to` — a request that a series be presented by its first {k} coefficients — and nothing else: it is not a domain, not a set, and not a quotient ring this surface presents. There is no Domain constructor for it, so it answers no membership, cardinality or inclusion question")
+  -- SPEC.md §Ellipses' `∑_{n ∈ ℕ} n² tⁿ`. The RULE is read with the sum's
+  -- binder as the indeterminate — the move the root set and the guarded
+  -- comprehension both make — so the coefficients come out exactly, and a
+  -- rule that is not a polynomial in the binder is a loud refusal
+  | .seriesSum binder index rule => do
+      let idx ← eval ctx index
+      let some (.domainSet .nat) := idx.asSet?
+        | throw (.msg s!"a generating sum indexes over ℕ, and {idx.presentation} is not it")
+      let rv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, .int) } rule)
+        s!"the coefficient rule of a generating sum")
+      let some (c, cs) := asPolyCoeffs rv
+        | throw (.msg s!"{rv.render} is not a polynomial in '{binder}': the rule of a generating sum gives the coefficient of tⁿ as a polynomial in n, and this slice reads no wider rule")
+      let some qs := cs.mapM Native.toRat?
+        | throw (.msg s!"the rule {rv.render} has a coefficient this slice cannot read as a rational, and a series' coefficients are exact rationals here")
+      return Denote.ofValue (.seriesV c (.rule qs))
+  | .coeffOf k series => do
+      let sv ← ofStr (asValueOf (← eval ctx series) s!"`[t^{k}]…`")
+      let .seriesV _ gen := sv
+        | throw (.msg s!"`[t^{k}]…` extracts a coefficient of a SERIES, and {sv.render} is not one")
+      let some q := Value.seriesCoeff? gen k
+        | throw (.msg (pastSeriesCeiling k gen))
+      return Denote.ofValue (Value.ofRat q)
   | .specOf ring => do
       let r ← eval ctx ring
       let .obj (.domainObj d) := r
@@ -1544,6 +1644,16 @@ vector of the space meant — `span_QQ{(0, 0)}` — or obtained, as `M.ker()`"))
       let v ← ofStr (asValueOf (← eval ctx e) "`map … to ℝ/O(ε)`")
       let r ← ofStr (coerceValue ctx.canonMaps .real v)
       callMethod ctx (.elem .real r) `approximate #[.elem .rat (Value.ofRat eps)]
+  -- SPEC.md's `map Tf to ℝ[[t]]/(t^6)` and `map f to ℤ[[t]] / O(t^5)`. The
+  -- SAME shape `map … to ℝ/O(ε)` has: a REQUEST, answered by the presentation
+  -- itself rather than by a coercion into a domain that does not exist
+  | .mapTo e (.truncTarget k) => do
+      let v ← ofStr (asValueOf (← eval ctx e) "`map … to E[[t]]/(t^k)`")
+      let .seriesV c gen := v
+        | throw (.msg s!"a truncation presents a SERIES by its first {k} coefficients, and {v.render} is not one")
+      let some qs := Value.seriesUpTo? gen k
+        | throw (.msg (pastSeriesCeiling k gen))
+      return Denote.ofValue (.seriesV c (.terms qs))
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
@@ -1901,9 +2011,21 @@ def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
       | none =>
           let s ← ofStr (toSymExpr ctx.isBound binder body)
           return .elem (.funcs src tgt) (.func src tgt binder (.sym s))
+  -- SPEC.md §Ellipses' `let f(t) = ∑_{n ∈ ℕ} n² tⁿ ∈ ℤ[[t]]`: the outer
+  -- binder is the SERIES' indeterminate, which this slice spells `t`, and the
+  -- generating sum binds its own summation variable. There is nothing for the
+  -- outer binder to be an indeterminate OF here — a series' coefficients are
+  -- indexed, not substituted into — so it is checked and then stands aside
+  | .domain (.series c) =>
+      if binder != `t then
+        throw (.msg s!"the indeterminate of a formal power series is spelled \
+`t` here, and `{binder}` is not it")
+      let o ← objOf (← eval ctx body)
+      ascribe ctx o (.domain (.series c))
   | _ =>
       throw (.msg s!"a `{binder} ↦ …` definition must be ascribed to a polynomial \
-domain such as ℤ[x] or to a function domain such as ℝ → ℝ")
+domain such as ℤ[x], a function domain such as ℝ → ℝ, or a series domain such \
+as ℤ[[t]]")
 
 /-- `let x := e [in T]`; a `↦` lambda on the right is a binder definition. -/
 def evalBinding (ctx : EvalCtx) (e : CasExpr) (asc? : Option CasExpr) : EvalM Obj := do

@@ -574,6 +574,93 @@ into it.
   so those two are ordinary constants consulted after the bindings. All three
   denote the same kind of thing — a symbolic constant with no domain.
 
+## Elementary calculus (`SPEC.md` §Elementary calculus, issue #24)
+
+`lim`, the definite integral and the Taylor expansion are ONE shape: an
+ordinary METHOD on a FUNCTION (`limit`, `definite_integral`,
+`taylor_expansion`), with the surface production building the function by
+elaboration exactly as `{a ∈ ℂ | r(a) = 0}` builds the polynomial it hands to
+`roots`. `#explain_route` explains all three, and a backend that cannot run
+one is the ordinary structured gap.
+
+- **`lim` IS a routed operation, and `Domain.real` gains nothing.** The
+  surface claims no epsilon-delta semantics: ℝ is still uncountable,
+  unordered and un-enumerated, and `limit` is not a method of ℝ or of any
+  number. It is asked of an EXPRESSION and it answers with an exact value —
+  a rational or `a + b√d` — or refuses. A limit that does not exist or is
+  infinite is the backend's refusal, not a value.
+- **THE TRUST BOUNDARY, named here because this is the first one.** There is
+  no finite exact computation on this side that decides `lim_{t→0} sin(t)/t`,
+  so unlike `approx_real` (whose certificate is verified),
+  `mat_charpoly_q` (monic, right degree) and `poly_companion_q` (trace and
+  determinant), the reply is TRUSTED. What is checked is its KIND: an exact
+  value this slice presents, so a decimal, a factorization or an unevaluated
+  expression coming back is still an adapter defect rather than an answer.
+  §Numerical approximation said such a seam "would have to be declared, and
+  the declaration would have to be visible here". This is it.
+  The definite integral sits on the same boundary; the Taylor expansion is
+  checked one step further — its coefficients must be exact RATIONALS, and a
+  coefficient that is not one is refused rather than turned into a decimal.
+- **The adapter's strategy is its own, and is named nowhere in the surface.**
+  It computes the Taylor coefficients from the DEFINITION (`f⁽ⁿ⁾(a)/n!`,
+  through symbolic differentiation) rather than from a series routine, and it
+  asks SymPy for a limit rather than Sage's default Maxima. That second one is
+  worth recording rather than merely doing: the SageMath install this was
+  developed against has a BROKEN Maxima — both the ECL library interface
+  ("Module error: Don't know how to REQUIRE MAXIMA") and the `/bin/maxima`
+  binary fail — so the default algorithm cannot run there at all.
+
+## Formal power series (`SPEC.md` §Elementary calculus, §Ellipses, issue #24)
+
+`Domain.series` is a real domain (the ascriptions `in ℝ[[t]]` and
+`assert Tf ∈ ℝ[[t]]` force it), spelled `D[[t]]`. Its indeterminate is `t`
+exactly as the polynomial ring's is `x` — a `Domain` records no name, and one
+spelling per ring is what keeps a display readable back as input.
+
+- **A series is presented by finitely many coefficients PLUS the generating
+  rule where one exists**, and the DISPLAY says which reading is in hand: a
+  RULE knows every coefficient, so a bare series shows a few and `…`; TERMS
+  know exactly the ones they carry, so they show them and `O(tⁿ)`. A
+  truncation is then a real operation on the presentation — it turns a rule
+  into terms — rather than a second value meaning the same thing.
+  A series is written in ASCENDING order, unlike a polynomial: it has no
+  highest term, and its tail belongs at the end.
+- **CEILING, and it is loud.** A `terms` series knows `Value.seriesTerms`
+  coefficients. A truncation or a coefficient past that is a refusal NAMING
+  the ceiling — never a shorter answer returned as if it had been requested,
+  which is the same discipline `MAX_DIGITS` follows for a tolerance. Both
+  refusals share one wording, because they are one fact about the
+  presentation.
+- **`ℝ[[t]]/(t^6)` and `ℤ[[t]] / O(t^5)` are ONE truncation REQUEST with two
+  spellings**, on the `ℝ/O(ε)` precedent: meaningful only after `map … to`,
+  no `Domain` constructor, and a loud refusal written anywhere else — so it
+  answers no membership, cardinality or inclusion question, because a request
+  has none.
+- **The series coefficients are exact RATIONALS.** Every series `SPEC.md`
+  writes has them (`n²`, and the `1/n!` of a Taylor expansion), and holding
+  `Value`s would make `SeriesGen` mutually recursive with `Value` for no gain
+  the surface asks for.
+- **A series RING is a `Sets` member and nothing narrower**: a formal power
+  series is an arbitrary SEQUENCE of coefficients, so `ℤ[[t]]` is
+  UNCOUNTABLE — the standing ℂ[x] already has. Membership routes; `nth` is
+  not even applicable.
+- **`[t²]f` is a THIRD reading of the brackets**, beside the polynomial ring
+  `D[x]` and the index `e[k]`, told apart by what follows: a matrix literal
+  ends at its `]`, and this one has a receiver against it with no space. The
+  exponent is read STRUCTURALLY — `t` names no binding, it is the series' own
+  indeterminate — so `[t^{2}]f` works through the same brace-unwrapping the
+  exponent slot already does.
+- **`ℤ[[t]]` is two adjacent `[` tokens, not a `[[` token.** A `[[` token
+  would be produced by the tokenizer everywhere, including inside Lean's own
+  `#[…]` array literals. What keeps `ℤ[[t]]` from ALSO parsing as the index
+  `ℤ[…]` applied to the one-row matrix `[t]` — a parse of exactly the same
+  length — is a `notFollowedBy("[")` on the index production: an index is
+  never written with a matrix literal as its subscript.
+- **`lim_` is a token with its underscore**, because `_` is an identifier
+  character: `lim_{t → 0}` lexes `lim_` as one IDENTIFIER, so a bare `lim`
+  token is never seen. (`∑_{…}` has no such problem — `∑` is not an
+  identifier character.)
+
 ## Sets (`SPEC.md` §Finite sets, issue #24)
 
 The set operations SPEC.md writes — `∪ ∩ \ △ × 𝒫 |·| ⊆ ∈` — are all

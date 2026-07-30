@@ -159,6 +159,81 @@ surface guard should already have refused")
 should already have refused")
   | o, _ => .error (offSignature "approx_real" o)
 
+/-- The SYMBOLIC function a limit, a definite integral or a Taylor expansion
+is taken of, plus its binder. A polynomial body inside the routed shape is a
+loud `badRequest` rather than a silent conversion: these three ops answer
+about an EXPRESSION, and this side does not turn one presentation into
+another to make a call go through. -/
+private def symFuncArgs (op : String) : Obj → Except ExecError (Lean.Name × SymExpr)
+  | .elem (.funcs ..) (.func _ _ binder (.sym e)) => .ok (binder, e)
+  | .elem (.funcs ..) (.func _ _ _ body) => .error (.badRequest
+      s!"sage op {repr op} takes a SYMBOLIC function body, and {body.render} is a polynomial one: a limit, a definite integral and a Taylor expansion are asked of an expression, and this side does not convert one presentation into another to make a call go through")
+  | o => .error (offSignature op o)
+
+/-- A POINT a symbolic operation runs to or between: an exact number, or one
+of the symbolic constants SPEC.md writes (`π`, `∞`). Validated here, like
+every other argument in this slice. An exact ALGEBRAIC point is a gap rather
+than a decimal — this side does not approximate to make a call go through. -/
+private def symPointArg (op : String) : Obj → Except ExecError Json
+  | .symObj e => .ok (Codec.symToJson e)
+  | .elem _ (.int z) => .ok (Codec.symToJson (.num (Rat.ofInt z)))
+  | .elem _ (.rat q) => .ok (Codec.symToJson (.num q))
+  | o => .error (.badRequest
+      s!"sage op {repr op} expects a point — an exact rational, or one of the \
+symbolic constants — and got {o.presentation}")
+
+private def symFuncJson (binder : Lean.Name) (e : SymExpr) : Json :=
+  Json.mkObj [("binder", Json.str binder.toString), ("body", Codec.symToJson e)]
+
+/-- `lim_{t → a} body` — the function and the point it runs to. -/
+private def symLimitArgs (receiver : Obj) (args : Array Obj)
+    : Except ExecError Json := do
+  let (binder, e) ← symFuncArgs "sym_limit" receiver
+  let some pt := args[0]?
+    | .error (.badRequest s!"sage op \"sym_limit\" takes one point, got {args.size}")
+  if args.size != 1 then
+    .error (.badRequest s!"sage op \"sym_limit\" takes one point, got {args.size}")
+  else
+    return Json.mkObj
+      [("f", symFuncJson binder e), ("point", ← symPointArg "sym_limit" pt)]
+
+/-- `∫ₐᵇ body dt` — the function and the two bounds. -/
+private def symDefIntArgs (receiver : Obj) (args : Array Obj)
+    : Except ExecError Json := do
+  let (binder, e) ← symFuncArgs "sym_definite_integral" receiver
+  let some lo := args[0]?
+    | .error (.badRequest
+        s!"sage op \"sym_definite_integral\" takes two bounds, got {args.size}")
+  let some hi := args[1]?
+    | .error (.badRequest
+        s!"sage op \"sym_definite_integral\" takes two bounds, got {args.size}")
+  if args.size != 2 then
+    .error (.badRequest
+      s!"sage op \"sym_definite_integral\" takes two bounds, got {args.size}")
+  else
+    return Json.mkObj
+      [("f", symFuncJson binder e),
+       ("lo", ← symPointArg "sym_definite_integral" lo),
+       ("hi", ← symPointArg "sym_definite_integral" hi)]
+
+/-- `f.taylor_expansion(a)` — the function and the expansion point. The ORDER
+is this side's ceiling rather than the caller's: a series is presented by
+finitely many coefficients, and how many is a documented number
+(`Value.seriesTerms`) rather than something a call negotiates. -/
+private def symTaylorArgs (receiver : Obj) (args : Array Obj)
+    : Except ExecError Json := do
+  let (binder, e) ← symFuncArgs "sym_taylor" receiver
+  let some pt := args[0]?
+    | .error (.badRequest
+        s!"sage op \"sym_taylor\" takes one expansion point, got {args.size}")
+  if args.size != 1 then
+    .error (.badRequest
+      s!"sage op \"sym_taylor\" takes one expansion point, got {args.size}")
+  else
+    return Json.mkObj
+      [("f", symFuncJson binder e), ("point", ← symPointArg "sym_taylor" pt),
+       ("order", Lean.toJson Value.seriesTerms)]
+
 /-- A rational component of a reply, for the checks below. Local because the
 executors' own arithmetic backend is not in this module's dependency cone —
 a backend does not read another backend. -/
@@ -261,6 +336,19 @@ approximation of {exact.render}, but was asked for {recv.render}")
       match o with
       | .elem (.poly _) (.poly _ cs) => checkCompanion cs v
       | o => .error (offSignature "poly_companion_q" o)
+  -- TRUSTED, and this is where that is declared. A limit and a definite
+  -- integral of a symbolic expression have no finite exact computation on
+  -- this side that could CHECK them — unlike `approx_real`'s certificate,
+  -- `mat_charpoly_q`'s monicity or `poly_companion_q`'s trace and
+  -- determinant. What is checked is the KIND: the reply must be an exact
+  -- value this slice presents, so a decimal, a factorization or a symbolic
+  -- expression coming back is still an adapter defect rather than an answer.
+  | "sym_limit", .int _ | "sym_limit", .rat _ | "sym_limit", .alg .. => .ok v
+  | "sym_definite_integral", .int _ | "sym_definite_integral", .rat _
+  | "sym_definite_integral", .alg .. => .ok v
+  -- a Taylor expansion comes back as a SERIES, whose own constructor has
+  -- already checked its shape at the codec
+  | "sym_taylor", .seriesV .. => .ok v
   | "gcd_int", .int _ => .ok v
   | "is_prime_int", .bool _ => .ok v
   -- the EMPTY set is the honest answer for a polynomial with no root in its
@@ -279,7 +367,8 @@ def executor : Executor := fun opId receiver args => do
   -- DEFAULT-DENY on arguments: every op takes its receiver alone unless it is
   -- named here, so an op added later rejects a stray argument instead of
   -- silently dropping it. A defective method declaration is reported.
-  if !args.isEmpty && !(#["gcd_int", "approx_real"].contains opId) then
+  if !args.isEmpty && !(#["gcd_int", "approx_real", "sym_limit",
+      "sym_definite_integral", "sym_taylor"].contains opId) then
     return .error (.badRequest s!"sage op {repr opId} takes no arguments, got {args.size}")
   let payload : Except ExecError Json :=
     match opId with
@@ -296,6 +385,9 @@ def executor : Executor := fun opId receiver args => do
     | "roots_poly_q" => polyQArgs "roots_poly_q" receiver
     | "gcd_int" => gcdIntArgs receiver args
     | "approx_real" => approxRealArgs receiver args
+    | "sym_limit" => symLimitArgs receiver args
+    | "sym_definite_integral" => symDefIntArgs receiver args
+    | "sym_taylor" => symTaylorArgs receiver args
     | "is_prime_int" => isPrimeIntArgs receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with
@@ -343,7 +435,12 @@ private def sageOpSigs : Array OpSig := #[
   -- number is not something this op implements, and the route registered for
   -- `approximate` may therefore not send it one
   { backend := `sage, opId := "approx_real",
-    accepts := #[.elemOf (.exact .real)] }
+    accepts := #[.elemOf (.exact .real)] },
+  -- the three analysis operations, all on a FUNCTION receiver
+  { backend := `sage, opId := "sym_limit", accepts := #[.elemOf .anyFuncs] },
+  { backend := `sage, opId := "sym_definite_integral",
+    accepts := #[.elemOf .anyFuncs] },
+  { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs] }
 ]
 
 run_cmd sageOpSigs.forM registerOpSig!

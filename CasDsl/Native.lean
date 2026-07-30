@@ -450,6 +450,10 @@ def domainCard : Domain → Option Cardinality
   | .real | .complex | .funcs .. => none
   | .mod 0 => some .countablyInfinite
   | .mod n => some (.finite n)
+  -- a formal power series over a countable coefficient domain is a sequence
+  -- of them, which is UNCOUNTABLE — `Cardinality` deliberately cannot state
+  -- that, so it is reported as unstatable rather than given ℵ₀
+  | .series _ => none
   | .poly c =>
       match domainCard c with
       | some (.finite k) => some (if k ≤ 1 then .finite 1 else .countablyInfinite)
@@ -546,6 +550,13 @@ private partial def inDomain? (d : Domain) (x : Value) : Bool :=
   | .complex, _ => false
   | .poly c, .poly _ cs => cs.all (inDomain? c)
   | .poly c, v => inDomain? c v
+  -- SPEC.md's `assert Tf ∈ ℝ[[t]]`: a series is one of `E[[t]]` when its own
+  -- coefficient domain sits in `E`. The coefficients are rationals by
+  -- construction (SeriesGen's ceiling), so this is a judgment about the
+  -- DOMAIN TAG, and it is stated as one
+  | .series e, .seriesV c _ => e == c || (e == .real && c == .rat)
+    || (e == .rat && c == .int) || (e == .real && c == .int)
+  | .series _, _ => false
   -- a matrix is one of Matₙ(e) when its size agrees and every entry is in e;
   -- a function's domain is the arrow it was declared over
   | .matrix n e, .mat m _ rows => n == m && rows.all (·.all (inDomain? e))

@@ -268,6 +268,89 @@ def test_the_coset_typesets(kernel: Kernel) -> None:
     assert b["text/latex"] == "$$x^{3} + (1/2)x^{2} + x + \\mathbb{Q}$$"
 
 
+def test_limits_are_exact_or_refused(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Elementary calculus, verbatim. A limit is a routed OPERATION
+    # on a symbolic function expression; ℝ gains no analysis semantics from
+    # it, and the ANSWER is one of the exact values this slice presents.
+    ok(kc, "assert lim_{t → 0} sin(t)/t = 1")
+    ok(kc, "assert lim_{t → ∞} 1/t = 0")
+    # the negative: a wrong limit is FALSE, not unknown
+    text = err(kc, "assert lim_{t → 0} sin(t)/t = 2")
+    assert "false" in text.lower()
+    text = err(kc, "assert lim_{t → ∞} 1/t = 1")
+    assert "false" in text.lower()
+    # …and the vocabulary is closed at the limit too
+    text = err(kc, "lim_{t → 0} arctan(t)")
+    assert "arctan" in text and "vocabulary" in text
+
+
+def test_definite_integrals_are_exact(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md's own two, in both bound spellings: a superscript digit and
+    # `^` against a symbolic constant
+    ok(kc, "assert ∫₀¹ t² dt = 1/3")
+    ok(kc, "assert ∫₀^π sin(t) dt = 2")
+    text = err(kc, "assert ∫₀¹ t² dt = 1/2")
+    assert "false" in text.lower()
+
+
+def test_taylor_expansion_and_truncation(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md writes `t ↦ e^t`. `e` is bound to SPEC.md's own doubling map
+    # earlier in this session (the collision documented above), so the
+    # exponential is written with the spelling no binding can shadow. The
+    # `e^t` spelling itself is pinned where the name is free.
+    ok(kc, "let expf := t ↦ exp(t) in ℝ → ℝ")
+    ok(kc, "let Tf := expf.taylor_expansion(0) in ℝ[[t]]")
+    ok(kc, "assert Tf ∈ ℝ[[t]]")
+    # the coefficients are EXACT rationals — 1/n!, never decimals
+    ok(kc, "assert [t^3]Tf = 1/6")
+    ok(kc, "assert [t^5]Tf = 1/120")
+    text = err(kc, "assert [t^3]Tf = 1/7")
+    assert "false" in text.lower()
+    # the truncation is a REQUEST, and the display says how far it is known.
+    # (This slice keeps ONE spelling for a rational coefficient — `(1/2)t^2`,
+    # the same one `renderPolyWith` uses everywhere — where SPEC.md's own
+    # §Elementary calculus writes `t²/2`. SPEC.md spells the same coefficient
+    # the other way in §Indefinite integration, which is the one this surface
+    # already followed.)
+    text = ok(kc, "map Tf to ℝ[[t]]/(t^6)")
+    assert "+ O(t^6)" in text
+    for term in ["1 + t", "(1/2)t^2", "(1/6)t^3", "(1/24)t^4", "(1/120)t^5"]:
+        assert term in text, text
+    # SPEC.md's `t ↦ sin(t)` to t^8, in its own spelling
+    ok(kc, "let g: ℝ → ℝ := t ↦ sin(t)")
+    ok(kc, "let Tg := g.taylor_expansion(0) in ℝ[[t]]")
+    ok(kc, "assert Tg ∈ ℝ[[t]]")
+    text = ok(kc, "map Tg to ℝ[[t]]/(t^8)")
+    # a negative rational coefficient is PARENTHESIZED, which is the same
+    # convention the polynomial renderer already uses for one
+    for term in ["t + ", "(-1/6)t^3", "(1/120)t^5", "(-1/5040)t^7", "+ O(t^8)"]:
+        assert term in text, text
+    # …and past the documented ceiling it REFUSES rather than shortening
+    text = err(kc, "map Tg to ℝ[[t]]/(t^40)")
+    assert "ceiling" in text and "12 terms" in text
+
+
+def test_a_generating_series_and_its_truncation(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Ellipses' `∑_{n ∈ ℕ} n² tⁿ ∈ ℤ[[t]]`, whose RULE knows every
+    # coefficient — which is why the bare display ends in `...` and the
+    # truncation's ends in `O(t^5)`
+    ok(kc, "let sq(t) = ∑_{n ∈ ℕ} n^2 t^n ∈ ℤ[[t]]")
+    assert bundle(kc, "sq")["text/plain"] == "t + 4t^2 + 9t^3 + 16t^4 + ..."
+    assert (bundle(kc, "map sq to ℤ[[t]] / O(t^5)")["text/plain"]
+            == "t + 4t^2 + 9t^3 + 16t^4 + O(t^5)")
+    ok(kc, "assert [t^2]sq = 4")
+    text = err(kc, "assert [t^2]sq = 5")
+    assert "false" in text.lower()
+    # a truncation target written anywhere but after `map … to` is a loud
+    # refusal, exactly as `ℝ/O(ε)` is
+    text = err(kc, "assert sq ∈ ℤ[[t]]/(t^5)")
+    assert "not a domain" in text
+
+
 def test_a_binding_shadows_the_differential(kernel: Kernel) -> None:
     _, kc = kernel
     # `d` is a CONSTANT, so a `let` shadows it exactly as one shadows `i`.

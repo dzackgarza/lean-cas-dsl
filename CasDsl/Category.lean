@@ -88,6 +88,9 @@ inductive PresPattern where
   /-- `Spec R`; the ring is not inspected (a pattern over one presentation
   cannot state a strength that depends on it — the profile rules' rule). -/
   | specObj
+  /-- A symbolic expression used as an object. No profile rule names it: an
+  expression is what operations are performed WITH, not ON. -/
+  | symbolic
   | anyObj
   deriving BEq, Repr, Inhabited
 
@@ -137,6 +140,7 @@ def accepts : PresPattern → Obj → Bool
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
   | .specObj, .specOf _ => true
+  | .symbolic, .symObj _ => true
   | .anyObj, _ => true
   | _, _ => false
 
@@ -157,6 +161,7 @@ def implies : PresPattern → PresPattern → Bool
   | .cosetSet, .cosetSet => true
   | .cyclicMod, .cyclicMod => true
   | .specObj, .specObj => true
+  | .symbolic, .symbolic => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
   | .domainSetOf _, .anySet => true

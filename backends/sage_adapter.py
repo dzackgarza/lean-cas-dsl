@@ -14,8 +14,9 @@ import json
 import sys
 
 try:
-    from sage.all import (AA, Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ,
-                          companion_matrix, factor, gcd)
+    from sage.all import (AA, Integer, Matrix, PolynomialRing, QQ, QQbar, SR,
+                          ZZ, companion_matrix, factor, factorial, gcd,
+                          integrate, limit, oo, pi, sin, var)
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -363,7 +364,7 @@ def op_poly_companion_q(args):
 
     Which of Sage's four layouts is used is this adapter's own convention
     (DESIGN.md decision 7), so the caller checks the three things every layout
-    shares: the size, the trace, and the determinant. Both numbers, because
+    shares: the size, the trace, and the determinant. The last two, because
     the zero matrix has the right trace whenever a_{d-1} is 0.
     """
     f = PolynomialRing(QQ, "x")([dec_rat(c) for c in args["coeffs"]])
@@ -402,6 +403,149 @@ def op_mat_inv_q(args):
     }
 
 
+# --- symbolic operations ---------------------------------------------------
+
+# Which engine answers a symbolic LIMIT is this adapter's own business, and is
+# named nowhere in the caller's surface — the discipline `approx_real` set for
+# its numeric strategy. Sage's default is Maxima; this adapter asks SymPy,
+# which ships with Sage and needs no external process.
+#
+# WORTH KNOWING, because it is why the choice is not merely a preference: the
+# SageMath install this was developed against has a BROKEN Maxima — both the
+# ECL library interface ("Module error: Don't know how to REQUIRE MAXIMA") and
+# the `/bin/maxima` binary fail — so the default algorithm cannot run there at
+# all. The definite integral and the Taylor expansion below avoid Maxima by
+# construction rather than by option: one is Sage's own, and the other is
+# computed from the definition through Pynac.
+LIMIT_ALGORITHM = "sympy"
+
+SYM_CONSTANTS = {"e": lambda: SR(1).exp(), "pi": lambda: pi,
+                 "infinity": lambda: oo}
+SYM_FUNCTIONS = {"sin": sin, "exp": lambda a: a.exp()}
+
+
+def dec_sym(j, v):
+    """A symbolic expression from the caller's TYPED TREE.
+
+    Never a source string: the caller sends nodes and this builds a Sage
+    expression from them, so neither end can widen the language unilaterally.
+    A name outside the shared vocabulary is a loud refusal here as well as
+    there — the check is on BOTH sides on purpose.
+    """
+    if not isinstance(j, dict):
+        raise BackendError("bad_request", "expected a symbolic node, got %r" % (j,))
+    tag = j.get("s")
+    if tag == "var":
+        return v
+    if tag == "num":
+        return SR(dec_rat(j["q"]))
+    if tag == "const":
+        name = j.get("n")
+        if name not in SYM_CONSTANTS:
+            raise BackendError(
+                "bad_request",
+                "%r is not one of the named constants this adapter presents (%s)"
+                % (name, ", ".join(sorted(SYM_CONSTANTS))),
+            )
+        return SYM_CONSTANTS[name]()
+    if tag == "app":
+        name = j.get("f")
+        if name not in SYM_FUNCTIONS:
+            raise BackendError(
+                "bad_request",
+                "%r is not one of the named functions this adapter presents (%s)"
+                % (name, ", ".join(sorted(SYM_FUNCTIONS))),
+            )
+        return SYM_FUNCTIONS[name](dec_sym(j["a"], v))
+    if tag == "neg":
+        return -dec_sym(j["a"], v)
+    binops = {
+        "add": lambda a, b: a + b, "sub": lambda a, b: a - b,
+        "mul": lambda a, b: a * b, "div": lambda a, b: a / b,
+        "pow": lambda a, b: a ** b,
+    }
+    if tag in binops:
+        return binops[tag](dec_sym(j["a"], v), dec_sym(j["b"], v))
+    raise BackendError("bad_request", "unknown symbolic node %r" % (tag,))
+
+
+def _sym_func(args):
+    """The caller's function, as (variable, expression)."""
+    f = args["f"]
+    v = var(str(f["binder"]))
+    return v, dec_sym(f["body"], v)
+
+
+def _enc_exact(x, what):
+    """A symbolic RESULT as one of the exact values the caller presents.
+
+    An answer this adapter cannot place in QQbar — an infinite limit, a
+    divergent integral, an expression that did not close up — is a loud
+    refusal naming what came back. Returning a decimal, or the unevaluated
+    expression, would be a wrong answer wearing a right shape.
+    """
+    try:
+        return enc_alg(QQbar(x))
+    except (TypeError, ValueError, NotImplementedError):
+        raise BackendError(
+            "not_exact",
+            "%s is %s, which is not an exact value this surface presents"
+            % (what, x),
+        )
+
+
+def op_sym_limit(args):
+    """lim_{v -> point} body, by Sage's symbolic limit.
+
+    TRUSTED on the caller's side and this is the operation that is: there is
+    no finite exact computation there that could check a limit, so what the
+    caller verifies is the KIND of the reply. A limit that does not exist, or
+    is infinite, is a refusal here rather than a value.
+    """
+    v, body = _sym_func(args)
+    pt = dec_sym(args["point"], v)
+    result = limit(body, algorithm=LIMIT_ALGORITHM, **{str(v): pt})
+    return _enc_exact(result, "the limit")
+
+
+def op_sym_definite_integral(args):
+    v, body = _sym_func(args)
+    lo = dec_sym(args["lo"], v)
+    hi = dec_sym(args["hi"], v)
+    try:
+        result = integrate(body, v, lo, hi)
+    except ValueError as exc:
+        raise BackendError("divergent", str(exc))
+    return _enc_exact(result, "the definite integral")
+
+
+def op_sym_taylor(args):
+    """The Taylor coefficients about a point, exactly.
+
+    Computed from the DEFINITION — the n-th coefficient is f^(n)(a)/n! —
+    rather than from a series routine. Symbolic differentiation and
+    substitution are Pynac's, so this needs no external CAS module at all,
+    and every coefficient comes back as an exact rational or as a refusal.
+
+    The ORDER is the caller's documented ceiling, not a negotiation: a series
+    is presented by finitely many coefficients, and a truncation past them is
+    the caller's loud refusal rather than a shorter answer from here.
+    """
+    v, body = _sym_func(args)
+    pt = dec_sym(args["point"], v)
+    order = int(args["order"])
+    coeffs = []
+    for n in range(order):
+        c = body.derivative(v, n).subs({v: pt}) / factorial(n)
+        if c not in QQ:
+            raise BackendError(
+                "not_exact",
+                "the coefficient of t^%d is %s, which is not a rational" % (n, c),
+            )
+        coeffs.append(enc_rat(QQ(c)))
+    return {"t": "series", "coeff": RAT_DOM, "gen": "terms", "cs": coeffs}
+
+
 OPS = {
     "factor_int": op_factor_int,
     "factor_poly_q": op_factor_poly_q,
@@ -417,6 +561,9 @@ OPS = {
     "poly_companion_q": op_poly_companion_q,
     "mat_inv_q": op_mat_inv_q,
     "approx_real": op_approx_real,
+    "sym_limit": op_sym_limit,
+    "sym_definite_integral": op_sym_definite_integral,
+    "sym_taylor": op_sym_taylor,
 }
 
 
