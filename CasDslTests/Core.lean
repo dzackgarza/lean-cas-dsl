@@ -434,7 +434,23 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 #guard out "cardinality" (.domainObj (.mod 6)) #[] == some (.cardinal (.finite 6))
 -- a cardinality this slice cannot state is a loud failure, not a guess
 #guard out "cardinality" (.domainObj .real) #[] == none
-#guard out "set_eq" (.domainObj .real) #[.domainObj .real] == none
+-- …but a domain whose SIZE cannot be stated is still a set with a membership
+-- test and an identity, and those are what the comparison normal form is for.
+-- `ℝ = ℝ` used to be refused ALONGSIDE the cardinality, by tying the two
+-- questions together; each is now answered on its own, and the refusal that
+-- belongs to the cardinality stays exactly where it was
+#guard out "set_eq" (.domainObj .real) #[.domainObj .real] == some (.bool true)
+#guard out "set_eq" (.domainObj .real) #[.domainObj .complex] == some (.bool false)
+-- …which is what lets SPEC.md's `{a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)` be CHECKED:
+-- membership in the powerset of ℂ is the inclusion of an element list
+#guard out "contains" (.setObj (.powerset (.domainSet .complex)))
+    #[.setObj (.finite .complex #[.int 1, .alg 0 1 (-1)])] == some (.bool true)
+#guard out "contains" (.setObj (.powerset (.domainSet .real)))
+    #[.setObj (.finite .complex #[.alg 0 1 (-1)])] == some (.bool false)
+-- an uncountable domain is not inside a finite list, the theorem the
+-- countably infinite case already used
+#guard out "subset" (.domainObj .real) #[.setObj (.finite .int #[.int 1])]
+  == some (.bool false)
 
 -- contains
 #guard out "contains" (.setObj (.arithProg .nat (.int 0) (.int 2) none))

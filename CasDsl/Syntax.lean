@@ -76,6 +76,17 @@ syntax:max (name := casFilterSet)
 syntax:max (name := casImageSet)
   "{" casTerm " | " ident casBinderIn casTerm ("," casTerm)? "}" : casTerm
 
+/-- SPEC.md's `{a ∈ ℂ | r(a) = 0}` — the ROOT SET of a polynomial, and a
+production of its own rather than a guarded comprehension.
+
+`=` is the assertion relation in this surface and is deliberately not a
+term-level comparison (one symbol, one meaning), so an EQUATION cannot appear
+in a guard at all. It appears here, inside a production that means exactly one
+thing: the set of solutions of `p(x) = q(x)` in the index domain, which is the
+`roots` method the surface already has. Nothing about `=` elsewhere changes. -/
+syntax:max (name := casRootSet)
+  "{" ident casBinderIn casTerm " | " casTerm " = " casTerm "}" : casTerm
+
 /-- SPEC.md's `∑_{a ∈ roots} a` and `∏_{a ∈ roots} a`. The body is an ATOM,
 so `= 0` on the right of an assertion ends it exactly where the mathematician
 put it; a wider body is parenthesized. -/
@@ -335,6 +346,8 @@ SPEC.md writes is `span_QQ\{…}`, the subspace of ℚⁿ its generators span"
       | f => return .app f args
   -- `{n ∈ ℤ | P}` IS `{n | n ∈ ℤ, P}`: the filtering spelling is the image
   -- of the identity, so one node reaches one evaluator
+  | ``casRootSet =>
+      return .rootSet stx[1].getId (← toExpr stx[3]) (← toExpr stx[5]) (← toExpr stx[7])
   | ``casFilterSet =>
       return .comprehension (.ref stx[1].getId) stx[1].getId (← toExpr stx[3])
         (some (← toExpr stx[5]))

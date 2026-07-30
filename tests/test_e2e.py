@@ -1436,3 +1436,34 @@ def test_the_trace_reaches_where_det_gaps(kernel: Kernel) -> None:
     assert "NoImplementation" in text
     text = err(kc, "Cm5.charpoly()")
     assert "NoImplementation" in text
+
+
+# -- 20 · the root set, and Σ / Π over it -------------------------------------
+# SPEC.md §A composed computation's first block, verbatim. `r` is the ℚ[x]
+# cubic bound in §19; `roots` appears nowhere else in this file.
+
+def test_the_root_set_over_c_and_its_aggregations(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let roots := {a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)")
+    ok(kc, "assert |roots| = 3")
+    ok(kc, "assert 1 ∈ roots")
+    ok(kc, "assert ∑_{a ∈ roots} a = 0")
+    ok(kc, "assert ∏_{a ∈ roots} a = -1")
+    # the aggregations are EXACT over the surds the cubic splits into — the
+    # displayed sum is 0 and not 0.0000001
+    text = ok(kc, "roots")
+    assert "√5" in text and "." not in text.split("√5")[0].split("{")[-1]
+
+
+def test_the_index_domain_decides_where_the_roots_are_sought(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # `{a ∈ D | p(a) = 0}` seeks the solutions IN D — over ℚ the cubic has one
+    # root and over ℂ it has three. That is the mathematics, not a default
+    ok(kc, "assert {a ∈ ℚ | r(a) = 0} = {1}")
+    ok(kc, "assert |{a ∈ ℂ | r(a) = 0}| = 3")
+    # an equation with a non-zero right side is the same operation
+    ok(kc, "assert 0 ∈ {a ∈ ℚ | r(a) = 1}")
+    # …and the guarded comprehension is untouched: `=` is still not a
+    # term-level comparison, so a guard is still an ORDER comparison
+    ok(kc, "assert {n ∈ ℤ | n² ≤ 4} = {-2, -1, 0, 1, 2}")

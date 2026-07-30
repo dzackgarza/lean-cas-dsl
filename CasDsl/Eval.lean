@@ -109,6 +109,10 @@ inductive CasExpr where
   element exactly as a comprehension's head is, and the aggregation itself is
   an ordinary category method on the resulting set. -/
   | aggregate (m : Name) (binder : Name) (index body : CasExpr)
+  /-- `{x ∈ D | p(x) = q(x)}` — the set of solutions in `D`, which is the
+  `roots` method applied to `p − q` in `D[x]`. A production of its own
+  because `=` is the assertion relation everywhere else in this surface. -/
+  | rootSet (binder : Name) (index lhs rhs : CasExpr)
   /-- A comprehension `{head | binder ∈ index, guard}`. SPEC.md's filtering
   spelling `{n ∈ ℤ | P}` is this node with `head = binder` — one shape, so
   one evaluator decides both. -/
@@ -1206,7 +1210,14 @@ that space and in no other")
           if args.size != 1 then
             throw (.msg s!"a polynomial is called with exactly one argument, got {args.size}")
           let x ← ofStr (asValueOf (← eval ctx args[0]!))
-          return Denote.ofValue (← ofStr (Native.polyEval c coeffs x))
+          -- a POLYNOMIAL argument SUBSTITUTES — the move `f ∘ g` already
+          -- makes, and what `p(x)` means when `x` is an indeterminate; a
+          -- scalar argument is the scalar Horner evaluation it always was
+          match x with
+          | .poly .. =>
+              return Denote.ofValue
+                (← ofStr (applyPoly ctx.canonMaps (.poly c coeffs) x))
+          | x => return Denote.ofValue (← ofStr (Native.polyEval c coeffs x))
       -- SPEC.md applies a matrix to a vector by juxtaposition — `M v`,
       -- `M(M⁻¹ b)` — and a matrix IS a linear map, so applying it is the
       -- product it already has. Elaboration-inserted like calling a
@@ -1323,6 +1334,27 @@ each side")
 domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
   | .comprehension head binder index guard? =>
       evalComprehension ctx head binder index guard?
+  -- SPEC.md's `let roots := {a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)`. This is NOT the
+  -- guarded comprehension's decision procedure — that one bounds a binder
+  -- over ℕ or ℤ from a polynomial COMPARISON and tests candidates. Solving an
+  -- EQUATION is a different operation, and it is one the surface already has:
+  -- the equation is read with the binder as the INDETERMINATE, moved to
+  -- `p(x) = 0`, presented in the index domain's polynomial ring, and handed
+  -- to `roots` — same method, same route, same backend, one implementation.
+  | .rootSet binder index lhs rhs => do
+      let idx ← eval ctx index
+      let some (.domainSet d) := idx.asSet?
+        | throw (.msg s!"`\{x ∈ D | p(x) = q(x)}` is the set of solutions in a \
+DOMAIN D, and {idx.presentation} is not one")
+      let ictx := { ctx with indet? := some (binder, d) }
+      let l ← ofStr (asValueOf (← eval ictx lhs) "the left side of the equation")
+      let r ← ofStr (asValueOf (← eval ictx rhs) "the right side of the equation")
+      let p ← ofStr (valueBin ctx.canonMaps .sub l r)
+      -- the ring the roots are sought in is the INDEX set's own, so the answer
+      -- is the roots that lie there — `{a ∈ ℂ | …}` splits and `{a ∈ ℚ | …}`
+      -- does not, which is the mathematics rather than a default
+      let pd ← ofStr (coerceValue ctx.canonMaps (.poly d) p)
+      callMethod ctx (.elem (.poly d) pd) `roots #[]
   | .aggregate m binder index body => do
       let idx ← eval ctx index
       let some s := idx.asSet?

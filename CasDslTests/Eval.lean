@@ -815,6 +815,31 @@ run_cmd do
         if o.presentation != presented then
           throwError "'{name}' presented as {o.presentation}, expected {presented}"
 
+/-! ## The root set (SPEC.md §A composed computation)
+
+`{x ∈ D | p(x) = q(x)}` is the set of SOLUTIONS in `D`, which is the `roots`
+method the surface already has — not the guarded comprehension's decision
+procedure, which bounds a binder from an order comparison. What it computes
+needs a backend, so the SPEC.md lines are `tests/test_e2e.py`'s claim; the
+parse, the substitution it rests on and the refusals are here. -/
+
+-- calling a polynomial at a POLYNOMIAL substitutes, which is what makes the
+-- equation readable with the binder as the indeterminate at all
+let pin(x) := x^2 in ℚ[x]
+let pcomp(x) := pin(x) + 1 in ℚ[x]
+assert pcomp(2) = 5
+assert pcomp(0) = 1
+
+run_cmd do
+  let env ← Lean.getEnv
+  -- the index must be a DOMAIN: that is where the roots are sought
+  refuses env (.rootSet `a (.finSet #[.num 1]) (.ref `a) (.num 0))
+    "is the set of solutions in a DOMAIN"
+  -- …and a polynomial that cannot be presented there is the ordinary
+  -- canonical-map refusal, not a silent reach into a larger ring
+  refuses env (.rootSet `a (.dom .int) (.ref `pcomp) (.bin .div (.num 1) (.num 2)))
+    "no preferred canonical map"
+
 /-! ## Aggregation (SPEC.md §A composed computation)
 
 `∑` and `∏` fold an explicit finite set. The body binds TIGHTLY — SPEC.md

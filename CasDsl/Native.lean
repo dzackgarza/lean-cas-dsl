@@ -651,11 +651,13 @@ private def sortDedup (vs : Array Value) : Array Value :=
 
 private def normalizeDomain (d : Domain) : Except ExecError SetNormal :=
   match domainCard d with
-  | none =>
-      .error (.badRequest
-        s!"the native backend cannot compare {d.render} as a set: its cardinality \
-is not expressible here")
-  | some .countablyInfinite => .ok (.dom d)
+  -- A domain whose SIZE this slice cannot state is still a set with a
+  -- membership test and an identity, and that is all this normal form is for:
+  -- `S ⊆ ℂ` and `S ∈ 𝒫(ℂ)` are decided element by element, and `ℝ = ℂ` by the
+  -- two domains themselves. Only the FINITE case needs a cardinality, because
+  -- only it expands to an element list. (`ℂ.cardinality()` still reports that
+  -- it cannot be stated — that is `presCard`'s question, not this one.)
+  | none | some .countablyInfinite => .ok (.dom d)
   | some (.finite n) =>
       match d with
       | .mod m =>
