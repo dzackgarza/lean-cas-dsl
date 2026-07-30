@@ -104,6 +104,11 @@ inductive CasExpr where
   /-- `a ≤ b` and the chain `a ≤ b < c`, which is its conjunction. -/
   | cmp (op : CmpOp) (a b : CasExpr)
   | conj (a b : CasExpr)
+  /-- `∑_{x ∈ X} body` and `∏_{x ∈ X} body` — the aggregation named by `m`
+  (`sum` or `prod`), over the set `index`. The body is evaluated at each
+  element exactly as a comprehension's head is, and the aggregation itself is
+  an ordinary category method on the resulting set. -/
+  | aggregate (m : Name) (binder : Name) (index body : CasExpr)
   /-- A comprehension `{head | binder ∈ index, guard}`. SPEC.md's filtering
   spelling `{n ∈ ℤ | P}` is this node with `head = binder` — one shape, so
   one evaluator decides both. -/
@@ -1318,6 +1323,32 @@ each side")
 domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
   | .comprehension head binder index guard? =>
       evalComprehension ctx head binder index guard?
+  | .aggregate m binder index body => do
+      let idx ← eval ctx index
+      let some s := idx.asSet?
+        | throw (.msg s!"`∑_\{x ∈ X} …` aggregates over a SET, and \
+{idx.presentation} is not one")
+      -- SPEC.md writes `∑_{a ∈ roots} a`, whose body IS the binder: the
+      -- receiver is then the index set itself, so an index with no element
+      -- list reports the ordinary structured gap rather than a special one
+      let bodyIsBinder := match body with | .ref b => b == binder | _ => false
+      let recv ←
+        if bodyIsBinder then ofStr (asObjOf idx)
+        else match s with
+          -- any other body aggregates its IMAGE, built by elaboration exactly
+          -- as a set literal is — the binder is the same real local binding a
+          -- comprehension's is, scoped to this expression and publishing
+          -- nothing
+          | .finite d elems =>
+              let vs ← elems.mapM fun e => do
+                ofStr (asValueOf (← eval { ctx with local? := some (binder, .elem d e) }
+                  body) s!"the body at {binder} = {e.render}")
+              let d' ← ofStr (elemsDomain ctx.canonMaps vs)
+              pure (Obj.setObj (.finite d'
+                (← ofStr (vs.mapM (coerceValue ctx.canonMaps d')))))
+          | s => throw (.msg s!"a body other than the binder is aggregated over \
+an EXPLICIT finite set, and {s.render} is not one")
+      callMethod ctx recv m #[]
 
 /-- The bounds a guard puts on the comprehension binder, decided by
 `boundsOfPoly` after each comparison is rewritten as `p(n) ⋈ 0`. A guard

@@ -672,6 +672,37 @@ private def wBasis : Array Value := #[qv [1, 0, 1], qv [0, 1, 1]]
 #guard (Value.spanV 2 #[]).latex?
   == some "\\mathrm{span}_{\\mathbb{Q}}\\{\\} \\leq \\mathbb{Q}^{2}"
 
+/-! ## Aggregation over a finite set (SPEC.md §A composed computation)
+
+The guard against reporting the fold's SEED is stated against the executor:
+a set literal whose elements have no arithmetic does not survive
+`elemsDomain`, so the surface cannot build one — but `Native.run` is a public
+pure function and a later presentation could reach it. -/
+
+private def finiteOf (d : Domain) (vs : Array Value) : Obj :=
+  .setObj (.finite d vs)
+
+#guard (Native.run "set_sum" (finiteOf .int #[.int 1, .int 2, .int 3]) #[]).toOption
+  == some (Value.int 6)
+#guard (Native.run "set_prod" (finiteOf .int #[.int 2, .int 3]) #[]).toOption
+  == some (Value.int 6)
+-- the EMPTY sum is 0 and the empty product is 1 — the mathematical answers
+#guard (Native.run "set_sum" (finiteOf .int #[]) #[]).toOption == some (Value.int 0)
+#guard (Native.run "set_prod" (finiteOf .int #[]) #[]).toOption == some (Value.int 1)
+-- a set counts each element once
+#guard (Native.run "set_sum" (finiteOf .int #[.int 1, .int 1, .int 2]) #[]).toOption
+  == some (Value.int 3)
+-- …and elements with NO arithmetic are a refusal, never the seed: a fold that
+-- answered `0` here would report a value nobody wrote (the defect family
+-- `scalarPow`'s own guard exists for)
+#guard (Native.run "set_sum" (finiteOf (.vector 2 .rat) #[qv [1, 2]]) #[]).toOption
+  == none
+#guard (Native.run "set_prod" (finiteOf (.vector 2 .rat) #[qv [1, 2]]) #[]).toOption
+  == none
+#guard (Native.run "set_sum" (finiteOf (.matrix 2 .rat) #[m1234]) #[]).toOption == none
+-- the aggregations need an EXPLICIT finite receiver, like the binary ones
+#guard (Native.run "set_sum" (.domainObj .int) #[]).toOption == none
+
 #guard valueEq (.cardinal (.finite 3)) (.int 3) == some true
 #guard valueEq (.int 3) (.cardinal (.finite 3)) == some true
 #guard valueEq (.cardinal (.finite 3)) (.int 4) == some false

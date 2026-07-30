@@ -251,6 +251,21 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
   { id := `symdiff, receiver := `Sets, arity := 1,
     argDoc := "another set", resultDoc := "a set",
     doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" },
+  -- SPEC.md §A composed computation's `∑_{a ∈ roots} a` and `∏`. Declared on
+  -- FINITE sets, not on Sets: aggregation is a finite algebraic operation,
+  -- and the sum over an infinite set is a limit this slice has no notion of —
+  -- so `∑_{n ∈ ℕ} n` is honestly not a method of ℕ rather than a missing
+  -- route. Documented residue: a BOUNDED progression is finite but presents
+  -- as `progression`, which enters at CountableSets (a pattern cannot see the
+  -- bound), so it misses this specificity exactly as it misses FiniteSets.
+  { id := `sum, receiver := `FiniteSets,
+    resultDoc := "an element of the domain the set's elements share",
+    doc := "the sum of the elements, each counted once — SPEC.md's \
+`∑_{x ∈ X} x`. The empty sum is 0" },
+  { id := `prod, receiver := `FiniteSets,
+    resultDoc := "an element of the domain the set's elements share",
+    doc := "the product of the elements, each counted once — SPEC.md's \
+`∏_{x ∈ X} x`. The empty product is 1" },
   -- SPEC.md §Exact number systems' complex methods. `bar` and `|·|` are the
   -- surface's own spellings of conjugation and the modulus.
   { id := `re, receiver := `ComplexElems,
@@ -579,6 +594,8 @@ private def stdRoutes : Array Route := #[
     opId := "set_intersect" },
   { method := `diff, pattern := .finiteSet, backend := `native, opId := "set_diff" },
   { method := `symdiff, pattern := .finiteSet, backend := `native, opId := "set_symdiff" },
+  { method := `sum, pattern := .finiteSet, backend := `native, opId := "set_sum" },
+  { method := `prod, pattern := .finiteSet, backend := `native, opId := "set_prod" },
   -- the complex plane: structural reads of the exact form `a + b√d`, which
   -- the engine genuinely decides, so they are native and exact
   { method := `re, pattern := .elemOf (.exact .complex), backend := `native, opId := "alg_re" },
@@ -840,6 +857,14 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env (.setObj finSet123) `diff [`CountableSets, `Sets] `native
   expectRouted env (.setObj finSet123) `symdiff [`CountableSets, `Sets] `native
   expectRouted env (.setObj finSet123) `subset [`CountableSets, `Sets] `native
+  -- SPEC.md §A composed computation: Σ and Π are declared on FINITE sets, so
+  -- they arrive DIRECTLY on a finite set's own profile entry…
+  expectRouted env (.setObj finSet123) `sum [] `native
+  expectRouted env (.setObj finSet123) `prod [] `native
+  -- …and do not reach ℤ at all: the sum over an infinite set is a limit this
+  -- slice has no notion of, which is a different statement from "no route"
+  expectNotApplicable env (.domainObj .int) `sum
+  expectNotApplicable env (.domainObj .int) `prod
   -- …so a union with an infinite presentation on the LEFT is available and
   -- not executable: the honest gap, exactly like det over ℤ/5
   expectGap env (.domainObj .int) `union [`Sets]

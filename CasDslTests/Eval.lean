@@ -815,6 +815,56 @@ run_cmd do
         if o.presentation != presented then
           throwError "'{name}' presented as {o.presentation}, expected {presented}"
 
+/-! ## Aggregation (SPEC.md §A composed computation)
+
+`∑` and `∏` fold an explicit finite set. The body binds TIGHTLY — SPEC.md
+writes the bare binder, and a wider body is parenthesized — so `= 0` on the
+right of an assertion ends the sum exactly where it is written. -/
+
+assert ∑_{a ∈ {1, 2, 3}} a = 6
+assert ∏_{a ∈ {1, 2, 3}} a = 6
+assert ∑_{a in {1, 2, 3}} a = 6
+-- a SET counts each element once, however the literal was written
+assert ∑_{a ∈ {1, 1, 2, 3}} a = 6
+-- the empty sum is 0 and the empty product is 1: the mathematical answers,
+-- pinned so a later refactor cannot quietly make them something else
+assert ∑_{a ∈ {}} a = 0
+assert ∏_{a ∈ {}} a = 1
+-- a body other than the binder aggregates the IMAGE, with the binder a real
+-- local binding scoped to the expression
+assert ∑_{a ∈ {1, 2, 3}} (a^2) = 14
+assert ∏_{a ∈ {1, 2, 3}} (2*a) = 48
+-- …exact over ℚ and over the surds, never a decimal
+assert ∑_{a ∈ {1/2, 1/3}} a = 5/6
+assert ∑_{a ∈ {√2, -√2}} a = 0
+assert ∏_{a ∈ {√2, -√2}} a = -2
+-- and the wrong answers the same folds must reject
+assert ∑_{a ∈ {1, 2, 3}} a ≠ 7
+assert ∏_{a ∈ {1, 2, 3}} a ≠ 0
+
+run_cmd do
+  let env ← Lean.getEnv
+  let three : CasExpr := .finSet #[.num 1, .num 2, .num 3]
+  -- (the fold's own guard — that an identity-seeded fold never REPORTS the
+  -- seed — is pinned in CasDslTests/Core.lean against the executor: a set
+  -- literal of values with no arithmetic does not survive `elemsDomain`, so
+  -- the surface cannot build one to aggregate)
+  -- the sum over an infinite set is a limit this slice has no notion of, so
+  -- it is not a method of ℕ at all — a different statement from "no route"
+  refuses env (.aggregate `sum `n (.dom .nat) (.ref `n))
+    "not a method of any category"
+  -- …and a body that is not the binder needs an EXPLICIT finite set
+  refuses env (.aggregate `sum `n (.dom .nat) (.bin .mul (.num 2) (.ref `n)))
+    "EXPLICIT finite set"
+  -- aggregating over something that is not a set at all
+  refuses env (.aggregate `sum `a (.num 3) (.ref `a)) "aggregates over a SET"
+  -- the binder publishes nothing: outside the expression it is unbound
+  refuses env (.ref `a) "not bound"
+  -- …and the aggregation is decided over `three` for the positive claims above
+  match ← runEval { env } (.aggregate `sum `a three (.ref `a)) with
+  | .ok d => unless d.render == "6" do throwError s!"∑ gave {d.render}"
+  | .error e => throwError e.render
+
 /-! ## Numerical approximation (SPEC.md §Exact number systems, #7)
 
 Everything here needs NO backend: the braced exponent is a parser decision,

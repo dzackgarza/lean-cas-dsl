@@ -76,6 +76,14 @@ syntax:max (name := casFilterSet)
 syntax:max (name := casImageSet)
   "{" casTerm " | " ident casBinderIn casTerm ("," casTerm)? "}" : casTerm
 
+/-- SPEC.md's `∑_{a ∈ roots} a` and `∏_{a ∈ roots} a`. The body is an ATOM,
+so `= 0` on the right of an assertion ends it exactly where the mathematician
+put it; a wider body is parenthesized. -/
+syntax:max (name := casBigSum)
+  "∑" noWs "_" noWs "{" ident casBinderIn casTerm "}" casTerm:max : casTerm
+syntax:max (name := casBigProd)
+  "∏" noWs "_" noWs "{" ident casBinderIn casTerm "}" casTerm:max : casTerm
+
 syntax (name := casEllipsis) "..." : casSetItem
 syntax (name := casSetElem) casTerm : casSetItem
 
@@ -287,6 +295,8 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casCard => return .magnitude (← toExpr stx[1])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
+  | ``casBigSum => return .aggregate `sum stx[3].getId (← toExpr stx[5]) (← toExpr stx[7])
+  | ``casBigProd => return .aggregate `prod stx[3].getId (← toExpr stx[5]) (← toExpr stx[7])
   | ``casSpan =>
       let n := stx[0].getId
       if n != `span_QQ then

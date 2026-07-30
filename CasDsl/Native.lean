@@ -845,6 +845,27 @@ private def binarySetOp (op : String) (o : Obj) (args : Array Obj)
   else
     return .setV (dedupValues (combine a b)) d
 
+/-- SPEC.md's `∑_{a ∈ roots} a` and `∏_{a ∈ roots} a`, over an explicit finite
+set: the elements are DEDUPLICATED first, because a set's aggregate counts
+each element once however the literal was written.
+
+The EMPTY set answers with the identity — `0` for a sum and `1` for a product
+— and those are the mathematical answers, pinned as such. Everything else
+must have SCALAR ARITHMETIC first (`hasScalarArithmetic`, the predicate the
+power path already uses): a fold seeded with an identity over values that have
+none would otherwise report that seed, which is an answer nobody wrote. -/
+private def foldSet (op what : String) (seed : Value)
+    (step : Value → Value → Except String Value) (o : Obj)
+    : Except ExecError Value := do
+  let (_, elems) ← finiteElems op o
+  let elems := dedupValues elems
+  for v in elems do
+    unless hasScalarArithmetic v do
+      .error (.badRequest s!"{what} over this set is not defined: {v.render} has \
+no arithmetic here, and a fold seeded with {seed.render} would report that \
+{seed.render} rather than refuse")
+  Except.mapError ExecError.badRequest (elems.foldlM step seed)
+
 /-- The receiver of a complex-plane method: an element carrying an exact
 number. Anything else inside the routed shape (a matrix entry domain that is
 ℝ, say) is the loud runtime error partiality always gets here. -/
@@ -989,6 +1010,9 @@ this slice presents no value for")
               s!"the native backend decides inclusion in {rhs.presentation} for an \
 explicit finite set only, and {o.presentation} is not one")
       | rhs => return .bool (← normalSubset (← normalizeSet o) (← normalizeSet rhs))
+  -- SPEC.md §A composed computation: Σ and Π over a finite set
+  | "set_sum" => foldSet "set_sum" "the sum" (.int 0) scalarAdd o
+  | "set_prod" => foldSet "set_prod" "the product" (.int 1) scalarMul o
   | "set_union" => binarySetOp "set_union" o args (· ++ ·)
   | "set_intersect" =>
       binarySetOp "set_intersect" o args fun a b => a.filter (memOf b)
@@ -1102,6 +1126,9 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "set_intersect", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_diff", accepts := #[.finiteSet] },
   { backend := `native, opId := "set_symdiff", accepts := #[.finiteSet] },
+  -- …and the two aggregations, which build no set at all but fold one
+  { backend := `native, opId := "set_sum", accepts := #[.finiteSet] },
+  { backend := `native, opId := "set_prod", accepts := #[.finiteSet] },
   { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] },
   -- the subspace of ℚⁿ, and the two reads of a ℚ matrix's echelon form
   { backend := `native, opId := "span_dim", accepts := #[.spanSet] },
