@@ -995,6 +995,10 @@ Formerly open questions, now user-decided — none was silently resolved:
 
 - exact algebraic numbers are `a + b√d` — ONE square root over ℚ, and a
   square-free radicand certified only up to `squareFactorCap`;
+- exact algebraic values are UNORDERED, the REAL ones included: `√2 ≤ 2` is
+  the honest "not comparable" rather than an answer, even though ℝ is ordered
+  and `Native.nonNegSurd` already decides a sign by squaring. Lifting it is
+  that function plus a `scalarCmp` arm, deliberately not done here;
 - set equality by presentation normalization only;
 - argument validation at execution, not declaration;
 - receiver transport is ONE hop, with no result lifting and no

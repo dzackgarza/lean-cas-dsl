@@ -67,7 +67,9 @@ the progression `{0, 2, 4, ...}`. -/
 def doubling : Obj :=
   .elem (.funcs .nat .nat) (.func .nat .nat `n (Value.mkPoly .int #[.int 0, .int 2]))
 
-/-- `2 + 2i ∈ ℂ` — SPEC.md §Exact number systems' `z`. -/
+/-- `2 + 2i ∈ ℂ` — SPEC.md §Exact number systems' `z`. Written in normal form
+by hand, like the polynomial fixtures above: a FIXTURE states the value it
+means, while every value the surface produces goes through `Value.mkAlg`. -/
 def z2plus2i : Obj := .elem .complex (.alg 2 2 (-1))
 
 /-- The same cubic after SPEC.md's `q := map p to ℂ[x]`, where it splits. The
@@ -747,6 +749,7 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- on the ℝ inside it, natively — they are structural reads of `a + b√d`
   for m in [`re, `im, `bar, `abs] do
     expectRouted env z2plus2i m [] `native
+    -- `√2`, in normal form by hand: a fixture, exactly like `z2plus2i`
     expectRouted env (.elem .real (.alg 0 1 2)) m [] `native
   -- …and they do NOT reach the domains whose membership in ℂ is a missed
   -- specificity rather than a registration: `3.re()` and `|3|` say so

@@ -247,7 +247,9 @@ private def alg (a b : Rat) (d : Int) : Option Value := (Value.mkAlg a b d).toOp
 #guard valueEq (.int 1) (.alg 0 1 2) == some false
 #guard valueEq (.alg 0 1 2) (.rat (mkRat 3 2)) == some false
 #guard valueEq (.alg 0 1 2) (.bool true) == none
--- ℂ is not ordered here, and nothing pretends otherwise
+-- exact algebraic values are UNORDERED here — the real ones too, though ℝ is
+-- ordered and `nonNegSurd` already decides a sign by squaring. A documented
+-- ceiling (DESIGN.md §Ceilings), not a claim that √2 and 2 are incomparable
 #guard scalarCmp (.alg 0 1 2) (.int 2) == none
 
 #guard domainCard (.mod 6) == some (.finite 6)

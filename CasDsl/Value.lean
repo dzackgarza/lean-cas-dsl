@@ -75,9 +75,11 @@ inductive Value where
   imaginary direction — `√(-1)` is `i` — so it also decides which domain the
   value presents: ℝ when `d > 0`, ℂ when `d < 0`.
 
-  `Value.mkAlg` is the only way to build one: it moves the square part of `d`
-  into `b` and returns the RATIONAL when `b` comes out zero, so `√8` IS `2√2`
-  and a surd is never a rational in disguise. Everything stays exact —
+  `Value.mkAlg` is how every value the surface produces is built: it moves the
+  square part of `d` into `b` and returns the RATIONAL when `b` comes out
+  zero, so `√8` IS `2√2` and a surd is never a rational in disguise. (Test and
+  prelude FIXTURES are written in normal form directly, stating the value they
+  mean — nothing computed skips the constructor.) Everything stays exact —
   nothing here is ever a float.
 
   CEILING: ONE square root over ℚ. `√2 + √5` leaves this presentation and is

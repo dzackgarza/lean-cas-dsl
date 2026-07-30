@@ -597,7 +597,10 @@ the imaginary unit (`2 + 2i`). Consulted after the bindings and after the
 domain aliases, so `let i := 3 in ℤ` shadows it exactly as `let R := …`
 shadows ℝ — a constant is a spelling, not a reserved word. -/
 def constantValue? : Name → Option Value
-  | `i => some (.alg 0 1 (-1))
+  -- through the normalizing constructor like every other value the surface
+  -- produces: `none` here would be the ordinary "not bound" error, never a
+  -- surd that skipped its invariant
+  | `i => (Value.mkAlg 0 1 (-1)).toOption
   | _ => none
 
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
