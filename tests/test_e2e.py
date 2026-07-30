@@ -602,6 +602,22 @@ def test_a_guard_that_only_the_indeterminate_understands_is_refused(
         assert "infinite" not in text, g
 
 
+def test_an_unguarded_head_is_read_in_the_element_world_too(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # The unguarded path reads the head ONCE, so without an element-world
+    # reading the indeterminate's answer would be the whole verdict:
+    # `n.deg()` is 1 there, and `{n.deg() | n ∈ ℤ}` presented `{1}`.
+    for h in ("{n.deg() | n ∈ ℤ}", "{n.deg() | n ∈ ℕ}"):
+        text = err(kc, "let zh := %s" % h)
+        assert "does not evaluate for an element" in text, h
+        assert "infinite" not in text, h
+    # …while heads that genuinely evaluate for an element still decide
+    ok(kc, "assert {p.deg() | n ∈ ℕ} = {3}")      # constant, element world agrees
+    ok(kc, "assert {7 | n ∈ ℕ} = {7}")
+    ok(kc, "assert {2n | n ∈ ℕ} = E")             # the progression, unchanged
+
+
 def test_a_constant_guard_is_decided_not_misdiagnosed(kernel: Kernel) -> None:
     _, kc = kernel
     # A guard that does not mention the binder holds for every candidate or

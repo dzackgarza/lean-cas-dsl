@@ -811,15 +811,28 @@ smaller than the number suggests — the tail bound is symmetric about the
 origin, so an offset window costs ~2×|offset| candidates. -/
 private def comprehensionCap : Int := 100000
 
-/-- The one refusal for a guard this slice does not decide. Shared by the two
+/-- The tail every undecidable-comprehension refusal shares, so the guard and
+the head cannot be reported as different KINDS of failure. -/
+private def undecidableComprehension (what : String) : EvalError :=
+  .msg s!"{what} The comprehension is a structured gap rather than a guess: no \
+elements are enumerated, and no membership is sampled"
+
+/-- The refusal for a guard this slice does not decide. Shared by the two
 places that can reach it — a shape the bound extraction cannot read, and a
 guard whose ELEMENT-world reading does not produce a truth value — so an
 undecidable guard cannot be reported two ways depending on which one noticed. -/
 private def undecidableGuard (binder : Name) : EvalError :=
-  .msg s!"this slice decides a comprehension whose guard is a polynomial \
-comparison in the binder ('{binder}') — `{binder}² ≤ 20`, `0 ≤ {binder} < 6` — \
-and this guard is not one. The comprehension is a structured gap rather than a \
-guess: no elements are enumerated, and no membership is sampled"
+  undecidableComprehension s!"this slice decides a comprehension whose guard is \
+a polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
+`0 ≤ {binder} < 6` — and this guard is not one."
+
+/-- …and the same for a HEAD that the index set's elements do not evaluate.
+An unguarded comprehension presents its head after reading it ONCE, so
+without this the indeterminate world's answer would be the whole verdict. -/
+private def undecidableHead (binder : Name) : EvalError :=
+  undecidableComprehension s!"the head of this comprehension does not evaluate \
+for an element of the index set: inside the braces '{binder}' ranges over \
+ELEMENTS, and the head must produce a value for one."
 
 mutual
 
@@ -1059,8 +1072,26 @@ partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
   unless dom == .nat || dom == .int do
     throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
 {dom.render}")
+  -- ONE element-world reading, at a candidate of the index domain. The
+  -- indeterminate world answers for guards and heads that are meaningless for
+  -- elements — `n.deg()` is 1 for the indeterminate and a resolver error for
+  -- an integer — so every path that enumerates NOTHING (both unguarded
+  -- presentations, the empty range, the infinite refusal) would otherwise ship
+  -- a verdict no element-world reading ever supported. The guarded loop
+  -- re-reads each candidate anyway, so this is the only place that check is
+  -- missing.
+  let probe (e : CasExpr) (accepts : Value → Bool) (err : EvalError) : EvalM Unit := do
+    let kv ← ofStr (coerceValue ctx.canonMaps dom (.int 0))
+    let read ← tryCatch (do return (← eval { ctx with
+      local? := some (binder, .elem dom kv) } e).value?) fun _ => pure none
+    match read with
+    | some v => if accepts v then pure () else throw err
+    | none => throw err
   match guard? with
   | none =>
+      -- a head is asked only for a VALUE: `2n` gives 0, `7` gives 7, a
+      -- constant `p.deg()` gives 3, and `n.deg()` fails resolution
+      probe head (fun _ => true) (undecidableHead binder)
       let hv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, dom) } head)
         s!"the head of a comprehension over {dom.render}")
       match hv with
@@ -1079,32 +1110,20 @@ image is an arithmetic progression — a linear map on ℕ. {hv.render} over \
           return .obj (.setObj (.finite d #[v]))
   | some g =>
       let b ← guardBounds ctx binder dom g
-      -- The bounds were read with the binder as an INDETERMINATE, where a
-      -- guard that is meaningless for elements can still answer: `n.deg()` is
-      -- 1 for the indeterminate and a resolver error for an integer. Every
-      -- candidate the loop tests re-reads the guard in the ELEMENT world, so a
-      -- range that enumerates something validates itself — but the two ends
-      -- that enumerate NOTHING (the empty range, and the infinite refusal)
-      -- would otherwise ship a verdict no element-world reading ever
-      -- supported. They probe once, at a candidate of the index domain.
-      let probe : EvalM Unit := do
-        let kv ← ofStr (coerceValue ctx.canonMaps dom (.int 0))
-        let read ← tryCatch (do return (← eval { ctx with
-          local? := some (binder, .elem dom kv) } g).value?) fun _ => pure none
-        match read with
-        | some (.bool _) => pure ()
-        | _ => throw (undecidableGuard binder)
+      -- a guard is asked for a TRUTH VALUE, at the same candidate
+      let guardProbe : EvalM Unit :=
+        probe g (fun | .bool _ => true | _ => false) (undecidableGuard binder)
       -- ℕ contributes its own lower bound; the guard must supply the rest
       let lo? := if dom == .nat then some (max 0 (b.lo.getD 0)) else b.lo
       let some lo := lo?
-        | do probe
+        | do guardProbe
              throw (.msg s!"the guard does not bound '{binder}' from below, so this \
 comprehension is infinite: this slice presents a decided finite set or nothing")
       let some hi := b.hi
-        | do probe
+        | do guardProbe
              throw (.msg s!"the guard does not bound '{binder}' from above, so this \
 comprehension is infinite: this slice presents a decided finite set or nothing")
-      if hi < lo then probe
+      if hi < lo then guardProbe
       if hi - lo + 1 > comprehensionCap then
         throw (.msg s!"the guard bounds '{binder}' to {hi - lo + 1} candidates; \
 this slice tests at most {comprehensionCap}")

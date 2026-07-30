@@ -542,6 +542,12 @@ assert {n in ℤ | n² ≤ 20} = S
 assert {n ∈ ℤ | n - n < 0} = {}
 assert {n ∈ ℤ | 0*n > 0} = {}
 
+-- an unguarded head is read once, so it is read in the ELEMENT world too:
+-- these three are genuinely constant or linear there and still decide
+assert {p.deg() | n ∈ ℕ} = {3}
+assert {7 | n ∈ ℕ} = {7}
+assert {2n | n ∈ ℕ} = {0, 2, 4, ...}
+
 /- The comprehension binder is a REAL local binding scoped to the braces: it
 shadows a session binding INSIDE them (ordinary scoping), leaves it untouched
 outside, and publishes nothing. `n` is bound to 360 nowhere near here, so the

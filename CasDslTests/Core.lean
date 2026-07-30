@@ -380,11 +380,11 @@ private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
   some (.cardinal .countablyInfinite)
 -- 𝒫(ℕ) is uncountable: this slice says it cannot state that, never ℵ₀
 #guard out "cardinality" (.setObj (.powerset (.domainSet .nat))) #[] == none
--- and 2^n stops being worth materializing past `powersetExpCap`: a loud
--- ceiling either side of it, never a hang
-#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 12)))) #[]
-  == some (.cardinal (.finite 4096))
-#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 5000)))) #[] == none
+-- and 2^n stops being worth materializing past `powersetExpCap`: pinned at
+-- the boundary ITSELF, so a `<`/`≤` slip moves one of these
+#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 4096)))) #[]
+  == some (.cardinal (.finite (2 ^ 4096)))
+#guard out "cardinality" (.setObj (.powerset (.domainSet (.mod 4097)))) #[] == none
 
 -- membership in a powerset IS inclusion, decided by the same procedure
 #guard out "contains" (.setObj (.powerset A123)) #[finSet [1, 2]] == some (.bool true)
