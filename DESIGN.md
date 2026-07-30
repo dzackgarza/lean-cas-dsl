@@ -283,10 +283,11 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   elements can still answer — `n.deg()` is 1 for the indeterminate and a
   resolver error for an integer — so a verdict is never shipped without one
   element-world reading behind it: every enumerated candidate re-reads the
-  guard as an element, and the two ends that enumerate NOTHING (the empty
-  range, and the infinite refusal) probe once before they are trusted. A
-  guard whose element-world reading errors gets the undecidable refusal, the
-  same one an unreadable guard shape gets. Its practical reach is
+  guard as an element, and the three paths that enumerate NOTHING (the empty
+  range, the infinite refusal, and an unguarded comprehension's one-shot head
+  presentation) probe once before they are trusted. A guard whose
+  element-world reading errors — or a head that produces no value there —
+  gets the undecidable refusal, the same one an unreadable guard shape gets. Its practical reach is
   smaller than that number suggests over ℤ, because the tail bound is
   symmetric about the origin: an offset window costs ~2×|offset| candidates,
   so |offset| ≲ 50000 is the real ceiling there. Over ℕ the lower bound is 0
