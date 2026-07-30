@@ -54,6 +54,17 @@ private def samples : Array Value := #[
   .cardinal .countablyInfinite,
   .bool true,
   .func .real .real `t (.poly .int #[.int 1, .int 0, .int 1]),
+  -- SPEC.md §Elementary calculus' three symbolic bodies, and the two points
+  -- its limits and integrals are taken between. Every node kind appears: a
+  -- named function, a named constant, a rational leaf, and each of the five
+  -- operations plus unary minus
+  .func .real .real `t (.sym (.pow (.const `e) (.var `t))),
+  .func .real .real `t (.sym (.app `sin (.var `t))),
+  .func .real .real `t (.sym (.div (.num 1) (.var `t))),
+  .sym (.const `pi),
+  .sym (.const `infinity),
+  .sym (.neg (.add (.sub (.mul (.num (mkRat 1 2)) (.var `t))
+    (.app `exp (.var `t))) (.num (-3)))),
   -- SPEC.md's own approximation, and one of a rational: the decimal is a
   -- string on the wire like every other magnitude, and both tolerances ride
   -- in the ordinary rational form
@@ -80,6 +91,23 @@ private def domains : Array Domain :=
   [("t", "alg"), ("a", CasDsl.Codec.valueToJson (.rat 3)),
    ("b", CasDsl.Codec.valueToJson (.rat 0)), ("d", "5")])).toOption
   == some (Value.int 3)
+
+/-! ### The symbolic vocabulary is CLOSED at the wire too
+
+A name is checked on the way IN as well as on the way out. Without that, a
+frame naming `arctan` would become a symbolic body this surface never agreed
+to present — and the whole point of a typed expression tree rather than a
+source string is that neither end gets to widen the language unilaterally. -/
+
+private def symFrame (node : Json) : Json := Json.mkObj [("t", "sym"), ("e", node)]
+
+#guard rejects (symFrame (Json.mkObj [("s", "app"), ("f", "arctan"),
+  ("a", Json.mkObj [("s", "var"), ("n", "t")])]))
+#guard rejects (symFrame (Json.mkObj [("s", "const"), ("n", "gamma")]))
+-- …and the vocabulary's own names decode
+#guard (CasDsl.Codec.valueFromJson (symFrame (Json.mkObj
+  [("s", "app"), ("f", "sin"), ("a", Json.mkObj [("s", "var"), ("n", "t")])]))).toOption
+  == some (Value.sym (.app `sin (.var `t)))
 
 /-! ### An approximation frame is CHECKED on the way in
 

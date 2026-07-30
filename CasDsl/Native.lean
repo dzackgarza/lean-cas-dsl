@@ -216,6 +216,13 @@ private def noArithmetic (op : String) (v : Value) : String :=
 a REQUESTED tolerance, not an error term, and this slice does not invent an \
 error calculus to propagate one — compute exactly, then ask for a decimal \
 presentation of the result"
+  -- a symbolic expression refuses for the neighbouring reason: it is a
+  -- PRESENTATION a backend computes limits and expansions from, not a number,
+  -- and there is no arithmetic on it here that would not be invented
+  | .sym _ =>
+      s!"{op} is not defined on the symbolic expression {v.render}: this slice \
+presents such an expression so a limit, a definite integral or a Taylor \
+expansion can be taken of it, and does no arithmetic with one"
   | v => s!"{op} is not defined on {v.render}"
 
 /-- Why two operands have no common kind — with `noArithmetic`, the ONE place
@@ -225,9 +232,9 @@ it is a value that deliberately has no arithmetic. Then a surd that left its
 quadratic field, which is a gap in the exact presentation. Then operands that
 were never numbers together. -/
 private def noCommonKind (op what : String) (a b : Value) : String :=
-  let approx? : Value → Bool := fun | .approx .. => true | _ => false
-  if approx? a then noArithmetic op a
-  else if approx? b then noArithmetic op b
+  let noneAtAll : Value → Bool := fun | .approx .. | .sym _ => true | _ => false
+  if noneAtAll a then noArithmetic op a
+  else if noneAtAll b then noArithmetic op b
   else if (radicand? a).isSome || (radicand? b).isSome then
     s!"{what} of {a.render} and {b.render} leaves the exact form a + b√d this \
 slice presents (one square root over ℚ, and both operands in it): that is a \

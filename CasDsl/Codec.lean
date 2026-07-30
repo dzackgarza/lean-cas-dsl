@@ -39,10 +39,33 @@ private def cardinalToJson : Cardinality → Json
   | .finite n => Json.mkObj [("t", "cardinal"), ("v", "finite"), ("n", toJson n)]
   | .countablyInfinite => Json.mkObj [("t", "cardinal"), ("v", "countably_infinite")]
 
+/-- The rational form, named because two encoders write it: a `Value.rat` and
+a symbolic expression's numeric leaf. -/
+def ratToJson (q : Rat) : Json :=
+  Json.mkObj [("t", "rat"), ("num", toString q.num), ("den", toString q.den)]
+
+/-- A symbolic expression on the wire. It is a TYPED TREE, not a source
+string: the adapter builds a Sage symbolic expression from these nodes and
+never parses anything this side wrote (DESIGN.md decision 2 — the adapter
+never receives generated Sage source). Names are checked against the fixed
+vocabulary at BOTH ends, so an unknown one cannot be handed to a backend to
+interpret however it likes. -/
+partial def symToJson : SymExpr → Json
+  | .var n => Json.mkObj [("s", "var"), ("n", Json.str n.toString)]
+  | .num q => Json.mkObj [("s", "num"), ("q", ratToJson q)]
+  | .const n => Json.mkObj [("s", "const"), ("n", Json.str n.toString)]
+  | .app f a =>
+      Json.mkObj [("s", "app"), ("f", Json.str f.toString), ("a", symToJson a)]
+  | .neg a => Json.mkObj [("s", "neg"), ("a", symToJson a)]
+  | .add a b => Json.mkObj [("s", "add"), ("a", symToJson a), ("b", symToJson b)]
+  | .sub a b => Json.mkObj [("s", "sub"), ("a", symToJson a), ("b", symToJson b)]
+  | .mul a b => Json.mkObj [("s", "mul"), ("a", symToJson a), ("b", symToJson b)]
+  | .div a b => Json.mkObj [("s", "div"), ("a", symToJson a), ("b", symToJson b)]
+  | .pow a b => Json.mkObj [("s", "pow"), ("a", symToJson a), ("b", symToJson b)]
+
 partial def valueToJson : Value → Json
   | .int z => Json.mkObj [("t", "int"), ("v", toString z)]
-  | .rat q =>
-      Json.mkObj [("t", "rat"), ("num", toString q.num), ("den", toString q.den)]
+  | .rat q => ratToJson q
   | .mod n v => Json.mkObj [("t", "mod"), ("n", toJson n), ("v", toJson v)]
   -- `a + b√d`, with the radicand a decimal string like every other magnitude
   -- on this wire (`a` and `b` ride in the ordinary rational form)
@@ -94,6 +117,7 @@ partial def valueToJson : Value → Json
          ("last", match last? with | some l => valueToJson l | none => Json.null)]
   | .cardinal c => cardinalToJson c
   | .bool b => Json.mkObj [("t", "bool"), ("v", Json.bool b)]
+  | .sym e => Json.mkObj [("t", "sym"), ("e", symToJson e)]
   | .func s t binder body =>
       Json.mkObj
         [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
@@ -141,6 +165,47 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | "funcs" =>
       return .funcs (← domainFromJson (← field j "src")) (← domainFromJson (← field j "tgt"))
   | other => .error s!"unknown domain tag {repr other} in {j.compress}"
+
+/-- A name that is IN the fixed vocabulary, or a protocol failure listing it.
+Checked on the way in as well as on the way out: a frame naming `arctan`
+would otherwise become a symbolic body this surface never agreed to present,
+and the refusal is what keeps the vocabulary a closed list rather than
+whatever the two ends happen to agree on. -/
+private def vocabName (j : Json) (k what : String) (allowed : List Lean.Name)
+    : Except String Lean.Name := do
+  let s ← strField j k
+  let n := Lean.Name.mkSimple s
+  if allowed.contains n then return n
+  else
+    .error s!"{repr s} is not one of the {what} this slice presents \
+({", ".intercalate (allowed.map toString)}) in {j.compress}"
+
+partial def symFromJson (j : Json) : Except String SymExpr := do
+  let bin (f : SymExpr → SymExpr → SymExpr) : Except String SymExpr := do
+    return f (← symFromJson (← field j "a")) (← symFromJson (← field j "b"))
+  match ← strField j "s" with
+  | "var" =>
+      let s ← strField j "n"
+      if s.isEmpty then .error s!"a symbolic variable must be a name in {j.compress}"
+      else return .var (Lean.Name.mkSimple s)
+  | "num" =>
+      let q ← field j "q"
+      let num ← intField q "num"
+      let den ← intField q "den"
+      if den ≤ 0 then
+        .error s!"rational denominator must be positive in {j.compress}"
+      else return .num (mkRat num den.toNat)
+  | "const" => return .const (← vocabName j "n" "named constants" SymExpr.constants)
+  | "app" =>
+      return .app (← vocabName j "f" "named functions" SymExpr.functions)
+        (← symFromJson (← field j "a"))
+  | "neg" => return .neg (← symFromJson (← field j "a"))
+  | "add" => bin .add
+  | "sub" => bin .sub
+  | "mul" => bin .mul
+  | "div" => bin .div
+  | "pow" => bin .pow
+  | other => .error s!"unknown symbolic node tag {repr other} in {j.compress}"
 
 private def cardinalFromJson (j : Json) : Except String Cardinality := do
   match ← strField j "v" with
@@ -247,6 +312,7 @@ partial def valueFromJson (j : Json) : Except String Value := do
       match (← field j "v").getBool? with
       | .ok b => return .bool b
       | .error _ => .error s!"field 'v' must be a boolean in {j.compress}"
+  | "sym" => return .sym (← symFromJson (← field j "e"))
   | other => .error s!"unknown value tag {repr other} in {j.compress}"
 
 end CasDsl.Codec

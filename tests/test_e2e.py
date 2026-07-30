@@ -345,10 +345,57 @@ def test_function_identity_is_normalized_not_sampled(kernel: Kernel) -> None:
     assert "x^2 + 1" in text
 
 
+def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Elementary calculus' bodies. This test runs BEFORE the one
+    # below, and that ordering is the point: `e` is Euler's number only while
+    # nothing has bound the name, and the next test binds it to SPEC.md's own
+    # doubling map. Both halves of the collision are pinned.
+    text = ok(kc, "let expo := t ↦ e^t in ℝ → ℝ")
+    assert "t ↦ e^t" in text and "ℝ → ℝ" in text
+    text = ok(kc, "let sine: ℝ → ℝ := t ↦ sin(t)")
+    assert "t ↦ sin(t)" in text
+    ok(kc, "let recip := t ↦ 1/t in ℝ → ℝ")
+    # a symbolic body is a PRESENTATION: nothing here evaluates it at a point,
+    # and the refusal says so rather than approximating
+    text = err(kc, "sine(0)")
+    assert "SYMBOLIC body" in text and "approximation" in text
+    # …and the vocabulary is a CLOSED list, named in the refusal
+    text = err(kc, "let bad := t ↦ arctan(t) in ℝ → ℝ")
+    assert "arctan" in text and "sin" in text and "vocabulary" in text
+
+
+def test_a_symbolic_body_typesets(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `\sin` and `e^{t}` are math mode's own spellings; the plain text stays
+    # in the bundle as the fallback every consumer can read
+    b = bundle(kc, "sine")
+    assert b["text/latex"] == "$$t \\mapsto \\sin(t)$$"
+    assert b["text/plain"] == "t ↦ sin(t)"
+    b = bundle(kc, "expo")
+    assert b["text/latex"] == "$$t \\mapsto e^{t}$$"
+
+
 def test_typed_colon_ascription_spelling(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "let e: ℕ → ℕ := n ↦ 2n")
     assert "n ↦ 2n" in text and "ℕ → ℕ" in text
+
+
+def test_a_binding_shadows_the_symbolic_constant_it_spells(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md collides with itself: `e` is the doubling map in §Set
+    # comprehensions and Euler's number in §Elementary calculus. A binding
+    # wins over a constant — the rule `i` and `R` already follow — so with
+    # `e` bound, SPEC.md's own `e^t` reads the BINDING and refuses.
+    text = err(kc, "let boom := t ↦ e^t in ℝ → ℝ")
+    assert "'e' is BOUND" in text
+    # `exp(t)` is the spelling no binding can shadow, and it is the same
+    # function the constant would have named
+    text = ok(kc, "let expo2 := t ↦ exp(t) in ℝ → ℝ")
+    assert "t ↦ exp(t)" in text
 
 
 def test_composition_is_an_identity_of_function_expressions(kernel: Kernel) -> None:
@@ -372,14 +419,20 @@ def test_lambda_without_a_domain_is_refused(kernel: Kernel) -> None:
     assert "ascription" in text
 
 
-def test_body_the_polynomial_engine_cannot_express_is_refused(kernel: Kernel) -> None:
+def test_body_neither_reading_can_express_is_refused(kernel: Kernel) -> None:
     _, kc = kernel
-    # a value, but not one `asPolyCoeffs` reads
+    # PIN CHANGED, deliberately, and the reason is that the gap it recorded
+    # closed. U1 pinned "a body the polynomial engine cannot express is
+    # refused at the binding, until the calculus sections land"; they have
+    # landed, so a body it cannot express is now read SYMBOLICALLY instead.
+    # What is left refused is a body NEITHER reading reaches — and the
+    # refusal is the symbolic reader's, which lists the vocabulary. That is
+    # a wider refusal than the old one, not a narrower: `t ↦ sin(t)` moved
+    # from this side of the line to the other, and nothing moved back.
     text = err(kc, "let bad := t ↦ [1, 2; 3, 4] in ℝ → ℝ")
-    assert "[1, 2; 3, 4] is not a polynomial body" in text
-    # not an element value at all
+    assert "a matrix literal" in text and "vocabulary" in text
     text = err(kc, "let bad2 := t ↦ ℕ in ℝ → ℝ")
-    assert "ℕ is not a function body" in text
+    assert "vocabulary" in text
 
 
 def test_binder_is_scoped_to_calls_not_the_session(kernel: Kernel) -> None:

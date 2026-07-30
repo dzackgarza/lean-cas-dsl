@@ -48,6 +48,11 @@ syntax:max (name := casRatDom) "ℚ" : casTerm
 syntax:max (name := casRealDom) "ℝ" : casTerm
 syntax:max (name := casComplexDom) "ℂ" : casTerm
 syntax:max (name := casAleph) "ℵ₀" : casTerm
+/-- SPEC.md's `lim_{t → ∞}`. A TOKEN rather than a name, because `∞` is not
+an identifier character — `π` and `e` are, so those two are the ordinary
+constants `Eval.constantValue?` carries. All three denote the same kind of
+thing: a symbolic constant, with no arithmetic and no domain. -/
+syntax:max (name := casInfinity) "∞" : casTerm
 /-- Implicit multiplication — SPEC.md's `2x`, `2n`, `3x²`, `2√2`.
 
 The right operand is an ATOM POSSIBLY RAISED TO A POWER (`casTerm:76`), and
@@ -312,6 +317,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casRealDom => return .dom .real
   | ``casComplexDom => return .dom .complex
   | ``casAleph => return .lit (.cardinal .countablyInfinite)
+  | ``casInfinity => return .lit (.sym (.const `infinity))
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
   | ``casImplMul =>
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (← toExpr stx[1])

@@ -386,7 +386,34 @@ assert h(0) = 1
 assert h(3) = 10
 assert h(-t) = h(t)
 
+/-! ## SPEC.md §Elementary calculus: a body the polynomial engine cannot express
+
+Placed HERE, above `let e := …`, and that placement is the point: `e` is
+Euler's number only while nothing has bound the name, and SPEC.md itself binds
+it to the doubling map two lines down. A binding wins over a constant — the
+rule `i` and `R` already follow — so the collision is SPEC.md's own, and it is
+pinned below as a live refusal rather than described.
+
+These bodies are SYMBOLIC: they are presented so a backend can take a limit, a
+definite integral or a Taylor expansion of them, and this slice decides
+NOTHING about them — no value at a point, no identity between two of them.
+That is the U1 gap closing, and closing to exactly this much. -/
+
+let expo := t ↦ e^t in ℝ → ℝ
+let sine: ℝ → ℝ := t ↦ sin(t)
+let recip := t ↦ 1/t in ℝ → ℝ
+
+-- the polynomial reading is preferred where it applies, so a polynomial body
+-- is untouched by any of this: `h` above is still a polynomial and still
+-- decides its identity
+assert h(-t) = h(t)
+
 let e: ℕ → ℕ := n ↦ 2n
+
+-- …and with the name bound, SPEC.md's own `e^t` reads the BINDING. The
+-- constant loses, which is the documented rule, and `exp(t)` is the spelling
+-- no binding can shadow
+let expo2 := t ↦ exp(t) in ℝ → ℝ
 
 let f(t) = t^2 in RR->RR
 let g(t) = t^3 in RR->RR

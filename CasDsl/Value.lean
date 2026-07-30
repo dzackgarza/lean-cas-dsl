@@ -48,6 +48,38 @@ inductive Cardinality where
   | countablyInfinite
   deriving BEq, Repr, Hashable, Inhabited
 
+/-- A symbolic function EXPRESSION — the presentation `SPEC.md` §Elementary
+calculus forces, and nothing wider.
+
+The polynomial engine grounds every function this slice DECIDES things about
+(`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶` are settled by substitution). `sin(t)`,
+`e^t` and `1/t` leave it, and until the calculus sections landed they were
+refused at the binding. They are now presented — SYMBOLICALLY, which is
+exactly as much as the operations `SPEC.md` asks of them need: a limit, a
+definite integral and a Taylor expansion are computed by the backend from the
+EXPRESSION, and nothing here evaluates one at a point or decides an identity
+between two of them.
+
+CEILING, and it is the whole vocabulary: the variable, exact rationals, the
+named constants `e`, `π` and `∞`, the named function `sin`, and the five
+arithmetic operations. A name outside it is a loud refusal LISTING the
+vocabulary — never a symbol passed through to a backend to interpret, which
+is how a CAS surface stops being backend-blind. -/
+inductive SymExpr where
+  | var (n : Lean.Name)
+  | num (q : Rat)
+  /-- `e`, `pi`, `infinity` — the points and bases `SPEC.md` writes. -/
+  | const (n : Lean.Name)
+  /-- A named unary function: `sin`. -/
+  | app (f : Lean.Name) (a : SymExpr)
+  | neg (a : SymExpr)
+  | add (a b : SymExpr)
+  | sub (a b : SymExpr)
+  | mul (a b : SymExpr)
+  | div (a b : SymExpr)
+  | pow (a b : SymExpr)
+  deriving BEq, Repr, Inhabited
+
 /-- A trusted CAS value. Backend results reflect into these; small values
 are materialized eagerly in this slice (a choice, not a permanent semantic
 requirement — see DESIGN.md §Large computations). -/
@@ -126,6 +158,16 @@ inductive Value where
   | approx (exact : Value) (decimal : String) (eps achieved : Rat)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
+  /-- A symbolic expression — the body of a function the polynomial engine
+  cannot express (`t ↦ sin(t)`, `t ↦ e^t`, `t ↦ 1/t`), and the points
+  `SPEC.md` writes its limits and integrals between (`π`, `∞`).
+
+  It has NO domain (`valueDom?` gives it none), which is the honest slot: an
+  expression is not an element of ℝ, and this slice neither evaluates one at
+  a point nor decides an identity between two of them. Arithmetic on it is
+  refused for the reason an approximation's is — there is nothing here that
+  would not be invented. -/
+  | sym (e : SymExpr)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
   binder generates, so the identities SPEC.md asserts about functions
   (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`) are decided by the polynomial engine
@@ -224,6 +266,95 @@ instance : ToString Domain := ⟨render⟩
 
 end Domain
 
+/-! ## Shared spellings
+
+These three are the file's, not one namespace's: `SymExpr` and `Value` both
+render rationals and exponents, and DESIGN.md §LaTeX-first display fixes ONE
+spelling for each. Two copies would be two places for that table to drift. -/
+
+/-- How an exponent is spelled: `x^2` in plain text, `x^{2}` in LaTeX (braces
+always, so a multi-digit exponent does not fall out of the superscript). -/
+private def plainSup (i : Nat) : String := "^" ++ toString i
+private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
+
+/-- A rational, in the one spelling both renderers use: an inline solidus, and
+an integral rational as the integer (`4`, never `4/1`). -/
+private def ratText (q : Rat) : String :=
+  if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
+
+namespace SymExpr
+
+/-- The named functions and constants this slice presents — the whole
+vocabulary, and the reason a symbolic body is still backend-blind: a name
+outside this list never reaches a backend to be interpreted there. -/
+def functions : List Lean.Name := [`sin, `exp]
+def constants : List Lean.Name := [`e, `pi, `infinity]
+
+/-- Binding strength, on the surface grammar's own ladder (`+ -` at 65,
+`* /` at 70, unary minus at 75, `^` at 80, atoms at the top). A child weaker
+than the slot it sits in is parenthesized — ONE rule, so the plain and LaTeX
+renderings cannot disagree about where a paren goes. A NEGATIVE rational
+carries the unary minus's strength, since that is what it spells. -/
+private def prec : SymExpr → Nat
+  | .add .. | .sub .. => 65
+  | .mul .. | .div .. => 70
+  | .neg _ => 75
+  | .num q => if q.blt 0 then 75 else 1024
+  | .pow .. => 80
+  | _ => 1024
+
+private def constText (latex : Bool) : Lean.Name → String
+  | `pi => if latex then "\\pi" else "π"
+  | `infinity => if latex then "\\infty" else "∞"
+  | n => toString n
+
+private def funcText (latex : Bool) (f : Lean.Name) : String :=
+  if latex then "\\" ++ toString f else toString f
+
+/-- The plain and LaTeX renderings, which differ in exactly three places: a
+named constant's spelling, a named function's, and whether an exponent is
+braced. Everything else — the operators, the parentheses, the inline solidus
+of a rational — is already math mode's own spelling, so one renderer produces
+both and no raw `π` or `∞` can reach a LaTeX payload. -/
+partial def renderWith (latex : Bool) (need : Nat) (e : SymExpr) : String :=
+  let paren (s : String) : String := if prec e < need then "(" ++ s ++ ")" else s
+  match e with
+  | .var n => toString n
+  | .num q => paren (ratText q)
+  | .const n => constText latex n
+  | .app f a => funcText latex f ++ "(" ++ renderWith latex 0 a ++ ")"
+  | .neg a => paren ("-" ++ renderWith latex 75 a)
+  | .add a b => paren (renderWith latex 65 a ++ " + " ++ renderWith latex 66 b)
+  | .sub a b => paren (renderWith latex 65 a ++ " - " ++ renderWith latex 66 b)
+  | .mul a b => paren (renderWith latex 70 a ++ "*" ++ renderWith latex 71 b)
+  | .div a b => paren (renderWith latex 70 a ++ "/" ++ renderWith latex 71 b)
+  -- the exponent is the one slot where the two renderings differ in SHAPE:
+  -- LaTeX braces it always (`e^{t}`), so a compound exponent stays in the
+  -- superscript instead of falling out of it
+  | .pow a b =>
+      let base := renderWith latex 81 a
+      if latex then paren (base ++ "^{" ++ renderWith latex 0 b ++ "}")
+      else paren (base ++ "^" ++ renderWith latex 81 b)
+
+def render (e : SymExpr) : String := renderWith false 0 e
+def latex (e : SymExpr) : String := renderWith true 0 e
+
+/-- Is every VARIABLE name in here typesettable as written? The constants and
+the function names come from the fixed vocabulary above and are spelled for
+math mode by `constText`/`funcText`, so the variable is the only path by which
+arbitrary text could reach a LaTeX payload — the same hole a function's binder
+is, and the same rule closes it: ASCII letters and digits only, no invented
+subscript typography. -/
+partial def latexSafe : SymExpr → Bool
+  | .var n => (toString n).all Char.isAlphanum
+  | .num _ | .const _ => true
+  | .app _ a | .neg a => latexSafe a
+  | .add a b | .sub a b | .mul a b | .div a b | .pow a b => latexSafe a && latexSafe b
+
+instance : ToString SymExpr := ⟨render⟩
+
+end SymExpr
+
 namespace Value
 
 /-- Normalize an integer mod `n` into `Value.mod`. -/
@@ -309,16 +440,6 @@ def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
   while cs.size > 0 && isZeroCoeff cs[cs.size - 1]! do
     cs := cs.pop
   return .poly coeff cs
-
-/-- How an exponent is spelled: `x^2` in plain text, `x^{2}` in LaTeX (braces
-always, so a multi-digit exponent does not fall out of the superscript). -/
-private def plainSup (i : Nat) : String := "^" ++ toString i
-private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
-
-/-- A rational, in the one spelling both renderers use: an inline solidus, and
-an integral rational as the integer (`4`, never `4/1`). -/
-private def ratText (q : Rat) : String :=
-  if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
 
 /-- `n = 10^k`, when it is. -/
 private partial def powerOfTen? (n : Nat) : Option Nat :=
@@ -439,6 +560,7 @@ partial def render : Value → String
   | .cardinal (.finite n) => toString n
   | .cardinal .countablyInfinite => "ℵ₀"
   | .bool b => toString b
+  | .sym e => e.render
   | .func _ _ binder body =>
       -- the body is written back in the mathematician's own binder, not in
       -- the `x` a bare polynomial renders with
@@ -685,6 +807,12 @@ partial def latex? : Value → Option String
   -- a truth value is the documented no-natural-form case: `\text{true}` is
   -- typesetting prose, not mathematics
   | .bool _ => none
+  -- a symbolic expression typesets: `\sin(t)`, `e^{t}`, `1/t`, `\pi`,
+  -- `\infty` — its renderer is the one that spells the constants and the
+  -- function names for math mode, so no raw `π` or `∞` reaches a payload.
+  -- The VARIABLE is the mathematician's own name and gets the rule a
+  -- function's binder gets below: ASCII alphanumerics only
+  | .sym e => if e.latexSafe then some e.latex else none
   | .func _ _ binder body => do
       let t := toString binder
       let b ← match body with

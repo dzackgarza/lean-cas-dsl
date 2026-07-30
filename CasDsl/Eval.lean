@@ -646,7 +646,91 @@ def constantValue? : Name → Option Value
   -- produces: `none` here would be the ordinary "not bound" error, never a
   -- surd that skipped its invariant
   | `i => (Value.mkAlg 0 1 (-1)).toOption
+  -- SPEC.md §Elementary calculus writes `e^t` and `∫₀^π`. Neither `e` nor `π`
+  -- is an exact algebraic number, so neither is an ELEMENT here: they are the
+  -- SYMBOLIC constants a base, a bound or a limit point is written with, and
+  -- they carry no arithmetic. DISCLOSED COLLISION: SPEC.md itself binds `e`
+  -- to the doubling map in §Set comprehensions, and a binding wins — so in a
+  -- session that has read SPEC.md top to bottom, `e^t` reads the shadowed
+  -- name and refuses. `exp(t)` is the spelling no binding can shadow.
+  | `e => some (.sym (.const `e))
+  | `π | `pi => some (.sym (.const `pi))
   | _ => none
+
+/-! ### Symbolic function expressions
+
+`SPEC.md` §Elementary calculus writes bodies the polynomial engine cannot
+express — `sin(t)`, `e^t`, `1/t` — and asks three things of them: a limit, a
+definite integral and a Taylor expansion. All three are computed by a backend
+FROM THE EXPRESSION, so what this surface needs is a presentation of the
+expression and nothing more: no evaluation at a point, no identity between two
+of them. `Value.sym` is that presentation and the reader below is the only way
+into it. -/
+
+/-- The refusal a body outside the symbolic vocabulary gets — ONE wording, so
+an unknown NAME and an unreadable SHAPE are the same kind of gap and cannot be
+reported as different ones. It LISTS the vocabulary, because a closed list is
+what keeps this surface backend-blind: an unknown name is never handed to a
+backend to interpret however it likes. -/
+def notSymbolic (what : String) : String :=
+  s!"{what} is not a function expression this slice presents. The vocabulary \
+is the binder, exact rationals, the constants \
+{", ".intercalate (SymExpr.constants.map toString)}, the functions \
+{", ".intercalate (SymExpr.functions.map toString)}, and + - * / ^ — \
+a body outside it is a GAP that names itself, never a symbol passed to a \
+backend to read as it likes"
+
+/-- Read a surface expression as a symbolic expression in `binder`.
+
+A name is the binder, or a symbolic constant, and NOTHING else: a name this
+session has BOUND is refused rather than substituted or read as a constant.
+Both halves of that matter. There is no substitution here to make a binding
+mean anything, and reading a bound name as the constant it shadows would turn
+`let e := 5` followed by `t ↦ e^t` into Euler's number — a wrong answer where
+the refusal is only an inconvenience. -/
+partial def toSymExpr (isBound : Name → Bool) (binder : Name)
+    : CasExpr → Except String SymExpr
+  | .num z => .ok (.num (Rat.ofInt z))
+  -- `∞` is a token of its own rather than a name, so it arrives already read
+  | .lit (.sym s) => .ok s
+  | .ref n =>
+      if n == binder then .ok (.var n)
+      else if isBound n then
+        .error s!"'{n}' is BOUND in this session, and a symbolic body neither \
+substitutes a binding nor reads the name as the constant it shadows: the first \
+has nothing to substitute into, and the second would answer with a value the \
+mathematician did not write"
+      else match constantValue? n with
+        | some (.sym s) => .ok s
+        | _ => .error (notSymbolic s!"'{n}'")
+  | .neg a => do return .neg (← toSymExpr isBound binder a)
+  | .bin op a b => do
+      let x ← toSymExpr isBound binder a
+      let y ← toSymExpr isBound binder b
+      return match op with
+        | .add => .add x y | .sub => .sub x y | .mul => .mul x y
+        | .div => .div x y | .pow => .pow x y
+  | .app (.ref f) args =>
+      if h : args.size = 1 then
+        if SymExpr.functions.contains f then
+          do return .app f (← toSymExpr isBound binder (args[0]'(by simp [h])))
+        else .error (notSymbolic s!"'{f}'")
+      else .error s!"'{f}' takes one argument here, got {args.size}"
+  | e => .error (notSymbolic s!"this expression ({repr (reprShape e)})")
+where
+  /-- The node kind, for the refusal — the expression itself has no rendering
+  before it is evaluated, and naming the SHAPE is what tells a mathematician
+  which part of the body left the vocabulary. -/
+  reprShape : CasExpr → String
+    | .method _ m _ => s!"a `.{m}()` call"
+    | .index .. => "an index"
+    | .finSet _ | .progSet .. => "a set literal"
+    | .matLit .. => "a matrix literal"
+    | .vecLit _ => "a tuple"
+    | .lam .. => "a nested lambda"
+    | .comp .. => "a composition"
+    | .sqrt _ => "a square root"
+    | _ => "that shape"
 
 /-- The domains SPEC.md spells as ordinary identifiers rather than as their
 own token: `R` and `RR` are ℝ (`let f(t) = t^2 in RR->RR`), `CC` is ℂ.
@@ -1240,7 +1324,17 @@ that space and in no other")
           -- inside the argument, and only there, the callee's binder names
           -- the indeterminate: that is what `h(-t)` and `(f ∘ g)(t)` mean
           let some ring := binderRing src body
-            | throw (.msg s!"{body.render} is not a polynomial body")
+            | throw (.msg (match body with
+                -- a symbolic body is a presentation, not a computation: the
+                -- backend takes limits, definite integrals and expansions OF
+                -- it, and evaluating `sin(2)` here would be an approximation
+                -- this surface has no business inventing
+                | .sym _ => s!"{fv.render} has a SYMBOLIC body, and this slice \
+does not evaluate one at a point — it presents the expression so a limit, a \
+definite integral or a Taylor expansion can be taken of it. A decimal for \
+{body.render} at a point would be an approximation, which is a separate \
+operation on an exact element and not something a call inserts"
+                | v => s!"{v.render} is not a polynomial body"))
           let arg ← eval { ctx with callBinder? := some (binder, ring) } args[0]!
           -- SPEC.md's `e(ℕ)`: applying a function to its SOURCE is the image,
           -- which is the `image` method — one implementation, two spellings
@@ -1611,14 +1705,26 @@ def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
       let o ← objOf (← eval { ctx with indet? := some (binder, c) } body)
       ascribe ctx o (.domain (.poly c))
   | .domain (.funcs src tgt) =>
-      let d ← eval { ctx with indet? := some (binder, .int) } body
-      let some v := d.value?
-        | throw (.msg s!"{d.presentation} is not a function body")
-      if (asPolyCoeffs v).isNone then
-        throw (.msg s!"{v.render} is not a polynomial body: the slice grounds \
-functions in the exact polynomial engine, so a body it cannot express is a \
-gap, not an approximation")
-      return .elem (.funcs src tgt) (.func src tgt binder v)
+      -- TWO readings, in a fixed order with a stated reason rather than a
+      -- fallback: the POLYNOMIAL one is preferred wherever it applies,
+      -- because it is the one that DECIDES things (`h(-t) = h(t)` and
+      -- `(f ∘ g)(t) = t⁶` are settled by substitution, and two polynomial
+      -- bodies compare). Only a body it cannot express is read SYMBOLICALLY,
+      -- and a symbolic body decides nothing — it is a presentation the
+      -- backend computes limits, integrals and expansions FROM. A body
+      -- neither reading reaches is the refusal that lists the vocabulary.
+      let poly? ← tryCatch
+        (do
+          let d ← eval { ctx with indet? := some (binder, .int) } body
+          match d.value? with
+          | some v => return if (asPolyCoeffs v).isSome then some v else none
+          | none => return none)
+        (fun _ => pure none)
+      match poly? with
+      | some v => return .elem (.funcs src tgt) (.func src tgt binder v)
+      | none =>
+          let s ← ofStr (toSymExpr ctx.isBound binder body)
+          return .elem (.funcs src tgt) (.func src tgt binder (.sym s))
   | _ =>
       throw (.msg s!"a `{binder} ↦ …` definition must be ascribed to a polynomial \
 domain such as ℤ[x] or to a function domain such as ℝ → ℝ")

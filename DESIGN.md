@@ -348,8 +348,11 @@ Decisions, all load-bearing:
   they are settled by substituting one polynomial into another
   (`Eval.applyPoly`, Horner over `valueBin` rather than `Native.polyEval`'s
   scalar Horner). A body the polynomial engine cannot express — `t ↦ sin(t)`,
-  `t ↦ e^t` — is refused AT THE BINDING and stays a gap until the calculus
-  sections land; it is never approximated;
+  `t ↦ e^t` — used to be refused AT THE BINDING, as a gap that would stay one
+  "until the calculus sections land". They have landed, and such a body is now
+  read SYMBOLICALLY instead (§Symbolic function expressions). The polynomial
+  reading is still PREFERRED and still tried first, for the reason this bullet
+  gives: it is the one that DECIDES. Nothing is approximated either way;
 - **the ascription is CHECKED at the call boundary** (`Eval.atDomain`): the
   argument enters through the preferred canonical map into `src` and the
   result lands in `tgt`, or the call fails. `e(-1)` for `e : ℕ → ℕ` is
@@ -402,6 +405,55 @@ composing, equality, the ascription check — is elaboration-inserted and
 routes nothing, because none of it is a computability question this slice
 can route. What a map does to a whole SET is one, so it is a method like any
 other.
+
+## Symbolic function expressions (`SPEC.md` §Elementary calculus, issue #24)
+
+`sin(t)`, `e^t` and `1/t` leave the polynomial engine, and `SPEC.md` asks
+exactly three things of them: a limit, a definite integral and a Taylor
+expansion. All three are computed by a backend FROM THE EXPRESSION, so what
+this surface owes them is a presentation of the expression and nothing more.
+`Value.sym` carries a first-order `SymExpr`; `Eval.toSymExpr` is the only way
+into it.
+
+- **The vocabulary is a CLOSED LIST** — the binder, exact rationals, the
+  constants `e`/`pi`/`infinity`, the functions `sin`/`exp`, and `+ - * / ^`.
+  A name outside it is a loud refusal that LISTS the list, at the surface and
+  again at the wire codec in both directions. That closure is what keeps the
+  surface backend-blind: an unknown symbol is never handed to a backend to
+  read however it likes, and the adapter receives a typed TREE rather than
+  source it has to parse (decision 2).
+- **A symbolic body DECIDES NOTHING.** It has no domain (`valueDom?` gives it
+  none, the slot a factorization and a cardinal already occupy), no
+  arithmetic (`Native.noArithmetic` words that refusal beside the
+  approximation's, for the same reason — there is nothing here that would not
+  be invented), and no value at a point: `sine(0)` is a loud refusal naming
+  the body, because a decimal for `sin(0)` is an APPROXIMATION and that is a
+  separate operation on an exact element. Two symbolic bodies are
+  INCOMPARABLE rather than unequal — `1/t` and `t^(-1)` are one function and
+  two trees, so `false` would be a claim this slice cannot make.
+- **TWO readings, in a fixed order with a stated reason.** A `↦` binding tries
+  the POLYNOMIAL reading first and keeps it wherever it applies, because that
+  is the reading that decides (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`, and equality
+  of two bodies). Only a body it cannot express is read symbolically. This is
+  an ordering, not a fallback: a body NEITHER reading reaches is the symbolic
+  reader's refusal, which is the wider of the two.
+- **A bound name is REFUSED inside a symbolic body**, never substituted and
+  never read as the constant it shadows. There is nothing to substitute into
+  — a symbolic body is not evaluated — and reading a bound name as a constant
+  would turn `let e := 5` followed by `t ↦ e^t` into Euler's number, a wrong
+  answer where the refusal is only an inconvenience.
+- **DISCLOSED COLLISION, and it is `SPEC.md`'s own.** `SPEC.md` binds `e` to
+  the doubling map in §Set comprehensions and writes `e^t` for Euler's number
+  in §Elementary calculus. A binding wins over a constant — the rule `i` and
+  `R` already follow — so in a session that has read `SPEC.md` top to bottom,
+  `e^t` reads the shadowed name and refuses. Both halves are pinned side by
+  side (`CasDslTests/Eval.lean` and `tests/test_e2e.py` order their cells so
+  that each is exercised), and `exp(t)` is the spelling no binding can
+  shadow. The notebook is a single session that binds `e` in §8, so its
+  calculus section shows the collision as a live refusal.
+- `∞` is a TOKEN because it is not an identifier character; `π` and `e` are,
+  so those two are ordinary constants consulted after the bindings. All three
+  denote the same kind of thing — a symbolic constant with no domain.
 
 ## Sets (`SPEC.md` §Finite sets, issue #24)
 
