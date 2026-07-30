@@ -504,7 +504,18 @@ def op_sym_limit(args):
     """
     v, body = _sym_func(args)
     pt = dec_sym(args["point"], v)
-    result = limit(body, algorithm=LIMIT_ALGORITHM, **{str(v): pt})
+    try:
+        result = limit(body, algorithm=LIMIT_ALGORITHM, **{str(v): pt})
+    except NotImplementedError:
+        # an OSCILLATING limit: SymPy answers with an accumulation bound, which
+        # has no Sage conversion. That is the same fact `_enc_exact` reports —
+        # the answer is not an exact value this surface presents — so it folds
+        # into the same structured refusal rather than escaping raw.
+        raise BackendError(
+            "not_exact",
+            "the limit of %s does not converge to an exact value this surface "
+            "presents" % body,
+        )
     return _enc_exact(result, "the limit")
 
 

@@ -1112,8 +1112,9 @@ this slice presents no value for")
                 else .error (.badRequest
                   s!"whether a series over {c.render} lies in \
 {(Domain.series e).render} is the preferred-canonical-map registry's claim, \
-not one this backend restates: ascribe the series to the ring you mean, as \
-`let Tf := … in {(Domain.series e).render}`")
+not one this backend restates: ascribe the series to \
+{(Domain.series e).render} at its binding, which is where a coefficient \
+domain is carried across")
             | _ => return .bool false
         | .setObj (.domainSet d) | .domainObj d => return domainContains d x
         | o => .error (.badRequest s!"{o.presentation} is not a set")

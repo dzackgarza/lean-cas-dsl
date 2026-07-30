@@ -204,6 +204,11 @@ def test_the_universal_differential(kernel: Kernel) -> None:
     # structure is deferred to CategoryGraph.
     text = ok(kc, "let X := Spec ℚ[x] in Schemes/ℚ")
     assert "Spec ℚ[x]" in text
+    # the category is REGISTERED under an ASCII name (a Lean name may not
+    # carry `ℚ`), and it reaches the mathematician in their own glyph — not
+    # as the `Schemes/QQ` it is stored as
+    text = err(kc, "let notAScheme := 3 in Schemes/ℚ")
+    assert "Schemes/ℚ" in text and "Schemes/QQ" not in text
     # a bare `d` displays what the universal differential IS. It does NOT
     # name the session's `X` — a value carries no session — so it states the
     # general shape, which is what makes the display true whatever X is

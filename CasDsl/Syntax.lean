@@ -354,6 +354,15 @@ token.) -/
 syntax:max (name := casLimit)
   "lim_" noWs "{" ident " → " casTerm "}" casTerm:70 : casTerm
 
+/-- SPEC.md's `∫₀¹ t² dt` and `∫₀^π sin(t) dt`.
+
+CEILING, and it is deliberate rather than an oversight: the INTEGRAND sits at
+`casTerm:76` — an atom or a power — so `/` and `+` end it. `lim_` above takes
+its body at `:70` and therefore admits `sin(t)/t`, which is the asymmetry, and
+it is the SPEC lines that put it there: every limit SPEC.md writes has a
+quotient body and every definite integral has an atomic one. A wider integrand
+is parenthesized (`∫₀¹ (t²+1) dt`); it blocks no SPEC.md line and it fails
+LOUDLY rather than binding something else. -/
 syntax:max (name := casDefIntSup)
   "∫" noWs casSubDigit noWs casSup casTerm:76 casIntVar : casTerm
 syntax:max (name := casDefIntCaret)

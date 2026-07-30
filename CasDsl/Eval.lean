@@ -967,7 +967,13 @@ that is not an identifier — the category SPEC.md writes `QQ-Mod` prints as
 `«QQ-Mod»` — and those guillemets are Lean's syntax for WRITING the name, not
 part of it. -/
 def renderName (n : Name) : String :=
-  ((toString n).replace "«" "").replace "»" ""
+  match ((toString n).replace "«" "").replace "»" "" with
+  -- …and a registered category whose name carries a DOMAIN carries it in
+  -- ASCII, because a Lean name may not hold `ℚ`. This is the closed set of
+  -- them: `QQ-Mod` is SPEC.md's own spelling and stays as it is, and
+  -- `Schemes/QQ` is written `Schemes/ℚ`. A third one is added here.
+  | "Schemes/QQ" => "Schemes/ℚ"
+  | s => s
 
 def renderCat (c : CatRef) : String :=
   if c.params.isEmpty then renderName c.name

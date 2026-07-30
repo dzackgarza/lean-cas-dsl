@@ -501,6 +501,15 @@ def check_sym_limit(adapter):
         "point": _sym_num(0)})
     assert reply["status"] == "error", reply
     assert "arctan" in reply["message"], reply
+    # an OSCILLATING limit is the structured refusal its siblings get, not a
+    # raw NotImplementedError from the conversion: sin(t) at infinity has no
+    # exact value, and saying so is the answer
+    reply = adapter.call("sym_limit", {
+        "f": _sym_func({"s": "app", "f": "sin", "a": _sym_var()}),
+        "point": {"s": "const", "n": "infinity"}})
+    assert reply["status"] == "error", reply
+    assert reply["kind"] == "not_exact", reply
+    assert "does not converge" in reply["message"], reply
     print("sym_limit: ok")
 
 
