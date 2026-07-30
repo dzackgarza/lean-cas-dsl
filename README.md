@@ -53,6 +53,9 @@ progression sets with Haskell-style ellipses, countable indexing
 (`ℤ[3]` under the registered `0, 1, −1, 2, −2, …` choice), exact algebraic
 numbers (`√2 ∈ ℝ`, `2 + 2i ∈ ℂ`, `|2 + 2i| = 2√2` — never a decimal) with
 the ⊆-chain read off the canonical-map registry, the cubic split over ℂ[x],
+numerical approximation as an operation ON an exact value
+(`map √2 to ℝ/O(1/10^{10})`, whose decimal is certified against the value it
+presents and whose tolerance is a request rather than a quotient),
 and two cells that **fail on purpose**: one square root over ℚ is the
 documented ceiling, and `Mat₂(ℤ/5).det()` is the structured capability gap.
 

@@ -268,6 +268,75 @@ private def alg (a b : Rat) (d : Int) : Option Value := (Value.mkAlg a b d).toOp
 -- ceiling (DESIGN.md §Ceilings), not a claim that √2 and 2 are incomparable
 #guard scalarCmp (.alg 0 1 2) (.int 2) == none
 
+/-! ### The approximation certificate (SPEC.md §Exact number systems, #7)
+
+A decimal is a CLAIM about the value it presents, and `Value.mkApprox` is
+where that claim is checked — exactly, by the squaring comparison, with no
+float anywhere. These guards are the claim itself: the same digits that pass
+must fail one power of ten further in. -/
+
+private def eps10 (k : Nat) : Rat := mkRat 1 (10 ^ k)
+
+private def approx (exact : Value) (dec : String) (eps achieved : Rat) : Option Value :=
+  (Value.mkApprox exact dec eps achieved).toOption
+
+-- a decimal string denotes the rational it spells, sign and all
+#guard Value.decimalToRat? "1.4142135623" == some (mkRat 14142135623 10000000000)
+#guard Value.decimalToRat? "-0.5" == some (-(mkRat 1 2))
+#guard Value.decimalToRat? "7" == some 7
+#guard Value.decimalToRat? "0.500" == some (mkRat 1 2)
+-- …and anything that is not a decimal is refused rather than read leniently
+#guard Value.decimalToRat? "1/2" == none
+#guard Value.decimalToRat? "1.2.3" == none
+#guard Value.decimalToRat? "" == none
+#guard Value.decimalToRat? "1e-10" == none
+#guard Value.decimalToRat? " 1.5" == none
+
+-- `|a + b√d| < q` by squaring: √2 - 1.4142135623 is under 10^-10 and over
+-- 10^-11, which is the whole content of "ten digits of √2"
+#guard Value.absLtRat (-(mkRat 14142135623 10000000000)) 1 2 (eps10 10)
+#guard !Value.absLtRat (-(mkRat 14142135623 10000000000)) 1 2 (eps10 11)
+-- the rational case compares strictly on its own
+#guard Value.absLtRat (mkRat 1 2) 0 1 (mkRat 3 4)
+#guard !Value.absLtRat (mkRat 1 2) 0 1 (mkRat 1 2)
+
+-- SPEC.md's own line: √2 to O(1/10^{10}) is 1.4142135623, and the value keeps
+-- the exact number it approximates
+#guard approx (.alg 0 1 2) "1.4142135623" (eps10 10) (eps10 10)
+  == some (.approx (.alg 0 1 2) "1.4142135623" (eps10 10) (eps10 10))
+-- the BOUND is what is checked, not a spelling: √2 = 1.41421356237…, so the
+-- rounded tenth digit satisfies the same certificate and the choice between
+-- truncating and rounding stays the backend's
+#guard approx (.alg 0 1 2) "1.4142135624" (eps10 10) (eps10 10)
+  == some (.approx (.alg 0 1 2) "1.4142135624" (eps10 10) (eps10 10))
+-- …and every way of lying about it is refused at the constructor: a digit that
+-- is wrong at that bound, a bound not achieved, and a bound that does not meet
+-- the request
+#guard approx (.alg 0 1 2) "1.4142145623" (eps10 10) (eps10 10) == none
+#guard approx (.alg 0 1 2) "1.414213562" (eps10 10) (eps10 10) == none
+#guard approx (.alg 0 1 2) "1.414" (eps10 2) (eps10 10) == none
+#guard approx (.alg 0 1 2) "1.414" (eps10 10) (eps10 3) == none
+#guard approx (.alg 0 1 2) "1.4142135623" (eps10 10) 0 == none
+-- a complex value has no decimal presentation here, and says so
+#guard approx (.alg 2 2 (-1)) "2.8284271247" (eps10 10) (eps10 10) == none
+
+-- an approximation has NO arithmetic: it carries a requested tolerance, not an
+-- error term, so it shares a kind with nothing — including another one
+#guard promote (.approx (.int 1) "1.0" (eps10 1) (eps10 1))
+  (.approx (.int 1) "1.0" (eps10 1) (eps10 1)) == none
+#guard promote (.approx (.int 1) "1.0" (eps10 1) (eps10 1)) (.int 1) == none
+#guard (scalarAdd (.approx (.int 1) "1.0" (eps10 1) (eps10 1)) (.int 1)).toOption == none
+#guard valueEq (.approx (.int 1) "1.0" (eps10 1) (eps10 1)) (.int 1) == none
+#guard scalarCmp (.approx (.int 1) "1.0" (eps10 1) (eps10 1)) (.int 1) == none
+
+-- the tolerance is displayed in SPEC.md's own spelling, and so is the value
+#guard Value.tolText (eps10 10) == "1/10^{10}"
+#guard Value.tolText (mkRat 1 3) == "1/3"
+#guard Value.tolText (mkRat 3 100) == "3/100"
+#guard Value.tolText 1 == "1"
+#guard (Value.approx (.alg 0 1 2) "1.4142135623" (eps10 10) (eps10 10)).render
+  == "1.4142135623 + O(1/10^{10})"
+
 #guard domainCard (.mod 6) == some (.finite 6)
 #guard domainCard (.mod 0) == some .countablyInfinite
 #guard domainCard (.poly .rat) == some .countablyInfinite

@@ -165,7 +165,9 @@ all.
   (`Native.scalarAdd`/`Mul`/`Div` grow surd arms, and `√2 · √2 = 2` exactly,
   which is what makes `q(√2) = 0` an identity rather than a sample).
   Numerical approximation is a separate OPERATION on an exact element —
-  `SPEC.md`'s `map √2 to ℝ/O(1/10^{10})`, issue #7 — and it is not here.
+  `SPEC.md`'s `map √2 to ℝ/O(1/10^{10})` — and it lives in
+  §Numerical approximation, where the exact value is KEPT and a decimal
+  presentation of it is certified against it.
 - **CEILING: one square root over ℚ.** `√2 + √5` leaves the presentation and
   is a loud refusal naming itself as a gap ("that is a gap, not an
   approximation"); `√` of anything but a rational is refused the same way.
@@ -213,6 +215,78 @@ all.
   an open question escalated to the project owner (§Open questions) — reaching
   into an extension by itself would be exactly the silent reach §Standard
   universe forbids, so the ring stays the default until that is ruled on.
+
+## Numerical approximation (`SPEC.md` §Exact number systems, issue #7)
+
+`map √2 to ℝ/O(1/10^{10})` displays `1.4142135623 + O(1/10^{10})`, and
+everything about that line is a REQUEST rather than a new number system.
+
+- **`ℝ/O(ε)` is SUGAR for a requested absolute tolerance, not a quotient.**
+  `|a − b| < ε` is not transitive, so there are no classes: nothing is an
+  element of `ℝ/O(ε)`, and ℝ is not included in it. The spelling is therefore
+  a surface production that is meaningful ONLY after `map … to`
+  (`CasExpr.approxTarget`); written anywhere else — `assert ℝ ⊆ ℝ/O(1/10)`,
+  `√2 ∈ ℝ/O(1/10)`, a `let` — it is a loud refusal saying so. That is stronger
+  than answering `false`: the claim cannot be stated at all, which is why no
+  `Domain` constructor and no `CanonicalMap` entry exists for it (either would
+  have to answer membership, cardinality and inclusion questions that a
+  request has no answers to).
+- **TWO registries answer, in order, and neither answers the other's
+  question.** The canonical-map registry decides whether the value may be
+  PRESENTED IN ℝ at all — `map 1/3 to ℝ/O(ε)` rides the registered ℚ ⊆ ℝ, and
+  `2 + 2i` is the ordinary "there is no preferred canonical map of 2 + 2i into
+  ℝ", because no ℂ → ℝ rule is registered (§Coercions) — and the router
+  decides whether a decimal to that tolerance can be COMPUTED. `approximate`
+  is an ordinary category method (declared on `ComplexElems`, arity 1) with an
+  ordinary route, so `x.approximate(ε)` is a second spelling of the same
+  operation and `#explain_route` explains it.
+- **The result is a VALUE, not an element of a domain.** `Value.approx` keeps
+  the exact source, the decimal presenting it, the tolerance requested and the
+  bound the backend certified; `valueDom?` gives it none, the slot a
+  factorization, an ideal and a cardinal already occupy. **Arithmetic on it is
+  refused** — a requested tolerance is not an error term, and this slice does
+  not invent an error calculus to propagate one (`Native.noCommonKind` words
+  that refusal). Compute exactly and approximate the result.
+- **The backend chooses the numeric strategy and the Lean side VERIFIES the
+  certificate.** The adapter takes the exact value and ε and returns the
+  decimal plus the bound it achieved; which arithmetic it used to get there
+  (interval, ball, adaptive) is named nowhere in this surface. `Value.mkApprox`
+  is the one constructor and it is a CHECK: the decimal must lie within the
+  certified bound of the exact value, and that bound must be positive and meet
+  the request. Both entry points — the wire codec and the executor's reply —
+  go through it, so a backend returning a wrong digit fails at the boundary.
+  The check is exact (`Value.absLtRat`, the squaring comparison
+  `Value.nonNegSurd` makes), and it covers EVERY value this slice presents,
+  since they are all rationals or `a + b√d`. A value only a backend could
+  evaluate would have no `realParts?` and is refused rather than trusted
+  silently; when such values arrive, this is the seam where trust would have
+  to be declared, and the declaration would have to be visible here.
+  What is checked in the ADAPTER's reply rather than in the constructor is
+  that the approximation is OF the value that was sent — a certificate that
+  holds for some other number is still a wrong answer to this call.
+- **The digits shown ARE the claim, and the claim is the BOUND.** The
+  certificate does not prescribe truncation or rounding: `1.4142135623` and
+  `1.4142135624` both present √2 within `10^{-10}` and both are accepted,
+  while a digit that is wrong at that bound is not. (The shipped adapter
+  truncates, and reports `10^{-k}` — a strict bound, since truncation error
+  lies in `[0, 10^{-k})`.)
+- **ε ≤ 0 is refused at the SURFACE**, as not-a-tolerance rather than as a
+  capability failure: no finite decimal presentation lies within 0 of an
+  irrational number, and a negative bound is not a request. The two failures
+  say different things about the system and are worded differently.
+- **A tolerance no configured backend meets is a CAPABILITY failure naming
+  what was asked** (`EvalError.approxRequest`). It WRAPS the underlying
+  failure rather than replacing it, so a capability gap under it still renders
+  as the structured `NoImplementation` it is, an unreachable backend still
+  says so, and ε is visible either way. The shipped adapter's ceiling is
+  `MAX_DIGITS = 1000`, a loud ceiling like `powersetExpCap` — past it the
+  refusal names the requested tolerance and the ceiling, and never returns a
+  coarser answer as if it had been requested.
+- **A ℂ receiver is a deliberate capability gap**, asserted next to `det` over
+  ℤ/5: asking for a decimal is meaningful for every exact number, only the
+  reals are routed, and a real decimal is not a presentation of a complex
+  number. Projecting to the real part or the modulus would answer a question
+  nobody asked.
 
 ## Functions (`SPEC.md` §Functions, issue #25)
 
@@ -666,11 +740,15 @@ Typed values on the wire (bignums as strings):
 `{"t":"factorization","unit":…,"factors":[[value,mult]…]}`,
 `{"t":"set","elems":[value…],"dom":domain}`,
 `{"t":"alg","a":rat,"b":rat,"d":"5"}` (the exact `a + b√d`, decoded THROUGH
-`Value.mkAlg` so a frame carrying `√8` becomes the `2√2` it denotes).
+`Value.mkAlg` so a frame carrying `√8` becomes the `2√2` it denotes),
+`{"t":"approx","exact":value,"decimal":"1.4142135623","eps":rat,
+"achieved":rat}` (decoded THROUGH `Value.mkApprox`, which VERIFIES the
+certificate: a decimal that does not present its own exact value within the
+bound never becomes a value — §Numerical approximation).
 
 Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `factor_poly_c`,
 `gcd_int`, `is_prime_int`, `roots_poly_z`, `roots_poly_q`, `roots_poly_c`,
-`mat_det_q`, `mat_inv_q`. The two ℂ ops work in `QQbar`, whose elements PRINT
+`mat_det_q`, `mat_inv_q`, `approx_real`. The two ℂ ops work in `QQbar`, whose elements PRINT
 as decimal approximations — so the adapter never reads a printed form: it
 takes the coefficients of an algebraic number from its own minimal polynomial
 and settles which conjugate it is by an exact `QQbar` comparison. A root of
@@ -694,6 +772,7 @@ let q := map p to ℚ[x]                    -- explicit coercion along ℤ ⊆ �
 let X := {0, 1, 2, ...}                   -- progression set literals
 let M := [1, 2; 3, 4] in Mat₂(ℚ)          -- matrix literal
 let z := 2 + 2i in ℂ                      -- exact algebraic value; `i` is a constant
+map √2 to ℝ/O(1/10^{10})                  -- a requested tolerance, not a quotient
 √2   2√2   z.re()  z.im()  z.bar()  |z|   -- one square root over ℚ, exactly
 let h := t ↦ t² + 1 in ℝ → ℝ              -- function, lambda spelling
 let f(t) = t^2 in RR->RR                  -- …and the f(t) spelling, ASCII
@@ -727,6 +806,16 @@ Parser decisions (load-bearing):
   binding win over both readings a bare name can acquire — this one and the
   `NAME ∈ D[NAME]` membership below — and it is pinned as such.
 - implicit multiplication is supported only as `numeral ident` (`2x`);
+- **`x^{k}` is the braced exponent**, the spelling this system's own LaTeX
+  renderer produces and the one `SPEC.md` writes its tolerance in
+  (`1/10^{10}`). A single-element brace in EXPONENT position is therefore that
+  exponent rather than the one-element set it would otherwise be; `2^{1, 2, 3}`
+  has a comma and is still the powerset `SPEC.md` spells `2^A`, and `𝒫({3})`
+  remains how a singleton's powerset is written;
+- **`ℝ/O(ε)` is a production of its own**, and not a domain term: it is
+  meaningful only as the target of `map … to` (§Numerical approximation).
+  `O` is a non-reserved keyword like `and`, so `O` is an ordinary identifier
+  everywhere else;
 - a superscript exponent (`t²`, `x³`) is `^` in SPEC.md's other spelling.
   CEILING: one digit — `assert h = hp` is exactly the claim that the two
   spellings agree, and larger exponents have `^`;
@@ -811,6 +900,7 @@ Conventions (one spelling each, chosen once):
 | sets | `\{ \}`, progressions `\{0, 2, \ldots\}`, powerset `\mathcal{P}(A)`, product `\times` |
 | cardinals, functions | `\aleph_0`, `t \mapsto t^{2} + 1` |
 | exact algebraic numbers | `\sqrt{2}`, `2\sqrt{2}`, `2 + 2i`, `-1/2 + (1/2)\sqrt{5}` — `i` rather than `\sqrt{-1}`, and a non-integer coefficient parenthesized as in a polynomial |
+| approximations | `1.4142135623 + O(1/10^{10})` — SPEC.md's own displayed line, and the SAME string as the plain rendering: digits and `O(…)` are math mode's own spellings, and a reciprocal power of ten in the tolerance is already both conventions above it (inline solidus, braced exponent). A tolerance that is not one is the ordinary rational, `O(1/3)` |
 | ideals | generators in parentheses — `(4)`, `(2, x)` |
 | domains | `\mathbb{Z}[x]`, `\mathrm{Mat}_{2}(\mathbb{Q})`, and the arrow `\mathbb{R} \to \mathbb{R}` |
 
@@ -882,7 +972,8 @@ CountableSets) correctly does not reach them, while membership does.
 
 Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`
 on PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on
-Modules; `image` on FunctionElems; `re`, `im`, `bar`, `abs` on ComplexElems;
+Modules; `image` on FunctionElems; `re`, `im`, `bar`, `abs`, `approximate` on
+ComplexElems;
 `nth`, `cardinality`, `contains`,
 `set_eq`, `subset`, `union`, `intersect`, `diff`, `symdiff` on the set
 hierarchy. Inheritance is
@@ -915,9 +1006,11 @@ and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. Alongside it,
 `gcd` and `is_prime` outside ℤ (both are meaningful in every UFD; only the
 ℤ routes are registered), `roots` outside ℤ[x]/ℚ[x]/ℂ[x], `nth` on ℤ[x]
 (countable, no enumeration registered), and the binary set operations on any
-receiver that is not an explicit finite list (`ℤ ∪ A`, `𝒫(A) ∪ A`) — each one
-available, none executable, all asserted as gaps by the proofs at the end of
-`Std.lean`. (The
+receiver that is not an explicit finite list (`ℤ ∪ A`, `𝒫(A) ∪ A`), and
+`approximate` on ℂ (asking for a decimal is meaningful for every exact number;
+only the reals are routed, and a real decimal presents no complex value) —
+each one available, none executable, all asserted as gaps by the proofs at the
+end of `Std.lean`. (The
 original gaps — `nth` on ℚ and `factor` on ℤ[x] — were routed in round
 three per the user-decided closure paths, #17/#18; the ℚ enumeration is
 the registered Cantor zigzag, revisitable like ℤ's convention.)
@@ -998,10 +1091,20 @@ Formerly open questions, now user-decided — none was silently resolved:
 
 - exact algebraic numbers are `a + b√d` — ONE square root over ℚ, and a
   square-free radicand certified only up to `squareFactorCap`;
-- exact algebraic values are UNORDERED, the REAL ones included: `√2 ≤ 2` is
-  the honest "not comparable" rather than an answer, even though ℝ is ordered
-  and `Native.nonNegSurd` already decides a sign by squaring. Lifting it is
-  that function plus a `scalarCmp` arm, deliberately not done here;
+- an approximation has NO arithmetic, and `ℝ/O(ε)` is not a number system:
+  the value carries a requested tolerance rather than an error term, so a sum
+  of two approximations is a loud refusal rather than an invented error
+  calculus (§Numerical approximation);
+- the shipped adapter certifies at most `MAX_DIGITS = 1000` decimal digits; a
+  tighter tolerance is a capability refusal naming what was asked;
+- exact algebraic values are UNORDERED at the SURFACE, the REAL ones included:
+  `√2 ≤ 2` is the honest "not comparable" rather than an answer, even though ℝ
+  is ordered and `Value.nonNegSurd` decides a sign by squaring. That comparison
+  is used INTERNALLY — the approximation certificate is exactly it
+  (§Numerical approximation) — and lifting the surface ceiling is still a
+  separate decision: a `scalarCmp` arm, deliberately not taken here, and
+  `Native.scalarCmp` states its refusal as its own arm so that the internal use
+  cannot quietly become a surface answer;
 - set equality by presentation normalization only;
 - argument validation at execution, not declaration;
 - receiver transport is ONE hop, with no result lifting and no

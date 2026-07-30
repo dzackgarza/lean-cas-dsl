@@ -66,6 +66,13 @@ inductive CasExpr where
   /-- Row-major; `rows * cols = entries.size`. -/
   | matLit (rows cols : Nat) (entries : Array CasExpr)
   | mapTo (e target : CasExpr)
+  /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and
+  meaningful ONLY there. It is not a domain, not a set and not a quotient
+  (`|a − b| < ε` is not transitive, so there are no classes): it is the
+  REQUEST that a decimal presentation meet a tolerance. Written anywhere else
+  it is a loud refusal, which is what keeps `ℝ ⊆ ℝ/O(ε)` from being a claim
+  this surface can even state. -/
+  | approxTarget (eps : CasExpr)
   /-- `binder ↦ body` — a function definition, meaningful only where an
   ascription says which domains it runs between (`evalBinderBinding`). -/
   | lam (binder : Name) (body : CasExpr)
@@ -686,12 +693,38 @@ def ofValue (v : Value) : Denote :=
 
 end Denote
 
+/-- The ε of `ℝ/O(ε)`: an exact POSITIVE rational, read from the surface
+spelling SPEC.md writes (`1/10^{10}`).
+
+Refused HERE, before any backend is asked, because neither bound is a
+tolerance rather than because no backend could meet it: no finite decimal
+presentation is within 0 of an irrational number, and a negative bound is not
+a request at all. That keeps `O(0)` a surface error and not a capability
+failure — the two say different things about the system. -/
+def toleranceOf (d : Denote) : Except String Rat :=
+  match d.value?.bind Native.toRat? with
+  | some q =>
+      if Rat.blt 0 q then .ok q
+      else .error s!"O({Value.tolText q}) is not a tolerance: an absolute \
+tolerance is a POSITIVE rational, and no finite decimal presentation lies \
+within 0 of an irrational number"
+  | none =>
+      .error s!"the tolerance of `ℝ/O(ε)` is an exact positive rational, and \
+{d.presentation} is not one"
+
 inductive EvalError where
   | msg (m : String)
   | resolve (m : Name) (recv : Obj) (e : ResolveError)
   | gap (g : CapabilityGap)
   | tiedRoutes (m : Name) (rs : Array Route)
   | exec (e : ExecError)
+  /-- The failure of an approximation REQUEST, carrying the tolerance that was
+  asked for (issue #7's third acceptance criterion). It WRAPS rather than
+  replaces: a capability gap under it still renders as the structured
+  `NoImplementation` it is, an unreachable backend still says so, and ε is
+  visible whichever of them happened — the failure is about what could not be
+  computed, never about the value that was asked about. -/
+  | approxRequest (eps : Rat) (inner : EvalError)
   deriving Inhabited
 
 /-! ### Rendering the structured failures -/
@@ -790,6 +823,10 @@ def EvalError.render : EvalError → String
   | .msg m => m
   | .resolve _ recv e => s!"{renderResolveError e}\n  receiver:     {recv.presentation}"
   | .gap g => renderGap g
+  | .approxRequest eps e =>
+      s!"no configured backend produced a decimal presentation within \
+O({Value.tolText eps}) — a CAPABILITY failure, not a defect in the value that \
+was asked about:\n{e.render}\n  requested tolerance: O({Value.tolText eps})"
   | .tiedRoutes m rs =>
       let ls := String.intercalate "\n" (rs.toList.map fun r => s!"    - {renderRoute r}")
       s!"routing for '{m}' is ambiguous: {rs.size} registered routes are tied on \
@@ -1107,12 +1144,30 @@ domain, not of {s.render}")
         ofStr ((Array.range cols).mapM fun j =>
           coerceValue ctx.canonMaps d vs[i * cols + j]!)
       return .obj (.elem (.matrix rows d) (.mat rows d rs))
+  -- SPEC.md §Exact number systems' `map √2 to ℝ/O(1/10^{10})`. TWO registries
+  -- answer, in this order, and neither answers the other's question: the
+  -- canonical-map registry decides whether the value may be presented in ℝ at
+  -- all (so `map 1/3 to ℝ/O(…)` rides the registered ℚ ⊆ ℝ, and `2 + 2i` is
+  -- the honest "there is no preferred canonical map … into ℝ"), and the router
+  -- decides whether a decimal to that tolerance can be COMPUTED. `ℝ/O(ε)` is
+  -- not a domain, so no third judgment about it exists to get wrong.
+  | .mapTo e (.approxTarget epsE) => do
+      let eps ← ofStr (toleranceOf (← eval ctx epsE))
+      let v ← ofStr (asValueOf (← eval ctx e) "`map … to ℝ/O(ε)`")
+      let r ← ofStr (coerceValue ctx.canonMaps .real v)
+      tryCatch (callMethod ctx (.elem .real r) `approximate #[.elem .rat (.rat eps)])
+        fun err => throw (.approxRequest eps err)
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
         | throw (.msg s!"`map … to` needs a domain, got {t.presentation}")
       let v ← ofStr (asValueOf (← eval ctx e))
       return .obj (.elem d (← ofStr (coerceValue ctx.canonMaps d v)))
+  | .approxTarget _ =>
+      throw (.msg "`ℝ/O(ε)` is the TARGET of `map … to ℝ/O(ε)` — a requested \
+tolerance for a decimal presentation — and nothing else: it is not a domain, \
+not a set, and not a quotient of ℝ (|a - b| < ε is not transitive, so there \
+are no classes here to be an element of, or to include ℝ in)")
   | .arrow src tgt => do
       let s ← eval ctx src
       let t ← eval ctx tgt

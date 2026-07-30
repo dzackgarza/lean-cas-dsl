@@ -51,7 +51,12 @@ private def samples : Array Value := #[
   .cardinal (.finite 5),
   .cardinal .countablyInfinite,
   .bool true,
-  .func .real .real `t (.poly .int #[.int 1, .int 0, .int 1])]
+  .func .real .real `t (.poly .int #[.int 1, .int 0, .int 1]),
+  -- SPEC.md's own approximation, and one of a rational: the decimal is a
+  -- string on the wire like every other magnitude, and both tolerances ride
+  -- in the ordinary rational form
+  .approx (.alg 0 1 2) "1.4142135623" (mkRat 1 (10 ^ 10)) (mkRat 1 (10 ^ 10)),
+  .approx (.rat (mkRat 1 3)) "0.333" (mkRat 1 100) (mkRat 1 1000)]
 
 private def domains : Array Domain :=
   #[.nat, .int, .rat, .real, .complex, .mod 7, .poly .rat,
@@ -72,6 +77,46 @@ private def domains : Array Domain :=
   [("t", "alg"), ("a", CasDsl.Codec.valueToJson (.rat 3)),
    ("b", CasDsl.Codec.valueToJson (.rat 0)), ("d", "5")])).toOption
   == some (Value.int 3)
+
+/-! ### An approximation frame is CHECKED on the way in
+
+The decode goes through `Value.mkApprox`, so the certificate is verified at the
+boundary: a backend that returns a wrong digit, a bound it did not achieve, or
+a bound that does not meet what was asked cannot get a value into the session.
+This is the one place a lying backend is caught, so each way of lying gets its
+own frame. -/
+
+private def approxFrame (exact : Value) (decimal : String) (eps achieved : Rat) : Json :=
+  Json.mkObj
+    [("t", "approx"), ("exact", CasDsl.Codec.valueToJson exact),
+     ("decimal", Json.str decimal),
+     ("eps", CasDsl.Codec.valueToJson (.rat eps)),
+     ("achieved", CasDsl.Codec.valueToJson (.rat achieved))]
+
+private def accepts (j : Json) : Bool := !rejects j
+
+-- the honest frame: √2 to ten digits, within the tenth power of ten
+#guard accepts (approxFrame (.alg 0 1 2) "1.4142135623" (mkRat 1 (10 ^ 10)) (mkRat 1 (10 ^ 10)))
+-- what is checked is the BOUND, not a spelling: the rounded tenth digit meets
+-- it too (√2 = 1.41421356237…), so the backend's choice between truncating
+-- and rounding is its own — the certificate is what it must satisfy
+#guard accepts (approxFrame (.alg 0 1 2) "1.4142135624" (mkRat 1 (10 ^ 10)) (mkRat 1 (10 ^ 10)))
+-- …and a digit that is WRONG at that bound is refused: 1.4142145623 misses √2
+-- by about 10^-6, and a digit dropped from the end misses it by 4·10^-10
+#guard rejects (approxFrame (.alg 0 1 2) "1.4142145623" (mkRat 1 (10 ^ 10)) (mkRat 1 (10 ^ 10)))
+#guard rejects (approxFrame (.alg 0 1 2) "1.414213562" (mkRat 1 (10 ^ 10)) (mkRat 1 (10 ^ 10)))
+-- a bound the backend did not achieve (the decimal is only good to 10^-3)
+#guard rejects (approxFrame (.alg 0 1 2) "1.414" (mkRat 1 100) (mkRat 1 (10 ^ 10)))
+-- …and a bound that does not meet what was REQUESTED, however true it is
+#guard rejects (approxFrame (.alg 0 1 2) "1.414" (mkRat 1 (10 ^ 10)) (mkRat 1 1000))
+-- a non-positive bound is not a certificate
+#guard rejects (approxFrame (.rat (mkRat 1 2)) "0.5" (mkRat 1 10) 0)
+-- a value with an imaginary part has no decimal presentation here
+#guard rejects (approxFrame (.alg 2 2 (-1)) "2.828" (mkRat 1 100) (mkRat 1 100))
+-- and the decimal must BE a decimal
+#guard rejects (approxFrame (.rat (mkRat 1 2)) "0.5.0" (mkRat 1 10) (mkRat 1 10))
+#guard rejects (approxFrame (.rat (mkRat 1 2)) "1/2" (mkRat 1 10) (mkRat 1 10))
+#guard rejects (approxFrame (.rat (mkRat 1 2)) "" (mkRat 1 10) (mkRat 1 10))
 
 -- Malformed frames: a non-decimal magnitude, a zero denominator, a matrix
 -- whose declared size contradicts its rows, and unknown/ill-typed tags.

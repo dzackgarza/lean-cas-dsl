@@ -87,7 +87,10 @@ incomparable, which is never `false` and never an approximation.
 
 The surd arms come FIRST because a rational against a surd belongs in the
 surd's field (`a + 0√d`) rather than promoted along `ℤ ⊆ ℚ`. A value with no
-arithmetic here reaches no arm at all, and is then refused by every caller. -/
+arithmetic here reaches no arm at all, and is then refused by every caller —
+an APPROXIMATION above all (DESIGN.md §Numerical approximation): it carries a
+requested tolerance, not an error term to propagate, so there is no arithmetic
+to give it that would not be invented. -/
 def promote : Value → Value → Option Common
   | x@(.alg ..), y | x, y@(.alg ..) => do
       let (px, py, d) ← surdPair x y
@@ -155,12 +158,20 @@ def scalarCmp (a b : Value) : Option Ordering :=
   | some (.mod _ x y) => some (compare x y)
   | some (.alg ..) | some (.same ..) | none => none
 
-/-- Why two operands have no common kind — the ONE place the reasons are
-worded, so they cannot drift apart: a surd that left its quadratic field is a
-gap in the exact presentation, which is a different failure from operands that
-were never numbers together. -/
+/-- Why two operands have no common kind — the ONE place the three reasons are
+worded, so they cannot drift apart. An approximation refuses first and in its
+own words: it is not a number that failed to meet another one, it is a value
+that deliberately has no arithmetic. Then a surd that left its quadratic
+field, which is a gap in the exact presentation. Then operands that were never
+numbers together. -/
 private def noCommonKind (op what : String) (a b : Value) : String :=
-  if (radicand? a).isSome || (radicand? b).isSome then
+  let approx? : Value → Bool := fun | .approx .. => true | _ => false
+  if approx? a || approx? b then
+    s!"{op} is not defined on an approximation ({a.render} and {b.render}): the \
+value carries a REQUESTED tolerance, not an error term, and this slice does not \
+invent an error calculus to propagate one — do the arithmetic exactly and \
+approximate the result"
+  else if (radicand? a).isSome || (radicand? b).isSome then
     s!"{what} of {a.render} and {b.render} leaves the exact form a + b√d this \
 slice presents (one square root over ℚ, and both operands in it): that is a \
 gap, not an approximation"
@@ -676,16 +687,6 @@ reach), and that refusal is this backend's own loud failure. -/
 private def algValue (r : Except String Value) : Except ExecError Value :=
   Except.mapError ExecError.badRequest r
 
-/-- Is the REAL surd `a + b√d` (`d > 0`) nonnegative? Exact: with `a` and `b`
-of opposite signs the comparison squares to `a² ⋛ b²d`, and the two cannot be
-equal (`d` is not a square). -/
-private def nonNegSurd (a b : Rat) (d : Int) : Bool :=
-  let n := a * a - b * b * Rat.ofInt d
-  if !a.blt 0 && !b.blt 0 then true
-  else if a.blt 0 && b.blt 0 then false
-  else if !a.blt 0 then !n.blt 0        -- a ≥ 0 > b: positive iff a² ≥ b²d
-  else !Rat.blt 0 n                     -- b > 0 > a: positive iff a² ≤ b²d
-
 private def natIndex (args : Array Obj) : Except ExecError Nat :=
   match (args[0]? : Option Obj) with
   | some (.elem _ (.int k)) =>
@@ -832,7 +833,7 @@ linear map on ℕ (an arithmetic progression). The image of {body.render} on \
             -- |a + b√d|² = a² − b²d is rational, and its square root is the
             -- exact `2√2` SPEC.md writes for |2 + 2i| — never a decimal
             algValue (Value.sqrtOfRat (a * a - b * b * Rat.ofInt d))
-          else if nonNegSurd a b d then return v
+          else if Value.nonNegSurd a b d then return v
           else algValue (Value.mkAlg (-a) (-b) d)
       | v =>
           let some q := toRat? v

@@ -85,6 +85,21 @@ inductive Value where
   CEILING: ONE square root over ℚ. `√2 + √5` leaves this presentation and is
   a loud refusal, never an approximation and never a dropped term. -/
   | alg (a b : Rat) (d : Int)
+  /-- A numerical APPROXIMATION of an exact value: SPEC.md's
+  `map √2 to ℝ/O(1/10^{10})`, displayed as `1.4142135623 + O(1/10^{10})`.
+
+  `ℝ/O(ε)` is SUGAR for a requested absolute tolerance and NOT a quotient —
+  `|a − b| < ε` is not transitive, so there are no classes for this to be an
+  element of. It is therefore a RESULT (`valueDom?` gives it no domain, like a
+  factorization or a cardinal) rather than an element of a number system, and
+  arithmetic on it is refused rather than given an invented error calculus.
+
+  Four fields, each load-bearing: the EXACT value approximated (kept, so
+  nothing is lost by asking for a decimal), the decimal presenting it — whose
+  shown digits ARE the claim — the tolerance that was REQUESTED (what the
+  display names), and the bound the backend certified. `Value.mkApprox` is the
+  one constructor: it refuses unless the certificate holds. -/
+  | approx (exact : Value) (decimal : String) (eps achieved : Rat)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
@@ -237,6 +252,22 @@ def sqrtOfRat (q : Rat) : Except String Value := do
   let (core, s) ← squareFreePart (a.num * Int.ofNat a.den)
   mkAlg 0 (mkRat (Int.ofNat s) a.den) (if neg then -core else core)
 
+/-- Is the REAL surd `a + b√d` (`d > 0`) nonnegative? Exact: with `a` and `b`
+of opposite signs the comparison squares to `a² ⋛ b²d`, and the two cannot be
+equal (`d` is not a square).
+
+A fact about this normal form, so it lives with the form rather than in one of
+its users: the modulus of a real surd needs it (`Native`'s `alg_abs`) and so
+does the certificate of an approximation (`absLtRat` below). Deciding a SIGN
+is not deciding an ORDER — the surface's exact algebraic values stay unordered
+(DESIGN.md §Ceilings), and `Native.scalarCmp` states that refusal itself. -/
+def nonNegSurd (a b : Rat) (d : Int) : Bool :=
+  let n := a * a - b * b * Rat.ofInt d
+  if !a.blt 0 && !b.blt 0 then true
+  else if a.blt 0 && b.blt 0 then false
+  else if !a.blt 0 then !n.blt 0        -- a ≥ 0 > b: positive iff a² ≥ b²d
+  else !Rat.blt 0 n                     -- b > 0 > a: positive iff a² ≤ b²d
+
 /-- Strip trailing zero coefficients (the zero polynomial is `#[]`). -/
 def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
   let mut cs := coeffs
@@ -253,6 +284,22 @@ private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
 an integral rational as the integer (`4`, never `4/1`). -/
 private def ratText (q : Rat) : String :=
   if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
+
+/-- `n = 10^k`, when it is. -/
+private partial def powerOfTen? (n : Nat) : Option Nat :=
+  if n == 1 then some 0
+  else if n == 0 || n % 10 != 0 then none
+  else (powerOfTen? (n / 10)).map (· + 1)
+
+/-- A tolerance, in the spelling SPEC.md writes it in: a reciprocal power of
+ten as `1/10^{10}` — which is also valid input again — and any other rational
+as itself. ONE spelling for plain text and LaTeX, because it already satisfies
+both display conventions (an inline solidus for the rational, a braced
+exponent) and because SPEC.md's own displayed line is exactly this. -/
+def tolText (q : Rat) : String :=
+  match (if q.num == 1 && q.den > 1 then powerOfTen? q.den else none) with
+  | some k => s!"1/10^\{{k}}"
+  | none => ratText q
 
 /-- `a + b√d`, given how the caller spells a square root. The two spellings a
 sign gives the radical are the whole difference between the real and the
@@ -312,6 +359,10 @@ partial def render : Value → String
   | .rat q => ratText q
   | .mod _ v => toString v
   | .alg a b d => algText (fun n => "√" ++ toString n) a b d
+  -- SPEC.md's own display line, `1.4142135623 + O(1/10^{10})`: the decimal
+  -- and the tolerance that was ASKED for (the achieved bound is the backend's
+  -- claim, checked at construction, not part of what is shown)
+  | .approx _ decimal eps _ => s!"{decimal} + O({tolText eps})"
   | .poly _ coeffs => renderPolyWith "x" plainSup (coeffs.map render)
   | .mat _ _ rows =>
       let r := rows.toList.map fun row =>
@@ -376,6 +427,12 @@ partial def latex? : Value → Option String
   -- value always has a form — the `√` and the raw `i` of the plain rendering
   -- are what MathJax would not typeset
   | .alg a b d => some (algText (fun n => "\\sqrt{" ++ toString n ++ "}") a b d)
+  -- the SAME string as the plain rendering, deliberately: digits, `O(…)` and
+  -- `1/10^{10}` are already math mode's own spellings, and they are the two
+  -- conventions the table fixes (inline solidus, braced exponent). Inventing
+  -- a second spelling here would make the LaTeX say something the plain text
+  -- does not
+  | .approx _ decimal eps _ => some s!"{decimal} + O({tolText eps})"
   | .poly _ coeffs => (coeffs.mapM latex?).map (renderPolyWith "x" latexSup)
   | .mat _ _ rows => do
       let rs ← rows.mapM fun row => do
@@ -432,6 +489,75 @@ partial def latex? : Value → Option String
       -- mode as raw Unicode, which MathJax does not typeset and pdflatex
       -- rejects outright: no LaTeX form, so the cell falls back to plain text
       if t.all Char.isAlphanum then return t ++ " \\mapsto " ++ b else none
+
+/-! ## The approximation certificate (`SPEC.md` §Exact number systems, #7)
+
+A decimal presentation is a CLAIM about the exact value it presents, and the
+digits shown are the whole of it. Everything needed to check that claim is
+exact rational arithmetic over the normal form this file already owns, so the
+check lives with the constructor: nothing builds a `Value.approx` without it,
+which is what makes a backend that returns a wrong digit fail loudly at the
+boundary instead of publishing a decimal that presents nothing. -/
+
+/-- The exact rational a DECIMAL string denotes — an optional `-`, digits, and
+at most one point. `none` = it is not a decimal at all, which from a backend
+is a protocol failure rather than a string to read leniently. -/
+def decimalToRat? (s : String) : Option Rat := do
+  let (neg, body) := if s.startsWith "-" then (true, (s.drop 1).toString) else (false, s)
+  let (ip, fp) ← match body.splitOn "." with
+    | [i] => some (i, "")
+    | [i, f] => some (i, f)
+    | _ => none
+  guard (!ip.isEmpty && ip.all Char.isDigit && fp.all Char.isDigit)
+  let n ← (ip ++ fp).toNat?
+  let q := mkRat (Int.ofNat n) (10 ^ fp.length)
+  return if neg then -q else q
+
+/-- The exact REAL values this slice presents, as `(a, b, d)` with
+`v = a + b√d` and `d > 0`. `none` = not one of them — a complex surd above all,
+where a real decimal presents nothing and the honest answer is a refusal. -/
+def realParts? : Value → Option (Rat × Rat × Int)
+  | .int z => some (Rat.ofInt z, 0, 1)
+  | .rat q => some (q, 0, 1)
+  | .alg a b d => if d > 0 then some (a, b, d) else none
+  | _ => none
+
+/-- `|a + b√d| < q` for a real surd and a rational bound, decided EXACTLY by
+the same squaring comparison a sign is decided by — never by comparing two
+decimals, and never by a float.
+
+`|A + B√d| < q` is `A + B√d < q` and `−q < A + B√d`, i.e. `(q − A) − B√d > 0`
+and `(q + A) + B√d > 0`. A genuine surd is irrational, so neither can be zero
+and the strictness `nonNegSurd` does not state comes for free; a rational
+(`b = 0`) compares strictly on its own. -/
+def absLtRat (a b : Rat) (d : Int) (q : Rat) : Bool :=
+  if b == 0 then (if a.blt 0 then (-a).blt q else a.blt q)
+  else nonNegSurd (q - a) (-b) d && nonNegSurd (q + a) b d
+
+/-- THE constructor of `Value.approx`, and a CHECK rather than a wrapper: the
+decimal must lie within the certified bound of the exact value, and that bound
+must be positive and meet the tolerance that was requested.
+
+Both boundaries a value can enter through go via this — the wire codec and the
+executor's reply — so a backend that returns a wrong digit, or a bound it did
+not achieve, fails here. Where the exact value is one this slice presents (a
+rational, or `a + b√d` with `d > 0` — today that is ALL of them) the check is
+this exact comparison; a value only a backend could evaluate would have no
+`realParts?` and is refused rather than trusted silently. -/
+def mkApprox (exact : Value) (decimal : String) (eps achieved : Rat)
+    : Except String Value := do
+  unless Rat.blt 0 achieved && !Rat.blt eps achieved do
+    .error s!"a certified bound of O({tolText achieved}) does not meet the \
+requested O({tolText eps}): the bound must be positive and at most what was asked"
+  let some (a, b, d) := realParts? exact
+    | .error s!"{exact.render} is not one of the exact REAL values this slice \
+presents (a rational, or a + b√d with d > 0), so no decimal certificate covers it"
+  let some r := decimalToRat? decimal
+    | .error s!"{repr decimal} is not a decimal presentation"
+  unless absLtRat (a - r) b d achieved do
+    .error s!"the decimal {decimal} is not within O({tolText achieved}) of \
+{exact.render}: the certificate does not hold, and the digits shown ARE the claim"
+  return .approx exact decimal eps achieved
 
 end Value
 

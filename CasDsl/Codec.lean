@@ -48,6 +48,14 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "alg"), ("a", valueToJson (.rat a)), ("b", valueToJson (.rat b)),
          ("d", Json.str (toString d))]
+  -- an approximation: the exact value it is OF, the decimal presenting it, the
+  -- REQUESTED tolerance and the bound the backend certified. The decimal is a
+  -- string like every other magnitude here, and the two tolerances ride in the
+  -- ordinary rational form
+  | .approx exact decimal eps achieved =>
+      Json.mkObj
+        [("t", "approx"), ("exact", valueToJson exact), ("decimal", Json.str decimal),
+         ("eps", valueToJson (.rat eps)), ("achieved", valueToJson (.rat achieved))]
   | .poly c coeffs =>
       Json.mkObj
         [("t", "poly"), ("coeff", domainToJson c),
@@ -149,6 +157,17 @@ partial def valueFromJson (j : Json) : Except String Value := do
       | .rat a, .rat b => Value.mkAlg a b (← intField j "d")
       | a, b => .error s!"an algebraic value needs rational parts, got \
 {a.render} and {b.render} in {j.compress}"
+  | "approx" =>
+      -- decoded THROUGH the checking constructor, exactly as `alg` is decoded
+      -- through `mkAlg`: the certificate is verified HERE, at the boundary, so
+      -- a decimal that does not present the value it claims to — a backend
+      -- returning a wrong digit — cannot enter the session at all
+      let exact ← valueFromJson (← field j "exact")
+      let decimal ← strField j "decimal"
+      match ← valueFromJson (← field j "eps"), ← valueFromJson (← field j "achieved") with
+      | .rat eps, .rat achieved => Value.mkApprox exact decimal eps achieved
+      | e, a => .error s!"the tolerances of an approximation are rationals, got \
+{e.render} and {a.render} in {j.compress}"
   | "poly" =>
       let coeff ← domainFromJson (← field j "coeff")
       let coeffs ← (← arrField j "coeffs").mapM valueFromJson

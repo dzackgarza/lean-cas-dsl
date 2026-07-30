@@ -237,6 +237,19 @@ is 2 and not 2i" },
     resultDoc := "a nonnegative real number",
     doc := "the modulus |z| — the bars are its surface spelling, and on a real \
 number it is the absolute value" },
+  -- SPEC.md's `map √2 to ℝ/O(1/10^{10})`. Declared where the exact numbers
+  -- live, which is where asking for a decimal first makes sense; ROUTED for
+  -- the reals only (§4), so a complex receiver is an honest gap rather than a
+  -- projection nobody asked for.
+  { id := `approximate, receiver := `ComplexElems, arity := 1,
+    argDoc := "the requested absolute tolerance ε — an exact positive rational",
+    resultDoc := "a decimal presentation certified to lie within ε of the exact \
+value, carrying that value and the tolerance that was requested",
+    doc := "the decimal presentation of an exact number to a requested absolute \
+tolerance. `ℝ/O(ε)` is SUGAR for that request and NOT a quotient — |a - b| < ε \
+is not transitive, so there are no classes — and the exact value is kept, not \
+replaced. Which numeric strategy meets the tolerance (interval, ball, adaptive) \
+is the backend's own business and is named nowhere in this surface" },
   { id := `image, receiver := `FunctionElems,
     resultDoc := "the set of values the function takes on its source",
     doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
@@ -532,6 +545,14 @@ private def stdRoutes : Array Route := #[
     opId := "alg_abs" },
   { method := `abs, pattern := .elemOf (.exact .real), backend := `native,
     opId := "alg_abs" },
+  -- SPEC.md's numerical approximation, routed for the exact REALS. The
+  -- backend owns arbitrary-precision evaluation and picks its own strategy;
+  -- what comes back is a certificate, verified exactly on this side
+  -- (`Value.mkApprox`). A ℂ receiver is the deliberate gap next to
+  -- `det` over ℤ/5: a real decimal is not a presentation of a complex number,
+  -- and projecting to one would answer a question nobody asked
+  { method := `approximate, pattern := .elemOf (.exact .real),
+    backend := `sage, opId := "approx_real" },
   -- the image: presented for a constant map, and for a linear map on ℕ (an
   -- arithmetic progression). Anything else is a loud refusal at execution —
   -- a partiality WITHIN the routed shape, like the zero polynomial's degree
@@ -777,6 +798,11 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- specificity rather than a registration: `3.re()` and `|3|` say so
   expectNotApplicable env (.elem .int (.int 3)) `re
   expectNotApplicable env (.elem .int (.int 3)) `abs
+  -- SPEC.md's `map √2 to ℝ/O(1/10^{10})`: asking for a decimal is meaningful
+  -- for every exact number, and only the REALS are routed — so ℂ is a
+  -- structured gap exactly like det over ℤ/5, and never a silent projection
+  expectRouted env sqrt2 `approximate [] `sage
+  expectGap env z2plus2i `approximate []
   -- ℝ and ℂ are sets, and uncountable ones: membership routes, indexing is
   -- not even applicable (`nth` is declared on CountableSets)
   -- …and `Sets` is where they enter, so `contains` is declared DIRECTLY on

@@ -14,7 +14,7 @@ import json
 import sys
 
 try:
-    from sage.all import Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ, factor, gcd
+    from sage.all import AA, Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ, factor, gcd
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -25,6 +25,12 @@ except ImportError as exc:  # running outside `sage -python` is a wiring bug
 
 ADAPTER_VERSION = "0.1.0"
 PROTOCOL = 1
+
+# Where a decimal presentation stops being one worth materializing. A loud
+# ceiling like the caller's own caps, not a fallback: a tolerance past it is a
+# capability refusal naming what was asked, never a coarser answer returned as
+# if it had been requested.
+MAX_DIGITS = 1000
 
 
 class BackendError(Exception):
@@ -273,6 +279,58 @@ def op_roots_poly_c(args):
     )
 
 
+def op_approx_real(args):
+    """The decimal presentation of an exact REAL number, to a requested
+    absolute tolerance (SPEC.md's `map x to RR/O(eps)`).
+
+    The strategy is this adapter's own business and is named nowhere in the
+    caller's surface: here it is exact truncation at the k-th decimal digit,
+    with k the smallest exponent for which 10^-k meets the request, computed
+    through Sage's exact algebraic reals (no float ever holds the value). The
+    truncation error lies in [0, 10^-k), so 10^-k is a strict bound and is
+    returned as the ACHIEVED tolerance — the caller verifies both it and the
+    digits against the exact value it sent.
+
+    A tolerance past MAX_DIGITS is a capability refusal naming what was asked,
+    not a silently coarser answer; a value with an imaginary part is refused
+    rather than projected to its real part.
+    """
+    x = dec_alg(args["value"])
+    eps = dec_rat(args["eps"])
+    if eps <= 0:
+        raise BackendError(
+            "bad_request", "a tolerance must be positive, got %s" % eps
+        )
+    try:
+        real = AA(x)
+    except (TypeError, ValueError):
+        raise BackendError(
+            "not_real",
+            "%s is not a real number: a decimal presents no complex value here" % x,
+        )
+    k, achieved = 0, QQ(1)
+    while achieved > eps:
+        if k >= MAX_DIGITS:
+            raise BackendError(
+                "tolerance_not_met",
+                "a tolerance of %s needs more than %d decimal digits, which is "
+                "past this adapter's ceiling" % (eps, MAX_DIGITS),
+            )
+        k, achieved = k + 1, achieved / 10
+    m = (real * 10**k).floor()
+    digits = str(abs(m)).rjust(k + 1, "0")
+    point = len(digits) - k
+    sign = "-" if m < 0 else ""
+    decimal = sign + (digits if k == 0 else digits[:point] + "." + digits[point:])
+    return {
+        "t": "approx",
+        "exact": args["value"],
+        "decimal": decimal,
+        "eps": enc_rat(eps),
+        "achieved": enc_rat(achieved),
+    }
+
+
 def op_mat_det_q(args):
     return enc_rat(Matrix(QQ, dec_rows(args["rows"])).det())
 
@@ -303,6 +361,7 @@ OPS = {
     "roots_poly_c": op_roots_poly_c,
     "mat_det_q": op_mat_det_q,
     "mat_inv_q": op_mat_inv_q,
+    "approx_real": op_approx_real,
 }
 
 

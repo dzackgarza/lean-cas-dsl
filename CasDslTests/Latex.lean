@@ -195,6 +195,20 @@ alone. -/
 -- `none` propagates out of a container: a set of truth values has no form
 #guard SetPresentation.latex? (.finite .int #[.bool true]) == none
 
+-- An approximation is typeset in the SAME string as its plain rendering, and
+-- deliberately: digits, `O(…)` and `1/10^{10}` are already math mode's own
+-- spellings, and they are the two conventions the table fixes (inline solidus,
+-- braced exponent). Two spellings here would let the LaTeX say something the
+-- plain text does not.
+#guard Value.latex? (.approx (.alg 0 1 2) "1.4142135623" (mkRat 1 (10 ^ 10))
+    (mkRat 1 (10 ^ 10)))
+  == some "1.4142135623 + O(1/10^{10})"
+#guard Value.latex? (.approx (.rat (mkRat 1 3)) "0.33" (mkRat 1 100) (mkRat 1 100))
+  == some "0.33 + O(1/10^{2})"
+-- …and a tolerance that is not a power of ten keeps the ordinary solidus
+#guard Value.latex? (.approx (.rat (mkRat 1 3)) "0.33" (mkRat 1 3) (mkRat 1 100))
+  == some "0.33 + O(1/3)"
+
 /-! ## Objects -/
 
 #guard Obj.latex? (.elem .int (.int 7)) == some "7"

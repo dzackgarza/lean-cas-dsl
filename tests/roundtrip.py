@@ -15,6 +15,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+from fractions import Fraction
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ADAPTER = ROOT / "backends" / "sage_adapter.py"
@@ -30,6 +31,7 @@ OPS = [
     "roots_poly_c",
     "mat_det_q",
     "mat_inv_q",
+    "approx_real",
 ]
 
 
@@ -101,6 +103,17 @@ def exact(j):
         return rat(j)
     assert j["t"] == "alg", "expected an exact number, got %r" % (j,)
     return "%s + %s*sqrt(%s)" % (rat(j["a"]), rat(j["b"]), j["d"])
+
+
+def near_sqrt(n, decimal, eps):
+    """|sqrt(n) - decimal| < eps, in exact integer arithmetic.
+
+    Squaring is what makes this an independent check: no float, and no reuse
+    of the caller's own certificate. `lo < sqrt n` is `lo < 0 or lo^2 < n`,
+    and `sqrt n < hi` is `hi > 0 and hi^2 > n`.
+    """
+    lo, hi = Fraction(decimal) - eps, Fraction(decimal) + eps
+    return (lo < 0 or lo * lo < n) and hi > 0 and hi * hi > n
 
 
 def factor_dict(value, decode):
@@ -335,6 +348,73 @@ def check_matrices(adapter):
     print("mat_det_q / mat_inv_q: ok")
 
 
+def check_approx_real(adapter):
+    """SPEC.md's `map sqrt 2 to RR/O(1/10^10)`, at the wire.
+
+    The reply is a CERTIFICATE — the exact value it is of, the digits, the
+    tolerance requested and the one achieved — and every part of it is checked
+    here against what an independent reader can compute: 10 digits of sqrt 2,
+    a bound that is a strict power of ten no larger than the request, and the
+    exact value echoed unchanged.
+    """
+    sqrt2 = {"t": "alg", "a": q(0), "b": q(1), "d": "2"}
+
+    value = adapter.ok("approx_real", {"value": sqrt2, "eps": q(1, 10**10)})
+    assert value["t"] == "approx", value
+    assert value["exact"] == sqrt2, value
+    # sqrt 2 = 1.41421356237…, truncated at the tenth digit
+    assert value["decimal"] == "1.4142135623", value
+    assert rat(value["eps"]) == "1/%d" % 10**10, value
+    assert rat(value["achieved"]) == "1/%d" % 10**10, value
+    # …and the bound is a real one, checked in exact integer arithmetic here
+    # rather than taken from the reply: |sqrt 2 - 1.4142135623| < 10^-10
+    assert near_sqrt(2, value["decimal"], Fraction(1, 10**10)), value
+    assert not near_sqrt(2, value["decimal"], Fraction(1, 10**11)), value
+
+    # a coarse request costs a short decimal, and the bound comes back with it
+    value = adapter.ok("approx_real", {"value": sqrt2, "eps": q(1, 100)})
+    assert value["decimal"] == "1.41", value
+    assert rat(value["achieved"]) == "1/100", value
+    assert near_sqrt(2, value["decimal"], Fraction(1, 100)), value
+
+    # a NEGATIVE value truncates downward, so the digits shown stay a true
+    # lower bound and the error stays inside the same interval
+    value = adapter.ok(
+        "approx_real",
+        {"value": {"t": "alg", "a": q(0), "b": q(-1), "d": "2"}, "eps": q(1, 1000)},
+    )
+    # (three digits meet 1/1000, and floor takes -1.41421… down to -1.415)
+    assert value["decimal"] == "-1.415", value
+    assert near_sqrt(2, str(-Fraction(value["decimal"])), Fraction(1, 1000)), value
+    assert Fraction(value["decimal"]) < 0, value
+
+    # a rational is presented exactly, and the bound is still the strict one
+    value = adapter.ok("approx_real", {"value": q(1, 3), "eps": q(1, 10)})
+    assert value["decimal"] == "0.3", value
+    assert rat(value["achieved"]) == "1/10", value
+    assert abs(Fraction(1, 3) - Fraction("0.3")) < Fraction(1, 10), value
+    value = adapter.ok("approx_real", {"value": q(1, 2), "eps": q(1, 10)})
+    assert value["decimal"] == "0.5", value
+
+    # a tolerance past the adapter's ceiling is a CAPABILITY refusal that names
+    # what was asked for — never a coarser answer returned as if requested
+    reply = adapter.call("approx_real", {"value": sqrt2, "eps": q(1, 10**2000)})
+    assert reply["status"] == "error", reply
+    assert reply["kind"] == "tolerance_not_met", reply
+    assert "1/%d" % 10**2000 in reply["message"], reply
+    assert str(1000) in reply["message"], reply
+
+    # …and neither a non-positive tolerance nor a complex value is answered
+    reply = adapter.call("approx_real", {"value": sqrt2, "eps": q(0)})
+    assert reply["status"] == "error" and reply["kind"] == "bad_request", reply
+    reply = adapter.call(
+        "approx_real",
+        {"value": {"t": "alg", "a": q(2), "b": q(2), "d": "-1"}, "eps": q(1, 10)},
+    )
+    assert reply["status"] == "error" and reply["kind"] == "not_real", reply
+    print("approx_real: ok")
+
+
 def check_unsupported(adapter):
     reply = adapter.call("no_such_op", {}, request_id=4242)
     assert reply["status"] == "unsupported", reply
@@ -370,6 +450,7 @@ def main():
         check_is_prime_int(adapter)
         check_roots(adapter)
         check_matrices(adapter)
+        check_approx_real(adapter)
         check_unsupported(adapter)
     except BaseException:
         proc.kill()

@@ -680,6 +680,53 @@ let cn := 100 in ℤ
 assert {cn ∈ ℤ | cn² ≤ 20} = S
 assert cn = 100
 
+/-! ## Numerical approximation (SPEC.md §Exact number systems, #7)
+
+Everything here needs NO backend: the braced exponent is a parser decision,
+and each refusal below happens before any route is taken. What the surface
+does when a backend IS reached is `tests/test_e2e.py`'s claim. -/
+
+-- `x^{k}` is the braced exponent spelling — the one this system's own LaTeX
+-- renderer produces and the one SPEC.md writes its tolerance in
+assert 10^{3} = 1000
+assert 2^{3} = 8
+assert 1/10^{2} = 1/100
+-- …and a brace with more than one element is still the powerset `2^A`
+assert |2^{1, 2, 3}| = 8
+
+/-- `e` is refused, in words containing `needle`. A refusal is only worth
+pinning by what it SAYS: each one below distinguishes itself from a
+neighbouring failure the user must not confuse it with. -/
+private def refuses (env : Lean.Environment) (e : CasExpr) (needle : String)
+    : Lean.Elab.Command.CommandElabM Unit := do
+  match ← runEval { env } e with
+  | .ok d => throwError s!"expected a refusal containing {repr needle}, got {d.render}"
+  | .error err =>
+      unless (err.render.splitOn needle).length > 1 do
+        throwError s!"the refusal was worded {repr err.render}, expected {repr needle}"
+
+run_cmd do
+  let env ← Lean.getEnv
+  let sqrt2 : CasExpr := .sqrt (.num 2)
+  let tenth : CasExpr := .bin .div (.num 1) (.num 10)
+  -- ε ≤ 0 is refused at the SURFACE — it is not a tolerance at all, which is
+  -- a different statement from "no backend could meet it"
+  refuses env (.mapTo sqrt2 (.approxTarget (.num 0))) "is not a tolerance"
+  refuses env (.mapTo sqrt2 (.approxTarget (.neg (.num 1)))) "is not a tolerance"
+  refuses env (.mapTo sqrt2 (.approxTarget (.dom .int))) "exact positive rational"
+  -- `ℝ/O(ε)` is not a value anywhere else, so `ℝ ⊆ ℝ/O(ε)` cannot be stated
+  -- at all — let alone answered `true`
+  refuses env (.approxTarget tenth) "not a domain"
+  -- the CANONICAL-MAP registry owns which values may be presented in ℝ, and
+  -- it registers no map of ℂ into it: `2 + 2i` is refused before any backend
+  -- is asked, by the registry rather than by a special case here
+  -- (the value is written as a literal rather than as `2 + 2i`, because `i` is
+  -- bound to 5 above — and because nothing in this file may reach a backend:
+  -- every claim here is decided before a route is taken)
+  refuses env (.mapTo (.lit (.alg 2 2 (-1))) (.approxTarget tenth))
+    "no preferred canonical map"
+  refuses env (.mapTo (.dom .int) (.approxTarget tenth)) "needs an element value"
+
 /-- A genuine Lean command in a cell is unaffected by the low-priority
 bare-expression production. -/
 def foo : Nat := 1

@@ -139,10 +139,38 @@ private def rootsPolyQArgs : Obj → Except ExecError Json
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM ratArg))]
   | o => .error (offSignature "roots_poly_q" o)
 
+/-- The exact value to approximate, and the requested tolerance. The tolerance
+is an ARGUMENT, so it is validated here (this slice validates arguments at
+execution): `OpSig` constrains receivers only, exactly as it does for
+`gcd_int`. -/
+private def approxRealArgs (receiver : Obj) (args : Array Obj)
+    : Except ExecError Json :=
+  match receiver, args with
+  | .elem .real v, #[.elem _ eps] => do
+      return Json.mkObj [("value", ← algArg v), ("eps", ← ratArg eps)]
+  | .elem .real _, #[o] => .error (.badRequest
+      s!"sage op \"approx_real\" expects a rational tolerance, got {o.presentation}")
+  | .elem .real _, as => .error (.badRequest
+      s!"sage op \"approx_real\" takes one argument, got {as.size}")
+  | o, _ => .error (offSignature "approx_real" o)
+
 /-- The decoded reply must be the kind of value the op promises; a
-well-formed value of the wrong kind is an adapter defect, not a result. -/
-private def expectKind (op : String) (v : Value) : Except ExecError Value :=
+well-formed value of the wrong kind is an adapter defect, not a result.
+
+`approx_real` is checked against the RECEIVER as well: the decimal's own
+certificate is verified inside the codec (`Value.mkApprox`, at decode), and
+what is left to check here is that the reply approximates the value that was
+actually sent — a certificate that holds for some other number is still a
+wrong answer to this call. -/
+private def expectKind (op : String) (o : Obj) (v : Value) : Except ExecError Value :=
   match op, v with
+  | "approx_real", .approx exact .. =>
+      match o with
+      | .elem _ recv =>
+          if exact == recv then .ok v
+          else .error (.protocolError s!"sage: approx_real returned an \
+approximation of {exact.render}, but was asked for {recv.render}")
+      | o => .error (offSignature "approx_real" o)
   | "factor_int", .factorization .. => .ok v
   | "factor_poly_q", .factorization .. => .ok v
   | "factor_poly_z", .factorization .. => .ok v
@@ -167,7 +195,7 @@ def executor : Executor := fun opId receiver args => do
   -- DEFAULT-DENY on arguments: every op takes its receiver alone unless it is
   -- named here, so an op added later rejects a stray argument instead of
   -- silently dropping it. A defective method declaration is reported.
-  if !args.isEmpty && opId != "gcd_int" then
+  if !args.isEmpty && !(#["gcd_int", "approx_real"].contains opId) then
     return .error (.badRequest s!"sage op {repr opId} takes no arguments, got {args.size}")
   let payload : Except ExecError Json :=
     match opId with
@@ -181,6 +209,7 @@ def executor : Executor := fun opId receiver args => do
     | "roots_poly_z" => rootsPolyZArgs receiver
     | "roots_poly_q" => rootsPolyQArgs receiver
     | "gcd_int" => gcdIntArgs receiver args
+    | "approx_real" => approxRealArgs receiver args
     | "is_prime_int" => isPrimeIntArgs receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with
@@ -194,7 +223,7 @@ def executor : Executor := fun opId receiver args => do
       | .ok reply =>
         match Codec.valueFromJson reply with
         | .error m => return .error (.protocolError s!"sage: {m}")
-        | .ok v => return expectKind opId v
+        | .ok v => return expectKind opId receiver v
 
 initialize registerExecutor `sage executor
 
@@ -219,7 +248,12 @@ private def sageOpSigs : Array OpSig := #[
   { backend := `sage, opId := "factor_poly_c",
     accepts := #[.elemOf (.polyOver (.exact .complex))] },
   { backend := `sage, opId := "roots_poly_c",
-    accepts := #[.elemOf (.polyOver (.exact .complex))] }
+    accepts := #[.elemOf (.polyOver (.exact .complex))] },
+  -- the exact REALS, and nothing else: a decimal presentation of a complex
+  -- number is not something this op implements, and the route registered for
+  -- `approximate` may therefore not send it one
+  { backend := `sage, opId := "approx_real",
+    accepts := #[.elemOf (.exact .real)] }
 ]
 
 run_cmd sageOpSigs.forM registerOpSig!

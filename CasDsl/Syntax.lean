@@ -93,6 +93,13 @@ syntax:max (name := casSqrtMul) num noWs "√" noWs casTerm:max : casTerm
 read against a set (`Eval`). -/
 syntax:max (name := casPowerset) "𝒫" noWs "(" casTerm ")" : casTerm
 
+/-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and a
+production of its own because it is NOT a domain term: it is a requested
+tolerance, meaningful only after `map … to` (`Eval`). `O` is a non-reserved
+keyword like `and`, so `O` remains an ordinary identifier everywhere else, and
+this production is longer than the bare `ℝ` token wherever it is written. -/
+syntax:max (name := casApproxTarget) "ℝ" "/" &"O" noWs "(" casTerm ")" : casTerm
+
 /-- Superscript exponents (`t²`, `x³`) — SPEC.md spells powers both ways, and
 `assert h = hp` is precisely the claim that the two spellings agree. CEILING:
 one digit; `^` covers everything larger. -/
@@ -167,6 +174,20 @@ private def superscriptDigit? : Char → Option Nat
   | '⁵' => some 5 | '⁶' => some 6 | '⁷' => some 7 | '⁸' => some 8 | '⁹' => some 9
   | _ => none
 
+/-- `x^{k}` is the BRACED exponent spelling — the one this system's own LaTeX
+renderer produces (`x^{3}`, DESIGN.md §LaTeX-first display) and the one SPEC.md
+writes its tolerance in (`1/10^{10}`) — so a single-element brace in EXPONENT
+position is that exponent rather than the one-element SET it would otherwise
+be. `2^{1, 2, 3}` has a comma and is still the powerset SPEC.md spells `2^A`;
+`𝒫({3})` is untouched, and remains the way to write the powerset of a
+singleton. -/
+private def unbrace (stx : Syntax) : Syntax :=
+  if stx.getKind == ``casSet then
+    match stx[1].getSepArgs with
+    | #[item] => if item.getKind == ``casSetElem then item[0] else stx
+    | _ => stx
+  else stx
+
 /-- Split a dotted name into receiver and final component. -/
 private def splitMethod? : Name → Option (Name × Name)
   | .str p s => if p == .anonymous then none else some (p, Name.mkSimple s)
@@ -207,7 +228,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casSqrtMul =>
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.sqrt (← toExpr stx[2]))
   | ``casDiv => return .bin .div (← toExpr stx[0]) (← toExpr stx[2])
-  | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr (unbrace stx[2]))
   | ``casSupPow => do
       let some k := (stx[1].reprint.getD "").trimAscii.toString.toList.head?.bind
         superscriptDigit?
@@ -235,6 +256,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
       | _ => .error s!"the binder of a `↦` definition must be a name, got \
 {(stx[0].reprint.getD "").trimAscii.toString}"
   | ``casMap => return .mapTo (← toExpr stx[1]) (← toExpr stx[3])
+  | ``casApproxTarget => return .approxTarget (← toExpr stx[4])
   | ``casIndex => return .index (← toExpr stx[0]) (← toExpr stx[2])
   | ``casApply => do
       let args ← stx[2].getSepArgs.mapM toExpr

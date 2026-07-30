@@ -1023,6 +1023,129 @@ def test_a_surd_coefficient_crosses_the_wire(kernel: Kernel) -> None:
     assert "false" in err(kc, "assert pim.roots() = {-i}").lower()
 
 
+# -- 16 · numerical approximation: map x to ℝ/O(ε) ---------------------------
+# SPEC.md §Exact number systems' last block. `ℝ/O(ε)` is SUGAR for a requested
+# absolute tolerance and NOT a quotient (|a − b| < ε is not transitive), so the
+# result carries the exact value, the decimal presenting it, and the ε asked
+# for. This section runs before `i` is shadowed below.
+
+def test_the_spec_approximation_line(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md, verbatim — the line and the display it writes under it
+    b = bundle(kc, "map √2 to ℝ/O(1/10^{10})")
+    assert b["text/plain"] == "1.4142135623 + O(1/10^{10})"
+    assert b["text/latex"] == "$$1.4142135623 + O(1/10^{10})$$"
+    assert b["text/latex"].isascii()
+    # the DIGITS are the claim, not decoration: a coarser tolerance shows
+    # fewer of them, and the exact value is never a decimal until asked
+    assert "1.41 + O(1/10^{2})" in ok(kc, "map √2 to ℝ/O(1/10^{2})")
+    # …and the exact value itself is untouched by having been asked: no cell
+    # that did not ask for a decimal produces one
+    assert bundle(kc, "√2")["text/plain"] == "√2"
+
+
+def test_the_approximation_keeps_the_exact_value_it_is_of(kernel: Kernel) -> None:
+    _, kc = kernel
+    payload = bundle(kc, "map √2 to ℝ/O(1/10^{4})")[
+        "application/vnd.casdsl.value+json"]["value"]
+    assert payload["t"] == "approx", payload
+    # the source is the exact algebraic number, unchanged — asking for a
+    # decimal presentation does not replace the value with it
+    assert payload["exact"] == {"t": "alg",
+                               "a": {"t": "rat", "num": "0", "den": "1"},
+                               "b": {"t": "rat", "num": "1", "den": "1"},
+                               "d": "2"}, payload
+    assert payload["decimal"] == "1.4142", payload
+    # …and both tolerances travel with it: the one requested and the one the
+    # backend certified
+    assert payload["eps"] == {"t": "rat", "num": "1", "den": "10000"}, payload
+    assert payload["achieved"] == {"t": "rat", "num": "1", "den": "10000"}, payload
+
+
+def test_the_registry_decides_what_may_be_presented_in_the_reals(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # `map … to ℝ/O(ε)` moves the value into ℝ along the REGISTERED canonical
+    # map first, so everything the ⊆-chain covers can be asked for…
+    assert "0.333 + O(1/10^{3})" in ok(kc, "map 1/3 to ℝ/O(1/10^{3})")
+    assert "3.00 + O(1/10^{2})" in ok(kc, "map 3 to ℝ/O(1/10^{2})")
+    assert "0.70710678 + O" in ok(kc, "map 1/√2 to ℝ/O(1/10^{8})")
+    # …and ℂ is refused by the REGISTRY, which registers no map into ℝ — not
+    # by a special case, and never by dropping the imaginary part
+    text = err(kc, "map 2 + 2i to ℝ/O(1/10^{4})")
+    assert "no preferred canonical map" in text and "into ℝ" in text
+    assert "1.41" not in text and "2.82" not in text
+
+
+def test_a_tolerance_is_a_positive_rational(kernel: Kernel) -> None:
+    _, kc = kernel
+    # ε ≤ 0 is refused AT THE SURFACE as not-a-tolerance: no finite decimal is
+    # within 0 of an irrational, and that is a different statement from "no
+    # backend could meet it" (which is the capability failure below)
+    for bad in ("map √2 to ℝ/O(0)", "map √2 to ℝ/O(-1/10)"):
+        text = err(kc, bad)
+        assert "is not a tolerance" in text, bad
+        assert "capability" not in text.lower(), bad
+
+
+def test_an_unmeetable_tolerance_is_a_capability_failure(kernel: Kernel) -> None:
+    _, kc = kernel
+    # every configured backend refusing to meet ε is a CAPABILITY failure, and
+    # the tolerance that was requested is visible in it (issue #7's third
+    # acceptance criterion)
+    text = err(kc, "map √2 to ℝ/O(1/10^{2000})")
+    assert "capability" in text.lower()
+    assert "O(1/10^{2000})" in text
+    assert "tolerance_not_met" in text
+    # …and it says nothing about the VALUE being defective
+    assert "not a tolerance" not in text
+
+
+def test_the_approximation_target_is_not_a_domain(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `ℝ/O(ε)` is the target of `map … to`, and nothing else — there is no
+    # quotient here to be an element of, or for ℝ to be included in, so the
+    # claim cannot even be stated (let alone answered `true`)
+    for code in ("ℝ/O(1/10)", "assert ℝ ⊆ ℝ/O(1/10)", "assert √2 ∈ ℝ/O(1/10)",
+                 "let bad5 := ℝ/O(1/10)"):
+        text = err(kc, code)
+        assert "not a domain" in text and "not transitive" in text, code
+
+
+def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a requested tolerance is not an error term, and this slice does not
+    # invent an error calculus to propagate one
+    text = err(kc, "(map √2 to ℝ/O(1/10^{4})) + 1")
+    assert "not defined on an approximation" in text
+    assert "approximate the result" in text
+
+
+def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
+    _, kc = kernel
+    # asking for a decimal is meaningful for every exact number — the method
+    # is declared on ComplexElems — and only the REALS are routed, so ℂ is the
+    # honest capability gap, exactly like det over ℤ/5
+    ok(kc, "let apz := 2 + 2i in ℂ")
+    text = err(kc, "apz.approximate(1/1000)")
+    assert "NoImplementation" in text and "approximate" in text
+    assert "2.82" not in text          # never a projection to |z| or to Re z
+    # …while the real one routes, and the diagnostic names the backend
+    ok(kc, "let apr := √2 in ℝ")
+    text = ok(kc, "#explain_route apr.approximate(1/1000)")
+    assert "sage" in text and "approx_real" in text and "ComplexElems" in text
+
+
+def test_the_braced_exponent_is_an_exponent(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `x^{k}` is the spelling this system's own LaTeX renderer produces and
+    # the one SPEC.md writes its tolerance in, so it reads as the exponent
+    ok(kc, "assert 10^{3} = 1000")
+    ok(kc, "assert 2^{3} = 8")
+    # …and a brace with more than one element is still SPEC.md's powerset `2^A`
+    ok(kc, "assert |2^{1, 2, 3}| = 8")
+
+
 def test_set_equality_stays_linear_on_sorted_sides(kernel: Kernel) -> None:
     _, kc = kernel
     # Two sorted sides of 9999 elements (a bounded progression expands to an
