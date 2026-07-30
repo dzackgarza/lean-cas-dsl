@@ -158,19 +158,29 @@ def scalarCmp (a b : Value) : Option Ordering :=
   | some (.mod _ x y) => some (compare x y)
   | some (.alg ..) | some (.same ..) | none => none
 
-/-- Why two operands have no common kind — the ONE place the three reasons are
-worded, so they cannot drift apart. An approximation refuses first and in its
-own words: it is not a number that failed to meet another one, it is a value
-that deliberately has no arithmetic. Then a surd that left its quadratic
-field, which is a gap in the exact presentation. Then operands that were never
-numbers together. -/
+/-- Why ONE value has no arithmetic at all. The unary reading, so that every
+path reaches the same words: negation, the base of a power (whose fold would
+otherwise report the accumulator it multiplies from), and `noCommonKind`'s
+approximation branch below. -/
+private def noArithmetic (op : String) (v : Value) : String :=
+  match v with
+  | .approx .. =>
+      s!"{op} is not defined on an approximation ({v.render}): the value carries \
+a REQUESTED tolerance, not an error term, and this slice does not invent an \
+error calculus to propagate one — compute exactly, then ask for a decimal \
+presentation of the result"
+  | v => s!"{op} is not defined on {v.render}"
+
+/-- Why two operands have no common kind — with `noArithmetic`, the ONE place
+the reasons are worded, so they cannot drift apart. An approximation refuses
+first and in its own words: it is not a number that failed to meet another one,
+it is a value that deliberately has no arithmetic. Then a surd that left its
+quadratic field, which is a gap in the exact presentation. Then operands that
+were never numbers together. -/
 private def noCommonKind (op what : String) (a b : Value) : String :=
   let approx? : Value → Bool := fun | .approx .. => true | _ => false
-  if approx? a || approx? b then
-    s!"{op} is not defined on an approximation ({a.render} and {b.render}): the \
-value carries a REQUESTED tolerance, not an error term, and this slice does not \
-invent an error calculus to propagate one — compute exactly, then ask for a \
-decimal presentation of the result"
+  if approx? a then noArithmetic op a
+  else if approx? b then noArithmetic op b
   else if (radicand? a).isSome || (radicand? b).isSome then
     s!"{what} of {a.render} and {b.render} leaves the exact form a + b√d this \
 slice presents (one square root over ℚ, and both operands in it): that is a \
@@ -211,7 +221,7 @@ def scalarNeg : Value → Except String Value
   | .rat q => .ok (.rat (-q))
   | .mod n v => .ok (Value.mkMod n (-(Int.ofNat v)))
   | .alg a b d => Value.mkAlg (-a) (-b) d
-  | v => .error s!"negation is not defined on {v.render}"
+  | v => .error (noArithmetic "negation" v)
 
 private def exponent? : Value → Option Nat
   | .int z => if z < 0 then none else some z.toNat
@@ -228,6 +238,9 @@ def scalarPow (a e : Value) : Except String Value :=
   match exponent? e with
   | none => .error s!"exponentiation needs a nonnegative integer exponent, got {e.render}"
   | some k =>
+      -- the fold multiplies up from 1, so a base with no arithmetic at all
+      -- would otherwise be reported as a multiplication by a `1` nobody wrote
+      if (promote a a).isNone then .error (noArithmetic "exponentiation" a) else
       let one : Value := match a with
         | .rat _ => .rat 1
         | .mod n _ => Value.mkMod n 1

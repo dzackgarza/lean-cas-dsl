@@ -1153,9 +1153,17 @@ def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
     _, kc = kernel
     # a requested tolerance is not an error term, and this slice does not
     # invent an error calculus to propagate one
-    text = err(kc, "(map √2 to ℝ/O(1/10^{4})) + 1")
-    assert "not defined on an approximation" in text
-    assert "compute exactly, then ask for a decimal" in text
+    # …in ONE wording, whichever operator reaches it: a binary operation, the
+    # unary negation that has its own arm, and a power (whose fold multiplies
+    # up from 1, so the refusal must name the user's operator and operand
+    # rather than a multiplication by a `1` nobody wrote)
+    for code, op in (("(map √2 to ℝ/O(1/10^{4})) + 1", "addition"),
+                     ("-(map √2 to ℝ/O(1/10^{4}))", "negation"),
+                     ("(map √2 to ℝ/O(1/10^{4}))^2", "exponentiation")):
+        text = err(kc, code)
+        assert f"{op} is not defined on an approximation" in text, code
+        assert "compute exactly, then ask for a decimal" in text, code
+        assert "and 1)" not in text, code
 
 
 def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
