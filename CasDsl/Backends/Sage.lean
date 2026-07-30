@@ -75,10 +75,13 @@ private def factorIntArgs : Obj → Except ExecError Json
   | .elem .int (.int z) => .ok (Json.mkObj [("n", toString z)])
   | o => .error (offSignature "factor_int" o)
 
-private def factorPolyQArgs : Obj → Except ExecError Json
+/-- A ℚ[x] receiver's coefficients — the payload every ℚ-polynomial op takes.
+Three ops send it, so it is one encoder taking the op's name for the failure
+rather than three copies drifting apart. -/
+private def polyQArgs (op : String) : Obj → Except ExecError Json
   | .elem (.poly .rat) (.poly _ coeffs) => do
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM ratArg))]
-  | o => .error (offSignature "factor_poly_q" o)
+  | o => .error (offSignature op o)
 
 /-- Integer coefficients on the wire, exactly as carried. -/
 private def intArg (v : Value) : Except ExecError Json :=
@@ -134,11 +137,6 @@ private def rootsPolyZArgs : Obj → Except ExecError Json
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM intArg))]
   | o => .error (offSignature "roots_poly_z" o)
 
-private def rootsPolyQArgs : Obj → Except ExecError Json
-  | .elem (.poly .rat) (.poly _ coeffs) => do
-      return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM ratArg))]
-  | o => .error (offSignature "roots_poly_q" o)
-
 /-- The exact value to approximate, and the requested tolerance. The tolerance
 is an ARGUMENT, so it is validated here (this slice validates arguments at
 execution): `OpSig` constrains receivers only, exactly as it does for
@@ -160,6 +158,56 @@ surface guard should already have refused")
       s!"sage: approx_real received {as.size} arguments, which the arity check \
 should already have refused")
   | o, _ => .error (offSignature "approx_real" o)
+
+/-- A rational component of a reply, for the checks below. Local because the
+executors' own arithmetic backend is not in this module's dependency cone —
+a backend does not read another backend. -/
+private def ratOf? : Value → Option Rat
+  | .int z => some (Rat.ofInt z)
+  | .rat q => some q
+  | _ => none
+
+/-- The characteristic polynomial of an `n × n` matrix is MONIC of degree `n`.
+Checked against THIS call's receiver, like `approx_real`'s certificate: a
+well-formed polynomial that is not one is a wrong answer to this call. -/
+private def checkCharpoly (n : Nat) (v : Value) : Except ExecError Value :=
+  match v with
+  | .poly _ cs =>
+      if cs.size == n + 1 && (cs[n]?.bind ratOf?) == some 1 then .ok v
+      else .error (.protocolError s!"sage: mat_charpoly_q returned {v.render}, \
+which is not a MONIC polynomial of degree {n} — the characteristic polynomial \
+of the {n}×{n} matrix it was asked about is one")
+  | v => .error (.protocolError
+      s!"sage: mat_charpoly_q returned {v.render}, which is not a polynomial")
+
+/-- The companion matrix of a degree-`d` polynomial is `d × d`, and its TRACE
+is `−a_{d−1}/a_d` — the sum of the roots. Those are the two invariants every
+one of Sage's companion LAYOUTS shares (similar matrices have equal traces),
+so checking them holds the adapter to the mathematics without this side
+taking a position on a convention that is the backend's (decision 7). Reading
+the whole matrix off the coefficients would be doing the op here, and would
+break the moment the adapter chose a different layout. -/
+private def checkCompanion (coeffs : Array Value) (v : Value) : Except ExecError Value := do
+  let d := coeffs.size - 1
+  let .mat n _ rows := v
+    | .error (.protocolError
+        s!"sage: poly_companion_q returned {v.render}, which is not a matrix")
+  if coeffs.size < 2 || n != d then
+    .error (.protocolError s!"sage: poly_companion_q returned a {n}×{n} matrix \
+for a polynomial of degree {d}: the companion matrix has the polynomial's own size")
+  else
+    let some diag := (Array.range n).mapM fun i => (rows[i]?.bind (·[i]?)).bind ratOf?
+      | .error (.protocolError
+          "sage: poly_companion_q returned a matrix whose diagonal is not rational")
+    let some lead := ratOf? coeffs[d]!
+    | .error (.badRequest "the leading coefficient is not a rational")
+    let some sub := ratOf? coeffs[d - 1]!
+    | .error (.badRequest "the second coefficient is not a rational")
+    if diag.foldl (· + ·) 0 == -(sub / lead) then .ok v
+    else .error (.protocolError s!"sage: poly_companion_q returned a matrix of \
+trace {(Value.ofRat (diag.foldl (· + ·) 0)).render}, but the companion matrix of \
+this polynomial has trace {(Value.ofRat (-(sub / lead))).render} — the sum of its \
+roots, which every companion layout shares")
 
 /-- The decoded reply must be the kind of value the op promises; a
 well-formed value of the wrong kind is an adapter defect, not a result.
@@ -184,6 +232,15 @@ approximation of {exact.render}, but was asked for {recv.render}")
   | "factor_poly_c", .factorization .. => .ok v
   | "mat_det_q", .rat _ => .ok v
   | "mat_inv_q", .mat .. => .ok v
+  -- both of these are checked against the RECEIVER, not merely for their kind
+  | "mat_charpoly_q", _ =>
+      match o with
+      | .elem (.matrix n _) _ => checkCharpoly n v
+      | o => .error (offSignature "mat_charpoly_q" o)
+  | "poly_companion_q", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) => checkCompanion cs v
+      | o => .error (offSignature "poly_companion_q" o)
   | "gcd_int", .int _ => .ok v
   | "is_prime_int", .bool _ => .ok v
   -- the EMPTY set is the honest answer for a polynomial with no root in its
@@ -207,14 +264,16 @@ def executor : Executor := fun opId receiver args => do
   let payload : Except ExecError Json :=
     match opId with
     | "factor_int" => factorIntArgs receiver
-    | "factor_poly_q" => factorPolyQArgs receiver
+    | "factor_poly_q" => polyQArgs "factor_poly_q" receiver
     | "factor_poly_z" => factorPolyZArgs receiver
     | "factor_poly_c" => polyCArgs "factor_poly_c" receiver
     | "roots_poly_c" => polyCArgs "roots_poly_c" receiver
     | "mat_det_q" => matQArgs "mat_det_q" receiver
     | "mat_inv_q" => matQArgs "mat_inv_q" receiver
+    | "mat_charpoly_q" => matQArgs "mat_charpoly_q" receiver
+    | "poly_companion_q" => polyQArgs "poly_companion_q" receiver
     | "roots_poly_z" => rootsPolyZArgs receiver
-    | "roots_poly_q" => rootsPolyQArgs receiver
+    | "roots_poly_q" => polyQArgs "roots_poly_q" receiver
     | "gcd_int" => gcdIntArgs receiver args
     | "approx_real" => approxRealArgs receiver args
     | "is_prime_int" => isPrimeIntArgs receiver
@@ -246,6 +305,10 @@ private def sageOpSigs : Array OpSig := #[
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
   { backend := `sage, opId := "mat_inv_q",
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  { backend := `sage, opId := "mat_charpoly_q",
+    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  { backend := `sage, opId := "poly_companion_q",
+    accepts := #[.elemOf (.polyOver (.exact .rat))] },
   { backend := `sage, opId := "gcd_int", accepts := #[.elemOf (.exact .int)] },
   { backend := `sage, opId := "is_prime_int", accepts := #[.elemOf (.exact .int)] },
   { backend := `sage, opId := "roots_poly_z",

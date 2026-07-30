@@ -205,6 +205,21 @@ the polynomial has no root there, not that none exists in an extension" },
     resultDoc := "the subspace {v : M v = 0} of the matrix's own vector space",
     doc := "the KERNEL of the matrix read as a linear map — the vectors it \
 sends to zero, presented as a subspace by a basis" },
+  -- SPEC.md §A composed computation's `C.trace()` and `C.charpoly()`
+  { id := `trace, receiver := `MatrixElems,
+    resultDoc := "a scalar of the entry domain",
+    doc := "the trace: the sum of the diagonal entries, which is also the sum \
+of the eigenvalues with multiplicity" },
+  { id := `charpoly, receiver := `MatrixElems,
+    resultDoc := "a monic polynomial of the matrix's own size, over the entry domain",
+    doc := "the characteristic polynomial det(xI − M)" },
+  -- …and the matrix a polynomial names
+  { id := `companion_matrix, receiver := `PolynomialElems,
+    resultDoc := "a square matrix of the polynomial's own degree",
+    doc := "the companion matrix: the matrix whose characteristic polynomial \
+is this one. Which of the four LAYOUTS a backend uses is its own convention — \
+they are similar matrices, so the size, the trace, the determinant and the \
+characteristic polynomial are the same for all of them" },
   -- …and the one method a subspace owns
   { id := `dim, receiver := `«QQ-Mod»,
     resultDoc := "a nonnegative integer",
@@ -569,6 +584,18 @@ private def stdRoutes : Array Route := #[
   { method := `ker, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `native, opId := "mat_ker" },
   { method := `dim, pattern := .spanSet, backend := `native, opId := "span_dim" },
+  -- the trace is a structural read of the diagonal, so it is native and
+  -- defined over every entry domain — Mat₂(ℤ/5) has one even where `det`
+  -- gaps, which is exactly the separation of the two judgments
+  { method := `trace, pattern := .elemOf (.matrixOver .anyDom),
+    backend := `native, opId := "mat_trace" },
+  -- the characteristic polynomial and the companion matrix are Sage's, with
+  -- the reply CHECKED against this call's receiver (monic of the matrix's
+  -- size; the polynomial's own degree and trace)
+  { method := `charpoly, pattern := .elemOf (.matrixOver (.exact .rat)),
+    backend := `sage, opId := "mat_charpoly_q" },
+  { method := `companion_matrix, pattern := .elemOf (.polyOver (.exact .rat)),
+    backend := `sage, opId := "poly_companion_q" },
   -- modules
   { method := `annihilator, pattern := .cyclicMod,
     backend := `native, opId := "annihilator_cyclic" },
@@ -789,6 +816,22 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env mat2Q `ker [] `native
   expectGap env mat2Mod5 `rank []
   expectGap env mat2Mod5 `ker []
+  -- SPEC.md §A composed computation: the TRACE is a structural read of the
+  -- diagonal, so it is native and reaches every entry domain — Mat₂(ℤ/5) has
+  -- one where `det` gaps, which is the separation of the two judgments in one
+  -- object. The characteristic polynomial and the companion matrix are the
+  -- backend's, over ℚ
+  expectRouted env mat2Q `trace [] `native
+  expectRouted env mat2Mod5 `trace [] `native
+  expectRouted env mat2Q `charpoly [] `sage
+  expectGap env mat2Mod5 `charpoly []
+  expectRouted env polyQ `companion_matrix [] `sage
+  -- …and a ℤ[x] polynomial carries the honest gap: the op is registered for
+  -- ℚ[x], and `map r to ℚ[x]` is one explicit step away
+  expectGap env polyZ `companion_matrix []
+  -- neither leaks off its own receiver
+  expectNotApplicable env polyQ `trace
+  expectNotApplicable env mat2Q `companion_matrix
   -- SPEC.md §Subspaces and spans: the subspace is a countable SET (so `∈`,
   -- `=` and `⊆` reach it through the ordinary hierarchy) and INDEPENDENTLY
   -- the QQ-Mod object that owns `dim` — neither membership implies the other

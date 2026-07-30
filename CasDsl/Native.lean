@@ -1090,6 +1090,19 @@ linear map on ℕ (an arithmetic progression). The image of {body.render} on \
   | "mat_ker" => do
       let (n, rows) ← ratMatrix "mat_ker" o
       Except.mapError ExecError.badRequest (Value.mkSpan n (kernelGens n rows))
+  -- SPEC.md §A composed computation's `C.trace()`. A STRUCTURAL read of the
+  -- diagonal, like `deg` — the engine genuinely decides it over every entry
+  -- domain whose elements add, so it is native and no backend is asked
+  | "mat_trace" =>
+      match o with
+      | .elem (.matrix n e) (.mat _ _ rows) =>
+          Except.mapError ExecError.badRequest <|
+            (Array.range n).foldlM (init := zeroOf e) fun acc i =>
+              match (rows[i]?).bind (·[i]?) with
+              | some v => scalarAdd acc v
+              | none => .error s!"the matrix is not {n}×{n}"
+      | o => .error (.badRequest
+          s!"mat_trace expects a matrix receiver, got {o.presentation}")
   | "annihilator_cyclic" =>
       match o with
       | .cyclicModule n => .ok (.idealV #[.int (Int.ofNat n)] .int)
@@ -1136,6 +1149,9 @@ private def nativeOpSigs : Array OpSig := #[
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
   { backend := `native, opId := "mat_ker",
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  -- the trace reads the diagonal, so it is defined over every entry domain
+  { backend := `native, opId := "mat_trace",
+    accepts := #[.elemOf (.matrixOver .anyDom)] },
   -- the complex plane, on the two domains whose elements are exact numbers
   { backend := `native, opId := "alg_re",
     accepts := #[.elemOf (.exact .complex), .elemOf (.exact .real)] },

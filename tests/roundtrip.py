@@ -31,6 +31,8 @@ OPS = [
     "roots_poly_c",
     "mat_det_q",
     "mat_inv_q",
+    "mat_charpoly_q",
+    "poly_companion_q",
     "approx_real",
 ]
 
@@ -348,6 +350,43 @@ def check_matrices(adapter):
     print("mat_det_q / mat_inv_q: ok")
 
 
+def check_charpoly_and_companion(adapter):
+    """SPEC.md's `C := r.companion_matrix()`, `C.charpoly() = r`.
+
+    The two ops are inverse to each other on this fixture, which is what makes
+    the pair checkable from outside: the companion matrix of x^3 - 2x + 1 has
+    that polynomial as its characteristic polynomial, and its trace and
+    determinant are the two coefficient facts SPEC.md asserts (0 and -1).
+    Which of Sage's four companion LAYOUTS comes back is the adapter's own
+    convention, so nothing here reads the entries positionally.
+    """
+    # x^2 - 3x + 2, whose charpoly is itself: an independent small case
+    two_by_two = [[q(0), q(-2)], [q(1), q(3)]]
+    cp = adapter.ok("mat_charpoly_q", {"rows": two_by_two})
+    assert cp["t"] == "poly" and cp["coeff"] == {"d": "rat"}, cp
+    assert [rat(c) for c in cp["coeffs"]] == ["2/1", "-3/1", "1/1"], cp
+
+    # SPEC.md's own cubic, ascending: 1 - 2x + 0x^2 + x^3
+    coeffs = [q(1), q(-2), q(0), q(1)]
+    comp = adapter.ok("poly_companion_q", {"coeffs": coeffs})
+    assert comp["t"] == "mat" and comp["n"] == 3, comp
+    entries = [[Fraction(rat(x)) for x in row] for row in comp["rows"]]
+    trace = sum(entries[i][i] for i in range(3))
+    assert trace == 0, "companion trace is %s, expected 0" % trace
+    # …and its characteristic polynomial is the polynomial it came from
+    back = adapter.ok("mat_charpoly_q", {"rows": comp["rows"]})
+    assert [rat(c) for c in back["coeffs"]] == ["1/1", "-2/1", "0/1", "1/1"], back
+    assert rat(adapter.ok("mat_det_q", {"rows": comp["rows"]})) == "-1/1"
+
+    # a NON-MONIC polynomial has no companion matrix, and says so
+    bad = adapter.call("poly_companion_q", {"coeffs": [q(1), q(2)]})
+    assert bad["status"] == "error" and bad["kind"] == "not_monic", bad
+    # …nor does a constant
+    flat = adapter.call("poly_companion_q", {"coeffs": [q(1)]})
+    assert flat["status"] == "error" and flat["kind"] == "no_companion", flat
+    print("mat_charpoly_q / poly_companion_q: ok")
+
+
 def check_approx_real(adapter):
     """SPEC.md's `map sqrt 2 to RR/O(1/10^10)`, at the wire.
 
@@ -453,6 +492,7 @@ def main():
         check_is_prime_int(adapter)
         check_roots(adapter)
         check_matrices(adapter)
+        check_charpoly_and_companion(adapter)
         check_approx_real(adapter)
         check_unsupported(adapter)
     except BaseException:

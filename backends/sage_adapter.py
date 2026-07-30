@@ -14,7 +14,8 @@ import json
 import sys
 
 try:
-    from sage.all import AA, Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ, factor, gcd
+    from sage.all import (AA, Integer, Matrix, PolynomialRing, QQ, QQbar, ZZ,
+                          companion_matrix, factor, gcd)
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -348,6 +349,44 @@ def op_mat_det_q(args):
     return enc_rat(Matrix(QQ, dec_rows(args["rows"])).det())
 
 
+def op_mat_charpoly_q(args):
+    """The characteristic polynomial over QQ — SPEC.md's `C.charpoly() = r`.
+
+    Monic of degree n by construction; the caller CHECKS both against the
+    matrix it sent, so a reply of the wrong shape fails at that boundary.
+    """
+    return enc_poly_q(Matrix(QQ, dec_rows(args["rows"])).charpoly())
+
+
+def op_poly_companion_q(args):
+    """The companion matrix of a MONIC polynomial over QQ.
+
+    Which of Sage's four layouts is used is this adapter's own convention
+    (DESIGN.md decision 7), so the caller checks the two things every layout
+    shares: the size, and the trace.
+    """
+    f = PolynomialRing(QQ, "x")([dec_rat(c) for c in args["coeffs"]])
+    if f.degree() < 1:
+        raise BackendError(
+            "no_companion",
+            "a companion matrix belongs to a polynomial of degree at least 1, "
+            "and %s has degree %s" % (f, f.degree()),
+        )
+    if not f.is_monic():
+        raise BackendError(
+            "not_monic",
+            "the companion matrix is defined for a MONIC polynomial; %s has "
+            "leading coefficient %s" % (f, f.leading_coefficient()),
+        )
+    m = companion_matrix(f, format="right")
+    return {
+        "t": "mat",
+        "n": int(m.nrows()),
+        "entry": RAT_DOM,
+        "rows": [[enc_rat(x) for x in row] for row in m.rows()],
+    }
+
+
 def op_mat_inv_q(args):
     mat = Matrix(QQ, dec_rows(args["rows"]))
     try:
@@ -373,6 +412,8 @@ OPS = {
     "roots_poly_q": op_roots_poly_q,
     "roots_poly_c": op_roots_poly_c,
     "mat_det_q": op_mat_det_q,
+    "mat_charpoly_q": op_mat_charpoly_q,
+    "poly_companion_q": op_poly_companion_q,
     "mat_inv_q": op_mat_inv_q,
     "approx_real": op_approx_real,
 }

@@ -1399,3 +1399,40 @@ def test_the_subspace_is_a_set_and_a_qq_module(kernel: Kernel) -> None:
     text = ok(kc, "#explain_route W.dim()")
     assert "QQ-Mod" in text and "native" in text and "span_dim" in text
     assert "«" not in text
+
+
+# -- 19 · the companion matrix, charpoly and trace ----------------------------
+# SPEC.md §A composed computation's second block. `r` and `C` are SPEC.md's own
+# names and appear nowhere else. Mat₃(ℚ) is the first matrix past 2×2 to reach
+# the routed ℚ ops, so `det` is exercised at that size here too.
+
+def test_companion_matrix_charpoly_and_trace(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let r(x) := x³ - 2x + 1 in ℚ[x]")
+    ok(kc, "let C := r.companion_matrix()")
+    # SPEC.md's three assertions, verbatim
+    ok(kc, "assert C.charpoly() = r")
+    ok(kc, "assert C.det() = -1")
+    ok(kc, "assert C.trace() = 0")
+    # …and the wrong answers each of them must reject (a bare `x` is unbound
+    # outside a polynomial binding, so the wrong polynomial is bound to a name)
+    ok(kc, "let rwrong(x) := x³ - 2x in ℚ[x]")
+    ok(kc, "assert C.charpoly() ≠ rwrong")
+    ok(kc, "assert C.det() ≠ 1")
+    ok(kc, "assert C.trace() ≠ 1")
+    # the companion matrix has the polynomial's own size, and lands in Mat₃(ℚ)
+    # — the first matrix past 2×2 to reach the routed ℚ ops
+    assert bundle(kc, "C")["text/plain"].count(";") == 2
+
+
+def test_the_trace_reaches_where_det_gaps(kernel: Kernel) -> None:
+    _, kc = kernel
+    # the trace is a structural read of the diagonal, so it is native and
+    # defined over every entry domain — while `det` over ℤ/5 stays the
+    # deliberate gap. Two judgments, one object.
+    ok(kc, "let Cm5 := [1, 2; 3, 4] in Mat₂(ℤ/5)")
+    ok(kc, "assert Cm5.trace() = 0")
+    text = err(kc, "Cm5.det()")
+    assert "NoImplementation" in text
+    text = err(kc, "Cm5.charpoly()")
+    assert "NoImplementation" in text
