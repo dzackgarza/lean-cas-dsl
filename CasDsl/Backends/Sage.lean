@@ -3,7 +3,7 @@ The direct Sage adapter, Lean side (DESIGN.md decision 2: Sage is reached by
 a direct adapter and brokers nothing else).
 
 This module owns the translation between a routed `(opId, receiver)` and the
-four wire ops the Python half implements. It never generates Sage source, and
+wire ops the Python half implements. It never generates Sage source, and
 a receiver whose presentation does not fit the op is a `badRequest` — routes
 are supposed to prevent that, and if one does not, the caller learns so
 instead of getting a silently reinterpreted request.
@@ -70,6 +70,17 @@ private def factorPolyQArgs : Obj → Except ExecError Json
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM ratArg))]
   | o => .error (.badRequest s!"factor_poly_q expects an element of ℚ[x], got {o.presentation}")
 
+/-- Integer coefficients on the wire, exactly as carried. -/
+private def intArg (v : Value) : Except ExecError Json :=
+  match v with
+  | .int z => .ok (Codec.valueToJson (.int z))
+  | other => .error (.badRequest s!"expected an integer, got {other.render}")
+
+private def factorPolyZArgs : Obj → Except ExecError Json
+  | .elem (.poly .int) (.poly _ coeffs) => do
+      return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM intArg))]
+  | o => .error (.badRequest s!"factor_poly_z expects an element of ℤ[x], got {o.presentation}")
+
 private def matQArgs (op : String) : Obj → Except ExecError Json
   | .elem (.matrix _ .rat) (.mat _ _ rows) => do
       let rs ← rows.mapM fun row => return Json.arr (← row.mapM ratArg)
@@ -82,6 +93,7 @@ private def expectKind (op : String) (v : Value) : Except ExecError Value :=
   match op, v with
   | "factor_int", .factorization .. => .ok v
   | "factor_poly_q", .factorization .. => .ok v
+  | "factor_poly_z", .factorization .. => .ok v
   | "mat_det_q", .rat _ => .ok v
   | "mat_inv_q", .mat .. => .ok v
   | _, _ =>
@@ -96,6 +108,7 @@ def executor : Executor := fun opId receiver args => do
     match opId with
     | "factor_int" => factorIntArgs receiver
     | "factor_poly_q" => factorPolyQArgs receiver
+    | "factor_poly_z" => factorPolyZArgs receiver
     | "mat_det_q" => matQArgs "mat_det_q" receiver
     | "mat_inv_q" => matQArgs "mat_inv_q" receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")

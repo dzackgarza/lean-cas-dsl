@@ -18,7 +18,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ADAPTER = ROOT / "backends" / "sage_adapter.py"
-OPS = ["factor_int", "factor_poly_q", "mat_det_q", "mat_inv_q"]
+OPS = ["factor_int", "factor_poly_q", "factor_poly_z", "mat_det_q", "mat_inv_q"]
 
 
 def read_frame(stream):
@@ -128,6 +128,35 @@ def check_factor_poly_q(adapter):
     print("factor_poly_q: ok")
 
 
+def check_factor_poly_z(adapter):
+    def factors(value):
+        got = set()
+        for base, mult in value["factors"]:
+            assert base["t"] == "poly" and base["coeff"] == {"d": "int"}, base
+            got.add((tuple(int_v(c) for c in base["coeffs"]), mult))
+        return got
+
+    # x^3 - 2x + 1, ascending integer coefficients
+    value = adapter.ok(
+        "factor_poly_z",
+        {"coeffs": [{"t": "int", "v": v} for v in ("1", "-2", "0", "1")]},
+    )
+    assert value["t"] == "factorization", value
+    assert value["dom"] == {"d": "poly", "coeff": {"d": "int"}}, value
+    assert int_v(value["unit"]) == "1", value["unit"]
+    assert factors(value) == {(("-1", "1"), 1), (("-1", "1", "1"), 1)}, value
+
+    # unit and content: -2x - 2 = (-1) * 2 * (x + 1); the content's prime
+    # appears as a constant-polynomial factor, passed through unchanged
+    value = adapter.ok(
+        "factor_poly_z",
+        {"coeffs": [{"t": "int", "v": "-2"}, {"t": "int", "v": "-2"}]},
+    )
+    assert int_v(value["unit"]) == "-1", value["unit"]
+    assert factors(value) == {(("2",), 1), (("1", "1"), 1)}, value
+    print("factor_poly_z: ok")
+
+
 def q(n, d=1):
     return {"t": "rat", "num": str(n), "den": str(d)}
 
@@ -176,6 +205,7 @@ def main():
         check_ready(adapter)
         check_factor_int(adapter)
         check_factor_poly_q(adapter)
+        check_factor_poly_z(adapter)
         check_matrices(adapter)
         check_unsupported(adapter)
     except BaseException:

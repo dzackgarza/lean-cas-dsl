@@ -19,13 +19,13 @@ Two load-bearing separations are visible in the layout below:
   every route in it would remove no method from any object, only the
   ability to run them.
 
-The universe ships two DELIBERATE capability gaps (semantically available,
-no route): `nth` on ℚ and `factor` on ℤ[x] elements. They are honest
-backlog items and are asserted as such by the proofs at the end of this
-file. Repairing either one by narrowing a category, adding a
-capability-shaped category, or registering a route to an operation that
-does not implement it is forbidden (DESIGN.md §Decisions inherited from the
-anti-drift record, 4).
+The universe ships one DELIBERATE capability gap (semantically available,
+no route): `nth` on ℚ. It is an honest backlog item and is asserted as
+such by the proofs at the end of this file. (`factor` on ℤ[x] elements was
+the second such gap until round three routed it, #18.) Repairing a gap by
+narrowing a category, adding a capability-shaped category, or registering
+a route to an operation that does not implement it is forbidden (DESIGN.md
+§Decisions inherited from the anti-drift record, 4).
 -/
 import CasDsl.Register
 import CasDsl.Route
@@ -251,14 +251,11 @@ for the same method, so every route ships at priority 0: selection never
 depends on a tie-break. The `opId`s are exactly the operations
 `Native.run` and the Sage adapter implement.
 
-Two routes are deliberately ABSENT and must stay absent:
+One route is deliberately ABSENT and must stay absent:
 
 - `nth` on ℚ (`domainIs`/`domainSetOf (exact rat)`): ℚ is countable, so
   `nth` is semantically available, but no enumeration of ℚ is implemented.
-  `ℚ[3]` is the acceptance proof's structured gap.
-- `factor` on ℤ[x] elements (`elemOf (polyOver (exact int))`): ℤ[x] is a
-  UFD, so `factor` is meaningful there; the developer routed ℚ[x] first,
-  which is precisely why the notebook writes `map p to ℚ[x]`. -/
+  `ℚ[3]` is the acceptance proof's structured gap. -/
 
 private def stdRoutes : Array Route := #[
   -- factorization
@@ -266,6 +263,8 @@ private def stdRoutes : Array Route := #[
     backend := `sage, opId := "factor_int" },
   { method := `factor, pattern := .elemOf (.polyOver (.exact .rat)),
     backend := `sage, opId := "factor_poly_q" },
+  { method := `factor, pattern := .elemOf (.polyOver (.exact .int)),
+    backend := `sage, opId := "factor_poly_z" },
   -- exact matrix algebra over ℚ
   { method := `det, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `sage, opId := "mat_det_q" },
@@ -400,9 +399,9 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- THE central separation: ℚ is countable, so `nth` is available; no
   -- enumeration of ℚ is implemented, so executing it is a gap
   expectGap env (.domainObj .rat) `nth []
-  -- the second honest gap: ℤ[x] is a UFD, `factor` is meaningful, ℚ[x] was
-  -- routed first
-  expectGap env polyZ `factor []
+  -- ℤ[x] is a UFD, so `factor` is meaningful where the polynomial lives —
+  -- and since round three (#18) it is routed there, not only on ℚ[x]
+  expectRouted env polyZ `factor [] `sage
   -- no upward leak: ℤ/5 elements are CommRingElems, `factor` lives below
   expectNotApplicable env (.elem (.mod 5) (Value.mkMod 5 2)) `factor
   -- a finite set reaches `cardinality` through FiniteSets ≤ CountableSets ≤ Sets

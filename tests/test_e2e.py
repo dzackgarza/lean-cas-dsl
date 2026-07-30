@@ -111,6 +111,8 @@ def test_explain_route_names_backend_in_diagnostics_only(kernel: Kernel) -> None
 def test_polynomial_factor_and_call(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let p(x) := x^3 - 2x + 1 in ℤ[x]")
+    text = ok(kc, "p.factor()")  # routed where p lives since round three (#18)
+    assert "x - 1" in text and "x^2 + x - 1" in text
     ok(kc, "let q := map p to ℚ[x]")
     text = ok(kc, "q.factor()")
     assert "x - 1" in text and "x^2 + x - 1" in text

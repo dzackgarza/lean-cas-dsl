@@ -14,7 +14,7 @@ import json
 import sys
 
 try:
-    from sage.all import Integer, Matrix, PolynomialRing, QQ, factor
+    from sage.all import Integer, Matrix, PolynomialRing, QQ, ZZ, factor
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -75,6 +75,7 @@ def write_frame(obj):
 RAT_DOM = {"d": "rat"}
 INT_DOM = {"d": "int"}
 POLY_RAT_DOM = {"d": "poly", "coeff": RAT_DOM}
+POLY_INT_DOM = {"d": "poly", "coeff": INT_DOM}
 
 
 def enc_int(z):
@@ -95,6 +96,12 @@ def dec_rat(j):
     return QQ((Integer(j["num"]), den))
 
 
+def dec_int(j):
+    if not isinstance(j, dict) or j.get("t") != "int":
+        raise BackendError("bad_request", "expected an integer value, got %r" % (j,))
+    return Integer(j["v"])
+
+
 def dec_rows(j):
     if not isinstance(j, list) or not j:
         raise BackendError("bad_request", "expected a non-empty list of rows")
@@ -103,6 +110,10 @@ def dec_rows(j):
 
 def enc_poly_q(f):
     return {"t": "poly", "coeff": RAT_DOM, "coeffs": [enc_rat(c) for c in f.list()]}
+
+
+def enc_poly_z(f):
+    return {"t": "poly", "coeff": INT_DOM, "coeffs": [enc_int(c) for c in f.list()]}
 
 
 # --- operations ------------------------------------------------------------
@@ -129,6 +140,18 @@ def op_factor_poly_q(args):
     }
 
 
+def op_factor_poly_z(args):
+    fac = PolynomialRing(ZZ, "x")([dec_int(c) for c in args["coeffs"]]).factor()
+    # over ZZ[x] the unit is ±1 and the content's prime factors appear as
+    # constant polynomials among the factors; both pass through unchanged
+    return {
+        "t": "factorization",
+        "unit": enc_int(ZZ(fac.unit())),
+        "factors": [[enc_poly_z(g), int(m)] for g, m in fac],
+        "dom": POLY_INT_DOM,
+    }
+
+
 def op_mat_det_q(args):
     return enc_rat(Matrix(QQ, dec_rows(args["rows"])).det())
 
@@ -150,6 +173,7 @@ def op_mat_inv_q(args):
 OPS = {
     "factor_int": op_factor_int,
     "factor_poly_q": op_factor_poly_q,
+    "factor_poly_z": op_factor_poly_z,
     "mat_det_q": op_mat_det_q,
     "mat_inv_q": op_mat_inv_q,
 }
