@@ -290,6 +290,12 @@ private def approx (exact : Value) (dec : String) (eps achieved : Rat) : Option 
 #guard Value.decimalToRat? "1.2.3" == none
 #guard Value.decimalToRat? "" == none
 #guard Value.decimalToRat? "1e-10" == none
+-- strict, because this parses a CERTIFICATE: a trailing point and a padded
+-- integer part are not spellings to accept because their value is guessable
+#guard Value.decimalToRat? "3." == none
+#guard Value.decimalToRat? "007" == none
+#guard Value.decimalToRat? "-0.5" == some (-(mkRat 1 2))
+#guard Value.decimalToRat? "0.05" == some (mkRat 1 20)
 #guard Value.decimalToRat? " 1.5" == none
 
 -- `|a + b√d| < q` by squaring: √2 - 1.4142135623 is under 10^-10 and over

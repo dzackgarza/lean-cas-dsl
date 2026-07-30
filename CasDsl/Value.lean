@@ -501,14 +501,19 @@ boundary instead of publishing a decimal that presents nothing. -/
 
 /-- The exact rational a DECIMAL string denotes — an optional `-`, digits, and
 at most one point. `none` = it is not a decimal at all, which from a backend
-is a protocol failure rather than a string to read leniently. -/
+is a protocol failure rather than a string to read leniently.
+
+STRICT, because this parses a certificate: a trailing point (`3.`) and a
+padded integer part (`007`) are not spellings this accepts merely because
+their value is guessable. -/
 def decimalToRat? (s : String) : Option Rat := do
   let (neg, body) := if s.startsWith "-" then (true, (s.drop 1).toString) else (false, s)
   let (ip, fp) ← match body.splitOn "." with
     | [i] => some (i, "")
-    | [i, f] => some (i, f)
+    | [i, f] => if f.isEmpty then none else some (i, f)
     | _ => none
-  guard (!ip.isEmpty && ip.all Char.isDigit && fp.all Char.isDigit)
+  guard (!ip.isEmpty && ip.all Char.isDigit && fp.all Char.isDigit
+    && (ip == "0" || !ip.startsWith "0"))
   let n ← (ip ++ fp).toNat?
   let q := mkRat (Int.ofNat n) (10 ^ fp.length)
   return if neg then -q else q

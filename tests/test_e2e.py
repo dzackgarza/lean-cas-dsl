@@ -1173,6 +1173,24 @@ def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
     assert "sage" in text and "approx_real" in text and "ComplexElems" in text
 
 
+def test_both_spellings_answer_for_the_tolerance_alike(kernel: Kernel) -> None:
+    _, kc = kernel
+    # criterion 3 is not spelling-scoped: `x.approximate(ε)` is the same
+    # request as `map x to ℝ/O(ε)`, so it refuses a non-positive ε at the
+    # surface and reports an unmeetable one as the capability failure naming
+    # the tolerance — in the O(1/10^{k}) spelling, not 2000 literal zeros.
+    ok(kc, "let apr2 := √2 in ℝ")
+    for code in ("map √2 to ℝ/O(0)", "apr2.approximate(0)"):
+        text = err(kc, code)
+        assert "is not a tolerance" in text, code
+        assert "capability" not in text.lower(), code
+    for code in ("map √2 to ℝ/O(1/10^{2000})", "apr2.approximate(1/10^{2000})"):
+        text = err(kc, code)
+        assert "capability" in text.lower(), code
+        assert "O(1/10^{2000})" in text, code
+        assert "0000000000" not in text, code
+
+
 def test_the_braced_exponent_is_an_exponent(kernel: Kernel) -> None:
     _, kc = kernel
     # `x^{k}` is the spelling this system's own LaTeX renderer produces and

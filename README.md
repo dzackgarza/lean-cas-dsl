@@ -56,8 +56,10 @@ the ⊆-chain read off the canonical-map registry, the cubic split over ℂ[x],
 numerical approximation as an operation ON an exact value
 (`map √2 to ℝ/O(1/10^{10})`, whose decimal is certified against the value it
 presents and whose tolerance is a request rather than a quotient),
-and two cells that **fail on purpose**: one square root over ℚ is the
-documented ceiling, and `Mat₂(ℤ/5).det()` is the structured capability gap.
+and seven cells that **fail on purpose**: one square root over ℚ is the
+documented ceiling, `Mat₂(ℤ/5).det()` is the structured capability gap, and
+five refusals in the approximation section keep a request, a registry gap, a
+capability failure and the absence of error propagation apart.
 
 ## Quickstart
 

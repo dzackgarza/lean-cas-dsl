@@ -401,7 +401,10 @@ def check_approx_real(adapter):
     reply = adapter.call("approx_real", {"value": sqrt2, "eps": q(1, 10**2000)})
     assert reply["status"] == "error", reply
     assert reply["kind"] == "tolerance_not_met", reply
-    assert "1/%d" % 10**2000 in reply["message"], reply
+    # …in the caller's own spelling: two thousand literal zeros would be the
+    # message a notebook publishes
+    assert "O(1/10^{2000})" in reply["message"], reply
+    assert "0000000000" not in reply["message"], reply
     assert str(1000) in reply["message"], reply
 
     # …and neither a non-positive tolerance nor a complex value is answered

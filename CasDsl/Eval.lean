@@ -246,7 +246,10 @@ partial def coerceValue (rules : Array CanonicalMap) (d : Domain) (v : Value)
       | d, v => do
           let noEmbedding : Except String Value :=
             .error s!"there is no preferred canonical map of {v.render} into {d.render}"
-          let some src := valueDom? v | noEmbedding
+          let some src := valueDom? v
+            | .error s!"{v.render} is a RESULT and not an element of any domain \
+— like a factorization or a cardinal, and an approximation with it — so there \
+is nothing to carry into {d.render}"
           match ← canonicalMapFor rules src d with
           | some r => r.op.apply d v
           | none => noEmbedding
@@ -701,13 +704,17 @@ tolerance rather than because no backend could meet it: no finite decimal
 presentation is within 0 of an irrational number, and a negative bound is not
 a request at all. That keeps `O(0)` a surface error and not a capability
 failure — the two say different things about the system. -/
+def notATolerance (q : Rat) : String :=
+  if q == 0 then
+    "O(0) is not a tolerance: no finite decimal presentation lies within 0 of \
+an irrational number, so an absolute tolerance is a POSITIVE rational"
+  else
+    s!"O({Value.tolText q}) is not a tolerance: an absolute tolerance is a \
+POSITIVE rational, and a negative bound is not one a decimal could ever meet"
+
 def toleranceOf (d : Denote) : Except String Rat :=
   match d.value?.bind Native.toRat? with
-  | some q =>
-      if Rat.blt 0 q then .ok q
-      else .error s!"O({Value.tolText q}) is not a tolerance: an absolute \
-tolerance is a POSITIVE rational, and no finite decimal presentation lies \
-within 0 of an irrational number"
+  | some q => if Rat.blt 0 q then .ok q else .error (notATolerance q)
   | none =>
       .error s!"the tolerance of `ℝ/O(ε)` is an exact positive rational, and \
 {d.presentation} is not one"
@@ -884,14 +891,25 @@ def EvalCtx.literal (ctx : EvalCtx) (z : Int) : Value :=
   | some (.mod n) => Value.mkMod n z
   | _ => .int z
 
-/-- Execute a method: resolve (semantics), route (computability), execute.
-The ONLY path from the surface to an implementation.
+/-- The ε an approximation REQUEST carries, whichever spelling asked for it.
+`map x to ℝ/O(ε)` and `x.approximate(ε)` are ONE operation, so both must answer
+for the tolerance the same way (issue #7, criterion 3, which is not
+spelling-scoped); the guard therefore sits in `callMethod`, where every
+spelling meets. `none` = not an approximation request. -/
+private def approxEps? (m : Name) (args : Array Obj) : Option Rat :=
+  if m != `approximate then none
+  else match (args[0]? : Option Obj) with
+    | some (.elem _ v) => Native.toRat? v
+    | _ => none
+
+/-- Resolve (semantics), route (computability), execute — the ONLY path from
+the surface to an implementation.
 
 Routing and execution use `res.concreteReceiver`, so a resolution that went
 through a functor runs against the transported image. Arguments are NOT
 transported: a method's arguments belong to its declaration, not to the
 receiver's presentation. -/
-def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
+private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
   match resolveMethod ctx.env recv m with
   | .error e => throw (.resolve m recv e)
@@ -907,6 +925,23 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
       | .error e => throw (.exec e)
       | .ok v => return Denote.ofValue v
 
+/-- Execute a method, and answer for a requested TOLERANCE when the method
+carries one: a non-positive ε is a surface refusal (it is not a tolerance),
+and any failure to meet a positive one is the capability failure naming it. -/
+def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
+    : EvalM Denote := do
+  match approxEps? m args with
+  | none => runMethod ctx recv m args
+  | some eps =>
+      unless Rat.blt 0 eps do throw (.msg (notATolerance eps))
+      tryCatch (runMethod ctx recv m args) fun err => throw (.approxRequest eps err)
+
+/-- A `let` binds an OBJECT, and a result with no domain is not one. Shared by
+the two places that ask for one, so the cause is stated wherever it bites. -/
+def notAnObject (rendered : String) : String :=
+  s!"{rendered} is not an object: a `let` binds an object, and a RESULT with no \
+domain — a factorization, a cardinal, an approximation — has none"
+
 private def asValueOf (r : Denote) (what : String := "this position") : Except String Value :=
   match r.value? with
   | some v => .ok v
@@ -915,7 +950,7 @@ private def asValueOf (r : Denote) (what : String := "this position") : Except S
 private def asObjOf (r : Denote) : Except String Obj :=
   match r.obj? with
   | some o => .ok o
-  | none => .error s!"{r.render} is not an object"
+  | none => .error (notAnObject r.render)
 
 /-- How many candidates a comprehension may test before the operation fails
 honestly. A loud ceiling, never a truncated answer. Its reach over ℤ is
@@ -1155,8 +1190,7 @@ domain, not of {s.render}")
       let eps ← ofStr (toleranceOf (← eval ctx epsE))
       let v ← ofStr (asValueOf (← eval ctx e) "`map … to ℝ/O(ε)`")
       let r ← ofStr (coerceValue ctx.canonMaps .real v)
-      tryCatch (callMethod ctx (.elem .real r) `approximate #[.elem .rat (.rat eps)])
-        fun err => throw (.approxRequest eps err)
+      callMethod ctx (.elem .real r) `approximate #[.elem .rat (.rat eps)]
   | .mapTo e target => do
       let t ← eval ctx target
       let .obj (.domainObj d) := t
@@ -1388,7 +1422,7 @@ decide: {other.elim "no value" (·.render)}")
 private def objOf (d : Denote) : EvalM Obj :=
   match d.obj? with
   | some o => pure o
-  | none => throw (.msg s!"{d.render} is not an object")
+  | none => throw (.msg (notAnObject d.render))
 
 /-- A binding that introduces a BINDER — `let p(x) := e in D[x]`,
 `let h := t ↦ e in ℝ → ℝ`, `let e: ℕ → ℕ := n ↦ …`. The ascription decides

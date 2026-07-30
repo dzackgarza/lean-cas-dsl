@@ -279,6 +279,19 @@ def op_roots_poly_c(args):
     )
 
 
+def tol_text(q):
+    """A tolerance in the caller's own spelling — `1/10^{k}` for a reciprocal
+    power of ten (mirrors Value.tolText). Printing 1/10^2000 as two thousand
+    literal zeros lands in published notebook output; this does not.
+    """
+    den = q.denominator()
+    if q.numerator() == 1 and den > 1:
+        digits = str(den)
+        if digits == "1" + "0" * (len(digits) - 1):
+            return "1/10^{%d}" % (len(digits) - 1)
+    return str(q)
+
+
 def op_approx_real(args):
     """The decimal presentation of an exact REAL number, to a requested
     absolute tolerance (SPEC.md's `map x to RR/O(eps)`).
@@ -299,7 +312,7 @@ def op_approx_real(args):
     eps = dec_rat(args["eps"])
     if eps <= 0:
         raise BackendError(
-            "bad_request", "a tolerance must be positive, got %s" % eps
+            "bad_request", "a tolerance must be positive, got O(%s)" % tol_text(eps)
         )
     try:
         real = AA(x)
@@ -313,8 +326,8 @@ def op_approx_real(args):
         if k >= MAX_DIGITS:
             raise BackendError(
                 "tolerance_not_met",
-                "a tolerance of %s needs more than %d decimal digits, which is "
-                "past this adapter's ceiling" % (eps, MAX_DIGITS),
+                "a tolerance of O(%s) needs more than %d decimal digits, "
+                "which is past this adapter's ceiling" % (tol_text(eps), MAX_DIGITS),
             )
         k, achieved = k + 1, achieved / 10
     m = (real * 10**k).floor()
