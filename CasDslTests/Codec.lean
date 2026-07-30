@@ -42,10 +42,12 @@ private def samples : Array Value := #[
   .idealV #[.int 6] .int,
   .cardinal (.finite 5),
   .cardinal .countablyInfinite,
-  .bool true]
+  .bool true,
+  .func .real .real `t (.poly .int #[.int 1, .int 0, .int 1])]
 
 private def domains : Array Domain :=
-  #[.nat, .int, .rat, .mod 7, .poly .rat, .matrix 3 (.poly .int)]
+  #[.nat, .int, .rat, .real, .mod 7, .poly .rat, .matrix 3 (.poly .int),
+    .funcs .real .real]
 
 #guard samples.all roundTrips
 #guard domains.all domainRoundTrips
@@ -59,5 +61,11 @@ private def domains : Array Domain :=
    ("rows", Json.arr #[Json.arr #[Json.mkObj [("t", "int"), ("v", "1")]]])])
 #guard rejects (Json.mkObj [("t", "quaternion"), ("v", "1")])
 #guard rejects (Json.str "not an object")
+-- a function whose binder is empty is not a function: `Name.mkSimple ""` would
+-- decode to the anonymous name and render as `↦ …`
+#guard rejects (Json.mkObj
+  [("t", "func"), ("src", Json.mkObj [("d", "real")]),
+   ("tgt", Json.mkObj [("d", "real")]), ("binder", ""),
+   ("body", Json.mkObj [("t", "int"), ("v", "1")])])
 
 end CasDslTests.Codec

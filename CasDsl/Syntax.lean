@@ -137,10 +137,9 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casDiv => return .bin .div (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr stx[2])
   | ``casSupPow => do
-      let some c := (stx[1].reprint.getD "").trimAscii.toString.toList.head?
-        | .error "a superscript exponent is missing its digit"
-      let some k := superscriptDigit? c
-        | .error s!"'{c}' is not a superscript digit"
+      let some k := (stx[1].reprint.getD "").trimAscii.toString.toList.head?.bind
+        superscriptDigit?
+        | .error s!"{stx[1]} is not a superscript digit"
       return .bin .pow (← toExpr stx[0]) (.num (Int.ofNat k))
   | ``casComp => return .comp (← toExpr stx[0]) (← toExpr stx[2])
   | ``casArrow => return .arrow (← toExpr stx[0]) (← toExpr stx[2])

@@ -219,13 +219,6 @@ def render : Obj → String
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
 
-/-- The binder of a bound function. A function in scope is what makes its
-binder name an indeterminate the surface may use freely (SPEC.md writes
-`assert h(-t) = h(t)` and `(f ∘ g)(t) = t⁶` without ever binding `t`). -/
-def funcBinder? : Obj → Option Lean.Name
-  | .elem _ (.func _ _ b _) => some b
-  | _ => none
-
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
   | .elem d v => s!"{v.render} ∈ {d.render}"

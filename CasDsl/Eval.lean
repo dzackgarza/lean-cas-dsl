@@ -312,6 +312,13 @@ both the composition and the symmetry claim exactly.
 Non-polynomial bodies (`t ↦ sin(t)`, `t ↦ e^t`) are therefore not expressible
 yet, and say so at the binding rather than being approximated. -/
 
+/-- The coefficient ring a function body lives in, which is the ring its
+binder is the indeterminate of. -/
+def bodyRing (body : Value) : Domain :=
+  match asPolyCoeffs body with
+  | some (c, _) => c
+  | none => .int
+
 /-- The indeterminate of `c[x]` as a surface value — `x` itself. -/
 def indeterminateValue (rules : Array CanonicalMap) (c : Domain)
     : Except String Value := do
@@ -326,9 +333,27 @@ polynomial CALL needs. Here the argument may itself be a polynomial (`h(-t)`,
 def applyPoly (rules : Array CanonicalMap) (body arg : Value)
     : Except String Value := do
   let some (_, cs) := asPolyCoeffs body
-    | .error s!"{body.render} is not a polynomial body"
+    | .error s!"a function cannot be applied: its body {body.render} is not a \
+polynomial"
   cs.reverse.foldlM (init := Value.int 0) fun acc c => do
     valueBin rules .add (← valueBin rules .mul acc arg) c
+
+/-- One end of a `src → tgt` ascription, ENFORCED: an argument must land in
+the source domain and a result in the target, by the ordinary preferred
+canonical map, or the call fails.
+
+Two cases pass through, and only two:
+
+- `.real`, which is an ascription TAG — it has no `Value`s to check, which is
+  the whole content of "ℝ carries no analysis semantics here";
+- a polynomial, which is the SYMBOLIC path: `h(-t)` and `(f ∘ g)(t)` denote
+  function expressions, not points of the domain, so a domain check on them
+  would be a category error rather than a safety net. -/
+def atDomain (rules : Array CanonicalMap) (d : Domain) (v : Value)
+    : Except String Value :=
+  match d, v with
+  | .real, _ | _, .poly .. => .ok v
+  | d, v => coerceValue rules d v
 
 /-- `f ∘ g` = `binder ↦ f(g(binder))`, keeping `g`'s binder.
 
@@ -547,6 +572,12 @@ structure EvalCtx where
   /-- The indeterminate bound by `let p(x) := …`, with its coefficient
   domain, so `x` denotes the polynomial `x`. -/
   indet? : Option (Name × Domain) := none
+  /-- The callee's binder while its ARGUMENT is being evaluated, so `h(-t)`
+  and `(f ∘ g)(t)` can name the indeterminate. Scoped to that argument on
+  purpose: outside a call the binder is not in scope, and a bare `t` is the
+  ordinary "not bound" error. Consulted after the bindings, so a `let t := …`
+  still wins. -/
+  callBinder? : Option (Name × Domain) := none
 
 abbrev EvalM := ExceptT EvalError IO
 
@@ -605,14 +636,14 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       | none =>
         if let some d := domainAlias? n then
           return .obj (.domainObj d)
-        -- A bound function's binder names the indeterminate of the ring its
-        -- body lives in, so SPEC.md may write `h(-t) = h(t)` and
-        -- `(f ∘ g)(t) = t⁶` without ever binding `t`. A name no function in
-        -- scope binds is still the loud "not bound" error: this reading is
-        -- earned by a definition, never assumed for an unknown identifier.
-        if (bindings ctx.env).any (fun (_, o) => o.funcBinder? == some n) then
-          return .obj (.elem (.poly .int)
-            (← ofStr (indeterminateValue ctx.canonMaps .int)))
+        -- Inside a call's argument the callee's binder names the
+        -- indeterminate of the ring its body lives in, which is what makes
+        -- SPEC.md's `h(-t) = h(t)` and `(f ∘ g)(t) = t⁶` identities. The
+        -- scope is exactly that argument: everywhere else the name is
+        -- unbound, and says so.
+        if let some (b, c) := ctx.callBinder? then
+          if b == n then
+            return .obj (.elem (.poly c) (← ofStr (indeterminateValue ctx.canonMaps c)))
         throw (.msg s!"'{n}' is not bound; introduce it with `let {n} := …`")
   | .matDom size entry => do
       match ← eval ctx entry with
@@ -661,15 +692,21 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
             throw (.msg s!"a polynomial is called with exactly one argument, got {args.size}")
           let x ← ofStr (asValueOf (← eval ctx args[0]!))
           return Denote.ofValue (← ofStr (Native.polyEval c coeffs x))
-      | some (.func _ _ _ body) =>
+      | some (.func src tgt binder body) =>
           -- Calling a function substitutes into its body: a scalar argument
           -- evaluates it, a polynomial argument composes with it. Same
           -- elaboration-inserted move as calling a polynomial — no route, no
-          -- backend (DESIGN.md decision 6).
+          -- backend (DESIGN.md decision 6) — but the ascribed `src → tgt` is
+          -- CHECKED at both ends, so a call outside the source domain fails
+          -- instead of computing in some other ring.
           if args.size != 1 then
             throw (.msg s!"a function is called with exactly one argument, got {args.size}")
-          let x ← ofStr (asValueOf (← eval ctx args[0]!))
-          return Denote.ofValue (← ofStr (applyPoly ctx.canonMaps body x))
+          -- inside the argument, and only there, the callee's binder names
+          -- the indeterminate: that is what `h(-t)` and `(f ∘ g)(t)` mean
+          let arg ← eval { ctx with callBinder? := some (binder, bodyRing body) } args[0]!
+          let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
+          let y ← ofStr (applyPoly ctx.canonMaps body x)
+          return Denote.ofValue (← ofStr (atDomain ctx.canonMaps tgt y))
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
@@ -855,12 +892,36 @@ private def isSetLike : Denote → Bool
   | .obj (.setObj _) | .obj (.domainObj _) => true
   | _ => false
 
+/-- The binder a function CALLED in this expression brings into scope.
+
+SPEC.md writes `assert (f ∘ g)(t) = t⁶`, naming `t` on the side that is NOT
+the call, so a call anywhere in an assertion scopes its binder over the whole
+assertion. Nothing wider: outside such an assertion the name is unbound and
+says so, and a real `let t := …` still wins (`eval` consults this only after
+the bindings). -/
+partial def calledBinder? (env : Environment) : CasExpr → Option (Name × Domain)
+  | .app f _ => head f
+  | .bin _ a b => calledBinder? env a <|> calledBinder? env b
+  | .neg e => calledBinder? env e
+  | _ => none
+where
+  head : CasExpr → Option (Name × Domain)
+    | .ref n =>
+        match binding? env n with
+        | some (.elem _ (.func _ _ b body)) => some (b, bodyRing body)
+        | _ => none
+    -- a composite keeps the right factor's binder, exactly as `composeFuncs` does
+    | .comp _ g => head g
+    | _ => none
+
 /-- `assert l R r`, with the fourfold CAS outcome: `some true`, `some
 false`, `none` (the operands are not comparable — the honest "unknown"), or
 a thrown structured error. No proposition is created: this is a computed,
 trusted predicate, not a Lean theorem. -/
 def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
     : EvalM (Option Bool) := do
+  let ctx := { ctx with callBinder? :=
+    ctx.callBinder? <|> calledBinder? ctx.env l <|> calledBinder? ctx.env r }
   let a ← eval ctx l
   let b ← eval ctx r
   match rel with

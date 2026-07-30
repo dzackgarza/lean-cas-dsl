@@ -154,6 +154,23 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 #guard (coerceValue embeds .real (.int 3)).toOption == none
 #guard (domJoin embeds .real .rat).toOption == some none
 
+/-! ### The `src → tgt` ascription is checked at the call boundary -/
+
+-- an argument outside the source domain is refused, not computed with
+#guard (atDomain embeds .nat (.int (-1))).toOption == none
+#guard (atDomain embeds .nat (.int 3)).toOption == some (.int 3)
+-- …and a result lands IN the target: t + 3 at 4 is 2 in ℤ/5, never 7
+#guard (atDomain embeds (.mod 5) (.int 7)).toOption == some (.mod 5 2)
+-- ℝ has no elements to check — that is the whole content of "ascription tag"
+#guard (atDomain embeds .real (.int (-1))).toOption == some (.int (-1))
+-- a polynomial is the SYMBOLIC path: `h(-t)` is an expression, not a point
+#guard (atDomain embeds .nat (xTo 1)).toOption == some (xTo 1)
+
+-- the binder is the indeterminate of the ring the BODY lives in
+#guard bodyRing (xTo 2) == .int
+#guard bodyRing (Value.mkPoly (.mod 5) #[.mod 5 3, .mod 5 1]) == .mod 5
+#guard bodyRing (.int 7) == .int
+
 -- `R` and `RR` are spellings of ℝ; every other identifier is a name
 #guard domainAlias? `RR == some .real
 #guard domainAlias? `R == some .real
@@ -251,6 +268,13 @@ assert (f ∘ g)(t) = t^6
 -- equality tells it apart from its factors
 assert (f ∘ g)(2) = 64
 assert h ≠ f
+
+-- the ascribed domains are CHECKED at the call: the argument enters through
+-- the source and the result lands in the target, so a ℤ/5 arrow computes in
+-- ℤ/5 (4 + 3 = 2) rather than in ℤ
+assert e(3) = 6
+let k(t) = t + 3 in ℤ/5 → ℤ/5
+assert k(4) = 2
 
 run_cmd do
   let env ← Lean.getEnv

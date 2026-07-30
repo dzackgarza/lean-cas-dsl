@@ -286,15 +286,42 @@ def test_body_the_polynomial_engine_cannot_express_is_refused(kernel: Kernel) ->
     assert "ℕ is not a function body" in text
 
 
-def test_a_function_in_scope_publishes_its_binder(kernel: Kernel) -> None:
+def test_binder_is_scoped_to_calls_not_the_session(kernel: Kernel) -> None:
     _, kc = kernel
-    # `h := t ↦ …` is bound above, so the bare name `t` is that indeterminate
-    text = ok(kc, "t")
-    assert "x ∈ ℤ[x]" in text
-    ok(kc, "assert t = t")
-    # a name no function binds is still the loud error
+    # `h := t ↦ …` and `f`, `g` are bound above, yet a bare `t` outside a call
+    # is NOT in scope: the honest-error channel is not widened by a definition
+    text = err(kc, "t")
+    assert "'t' is not bound" in text
+    text = err(kc, "assert t = t")
+    assert "'t' is not bound" in text
     text = err(kc, "assert zzz = 1")
     assert "'zzz' is not bound" in text
+    # inside a call, and across an assertion containing one, it IS in scope —
+    # the two SPEC.md identities keep working
+    ok(kc, "assert h(-t) = h(t)")
+    ok(kc, "assert (f ∘ g)(t) = t^6")
+
+
+def test_a_binding_still_wins_over_a_callee_binder(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let s := 5 in ℤ")
+    ok(kc, "let w(s) = s + 1 in ℕ → ℕ")
+    ok(kc, "assert w(s) = 6")   # w(5), not the indeterminate
+
+
+def test_argument_outside_the_source_domain_is_refused(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert e(3) = 6")   # e : ℕ → ℕ, bound above
+    text = err(kc, "e(-1)")
+    assert "-1 is not an element of ℕ" in text
+
+
+def test_result_lands_in_the_target_domain(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let k(t) = t + 3 in ℤ/5 → ℤ/5")
+    text = ok(kc, "k(4)")       # 4 + 3 in ℤ/5, never 7
+    assert "2" in text and "7" not in text
+    ok(kc, "assert k(4) = 2")
 
 
 # -- 10 · registry-driven embeddings ----------------------------------------

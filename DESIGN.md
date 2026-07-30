@@ -148,16 +148,32 @@ Decisions, all load-bearing:
   scalar Horner). A body the polynomial engine cannot express — `t ↦ sin(t)`,
   `t ↦ e^t` — is refused AT THE BINDING and stays a gap until the calculus
   sections land; it is never approximated;
+- **the ascription is CHECKED at the call boundary** (`Eval.atDomain`): the
+  argument enters through the preferred canonical map into `src` and the
+  result lands in `tgt`, or the call fails. `e(-1)` for `e : ℕ → ℕ` is
+  therefore an error, and `k(t) = t + 3 in ℤ/5 → ℤ/5` gives `k(4) = 2`
+  rather than 7 — the body is computed over ℤ, and the target coercion is
+  the ring quotient, which agrees because a polynomial with integer
+  coefficients commutes with `ℤ → ℤ/n`. Two cases pass through: `.real`,
+  which has no `Value`s to check, and a polynomial argument or result, which
+  is the symbolic path (`h(-t)` denotes an expression, not a point);
 - **`ℝ` is an ascription tag.** It names where a function is declared and
   carries no analysis semantics at this stage: no `Value` presents it, no
   canonical map lands in it, and every operation needing its elements fails
-  honestly. `R` and `RR` are registered spellings of it (`Eval.domainAlias?`),
-  consulted after the bindings so `let R := …` still shadows them;
-- **a function in scope publishes its binder** as the indeterminate of the
-  ring its body lives in — that is what lets SPEC.md write `h(-t) = h(t)` and
-  `(f ∘ g)(t) = t⁶` without ever binding `t`. A name no function in scope
-  binds is still the loud "not bound" error: the reading is earned by a
-  definition, never assumed for an unknown identifier;
+  honestly — including `atDomain`, which is exactly why an ℝ arrow checks
+  nothing. `R` and `RR` are registered spellings of it
+  (`Eval.domainAlias?`), consulted after the bindings so `let R := …` still
+  shadows them;
+- **a callee's binder is in scope only where it is called.** Inside a call's
+  argument, and across an assertion that contains such a call
+  (`Eval.calledBinder?`), the binder names the indeterminate of
+  `Eval.bodyRing body` — the ring the body actually lives in. That is what
+  lets SPEC.md write `h(-t) = h(t)` and `(f ∘ g)(t) = t⁶`, where `t` appears
+  on the side that is not the call. NOTHING wider: a bare `t` in an ordinary
+  cell is the loud "not bound" error even with `h` in scope, so defining a
+  function never converts a typo elsewhere into a silent indeterminate. A
+  real `let t := …` wins over the binder, which `eval` consults only after
+  the bindings;
 - **calling and composing are elaboration-inserted**, exactly like calling a
   polynomial (decision 6): no method, no route, no backend. `f ∘ g` keeps
   `g`'s binder and requires the domains to meet — composing along a mismatch
