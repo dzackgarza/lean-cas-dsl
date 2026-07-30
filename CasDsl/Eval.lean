@@ -1173,6 +1173,16 @@ difference of sets that have elements is `\\`, which computes it — \
             throw (.msg s!"a polynomial is called with exactly one argument, got {args.size}")
           let x ← ofStr (asValueOf (← eval ctx args[0]!))
           return Denote.ofValue (← ofStr (Native.polyEval c coeffs x))
+      -- SPEC.md applies a matrix to a vector by juxtaposition — `M v`,
+      -- `M(M⁻¹ b)` — and a matrix IS a linear map, so applying it is the
+      -- product it already has. Elaboration-inserted like calling a
+      -- polynomial: no method, no route, one implementation for both
+      -- spellings, and `Native.matApply`'s shape check answers either way
+      | some m@(.mat ..) =>
+          if args.size != 1 then
+            throw (.msg s!"a matrix is applied to exactly one vector, got {args.size}")
+          let x ← ofStr (asValueOf (← eval ctx args[0]!))
+          return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .mul m x))
       | some (.func src tgt binder body) =>
           -- Calling a function substitutes into its body: a scalar argument
           -- evaluates it, a polynomial argument composes with it. Same

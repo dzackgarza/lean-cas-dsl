@@ -82,6 +82,22 @@ syntax (name := casSetElem) casTerm : casSetItem
 syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
 syntax:max (name := casApply) casTerm:max noWs "(" casTerm,* ")" : casTerm
 
+/-! SPEC.md §Vectors and matrices writes the inverse `M⁻¹` and applies a
+matrix to a vector by JUXTAPOSITION — `M⁻¹ b`, `M v` — alongside the explicit
+`M*v`. Both are spellings of operations this surface already has: `⁻¹` is the
+`inverse` METHOD, and juxtaposition is the product.
+
+The three productions below are rooted at an `ident` on the LEFT, which is the
+same hazard control as the `noWs` before `(` and `[`: a term followed by a
+newline can only be swallowed when BOTH lines are bare names, and every other
+cell shape (a literal, a bracket, a command keyword, an operator) ends the
+term. That residual is documented rather than closed — Lean's command parser
+spans lines, so nothing here can require "the same line". -/
+
+syntax:max (name := casInv) ident noWs "⁻¹" : casTerm
+syntax:70 (name := casJuxtApp) ident ident : casTerm
+syntax:70 (name := casInvJuxtApp) ident noWs "⁻¹" ident : casTerm
+
 /-- `|A|`, `|z|` — SPEC.md's bars, which ARE a method: `cardinality` for a
 set, `abs` for an element of ℝ or ℂ. The bars are a spelling, so a receiver
 neither category covers gets the ordinary "not a method of any category this
@@ -267,6 +283,10 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casMap => return .mapTo (← toExpr stx[1]) (← toExpr stx[3])
   | ``casApproxTarget => return .approxTarget (← toExpr stx[4])
   | ``casIndex => return .index (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casInv => return .method (.ref stx[0].getId) `inverse #[]
+  | ``casJuxtApp => return .app (.ref stx[0].getId) #[.ref stx[1].getId]
+  | ``casInvJuxtApp =>
+      return .app (.method (.ref stx[0].getId) `inverse #[]) #[.ref stx[2].getId]
   | ``casApply => do
       let args ← stx[2].getSepArgs.mapM toExpr
       match ← toExpr stx[0] with

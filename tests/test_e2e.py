@@ -1285,3 +1285,50 @@ def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     # …and the membership assertion asks about that integer, not about a ring
     text = err(kc, "assert z ∈ ℤ[z]")
     assert "'contains' is not a method" in text
+
+
+# -- 17 · vectors and the linear action ---------------------------------------
+# SPEC.md §Vectors and matrices' second and fourth blocks. `M` is the Mat₂(ℚ)
+# bound in §4 above; `v` and `b` are SPEC.md's own names and appear nowhere
+# else in this file. The inverse is Sage-routed, so these are the lines that
+# cannot be decided at build time.
+
+def test_matrix_vector_application_in_every_spelling(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "let v := (1, 2) in ℚ²")
+    ok(kc, "let b := (5, 11) in ℚ²")
+    # SPEC.md writes the action three ways — explicitly, by juxtaposition, and
+    # as a call — and all three are ONE operation
+    ok(kc, "assert M*v = b")
+    ok(kc, "assert M⁻¹ b = v")
+    ok(kc, "assert M⁻¹(M v) = v")
+    ok(kc, "assert M(M⁻¹ b) = b")
+    # `M⁻¹` is the spelling of the `inverse` METHOD, not a second operation
+    text = ok(kc, "M⁻¹")
+    assert "-2, 1" in text and "3/2, -1/2" in text
+
+
+def test_a_vector_is_typeset_as_the_tuple_it_is(kernel: Kernel) -> None:
+    _, kc = kernel
+    bd = bundle(kc, "v")
+    # the conventions table's choice: the TUPLE, which is SPEC.md's own
+    # spelling and the one the surface reads back — a column pmatrix would
+    # typeset something the input syntax does not say
+    assert bd["text/latex"] == "$$(1, 2)$$"
+    assert bd["text/plain"] == "(1, 2)"
+    assert bd["text/latex"].isascii()
+    assert bundle(kc, "ℚ²")["text/latex"] == r"$$\mathbb{Q}^{2}$$"
+
+
+def test_the_action_is_shape_checked_and_decides_the_wrong_vector(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # a matrix applies to vectors of its own size and to no other — the whole
+    # reason a vector is not presented as a one-column matrix
+    for code in ("assert M*(1, 0, 1) = b", "assert M((1, 0, 1)) = b"):
+        text = err(kc, code)
+        assert "does not apply to a vector of length 3" in text, code
+    # …while a WRONG vector of the right shape is decided false, not refused
+    text = err(kc, "assert M*v = (5, 12)")
+    assert "false" in text.lower()
+    assert "does not apply" not in text

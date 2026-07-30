@@ -336,6 +336,17 @@ private def qGap : CapabilityGap := {
 #guard renderVia { name := `MatrixElems, params := #[.nat 2, .dom .rat] } []
   == "declared directly on MatrixElems(2, ℚ)"
 
+/-- `e` is refused, in words containing `needle`. A refusal is only worth
+pinning by what it SAYS: each one below distinguishes itself from a
+neighbouring failure the user must not confuse it with. -/
+private def refuses (env : Lean.Environment) (e : CasExpr) (needle : String)
+    : Lean.Elab.Command.CommandElabM Unit := do
+  match ← runEval { env } e with
+  | .ok d => throwError s!"expected a refusal containing {repr needle}, got {d.render}"
+  | .error err =>
+      unless (err.render.splitOn needle).length > 1 do
+        throwError s!"the refusal was worded {repr err.render}, expected {repr needle}"
+
 /-! ## Command smoke
 
 Scalar equality is `Native.valueEq`; the coercions in `map p to ℚ[x]` and in
@@ -704,6 +715,35 @@ assert vv ≠ (1, 2, 3)
 -- always was, and a scalar against a vector stays INCOMPARABLE (Core.lean)
 assert (1) = 1
 
+/- SPEC.md's `M*v = b`, in all three spellings it writes the ACTION in: the
+explicit product, juxtaposition, and the call. One implementation — `M` is
+the Mat₂(ℚ) bound in the command smoke above. (`M⁻¹` routes to a backend, so
+its four SPEC.md lines are `tests/test_e2e.py`'s claim.) -/
+assert M*vv = vb
+assert M vv = vb
+assert M(vv) = vb
+-- …and the wrong vector, which the same operation must reject
+assert M*vv ≠ vv
+assert M*vv ≠ (5, 12)
+
+run_cmd do
+  let env ← Lean.getEnv
+  let m : CasExpr := .ref `M
+  -- the SHAPE is checked: Mat₂ does not apply to a vector of ℚ³, and the
+  -- refusal names the shapes rather than reporting a missing common kind
+  refuses env (.bin .mul m (.vecLit #[.num 1, .num 0, .num 1]))
+    "does not apply to a vector of length 3"
+  refuses env (.app m #[.vecLit #[.num 1, .num 0, .num 1]])
+    "does not apply to a vector of length 3"
+  -- a matrix ACTS on a vector: no other operation between them has a meaning,
+  -- and each says which one the mathematician wanted
+  refuses env (.bin .add m (.ref `vv)) "a matrix ACTS on a vector"
+  refuses env (.bin .sub m (.ref `vv)) "a matrix ACTS on a vector"
+  refuses env (.bin .div m (.ref `vv)) "is its INVERSE"
+  -- …and the action is not symmetric: a row vector times a matrix is a
+  -- different operation, which this slice does not present
+  refuses env (.bin .mul (.ref `vv) m) "multiplication is not defined on"
+
 run_cmd do
   let env ← Lean.getEnv
   for (name, rendered, presented) in
@@ -729,17 +769,6 @@ assert 2^{3} = 8
 assert 1/10^{2} = 1/100
 -- …and a brace with more than one element is still the powerset `2^A`
 assert |2^{1, 2, 3}| = 8
-
-/-- `e` is refused, in words containing `needle`. A refusal is only worth
-pinning by what it SAYS: each one below distinguishes itself from a
-neighbouring failure the user must not confuse it with. -/
-private def refuses (env : Lean.Environment) (e : CasExpr) (needle : String)
-    : Lean.Elab.Command.CommandElabM Unit := do
-  match ← runEval { env } e with
-  | .ok d => throwError s!"expected a refusal containing {repr needle}, got {d.render}"
-  | .error err =>
-      unless (err.render.splitOn needle).length > 1 do
-        throwError s!"the refusal was worded {repr err.render}, expected {repr needle}"
 
 run_cmd do
   let env ← Lean.getEnv

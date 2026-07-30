@@ -571,10 +571,39 @@ private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
   == some false
 #guard valueEq (.vec 2 .int #[.int 1, .int 2]) (.vec 3 .int #[.int 1, .int 2, .int 0])
   == some false
--- a vector is not a scalar and not a matrix: neither comparison is answered
+-- a vector is not the scalar its single component is: INCOMPARABLE, since
+-- neither presentation is a reading of the other
 #guard valueEq (.vec 1 .int #[.int 1]) (.int 1) == none
+-- …while a matrix is not a vector, in EITHER order. `promote` reaches the
+-- linear action for one order only (a matrix acts on a vector, not the
+-- reverse), and an equality may not depend on which side it was written
 #guard valueEq (.vec 2 .int #[.int 1, .int 2])
-  (.mat 2 .int #[#[.int 1, .int 2], #[.int 0, .int 0]]) == none
+  (.mat 2 .int #[#[.int 1, .int 2], #[.int 0, .int 0]]) == some false
+#guard valueEq (.mat 2 .int #[#[.int 1, .int 2], #[.int 0, .int 0]])
+  (.vec 2 .int #[.int 1, .int 2]) == some false
+
+/-! ### The linear action (`M v`) -/
+
+private def m1234 : Value := .mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 4]]
+
+#guard (scalarMul m1234 (.vec 2 .rat #[.rat 1, .rat 2])).toOption
+  == some (Value.vec 2 .rat #[.rat 5, .rat 11])
+-- the SHAPE is checked: Mat₂ applies to vectors of length 2 and to no other
+#guard (scalarMul m1234 (.vec 3 .rat #[.rat 1, .rat 0, .rat 1])).toOption == none
+-- …and the entry domains must agree: this backend does not join them, for
+-- the reason the binary set operations do not
+#guard (scalarMul m1234 (.vec 2 .int #[.int 1, .int 2])).toOption == none
+-- the action is the one arm the pair has: addition, subtraction and division
+-- between a matrix and a vector are refusals, each naming what was meant
+#guard (scalarAdd m1234 (.vec 2 .rat #[.rat 1, .rat 2])).toOption == none
+#guard (scalarSub m1234 (.vec 2 .rat #[.rat 1, .rat 2])).toOption == none
+#guard (scalarDiv m1234 (.vec 2 .rat #[.rat 1, .rat 2])).toOption == none
+-- a matrix and a vector are not two points of an order either
+#guard scalarCmp m1234 (.vec 2 .rat #[.rat 1, .rat 2]) == none
+-- …and the pair has no scalar arithmetic, so a fold over it never reports a
+-- seed the user did not write
+#guard hasScalarArithmetic (.vec 2 .rat #[.rat 1, .rat 2]) == false
+#guard hasScalarArithmetic m1234 == false
 -- the zero of a vector domain is the zero VECTOR, never a scalar `0`
 #guard zeroOf (.vector 2 .rat) == Value.vec 2 .rat #[.rat 0, .rat 0]
 

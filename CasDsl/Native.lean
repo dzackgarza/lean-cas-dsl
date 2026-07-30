@@ -68,6 +68,16 @@ inductive Common where
   /-- Both operands read in ONE quadratic field `ℚ(√d)`, as `(a, b)` with
   `v = a + b√d`. -/
   | alg (x y : Rat × Rat) (d : Int)
+  /-- A matrix and a VECTOR — the one operand pair that is not two elements of
+  a shared kind, because a matrix ACTS on a vector rather than combining with
+  it (SPEC.md's `M*v` and `M v`).
+
+  It is a `Common` constructor rather than a layer in front of `promote` so
+  that every operation must STATE what it does with the pair: multiplication
+  applies, addition says why it has no meaning, and `scalarCmp` refuses in an
+  arm of its own instead of inheriting an order from a shape. -/
+  | matVec (n : Nat) (entry : Domain) (rows : Array (Array Value))
+      (vecEntry : Domain) (comps : Array Value)
   /-- One shape, no scalar arithmetic here: two polynomials, two matrices, … -/
   | same (x y : Value)
   deriving BEq, Repr
@@ -78,6 +88,9 @@ def Common.eq : Common → Bool
   | .int x y | .mod _ x y => x == y
   | .rat x y => x == y
   | .alg x y _ => x == y
+  -- a matrix is not a vector: FALSE is a theorem about the two presentations,
+  -- the same answer `valueEq` states directly for both orders of the pair
+  | .matVec .. => false
   | .same x y => x == y
 
 /-- Bring two operands into the kind they share: `ℤ ⊆ ℚ`, an integer into
@@ -95,6 +108,10 @@ def promote : Value → Value → Option Common
   | x@(.alg ..), y | x, y@(.alg ..) => do
       let (px, py, d) ← surdPair x y
       return .alg px py d
+  -- a matrix ACTS on a vector; the reverse juxtaposition is a different
+  -- operation on a row vector, which this slice does not present, so it
+  -- reaches no arm at all rather than being read as this one
+  | .mat n e rows, .vec _ ve comps => some (.matVec n e rows ve comps)
   | .int a, .int b => some (.int a b)
   | .int a, .rat q => some (.rat (Rat.ofInt a) q)
   | .rat q, .int a => some (.rat q (Rat.ofInt a))
@@ -118,7 +135,10 @@ asks it (the power path here; products over a range next). -/
 def hasScalarArithmetic (v : Value) : Bool :=
   match promote v v with
   | some (.int ..) | some (.rat ..) | some (.mod ..) | some (.alg ..) => true
-  | some (.same ..) | none => false
+  -- a matrix against itself never reaches `matVec` (that pair is a matrix and
+  -- a VECTOR), and the arm is stated rather than folded into a wildcard so a
+  -- kind added later has to answer this question too
+  | some (.matVec ..) | some (.same ..) | none => false
 
 /-- A cardinal against an integer. SPEC.md writes `|A| = 3` and `|E| = ℵ₀`,
 so a FINITE cardinal answers to the natural number counting it; ℵ₀ answers
@@ -137,6 +157,10 @@ their bodies agree — the binder is a BOUND NAME, so `t ↦ t² + 1` and
 the two spellings of one body through the polynomial normal form. -/
 def valueEq (a b : Value) : Option Bool :=
   match a, b with
+  -- a matrix is not a vector, in EITHER order: `promote` reaches `matVec` for
+  -- one of them only (a matrix acts on a vector, not the reverse), and an
+  -- equality must not depend on which side it was written
+  | .mat .., .vec .. | .vec .., .mat .. => some false
   -- An exact algebraic value equals only the same normal form. Both `false`s
   -- are theorems about that form rather than a comparison this slice ducked:
   -- `b ≠ 0` with a square-free `d ∉ {0, 1}` keeps a surd out of ℚ, and two
@@ -176,7 +200,10 @@ def scalarCmp (a b : Value) : Option Ordering :=
   | some (.int x y) => some (compare x y)
   | some (.rat x y) => some (ratCmp x y)
   | some (.mod _ x y) => some (compare x y)
-  | some (.alg ..) | some (.same ..) | none => none
+  -- `matVec` is refused in its own arm for the reason `alg` is: a matrix and
+  -- a vector are not two points of an order at all, and folding them into a
+  -- wildcard would let a later kind inherit an order nobody declared
+  | some (.matVec ..) | some (.alg ..) | some (.same ..) | none => none
 
 /-- Why ONE value has no arithmetic at all. The unary reading, so that every
 path reaches the same words: negation, the base of a power (whose fold would
@@ -207,32 +234,93 @@ slice presents (one square root over ℚ, and both operands in it): that is a \
 gap, not an approximation"
   else s!"{op} is not defined on {a.render} and {b.render}"
 
+/-- The zero of a domain — the constant term of a degree-≤0 polynomial
+wherever one is read out, so `ℤ/5`'s zero is `.mod 5 0` and not `.int 0`, and
+the accumulator a matrix action folds from is the zero of its entry domain. -/
+partial def zeroOf : Domain → Value
+  | .rat => .rat 0
+  | .mod n => Value.mkMod n 0
+  -- the zero of `Eⁿ` is the zero VECTOR: a scalar `0` is not an element of it,
+  -- and giving one here would put a scalar where a vector is expected
+  | .vector n e => .vec n e (Array.replicate n (zeroOf e))
+  | _ => .int 0
+
+/-- The matrix/vector arm of an operation that does not have one: only
+multiplication is the ACTION, and the refusal says which operation the
+mathematician wanted rather than reporting a missing common kind. -/
+private def noLinearArm (op : String) (n : Nat) (e : Domain)
+    : Array (Array Value) → Domain → Array Value → Except String Value :=
+  fun _ _ _ =>
+    .error s!"{op} is not defined between {(Domain.matrix n e).render} and a \
+vector: a matrix ACTS on a vector, and the action is the product `M * v`"
+
 /-- A binary operation, one arm per common kind. `fa` is the quadratic
-field's, which is why the surd arithmetic is no longer a fallback layer in
-front of this function. -/
+field's and `fmv` the matrix/vector one, which is why neither the surd
+arithmetic nor the linear action is a fallback layer in front of this
+function — every caller states what it does with every kind. -/
 private def binOp (op what : String) (fi : Int → Int → Int) (fr : Rat → Rat → Rat)
     (fa : Rat × Rat → Rat × Rat → Int → Except String Value)
+    (fmv : Nat → Domain → Array (Array Value) → Domain → Array Value →
+      Except String Value)
     (a b : Value) : Except String Value :=
   match promote a b with
   | some (.int x y) => .ok (.int (fi x y))
   | some (.rat x y) => .ok (.rat (fr x y))
   | some (.mod n x y) => .ok (Value.mkMod n (fi (Int.ofNat x) (Int.ofNat y)))
   | some (.alg x y d) => fa x y d
+  | some (.matVec n e rows ve comps) => fmv n e rows ve comps
   | some (.same ..) | none => .error (noCommonKind op what a b)
 
 def scalarAdd (a b : Value) : Except String Value :=
   binOp "addition" "the sum" (· + ·) (· + ·)
-    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa + ya) (xb + yb) d) a b
+    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa + ya) (xb + yb) d)
+    (noLinearArm "addition") a b
 
 def scalarSub (a b : Value) : Except String Value :=
   binOp "subtraction" "the difference" (· - ·) (· - ·)
-    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa - ya) (xb - yb) d) a b
+    (fun (xa, xb) (ya, yb) d => Value.mkAlg (xa - ya) (xb - yb) d)
+    (noLinearArm "subtraction") a b
 
-/-- `(xa + xb√d)(ya + yb√d) = (xa·ya + xb·yb·d) + (xa·yb + xb·ya)√d`. -/
-def scalarMul (a b : Value) : Except String Value :=
+mutual
+
+/-- `(xa + xb√d)(ya + yb√d) = (xa·ya + xb·yb·d) + (xa·yb + xb·ya)√d`; on a
+matrix and a vector, the linear ACTION below. -/
+partial def scalarMul (a b : Value) : Except String Value :=
   binOp "multiplication" "the product" (· * ·) (· * ·)
     (fun (xa, xb) (ya, yb) d =>
-      Value.mkAlg (xa * ya + xb * yb * Rat.ofInt d) (xa * yb + xb * ya) d) a b
+      Value.mkAlg (xa * ya + xb * yb * Rat.ofInt d) (xa * yb + xb * ya) d)
+    matApply a b
+
+/-- `M v` — SPEC.md's `M*v`, and the same operation its juxtaposition spells.
+Mutually recursive with the product above because the ENTRIES multiply by the
+same operation the whole action is one arm of, and a matrix of matrices is a
+presentation this data model admits.
+
+Two things are CHECKED and neither is joined quietly:
+
+- the SHAPE. `Matₙ` applies to a vector of length `n` and to no other, which
+  is the whole reason a vector is not presented as a one-column matrix;
+- the entry domain. Like the binary set operations, this backend REFUSES to
+  join two element domains rather than guessing — the preferred-canonical-map
+  registry the surface joins literals with is not readable from here — so the
+  refusal names the ascription that fixes it. CEILING, documented: SPEC.md
+  ascribes both operands (`Mat₂(ℚ)`, `ℚ²`), and a mixed pair says so. -/
+partial def matApply (n : Nat) (e : Domain) (rows : Array (Array Value))
+    (ve : Domain) (comps : Array Value) : Except String Value := do
+  if comps.size != n then
+    .error s!"{(Domain.matrix n e).render} does not apply to a vector of length \
+{comps.size}: a matrix applies to vectors of its own size, and these shapes do \
+not meet"
+  else if e != ve then
+    .error s!"{(Domain.matrix n e).render} and {(Domain.vector comps.size ve).render} \
+are over different domains: this backend applies a matrix to a vector over ONE \
+domain and does not join them — ascribe the operands to the domain you mean"
+  else
+    return .vec n e (← rows.mapM fun row =>
+      (row.zip comps).foldlM (init := zeroOf e) fun acc (a, x) => do
+        scalarAdd acc (← scalarMul a x))
+
+end
 
 /-- Unary; the arity of negation is one, so this deviates from the sibling
 binary signatures on purpose. -/
@@ -283,7 +371,12 @@ def scalarDiv (a b : Value) : Except String Value :=
         ((xb * ya - xa * yb) / n) d
   | some (.int x y) => ratDiv (Rat.ofInt x) (Rat.ofInt y)
   | some (.rat x y) => ratDiv x y
-  -- `ℤ/n` is a field only for prime `n`, so division there is not provided
+  -- `ℤ/n` is a field only for prime `n`, so division there is not provided,
+  -- and a matrix does not DIVIDE a vector — the inverse is a method (`M⁻¹`),
+  -- which is a different operation with a different failure
+  | some (.matVec n e ..) =>
+      .error s!"division is not defined between {(Domain.matrix n e).render} and \
+a vector: the matrix that undoes an action is its INVERSE, `M⁻¹ b`"
   | some (.mod ..) | some (.same ..) | none =>
       .error (noCommonKind "division" "the quotient" a b)
 where
@@ -291,16 +384,6 @@ where
     if y == 0 then .error "division by zero" else .ok (.rat (x / y))
 
 /-! ## Presentation helpers -/
-
-/-- The zero of a domain — the constant term of a degree-≤0 polynomial
-wherever one is read out, so `ℤ/5`'s zero is `.mod 5 0` and not `.int 0`. -/
-partial def zeroOf : Domain → Value
-  | .rat => .rat 0
-  | .mod n => Value.mkMod n 0
-  -- the zero of `Eⁿ` is the zero VECTOR: a scalar `0` is not an element of it,
-  -- and giving one here would put a scalar where a vector is expected
-  | .vector n e => .vec n e (Array.replicate n (zeroOf e))
-  | _ => .int 0
 
 /-- Horner evaluation. Mixed `ℤ`/`ℚ` coefficients and argument promote along
 `ℤ ⊆ ℚ`; a `ℤ/n` coefficient domain evaluates in `ℤ/n`. -/
