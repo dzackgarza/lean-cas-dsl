@@ -86,6 +86,18 @@ partial def accepts : DomainPattern → Domain → Bool
   | .anyMod, _ => false
   | .anyDom, _ => true
 
+/-- `p.implies q`: every domain accepted by `p` is accepted by `q` — the
+subsumption order the op-signature check uses. Syntactic like `accepts`, and
+exact on this pattern algebra (an `exact` pattern accepts one domain, so it
+implies whatever accepts that domain). -/
+partial def implies : DomainPattern → DomainPattern → Bool
+  | _, .anyDom => true
+  | .exact d, q => q.accepts d
+  | .polyOver p, .polyOver q => p.implies q
+  | .matrixOver p, .matrixOver q => p.implies q
+  | .anyMod, .anyMod => true
+  | _, _ => false
+
 end DomainPattern
 
 namespace PresPattern
@@ -100,6 +112,24 @@ def accepts : PresPattern → Obj → Bool
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
   | .anyObj, _ => true
+  | _, _ => false
+
+/-- `p.implies q`: every object accepted by `p` is accepted by `q`. `anySet`
+also accepts a domain used as a set, so `domainIs`, `domainSetOf`,
+`finiteSet` and `progression` all imply it. -/
+def implies : PresPattern → PresPattern → Bool
+  | _, .anyObj => true
+  | .elemOf p, .elemOf q => p.implies q
+  | .domainIs p, .domainIs q => p.implies q
+  | .domainSetOf p, .domainSetOf q => p.implies q
+  | .progression p, .progression q => p.implies q
+  | .finiteSet, .finiteSet => true
+  | .cyclicMod, .cyclicMod => true
+  | .anySet, .anySet => true
+  | .domainIs _, .anySet => true
+  | .domainSetOf _, .anySet => true
+  | .finiteSet, .anySet => true
+  | .progression _, .anySet => true
   | _, _ => false
 
 end PresPattern
@@ -301,6 +331,22 @@ structure Route where
   /-- Deterministic selection: highest wins; a tie among applicable routes
   is an explicit ambiguity error, never a silent pick. -/
   priority : Nat := 0
+  deriving BEq, Repr, Inhabited
+
+/-- The declared receiver signature of one backend operation: `opId` of
+`backend` accepts a receiver iff SOME pattern in `accepts` accepts it.
+
+This is the executor's receiver match, restated as registry data by the
+backend's own Lean half — which is what lets `addRouteChecked` verify at
+BUILD time that a route only ever sends an op the receiver shapes it
+implements (design review 2026-07-30: the route/op agreement is a checked
+invariant, not a convention caught at runtime). Shapes only: partiality
+WITHIN an accepted shape (an out-of-range index, a domain with no membership
+test) remains a loud runtime error in the executor. -/
+structure OpSig where
+  backend : Name
+  opId : String
+  accepts : Array PresPattern
   deriving BEq, Repr, Inhabited
 
 /-- One transport step: the functor that was applied, and the receiver it

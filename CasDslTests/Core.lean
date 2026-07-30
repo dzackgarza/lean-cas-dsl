@@ -282,6 +282,25 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 
 #guard out "no_such_op" (.domainObj .int) #[] == none
 
+/-! ## Pattern subsumption (the op-signature order) -/
+
+#guard DomainPattern.implies (.exact (.mod 5)) .anyMod
+#guard !DomainPattern.implies .anyMod (.exact (.mod 5))
+#guard DomainPattern.implies (.exact (.poly .int)) (.polyOver .anyDom)
+#guard DomainPattern.implies (.polyOver (.exact .int)) (.polyOver .anyDom)
+#guard !DomainPattern.implies (.polyOver .anyDom) (.polyOver (.exact .int))
+#guard DomainPattern.implies .anyMod .anyDom
+#guard !DomainPattern.implies .anyDom .anyMod
+
+#guard PresPattern.implies (.elemOf (.exact .int)) (.elemOf .anyDom)
+#guard PresPattern.implies (.domainIs (.exact .rat)) .anySet
+#guard PresPattern.implies .finiteSet .anySet
+#guard PresPattern.implies (.progression .anyDom) .anySet
+#guard !PresPattern.implies .anySet (.domainIs (.exact .rat))
+#guard PresPattern.implies .cyclicMod .anyObj
+-- an element is not a set: no cross-shape leniency
+#guard !PresPattern.implies (.elemOf .anyDom) .anySet
+
 /-! ## Executor table (the one `IO` surface) -/
 
 private def probe (backend : Name) (opId : String) : Route :=
@@ -332,6 +351,27 @@ run_cmd do
     throwError "routes are not looked up by method id"
   if (addRouteChecked env r).toOption.isSome then
     throwError "a duplicate route registration was not detected"
+
+  -- the op-signature check (the imported env carries the backends' OpSigs):
+  -- a route may not name an op the backend never declared…
+  let unknownOp : Route := { method := `smoke2, pattern := .anySet, backend := `native, opId := "no_such_op" }
+  if (addRouteChecked env unknownOp).toOption.isSome then
+    throwError "a route naming an undeclared op was not rejected"
+  -- …nor a pattern wider than the op's declared signature…
+  let tooWide : Route := { method := `smoke2, pattern := .anyObj, backend := `native, opId := "cardinality" }
+  if (addRouteChecked env tooWide).toOption.isSome then
+    throwError "a route wider than its op's signature was not rejected"
+  let wrongShape : Route := { method := `smoke2, pattern := .elemOf (.polyOver (.exact .rat)), backend := `sage, opId := "factor_poly_z" }
+  if (addRouteChecked env wrongShape).toOption.isSome then
+    throwError "a route sending ℚ[x] elements to the ℤ[x] op was not rejected"
+  -- …while a route inside the signature registers
+  let inside : Route := { method := `smoke2, pattern := .finiteSet, backend := `native, opId := "cardinality" }
+  unless (addRouteChecked env inside).toOption.isSome do
+    throwError "a route inside its op's signature must register"
+  -- and the signature itself is single-statement data
+  let dupSig : OpSig := { backend := `native, opId := "cardinality", accepts := #[.anySet] }
+  if (addOpSigChecked env dupSig).toOption.isSome then
+    throwError "a duplicate op-signature registration was not detected"
 
   let env := addProfileRule env { pattern := .anySet, cat := `SmokeSets, slots := #[] }
   -- containment, not exact equality: this module's environment also carries

@@ -276,6 +276,21 @@ structure CapabilityGap where
 Gap rendering is a first-class output (text + JSON MIME), an auditable
 developer backlog item — never a parse/type/category error.
 
+**Op signatures (design review 2026-07-30).** The DSL surface can never
+produce a wrong-shaped call — but the agreement between a route's pattern
+("which objects") and its op ("which implementation") used to be a
+convention, caught only by defensive arms in the executors. It is now a
+checked invariant: each backend registers, per `opId`, the receiver
+patterns that op accepts (`OpSig`, ordinary registry data declared by the
+backend's own Lean half next to its encoders), and `addRouteChecked`
+rejects any route naming an undeclared op or carrying a pattern the op's
+signature does not accept (`PresPattern.implies`, the syntactic subsumption
+order). A mismatched or typo'd route therefore fails `lake build`. The
+executors' residual shape arms collapse to one shared diagnostic that can
+only fire if a signature *declaration* misstates its encoder. Shapes only:
+partiality within an accepted shape (out-of-range index, no membership
+test for a domain) stays a loud runtime error.
+
 ## The port (`Port.lean`) and the Sage adapter
 
 Generic framed child-process port, mirroring the worker's discipline:
@@ -422,7 +437,9 @@ Formerly open questions, now user-decided — none was silently resolved:
   registered revisitable choice like ℤ's; implementing it must also
   replace the notebook's fails-on-purpose `ℚ[3]` demo (issue #17);
 - **`factor` on ℤ[x]**: routed via Sage, content × primitive (#18) — the
-  `map p to ℚ[x]` demo stays, reframed as the canonical-map demo.
+  `map p to ℚ[x]` demo stays, reframed as the canonical-map demo;
+- **route/op agreement**: checked at build time via registered op
+  signatures, not left to runtime defensive arms (see §Routing and gaps).
 
 ## Open questions (kept open — do not silently resolve)
 

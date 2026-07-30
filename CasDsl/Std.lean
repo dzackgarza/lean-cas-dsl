@@ -29,6 +29,10 @@ a route to an operation that does not implement it is forbidden (DESIGN.md
 -/
 import CasDsl.Register
 import CasDsl.Route
+-- the backends are imported for their registered OP SIGNATURES: route
+-- registration below is checked against them, so they must precede §4
+import CasDsl.Native
+import CasDsl.Backends.Sage
 
 namespace CasDsl.Std
 
@@ -249,7 +253,11 @@ run_cmd stdCanonicalMaps.forM registerCanonicalMap!
 The computability layer. Every pattern below is disjoint from its siblings
 for the same method, so every route ships at priority 0: selection never
 depends on a tie-break. The `opId`s are exactly the operations
-`Native.run` and the Sage adapter implement.
+`Native.run` and the Sage adapter implement — and that is CHECKED, not a
+convention: each backend registers the receiver signatures of its ops
+(`OpSig`), and `registerRoute!` fails the build for a route naming an
+undeclared op or a pattern its op does not accept (design review
+2026-07-30).
 
 One route is deliberately ABSENT and must stay absent:
 

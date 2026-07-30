@@ -11,6 +11,7 @@ instead of getting a silently reinterpreted request.
 import CasDsl.Port
 import CasDsl.Codec
 import CasDsl.Route
+import CasDsl.Register
 
 namespace CasDsl.Sage
 
@@ -53,6 +54,15 @@ def disconnect : IO Unit := do
     Port.stop c
     sageConnRef.set none
 
+/-- Unreachable when the op-signature invariant holds: `addRouteChecked`
+refuses any route whose pattern this op's declared signature does not
+accept, so an executor only ever sees receivers matching its signature.
+Reaching this therefore means the SIGNATURE registration below misstates
+the encoder — a defect in this module, reported as such. -/
+private def offSignature (op : String) (o : Obj) : ExecError :=
+  .protocolError s!"sage: op {repr op} received {o.presentation}, which its \
+declared signature excludes — the signature registration is defective"
+
 /-- Rationals on the wire. An integer entry is sent as its exact image in ℚ
 (the ℤ ⊆ ℚ inclusion), never rounded or reinterpreted. -/
 private def ratArg (v : Value) : Except ExecError Json :=
@@ -63,12 +73,12 @@ private def ratArg (v : Value) : Except ExecError Json :=
 
 private def factorIntArgs : Obj → Except ExecError Json
   | .elem .int (.int z) => .ok (Json.mkObj [("n", toString z)])
-  | o => .error (.badRequest s!"factor_int expects an integer element, got {o.presentation}")
+  | o => .error (offSignature "factor_int" o)
 
 private def factorPolyQArgs : Obj → Except ExecError Json
   | .elem (.poly .rat) (.poly _ coeffs) => do
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM ratArg))]
-  | o => .error (.badRequest s!"factor_poly_q expects an element of ℚ[x], got {o.presentation}")
+  | o => .error (offSignature "factor_poly_q" o)
 
 /-- Integer coefficients on the wire, exactly as carried. -/
 private def intArg (v : Value) : Except ExecError Json :=
@@ -79,13 +89,13 @@ private def intArg (v : Value) : Except ExecError Json :=
 private def factorPolyZArgs : Obj → Except ExecError Json
   | .elem (.poly .int) (.poly _ coeffs) => do
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM intArg))]
-  | o => .error (.badRequest s!"factor_poly_z expects an element of ℤ[x], got {o.presentation}")
+  | o => .error (offSignature "factor_poly_z" o)
 
 private def matQArgs (op : String) : Obj → Except ExecError Json
   | .elem (.matrix _ .rat) (.mat _ _ rows) => do
       let rs ← rows.mapM fun row => return Json.arr (← row.mapM ratArg)
       return Json.mkObj [("rows", Json.arr rs)]
-  | o => .error (.badRequest s!"{op} expects a matrix over ℚ, got {o.presentation}")
+  | o => .error (offSignature op o)
 
 /-- The decoded reply must be the kind of value the op promises; a
 well-formed value of the wrong kind is an adapter defect, not a result. -/
@@ -126,5 +136,21 @@ def executor : Executor := fun opId receiver args => do
         | .ok v => return expectKind opId v
 
 initialize registerExecutor `sage executor
+
+/-- The receiver signatures of the sage ops, restated from the encoders
+above as checked registration data (see `OpSig`). -/
+private def sageOpSigs : Array OpSig := #[
+  { backend := `sage, opId := "factor_int", accepts := #[.elemOf (.exact .int)] },
+  { backend := `sage, opId := "factor_poly_q",
+    accepts := #[.elemOf (.polyOver (.exact .rat))] },
+  { backend := `sage, opId := "factor_poly_z",
+    accepts := #[.elemOf (.polyOver (.exact .int))] },
+  { backend := `sage, opId := "mat_det_q",
+    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  { backend := `sage, opId := "mat_inv_q",
+    accepts := #[.elemOf (.matrixOver (.exact .rat))] }
+]
+
+run_cmd sageOpSigs.forM registerOpSig!
 
 end CasDsl.Sage

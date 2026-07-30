@@ -13,6 +13,7 @@ it into `IO` for the executor table. That keeps every operation
 -/
 import Lean
 import CasDsl.Route
+import CasDsl.Register
 
 namespace CasDsl
 namespace Native
@@ -383,5 +384,23 @@ def exec : Executor := fun opId o args => return run opId o args
 end Native
 
 initialize registerExecutor `native Native.exec
+
+/-- The receiver signatures of the native ops, restated from `Native.run`'s
+matches as checked registration data: `addRouteChecked` refuses any route
+that would send this backend a receiver shape outside these patterns. -/
+private def nativeOpSigs : Array OpSig := #[
+  { backend := `native, opId := "poly_eval",
+    accepts := #[.elemOf (.polyOver .anyDom)] },
+  { backend := `native, opId := "nth",
+    accepts := #[.domainIs (.exact .nat), .domainSetOf (.exact .nat),
+                 .domainIs (.exact .int), .domainSetOf (.exact .int),
+                 .finiteSet, .progression .anyDom] },
+  { backend := `native, opId := "cardinality", accepts := #[.anySet] },
+  { backend := `native, opId := "contains", accepts := #[.anySet] },
+  { backend := `native, opId := "set_eq", accepts := #[.anySet] },
+  { backend := `native, opId := "annihilator_cyclic", accepts := #[.cyclicMod] }
+]
+
+run_cmd nativeOpSigs.forM registerOpSig!
 
 end CasDsl

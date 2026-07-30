@@ -48,6 +48,13 @@ initialize routeExt :
     addImportedFn := fun arrs => arrs.flatten
   }
 
+initialize opSigExt :
+    SimplePersistentEnvExtension OpSig (Array OpSig) ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := Array.push
+    addImportedFn := fun arrs => arrs.flatten
+  }
+
 initialize functorExt :
     SimplePersistentEnvExtension FunctorDecl (Array FunctorDecl) ←
   registerSimplePersistentEnvExtension {
@@ -91,6 +98,8 @@ def methods (env : Environment) : Array MethodDecl := methodExt.getState env
 
 def routes (env : Environment) : Array Route := routeExt.getState env
 
+def opSigs (env : Environment) : Array OpSig := opSigExt.getState env
+
 def functors (env : Environment) : Array FunctorDecl := functorExt.getState env
 
 def profileRules (env : Environment) : Array ProfileRule := profileRuleExt.getState env
@@ -115,6 +124,9 @@ def addMethod (env : Environment) (d : MethodDecl) : Environment :=
 
 def addRoute (env : Environment) (r : Route) : Environment :=
   routeExt.addEntry env r
+
+def addOpSig (env : Environment) (s : OpSig) : Environment :=
+  opSigExt.addEntry env s
 
 def addFunctor (env : Environment) (f : FunctorDecl) : Environment :=
   functorExt.addEntry env f
@@ -154,6 +166,10 @@ def binding? (env : Environment) (n : Name) : Option Obj :=
 def routesFor (env : Environment) (method : Name) : Array Route :=
   (routes env).filter (·.method == method)
 
+/-- The declared signature of one backend operation. -/
+def opSig? (env : Environment) (backend : Name) (opId : String) : Option OpSig :=
+  (opSigs env).find? fun s => s.backend == backend && s.opId == opId
+
 /-! ## Checked registration
 
 Used by the prelude and by user-facing registration commands: a clash is
@@ -171,6 +187,12 @@ def addMethodChecked (env : Environment) (d : MethodDecl) : Except String Enviro
   else
     .ok (addMethod env d)
 
+/-- Routes are checked against the backend's DECLARED op signatures (design
+review 2026-07-30): a route naming an op the backend never declared, or a
+pattern wider than what that op accepts, cannot register — so a mismatched
+route fails `lake build` instead of surviving until an executor rejects a
+receiver at runtime. Consequence: a backend's `OpSig`s must be registered
+(imported) before any route names its ops. -/
 def addRouteChecked (env : Environment) (r : Route) : Except String Environment :=
   if (routes env).any
       (fun r' => r'.method == r.method && r'.pattern == r.pattern &&
@@ -178,7 +200,26 @@ def addRouteChecked (env : Environment) (r : Route) : Except String Environment 
     .error s!"route for '{r.method}' via backend '{r.backend}' op '{r.opId}' \
 is already registered for this pattern"
   else
-    .ok (addRoute env r)
+    match opSig? env r.backend r.opId with
+    | none =>
+        .error s!"backend '{r.backend}' declares no operation {repr r.opId}; \
+a route may only name a declared op signature"
+    | some sig =>
+        if sig.accepts.any (r.pattern.implies ·) then
+          .ok (addRoute env r)
+        else
+          .error s!"the route for '{r.method}' has pattern {repr r.pattern}, \
+which the declared signature of {r.backend}:{repr r.opId} does not accept — \
+this route would send the op receivers it does not implement"
+
+/-- Op signatures are keyed by `(backend, opId)`: the signature is THE
+statement of what that op accepts, so a second one is a clash, never a
+widening. -/
+def addOpSigChecked (env : Environment) (s : OpSig) : Except String Environment :=
+  if (opSig? env s.backend s.opId).isSome then
+    .error s!"an op signature for {s.backend}:{repr s.opId} is already registered"
+  else
+    .ok (addOpSig env s)
 
 /-- Functors are keyed by name: it is what a `Resolution` records and what a
 diagnostic resolves back to a `source → target`, so two functors may not
