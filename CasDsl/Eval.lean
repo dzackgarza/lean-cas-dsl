@@ -972,9 +972,11 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
       -- membership asks about the SET on the right, so it is evaluated first:
       -- a polynomial ring is what lets `x ∈ ℤ[x]` read `x` as its indeterminate
       let b ← eval ctx r
+      -- the name is necessarily unbound here: a polynomial DOMAIN on the
+      -- right is what `eval`'s `.index` branch produces only when
+      -- `indeterminate?` already found the name free (a bound one indexes)
       let ctx := match membershipIndet? l r, b with
-        | some n, .obj (.domainObj (.poly c)) =>
-            if ctx.isBound n then ctx else { ctx with indet? := some (n, c) }
+        | some n, .obj (.domainObj (.poly c)) => { ctx with indet? := some (n, c) }
         | _, _ => ctx
       let a ← eval ctx l
       let res ← boolOf (← callMethod ctx (← objOf b) `contains #[← objOf a])
