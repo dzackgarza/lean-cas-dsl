@@ -43,9 +43,12 @@ Three invariants, enforced end to end:
 The worked proof is
 [`notebooks/categorical-cas.ipynb`](notebooks/categorical-cas.ipynb) — a
 pedagogical notebook covering trusted assertions (`assert 2 + 3 = 0 in
-ℤ/5`), Sage-backed factorization over ℤ and ℚ[x], the registered `ℤ ⊆ ℚ`
-preferred canonical map (`map p to ℚ[x]`), calling a polynomial as a function
-(`q(1)`), exact matrix inverses over ℚ, inherited `annihilator`,
+ℤ/5`), Sage-backed factorization over ℤ and ℚ[x], `gcd(84, 30)` in the
+prefix spelling SPEC.md uses, the registered `ℤ ⊆ ℚ` preferred canonical map
+(`map p to ℚ[x]`), calling a polynomial as a function (`q(1)`), membership
+in a polynomial ring (`x ∈ ℤ[x]`), `p.deg()` and `p.roots()` — whose empty
+result over ℚ is an answer, not a failure — exact matrix inverses over ℚ,
+inherited `annihilator`,
 progression sets with Haskell-style ellipses, countable indexing
 (`ℤ[3]` under the registered `0, 1, −1, 2, −2, …` choice), and a final
 cell that **fails on purpose** with the structured capability gap.

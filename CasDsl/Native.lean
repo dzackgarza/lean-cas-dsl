@@ -236,22 +236,35 @@ private def isIntegral : Value → Bool
   | .rat q => q.den == 1
   | _ => false
 
+/-- Is `x` an element of `d`? `none` = this backend has no membership test
+for that domain, which is a loud error at the call site and never `false`.
+
+`c[x]` recurses on the COEFFICIENTS, so `x ∈ ℤ[x]` and `p ∈ ℤ[x]` are settled
+by the same judgment that settles `-3 ∈ ℤ` — and a polynomial over ℤ is an
+element of ℚ[x] for the reason it always was, coefficient by coefficient. A
+scalar is its own constant polynomial. -/
+private partial def inDomain? (d : Domain) (x : Value) : Option Bool :=
+  match d, x with
+  | .nat, .int z => some (z ≥ 0)
+  | .nat, .rat q => some (q.den == 1 && q.num ≥ 0)
+  | .nat, _ => some false
+  | .int, v => some (isIntegral v)
+  | .rat, .int _ => some true
+  | .rat, .rat _ => some true
+  | .rat, _ => some false
+  | .mod n, .mod m _ => some (m == n)
+  -- an integer names its residue class
+  | .mod _, .int _ => some true
+  | .mod _, _ => some false
+  | .poly c, .poly _ cs => cs.foldlM (init := true) fun acc v =>
+      (inDomain? c v).map (acc && ·)
+  | .poly c, v => inDomain? c v
+  | _, _ => none
+
 private def domainContains (d : Domain) (x : Value) : Except ExecError Value :=
-  match d with
-  | .nat =>
-      match x with
-      | .int z => .ok (.bool (z ≥ 0))
-      | .rat q => .ok (.bool (q.den == 1 && q.num ≥ 0))
-      | _ => .ok (.bool false)
-  | .int => .ok (.bool (isIntegral x))
-  | .rat => .ok (.bool (match x with | .int _ | .rat _ => true | _ => false))
-  | .mod n =>
-      match x with
-      | .mod m _ => .ok (.bool (m == n))
-      -- an integer names its residue class
-      | .int _ => .ok (.bool true)
-      | _ => .ok (.bool false)
-  | d => .error (.badRequest
+  match inDomain? d x with
+  | some b => .ok (.bool b)
+  | none => .error (.badRequest
       s!"the native backend has no membership test for {d.render}")
 
 private def progContains (first step : Value) (last? : Option Value) (x : Value)
@@ -380,6 +393,18 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
           Except.mapError ExecError.badRequest (polyEval c coeffs x)
       | o => .error (.badRequest
           s!"poly_eval expects a polynomial receiver, got {o.presentation}")
+  | "poly_deg" =>
+      match o with
+      -- coefficients are stored ascending with no trailing zeros, so the
+      -- degree is the last index. The ZERO polynomial has no degree in ℕ —
+      -- a partiality within the accepted shape, and a loud error rather than
+      -- a conventional −1 or −∞ this slice cannot present
+      | .elem (.poly _) (.poly _ coeffs) =>
+          if coeffs.isEmpty then
+            .error (.badRequest "the zero polynomial has no degree")
+          else .ok (.int (Int.ofNat (coeffs.size - 1)))
+      | o => .error (.badRequest
+          s!"poly_deg expects a polynomial receiver, got {o.presentation}")
   | "nth" => do
       let k ← natIndex args
       match o with
@@ -439,6 +464,8 @@ matches as checked registration data: `addRouteChecked` refuses any route
 that would send this backend a receiver shape outside these patterns. -/
 private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "poly_eval",
+    accepts := #[.elemOf (.polyOver .anyDom)] },
+  { backend := `native, opId := "poly_deg",
     accepts := #[.elemOf (.polyOver .anyDom)] },
   { backend := `native, opId := "nth",
     accepts := #[.domainIs (.exact .nat), .domainSetOf (.exact .nat),

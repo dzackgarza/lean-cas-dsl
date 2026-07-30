@@ -458,11 +458,17 @@ def obj? : Denote → Option Obj
   | .obj o => some o
   | .val v => (valueDom? v).map fun d => Obj.elem d v
 
-/-- Wrap an executor result: it becomes an object when it presents one. -/
+/-- Wrap an executor result: it becomes an object when it presents one. A
+set-valued result becomes the ordinary set OBJECT, so `p.roots()` is a set
+like any other — the set methods, `∈` and set equality all reach it through
+the usual profile rules rather than through a second notion of set. -/
 def ofValue (v : Value) : Denote :=
-  match valueDom? v with
-  | some d => .obj (.elem d v)
-  | none => .val v
+  match v with
+  | .setV elems dom => .obj (.setObj (.finite dom elems))
+  | v =>
+    match valueDom? v with
+    | some d => .obj (.elem d v)
+    | none => .val v
 
 end Denote
 
@@ -692,6 +698,20 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
           let k ← ofStr (asObjOf (← eval ctx arg))
           callMethod ctx o `nth #[k]
   | .app f args => do
+      -- SPEC.md writes `gcd(84, 30)`: the PREFIX spelling of a method call,
+      -- `84.gcd(30)`. It reads that way only for a name that is UNBOUND and
+      -- that some category actually declares as a method, so it turns an
+      -- honest "not bound" error into the call the mathematician wrote and
+      -- can never shadow a binding or invent a method.
+      if let .ref n := f then
+        if !ctx.isBound n && !(methodDecls ctx.env n).isEmpty then
+          let some recvE := args[0]?
+            | throw (.msg s!"'{n}' is a method: it needs a receiver, as in \
+`{n}(x, …)`")
+          let recv ← ofStr (asObjOf (← eval ctx recvE))
+          let rest ← (args.extract 1 args.size).mapM fun a => do
+            ofStr (asObjOf (← eval ctx a))
+          return (← callMethod ctx recv n rest)
       -- Calling a polynomial evaluates it through the preferred compatible
       -- coefficient map. This is elaboration-inserted coercion, not a
       -- method: no route, no backend, no ceremony (DESIGN.md decision 6).
@@ -926,6 +946,19 @@ where
     | .comp _ g => head g
     | _ => none
 
+/-- The name a membership assertion writes on BOTH sides — `x ∈ ℤ[x]`.
+
+SPEC.md's polynomial section asserts exactly that, and it is a question about
+the ring on the right: which element of `ℤ[x]` could `x` name there but its
+indeterminate? The reading is therefore LOCAL to this one assertion and needs
+the name to be repeated in the ring's own spelling. It publishes nothing: a
+bare `x` in any other cell is still the loud "not bound" error, which is what
+keeps a polynomial definition from converting a typo elsewhere into a silent
+indeterminate (DESIGN.md §Functions). -/
+private def membershipIndet? : CasExpr → CasExpr → Option Name
+  | .ref n, .index _ (.ref n') => if n == n' then some n else none
+  | _, _ => none
+
 /-- `assert l R r`, with the fourfold CAS outcome: `some true`, `some
 false`, `none` (the operands are not comparable — the honest "unknown"), or
 a thrown structured error. No proposition is created: this is a computed,
@@ -934,13 +967,21 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
     : EvalM (Option Bool) := do
   let ctx := { ctx with callBinder? :=
     ctx.callBinder? <|> calledBinder? ctx.env l <|> calledBinder? ctx.env r }
-  let a ← eval ctx l
-  let b ← eval ctx r
   match rel with
   | .mem | .notMem =>
+      -- membership asks about the SET on the right, so it is evaluated first:
+      -- a polynomial ring is what lets `x ∈ ℤ[x]` read `x` as its indeterminate
+      let b ← eval ctx r
+      let ctx := match membershipIndet? l r, b with
+        | some n, .obj (.domainObj (.poly c)) =>
+            if ctx.isBound n then ctx else { ctx with indet? := some (n, c) }
+        | _, _ => ctx
+      let a ← eval ctx l
       let res ← boolOf (← callMethod ctx (← objOf b) `contains #[← objOf a])
       return some (if rel == .mem then res else !res)
   | _ =>
+      let a ← eval ctx l
+      let b ← eval ctx r
       let neg := rel == .ne
       if isSetLike a && isSetLike b then
         let res ← boolOf (← callMethod ctx (← objOf a) `set_eq #[← objOf b])

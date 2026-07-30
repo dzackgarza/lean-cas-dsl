@@ -105,6 +105,7 @@ inductive Value
   | mat (n : Nat) (entry : Domain) (rows : Array (Array Value))
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
   | idealV (gens : Array Value) (ring : Domain)    -- e.g. annihilator result
+  | setV (elems : Array Value) (dom : Domain)      -- e.g. p.roots()
   | cardinal (c : Cardinality)     -- finite n | countablyInfinite
   | bool (b : Bool)
   | func (src tgt : Domain) (binder : Name) (body : Value)   -- binder ↦ body
@@ -120,6 +121,12 @@ inductive Obj                       -- the thing a notebook binding names
   | setObj (s : SetPresentation)            -- {0, 2, 4, ...}
   | cyclicModule (n : Nat)                  -- the ℤ-module ℤ/n (module fixture)
 ```
+
+`setV` is the one shape a BACKEND may return as a set (`p.roots()`);
+`Denote.ofValue` turns it into the ordinary `setObj (.finite …)`, so a
+returned set is a set object like any literal one — same profile rules, same
+`contains`, same set equality — rather than a second notion of set. CEILING:
+an explicit finite list, nothing wider.
 
 Set equality (`X = ℕ`) is presentation normalization: `arithProg 0 1 none`
 over ℕ normalizes to `domainSet nat`, etc. This is a documented ceiling,
@@ -407,9 +414,11 @@ Generic framed child-process port, mirroring the worker's discipline:
 Typed values on the wire (bignums as strings):
 `{"t":"int","v":"360"}`, `{"t":"rat","num":"1","den":"2"}`,
 `{"t":"poly","coeffs":[rat…]}`, `{"t":"mat","rows":[[rat…]…]}`,
-`{"t":"factorization","unit":…,"factors":[[value,mult]…]}`.
+`{"t":"factorization","unit":…,"factors":[[value,mult]…]}`,
+`{"t":"set","elems":[value…],"dom":domain}`.
 
-First Sage ops: `factor_int`, `factor_poly_q`, `mat_det_q`, `mat_inv_q`.
+Sage ops: `factor_int`, `factor_poly_q`, `factor_poly_z`, `gcd_int`,
+`roots_poly_z`, `roots_poly_q`, `mat_det_q`, `mat_inv_q`.
 The adapter (`backends/sage_adapter.py`) runs under `sage -python`, builds
 native Sage parents/elements from the typed request, and returns trusted
 typed results with provenance versions. It never receives generated Sage
@@ -431,10 +440,13 @@ let h := t ↦ t² + 1 in ℝ → ℝ              -- function, lambda spelling
 let f(t) = t^2 in RR->RR                  -- …and the f(t) spelling, ASCII
 let e: ℕ → ℕ := n ↦ 2n                    -- leading-ascription spelling
 n.factor()   M.det()   M.inverse()  F.annihilator()   X.cardinality()
+p.deg()   p.roots()   a.gcd(30)            -- polynomial and UFD methods
+gcd(84, 30)                               -- …and the PREFIX spelling of one
 q(1)   h(3)   h(-t)   (f ∘ g)(t)          -- call/compose: inserted coercions
 ℤ[3]                                      -- nth element (numeral ⇒ index)
 assert 2 + 3 = 5      assert 2 + 3 = 0 in ℤ/5
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
+assert x ∈ ℤ[x]       assert p ∈ ℚ[x]
 #explain_route <expr>   #capabilities   #capability_gaps
 ```
 
@@ -450,6 +462,22 @@ Parser decisions (load-bearing):
 - `→` and `->` build a function domain; `ℝ` is a token like `ℕ`/`ℤ`/`ℚ`,
   while its ASCII spellings `R`/`RR` are ordinary identifiers resolved after
   the bindings;
+- **`f(a, b, …)` is the PREFIX spelling of a method call** — SPEC.md writes
+  `gcd(84, 30)`, which is `84.gcd(30)`. It reads that way only when `f` is
+  UNBOUND *and* some category declares it as a method, so it converts an
+  honest "not bound" error into the call the mathematician wrote; a binding
+  always wins, and a name no category declares is still the ordinary
+  unbound-name error. Nothing else changes: the desugared call goes through
+  the same resolver, router and executor, and `#explain_route a.gcd(30)`
+  explains it;
+- **`NAME ∈ D[NAME]` reads the bare name as the indeterminate**, LOCALLY.
+  SPEC.md asserts `x ∈ ℤ[x]`, which is a Sets question about the ring on the
+  right — and the only element of `ℤ[x]` a repeated `x` could name there is
+  its indeterminate. The reading needs the name written on BOTH sides (a
+  `Domain` records no indeterminate name, so `y ∈ ℤ[x]` stays the unbound
+  error), lasts exactly one assertion, and PUBLISHES NOTHING: a bare `x` in
+  any other cell is still "not bound", so this does not re-widen the name
+  resolution that §Functions deliberately narrowed;
 - a bare `casTerm` cell displays its value (our own command production, low
   priority so genuine Lean commands still parse);
 - `assert` outcomes are fourfold — `true | false | unknown | error` — only
@@ -475,18 +503,29 @@ FiniteSets ≤ CountableSets ≤ Sets
 EuclideanElems ≤ FactorizationElems ≤ CommRingElems
 SmallModules ≤ Modules            (the plan's inheritance demo)
 MatrixElems                       (dets/inverses; params (n, entry))
+PolynomialElems                   (deg/roots; params (the ring))
 ```
 
 Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
-`n ∈ ℤ` (elem) ∈ {EuclideanElems(ℤ)}; `q ∈ ℚ[x]` ∈ {EuclideanElems(ℚ[x])};
-`M ∈ Mat₂(ℚ)` ∈ {MatrixElems(2, ℚ)}; `cyclicModule n` ∈ {SmallModules(ℤ)}.
+`n ∈ ℤ` (elem) ∈ {EuclideanElems(ℤ)}; `q ∈ ℚ[x]` ∈ {EuclideanElems(ℚ[x]),
+PolynomialElems(ℚ[x])}; `M ∈ Mat₂(ℚ)` ∈ {MatrixElems(2, ℚ)};
+`cyclicModule n` ∈ {SmallModules(ℤ)}. `ℤ[x]`/`ℚ[x]` as domainObjs are
+CountableSets, which is what `p ∈ ℤ[x]` asks of them.
 
-Methods: `factor` on FactorizationElems; `det`, `inverse` on MatrixElems;
-`annihilator` on Modules; `nth`, `cardinality`, `contains` on the set
-hierarchy. Inheritance is exercised twice for real: `factor` reaches
-integers via `EuclideanElems ≤ FactorizationElems`, and `annihilator`
-reaches the fixture via `SmallModules ≤ Modules` with **no forwarding
-declaration**.
+Methods: `factor`, `gcd` on FactorizationElems; `deg`, `roots` on
+PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on Modules;
+`nth`, `cardinality`, `contains` on the set hierarchy. Inheritance is
+exercised twice for real: `factor` reaches integers via `EuclideanElems ≤
+FactorizationElems`, and `annihilator` reaches the fixture via
+`SmallModules ≤ Modules` with **no forwarding declaration**.
+
+`PolynomialElems` deliberately carries NO parent edge. Degree and roots are
+a *structural* read of a polynomial and make sense over any coefficient
+ring, including ones where factorization does not; a polynomial therefore
+inhabits the divisibility hierarchy and this one INDEPENDENTLY, and neither
+membership is allowed to imply the other. `roots` returns the roots in the
+polynomial's own coefficient ring — an empty result (`x² − 2` over ℚ) is the
+answer, never a silent reach into an extension.
 
 One functor ships: `UnderlyingSet : Modules → Sets` (object map: the
 ℤ-module ℤ/n to the finite set of its residues). It is what makes
@@ -496,10 +535,14 @@ routed against the image. `annihilator` on the same object still resolves
 directly through the inclusion edge, untransported; both claims are asserted
 in `acceptanceProofs`.
 
-The deliberate capability gap shipped by the universe (honest, auditable):
+The deliberate capability gaps shipped by the universe (honest, auditable):
 `det`/`inverse` on matrices whose entry domain is not ℚ — `det` is
 meaningful on any `MatrixElems` member, only ℚ-entry matrices are routed,
-and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. (The
+and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. Alongside it,
+`gcd` outside ℤ (gcds exist in every UFD; only the ℤ route is registered),
+`roots` outside ℤ[x]/ℚ[x], and `nth` on ℤ[x] (countable, no enumeration
+registered) — each one available, none executable, all asserted as gaps by
+the proofs at the end of `Std.lean`. (The
 original gaps — `nth` on ℚ and `factor` on ℤ[x] — were routed in round
 three per the user-decided closure paths, #17/#18; the ℚ enumeration is
 the registered Cantor zigzag, revisitable like ℤ's convention.)

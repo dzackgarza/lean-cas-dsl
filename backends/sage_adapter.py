@@ -14,7 +14,7 @@ import json
 import sys
 
 try:
-    from sage.all import Integer, Matrix, PolynomialRing, QQ, ZZ, factor
+    from sage.all import Integer, Matrix, PolynomialRing, QQ, ZZ, factor, gcd
     from sage.version import version as SAGE_VERSION
 except ImportError as exc:  # running outside `sage -python` is a wiring bug
     sys.stderr.write(
@@ -152,6 +152,38 @@ def op_factor_poly_z(args):
     }
 
 
+def op_gcd_int(args):
+    return enc_int(gcd(Integer(args["a"]), Integer(args["b"])))
+
+
+def _roots(ring, coeffs, enc, dom):
+    """The SET of roots in the polynomial's own coefficient ring.
+
+    Sage's `roots()` returns (root, multiplicity) pairs over the base ring, so
+    a polynomial with no root there — x^2 - 2 over QQ — yields the empty set.
+    That is the answer, not a failure. Multiplicity is dropped: this op
+    promises a set.
+    """
+    f = ring(coeffs)
+    if f.is_zero():
+        raise BackendError(
+            "not_a_set", "every element is a root of the zero polynomial"
+        )
+    return {"t": "set", "elems": [enc(root) for root, _ in f.roots()], "dom": dom}
+
+
+def op_roots_poly_z(args):
+    return _roots(
+        PolynomialRing(ZZ, "x"), [dec_int(c) for c in args["coeffs"]], enc_int, INT_DOM
+    )
+
+
+def op_roots_poly_q(args):
+    return _roots(
+        PolynomialRing(QQ, "x"), [dec_rat(c) for c in args["coeffs"]], enc_rat, RAT_DOM
+    )
+
+
 def op_mat_det_q(args):
     return enc_rat(Matrix(QQ, dec_rows(args["rows"])).det())
 
@@ -174,6 +206,9 @@ OPS = {
     "factor_int": op_factor_int,
     "factor_poly_q": op_factor_poly_q,
     "factor_poly_z": op_factor_poly_z,
+    "gcd_int": op_gcd_int,
+    "roots_poly_z": op_roots_poly_z,
+    "roots_poly_q": op_roots_poly_q,
     "mat_det_q": op_mat_det_q,
     "mat_inv_q": op_mat_inv_q,
 }

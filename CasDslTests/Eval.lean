@@ -331,6 +331,45 @@ run_cmd do
   | some o => throwError "map to ℚ[x] produced {o.presentation}"
   | none => throwError "'q' was not bound"
 
+/-! ## SPEC.md's degree and polynomial-ring membership (#24)
+
+The claims that need no backend are asserted here as surface commands, so a
+false one fails the build. Their Sage-routed siblings — the VALUE of
+`gcd(84, 30)` and the root sets — are pinned semantically by the routing
+proofs in `CasDsl/Std.lean` and executed against the real adapter by
+`tests/roundtrip.py` and `tests/test_e2e.py`: this build stays backend-free,
+as it was before. -/
+
+-- the degree is a native structural read of the coefficient array
+#guard (Native.run "poly_deg" Std.polyZ #[]).toOption == some (Value.int 3)
+#guard (Native.run "poly_deg" (.elem (.poly .rat) (Value.mkPoly .rat #[.rat 7])) #[]).toOption
+  == some (Value.int 0)
+-- …and the zero polynomial is refused rather than given a conventional one
+#guard (Native.run "poly_deg" (.elem (.poly .int) (Value.mkPoly .int #[])) #[]).toOption
+  == none
+
+-- SPEC.md §Polynomials: the bare indeterminate is an element of its own ring
+assert x ∈ ℤ[x]
+-- …and so is the polynomial its binder defined
+assert p ∈ ℤ[x]
+-- ℤ[x] sits in ℚ[x] for the reason ℤ sits in ℚ — coefficient by coefficient
+assert p ∈ ℚ[x]
+-- membership is a judgment about the coefficients, not a shape test
+assert 1 / 2 ∉ ℤ[x]
+assert 1 / 2 ∈ ℚ[x]
+
+assert p.deg() = 3
+assert p.deg() ≠ 2
+
+/- SPEC.md §Differentials' ℚ[x] polynomial: the same operation, one ring
+over. SPEC spells the leading term `3x²`; implicit multiplication binds
+tighter than the superscript in this grammar (`3x²` parses as `(3x)²`), so
+the product is written out — `f(2) = 15` is SPEC's own check that this is
+the intended polynomial. -/
+let f := x ↦ 3*x² + x + 1 in ℚ[x]
+assert f.deg() = 2
+assert f(2) = 15
+
 /-- A genuine Lean command in a cell is unaffected by the low-priority
 bare-expression production. -/
 def foo : Nat := 1

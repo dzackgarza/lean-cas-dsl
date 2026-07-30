@@ -40,6 +40,8 @@ private def samples : Array Value := #[
   .mat 2 .rat #[#[.rat 1, .rat 2], #[.rat (mkRat 3 2), .rat (mkRat (-1) 2)]],
   .factorization (.int (-1)) #[(.int 2, 2), (.int 3, 1)] .int,
   .idealV #[.int 6] .int,
+  .setV #[.int 1] .int,
+  .setV #[] .rat,
   .cardinal (.finite 5),
   .cardinal .countablyInfinite,
   .bool true,

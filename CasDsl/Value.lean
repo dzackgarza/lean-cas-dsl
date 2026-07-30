@@ -53,6 +53,12 @@ inductive Value where
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
   /-- An ideal presented by generators (e.g. an annihilator in `ℤ`). -/
   | idealV (gens : Array Value) (ring : Domain)
+  /-- A finite set of elements of one domain, as an executor RESULT (the roots
+  of a polynomial). `Denote.ofValue` turns it into the ordinary set object
+  `SetPresentation.finite`, so the set methods apply to it like any other
+  set; it is a `Value` only because that is what crosses the backend wire.
+  CEILING: a backend can return an explicit finite set, nothing wider. -/
+  | setV (elems : Array Value) (dom : Domain)
   | cardinal (c : Cardinality)
   | bool (b : Bool)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
@@ -157,6 +163,8 @@ partial def render : Value → String
       | u => if fs.isEmpty then u.render else s!"{u.render} * {core}"
   | .idealV gens _ =>
       "(" ++ ", ".intercalate (gens.toList.map render) ++ ")"
+  | .setV elems _ =>
+      "{" ++ ", ".intercalate (elems.toList.map render) ++ "}"
   | .cardinal (.finite n) => toString n
   | .cardinal .countablyInfinite => "ℵ₀"
   | .bool b => toString b

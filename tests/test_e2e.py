@@ -106,6 +106,23 @@ def test_explain_route_names_backend_in_diagnostics_only(kernel: Kernel) -> None
     assert "factor" in text
 
 
+def test_gcd_is_the_prefix_spelling_of_a_method(kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert gcd(84, 30) = 6")          # SPEC.md writes it prefix
+    text = err(kc, "assert gcd(84, 30) = 7")
+    assert "false" in text.lower()
+    # the prefix form IS the category method: the receiver spelling of the
+    # same call resolves and routes identically
+    ok(kc, "let a := 84 in ℤ")
+    ok(kc, "assert a.gcd(30) = 6")
+    text = ok(kc, "#explain_route a.gcd(30)")
+    assert "sage" in text.lower() and "gcd" in text
+    # …and a name that is neither a binding nor a declared method is still
+    # the honest error: the prefix reading never invents an operation
+    text = err(kc, "assert nosuchop(84, 30) = 6")
+    assert "'nosuchop' is not bound" in text
+
+
 # -- 3 · polynomials, embeddings, polynomial call -------------------------
 
 def test_polynomial_factor_and_call(kernel: Kernel) -> None:
@@ -117,6 +134,56 @@ def test_polynomial_factor_and_call(kernel: Kernel) -> None:
     text = ok(kc, "q.factor()")
     assert "x - 1" in text and "x^2 + x - 1" in text
     ok(kc, "assert q(1) = 0")
+
+
+def test_the_indeterminate_and_the_polynomial_are_elements_of_the_ring(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert x ∈ ℤ[x]")
+    ok(kc, "assert p ∈ ℤ[x]")
+    ok(kc, "assert p ∈ ℚ[x]")   # coefficient by coefficient, along ℤ ⊆ ℚ
+    text = err(kc, "assert 1 / 2 ∈ ℤ[x]")
+    assert "false" in text.lower()
+    # NOTHING was published into the session by any of that: a bare `x` is
+    # still unbound, and a name the ring was not written with is not its
+    # indeterminate either
+    text = err(kc, "x")
+    assert "'x' is not bound" in text
+    text = err(kc, "assert y ∈ ℤ[x]")
+    assert "'y' is not bound" in text
+
+
+def test_degree_is_one_operation_over_both_coefficient_rings(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    ok(kc, "assert p.deg() = 3")
+    text = err(kc, "assert p.deg() = 2")
+    assert "false" in text.lower()
+    # SPEC.md §Differentials' ℚ[x] polynomial. (SPEC spells the leading term
+    # `3x²`; implicit multiplication binds tighter than the superscript in
+    # this grammar, so the product is written out — `f(2) = 15` is SPEC's own
+    # check that this is the intended polynomial.)
+    ok(kc, "let f := x ↦ 3*x² + x + 1 in ℚ[x]")
+    ok(kc, "assert f(2) = 15")
+    ok(kc, "assert f.deg() = 2")
+
+
+def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
+    _, kc = kernel
+    text = ok(kc, "p.roots()")      # x³ - 2x + 1 over ℤ; p(1) = 0
+    assert "{1}" in text
+    ok(kc, "assert 1 ∈ p.roots()")
+    ok(kc, "assert p.roots() = {1}")
+    text = err(kc, "assert 2 ∈ p.roots()")
+    assert "false" in text.lower()
+    # SPEC.md's q: x² - 2 has NO root in ℚ. The empty set is the answer —
+    # not an error, and not a silent reach into an extension field.
+    ok(kc, "let q := x ↦ x² - 2 in ℚ[x]")
+    text = ok(kc, "q.roots()")
+    assert "{}" in text
+    ok(kc, "assert q.roots() = {}")
+    text = err(kc, "assert p.roots() = {}")
+    assert "false" in text.lower()
 
 
 # -- 4 · exact matrix algebra ---------------------------------------------
@@ -351,6 +418,7 @@ def test_canonical_maps_audit_surface(kernel: Kernel) -> None:
 
 def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
     _, kc = kernel
-    # q ∈ ℚ[x] from the polynomial test; ℚ → ℤ is not a registered embedding
+    # q ∈ ℚ[x] (rebound to x² - 2 by the roots test, still ℚ[x]); ℚ → ℤ is
+    # not a registered embedding
     text = err(kc, "map q to ℤ[x]")
     assert "no preferred canonical map" in text

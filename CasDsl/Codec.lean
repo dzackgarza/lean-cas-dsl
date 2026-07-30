@@ -59,6 +59,10 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "ideal"), ("gens", Json.arr (gens.map valueToJson)),
          ("ring", domainToJson ring)]
+  | .setV elems dom =>
+      Json.mkObj
+        [("t", "set"), ("elems", Json.arr (elems.map valueToJson)),
+         ("dom", domainToJson dom)]
   | .cardinal c => cardinalToJson c
   | .bool b => Json.mkObj [("t", "bool"), ("v", Json.bool b)]
   | .func s t binder body =>
@@ -154,6 +158,9 @@ partial def valueFromJson (j : Json) : Except String Value := do
   | "ideal" =>
       let gens ← (← arrField j "gens").mapM valueFromJson
       return .idealV gens (← domainFromJson (← field j "ring"))
+  | "set" =>
+      let elems ← (← arrField j "elems").mapM valueFromJson
+      return .setV elems (← domainFromJson (← field j "dom"))
   | "cardinal" => return .cardinal (← cardinalFromJson j)
   | "func" =>
       let src ← domainFromJson (← field j "src")

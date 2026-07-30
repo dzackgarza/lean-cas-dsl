@@ -18,7 +18,16 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ADAPTER = ROOT / "backends" / "sage_adapter.py"
-OPS = ["factor_int", "factor_poly_q", "factor_poly_z", "mat_det_q", "mat_inv_q"]
+OPS = [
+    "factor_int",
+    "factor_poly_q",
+    "factor_poly_z",
+    "gcd_int",
+    "roots_poly_z",
+    "roots_poly_q",
+    "mat_det_q",
+    "mat_inv_q",
+]
 
 
 def read_frame(stream):
@@ -161,6 +170,46 @@ def q(n, d=1):
     return {"t": "rat", "num": str(n), "den": str(d)}
 
 
+def check_gcd_int(adapter):
+    assert int_v(adapter.ok("gcd_int", {"a": "84", "b": "30"})) == "6"
+    # gcd(0, n) = n, and a negative argument does not make the gcd negative
+    assert int_v(adapter.ok("gcd_int", {"a": "0", "b": "-7"})) == "7"
+    print("gcd_int: ok")
+
+
+def check_roots(adapter):
+    def elems(value, decode):
+        assert value["t"] == "set", value
+        return [decode(e) for e in value["elems"]]
+
+    # x^3 - 2x + 1 over ZZ: 1 is the only root in ZZ
+    value = adapter.ok(
+        "roots_poly_z",
+        {"coeffs": [{"t": "int", "v": v} for v in ("1", "-2", "0", "1")]},
+    )
+    assert value["dom"] == {"d": "int"}, value
+    assert elems(value, int_v) == ["1"], value
+
+    # x^2 - 2 over QQ: NO rational root. The empty set is the answer, and the
+    # op must say so rather than failing or reaching for an extension.
+    value = adapter.ok(
+        "roots_poly_q",
+        {"coeffs": [q(-2), q(0), q(1)]},
+    )
+    assert value["dom"] == {"d": "rat"}, value
+    assert elems(value, rat) == [], value
+
+    # …and a rational root of a rational polynomial IS found: 2x - 1
+    value = adapter.ok("roots_poly_q", {"coeffs": [q(-1), q(2)]})
+    assert elems(value, rat) == ["1/2"], value
+
+    # every element is a root of the zero polynomial: not a set to return
+    reply = adapter.call("roots_poly_z", {"coeffs": []})
+    assert reply["status"] == "error", reply
+    assert reply["kind"] == "not_a_set", reply
+    print("roots_poly_z / roots_poly_q: ok")
+
+
 def check_matrices(adapter):
     rows = [[q(1), q(2)], [q(3), q(4)]]
     assert rat(adapter.ok("mat_det_q", {"rows": rows})) == "-2/1"
@@ -206,6 +255,8 @@ def main():
         check_factor_int(adapter)
         check_factor_poly_q(adapter)
         check_factor_poly_z(adapter)
+        check_gcd_int(adapter)
+        check_roots(adapter)
         check_matrices(adapter)
         check_unsupported(adapter)
     except BaseException:

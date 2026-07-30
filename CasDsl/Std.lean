@@ -93,7 +93,14 @@ a UFD)" },
   { name := `SmallModules, parents := #[`Modules],
     doc := "modules small enough to present by explicit finite data" },
   { name := `MatrixElems,
-    doc := "square matrices over a commutative ring; params (size, entry domain)" }
+    doc := "square matrices over a commutative ring; params (size, entry domain)" },
+  -- Polynomials are a STRUCTURAL view, not a divisibility one: `deg` and
+  -- `roots` are meaningful for a polynomial over any commutative ring,
+  -- including rings where `factor` is not. It therefore carries no parent
+  -- edge — ℤ[x] reaches `factor` through FactorizationElems and `deg`
+  -- through here, and neither membership implies the other.
+  { name := `PolynomialElems,
+    doc := "elements of a univariate polynomial ring; params (the ring)" }
 ]
 
 run_cmd stdCategories.forM registerCategory!
@@ -110,6 +117,18 @@ private def stdMethods : Array MethodDecl := #[
   { id := `factor, receiver := `FactorizationElems,
     resultDoc := "a factorization: a unit and irreducible factors with multiplicity",
     doc := "factor into irreducibles/primes with multiplicity" },
+  { id := `gcd, receiver := `FactorizationElems, arity := 1,
+    argDoc := "another element of the same ring",
+    resultDoc := "a greatest common divisor, up to units",
+    doc := "a greatest common divisor — unique up to units in a UFD, which is \
+where the operation first makes sense" },
+  { id := `deg, receiver := `PolynomialElems,
+    resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
+    doc := "the degree: the largest exponent carrying a nonzero coefficient" },
+  { id := `roots, receiver := `PolynomialElems,
+    resultDoc := "the set of roots lying in the polynomial's own coefficient ring",
+    doc := "the set of roots IN THE COEFFICIENT RING — an empty result means \
+the polynomial has no root there, not that none exists in an extension" },
   { id := `det, receiver := `MatrixElems,
     resultDoc := "a scalar of the entry domain",
     doc := "the determinant" },
@@ -162,6 +181,11 @@ private def stdProfileRules : Array ProfileRule := #[
   -- ℤ[x] is a UFD, not a euclidean domain
   { pattern := .elemOf (.polyOver (.exact .int)), cat := `FactorizationElems,
     slots := #[.elemDom] },
+  -- …and every polynomial, over any coefficient domain, is a polynomial:
+  -- an INDEPENDENT membership, which is why `deg` reaches ℤ[x] and ℚ[x]
+  -- alike without either category claiming the other's structure
+  { pattern := .elemOf (.polyOver .anyDom), cat := `PolynomialElems,
+    slots := #[.elemDom] },
   -- ℤ/n is a commutative ring; for composite n it is not a domain, so its
   -- elements stop at CommRingElems — and `factor`, declared strictly below
   -- on FactorizationElems, correctly does not reach them.
@@ -185,6 +209,16 @@ private def stdProfileRules : Array ProfileRule := #[
   -- a weaker category
   { pattern := .domainIs (.exact .rat), cat := `CountableSets, slots := #[.setDom] },
   { pattern := .domainSetOf (.exact .rat), cat := `CountableSets, slots := #[.setDom] },
+  -- ℤ[x] and ℚ[x] AS SETS, which is what `p ∈ ℤ[x]` asks about. Countable is
+  -- their true strength (a polynomial is a finite tuple over a countable
+  -- domain) and is stated one coefficient domain at a time for the reason
+  -- ℤ/n is: `polyOver anyDom` would also claim it of ℝ[x], which is false.
+  -- `nth` therefore becomes an honest GAP here — no enumeration of ℤ[x] is
+  -- registered — and never a narrower category.
+  { pattern := .domainIs (.polyOver (.exact .int)), cat := `CountableSets,
+    slots := #[.setDom] },
+  { pattern := .domainIs (.polyOver (.exact .rat)), cat := `CountableSets,
+    slots := #[.setDom] },
   -- an arithmetic progression is countable; a BOUNDED one is finite, but
   -- `PresPattern.progression` cannot see the bound, so it enters at
   -- CountableSets — a missed specificity, never a false claim
@@ -284,6 +318,20 @@ private def stdRoutes : Array Route := #[
     backend := `sage, opId := "factor_poly_q" },
   { method := `factor, pattern := .elemOf (.polyOver (.exact .int)),
     backend := `sage, opId := "factor_poly_z" },
+  -- gcd: routed for ℤ only. It stays meaningful on every UFD element, so
+  -- `p.gcd(q)` in ℤ[x] is the honest structured gap the audit lists
+  { method := `gcd, pattern := .elemOf (.exact .int),
+    backend := `sage, opId := "gcd_int" },
+  -- degree is a structural read of the coefficient array: native, exact,
+  -- and defined over every coefficient domain
+  { method := `deg, pattern := .elemOf (.polyOver .anyDom),
+    backend := `native, opId := "poly_deg" },
+  -- roots in the coefficient ring; ℤ[x] and ℚ[x] are routed, and a
+  -- polynomial over ℤ/n is the honest gap
+  { method := `roots, pattern := .elemOf (.polyOver (.exact .int)),
+    backend := `sage, opId := "roots_poly_z" },
+  { method := `roots, pattern := .elemOf (.polyOver (.exact .rat)),
+    backend := `sage, opId := "roots_poly_q" },
   -- exact matrix algebra over ℚ
   { method := `det, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `sage, opId := "mat_det_q" },
@@ -430,6 +478,31 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env polyZ `factor [] `sage
   -- no upward leak: ℤ/5 elements are CommRingElems, `factor` lives below
   expectNotApplicable env (.elem (.mod 5) (Value.mkMod 5 2)) `factor
+  -- gcd is declared where gcds exist — on UFD elements — and routed for ℤ
+  expectRouted env (.elem .int (.int 84)) `gcd [`FactorizationElems] `sage
+  -- …so an ℤ[x] gcd is available and NOT executable: an honest backlog item,
+  -- exactly like det over ℤ/5, never a reason to move the declaration
+  expectGap env polyZ `gcd []
+  -- the two polynomial reads are INDEPENDENT memberships: `deg` arrives
+  -- through PolynomialElems with no inheritance step, on both rings, while
+  -- `factor` above arrived through the divisibility side
+  expectRouted env polyZ `deg [] `native
+  expectRouted env polyQ `deg [] `native
+  expectRouted env polyZ `roots [] `sage
+  expectRouted env polyQ `roots [] `sage
+  -- a polynomial over ℤ/5 is still a polynomial: `deg` is a structural read
+  -- and routes, `roots` is not implemented there and gaps
+  expectRouted env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))
+    `deg [] `native
+  expectGap env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))
+    `roots []
+  -- `deg` is a polynomial question and does not leak to the ring's elements
+  -- at large: an integer is not a polynomial here
+  expectNotApplicable env (.elem .int (.int 360)) `deg
+  -- ℤ[x] AS A SET is countable, which is what `p ∈ ℤ[x]` asks of it…
+  expectRouted env (.domainObj (.poly .int)) `contains [`Sets] `native
+  -- …and no enumeration of it is registered, so `nth` is the honest gap
+  expectGap env (.domainObj (.poly .int)) `nth []
   -- a finite set reaches `cardinality` through FiniteSets ≤ CountableSets ≤ Sets
   expectRouted env (.setObj (.finite .int #[.int 1, .int 2, .int 3])) `cardinality
     [`CountableSets, `Sets] `native
