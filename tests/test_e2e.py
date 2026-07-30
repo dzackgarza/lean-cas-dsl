@@ -1467,3 +1467,16 @@ def test_the_index_domain_decides_where_the_roots_are_sought(
     # …and the guarded comprehension is untouched: `=` is still not a
     # term-level comparison, so a guard is still an ORDER comparison
     ok(kc, "assert {n ∈ ℤ | n² ≤ 4} = {-2, -1, 0, 1, 2}")
+
+
+def test_the_multi_binder_lambda_is_a_named_gap(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Subspaces and spans' last block needs a lambda in three
+    # variables, which the univariate polynomial engine cannot express. It is
+    # refused as a GAP that names itself and says what it blocks — never as a
+    # syntax error, and never approximated.
+    text = err(kc, "let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c")
+    assert "disclosed GAP" in text
+    assert "ker φ" in text
+    # …and the single-binder lambda it did not break
+    ok(kc, "let φ1 := t ↦ t + 1 in ℚ[x]")
