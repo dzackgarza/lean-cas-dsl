@@ -326,6 +326,13 @@ Parser decisions (load-bearing):
 - `assert` outcomes are fourfold — `true | false | unknown | error` — only
   `true` commits the cell; false/unknown/error give distinct diagnostics.
   `assert` is a trusted computational assertion, never a Lean theorem.
+- **equality is category-bound** (design review 2026-07-30): bare `=` never
+  inserts a functor, so equality between objects of different categories is
+  TRIVIALLY FALSE — `F = {0, 1, 2, 3}` is false for the module fixture even
+  though `U(F)` *is* that set, because there is no unique module structure
+  on it. Comparing across categories requires explicitly moving into a
+  common comparison category: `F.set_eq({0, 1, 2, 3})` is the Sets question
+  (its receiver transports, exactly like `∈`), and it is true.
 
 Ellipses implement exactly the Haskell-style progressions
 `{a, ...} {a, b, ...} {a, ..., z} {a, b, ..., z}`; nothing more.

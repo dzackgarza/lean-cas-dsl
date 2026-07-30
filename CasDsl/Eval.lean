@@ -747,9 +747,18 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
       return some (if rel == .mem then res else !res)
   | _ =>
       let neg := rel == .ne
-      if isSetLike a || isSetLike b then
+      if isSetLike a && isSetLike b then
         let res ← boolOf (← callMethod ctx (← objOf a) `set_eq #[← objOf b])
         return some (neg != res)
+      else if isSetLike a || isSetLike b then
+        -- Exactly one side is a set: the operands live in DIFFERENT
+        -- categories, and bare `=` never inserts a functor to reconcile
+        -- them — there is no unique module structure on {0, 1, 2, 3}, so
+        -- `F = {0, 1, 2, 3}` is trivially false even though U(F) IS that
+        -- set (design review 2026-07-30: equality is category-bound). The
+        -- Sets question stays one explicit call away — `F.set_eq(X)`
+        -- transports its receiver, exactly like `∈`.
+        return some neg
       else
         let some va := a.value?
           | throw (.msg s!"{a.render} is not comparable")

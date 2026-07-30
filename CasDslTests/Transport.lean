@@ -314,4 +314,39 @@ run_cmd do
           throwError s!"F.contains({label}) evaluated to {d.render}, expected {expected}"
     | .error e => throwError s!"F.contains({label}) failed: {e.render}"
 
+/-! ## Bare `=` is category-bound (design review 2026-07-30)
+
+`U(F) = {0, 1, 2, 3}` in Sets — but `F` itself is a module, there is no
+unique module structure on that set, and bare `=` never inserts a functor:
+equality of objects in different categories is TRIVIALLY FALSE. The Sets
+question remains available as the explicit method call, whose receiver
+transports like any other. A resolver change that let bare `=` transport
+would flip the first two assertions; dropping transport would break the
+third. -/
+
+open Lean Elab Command in
+run_cmd do
+  let env ← getEnv
+  let ctx : EvalCtx := { env }
+  let setLit : CasExpr := .finSet #[.num 0, .num 1, .num 2, .num 3]
+  match ← (evalAssert ctx .eq (.ref `F) setLit).run with
+  | .ok (some false) => pure ()
+  | .ok r => throwError s!"F = {"{0,1,2,3}"} must be trivially FALSE across \
+categories, got {repr r}"
+  | .error e => throwError s!"F = {"{0,1,2,3}"} must be trivially false, not an \
+error: {e.render}"
+  match ← (evalAssert ctx .ne (.ref `F) setLit).run with
+  | .ok (some true) => pure ()
+  | _ => throwError s!"F ≠ {"{0,1,2,3}"} must be trivially true across categories"
+  -- the explicit Sets question, receiver transported: U(F) = {0,1,2,3}
+  match ← runEval ctx (.method (.ref `F) `set_eq #[setLit]) with
+  | .ok d =>
+      unless d.render == "true" do
+        throwError s!"F.set_eq({"{0,1,2,3}"}) evaluated to {d.render}, expected true"
+  | .error e => throwError s!"F.set_eq({"{0,1,2,3}"}) failed: {e.render}"
+  -- and two sets still compare as sets, untransported
+  match ← (evalAssert ctx .eq setLit setLit).run with
+  | .ok (some true) => pure ()
+  | _ => throwError s!"{"{0,1,2,3} = {0,1,2,3}"} must remain true in Sets"
+
 end CasDslTests.Transport

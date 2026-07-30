@@ -202,6 +202,18 @@ def test_transport_does_not_preempt_direct_resolution(kernel: Kernel) -> None:
     assert "(4)" in text
 
 
+def test_bare_equality_is_category_bound(kernel: Kernel) -> None:
+    _, kc = kernel
+    # U(F) = {0,1,2,3} in Sets, but F is a module and bare `=` never inserts
+    # the functor: cross-category equality is trivially false
+    text = err(kc, "assert F = {0, 1, 2, 3}")
+    assert "false" in text.lower()
+    ok(kc, "assert F ≠ {0, 1, 2, 3}")
+    # the Sets question is one explicit call away, receiver transported
+    text = ok(kc, "F.set_eq({0, 1, 2, 3})")
+    assert "true" in text
+
+
 # -- 9 · registry-driven embeddings -----------------------------------------
 
 def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
