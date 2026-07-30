@@ -289,6 +289,14 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   it publishes nothing — a bare binder name elsewhere is still the loud "not
   bound" error. This is ordinary scoping and does not widen the name
   resolution §Functions narrowed.
+- **Two `SPEC.md` §Ellipses lines stay uncovered, deliberately.**
+  `{n in ℕ | f(n) ∈ 2ℕ}` needs a MEMBERSHIP guard (not a polynomial
+  comparison) and the scaling spelling `2ℕ`, which the grammar does not
+  have — the guard is refused at the binding and `2ℕ` does not parse.
+  `{n in ℕ | n.is_prime()}` is refused the same way, even though
+  `n.is_prime()` itself ships as a method: primality is not a polynomial
+  comparison. Both are gaps on the `SPEC.md` ledger (#24), not silent
+  approximations.
 - **`e.image()` is the one method functions own** (`FunctionElems`,
   registered because what a map does to a whole set is a computability
   question), and `e(ℕ)` — applying a function to its SOURCE — desugars to it,
