@@ -169,8 +169,8 @@ private def noCommonKind (op what : String) (a b : Value) : String :=
   if approx? a || approx? b then
     s!"{op} is not defined on an approximation ({a.render} and {b.render}): the \
 value carries a REQUESTED tolerance, not an error term, and this slice does not \
-invent an error calculus to propagate one — do the arithmetic exactly and \
-approximate the result"
+invent an error calculus to propagate one — compute exactly, then ask for a \
+decimal presentation of the result"
   else if (radicand? a).isSome || (radicand? b).isSome then
     s!"{what} of {a.render} and {b.render} leaves the exact form a + b√d this \
 slice presents (one square root over ℚ, and both operands in it): that is a \

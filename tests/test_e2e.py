@@ -1112,6 +1112,19 @@ def test_the_approximation_target_is_not_a_domain(kernel: Kernel) -> None:
         assert "not a domain" in text and "not transitive" in text, code
 
 
+def test_the_map_spelling_answers_in_its_own_terms(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `map … to ℝ/O(ε)` is ONE construct to the user; the routed `approximate`
+    # method is how it is implemented, not a step anyone wrote. No failure of
+    # the map spelling may name it. (`#capability_gaps` and an explicit
+    # `x.approximate(ε)` call are the audit surfaces where the method DOES
+    # appear — see the ℂ gap above.)
+    for code in ("map √2 to ℝ/O(0)", "map 2 + 2i to ℝ/O(1/10)",
+                 "map √2 to ℝ/O(1/10^{2000})", "map ℤ to ℝ/O(1/10)",
+                 "map √2 to ℝ/O(ℤ)", "(map √2 to ℝ/O(1/10)) + 1"):
+        assert "approximate" not in err(kc, code), code
+
+
 def test_the_tolerance_is_read_from_the_surface_spelling(kernel: Kernel) -> None:
     _, kc = kernel
     # ε is an exact rational, whatever the spelling computes to — a reciprocal
@@ -1142,7 +1155,7 @@ def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
     # invent an error calculus to propagate one
     text = err(kc, "(map √2 to ℝ/O(1/10^{4})) + 1")
     assert "not defined on an approximation" in text
-    assert "approximate the result" in text
+    assert "compute exactly, then ask for a decimal" in text
 
 
 def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:

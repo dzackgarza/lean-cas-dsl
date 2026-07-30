@@ -231,6 +231,21 @@ everything about that line is a REQUEST rather than a new number system.
   `Domain` constructor and no `CanonicalMap` entry exists for it (either would
   have to answer membership, cardinality and inclusion questions that a
   request has no answers to).
+- **The fork this design came out of, recorded so it is not re-derived.**
+  Issue #7's unit contract said the canonical-map registry should OWN
+  `map … to ℝ/O(ε)`, registered with a `CanonOp` constructor declaring
+  `isInclusion := false`. That is not satisfiable: `CanonOp.apply` is PURE
+  while the value needs arbitrary-precision evaluation from a backend, so any
+  such constructor's arm could only error — dead registry data — and keying a
+  rule at all needs a `Domain` for `ℝ/O(ε)`, which would force total-match
+  answers to membership, cardinality and inclusion that a REQUEST has none of
+  (`x ∈ ℝ/O(ε)` answering `false` is a claim; `|ℝ/O(ε)|` is not a size).
+  The branch taken instead is the one below: the registry keeps deciding what
+  may be presented in ℝ, a routed method owns executability, and the result
+  joins the results-that-are-not-elements family. `ℝ ⊆ ℝ/O(ε)` is then
+  UNSTATABLE rather than false, which is strictly stronger than the flag would
+  have been, and the refusal is pinned in its place (design review 2026-07-30,
+  endorsed by the project owner).
 - **TWO registries answer, in order, and neither answers the other's
   question.** The canonical-map registry decides whether the value may be
   PRESENTED IN ℝ at all — `map 1/3 to ℝ/O(ε)` rides the registered ℚ ⊆ ℝ, and
@@ -239,7 +254,11 @@ everything about that line is a REQUEST rather than a new number system.
   decides whether a decimal to that tolerance can be COMPUTED. `approximate`
   is an ordinary category method (declared on `ComplexElems`, arity 1) with an
   ordinary route, so `x.approximate(ε)` is a second spelling of the same
-  operation and `#explain_route` explains it.
+  operation and `#explain_route` explains it. To the mathematician the map is
+  ONE construct, and the desugaring stays internal: no failure of the map
+  spelling names the method, and the pins say so. It appears where it is the
+  audit's subject — `#capability_gaps`, `#explain_route`, and an explicit
+  `x.approximate(ε)` call.
 - **The result is a VALUE, not an element of a domain.** `Value.approx` keeps
   the exact source, the decimal presenting it, the tolerance requested and the
   bound the backend certified; `valueDom?` gives it none, the slot a
