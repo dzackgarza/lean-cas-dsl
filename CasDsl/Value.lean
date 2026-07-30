@@ -190,6 +190,12 @@ inductive Value where
   It is a VALUE rather than a production so that a bare `d` cell can display
   what the universal differential IS, which is what SPEC.md's own cell does. -/
   | derivation (asForm : Bool)
+  /-- SPEC.md §Indefinite integration's `x³ + (1/2)x² + x + ℚ` — the value
+  `∫ f dx` takes, as an executor RESULT. `Denote.ofValue` turns it into the
+  ordinary set OBJECT, exactly as it does a returned finite set, progression
+  or span: the indefinite integral is a COSET of `ker(d/dx)`, which is a set
+  of primitives and not a primitive. -/
+  | cosetV (offset : Value) (kernel : Domain)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
   binder generates, so the identities SPEC.md asserts about functions
   (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`) are decided by the polynomial engine
@@ -224,6 +230,18 @@ inductive SetPresentation where
   ordinary `Sets` methods; what it adds is `dim`, and the RREF is what makes
   all four decidable. See `Value.mkSpanBasis`. -/
   | span (n : Nat) (basis : Array Value)
+  /-- `p + K` — SPEC.md §Indefinite integration's `x³ + (1/2)x² + x + ℚ`, the
+  complete set of primitives of `f`.
+
+  A COSET of the kernel of differentiation, and a presentation of its own for
+  the reason `span` is one: its elements are polynomials, which `Value.poly`
+  presents, but the SET of them is infinite and has a normal form of its own.
+  `Value.mkCoset` is the ONE constructor and it CANONICALIZES — the kernel
+  here is the constants, so the representative with constant term zero is a
+  function of the coset and of nothing else, which is what makes two cosets
+  compare as data. `span` is deliberately NOT widened to cover this: that
+  presentation is hard-wired to ℚⁿ and its normal form is a reduced basis. -/
+  | coset (offset : Value) (kernel : Domain)
   /-- `ℂ - ℚ` (SPEC.md §Polynomials). A presentation again, and the minimal
   one the assertion needs: MEMBERSHIP is decided pointwise (`x ∈ a` and
   `x ∉ b`), which is what `q.roots() ⊆ ℂ - ℚ` asks, and everything that would
@@ -609,6 +627,7 @@ On global sections, for X = Spec R over S = Spec k with R = k[x]:\n\n  \
 R → Ω¹_{R / k} ≅ R dx"
   | .derivation false =>
       "d/dx : k[x] → k[x], differentiation with respect to the indeterminate"
+  | .cosetV offset kernel => s!"{offset.render} + {kernel.render}"
   | .func _ _ binder body =>
       -- the body is written back in the mathematician's own binder, not in
       -- the `x` a bare polynomial renders with
@@ -717,6 +736,55 @@ than a guess"
 returned finite set or progression. -/
 def mkSpan (n : Nat) (gens : Array Value) : Except String Value := do
   return .spanV n (← mkSpanBasis n gens)
+
+/-! ## Cosets of the constants (`SPEC.md` §Indefinite integration)
+
+`∫ f dx` is a COSET of `ker(d/dx)`, and this slice's kernel is the CONSTANTS
+of the coefficient ring. That one fact is what gives the presentation a normal
+form: two primitives of the same `f` differ by a constant, so the
+representative whose constant term is ZERO is a function of the coset and of
+nothing else — the discipline `mkSpanBasis` follows for a subspace, and for
+the same payoff (`∫ f dx = x³ + (1/2)x² + x + ℚ` compares as data). -/
+
+/-- THE constructor of a coset: the offset, canonicalized. Every coset in the
+system is built from this — the executor's antiderivative, the `p + K` a
+surface `+` denotes, and a decoded frame — which is what makes two spellings
+of one coset compare equal. A kernel that is not a scalar domain, or an
+offset that is not a polynomial over it, is a loud refusal: this presentation
+knows one kernel, and guessing another would be a claim. -/
+def mkCoset (offset : Value) (kernel : Domain) : Except String (Value × Domain) :=
+  match kernel with
+  | .poly _ | .matrix .. | .vector .. | .funcs .. =>
+      .error s!"the kernel of a coset here is the CONSTANTS of a ring, and \
+{kernel.render} is not one: this slice presents no other coset"
+  | k =>
+      match offset with
+      -- the canonical representative has constant term ZERO, because two
+      -- primitives of one `f` differ by exactly a constant
+      | .poly c cs =>
+          if cs.isEmpty then .ok (.poly c cs, k)
+          else .ok (mkPoly c (cs.set! 0 (if c == .rat then .rat 0 else .int 0)), k)
+      -- a SCALAR offset is its own constant polynomial, and that whole coset
+      -- is the kernel: its canonical representative is zero
+      | .int _ | .rat _ => .ok (mkPoly k #[], k)
+      | v => .error s!"{v.render} is not a polynomial offset: a coset here is \
+`p + K` with `p` in the ring and `K` its constants"
+
+/-- Is `v` an element of the coset `offset + K`? The kernel is the CONSTANTS,
+so membership is exactly "agrees with the offset in every degree above zero"
+— no subtraction and no search, and the constant terms are free to differ by
+anything, which is what the coset says. -/
+def cosetContains (offset : Value) (v : Value) : Bool :=
+  match offset, v with
+  | .poly _ ps, .poly _ xs =>
+      let n := max ps.size xs.size
+      (Array.range n).all fun i =>
+        i == 0 || (ps[i]?.getD (.int 0)) == (xs[i]?.getD (.int 0))
+  -- a SCALAR is a constant polynomial, so it lies in the coset exactly when
+  -- the offset has no term above degree zero
+  | .poly _ ps, .int _ | .poly _ ps, .rat _ => ps.size ≤ 1
+  | .int _, .int _ | .int _, .rat _ | .rat _, .int _ | .rat _, .rat _ => true
+  | _, _ => false
 
 /-- Is `v` the ZERO of a subspace of `ℚⁿ`? The zero vector, and the scalar
 `0` — which is the mathematician's own spelling of the zero of the ambient
@@ -871,6 +939,7 @@ partial def latex? : Value → Option String
   -- the two derivations are the documented no-natural-form case the truth
   -- value is: their renderings are prose ABOUT an operation, not mathematics
   | .derivation _ => none
+  | .cosetV offset kernel => do return (← latex? offset) ++ " + " ++ kernel.latex
   | .func _ _ binder body => do
       let t := toString binder
       let b ← match body with
@@ -972,6 +1041,7 @@ partial def render : SetPresentation → String
   | .domainSet d => d.render
   | .product a b => s!"{render a} × {render b}"
   | .powerset s => s!"𝒫({render s})"
+  | .coset offset kernel => s!"{offset.render} + {kernel.render}"
   | .domainDiff a b => s!"{a.render} - {b.render}"
 
 instance : ToString SetPresentation := ⟨render⟩
@@ -997,6 +1067,8 @@ partial def latex? : SetPresentation → Option String
   | .domainSet d => some d.latex
   | .product a b => do return (← latex? a) ++ " \\times " ++ (← latex? b)
   | .powerset s => do return "\\mathcal{P}(" ++ (← latex? s) ++ ")"
+  | .coset offset kernel => do
+      return (← Value.latex? offset) ++ " + " ++ kernel.latex
   -- `\setminus` is what the minus between two SETS means in math mode
   | .domainDiff a b => some (a.latex ++ " \\setminus " ++ b.latex)
 

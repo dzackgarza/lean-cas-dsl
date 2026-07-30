@@ -236,6 +236,38 @@ def test_the_differential_display(kernel: Kernel) -> None:
     assert b["text/latex"] == "$$\\mathrm{Spec}\\, \\mathbb{Q}[x]$$"
 
 
+def test_the_indefinite_integral_is_a_coset(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Indefinite integration, verbatim. `∫ f dx` is the COMPLETE set
+    # of primitives — a coset of ker(d/dx), which is what the `+ ℚ` says.
+    text = ok(kc, "∫ f dx")
+    assert "x^3 + (1/2)x^2 + x + ℚ" in text
+    ok(kc, "assert ∫ f dx = x³ + (1/2)x² + x + ℚ")
+    # the SET is what is asserted, so any representative writes the same coset
+    ok(kc, "assert ∫ f dx = x³ + (1/2)x² + x + 7 + ℚ")
+    text = err(kc, "assert ∫ f dx = x³ + x² + x + ℚ")
+    assert "false" in text.lower()
+    ok(kc, "assert |∫ f dx| = ℵ₀")
+    # the comprehension picks the one primitive vanishing at 0 — solved for
+    # the constant exactly, not searched
+    ok(kc, "let Fs := {h ∈ ∫ f dx | h(0) = 0} in 𝒫(ℚ[x])")
+    ok(kc, "assert Fs.cardinality() = 1")
+    ok(kc, "let F := Fs[0] in ℚ[x]")
+    ok(kc, "assert F(x) = x³ + (1/2)x² + x")
+    ok(kc, "assert d(F) = f dx")
+    ok(kc, "assert (d/dx)(F) = f")
+    # …and the CEILING is stated rather than fitted: a guard that does not
+    # evaluate the binder at a point is a gap
+    text = err(kc, "{h ∈ ∫ f dx | h = 0}")
+    assert "EVALUATION guard" in text
+
+
+def test_the_coset_typesets(kernel: Kernel) -> None:
+    _, kc = kernel
+    b = bundle(kc, "∫ f dx")
+    assert b["text/latex"] == "$$x^{3} + (1/2)x^{2} + x + \\mathbb{Q}$$"
+
+
 def test_a_binding_shadows_the_differential(kernel: Kernel) -> None:
     _, kc = kernel
     # `d` is a CONSTANT, so a `let` shadows it exactly as one shadows `i`.

@@ -484,6 +484,47 @@ route, and `#explain_route f.derivative()` explains both.
   indeterminate, and the outcome is an honest `unknown` or a false assertion,
   never a wrong answer.
 
+## Indefinite integration (`SPEC.md` §Indefinite integration, issue #24)
+
+`∫ f dx` is the COMPLETE SET OF PRIMITIVES — a coset of `ker(d/dx)`, which is
+what `SPEC.md`'s `+ ℚ` says — and the `antiderivative` method returns exactly
+that rather than one primitive plus a convention about which.
+
+- **NATIVE, for the reason the derivative is.** `cᵢ/(i+1)` shifted up by one
+  is exact coefficient arithmetic, so no backend is asked. The division is
+  what makes it routable only where the fraction field is one this slice
+  presents: ℤ[x] and ℚ[x] are routed (both land in ℚ[x]), and `ℤ/5[x]` is the
+  honest capability gap `det` over ℤ/5 already is.
+- **`SetPresentation.coset` is a NEW presentation, and `span` is deliberately
+  NOT widened to cover it.** That one is hard-wired to ℚⁿ and its normal form
+  is a reduced basis; this one's normal form is a canonical REPRESENTATIVE.
+  `Value.mkCoset` is the one constructor and it canonicalizes: the kernel is
+  the constants, so the representative with constant term ZERO is a function
+  of the coset and of nothing else — the `mkSpanBasis` discipline, with the
+  same payoff. Two cosets compare as data, so `∫ f dx = x³ + (1/2)x² + x + ℚ`
+  and `… + 7 + ℚ` are the same set and a coset of a different function is
+  not. Membership needs no subtraction either: `h ∈ p + K` is exactly "agrees
+  with `p` above degree zero".
+- **`p + ℚ` on the right of an assertion is built by ELABORATION** — a value
+  plus a DOMAIN — exactly as `A × B`, `𝒫(A)` and `ℂ - ℚ` are. It goes through
+  `mkCoset` too, so a coset a mathematician writes and one `∫` computes are
+  the same value however either was spelled.
+- **`{h ∈ ∫ f dx | h(0) = 0}` is the SAME production as the root set**, over a
+  coset instead of a domain, and `=` gains no further meaning by it. The
+  equation is solved rather than searched, and the CEILING is what makes that
+  exact rather than a fit: one side must be an APPLICATION of the binder at a
+  point. The members of `p + K` are `p + c`, so `h(a)` is `p(a) + c` and the
+  equation is linear in `c` with slope one BY THE SHAPE — checked before any
+  arithmetic runs. A guard of any other shape is a loud refusal naming the
+  shape that works.
+- **`(1/2)x²` needed a production.** This renderer parenthesizes a non-integer
+  coefficient so it reads as a product rather than as one rational, and
+  `SPEC.md` writes the same spelling — but until now the surface could not
+  READ BACK what it prints. `casParenMul` takes the same atom-or-power
+  (`casTerm:76`) that implicit multiplication takes, so the two spellings of
+  an implicit product agree about the exponent, and its `noWs` is what leaves
+  `(6x + 1) dx` to the differential form.
+
 ## Symbolic function expressions (`SPEC.md` §Elementary calculus, issue #24)
 
 `sin(t)`, `e^t` and `1/t` leave the polynomial engine, and `SPEC.md` asks

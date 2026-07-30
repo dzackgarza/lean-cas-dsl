@@ -81,6 +81,8 @@ inductive PresPattern where
   /-- `span_ℚ{…} ≤ ℚⁿ`; the ambient length is not inspected (a pattern over
   one presentation cannot state a strength that depends on it). -/
   | spanSet
+  /-- `p + K` — a coset of the constants; the ring is not inspected. -/
+  | cosetSet
   | anySet
   | cyclicMod
   /-- `Spec R`; the ring is not inspected (a pattern over one presentation
@@ -130,6 +132,7 @@ def accepts : PresPattern → Obj → Bool
   | .powersetSet, .setObj (.powerset _) => true
   | .domainDiffSet, .setObj (.domainDiff ..) => true
   | .spanSet, .setObj (.span ..) => true
+  | .cosetSet, .setObj (.coset ..) => true
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
@@ -151,6 +154,7 @@ def implies : PresPattern → PresPattern → Bool
   | .powersetSet, .powersetSet => true
   | .domainDiffSet, .domainDiffSet => true
   | .spanSet, .spanSet => true
+  | .cosetSet, .cosetSet => true
   | .cyclicMod, .cyclicMod => true
   | .specObj, .specObj => true
   | .anySet, .anySet => true
@@ -162,6 +166,7 @@ def implies : PresPattern → PresPattern → Bool
   | .powersetSet, .anySet => true
   | .domainDiffSet, .anySet => true
   | .spanSet, .anySet => true
+  | .cosetSet, .anySet => true
   | _, _ => false
 
 end PresPattern

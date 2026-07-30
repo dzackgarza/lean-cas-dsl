@@ -125,6 +125,9 @@ partial def valueToJson : Value → Json
       Json.mkObj [("t", "diff1"), ("coeff", domainToJson c), ("p", valueToJson p)]
   | .derivation asForm =>
       Json.mkObj [("t", "derivation"), ("as_form", Json.bool asForm)]
+  | .cosetV offset kernel =>
+      Json.mkObj
+        [("t", "coset"), ("offset", valueToJson offset), ("kernel", domainToJson kernel)]
   | .func s t binder body =>
       Json.mkObj
         [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
@@ -326,6 +329,14 @@ partial def valueFromJson (j : Json) : Except String Value := do
       match (← field j "as_form").getBool? with
       | .ok b => return .derivation b
       | .error _ => .error s!"field 'as_form' must be a boolean in {j.compress}"
+  | "coset" =>
+      -- decoded THROUGH the canonicalizing constructor, exactly as `alg` is
+      -- decoded through `mkAlg` and `span` through `mkSpan`: a frame carrying
+      -- any representative of the coset becomes the one with constant term
+      -- zero, so a decoded coset compares equal to the same coset computed here
+      let (offset, kernel) ← Value.mkCoset (← valueFromJson (← field j "offset"))
+        (← domainFromJson (← field j "kernel"))
+      return .cosetV offset kernel
   | other => .error s!"unknown value tag {repr other} in {j.compress}"
 
 end CasDsl.Codec

@@ -81,6 +81,21 @@ syntax:max (name := casNum) num : casTerm
 syntax:max (name := casIdent) ident : casTerm
 syntax:max (name := casParen) "(" casTerm ")" : casTerm
 
+/-- A PARENTHESIZED coefficient against an atom-or-power — SPEC.md's
+`x³ + (1/2)x² + x`, and the spelling this system's own polynomial renderer
+produces for a non-integer coefficient (`(1/2)x^2`, so that it reads as a
+product rather than as one rational). Without this production the surface
+could not READ BACK what it prints, which is what `assert ∫ f dx = x³ +
+(1/2)x² + x + ℚ` asks it to do.
+
+The right operand is `casTerm:76`, the same atom-or-power `casImplMul` takes,
+so the two spellings of an implicit product agree about the exponent. The two
+guards keep it disjoint from the productions a `)` already continues into: a
+call (`(f ∘ g)(t)`) and an index. `noWs` carries the usual guarantee, and is
+also what leaves `(6x + 1) dx` — with its space — to the differential form. -/
+syntax:max (name := casParenMul)
+  "(" casTerm ")" noWs notFollowedBy("(") notFollowedBy("[") casTerm:76 : casTerm
+
 /-- SPEC.md's vectors — `(1, 2)`, `(1, 0, 1)`. TWO components at least, which
 is what keeps it disjoint from the parenthesized term above; the `noWs` on
 `casApply` is what keeps a tuple written after a name from being read as a
@@ -191,6 +206,13 @@ of nothing here. -/
 
 syntax:max (name := casDxAtom) "dx" : casTerm
 syntax:70 (name := casDiffForm) casTerm:71 "dx" : casTerm
+
+/-- SPEC.md §Indefinite integration's `∫ f dx` — the COMPLETE set of
+primitives, a coset of `ker(d/dx)`. The integrand is an ATOM (`casTerm:max`)
+for the reason `∑`'s body is one: `= x³ + …` on the right of an assertion
+ends it exactly where the mathematician wrote it, and a wider integrand is
+parenthesized. -/
+syntax:max (name := casIntegral) "∫" casTerm:max "dx" : casTerm
 
 /-- SPEC.md §Differentials' `Spec ℚ[x]` — the affine scheme of a ring, and an
 ASCRIPTION TAG at this stage (DESIGN.md §Differentials).
@@ -370,6 +392,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
       return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (← toExpr stx[1])
   | ``casIdent => return .ref stx[0].getId
   | ``casParen => toExpr stx[1]
+  | ``casParenMul => return .bin .mul (← toExpr stx[1]) (← toExpr stx[3])
   | ``casTuple => do
       let rest ← stx[3].getSepArgs.mapM toExpr
       return .vecLit (#[← toExpr stx[1]] ++ rest)
@@ -399,6 +422,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   -- which is what makes `(d/dx)` a quotient of two names the surface can read
   | ``casDxAtom => return .diffForm (.num 1)
   | ``casSpec => return .specOf (← toExpr stx[1])
+  | ``casIntegral => return .integral (← toExpr stx[1])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
   | ``casBigSum => return .aggregate `sum stx[3].getId (← toExpr stx[5]) (← toExpr stx[7])
@@ -516,6 +540,7 @@ private def valueJson (d : Denote) : Json :=
   | none, some (.arithProg dom first step last?) =>
       Codec.valueToJson (.progV dom first step last?)
   | none, some (.span n basis) => Codec.valueToJson (.spanV n basis)
+  | none, some (.coset offset kernel) => Codec.valueToJson (.cosetV offset kernel)
   -- spelled out rather than a wildcard: a new set presentation must fail this
   -- build and be decided, not silently publish `null`
   | none, some (.domainSet _) | none, some (.product _ _) | none, some (.powerset _)

@@ -102,6 +102,9 @@ inductive CasExpr where
   | diffForm (p : CasExpr)
   /-- `Spec R` — the affine scheme of a ring, an ascription TAG. -/
   | specOf (ring : CasExpr)
+  /-- `∫ f dx` — the complete set of primitives of `f`, a COSET of
+  `ker(d/dx)`. The `antiderivative` method, applied by elaboration. -/
+  | integral (f : CasExpr)
   /-- `kernel(d/dx : ℚ[x] → ℚ[x])` — the kernel of a DERIVATION, which is the
   constants of its ring. The arrow is ascribed rather than inferred because a
   derivation names no domains of its own. -/
@@ -647,6 +650,27 @@ def prefixMethodCall? (isBound : Name → Bool) (env : Environment)
       else args[0]?.map fun recv => .method recv n (args.extract 1 args.size)
   | _ => none
 
+/-- The two sides of a coset comprehension's guard, as `(point, other)`.
+
+CEILING, and it is what makes the solve EXACT rather than a fit: exactly one
+side must be an application of the BINDER at a point — SPEC.md's `h(0) = 0`.
+The members of `p + K` are `p + c` with `c` in the constants, so `h(a)` is
+`p(a) + c` and the equation is linear in `c` with slope one BY THE SHAPE, not
+by an assumption about it. A guard of any other shape is refused. -/
+def cosetGuardSides (binder : Name) (l r : CasExpr)
+    : Except String (CasExpr × CasExpr) :=
+  match l, r with
+  | .app (.ref b) #[pt], other => if b == binder then .ok (pt, other) else notEval
+  | other, .app (.ref b) #[pt] => if b == binder then .ok (pt, other) else notEval
+  | _, _ => notEval
+where
+  notEval : Except String (CasExpr × CasExpr) :=
+    .error s!"a comprehension over a COSET is decided for an EVALUATION guard \
+— SPEC.md writes `\{h ∈ ∫ f dx | h(0) = 0}` — where one side applies the \
+binder '{binder}' at a point. The members of a coset differ by a constant, so \
+that shape solves for the constant EXACTLY; any other shape is a gap rather \
+than a fit"
+
 /-- Is `a / b` SPEC.md's derivation `d/dx` rather than a quotient? Only when
 both names are free: a binding wins, exactly as it does over a constant. The
 LETTER needs no check: `dx` is the surface's own token for the differential of
@@ -832,6 +856,7 @@ def ofValue (v : Value) : Denote :=
   | .setV elems dom => .obj (.setObj (.finite dom elems))
   | .progV dom first step last? => .obj (.setObj (.arithProg dom first step last?))
   | .spanV n basis => .obj (.setObj (.span n basis))
+  | .cosetV offset kernel => .obj (.setObj (.coset offset kernel))
   | v =>
     match valueDom? v with
     | some d => .obj (.elem d v)
@@ -904,6 +929,7 @@ def renderPattern : PresPattern → String
   | .powersetSet => "a powerset"
   | .domainDiffSet => "a difference of two domains"
   | .spanSet => "a subspace of ℚⁿ"
+  | .cosetSet => "a coset of the constants"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .specObj => "an affine scheme"
@@ -1247,6 +1273,23 @@ difference of sets that have elements is `\\`, which computes it — \
         else
           return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .sub
             (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
+  | .bin .add a b => do
+      -- SPEC.md §Indefinite integration writes `x³ + (1/2)x² + x + ℚ` on the
+      -- right of an assertion: a value plus a DOMAIN denotes the COSET of
+      -- that domain, exactly as `A × B`, `𝒫(A)` and `ℂ - ℚ` denote — built by
+      -- elaboration, no method, no route. It goes through `Value.mkCoset`, so
+      -- the coset a mathematician writes and the one `∫` computes are the
+      -- same value however either was spelled
+      let x ← eval ctx a
+      let y ← eval ctx b
+      match y with
+      | .obj (.domainObj k) =>
+          let v ← ofStr (asValueOf x "the offset of a coset")
+          let (offset, kernel) ← ofStr (Value.mkCoset v k)
+          return .obj (.setObj (.coset offset kernel))
+      | _ =>
+        return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .add
+          (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
   | .bin op a b => do
       let x ← ofStr (asValueOf (← eval ctx a))
       let y ← ofStr (asValueOf (← eval ctx b))
@@ -1272,6 +1315,12 @@ difference of sets that have elements is `\\`, which computes it — \
         | throw (.msg s!"{v.render} is not a coefficient of Ω¹_\{k[x]/k}: a \
 differential 1-form here is a POLYNOMIAL against the free generator `dx`")
       return Denote.ofValue (.diff1 c v)
+  -- SPEC.md's `∫ f dx`: the `antiderivative` METHOD, applied by elaboration
+  -- exactly as the derivation is. What comes back is a COSET — the complete
+  -- set of primitives, which is what SPEC.md's `+ ℚ` says
+  | .integral f => do
+      let recv ← ofStr (asObjOf (← eval ctx f))
+      callMethod ctx recv `antiderivative #[]
   | .specOf ring => do
       let r ← eval ctx ring
       let .obj (.domainObj d) := r
@@ -1532,6 +1581,25 @@ domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → 
   -- to `roots` — same method, same route, same backend, one implementation.
   | .rootSet binder index lhs rhs => do
       let idx ← eval ctx index
+      -- SPEC.md §Indefinite integration's `{h ∈ ∫ f dx | h(0) = 0}` — the same
+      -- production, over a COSET rather than a domain. It is a different
+      -- equation to solve and it is solved differently, and the ceiling is
+      -- stated rather than approximated: the guard must EVALUATE the binder at
+      -- a point. `h(a) = p(a) + c` exactly (the kernel is the constants), so
+      -- `c = b − p(a)` is the unique solution — no search, no sampling, and no
+      -- assumption about a slope, because the SHAPE is checked before the
+      -- arithmetic runs.
+      if let some (.coset offset kernel) := idx.asSet? then
+        let (pt, other) ← ofStr (cosetGuardSides binder lhs rhs)
+        let a ← ofStr (asValueOf (← eval ctx pt) "the point a coset guard evaluates at")
+        let b ← ofStr (asValueOf (← eval ctx other) "the other side of a coset guard")
+        let some (c, cs) := asPolyCoeffs offset
+          | throw (.msg s!"{offset.render} is not a polynomial offset")
+        let v0 ← ofStr (Native.polyEval c cs a)
+        let k ← ofStr (valueBin ctx.canonMaps .sub b v0)
+        let sol ← ofStr (valueBin ctx.canonMaps .add offset k)
+        let solD ← ofStr (coerceValue ctx.canonMaps (.poly kernel) sol)
+        return .obj (.setObj (.finite (.poly kernel) #[solD]))
       let some (.domainSet d) := idx.asSet?
         | throw (.msg s!"`\{x ∈ D | p(x) = q(x)}` is the set of solutions in a \
 DOMAIN D, and {idx.presentation} is not one")
@@ -1919,7 +1987,7 @@ partial def polyIndet? (env : Environment) : CasExpr → Option (Name × Domain)
   | .app f args => polyIndet? env f <|> anyOf env args
   | .method r _ args => polyIndet? env r <|> anyOf env args
   | .bin _ a b => polyIndet? env a <|> polyIndet? env b
-  | .neg a | .diffForm a => polyIndet? env a
+  | .neg a | .diffForm a | .integral a => polyIndet? env a
   | _ => none
 where
   anyOf (env : Environment) (es : Array CasExpr) : Option (Name × Domain) :=

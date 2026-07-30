@@ -540,8 +540,43 @@ assert (d/dx)(f) ≠ (6x + 1) dx
 assert d(f) ≠ (6x + 2) dx
 assert (d/dx)(f) ≠ 6x + 2
 
--- SPEC.md §Indefinite integration's `kernel(d/dx : ℚ[x] → ℚ[x])`
+/-! ### SPEC.md §Indefinite integration, verbatim
+
+`∫ f dx` is the COMPLETE set of primitives — a coset of `ker(d/dx)`, which is
+what SPEC.md's `+ ℚ` says. The coset's canonical representative has constant
+term zero, so a coset a mathematician writes and one `∫` computes compare as
+data however either was spelled. -/
+
 assert kernel(d/dx : ℚ[x] → ℚ[x]) = ℚ
+
+assert ∫ f dx = x³ + (1/2)x² + x + ℚ
+-- the SET is what is asserted, so any representative writes the same coset:
+-- two primitives differ by a constant, and the presentation says so
+assert ∫ f dx = x³ + (1/2)x² + x + 7 + ℚ
+-- …and a coset of a DIFFERENT function is a different set
+assert ∫ f dx ≠ x³ + x² + x + ℚ
+-- it is a set: countable, and its members are exactly the primitives
+assert |∫ f dx| = ℵ₀
+
+let Fs := {h ∈ ∫ f dx | h(0) = 0} in 𝒫(ℚ[x])
+assert Fs.cardinality() = 1
+assert Fs.cardinality() ≠ 2
+let F := Fs[0] in ℚ[x]
+
+assert F(x) = x³ + (1/2)x² + x
+assert d(F) = f dx
+assert (d/dx)(F) = f
+-- …the round trip in the other direction, and a wrong primitive
+assert F ∈ ∫ f dx
+assert F(x) ≠ x³ + (1/2)x² + x + 1
+
+-- a guard that pins a DIFFERENT constant picks a different primitive: the
+-- solve is exact, not a convention about which primitive is "the" one
+let Gs := {h ∈ ∫ f dx | h(0) = 5} in 𝒫(ℚ[x])
+let G := Gs[0] in ℚ[x]
+assert G(x) = x³ + (1/2)x² + x + 5
+assert G ∈ ∫ f dx
+assert (d/dx)(G) = f
 
 -- BOTH exponent spellings bind the same way: `2x^2` is `2·(x²)` (18 at 3),
 -- not `(2x)²` (36)

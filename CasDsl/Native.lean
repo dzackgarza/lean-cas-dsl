@@ -621,6 +621,14 @@ partial def presCard : SetPresentation → Except ExecError Cardinality
   -- set {0}: the basis size decides which, exactly as it decides the dimension
   | .span _ basis =>
       .ok (if basis.isEmpty then .finite 1 else .countablyInfinite)
+  -- a coset is in bijection with its KERNEL — translation is a bijection —
+  -- so its size is the kernel's, and nothing about the offset enters
+  | .coset _ kernel =>
+      match domainCard kernel with
+      | some c => .ok c
+      | none => .error (.badRequest
+          s!"the native backend cannot express the cardinality of a coset of \
+{kernel.render}")
   | .product a b => do return cardMul (← presCard a) (← presCard b)
   -- `|ℂ - ℚ|` is not a cardinal this slice can state, and neither is the
   -- general shape: an honest refusal, never a subtraction of cardinals
@@ -655,6 +663,9 @@ private inductive SetNormal where
   /-- A subspace of ℚⁿ, by its REDUCED basis — which is canonical, so this
   normal form compares as data exactly like the two above. -/
   | span (n : Nat) (basis : Array Value)
+  /-- A coset by its CANONICAL representative (constant term zero) and its
+  kernel — canonical for the same reason, so it compares as data too. -/
+  | coset (offset : Value) (kernel : Domain)
 
 private def scalarSortable (vs : Array Value) : Bool :=
   vs.all (fun v => match v with | .int _ | .rat _ => true | _ => false)
@@ -714,6 +725,9 @@ private def normalizeSet : Obj → Except ExecError SetNormal
   -- the basis arrives reduced (`Value.mkSpanBasis` is the only constructor),
   -- so the presentation IS the normal form
   | .setObj (.span n basis) => .ok (.span n basis)
+  -- the offset arrives canonical (`Value.mkCoset` is the only constructor),
+  -- so the presentation IS the normal form — the span's discipline exactly
+  | .setObj (.coset offset kernel) => .ok (.coset offset kernel)
   -- a denoted set has no canonical form here: comparing `A × B`, `𝒫(A)` or
   -- `ℂ - ℚ` with anything would need element lists this ontology does not
   -- present. (`ℂ - ℚ` is decided as the RIGHT side of an inclusion, below,
@@ -749,6 +763,9 @@ private def setNormalEq : SetNormal → SetNormal → Bool
   -- nonempty basis is infinite and is inside no finite list.
   | .span n a, .fin es | .fin es, .span n a =>
       a.isEmpty && es.size == 1 && Value.isSpanZero n es[0]!
+  -- two cosets are equal exactly when their canonical representatives and
+  -- their kernels are: no subtraction, no search
+  | .coset o1 k1, .coset o2 k2 => k1 == k2 && o1 == o2
   | _, _ => false
 
 /-! ## Inclusion by presentation normalization
@@ -815,6 +832,20 @@ progression starting {(Value.ofRat f).render} with step {(Value.ofRat s).render}
   -- infinite domain and an unbounded progression
   | .span n a, .fin es =>
       .ok (a.isEmpty && es.any (Value.isSpanZero n))
+  -- a coset of the constants is INFINITE (the kernel is), so it is inside no
+  -- finite list — the theorem the `dom` and `prog` arms above already use.
+  -- Everything else about it refuses: an inclusion between two cosets is a
+  -- claim this presentation does not decide
+  | .coset .., .fin _ => .ok false
+  | .fin es, .coset o _ => .ok (es.all (Value.cosetContains o))
+  | .coset .., rhs | rhs, .coset .. =>
+      let what := match rhs with
+        | .dom d => d.render
+        | .coset o k => s!"the coset {o.render} + {k.render}"
+        | _ => "that presentation"
+      .error (.badRequest
+        s!"the native backend decides inclusion in a coset of the constants \
+for an explicit finite set only; {what} is not one")
   | .span .., rhs | rhs, .span .. =>
       let what := match rhs with
         | .dom d => d.render
@@ -981,6 +1012,26 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
               scalarMul (.int (Int.ofNat (i + 1))) coeffs[i + 1]!)
       | o => .error (.badRequest
           s!"poly_derivative expects a polynomial receiver, got {o.presentation}")
+  -- SPEC.md §Indefinite integration's `∫ f dx`. NATIVE for the reason the
+  -- derivative is: `cᵢ/(i+1)` shifted up by one is exact coefficient
+  -- arithmetic this engine owns, so no backend is asked and none can lie.
+  -- The result is a COSET of the constants — the complete set of primitives,
+  -- not one of them — built through `Value.mkCoset`, which canonicalizes.
+  | "poly_antiderivative" =>
+      match o with
+      | .elem (.poly c) (.poly _ coeffs) =>
+          Except.mapError ExecError.badRequest do
+            -- `scalarDiv` lands in ℚ, so ∫ over ℤ[x] is a coset of ℚ[x]:
+            -- the antiderivative of an integer polynomial has rational
+            -- coefficients, and saying so is the whole of it
+            let kernel := if c == .int then Domain.rat else c
+            let up ← (Array.range coeffs.size).mapM fun i =>
+              scalarDiv coeffs[i]! (.int (Int.ofNat (i + 1)))
+            let (offset, k) ← Value.mkCoset
+              (Value.mkPoly kernel (#[Value.ofRat 0] ++ up)) kernel
+            return .cosetV offset k
+      | o => .error (.badRequest
+          s!"poly_antiderivative expects a polynomial receiver, got {o.presentation}")
   | "nth" => do
       let k ← natIndex args
       match o with
@@ -1022,6 +1073,12 @@ this slice presents no value for")
           let x ← scalarArg "contains" args
           return .bool (← Except.mapError ExecError.badRequest
             (Value.spanContains n basis x))
+      -- SPEC.md's `{h ∈ ∫ f dx | …}`: the kernel is the CONSTANTS, so
+      -- membership is exactly "agrees with the offset above degree zero" —
+      -- decided, with no subtraction and no search
+      | .setObj (.coset offset _) => do
+          let x ← scalarArg "contains" args
+          return .bool (Value.cosetContains offset x)
       | o =>
         let x ← scalarArg "contains" args
         match o with
@@ -1165,6 +1222,12 @@ private def nativeOpSigs : Array OpSig := #[
     accepts := #[.elemOf (.polyOver .anyDom)] },
   { backend := `native, opId := "poly_derivative",
     accepts := #[.elemOf (.polyOver .anyDom)] },
+  -- the antiderivative divides, so it accepts the two coefficient rings whose
+  -- fraction field this slice presents; over ℤ/n it is an honest capability
+  -- gap rather than an arm that guesses
+  { backend := `native, opId := "poly_antiderivative",
+    accepts := #[.elemOf (.polyOver (.exact .int)),
+                 .elemOf (.polyOver (.exact .rat))] },
   { backend := `native, opId := "nth",
     accepts := #[.domainIs (.exact .nat), .domainSetOf (.exact .nat),
                  .domainIs (.exact .int), .domainSetOf (.exact .int),

@@ -204,6 +204,17 @@ sense: the elements of a UFD" },
     doc := "the formal derivative d/dx: the coefficient of xⁱ becomes i·cᵢ, \
 shifted down by one. Exact coefficient arithmetic, so it is NATIVE and no \
 backend is asked — there is nothing here for one to get wrong" },
+  -- SPEC.md §Indefinite integration's `∫ f dx`. Declared beside `derivative`
+  -- for the same reason, and its RESULT is the whole point: the complete set
+  -- of primitives, a COSET of the constants, not one primitive with a
+  -- convention about which
+  { id := `antiderivative, receiver := `PolynomialElems,
+    resultDoc := "the coset `F + K` of ALL primitives, where K is the \
+constants of the ring",
+    doc := "the indefinite integral ∫ f dx: the complete set of primitives, \
+which is a coset of ker(d/dx). Exact coefficient arithmetic (cᵢ/(i+1) shifted \
+up by one), so it is NATIVE — and routed where the division lands somewhere \
+this slice presents" },
   { id := `deg, receiver := `PolynomialElems,
     resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },
@@ -445,6 +456,10 @@ private def stdProfileRules : Array ProfileRule := #[
   -- subspace of ℚⁿ is), which is its true strength. `nth` is then the honest
   -- gap ℤ[x] already carries: no enumeration of a subspace is registered.
   { pattern := .spanSet, cat := `CountableSets },
+  -- a coset of the constants is a SET whose elements are polynomials, and it
+  -- is COUNTABLE (it is in bijection with the kernel, and ℚ is). `nth` is then
+  -- the honest gap ℤ[x] and the subspace already carry
+  { pattern := .cosetSet, cat := `CountableSets },
   -- …and it is the object SPEC.md ascribes to QQ-Mod, which is where `dim`
   -- lives. Two INDEPENDENT memberships, exactly like a polynomial's: being a
   -- set does not make it a module, and neither implies the other
@@ -589,6 +604,13 @@ private def stdRoutes : Array Route := #[
   -- a computability question a backend could answer better
   { method := `derivative, pattern := .elemOf (.polyOver .anyDom),
     backend := `native, opId := "poly_derivative" },
+  -- …and the antiderivative DIVIDES, so it is routed for the two coefficient
+  -- rings whose fraction field this slice presents. Over ℤ/n it is the honest
+  -- capability gap `det` over ℤ/5 already is: meaningful, not executable
+  { method := `antiderivative, pattern := .elemOf (.polyOver (.exact .int)),
+    backend := `native, opId := "poly_antiderivative" },
+  { method := `antiderivative, pattern := .elemOf (.polyOver (.exact .rat)),
+    backend := `native, opId := "poly_antiderivative" },
   -- roots in the coefficient ring; ℤ[x] and ℚ[x] are routed, and a
   -- polynomial over ℤ/n is the honest gap
   { method := `roots, pattern := .elemOf (.polyOver (.exact .int)),
@@ -707,6 +729,7 @@ private def stdRepresentatives : Array Representative := #[
     (Value.mkPoly (.mod 5) #[Value.mkMod 5 1, Value.mkMod 5 1])),
   ("ℤ/4 as ℤ-module", .cyclicModule 4),
   ("Spec ℚ[x]", .specOf (.poly .rat)),
+  ("x^3 + ℚ ⊆ ℚ[x]", .setObj (.coset (Value.mkPoly .rat #[.rat 0, .rat 0, .rat 0, .rat 1]) .rat)),
   ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none)),
   -- the two DENOTED sets: countable/counted by cardinal arithmetic, and
   -- carrying the honest gaps for every operation that would need an element
@@ -914,6 +937,23 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
     `derivative [] `native
   -- …and it does not leak to a ring element that is not a polynomial
   expectNotApplicable env (.elem .int (.int 360)) `derivative
+  -- SPEC.md §Indefinite integration: the ANTIDERIVATIVE divides, so it routes
+  -- over ℤ[x] and ℚ[x] and carries the honest gap over ℤ/5[x] — the two
+  -- judgments separated in one method, exactly as `det` separates them
+  expectRouted env polyZ `antiderivative [] `native
+  expectRouted env polyQ `antiderivative [] `native
+  expectGap env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))
+    `antiderivative []
+  -- …and the coset it returns is a SET like any other: counted, compared and
+  -- tested for membership through the ordinary hierarchy, with `nth` the gap
+  -- ℤ[x] carries
+  expectRouted env (.setObj (.coset (Value.mkPoly .rat #[.rat 0, .rat 1]) .rat))
+    `cardinality [`Sets] `native
+  expectRouted env (.setObj (.coset (Value.mkPoly .rat #[.rat 0, .rat 1]) .rat))
+    `contains [`Sets] `native
+  expectRouted env (.setObj (.coset (Value.mkPoly .rat #[.rat 0, .rat 1]) .rat))
+    `set_eq [`Sets] `native
+  expectGap env (.setObj (.coset (Value.mkPoly .rat #[.rat 0, .rat 1]) .rat)) `nth []
   -- SPEC.md's `Spec ℚ[x] in Schemes/ℚ` is an ascription TAG and owns NOTHING:
   -- it is not a set, so none of the set methods reach it. That is the whole
   -- claim, and it is asserted rather than assumed
