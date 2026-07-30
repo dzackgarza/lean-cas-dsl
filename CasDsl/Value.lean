@@ -128,6 +128,19 @@ where
     String.ofList <| (toString n).toList.map fun c =>
       if c.isDigit then digits.toList[c.toNat - '0'.toNat]! else c
 
+/-- The same rendering in LaTeX (DESIGN.md §LaTeX-first display). A domain
+always has one — the ℤ/n spelling is the full `\mathbb{Z}/n\mathbb{Z}`, since
+`\mathbb{Z}/5` alone reads as a quotient by an element. -/
+partial def latex : Domain → String
+  | .nat => "\\mathbb{N}"
+  | .int => "\\mathbb{Z}"
+  | .rat => "\\mathbb{Q}"
+  | .real => "\\mathbb{R}"
+  | .mod n => "\\mathbb{Z}/" ++ toString n ++ "\\mathbb{Z}"
+  | .poly c => c.latex ++ "[x]"
+  | .matrix n e => "\\mathrm{Mat}_{" ++ toString n ++ "}(" ++ e.latex ++ ")"
+  | .funcs s t => s.latex ++ " \\to " ++ t.latex
+
 instance : ToString Domain := ⟨render⟩
 
 end Domain
@@ -154,11 +167,46 @@ def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
     cs := cs.pop
   return .poly coeff cs
 
+/-- How an exponent is spelled: `x^2` in plain text, `x^{2}` in LaTeX (braces
+always, so a multi-digit exponent does not fall out of the superscript). -/
+private def plainSup (i : Nat) : String := "^" ++ toString i
+private def latexSup (i : Nat) : String := "^{" ++ toString i ++ "}"
+
+/-- Term-joining for polynomials, shared by the plain and LaTeX renderers:
+the two differ only in the exponent spelling, so that is the parameter.
+Coefficients are scalars (`int`/`rat`/`mod`) whose two spellings agree, so
+the caller passes the plain coefficient renderer in both cases. -/
+private def renderPolyWith (x : String) (sup : Nat → String)
+    (coeff : Value → String) (coeffs : Array Value) : String := Id.run do
+  if coeffs.isEmpty then return "0"
+  let mut terms : List String := []
+  for i in [0:coeffs.size] do
+    let c := coeffs[i]!
+    let cs := coeff c
+    if cs == "0" then continue
+    let term :=
+      if i == 0 then cs
+      else
+        let p := if i == 1 then x else s!"{x}{sup i}"
+        if cs == "1" then p
+        else if cs == "-1" then s!"-{p}"
+        else if cs.contains '/' then s!"({cs}){p}"
+        else s!"{cs}{p}"
+    terms := term :: terms
+  if terms.isEmpty then return "0"
+  -- terms is highest-degree first; join with signs
+  let mut out := ""
+  for t in terms do
+    if out.isEmpty then out := t
+    else if t.startsWith "-" then out := out ++ " - " ++ (t.drop 1)
+    else out := out ++ " + " ++ t
+  return out
+
 partial def render : Value → String
   | .int z => toString z
   | .rat q => if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
   | .mod _ v => toString v
-  | .poly _ coeffs => renderPoly "x" coeffs
+  | .poly _ coeffs => renderPolyWith "x" plainSup render coeffs
   | .mat _ _ rows =>
       let r := rows.toList.map fun row =>
         ", ".intercalate (row.toList.map render)
@@ -168,8 +216,8 @@ partial def render : Value → String
         let base := match f with
           | .poly _ cs =>
               if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then
-                s!"({renderPoly "x" cs})"
-              else renderPoly "x" cs
+                s!"({renderPolyWith "x" plainSup render cs})"
+              else renderPolyWith "x" plainSup render cs
           | v => v.render
         if m == 1 then base else s!"{base}^{m}"
       let core := " * ".intercalate fs
@@ -192,36 +240,77 @@ partial def render : Value → String
       -- the `x` a bare polynomial renders with
       let t := toString binder
       let b := match body with
-        | .poly _ cs => renderPoly t cs
+        | .poly _ cs => renderPolyWith t plainSup render cs
         | v => v.render
       s!"{t} ↦ {b}"
-where
-  renderPoly (x : String) (coeffs : Array Value) : String := Id.run do
-    if coeffs.isEmpty then return "0"
-    let mut terms : List String := []
-    for i in [0:coeffs.size] do
-      let c := coeffs[i]!
-      let cs := c.render
-      if cs == "0" then continue
-      let term :=
-        if i == 0 then cs
-        else
-          let p := if i == 1 then x else s!"{x}^{i}"
-          if cs == "1" then p
-          else if cs == "-1" then s!"-{p}"
-          else if cs.contains '/' then s!"({cs}){p}"
-          else s!"{cs}{p}"
-      terms := term :: terms
-    if terms.isEmpty then return "0"
-    -- terms is highest-degree first; join with signs
-    let mut out := ""
-    for t in terms do
-      if out.isEmpty then out := t
-      else if t.startsWith "-" then out := out ++ " - " ++ (t.drop 1)
-      else out := out ++ " + " ++ t
-    return out
 
 instance : ToString Value := ⟨render⟩
+
+/-- The element a progression shows after its first (`{0, 2, …}` needs the
+`2`), when the step is one the presentation can actually take. -/
+private def progSecondLatex : Value → Value → String
+  | .int a, .int d => toString (a + d)
+  | _, _ => "\\ldots"
+
+/-- The LaTeX form of a value, or `none` when it has no natural one — in
+which case the cell emits `text/plain` alone (DESIGN.md §LaTeX-first
+display). A missing form is the documented fallback, never a failure.
+
+Conventions: braced exponents, `\cdot` between factors, an inline solidus
+for rationals (`3/2`, parenthesized as a polynomial coefficient exactly as
+in plain text), `\mathbb` for the number systems, `\aleph_0`, `\{ \}` for
+set braces. Every string is math-mode LaTeX: no raw Unicode (`ℤ`, `↦`)
+survives here, because MathJax does not typeset it. -/
+partial def latex? : Value → Option String
+  | .int z => some (toString z)
+  | .rat q => some (if q.den == 1 then toString q.num else s!"{q.num}/{q.den}")
+  | .mod _ v => some (toString v)
+  | .poly _ coeffs => some (renderPolyWith "x" latexSup render coeffs)
+  | .mat _ _ rows => do
+      let rs ← rows.mapM fun row => do
+        let cs ← row.mapM latex?
+        return " & ".intercalate cs.toList
+      return "\\begin{pmatrix} " ++ " \\\\ ".intercalate rs.toList ++ " \\end{pmatrix}"
+  | .factorization unit factors _ => do
+      let fs ← factors.mapM fun (f, m) => do
+        let base ← match f with
+          | .poly _ cs =>
+              let p := renderPolyWith "x" latexSup render cs
+              some (if (cs.filter (· != .int 0)).size > 1 ∨ cs.size > 2 then s!"({p})" else p)
+          | v => latex? v
+        return if m == 1 then base else base ++ latexSup m
+      let core := " \\cdot ".intercalate fs.toList
+      match unit with
+      | .int 1 => return if fs.isEmpty then "1" else core
+      | .rat q => return if q == 1 then core else s!"{q.num}/{q.den} \\cdot {core}"
+      | u => do
+          let us ← latex? u
+          return if fs.isEmpty then us else s!"{us} \\cdot {core}"
+  | .idealV gens _ => do
+      let gs ← gens.mapM latex?
+      return "(" ++ ", ".intercalate gs.toList ++ ")"
+  -- `setV`/`progV` are what an executor returns; `Denote.ofValue` turns both
+  -- into set OBJECTS before display, so these agree with `SetPresentation`
+  | .setV elems _ => do
+      let es ← elems.mapM latex?
+      return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
+  | .progV _ first step last? => do
+      let f ← first.latex?
+      let tail ← match last? with
+        | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
+        | none => some ", \\ldots"
+      return "\\{" ++ f ++ ", " ++ progSecondLatex first step ++ tail ++ "\\}"
+  | .cardinal (.finite n) => some (toString n)
+  | .cardinal .countablyInfinite => some "\\aleph_0"
+  -- a truth value is the documented no-natural-form case: `\text{true}` is
+  -- typesetting prose, not mathematics
+  | .bool _ => none
+  | .func _ _ binder body => do
+      let t := toString binder
+      let b ← match body with
+        | .poly _ cs => some (renderPolyWith t latexSup render cs)
+        | v => latex? v
+      return t ++ " \\mapsto " ++ b
 
 end Value
 
@@ -246,6 +335,22 @@ partial def render : SetPresentation → String
 
 instance : ToString SetPresentation := ⟨render⟩
 
+/-- The LaTeX form of a set presentation. `none` propagates from an element
+that has none. -/
+partial def latex? : SetPresentation → Option String
+  | .finite _ elems => do
+      let es ← elems.mapM Value.latex?
+      return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
+  | .arithProg _ first step last? => do
+      let f ← first.latex?
+      let tail ← match last? with
+        | some l => do let ls ← l.latex?; some (", \\ldots, " ++ ls)
+        | none => some ", \\ldots"
+      return "\\{" ++ f ++ ", " ++ Value.progSecondLatex first step ++ tail ++ "\\}"
+  | .domainSet d => some d.latex
+  | .product a b => do return (← latex? a) ++ " \\times " ++ (← latex? b)
+  | .powerset s => do return "\\mathcal{P}(" ++ (← latex? s) ++ ")"
+
 end SetPresentation
 
 namespace Obj
@@ -255,6 +360,16 @@ def render : Obj → String
   | .domainObj d => d.render
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
+
+/-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
+`\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
+category-bound (DESIGN.md §Surface), so displaying the module as its
+underlying object would be a display-level lie. -/
+def latex? : Obj → Option String
+  | .elem _ v => v.latex?
+  | .domainObj d => some d.latex
+  | .setObj s => s.latex?
+  | .cyclicModule _ => none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String

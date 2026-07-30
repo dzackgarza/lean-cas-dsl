@@ -63,6 +63,21 @@ def all_text(outputs: list[Any]) -> str:
     return "".join(chunks)
 
 
+def bundles(outputs: list[Any]) -> list[dict[str, Any]]:
+    """The MIME bundles a cell published — what a notebook front end renders."""
+    return [m["content"]["data"] for m in outputs
+            if m["msg_type"] in ("display_data", "execute_result")]
+
+
+def bundle(kc: Any, code: str) -> dict[str, Any]:
+    """The single MIME bundle of a successful display cell."""
+    reply, outputs = run_cell(kc, code)
+    assert reply["status"] == "ok", f"cell failed: {code!r}\n{all_text(outputs)}"
+    bs = bundles(outputs)
+    assert len(bs) == 1, f"{code!r} published {len(bs)} bundles, expected 1"
+    return bs[0]
+
+
 def ok(kc: Any, code: str) -> str:
     reply, outputs = run_cell(kc, code)
     text = all_text(outputs)
@@ -673,6 +688,94 @@ def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> Non
     ok(kc, "let cmset := {cmb ∈ ℤ | cmb² ≤ 1}")
     text = err(kc, "cmb")
     assert "'cmb' is not bound" in text
+
+
+# -- 12 · LaTeX-first display (#16) ---------------------------------------
+
+def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
+    _, kc = kernel
+    # issue #16's three expected shapes, exactly. The payload is the math
+    # wrapped in `$…$`, which is what makes a notebook typeset it with no
+    # show() call; `text/plain` stays in the bundle as the fallback.
+    ok(kc, "let ln := 360 in ℤ")
+    b = bundle(kc, "ln.factor()")
+    assert b["text/latex"] == r"$2^{3} \cdot 3^{2} \cdot 5$"
+    assert b["text/plain"] == "2^3 * 3^2 * 5"
+
+    ok(kc, "let lM := [1, 2; 3, 4] in Mat₂(ℚ)")
+    b = bundle(kc, "lM.inverse()")
+    assert b["text/latex"] == (
+        r"$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$")
+    assert b["text/plain"] == "[-2, 1; 3/2, -1/2]"
+
+    ok(kc, "let lq(x) := x^3 - 2x + 1 in ℤ[x]")
+    b = bundle(kc, "lq")
+    assert b["text/latex"] == r"$x^{3} - 2x + 1$"
+    assert b["text/plain"] == "x^3 - 2x + 1"
+
+
+def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
+    _, kc = kernel
+    # every LaTeX payload is math-mode LaTeX: MathJax does not typeset the raw
+    # ℤ/↦/ℵ₀ the plain rendering uses, so nothing non-ASCII may reach it
+    for code, expected in (
+            ("lq.roots()", r"$\{1\}$"),
+            ("{0, 2, 4, ...}", r"$\{0, 2, \ldots\}$"),
+            ("{1, 2, 3}", r"$\{1, 2, 3\}$"),
+            ("𝒫({1, 2})", r"$\mathcal{P}(\{1, 2\})$"),
+            ("ℤ", r"$\mathbb{Z}$"),
+            ("ℤ/5", r"$\mathbb{Z}/5\mathbb{Z}$"),
+            ("|{0, 2, 4, ...}|", r"$\aleph_0$"),
+            ("|{1, 2, 3}|", "$3$")):
+        b = bundle(kc, code)
+        assert b["text/latex"] == expected, code
+        assert b["text/latex"].isascii(), code
+        assert "text/plain" in b, code
+
+
+def test_a_value_with_no_latex_form_emits_plain_text_only(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # a truth value: `\text{true}` would be typeset prose, not mathematics
+    ok(kc, "let lb := 7 in ℤ")
+    b = bundle(kc, "lb.is_prime()")
+    assert b["text/plain"] == "true"
+    assert "text/latex" not in b
+    assert "application/vnd.casdsl.value+json" in b
+    # the module fixture: displaying it as ℤ/4ℤ would be the RING, and
+    # equality here is category-bound
+    ok(kc, "let lF := ℤ/4 in SmallModules(ℤ)")
+    b = bundle(kc, "lF")
+    assert b["text/plain"] == "ℤ/4 as ℤ-module"
+    assert "text/latex" not in b
+
+
+def test_assertions_and_diagnostics_stay_textual(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a check-mark is not mathematics: an assertion publishes no bundle at all
+    _, outputs = run_cell(kc, "assert 2 + 3 = 5")
+    assert bundles(outputs) == []
+    assert "✓" in all_text(outputs)
+    for diagnostic in ("#explain_route ln.factor()", "#capabilities",
+                       "#capability_gaps", "#canonical_maps"):
+        b = bundle(kc, diagnostic)
+        assert "text/latex" not in b, diagnostic
+        assert "text/plain" in b, diagnostic
+
+
+def test_the_value_payload_carries_a_set_result(kernel: Kernel) -> None:
+    _, kc = kernel
+    # the ceiling set display first exposed: a set OBJECT has no element-shaped
+    # `Denote.value?`, and the payload used to carry a bare null for it
+    b = bundle(kc, "lq.roots()")
+    payload = b["application/vnd.casdsl.value+json"]
+    assert payload["value"]["t"] == "set"
+    assert payload["value"]["elems"] == [{"t": "int", "v": "1"}]
+    b = bundle(kc, "{0, 2, 4, ...}")
+    assert b["application/vnd.casdsl.value+json"]["value"]["t"] == "progression"
+    # a DENOTED set has no wire value and says so — that is the honest answer
+    b = bundle(kc, "𝒫({1, 2})")
+    assert b["application/vnd.casdsl.value+json"]["value"] is None
 
 
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:

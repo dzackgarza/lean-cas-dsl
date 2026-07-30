@@ -64,6 +64,7 @@ or picks a different operation.
 
 ```text
 CasDsl/Value.lean       Domain, Value, SetPresentation, Obj  (core data model)
+                        + their plain-text and LaTeX renderings
 CasDsl/Category.lean    CatRef, category/method/functor/route/canonical-map TYPES
 CasDsl/Registry.lean    env extensions + registration API (semantic state)
 CasDsl/Resolve.lean     the method resolver (the ONE lookup boundary)
@@ -636,6 +637,73 @@ Parser decisions (load-bearing):
 Ellipses implement exactly the Haskell-style progressions
 `{a, ...} {a, b, ...} {a, ..., z} {a, b, ..., z}`; nothing more.
 
+## LaTeX-first display (`Value.lean`, `Syntax.lean`, issue #16)
+
+A result that has a natural LaTeX form is typeset by default — no `show()`,
+no opt-in. Every presentation carries `latex?` alongside `render`:
+
+```lean
+Domain.latex           : Domain → String            -- a domain always has one
+Value.latex?           : Value → Option String
+SetPresentation.latex? : SetPresentation → Option String
+Obj.latex?             : Obj → Option String
+Denote.latex?          : Denote → Option String
+```
+
+`none` is the DOCUMENTED FALLBACK, not a failure: the cell then emits
+`text/plain` alone. `none` propagates out of containers, so a set whose
+elements have no form has none either.
+
+`elabCasShow` is the one emission seam. Its bundle is `text/plain`, then
+`text/latex` when there is one, then the `vnd.casdsl.value+json` payload —
+plain text is in EVERY bundle, so a consumer that does not render LaTeX
+loses nothing. The LaTeX payload is the math wrapped in `$…$`: the renderers
+produce bodies (composable, and what the `#guard` pins state), and the
+delimiters that make MathJax pick the payload up are added at emission.
+
+Conventions (one spelling each, chosen once):
+
+| shape | LaTeX |
+|----|----|
+| exponent | braced always — `x^{3}`, `2^{3}` (`x^12` typesets as x¹·2) |
+| rational | inline solidus `3/2`, never `\frac`; `(1/2)x` as a coefficient |
+| number systems | `\mathbb{N} \mathbb{Z} \mathbb{Q} \mathbb{R}`, and `\mathbb{Z}/5\mathbb{Z}` (`\mathbb{Z}/5` reads as a quotient by an element) |
+| matrix | `\begin{pmatrix} … \\ … \end{pmatrix}` |
+| factorization | `\cdot` between every factor; polynomial factors parenthesized as in plain text |
+| sets | `\{ \}`, progressions `\{0, 2, \ldots\}`, powerset `\mathcal{P}(A)`, product `\times` |
+| cardinals, functions | `\aleph_0`, `t \mapsto t^{2} + 1` |
+| matrices' domain | `\mathrm{Mat}_{2}(\mathbb{Q})` |
+
+Everything emitted is math-mode LaTeX: no raw `ℤ`, `↦` or `ℵ₀` survives into
+a payload, because MathJax does not typeset them.
+
+Textual on purpose (no `text/latex`, and no bundle at all — these are
+`logInfo` lines): assertion check-marks, every diagnostic (`#explain_route`,
+`#capabilities`, `#capability_gaps`, `#canonical_maps` keep their
+`text/plain` + `vnd` bundle), capability-gap refusals, all error messages,
+and the binding echo `h := t ↦ t² + 1 ∈ ℝ → ℝ`. The echo is a *statement
+about* a binding rather than a value display, and it reaches the notebook as
+a log line with no MIME bundle to put LaTeX in; typesetting it would mean
+inventing a bundle for it, which is a display change, not this one.
+
+Values with NO natural form, deliberately:
+
+- a truth value (`m.is_prime()` displays `true`) — `\text{true}` is typeset
+  prose, not mathematics;
+- the module fixture `cyclicModule n` — `\mathbb{Z}/4\mathbb{Z}` typeset
+  alone is the RING, and equality here is category-bound (§Surface), so it
+  would be a display-level lie.
+
+The `value+json` payload of a set result: RESOLVED, in the display seam.
+`Denote.value?` is element-shaped by design (it feeds arithmetic and
+comparison, where a set is not an operand), so a set OBJECT has none, and
+`p.roots()` used to publish `"value": null`. `valueJson` now falls back to
+`Denote.asSet?` and encodes the two set shapes that have wire forms
+(`setV`, `progV`); the DENOTED sets — `A × B`, `𝒫(A)`, `ℤ` — have no `Value`
+and stay null, which is the honest answer rather than a gap. The evaluator's
+`value?` is untouched: this is a rendering decision and stays in the
+renderer.
+
 ## Standard universe (`Std.lean`)
 
 Category graph (names; `≤` = registered parent edge):
@@ -730,7 +798,8 @@ Formerly open questions, now user-decided — none was silently resolved:
   category machinery;
 - **backend provenance**: never default output — an opt-in `info`-level
   logging layer with per-line/per-cell verbosity directives (issue #8);
-  results themselves become LaTeX-first with plain-text fallback (#16);
+  results themselves become LaTeX-first with plain-text fallback (#16 —
+  shipped, §LaTeX-first display);
 - **retry/migration policy**: ADOPTED — no automatic retry or migration,
   ever. Backend failure is a structured report; re-running a cell is the
   user's explicit act and re-routes from scratch. Revisit only when

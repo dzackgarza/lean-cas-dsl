@@ -581,6 +581,12 @@ def presentation : Denote → String
   | .obj o => o.presentation
   | .val v => v.render
 
+/-- The LaTeX form of what this denotes, or `none` when it has none and the
+cell emits `text/plain` alone (DESIGN.md §LaTeX-first display). -/
+def latex? : Denote → Option String
+  | .obj o => o.latex?
+  | .val v => v.latex?
+
 def value? : Denote → Option Value
   | .val v => some v
   | .obj (.elem _ v) => some v

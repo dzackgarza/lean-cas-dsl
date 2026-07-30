@@ -267,10 +267,19 @@ of a set literal"
 
 /-! ## Rendering results -/
 
+/-- The wire value behind a result. A set OBJECT has no `Denote.value?` — the
+evaluator's value seam is deliberately element-shaped — but the two set
+presentations an executor can return do have wire forms, so the payload
+carries them instead of the null it used to carry for `p.roots()`. The
+denoted sets (`A × B`, `𝒫(A)`, `ℤ`) have no `Value` and stay null: that is
+the honest answer, not a gap. -/
 private def valueJson (d : Denote) : Json :=
-  match d.value? with
-  | some v => Codec.valueToJson v
-  | none => Json.null
+  match d.value?, d.asSet? with
+  | some v, _ => Codec.valueToJson v
+  | none, some (.finite dom elems) => Codec.valueToJson (.setV elems dom)
+  | none, some (.arithProg dom first step last?) =>
+      Codec.valueToJson (.progV dom first step last?)
+  | none, _ => Json.null
 
 private def denoteJson (d : Denote) : Json :=
   Json.mkObj
@@ -348,14 +357,18 @@ def elabCasAssert (lhs relStx rhs : Syntax) (tail? : Option Syntax)
 {stated} are not comparable"
 
 /-- A bare expression cell: display the value as text and as a structured
-MIME bundle. -/
+MIME bundle. LaTeX-first (#16): a value with a natural LaTeX form carries it
+as `text/latex`, wrapped in `$…$` so the notebook's MathJax picks it up
+without a `show()`, and `text/plain` stays in the bundle as the fallback
+every consumer can read. A value with no LaTeX form emits plain text alone. -/
 def elabCasShow (stx : Syntax) : CommandElabM Unit := do
   let d ← runCas (eval (← casCtx) (← parseCas stx))
   logInfo d.render
   emitOutput {
     data :=
-      [("text/plain", .str d.render),
-       ("application/vnd.casdsl.value+json", denoteJson d)]
+      [("text/plain", .str d.render)]
+      ++ (d.latex?.toList.map fun l => ("text/latex", Json.str s!"${l}$"))
+      ++ [("application/vnd.casdsl.value+json", denoteJson d)]
   }
 
 /-! ## Commands
