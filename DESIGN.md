@@ -613,6 +613,7 @@ EuclideanElems ≤ FactorizationElems ≤ CommRingElems
 SmallModules ≤ Modules            (the plan's inheritance demo)
 MatrixElems                       (dets/inverses; params (n, entry))
 PolynomialElems                   (deg/roots; params (the ring))
+FunctionElems                     (image; params (the arrow src → tgt))
 ```
 
 Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
@@ -621,9 +622,11 @@ PolynomialElems(ℚ[x])}; `M ∈ Mat₂(ℚ)` ∈ {MatrixElems(2, ℚ)};
 `cyclicModule n` ∈ {SmallModules(ℤ)}. `ℤ[x]`/`ℚ[x]` as domainObjs are
 CountableSets, which is what `p ∈ ℤ[x]` asks of them.
 
-Methods: `factor`, `gcd` on FactorizationElems; `deg`, `roots` on
-PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on Modules;
-`nth`, `cardinality`, `contains` on the set hierarchy. Inheritance is
+Methods: `factor`, `gcd`, `is_prime` on FactorizationElems; `deg`, `roots`
+on PolynomialElems; `det`, `inverse` on MatrixElems; `annihilator` on
+Modules; `image` on FunctionElems; `nth`, `cardinality`, `contains`,
+`set_eq`, `subset`, `union`, `intersect`, `diff`, `symdiff` on the set
+hierarchy. Inheritance is
 exercised twice for real: `factor` reaches integers via `EuclideanElems ≤
 FactorizationElems`, and `annihilator` reaches the fixture via
 `SmallModules ≤ Modules` with **no forwarding declaration**.
@@ -648,10 +651,12 @@ The deliberate capability gaps shipped by the universe (honest, auditable):
 `det`/`inverse` on matrices whose entry domain is not ℚ — `det` is
 meaningful on any `MatrixElems` member, only ℚ-entry matrices are routed,
 and `Mat₂(ℤ/5).det()` is the notebook's fails-on-purpose demo. Alongside it,
-`gcd` outside ℤ (gcds exist in every UFD; only the ℤ route is registered),
-`roots` outside ℤ[x]/ℚ[x], and `nth` on ℤ[x] (countable, no enumeration
-registered) — each one available, none executable, all asserted as gaps by
-the proofs at the end of `Std.lean`. (The
+`gcd` and `is_prime` outside ℤ (both are meaningful in every UFD; only the
+ℤ routes are registered), `roots` outside ℤ[x]/ℚ[x], `nth` on ℤ[x]
+(countable, no enumeration registered), and the binary set operations on any
+receiver that is not an explicit finite list (`ℤ ∪ A`, `𝒫(A) ∪ A`) — each one
+available, none executable, all asserted as gaps by the proofs at the end of
+`Std.lean`. (The
 original gaps — `nth` on ℚ and `factor` on ℤ[x] — were routed in round
 three per the user-decided closure paths, #17/#18; the ℚ enumeration is
 the registered Cantor zigzag, revisitable like ℤ's convention.)

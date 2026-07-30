@@ -23,6 +23,7 @@ OPS = [
     "factor_poly_q",
     "factor_poly_z",
     "gcd_int",
+    "is_prime_int",
     "roots_poly_z",
     "roots_poly_q",
     "mat_det_q",
@@ -177,6 +178,24 @@ def check_gcd_int(adapter):
     print("gcd_int: ok")
 
 
+def check_is_prime_int(adapter):
+    def is_prime(n):
+        value = adapter.ok("is_prime_int", {"n": str(n)})
+        assert value["t"] == "bool", value
+        return value["v"]
+
+    assert is_prime(7) is True
+    assert is_prime(8) is False
+    # the boundary conventions are the BACKEND's (DESIGN.md decision 7), and
+    # this is what Sage's are — pinned so a change is visible, not guessed
+    assert is_prime(1) is False
+    assert is_prime(0) is False
+    assert is_prime(-7) is False
+    # a magnitude no 64-bit path could carry: 2^127 − 1 is a Mersenne prime
+    assert is_prime(2**127 - 1) is True
+    print("is_prime_int: ok")
+
+
 def check_roots(adapter):
     def elems(value, decode):
         assert value["t"] == "set", value
@@ -256,6 +275,7 @@ def main():
         check_factor_poly_q(adapter)
         check_factor_poly_z(adapter)
         check_gcd_int(adapter)
+        check_is_prime_int(adapter)
         check_roots(adapter)
         check_matrices(adapter)
         check_unsupported(adapter)

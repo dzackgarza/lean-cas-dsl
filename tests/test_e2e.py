@@ -581,6 +581,21 @@ def test_an_undecidable_comprehension_is_refused_at_the_binding(
     assert "arithmetic progression" in text
 
 
+def test_is_prime_is_a_ufd_method(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Ellipses writes `n.is_prime()`; primality is declared where
+    # primes exist — on UFD elements — and routed for ℤ
+    ok(kc, "let m7 := 7 in ℤ")
+    assert "true" in ok(kc, "m7.is_prime()")
+    ok(kc, "let m8 := 8 in ℤ")
+    assert "false" in ok(kc, "m8.is_prime()")
+    text = ok(kc, "#explain_route m7.is_prime()")
+    assert "sage" in text.lower() and "FactorizationElems" in text
+    # …so irreducibility in ℤ[x] is available and not executable
+    text = err(kc, "p.is_prime()")
+    assert "NoImplementation" in text and "is_prime" in text
+
+
 def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let cn := 100 in ℤ")

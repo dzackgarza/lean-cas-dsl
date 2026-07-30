@@ -156,6 +156,11 @@ def op_gcd_int(args):
     return enc_int(gcd(Integer(args["a"]), Integer(args["b"])))
 
 
+def op_is_prime_int(args):
+    """Primality in ZZ, by Sage's own convention (DESIGN.md decision 7)."""
+    return {"t": "bool", "v": bool(Integer(args["n"]).is_prime())}
+
+
 def _roots(ring, coeffs, enc, dom):
     """The SET of roots in the polynomial's own coefficient ring.
 
@@ -207,6 +212,7 @@ OPS = {
     "factor_poly_q": op_factor_poly_q,
     "factor_poly_z": op_factor_poly_z,
     "gcd_int": op_gcd_int,
+    "is_prime_int": op_is_prime_int,
     "roots_poly_z": op_roots_poly_z,
     "roots_poly_q": op_roots_poly_q,
     "mat_det_q": op_mat_det_q,

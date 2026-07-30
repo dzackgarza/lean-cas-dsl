@@ -112,6 +112,10 @@ private def gcdIntArgs (receiver : Obj) (args : Array Obj) : Except ExecError Js
       s!"sage op \"gcd_int\" takes one argument, got {as.size}")
   | o, _ => .error (offSignature "gcd_int" o)
 
+private def isPrimeIntArgs : Obj → Except ExecError Json
+  | .elem .int (.int z) => .ok (Json.mkObj [("n", toString z)])
+  | o => .error (offSignature "is_prime_int" o)
+
 private def rootsPolyZArgs : Obj → Except ExecError Json
   | .elem (.poly .int) (.poly _ coeffs) => do
       return Json.mkObj [("coeffs", Json.arr (← coeffs.mapM intArg))]
@@ -132,6 +136,7 @@ private def expectKind (op : String) (v : Value) : Except ExecError Value :=
   | "mat_det_q", .rat _ => .ok v
   | "mat_inv_q", .mat .. => .ok v
   | "gcd_int", .int _ => .ok v
+  | "is_prime_int", .bool _ => .ok v
   -- the EMPTY set is the honest answer for a polynomial with no root in its
   -- own coefficient ring (x² − 2 over ℚ), so it is a result like any other
   | "roots_poly_z", .setV .. => .ok v
@@ -157,6 +162,7 @@ def executor : Executor := fun opId receiver args => do
     | "roots_poly_z" => rootsPolyZArgs receiver
     | "roots_poly_q" => rootsPolyQArgs receiver
     | "gcd_int" => gcdIntArgs receiver args
+    | "is_prime_int" => isPrimeIntArgs receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with
   | .error e => return .error e
@@ -186,6 +192,7 @@ private def sageOpSigs : Array OpSig := #[
   { backend := `sage, opId := "mat_inv_q",
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
   { backend := `sage, opId := "gcd_int", accepts := #[.elemOf (.exact .int)] },
+  { backend := `sage, opId := "is_prime_int", accepts := #[.elemOf (.exact .int)] },
   { backend := `sage, opId := "roots_poly_z",
     accepts := #[.elemOf (.polyOver (.exact .int))] },
   { backend := `sage, opId := "roots_poly_q",

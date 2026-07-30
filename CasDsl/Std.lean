@@ -137,6 +137,10 @@ private def stdMethods : Array MethodDecl := #[
     resultDoc := "a greatest common divisor, up to units",
     doc := "a greatest common divisor — unique up to units in a UFD, which is \
 where the operation first makes sense" },
+  { id := `is_prime, receiver := `FactorizationElems,
+    resultDoc := "a boolean",
+    doc := "primality: is this element irreducible (prime, up to units)? \
+Declared where primes first make sense — the elements of a UFD" },
   { id := `deg, receiver := `PolynomialElems,
     resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },
@@ -370,6 +374,9 @@ private def stdRoutes : Array Route := #[
   -- `p.gcd(q)` in ℤ[x] is the honest structured gap the audit lists
   { method := `gcd, pattern := .elemOf (.exact .int),
     backend := `sage, opId := "gcd_int" },
+  -- primality, routed for ℤ; irreducibility in ℤ[x] is the honest gap
+  { method := `is_prime, pattern := .elemOf (.exact .int),
+    backend := `sage, opId := "is_prime_int" },
   -- degree is a structural read of the coefficient array: native, exact,
   -- and defined over every coefficient domain
   { method := `deg, pattern := .elemOf (.polyOver .anyDom),
@@ -609,6 +616,10 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- pattern over one presentation can state for a denoted set, and `nth`
   -- is declared strictly below, on CountableSets
   expectNotApplicable env (.setObj (.powerset finSet123)) `nth
+  -- SPEC.md §Ellipses' `n.is_prime()`: declared where primes exist, routed
+  -- for ℤ — so irreducibility in ℤ[x] is available and not executable
+  expectRouted env (.elem .int (.int 7)) `is_prime [`FactorizationElems] `sage
+  expectGap env polyZ `is_prime []
   -- SPEC.md's `e.image()`: the image is the one method functions own
   expectRouted env doubling `image [] `native
   -- …and it does not leak to the values a function takes
