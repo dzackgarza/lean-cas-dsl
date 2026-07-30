@@ -168,6 +168,15 @@ def valueEq (a b : Value) : Option Bool :=
   | .alg a b d, .alg a' b' d' => some (a == a' && b == b' && d == d')
   | .alg .., .int _ | .alg .., .rat _
   | .int _, .alg .. | .rat _, .alg .. => some false
+  -- Two 1-forms agree when their COEFFICIENTS do; the coefficient domain is a
+  -- presentation tag and does not decide, exactly as a vector's entry domain
+  -- does not. `Ω¹_{k[x]/k} ≅ k[x] dx` is free of rank one, so this really is
+  -- the whole comparison.
+  | .diff1 _ p, .diff1 _ q => valueEq p q
+  -- …and a 1-form is not a polynomial, in either order: `d(f) = 6x + 1` is
+  -- FALSE rather than incomparable, which is the theorem about the two
+  -- presentations that the `matVec` arm above states for a matrix and a vector
+  | .diff1 .., _ | _, .diff1 .. => some false
   -- Two vectors agree when they have the same LENGTH and their components do.
   -- The entry domain is a presentation tag and does not decide: `(1, 2)` of ℤ²
   -- and of ℚ² are the same vector, exactly as `1` and `1/1` are one number.
@@ -953,6 +962,25 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
           else .ok (.int (Int.ofNat (coeffs.size - 1)))
       | o => .error (.badRequest
           s!"poly_deg expects a polynomial receiver, got {o.presentation}")
+  -- SPEC.md §Differentials' `(d/dx)(f)`. NATIVE, and deliberately: the
+  -- derivative of a KNOWN polynomial is `i·c_i` shifted down by one, which is
+  -- exact coefficient arithmetic this engine already owns. There is therefore
+  -- no backend to ask and no certificate to check — the pre-ruling that put
+  -- U8's reply checks in `Value.lean`'s arithmetic floor presumed a backend
+  -- computed this, and not having one is strictly stronger than checking one.
+  -- `mkPoly` drops the trailing zero, so the derivative of a CONSTANT is the
+  -- zero polynomial rather than a degree-0 lie.
+  | "poly_derivative" =>
+      match o with
+      | .elem (.poly c) (.poly _ coeffs) =>
+          -- the coefficient stays in its own ring: `scalarMul` promotes the
+          -- integer factor into whatever the coefficient is, so `i·c` over
+          -- ℤ/n comes back reduced and over ℚ comes back rational
+          Except.mapError ExecError.badRequest do
+            return Value.mkPoly c (← (Array.range (coeffs.size - 1)).mapM fun i =>
+              scalarMul (.int (Int.ofNat (i + 1))) coeffs[i + 1]!)
+      | o => .error (.badRequest
+          s!"poly_derivative expects a polynomial receiver, got {o.presentation}")
   | "nth" => do
       let k ← natIndex args
       match o with
@@ -1134,6 +1162,8 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "poly_eval",
     accepts := #[.elemOf (.polyOver .anyDom)] },
   { backend := `native, opId := "poly_deg",
+    accepts := #[.elemOf (.polyOver .anyDom)] },
+  { backend := `native, opId := "poly_derivative",
     accepts := #[.elemOf (.polyOver .anyDom)] },
   { backend := `native, opId := "nth",
     accepts := #[.domainIs (.exact .nat), .domainSetOf (.exact .nat),

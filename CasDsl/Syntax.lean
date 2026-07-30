@@ -127,7 +127,20 @@ syntax (name := casEllipsis) "..." : casSetItem
 syntax (name := casSetElem) casTerm : casSetItem
 
 syntax:max (name := casIndex) casTerm:max noWs "[" casTerm "]" : casTerm
-syntax:max (name := casApply) casTerm:max noWs "(" casTerm,* ")" : casTerm
+
+/-- `f(args…)` — a call — and, with the optional ASCRIPTION tail, SPEC.md
+§Indefinite integration's `kernel(d/dx : ℚ[x] → ℚ[x])`.
+
+ONE production for both, and that is forced rather than tidy. A separate
+`kernel(… : …)` parser has to start where a call starts, and it then OUT-RUNS
+it: Lean's longest match prefers the alternative that reached the furthest
+position, error or not, so a colon parser failing at the `)` of `f(2)` beats
+the bare name that succeeded three tokens earlier — and every call in the
+corpus stops parsing. Folding the ascription in as an optional tail keeps `:`
+confined to this one spelling and leaves calls untouched; which NAME may carry
+it is checked in `toExpr`, the discipline `span_QQ{…}` and `Spec` follow. -/
+syntax:max (name := casApply)
+  casTerm:max noWs "(" casTerm,* (" : " casTerm)? ")" : casTerm
 
 /-! SPEC.md §Vectors and matrices writes the inverse `M⁻¹` and applies a
 matrix to a vector by JUXTAPOSITION — `M⁻¹ b`, `M v` — alongside the explicit
@@ -156,9 +169,43 @@ one rule:
   (#24). -/
 
 syntax:max (name := casInv) ident noWs "⁻¹" : casTerm
-syntax:70 (name := casJuxtApp) ident notFollowedBy(&"and") ident : casTerm
+syntax:70 (name := casJuxtApp)
+  ident notFollowedBy(&"and") notFollowedBy(&"dx") ident : casTerm
 syntax:70 (name := casInvJuxtApp)
   ident noWs "⁻¹" notFollowedBy(&"and") ident : casTerm
+
+/-! SPEC.md §Differentials' `(6x + 1) dx` and `f dx` — a DIFFERENTIAL 1-FORM,
+its coefficient against the free generator of `Ω¹_{k[x]/k} ≅ k[x] dx`.
+
+`dx` is a real TOKEN, and it has to be: it keys a TRAILING production, and
+Lean indexes trailing parsers by the token that follows the left operand. A
+non-reserved `&"dx"` is not a token, so the production would never be tried
+at all — the same lore the `span_QQ{…}` note below records for the LEADING
+position. The price is that `dx` is a reserved word in this surface, which is
+the honest trade: it is the differential's own spelling.
+
+CEILING: `dx`, and `dt` inside the definite integral, which spells its own
+after the `∫` and therefore needs no token. This slice renders the polynomial
+ring's indeterminate `x`, so `dx` is its differential and `dy` is a spelling
+of nothing here. -/
+
+syntax:max (name := casDxAtom) "dx" : casTerm
+syntax:70 (name := casDiffForm) casTerm:71 "dx" : casTerm
+
+/-- SPEC.md §Differentials' `Spec ℚ[x]` — the affine scheme of a ring, and an
+ASCRIPTION TAG at this stage (DESIGN.md §Differentials).
+
+`Spec` is a real TOKEN, for the reason `dx` is one. A leading `&"Spec"` is
+not indexed by a first token and would never be tried; leading with a plain
+`ident` and checking the name in `toExpr` — the `span_QQ{…}` discipline —
+does not work here either, because that production has no closing delimiter
+to stop at, so it OUT-RUNS the bare name wherever an identifier is followed
+by any atom: `|z|` reads its closing bar as the start of a factor, and Lean's
+longest match prefers the alternative that got furthest even when it failed.
+A token has neither problem: the production is tried only where `Spec` is
+written, and nowhere else. The price is that `Spec` is a reserved word in
+this surface — the same trade `dx` makes. -/
+syntax:max (name := casSpec) "Spec" casTerm:max : casTerm
 
 /-- `|A|`, `|z|` — SPEC.md's bars, which ARE a method: `cardinality` for a
 set, `abs` for an element of ℝ or ℂ. The bars are a spelling, so a receiver
@@ -347,6 +394,11 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casSetDiff => return .method (← toExpr stx[0]) `diff #[← toExpr stx[2]]
   | ``casSymDiff => return .method (← toExpr stx[0]) `symdiff #[← toExpr stx[2]]
   | ``casCard => return .magnitude (← toExpr stx[1])
+  | ``casDiffForm => return .diffForm (← toExpr stx[0])
+  -- a bare `dx` IS the 1-form with coefficient 1 — the free generator itself,
+  -- which is what makes `(d/dx)` a quotient of two names the surface can read
+  | ``casDxAtom => return .diffForm (.num 1)
+  | ``casSpec => return .specOf (← toExpr stx[1])
   | ``casProd => return .setProduct (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPowerset => return .powersetOf (← toExpr stx[2])
   | ``casBigSum => return .aggregate `sum stx[3].getId (← toExpr stx[5]) (← toExpr stx[7])
@@ -388,6 +440,18 @@ dimension and membership lines of that section need none of it"
       return .app (.method (.ref stx[0].getId) `inverse #[]) #[.ref stx[2].getId]
   | ``casApply => do
       let args ← stx[2].getSepArgs.mapM toExpr
+      -- the ASCRIPTION tail is SPEC.md's `kernel(d/dx : ℚ[x] → ℚ[x])` and
+      -- nothing else: `:` has no other meaning in a term here, so a name that
+      -- is not `kernel` carrying one is refused rather than reinterpreted
+      if !stx[3].isNone then
+        let head := match ← toExpr stx[0] with | .ref n => n | _ => Name.anonymous
+        if head != `kernel then
+          .error s!"`{head}(… : …)` is not a construction of this surface: the \
+one SPEC.md writes is `kernel(d/dx : ℚ[x] → ℚ[x])`, the kernel of a derivation"
+        else if h : args.size = 1 then
+          return .kernelOf (args[0]'(by simp [h])) (← toExpr stx[3][1])
+        else
+          .error s!"`kernel(… : …)` takes one operation, got {args.size}"
       match ← toExpr stx[0] with
       | .ref nm =>
           match matSize? nm with

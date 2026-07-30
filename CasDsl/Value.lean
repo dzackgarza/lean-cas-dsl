@@ -168,6 +168,28 @@ inductive Value where
   refused for the reason an approximation's is — there is nothing here that
   would not be invented. -/
   | sym (e : SymExpr)
+  /-- SPEC.md §Differentials' `(6x + 1) dx` — a DIFFERENTIAL 1-FORM, the
+  value `d(f)` takes.
+
+  `Ω¹_{k[x]/k} ≅ k[x] dx` is free of rank one, so a 1-form IS a polynomial
+  times `dx` — and it is not a polynomial. Keeping them apart is the whole
+  return on this constructor: `d(f) = (6x + 1) dx` is true and
+  `d(f) = 6x + 1` is FALSE rather than incomparable, exactly as a matrix is
+  not the vector it acts on.
+  CEILING: Ω¹ is not a `Domain` here (a 1-form joins the domainless RESULT
+  family — a factorization, a cardinal, an approximation), so `d(f) ∈ Ω¹`
+  is not a claim this surface can state at all. What SPEC.md asks of Ω¹ is
+  its DISPLAY and the equality above; a module structure on it belongs to
+  CategoryGraph per the trajectory ruling. -/
+  | diff1 (coeff : Domain) (p : Value)
+  /-- SPEC.md §Differentials' `d` and `(d/dx)` — the universal differential
+  and the derivation, which are ONE operation with two result shapes: `d(f)`
+  is the 1-form `f' dx` and `(d/dx)(f)` is the polynomial `f'`. The flag is
+  which, and both are applied by elaboration like calling a polynomial.
+
+  It is a VALUE rather than a production so that a bare `d` cell can display
+  what the universal differential IS, which is what SPEC.md's own cell does. -/
+  | derivation (asForm : Bool)
   /-- `binder ↦ body` in `src → tgt`. The body is the exact polynomial the
   binder generates, so the identities SPEC.md asserts about functions
   (`h(-t) = h(t)`, `(f ∘ g)(t) = t⁶`) are decided by the polynomial engine
@@ -222,6 +244,15 @@ inductive Obj where
   /-- Module fixture: the ℤ-module ℤ/n (plan: inheritance demo without a
   premature Macaulay2/Singular bridge). -/
   | cyclicModule (n : Nat)
+  /-- SPEC.md §Differentials' `Spec ℚ[x]` — the affine scheme of a ring.
+
+  An ASCRIPTION TAG at this stage, the standing `QQ-Mod` has: the membership
+  `in Schemes/ℚ` it states is real and checked, and the object carries the
+  RING it is the spectrum of, which is what makes the differential's display
+  concrete. What it does NOT carry is a scheme's structure — its topology,
+  its sheaf, its morphisms — because that ontology is CategoryGraph's per
+  the trajectory ruling, and nothing here may grow into it. -/
+  | specOf (ring : Domain)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -561,6 +592,23 @@ partial def render : Value → String
   | .cardinal .countablyInfinite => "ℵ₀"
   | .bool b => toString b
   | .sym e => e.render
+  -- `(6x + 1) dx`: the coefficient is parenthesized exactly as a polynomial
+  -- FACTOR is, so a sum reads as one factor rather than as a sum that
+  -- swallowed the differential
+  | .diff1 _ p =>
+      let s := p.render
+      let plain := s.all Char.isDigit || (s.startsWith "-" && (s.drop 1).all Char.isDigit)
+      if plain || (s.length ≤ 2 && !s.contains ' ') then s ++ " dx" else "(" ++ s ++ ") dx"
+  -- SPEC.md's own displayed cell, in the generality the VALUE has: `d` knows
+  -- the universal differential it is, and it does NOT know which scheme the
+  -- session called `X` — a value carries no session, and naming one would be
+  -- a display that lies whenever the binding is something else
+  | .derivation true =>
+      "d : 𝒪_X → Ω¹_{X / S}, the universal relative differential\n\n\
+On global sections, for X = Spec R over S = Spec k with R = k[x]:\n\n  \
+R → Ω¹_{R / k} ≅ R dx"
+  | .derivation false =>
+      "d/dx : k[x] → k[x], differentiation with respect to the indeterminate"
   | .func _ _ binder body =>
       -- the body is written back in the mathematician's own binder, not in
       -- the `x` a bare polynomial renders with
@@ -813,6 +861,16 @@ partial def latex? : Value → Option String
   -- The VARIABLE is the mathematician's own name and gets the rule a
   -- function's binder gets below: ASCII alphanumerics only
   | .sym e => if e.latexSafe then some e.latex else none
+  -- `(6x + 1)\,dx`: the thin space is what separates a coefficient from a
+  -- differential in math mode, and `dx` is upright text in neither
+  -- convention — it is two ordinary math italics, which is what `dx` means
+  | .diff1 _ p => do
+      let s ← latex? p
+      let plain := s.all Char.isDigit || (s.startsWith "-" && (s.drop 1).all Char.isDigit)
+      return (if plain then s else "(" ++ s ++ ")") ++ "\\,dx"
+  -- the two derivations are the documented no-natural-form case the truth
+  -- value is: their renderings are prose ABOUT an operation, not mathematics
+  | .derivation _ => none
   | .func _ _ binder body => do
       let t := toString binder
       let b ← match body with
@@ -951,6 +1009,7 @@ def render : Obj → String
   | .domainObj d => d.render
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
+  | .specOf r => s!"Spec {r.render}"
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -961,6 +1020,9 @@ def latex? : Obj → Option String
   | .domainObj d => some d.latex
   | .setObj s => s.latex?
   | .cyclicModule _ => none
+  -- `\mathrm{Spec}` is the operator name, as `\mathrm{Mat}` and
+  -- `\mathrm{span}` already are in this renderer's table
+  | .specOf r => some ("\\mathrm{Spec}\\, " ++ r.latex)
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -968,6 +1030,7 @@ def presentation : Obj → String
   | .domainObj d => d.render
   | .setObj s => s.render
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
+  | .specOf r => s!"Spec {r.render}"
 
 instance : ToString Obj := ⟨render⟩
 

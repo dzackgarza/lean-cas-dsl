@@ -519,6 +519,30 @@ assert f.deg() = 2
 assert f(2) = 15
 assert f(2) ≠ 39
 
+/-! ### SPEC.md §Differentials, verbatim
+
+`Spec ℚ[x]` and `Schemes/ℚ` are ASCRIPTION TAGS (DESIGN.md §Differentials):
+the membership is real and checked, the categorical structure is deferred.
+`d` and `(d/dx)` are ONE operation with two result shapes — the `derivative`
+METHOD, applied by elaboration exactly as calling a polynomial is. -/
+
+let X := Spec ℚ[x] in Schemes/ℚ
+
+assert f ∈ ℚ[x]
+assert d(f) = (6x + 1) dx
+assert (d/dx)(f) = 6x + 1
+
+-- a 1-form is NOT the polynomial that coefficients it: `Ω¹ ≅ ℚ[x] dx` is
+-- free of rank one, so these two are unequal rather than incomparable
+assert d(f) ≠ 6x + 1
+assert (d/dx)(f) ≠ (6x + 1) dx
+-- …and the wrong derivative, which the same read must reject
+assert d(f) ≠ (6x + 2) dx
+assert (d/dx)(f) ≠ 6x + 2
+
+-- SPEC.md §Indefinite integration's `kernel(d/dx : ℚ[x] → ℚ[x])`
+assert kernel(d/dx : ℚ[x] → ℚ[x]) = ℚ
+
 -- BOTH exponent spellings bind the same way: `2x^2` is `2·(x²)` (18 at 3),
 -- not `(2x)²` (36)
 let twoXsq := x ↦ 2x^2 in ℚ[x]

@@ -197,6 +197,57 @@ def test_degree_is_one_operation_over_both_coefficient_rings(
     ok(kc, "assert threeMinus(1) = 2")
 
 
+def test_the_universal_differential(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Differentials, verbatim. `Spec ℚ[x]` and `Schemes/ℚ` are
+    # ascription TAGS: the membership is real and checked, the categorical
+    # structure is deferred to CategoryGraph.
+    text = ok(kc, "let X := Spec ℚ[x] in Schemes/ℚ")
+    assert "Spec ℚ[x]" in text
+    # a bare `d` displays what the universal differential IS. It does NOT
+    # name the session's `X` — a value carries no session — so it states the
+    # general shape, which is what makes the display true whatever X is
+    text = ok(kc, "d")
+    assert "Ω¹" in text and "universal relative differential" in text
+    assert "R → Ω¹_{R / k} ≅ R dx" in text
+    # the two result shapes of ONE operation
+    ok(kc, "assert d(f) = (6x + 1) dx")
+    ok(kc, "assert (d/dx)(f) = 6x + 1")
+    # a 1-form is not the polynomial that coefficients it
+    text = err(kc, "assert d(f) = 6x + 1")
+    assert "false" in text.lower()
+    text = err(kc, "assert (d/dx)(f) = (6x + 1) dx")
+    assert "false" in text.lower()
+    # …and the wrong derivative
+    text = err(kc, "assert (d/dx)(f) = 6x + 2")
+    assert "false" in text.lower()
+    # SPEC.md §Indefinite integration's kernel line
+    ok(kc, "assert kernel(d/dx : ℚ[x] → ℚ[x]) = ℚ")
+
+
+def test_the_differential_display(kernel: Kernel) -> None:
+    _, kc = kernel
+    # a 1-form typesets: the thin space is what separates a coefficient from
+    # a differential in math mode
+    b = bundle(kc, "d(f)")
+    assert b["text/plain"] == "(6x + 1) dx"
+    assert b["text/latex"] == "$$(6x + 1)\\,dx$$"
+    b = bundle(kc, "X")
+    assert b["text/latex"] == "$$\\mathrm{Spec}\\, \\mathbb{Q}[x]$$"
+
+
+def test_a_binding_shadows_the_differential(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `d` is a CONSTANT, so a `let` shadows it exactly as one shadows `i`.
+    # (Bound last in this test on purpose — nothing below reads `d`.)
+    ok(kc, "let d := 6 in ℤ")
+    ok(kc, "assert d = 6")
+    # …and with the name bound, `d/dx` is the division it always was: a
+    # scalar over a 1-form, which has no common kind and says so
+    text = err(kc, "d/dx")
+    assert "not defined" in text
+
+
 def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "p.roots()")      # x³ - 2x + 1 over ℤ; p(1) = 0

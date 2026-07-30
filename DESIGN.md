@@ -406,6 +406,84 @@ routes nothing, because none of it is a computability question this slice
 can route. What a map does to a whole SET is one, so it is a method like any
 other.
 
+## Differentials (`SPEC.md` §Differentials, issue #24)
+
+`d` and `(d/dx)` are ONE operation with two RESULT SHAPES, and the operation
+is the ordinary `derivative` method: `d(f)` is the 1-form `f' dx` and
+`(d/dx)(f)` is the polynomial `f'`. Applying either is elaboration-inserted
+exactly as calling a polynomial is (decision 6) — no second method, no second
+route, and `#explain_route f.derivative()` explains both.
+
+- **The derivative is NATIVE, and therefore has no certificate.** The
+  derivative of a KNOWN polynomial is `i·cᵢ` shifted down by one, which is
+  exact coefficient arithmetic this engine already owns, so no backend is
+  asked and there is nothing for one to get wrong. The pre-ruling recorded in
+  §Module map — that U8's derivative and integral reply checks go down into
+  `Value.lean`'s exact-arithmetic floor — presumed a BACKEND computed them;
+  not having a backend is strictly stronger than checking one, and strictly
+  less code, so it supersedes the pre-ruling. (`Value.lean` is unchanged by
+  this section: no certificate needs an arithmetic twin there.)
+- **A 1-FORM IS NOT A POLYNOMIAL.** `Ω¹_{k[x]/k} ≅ k[x] dx` is free of rank
+  one, so `Value.diff1` carries the coefficient and nothing else — and
+  `d(f) = 6x + 1` is FALSE rather than incomparable, which is the theorem
+  about the two presentations that `valueEq` already states for a matrix
+  against a vector. Two 1-forms compare by their coefficients; the
+  coefficient DOMAIN is a presentation tag and does not decide, exactly as a
+  vector's entry domain does not.
+- **Ω¹ is not a `Domain`.** A 1-form joins the domainless RESULT family (a
+  factorization, a cardinal, an approximation), so `d(f) ∈ Ω¹` is not a claim
+  this surface can state at all. What `SPEC.md` asks of Ω¹ is its display and
+  the equality above; the module structure belongs to CategoryGraph.
+- **A bare `d` displays the universal differential in the generality the
+  VALUE has.** `SPEC.md`'s own cell names the `X` it just defined; a value
+  carries no session, so naming one here would be a display that lies the
+  moment the binding is something else. The rendering states the general
+  shape — `d : 𝒪_X → Ω¹_{X / S}`, and on global sections `R → Ω¹_{R/k} ≅ R dx`
+  for `R = k[x]` — which is true whatever `X` is. Textual on purpose, like
+  every other display that is prose ABOUT an operation.
+- **`Spec R` and `Schemes/ℚ` are ASCRIPTION TAGS**, the standing `QQ-Mod`
+  has. `Obj.specOf` carries the ring and NOTHING else — it is not a set, it
+  owns no method, and the acceptance proofs assert exactly that
+  (`cardinality`, `contains` and `derivative` are all `notApplicable` on it).
+  `Schemes/ℚ` is read in ascription position the way `QQ-Mod` is: the term
+  grammar sees a name over a domain, which has no other meaning there, so it
+  names the registered category when there is one. The category's name is
+  spelled in ASCII (`Schemes/QQ`) because a Lean name may not carry `ℚ`, and
+  `renderName` puts the mathematician's spelling back.
+- **`kernel(d/dx : ℚ[x] → ℚ[x])` is ℚ**, and the ARROW is ascribed rather
+  than inferred because a derivation names no domains of its own. The kernel
+  of `d/dx` is the constants exactly where the integers are invertible in the
+  coefficient ring, so ℚ, ℝ and ℂ answer and everything else REFUSES rather
+  than being given a ring this slice has not checked (over `ℤ/p` the p-th
+  powers are killed too).
+- **`dx` and `Spec` are real TOKENS, and both had to be.** `dx` keys a
+  TRAILING production and `Spec` a leading one; Lean indexes both kinds by a
+  token, and a non-reserved `&"dx"` is not one — the production is then never
+  tried, which is the same lore the `span_QQ{…}` note records. The
+  `ident`-plus-name-check trick that saves `span_QQ` does not save `Spec`
+  either: that production has no closing delimiter, so it OUT-RUNS the bare
+  name wherever an identifier is followed by an atom (`|z|` reads its closing
+  bar as the start of a factor), and Lean's longest match prefers the
+  alternative that got furthest even when it failed. The price is that `dx`
+  and `Spec` are reserved words in this surface.
+- **`kernel(… : …)` is folded into the CALL production** for that same
+  reason: a separate parser starting where a call starts fails at the `)` of
+  `f(2)`, which is further than the bare name that succeeded three tokens
+  earlier, so every call in the corpus would stop parsing. The optional
+  ascription tail keeps `:` confined to this one spelling, and which NAME may
+  carry it is checked in `toExpr`.
+- **A bound polynomial brings its indeterminate into scope across an
+  assertion**, under the name this slice RENDERS it with (`x`).
+  `SPEC.md` writes `assert d(f) = (6x + 1) dx` and `assert F(x) = x³ + …`,
+  naming `x` on the side that is not the polynomial, and a `let f := x ↦ …`
+  binding records no binder — a `Value.poly`'s indeterminate is anonymous and
+  prints as `x`. Consulted after `calledBinder?` and after the session
+  bindings, scoped to ONE assertion, publishing nothing: a bare `x` elsewhere
+  is still the loud "not bound" error. Same disclosed residue
+  `calledBinder?` carries — inside such an assertion a typo `x` reads as the
+  indeterminate, and the outcome is an honest `unknown` or a false assertion,
+  never a wrong answer.
+
 ## Symbolic function expressions (`SPEC.md` §Elementary calculus, issue #24)
 
 `sin(t)`, `e^t` and `1/t` leave the polynomial engine, and `SPEC.md` asks

@@ -118,6 +118,13 @@ partial def valueToJson : Value → Json
   | .cardinal c => cardinalToJson c
   | .bool b => Json.mkObj [("t", "bool"), ("v", Json.bool b)]
   | .sym e => Json.mkObj [("t", "sym"), ("e", symToJson e)]
+  -- a differential 1-form is its coefficient plus the free generator `dx`,
+  -- so the frame carries exactly that: no `dx` field, because the generator
+  -- is what the TAG means
+  | .diff1 c p =>
+      Json.mkObj [("t", "diff1"), ("coeff", domainToJson c), ("p", valueToJson p)]
+  | .derivation asForm =>
+      Json.mkObj [("t", "derivation"), ("as_form", Json.bool asForm)]
   | .func s t binder body =>
       Json.mkObj
         [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
@@ -313,6 +320,12 @@ partial def valueFromJson (j : Json) : Except String Value := do
       | .ok b => return .bool b
       | .error _ => .error s!"field 'v' must be a boolean in {j.compress}"
   | "sym" => return .sym (← symFromJson (← field j "e"))
+  | "diff1" =>
+      return .diff1 (← domainFromJson (← field j "coeff")) (← valueFromJson (← field j "p"))
+  | "derivation" =>
+      match (← field j "as_form").getBool? with
+      | .ok b => return .derivation b
+      | .error _ => .error s!"field 'as_form' must be a boolean in {j.compress}"
   | other => .error s!"unknown value tag {repr other} in {j.compress}"
 
 end CasDsl.Codec

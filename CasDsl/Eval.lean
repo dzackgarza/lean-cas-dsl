@@ -96,6 +96,16 @@ inductive CasExpr where
   `|3|` is still the honest "not a method of any category this object
   belongs to". -/
   | magnitude (e : CasExpr)
+  /-- `p dx` — a differential 1-form, DENOTED like a set literal: what the
+  form IS follows from its coefficient, and `dx` is the free generator of
+  `Ω¹_{k[x]/k}` rather than a value to multiply by. -/
+  | diffForm (p : CasExpr)
+  /-- `Spec R` — the affine scheme of a ring, an ascription TAG. -/
+  | specOf (ring : CasExpr)
+  /-- `kernel(d/dx : ℚ[x] → ℚ[x])` — the kernel of a DERIVATION, which is the
+  constants of its ring. The arrow is ascribed rather than inferred because a
+  derivation names no domains of its own. -/
+  | kernelOf (op arrow : CasExpr)
   /-- `A × B` and `𝒫(A)` / `2^A`. Both DENOTE a set rather than compute one
   (their elements are pairs and sets, which no `Value` presents), so they
   build a presentation exactly as a set literal does — no method, no route. -/
@@ -637,6 +647,19 @@ def prefixMethodCall? (isBound : Name → Bool) (env : Environment)
       else args[0]?.map fun recv => .method recv n (args.extract 1 args.size)
   | _ => none
 
+/-- Is `a / b` SPEC.md's derivation `d/dx` rather than a quotient? Only when
+both names are free: a binding wins, exactly as it does over a constant. The
+LETTER needs no check: `dx` is the surface's own token for the differential of
+the indeterminate this slice renders `x`, so there is no `d/dy` to mistake it
+for. `let d := 6 in ℤ` gives the division back, exactly as a binding takes a
+constant back. -/
+def isDerivationSpelling (isBound : Name → Bool) : CasExpr → CasExpr → Bool
+  -- `dx` is a TOKEN, so the right operand arrives already read as the free
+  -- generator `1 dx` rather than as a name — which is why only `d` needs the
+  -- boundness check
+  | .ref `d, .diffForm (.num 1) => !isBound `d
+  | _, _ => false
+
 /-- The names SPEC.md writes for a CONSTANT rather than for a binding: `i`,
 the imaginary unit (`2 + 2i`). Consulted after the bindings and after the
 domain aliases, so `let i := 3 in ℤ` shadows it exactly as `let R := …`
@@ -655,6 +678,9 @@ def constantValue? : Name → Option Value
   -- name and refuses. `exp(t)` is the spelling no binding can shadow.
   | `e => some (.sym (.const `e))
   | `π | `pi => some (.sym (.const `pi))
+  -- SPEC.md §Differentials displays a bare `d`: the universal differential.
+  -- A constant like the three above, so `let d := 5 in ℤ` shadows it
+  | `d => some (.derivation true)
   | _ => none
 
 /-! ### Symbolic function expressions
@@ -880,6 +906,7 @@ def renderPattern : PresPattern → String
   | .spanSet => "a subspace of ℚⁿ"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
+  | .specObj => "an affine scheme"
   | .anyObj => "any object"
 
 def renderRoute (r : Route) : String :=
@@ -1155,6 +1182,14 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       let v ← ofStr (asValueOf (← eval ctx e))
       return Denote.ofValue (← ofStr (valueNeg v))
   | .bin .div a b => do
+      -- SPEC.md §Differentials writes the derivation `(d/dx)`, which the term
+      -- grammar reads as a division of two NAMES — and in that reading
+      -- neither name is bound, so it has no other meaning. The move
+      -- `in QQ-Mod` already makes for a hyphenated category name, and the
+      -- boundness check is what keeps it from stealing a real quotient:
+      -- `let d := 6 in ℤ` and `let dx := 2 in ℤ` give the division back.
+      if isDerivationSpelling ctx.isBound a b then
+        return Denote.ofValue (.derivation false)
       -- `ℤ/n` is a domain term, not a division; every other `/` is exact
       -- division in ℚ.
       let x ← eval ctx a
@@ -1228,6 +1263,47 @@ difference of sets that have elements is `\\`, which computes it — \
       match x.asSet? with
       | some s => return .obj (.setObj (.powerset s))
       | none => throw (.msg s!"𝒫(…) needs a set, got {x.presentation}")
+  -- SPEC.md §Differentials' `(6x + 1) dx`. DENOTED by elaboration, like a set
+  -- literal and like `A × B`: `dx` is the free generator of Ω¹ rather than a
+  -- value, so there is nothing to multiply and no route to take
+  | .diffForm p => do
+      let v ← ofStr (asValueOf (← eval ctx p) "the coefficient of a `dx` form")
+      let some (c, _) := asPolyCoeffs v
+        | throw (.msg s!"{v.render} is not a coefficient of Ω¹_\{k[x]/k}: a \
+differential 1-form here is a POLYNOMIAL against the free generator `dx`")
+      return Denote.ofValue (.diff1 c v)
+  | .specOf ring => do
+      let r ← eval ctx ring
+      let .obj (.domainObj d) := r
+        | throw (.msg s!"`Spec` takes a RING, and {r.presentation} is not one")
+      return .obj (.specOf d)
+  -- SPEC.md §Indefinite integration: `kernel(d/dx : ℚ[x] → ℚ[x])` is ℚ. The
+  -- constants are the kernel of differentiation over a ring where the
+  -- integers are invertible, which is what makes the indefinite integral a
+  -- COSET of ℚ and not of something smaller — over ℤ/p the p-th powers are
+  -- killed too, so that ring is refused rather than answered wrongly.
+  | .kernelOf op arrow => do
+      let o ← eval ctx op
+      let .val (.derivation _) := o
+        | throw (.msg s!"`kernel(…)` takes a derivation here — SPEC.md writes \
+`kernel(d/dx : ℚ[x] → ℚ[x])` — and {o.presentation} is not one")
+      let a ← eval ctx arrow
+      let .obj (.domainObj (.funcs src tgt)) := a
+        | throw (.msg s!"`kernel(d/dx : …)` needs the arrow the derivation runs \
+along, as in `ℚ[x] → ℚ[x]`; got {a.presentation}")
+      if src != tgt then
+        throw (.msg s!"a derivation runs from a ring to ITSELF, and \
+{src.render} → {tgt.render} does not")
+      match src with
+      | .poly c =>
+          if c == .rat || c == .real || c == .complex then
+            return .obj (.domainObj c)
+          else
+            throw (.msg s!"the kernel of d/dx on {src.render} is the constants \
+only where the integers are invertible in {c.render}; over {c.render} this \
+slice does not state it rather than answering with a ring it has not checked")
+      | d => throw (.msg s!"d/dx differentiates a POLYNOMIAL ring, and \
+{d.render} is not one")
   | .sqrt e => do
       let v ← ofStr (asValueOf (← eval ctx e) "√")
       let some q := Native.toRat? v
@@ -1307,6 +1383,25 @@ that space and in no other")
       -- product it already has. Elaboration-inserted like calling a
       -- polynomial: no method, no route, one implementation for both
       -- spellings, and `Native.matApply`'s shape check answers either way
+      -- SPEC.md §Differentials' `d(f)` and `(d/dx)(f)` — ONE operation with
+      -- two result shapes. Applying a derivation is elaboration-inserted like
+      -- calling a polynomial (decision 6), and what it inserts is the ordinary
+      -- `derivative` METHOD: same resolver, same router, same executor, and
+      -- `#explain_route f.derivative()` explains it. Only the WRAPPING differs
+      -- — `d` lands in Ω¹ and `d/dx` lands back in the ring.
+      | some (.derivation asForm) =>
+          if args.size != 1 then
+            throw (.msg s!"a derivation is applied to exactly one element, got \
+{args.size}")
+          let arg ← ofStr (asObjOf (← eval ctx args[0]!))
+          let r ← callMethod ctx arg `derivative #[]
+          if !asForm then return r
+          let some v := r.value?
+            | throw (.msg s!"the derivative {r.presentation} is not a value the \
+universal differential can present as a 1-form")
+          let some (c, _) := asPolyCoeffs v
+            | throw (.msg s!"{v.render} is not a coefficient of Ω¹")
+          return Denote.ofValue (.diff1 c v)
       | some m@(.mat ..) =>
           if args.size != 1 then
             throw (.msg s!"a matrix is applied to exactly one vector, got {args.size}")
@@ -1627,7 +1722,20 @@ def categoryAscription? (env : Environment) : CasExpr → Option (Name × Array 
   | .bin .sub (.ref a) (.ref b) =>
       let n := Name.mkSimple s!"{a}-{b}"
       if (catDecl? env n).isSome then some (n, #[]) else none
+  -- …and SPEC.md §Differentials writes a SLASHED one, `in Schemes/ℚ`, which
+  -- the term grammar reads as a quotient of a name by a domain. The reading
+  -- is the same move for the same reason: in ascription position it has no
+  -- other meaning, so it names the registered category when there is one.
+  -- The domain is spelled in ASCII inside the registered name (`Schemes/QQ`)
+  -- because a Lean name may not carry `ℚ`; `renderName` puts it back
+  | .bin .div (.ref a) (.dom d) =>
+      let n := Name.mkSimple s!"{a}/{asciiDomain d}"
+      if (catDecl? env n).isSome then some (n, #[]) else none
   | _ => none
+where
+  asciiDomain : Domain → String
+    | .nat => "NN" | .int => "ZZ" | .rat => "QQ"
+    | .real => "RR" | .complex => "CC" | d => d.render
 
 private def paramOf : Denote → Except String ParamVal
   | .obj (.domainObj d) => .ok (.dom d)
@@ -1786,6 +1894,37 @@ where
     | .comp _ g => head g
     | _ => none
 
+/-- The indeterminate a bound POLYNOMIAL brings into scope across an
+assertion, under the name this slice RENDERS it with.
+
+SPEC.md §Differentials writes `assert d(f) = (6x + 1) dx` and §Indefinite
+integration writes `assert F(x) = x³ + (1/2)x² + x`, naming `x` on a side that
+is not the polynomial. A `let f := x ↦ … in ℚ[x]` binding records no binder —
+a `Value.poly` has none, its indeterminate is anonymous and prints as `x` —
+so the name has to come from the RENDERING convention, and it does: this
+slice spells that indeterminate `x` everywhere, which is also why `d/dx` is
+its derivation and `d/dy` is a spelling of nothing.
+
+Consulted after `calledBinder?` and after the session bindings, and scoped to
+ONE assertion exactly as both of those are: a bare `x` elsewhere is still the
+loud "not bound" error, and a real `let x := …` wins. Disclosed residue, the
+same one `calledBinder?` carries: inside an assertion that mentions a
+polynomial, a typo `x` reads as the indeterminate — and the outcome is then
+an honest `unknown` or a false assertion, never a wrong answer. -/
+partial def polyIndet? (env : Environment) : CasExpr → Option (Name × Domain)
+  | .ref n =>
+      match binding? env n with
+      | some (.elem (.poly c) _) => some (`x, c)
+      | _ => none
+  | .app f args => polyIndet? env f <|> anyOf env args
+  | .method r _ args => polyIndet? env r <|> anyOf env args
+  | .bin _ a b => polyIndet? env a <|> polyIndet? env b
+  | .neg a | .diffForm a => polyIndet? env a
+  | _ => none
+where
+  anyOf (env : Environment) (es : Array CasExpr) : Option (Name × Domain) :=
+    es.foldl (init := none) fun acc e => acc <|> polyIndet? env e
+
 /-- The name a membership assertion writes on BOTH sides — `x ∈ ℤ[x]`.
 
 SPEC.md's polynomial section asserts exactly that, and it is a question about
@@ -1805,8 +1944,13 @@ a thrown structured error. No proposition is created: this is a computed,
 trusted predicate, not a Lean theorem. -/
 def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
     : EvalM (Option Bool) := do
-  let ctx := { ctx with callBinder? :=
-    ctx.callBinder? <|> calledBinder? ctx.env l <|> calledBinder? ctx.env r }
+  -- the indeterminate this assertion may name, in resolution order: a callee's
+  -- own binder first, then the anonymous indeterminate a bound polynomial
+  -- brings in under the name it renders with
+  let indetHere :=
+    calledBinder? ctx.env l <|> calledBinder? ctx.env r
+      <|> polyIndet? ctx.env l <|> polyIndet? ctx.env r
+  let ctx := { ctx with callBinder? := ctx.callBinder? <|> indetHere }
   match rel with
   | .mem | .notMem =>
       -- membership asks about the SET on the right, so it is evaluated first:

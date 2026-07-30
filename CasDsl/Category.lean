@@ -83,6 +83,9 @@ inductive PresPattern where
   | spanSet
   | anySet
   | cyclicMod
+  /-- `Spec R`; the ring is not inspected (a pattern over one presentation
+  cannot state a strength that depends on it — the profile rules' rule). -/
+  | specObj
   | anyObj
   deriving BEq, Repr, Inhabited
 
@@ -130,6 +133,7 @@ def accepts : PresPattern → Obj → Bool
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
+  | .specObj, .specOf _ => true
   | .anyObj, _ => true
   | _, _ => false
 
@@ -148,6 +152,7 @@ def implies : PresPattern → PresPattern → Bool
   | .domainDiffSet, .domainDiffSet => true
   | .spanSet, .spanSet => true
   | .cyclicMod, .cyclicMod => true
+  | .specObj, .specObj => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
   | .domainSetOf _, .anySet => true

@@ -152,6 +152,17 @@ domain the element was presented in)" },
   -- morphisms, its limits, the subobject lattice `≤` really lives in) is
   -- deferred to CategoryGraph per the trajectory ruling. Nothing here may
   -- grow into that ontology; what it owns is `dim`.
+  -- SPEC.md §Differentials writes `let X := Spec ℚ[x] in Schemes/ℚ`, and the
+  -- name is taken from it verbatim. An ASCRIPTION TAG at this stage, the
+  -- standing `QQ-Mod` has: the membership it states is real and checked, and
+  -- the CATEGORY — its morphisms, its sheaves, the relative differentials
+  -- that really live over it — is deferred to CategoryGraph per the
+  -- trajectory ruling. It owns no method at all: everything SPEC.md does with
+  -- a scheme here is display.
+  { name := `«Schemes/QQ»,
+    doc := "schemes over ℚ. SPEC.md's own name for the category an affine \
+scheme `Spec R` is ascribed to; at this stage an ascription TAG, with the \
+categorical structure deferred to CategoryGraph" },
   { name := `«QQ-Mod»,
     doc := "ℚ-modules. SPEC.md's own name for the category a subspace of ℚⁿ \
 is a subobject of; at this stage an ascription TAG carrying `dim`, with the \
@@ -184,6 +195,15 @@ the normalized representative of its associate class? In ℤ that is the ordinar
 'is a prime number', so −7 answers FALSE — it is irreducible, but 7 is the \
 normalized representative of {7, −7}. Declared where irreducibility first makes \
 sense: the elements of a UFD" },
+  -- SPEC.md §Differentials' `(d/dx)(f)`, and the same operation `d(f)` wraps
+  -- as a 1-form. Declared on PolynomialElems because differentiating is a
+  -- STRUCTURAL read of a polynomial — it makes sense over any coefficient
+  -- ring, including ones where factorization does not
+  { id := `derivative, receiver := `PolynomialElems,
+    resultDoc := "a polynomial over the same coefficient ring",
+    doc := "the formal derivative d/dx: the coefficient of xⁱ becomes i·cᵢ, \
+shifted down by one. Exact coefficient arithmetic, so it is NATIVE and no \
+backend is asked — there is nothing here for one to get wrong" },
   { id := `deg, receiver := `PolynomialElems,
     resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },
@@ -358,6 +378,10 @@ private def stdProfileRules : Array ProfileRule := #[
   -- them wrongly. An unregistered modulus has no profile at all, which
   -- resolves as an honest `notApplicable` — never a wrong membership.
   { pattern := .elemOf (.exact (.mod 5)), cat := `CommRingElems, slots := #[.elemDom] },
+  -- an affine scheme is the object SPEC.md ascribes to Schemes/ℚ, and that is
+  -- the ONLY membership it has: it is not a set, not a ring element, and
+  -- nothing here may give it one
+  { pattern := .specObj, cat := `«Schemes/QQ» },
   -- matrices carry their instantiation data
   { pattern := .elemOf (.matrixOver .anyDom), cat := `MatrixElems,
     slots := #[.matSize, .matEntry] },
@@ -560,6 +584,11 @@ private def stdRoutes : Array Route := #[
   -- and defined over every coefficient domain
   { method := `deg, pattern := .elemOf (.polyOver .anyDom),
     backend := `native, opId := "poly_deg" },
+  -- the derivative is coefficient arithmetic this engine owns outright, so it
+  -- is native and defined over every coefficient domain — nothing about it is
+  -- a computability question a backend could answer better
+  { method := `derivative, pattern := .elemOf (.polyOver .anyDom),
+    backend := `native, opId := "poly_derivative" },
   -- roots in the coefficient ring; ℤ[x] and ℚ[x] are routed, and a
   -- polynomial over ℤ/n is the honest gap
   { method := `roots, pattern := .elemOf (.polyOver (.exact .int)),
@@ -677,6 +706,7 @@ private def stdRepresentatives : Array Representative := #[
   ("x + 1 ∈ ℤ/5[x]", .elem (.poly (.mod 5))
     (Value.mkPoly (.mod 5) #[Value.mkMod 5 1, Value.mkMod 5 1])),
   ("ℤ/4 as ℤ-module", .cyclicModule 4),
+  ("Spec ℚ[x]", .specOf (.poly .rat)),
   ("{0,2,4,…}", .setObj (.arithProg .int (.int 0) (.int 2) none)),
   -- the two DENOTED sets: countable/counted by cardinal arithmetic, and
   -- carrying the honest gaps for every operation that would need an element
@@ -874,6 +904,22 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
     `deg [] `native
   expectGap env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))
     `roots []
+  -- SPEC.md §Differentials: the derivative is a STRUCTURAL read like `deg`,
+  -- so it arrives through PolynomialElems with no inheritance step and routes
+  -- natively over every coefficient ring — including the ℤ/5 one where
+  -- `roots` gaps, which is the two judgments visible in one object
+  expectRouted env polyZ `derivative [] `native
+  expectRouted env polyQ `derivative [] `native
+  expectRouted env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))
+    `derivative [] `native
+  -- …and it does not leak to a ring element that is not a polynomial
+  expectNotApplicable env (.elem .int (.int 360)) `derivative
+  -- SPEC.md's `Spec ℚ[x] in Schemes/ℚ` is an ascription TAG and owns NOTHING:
+  -- it is not a set, so none of the set methods reach it. That is the whole
+  -- claim, and it is asserted rather than assumed
+  expectNotApplicable env (.specOf (.poly .rat)) `cardinality
+  expectNotApplicable env (.specOf (.poly .rat)) `contains
+  expectNotApplicable env (.specOf (.poly .rat)) `derivative
   -- `deg` is a polynomial question and does not leak to the ring's elements
   -- at large: an integer is not a polynomial here
   expectNotApplicable env (.elem .int (.int 360)) `deg
