@@ -163,13 +163,27 @@ private def shift : Value := .func .real .real `t (Value.mkPoly .int #[.int 1, .
 #guard (atDomain embeds (.mod 5) (.int 7)).toOption == some (.mod 5 2)
 -- ℝ has no elements to check — that is the whole content of "ascription tag"
 #guard (atDomain embeds .real (.int (-1))).toOption == some (.int (-1))
--- a polynomial is the SYMBOLIC path: `h(-t)` is an expression, not a point
-#guard (atDomain embeds .nat (xTo 1)).toOption == some (xTo 1)
+-- the symbolic path travels coefficient-wise, so it lands in the domain too:
+-- `t + 7` reduces to `t + 2` over ℤ/5 instead of staying an unreduced ℤ poly
+#guard (atDomain embeds (.mod 5) (Value.mkPoly .int #[.int 7, .int 1])).toOption
+  == some (Value.mkPoly (.mod 5) #[.mod 5 2, .mod 5 1])
+#guard (atDomain embeds .nat (xTo 1)).toOption
+  == some (Value.mkPoly .nat #[.int 0, .int 1])
+-- an ℝ arrow checks nothing, in either path — that is the tag exception
+#guard (atDomain embeds .real (xTo 1)).toOption == some (xTo 1)
 
--- the binder is the indeterminate of the ring the BODY lives in
-#guard bodyRing (xTo 2) == .int
-#guard bodyRing (Value.mkPoly (.mod 5) #[.mod 5 3, .mod 5 1]) == .mod 5
-#guard bodyRing (.int 7) == .int
+-- the binder is the indeterminate of the SOURCE domain; ℝ has no elements,
+-- so there the body's own ring stands in
+#guard binderRing (.mod 5) (xTo 2) == some (.mod 5)
+#guard binderRing .nat (xTo 2) == some .nat
+#guard binderRing .real (xTo 2) == some .int
+#guard binderRing .real (Value.mkPoly (.mod 5) #[.mod 5 3, .mod 5 1]) == some (.mod 5)
+-- a body that is no polynomial has no such ring, and does not default to ℤ
+#guard binderRing .real (.bool true) == none
+
+-- the ℤ/n zero is a zero: a normal form that missed it would leave two equal
+-- polynomials comparing unequal
+#guard Value.mkPoly (.mod 5) #[.mod 5 1, .mod 5 0] == .poly (.mod 5) #[.mod 5 1]
 
 -- `R` and `RR` are spellings of ℝ; every other identifier is a name
 #guard domainAlias? `RR == some .real
@@ -273,8 +287,12 @@ assert h ≠ f
 -- the source and the result lands in the target, so a ℤ/5 arrow computes in
 -- ℤ/5 (4 + 3 = 2) rather than in ℤ
 assert e(3) = 6
-let k(t) = t + 3 in ℤ/5 → ℤ/5
-assert k(4) = 2
+let k(t) = t + 7 in ℤ/5 → ℤ/5
+assert k(4) = 1
+-- the symbolic call reduces in ℤ/5 too, so the identity is decided there and
+-- not in the ℤ the body was written in
+assert k(t) = t + 2
+assert k(t) ≠ t + 3
 
 run_cmd do
   let env ← Lean.getEnv

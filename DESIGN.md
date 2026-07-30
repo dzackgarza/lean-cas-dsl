@@ -151,12 +151,14 @@ Decisions, all load-bearing:
 - **the ascription is CHECKED at the call boundary** (`Eval.atDomain`): the
   argument enters through the preferred canonical map into `src` and the
   result lands in `tgt`, or the call fails. `e(-1)` for `e : ℕ → ℕ` is
-  therefore an error, and `k(t) = t + 3 in ℤ/5 → ℤ/5` gives `k(4) = 2`
-  rather than 7 — the body is computed over ℤ, and the target coercion is
-  the ring quotient, which agrees because a polynomial with integer
-  coefficients commutes with `ℤ → ℤ/n`. Two cases pass through: `.real`,
-  which has no `Value`s to check, and a polynomial argument or result, which
-  is the symbolic path (`h(-t)` denotes an expression, not a point);
+  therefore an error, and `k(t) = t + 7 in ℤ/5 → ℤ/5` gives `k(4) = 1`
+  rather than 11 — on the SCALAR path the body is computed over ℤ and the
+  target coercion is the ring quotient, which agrees because a polynomial
+  with integer coefficients commutes with `ℤ → ℤ/n`. The SYMBOLIC path
+  (a polynomial argument or result) does not rely on that: it coerces
+  coefficient-wise into `D[x]`, so `k(t)` is `t + 2` in ℤ/5 rather than an
+  unreduced ℤ polynomial escaping its own domain. Only `.real` passes
+  through unchecked, having no `Value`s to check;
 - **`ℝ` is an ascription tag.** It names where a function is declared and
   carries no analysis semantics at this stage: no `Value` presents it, no
   canonical map lands in it, and every operation needing its elements fails
@@ -173,7 +175,15 @@ Decisions, all load-bearing:
   cell is the loud "not bound" error even with `h` in scope, so defining a
   function never converts a typo elsewhere into a silent indeterminate. A
   real `let t := …` wins over the binder, which `eval` consults only after
-  the bindings;
+  the bindings. Disclosed residue: INSIDE an assertion that calls the
+  function, a typo matching that callee's binder still reads as the
+  indeterminate — the outcome is then the honest `unknown` or a false
+  assertion, never a wrong answer;
+- **the ring is the SOURCE domain** (`Eval.binderRing`), so a symbolic call
+  on a `ℤ/5` arrow is symbolic in ℤ/5. ℝ is the exception it always is: with
+  no `Value`s of its own, the body's ring stands in. A body that is not a
+  polynomial has no such ring and fails loudly at both call sites — there is
+  no silent ℤ default;
 - **calling and composing are elaboration-inserted**, exactly like calling a
   polynomial (decision 6): no method, no route, no backend. `f ∘ g` keeps
   `g`'s binder and requires the domains to meet — composing along a mismatch

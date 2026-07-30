@@ -318,10 +318,21 @@ def test_argument_outside_the_source_domain_is_refused(kernel: Kernel) -> None:
 
 def test_result_lands_in_the_target_domain(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "let k(t) = t + 3 in ℤ/5 → ℤ/5")
-    text = ok(kc, "k(4)")       # 4 + 3 in ℤ/5, never 7
-    assert "2" in text and "7" not in text
-    ok(kc, "assert k(4) = 2")
+    ok(kc, "let k(t) = t + 7 in ℤ/5 → ℤ/5")
+    text = ok(kc, "k(4)")       # 4 + 7 in ℤ/5, not 11
+    assert "1 ∈ ℤ/5" in text
+    ok(kc, "assert k(4) = 1")
+
+
+def test_symbolic_call_reduces_in_the_arrows_domain(kernel: Kernel) -> None:
+    _, kc = kernel
+    # the identity holds in ℤ/5, where the arrow says it lives — not in the
+    # ℤ the body was written in
+    text = ok(kc, "k(t)")
+    assert "x + 2" in text
+    ok(kc, "assert k(t) = t + 2")
+    text = err(kc, "assert k(t) = t + 3")
+    assert "false" in text.lower()
 
 
 # -- 10 · registry-driven embeddings ----------------------------------------

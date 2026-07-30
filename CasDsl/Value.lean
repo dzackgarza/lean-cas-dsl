@@ -116,11 +116,19 @@ namespace Value
 def mkMod (n : Nat) (z : Int) : Value :=
   if n == 0 then .int z else .mod n (z.emod n).toNat
 
+/-- Zero in whatever domain the coefficient presents. `ℤ/n`'s zero counts:
+a normal form that stripped only ℤ and ℚ zeros would leave `t + 7` over ℤ/5
+one degree too long, and two equal polynomials comparing unequal. -/
+private def isZeroCoeff : Value → Bool
+  | .int z => z == 0
+  | .rat q => q == 0
+  | .mod _ v => v == 0
+  | _ => false
+
 /-- Strip trailing zero coefficients (the zero polynomial is `#[]`). -/
 def mkPoly (coeff : Domain) (coeffs : Array Value) : Value := Id.run do
   let mut cs := coeffs
-  while cs.size > 0 &&
-      (cs[cs.size - 1]! == .int 0 || cs[cs.size - 1]! == .rat 0) do
+  while cs.size > 0 && isZeroCoeff cs[cs.size - 1]! do
     cs := cs.pop
   return .poly coeff cs
 

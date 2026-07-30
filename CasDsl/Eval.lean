@@ -312,12 +312,18 @@ both the composition and the symmetry claim exactly.
 Non-polynomial bodies (`t ↦ sin(t)`, `t ↦ e^t`) are therefore not expressible
 yet, and say so at the binding rather than being approximated. -/
 
-/-- The coefficient ring a function body lives in, which is the ring its
-binder is the indeterminate of. -/
-def bodyRing (body : Value) : Domain :=
-  match asPolyCoeffs body with
-  | some (c, _) => c
-  | none => .int
+/-- The ring the callee's binder is the indeterminate of: its SOURCE domain,
+so `k(t)` on a `ℤ/5 → ℤ/5` arrow is symbolic in ℤ/5 and not in ℤ. ℝ is the
+exception it always is — it has no `Value`s, so the body's own ring stands in.
+
+`none` = the body is not a polynomial. Every path that builds a `.func`
+checks that (`evalBinderBinding`, and `composeFuncs` via `applyPoly`), so
+only a hand-built or decoded value reaches it; both call sites fail loudly
+rather than defaulting to ℤ. -/
+def binderRing (src : Domain) (body : Value) : Option Domain :=
+  match src with
+  | .real => (asPolyCoeffs body).map (·.1)
+  | d => some d
 
 /-- The indeterminate of `c[x]` as a surface value — `x` itself. -/
 def indeterminateValue (rules : Array CanonicalMap) (c : Domain)
@@ -352,7 +358,11 @@ Two cases pass through, and only two:
 def atDomain (rules : Array CanonicalMap) (d : Domain) (v : Value)
     : Except String Value :=
   match d, v with
-  | .real, _ | _, .poly .. => .ok v
+  | .real, _ => .ok v
+  -- the symbolic path is coefficient-wise: `coerceValue` already recurses
+  -- under `.poly`, so a ℤ/5 arrow reduces `t + 7` to `t + 2` instead of
+  -- carrying an unreduced ℤ polynomial past its own domain
+  | d, v@(.poly ..) => coerceValue rules (.poly d) v
   | d, v => coerceValue rules d v
 
 /-- `f ∘ g` = `binder ↦ f(g(binder))`, keeping `g`'s binder.
@@ -703,7 +713,9 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
             throw (.msg s!"a function is called with exactly one argument, got {args.size}")
           -- inside the argument, and only there, the callee's binder names
           -- the indeterminate: that is what `h(-t)` and `(f ∘ g)(t)` mean
-          let arg ← eval { ctx with callBinder? := some (binder, bodyRing body) } args[0]!
+          let some ring := binderRing src body
+            | throw (.msg s!"{body.render} is not a polynomial body")
+          let arg ← eval { ctx with callBinder? := some (binder, ring) } args[0]!
           let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
           let y ← ofStr (applyPoly ctx.canonMaps body x)
           return Denote.ofValue (← ofStr (atDomain ctx.canonMaps tgt y))
@@ -908,7 +920,7 @@ where
   head : CasExpr → Option (Name × Domain)
     | .ref n =>
         match binding? env n with
-        | some (.elem _ (.func _ _ b body)) => some (b, bodyRing body)
+        | some (.elem _ (.func src _ b body)) => (binderRing src body).map (b, ·)
         | _ => none
     -- a composite keeps the right factor's binder, exactly as `composeFuncs` does
     | .comp _ g => head g
