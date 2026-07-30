@@ -62,6 +62,15 @@ private def samples : Array Value := #[
   .func .real .real `t (.sym (.app `sin (.var `t))),
   .func .real .real `t (.sym (.div (.num 1) (.var `t))),
   .sym (.const `pi),
+  -- the calculus shapes: a 1-form, both derivations, a coset, and BOTH series
+  -- readings — `.seriesV` carries every Taylor reply, so it crosses the wire
+  -- on every expansion
+  .diff1 .rat (Value.mkPoly .rat #[.rat 1, .rat 6]),
+  .derivation true,
+  .derivation false,
+  .cosetV (Value.mkPoly .rat #[.rat 0, .rat 0, .rat 1]) .rat,
+  .seriesV .int (.rule #[0, 0, 1]),
+  .seriesV .rat (.terms #[1, 1, mkRat 1 2, mkRat 1 6]),
   .sym (.const `infinity),
   .sym (.neg (.add (.sub (.mul (.num (mkRat 1 2)) (.var `t))
     (.app `exp (.var `t))) (.num (-3)))),

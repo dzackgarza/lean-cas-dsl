@@ -760,6 +760,35 @@ private def cubic : Obj :=
 private def comp3 : Value :=
   qm [[0, 0, -1], [1, 0, 2], [0, 1, 0]]
 
+-- the DETERMINANT is checked against the receiver too, by the same
+-- elimination the companion check runs: `[[0,-2],[1,3]]` has determinant 2
+#guard replyOK "mat_det_q" m2 (.rat 2)
+#guard !replyOK "mat_det_q" m2 (.rat 3)
+#guard !replyOK "mat_det_q" m2 (.int 2)
+
+/-! ### The three symbolic ops are KIND-checked, and that is the whole check
+
+They are the trusted replies (DESIGN.md §Elementary calculus), so the kind
+check is all that stands between a wrong-shaped answer and the session — which
+is exactly why deleting it has to fail the build. A limit answers with an
+EXACT value; a Taylor expansion answers with a series. -/
+
+private def symF : Obj :=
+  .elem (.funcs .real .real) (.func .real .real `t (.sym (.app `sin (.var `t))))
+
+#guard replyOK "sym_limit" symF (.int 1)
+#guard replyOK "sym_limit" symF (.rat (mkRat 1 3))
+#guard replyOK "sym_limit" symF (.alg 0 1 2)
+-- a decimal, a series or an unevaluated expression coming back is an adapter
+-- defect rather than an answer
+#guard !replyOK "sym_limit" symF (.approx (.int 1) "1.0" (mkRat 1 10) (mkRat 1 10))
+#guard !replyOK "sym_limit" symF (.sym (.var `t))
+#guard replyOK "sym_definite_integral" symF (.rat (mkRat 1 3))
+#guard !replyOK "sym_definite_integral" symF (.sym (.const `infinity))
+#guard replyOK "sym_taylor" symF (.seriesV .rat (.terms #[0, 1]))
+-- …and a series is the ONE kind the Taylor op promises
+#guard !replyOK "sym_taylor" symF (.rat (mkRat 1 3))
+
 #guard replyOK "poly_companion_q" cubic comp3
 -- the TRACE is the sum of the roots, which every companion layout shares
 #guard !replyOK "poly_companion_q" cubic

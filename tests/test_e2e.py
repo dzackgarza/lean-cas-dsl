@@ -261,6 +261,10 @@ def test_the_indefinite_integral_is_a_coset(kernel: Kernel) -> None:
     ok(kc, "assert F(x) = x³ + (1/2)x² + x")
     ok(kc, "assert d(F) = f dx")
     ok(kc, "assert (d/dx)(F) = f")
+    # the KERNEL is narrowed to the ones whose zero this presentation can
+    # write: a coset over ℤ/5 is refused rather than mis-canonicalized
+    text = err(kc, "assert ∫ f dx = x³ + ℤ/5")
+    assert "ℤ/5" in text and "gap rather than a guess" in text
     # …and the CEILING is stated rather than fitted: a guard that does not
     # evaluate the binder at a point is a gap
     text = err(kc, "{h ∈ ∫ f dx | h = 0}")
@@ -273,7 +277,7 @@ def test_the_coset_typesets(kernel: Kernel) -> None:
     assert b["text/latex"] == "$$x^{3} + (1/2)x^{2} + x + \\mathbb{Q}$$"
 
 
-def test_limits_are_exact_or_refused(kernel: Kernel) -> None:
+def test_a_limit_is_an_exact_value_or_a_named_refusal(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC.md §Elementary calculus, verbatim. A limit is a routed OPERATION
     # on a symbolic function expression; ℝ gains no analysis semantics from
@@ -288,6 +292,12 @@ def test_limits_are_exact_or_refused(kernel: Kernel) -> None:
     # …and the vocabulary is closed at the limit too
     text = err(kc, "lim_{t → 0} arctan(t)")
     assert "arctan" in text and "vocabulary" in text
+    # …and an OSCILLATING limit survives `expectKind` into a cell error with
+    # the adapter's own words, rather than a raw conversion failure. The
+    # wire-level pin is in tests/roundtrip.py; this is the same refusal seen
+    # from the surface, which is where a mathematician meets it.
+    text = err(kc, "lim_{t → ∞} sin(t)")
+    assert "does not converge" in text
 
 
 def test_definite_integrals_are_exact(kernel: Kernel) -> None:
@@ -541,9 +551,24 @@ def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
     # that reading decides
     ok(kc, "assert h(-t) = h(t)")
     ok(kc, "assert h(3) = 10")
-    # …and the vocabulary is a CLOSED list, named in the refusal
+    # …and the vocabulary is a CLOSED list, named in the refusal. `arctan` is
+    # also a body NEITHER reading reaches — the polynomial engine hits an
+    # unbound name — so the refusal carries BOTH reasons rather than losing
+    # the polynomial side behind the vocabulary list
     text = err(kc, "let bad := t ↦ arctan(t) in ℝ → ℝ")
     assert "arctan" in text and "sin" in text and "vocabulary" in text
+    assert "polynomial reading was tried first" in text and "not bound" in text
+    # (a body the polynomial engine reads FINE but that is not a polynomial —
+    # a matrix literal — has no such reason to carry, and reports the
+    # vocabulary alone)
+    text = err(kc, "let bad2 := t ↦ [1, 2; 3, 4] in ℝ → ℝ")
+    assert "vocabulary" in text and "polynomial reading was tried" not in text
+    # …and a body whose POLYNOMIAL reading hits a capability GAP propagates
+    # that gap: it is not an expressibility failure, so it must not be
+    # laundered into "not in the vocabulary"
+    ok(kc, "let zpoly := x ↦ x^2 + 1 in ℤ[x]")
+    text = err(kc, "let bad3 := t ↦ zpoly.gcd(zpoly) in ℝ → ℝ")
+    assert "NoImplementation" in text and "vocabulary" not in text
 
 
 def test_a_symbolic_body_typesets(kernel: Kernel) -> None:

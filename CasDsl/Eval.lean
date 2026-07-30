@@ -2005,18 +2005,35 @@ def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
       -- and a symbolic body decides nothing — it is a presentation the
       -- backend computes limits, integrals and expansions FROM. A body
       -- neither reading reaches is the refusal that lists the vocabulary.
-      let poly? ← tryCatch
+      -- ONLY an EXPRESSIBILITY failure falls through to the symbolic reading.
+      -- `EvalError` is already structured, so this discriminates rather than
+      -- catching everything: a routing GAP, a resolver failure, tied routes,
+      -- a backend error or an approximation request is about something other
+      -- than what the polynomial engine can express, and laundering one into
+      -- "not in the vocabulary" would report the wrong problem.
+      let poly? : Except String (Option Value) ← tryCatch
         (do
           let d ← eval { ctx with indet? := some (binder, .int) } body
           match d.value? with
-          | some v => return if (asPolyCoeffs v).isSome then some v else none
-          | none => return none)
-        (fun _ => pure none)
+          | some v => return .ok (if (asPolyCoeffs v).isSome then some v else none)
+          | none => return .ok none)
+        (fun e => match e with
+          | .msg m => pure (.error m)
+          | e => throw e)
       match poly? with
-      | some v => return .elem (.funcs src tgt) (.func src tgt binder v)
-      | none =>
-          let s ← ofStr (toSymExpr ctx.isBound binder body)
-          return .elem (.funcs src tgt) (.func src tgt binder (.sym s))
+      | .ok (some v) => return .elem (.funcs src tgt) (.func src tgt binder v)
+      | tried =>
+        match toSymExpr ctx.isBound binder body with
+        | .ok sy => return .elem (.funcs src tgt) (.func src tgt binder (.sym sy))
+        -- NEITHER reading reaches it, so the refusal carries both reasons:
+        -- the vocabulary the symbolic reader lists, and what the polynomial
+        -- engine actually said when it tried
+        | .error symMsg =>
+            throw (.msg (match tried with
+              | .error polyMsg =>
+                  s!"{symMsg}.\n  The polynomial reading was tried first and \
+said: {polyMsg}"
+              | .ok _ => symMsg))
   -- SPEC.md §Ellipses' `let f(t) = ∑_{n ∈ ℕ} n² tⁿ ∈ ℤ[[t]]`: the outer
   -- binder is the SERIES' indeterminate, which this slice spells `t`, and the
   -- generating sum binds its own summation variable. There is nothing for the

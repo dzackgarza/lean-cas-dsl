@@ -325,7 +325,23 @@ approximation of {exact.render}, but was asked for {recv.render}")
   | "factor_poly_q", .factorization .. => .ok v
   | "factor_poly_z", .factorization .. => .ok v
   | "factor_poly_c", .factorization .. => .ok v
-  | "mat_det_q", .rat _ => .ok v
+  -- the determinant is CHECKED, not merely kind-checked: `Value.detQ` is the
+  -- same elimination `checkCompanion` above already calls, so the exact
+  -- answer is available on this side for the cost of reading the receiver.
+  -- A backend returning a well-formed rational that is not the determinant is
+  -- a wrong answer to this call, and now fails here
+  | "mat_det_q", .rat q =>
+      match o with
+      | .elem (.matrix n _) (.mat _ _ rows) =>
+          match rows.mapM (·.mapM ratOf?) with
+          | some rats =>
+              if Value.detQ n rats == q then .ok v
+              else .error (.protocolError s!"sage: mat_det_q returned \
+{(Value.ofRat q).render}, but the determinant of the matrix it was asked \
+about is {(Value.ofRat (Value.detQ n rats)).render}")
+          | none => .error (.badRequest
+              "mat_det_q: the receiver has an entry that is not a rational")
+      | o => .error (offSignature "mat_det_q" o)
   | "mat_inv_q", .mat .. => .ok v
   -- both of these are checked against the RECEIVER, not merely for their kind
   | "mat_charpoly_q", _ =>

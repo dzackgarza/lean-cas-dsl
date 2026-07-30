@@ -61,14 +61,22 @@ vectors and the shape-checked linear action in SPEC.md's four spellings
 (`span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod`, which answers `dim`, `∈`, `∉` and `=`
 from that one normal form), the root set of an equation
 (`{a ∈ ℂ | r(a) = 0}`) with `∑` and `∏` folded exactly over its surds, and
-the companion matrix closing the loop on its own characteristic polynomial —
-and nine cells that **fail on purpose**: one square root over ℚ is the
+the companion matrix closing the loop on its own characteristic polynomial,
+and the calculus block — the universal differential and the derivation that
+shadows it (`d(f) = (6x + 1) dx`, `(d/dx)(f) = 6x + 1`), the indefinite
+integral as the **coset** its `+ ℚ` says it is, limits and definite integrals
+answered exactly by the backend, and formal power series with their
+truncations (`map f to ℤ[[t]] / O(t^5)`) —
+and ten cells that **fail on purpose**: one square root over ℚ is the
 documented ceiling, `Mat₂(ℤ/5).det()` is the structured capability gap
 (whose `trace` routes, because reading a diagonal needs no ℚ), a matrix
 applied to a vector of the wrong length names both shapes, a lambda with
-several binders names itself as a disclosed gap, and five refusals in the
+several binders names itself as a disclosed gap, five refusals in the
 approximation section keep a request, a registry gap, a capability failure
-and the absence of error propagation apart.
+and the absence of error propagation apart, and `let boom := t ↦ e^t` shows
+SPEC.md colliding with itself — it binds `e` to the doubling map in §Set
+comprehensions and writes `e^t` for Euler's number in §Elementary calculus,
+and a binding wins over a constant.
 
 ## Quickstart
 
@@ -83,7 +91,7 @@ jupyter lab notebooks/categorical-cas.ipynb   # kernel: "CasDsl (Lean 4)"
 ```
 
 `just test` runs the full gate: Lean build + no-sorry, the Sage adapter
-roundtrip (against real Sage), and the 12-test E2E suite through the
+roundtrip (against real Sage), and the 116-test E2E suite through the
 installed kernelspec.
 
 ## Architecture

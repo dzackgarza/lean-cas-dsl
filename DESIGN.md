@@ -63,11 +63,14 @@ or picks a different operation.
 ## Module map
 
 ```text
-CasDsl/Value.lean       Domain, Value, SetPresentation, Obj  (core data model)
+CasDsl/Value.lean       Domain, SymExpr, SeriesGen, Value, SetPresentation,
+                        Obj  (core data model — six inductives)
                         + their plain-text and LaTeX renderings
                         + the shared EXACT-ARITHMETIC FLOOR (see below)
 CasDsl/Category.lean    CatRef, category/method/functor/route/canonical-map TYPES
+CasDsl/Codec.lean       the wire codec: Value/Domain/SymExpr <-> backend JSON
 CasDsl/Registry.lean    env extensions + registration API (semantic state)
+CasDsl/Register.lean    the CHECKED registration adders (addRouteChecked, …)
 CasDsl/Resolve.lean     the method resolver (the ONE lookup boundary)
 CasDsl/Route.lean       capability router + structured gaps
 CasDsl/Native.lean      native Lean executors (arith, poly eval, nth, annihilator)
@@ -79,7 +82,8 @@ CasDsl/Diagnostics.lean #explain_route, #capabilities, #capability_gaps
 CasDsl/Std.lean         standard universe: categories, methods, routes, profiles
 CasDsl/Notebook.lean    the prelude module (the plugin manifest)
 backends/sage_adapter.py   Python half of the Sage adapter (runs under sage -python)
-tests/                  Lean #guard test module + Python roundtrip + E2E notebook run
+CasDslTests/            Lean #guard + elaboration-time test modules
+tests/                  Python roundtrip against real Sage + E2E kernel run
 ```
 
 Dependency arrows flow downward only. `Port.lean` knows nothing about Sage
@@ -95,13 +99,23 @@ module may route, execute, or name a backend — it is data, normal forms, and
 the arithmetic those normal forms are made of. `mkAlg`, `rref`, `spanContains`
 and `detQ` are all there for that reason.
 
-PRE-RULING for the next unit (recorded as such, project-owner call): U8's
-certificate arithmetic — polynomial add/sub/mul for the derivative and
-integral reply checks — goes DOWN into this floor under the same rule. Not
-duplicated in `Backends/Sage.lean`, and no import exception. `Eval.lean`'s
-polynomial helpers stay where they are and keep serving the surface; what a
-certificate needs gets a `Value`-level twin, and only as certificates demand
-it — not preemptively.
+PRE-RULING, now SUPERSEDED and kept for the trail: it said U8's certificate
+arithmetic — polynomial add/sub/mul for the derivative and integral reply
+checks — would come down into this floor. It presumed a BACKEND computed
+them. Both are NATIVE, so there is no reply to certify and the floor gained
+no twin (§Differentials records why not having a backend beats checking one).
+The rule the pre-ruling stated is untouched and still governs the next
+certificate that needs arithmetic: it goes here, not into a backend's half.
+
+OPEN NOTE, raised in review and deliberately not solved here: the ZERO of a
+domain is known in two places. `Native.zeroOf` has it for every domain
+including `ℤ/n`; `Value.mkCoset` needs it and cannot ask, because a backend is
+not in this module's cone. `mkCoset` is therefore NARROWED to the kernels
+whose zero it can write itself (ℤ, ℚ, ℝ, ℂ) and refuses `ℤ/n` loudly, which
+is honest but leaves the two owners standing. Whether the arithmetic floor
+should own `zeroOf` — an `Arith.lean` under `Value.lean` that both a backend
+and the data model may import — is the question, and the first spec line that
+wants a coset over `ℤ/n` is what should force it.
 
 ## Core data model (`Value.lean`)
 
@@ -310,8 +324,21 @@ everything about that line is a REQUEST rather than a new number system.
   KIND is verified. The two statements are one policy, and it reads the same
   in both directions — a reply is trusted only where no exact check exists,
   the absence of the check is named where it bites, and what is still checked
-  is written down. Nothing else in this slice is trusted: everything with an
-  exact check has one.
+  is written down.
+  THE REAL BOUNDARY, stated exactly rather than as a slogan. Three replies are
+  CHECKED against the receiver: `approx_real`'s certificate, `mat_charpoly_q`'s
+  monicity and degree, `poly_companion_q`'s trace and determinant — and, since
+  the review that noticed the exact check was sitting unused twenty lines
+  away, `mat_det_q` against `Value.detQ`. Three are TRUSTED BY DECLARATION:
+  `sym_limit`, `sym_definite_integral` and `sym_taylor` (§Elementary calculus).
+  The REST are KIND-CHECKED ONLY — `factor_int`, `factor_poly_q/z/c`,
+  `gcd_int`, `is_prime_int`, `roots_poly_z/q/c`, `mat_inv_q` — and that is a
+  weaker position than either, so it is named here rather than implied away.
+  Checking them is not free the way `detQ` was: verifying a factorization or a
+  root set means multiplying the factors back or evaluating the polynomial at
+  each root, and verifying an inverse means a matrix product — arithmetic
+  `Value.lean` does not have and that no `SPEC.md` line has forced. When one
+  is written, it belongs to that floor and these ops move up a row.
   What is checked in the ADAPTER's reply rather than in the constructor is
   that the approximation is OF the value that was sent — a certificate that
   holds for some other number is still a wrong answer to this call.
@@ -429,8 +456,10 @@ route, and `#explain_route f.derivative()` explains both.
   §Module map — that U8's derivative and integral reply checks go down into
   `Value.lean`'s exact-arithmetic floor — presumed a BACKEND computed them;
   not having a backend is strictly stronger than checking one, and strictly
-  less code, so it supersedes the pre-ruling. (`Value.lean` is unchanged by
-  this section: no certificate needs an arithmetic twin there.)
+  less code, so it supersedes the pre-ruling. `Value.lean` gained the SHAPES
+  this section needs (`diff1`, `derivation`, and `Obj.specOf`) — what it did
+  NOT gain is the arithmetic TWIN the pre-ruling anticipated, because no
+  certificate exists to need one.
 - **A 1-FORM IS NOT A POLYNOMIAL.** `Ω¹_{k[x]/k} ≅ k[x] dx` is free of rank
   one, so `Value.diff1` carries the coefficient and nothing else — and
   `d(f) = 6x + 1` is FALSE rather than incomparable, which is the theorem
@@ -644,7 +673,8 @@ spelling per ring is what keeps a display readable back as input.
   A series is written in ASCENDING order, unlike a polynomial: it has no
   highest term, and its tail belongs at the end.
 - **CEILING, and it is loud.** A `terms` series knows `Value.seriesTerms`
-  coefficients. A truncation or a coefficient past that is a refusal NAMING
+  coefficients — which is how far a Taylor expansion is computed, and a
+  different number from the `seriesShown` a bare series DISPLAYS. A truncation or a coefficient past that is a refusal NAMING
   the ceiling — never a shorter answer returned as if it had been requested,
   which is the same discipline `MAX_DIGITS` follows for a tolerance. Both
   refusals share one wording, because they are one fact about the

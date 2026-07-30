@@ -49,8 +49,9 @@ def ratToJson (q : Rat) : Json :=
 string: the adapter builds a Sage symbolic expression from these nodes and
 never parses anything this side wrote (DESIGN.md decision 2 — the adapter
 never receives generated Sage source). Names are checked against the fixed
-vocabulary at BOTH ends, so an unknown one cannot be handed to a backend to
-interpret however it likes. -/
+vocabulary at BOTH ENDS — here on decode and in the adapter's own `dec_sym`
+— so neither end can widen the language unilaterally. (The ENCODER writes
+only names the surface already accepted, so it needs no check of its own.) -/
 partial def symToJson : SymExpr → Json
   | .var n => Json.mkObj [("s", "var"), ("n", Json.str n.toString)]
   | .num q => Json.mkObj [("s", "num"), ("q", ratToJson q)]
@@ -189,10 +190,11 @@ partial def domainFromJson (j : Json) : Except String Domain := do
   | other => .error s!"unknown domain tag {repr other} in {j.compress}"
 
 /-- A name that is IN the fixed vocabulary, or a protocol failure listing it.
-Checked on the way in as well as on the way out: a frame naming `arctan`
-would otherwise become a symbolic body this surface never agreed to present,
-and the refusal is what keeps the vocabulary a closed list rather than
-whatever the two ends happen to agree on. -/
+This is the DECODE side; the adapter checks the same list on its own decode,
+which is what "both ends" means. A frame naming `arctan` would otherwise
+become a symbolic body this surface never agreed to present, and the refusal
+is what keeps the vocabulary a closed list rather than whatever the two ends
+happen to agree on. -/
 private def vocabName (j : Json) (k what : String) (allowed : List Lean.Name)
     : Except String Lean.Name := do
   let s ← strField j k

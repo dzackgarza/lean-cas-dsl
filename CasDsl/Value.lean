@@ -374,6 +374,16 @@ an integral rational as the integer (`4`, never `4/1`). -/
 private def ratText (q : Rat) : String :=
   if q.den == 1 then toString q.num else s!"{q.num}/{q.den}"
 
+/-- The COEFFICIENT of a differential 1-form, parenthesized exactly as a
+polynomial FACTOR is: a plain integer stands alone, anything else gets
+brackets so it reads as one factor rather than as a sum that swallowed the
+`dx`. Shared by the plain and LaTeX renderers for the reason
+`renderPolyWith` is shared — they had drifted, and `2x` came out `2x dx` in
+one and `(2x)\,dx` in the other. -/
+private def diffCoeffText (s : String) : String :=
+  if s.all Char.isDigit || (s.startsWith "-" && (s.drop 1).all Char.isDigit) then s
+  else "(" ++ s ++ ")"
+
 namespace SymExpr
 
 /-- The named functions and constants this slice presents — the whole
@@ -618,9 +628,10 @@ coefficient, a truncation, and a display — and the display is what says which
 reading is in hand: `…` when every coefficient is known, `O(tⁿ)` when exactly
 the carried ones are. -/
 
-/-- How many terms a bare series SHOWS, and how far a Taylor expansion is
-computed. A documented ceiling, not a fallback: a truncation past what a
-`terms` series carries is a loud refusal naming this number. -/
+/-- How far a Taylor expansion is computed, and therefore how many
+coefficients a `terms` series carries. A documented ceiling, not a fallback:
+a truncation or a coefficient past it is a loud refusal naming this number.
+(What a bare series SHOWS is `seriesShown`, below — a different question.) -/
 def seriesTerms : Nat := 12
 
 /-- How many terms a bare series displays before its tail. `SPEC.md` shows
@@ -700,10 +711,7 @@ partial def render : Value → String
   -- `(6x + 1) dx`: the coefficient is parenthesized exactly as a polynomial
   -- FACTOR is, so a sum reads as one factor rather than as a sum that
   -- swallowed the differential
-  | .diff1 _ p =>
-      let s := p.render
-      let plain := s.all Char.isDigit || (s.startsWith "-" && (s.drop 1).all Char.isDigit)
-      if plain || (s.length ≤ 2 && !s.contains ' ') then s ++ " dx" else "(" ++ s ++ ") dx"
+  | .diff1 _ p => diffCoeffText p.render ++ " dx"
   -- SPEC.md's own displayed cell, in the generality the VALUE has: `d` knows
   -- the universal differential it is, and it does NOT know which scheme the
   -- session called `X` — a value carries no session, and naming one would be
@@ -844,9 +852,17 @@ offset that is not a polynomial over it, is a loud refusal: this presentation
 knows one kernel, and guessing another would be a claim. -/
 def mkCoset (offset : Value) (kernel : Domain) : Except String (Value × Domain) :=
   match kernel with
-  | .poly _ | .matrix .. | .vector .. | .funcs .. =>
-      .error s!"the kernel of a coset here is the CONSTANTS of a ring, and \
-{kernel.render} is not one: this slice presents no other coset"
+  -- CEILING: the exact scalar domains whose ZERO is `Value.int 0` or
+  -- `Value.rat 0`, which is what the canonicalization below writes. `ℤ/n` is
+  -- refused rather than accepted-and-mis-canonicalized: its zero is
+  -- `Value.mod n 0`, and this module cannot ask `Native.zeroOf` for it (a
+  -- backend is not in `Value.lean`'s cone — see DESIGN.md §Module map's open
+  -- note). No `SPEC.md` line asks for a coset over `ℤ/n`; when one does, that
+  -- layering is what has to be settled first.
+  | .nat | .mod _ | .series _ | .poly _ | .matrix .. | .vector .. | .funcs .. =>
+      .error s!"the kernel of a coset here is the constants of a ring whose \
+zero this presentation can write — ℤ, ℚ, ℝ or ℂ — and {kernel.render} is not \
+one of them: a coset over it is a gap rather than a guess"
   | k =>
       match offset with
       -- the canonical representative has constant term ZERO, because two
@@ -1022,10 +1038,7 @@ partial def latex? : Value → Option String
   -- `(6x + 1)\,dx`: the thin space is what separates a coefficient from a
   -- differential in math mode, and `dx` is upright text in neither
   -- convention — it is two ordinary math italics, which is what `dx` means
-  | .diff1 _ p => do
-      let s ← latex? p
-      let plain := s.all Char.isDigit || (s.startsWith "-" && (s.drop 1).all Char.isDigit)
-      return (if plain then s else "(" ++ s ++ ")") ++ "\\,dx"
+  | .diff1 _ p => do return diffCoeffText (← latex? p) ++ "\\,dx"
   -- the two derivations are the documented no-natural-form case the truth
   -- value is: their renderings are prose ABOUT an operation, not mathematics
   | .derivation _ => none

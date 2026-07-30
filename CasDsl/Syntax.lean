@@ -180,7 +180,11 @@ one rule:
   conjunction. The `notFollowedBy` below is what keeps SPEC.md's ⊆-chain
   working; it is the rule's ONE exception, and it belongs to the rule rather
   than to `assert` — every other non-reserved keyword this surface adds in
-  argument position will need the same guard;
+  argument position will need the same guard. `dx` and `Spec` needed no such
+  guard in the end: they are real TOKENS, so they are not identifiers and
+  this production cannot eat them (§the differential form below says why they
+  had to be tokens). `casInvJuxtApp` therefore carries the `and` guard alone,
+  exactly as this one does — the two are not asymmetric;
 - a cell whose previous statement ENDS in an identifier and whose next BEGINS
   with one joins them. NEITHER STATEMENT NEED BE A BARE NAME: `k1 + 1` and
   `k1.is_prime()` end in a numeral and a `)` and do not join, while SPEC.md's
@@ -190,8 +194,7 @@ one rule:
   (#24). -/
 
 syntax:max (name := casInv) ident noWs "⁻¹" : casTerm
-syntax:70 (name := casJuxtApp)
-  ident notFollowedBy(&"and") notFollowedBy(&"dx") ident : casTerm
+syntax:70 (name := casJuxtApp) ident notFollowedBy(&"and") ident : casTerm
 syntax:70 (name := casInvJuxtApp)
   ident noWs "⁻¹" notFollowedBy(&"and") ident : casTerm
 

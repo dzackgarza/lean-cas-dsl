@@ -221,6 +221,15 @@ what separates a coefficient from `dx`. -/
 #guard Value.latex? (.diff1 .rat (Value.mkPoly .rat #[.rat 1, .rat 6]))
   == some "(6x + 1)\\,dx"
 #guard Value.latex? (.diff1 .int (.int 3)) == some "3\\,dx"
+-- the plain and LaTeX spellings of a 1-form's COEFFICIENT agree, and these
+-- are the cases where they used to differ: the plain renderer had a "short
+-- and space-free" clause the LaTeX one lacked, so `2x` came out `2x dx` in
+-- one and `(2x)\\\\,dx` in the other. `d(x²)` reaches it.
+#guard Value.render (.diff1 .int (Value.mkPoly .int #[.int 0, .int 2])) == "(2x) dx"
+#guard Value.latex? (.diff1 .int (Value.mkPoly .int #[.int 0, .int 2]))
+  == some "(2x)\\,dx"
+#guard Value.render (.diff1 .int (.int (-3))) == "-3 dx"
+#guard Value.latex? (.diff1 .int (.int (-3))) == some "-3\\,dx"
 -- the two derivations have NO form: their renderings are prose ABOUT an
 -- operation, which is the documented no-natural-form case a truth value is
 #guard Value.latex? (.derivation true) == none

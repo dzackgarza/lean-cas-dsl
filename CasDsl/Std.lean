@@ -363,8 +363,12 @@ answer is not one of the exact values this slice presents" },
     argDoc := "the point to expand about",
     resultDoc := "a formal power series, known to a documented number of terms",
     doc := "the Taylor expansion about a point, as a formal power series in \
-t. The number of terms is a documented CEILING of this slice, not something \
-the call negotiates: a truncation past it is a loud refusal naming it" },
+t. TRUSTED in the sense the limit and the definite integral are — no finite \
+exact computation on this side decides an expansion — with one check more \
+than they get: every coefficient must come back an exact RATIONAL, and one \
+that does not is refused rather than turned into a decimal. The number of \
+terms is a documented CEILING of this slice, not something the call \
+negotiates: a truncation past it is a loud refusal naming it" },
   { id := `image, receiver := `FunctionElems,
     resultDoc := "the set of values the function takes on its source",
     doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
@@ -736,7 +740,9 @@ private def stdRoutes : Array Route := #[
   -- the three analysis operations are the backend's: a symbolic limit, a
   -- symbolic definite integral and a Taylor expansion are exactly what this
   -- side has no exact computation for, which is why they are ROUTED rather
-  -- than native — and why the limit's reply is trusted rather than certified
+  -- than native — and why ALL THREE replies are trusted rather than certified
+  -- (the Taylor expansion with one extra check: its coefficients must be
+  -- exact rationals)
   { method := `limit, pattern := .elemOf .anyFuncs, backend := `sage,
     opId := "sym_limit" },
   { method := `definite_integral, pattern := .elemOf .anyFuncs, backend := `sage,
