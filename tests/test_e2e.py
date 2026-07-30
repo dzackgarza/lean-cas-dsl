@@ -422,3 +422,31 @@ def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
     # not a registered embedding
     text = err(kc, "map q to ℤ[x]")
     assert "no preferred canonical map" in text
+
+
+# -- 11 · a binding always wins ---------------------------------------------
+# Both readings a name can acquire — the prefix spelling of a method call, and
+# the indeterminate of a polynomial ring — apply to UNBOUND names only. These
+# run last because they bind `det` and `x`, which earlier cells need free.
+
+def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `det` is a declared method, so `det(2)` would otherwise be the prefix
+    # spelling of `2.det()`. A binding of that name is an ordinary value, and
+    # calling it is the ordinary not-callable error.
+    ok(kc, "let det := 7 in ℤ")
+    text = err(kc, "det(2)")
+    assert "7 ∈ ℤ is not callable" in text
+
+
+def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `x` was the indeterminate in `assert x ∈ ℤ[x]` above. Bind the name and
+    # the brackets are an INDEX again — the registered ℤ enumeration
+    # 0, 1, −1, 2, −2, 3 — so no bound name is ever read as an indeterminate.
+    ok(kc, "let x := 5 in ℤ")
+    text = ok(kc, "ℤ[x]")
+    assert "'3'" in text
+    # …and the membership assertion asks about that integer, not about a ring
+    text = err(kc, "assert x ∈ ℤ[x]")
+    assert "'contains' is not a method" in text

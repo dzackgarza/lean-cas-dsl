@@ -357,6 +357,11 @@ assert p ∈ ℚ[x]
 -- membership is a judgment about the coefficients, not a shape test
 assert 1 / 2 ∉ ℤ[x]
 assert 1 / 2 ∈ ℚ[x]
+-- …coefficient by coefficient, which is the POLYNOMIAL case rather than the
+-- scalar one above: one non-integral coefficient keeps `x + 1/2` out of ℤ[x]
+let r := x ↦ x + 1 / 2 in ℚ[x]
+assert r ∉ ℤ[x]
+assert r ∈ ℚ[x]
 
 assert p.deg() = 3
 assert p.deg() ≠ 2
