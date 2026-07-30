@@ -17,9 +17,9 @@ Parser notes (hard-won, load-bearing):
 - `noWs` before `(` and `[` is what keeps a bare-expression cell from
   swallowing the next line: without it, `X.cardinality()` followed by
   `[1, 2; 3, 4]` parses as one indexing expression.
-- Implicit multiplication is `numeral noWs ident` only (`2x`), for the same
-  reason: `assert 2 + 3 = 5` followed by a line starting with an identifier
-  must not become a product.
+- Implicit multiplication is `numeral noWs <atom-or-power>` (`2x`, `3x²`),
+  and the `noWs` is what carries the same guarantee: `assert 2 + 3 = 5`
+  followed by a line starting with an identifier must not become a product.
 - `...` is declared as a token; `..` already is one, and the tokenizer's
   longest match keeps them apart.
 -/
@@ -48,7 +48,30 @@ syntax:max (name := casRatDom) "ℚ" : casTerm
 syntax:max (name := casRealDom) "ℝ" : casTerm
 syntax:max (name := casComplexDom) "ℂ" : casTerm
 syntax:max (name := casAleph) "ℵ₀" : casTerm
-syntax:max (name := casImplMul) num noWs ident : casTerm
+/-- Implicit multiplication — SPEC.md's `2x`, `2n`, `3x²`, `2√2`.
+
+The right operand is an ATOM POSSIBLY RAISED TO A POWER (`casTerm:76`), and
+that precedence is the whole content of the fix for #26: 76 admits the two
+power productions (80) and every atom, so the exponent binds TIGHTER than
+the juxtaposition — `3x²` is `3·(x²)` and `2x^2` is `2·(x²)`, which is the
+universal convention. It was `numeral noWs ident` at `max` before, which put
+the whole product inside the superscript's base: `3x²` parsed as `(3x)² =
+9x²`, and SPEC.md §Differentials' own `f := x ↦ 3x² + x + 1` therefore bound
+a polynomial nobody wrote — a silent wrong answer, which is the one outcome
+this system forbids.
+
+76 rather than 71 is also load-bearing: it EXCLUDES unary minus and `∘`
+(both 75), so `3-x` is the subtraction it always was rather than `3·(-x)`.
+`noWs` is unchanged, and is still what keeps a numeral ending one line from
+swallowing the line below.
+
+The BARS are the one atom this may not take, and the guard is the same kind
+`notFollowedBy(&"and")` is: `|` is a DELIMITER, not an operand, so without
+this `|3|` reads its opening bar as the start of a factor and runs off the
+end of the cell looking for the closing one. (`2|A|` — a numeral against a
+cardinality — is nothing SPEC.md writes, and the bars already name a method
+rather than a value.) -/
+syntax:max (name := casImplMul) num noWs notFollowedBy("|") casTerm:76 : casTerm
 syntax:max (name := casNum) num : casTerm
 syntax:max (name := casIdent) ident : casTerm
 syntax:max (name := casParen) "(" casTerm ")" : casTerm
@@ -139,11 +162,12 @@ object belongs to" error rather than a third notion of size. -/
 syntax:max (name := casCard) "|" casTerm "|" : casTerm
 
 /-- SPEC.md's exact square root — `√2`, and `2√2` as the implicit product it
-writes. The product is its OWN production for the reason `2x` is: implicit
-multiplication here is only ever a numeral against one atom, so a line
-starting with `√` can never be swallowed by the line above it. -/
+writes. The product needs no production of its own: `√2` is an atom, so it
+is one of the operands `casImplMul` above already takes. (It HAD one, back
+when implicit multiplication was `numeral noWs ident` and a radical was not
+an identifier; keeping it now would be a second parse of `2√2` of exactly
+the same length as the first, which is an ambiguity rather than a spelling.) -/
 syntax:max (name := casSqrt) "√" noWs casTerm:max : casTerm
-syntax:max (name := casSqrtMul) num noWs "√" noWs casTerm:max : casTerm
 
 /-- `𝒫(A)`. SPEC.md's other spelling, `2^A`, is the ordinary `^` production
 read against a set (`Eval`). -/
@@ -290,7 +314,7 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casAleph => return .lit (.cardinal .countablyInfinite)
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
   | ``casImplMul =>
-      return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.ref stx[1].getId)
+      return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (← toExpr stx[1])
   | ``casIdent => return .ref stx[0].getId
   | ``casParen => toExpr stx[1]
   | ``casTuple => do
@@ -301,8 +325,6 @@ partial def toExpr (stx : Syntax) : Except String CasExpr := do
   | ``casSub => return .bin .sub (← toExpr stx[0]) (← toExpr stx[2])
   | ``casMul | ``casCdot => return .bin .mul (← toExpr stx[0]) (← toExpr stx[2])
   | ``casSqrt => return .sqrt (← toExpr stx[1])
-  | ``casSqrtMul =>
-      return .bin .mul (.num (Int.ofNat (← natLit stx[0]))) (.sqrt (← toExpr stx[2]))
   | ``casDiv => return .bin .div (← toExpr stx[0]) (← toExpr stx[2])
   | ``casPow => return .bin .pow (← toExpr stx[0]) (← toExpr (unbrace stx[2]))
   | ``casSupPow => do

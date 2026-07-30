@@ -523,11 +523,15 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   DIFFERENTLY.** `{n in ℕ | f(n) ∈ 2ℕ}` does not parse at all: `∈` is an
   assertion relation, not a term operator, so the guard position rejects it
   and the statement splitter runs what is left as fragments — `2` and `ℕ`
-  print as results next to the parse error. `2ℕ` compounds it: there is NO
-  scaling production, so it reads as two juxtaposed terms and `SPEC.md`'s
-  `assert Y = 2ℕ` asserts `Y = 2`, displaying `ℕ` after it. Both of those
-  readings are the splitter's, not this surface's — decided answers to
-  DIFFERENT claims, which is why the line is listed here rather than trusted.
+  print as results next to the parse error. That reading is the splitter's,
+  not this surface's — a decided answer to a DIFFERENT claim, which is why
+  the line is listed here rather than trusted. `2ℕ` no longer compounds it:
+  there is still NO scaling production, but implicit multiplication takes an
+  ATOM since #26 (§Surface), so `2ℕ` is the PRODUCT `2 · ℕ` and refuses
+  loudly — `ℕ` is not an element value. It used to split into two statements
+  and quietly assert `Y = 2` while displaying `ℕ` beside it, which is a
+  decided answer to a claim nobody made; the refusal is strictly better and
+  is pinned in `tests/test_e2e.py`.
   `{n in ℕ | n.is_prime()}` is the other kind: it parses, and gets the
   structured undecidable-guard refusal AT THE BINDING, even though
   `n.is_prime()` itself ships as a method — primality is not a polynomial
@@ -1021,7 +1025,17 @@ Parser decisions (load-bearing):
   `ℤ[z]` is the index `ℤ[5]`, not a polynomial ring. That is what makes a
   binding win over both readings a bare name can acquire — this one and the
   `NAME ∈ D[NAME]` membership below — and it is pinned as such.
-- implicit multiplication is supported only as `numeral ident` (`2x`);
+- **implicit multiplication is a numeral against an ATOM-OR-POWER**
+  (`casTerm:76`): `2x`, `2n`, `2√2`, and — since #26 was ruled — `3x²` and
+  `2x^2`, both of which mean `3·(x²)` and `2·(x²)`. The EXPONENT binds
+  tighter than the juxtaposition, which is the universal convention; before
+  the ruling the product sat at `max` and the superscript took it as its
+  base, so `3x²` was `(3x)² = 9x²` and `SPEC.md` §Differentials' own
+  `f := x ↦ 3x² + x + 1` bound a polynomial nobody wrote. 76 rather than 71
+  also EXCLUDES unary minus and `∘` (75), so `3-x` stays the subtraction it
+  always was. `2√2` needs no production of its own any more — a radical is
+  one of the atoms this takes, and a second parse of the same length would
+  be an ambiguity rather than a spelling;
 - **application by JUXTAPOSITION** (`M v`, `M⁻¹ b`) and the inverse's `⁻¹` are
   three productions rooted at an `ident` on the LEFT — the same hazard control
   as the `noWs` before `(` and `[`, and narrower than it. The residual, stated

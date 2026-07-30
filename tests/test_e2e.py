@@ -178,13 +178,23 @@ def test_degree_is_one_operation_over_both_coefficient_rings(
     ok(kc, "assert p.deg() = 3")
     text = err(kc, "assert p.deg() = 2")
     assert "false" in text.lower()
-    # SPEC.md §Differentials' ℚ[x] polynomial. (SPEC spells the leading term
-    # `3x²`; implicit multiplication binds tighter than the superscript in
-    # this grammar, so the product is written out — `f(2) = 15` is SPEC's own
-    # check that this is the intended polynomial.)
-    ok(kc, "let f := x ↦ 3*x² + x + 1 in ℚ[x]")
+    # SPEC.md §Differentials' ℚ[x] polynomial, in SPEC's own spelling. The
+    # superscript binds tighter than implicit multiplication (#26), so `3x²`
+    # is `3·(x²)`; until that was ruled this line was written `3*x²` here
+    # with a comment saying so, because `3x²` bound `9x² + x + 1` silently.
+    # `f(2) = 15` is SPEC's own check that tells the two apart — the wrong
+    # reading gives 39.
+    ok(kc, "let f := x ↦ 3x² + x + 1 in ℚ[x]")
     ok(kc, "assert f(2) = 15")
     ok(kc, "assert f.deg() = 2")
+    text = err(kc, "assert f(2) = 39")
+    assert "false" in text.lower()
+    # both exponent spellings bind the same way, and unary minus stays OUT
+    # of the implicit product
+    ok(kc, "let twoXsq := x ↦ 2x^2 in ℚ[x]")
+    ok(kc, "assert twoXsq(3) = 18")
+    ok(kc, "let threeMinus := x ↦ 3-x in ℤ[x]")
+    ok(kc, "assert threeMinus(1) = 2")
 
 
 def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
@@ -547,6 +557,20 @@ def test_a_finite_comprehension_is_decided(kernel: Kernel) -> None:
     assert "false" in err(kc, "assert |S| = 10").lower()
     # SPEC.md §Ellipses spells the binder with the ASCII `in` too
     ok(kc, "assert {n in ℤ | n² ≤ 20} = S")
+
+
+def test_a_numeral_against_a_domain_refuses_rather_than_splitting(
+        kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md §Ellipses writes `assert Y = 2ℕ`, and there is still NO scaling
+    # of a set by a number. What changed with #26 is the FAILURE: implicit
+    # multiplication now takes an atom rather than an identifier, so `2ℕ` is
+    # the product `2 · ℕ` and refuses loudly. It used to split into two
+    # statements and quietly assert `Y = 2` while displaying `ℕ` beside it —
+    # a decided answer to a claim nobody made, which is strictly worse than
+    # this error.
+    text = err(kc, "assert {0, 2, ...} = 2ℕ")
+    assert "element value" in text and "ℕ" in text
 
 
 def test_an_infinite_comprehension_is_its_progression(kernel: Kernel) -> None:

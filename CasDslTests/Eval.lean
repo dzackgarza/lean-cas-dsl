@@ -481,13 +481,28 @@ assert p.deg() = 3
 assert p.deg() ≠ 2
 
 /- SPEC.md §Differentials' ℚ[x] polynomial: the same operation, one ring
-over. SPEC spells the leading term `3x²`; implicit multiplication binds
-tighter than the superscript in this grammar (`3x²` parses as `(3x)²`), so
-the product is written out — `f(2) = 15` is SPEC's own check that this is
-the intended polynomial. -/
-let f := x ↦ 3*x² + x + 1 in ℚ[x]
+over, and now in SPEC's OWN spelling. The superscript binds tighter than
+implicit multiplication (#26), so `3x²` is `3·(x²)`; until that was ruled,
+this line bound `9x² + x + 1` silently and was written `3*x²` here with a
+comment saying so. `f(2) = 15` is SPEC's own check that tells the two
+polynomials apart, and the wrong reading is pinned as FALSE below rather
+than merely absent — `(3x)² + x + 1` at 2 is 39. -/
+let f := x ↦ 3x² + x + 1 in ℚ[x]
 assert f.deg() = 2
 assert f(2) = 15
+assert f(2) ≠ 39
+
+-- BOTH exponent spellings bind the same way: `2x^2` is `2·(x²)` (18 at 3),
+-- not `(2x)²` (36)
+let twoXsq := x ↦ 2x^2 in ℚ[x]
+assert twoXsq(3) = 18
+assert twoXsq(3) ≠ 36
+
+-- …and 76 is the precedence that keeps unary minus OUT of the implicit
+-- product: `3-x` is the subtraction it always was, not `3·(-x)`
+let threeMinus := x ↦ 3-x in ℤ[x]
+assert threeMinus(1) = 2
+assert threeMinus(1) ≠ -3
 
 /-! ## SPEC.md §Exact number systems: the ⊆-chain
 
