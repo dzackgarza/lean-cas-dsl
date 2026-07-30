@@ -905,7 +905,9 @@ private def approxEps? (m : Name) (args : Array Obj) : Option (Except String Rat
   else match (args[0]? : Option Obj) with
     | some (.elem _ v) => some (toleranceOf (some v) v.render)
     | some o => some (toleranceOf none o.presentation)
-    | none => some (toleranceOf none "no argument")
+    -- no argument is an ARITY failure, and `runMethod`'s check owns it: a
+    -- tolerance cannot be the reason for a call that carries none
+    | none => none
 
 /-- Resolve (semantics), route (computability), execute — the ONLY path from
 the surface to an implementation.

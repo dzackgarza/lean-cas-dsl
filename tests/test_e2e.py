@@ -1217,6 +1217,10 @@ def test_a_non_rational_tolerance_is_refused_in_surface_words(
     # both spellings validate ε at the same junction, so neither reaches the
     # backend to be refused in the backend's vocabulary
     ok(kc, "let apr3 := √2 in ℝ")
+    # …and an EMPTY call is an arity failure, not a tolerance one
+    text = err(kc, "apr3.approximate()")
+    assert "takes 1 argument(s), got 0" in text
+    assert "tolerance" not in text
     for code in ("apr3.approximate(√2)", "apr3.approximate(ℤ)",
                  "apr3.approximate({1, 2})", "map √2 to ℝ/O(√2)"):
         text = err(kc, code)

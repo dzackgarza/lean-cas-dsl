@@ -154,8 +154,11 @@ private def approxRealArgs (receiver : Obj) (args : Array Obj)
   | .elem .real _, #[o] => .error (.protocolError
       s!"sage: approx_real received the tolerance {o.presentation}, which the \
 surface guard should already have refused")
-  | .elem .real _, as => .error (.badRequest
-      s!"sage op \"approx_real\" takes one argument, got {as.size}")
+  -- unreachable for the same reason, one layer up: the method's declared
+  -- arity is checked before any executor is reached
+  | .elem .real _, as => .error (.protocolError
+      s!"sage: approx_real received {as.size} arguments, which the arity check \
+should already have refused")
   | o, _ => .error (offSignature "approx_real" o)
 
 /-- The decoded reply must be the kind of value the op promises; a
