@@ -182,6 +182,29 @@ private def stdProfileRules : Array ProfileRule := #[
 
 run_cmd stdProfileRules.forM registerProfileRule!
 
+/-! ## 3b · Functors — receiver transport
+
+A functor is what carries a method declared on one category to a receiver of
+another: `F.cardinality()` on the module fixture resolves as
+`UnderlyingSet(F).cardinality()`. Registration is data, exactly like a profile
+rule, and `source`/`target` are category names — nothing here names a backend
+or an implementation.
+
+The resolver consults these only where round one found NOTHING, so registering
+a functor can never take a method away from an object that already had it:
+`annihilator` still reaches the fixture directly through `SmallModules ≤
+Modules`, and the acceptance proofs below assert exactly that. -/
+
+private def stdFunctors : Array FunctorDecl := #[
+  { name := `UnderlyingSet, source := `Modules, target := `Sets,
+    objMap := .cyclicToFiniteSet,
+    doc := "the forgetful functor to underlying sets: a module presented by \
+explicit finite data becomes the finite set of its elements, so the set \
+methods (cardinality, contains, nth) apply to it" }
+]
+
+run_cmd stdFunctors.forM registerFunctor!
+
 /-! ## 4 · Capability routes — what can currently be executed
 
 The computability layer. Every pattern below is disjoint from its siblings
@@ -256,16 +279,26 @@ rather than the notebook. They are stated as one reusable action so
 *imported* environment — which additionally proves the registries survive
 the olean round trip that the kernel's session cache depends on. -/
 
-/-- `m` is semantically available on `o` through the inheritance chain
-`via`, and routes to `backend`. -/
+/-- The transport step of a resolution, as the name of the functor that
+produced it (`none` = the method arrived without transport). Asserted
+explicitly everywhere below: "resolves" and "resolves *directly*" are
+different claims, and round two must never blur them. -/
+private def transportOf (res : Resolution) : Option Name :=
+  res.viaFunctor.map (·.functor)
+
+/-- `m` is semantically available on `o` through the inheritance chain `via`
+(after transport along `functor?`, when given), and routes to `backend`. -/
 def expectRouted (env : Environment) (o : Obj) (m : Name) (via : List Name)
-    (backend : Name) : CommandElabM Unit := do
+    (backend : Name) (functor? : Option Name := none) : CommandElabM Unit := do
   match resolveMethod env o m with
   | .error e => throwError s!"{m} is not available on {o.presentation}: {repr e}"
   | .ok res =>
     unless res.via == via do
       throwError s!"{m} on {o.presentation} arrived via {res.via}, expected {via}"
-    match routeFor env res o with
+    unless transportOf res == functor? do
+      throwError s!"{m} on {o.presentation} was transported by {repr (transportOf res)}, \
+expected {repr functor?}"
+    match routeFor env res (res.concreteReceiver o) with
     | .chosen r =>
         unless r.backend == backend do
           throwError s!"{m} on {o.presentation} routed to '{r.backend}', expected '{backend}'"
@@ -278,7 +311,7 @@ def expectRouted (env : Environment) (o : Obj) (m : Name) (via : List Name)
 deliberate, structured capability gap. Both halves are asserted, because
 the separation of the two judgments is the whole point. -/
 def expectGap (env : Environment) (o : Obj) (m : Name) (via : List Name)
-    : CommandElabM Unit := do
+    (functor? : Option Name := none) : CommandElabM Unit := do
   match resolveMethod env o m with
   | .error e =>
       throwError s!"{m} must stay AVAILABLE on {o.presentation}; a missing route may \
@@ -286,7 +319,10 @@ never remove it: {repr e}"
   | .ok res =>
     unless res.via == via do
       throwError s!"{m} on {o.presentation} arrived via {res.via}, expected {via}"
-    match routeFor env res o with
+    unless transportOf res == functor? do
+      throwError s!"{m} on {o.presentation} was transported by {repr (transportOf res)}, \
+expected {repr functor?}"
+    match routeFor env res (res.concreteReceiver o) with
     | .gap g =>
         unless g.semanticVia == via do
           throwError s!"the gap for {m} on {o.presentation} recorded via {g.semanticVia}"
@@ -297,7 +333,8 @@ this gap is deliberate"
         throwError s!"{m} on {o.presentation} matched {rs.size} routes tied on priority"
 
 /-- `m` does not reach `o` at all: it is declared strictly below every
-category `o` inhabits, so it must not leak upward. -/
+category `o` inhabits and no registered functor carries it there, so it must
+not leak upward — nor sideways along a functor. -/
 def expectNotApplicable (env : Environment) (o : Obj) (m : Name)
     : CommandElabM Unit := do
   match resolveMethod env o m with
@@ -305,16 +342,22 @@ def expectNotApplicable (env : Environment) (o : Obj) (m : Name)
   | .error e =>
       throwError s!"{m} on {o.presentation} failed with {repr e}, expected notApplicable"
   | .ok res =>
-      throwError s!"{m} leaked to {o.presentation} from category '{res.decl.receiver}'"
+      let how := match transportOf res with
+        | some f => s!"transported by functor '{f}'"
+        | none => "by membership or inheritance"
+      throwError s!"{m} leaked to {o.presentation} from category \
+'{res.decl.receiver}' ({how})"
 
-/-- The six claims the standard universe exists to make true. -/
+/-- The claims the standard universe exists to make true. -/
 def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- EuclideanElems ≤ FactorizationElems carries `factor` to integers, and
   -- the developer routed it to sage
   expectRouted env (.elem .int (.int 360)) `factor [`FactorizationElems] `sage
   -- THE inheritance demo: `annihilator` is declared only on Modules and
-  -- reaches the fixture through SmallModules ≤ Modules
-  expectRouted env (.cyclicModule 4) `annihilator [`Modules] `native
+  -- reaches the fixture through SmallModules ≤ Modules — DIRECTLY, with no
+  -- transport, even though a functor out of Modules is registered: round one
+  -- wins unconditionally, so round two can never take this method away
+  expectRouted env (.cyclicModule 4) `annihilator [`Modules] `native (functor? := none)
   -- THE central separation: ℚ is countable, so `nth` is available; no
   -- enumeration of ℚ is implemented, so executing it is a gap
   expectGap env (.domainObj .rat) `nth []
@@ -326,6 +369,15 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- a finite set reaches `cardinality` through FiniteSets ≤ CountableSets ≤ Sets
   expectRouted env (.setObj (.finite .int #[.int 1, .int 2, .int 3])) `cardinality
     [`CountableSets, `Sets] `native
+  -- THE transport demo: `cardinality` is declared on Sets, which the module
+  -- fixture does not inhabit; it arrives by transporting the receiver along
+  -- the forgetful functor and routes against the IMAGE (a finite set)
+  expectRouted env (.cyclicModule 4) `cardinality [`CountableSets, `Sets] `native
+    (functor? := `UnderlyingSet)
+  expectRouted env (.cyclicModule 4) `contains [`CountableSets, `Sets] `native
+    (functor? := `UnderlyingSet)
+  expectRouted env (.cyclicModule 4) `nth [`CountableSets] `native
+    (functor? := `UnderlyingSet)
 
 run_cmd acceptanceProofs (← getEnv)
 

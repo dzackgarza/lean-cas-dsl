@@ -48,6 +48,13 @@ initialize routeExt :
     addImportedFn := fun arrs => arrs.flatten
   }
 
+initialize functorExt :
+    SimplePersistentEnvExtension FunctorDecl (Array FunctorDecl) ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := Array.push
+    addImportedFn := fun arrs => arrs.flatten
+  }
+
 initialize profileRuleExt :
     SimplePersistentEnvExtension ProfileRule (Array ProfileRule) ←
   registerSimplePersistentEnvExtension {
@@ -77,6 +84,8 @@ def methods (env : Environment) : Array MethodDecl := methodExt.getState env
 
 def routes (env : Environment) : Array Route := routeExt.getState env
 
+def functors (env : Environment) : Array FunctorDecl := functorExt.getState env
+
 def profileRules (env : Environment) : Array ProfileRule := profileRuleExt.getState env
 
 def bindings (env : Environment) : Array Binding := bindingExt.getState env
@@ -95,6 +104,9 @@ def addMethod (env : Environment) (d : MethodDecl) : Environment :=
 def addRoute (env : Environment) (r : Route) : Environment :=
   routeExt.addEntry env r
 
+def addFunctor (env : Environment) (f : FunctorDecl) : Environment :=
+  functorExt.addEntry env f
+
 def addProfileRule (env : Environment) (r : ProfileRule) : Environment :=
   profileRuleExt.addEntry env r
 
@@ -108,6 +120,11 @@ def addRepresentative (env : Environment) (r : Representative) : Environment :=
 
 def catDecl? (env : Environment) (n : Name) : Option CatDecl :=
   (categories env).find? (·.name == n)
+
+/-- The registered functor of that name — how a diagnostic recovers the
+`source → target` of a transport step recorded in a `Resolution`. -/
+def functorDecl? (env : Environment) (n : Name) : Option FunctorDecl :=
+  (functors env).find? (·.name == n)
 
 /-- Every declaration of `id`. The same method identity is declared on
 several receiver categories in general (that is what makes specificity
@@ -147,6 +164,15 @@ def addRouteChecked (env : Environment) (r : Route) : Except String Environment 
 is already registered for this pattern"
   else
     .ok (addRoute env r)
+
+/-- Functors are keyed by name: it is what a `Resolution` records and what a
+diagnostic resolves back to a `source → target`, so two functors may not
+share one. -/
+def addFunctorChecked (env : Environment) (f : FunctorDecl) : Except String Environment :=
+  if (functorDecl? env f.name).isSome then
+    .error s!"functor '{f.name}' is already registered"
+  else
+    .ok (addFunctor env f)
 
 def addProfileRuleChecked (env : Environment) (r : ProfileRule)
     : Except String Environment :=

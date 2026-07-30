@@ -325,6 +325,17 @@ def renderVia (entry : CatRef) (via : List Name) : String :=
   if via.isEmpty then s!"declared directly on {renderCat entry}"
   else s!"inherited through {" ≤ ".intercalate (renderCat entry :: via.map toString)}"
 
+/-- The full semantic chain, transport step included. A transported
+resolution's `entry`/`via` describe the IMAGE, so reporting them alone would
+silently omit the only step that explains why a module was routed as a set. -/
+def renderSemanticPath (entry : CatRef) (via : List Name)
+    (viaFunctor : Option FunctorStep) : String :=
+  match viaFunctor with
+  | none => renderVia entry via
+  | some step =>
+      s!"transported by functor '{step.functor}' to {step.image.presentation}, \
+then {renderVia entry via}"
+
 /-- The structured capability gap. The literal token `NoImplementation` is
 part of the contract: it is what an audit greps for, and it marks the
 failure as an execution-layer backlog item rather than a mathematical one. -/
@@ -338,7 +349,7 @@ registered route can execute it for this presentation.
   method:            {g.method}
   receiver category: {renderCat g.receiverCategory}
   presentation:      {g.presentation}
-  semantic path:     {renderVia g.receiverCategory g.semanticVia}
+  semantic path:     {renderSemanticPath g.receiverCategory g.semanticVia g.viaFunctor}
   routes considered: {g.routesConsidered.size}
 {routes}
 This is a developer backlog item, not a narrowing of the mathematics: the \
@@ -353,10 +364,19 @@ def renderResolveError : ResolveError → String
 profile:      {if prof.isEmpty then "(none)" else prof}\n  \
 declared on:  {if decl.isEmpty then "(nowhere)" else decl}"
   | .ambiguous m cands =>
-      let cs := ", ".intercalate
-        (cands.toList.map fun r => s!"{r.decl.receiver} (via {renderCat r.profileEntry})")
-      s!"'{m}' is declared on incomparable categories reachable from this \
-object: {cs}. Declare it on a common subcategory or remove one declaration."
+      let cs := ", ".intercalate (cands.toList.map fun r =>
+        match r.viaFunctor with
+        | some step => s!"{r.decl.receiver} (transported by functor '{step.functor}')"
+        | none => s!"{r.decl.receiver} (via {renderCat r.profileEntry})")
+      s!"'{m}' reaches this object along more than one incomparable path: {cs}. \
+Declare it on a common subcategory, remove one declaration, or unregister one \
+of the competing functors — the resolver does not rank them."
+  | .functorTargetMismatch f target imageProfile =>
+      let prof := ", ".intercalate (imageProfile.toList.map renderCat)
+      s!"the registration of functor '{f}' is defective: it declares target \
+'{target}', but the profile of the image it produced here is \
+{if prof.isEmpty then "empty" else prof}, which does not reach '{target}'. Fix \
+the functor's declared target or its object map; the resolver will not use it."
 
 def renderExecError : ExecError → String
   | .backendUnavailable b d => s!"the '{b}' backend is unavailable: {d}"
@@ -402,7 +422,12 @@ def EvalCtx.literal (ctx : EvalCtx) (z : Int) : Value :=
   | _ => .int z
 
 /-- Execute a method: resolve (semantics), route (computability), execute.
-The ONLY path from the surface to an implementation. -/
+The ONLY path from the surface to an implementation.
+
+Routing and execution use `res.concreteReceiver`, so a resolution that went
+through a functor runs against the transported image. Arguments are NOT
+transported: a method's arguments belong to its declaration, not to the
+receiver's presentation. -/
 def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
   match resolveMethod ctx.env recv m with
@@ -410,11 +435,12 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
   | .ok res =>
     if args.size != res.decl.arity then
       throw (.msg s!"'{m}' takes {res.decl.arity} argument(s), got {args.size}")
-    match routeFor ctx.env res recv with
+    let concrete := res.concreteReceiver recv
+    match routeFor ctx.env res concrete with
     | .gap g => throw (.gap g)
     | .ambiguousRoutes rs => throw (.tiedRoutes m rs)
     | .chosen r =>
-      match ← execute r recv args with
+      match ← execute r concrete args with
       | .error e => throw (.exec e)
       | .ok v => return Denote.ofValue v
 

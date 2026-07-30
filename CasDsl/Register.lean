@@ -36,6 +36,9 @@ def registerMethod! (d : MethodDecl) : CommandElabM Unit :=
 def registerRoute! (r : Route) : CommandElabM Unit :=
   registerWith addRouteChecked r
 
+def registerFunctor! (f : FunctorDecl) : CommandElabM Unit :=
+  registerWith addFunctorChecked f
+
 def registerProfileRule! (r : ProfileRule) : CommandElabM Unit :=
   registerWith addProfileRuleChecked r
 

@@ -37,7 +37,7 @@ or picks a different operation.
 
 ```text
 CasDsl/Value.lean       Domain, Value, SetPresentation, Obj  (core data model)
-CasDsl/Category.lean    CatRef, category/method/route/binding registry TYPES
+CasDsl/Category.lean    CatRef, category/method/functor/route registry TYPES
 CasDsl/Registry.lean    env extensions + registration API (semantic state)
 CasDsl/Resolve.lean     the method resolver (the ONE lookup boundary)
 CasDsl/Route.lean       capability router + structured gaps
@@ -136,8 +136,19 @@ structure Route where
   priority : Nat             -- deterministic tie-break: highest wins, tie = error
 ```
 
+- **Functors** are the transport layer, and are registry data too:
+
+```lean
+structure FunctorDecl where
+  name   : Name
+  source : Name              -- category NAME, never a backend
+  target : Name
+  objMap : ObjMap            -- first-order object map (no closures)
+  doc    : String
+```
+
 - **Bindings** (`let` results) are an env-extension map `Name → Obj`.
-  All four registries are `SimplePersistentEnvExtension`s: cell atomicity,
+  Every registry is a `SimplePersistentEnvExtension`: cell atomicity,
   restart replay, and the olean session cache come for free from the
   plugin state law. No semantic state in `IO.Ref`s, ever.
 
@@ -146,24 +157,48 @@ structure Route where
 ```lean
 structure Resolution where
   decl : MethodDecl
-  declaredOn : CatRef        -- instantiated receiver category
+  profileEntry : CatRef      -- instantiated receiver category
   via  : List Name           -- inheritance chain from a profile entry (possibly [])
+  viaFunctor : Option FunctorStep   -- set when the RECEIVER was transported
 
-resolveMethod (env : Environment) (profile : Array CatRef) (m : Name)
+resolveMethod (env : Environment) (o : Obj) (m : Name)
     : Except ResolveError Resolution
 ```
 
-Round one: direct lookup on profile entries, then upward closure through
-registered parent edges (BFS, deduplicating diamond paths). Two *distinct*
-applicable declarations from incomparable categories = `ambiguous` error.
-Method not declared on any reachable category = `notApplicable`, and the
-error names the categories where the method IS declared.
+**Round one — method transport along inclusions.** Direct lookup on profile
+entries, then upward closure through registered parent edges (BFS,
+deduplicating diamond paths). Two *distinct* applicable declarations from
+incomparable categories = `ambiguous` error. Method not declared on any
+reachable category = `notApplicable`, and the error names the categories
+where the method IS declared.
 
-**Future seam**: functorial transport will extend exactly this function
-with receiver transformation along preferred functors. Nothing else — no
-call site, no method declaration, no backend contract — may assume the
-resolver only does direct/inherited lookup. No functor registry, path
-search, or result lifting is implemented in this slice.
+**Round two — receiver transport along functors.** `X.m()` where `m` is
+declared on `D` and a registered `F : C → D` applies to `X` resolves as
+`F(X).m()`, recorded in `viaFunctor`. Rules, all load-bearing:
+
+- round one runs first and wins unconditionally, so registering a functor
+  can never take a method away from an object that already had it;
+- only `notApplicable` opens round two; a functor applies when the
+  receiver's profile reaches its `source` and its object map is defined on
+  the presentation;
+- the image's profile must reach the functor's declared `target`, or the
+  REGISTRATION is defective: `functorTargetMismatch`, and resolution stops
+  rather than working around it;
+- exactly one transported candidate resolves; several competing functors are
+  the ordinary `ambiguous` error carrying all of them (never an order
+  heuristic), and none leaves the original `notApplicable` unchanged.
+
+Every caller routes and executes against `res.concreteReceiver o` — the
+transported image, not the object it passed in. Nothing else — no method
+declaration, no backend contract — may assume the resolver does only
+direct/inherited lookup.
+
+Ceilings of round two (deliberate): **one hop** (the image is resolved by
+round one only — no functor composition, no path search, no preferred-path
+registry); **no result lifting** (the image's result is the answer; no
+shipped transported method needs a value carried back along `F`); and the
+`ObjMap` ceiling — an object map that is not expressible adds a constructor,
+exactly as `DomainPattern` does.
 
 ## Routing and gaps (`Route.lean`)
 
@@ -266,6 +301,14 @@ integers via `EuclideanElems ≤ FactorizationElems`, and `annihilator`
 reaches the fixture via `SmallModules ≤ Modules` with **no forwarding
 declaration**.
 
+One functor ships: `UnderlyingSet : Modules → Sets` (object map: the
+ℤ-module ℤ/n to the finite set of its residues). It is what makes
+`F.cardinality()` work on the module fixture — a method declared on `Sets`,
+which the module does not inhabit, reached by transporting the receiver and
+routed against the image. `annihilator` on the same object still resolves
+directly through the inclusion edge, untransported; both claims are asserted
+in `acceptanceProofs`.
+
 Deliberate capability gaps shipped in the slice (honest, auditable):
 `ℚ` is countable — `nth` is semantically available — but no enumeration
 route is registered, so `ℚ[3]` fails with a structured gap. Same for
@@ -275,8 +318,10 @@ route is registered, so `ℚ[3]` fails with a structured gap. Same for
 
 1. Ordinary syntax is backend-blind; no `using Sage`, ever.
 2. Sage is reached by a direct adapter and brokers nothing else.
-3. Methods are category-owned; subcategory inheritance is the only
-   non-direct transport in round one; the resolver is the future seam.
+3. Methods are category-owned. Non-direct availability comes from exactly
+   two registered mechanisms, both behind the resolver: subcategory
+   inclusion (method transport) and preferred functors (receiver
+   transport). Neither is ever a forwarding declaration on a leaf.
 4. Capability gaps never flow upward into semantics; no
    implementation-shaped categories (no `EnumerableCountableSet`).
 5. Results are trusted CAS values: no certificates, no theorem generation,
@@ -302,6 +347,9 @@ route is registered, so `ℚ[3]` fails with a structured gap. Same for
 
 - set equality by presentation normalization only;
 - argument validation at execution, not declaration;
+- receiver transport is ONE hop, with no result lifting and no
+  preferred-path registry; an object map that is not one of `ObjMap`'s
+  constructors is not registrable;
 - no backend-call cancellation beyond process teardown with the kernel;
 - `#capability_gaps` crosses declared methods with registered
   representative presentations (not all conceivable objects);

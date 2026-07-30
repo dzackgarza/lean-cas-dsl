@@ -49,6 +49,11 @@ inductive RouteOutcome where
 
 /-- Select the implementation for a resolved method on a concrete receiver.
 
+`o` must be the CONCRETE receiver — `res.concreteReceiver`, i.e. the
+transported image when the resolution went through a functor. Passing the
+original object there would route a module as a module and then execute it as
+a set.
+
 `routesConsidered` in a gap deliberately lists *every* route registered for
 the method id, including the ones whose pattern did not match — that list is
 the audit value of the gap. -/
@@ -61,6 +66,7 @@ def routeFor (env : Environment) (res : Resolution) (o : Obj) : RouteOutcome :=
       receiverCategory := res.profileEntry
       presentation := o.presentation
       semanticVia := res.via
+      viaFunctor := res.viaFunctor
       routesConsidered := all
     }
   else

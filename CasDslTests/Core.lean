@@ -71,6 +71,9 @@ private def tag : Except ResolveError Resolution → String
   | .error (.notApplicable ..) => "notApplicable"
   | .error (.ambiguous ..) => "ambiguous"
   | .error (.unknownMethod _) => "unknownMethod"
+  -- round-two failures are `CasDslTests/Transport.lean`'s subject; reaching
+  -- this case from a round-one fixture would itself be the bug
+  | .error (.functorTargetMismatch ..) => "functorTargetMismatch"
 
 private def resolved (r : Except ResolveError Resolution)
     : Option (Name × List Name × CatRef) :=

@@ -29,8 +29,10 @@ Three invariants, enforced end to end:
    ring, a euclidean domain, …) and receive methods by membership and by
    registered subcategory inclusion — never by forwarding code on a leaf
    class. Method resolution lives behind one boundary
-   (`CasDsl/Resolve.lean`) so preferred-functor transport can be added
-   later without touching declarations, syntax, or backends.
+   (`CasDsl/Resolve.lean`), which is also where receivers are transported
+   along registered preferred functors — `F.cardinality()` on the ℤ-module
+   ℤ/4 resolves as `UnderlyingSet(F).cardinality()` — with no change to any
+   declaration, to the syntax, or to a backend.
 3. **Semantic availability ≠ computability.** What is mathematically
    meaningful is decided by the category layer; what is currently
    executable is decided by a separate capability registry. A missing

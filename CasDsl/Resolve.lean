@@ -1,13 +1,16 @@
 /-
 The method resolver — the ONE lookup boundary (DESIGN.md §The resolver).
 
-Round one transports methods along registered subcategory edges only:
-direct declaration on a profile entry, or declaration on a category
-reachable from it through parent edges (params ride along unchanged).
+Round one transports methods along registered subcategory edges: direct
+declaration on a profile entry, or declaration on a category reachable from
+it through parent edges (params ride along unchanged). Round two transports
+the RECEIVER along a registered functor, and runs only where round one found
+nothing (`transportCandidates`, `resolveCoreWithTransport`).
 
-The decision logic is pure over plain data (`resolveCore`, `parentClosure`)
-so it is `#guard`-testable without an `Environment`; the environment-facing
-wrappers add nothing but registry reads.
+The decision logic is pure over plain data (`resolveCore`, `parentClosure`,
+`profileFrom`, `transportCandidates`) so it is `#guard`-testable without an
+`Environment`; the environment-facing wrappers add nothing but registry
+reads.
 -/
 import Lean
 import CasDsl.Registry
@@ -93,21 +96,93 @@ def resolveCore (cats : Array CatDecl) (decls : Array MethodDecl)
 /-- The categories `o` inhabits directly, from the registered profile rules.
 Rich by construction: an object enters every category whose rule matches, and
 the resolver closes over parent edges from all of them. -/
-def profileOf (env : Environment) (o : Obj) : Array CatRef :=
-  (profileRules env).foldl (init := #[]) fun acc r =>
+def profileFrom (rules : Array ProfileRule) (o : Obj) : Array CatRef :=
+  rules.foldl (init := #[]) fun acc r =>
     match r.apply o with
     | some c => if acc.contains c then acc else acc.push c
     | none => acc
 
-/-- Resolve method `m` for the receiver `o`.
+def profileOf (env : Environment) (o : Obj) : Array CatRef :=
+  profileFrom (profileRules env) o
 
-FUTURE-TRANSPORT SEAM: functorial transport is added *here*, by extending
-this function with receiver transformation along preferred functors. No
-caller may assume the lookup is only direct/inherited, that `Resolution.via`
-is a parent chain, or that the receiver reaching the executor is the object
-passed in. -/
+/-! ## Round two: receiver transport along registered functors
+
+A method declared on `D` reaches a receiver of `C` when a functor
+`F : C → D`-side is registered: `X.m()` resolves as `F(X).m()`, and every
+caller routes and executes against `Resolution.concreteReceiver`.
+
+Three ceilings are deliberate and load-bearing:
+
+- **ONE HOP.** The image is resolved by round one only (`resolveCore`) — no
+  functor composition, no path search, no preferred-path registry. A method
+  reachable only after two functors stays `notApplicable`.
+- **NO RESULT LIFTING.** The transported call returns the image's result as
+  is. No shipped transported method needs a value carried back along `F`
+  (`cardinality`, `contains` and `nth` of the underlying set ARE the answers
+  about the module); a method that did would need a result map registered
+  next to the object map, and would be a different feature.
+- **NEVER A PREEMPTION.** Transport is consulted only when round one returned
+  `notApplicable`, so a direct or inherited declaration always wins and a new
+  functor registration can never take a method away from the object that
+  already had it. -/
+
+/-- Is `cat` reachable upward from something this profile already inhabits?
+Both halves of a transport step ask exactly this: the receiver must reach the
+functor's source, and the image must reach its declared target. -/
+def profileReaches (cats : Array CatDecl) (profile : Array CatRef) (cat : Name) : Bool :=
+  profile.any fun c => (parentClosure cats c.name).any (·.1 == cat)
+
+/-- Every single-hop transported candidate for `m` on `o`.
+
+For each registered functor whose source the receiver reaches and whose object
+map is defined on the presentation: the image's own profile must reach the
+functor's declared `target` (a mismatch is a defective registration and stops
+resolution — see `ResolveError.functorTargetMismatch`), and the method is then
+resolved on the image by round one only. -/
+def transportCandidates (cats : Array CatDecl) (decls : Array MethodDecl)
+    (rules : Array ProfileRule) (fs : Array FunctorDecl)
+    (profile : Array CatRef) (o : Obj) (m : Name)
+    : Except ResolveError (Array Resolution) := do
+  let mut out : Array Resolution := #[]
+  for f in fs do
+    if profileReaches cats profile f.source then
+      if let some image := f.objMap.apply o then
+        let imageProfile := profileFrom rules image
+        unless profileReaches cats imageProfile f.target do
+          throw (.functorTargetMismatch f.name f.target imageProfile)
+        if let .ok res := resolveCore cats decls imageProfile m then
+          out := out.push { res with viaFunctor := some { functor := f.name, image } }
+  return out
+
+/-- Resolution over registry contents: round one, then transport.
+
+Round one runs FIRST and wins unconditionally when it succeeds. Only its
+`notApplicable` opens round two, and then exactly one transported candidate
+resolves; several competing functors are the ordinary `ambiguous` error
+carrying all of them, and none leaves the original `notApplicable` untouched. -/
+def resolveCoreWithTransport (cats : Array CatDecl) (decls : Array MethodDecl)
+    (rules : Array ProfileRule) (fs : Array FunctorDecl) (o : Obj) (m : Name)
+    : Except ResolveError Resolution :=
+  let profile := profileFrom rules o
+  match resolveCore cats decls profile m with
+  | .ok res => .ok res
+  | .error err@(.notApplicable ..) => do
+      let cands ← transportCandidates cats decls rules fs profile o m
+      match cands[0]?, cands.size with
+      | some res, 1 => .ok res
+      | none, _ => .error err
+      | _, _ => .error (.ambiguous m cands)
+  | .error err => .error err
+
+/-- Resolve method `m` for the receiver `o` — the ONE lookup boundary.
+
+No caller may assume the lookup is only direct/inherited, that
+`Resolution.via` is a parent chain, or that the receiver reaching the router
+and the executor is the object passed in: it is
+`res.concreteReceiver o`. -/
 def resolveMethod (env : Environment) (o : Obj) (m : Name)
     : Except ResolveError Resolution :=
-  resolveCore (categories env) (methods env) (profileOf env o) m
+  resolveCoreWithTransport (categories env) (methods env) (profileRules env)
+    (functors env) o m
 
 end CasDsl

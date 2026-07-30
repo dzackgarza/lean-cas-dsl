@@ -35,11 +35,14 @@ private def routeJson (r : Route) : Json :=
 
 /-! ## `#explain_route` -/
 
-/-- The routing decision for one method call, taken apart. -/
+/-- The routing decision for one method call, taken apart. `functor?` is the
+registered declaration behind a transport step, so the explanation can name
+`source → target` rather than just the functor's name. -/
 private structure Explanation where
   method : Name
   receiver : Obj
   res : Resolution
+  functor? : Option FunctorDecl
   outcome : RouteOutcome
 
 private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
@@ -50,11 +53,30 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
     | throw (.msg "the receiver of the explained call is not an object")
   match resolveMethod ctx.env recv m with
   | .error err => throw (.resolve m recv err)
-  | .ok res => return { method := m, receiver := recv, res, outcome := routeFor ctx.env res recv }
+  | .ok res =>
+    return {
+      method := m, receiver := recv, res
+      functor? := res.viaFunctor.bind fun s => functorDecl? ctx.env s.functor
+      outcome := routeFor ctx.env res (res.concreteReceiver recv)
+    }
+
+/-- The transport step, or the empty string when the method arrived without
+one. `source → target` comes from the registration; a step whose functor is
+not in the registry says so rather than inventing an edge. -/
+private def transportLine (x : Explanation) : String :=
+  match x.res.viaFunctor with
+  | none => ""
+  | some step =>
+      let edge := match x.functor? with
+        | some f => s!"{f.source} → {f.target}"
+        | none => "source → target UNKNOWN: no such functor is registered"
+      s!"transport:     functor {step.functor} : {edge}\n  \
+image:         {step.image.presentation}\n  "
 
 private def explanationText (x : Explanation) : String :=
   let head := s!"method:        {x.method}\n  \
 receiver:      {x.receiver.presentation}\n  \
+{transportLine x}\
 profile entry: {renderCat x.res.profileEntry}\n  \
 availability:  {renderVia x.res.profileEntry x.res.via}\n  "
   let tail := match x.outcome with
@@ -78,9 +100,18 @@ private def explanationJson (x : Explanation) : Json :=
     | .ambiguousRoutes rs =>
         Json.mkObj
           [("decision", .str "ambiguous"), ("routes", .arr (rs.map routeJson))]
+  let transport := match x.res.viaFunctor, x.functor? with
+    | none, _ => Json.null
+    | some step, f? =>
+        Json.mkObj
+          [("functor", .str step.functor.toString),
+           ("source", match f? with | some f => .str f.source.toString | none => .null),
+           ("target", match f? with | some f => .str f.target.toString | none => .null),
+           ("image", .str step.image.presentation)]
   Json.mkObj
     [("method", .str x.method.toString),
      ("receiver", .str x.receiver.presentation),
+     ("transport", transport),
      ("profileEntry", .str (renderCat x.res.profileEntry)),
      ("via", .arr ((x.res.via.map fun n => Json.str n.toString)).toArray),
      ("declaredOn", .str x.res.decl.receiver.toString),
@@ -174,7 +205,7 @@ private def classify (env : Environment) (o : Obj) (m : Name)
   match resolveMethod env o m with
   | .error _ => none
   | .ok res =>
-      match routeFor env res o with
+      match routeFor env res (res.concreteReceiver o) with
       | .chosen _ => some (res, .implemented)
       | .ambiguousRoutes rs => some (res, .tied rs.size)
       | .gap g =>
@@ -201,12 +232,20 @@ def elabCapabilityGaps : CommandElabM Unit := do
           s!"  {pad label 18}{pad m.toString 14}{pad (renderCat res.profileEntry) 22}\
 {gapClassText cls}"
         lines := lines.push
-          s!"  {pad "" 32}available by: {renderVia res.profileEntry res.via}"
+          s!"  {pad "" 32}available by: \
+{renderSemanticPath res.profileEntry res.via res.viaFunctor}"
         js := js.push <| Json.mkObj
           [("representative", .str label), ("presentation", .str o.presentation),
            ("method", .str m.toString),
            ("receiverCategory", .str (renderCat res.profileEntry)),
            ("via", .arr ((res.via.map fun n => Json.str n.toString)).toArray),
+           -- the transport step, when the method reached this representative
+           -- through a functor: the image is what routing was attempted for
+           ("transport", match res.viaFunctor with
+             | some step =>
+                 Json.mkObj [("functor", .str step.functor.toString),
+                             ("image", .str step.image.presentation)]
+             | none => .null),
            ("class", .str (gapClassTag cls))]
   let header :=
     if representatives env |>.isEmpty then
