@@ -170,6 +170,20 @@ literal as its subscript, so nothing that parses today loses a reading. -/
 syntax:max (name := casIndex)
   casTerm:max noWs "[" notFollowedBy("[") casTerm "]" : casTerm
 
+/-- `CC[x_0, x_1, ..., x_9]` — SPEC.md §Ellipses' index-FAMILY spelling of a
+multivariate polynomial algebra, and a HELD feature (#31, deferred to the
+#13 demand / CategoryGraph trajectory).
+
+The production exists so the spelling is READ and refused BY NAME. `casIndex`
+above takes exactly one subscript, so without this a comma inside the
+brackets reaches the tokenizer and the boundary of the spike reports itself
+as `unexpected token ','` — an accident of parsing rather than a disclosure.
+Items are `casSetItem` because the family is written with the same `...` the
+set spellings use, and two or more of them are what tells this production
+apart from the index. -/
+syntax:max (name := casIndexFamily)
+  casTerm:max noWs "[" notFollowedBy("[") casSetItem "," casSetItem,+ "]" : casTerm
+
 /-- `f(args…)` — a call — and, with the optional ASCRIPTION tail, SPEC.md
 §Indefinite integration's `kernel(d/dx : ℚ[x] → ℚ[x])`.
 
@@ -702,6 +716,12 @@ are names, as in `(a, b, c) ↦ a + b - c`"
   | ``casMap => return .mapTo (← toExpr stx[1]) (← toExpr stx[3])
   | ``casApproxTarget => return .approxTarget (← toExpr stx[4])
   | ``casIndex => return .index (← toExpr stx[0]) (← toExpr stx[2])
+  | ``casIndexFamily =>
+      .error "D[x_0, x_1, ..., x_n] — a polynomial algebra on a FAMILY of \
+indeterminates (SPEC.md §Ellipses) — is the pinned spelling of a tier-2 \
+feature, held for #13 demand (#31): the spelling is reserved, and the \
+multivariate algebra is refused rather than approximated. One indeterminate \
+— `ℂ[x]` — is what this slice presents"
   | ``casInv => return .method (.ref stx[0].getId) `inverse #[]
   | ``casJuxtApp => return .app (.ref stx[0].getId) #[.ref stx[1].getId]
   | ``casInvJuxtApp =>
@@ -853,11 +873,21 @@ private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
   modifyEnv fun env => addBinding env (n, o)
   logInfo s!"{n} := {o.presentation}"
 
-def elabCasLet (idStx valStx : Syntax) (asc? : Option Syntax) : CommandElabM Unit := do
+/-- `let x [: T] := e [in C]`. Both ascriptions are CHECKED judgments, and a
+spelling that carries both carries both checks: the leading `T` decides how
+the right-hand side is read (a `↦` body's domains), and the trailing `in C`
+is applied to the object that comes out. -/
+def elabCasLet (idStx valStx : Syntax) (asc? : Option Syntax)
+    (tail? : Option Syntax := none) : CommandElabM Unit := do
   let e ← parseCas valStx
   let a? ← asc?.mapM parseCas
+  let t? ← tail?.mapM parseCas
   let ctx ← casCtx
-  bindObj idStx.getId (← runCas ctx (evalBinding ctx e a?))
+  bindObj idStx.getId (← runCas ctx do
+    let o ← evalBinding ctx e a?
+    match t? with
+    | none => pure o
+    | some t => ascribe ctx o (← evalAscription ctx t))
 
 def elabCasLetPoly (idStx xStx valStx ascStx : Syntax) : CommandElabM Unit := do
   let e ← parseCas valStx
@@ -944,9 +974,13 @@ syntax (name := casLetPoly)
     (" in " <|> " ∈ " <|> " \\in ") casTerm : command
 
 /-- `let e: ℕ → ℕ := n ↦ 2n` — SPEC.md's leading-ascription spelling. The
-type is the same ascription the trailing `in T` carries, checked identically. -/
+type is the same ascription the trailing `in T` carries, checked identically
+— and the trailing one may be written TOO (`let φ: ℚ³ → ℚ := … in Mod(ℚ)`).
+Without that tail the `in C` is not part of this command at all: it parses
+as the next command, a bare display of `C`, so the ascription the author
+wrote is never checked and the diagnostic names a term they did not write. -/
 syntax (name := casLetTyped)
-  "let " ident " : " casTerm " := " casTerm : command
+  "let " ident " : " casTerm " := " casTerm (" in " casTerm)? : command
 
 /-- `assert l (= | ≠ | ∈ | ∉ | ⊆) r (and …)* [in D]` — a TRUSTED COMPUTATIONAL assertion
 in the ordinary CAS sense. The predicate is computed and believed; no Lean
@@ -984,7 +1018,7 @@ def elabLetPolyCmd : CommandElab := fun stx =>
 
 @[command_elab casLetTyped]
 def elabLetTypedCmd : CommandElab := fun stx =>
-  elabCasLet stx[1] stx[5] (some stx[3])
+  elabCasLet stx[1] stx[5] (some stx[3]) (optTail? stx[6])
 
 @[command_elab casAssert]
 def elabAssertCmd : CommandElab := fun stx =>

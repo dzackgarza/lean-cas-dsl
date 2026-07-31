@@ -1951,6 +1951,52 @@ def test_the_product_space_and_affine_space_pins(kernel: Kernel) -> None:
     assert "AA^n(K)" in text and "#13" in text
 
 
+def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC §Ellipses 130-132 and the Mod(K) hold are the documented boundary
+    # of the spike, and each says what is held and where the hold is recorded
+    # (#32) — the AA^n(K) contract above, applied to the rest of it. Each
+    # assertion pairs the name with the accident it replaced: the accident
+    # coming back is the regression these pin.
+    text = err(kc, "let Rf := CC[x_0, x_1, ..., x_9]")
+    assert "D[x_0, x_1, ..., x_n]" in text and "#13" in text
+    assert "unexpected token" not in text
+    # …and the family is the spelling, not the ellipsis: two names is already
+    # a family, and the one-indeterminate ring is untouched
+    assert "D[x_0, x_1, ..., x_n]" in err(kc, "let Rf2 := CC[x_0, x_1]")
+    ok(kc, "let Rf3 := CC[x_0]")
+    text = err(kc, "assert 3 in Algebras/CC")
+    assert "Algebras/K" in text and "#13" in text
+    assert "'Algebras' is not bound" not in text
+    text = err(kc, "(3).dimension()")
+    assert "Krull dimension" in text and "#13" in text
+    assert "there is no method named" not in text
+
+
+def test_a_hom_is_not_an_object_of_the_category_it_runs_in(kernel: Kernel) -> None:
+    _, kc = kernel
+    # ascribing a MAP to a category is the morphism-is-not-an-object hold
+    # (#31 item 4), and it refuses by name rather than reporting `Mod` — a
+    # name the author only ever wrote inside `Mod(QQ)` — as unbound (#32)
+    text = err(kc, "let gm: QQ^3 -> QQ := (a, b, c) |-> a + b - c in Mod(QQ)")
+    assert "MORPHISM" in text and "#31 item 4" in text
+    assert "'Mod' is not bound" not in text
+    # the refused cell commits nothing, the atomicity every refusal has
+    assert "'gm' is not bound" in err(kc, "gm")
+    # the same ascription on an OBJECT is untouched: a subspace is an object
+    ok(kc, "let Wm := span_QQ{(1, 0, 1), (0, 1, 1)} \\leq ℚ³ in Mod(QQ)")
+
+
+def test_a_leading_ascription_carries_its_trailing_one(kernel: Kernel) -> None:
+    _, kc = kernel
+    # `let x: T := e in C` is ONE command carrying BOTH checked ascriptions.
+    # Without the tail in the production the `in C` parsed as the NEXT
+    # command — a bare display of C — so the membership the author wrote was
+    # never decided and the diagnostic named a term they never wrote (#32)
+    ok(kc, "let vt: ℚ³ := (1, 0, 1) in ℚ³")
+    assert "not a set" in err(kc, "let vt2: ℤ := 3 in 𝒫(ℤ)")
+
+
 def test_scalar_times_a_set_is_the_image_of_scaling(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC §Ellipses' `Y = 2ℕ` (ruling 2026-07-31, #31 item 6): scalar·set

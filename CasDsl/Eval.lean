@@ -985,7 +985,17 @@ This is a developer backlog item, not a narrowing of the mathematics: the \
 method stays available on the category."
 
 def renderResolveError : ResolveError → String
-  | .unknownMethod m => s!"there is no method named '{m}' in the registry"
+  | .unknownMethod m =>
+      -- SPEC.md §Ellipses' `R.dimension()` is the Krull dimension of a ring,
+      -- held for #13 demand with the multivariate algebras it is asked of —
+      -- a HELD method, named as one, rather than a name the registry happens
+      -- not to carry
+      if m == `dimension then
+        "dimension() — the Krull dimension of a ring (SPEC.md §Ellipses) — is \
+the pinned spelling of a tier-2 feature, held for #13 demand (#31): the \
+spelling is reserved, and the dimension is refused rather than approximated. \
+A subspace's `dim()` is the dimension this slice computes"
+      else s!"there is no method named '{m}' in the registry"
   | .notApplicable m profile declaredOn =>
       let prof := ", ".intercalate (profile.toList.map renderCat)
       let decl := ", ".intercalate (declaredOn.toList.map renderName)
@@ -1402,6 +1412,17 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       -- `let d := 6 in ℤ` and `let dx := 2 in ℤ` give the division back.
       if isDerivationSpelling ctx.isBound a b then
         return Denote.ofValue (.derivation false)
+      -- `Algebras/K` is SPEC.md §Ellipses' spelling of a category FAMILY this
+      -- slice does not register, held for #13 demand — so the spelling is
+      -- read and refuses BY NAME rather than reporting the `Algebras` half as
+      -- an unbound name the author never wrote alone. A bound `Algebras`
+      -- still wins, exactly as it does for `AA`.
+      if let .ref `Algebras := a then
+        if !ctx.isBound `Algebras then
+          throw (.msg "Algebras/K — the algebras over K — is the pinned \
+spelling of a category FAMILY this slice does not register (#31), held for \
+#13 demand: the spelling is reserved, and the family is refused rather than \
+approximated. `Mod(K)` is the module category that is registered")
       -- `ℤ/n` is a domain term, not a division; every other `/` is exact
       -- division in ℚ.
       let x ← eval ctx a
@@ -2190,6 +2211,16 @@ def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
           else throw (.msg s!"{d'.render} is not an element of {d.render}")
       | o => throw (.msg s!"{o.presentation} is not an element of {d.render}")
   | .category c => do
+      -- a hom is a MORPHISM, and a category ascription states membership
+      -- among a category's OBJECTS. `let φ: ℚ³ → ℚ := … in Mod(ℚ)` is the
+      -- morphism-is-not-an-object hold (#31 item 4) — CategoryGraph-era
+      -- ontology, and refused BY NAME rather than as an empty profile
+      if let .elem _ (.hom ..) := o then
+        throw (.msg s!"a hom is a MORPHISM, and `in {renderCat c}` states \
+membership among a category's OBJECTS: a map is not an object of the \
+category it runs in. Ascribing a hom to a category is held (#31 item 4) for \
+the CategoryGraph-era ontology, and is refused rather than read as \
+membership — the arrow `{o.presentation}` already names its domains")
       let o' := match o with
         | .domainObj (.mod n) => Obj.cyclicModule n
         | o => o
