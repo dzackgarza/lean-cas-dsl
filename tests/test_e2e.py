@@ -1844,3 +1844,19 @@ def test_the_juxtaposition_residual_has_a_workaround(kernel: Kernel) -> None:
     # …and parenthesizing the following statement is the workaround, because
     # `(` is not an identifier token
     ok(kc, "jx\n(jx)")
+
+
+# -- 21 · the ruled surface items of #31 -----------------------------------
+
+def test_bare_definition_is_a_command(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC.md's opening sentence — "Definitions use :=" — and its §Polynomials
+    # line `q := map p to ℂ[x]`: a bare `NAME := expr` is a command, sugar for
+    # `let` through the same elaborator (ruling 2026-07-31, #31 item 2)
+    ok(kc, "let pb(x) := x^3 - 2x + 1 in ℤ[x]")
+    ok(kc, "qb := map pb to ℂ[x]")
+    ok(kc, "assert qb(1) = 0")
+    # the ascription tail rides along, checked exactly as on `let` (`2 + 2i`
+    # would be the SPEC line, but this session rebinds `i` upstream)
+    ok(kc, "nb := 84 in ℤ")
+    ok(kc, "assert nb.gcd(30) = 6")

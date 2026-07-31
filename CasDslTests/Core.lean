@@ -1036,6 +1036,22 @@ updated; promoting a `&"…"` keyword to a token fails the second. What this
 cannot catch is a NEW reserved token added without being listed — that
 direction stays with review, and the lists say so. -/
 
+/-! ## The ruled surface spellings of #31, held to the grammar
+
+Each line is a SPEC.md spelling a 2026-07-31 ruling admitted; failing to
+parse un-implements the ruling and fails the build. Parse only — what the
+spellings evaluate to is the E2E suite's subject. -/
+
+open Lean Parser in
+run_cmd do
+  let env ← getEnv
+  for s in [
+      "q := map p to ℂ[x]",   -- SPEC §Polynomials: bare `:=` is a command
+      "n2 := 360 in ℤ"        -- …carrying the same ascription tail as `let`
+    ] do
+    unless (runParserCategory env `command s).toOption.isSome do
+      throwError s!"ruled SPEC spelling failed to parse: {s}"
+
 open Lean Parser in
 run_cmd do
   let env ← getEnv

@@ -1354,6 +1354,7 @@ Backend-blind; a `casTerm` syntax category plus commands:
 let n := 360 in ℤ                         -- binding with domain ascription
 let p(x) := x^3 - 2x + 1 in ℤ[x]          -- univariate polynomial binding
 let q := map p to ℚ[x]                    -- explicit coercion along ℤ ⊆ ℚ
+q := map p to ℂ[x]                        -- bare `:=` — the same binding, no `let`
 let X := {0, 1, 2, ...}                   -- progression set literals
 let M := [1, 2; 3, 4] in Mat₂(ℚ)          -- matrix literal
 let v := (1, 2) in ℚ²                     -- vector literal, and the Eⁿ domain
@@ -1520,6 +1521,11 @@ Parser decisions (load-bearing):
   resolution that §Functions deliberately narrowed;
 - a bare `casTerm` cell displays its value (our own command production, low
   priority so genuine Lean commands still parse);
+- **a bare `NAME := expr [in D]` is the `let` binding without the word**
+  (ruling 2026-07-31, #31 item 2): SPEC.md's opening sentence says
+  "Definitions use :=" and its §Polynomials line `q := map p to ℂ[x]` writes
+  one with no `let`. One production (`casDef`), the SAME elaborator and
+  checked ascription as `let`, low priority like the display cell;
 - `assert` outcomes are fourfold — `true | false | unknown | error` — only
   `true` commits the cell; false/unknown/error give distinct diagnostics.
   `assert` is a trusted computational assertion, never a Lean theorem.

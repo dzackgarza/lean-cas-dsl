@@ -894,9 +894,21 @@ syntax (name := casAssert)
 genuine Lean command in a cell still parses as Lean. -/
 syntax (name := casShow) (priority := low) casTerm : command
 
+/-- `NAME := expr [in T]` — SPEC.md's opening sentence ("Definitions use :=")
+written without the `let`, as its §Polynomials line `q := map p to ℂ[x]`
+does. Ruled a COMMAND (2026-07-31, #31 item 2): pure sugar for `let`, the
+same elaborator, the same checked ascription. Low priority for the reason
+the bare-expression cell is. -/
+syntax (name := casDef) (priority := low)
+  ident " := " casTerm (" in " casTerm)? : command
+
 @[command_elab casLet]
 def elabLetCmd : CommandElab := fun stx =>
   elabCasLet stx[1] stx[3] (optTail? stx[4])
+
+@[command_elab casDef]
+def elabDefCmd : CommandElab := fun stx =>
+  elabCasLet stx[0] stx[2] (optTail? stx[3])
 
 @[command_elab casLetPoly]
 def elabLetPolyCmd : CommandElab := fun stx =>
