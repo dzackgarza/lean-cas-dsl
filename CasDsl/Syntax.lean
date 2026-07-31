@@ -47,6 +47,19 @@ syntax:max (name := casIntDom) "ℤ" : casTerm
 syntax:max (name := casRatDom) "ℚ" : casTerm
 syntax:max (name := casRealDom) "ℝ" : casTerm
 syntax:max (name := casComplexDom) "ℂ" : casTerm
+
+/-! The BACKSLASH family (ruling 2026-07-31, #31 item 5): a unicode token's
+LaTeX spelling is accepted wherever the unicode form goes — SPEC.md §Ellipses
+writes `\NN` and `\in`, and `\leq` (`casCmpOp`) was already such an alias.
+Coverage today: the five domain tokens here, and `\in` beside every `∈`
+(relation, binder, the `let f(t) = … ∈ D` ascription). An addition follows
+the same pattern, declared beside its unicode token. -/
+
+syntax:max (name := casNatDomBS) "\\NN" : casTerm
+syntax:max (name := casIntDomBS) "\\ZZ" : casTerm
+syntax:max (name := casRatDomBS) "\\QQ" : casTerm
+syntax:max (name := casRealDomBS) "\\RR" : casTerm
+syntax:max (name := casComplexDomBS) "\\CC" : casTerm
 syntax:max (name := casAleph) "ℵ₀" : casTerm
 /-- SPEC.md's `lim_{t → ∞}`. A TOKEN rather than a name, because `∞` is not
 an identifier character — `π` and `e` are, so those two are the ordinary
@@ -111,7 +124,7 @@ syntax:max (name := casMat) "[" sepBy1(casRow, "; ") "]" : casTerm
 The two shapes are told apart by what stands before the bar; a set literal
 has no bar at all, so the three productions do not overlap. -/
 
-syntax casBinderIn := " ∈ " <|> " in "
+syntax casBinderIn := " ∈ " <|> " in " <|> " \\in "
 
 syntax:max (name := casFilterSet)
   "{" ident casBinderIn casTerm " | " casTerm "}" : casTerm
@@ -420,8 +433,10 @@ syntax:10 (name := casLam) casTerm:11 " ↦ " casTerm:10 : casTerm
 of these spellings cannot be written anywhere, including as a binding name.
 That is the price the productions above pay deliberately: `dx` (the
 differential atom, the 1-form, `∫ f dx`), `Spec` (the scheme spelling),
-`lim_` (underscore included — lexical, see `casLimit`), and `map`/`to`
-(the `map e to D` coercion). Everything else the grammar keys on — `and`,
+`lim_` (underscore included — lexical, see `casLimit`), `map`/`to`
+(the `map e to D` coercion), and `is` (the relation spelling, whose
+non-reserved form the category dispatch cannot reach — see `casRelIs`).
+Everything else the grammar keys on — `and`,
 `O`, `dt`, `span_QQ` — is a non-reserved `&"…"` keyword and stays an
 ordinary identifier everywhere else, and constants (`i`, `e`, `π`, `d`)
 are spellings a binding always shadows.
@@ -431,7 +446,7 @@ This list is DOCUMENTATION HELD TO THE GRAMMAR: the parse guard in
 a binding name (un-reserved without being delisted) or a named non-reserved
 keyword stops (reserved without being listed). One page on the whole
 grammar: DESIGN.md §Surface. -/
-def reservedWords : List String := ["dx", "Spec", "lim_", "map", "to"]
+def reservedWords : List String := ["dx", "Spec", "lim_", "map", "to", "is"]
 
 /-- The `&"…"` keywords the grammar uses WITHOUT reserving, each pinned by
 the same guard so a production rewrite cannot quietly widen the reserved
@@ -447,6 +462,17 @@ syntax (name := casRelSubset) "⊆" : casRel
 position, where the `in D` ambient tail cannot be: that tail follows a
 complete relation. -/
 syntax (name := casRelIn) "in" : casRel
+/-- `\in`, beside `∈` — the backslash family. -/
+syntax (name := casRelMemBS) "\\in" : casRel
+/-- SPEC.md §Ellipses' `is`, which "just means `=`" (SPEC's words). A real
+TOKEN, and reluctantly so: the preferred non-reserved `&"is"` LEADS a
+`casRel` category production, and a leading non-reserved keyword is not
+indexed by a first token — the category dispatch never tries it (the `Spec`
+lore, observed here too: the ruled-spellings guard stayed red). The price is
+that `is` is a reserved word of this surface, listed in `reservedWords` and
+held there by the parse guard; a segment CONTAINING it (`is_prime`) is
+untouched, since tokens match whole identifier runs only. -/
+syntax (name := casRelIs) "is" : casRel
 
 /-- One assertion — `l R r`. SPEC.md chains several with `and`
 (`assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ`), so the command below is a sequence of
@@ -553,11 +579,11 @@ private def cmpOp (stx : Syntax) : Except String CmpOp :=
 
 partial def toExpr (stx : Syntax) : Except String CasExpr := do
   match stx.getKind with
-  | ``casNatDom => return .dom .nat
-  | ``casIntDom => return .dom .int
-  | ``casRatDom => return .dom .rat
-  | ``casRealDom => return .dom .real
-  | ``casComplexDom => return .dom .complex
+  | ``casNatDom | ``casNatDomBS => return .dom .nat
+  | ``casIntDom | ``casIntDomBS => return .dom .int
+  | ``casRatDom | ``casRatDomBS => return .dom .rat
+  | ``casRealDom | ``casRealDomBS => return .dom .real
+  | ``casComplexDom | ``casComplexDomBS => return .dom .complex
   | ``casAleph => return .lit (.cardinal .countablyInfinite)
   | ``casInfinity => return .lit (.sym (.const `infinity))
   | ``casNum => return .num (Int.ofNat (← natLit stx[0]))
@@ -815,9 +841,11 @@ def elabCasLetPoly (idStx xStx valStx ascStx : Syntax) : CommandElabM Unit := do
 
 private def relOf (relStx : Syntax) : CommandElabM AssertRel :=
   match relStx.getKind with
-  | ``casRelEq => pure .eq
+  -- `is` "just means `=`" (SPEC.md §Ellipses), so it IS `.eq` — one relation,
+  -- two spellings, decided identically both ways
+  | ``casRelEq | ``casRelIs => pure .eq
   | ``casRelNe => pure .ne
-  | ``casRelMem | ``casRelIn => pure .mem
+  | ``casRelMem | ``casRelIn | ``casRelMemBS => pure .mem
   | ``casRelNotMem => pure .notMem
   | ``casRelSubset => pure .subset
   | k => throwError s!"unsupported assertion relation '{k}'"
@@ -887,7 +915,7 @@ the ascription both `in` and `∈` (`let f(t) = ∑… ∈ ℤ[[t]]`), which is 
 ASCII/Unicode pair the assertion relation already carries. -/
 syntax (name := casLetPoly)
   "let " ident noWs "(" ident ")" (" := " <|> " = ") casTerm
-    (" in " <|> " ∈ ") casTerm : command
+    (" in " <|> " ∈ " <|> " \\in ") casTerm : command
 
 /-- `let e: ℕ → ℕ := n ↦ 2n` — SPEC.md's leading-ascription spelling. The
 type is the same ascription the trailing `in T` carries, checked identically. -/

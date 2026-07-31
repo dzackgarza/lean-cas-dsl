@@ -1385,6 +1385,9 @@ assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ         -- `and` chains ASSER
 assert 8 ∈ Y          assert 9 ∉ Y        assert X = ℕ
 assert x ∈ ℤ[x]       assert p ∈ ℚ[x]
 assert A ⊆ A ∪ B      assert A in 𝒫(ℤ)    -- `in` is SPEC.md's ASCII `∈`
+assert X = \NN        assert 7/3 \in ℚ    -- the backslash family, beside unicode
+let f: NN -> NN := n ↦ n^2                -- …and the doubled-letter idents
+assert R.dimension() is 10                -- `is` is a relation spelling of `=`
 {n ∈ ℤ | n² ≤ 20}   {2n | n ∈ ℕ}   {e(n) | n ∈ ℕ, 0 ≤ n < 6}
 e(ℕ)   e.image()                          -- the image, one method two spellings
 #explain_route <expr>   #capabilities   #capability_gaps
@@ -1396,18 +1399,23 @@ Two word classes beyond Lean's own tokens, both PINNED as data
 (`Syntax.reservedWords` / `Syntax.nonReservedKeywords`) and held to the
 grammar by the parse guard in `CasDslTests/Core.lean`:
 
-- **Reserved words — five, and that is the complete list**: `dx` (the
+- **Reserved words — six, and that is the complete list**: `dx` (the
   differential atom, the 1-form `p dx`, `∫ f dx`), `Spec`, `lim_`
-  (underscore included, lexically), and `map`/`to` (the `map e to D`
+  (underscore included, lexically), `map`/`to` (the `map e to D`
   coercion — reserved by that production, a price the original three-word
-  disclosure missed). Each is a real token: an identifier by that spelling
-  cannot be written ANYWHERE, including as a binding name, and the refusal
-  is the parser's own.
+  disclosure missed), and `is` (the relation spelling of `=`, a token
+  reluctantly — the ruled non-reserved form leads a `casRel` category
+  production, which the leading-ident dispatch never tries; the `Spec`
+  lore, observed again). Each is a real token: an identifier by that
+  spelling cannot be written ANYWHERE, including as a binding name, and the
+  refusal is the parser's own. A segment merely CONTAINING one
+  (`is_prime`) is untouched — tokens match whole identifier runs.
 - **Non-reserved keywords**: `and` (chains assertions), `O` (tolerance and
   truncation), `dt` (the definite integral's variable), `span_QQ`
   (name-checked in `toExpr`). Ordinary identifiers everywhere else.
   Constants (`i`, `e`, `π`, `d`) and the ASCII domain names (`R`, `RR`,
-  `CC`) are SPELLINGS, not tokens — a binding always shadows them.
+  `CC`, and — #31 item 5 — the uniform doubled-letter family `NN`, `ZZ`,
+  `QQ`) are SPELLINGS, not tokens — a binding always shadows them.
 
 Precedence, tightest first (`casTerm:N`, higher binds tighter):
 
@@ -1499,6 +1507,14 @@ Parser decisions (load-bearing):
   spelling one: `ℝ.cardinality()` lexes as ONE hierarchical identifier, so a
   domain used as a method RECEIVER arrives as a name and never as its own
   token — without the alias it was the misleading "'ℝ' is not bound";
+- **the backslash family is UNIFORM** (ruling 2026-07-31, #31 item 5): a
+  unicode token's LaTeX spelling is accepted wherever the unicode form
+  goes. Coverage: `\NN` `\ZZ` `\QQ` `\RR` `\CC` beside the five domain
+  tokens, `\in` beside every `∈` (assert relation, comprehension binder,
+  the `let f(t) = … ∈ D` ascription), and `\leq` — which predates the
+  ruling — beside `≤`. An addition is declared beside its unicode token,
+  same pattern. `is` belongs to the same SPEC §Ellipses block ("`is` just
+  means `=`") and is the sixth reserved word (see above);
 - **`and` chains ASSERTIONS, not terms.** SPEC.md's ⊆-chain is three claims,
   each decided on its own, under one ambient `in D`; the first that is not
   true stops the cell NAMING ITSELF, so a chain never reports "false" without

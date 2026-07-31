@@ -843,10 +843,16 @@ RECEIVER arrives as a name and never as its own token. Without these arms
 "this backend cannot express the cardinality of ℝ".
 
 Consulted only after the bindings, so `let R := …` still shadows the alias —
-an alias is a spelling, not a reserved word. -/
+an alias is a spelling, not a reserved word.
+
+The doubled-letter family is UNIFORM (ruling 2026-07-31, #31 item 5): SPEC.md
+§Ellipses writes `NN -> NN` and `ZZ[[t]]`, and `QQ` completes it. -/
 def domainAlias? : Name → Option Domain
   | `R | `RR => some .real
   | `CC => some .complex
+  | `NN => some .nat
+  | `ZZ => some .int
+  | `QQ => some .rat
   | `ℕ => some .nat
   | `ℤ => some .int
   | `ℚ => some .rat

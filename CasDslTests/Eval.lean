@@ -209,6 +209,11 @@ change was deliberate; the pin below states its real subject. -/
 #guard domainAlias? `R == some .real
 #guard domainAlias? `CC == some .complex
 #guard domainAlias? `Reals == none
+-- the alias layer is UNIFORM (ruling 2026-07-31, #31 item 5): SPEC §Ellipses
+-- writes `NN -> NN` and `ZZ[[t]]`, and `QQ` completes the doubled-letter family
+#guard domainAlias? `NN == some .nat
+#guard domainAlias? `ZZ == some .int
+#guard domainAlias? `QQ == some .rat
 -- the Unicode names are aliases too, for the receiver path: `ℝ.cardinality()`
 -- lexes as ONE identifier, so a domain used as a method receiver arrives here
 -- as a name and never as its own token

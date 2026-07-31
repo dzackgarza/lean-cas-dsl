@@ -1872,3 +1872,25 @@ def test_a_parenthesized_receiver_takes_a_method(kernel: Kernel) -> None:
     # the method is resolved on the receiver's VALUE, so a computed receiver
     # works too, and `factor(360)` stays the same call in the prefix spelling
     ok(kc, "assert (84).gcd(30) = 6")
+
+
+def test_the_alias_layer_is_uniform(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC §Ellipses, as written: the backslash family and the ident aliases
+    # are accepted wherever the unicode form goes (ruling 2026-07-31, #31
+    # item 5) — `\leq` was already such an alias
+    ok(kc, "let Xa := {0, 1, 2, ...}")
+    ok(kc, "assert Xa = \\NN")
+    ok(kc, "let Ya := {0, 2, 4, ...}")
+    ok(kc, "assert Ya = {2n | n in \\NN}")
+    ok(kc, "assert 7/3 \\in ℚ")
+    ok(kc, "let fa: NN -> NN := n ↦ n^2")
+    ok(kc, "assert fa(3) = 9")
+    # `is` "just means =" (SPEC §Ellipses), decided as `=` both ways
+    ok(kc, "assert 2 + 3 is 5")
+    text = err(kc, "assert 2 + 3 is 6")
+    assert "false" in text.lower()
+    # SPEC's series binding with its ASCII spellings throughout: `\NN` in the
+    # binder, `\in` as the ascription, `ZZ` as the coefficient ring
+    ok(kc, "let fs(t) = ∑_{n ∈ \\NN} n^2 t^n \\in ZZ[[t]]")
+    ok(kc, "assert [t^2]fs = 4")
