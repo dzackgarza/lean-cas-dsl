@@ -1724,6 +1724,21 @@ Formerly open questions, now user-decided — none was silently resolved:
 
 ## Open questions (kept open — do not silently resolve)
 
+- **silent embedding choices (owner-raised, 2026-07-31).** Passing to a
+  larger field rides on CHOICES the mathematics does not make for us:
+  entire Galois groups and class groups govern field embeddings, and a DSL
+  that picks one silently is dangerous unless the choice is logged (owner's
+  words). Where today's system stands: `√d` denotes the NON-NEGATIVE real
+  branch by construction (`nonNegSurd` — the choice is in the spelling, not
+  silent), `i` and all exact algebraic arithmetic inherit Sage's one fixed
+  embedding `QQbar ↪ ℂ` (`enc_alg` settles conjugates by exact QQbar
+  comparison), and the prelude's chain ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ is made of maps
+  that are unique, so no genuinely non-canonical choice is being made YET.
+  The question to firm up before splitting fields, abstract number fields
+  or Galois-orbit root sets enter: must a choice-carrying canonical map
+  DECLARE its choice at registration, or LOG it at use (the notes channel
+  is the sanctioned advisory surface), and which constructions are refused
+  until a choice is named? For the interactive design review;
 - default enumeration convention for `ℤ` (slice: 0, 1, −1, 2, −2, …,
   zero-based — a *registered choice*, revisitable);
 - the concrete declaration syntax for notebook-level categories (proposal
