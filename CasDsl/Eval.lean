@@ -24,135 +24,12 @@ open Lean (Name Environment)
 
 /-! ## The surface AST
 
-Produced by `CasDsl/Syntax.lean`; first-order, with no elaboration state.
+`BinOp`, `CmpOp` and `CasExpr` live in `CasDsl/Value.lean`, below `Value`:
+a presentation may carry an expression (`SetPresentation.predicate` stores
+the guard the mathematician wrote), so the AST sits with the data model.
 Everything the parser cannot decide on its own — whether `D[x]` is a
 polynomial ring or an index, whether an ascription names a domain or a
 category — is decided here, against the registries. -/
-
-inductive BinOp where
-  | add | sub | mul | div | pow
-  deriving BEq, Repr, Inhabited
-
-/-- The order comparisons a set-comprehension guard is written with
-(`n² ≤ 20`, `0 ≤ n < 6`). Equality is deliberately absent: `=` is the
-assertion relation, category-bound, and reading it as a term-level
-comparison here would give the surface two meanings for one symbol. -/
-inductive CmpOp where
-  | le | lt | ge | gt
-  deriving BEq, Repr, Inhabited
-
-inductive CasExpr where
-  | num (z : Int)
-  /-- A literal that is not a numeral: `ℵ₀`, `true`, `false`. -/
-  | lit (v : Value)
-  /-- A binding name, or the bound polynomial indeterminate. -/
-  | ref (n : Name)
-  /-- An atomic domain term (`ℕ`, `ℤ`, `ℚ`). -/
-  | dom (d : Domain)
-  /-- `Matₙ(E)`. -/
-  | matDom (size : Nat) (entry : CasExpr)
-  | neg (e : CasExpr)
-  | bin (op : BinOp) (a b : CasExpr)
-  /-- `f(args…)` — polynomial/function call. -/
-  | app (f : CasExpr) (args : Array CasExpr)
-  /-- `e.m(args…)`. -/
-  | method (recv : CasExpr) (m : Name) (args : Array CasExpr)
-  /-- `e[a]` — a polynomial ring or an index; decided in `eval`. -/
-  | index (recv : CasExpr) (arg : CasExpr)
-  | finSet (elems : Array CasExpr)
-  /-- `{a, b, …, ...}` / `{a, b, …, ..., z}`: the leading elements and the
-  optional inclusive bound. -/
-  | progSet (leading : Array CasExpr) (last? : Option CasExpr)
-  /-- Row-major; `rows * cols = entries.size`. -/
-  | matLit (rows cols : Nat) (entries : Array CasExpr)
-  /-- `(1, 2)` — a vector of `Eⁿ`, where `E` is the join of its components'
-  domains and `n` their count (SPEC.md §Vectors and matrices). -/
-  | vecLit (comps : Array CasExpr)
-  /-- `span_QQ{u₁, u₂}` — the subspace of `ℚⁿ` the generators span. DENOTED
-  like a set literal (no method, no route): what the span IS follows from the
-  generators, and the reduction that normalizes them is a presentation's
-  normal form rather than a computation a backend owns. -/
-  | spanOf (gens : Array CasExpr)
-  | mapTo (e target : CasExpr)
-  /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and
-  meaningful ONLY there. It is not a domain, not a set and not a quotient
-  (`|a − b| < ε` is not transitive, so there are no classes): it is the
-  REQUEST that a decimal presentation meet a tolerance. Written anywhere else
-  it is a loud refusal, which is what keeps `ℝ ⊆ ℝ/O(ε)` from being a claim
-  this surface can even state. -/
-  | approxTarget (eps : CasExpr)
-  /-- `binder ↦ body` — a function definition, meaningful only where an
-  ascription says which domains it runs between (`evalBinderBinding`). -/
-  | lam (binder : Name) (body : CasExpr)
-  /-- `(a, b, c) ↦ body` — a MULTI-binder definition: a HOM of free
-  ℚ-modules when the body is linear in the binders (`evalHomBinding`,
-  DESIGN.md §Homs are first-class); a body that is not stays the disclosed
-  tier-2 gap. -/
-  | lamN (binders : Array Name) (body : CasExpr)
-  /-- `S → T` / `S -> T` — a function domain. -/
-  | arrow (src tgt : CasExpr)
-  /-- `f ∘ g`. -/
-  | comp (f g : CasExpr)
-  /-- `√e` — the exact square root of a rational (SPEC.md's `√2`, `2√2`). -/
-  | sqrt (e : CasExpr)
-  /-- `|e|` — SPEC.md's bars, ONE spelling of "the size of e" whose METHOD
-  depends on the receiver: `cardinality` for a set, `abs` for an element of
-  ℝ or ℂ. Both are ordinary category methods; the bars invent nothing, so
-  `|3|` is still the honest "not a method of any category this object
-  belongs to". -/
-  | magnitude (e : CasExpr)
-  /-- `p dx` — a differential 1-form, DENOTED like a set literal: what the
-  form IS follows from its coefficient, and `dx` is the free generator of
-  `Ω¹_{k[x]/k}` rather than a value to multiply by. -/
-  | diffForm (p : CasExpr)
-  /-- `Spec R` — the affine scheme of a ring, an ascription TAG. -/
-  | specOf (ring : CasExpr)
-  /-- `∫ f dx` — the complete set of primitives of `f`, a COSET of
-  `ker(d/dx)`. The `antiderivative` method, applied by elaboration. -/
-  | integral (f : CasExpr)
-  /-- `lim_{t → a} body` — the `limit` METHOD on the function `t ↦ body`,
-  which this node builds by elaboration. -/
-  | limitOf (binder : Name) (point body : CasExpr)
-  /-- `∫₀¹ t² dt` — the `definite_integral` METHOD on `t ↦ body`, likewise. -/
-  | defIntegral (binder : Name) (lo hi body : CasExpr)
-  /-- `ℝ[[t]]` — the formal power series over a coefficient domain. -/
-  | seriesDom (coeff : CasExpr)
-  /-- `ℝ[[t]]/(t^6)` and `ℤ[[t]] / O(t^5)` — a TRUNCATION REQUEST, on the
-  `ℝ/O(ε)` precedent: meaningful only after `map … to`, and a loud refusal
-  anywhere else. It is not a quotient domain, and there is no `Domain`
-  constructor for it, so it answers no membership or cardinality question. -/
-  | truncTarget (order : Nat)
-  /-- `∑_{n ∈ ℕ} n² tⁿ` — a series given by its GENERATING RULE. -/
-  | seriesSum (binder : Name) (index rule : CasExpr)
-  /-- `[t²]f` — one coefficient of a series. -/
-  | coeffOf (power : Nat) (series : CasExpr)
-  /-- `kernel(d/dx : ℚ[x] → ℚ[x])` — the kernel of a DERIVATION, which is the
-  constants of its ring. The arrow is ascribed rather than inferred because a
-  derivation names no domains of its own. -/
-  | kernelOf (op arrow : CasExpr)
-  /-- `A × B` and `𝒫(A)` / `2^A`. Both DENOTE a set rather than compute one
-  (their elements are pairs and sets, which no `Value` presents), so they
-  build a presentation exactly as a set literal does — no method, no route. -/
-  | setProduct (a b : CasExpr)
-  | powersetOf (a : CasExpr)
-  /-- `a ≤ b` and the chain `a ≤ b < c`, which is its conjunction. -/
-  | cmp (op : CmpOp) (a b : CasExpr)
-  | conj (a b : CasExpr)
-  /-- `∑_{x ∈ X} body` and `∏_{x ∈ X} body` — the aggregation named by `m`
-  (`sum` or `prod`), over the set `index`. The body is evaluated at each
-  element exactly as a comprehension's head is, and the aggregation itself is
-  an ordinary category method on the resulting set. -/
-  | aggregate (m : Name) (binder : Name) (index body : CasExpr)
-  /-- `{x ∈ D | p(x) = q(x)}` — the set of solutions in `D`, which is the
-  `roots` method applied to `p − q` in `D[x]`. A production of its own
-  because `=` is the assertion relation everywhere else in this surface. -/
-  | rootSet (binder : Name) (index lhs rhs : CasExpr)
-  /-- A comprehension `{head | binder ∈ index, guard}`. SPEC.md's filtering
-  spelling `{n ∈ ℤ | P}` is this node with `head = binder` — one shape, so
-  one evaluator decides both. -/
-  | comprehension (head : CasExpr) (binder : Name) (index : CasExpr)
-      (guard? : Option CasExpr)
-  deriving Inhabited
 
 /-! ## Pure core -/
 
@@ -759,8 +636,11 @@ def isDerivationSpelling (isBound : Name → Bool) : CasExpr → CasExpr → Boo
 
 /-- The names SPEC.md writes for a CONSTANT rather than for a binding: `i`,
 the imaginary unit (`2 + 2i`). Consulted after the bindings and after the
-domain aliases, so `let i := 3 in ℤ` shadows it exactly as `let R := …`
-shadows ℝ — a constant is a spelling, not a reserved word. -/
+domain aliases. `π` and `d` are SHADOWABLE spellings (`let d := 5 in ℤ`
+takes the division back); `e` and `i` are RESERVED symbols under the
+2026-07-31 ruling (#31 item 3) — `reservedConstantMsg?` refuses any binding
+or binder by either name, so consulting this after the bindings can never
+lose them. -/
 def constantValue? : Name → Option Value
   -- through the normalizing constructor like every other value the surface
   -- produces: `none` here would be the ordinary "not bound" error, never a
@@ -769,16 +649,40 @@ def constantValue? : Name → Option Value
   -- SPEC.md §Elementary calculus writes `e^t` and `∫₀^π`. Neither `e` nor `π`
   -- is an exact algebraic number, so neither is an ELEMENT here: they are the
   -- SYMBOLIC constants a base, a bound or a limit point is written with, and
-  -- they carry no arithmetic. DISCLOSED COLLISION: SPEC.md itself binds `e`
-  -- to the doubling map in §Set comprehensions, and a binding wins — so in a
-  -- session that has read SPEC.md top to bottom, `e^t` reads the shadowed
-  -- name and refuses. `exp(t)` is the spelling no binding can shadow.
+  -- they carry no arithmetic. The former e-collision (SPEC.md once bound `e`
+  -- to the doubling map, and the binding won) was RESOLVED by the ruling
+  -- above: that function is now `m2`, `e` is reserved, and `exp(t)` remains
+  -- the equivalent spelling — `exp(x) := e^x`, the owner's words.
   | `e => some (.sym (.const `e))
   | `π | `pi => some (.sym (.const `pi))
   -- SPEC.md §Differentials displays a bare `d`: the universal differential.
   -- A constant like the three above, so `let d := 5 in ℤ` shadows it
   | `d => some (.derivation true)
   | _ => none
+
+/-- The two constant names the owner RESERVED outright (ruling 2026-07-31,
+#31 item 3): `e` is Euler's constant — `e^t` is what a mathematician
+expects, with `exp(x)` as the equivalent spelling — and `i` is the imaginary
+unit of ℂ. NO binding or binder may shadow either; `π` and `d` stay ordinary
+shadowable constants. These are not TOKENS (an identifier by these spellings
+still lexes, so `is_prime` and dotted names are untouched): the reservation
+is enforced where a name is INTRODUCED — the session bindings, and every
+binder position of this evaluator. -/
+def reservedConstantMsg? : Name → Option String
+  | `e => some "`e` is Euler's constant, a reserved symbol of this surface \
+(owner ruling 2026-07-31): `e^t` means exp(t), `exp(x)` spells the same \
+function, and no binding may shadow it"
+  | `i => some "`i` is the imaginary unit i ∈ ℂ, a reserved symbol of this \
+surface (owner ruling 2026-07-31), and no binding may shadow it"
+  | _ => none
+
+/-- Refuse to introduce a reserved constant name — shared by the command
+layer's bindings (`bindObj`) and every binder position of this evaluator,
+so `e` and `i` cannot be shadowed anywhere a name enters scope. -/
+def checkBindableName (n : Name) : Except String Unit :=
+  match reservedConstantMsg? n with
+  | some m => .error m
+  | none => .ok ()
 
 /-! ### Symbolic function expressions
 
@@ -861,6 +765,7 @@ operations run under — the arrow carries no analysis semantics here, and the
 OPERATION is what the backend answers. -/
 def symFunction (isBound : Name → Bool) (binder : Name) (body : CasExpr)
     : Except String Obj := do
+  checkBindableName binder
   return .elem (.funcs .real .real)
     (.func .real .real binder (.sym (← toSymExpr isBound binder body)))
 
@@ -1008,9 +913,12 @@ def renderName (n : Name) : String :=
   match ((toString n).replace "«" "").replace "»" "" with
   -- …and a registered category whose name carries a DOMAIN carries it in
   -- ASCII, because a Lean name may not hold `ℚ`. This is the closed set of
-  -- them: `QQ-Mod` is SPEC.md's own spelling and stays as it is, and
-  -- `Schemes/QQ` is written `Schemes/ℚ`. A third one is added here.
+  -- them: `Schemes/QQ` is written `Schemes/ℚ`, and `QQ-Mod` displays as its
+  -- CANONICAL spelling `Mod(ℚ)` (ruling 2026-07-31, the four spelling pins;
+  -- the hyphenated input spelling stays an accepted alias). A third one is
+  -- added here.
   | "Schemes/QQ" => "Schemes/ℚ"
+  | "QQ-Mod" => "Mod(ℚ)"
   | s => s
 
 def renderCat (c : CatRef) : String :=
@@ -1028,6 +936,7 @@ def renderPattern : PresPattern → String
   | .domainDiffSet => "a difference of two domains"
   | .spanSet => "a subspace of ℚⁿ"
   | .cosetSet => "a coset of the constants"
+  | .predicateSet => "a guard-backed predicate set"
   | .anySet => "any set"
   | .cyclicMod => "a cyclic module"
   | .specObj => "an affine scheme"
@@ -1213,11 +1122,109 @@ private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
       | .error e => throw (.exec e)
       | .ok v => return Denote.ofValue v
 
+/-! `callMethod` and `rootsRingNote` live INSIDE the `mutual` block below:
+the predicate-set intercept (#31 item 7) evaluates a stored guard, so
+`callMethod` and `eval` are mutually recursive. -/
+
+/-- The QQbar ↪ ℂ advisory (#31 item 10, log-at-use ruling): every algebraic
+number a backend positions in ℂ rides Sage's one fixed embedding of QQbar,
+and that CHOICE is logged where it flows — the ℂ[x] `roots`/`factor` calls,
+whose results are complex algebraic values — never declared silently. The
+declaration registry (a choice named at registration) is CategoryGraph-era
+family management and stays deferred. -/
+private def embeddingNote (ctx : EvalCtx) (recv : Obj) (m : Name) : EvalM Unit := do
+  unless m == `roots || m == `factor do return ()
+  let .elem (.poly .complex) _ := recv | return ()
+  ctx.notes.modify (·.push "the algebraic numbers of this result are placed \
+in ℂ along the backend's one fixed embedding QQbar ↪ ℂ — an embedding choice \
+logged at use (#31 item 10); no other embedding is consulted")
+
+/-- A result with no domain is not an object. Shared by the two places that ask
+for one, so the cause is stated wherever it bites. -/
+def notAnObject (rendered : String) : String :=
+  s!"{rendered} is not an object: a RESULT with no domain — a factorization, a \
+cardinal, an approximation — has none"
+
+private def asValueOf (r : Denote) (what : String := "this position") : Except String Value :=
+  match r.value? with
+  | some v => .ok v
+  | none => .error s!"{what} needs an element value, and {r.presentation} is not one"
+
+private def asObjOf (r : Denote) : Except String Obj :=
+  match r.obj? with
+  | some o => .ok o
+  | none => .error (notAnObject r.render)
+
+/-- The exact rational scalar a denote presents — the left factor of the
+scaling reading of `*` (#31 item 6). -/
+private def scalarOf? (r : Denote) : Option Value :=
+  match r.value? with
+  | some v => if (Native.toRat? v).isSome then some v else none
+  | none => none
+
+/-- How many candidates a comprehension may test before the operation fails
+honestly. A loud ceiling, never a truncated answer. Its reach over ℤ is
+smaller than the number suggests — the tail bound is symmetric about the
+origin, so an offset window costs ~2×|offset| candidates. -/
+private def comprehensionCap : Int := 100000
+
+/-- How many ambient candidates a predicate set's TRIAL enumeration may test
+(#31 item 7). A loud ceiling naming itself, never a truncated answer. -/
+private def predicateTrialCap : Nat := 10000
+
+/-- The domain a comprehension CANDIDATE presents as. A candidate of ℕ is a
+plain number, and "plain numbers are naturally elements of ZZ" (SPEC.md's own
+sentence) — ℕ itself declares no methods (the empty-ℕ-profile fork is cas#29)
+— so a ROUTED guard (`n.is_prime()`) reads the candidate as the integer it
+is. The value is unchanged either way; only the tag is. -/
+private def candidateDom (dom : Domain) : Domain :=
+  if dom == .nat then .int else dom
+
+/-- The tail every undecidable-comprehension refusal shares, so the guard and
+the head cannot be reported as different KINDS of failure. -/
+private def undecidableComprehension (what : String) : EvalError :=
+  .msg s!"{what} The comprehension is a structured gap rather than a guess: no \
+elements are enumerated, and no membership is sampled"
+
+/-- The refusal for a guard this slice does not decide. Shared by the two
+places that can reach it — a shape the bound extraction cannot read, and a
+guard whose ELEMENT-world reading does not produce a truth value — so an
+undecidable guard cannot be reported two ways depending on which one noticed. -/
+private def undecidableGuard (binder : Name) : EvalError :=
+  undecidableComprehension s!"this slice decides a comprehension whose guard is \
+a polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
+`0 ≤ {binder} < 6` — and this guard is not one."
+
+/-- …and the same for a HEAD that the index set's elements do not evaluate.
+An unguarded comprehension presents its head after reading it ONCE, so
+without this the indeterminate world's answer would be the whole verdict. -/
+private def undecidableHead (binder : Name) : EvalError :=
+  undecidableComprehension s!"the head of this comprehension does not evaluate \
+for an element of the index set: inside the braces '{binder}' ranges over \
+ELEMENTS, and the head must produce a value for one."
+
+mutual
+
 /-- Execute a method, and answer for a requested TOLERANCE when the method
 carries one: a non-positive ε is a surface refusal (it is not a tolerance),
-and any failure to meet a positive one is the capability failure naming it. -/
-def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
+and any failure to meet a positive one is the capability failure naming it.
+
+Two ELABORATION-decided receivers are answered before any route is taken,
+each for the one-owner reason: inclusion between two DOMAINS is the
+canonical-map registry's claim wherever it is spelled (`evalAssert` already
+answers `assert D ⊆ E` from the registry, and the method spelling must be
+the SAME decision — two spellings, one owner, per the ⊆ ruling of
+2026-07-31), and a PREDICATE set's guard is a surface expression only this
+evaluator can read (#31 item 7). -/
+partial def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
+  if m == `subset then
+    if let .domainObj d := recv then
+      if let some (Obj.domainObj e) := args[0]? then
+        return Denote.ofValue (.bool (← ofStr (domainSubset ctx.canonMaps d e)))
+  if let .setObj (.predicate dom binder guard) := recv then
+    if let some r ← predicateSetMethod? ctx dom binder guard m args then
+      return r
   match approxEps? m args with
   | none => runMethod ctx recv m args
   | some eps? =>
@@ -1232,6 +1239,55 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
         | .gap _ | .exec _ => throw (.approxRequest eps err)
         | err => throw err
 
+/-- What a PREDICATE set (#31 item 7) answers by ELABORATION, or `none` for
+everything else — which then resolves and routes as usual, where the native
+layer's honest "no canonical form" owns the refusals (equality, inclusion,
+the binary operations) and `presCard` owns the cardinality refusal.
+
+- `contains` evaluates the guard AT the candidate — after the ambient's own
+  membership test, so `-1 ∈ {n ∈ ℕ | …}` is `false` before any guard runs;
+- `nth` enumerates by TRIAL over the ambient's countable indexing, capped
+  LOUDLY at `predicateTrialCap` candidates — a stop that names the ceiling,
+  never a truncated answer. -/
+partial def predicateSetMethod? (ctx : EvalCtx) (dom : Domain) (binder : Name)
+    (guard : CasExpr) (m : Name) (args : Array Obj) : EvalM (Option Denote) := do
+  let pres := SetPresentation.predicate dom binder guard
+  let decide (v : Value) : EvalM Bool := do
+    if !Native.inDomain? dom v then return false
+    let r ← eval { ctx with local? := some (binder, .elem (candidateDom dom) v) } guard
+    match r.value? with
+    | some (.bool b) => pure b
+    | _ => throw (.msg s!"the guard of {pres.render} did not decide at \
+{binder} = {v.render}: {r.render}")
+  match m, args with
+  | `contains, #[.elem _ v] =>
+      return some (Denote.ofValue (.bool (← decide v)))
+  | `contains, #[o] =>
+      throw (.msg s!"membership in {pres.render} is decided for an ELEMENT, \
+and {o.presentation} is not one")
+  | `nth, #[.elem _ kv] => do
+      let some kq := Native.toRat? kv
+        | throw (.msg s!"an index into {pres.render} is a nonnegative integer, \
+and {kv.render} is not one")
+      if kq.den != 1 || kq.num < 0 then
+        throw (.msg s!"an index into {pres.render} is a nonnegative integer, \
+and {kv.render} is not one")
+      let k := kq.num.toNat
+      let mut found := 0
+      for i in [0:predicateTrialCap] do
+        let cand ← callMethod ctx (.domainObj dom) `nth #[.elem .int (.int (Int.ofNat i))]
+        let some cv := cand.value?
+          | throw (.msg s!"{dom.render} answered nth({i}) with \
+{cand.presentation}, which is not an element")
+        if ← decide cv then
+          if found == k then
+            return some (.obj (.elem dom (← ofStr (coerceValue ctx.canonMaps dom cv))))
+          found := found + 1
+      throw (.msg s!"nth({k}) on {pres.render}: {predicateTrialCap} candidates \
+of {dom.render} were tried and only {found} member(s) surfaced — the trial \
+ceiling (#31 item 7), a loud stop rather than a longer silent search")
+  | _, _ => return none
+
 /-- The ruled `roots` default (owner rulings, 2026-07-31; DESIGN.md §Exact
 number systems): `p.roots()` answers in `p`'s own coefficient ring, and no
 spelling silently applies a field extension. The help the ruling asks for in
@@ -1245,7 +1301,7 @@ note. A note is ADVICE on an unexpected-but-true result, never a refusal
 explicit multiplicity access (`factor`). The comprehension spelling
 `{a ∈ D | p(a) = 0}` names its ring itself, so it gets no note; ℂ[x]
 receivers get none either, because everything splits there. -/
-private def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
+partial def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
     (m : Name) (result : Denote) : EvalM Unit := do
   unless m == `roots do return ()
   let .elem (.poly d) (.poly _ coeffs) := recv | return ()
@@ -1273,52 +1329,34 @@ deciding whether {recv.presentation} splits")
 {deg - multTotal} lie in an extension. For all of them: \
 `let {p}C := map {p} to ℂ[x]`, then `{p}C.roots()`")
 
-/-- A result with no domain is not an object. Shared by the two places that ask
-for one, so the cause is stated wherever it bites. -/
-def notAnObject (rendered : String) : String :=
-  s!"{rendered} is not an object: a RESULT with no domain — a factorization, a \
-cardinal, an approximation — has none"
-
-private def asValueOf (r : Denote) (what : String := "this position") : Except String Value :=
-  match r.value? with
-  | some v => .ok v
-  | none => .error s!"{what} needs an element value, and {r.presentation} is not one"
-
-private def asObjOf (r : Denote) : Except String Obj :=
-  match r.obj? with
-  | some o => .ok o
-  | none => .error (notAnObject r.render)
-
-/-- How many candidates a comprehension may test before the operation fails
-honestly. A loud ceiling, never a truncated answer. Its reach over ℤ is
-smaller than the number suggests — the tail bound is symmetric about the
-origin, so an offset window costs ~2×|offset| candidates. -/
-private def comprehensionCap : Int := 100000
-
-/-- The tail every undecidable-comprehension refusal shares, so the guard and
-the head cannot be reported as different KINDS of failure. -/
-private def undecidableComprehension (what : String) : EvalError :=
-  .msg s!"{what} The comprehension is a structured gap rather than a guess: no \
-elements are enumerated, and no membership is sampled"
-
-/-- The refusal for a guard this slice does not decide. Shared by the two
-places that can reach it — a shape the bound extraction cannot read, and a
-guard whose ELEMENT-world reading does not produce a truth value — so an
-undecidable guard cannot be reported two ways depending on which one noticed. -/
-private def undecidableGuard (binder : Name) : EvalError :=
-  undecidableComprehension s!"this slice decides a comprehension whose guard is \
-a polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
-`0 ≤ {binder} < 6` — and this guard is not one."
-
-/-- …and the same for a HEAD that the index set's elements do not evaluate.
-An unguarded comprehension presents its head after reading it ONCE, so
-without this the indeterminate world's answer would be the whole verdict. -/
-private def undecidableHead (binder : Name) : EvalError :=
-  undecidableComprehension s!"the head of this comprehension does not evaluate \
-for an element of the index set: inside the braces '{binder}' ranges over \
-ELEMENTS, and the head must produce a value for one."
-
-mutual
+/-- `k · S` (SPEC.md §Ellipses' `2ℕ`; ruling 2026-07-31, #31 item 6) — the
+IMAGE of the scaling map, as a presentation: an arithmetic progression
+scales to an arithmetic progression, a finite set scales elementwise, and
+`ℕ` is the progression `{0, 1, 2, ...}`. CEILING, and it is stated: those
+three presentations under a rational scalar; everything else refuses naming
+this rule, never a guess. -/
+partial def scaleSet (ctx : EvalCtx) (k : Value) : SetPresentation → EvalM Denote
+  | .finite _ elems => do
+      let scaled ← ofStr (elems.mapM (Native.scalarMul k))
+      let d ← ofStr (elemsDomain ctx.canonMaps scaled)
+      return .obj (.setObj (.finite d
+        (← ofStr (scaled.mapM (coerceValue ctx.canonMaps d)))))
+  | .arithProg dom first step last? => do
+      let first' ← ofStr (Native.scalarMul k first)
+      let step' ← ofStr (Native.scalarMul k step)
+      let last?' ← ofStr (last?.mapM (Native.scalarMul k))
+      let de ← ofStr (elemsDomain ctx.canonMaps (#[first', step'] ++ last?'.toArray))
+      let d ← match ← ofStr (domJoin ctx.canonMaps dom de) with
+        | some j => pure j
+        | none => throw (.msg s!"{dom.render} and {de.render} have no common domain")
+      return .obj (.setObj (.arithProg d
+        (← ofStr (coerceValue ctx.canonMaps d first'))
+        (← ofStr (coerceValue ctx.canonMaps d step'))
+        (← ofStr (last?'.mapM (coerceValue ctx.canonMaps d)))))
+  | .domainSet .nat => scaleSet ctx k (.arithProg .nat (.int 0) (.int 1) none)
+  | s => throw (.msg s!"a scalar times a set is the IMAGE of the scaling map, \
+presented for an explicit finite set, an arithmetic progression, or ℕ \
+(#31 item 6) — and {s.render} is not one of those")
 
 partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
   | .num z => return .obj (.elem (ctx.ambient?.getD .int) (ctx.literal z))
@@ -1377,6 +1415,16 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
             (← ofStr (valueBin ctx.canonMaps .div (← ofStr (asValueOf x))
               (← ofStr (asValueOf y))))
   | .bin .pow a b => do
+      -- `AA^n(K)` is THE affine-space spelling (pinned 2026-07-31, the four
+      -- spelling pins), and polynomial maps on AA^n are tier 2, held for #13
+      -- demand — so the spelling parses and refuses BY NAME. A bound `AA`
+      -- still wins, exactly as a binding wins over a constant.
+      if let .ref `AA := a then
+        if !ctx.isBound `AA then
+          throw (.msg "AA^n(K) — affine n-space over K — is the pinned \
+spelling of a tier-2 feature (polynomial maps on AA^n, #31), held for #13 \
+demand: the spelling is reserved, and the feature is refused rather than \
+approximated")
       -- `2^X` is SPEC.md's other spelling of `𝒫(X)`; every other `^` is
       -- exponentiation, including `2^|A|` (a cardinal is not a set). The
       -- EXPONENT is evaluated first — it is what decides which reading this
@@ -1438,10 +1486,19 @@ difference of sets that have elements is `\\`, which computes it — \
       | _ =>
         return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .add
           (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
-  | .bin op a b => do
-      let x ← ofStr (asValueOf (← eval ctx a))
-      let y ← ofStr (asValueOf (← eval ctx b))
-      return Denote.ofValue (← ofStr (valueBin ctx.canonMaps op x y))
+  | .bin .mul a b => do
+      -- SPEC.md §Ellipses' `2ℕ` (ruling 2026-07-31, #31 item 6): a SCALAR
+      -- against a SET is the image of the scaling map, DENOTED by elaboration
+      -- exactly as `A × B` and a coset are — no method, no route. Every other
+      -- `*` is the arithmetic it always was.
+      let x ← eval ctx a
+      let y ← eval ctx b
+      match scalarOf? x, y.asSet?, scalarOf? y, x.asSet? with
+      | some k, some s, _, _ => scaleSet ctx k s
+      | _, _, some k, some s => scaleSet ctx k s
+      | _, _, _, _ =>
+          return Denote.ofValue (← ofStr (valueBin ctx.canonMaps .mul
+            (← ofStr (asValueOf x)) (← ofStr (asValueOf y))))
   | .setProduct a b => do
       let x ← eval ctx a
       let y ← eval ctx b
@@ -1497,6 +1554,7 @@ differential 1-form here is a POLYNOMIAL against the free generator `dx`")
   -- comprehension both make — so the coefficients come out exactly, and a
   -- rule that is not a polynomial in the binder is a loud refusal
   | .seriesSum binder index rule => do
+      ofStr (checkBindableName binder)
       let idx ← eval ctx index
       let some (.domainSet .nat) := idx.asSet?
         | throw (.msg s!"a generating sum indexes over ℕ, and {idx.presentation} is not it")
@@ -1551,7 +1609,16 @@ slice does not state it rather than answering with a ring it has not checked")
       let some q := Native.toRat? v
         | throw (.msg s!"√ presents the exact square root of a rational; \
 {v.render} is not one, and this slice does not approximate it")
-      return Denote.ofValue (← ofStr (Value.sqrtOfRat q))
+      let r ← ofStr (Value.sqrtOfRat q)
+      -- an ALGEBRAIC root is one of two, and the spelling picks a branch —
+      -- an embedding choice, logged at use (#31 item 10, log-at-use ruling):
+      -- the non-negative root for a positive radicand, i·√|d| upward for a
+      -- negative one. A rational root is ordinary arithmetic and gets no note.
+      if let .alg .. := r then
+        ctx.notes.modify (·.push s!"√ denotes ONE root by convention — the \
+non-negative branch (upward, i·√|d|, for a negative radicand): an embedding \
+choice made by the spelling, logged at use (#31 item 10)")
+      return Denote.ofValue r
   | .magnitude e => do
       -- the bars are a SPELLING: which method they name is the receiver's
       -- business, and both answers are ordinary category methods
@@ -1592,6 +1659,7 @@ that space and in no other")
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
       let d ← callMethod ctx r m as
       rootsRingNote ctx recv r m d
+      embeddingNote ctx r m
       return d
   | .index recv arg => do
       let r ← eval ctx recv
@@ -1812,6 +1880,7 @@ bind it with its function domain, as in \
   -- `p(x) = 0`, presented in the index domain's polynomial ring, and handed
   -- to `roots` — same method, same route, same backend, one implementation.
   | .rootSet binder index lhs rhs => do
+      ofStr (checkBindableName binder)
       let idx ← eval ctx index
       -- SPEC.md §Indefinite integration's `{h ∈ ∫ f dx | h(0) = 0}` — the same
       -- production, over a COSET rather than a domain. It is a different
@@ -1852,6 +1921,7 @@ set's own ring, but the equation `{p.render} = 0` does not present in \
 {(Domain.poly d).render}: {inner}")
       callMethod ctx (.elem (.poly d) pd) `roots #[]
   | .aggregate m binder index body => do
+      ofStr (checkBindableName binder)
       let idx ← eval ctx index
       let some s := idx.asSet?
         | throw (.msg s!"`∑_\{x ∈ X} …` aggregates over a SET, and \
@@ -1879,12 +1949,17 @@ an EXPLICIT finite set, and {s.render} is not one")
       callMethod ctx recv m #[]
 
 /-- The bounds a guard puts on the comprehension binder, decided by
-`boundsOfPoly` after each comparison is rewritten as `p(n) ⋈ 0`. A guard
-shape the rewriting does not reach is refused here, loudly. -/
+`boundsOfPoly` after each comparison is rewritten as `p(n) ⋈ 0`. `none` =
+the guard is not a comparison the rewriting reads at all — the caller
+decides whether that is the lazy predicate presentation (#31 item 7) or a
+refusal; an error inside a comparison (an unbound name, an unreadable side)
+still propagates as the error it is. -/
 partial def guardBounds (ctx : EvalCtx) (binder : Name) (dom : Domain)
-    : CasExpr → EvalM BinderBounds
+    : CasExpr → EvalM (Option BinderBounds)
   | .conj a b => do
-      return (← guardBounds ctx binder dom a).meet (← guardBounds ctx binder dom b)
+      match ← guardBounds ctx binder dom a, ← guardBounds ctx binder dom b with
+      | some x, some y => return some (x.meet y)
+      | _, _ => return none
   | .cmp op a b => do
       -- the binder is the INDETERMINATE here: the guard is read as an exact
       -- polynomial claim about every candidate at once, not sampled at one
@@ -1897,10 +1972,10 @@ partial def guardBounds (ctx : EvalCtx) (binder : Name) (dom : Domain)
       -- as a polynomial with no extractable bound would misreport an infinite
       -- (or empty) comprehension as an unsupported guard
       | .poly c cs =>
-          ofStr (if cs.size ≤ 1 then constantBounds op (cs[0]?.getD (Native.zeroOf c))
+          some <$> ofStr (if cs.size ≤ 1 then constantBounds op (cs[0]?.getD (Native.zeroOf c))
                  else boundsOfPoly op cs)
-      | v => ofStr (constantBounds op v)
-  | _ => throw (undecidableGuard binder)
+      | v => some <$> ofStr (constantBounds op v)
+  | _ => return none
 
 /-- `{head | binder ∈ index, guard}`.
 
@@ -1919,6 +1994,7 @@ Everything else — an unbounded guard, an index that is not ℕ or ℤ, a
 non-linear head with no guard — is refused at the binding. -/
 partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
     (index : CasExpr) (guard? : Option CasExpr) : EvalM Denote := do
+  ofStr (checkBindableName binder)
   let idx ← eval ctx index
   let some (.domainSet dom) := idx.asSet?
     | throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
@@ -1937,7 +2013,7 @@ partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
   let probe (e : CasExpr) (accepts : Value → Bool) (err : EvalError) : EvalM Unit := do
     let kv ← ofStr (coerceValue ctx.canonMaps dom (.int 0))
     let read ← tryCatch (do return (← eval { ctx with
-      local? := some (binder, .elem dom kv) } e).value?) fun _ => pure none
+      local? := some (binder, .elem (candidateDom dom) kv) } e).value?) fun _ => pure none
     match read with
     | some v => if accepts v then pure () else throw err
     | none => throw err
@@ -1963,10 +2039,25 @@ image is an arithmetic progression — a linear map on ℕ. {hv.render} over \
           let d ← ofStr (elemsDomain ctx.canonMaps #[v])
           return .obj (.setObj (.finite d #[v]))
   | some g =>
-      let b ← guardBounds ctx binder dom g
       -- a guard is asked for a TRUTH VALUE, at the same candidate
       let guardProbe : EvalM Unit :=
         probe g (fun | .bool _ => true | _ => false) (undecidableGuard binder)
+      -- The LAZY fallback (#31 item 7): a guard the bound extraction does
+      -- NOT READ AT ALL (`n.is_prime()`, a membership test) presents the set
+      -- BY ITS GUARD — provided the guard decides elementwise (the same
+      -- probe as ever) and the head is the binder itself. The IMAGE of a
+      -- lazy set has no presentation here, and says so rather than sampling
+      -- one. A guard the extraction DOES read keeps its decided outcomes —
+      -- a finite enumeration, the empty set, or the loud infinite refusal —
+      -- exactly as before.
+      let some b ← guardBounds ctx binder dom g |
+        (do guardProbe
+            if let .ref h := head then
+              if h == binder then
+                return .obj (.setObj (.predicate dom binder g))
+            throw (undecidableComprehension s!"the head is not the binder \
+'{binder}': only the filtering spelling `\{{binder} ∈ D | …}` is presented \
+lazily by its guard (#31 item 7); the image of a lazy set is not presented."))
       -- ℕ contributes its own lower bound; the guard must supply the rest
       let lo? := if dom == .nat then some (max 0 (b.lo.getD 0)) else b.lo
       let some lo := lo?
@@ -1985,7 +2076,7 @@ this slice tests at most {comprehensionCap}")
       for i in [0 : (max 0 (hi - lo + 1)).toNat] do
         let k := lo + Int.ofNat i
         let kv ← ofStr (coerceValue ctx.canonMaps dom (.int k))
-        let kctx := { ctx with local? := some (binder, .elem dom kv) }
+        let kctx := { ctx with local? := some (binder, .elem (candidateDom dom) kv) }
         match ← ofStr (asValueOf (← eval kctx g) s!"the guard at {binder} = {k}") with
         | .bool true =>
             out := out.push (← ofStr (asValueOf (← eval kctx head)
@@ -2022,6 +2113,24 @@ inductive Ascription where
 surface produces (`C` and `C(p₁, …)`) are category ascriptions. -/
 def categoryAscription? (env : Environment) : CasExpr → Option (Name × Array CasExpr)
   | .ref n => if (catDecl? env n).isSome then some (n, #[]) else none
+  -- `Mod(QQ)` — the CANONICAL module-category spelling (ruling 2026-07-31,
+  -- the four spelling pins): `Mod(K)` names the registered category `K-Mod`,
+  -- whose hyphenated spelling stays the accepted alias. The registered NAME
+  -- stays ASCII (a Lean name), exactly as `Schemes/QQ` does; `renderName`
+  -- displays the canonical form. Before the generic application arm, which
+  -- would otherwise swallow the unregistered name `Mod` and answer nothing.
+  | .app (.ref `Mod) #[arg] =>
+      -- the base is a domain TOKEN (`ℚ`) or a domain ALIAS ident (`QQ`) —
+      -- the same two spellings every domain position accepts
+      let d? := match arg with
+        | .dom d => some d
+        | .ref a => domainAlias? a
+        | _ => none
+      match d? with
+      | some d =>
+          let n := Name.mkSimple s!"{asciiDomain d}-Mod"
+          if (catDecl? env n).isSome then some (n, #[]) else none
+      | none => none
   | .app (.ref n) args => if (catDecl? env n).isSome then some (n, args) else none
   -- SPEC.md writes a HYPHENATED category name — `in QQ-Mod` — which the term
   -- grammar reads as a subtraction of two names. In ASCRIPTION position that
@@ -2117,6 +2226,7 @@ what the binder means, and is therefore evaluated FIRST:
   is exactly as exact as the polynomial engine can make it. -/
 def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
     (asc : Ascription) : EvalM Obj := do
+  ofStr (checkBindableName binder)
   match asc with
   | .domain (.poly c) =>
       let o ← objOf (← eval { ctx with indet? := some (binder, c) } body)
@@ -2257,6 +2367,7 @@ and is ascribed its function domain: `let φ: ℚ³ → ℚ := (a, b, c) ↦ a +
 {binders.size} names")
   if (binders.toList.eraseDups).length != binders.size then
     throw (.msg "the binders of a multi-binder map are distinct names")
+  binders.forM fun b => ofStr (checkBindableName b)
   let comps ← match tgt, body with
     | .vector m .rat, .vecLit es =>
         if es.size != m then

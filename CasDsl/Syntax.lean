@@ -132,6 +132,14 @@ syntax:max (name := casFilterSet)
 syntax:max (name := casImageSet)
   "{" casTerm " | " ident casBinderIn casTerm ("," casTerm)? "}" : casTerm
 
+/-- SPEC.md §Ellipses' `{n in ℕ | f(n) ∈ 2ℕ}` — MEMBERSHIP in guard
+position, one relation admitted in one production (the discipline the root
+set below sets for `=`; ruling 2026-07-31, #31 item 6). The guard desugars
+to the `contains` call it means — `∈` invents nothing — so it is decided by
+the same routed membership every other spelling of `∈` reaches. -/
+syntax:max (name := casMemFilterSet)
+  "{" ident casBinderIn casTerm " | " casTerm casBinderIn casTerm "}" : casTerm
+
 /-- SPEC.md's `{a ∈ ℂ | r(a) = 0}` — the ROOT SET of a polynomial, and a
 production of its own rather than a guarded comprehension.
 
@@ -427,7 +435,11 @@ syntax:50 (name := casCmpChain)
   casTerm:51 casCmpOp casTerm:51 casCmpOp casTerm:51 : casTerm
 syntax:25 (name := casArrow) casTerm:26 (" → " <|> " -> ") casTerm:25 : casTerm
 syntax:20 (name := casMap) "map " casTerm:21 " to " casTerm:21 : casTerm
-syntax:10 (name := casLam) casTerm:11 " ↦ " casTerm:10 : casTerm
+/-- `binder ↦ body`, and its ASCII spellings `|->` and `\mapsto` (ruling
+2026-07-31, the four spelling pins): `|->` is the conventional ASCII mapsto,
+and `\mapsto` is its backslash-family form. `->` stays the domain arrow ONLY
+— one symbol, one meaning, no shape-based disambiguation. -/
+syntax:10 (name := casLam) casTerm:11 (" ↦ " <|> " |-> " <|> " \\mapsto ") casTerm:10 : casTerm
 
 /-- The words this surface RESERVES — real tokens, so an identifier by any
 of these spellings cannot be written anywhere, including as a binding name.
@@ -438,8 +450,13 @@ differential atom, the 1-form, `∫ f dx`), `Spec` (the scheme spelling),
 non-reserved form the category dispatch cannot reach — see `casRelIs`).
 Everything else the grammar keys on — `and`,
 `O`, `dt`, `span_QQ` — is a non-reserved `&"…"` keyword and stays an
-ordinary identifier everywhere else, and constants (`i`, `e`, `π`, `d`)
-are spellings a binding always shadows.
+ordinary identifier everywhere else. Constants come in two kinds (ruling
+2026-07-31, #31 item 3): `π` and `d` are spellings a binding always
+shadows, while `e` (Euler's constant — `e^t` means exp(t)) and `i` (the
+imaginary unit) are RESERVED SYMBOLS a binding may never shadow — enforced
+where a name is introduced (`bindObj`, and every binder position of the
+evaluator), not by the tokenizer, so identifiers merely containing them
+(`is_prime`, `e1`) are untouched.
 
 This list is DOCUMENTATION HELD TO THE GRAMMAR: the parse guard in
 `CasDslTests/Core.lean` fails the build if a listed word starts parsing as
@@ -720,6 +737,12 @@ one SPEC.md writes is `kernel(d/dx : ℚ[x] → ℚ[x])`, the kernel of a deriva
   -- of the identity, so one node reaches one evaluator
   | ``casRootSet =>
       return .rootSet stx[1].getId (← toExpr stx[3]) (← toExpr stx[5]) (← toExpr stx[7])
+  -- the guard-position `∈` IS the `contains` call (one relation, one
+  -- production), so the guard reaches the same routed membership decision
+  -- every other spelling of `∈` does
+  | ``casMemFilterSet =>
+      return .comprehension (.ref stx[1].getId) stx[1].getId (← toExpr stx[3])
+        (some (.method (← toExpr stx[7]) `contains #[← toExpr stx[5]]))
   | ``casFilterSet =>
       return .comprehension (.ref stx[1].getId) stx[1].getId (← toExpr stx[3])
         (some (← toExpr stx[5]))
@@ -773,7 +796,7 @@ private def valueJson (d : Denote) : Json :=
   -- spelled out rather than a wildcard: a new set presentation must fail this
   -- build and be decided, not silently publish `null`
   | none, some (.domainSet _) | none, some (.product _ _) | none, some (.powerset _)
-  | none, some (.domainDiff _ _) | none, none => Json.null
+  | none, some (.domainDiff _ _) | none, some (.predicate ..) | none, none => Json.null
 
 private def denoteJson (d : Denote) : Json :=
   Json.mkObj
@@ -824,6 +847,9 @@ private def ambientOf (tail? : Option Syntax) : CommandElabM (Option Domain) := 
       | other => throwError s!"`in {other.render}` is not a domain"
 
 private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
+  -- `e` and `i` are reserved SYMBOLS (ruling 2026-07-31, #31 item 3):
+  -- Euler's constant and the imaginary unit, which no binding may shadow
+  if let some m := reservedConstantMsg? n then throwError m
   modifyEnv fun env => addBinding env (n, o)
   logInfo s!"{n} := {o.presentation}"
 

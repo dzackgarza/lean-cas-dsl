@@ -275,7 +275,7 @@ where the honest answer was infinite. -/
   == some (some 0, some (-1))
 #guard (constantBounds .le (.bool true)).toOption.isNone
 
-/-! ## The image of a function (`SPEC.md`'s `e.image()`) -/
+/-! ## The image of a function (`SPEC.md`'s `m2.image()`) -/
 
 -- `n ↦ 2n` on ℕ: the image IS the progression `{0, 2, 4, ...}`
 #guard (Native.run "func_image" Std.doubling #[]).toOption
@@ -393,11 +393,10 @@ assert h(-t) = h(t)
 
 /-! ## SPEC.md §Elementary calculus: a body the polynomial engine cannot express
 
-Placed HERE, above `let e := …`, and that placement is the point: `e` is
-Euler's number only while nothing has bound the name, and SPEC.md itself binds
-it to the doubling map two lines down. A binding wins over a constant — the
-rule `i` and `R` already follow — so the collision is SPEC.md's own, and it is
-pinned below as a live refusal rather than described.
+`e` is Euler's number in EVERY session state (ruling 2026-07-31, #31 item 3:
+`e` and `i` are reserved symbols no binding may shadow; SPEC's former
+doubling map is `m2` now), so nothing about placement matters here — the
+binding below the §Functions section pins exactly that.
 
 These bodies are SYMBOLIC: they are presented so a backend can take a limit, a
 definite integral or a Taylor expansion of them, and this slice decides
@@ -417,11 +416,12 @@ bound above.) -/
 assert h(-t) = h(t)
 assert h(3) = 10
 
-let e: ℕ → ℕ := n ↦ 2n
+let m2: ℕ → ℕ := n ↦ 2n
 
--- …and with the name bound, SPEC.md's own `e^t` reads the BINDING. The
--- constant loses, which is the documented rule, and `exp(t)` is the spelling
--- no binding can shadow
+-- …and `e^t` STILL reads Euler's constant below that binding — the name is
+-- reserved, so SPEC's §Elementary calculus third block runs top-to-bottom —
+-- with `exp(x) := e^x` as the equivalent spelling (the owner's words)
+let expoAfter := t ↦ e^t in ℝ → ℝ
 let expo2 := t ↦ exp(t) in ℝ → ℝ
 
 let f(t) = t^2 in RR->RR
@@ -436,7 +436,7 @@ assert h ≠ f
 -- the ascribed domains are CHECKED at the call: the argument enters through
 -- the source and the result lands in the target, so a ℤ/5 arrow computes in
 -- ℤ/5 (4 + 3 = 2) rather than in ℤ
-assert e(3) = 6
+assert m2(3) = 6
 let k(t) = t + 7 in ℤ/5 → ℤ/5
 assert k(4) = 1
 -- the symbolic call reduces in ℤ/5 too, so the identity is decided there and
@@ -449,7 +449,7 @@ run_cmd do
   let expect : List (Name × String × String) :=
     [(`h, "t ↦ t^2 + 1", "t ↦ t^2 + 1 ∈ ℝ → ℝ"),
      (`hp, "t ↦ t^2 + 1", "t ↦ t^2 + 1 ∈ ℝ → ℝ"),
-     (`e, "n ↦ 2n", "n ↦ 2n ∈ ℕ → ℕ"),
+     (`m2, "n ↦ 2n", "n ↦ 2n ∈ ℕ → ℕ"),
      (`g, "t ↦ t^3", "t ↦ t^3 ∈ ℝ → ℝ")]
   for (name, rendered, presented) in expect do
     match CasDsl.binding? env name with
@@ -719,8 +719,10 @@ assert {√2, -√2} ⊆ ℂ - ℚ
 -- (the false case has no surface spelling — there is no `⊄` relation — so it
 -- is a `#guard` over the executor in CasDslTests/Core.lean)
 
-let i := 5 in ℤ
-assert 2 + 2i = 12
+-- `i` is a RESERVED symbol (ruling 2026-07-31, #31 item 3): the imaginary
+-- unit in every session state — the shadowing that once made `2 + 2i` mean
+-- 12 is unrepresentable now
+assert 2 + 2i ∈ ℂ
 
 /-! ## SPEC.md's Finite sets section, verbatim
 
@@ -797,14 +799,14 @@ assert 1000000000000 ∈ E
 assert 1000000000001 ∉ E
 assert E ≠ {0, 3, ...}
 
--- `e` was bound in the Functions section above; both spellings of its image
--- are the same set, and equal to the comprehension by normalization
-assert e(ℕ) = E
-assert e.image() = E
-assert e.image() ≠ {0, 4, ...}
+-- `m2` was bound in the Functions section above; both spellings of its
+-- image are the same set, and equal to the comprehension by normalization
+assert m2(ℕ) = E
+assert m2.image() = E
+assert m2.image() ≠ {0, 4, ...}
 
-assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}
-assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} ≠ {0, 2, 4, 6, 8}
+assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}
+assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} ≠ {0, 2, 4, 6, 8}
 
 -- SPEC.md §Ellipses spells the binder with the ASCII `in` too
 assert {n in ℤ | n² ≤ 20} = S

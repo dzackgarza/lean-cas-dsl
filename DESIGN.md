@@ -235,9 +235,11 @@ all.
   presentation. A domain used as a method RECEIVER arrives as a name, not as
   its own token, which is why `Eval.domainAlias?` carries the Unicode
   spellings (§Surface).
-- **`i` is a CONSTANT, not a binding** (`Eval.constantValue?`), consulted
-  after the session bindings and the domain aliases — so `let i := 5 in ℤ`
-  shadows it exactly as `let R := …` shadows ℝ, and `2 + 2i` is then 12.
+- **`i` is a RESERVED SYMBOL** (`Eval.constantValue?` carries the value;
+  `reservedConstantMsg?` guards the name — ruling 2026-07-31, #31 item 3):
+  the imaginary unit in every session state. Unlike `R`/`π`/`d`, which stay
+  shadowable spellings, `let i := 5` is refused outright, so `2 + 2i` can
+  never quietly mean 12.
 - **ℂ[x] is where the cubic splits**, and `roots` STILL answers in the
   polynomial's own coefficient ring. `map p to ℂ[x]` is the ordinary
   registered coercion (ℤ ⊆ ℂ, coefficient-wise), `factor` and `roots` are
@@ -616,20 +618,19 @@ into it.
   reader's refusal, which is the wider of the two.
 - **A bound name is REFUSED inside a symbolic body**, never substituted and
   never read as the constant it shadows. There is nothing to substitute into
-  — a symbolic body is not evaluated — and reading a bound name as a constant
-  would turn `let e := 5` followed by `t ↦ e^t` into Euler's number, a wrong
-  answer where the refusal is only an inconvenience.
-- **DISCLOSED COLLISION, and it is `SPEC.md`'s own.** `SPEC.md` binds `e` to
-  the doubling map in §Set comprehensions and writes `e^t` for Euler's number
-  in §Elementary calculus. A binding wins over a constant — the rule `i` and
-  `R` already follow — so in a session that has read `SPEC.md` top to bottom,
-  `e^t` reads the shadowed name and refuses. Both halves are pinned side by
-  side (`CasDslTests/Eval.lean` and `tests/test_e2e.py` order their cells so
-  that each is exercised), and `exp(t)` is the spelling no binding can
-  shadow. The notebook is a single session that binds `e` in §8, so its
-  calculus section shows the collision as a live refusal. RATIFIED (owner,
-  2026-07-31): the refusal stands as-is — SPEC.md keeps its spelling, the
-  binding keeps winning, and `exp(t)` remains the unshadowable escape.
+  — a symbolic body is not evaluated — and reading a bound name as a
+  shadowable constant (`π`, `d`) would answer with a value the mathematician
+  did not write; the refusal is only an inconvenience.
+- **The e-collision is RESOLVED by reservation (owner ruling, 2026-07-31,
+  #31 item 3 — superseding the earlier ratified refusal).** `SPEC.md` once
+  bound `e` to the doubling map in §Set comprehensions while writing `e^t`
+  for Euler's number in §Elementary calculus, and the binding won. The
+  owner's resolution: there is no reason to keep `e` as a function name —
+  that map is now `m2` in SPEC itself, and `e` is a RESERVED SYMBOL
+  (`reservedConstantMsg?`) no binding or binder may shadow, `i` with it.
+  `e^t` therefore reads Euler's constant in EVERY session state — SPEC's
+  §Elementary calculus third block runs top-to-bottom — and
+  `exp(x) := e^x` (the owner's words) remains the equivalent spelling.
 - `∞` is a TOKEN because it is not an identifier character; `π` and `e` are,
   so those two are ordinary constants consulted after the bindings. All three
   denote the same kind of thing — a symbolic constant with no domain.
@@ -708,10 +709,17 @@ spelling per ring is what keeps a display readable back as input.
   is decided by the coefficient domain MATCHING, and the tag is a normal form
   rather than a guess — `coerceValue`'s structural congruence maintains it at
   every boundary a series crosses, so the ascription always meets a matching
-  tag. A MISMATCH is refused rather than answered: `ℚ[[t]] ⊆ ℝ[[t]]` is the
-  canonical-map registry's claim, and this backend restating it is exactly
-  what `normalSubset` already refuses to do for `dom ⊆ dom`. A `false` there
-  would be a wrong answer where the refusal is only a missing one.
+  tag. A MISMATCH at the executor is still not answered there: `ℚ[[t]] ⊆
+  ℝ[[t]]` is the canonical-map registry's claim, and `normalSubset` keeps
+  refusing to restate it for `dom ⊆ dom`. The SURFACE, though, answers it
+  (⊆-conformance audit, 2026-07-31, #31 item 9): both spellings — `assert
+  ℚ[[t]] ⊆ ℝ[[t]]` and `(ℚ[[t]]).subset(ℝ[[t]])` — are the registry's
+  decision at elaboration (`domainSubset`, and the `subset` intercept in
+  `callMethod` that keeps the two spellings one decision), where the
+  coefficient-wise ℚ ⊆ ℝ INDUCES the series inclusion exactly as it induces
+  ℚ[x] ⊆ ℝ[x] — TRUE there, FALSE in the unregistered direction, never a
+  refusal. Nothing new was registered: the induced reading is `domainSubset`'s
+  standing structural recursion, bottoming out in the registry.
 - **A series RING is a `Sets` member and nothing narrower**: a formal power
   series is an arbitrary SEQUENCE of coefficients, so `ℤ[[t]]` is
   UNCOUNTABLE — the standing ℂ[x] already has. Membership routes; `nth` is
@@ -751,9 +759,49 @@ router, except the two that construct rather than compute.
   TRUE with an advisory note — info with advice on sharpening the result —
   never a refusal. Refusal remains correct only where the sentence is not a
   set proposition at all (`ℝ/O(ε)` on either side, a result with no set
-  reading). CONFORMANCE AUDIT of every existing ⊆/∈ path against this
-  ruling is owned by the SPEC-conformance sweep (the series-inclusion
-  refusal `ℚ[[t]] ⊆ ℝ[[t]]` in §Formal power series is a known candidate).
+  reading). The conformance audit (2026-07-31, #31 item 9) closed the one
+  known candidate: series inclusion answers from the registry at both
+  spellings — §Formal power series records the shape.
+
+- **A scalar times a set is the IMAGE of the scaling map (ruling
+  2026-07-31, #31 item 6).** SPEC.md §Ellipses asserts `Y = 2ℕ`, and
+  `k·S` is DENOTED by elaboration exactly as `A × B` is: an arithmetic
+  progression scales to an arithmetic progression, an explicit finite set
+  scales elementwise, and `ℕ` is the progression `{0, 1, 2, ...}` — so
+  `2ℕ` IS `{0, 2, 4, ...}`, and `Y = 2ℕ` is the ordinary progression
+  equality. CEILING, stated in the refusal: those three presentations
+  under a rational scalar (`Eval.scaleSet`); `2ℝ` names the rule and
+  refuses. Every other `*` is untouched.
+
+- **A predicate set is a LAZY presentation backed by its guard (ruling
+  2026-07-31, #31 item 7).** `{n ∈ ℕ | n.is_prime()}` BINDS: a filtering
+  comprehension whose guard the bound extraction does not read AT ALL
+  presents as `SetPresentation.predicate dom binder guard`, provided the
+  guard decides
+  elementwise at the probe and the head is the binder itself (the IMAGE of
+  a lazy set is not presented, and says so). A guard the extraction DOES
+  read keeps its decided outcomes — a finite enumeration, the empty set, or
+  the loud infinite refusal — exactly as before. Membership EVALUATES the guard
+  at the candidate — after the ambient's own membership test — through the
+  same routed calls every other spelling reaches (`predicateSetMethod?`, an
+  elaboration decision like the powerset's); `nth` enumerates by TRIAL over
+  the ambient's countable indexing, capped loudly at `predicateTrialCap`;
+  cardinality refuses in `presCard`'s wording (a guard decides membership,
+  not size); equality and inclusion refuse at `normalSubset`'s honest "no
+  canonical form". The guard is stored AS WRITTEN and reads the session's
+  bindings at query time — the spike's documented ceiling (SPEC.md never
+  rebinds a name a stored guard mentions). Candidates of an ℕ-comprehension
+  present as elements of ℤ — SPEC.md's own "plain numbers are naturally
+  elements of ZZ" — since ℕ declares no methods (the empty-ℕ-profile fork
+  is cas#29).
+
+- **Membership is admitted in GUARD position, one relation in one
+  production (ruling 2026-07-31, #31 item 6).** SPEC.md §Ellipses writes
+  `{n in ℕ | f(n) ∈ 2ℕ}`; the `casMemFilterSet` production admits `∈` after
+  the bar — the root set's discipline for `=` — and desugars it to the
+  `contains` call it means, so the guard is decided by the same routed
+  membership every other spelling of `∈` reaches, and the set presents
+  lazily as above.
 
 - **`A × B` and `𝒫(A)` are PRESENTATIONS, not element lists.** Their
   elements are pairs and sets, and `Value` presents neither; a `SetPresentation`
@@ -865,27 +913,19 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   it publishes nothing — a bare binder name elsewhere is still the loud "not
   bound" error. This is ordinary scoping and does not widen the name
   resolution §Functions narrowed.
-- **Two `SPEC.md` §Ellipses lines stay uncovered, and they fail
-  DIFFERENTLY.** `{n in ℕ | f(n) ∈ 2ℕ}` does not parse at all: `∈` is an
-  assertion relation, not a term operator, so the guard position rejects it
-  and the statement splitter runs what is left as fragments — `2` and `ℕ`
-  print as results next to the parse error. That reading is the splitter's,
-  not this surface's — a decided answer to a DIFFERENT claim, which is why
-  the line is listed here rather than trusted. `2ℕ` no longer compounds it:
-  there is still NO scaling production, but implicit multiplication takes an
-  ATOM since #26 (§Surface), so `2ℕ` is the PRODUCT `2 · ℕ` and refuses
-  loudly — `ℕ` is not an element value. It used to split into two statements
-  and quietly assert `Y = 2` while displaying `ℕ` beside it, which is a
-  decided answer to a claim nobody made; the refusal is strictly better and
-  is pinned in `tests/test_e2e.py`.
-  `{n in ℕ | n.is_prime()}` is the other kind: it parses, and gets the
-  structured undecidable-guard refusal AT THE BINDING, even though
-  `n.is_prime()` itself ships as a method — primality is not a polynomial
-  comparison. All of it is on the `SPEC.md` ledger (#24), none of it is a
-  silent approximation.
-- **`e.image()` is the one method functions own** (`FunctionElems`,
+- **The three `SPEC.md` §Ellipses lines this section once ledgered are
+  COVERED (rulings 2026-07-31, #31 items 6 and 7).** `2ℕ` is the image of
+  the scaling map (§Sets); `{n in ℕ | f(n) ∈ 2ℕ}` parses — `∈` is admitted
+  in guard position by its one production and desugars to `contains`
+  (§Sets) — and presents lazily; `{n in ℕ | n.is_prime()}` presents lazily
+  by its guard. The lazy fallback replaces the former undecidable-guard
+  refusal wherever the head is the binder and the guard probes to a truth
+  value; a guard the bound extraction reads — including the infinite and
+  constant cases — still decides or refuses in the same structured words.
+- **`m2.image()` is the one method functions own** (`FunctionElems`,
   registered because what a map does to a whole set is a computability
-  question), and `e(ℕ)` — applying a function to its SOURCE — desugars to it,
+  question; SPEC's doubling map is spelled `m2` since the e-reservation
+  ruling), and `m2(ℕ)` — applying a function to its SOURCE — desugars to it,
   so there is one implementation and two spellings. Applying a function to
   any other set is refused. The image of a linear map on ℕ is returned as
   `Value.progV`, the second shape an executor may return as a set: like
@@ -931,9 +971,11 @@ are bound names and do not decide), and read by `ker`/`im` — methods a
 `assert W = ker φ` is decided by basis equality. The image of a map INTO ℚ
 has no span presentation (spans are hard-wired to ℚⁿ) and refuses by name.
 A NONLINEAR or affine body keeps the disclosed tier-2 refusal verbatim.
-HELD boundaries, deliberately: a hom is not ascribable `in QQ-Mod` (it is
+HELD boundary, deliberately: a hom is not ascribable `in Mod(QQ)` (it is
 a MORPHISM of that category, not an object — the ontology CategoryGraph
-owns), and the owner's `Mod(QQ)`/`QQ^n` spellings await their #31 pins.
+owns). The owner's `Mod(QQ)`/`QQ^n` spellings are PINNED (2026-07-31, the
+four spelling pins — §Surface): `Mod(K)` is the canonical category
+spelling with `K-Mod` its alias, and `QQ^n` denotes ℚⁿ.
 
 ## Vectors, matrices and subspaces (`SPEC.md` §Vectors and matrices,
 §Subspaces and spans, issue #24)
@@ -1407,8 +1449,8 @@ assert A ⊆ A ∪ B      assert A in 𝒫(ℤ)    -- `in` is SPEC.md's ASCII `�
 assert X = \NN        assert 7/3 \in ℚ    -- the backslash family, beside unicode
 let f: NN -> NN := n ↦ n^2                -- …and the doubled-letter idents
 assert R.dimension() is 10                -- `is` is a relation spelling of `=`
-{n ∈ ℤ | n² ≤ 20}   {2n | n ∈ ℕ}   {e(n) | n ∈ ℕ, 0 ≤ n < 6}
-e(ℕ)   e.image()                          -- the image, one method two spellings
+{n ∈ ℤ | n² ≤ 20}   {2n | n ∈ ℕ}   {m2(n) | n ∈ ℕ, 0 ≤ n < 6}
+m2(ℕ)   m2.image()                        -- the image, one method two spellings
 #explain_route <expr>   #capabilities   #capability_gaps
 ```
 
@@ -1432,9 +1474,36 @@ grammar by the parse guard in `CasDslTests/Core.lean`:
 - **Non-reserved keywords**: `and` (chains assertions), `O` (tolerance and
   truncation), `dt` (the definite integral's variable), `span_QQ`
   (name-checked in `toExpr`). Ordinary identifiers everywhere else.
-  Constants (`i`, `e`, `π`, `d`) and the ASCII domain names (`R`, `RR`,
-  `CC`, and — #31 item 5 — the uniform doubled-letter family `NN`, `ZZ`,
-  `QQ`) are SPELLINGS, not tokens — a binding always shadows them.
+  Constants come in two kinds (ruling 2026-07-31, #31 item 3): `π` and `d`,
+  and the ASCII domain names (`R`, `RR`, `CC`, and — #31 item 5 — the
+  uniform doubled-letter family `NN`, `ZZ`, `QQ`), are SPELLINGS a binding
+  always shadows; `e` (Euler's constant) and `i` (the imaginary unit) are
+  **reserved symbols** no binding or binder may shadow — enforced where a
+  name is INTRODUCED (`reservedConstantMsg?` in `bindObj` and every binder
+  position), not by the tokenizer, so `is_prime` and `e1` still lex.
+
+### The four spelling pins (owner rulings, 2026-07-31, #31)
+
+The multivariable examples embedded four spellings, pinned before either
+tier ships so both tiers share one vocabulary:
+
+- **`|->` (and `\mapsto`) is the ASCII `↦`** — three alternatives on the one
+  `casLam` production. `->` stays the domain arrow ONLY: one symbol, one
+  meaning, no shape-based disambiguation.
+- **`Mod(QQ)` is the CANONICAL module-category spelling**, `QQ-Mod` its
+  accepted alias (SPEC's span line was edited to the canonical form). The
+  REGISTERED Lean name stays the ASCII `«QQ-Mod»` — a Lean name cannot be
+  spelled `Mod(ℚ)`, the `Schemes/QQ` situation exactly — with
+  `categoryAscription?` resolving both input spellings and `renderName`
+  displaying `Mod(ℚ)` everywhere.
+- **The clean `^` split**: a DOMAIN base with a positive numeral exponent
+  denotes the product space (`QQ^3` IS ℚ³ — the `Eval` denotation ℚ³'s
+  superscript spelling already had), while a numeral 2 base with a set
+  exponent stays the powerset (`2^ℤ` ≡ `𝒫(ℤ)`). Both halves are SPEC's own.
+- **`AA^n(K)` is THE affine-space spelling**, held for #13 demand: it
+  parses through the ordinary `^`/application grammar and refuses BY NAME
+  at evaluation (a bound `AA` still wins, as a binding wins over a
+  constant). Tier 2 — polynomial maps on AA^n — stays behind it.
 
 Precedence, tightest first (`casTerm:N`, higher binds tighter):
 
@@ -1800,23 +1869,36 @@ Formerly open questions, now user-decided — none was silently resolved:
 - **route/op agreement**: checked at build time via registered op
   signatures, not left to runtime defensive arms (see §Routing and gaps).
 
+## Embedding choices are logged at use (owner ruling, 2026-07-31, #31 item 10)
+
+Passing to a larger field rides on CHOICES the mathematics does not make for
+us: entire Galois groups and class groups govern field embeddings, and a DSL
+that picks one silently is dangerous unless the choice is logged (owner's
+words). RULED: a choice-carrying map **LOGS its choice at use**, on the notes
+channel — the owner-sanctioned advisory surface — never silently and never
+as default output. The declare-at-registration alternative (a declared-choice
+field on `CanonicalMap`, constructions refusing until a choice is named) is
+FAMILY MANAGEMENT — precisely the CategoryGraph cut — and stays deferred to
+the foundations rewrite.
+
+The two flows that carry a choice today, and their notes:
+
+- **`√d`** denotes ONE root by convention — the non-negative branch for a
+  positive radicand (`nonNegSurd`), `i·√|d|` upward for a negative one — and
+  the `.sqrt` evaluation pushes a note saying so whenever the result is
+  algebraic (a rational root is ordinary arithmetic and gets none);
+- **`QQbar ↪ ℂ`**: all exact algebraic arithmetic rides Sage's one fixed
+  embedding (`enc_alg` settles conjugates by exact QQbar comparison), and the
+  ℂ[x] `roots`/`factor` calls — where complex algebraic results actually
+  surface — push a note naming it (`embeddingNote`).
+
+The prelude's chain ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ is made of maps that are unique, so
+no other non-canonical choice is being made yet; when splitting fields,
+abstract number fields or Galois-orbit root sets arrive, their choices join
+the log-at-use discipline (or force the registry question at CategoryGraph).
+
 ## Open questions (kept open — do not silently resolve)
 
-- **silent embedding choices (owner-raised, 2026-07-31).** Passing to a
-  larger field rides on CHOICES the mathematics does not make for us:
-  entire Galois groups and class groups govern field embeddings, and a DSL
-  that picks one silently is dangerous unless the choice is logged (owner's
-  words). Where today's system stands: `√d` denotes the NON-NEGATIVE real
-  branch by construction (`nonNegSurd` — the choice is in the spelling, not
-  silent), `i` and all exact algebraic arithmetic inherit Sage's one fixed
-  embedding `QQbar ↪ ℂ` (`enc_alg` settles conjugates by exact QQbar
-  comparison), and the prelude's chain ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ is made of maps
-  that are unique, so no genuinely non-canonical choice is being made YET.
-  The question to firm up before splitting fields, abstract number fields
-  or Galois-orbit root sets enter: must a choice-carrying canonical map
-  DECLARE its choice at registration, or LOG it at use (the notes channel
-  is the sanctioned advisory surface), and which constructions are refused
-  until a choice is named? For the interactive design review;
 - default enumeration convention for `ℤ` (slice: 0, 1, −1, 2, −2, …,
   zero-based — a *registered choice*, revisitable);
 - the concrete declaration syntax for notebook-level categories (proposal

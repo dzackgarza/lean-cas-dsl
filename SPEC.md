@@ -86,11 +86,11 @@ assert 8 ∈ E
 assert 9 ∉ E
 assert |E| = ℵ₀
 
-let e: ℕ → ℕ := n ↦ 2n
-assert e(ℕ) = E
-assert e.image() = E
+let m2: ℕ → ℕ := n ↦ 2n
+assert m2(ℕ) = E
+assert m2.image() = E
 
-{e(n) | n ∈ ℕ, 0 ≤ n < 6}
+{m2(n) | n ∈ ℕ, 0 ≤ n < 6}
 # {0, 2, 4, 6, 8, 10}
 
 ```
@@ -263,7 +263,7 @@ assert M(M⁻¹ b) = b
 let u₁ := (1, 0, 1) in ℚ³
 let u₂ := (0, 1, 1) in ℚ³
 
-let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod
+let W := span_QQ{u₁, u₂} \leq ℚ³ in Mod(QQ)
 # N.B.: \leq means subobject in a category
 
 assert W.dim() = 2

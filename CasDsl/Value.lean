@@ -250,6 +250,141 @@ inductive Value where
   | hom (src tgt : Domain) (binders : Array Lean.Name) (rows : Array (Array Rat))
   deriving BEq, Repr, Inhabited
 
+/-! ## The surface AST
+
+Produced by `CasDsl/Syntax.lean`; first-order, with no elaboration state.
+Everything the parser cannot decide on its own — whether `D[x]` is a
+polynomial ring or an index, whether an ascription names a domain or a
+category — is decided in `Eval`, against the registries. It lives HERE,
+below `Value`, because a presentation may carry an expression: a predicate
+set (`SetPresentation.predicate`) is backed by the guard the mathematician
+wrote. -/
+
+inductive BinOp where
+  | add | sub | mul | div | pow
+  deriving BEq, Repr, Inhabited
+
+/-- The order comparisons a set-comprehension guard is written with
+(`n² ≤ 20`, `0 ≤ n < 6`). Equality is deliberately absent: `=` is the
+assertion relation, category-bound, and reading it as a term-level
+comparison here would give the surface two meanings for one symbol. -/
+inductive CmpOp where
+  | le | lt | ge | gt
+  deriving BEq, Repr, Inhabited
+
+inductive CasExpr where
+  | num (z : Int)
+  /-- A literal that is not a numeral: `ℵ₀`, `true`, `false`. -/
+  | lit (v : Value)
+  /-- A binding name, or the bound polynomial indeterminate. -/
+  | ref (n : Lean.Name)
+  /-- An atomic domain term (`ℕ`, `ℤ`, `ℚ`). -/
+  | dom (d : Domain)
+  /-- `Matₙ(E)`. -/
+  | matDom (size : Nat) (entry : CasExpr)
+  | neg (e : CasExpr)
+  | bin (op : BinOp) (a b : CasExpr)
+  /-- `f(args…)` — polynomial/function call. -/
+  | app (f : CasExpr) (args : Array CasExpr)
+  /-- `e.m(args…)`. -/
+  | method (recv : CasExpr) (m : Lean.Name) (args : Array CasExpr)
+  /-- `e[a]` — a polynomial ring or an index; decided in `eval`. -/
+  | index (recv : CasExpr) (arg : CasExpr)
+  | finSet (elems : Array CasExpr)
+  /-- `{a, b, …, ...}` / `{a, b, …, ..., z}`: the leading elements and the
+  optional inclusive bound. -/
+  | progSet (leading : Array CasExpr) (last? : Option CasExpr)
+  /-- Row-major; `rows * cols = entries.size`. -/
+  | matLit (rows cols : Nat) (entries : Array CasExpr)
+  /-- `(1, 2)` — a vector of `Eⁿ`, where `E` is the join of its components'
+  domains and `n` their count (SPEC.md §Vectors and matrices). -/
+  | vecLit (comps : Array CasExpr)
+  /-- `span_QQ{u₁, u₂}` — the subspace of `ℚⁿ` the generators span. DENOTED
+  like a set literal (no method, no route): what the span IS follows from the
+  generators, and the reduction that normalizes them is a presentation's
+  normal form rather than a computation a backend owns. -/
+  | spanOf (gens : Array CasExpr)
+  | mapTo (e target : CasExpr)
+  /-- `ℝ/O(ε)` — the target of SPEC.md's `map √2 to ℝ/O(1/10^{10})`, and
+  meaningful ONLY there. It is not a domain, not a set and not a quotient
+  (`|a − b| < ε` is not transitive, so there are no classes): it is the
+  REQUEST that a decimal presentation meet a tolerance. Written anywhere else
+  it is a loud refusal, which is what keeps `ℝ ⊆ ℝ/O(ε)` from being a claim
+  this surface can even state. -/
+  | approxTarget (eps : CasExpr)
+  /-- `binder ↦ body` — a function definition, meaningful only where an
+  ascription says which domains it runs between (`evalBinderBinding`). -/
+  | lam (binder : Lean.Name) (body : CasExpr)
+  /-- `(a, b, c) ↦ body` — a MULTI-binder definition: a HOM of free
+  ℚ-modules when the body is linear in the binders (`evalHomBinding`,
+  DESIGN.md §Homs are first-class); a body that is not stays the disclosed
+  tier-2 gap. -/
+  | lamN (binders : Array Lean.Name) (body : CasExpr)
+  /-- `S → T` / `S -> T` — a function domain. -/
+  | arrow (src tgt : CasExpr)
+  /-- `f ∘ g`. -/
+  | comp (f g : CasExpr)
+  /-- `√e` — the exact square root of a rational (SPEC.md's `√2`, `2√2`). -/
+  | sqrt (e : CasExpr)
+  /-- `|e|` — SPEC.md's bars, ONE spelling of "the size of e" whose METHOD
+  depends on the receiver: `cardinality` for a set, `abs` for an element of
+  ℝ or ℂ. Both are ordinary category methods; the bars invent nothing, so
+  `|3|` is still the honest "not a method of any category this object
+  belongs to". -/
+  | magnitude (e : CasExpr)
+  /-- `p dx` — a differential 1-form, DENOTED like a set literal: what the
+  form IS follows from its coefficient, and `dx` is the free generator of
+  `Ω¹_{k[x]/k}` rather than a value to multiply by. -/
+  | diffForm (p : CasExpr)
+  /-- `Spec R` — the affine scheme of a ring, an ascription TAG. -/
+  | specOf (ring : CasExpr)
+  /-- `∫ f dx` — the complete set of primitives of `f`, a COSET of
+  `ker(d/dx)`. The `antiderivative` method, applied by elaboration. -/
+  | integral (f : CasExpr)
+  /-- `lim_{t → a} body` — the `limit` METHOD on the function `t ↦ body`,
+  which this node builds by elaboration. -/
+  | limitOf (binder : Lean.Name) (point body : CasExpr)
+  /-- `∫₀¹ t² dt` — the `definite_integral` METHOD on `t ↦ body`, likewise. -/
+  | defIntegral (binder : Lean.Name) (lo hi body : CasExpr)
+  /-- `ℝ[[t]]` — the formal power series over a coefficient domain. -/
+  | seriesDom (coeff : CasExpr)
+  /-- `ℝ[[t]]/(t^6)` and `ℤ[[t]] / O(t^5)` — a TRUNCATION REQUEST, on the
+  `ℝ/O(ε)` precedent: meaningful only after `map … to`, and a loud refusal
+  anywhere else. It is not a quotient domain, and there is no `Domain`
+  constructor for it, so it answers no membership or cardinality question. -/
+  | truncTarget (order : Nat)
+  /-- `∑_{n ∈ ℕ} n² tⁿ` — a series given by its GENERATING RULE. -/
+  | seriesSum (binder : Lean.Name) (index rule : CasExpr)
+  /-- `[t²]f` — one coefficient of a series. -/
+  | coeffOf (power : Nat) (series : CasExpr)
+  /-- `kernel(d/dx : ℚ[x] → ℚ[x])` — the kernel of a DERIVATION, which is the
+  constants of its ring. The arrow is ascribed rather than inferred because a
+  derivation names no domains of its own. -/
+  | kernelOf (op arrow : CasExpr)
+  /-- `A × B` and `𝒫(A)` / `2^A`. Both DENOTE a set rather than compute one
+  (their elements are pairs and sets, which no `Value` presents), so they
+  build a presentation exactly as a set literal does — no method, no route. -/
+  | setProduct (a b : CasExpr)
+  | powersetOf (a : CasExpr)
+  /-- `a ≤ b` and the chain `a ≤ b < c`, which is its conjunction. -/
+  | cmp (op : CmpOp) (a b : CasExpr)
+  | conj (a b : CasExpr)
+  /-- `∑_{x ∈ X} body` and `∏_{x ∈ X} body` — the aggregation named by `m`
+  (`sum` or `prod`), over the set `index`. The body is evaluated at each
+  element exactly as a comprehension's head is, and the aggregation itself is
+  an ordinary category method on the resulting set. -/
+  | aggregate (m : Lean.Name) (binder : Lean.Name) (index body : CasExpr)
+  /-- `{x ∈ D | p(x) = q(x)}` — the set of solutions in `D`, which is the
+  `roots` method applied to `p − q` in `D[x]`. A production of its own
+  because `=` is the assertion relation everywhere else in this surface. -/
+  | rootSet (binder : Lean.Name) (index lhs rhs : CasExpr)
+  /-- A comprehension `{head | binder ∈ index, guard}`. SPEC.md's filtering
+  spelling `{n ∈ ℤ | P}` is this node with `head = binder` — one shape, so
+  one evaluator decides both. -/
+  | comprehension (head : CasExpr) (binder : Lean.Name) (index : CasExpr)
+      (guard? : Option CasExpr)
+  deriving BEq, Repr, Inhabited
+
 /-- Presentation of a set object. Semantic sets are not replaced by ordered
 lists merely because indexing exists; the presentation records the
 registered enumeration choice implicitly (first/step order for
@@ -296,6 +431,14 @@ inductive SetPresentation where
   `A \ B`, which COMPUTES (§Sets), and this constructor is not a second
   spelling of it. -/
   | domainDiff (a b : Domain)
+  /-- `{n ∈ ℕ | n.is_prime()}` (#31 item 7) — a LAZY set backed by the guard
+  the mathematician wrote: membership is decided by EVALUATING the guard at
+  the candidate, enumeration is trial over the ambient's countable indexing,
+  and cardinality honestly refuses — a guard says nothing about size. The
+  guard is the surface expression AS WRITTEN; names inside it read the
+  session's bindings at query time, which is the spike's documented ceiling
+  (SPEC.md never rebinds a name a stored guard mentions). -/
+  | predicate (dom : Domain) (binder : Lean.Name) (guard : CasExpr)
   deriving BEq, Repr, Inhabited
 
 /-- The thing a notebook binding names: an object with a presentation.
@@ -1190,6 +1333,42 @@ presents (a rational, or a + b√d with d > 0), so no decimal certificate covers
 
 end Value
 
+def CmpOp.render : CmpOp → String
+  | .le => "≤" | .lt => "<" | .ge => "≥" | .gt => ">"
+
+namespace CasExpr
+
+/-- The spelling a stored surface expression displays with — what puts the
+guard of a predicate set back on the screen as it was written. Total, in the
+`reprShape` discipline: the shapes a comprehension guard can be are rendered
+exactly, and a shape outside that vocabulary names itself rather than
+rendering as something it is not. -/
+partial def render : CasExpr → String
+  | .num z => toString z
+  | .lit v => v.render
+  | .ref n => s!"{n}"
+  | .dom d => d.render
+  | .neg e => s!"-{e.render}"
+  | .bin op a b =>
+      let o := match op with
+        | .add => " + " | .sub => " - " | .mul => "·" | .div => "/" | .pow => "^"
+      s!"{a.render}{o}{b.render}"
+  | .app f args =>
+      s!"{f.render}({", ".intercalate (args.toList.map render)})"
+  -- the `contains` call IS the guard-position `∈` (one relation, one
+  -- production), so it displays as the membership it spells
+  | .method r m args =>
+      if m == `contains && args.size == 1 then s!"{args[0]!.render} ∈ {r.render}"
+      else s!"{r.render}.{m}({", ".intercalate (args.toList.map render)})"
+  | .cmp op a b => s!"{a.render} {op.render} {b.render}"
+  | .conj a b => s!"{a.render} and {b.render}"
+  | .sqrt e => s!"√{e.render}"
+  | .magnitude e => s!"|{e.render}|"
+  | .index r a => s!"{r.render}[{a.render}]"
+  | _ => "(an expression this display does not spell)"
+
+end CasExpr
+
 namespace SetPresentation
 
 partial def render : SetPresentation → String
@@ -1207,6 +1386,8 @@ partial def render : SetPresentation → String
   | .powerset s => s!"𝒫({render s})"
   | .coset offset kernel => s!"{offset.render} + {kernel.render}"
   | .domainDiff a b => s!"{a.render} - {b.render}"
+  | .predicate dom binder guard =>
+      s!"\{{binder} ∈ {dom.render} | {guard.render}}"
 
 instance : ToString SetPresentation := ⟨render⟩
 
@@ -1235,6 +1416,9 @@ partial def latex? : SetPresentation → Option String
       return (← Value.latex? offset) ++ " + " ++ kernel.latex
   -- `\setminus` is what the minus between two SETS means in math mode
   | .domainDiff a b => some (a.latex ++ " \\setminus " ++ b.latex)
+  -- the guard is stored as the surface expression, which has a text spelling
+  -- but no LaTeX one; `none` is the honest form, and the cell shows the text
+  | .predicate .. => none
 
 end SetPresentation
 

@@ -58,7 +58,7 @@ numerical approximation as an operation ON an exact value
 presents and whose tolerance is a request rather than a quotient),
 vectors and the shape-checked linear action in SPEC.md's four spellings
 (`M*v`, `M v`, `M⁻¹ b`, `M(M⁻¹ b)`), subspaces presented by a reduced basis
-(`span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod`, which answers `dim`, `∈`, `∉` and `=`
+(`span_QQ{u₁, u₂} \leq ℚ³ in Mod(QQ)`, which answers `dim`, `∈`, `∉` and `=`
 from that one normal form), the root set of an equation
 (`{a ∈ ℂ | r(a) = 0}`) with `∑` and `∏` folded exactly over its surds, and
 the companion matrix closing the loop on its own characteristic polynomial,

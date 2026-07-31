@@ -83,6 +83,10 @@ inductive PresPattern where
   | spanSet
   /-- `p + K` — a coset of the constants; the ring is not inspected. -/
   | cosetSet
+  /-- `{n ∈ ℕ | P(n)}` — a guard-backed predicate set (#31 item 7); the
+  guard is not inspected (a pattern over one presentation cannot state a
+  strength that depends on it — the profile rules' rule). -/
+  | predicateSet
   | anySet
   | cyclicMod
   /-- `Spec R`; the ring is not inspected (a pattern over one presentation
@@ -139,6 +143,7 @@ def accepts : PresPattern → Obj → Bool
   | .domainDiffSet, .setObj (.domainDiff ..) => true
   | .spanSet, .setObj (.span ..) => true
   | .cosetSet, .setObj (.coset ..) => true
+  | .predicateSet, .setObj (.predicate ..) => true
   | .anySet, .setObj _ => true
   | .anySet, .domainObj _ => true   -- a domain used as a set
   | .cyclicMod, .cyclicModule _ => true
@@ -163,6 +168,7 @@ def implies : PresPattern → PresPattern → Bool
   | .domainDiffSet, .domainDiffSet => true
   | .spanSet, .spanSet => true
   | .cosetSet, .cosetSet => true
+  | .predicateSet, .predicateSet => true
   | .cyclicMod, .cyclicMod => true
   | .specObj, .specObj => true
   | .symbolic, .symbolic => true
@@ -181,6 +187,7 @@ def implies : PresPattern → PresPattern → Bool
   | .domainDiffSet, .anySet => true
   | .spanSet, .anySet => true
   | .cosetSet, .anySet => true
+  | .predicateSet, .anySet => true
   | _, _ => false
 
 end PresPattern

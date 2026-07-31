@@ -312,10 +312,9 @@ def test_definite_integrals_are_exact(kernel: Kernel) -> None:
 
 def test_taylor_expansion_and_truncation(kernel: Kernel) -> None:
     _, kc = kernel
-    # SPEC.md writes `t ↦ e^t`. `e` is bound to SPEC.md's own doubling map
-    # earlier in this session (the collision documented above), so the
-    # exponential is written with the spelling no binding can shadow. The
-    # `e^t` spelling itself is pinned where the name is free.
+    # SPEC.md writes `t ↦ e^t`, and `e` is a RESERVED symbol under the
+    # 2026-07-31 ruling (#31 item 3) — `exp(x) := e^x`, two spellings of one
+    # function. The reserved-name proof is pinned in its own test below.
     ok(kc, "let expf := t ↦ exp(t) in ℝ → ℝ")
     ok(kc, "let Tf := expf.taylor_expansion(0) in ℝ[[t]]")
     ok(kc, "assert Tf ∈ ℝ[[t]]")
@@ -586,10 +585,10 @@ def test_function_identity_is_normalized_not_sampled(kernel: Kernel) -> None:
 def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
         kernel: Kernel) -> None:
     _, kc = kernel
-    # SPEC.md §Elementary calculus' bodies. This test runs BEFORE the one
-    # below, and that ordering is the point: `e` is Euler's number only while
-    # nothing has bound the name, and the next test binds it to SPEC.md's own
-    # doubling map. Both halves of the collision are pinned.
+    # SPEC.md §Elementary calculus' bodies. `e` is Euler's number ALWAYS —
+    # it is a reserved symbol under the 2026-07-31 ruling (#31 item 3), and
+    # the former collision with §Set comprehensions' doubling map was
+    # resolved by renaming that function `m2` in SPEC itself.
     text = ok(kc, "let expo := t ↦ e^t in ℝ → ℝ")
     assert "t ↦ e^t" in text and "ℝ → ℝ" in text
     text = ok(kc, "let sine: ℝ → ℝ := t ↦ sin(t)")
@@ -641,21 +640,26 @@ def test_a_symbolic_body_typesets(kernel: Kernel) -> None:
 
 def test_typed_colon_ascription_spelling(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "let e: ℕ → ℕ := n ↦ 2n")
+    # SPEC.md's own line, under the 2026-07-31 rename: the §Set
+    # comprehensions map is `m2` now, freeing `e` for Euler's constant
+    text = ok(kc, "let m2: ℕ → ℕ := n ↦ 2n")
     assert "n ↦ 2n" in text and "ℕ → ℕ" in text
 
 
-def test_a_binding_shadows_the_symbolic_constant_it_spells(
-        kernel: Kernel) -> None:
+def test_e_and_i_are_reserved_symbols(kernel: Kernel) -> None:
     _, kc = kernel
-    # SPEC.md collides with itself: `e` is the doubling map in §Set
-    # comprehensions and Euler's number in §Elementary calculus. A binding
-    # wins over a constant — the rule `i` and `R` already follow — so with
-    # `e` bound, SPEC.md's own `e^t` reads the BINDING and refuses.
-    text = err(kc, "let boom := t ↦ e^t in ℝ → ℝ")
-    assert "'e' is BOUND" in text
-    # `exp(t)` is the spelling no binding can shadow, and it is the same
-    # function the constant would have named
+    # Owner ruling 2026-07-31 (#31 item 3): `e` is Euler's constant and `i`
+    # the imaginary unit — reserved symbols NO binding may shadow, so both
+    # mean the same thing in every session state
+    text = err(kc, "let e := 5 in ℤ")
+    assert "Euler" in text
+    text = err(kc, "let i := 3 in ℤ")
+    assert "imaginary unit" in text
+    # …which is what lets SPEC's §Elementary calculus third block run
+    # top-to-bottom: `e^t` reads the constant even after §Set comprehensions
+    text = ok(kc, "let fet := t ↦ e^t in ℝ → ℝ")
+    assert "t ↦ e^t" in text
+    # `exp(x) := e^x` — the equivalent spelling stays
     text = ok(kc, "let expo2 := t ↦ exp(t) in ℝ → ℝ")
     assert "t ↦ exp(t)" in text
 
@@ -670,8 +674,8 @@ def test_composition_is_an_identity_of_function_expressions(kernel: Kernel) -> N
 
 def test_non_composable_domains_fail_loudly(kernel: Kernel) -> None:
     _, kc = kernel
-    # e : ℕ → ℕ from the typed-ascription test; f : ℝ → ℝ
-    text = err(kc, "assert (f ∘ e)(t) = t")
+    # m2 : ℕ → ℕ from the typed-ascription test; f : ℝ → ℝ
+    text = err(kc, "assert (f ∘ m2)(t) = t")
     assert "do not compose" in text
 
 
@@ -722,8 +726,8 @@ def test_a_binding_still_wins_over_a_callee_binder(kernel: Kernel) -> None:
 
 def test_argument_outside_the_source_domain_is_refused(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "assert e(3) = 6")   # e : ℕ → ℕ, bound above
-    text = err(kc, "e(-1)")
+    ok(kc, "assert m2(3) = 6")   # m2 : ℕ → ℕ, bound above
+    text = err(kc, "m2(-1)")
     assert "-1 is not an element of ℕ" in text
 
 
@@ -874,18 +878,19 @@ def test_a_finite_comprehension_is_decided(kernel: Kernel) -> None:
     ok(kc, "assert {n in ℤ | n² ≤ 20} = S")
 
 
-def test_a_numeral_against_a_domain_refuses_rather_than_splitting(
-        kernel: Kernel) -> None:
+def test_a_numeral_against_a_domain_scales_it(kernel: Kernel) -> None:
     _, kc = kernel
-    # SPEC.md §Ellipses writes `assert Y = 2ℕ`, and there is still NO scaling
-    # of a set by a number. What changed with #26 is the FAILURE: implicit
-    # multiplication now takes an atom rather than an identifier, so `2ℕ` is
-    # the product `2 · ℕ` and refuses loudly. It used to split into two
-    # statements and quietly assert `Y = 2` while displaying `ℕ` beside it —
-    # a decided answer to a claim nobody made, which is strictly worse than
-    # this error.
-    text = err(kc, "assert {0, 2, ...} = 2ℕ")
-    assert "element value" in text and "ℕ" in text
+    # PIN CHANGED, deliberately (ruling 2026-07-31, #31 item 6). SPEC.md
+    # §Ellipses writes `assert Y = 2ℕ`; this test once pinned the loud
+    # refusal (`ℕ is not an element value`), and before #26 the spelling
+    # even SPLIT into two statements. `2ℕ` now DENOTES: a scalar against a
+    # set is the image of the scaling map, so `2ℕ` is the progression
+    # `{0, 2, 4, ...}`. Everything the old pin protected is preserved — one
+    # statement, no silent split — and it now answers rather than refusing.
+    ok(kc, "assert {0, 2, ...} = 2ℕ")
+    # the ceiling names itself where no image presentation exists
+    text = err(kc, "2ℝ")
+    assert "IMAGE of the scaling map" in text
 
 
 def test_an_infinite_comprehension_is_its_progression(kernel: Kernel) -> None:
@@ -907,36 +912,49 @@ def test_an_infinite_comprehension_is_its_progression(kernel: Kernel) -> None:
 
 def test_the_image_of_a_function_is_that_same_set(kernel: Kernel) -> None:
     _, kc = kernel
-    # e : ℕ → ℕ := n ↦ 2n, bound in the functions section above
-    ok(kc, "assert e(ℕ) = E")
-    ok(kc, "assert e.image() = E")
-    text = ok(kc, "#explain_route e.image()")
+    # m2 : ℕ → ℕ := n ↦ 2n, bound in the functions section above
+    ok(kc, "assert m2(ℕ) = E")
+    ok(kc, "assert m2.image() = E")
+    text = ok(kc, "#explain_route m2.image()")
     assert "FunctionElems" in text and "func_image" in text
     # applying a function to a set that is not its source is refused
-    text = err(kc, "e(ℤ)")
+    text = err(kc, "m2(ℤ)")
     assert "is not its source" in text
 
 
 def test_a_bounded_image_comprehension_enumerates_exactly(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "{e(n) | n ∈ ℕ, 0 ≤ n < 6}")
+    text = ok(kc, "{m2(n) | n ∈ ℕ, 0 ≤ n < 6}")
     assert "{0, 2, 4, 6, 8, 10}" in text
-    ok(kc, "assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}")
+    ok(kc, "assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}")
     assert "false" in err(
-        kc, "assert {e(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8}").lower()
+        kc, "assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8}").lower()
 
 
-def test_an_undecidable_comprehension_is_refused_at_the_binding(
+def test_a_guard_backed_comprehension_presents_lazily(
         kernel: Kernel) -> None:
     _, kc = kernel
-    # a predicate the polynomial engine does not reach: a structured gap, not
-    # a sampled guess and not a truncated enumeration
-    text = err(kc, "let notdecided := {n in ℕ | n.is_prime()}")
-    assert "polynomial comparison" in text
-    # an infinite solution set is reported as infinite, never cut off
-    text = err(kc, "let notdecided := {n ∈ ℤ | n² ≥ 20}")
+    # SPEC §Ellipses' primes set (#31 item 7): a guard the bound extraction
+    # does not read presents the set LAZILY, backed by the guard as written —
+    # membership evaluates the guard at the candidate, through the same
+    # routed `is_prime` the method spelling reaches
+    text = ok(kc, "let primes := {n in ℕ | n.is_prime()}")
+    assert "{n ∈ ℕ | n.is_prime()}" in text
+    ok(kc, "assert 13 ∈ primes")
+    ok(kc, "assert 15 ∉ primes")
+    # a candidate outside the ambient is out before any guard runs
+    ok(kc, "assert -3 ∉ primes")
+    # a guard says nothing about SIZE: cardinality refuses by name
+    text = err(kc, "|primes|")
+    assert "membership, not size" in text
+    # a guard the extraction CAN read keeps its decided outcomes — the
+    # infinite refusal is unchanged, laziness is only for unreadable guards
+    text = err(kc, "let bign := {n ∈ ℤ | n² ≥ 20}")
     assert "infinite" in text
-    # an image that is not a progression is a gap too
+    # the IMAGE of a lazy set is not presented — the head must be the binder
+    text = err(kc, "let notdecided := {n² | n ∈ ℕ, n.is_prime()}")
+    assert "head is not the binder" in text
+    # an unguarded image that is not a progression stays the gap it was
     text = err(kc, "let notdecided := {n² | n ∈ ℕ}")
     assert "arithmetic progression" in text
 
@@ -1604,13 +1622,15 @@ def test_set_equality_stays_linear_on_sorted_sides(kernel: Kernel) -> None:
     ok(kc, "assert {1, 2, ..., 9999} = {1, 2, ..., 9999}")
 
 
-def test_i_is_a_constant_a_binding_shadows(kernel: Kernel) -> None:
+def test_i_means_the_imaginary_unit_in_every_session_state(
+        kernel: Kernel) -> None:
     _, kc = kernel
-    # `i` names the imaginary unit only while it is UNBOUND, exactly like the
-    # `R` spelling of ℝ. Nothing below this test may read `i` as that constant.
-    ok(kc, "let i := 5 in ℤ")
-    ok(kc, "assert 2 + 2i = 12")
-    ok(kc, "assert i = 5")
+    # `i` is a RESERVED symbol (ruling 2026-07-31, #31 item 3) — unlike the
+    # shadowable `R`/`d` spellings, no binding may take it, so `2 + 2i` is
+    # SPEC's complex number wherever it is written
+    text = err(kc, "let i := 5 in ℤ")
+    assert "imaginary unit" in text
+    ok(kc, "assert 2 + 2i ∈ ℂ")
 
 
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
@@ -1695,8 +1715,12 @@ def test_the_span_answers_dim_membership_and_equality(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let u₁ := (1, 0, 1) in ℚ³")
     ok(kc, "let u₂ := (0, 1, 1) in ℚ³")
-    # SPEC.md's own line, `\leq` spelling included
-    ok(kc, r"let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod")
+    # SPEC.md's own line, `\leq` spelling included — `Mod(QQ)` is the
+    # CANONICAL category spelling (ruling 2026-07-31, the four spelling pins)
+    ok(kc, r"let W := span_QQ{u₁, u₂} \leq ℚ³ in Mod(QQ)")
+    # …and the hyphenated spelling SPEC formerly wrote stays an accepted alias
+    ok(kc, r"let Walias := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod")
+    ok(kc, "assert Walias = W")
     ok(kc, "assert W.dim() = 2")
     ok(kc, "assert (1, 1, 2) ∈ W")
     ok(kc, "assert (1, 1, 0) ∉ W")
@@ -1721,7 +1745,8 @@ def test_the_subobject_ascription_is_checked(kernel: Kernel) -> None:
     # …the QQ-Mod ascription is a real membership judgment: a set that is not
     # a subspace is not in it
     text = err(kc, "let Wbad := {1, 2, 3} in QQ-Mod")
-    assert "QQ-Mod" in text and "«" not in text
+    # the category displays under its CANONICAL spelling, guillemet-free
+    assert "Mod(ℚ)" in text and "«" not in text
     # …and only SPEC.md's own span spelling is a construction
     text = err(kc, "span_ZZ{u₁}")
     assert "span_QQ" in text
@@ -1736,7 +1761,7 @@ def test_the_subspace_is_a_set_and_a_qq_module(kernel: Kernel) -> None:
     ok(kc, "assert W ≠ span_QQ{(1, 0, 0), (0, 1, 1)}")
     ok(kc, "assert |W| = ℵ₀")
     text = ok(kc, "#explain_route W.dim()")
-    assert "QQ-Mod" in text and "native" in text and "span_dim" in text
+    assert "Mod(ℚ)" in text and "native" in text and "span_dim" in text
     assert "«" not in text
 
 
@@ -1859,10 +1884,10 @@ def test_bare_definition_is_a_command(kernel: Kernel) -> None:
     ok(kc, "let pb(x) := x^3 - 2x + 1 in ℤ[x]")
     ok(kc, "qb := map pb to ℂ[x]")
     ok(kc, "assert qb(1) = 0")
-    # the ascription tail rides along, checked exactly as on `let` (`2 + 2i`
-    # would be the SPEC line, but this session rebinds `i` upstream)
-    ok(kc, "nb := 84 in ℤ")
-    ok(kc, "assert nb.gcd(30) = 6")
+    # the ascription tail rides along, checked exactly as on `let` — `i` is
+    # reserved now, so SPEC's own `2 + 2i` reads the same in any session state
+    ok(kc, "zb := 2 + 2i in ℂ")
+    ok(kc, "assert zb.re() = 2")
 
 
 def test_a_parenthesized_receiver_takes_a_method(kernel: Kernel) -> None:
@@ -1897,6 +1922,67 @@ def test_the_alias_layer_is_uniform(kernel: Kernel) -> None:
     # binder, `\in` as the ascription, `ZZ` as the coefficient ring
     ok(kc, "let fs(t) = ∑_{n ∈ \\NN} n^2 t^n \\in ZZ[[t]]")
     ok(kc, "assert [t^2]fs = 4")
+
+
+def test_the_ascii_mapsto_spellings(kernel: Kernel) -> None:
+    _, kc = kernel
+    # ruling 2026-07-31 (the four spelling pins): `|->` and `\mapsto` are ↦,
+    # and `->` stays the domain arrow ONLY — one symbol, one meaning
+    ok(kc, "let fm1 := t |-> t^2 + 1 in RR -> RR")
+    ok(kc, r"let fm2 := t \mapsto t^2 + 1 in RR -> RR")
+    ok(kc, "let fm3 := t ↦ t^2 + 1 in ℝ → ℝ")
+    ok(kc, "assert fm1 = fm3 and fm2 = fm3")
+
+
+def test_the_product_space_and_affine_space_pins(kernel: Kernel) -> None:
+    _, kc = kernel
+    # the clean `^` split (ruling 2026-07-31): a DOMAIN base with a numeral
+    # exponent is the product space — `QQ^3` IS ℚ³ — while `2^ℤ` stays the
+    # powerset; both halves are SPEC's own spellings
+    text = ok(kc, "let vq := (1, 0, 1) in QQ^3")
+    assert "ℚ³" in text
+    # …and the owner's example line reads through the pins whole: `QQ^3` in
+    # the arrow, `|->` as the map
+    ok(kc, "let φq: QQ^3 -> QQ := (a, b, c) |-> a + b - c")
+    ok(kc, "assert φq(vq) = 0")
+    # `AA^n(K)` is the pinned affine-space spelling, held for #13 demand:
+    # it parses, and refuses BY NAME rather than as a parse error
+    text = err(kc, "AA^2(QQ)")
+    assert "AA^n(K)" in text and "#13" in text
+
+
+def test_scalar_times_a_set_is_the_image_of_scaling(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC §Ellipses' `Y = 2ℕ` (ruling 2026-07-31, #31 item 6): scalar·set
+    # is the IMAGE of the scaling map — a progression maps to a progression,
+    # and ℕ is the progression {0, 1, 2, ...}
+    ok(kc, "assert Ya = 2\\NN")
+    ok(kc, "assert Ya = 2ℕ")
+    assert "false" in err(kc, "assert Xa = 2\\NN").lower()
+
+
+def test_membership_is_admitted_in_guard_position(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC §Ellipses' `Z = {n in ℕ | f(n) ∈ 2ℕ}` (#31 item 6, the rootSet
+    # discipline: ONE relation admitted in ONE production). The guard
+    # desugars to the same routed `contains` every other `∈` reaches, and
+    # the set presents lazily by its guard (#31 item 7)
+    text = ok(kc, "let Za := {n in \\NN | fa(n) \\in 2\\NN}")
+    assert "∈ 2·ℕ" in text
+    ok(kc, "assert 2 ∈ Za")     # fa(2) = 4, even
+    ok(kc, "assert 3 ∉ Za")     # fa(3) = 9, odd
+
+
+def test_series_inclusion_is_the_registrys_answer(kernel: Kernel) -> None:
+    _, kc = kernel
+    # the ⊆ ruling (2026-07-31): `X ⊆ Y` is a PROPOSITION the canonical-map
+    # registry decides — the coefficient-wise ℚ ⊆ ℝ INDUCES the series
+    # inclusion, exactly as it induces ℚ[x] ⊆ ℝ[x] — and the method spelling
+    # is the SAME decision, two spellings of one owner
+    ok(kc, "assert ℚ[[t]] ⊆ ℝ[[t]]")
+    assert "true" in ok(kc, "(ℚ[[t]]).subset(ℝ[[t]])")
+    # …and FALSE where no identification is registered, never a refusal
+    assert "false" in err(kc, "assert ℝ[[t]] ⊆ ℚ[[t]]").lower()
 
 
 def test_a_linear_multi_binder_lambda_is_a_hom(kernel: Kernel) -> None:

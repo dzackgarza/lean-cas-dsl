@@ -524,6 +524,11 @@ private def stdProfileRules : Array ProfileRule := #[
   -- is COUNTABLE (it is in bijection with the kernel, and ℚ is). `nth` is then
   -- the honest gap ℤ[x] and the subspace already carry
   { pattern := .cosetSet, cat := `CountableSets },
+  -- a guard-backed predicate set (#31 item 7) is COUNTABLE at its true
+  -- strength — a comprehension only builds one over ℕ or ℤ — and `nth` is
+  -- answered by TRIAL at the elaboration layer (`predicateSetMethod?`),
+  -- capped loudly, so no enumeration route is registered for it
+  { pattern := .predicateSet, cat := `CountableSets },
   -- …and it is the object SPEC.md ascribes to QQ-Mod, which is where `dim`
   -- lives. Two INDEPENDENT memberships, exactly like a polynomial's: being a
   -- set does not make it a module, and neither implies the other

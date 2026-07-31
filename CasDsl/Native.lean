@@ -532,7 +532,7 @@ test" path that no longer exists.
 by the same judgment that settles `-3 ∈ ℤ` — and a polynomial over ℤ is an
 element of ℚ[x] for the reason it always was, coefficient by coefficient. A
 scalar is its own constant polynomial. -/
-private partial def inDomain? (d : Domain) (x : Value) : Bool :=
+partial def inDomain? (d : Domain) (x : Value) : Bool :=
   match d, x with
   | .nat, .int z => z ≥ 0
   | .nat, .rat q => q.den == 1 && q.num ≥ 0
@@ -659,6 +659,11 @@ partial def presCard : SetPresentation → Except ExecError Cardinality
   | .domainDiff a b => .error (.badRequest
       s!"the native backend cannot state the cardinality of {a.render} - {b.render}: \
 this presentation decides membership, not size")
+  -- a guard says nothing about size (#31 item 7): the honest refusal the
+  -- difference set already makes, for the same reason
+  | s@(.predicate ..) => .error (.badRequest
+      s!"the native backend cannot state the cardinality of {s.render}: a \
+predicate presentation decides membership, not size")
   | .powerset s => do
       match ← presCard s with
       | .finite n =>
@@ -757,7 +762,7 @@ private def normalizeSet : Obj → Except ExecError SetNormal
   -- present. (`ℂ - ℚ` is decided as the RIGHT side of an inclusion, below,
   -- where pointwise membership settles it without a canonical form.)
   | o@(.setObj (.product ..)) | o@(.setObj (.powerset _))
-  | o@(.setObj (.domainDiff ..)) =>
+  | o@(.setObj (.domainDiff ..)) | o@(.setObj (.predicate ..)) =>
       .error (.badRequest s!"the native backend cannot normalize {o.presentation} \
 for comparison: a denoted set has no element list here")
   | o => .error (.badRequest s!"{o.presentation} is not a set")
