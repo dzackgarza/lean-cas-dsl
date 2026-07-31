@@ -893,6 +893,32 @@ approximated — the move §Functions already makes for `t ↦ sin(t)`.
   `SetPresentation`, so `e.image()`, `e(ℕ)`, `{2n | n ∈ ℕ}` and
   `{0, 2, 4, …}` are all the same set object.
 
+## Homs are first-class (owner ruling, 2026-07-31)
+
+A linear map is NOT a matrix. For finitely presented modules over a PID a
+morphism is a map from generators to generators that preserves relations;
+in the free case (or over a field) there is a map `Mat_n(R) → Hom_R(V, W)`,
+and it is not an isomorphism — many matrices present one map, and the
+identification becomes an isomorphism only in the separate category of
+FRAMED modules (modules with a chosen generating set, in which the map has
+a unique matrix). The owner's ruling for this system, verbatim in effect:
+homs are first-class categorical entities; matrices are EXTRACTED and
+derived from them, and most of the actual matrix work is a backend
+concern. Constructing a matrix in the DSL constructs an element of
+`Mat_n(R)` — a point of that space, presenting no morphism, bilinear form
+or anything else until SPECIFIED. Consequences for the shipped surface,
+recorded so they are read the right way: `M * v` and `M.ker()` read
+through the canonical specification map `Mat_n(R) → End(Rⁿ)` that the
+STANDARD frame of `Rⁿ` provides — the frame choice is in the spelling,
+exactly as `√d`'s branch is (§Open questions, embedding choices), not
+silent. A future multi-binder morphism (`(x,y,z) ↦ (2x+3y+z, x−y, 3z−x)
+in QQ-Mod`) is a HOM value presented the way the mathematician wrote it —
+images of a general element, equivalently of the generators — with its
+matrix in a frame a DERIVED presentation, never the entity itself. The
+finitely-presented-over-a-PID general case (generators + relations) is
+CategoryGraph-era ontology; nothing in the spike may pre-commit against
+it by identifying homs with matrices.
+
 ## Vectors, matrices and subspaces (`SPEC.md` §Vectors and matrices,
 §Subspaces and spans, issue #24)
 
