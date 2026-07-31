@@ -470,8 +470,10 @@ def domainCard : Domain → Option Cardinality
       | some .countablyInfinite => some (if n == 0 then .finite 1 else .countablyInfinite)
       | none => none
 
-/-- Quadratic dedupe, used only on hand-written finite set literals. -/
-private def dedupValues (vs : Array Value) : Array Value :=
+/-- Quadratic dedupe, used only on hand-written finite set literals — at
+their CONSTRUCTION (`Eval`'s `finSet` arm) and defensively wherever an
+executor consumes a finite presentation another path may have built. -/
+def dedupValues (vs : Array Value) : Array Value :=
   vs.foldl (init := #[]) fun acc v =>
     if acc.any (fun w => valueEq w v == some true) then acc else acc.push v
 

@@ -423,6 +423,29 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     assert "coefficient ring" not in text
 
 
+def test_a_duplicated_literal_is_one_set(kernel: Kernel) -> None:
+    _, kc = kernel
+    # {1, 2, 2, 3} IS {1, 2, 3}: the presentation dedups on construction,
+    # so display, membership and cardinality agree instead of the display
+    # keeping a duplicate the methods had already collapsed (#24 ledger)
+    text = ok(kc, "let dup := {1, 2, 2, 3} in 𝒫(ℤ)")
+    assert "{1, 2, 3}" in text
+    assert "2, 2" not in text
+    ok(kc, "assert |dup| = 3")
+    ok(kc, "assert dup = {1, 2, 3}")
+
+
+def test_the_solution_set_refusal_names_the_situation(kernel: Kernel) -> None:
+    _, kc = kernel
+    # {a ∈ ℤ | qq(a) = 0} for qq over ℚ[x]: the refusal names the index
+    # ring and the equation that does not present there, not whichever
+    # coefficient tripped the coercion first (#24 ledger)
+    ok(kc, "let qq := x ↦ x² - 2 in ℚ[x]")
+    text = err(kc, "{a ∈ ℤ | qq(a) = 0}")
+    assert "sought in ℤ" in text
+    assert "does not present in ℤ[x]" in text
+
+
 # -- 4 · exact matrix algebra ---------------------------------------------
 
 def test_matrix_inverse_and_det(kernel: Kernel) -> None:

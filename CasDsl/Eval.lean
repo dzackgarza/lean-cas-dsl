@@ -1640,7 +1640,12 @@ domain, not of {s.render}")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
       let d ← ofStr (elemsDomain ctx.canonMaps vs)
-      return .obj (.setObj (.finite d (← ofStr (vs.mapM (coerceValue ctx.canonMaps d)))))
+      -- a hand-written duplicate is the same ELEMENT written twice, so the
+      -- presentation dedups on construction (after the coercion into the
+      -- joined domain, where 1 and 1/1 are one value) — display, membership
+      -- and cardinality then all see the one set instead of disagreeing
+      return .obj (.setObj (.finite d
+        (Native.dedupValues (← ofStr (vs.mapM (coerceValue ctx.canonMaps d))))))
   | .progSet leading last? => do
       let vs ← leading.mapM fun e => do ofStr (asValueOf (← eval ctx e))
       let l ← last?.mapM fun e => do ofStr (asValueOf (← eval ctx e))
@@ -1762,7 +1767,14 @@ DOMAIN D, and {idx.presentation} is not one")
       -- the ring the roots are sought in is the INDEX set's own, so the answer
       -- is the roots that lie there — `{a ∈ ℂ | …}` splits and `{a ∈ ℚ | …}`
       -- does not, which is the mathematics rather than a default
-      let pd ← ofStr (coerceValue ctx.canonMaps (.poly d) p)
+      let pd ← match coerceValue ctx.canonMaps (.poly d) p with
+        | .ok pd => pure pd
+        | .error inner =>
+            -- the failure is the SITUATION — the index ring does not admit
+            -- the equation — not whichever coefficient tripped first
+            throw (.msg s!"the solutions are sought in {d.render}, the index \
+set's own ring, but the equation `{p.render} = 0` does not present in \
+{(Domain.poly d).render}: {inner}")
       callMethod ctx (.elem (.poly d) pd) `roots #[]
   | .aggregate m binder index body => do
       let idx ← eval ctx index
