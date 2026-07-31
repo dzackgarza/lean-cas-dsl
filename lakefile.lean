@@ -12,7 +12,7 @@ package «cas-dsl» where
 
 require «nbdsl-worker» from git
   "https://github.com/dzackgarza/lean-jupyter-kernel"
-    @ "0008bda2c69f76abceab92a0b4a4e1b32d65f5c9" / "worker"
+    @ "92c0caefb9587f4fee0a0e67e79afd91c8cb4f49" / "worker"
 
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.32.0"
