@@ -382,6 +382,11 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "p.roots()")      # x³ - 2x + 1 over ℤ; p(1) = 0
     assert "{1}" in text
+    # the ruled default (owner ruling, 2026-07-31): the coefficient ring
+    # answers, and a deficit against the degree is NOTED — with the SPEC.md
+    # escalation spelling — rather than silently escalated
+    assert "coefficient ring" in text
+    assert "map p to ℂ[x]" in text
     ok(kc, "assert 1 ∈ p.roots()")
     ok(kc, "assert p.roots() = {1}")
     text = err(kc, "assert 2 ∈ p.roots()")
@@ -391,9 +396,31 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     ok(kc, "let q := x ↦ x² - 2 in ℚ[x]")
     text = ok(kc, "q.roots()")
     assert "{}" in text
-    ok(kc, "assert q.roots() = {}")
+    assert "0 distinct root(s) in ℚ" in text
+    assert "map q to ℂ[x]" in text
+    # the note rides along wherever the call happens — SPEC.md's vacuous
+    # `q.roots() ⊆ ℂ - ℚ` reading now says out loud what it did not check
+    text = ok(kc, "assert q.roots() = {}")
+    assert "coefficient ring" in text
     text = err(kc, "assert p.roots() = {}")
     assert "false" in text.lower()
+    # a polynomial that splits with distinct roots has no deficit: no note
+    # (set equality, not the rendered string: the element ORDER is Sage's)
+    ok(kc, "let sp := x ↦ x² - 3x + 2 in ℚ[x]")
+    text = ok(kc, "sp.roots()")
+    assert "coefficient ring" not in text
+    ok(kc, "assert sp.roots() = {1, 2}")
+    # repeated roots are a deficit too, and the note's wording owns the
+    # ambiguity (the distinct-root count cannot tell repetition from escape)
+    ok(kc, "let rp := x ↦ x² - 2x + 1 in ℚ[x]")
+    text = ok(kc, "rp.roots()")
+    assert "{1}" in text
+    assert "repeated roots or roots outside ℚ" in text
+    # over ℂ[x] there is nowhere further to suggest: deficit stays silent
+    ok(kc, "let rpc := map rp to ℂ[x]")
+    text = ok(kc, "rpc.roots()")
+    assert "{1}" in text
+    assert "coefficient ring" not in text
 
 
 # -- 4 · exact matrix algebra ---------------------------------------------

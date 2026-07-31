@@ -730,10 +730,16 @@ private def parseCas (stx : Syntax) : CommandElabM CasExpr := do
   | .error m => throwError m
 
 private def casCtx (ambient? : Option Domain := none) : CommandElabM EvalCtx := do
-  return { env := ← getEnv, ambient? }
+  return { env := ← getEnv, ambient?, notes := ← IO.mkRef #[] }
 
-private def runCas (x : EvalM α) : CommandElabM α := do
-  match ← x.run with
+/-- Run an evaluation and surface its accumulated notes as `info` lines.
+Drained on BOTH outcomes: a note describes a call that already succeeded
+(the roots deficit), and a later failure in the same statement does not
+unsay it. -/
+private def runCas (ctx : EvalCtx) (x : EvalM α) : CommandElabM α := do
+  let r ← x.run
+  for note in ← ctx.notes.modifyGet fun ns => (ns, #[]) do logInfo note
+  match r with
   | .ok a => return a
   | .error e => throwError e.render
 
@@ -750,7 +756,8 @@ private def ambientOf (tail? : Option Syntax) : CommandElabM (Option Domain) := 
   match tail? with
   | none => return none
   | some t =>
-      match ← runCas (eval (← casCtx) (← parseCas t)) with
+      let ctx ← casCtx
+      match ← runCas ctx (eval ctx (← parseCas t)) with
       | .obj (.domainObj d) => return some d
       | other => throwError s!"`in {other.render}` is not a domain"
 
@@ -761,12 +768,14 @@ private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
 def elabCasLet (idStx valStx : Syntax) (asc? : Option Syntax) : CommandElabM Unit := do
   let e ← parseCas valStx
   let a? ← asc?.mapM parseCas
-  bindObj idStx.getId (← runCas (evalBinding (← casCtx) e a?))
+  let ctx ← casCtx
+  bindObj idStx.getId (← runCas ctx (evalBinding ctx e a?))
 
 def elabCasLetPoly (idStx xStx valStx ascStx : Syntax) : CommandElabM Unit := do
   let e ← parseCas valStx
   let a ← parseCas ascStx
-  bindObj idStx.getId (← runCas (evalPolyBinding (← casCtx) xStx.getId e a))
+  let ctx ← casCtx
+  bindObj idStx.getId (← runCas ctx (evalPolyBinding ctx xStx.getId e a))
 
 private def relOf (relStx : Syntax) : CommandElabM AssertRel :=
   match relStx.getKind with
@@ -798,7 +807,7 @@ def elabCasAssert (parts : Array Syntax) (tail? : Option Syntax)
     -- a chain says which conjunct failed; a single assertion is worded
     -- exactly as it always was
     let which := if claims.size == 1 then stated else s!"{one claim} (of {stated})"
-    match ← runCas (evalAssert ctx rel (← parseCas lhs) (← parseCas rhs)) with
+    match ← runCas ctx (evalAssert ctx rel (← parseCas lhs) (← parseCas rhs)) with
     | some true => pure ()
     | some false => throwError s!"assertion is false: {which}"
     | none => throwError s!"the assertion outcome is unknown: the two sides of \
@@ -814,7 +823,8 @@ DISPLAY register, like Sage's `backend_ipython` and IPython's `display.Math`:
 a cell RESULT is displayed math, and inline `$…$` typesets a `pmatrix` at
 text size with undersized delimiters. -/
 def elabCasShow (stx : Syntax) : CommandElabM Unit := do
-  let d ← runCas (eval (← casCtx) (← parseCas stx))
+  let ctx ← casCtx
+  let d ← runCas ctx (eval ctx (← parseCas stx))
   logInfo d.render
   emitOutput {
     data :=

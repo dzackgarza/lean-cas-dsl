@@ -341,7 +341,7 @@ pinning by what it SAYS: each one below distinguishes itself from a
 neighbouring failure the user must not confuse it with. -/
 private def refuses (env : Lean.Environment) (e : CasExpr) (needle : String)
     : Lean.Elab.Command.CommandElabM Unit := do
-  match ← runEval { env } e with
+  match ← runEval env e with
   | .ok d => throwError s!"expected a refusal containing {repr needle}, got {d.render}"
   | .error err =>
       unless (err.render.splitOn needle).length > 1 do
@@ -1021,7 +1021,7 @@ run_cmd do
   -- the binder publishes nothing: outside the expression it is unbound
   refuses env (.ref `a) "not bound"
   -- …and the aggregation is decided over `three` for the positive claims above
-  match ← runEval { env } (.aggregate `sum `a three (.ref `a)) with
+  match ← runEval env (.aggregate `sum `a three (.ref `a)) with
   | .ok d => unless d.render == "6" do throwError s!"∑ gave {d.render}"
   | .error e => throwError e.render
 

@@ -293,7 +293,7 @@ let F := ℤ/4 in SmallModules(ℤ)
 open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  match ← runEval { env } (.method (.ref `F) `cardinality #[]) with
+  match ← runEval env (.method (.ref `F) `cardinality #[]) with
   | .ok d =>
       unless d.render == "4" do
         throwError s!"F.cardinality() evaluated to {d.render}, expected 4"
@@ -308,7 +308,7 @@ run_cmd do
   let cases : List (String × CasExpr × String) :=
     [("2", .num 2, "true"), ("1/2", .bin .div (.num 1) (.num 2), "false")]
   for (label, arg, expected) in cases do
-    match ← runEval { env } (.method (.ref `F) `contains #[arg]) with
+    match ← runEval env (.method (.ref `F) `contains #[arg]) with
     | .ok d =>
         unless d.render == expected do
           throwError s!"F.contains({label}) evaluated to {d.render}, expected {expected}"
@@ -327,7 +327,7 @@ third. -/
 open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  let ctx : EvalCtx := { env }
+  let ctx : EvalCtx := { env, notes := ← IO.mkRef #[] }
   let setLit : CasExpr := .finSet #[.num 0, .num 1, .num 2, .num 3]
   match ← (evalAssert ctx .eq (.ref `F) setLit).run with
   | .ok (some false) => pure ()
@@ -339,7 +339,7 @@ error: {e.render}"
   | .ok (some true) => pure ()
   | _ => throwError s!"F ≠ {"{0,1,2,3}"} must be trivially true across categories"
   -- the explicit Sets question, receiver transported: U(F) = {0,1,2,3}
-  match ← runEval ctx (.method (.ref `F) `set_eq #[setLit]) with
+  match ← runEval env (.method (.ref `F) `set_eq #[setLit]) with
   | .ok d =>
       unless d.render == "true" do
         throwError s!"F.set_eq({"{0,1,2,3}"}) evaluated to {d.render}, expected true"

@@ -1106,6 +1106,13 @@ structure EvalCtx where
   evaluated, and it publishes nothing — outside the braces the name is
   unbound and says so. -/
   local? : Option (Name × Obj) := none
+  /-- Advice accumulated while a statement evaluates, drained into `info`
+  lines by the command layer (`Syntax.runCas`). A note rides ALONGSIDE a
+  result and is never part of it — nothing downstream may read one back,
+  which is what keeps this distinct from the opt-in logging layer (#8):
+  the one producer today is the ruled `roots` default (`rootsRingNote`),
+  where the ruling itself asks for the help. -/
+  notes : IO.Ref (Array String)
 
 abbrev EvalM := ExceptT EvalError IO
 
@@ -1185,6 +1192,33 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
         match err with
         | .gap _ | .exec _ => throw (.approxRequest eps err)
         | err => throw err
+
+/-- The ruled `roots` default (owner ruling, 2026-07-31; DESIGN.md §Exact
+number systems): `p.roots()` answers in `p`'s own coefficient ring, and no
+spelling silently applies a field extension. The help the ruling asks for in
+exchange: when the ring holds fewer distinct roots than the degree — roots
+outside the ring or repeated ones, and the count alone cannot say which —
+the METHOD spelling notes the deficit and names the escalation SPEC.md
+already writes (`map p to ℂ[x]`). The comprehension spelling
+`{a ∈ D | p(a) = 0}` names its ring itself, so it gets no note; ℂ[x]
+receivers get none either, because a deficit there is repetition alone and
+there is nowhere further to suggest. -/
+private def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
+    (m : Name) (result : Denote) : EvalM Unit := do
+  unless m == `roots do return ()
+  let .elem (.poly d) (.poly _ coeffs) := recv | return ()
+  if d == .complex then return ()
+  let some (.finite _ elems) := result.asSet? | return ()
+  -- degree = size − 1 (coefficients ascending, no trailing zeros); constants
+  -- promise nothing, so only degree ≥ 1 can be deficient
+  let deg := coeffs.size - 1
+  if coeffs.size < 2 || elems.size == deg then return ()
+  let p := match recvStx with | .ref n => s!"{n}" | _ => "p"
+  ctx.notes.modify (·.push s!"`roots` answers in the coefficient ring: \
+{elems.size} distinct root(s) in {d.render}, while degree {deg} promises \
+{deg} in ℂ counted with multiplicity — repeated roots or roots outside \
+{d.render} make up the difference. For the roots in ℂ: \
+`let {p}C := map {p} to ℂ[x]`, then `{p}C.roots()`")
 
 /-- A result with no domain is not an object. Shared by the two places that ask
 for one, so the cause is stated wherever it bites. -/
@@ -1503,7 +1537,9 @@ that space and in no other")
   | .method recv m args => do
       let r ← ofStr (asObjOf (← eval ctx recv))
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
-      callMethod ctx r m as
+      let d ← callMethod ctx r m as
+      rootsRingNote ctx recv r m d
+      return d
   | .index recv arg => do
       let r ← eval ctx recv
       match r, indeterminate? ctx.isBound arg with
@@ -1874,9 +1910,11 @@ this slice tests at most {comprehensionCap}")
 
 end
 
-/-- Run the evaluator; the syntax layer lifts this into `CommandElabM`. -/
-def runEval (ctx : EvalCtx) (e : CasExpr) : IO (Except EvalError Denote) :=
-  (eval ctx e).run
+/-- Run the evaluator against a bare environment, discarding notes — the
+test harness's seam. The syntax layer builds its own `EvalCtx` instead,
+because it drains the notes into `info` output (`Syntax.runCas`). -/
+def runEval (env : Environment) (e : CasExpr) : IO (Except EvalError Denote) := do
+  (eval { env, notes := ← IO.mkRef #[] } e).run
 
 /-! ## Ascription
 

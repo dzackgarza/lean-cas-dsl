@@ -287,13 +287,13 @@ run_cmd do
         unless o' == o do
           throwError s!"'{name}' is {o'.presentation}, expected {o.presentation}"
   -- 1 + 1/2: the operands join through the registry, in ℚ
-  match ← runEval { env } (.bin .add (.num 1) (.bin .div (.num 1) (.num 2))) with
+  match ← runEval env (.bin .add (.num 1) (.bin .div (.num 1) (.num 2))) with
   | .ok d =>
       unless d.render == "3/2" do
         throwError s!"1 + 1/2 evaluated to {d.render}, expected 3/2"
   | .error e => throwError s!"1 + 1/2 failed: {e.render}"
   -- ℚ[x] has no registered embedding into ℤ[x], and `map` does not invent one
-  match ← runEval { env } (.mapTo (.ref `q) (.index (.dom .int) (.ref `x))) with
+  match ← runEval env (.mapTo (.ref `q) (.index (.dom .int) (.ref `x))) with
   | .ok d => throwError s!"map q to ℤ[x] was invented, producing {d.render}"
   | .error e =>
       unless contains e.render "there is no preferred canonical map" do
