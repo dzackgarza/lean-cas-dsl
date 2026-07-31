@@ -9,7 +9,7 @@ assert 2 + 3 = 5
 assert 2 + 3 = 0 in ℤ/5
 assert gcd(84, 30) = 6
 
-360.factor()
+(360).factor()
 # 2³ · 3² · 5
 
 assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ

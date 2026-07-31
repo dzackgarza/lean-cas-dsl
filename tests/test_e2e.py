@@ -1860,3 +1860,15 @@ def test_bare_definition_is_a_command(kernel: Kernel) -> None:
     # would be the SPEC line, but this session rebinds `i` upstream)
     ok(kc, "nb := 84 in ℤ")
     ok(kc, "assert nb.gcd(30) = 6")
+
+
+def test_a_parenthesized_receiver_takes_a_method(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC L12 as edited by the 2026-07-31 ruling (#31 item 1): literal
+    # `360.factor()` is a Lean-tokenizer casualty — the lexer eats `360.` as a
+    # decimal before any production sees it — so the receiver is parenthesized.
+    text = ok(kc, "(360).factor()")
+    assert "2^3 * 3^2 * 5" in text
+    # the method is resolved on the receiver's VALUE, so a computed receiver
+    # works too, and `factor(360)` stays the same call in the prefix spelling
+    ok(kc, "assert (84).gcd(30) = 6")

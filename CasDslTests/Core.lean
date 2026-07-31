@@ -1047,7 +1047,8 @@ run_cmd do
   let env ← getEnv
   for s in [
       "q := map p to ℂ[x]",   -- SPEC §Polynomials: bare `:=` is a command
-      "n2 := 360 in ℤ"        -- …carrying the same ascription tail as `let`
+      "n2 := 360 in ℤ",       -- …carrying the same ascription tail as `let`
+      "(360).factor()"        -- SPEC L12: a parenthesized receiver
     ] do
     unless (runParserCategory env `command s).toOption.isSome do
       throwError s!"ruled SPEC spelling failed to parse: {s}"

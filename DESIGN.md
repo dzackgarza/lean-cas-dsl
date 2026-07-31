@@ -1371,6 +1371,7 @@ let h := t ↦ t² + 1 in ℝ → ℝ              -- function, lambda spelling
 let f(t) = t^2 in RR->RR                  -- …and the f(t) spelling, ASCII
 let e: ℕ → ℕ := n ↦ 2n                    -- leading-ascription spelling
 n.factor()   M.det()   M.inverse()  F.annihilator()   X.cardinality()
+(360).factor()                            -- a parenthesized receiver takes a method
 p.deg()   p.roots()   a.gcd(30)            -- polynomial and UFD methods
 gcd(84, 30)                               -- …and the PREFIX spelling of one
 q(1)   h(3)   h(-t)   (f ∘ g)(t)          -- call/compose: inserted coercions
@@ -1503,6 +1504,16 @@ Parser decisions (load-bearing):
   true stops the cell NAMING ITSELF, so a chain never reports "false" without
   saying which link was. It is a non-reserved keyword (`&"and"`), so `and`
   remains an ordinary identifier everywhere else;
+- **a PARENTHESIZED receiver takes a method** — `(360).factor()` (ruling
+  2026-07-31, #31 item 1). The literal `360.factor()` SPEC.md first wrote is
+  a Lean-TOKENIZER casualty: the lexer eats `360.` as a decimal before any
+  production can see it, so no grammar here can admit it, and SPEC L12 was
+  edited to the parenthesized spelling under the ruling. `casApply` reaches
+  a method through the DOTTED NAME the `ident` lexer produces
+  (`n.factor` is ONE token), which a parenthesized receiver never is —
+  hence `casParenMethod`, resolving the method on the receiver's VALUE
+  through the same `.method` node. The prefix spelling below remains the
+  same call;
 - **`f(a, b, …)` is the PREFIX spelling of a method call** — SPEC.md writes
   `gcd(84, 30)`, which is `84.gcd(30)`. It reads that way only when `f` is
   UNBOUND *and* some category declares it as a method, so it converts an

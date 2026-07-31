@@ -163,6 +163,18 @@ it is checked in `toExpr`, the discipline `span_QQ{…}` and `Spec` follow. -/
 syntax:max (name := casApply)
   casTerm:max noWs "(" casTerm,* (" : " casTerm)? ")" : casTerm
 
+/-- `(360).factor()` — a PARENTHESIZED receiver taking a method (ruling
+2026-07-31, #31 item 1). Literal `360.factor()` is a Lean-tokenizer
+casualty: the lexer eats `360.` as a decimal before any production sees it,
+so SPEC L12's receiver is parenthesized — and `factor(360)` remains the
+same call in the prefix spelling. A production of its own because `casApply`
+reaches a method through the DOTTED NAME the `ident` lexer produces, which a
+parenthesized receiver never is; the method here is resolved on the
+receiver's VALUE, through the same `.method` node every other spelling
+reaches. -/
+syntax:max (name := casParenMethod)
+  "(" casTerm ")" noWs "." noWs ident noWs "(" casTerm,* ")" : casTerm
+
 /-! SPEC.md §Vectors and matrices writes the inverse `M⁻¹` and applies a
 matrix to a vector by JUXTAPOSITION — `M⁻¹ b`, `M v` — alongside the explicit
 `M*v`. Both are spellings of operations this surface already has: `⁻¹` is the
@@ -651,6 +663,8 @@ dimension and membership lines of that section need none of it"
   | ``casJuxtApp => return .app (.ref stx[0].getId) #[.ref stx[1].getId]
   | ``casInvJuxtApp =>
       return .app (.method (.ref stx[0].getId) `inverse #[]) #[.ref stx[2].getId]
+  | ``casParenMethod =>
+      return .method (← toExpr stx[1]) stx[4].getId (← stx[6].getSepArgs.mapM toExpr)
   | ``casApply => do
       let args ← stx[2].getSepArgs.mapM toExpr
       -- the ASCRIPTION tail is SPEC.md's `kernel(d/dx : ℚ[x] → ℚ[x])` and
