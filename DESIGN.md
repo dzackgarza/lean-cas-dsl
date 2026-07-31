@@ -246,20 +246,27 @@ all.
   factors with exact `a + b√d` coefficients. Its CONTENT is what is pinned —
   each displayed root evaluates to zero, and a near miss does not — because
   the factor ORDER and the unit convention are the backend's (decision 7).
-  RULED (owner, 2026-07-31): the ring default STANDS — `p.roots()` always
-  means the roots in `p`'s own coefficient ring, and no spelling implicitly
-  applies a field extension or passes to an algebraic closure. What the
-  ruling asks for in exchange is HELP: whenever the ring holds fewer
-  distinct roots than the degree, the METHOD spelling notes the deficit and
-  names the escalation SPEC.md already writes — `Eval.rootsRingNote`,
-  drained into an `info` line by `Syntax.runCas` — so SPEC.md's
-  `assert q.roots() ⊆ ℂ - ℚ`, true only VACUOUSLY over ℚ, now says out loud
-  what it did not check. A note is advice riding alongside a result, never
-  part of the value (nothing downstream may read one back, which is what
-  keeps the channel distinct from the opt-in logging layer, #8). ℂ[x]
-  receivers get no note — a deficit there is repetition alone, and there is
-  nowhere further to suggest — and the comprehension spelling `{a ∈ D | …}`
-  gets none because it names its ring itself.
+  RULED (owner, 2026-07-31, refined the same day): the ring default STANDS
+  — `p.roots()` always means the roots in `p`'s own coefficient ring, and
+  no spelling implicitly applies a field extension or passes to an
+  algebraic closure. `roots` returns the plain root SET: there is no
+  multiset in the data model, and the owner's chosen carrier for
+  multiplicity is the FACTORIZATION the surface already has —
+  `p.factor()`'s linear factors hold the `(rᵢ, mᵢ)` pairs. The deficit
+  note is therefore EXACT rather than a disjunction: `Eval.rootsRingNote`
+  reads the factorization through the same checked route and fires
+  precisely when `p` fails to SPLIT in its ring (Σ mᵢ < deg), stating how
+  many roots lie in an extension counted with multiplicity and naming both
+  `factor` (the multiplicities) and the `map p to ℂ[x]` escalation;
+  `(x−1)²` over ℚ splits and gets no note. Two owner principles anchor the
+  behavior: a PROPOSITION over the result has a truth value and is never
+  refused — `assert q.roots() ⊆ ℂ - ℚ` stays vacuously TRUE over ℚ, with
+  the unexpectedness carried as the advisory note (§Sets ⊆ ruling) — and a
+  note is advice riding alongside a result, never part of the value
+  (nothing downstream may read one back; distinct from the opt-in logging
+  layer, #8). ℂ[x] receivers get no note (everything splits there), and
+  the comprehension spelling `{a ∈ D | …}` gets none because it names its
+  ring itself.
 
 ## Numerical approximation (`SPEC.md` §Exact number systems, issue #7)
 
@@ -731,6 +738,22 @@ spelling per ring is what keeps a display readable back as input.
 The set operations SPEC.md writes — `∪ ∩ \ △ × 𝒫 |·| ⊆ ∈` — are all
 category-owned methods on `Sets`, reached by the ordinary resolver and
 router, except the two that construct rather than compute.
+
+- **RULED (owner, 2026-07-31): `X ⊆ Y` is a PROPOSITION with a truth
+  value.** In the owner's words: if `X ⊆ ℚ` and `Y` is a random set, then
+  `X ⊆ Y` is FALSE unless there is a canonical monomorphism `m : X → Y`
+  allowing `X` to be regarded as a subobject of `Y` in Sets, whence `X` is
+  identified with `m(X)` as an actual subset. In this system the registered
+  preferred canonical maps ARE that supply of monomorphisms — no
+  identification registered means FALSE, not refused. A well-formed
+  inclusion between honest sets is never "unknown", and a surprising-but-
+  true outcome (a vacuous inclusion over an empty left side) is answered
+  TRUE with an advisory note — info with advice on sharpening the result —
+  never a refusal. Refusal remains correct only where the sentence is not a
+  set proposition at all (`ℝ/O(ε)` on either side, a result with no set
+  reading). CONFORMANCE AUDIT of every existing ⊆/∈ path against this
+  ruling is owned by the SPEC-conformance sweep (the series-inclusion
+  refusal `ℚ[[t]] ⊆ ℝ[[t]]` in §Formal power series is a known candidate).
 
 - **`A × B` and `𝒫(A)` are PRESENTATIONS, not element lists.** Their
   elements are pairs and sets, and `Value` presents neither; a `SetPresentation`

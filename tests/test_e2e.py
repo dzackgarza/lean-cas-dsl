@@ -382,11 +382,14 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "p.roots()")      # x³ - 2x + 1 over ℤ; p(1) = 0
     assert "{1}" in text
-    # the ruled default (owner ruling, 2026-07-31): the coefficient ring
-    # answers, and a deficit against the degree is NOTED — with the SPEC.md
-    # escalation spelling — rather than silently escalated
-    assert "coefficient ring" in text
+    # the ruled default (owner rulings, 2026-07-31): the coefficient ring
+    # answers, and the note is EXACT — decided from the factorization's
+    # multiplicities, so it states how many roots lie in an extension and
+    # names both the escalation and the multiplicity access
+    assert "p does not split in ℤ" in text
+    assert "total multiplicity 1 of degree 3" in text
     assert "map p to ℂ[x]" in text
+    assert "p.factor()" in text
     ok(kc, "assert 1 ∈ p.roots()")
     ok(kc, "assert p.roots() = {1}")
     text = err(kc, "assert 2 ∈ p.roots()")
@@ -396,31 +399,35 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     ok(kc, "let q := x ↦ x² - 2 in ℚ[x]")
     text = ok(kc, "q.roots()")
     assert "{}" in text
-    assert "0 distinct root(s) in ℚ" in text
+    assert "q does not split in ℚ" in text
     assert "map q to ℂ[x]" in text
-    # the note rides along wherever the call happens — SPEC.md's vacuous
-    # `q.roots() ⊆ ℂ - ℚ` reading now says out loud what it did not check
+    # the note rides along wherever the call happens — a vacuously true
+    # `⊆`/`=` over the empty root set stays TRUE (a proposition has a truth
+    # value, never a refusal), with the advice as info alongside
     text = ok(kc, "assert q.roots() = {}")
-    assert "coefficient ring" in text
+    assert "does not split" in text
+    text = ok(kc, "assert q.roots() ⊆ ℂ - ℚ")
+    assert "✓" in text and "does not split" in text
     text = err(kc, "assert p.roots() = {}")
     assert "false" in text.lower()
-    # a polynomial that splits with distinct roots has no deficit: no note
+    # a polynomial that splits with distinct roots: no note
     # (set equality, not the rendered string: the element ORDER is Sage's)
     ok(kc, "let sp := x ↦ x² - 3x + 2 in ℚ[x]")
     text = ok(kc, "sp.roots()")
-    assert "coefficient ring" not in text
+    assert "does not split" not in text
     ok(kc, "assert sp.roots() = {1, 2}")
-    # repeated roots are a deficit too, and the note's wording owns the
-    # ambiguity (the distinct-root count cannot tell repetition from escape)
+    # (x - 1)² SPLITS in ℚ — both roots are there, counted with
+    # multiplicity — so the exact note stays silent where the old
+    # distinct-count trigger would have cried wolf
     ok(kc, "let rp := x ↦ x² - 2x + 1 in ℚ[x]")
     text = ok(kc, "rp.roots()")
     assert "{1}" in text
-    assert "repeated roots or roots outside ℚ" in text
-    # over ℂ[x] there is nowhere further to suggest: deficit stays silent
+    assert "does not split" not in text
+    # over ℂ[x] everything splits: never a note
     ok(kc, "let rpc := map rp to ℂ[x]")
     text = ok(kc, "rpc.roots()")
     assert "{1}" in text
-    assert "coefficient ring" not in text
+    assert "does not split" not in text
 
 
 def test_a_duplicated_literal_is_one_set(kernel: Kernel) -> None:

@@ -1193,16 +1193,19 @@ def callMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
         | .gap _ | .exec _ => throw (.approxRequest eps err)
         | err => throw err
 
-/-- The ruled `roots` default (owner ruling, 2026-07-31; DESIGN.md §Exact
+/-- The ruled `roots` default (owner rulings, 2026-07-31; DESIGN.md §Exact
 number systems): `p.roots()` answers in `p`'s own coefficient ring, and no
 spelling silently applies a field extension. The help the ruling asks for in
-exchange: when the ring holds fewer distinct roots than the degree — roots
-outside the ring or repeated ones, and the count alone cannot say which —
-the METHOD spelling notes the deficit and names the escalation SPEC.md
-already writes (`map p to ℂ[x]`). The comprehension spelling
+exchange is EXACT, not a disjunction: the deficit is decided from the
+FACTORIZATION — the same checked route `p.factor()` rides — whose linear
+factors carry the root multiplicities, so the note fires precisely when
+`p` fails to SPLIT in its ring (Σ mᵢ < deg) and says how many roots lie in
+an extension, counted with multiplicity. `(x−1)²` over ℚ splits and gets no
+note. A note is ADVICE on an unexpected-but-true result, never a refusal
+(owner, 2026-07-31); it names the escalation SPEC.md already writes and the
+explicit multiplicity access (`factor`). The comprehension spelling
 `{a ∈ D | p(a) = 0}` names its ring itself, so it gets no note; ℂ[x]
-receivers get none either, because a deficit there is repetition alone and
-there is nowhere further to suggest. -/
+receivers get none either, because everything splits there. -/
 private def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
     (m : Name) (result : Denote) : EvalM Unit := do
   unless m == `roots do return ()
@@ -1212,12 +1215,23 @@ private def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
   -- degree = size − 1 (coefficients ascending, no trailing zeros); constants
   -- promise nothing, so only degree ≥ 1 can be deficient
   let deg := coeffs.size - 1
+  -- deg distinct roots already force a split — no factorization needed
   if coeffs.size < 2 || elems.size == deg then return ()
+  -- the roots route exists only where the factor route does (ℤ[x], ℚ[x]),
+  -- so a factor failure here is a real defect and stays loud
+  let .val (.factorization _ factors _) ← callMethod ctx recv `factor #[]
+    | throw (.msg s!"`factor` did not answer with a factorization while \
+deciding whether {recv.presentation} splits")
+  let multTotal := factors.foldl (init := 0) fun t (f, k) =>
+    match f with
+    | .poly _ cs => if cs.size == 2 then t + k else t
+    | _ => t
+  if multTotal == deg then return ()
   let p := match recvStx with | .ref n => s!"{n}" | _ => "p"
-  ctx.notes.modify (·.push s!"`roots` answers in the coefficient ring: \
-{elems.size} distinct root(s) in {d.render}, while degree {deg} promises \
-{deg} in ℂ counted with multiplicity — repeated roots or roots outside \
-{d.render} make up the difference. For the roots in ℂ: \
+  ctx.notes.modify (·.push s!"{p} does not split in {d.render}: its \
+{elems.size} root(s) there carry total multiplicity {multTotal} of degree \
+{deg} (`{p}.factor()` shows the multiplicities), and the remaining \
+{deg - multTotal} lie in an extension. For all of them: \
 `let {p}C := map {p} to ℂ[x]`, then `{p}C.roots()`")
 
 /-- A result with no domain is not an object. Shared by the two places that ask
