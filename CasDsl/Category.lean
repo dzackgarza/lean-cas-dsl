@@ -91,6 +91,9 @@ inductive PresPattern where
   /-- A symbolic expression used as an object. No profile rule names it: an
   expression is what operations are performed WITH, not ON. -/
   | symbolic
+  /-- A first-class HOM value (DESIGN.md §Homs are first-class). Its domain
+  is a function domain by construction, so this implies `elemOf anyFuncs`. -/
+  | homElem
   | anyObj
   deriving BEq, Repr, Inhabited
 
@@ -141,6 +144,7 @@ def accepts : PresPattern → Obj → Bool
   | .cyclicMod, .cyclicModule _ => true
   | .specObj, .specOf _ => true
   | .symbolic, .symObj _ => true
+  | .homElem, .elem (.funcs ..) (.hom ..) => true
   | .anyObj, _ => true
   | _, _ => false
 
@@ -162,6 +166,11 @@ def implies : PresPattern → PresPattern → Bool
   | .cyclicMod, .cyclicMod => true
   | .specObj, .specObj => true
   | .symbolic, .symbolic => true
+  | .homElem, .homElem => true
+  -- a hom element's domain is a function domain by construction, so the
+  -- element patterns wide enough to accept every function domain subsume it
+  | .homElem, .elemOf .anyFuncs => true
+  | .homElem, .elemOf .anyDom => true
   | .anySet, .anySet => true
   | .domainIs _, .anySet => true
   | .domainSetOf _, .anySet => true

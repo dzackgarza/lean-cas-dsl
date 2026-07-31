@@ -233,6 +233,21 @@ inductive Value where
   rather than sampled. The binder is a BOUND NAME, not data: equality
   compares domains and bodies (`Native.valueEq`). -/
   | func (src tgt : Domain) (binder : Lean.Name) (body : Value)
+  /-- A first-class HOM between free ℚ-modules — SPEC.md §Subspaces' `φ: ℚ³ →
+  ℚ := (a, b, c) ↦ a + b - c`, under the owner ruling of 2026-07-31
+  (DESIGN.md §Homs are first-class): the value is the domain, the codomain,
+  and the map as the mathematician WROTE it — images of a general element,
+  equivalently of the generators. A linear map is NOT a matrix: `rows` is the
+  DERIVED matrix in the standard frame the `ℚⁿ` spelling itself provides
+  (one row per codomain coordinate) — backend data behind `ker`/`im`, calls
+  and composition, never the entity. The binders are BOUND names like
+  `.func`'s: presentation, not data — equality ignores them.
+
+  CEILING: linear over ℚ, the span machinery's own base. Polynomial maps in
+  several variables are tier 2 (#31), and the finitely-presented-over-a-PID
+  general case is CategoryGraph-era — nothing here identifies a hom with its
+  matrix, which is what keeps that future open. -/
+  | hom (src tgt : Domain) (binders : Array Lean.Name) (rows : Array (Array Rat))
   deriving BEq, Repr, Inhabited
 
 /-- Presentation of a set object. Semantic sets are not replaced by ordered
@@ -580,6 +595,28 @@ private def algText (sqrt : Nat → String) (a b : Rat) (d : Int) : String :=
   else if b.blt 0 then s!"{ratText a} - {term (-b)}"
   else s!"{ratText a} + {term b}"
 
+/-- The linear form a coefficient row denotes, written back in the binder
+names: `#[1, 1, -1]` over `(a, b, c)` is `a + b - c`. The term conventions
+are the polynomial renderer's own — `2x`, a parenthesized non-integer
+coefficient `(1/2)x`, a leading minus — and the zero form is `0`. -/
+private def linFormText (binders : Array Lean.Name) (row : Array Rat) : String := Id.run do
+  let mut out := ""
+  for i in [0:row.size] do
+    let q := row[i]!
+    if q == 0 then continue
+    let x := toString (binders[i]?.getD Lean.Name.anonymous)
+    let cs := ratText q
+    let plainInt := cs.all Char.isDigit || (cs.startsWith "-" && (cs.drop 1).all Char.isDigit)
+    let term :=
+      if cs == "1" then x
+      else if cs == "-1" then s!"-{x}"
+      else if plainInt then s!"{cs}{x}"
+      else s!"({cs}){x}"
+    if out.isEmpty then out := term
+    else if term.startsWith "-" then out := out ++ " - " ++ (term.drop 1)
+    else out := out ++ " + " ++ term
+  return if out.isEmpty then "0" else out
+
 /-- Term-joining for polynomials, shared by the plain and LaTeX renderers:
 the two differ in the exponent spelling and in how a COEFFICIENT is spelled,
 so the caller renders the coefficients itself and passes the strings. That is
@@ -734,6 +771,12 @@ R → Ω¹_{R / k} ≅ R dx"
         | .poly _ cs => renderPolyWith t plainSup (cs.map render)
         | v => v.render
       s!"{t} ↦ {b}"
+  | .hom _ tgt binders rows =>
+      let forms := rows.toList.map (linFormText binders)
+      let body := match tgt with
+        | .vector .. => "(" ++ ", ".intercalate forms ++ ")"
+        | _ => ", ".intercalate forms
+      "(" ++ ", ".intercalate (binders.toList.map toString) ++ ") ↦ " ++ body
 
 instance : ToString Value := ⟨render⟩
 
@@ -1060,6 +1103,16 @@ partial def latex? : Value → Option String
       -- mode as raw Unicode, which MathJax does not typeset and pdflatex
       -- rejects outright: no LaTeX form, so the cell falls back to plain text
       if t.all Char.isAlphanum then return t ++ " \\mapsto " ++ b else none
+  | .hom _ tgt binders rows => do
+      -- non-alphanumeric binders fall back to plain text, as `.func`'s does
+      if !binders.all (fun b => (toString b).all Char.isAlphanum) then none
+      else
+        let forms := rows.toList.map (linFormText binders)
+        let body := match tgt with
+          | .vector .. => "(" ++ ", ".intercalate forms ++ ")"
+          | _ => ", ".intercalate forms
+        some ("(" ++ ", ".intercalate (binders.toList.map toString) ++ ") \\mapsto "
+          ++ body)
 
 /-! ## The approximation certificate (`SPEC.md` §Exact number systems, #7)
 

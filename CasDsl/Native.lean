@@ -190,6 +190,11 @@ def valueEq (a b : Value) : Option Bool :=
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
       else (promote fb gb).map Common.eq
+  -- Two HOMS agree when their domains, codomains and derived standard-frame
+  -- rows do; the binders are BOUND names and do not decide, exactly as
+  -- `.func`'s binder does not. Against anything else a hom shares no kind,
+  -- so the final arm answers `unknown` rather than a claim.
+  | .hom s t _ rs, .hom s' t' _ rs' => some (s == s' && t == t' && rs == rs')
   | .cardinal c, .int z | .int z, .cardinal c => some (cardEqInt c z)
   | _, _ => (promote a b).map Common.eq
 
@@ -573,6 +578,7 @@ private partial def inDomain? (d : Domain) (x : Value) : Bool :=
   | .vector n e, .vec m _ comps => n == m && comps.all (inDomain? e)
   | .vector .., _ => false
   | .funcs s t, .func s' t' _ _ => s == s' && t == t'
+  | .funcs s t, .hom s' t' _ _ => s == s' && t == t'
   | .funcs .., _ => false
 
 private def domainContains (d : Domain) (x : Value) : Value := .bool (inDomain? d x)
@@ -1220,6 +1226,32 @@ linear map on ℕ (an arithmetic progression). The image of {body.render} on \
   | "mat_ker" => do
       let (n, rows) ← ratMatrix "mat_ker" o
       Except.mapError ExecError.badRequest (Value.mkSpan n (kernelGens n rows))
+  -- `ker`/`im` of a first-class HOM (DESIGN.md §Homs are first-class): reads
+  -- of the DERIVED standard-frame rows — the same echelon machinery the
+  -- matrix reads use, on the rectangular row list a hom carries as backend
+  -- data. The kernel lives in the DOMAIN, so it always has ℚⁿ's span
+  -- presentation; the image lives in the CODOMAIN, and a map into ℚ lands
+  -- outside the presentation spans are hard-wired to (a documented ceiling).
+  | "hom_ker" =>
+      match o with
+      | .elem _ (.hom (.vector n .rat) _ _ rows) =>
+          Except.mapError ExecError.badRequest (Value.mkSpan n (kernelGens n rows))
+      | o => .error (.badRequest s!"hom_ker expects a hom receiver, got \
+{o.presentation}")
+  | "hom_im" =>
+      match o with
+      | .elem _ (.hom _ (.vector m .rat) _ rows) =>
+          -- the span of the generators' images — the COLUMNS of the rows
+          let n := (rows[0]?.getD #[]).size
+          let cols := (Array.range n).map fun j =>
+            Value.vec m .rat (rows.map fun r => Value.rat (r[j]?.getD 0))
+          Except.mapError ExecError.badRequest (Value.mkSpan m cols)
+      | .elem _ (.hom _ tgt _ _) =>
+          .error (.badRequest s!"the image of a map into {tgt.render} has no \
+presentation here: spans are subspaces of ℚⁿ (a documented ceiling), so `im` \
+answers for maps into a free module ℚᵐ only")
+      | o => .error (.badRequest s!"hom_im expects a hom receiver, got \
+{o.presentation}")
   -- SPEC.md §A composed computation's `C.trace()`. A STRUCTURAL read of the
   -- diagonal, like `deg` — the engine genuinely decides it over every entry
   -- domain whose elements add, so it is native and no backend is asked
@@ -1287,6 +1319,9 @@ private def nativeOpSigs : Array OpSig := #[
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
   { backend := `native, opId := "mat_ker",
     accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+  -- …and the same reads on a first-class hom's derived rows
+  { backend := `native, opId := "hom_ker", accepts := #[.homElem] },
+  { backend := `native, opId := "hom_im", accepts := #[.homElem] },
   -- the trace reads the diagonal, so it is defined over every entry domain
   { backend := `native, opId := "mat_trace",
     accepts := #[.elemOf (.matrixOver .anyDom)] },

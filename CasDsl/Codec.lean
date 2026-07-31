@@ -144,6 +144,14 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "func"), ("src", domainToJson s), ("tgt", domainToJson t),
          ("binder", Json.str binder.toString), ("body", valueToJson body)]
+  -- a hom carries the map as written (binders and coefficient rows); the
+  -- rows are the DERIVED standard-frame matrix, riding in the ordinary
+  -- rational form
+  | .hom s t binders rows =>
+      Json.mkObj
+        [("t", "hom"), ("src", domainToJson s), ("tgt", domainToJson t),
+         ("binders", Json.arr (binders.map fun b => Json.str b.toString)),
+         ("rows", Json.arr (rows.map fun r => Json.arr (r.map ratToJson)))]
 
 /-! ## Decoding -/
 
@@ -332,6 +340,24 @@ partial def valueFromJson (j : Json) : Except String Value := do
         .error s!"a function's binder must be a name in {j.compress}"
       else
         return .func src tgt (Lean.Name.mkSimple binder) (← valueFromJson (← field j "body"))
+  | "hom" =>
+      let src ← domainFromJson (← field j "src")
+      let tgt ← domainFromJson (← field j "tgt")
+      let binders ← (← arrField j "binders").mapM fun b =>
+        match b.getStr? with
+        | .ok s =>
+            if s.isEmpty then .error s!"a hom's binder must be a name in {j.compress}"
+            else .ok (Lean.Name.mkSimple s)
+        | .error _ => .error s!"a hom's binders must be strings in {j.compress}"
+      let rows ← (← arrField j "rows").mapM fun r =>
+        match r.getArr? with
+        | .ok es => es.mapM fun q => do
+            let num ← intField q "num"
+            let den ← intField q "den"
+            if den ≤ 0 then .error s!"rational denominator must be positive in {j.compress}"
+            else return mkRat num den.toNat
+        | .error _ => .error s!"a hom's rows must be arrays in {j.compress}"
+      return .hom src tgt binders rows
   | "bool" =>
       match (← field j "v").getBool? with
       | .ok b => return .bool b

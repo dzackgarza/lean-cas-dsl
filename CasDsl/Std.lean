@@ -88,6 +88,13 @@ def spanW : SetPresentation :=
   .span 3 #[.vec 3 .rat #[.rat 1, .rat 0, .rat 1],
             .vec 3 .rat #[.rat 0, .rat 1, .rat 1]]
 
+/-- SPEC.md §Subspaces and spans' `φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c` — a
+first-class HOM (DESIGN.md §Homs are first-class): the map as written, with
+its standard-frame row as DERIVED data. Its kernel is exactly `spanW`. -/
+def phiHom : Obj :=
+  .elem (.funcs (.vector 3 .rat) .rat)
+    (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]])
+
 /-- `[1, 2; 3, 4] ∈ Mat₂(ℤ/5)` — the deliberate-gap representative (#17):
 exact linear algebra over a finite field is meaningful (`MatrixElems`), and
 only ℚ-entry matrices are routed. -/
@@ -166,7 +173,16 @@ categorical structure deferred to CategoryGraph" },
   { name := `«QQ-Mod»,
     doc := "ℚ-modules. SPEC.md's own name for the category a subspace of ℚⁿ \
 is a subobject of; at this stage an ascription TAG carrying `dim`, with the \
-categorical structure deferred to CategoryGraph" }
+categorical structure deferred to CategoryGraph" },
+  -- The 2026-07-31 ruling (DESIGN.md §Homs are first-class): a hom is a
+  -- first-class value, and `ker`/`im` are operations ON it. They need a
+  -- category to own them, exactly as `image` needed `FunctionElems`. What a
+  -- hom is a morphism OF — QQ-Mod's own structure — stays CategoryGraph-era;
+  -- this category owns the two subobject reads and nothing wider.
+  { name := `HomElems,
+    doc := "first-class homs of free ℚ-modules — the map as the mathematician \
+wrote it, its standard-frame matrix DERIVED data (DESIGN.md §Homs are \
+first-class); owns the subobject reads `ker` and `im`" }
 ]
 
 run_cmd stdCategories.forM registerCategory!
@@ -255,6 +271,18 @@ characteristic polynomial are the same for all of them" },
   { id := `dim, receiver := `«QQ-Mod»,
     resultDoc := "a nonnegative integer",
     doc := "the dimension: the number of vectors in a basis" },
+  -- SPEC.md §Subspaces and spans' `W = ker φ`, under the homs-are-first-class
+  -- ruling: kernels and images are operations ON THE HOM, presenting
+  -- subobjects of its domain and codomain
+  { id := `ker, receiver := `HomElems,
+    resultDoc := "the subspace {v : φ(v) = 0} of the hom's domain",
+    doc := "the KERNEL of the hom — the subobject of its domain it sends to \
+zero, presented as a span by the same reduced echelon form every subspace \
+carries, computed from the DERIVED standard-frame rows" },
+  { id := `im, receiver := `HomElems,
+    resultDoc := "the subspace φ(ℚⁿ) of the hom's codomain",
+    doc := "the IMAGE of the hom — the span of the generators' images in its \
+codomain, read off the same derived rows" },
   { id := `annihilator, receiver := `Modules,
     resultDoc := "an ideal of the base ring",
     doc := "the annihilator ideal of the module" },
@@ -500,6 +528,10 @@ private def stdProfileRules : Array ProfileRule := #[
   -- lives. Two INDEPENDENT memberships, exactly like a polynomial's: being a
   -- set does not make it a module, and neither implies the other
   { pattern := .spanSet, cat := `«QQ-Mod» },
+  -- a first-class hom owns its subobject reads (`ker`, `im`); as an element
+  -- of a function domain it inhabits the function hierarchy independently —
+  -- the same two-hierarchy pattern
+  { pattern := .homElem, cat := `HomElems },
   -- the module fixture: ℤ/n as a ℤ-module, in the PROPER subcategory only.
   -- `Modules` membership arrives through the inclusion edge, which is what
   -- makes `annihilator` a real inheritance demonstration.
@@ -670,6 +702,9 @@ private def stdRoutes : Array Route := #[
     backend := `native, opId := "mat_rank" },
   { method := `ker, pattern := .elemOf (.matrixOver (.exact .rat)),
     backend := `native, opId := "mat_ker" },
+  -- …and the same native reads on a first-class hom's derived rows
+  { method := `ker, pattern := .homElem, backend := `native, opId := "hom_ker" },
+  { method := `im, pattern := .homElem, backend := `native, opId := "hom_im" },
   { method := `dim, pattern := .spanSet, backend := `native, opId := "span_dim" },
   -- the trace is a structural read of the diagonal, so it is native and
   -- defined over every entry domain — Mat₂(ℤ/5) has one even where `det`
@@ -948,6 +983,13 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- `dim` does not leak to the sets that are not modules, nor to a matrix
   expectNotApplicable env (.setObj finSet123) `dim
   expectNotApplicable env mat2Q `dim
+  -- a first-class HOM owns its subobject reads, natively, from the derived
+  -- rows (DESIGN.md §Homs are first-class); an ordinary function owns
+  -- neither — `ker` of `sin` is not a question this registry invents
+  expectRouted env phiHom `ker [] `native
+  expectRouted env phiHom `im [] `native
+  expectNotApplicable env doubling `ker
+  expectNotApplicable env doubling `im
   -- ℤ[x] is a UFD, so `factor` is meaningful where the polynomial lives —
   -- and since round three (#18) it is routed there, not only on ℚ[x]
   expectRouted env polyZ `factor [] `sage

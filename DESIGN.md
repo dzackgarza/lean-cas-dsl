@@ -919,6 +919,22 @@ finitely-presented-over-a-PID general case (generators + relations) is
 CategoryGraph-era ontology; nothing in the spike may pre-commit against
 it by identifying homs with matrices.
 
+THE TIER-1 SLICE SHIPPED (owner go, 2026-07-31): `Value.hom` is the
+first-class value — domain, codomain, binders, and the map as written,
+with its standard-frame rows DERIVED data. A multi-binder lambda whose
+body is LINEAR in its binders elaborates to one (`evalHomBinding`, via the
+structural `linearRow` reader); it is called on points of its domain,
+composed (`∘` — the rows compose as the matrix product), compared (binders
+are bound names and do not decide), and read by `ker`/`im` — methods a
+`HomElems` category owns, routed natively to the same `rref`/`kernelGens`/
+`mkSpanBasis` machinery every subspace presentation uses, so SPEC.md's
+`assert W = ker φ` is decided by basis equality. The image of a map INTO ℚ
+has no span presentation (spans are hard-wired to ℚⁿ) and refuses by name.
+A NONLINEAR or affine body keeps the disclosed tier-2 refusal verbatim.
+HELD boundaries, deliberately: a hom is not ascribable `in QQ-Mod` (it is
+a MORPHISM of that category, not an object — the ontology CategoryGraph
+owns), and the owner's `Mod(QQ)`/`QQ^n` spellings await their #31 pins.
+
 ## Vectors, matrices and subspaces (`SPEC.md` §Vectors and matrices,
 §Subspaces and spans, issue #24)
 
@@ -1005,12 +1021,12 @@ presentation's NORMAL FORM rather than a computation a backend owns.
   diagonal), so Mat₂(ℤ/5) HAS a trace where its `det` gaps: the two judgments,
   visible in one object. `charpoly` and `companion_matrix` are the backend's,
   with the reply checked against this call's receiver (§The port).
-- DISCLOSED GAP: SPEC.md's `φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c` and the
-  `W = ker φ` that reads it. Functions here are grounded in the UNIVARIATE
-  polynomial engine (§Functions), so a body in three variables is not
-  expressible; the multi-binder lambda is refused where it is written, in
-  words that name it as a gap rather than a syntax error. Nothing else in
-  that SPEC.md section needs it.
+- **SPEC.md's `φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c` and `W = ker φ` are
+  CLOSED** (tier-1 hom slice, 2026-07-31 — §Homs are first-class): φ binds
+  as a first-class hom, `ker φ` presents its kernel through the same span
+  normal form, and the equality is basis equality. The residue is exactly
+  the NONLINEAR multi-binder body — polynomial maps in several variables —
+  which keeps the disclosed-gap refusal (tier 2, #31, held for #13 demand).
 - DISCLOSED, and not closed here: `elemsDomain` seeds a set literal's element
   domain with ℤ, so `{u₁, u₂}` — a set literal of VECTORS — has no common
   domain and is refused. `span_QQ{…}` does not go through it, so no SPEC.md
@@ -1362,6 +1378,9 @@ M*v   M v   M⁻¹ b   M(M⁻¹ b)              -- the action, in SPEC.md's spel
 M.rank()   M.ker()   M.trace()   M.charpoly()   r.companion_matrix()
 let W := span_QQ{u₁, u₂} \leq ℚ³ in QQ-Mod  -- the subobject ascription
 W.dim()   (1, 1, 2) ∈ W                   -- a subspace is a set with a dim
+let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c    -- a first-class HOM (linear body)
+assert W = ker φ    φ((1, 1, 2))          -- its kernel, and a call; `im` for
+                                          --   maps into ℚᵐ (a span lives in ℚⁿ)
 ∑_{a ∈ roots} a    ∏_{a ∈ roots} a        -- aggregation over a finite set
 {a ∈ ℂ | r(a) = 0}                        -- the root set of an equation
 let z := 2 + 2i in ℂ                      -- exact algebraic value; `i` is a constant
@@ -1825,8 +1844,10 @@ Formerly open questions, now user-decided — none was silently resolved:
   cannot quietly become a surface answer;
 - a subspace is spanned over ℚ, and presented by its REDUCED basis: a
   generator this slice cannot read as a rational vector is a loud refusal
-  (§Vectors, matrices and subspaces), and a lambda with several binders — the
-  `φ` of SPEC.md's own `W = ker φ` — is a disclosed gap that names itself;
+  (§Vectors, matrices and subspaces), and a multi-binder lambda whose body
+  is NOT linear in its binders — a polynomial map in several variables — is
+  a disclosed gap that names itself (the linear case is the tier-1 hom
+  slice, §Homs are first-class);
 - a matrix and a vector must be over ONE entry domain: this backend does not
   join them, for the reason the binary set operations do not;
 - aggregation is over an EXPLICIT finite set; the sum over an infinite one is

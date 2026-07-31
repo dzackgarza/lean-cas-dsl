@@ -668,18 +668,18 @@ SPEC.md writes is `span_QQ\{…}`, the subspace of ℚⁿ its generators span"
   | ``casLam => do
       match ← toExpr stx[0] with
       | .ref b => return .lam b (← toExpr stx[2])
-      -- SPEC.md §Subspaces and spans writes `φ: ℚ³ → ℚ := (a, b, c) ↦ a+b-c`.
-      -- A MULTI-BINDER lambda is a gap rather than a syntax error, and it is
-      -- named as one: functions here are grounded in the UNIVARIATE polynomial
-      -- engine (DESIGN.md §Functions), so a body in three variables is not
-      -- expressible and is refused rather than approximated
-      | .vecLit _ =>
-          .error "a lambda with SEVERAL binders — SPEC.md's \
-`(a, b, c) ↦ a + b - c` — is a disclosed GAP, not a syntax error: functions \
-here are grounded in the univariate polynomial engine, so a body in more than \
-one variable is not expressible and is refused rather than approximated. It is \
-on the SPEC.md ledger (#24), and it is what `W = ker φ` waits on; the span, \
-dimension and membership lines of that section need none of it"
+      -- SPEC.md §Subspaces and spans writes `φ: ℚ³ → ℚ := (a, b, c) ↦ a+b-c`
+      -- — a MULTI-binder definition, a HOM under the 2026-07-31 ruling
+      -- (DESIGN.md §Homs are first-class). The binders must be names; whether
+      -- the body is linear is `evalHomBinding`'s judgment, where the
+      -- nonlinear case stays the disclosed tier-2 gap
+      | .vecLit comps => do
+          let binders ← comps.mapM fun c =>
+            match c with
+            | .ref b => pure b
+            | _ => Except.error "the binders of a multi-binder `↦` definition \
+are names, as in `(a, b, c) ↦ a + b - c`"
+          return .lamN binders (← toExpr stx[2])
       | _ => .error s!"the binder of a `↦` definition must be a name, got \
 {(stx[0].reprint.getD "").trimAscii.toString}"
   | ``casMap => return .mapTo (← toExpr stx[1]) (← toExpr stx[3])

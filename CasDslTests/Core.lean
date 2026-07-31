@@ -697,6 +697,56 @@ private def wBasis : Array Value := #[qv [1, 0, 1], qv [0, 1, 1]]
 #guard (Value.spanV 2 #[]).latex?
   == some "\\mathrm{span}_{\\mathbb{Q}}\\{\\} \\leq \\mathbb{Q}^{2}"
 
+/-! ### First-class homs (DESIGN.md §Homs are first-class, #31 item 4)
+
+The hom is the VALUE — the map as written — and its derived standard-frame
+rows are backend data: `ker`/`im` are reads of them through the same span
+normal form every subspace carries. -/
+
+/-- The owner's `(x, y, z) ↦ (2x + 3y + z, x - y, 3z - x)`, ℚ³ → ℚ³ and
+invertible (det −16), so its kernel is trivial and its image is everything. -/
+private def fh3 : Obj :=
+  .elem (.funcs (.vector 3 .rat) (.vector 3 .rat))
+    (.hom (.vector 3 .rat) (.vector 3 .rat) #[`x, `y, `z]
+      #[#[2, 3, 1], #[1, -1, 0], #[-1, 0, 3]])
+
+-- SPEC.md's φ: its kernel IS §Subspaces' W — one subspace, two SPEC objects,
+-- which is the whole content of `assert W = ker φ`
+#guard (Native.run "hom_ker" Std.phiHom #[]).toOption == some (.spanV 3 wBasis)
+#guard (Native.run "hom_ker" fh3 #[]).toOption == some (.spanV 3 #[])
+#guard (Native.run "hom_im" fh3 #[]).toOption ==
+  some (.spanV 3 #[qv [1, 0, 0], qv [0, 1, 0], qv [0, 0, 1]])
+-- the image of a map into ℚ has no span presentation (spans are hard-wired
+-- to ℚⁿ): a named refusal, never ℚ silently read as ℚ¹
+#guard (Native.run "hom_im" Std.phiHom #[]).toOption == none
+
+-- composition is the row product, keeping the INNER map's binders: φ ∘ fh
+#guard (composeFuncs #[] (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]])
+    (.hom (.vector 3 .rat) (.vector 3 .rat) #[`x, `y, `z]
+      #[#[2, 3, 1], #[1, -1, 0], #[-1, 0, 3]])).toOption ==
+  some (.hom (.vector 3 .rat) .rat #[`x, `y, `z] #[#[4, 2, -2]])
+
+-- equality ignores the BOUND binder names and decides on domains and rows…
+#guard valueEq (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]])
+    (.hom (.vector 3 .rat) .rat #[`x, `y, `z] #[#[1, 1, -1]]) == some true
+#guard valueEq (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]])
+    (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, 1]]) == some false
+-- …and a hom against anything else is `unknown`, never a claim
+#guard valueEq (.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]]) (.int 1)
+  == none
+
+-- the hom renders as the mathematician wrote it, in both registers
+#guard (Value.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]]).render
+  == "(a, b, c) ↦ a + b - c"
+-- …in BINDER order, the row's normal form: the owner's `3z - x` reads back
+-- as `-x + 3z`, exactly as a polynomial renders its normal form rather than
+-- the spelling it was typed in
+#guard (Value.hom (.vector 3 .rat) (.vector 3 .rat) #[`x, `y, `z]
+    #[#[2, 3, 1], #[1, -1, 0], #[-1, 0, 3]]).render
+  == "(x, y, z) ↦ (2x + 3y + z, x - y, -x + 3z)"
+#guard (Value.hom (.vector 3 .rat) .rat #[`a, `b, `c] #[#[1, 1, -1]]).latex?
+  == some "(a, b, c) \\mapsto a + b - c"
+
 /-! ## Aggregation over a finite set (SPEC.md §A composed computation)
 
 The guard against reporting the fold's SEED is stated against the executor:

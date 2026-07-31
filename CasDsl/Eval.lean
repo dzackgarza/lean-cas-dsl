@@ -84,6 +84,11 @@ inductive CasExpr where
   /-- `binder ↦ body` — a function definition, meaningful only where an
   ascription says which domains it runs between (`evalBinderBinding`). -/
   | lam (binder : Name) (body : CasExpr)
+  /-- `(a, b, c) ↦ body` — a MULTI-binder definition: a HOM of free
+  ℚ-modules when the body is linear in the binders (`evalHomBinding`,
+  DESIGN.md §Homs are first-class); a body that is not stays the disclosed
+  tier-2 gap. -/
+  | lamN (binders : Array Name) (body : CasExpr)
   /-- `S → T` / `S -> T` — a function domain. -/
   | arrow (src tgt : CasExpr)
   /-- `f ∘ g`. -/
@@ -165,6 +170,7 @@ def valueDom? : Value → Option Domain
   | .mat n e _ => some (.matrix n e)
   | .vec n e _ => some (.vector n e)
   | .func s t _ _ => some (.funcs s t)
+  | .hom s t _ _ => some (.funcs s t)
   | .seriesV c _ => some (.series c)
   | _ => none
 
@@ -516,6 +522,24 @@ def atDomain (rules : Array CanonicalMap) (d : Domain) (v : Value)
   | d, v@(.poly ..) => coerceValue rules (.poly d) v
   | d, v => coerceValue rules d v
 
+/-- `Σₖ rₖ·csₖ` over ℚ — one coordinate of a hom's derived rows applied to a
+point's coordinates. -/
+private def dotRow (r cs : Array Rat) : Rat := Id.run do
+  let mut acc : Rat := 0
+  for k in [0:cs.size] do
+    acc := acc + (r[k]?.getD 0) * cs[k]!
+  return acc
+
+/-- The product of two row lists — the composite hom's derived rows. -/
+private def matMulRows (a b : Array (Array Rat)) : Array (Array Rat) :=
+  let cols := (b[0]?.getD #[]).size
+  a.map fun ar => (Array.range cols).map fun j => Id.run do
+    let mut acc : Rat := 0
+    for k in [0:b.size] do
+      let c : Rat := ar[k]?.getD 0
+      acc := acc + c * b[k]![j]!
+    return acc
+
 /-- `f ∘ g` = `binder ↦ f(g(binder))`, keeping `g`'s binder.
 
 The domains must meet: composing along `g : A → B` and `f : C → D` with
@@ -526,6 +550,14 @@ def composeFuncs (rules : Array CanonicalMap) : Value → Value → Except Strin
         .error s!"{gs.render} → {gt.render} and {fs.render} → {ft.render} do not \
 compose: the target of the right factor is not the source of the left"
       else do return .func gs ft gbinder (← applyPoly rules fb gb)
+  -- two HOMS compose as homs: the composite keeps the inner map's binders
+  -- (its domain is the inner domain), and the DERIVED rows compose as the
+  -- matrix product — backend data composing as backend data
+  | .hom fs ft _ frows, .hom gs gt gbinders grows =>
+      if fs != gt then
+        .error s!"{gs.render} → {gt.render} and {fs.render} → {ft.render} do not \
+compose: the target of the right factor is not the source of the left"
+      else .ok (.hom gs ft gbinders (matMulRows frows grows))
   | a, b => .error s!"∘ composes two functions; got {a.render} and {b.render}"
 
 /-! ### Set literals -/
@@ -1000,6 +1032,7 @@ def renderPattern : PresPattern → String
   | .cyclicMod => "a cyclic module"
   | .specObj => "an affine scheme"
   | .symbolic => "a symbolic expression"
+  | .homElem => "a hom of free ℚ-modules"
   | .anyObj => "any object"
 
 def renderRoute (r : Route) : String :=
@@ -1656,6 +1689,24 @@ domain, not of {s.render}")
             let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
             let y ← ofStr (applyPoly ctx.canonMaps body x)
             return Denote.ofValue (← ofStr (atDomain ctx.canonMaps tgt y))
+      -- Calling a HOM applies it to a point of its domain, exactly: the
+      -- derived standard-frame rows act on the point's coordinates. Same
+      -- elaboration-inserted move as calling a function (decision 6).
+      | some (.hom src tgt _ rows) => do
+          if args.size != 1 then
+            throw (.msg s!"a hom is called with exactly one point of its \
+domain, got {args.size}")
+          let .vector n .rat := src
+            | throw (.msg s!"{fv.render} is not a hom on a free ℚ-module")
+          let av ← ofStr (asValueOf (← eval ctx args[0]!))
+          let some cs := Value.ratComps? n av
+            | throw (.msg s!"{av.render} is not a point of {src.render}, the \
+domain of this hom")
+          let ys := rows.map fun r => dotRow r cs
+          match tgt with
+          | .rat => return Denote.ofValue (.rat ys[0]!)
+          | .vector m .rat => return Denote.ofValue (.vec m .rat (ys.map Value.rat))
+          | t => throw (.msg s!"a hom here lands in ℚ or ℚᵐ, not {t.render}")
       | _ => throw (.msg s!"{fv.presentation} is not callable")
   | .finSet elems => do
       let vs ← elems.mapM fun e => do ofStr (asValueOf (← eval ctx e))
@@ -1747,6 +1798,10 @@ each side")
   | .lam binder _ =>
       throw (.msg s!"`{binder} ↦ …` is a function definition: bind it with the \
 domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
+  | .lamN _ _ =>
+      throw (.msg "a multi-binder `↦` definition is a hom of free ℚ-modules: \
+bind it with its function domain, as in \
+`let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c`")
   | .comprehension head binder index guard? =>
       evalComprehension ctx head binder index guard?
   -- SPEC.md's `let roots := {a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)`. This is NOT the
@@ -2120,6 +2175,104 @@ said: {polyMsg}"
 domain such as ℤ[x], a function domain such as ℝ → ℝ, or a series domain such \
 as ℤ[[t]]")
 
+/-- The rational a CONSTANT subexpression of a linear body denotes, when it
+is one: numerals, negation, and the four operations over constants. `none` =
+not a constant, which for the linear reader means "mentions a binder". -/
+partial def ratConst? : CasExpr → Option Rat
+  | .num z => some (Rat.ofInt z)
+  | .neg e => (ratConst? e).map (- ·)
+  | .bin .add a b => do return (← ratConst? a) + (← ratConst? b)
+  | .bin .sub a b => do return (← ratConst? a) - (← ratConst? b)
+  | .bin .mul a b => do return (← ratConst? a) * (← ratConst? b)
+  | .bin .div a b => do
+      let d ← ratConst? b
+      if d == 0 then none else return (← ratConst? a) / d
+  | _ => none
+
+/-- The disclosed gap a body OUTSIDE the linear vocabulary is — tier 2 of
+the 2026-07-31 ruling, held for #13 demand (#31). -/
+private def nonlinearGap (what : String) : String :=
+  s!"a multi-binder body is read as a LINEAR map here — a ℚ-combination of \
+the binders, SPEC.md's `(a, b, c) ↦ a + b - c` — and this body is not one: \
+{what}. Polynomial maps in several variables are a disclosed GAP (tier 2, \
+#31), refused rather than approximated"
+
+/-- One coordinate of a linear body, read STRUCTURALLY as a ℚ-combination of
+the binders: the coefficient row it denotes in the standard frame. The
+vocabulary is exactly linearity's own — binders, constants, `+ - ·` with a
+constant factor, `/` by a constant — and anything outside it is the
+disclosed tier-2 gap, never an approximation. -/
+partial def linearRow (binders : Array Name) (e : CasExpr) : Except String (Array Rat) := do
+  let n := binders.size
+  let scale (q : Rat) (r : Array Rat) : Array Rat := r.map (q * ·)
+  match e with
+  | .ref x =>
+      match binders.findIdx? (· == x) with
+      | some i => return (Array.replicate n (0 : Rat)).set! i 1
+      | none => .error (nonlinearGap s!"'{x}' is not one of its binders")
+  | .neg a => return scale (-1) (← linearRow binders a)
+  | .bin .add a b =>
+      let (ra, rb) := (← linearRow binders a, ← linearRow binders b)
+      return (Array.range n).map fun i => ra[i]! + rb[i]!
+  | .bin .sub a b =>
+      let (ra, rb) := (← linearRow binders a, ← linearRow binders b)
+      return (Array.range n).map fun i => ra[i]! - rb[i]!
+  | .bin .mul a b =>
+      match ratConst? a, ratConst? b with
+      | some q, _ => return scale q (← linearRow binders b)
+      | _, some q => return scale q (← linearRow binders a)
+      | none, none => .error (nonlinearGap "a product of two binder terms")
+  | .bin .div a b =>
+      match ratConst? b with
+      | some q =>
+          if q == 0 then .error "division by zero in a linear body"
+          else return scale q⁻¹ (← linearRow binders a)
+      | none => .error (nonlinearGap "a division by a binder term")
+  | e =>
+      match ratConst? e with
+      | some q =>
+          if q == 0 then return Array.replicate n (0 : Rat)
+          else .error (nonlinearGap
+            s!"the constant term {(Value.rat q).render} makes it affine, not linear")
+      | none => .error (nonlinearGap "a shape outside the linear vocabulary")
+
+/-- `let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c` — a HOM binding (owner ruling
+2026-07-31, DESIGN.md §Homs are first-class). The VALUE is the map as the
+mathematician wrote it — domain, codomain, images of a general element — and
+the coefficient rows it derives are its matrix in the standard frame the
+`ℚⁿ` spelling itself provides: backend data, never the entity. CEILING: free
+ℚ-modules (`ℚⁿ → ℚ`, `ℚⁿ → ℚᵐ`), the span machinery's own base; the
+fp-over-a-PID general case is CategoryGraph-era and nothing here pre-commits
+against it. -/
+def evalHomBinding (binders : Array Name) (body : CasExpr) (asc : Ascription)
+    : EvalM Obj := do
+  let .domain (.funcs src tgt) := asc
+    | throw (.msg "a multi-binder `↦` definition is a hom of free ℚ-modules, \
+and is ascribed its function domain: `let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c`")
+  let .vector n .rat := src
+    | throw (.msg s!"this slice reads a multi-binder map on a free ℚ-module \
+ℚⁿ, and {src.render} is not one — the ceiling the span machinery has")
+  if n != binders.size then
+    throw (.msg s!"{src.render} has {n} coordinates, and this map binds \
+{binders.size} names")
+  if (binders.toList.eraseDups).length != binders.size then
+    throw (.msg "the binders of a multi-binder map are distinct names")
+  let comps ← match tgt, body with
+    | .vector m .rat, .vecLit es =>
+        if es.size != m then
+          throw (.msg s!"{tgt.render} has {m} coordinates, and this body \
+writes {es.size}")
+        else pure es
+    | .vector _ .rat, _ =>
+        throw (.msg s!"a map into {tgt.render} writes its coordinates as a \
+tuple, one linear form per coordinate")
+    | .rat, e => pure #[e]
+    | t, _ =>
+        throw (.msg s!"this slice reads a multi-binder map into ℚ or ℚᵐ, and \
+{t.render} is not one — the ceiling the span machinery has")
+  let rows ← comps.mapM fun c => ofStr (linearRow binders c)
+  return .elem (.funcs src tgt) (.hom src tgt binders rows)
+
 /-- `let x := e [in T]`; a `↦` lambda on the right is a binder definition. -/
 def evalBinding (ctx : EvalCtx) (e : CasExpr) (asc? : Option CasExpr) : EvalM Obj := do
   match e, asc? with
@@ -2128,6 +2281,11 @@ def evalBinding (ctx : EvalCtx) (e : CasExpr) (asc? : Option CasExpr) : EvalM Ob
   | .lam binder _, none =>
       throw (.msg s!"`{binder} ↦ …` needs an ascription naming the domains it \
 runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
+  | .lamN binders body, some a =>
+      evalHomBinding binders body (← evalAscription ctx a)
+  | .lamN _ _, none =>
+      throw (.msg "a multi-binder `↦` definition needs the ascription naming \
+its free modules, as in `let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c`")
   | _, none => objOf (← eval ctx e)
   | _, some a =>
       let asc ← evalAscription ctx a

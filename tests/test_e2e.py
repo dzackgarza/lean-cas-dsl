@@ -1807,16 +1807,19 @@ def test_the_index_domain_decides_where_the_roots_are_sought(
     ok(kc, "assert {n ∈ ℤ | n² ≤ 4} = {-2, -1, 0, 1, 2}")
 
 
-def test_the_multi_binder_lambda_is_a_named_gap(kernel: Kernel) -> None:
+def test_the_nonlinear_multi_binder_body_is_a_named_gap(kernel: Kernel) -> None:
     _, kc = kernel
-    # SPEC.md §Subspaces and spans' last block needs a lambda in three
-    # variables, which the univariate polynomial engine cannot express. It is
-    # refused as a GAP that names itself and says what it blocks — never as a
-    # syntax error, and never approximated.
-    text = err(kc, "let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c")
+    # The homs-are-first-class ruling (2026-07-31, #31 item 4) admits LINEAR
+    # multi-binder bodies as hom values; a body that is not linear in its
+    # binders keeps the disclosed-gap refusal — named, never a syntax error,
+    # never approximated (polynomial maps are tier 2, held for #13 demand).
+    text = err(kc, "let φn: ℚ³ → ℚ := (a, b, c) ↦ a·b + c")
     assert "disclosed GAP" in text
-    assert "ker φ" in text
-    # …and the single-binder lambda it did not break
+    # an affine body is refused too — a dropped constant would be a silent
+    # wrong answer, the one outcome this system forbids
+    text = err(kc, "let φa: ℚ³ → ℚ := (a, b, c) ↦ a + b - c + 1")
+    assert "affine" in text
+    # …and the single-binder lambda is untouched
     ok(kc, "let φ1 := t ↦ t + 1 in ℚ[x]")
 
 
@@ -1894,3 +1897,23 @@ def test_the_alias_layer_is_uniform(kernel: Kernel) -> None:
     # binder, `\in` as the ascription, `ZZ` as the coefficient ring
     ok(kc, "let fs(t) = ∑_{n ∈ \\NN} n^2 t^n \\in ZZ[[t]]")
     ok(kc, "assert [t^2]fs = 4")
+
+
+def test_a_linear_multi_binder_lambda_is_a_hom(kernel: Kernel) -> None:
+    _, kc = kernel
+    # SPEC §Subspaces and spans' last block, closed under the homs-are-first-
+    # class ruling (2026-07-31, #31 item 4): φ is a first-class HOM — domain,
+    # codomain, the map as written — and `W = ker φ` reads it. W is the
+    # SPEC-bound span_QQ{u₁, u₂} from earlier in this session.
+    ok(kc, "let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c")
+    ok(kc, "assert W = ker φ")
+    # the hom is CALLED on points of its domain, exactly
+    ok(kc, "assert φ((1, 1, 2)) = 0")
+    ok(kc, "assert φ((1, 1, 0)) = 2")
+    # a vector-valued hom is called, composed and read by ker/im — the
+    # subobject presentations route to the same span machinery spans use
+    ok(kc, "let fh: ℚ³ → ℚ³ := (x, y, z) ↦ (2x + 3y + z, x - y, 3z - x)")
+    ok(kc, "assert fh((1, 0, 0)) = (2, 1, -1)")
+    ok(kc, "assert (fh ∘ fh)((1, 0, 0)) = (6, 1, -5)")
+    ok(kc, "assert ker fh = {0}")
+    ok(kc, "assert im fh = span_QQ{(1, 0, 0), (0, 1, 0), (0, 0, 1)}")
