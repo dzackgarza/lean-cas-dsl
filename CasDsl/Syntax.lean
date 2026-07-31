@@ -404,6 +404,28 @@ syntax:25 (name := casArrow) casTerm:26 (" → " <|> " -> ") casTerm:25 : casTer
 syntax:20 (name := casMap) "map " casTerm:21 " to " casTerm:21 : casTerm
 syntax:10 (name := casLam) casTerm:11 " ↦ " casTerm:10 : casTerm
 
+/-- The words this surface RESERVES — real tokens, so an identifier by any
+of these spellings cannot be written anywhere, including as a binding name.
+That is the price the productions above pay deliberately: `dx` (the
+differential atom, the 1-form, `∫ f dx`), `Spec` (the scheme spelling),
+`lim_` (underscore included — lexical, see `casLimit`), and `map`/`to`
+(the `map e to D` coercion). Everything else the grammar keys on — `and`,
+`O`, `dt`, `span_QQ` — is a non-reserved `&"…"` keyword and stays an
+ordinary identifier everywhere else, and constants (`i`, `e`, `π`, `d`)
+are spellings a binding always shadows.
+
+This list is DOCUMENTATION HELD TO THE GRAMMAR: the parse guard in
+`CasDslTests/Core.lean` fails the build if a listed word starts parsing as
+a binding name (un-reserved without being delisted) or a named non-reserved
+keyword stops (reserved without being listed). One page on the whole
+grammar: DESIGN.md §Surface. -/
+def reservedWords : List String := ["dx", "Spec", "lim_", "map", "to"]
+
+/-- The `&"…"` keywords the grammar uses WITHOUT reserving, each pinned by
+the same guard so a production rewrite cannot quietly widen the reserved
+set. -/
+def nonReservedKeywords : List String := ["and", "O", "dt", "span_QQ"]
+
 syntax (name := casRelEq) "=" : casRel
 syntax (name := casRelNe) "≠" : casRel
 syntax (name := casRelMem) "∈" : casRel

@@ -1026,4 +1026,26 @@ run_cmd do
   if (addRepresentativeChecked env ("ℤ", .domainObj .nat)).toOption.isSome then
     throwError "a duplicate representative label was not detected"
 
+/-! ## Reserved words, held to the grammar
+
+`Syntax.reservedWords` is documentation with a proof burden: the guard
+below parses `let <w> := 5 in ℤ` through the REAL command grammar for every
+listed word and every named non-reserved keyword. Deleting a token
+production un-reserves its word and fails the first loop until the list is
+updated; promoting a `&"…"` keyword to a token fails the second. What this
+cannot catch is a NEW reserved token added without being listed — that
+direction stays with review, and the lists say so. -/
+
+open Lean Parser in
+run_cmd do
+  let env ← getEnv
+  for w in CasDsl.reservedWords do
+    if (runParserCategory env `command s!"let {w} := 5 in ℤ").toOption.isSome then
+      throwError s!"'{w}' parsed as a binding name — it is listed in \
+reservedWords but the grammar no longer reserves it"
+  for w in CasDsl.nonReservedKeywords do
+    unless (runParserCategory env `command s!"let {w} := 5 in ℤ").toOption.isSome do
+      throwError s!"non-reserved keyword '{w}' failed to parse as a binding \
+name — a production change reserved it without listing it"
+
 end CasDslTests

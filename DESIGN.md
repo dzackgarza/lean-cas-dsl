@@ -1338,6 +1338,45 @@ e(ℕ)   e.image()                          -- the image, one method two spellin
 #explain_route <expr>   #capabilities   #capability_gaps
 ```
 
+### The grammar on one page
+
+Two word classes beyond Lean's own tokens, both PINNED as data
+(`Syntax.reservedWords` / `Syntax.nonReservedKeywords`) and held to the
+grammar by the parse guard in `CasDslTests/Core.lean`:
+
+- **Reserved words — five, and that is the complete list**: `dx` (the
+  differential atom, the 1-form `p dx`, `∫ f dx`), `Spec`, `lim_`
+  (underscore included, lexically), and `map`/`to` (the `map e to D`
+  coercion — reserved by that production, a price the original three-word
+  disclosure missed). Each is a real token: an identifier by that spelling
+  cannot be written ANYWHERE, including as a binding name, and the refusal
+  is the parser's own.
+- **Non-reserved keywords**: `and` (chains assertions), `O` (tolerance and
+  truncation), `dt` (the definite integral's variable), `span_QQ`
+  (name-checked in `toExpr`). Ordinary identifiers everywhere else.
+  Constants (`i`, `e`, `π`, `d`) and the ASCII domain names (`R`, `RR`,
+  `CC`) are SPELLINGS, not tokens — a binding always shadows them.
+
+Precedence, tightest first (`casTerm:N`, higher binds tighter):
+
+| level | productions |
+|---|---|
+| max   | atoms — literals, `(…)`, set/matrix/vector braces, `\|A\|`, `√x`, `𝒫(A)`, `∫ f dx`, `lim_{…}`, `Spec R`, comprehensions, `∑`/`∏`, and the implicit product `2x`/`3x²` (numeral against a `:76` atom-or-power) |
+| 80–81 | `^` (right-associative) and the one-digit superscripts; `x^{k}` reads a braced exponent |
+| 75    | `∘`, unary `-` |
+| 70–71 | `*` `·` `/` `∩` `×`; juxtaposition application `M v`, `M⁻¹ b` (ident-rooted); the 1-form `p dx` |
+| 65–66 | `+` `-` `∪` `\` `△` |
+| 50    | `≤ < ≥ >`, and three-term chains |
+| 25    | `→` / `->` function domains |
+| 20    | `map e to D` |
+| 10    | `t ↦ body` |
+
+`assert` relations (`=` `≠` `∈`/`in` `∉` `⊆`) sit OUTSIDE the term grammar,
+and `and` joins whole assertions, never terms. The one rule a reader must
+know before anything surprises them: **ident-follows-ident is application**
+(`casJuxtApp`, level 70) — its next-line swallow residual and the two
+rejected fixes are the parser-decision bullet below and the ledger (#24).
+
 Parser decisions (load-bearing):
 
 - brackets after a domain: `D[ident]` is a polynomial ring in that
