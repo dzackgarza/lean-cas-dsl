@@ -115,7 +115,8 @@ whose zero it can write itself (ℤ, ℚ, ℝ, ℂ) and refuses `ℤ/n` loudly, 
 is honest but leaves the two owners standing. Whether the arithmetic floor
 should own `zeroOf` — an `Arith.lean` under `Value.lean` that both a backend
 and the data model may import — is the question, and the first spec line that
-wants a coset over `ℤ/n` is what should force it.
+wants a coset over `ℤ/n` is what should force it. The question is issue #30;
+the freeze stands until that forcing line arrives.
 
 ## Core data model (`Value.lean`)
 
@@ -1405,7 +1406,8 @@ Parser decisions (load-bearing):
   NAME — `k1 + 1` and `k1.is_prime()` end in a numeral and a `)` and do not
   swallow, while SPEC.md's own `let W := span_QQ{…} \leq ℚ³ in QQ-Mod` ends in
   `Mod` and does. Documented rather than closed — Lean's command parser spans
-  lines, so nothing here can require "the same line" — and on the ledger (#24);
+  lines, so nothing here can require "the same line" — and owned by issue #27
+  (with both rejected fixes recorded there);
 - **`span_QQ{…}` leads with an `ident` and checks the NAME** in `toExpr`,
   which is what keeps `span_QQ` an ordinary identifier: a leading
   `&"span_QQ"` is not indexed by a first token, so the bare-name production
@@ -1424,8 +1426,8 @@ Parser decisions (load-bearing):
   ascription reads `QQ - Mod(next)` and fails with the misleading "'QQ' is not
   bound". Teaching `categoryAscription?` that shape would bind the category —
   and SILENTLY DROP the swallowed statement, which is a wrong answer where the
-  error is only a confusing one, so it is not a contained fix. On the ledger
-  (#24) with the juxtaposition residual it belongs to;
+  error is only a confusing one, so it is not a contained fix. Owned by issue
+  #27 with the juxtaposition residual it belongs to;
 - **`x^{k}` is the braced exponent**, the spelling this system's own LaTeX
   renderer produces and the one `SPEC.md` writes its tolerance in
   (`1/10^{10}`). A single-element brace in EXPONENT position is therefore that
