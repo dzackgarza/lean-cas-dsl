@@ -40,6 +40,9 @@ Three invariants, enforced end to end:
    a structured, auditable `NoImplementation` gap—never a hidden method, a
    narrowed category, or a fake value.
 
+▶ **[View a rendered demo notebook](notebooks/demo.ipynb)** — a self-contained
+walkthrough with embedded outputs.
+
 The worked proof is
 [`notebooks/categorical-cas.ipynb`](notebooks/categorical-cas.ipynb) — a
 pedagogical notebook covering trusted assertions (`assert 2 + 3 = 0 in
