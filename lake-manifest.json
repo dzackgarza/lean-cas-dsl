@@ -18,7 +18,7 @@
    "rev": "6b46bacf86771770d0209ec3ebd22997b63150de",
    "name": "«nbdsl-worker»",
    "manifestFile": "lake-manifest.json",
-   "inputRev": "6b46bacf86771770d0209ec3ebd22997b63150de",
+   "inputRev": "main",
    "inherited": false,
    "configFile": "lakefile.lean"},
   {"url": "https://github.com/leanprover-community/plausible",
