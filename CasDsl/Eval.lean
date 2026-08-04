@@ -669,11 +669,11 @@ still lexes, so `is_prime` and dotted names are untouched): the reservation
 is enforced where a name is INTRODUCED — the session bindings, and every
 binder position of this evaluator. -/
 def reservedConstantMsg? : Name → Option String
-  | `e => some "`e` is Euler's constant, a reserved symbol of this surface \
-(owner ruling 2026-07-31): `e^t` means exp(t), `exp(x)` spells the same \
-function, and no binding may shadow it"
+  | `e => some "`e` is Euler's constant, a reserved symbol of this surface: \
+`e^t` means exp(t), `exp(x)` spells the same function, and no binding may \
+shadow it"
   | `i => some "`i` is the imaginary unit i ∈ ℂ, a reserved symbol of this \
-surface (owner ruling 2026-07-31), and no binding may shadow it"
+surface, and no binding may shadow it"
   | _ => none
 
 /-- Refuse to introduce a reserved constant name — shared by the command
@@ -992,9 +992,9 @@ def renderResolveError : ResolveError → String
       -- not to carry
       if m == `dimension then
         "dimension() — the Krull dimension of a ring (SPEC.md §Ellipses) — is \
-the pinned spelling of a tier-2 feature, held for #13 demand (#31): the \
-spelling is reserved, and the dimension is refused rather than approximated. \
-A subspace's `dim()` is the dimension this slice computes"
+the pinned spelling of a tier-2 feature, held for demand: the spelling is \
+reserved, and the dimension is refused rather than approximated. A \
+subspace's `dim()` is the dimension this slice computes"
       else s!"there is no method named '{m}' in the registry"
   | .notApplicable m profile declaredOn =>
       let prof := ", ".intercalate (profile.toList.map renderCat)
@@ -1145,9 +1145,8 @@ family management and stays deferred. -/
 private def embeddingNote (ctx : EvalCtx) (recv : Obj) (m : Name) : EvalM Unit := do
   unless m == `roots || m == `factor do return ()
   let .elem (.poly .complex) _ := recv | return ()
-  ctx.notes.modify (·.push "the algebraic numbers of this result are placed \
-in ℂ along the backend's one fixed embedding QQbar ↪ ℂ — an embedding choice \
-logged at use (#31 item 10); no other embedding is consulted")
+  ctx.notes.modify (·.push "the algebraic numbers of this result are rendered \
+under a choice QQbar ↪ ℂ")
 
 /-- A result with no domain is not an object. Shared by the two places that ask
 for one, so the cause is stated wherever it bites. -/
@@ -1295,7 +1294,7 @@ and {kv.render} is not one")
           found := found + 1
       throw (.msg s!"nth({k}) on {pres.render}: {predicateTrialCap} candidates \
 of {dom.render} were tried and only {found} member(s) surfaced — the trial \
-ceiling (#31 item 7), a loud stop rather than a longer silent search")
+ceiling, a loud stop rather than a longer silent search")
   | _, _ => return none
 
 /-- The ruled `roots` default (owner rulings, 2026-07-31; DESIGN.md §Exact
@@ -1420,8 +1419,8 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       if let .ref `Algebras := a then
         if !ctx.isBound `Algebras then
           throw (.msg "Algebras/K — the algebras over K — is the pinned \
-spelling of a category FAMILY this slice does not register (#31), held for \
-#13 demand: the spelling is reserved, and the family is refused rather than \
+spelling of a category FAMILY this slice does not register, held for demand: \
+the spelling is reserved, and the family is refused rather than \
 approximated. `Mod(K)` is the module category that is registered")
       -- `ℤ/n` is a domain term, not a division; every other `/` is exact
       -- division in ℚ.
@@ -1443,9 +1442,8 @@ approximated. `Mod(K)` is the module category that is registered")
       if let .ref `AA := a then
         if !ctx.isBound `AA then
           throw (.msg "AA^n(K) — affine n-space over K — is the pinned \
-spelling of a tier-2 feature (polynomial maps on AA^n, #31), held for #13 \
-demand: the spelling is reserved, and the feature is refused rather than \
-approximated")
+spelling of a tier-2 feature, held for demand: the spelling is reserved, and \
+the feature is refused rather than approximated")
       -- `2^X` is SPEC.md's other spelling of `𝒫(X)`; every other `^` is
       -- exponentiation, including `2^|A|` (a cardinal is not a set). The
       -- EXPONENT is evaluated first — it is what decides which reading this
@@ -1637,8 +1635,7 @@ slice does not state it rather than answering with a ring it has not checked")
       -- negative one. A rational root is ordinary arithmetic and gets no note.
       if let .alg .. := r then
         ctx.notes.modify (·.push s!"√ denotes ONE root by convention — the \
-non-negative branch (upward, i·√|d|, for a negative radicand): an embedding \
-choice made by the spelling, logged at use (#31 item 10)")
+non-negative branch (upward, i·√|d|, for a negative radicand)")
       return Denote.ofValue r
   | .magnitude e => do
       -- the bars are a SPELLING: which method they name is the receiver's
@@ -2218,9 +2215,8 @@ def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
       if let .elem _ (.hom ..) := o then
         throw (.msg s!"a hom is a MORPHISM, and `in {renderCat c}` states \
 membership among a category's OBJECTS: a map is not an object of the \
-category it runs in. Ascribing a hom to a category is held (#31 item 4) for \
-the CategoryGraph-era ontology, and is refused rather than read as \
-membership — the arrow `{o.presentation}` already names its domains")
+category it runs in. Ascribing a hom to a category is refused rather than \
+read as membership — the arrow `{o.presentation}` already names its domains")
       let o' := match o with
         | .domainObj (.mod n) => Obj.cyclicModule n
         | o => o

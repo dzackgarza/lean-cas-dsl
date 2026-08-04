@@ -719,9 +719,9 @@ are names, as in `(a, b, c) ↦ a + b - c`"
   | ``casIndexFamily =>
       .error "D[x_0, x_1, ..., x_n] — a polynomial algebra on a FAMILY of \
 indeterminates (SPEC.md §Ellipses) — is the pinned spelling of a tier-2 \
-feature, held for #13 demand (#31): the spelling is reserved, and the \
-multivariate algebra is refused rather than approximated. One indeterminate \
-— `ℂ[x]` — is what this slice presents"
+feature, held for demand: the spelling is reserved, and the multivariate \
+algebra is refused rather than approximated. One indeterminate — `ℂ[x]` — \
+is what this slice presents"
   | ``casInv => return .method (.ref stx[0].getId) `inverse #[]
   | ``casJuxtApp => return .app (.ref stx[0].getId) #[.ref stx[1].getId]
   | ``casInvJuxtApp =>

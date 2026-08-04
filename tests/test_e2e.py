@@ -2035,7 +2035,7 @@ def test_the_product_space_and_affine_space_pins(kernel: Kernel) -> None:
     # `AA^n(K)` is the pinned affine-space spelling, held for #13 demand:
     # it parses, and refuses BY NAME rather than as a parse error
     text = err(kc, "AA^2(QQ)")
-    assert "AA^n(K)" in text and "#13" in text
+    assert "AA^n(K)" in text and "refused rather than approximated" in text
 
 
 def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
@@ -2046,17 +2046,19 @@ def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
     # assertion pairs the name with the accident it replaced: the accident
     # coming back is the regression these pin.
     text = err(kc, "let Rf := CC[x_0, x_1, ..., x_9]")
-    assert "D[x_0, x_1, ..., x_n]" in text and "#13" in text
+    assert (
+        "D[x_0, x_1, ..., x_n]" in text and "refused rather than approximated" in text
+    )
     assert "unexpected token" not in text
     # …and the family is the spelling, not the ellipsis: two names is already
     # a family, and the one-indeterminate ring is untouched
     assert "D[x_0, x_1, ..., x_n]" in err(kc, "let Rf2 := CC[x_0, x_1]")
     ok(kc, "let Rf3 := CC[x_0]")
     text = err(kc, "assert 3 in Algebras/CC")
-    assert "Algebras/K" in text and "#13" in text
+    assert "Algebras/K" in text and "refused rather than approximated" in text
     assert "'Algebras' is not bound" not in text
     text = err(kc, "(3).dimension()")
-    assert "Krull dimension" in text and "#13" in text
+    assert "Krull dimension" in text and "refused rather than approximated" in text
     assert "there is no method named" not in text
 
 
@@ -2066,7 +2068,7 @@ def test_a_hom_is_not_an_object_of_the_category_it_runs_in(kernel: Kernel) -> No
     # (#31 item 4), and it refuses by name rather than reporting `Mod` — a
     # name the author only ever wrote inside `Mod(QQ)` — as unbound (#32)
     text = err(kc, "let gm: QQ^3 -> QQ := (a, b, c) |-> a + b - c in Mod(QQ)")
-    assert "MORPHISM" in text and "#31 item 4" in text
+    assert "MORPHISM" in text and "refused rather than read as membership" in text
     assert "'Mod' is not bound" not in text
     # the refused cell commits nothing, the atomicity every refusal has
     assert "'gm' is not bound" in err(kc, "gm")
