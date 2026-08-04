@@ -1455,6 +1455,12 @@ def presentation : Obj → String
   | .specOf r => s!"Spec {r.render}"
   | .symObj e => e.render
 
+/-- The LaTeX form matching `presentation`: for an element, the value and
+its domain (`v \\in D`); for other objects, `latex?` unchanged. -/
+def presentationLatex? : Obj → Option String
+  | .elem d v => v.latex?.map fun l => s!"{l} \\in {d.latex}"
+  | o => o.latex?
+
 instance : ToString Obj := ⟨render⟩
 
 end Obj

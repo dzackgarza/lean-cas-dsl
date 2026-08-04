@@ -872,6 +872,11 @@ private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
   if let some m := reservedConstantMsg? n then throwError m
   modifyEnv fun env => addBinding env (n, o)
   logInfo s!"{n} := {o.presentation}"
+  emitOutput {
+    data :=
+      [("text/plain", .str s!"{n} := {o.presentation}")]
+      ++ (o.presentationLatex?.toList.map fun l => ("text/latex", Json.str s!"$${n} := {l}$$"))
+  }
 
 /-- `let x [: T] := e [in C]`. Both ascriptions are CHECKED judgments, and a
 spelling that carries both carries both checks: the leading `T` decides how
