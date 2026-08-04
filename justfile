@@ -27,6 +27,19 @@ setup:
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
         --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
 
+# Sync the lake dependency on nbdsl-worker to the latest kernel repo commit
+# and reinstall the Python kernel adapter, so the installed kernel matches
+# the worker the lake build just compiled. Run before test-push so a stale
+# .lake/packages/nbdsl-worker or venv never serves old kernel code to the
+# notebook re-exec.
+sync-kernel:
+    @lake update nbdsl-worker
+    @lake build nbdsl_worker
+    @uv pip install -p .venv/bin/python --reinstall-package nbdsl-kernel \
+        'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
+    @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
+        --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
+
 # The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
 # commit gate and must stay fast.
 # Run the QC preflight: compile Lean and the Python adapter, then the Lean law.
@@ -54,4 +67,4 @@ _notebook-reexec:
     @.venv/bin/python scripts/reexec_demo.py
 
 [private]
-test-push: test-ci _notebook-reexec
+test-push: sync-kernel test-ci _notebook-reexec
