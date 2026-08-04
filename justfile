@@ -27,19 +27,31 @@ setup:
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
         --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
 
-# Run the repository QC gate (roundtrip talks to real Sage; E2E drives the
-# installed casdsl kernelspec — `just setup` first)
+# The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
+# commit gate and must stay fast.
+# Run the QC preflight: compile Lean and the Python adapter, then the Lean law.
 test: build
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
     @python3 -m py_compile backends/sage_adapter.py tests/roundtrip.py
+
+[private]
+_test-full:
     @python3 tests/roundtrip.py
     @.venv/bin/pytest tests/test_e2e.py -q
+
+# Talks to real Sage and drives the installed casdsl kernelspec
+# (`just setup` first); the full suite behind it is `_test-full`.
+# Run the full QC gate: the preflight, the Sage roundtrip, and the E2E suite.
+test-ci: test _test-full
 
 [private]
 test-commit: test
 
-# Run the CI quality gate
-test-ci: test
+# Re-execute the demo notebook against the live casdsl kernel so committed
+# outputs are genuine kernel output (a23ee30 standard), never hand-written.
+[private]
+_notebook-reexec:
+    @.venv/bin/python scripts/reexec_demo.py
 
 [private]
-test-push: test-ci
+test-push: test-ci _notebook-reexec
