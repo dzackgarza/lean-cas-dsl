@@ -934,6 +934,33 @@ def elabCasAssert (parts : Array Syntax) (tail? : Option Syntax)
 {which} are not comparable"
   logInfo s!"✓ {stated}"
 
+/-- A bare proposition cell: `gcd(84, 30) = 6`. A proposition is three-valued
+— `true | false | unknown` — and the cell displays that truth value, by the
+same convention a bare expression cell displays its value. `assert` is the
+COLLAPSING form (SPEC.md): it commits only on `true`, and `false` and
+`unknown` are both assertion failures there. A chain or `in D` tail reads
+exactly as it does under `assert`. Low priority for the reason the
+bare-expression cell is. -/
+def elabCasAssertBare (parts : Array Syntax) (tail? : Option Syntax)
+    : CommandElabM Unit := do
+  let ctx ← casCtx (← ambientOf tail?)
+  let mut claims : Array (AssertRel × Syntax × Syntax) := #[]
+  for p in parts do
+    claims := claims.push (← relOf p[1], p[0], p[2])
+  -- conjunction on the three-valued lattice: `false` beats `unknown`
+  let mut outcome : Option Bool := some true
+  for claim in claims do
+    let (rel, lhs, rhs) := claim
+    if outcome == some false then break
+    match ← runCas ctx (evalAssert ctx rel (← parseCas lhs) (← parseCas rhs)) with
+    | some true => pure ()
+    | some false => outcome := some false
+    | none => if outcome == some true then outcome := none
+  let truth : String := match outcome with
+    | some true => "true" | some false => "false" | none => "unknown"
+  logInfo truth
+  emitOutput { data := [("text/plain", .str truth)] }
+
 /-- A bare expression cell: display the value as text and as a structured
 MIME bundle. LaTeX-first (#16): a value with a natural LaTeX form carries it
 as `text/latex`, wrapped in `$$…$$` so the notebook's MathJax picks it up
@@ -992,6 +1019,13 @@ domain the literals and arithmetic are read in. -/
 syntax (name := casAssert)
   "assert " casAssertion (&"and" casAssertion)* (" in " casTerm)? : command
 
+/-- A bare proposition cell: `gcd(84, 30) = 6` — the same shape `assert`
+carries (chain and `in D` tail included), displaying the three-valued truth
+`true | false | unknown`. Low priority for the reason the bare-expression
+cell is. -/
+syntax (name := casAssertBare) (priority := low)
+  casAssertion (&"and" casAssertion)* (" in " casTerm)? : command
+
 /-- A bare expression cell displays its value. Low priority, so every
 genuine Lean command in a cell still parses as Lean. -/
 syntax (name := casShow) (priority := low) casTerm : command
@@ -1023,6 +1057,10 @@ def elabLetTypedCmd : CommandElab := fun stx =>
 @[command_elab casAssert]
 def elabAssertCmd : CommandElab := fun stx =>
   elabCasAssert (#[stx[1]] ++ stx[2].getArgs.map (·[1])) (optTail? stx[3])
+
+@[command_elab casAssertBare]
+def elabAssertBareCmd : CommandElab := fun stx =>
+  elabCasAssertBare (#[stx[0]] ++ stx[1].getArgs.map (·[1])) (optTail? stx[2])
 
 @[command_elab casShow]
 def elabShowCmd : CommandElab := fun stx => elabCasShow stx[0]

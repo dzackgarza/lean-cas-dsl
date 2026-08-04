@@ -1,6 +1,6 @@
 # Elementary mathematics
 
-Definitions use :=. Equality = is a proposition. The command assert asks the available computational backend to decide or establish that proposition.
+Definitions use :=. Equality = is a proposition. The command assert asks the available computational backend to decide or establish that proposition. A proposition may also be stated bare — the cell then displays its truth value, `true | false | unknown` — while assert is the collapsing form: it commits only on `true`, and `false` and `unknown` are both assertion failures.
 
 ## Exact number systems
 

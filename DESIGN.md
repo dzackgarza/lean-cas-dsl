@@ -1636,6 +1636,10 @@ Parser decisions (load-bearing):
   resolution that §Functions deliberately narrowed;
 - a bare `casTerm` cell displays its value (our own command production, low
   priority so genuine Lean commands still parse);
+- a bare proposition cell (a `casAssertion` with no command word) displays
+  its truth value — `true | false | unknown` — the same low-priority display
+  convention as the bare term cell; `assert` is the collapsing form and
+  commits only on `true`;
 - **a bare `NAME := expr [in D]` is the `let` binding without the word**
   (ruling 2026-07-31, #31 item 2): SPEC.md's opening sentence says
   "Definitions use :=" and its §Polynomials line `q := map p to ℂ[x]` writes

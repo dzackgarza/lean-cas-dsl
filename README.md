@@ -142,6 +142,17 @@ notebook core. Once the semantic registry is imported, local state stores
 references, derived closures, realization choices, and bindings—not an
 independent category graph.
 
+Notebook semantics follow the kernel's document-order philosophy: a cell's
+state is the state of elaborating the *visible* prefix of the notebook
+through that cell, so outputs always correspond to the source shown above
+them. Editing cell 2 never re-runs an unchanged cell 1 (cached snapshots);
+editing cell 1 re-runs only the cells below it, visibly, rather than
+leaving downstream outputs silently stale against a changed definition.
+A failing cell rolls the session back — no partially-applied notebook
+state. This is a deliberate exclusion of the standard notebook footgun
+(unknown, inconsistent state), not a limitation; the execution-order REPL
+model remains available in clients that do not stream the document.
+
 Design contract, decisions, ceilings, and open questions: [DESIGN.md](DESIGN.md).
 Deferred work is tracked in the issues.
 

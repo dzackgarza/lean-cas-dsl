@@ -12,7 +12,8 @@ Run: .venv/bin/pytest tests/test_e2e.py
     --display-name "CasDsl (Lean 4)")
 """
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from jupyter_client.manager import start_new_kernel
@@ -30,16 +31,16 @@ def kernel() -> Iterator[Kernel]:
     km.shutdown_kernel(now=False)
 
 
-def run_cell(kc: Any, code: str,
-             timeout: float = STARTUP) -> tuple[dict[str, Any], list[Any]]:
+def run_cell(
+    kc: Any, code: str, timeout: float = STARTUP
+) -> tuple[dict[str, Any], list[Any]]:
     msg_id = kc.execute(code)
     outputs = []
     while True:
         msg = kc.get_iopub_msg(timeout=timeout)
         if msg["parent_header"].get("msg_id") != msg_id:
             continue
-        if (msg["msg_type"] == "status"
-                and msg["content"]["execution_state"] == "idle"):
+        if msg["msg_type"] == "status" and msg["content"]["execution_state"] == "idle":
             break
         outputs.append(msg)
     while True:
@@ -65,8 +66,11 @@ def all_text(outputs: list[Any]) -> str:
 
 def bundles(outputs: list[Any]) -> list[dict[str, Any]]:
     """The MIME bundles a cell published — what a notebook front end renders."""
-    return [m["content"]["data"] for m in outputs
-            if m["msg_type"] in ("display_data", "execute_result")]
+    return [
+        m["content"]["data"]
+        for m in outputs
+        if m["msg_type"] in ("display_data", "execute_result")
+    ]
 
 
 def bundle(kc: Any, code: str) -> dict[str, Any]:
@@ -93,6 +97,7 @@ def err(kc: Any, code: str) -> str:
 
 # -- 1 · trusted arithmetic and assertions --------------------------------
 
+
 def test_assert_arithmetic(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "assert 2 + 3 = 5")
@@ -106,6 +111,7 @@ def test_assert_false_is_distinct_error(kernel: Kernel) -> None:
 
 
 # -- 2 · backend-blind factorization --------------------------------------
+
 
 def test_factor_integer(kernel: Kernel) -> None:
     _, kc = kernel
@@ -123,7 +129,7 @@ def test_explain_route_names_backend_in_diagnostics_only(kernel: Kernel) -> None
 
 def test_gcd_is_the_prefix_spelling_of_a_method(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "assert gcd(84, 30) = 6")          # SPEC.md writes it prefix
+    ok(kc, "assert gcd(84, 30) = 6")  # SPEC.md writes it prefix
     text = err(kc, "assert gcd(84, 30) = 7")
     assert "false" in text.lower()
     # the prefix form IS the category method: the receiver spelling of the
@@ -142,7 +148,28 @@ def test_gcd_is_the_prefix_spelling_of_a_method(kernel: Kernel) -> None:
     assert "'nosuchop' is not bound" in text
 
 
+def test_bare_proposition_displays_truth_value(kernel: Kernel) -> None:
+    """A proposition needs no `assert`: a bare cell displays its truth value
+    (`true | false | unknown`); `assert` is the collapsing form."""
+    _, kc = kernel
+    text = ok(kc, "gcd(84, 30) = 6")
+    assert "true" in text.lower()
+    # false is a SUCCESSFUL cell: the value is displayed, not an error
+    text = ok(kc, "gcd(84, 30) = 7")
+    assert "false" in text.lower()
+    # the honest `unknown` (a decided claim the backend refuses) displays too
+    text = ok(kc, "(map √2 to ℝ/O(1/10^{4})) = 1")
+    assert "unknown" in text.lower()
+    # ...while `assert` collapses the same three outcomes to true/failure
+    ok(kc, "assert gcd(84, 30) = 6")
+    text = err(kc, "assert gcd(84, 30) = 7")
+    assert "false" in text.lower()
+    text = err(kc, "assert (map √2 to ℝ/O(1/10^{4})) = 1")
+    assert "unknown" in text.lower()
+
+
 # -- 3 · polynomials, embeddings, polynomial call -------------------------
+
 
 def test_polynomial_factor_and_call(kernel: Kernel) -> None:
     _, kc = kernel
@@ -156,11 +183,12 @@ def test_polynomial_factor_and_call(kernel: Kernel) -> None:
 
 
 def test_the_indeterminate_and_the_polynomial_are_elements_of_the_ring(
-        kernel: Kernel) -> None:
+    kernel: Kernel,
+) -> None:
     _, kc = kernel
     ok(kc, "assert x ∈ ℤ[x]")
     ok(kc, "assert p ∈ ℤ[x]")
-    ok(kc, "assert p ∈ ℚ[x]")   # coefficient by coefficient, along ℤ ⊆ ℚ
+    ok(kc, "assert p ∈ ℚ[x]")  # coefficient by coefficient, along ℤ ⊆ ℚ
     text = err(kc, "assert 1 / 2 ∈ ℤ[x]")
     assert "false" in text.lower()
     # NOTHING was published into the session by any of that: a bare `x` is
@@ -172,8 +200,7 @@ def test_the_indeterminate_and_the_polynomial_are_elements_of_the_ring(
     assert "'y' is not bound" in text
 
 
-def test_degree_is_one_operation_over_both_coefficient_rings(
-        kernel: Kernel) -> None:
+def test_degree_is_one_operation_over_both_coefficient_rings(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "assert p.deg() = 3")
     text = err(kc, "assert p.deg() = 2")
@@ -354,8 +381,10 @@ def test_a_generating_series_and_its_truncation(kernel: Kernel) -> None:
     # truncation's ends in `O(t^5)`
     ok(kc, "let sq(t) = ∑_{n ∈ ℕ} n^2 t^n ∈ ℤ[[t]]")
     assert bundle(kc, "sq")["text/plain"] == "t + 4t^2 + 9t^3 + 16t^4 + ..."
-    assert (bundle(kc, "map sq to ℤ[[t]] / O(t^5)")["text/plain"]
-            == "t + 4t^2 + 9t^3 + 16t^4 + O(t^5)")
+    assert (
+        bundle(kc, "map sq to ℤ[[t]] / O(t^5)")["text/plain"]
+        == "t + 4t^2 + 9t^3 + 16t^4 + O(t^5)"
+    )
     ok(kc, "assert [t^2]sq = 4")
     text = err(kc, "assert [t^2]sq = 5")
     assert "false" in text.lower()
@@ -379,7 +408,7 @@ def test_a_binding_shadows_the_differential(kernel: Kernel) -> None:
 
 def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "p.roots()")      # x³ - 2x + 1 over ℤ; p(1) = 0
+    text = ok(kc, "p.roots()")  # x³ - 2x + 1 over ℤ; p(1) = 0
     assert "{1}" in text
     # the ruled default (owner rulings, 2026-07-31): the coefficient ring
     # answers, and the note is EXACT — decided from the factorization's
@@ -454,6 +483,7 @@ def test_the_solution_set_refusal_names_the_situation(kernel: Kernel) -> None:
 
 # -- 4 · exact matrix algebra ---------------------------------------------
 
+
 def test_matrix_inverse_and_det(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let M := [1, 2; 3, 4] in Mat₂(ℚ)")
@@ -464,6 +494,7 @@ def test_matrix_inverse_and_det(kernel: Kernel) -> None:
 
 # -- 5 · subcategory inheritance ------------------------------------------
 
+
 def test_annihilator_inherited_through_subcategory(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let F := ℤ/4 in SmallModules(ℤ)")
@@ -472,6 +503,7 @@ def test_annihilator_inherited_through_subcategory(kernel: Kernel) -> None:
 
 
 # -- 6 · countable sets, ellipses, indexing -------------------------------
+
 
 def test_progressions_membership_and_identity(kernel: Kernel) -> None:
     _, kc = kernel
@@ -484,15 +516,16 @@ def test_progressions_membership_and_identity(kernel: Kernel) -> None:
 
 def test_countable_indexing_and_cardinality(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "ℤ[3]")   # registered convention 0, 1, −1, 2, −2, …
+    text = ok(kc, "ℤ[3]")  # registered convention 0, 1, −1, 2, −2, …
     assert "2" in text
-    text = ok(kc, "ℚ[3]")   # Cantor zigzag: 0, 1, −1, 1/2, … (#17)
+    text = ok(kc, "ℚ[3]")  # Cantor zigzag: 0, 1, −1, 1/2, … (#17)
     assert "1/2" in text
     text = ok(kc, "X.cardinality()")
     assert "ℵ₀" in text
 
 
 # -- 7 · semantic availability ≠ computability ----------------------------
+
 
 def test_capability_gap_is_structured_not_semantic(kernel: Kernel) -> None:
     _, kc = kernel
@@ -518,6 +551,7 @@ def test_failed_cell_commits_nothing_prior_state_intact(kernel: Kernel) -> None:
 
 
 # -- 8 · transport along preferred functors --------------------------------
+
 
 def test_cardinality_transported_along_forgetful_functor(kernel: Kernel) -> None:
     _, kc = kernel
@@ -555,11 +589,12 @@ def test_bare_equality_is_category_bound(kernel: Kernel) -> None:
 
 # -- 9 · functions ---------------------------------------------------------
 
+
 def test_both_binder_spellings_denote_the_same_function(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "let h := t ↦ t² + 1 in ℝ → ℝ")
     assert "t ↦ t^2 + 1" in text and "ℝ → ℝ" in text
-    ok(kc, "let hp(t) := t^2 + 1 in R->R")   # ASCII domain, superscript-free body
+    ok(kc, "let hp(t) := t^2 + 1 in R->R")  # ASCII domain, superscript-free body
     ok(kc, "assert h = hp")
 
 
@@ -583,7 +618,8 @@ def test_function_identity_is_normalized_not_sampled(kernel: Kernel) -> None:
 
 
 def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
-        kernel: Kernel) -> None:
+    kernel: Kernel,
+) -> None:
     _, kc = kernel
     # SPEC.md §Elementary calculus' bodies. `e` is Euler's number ALWAYS —
     # it is a reserved symbol under the 2026-07-31 ruling (#31 item 3), and
@@ -666,7 +702,7 @@ def test_e_and_i_are_reserved_symbols(kernel: Kernel) -> None:
 
 def test_composition_is_an_identity_of_function_expressions(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "let f(t) = t^2 in RR->RR")   # SPEC.md spells the definition with `=`
+    ok(kc, "let f(t) = t^2 in RR->RR")  # SPEC.md spells the definition with `=`
     ok(kc, "let g(t) = t^3 in RR->RR")
     ok(kc, "assert (f ∘ g)(t) = t^6")
     ok(kc, "assert (f ∘ g)(2) = 64")
@@ -721,12 +757,12 @@ def test_a_binding_still_wins_over_a_callee_binder(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let s := 5 in ℤ")
     ok(kc, "let w(s) = s + 1 in ℕ → ℕ")
-    ok(kc, "assert w(s) = 6")   # w(5), not the indeterminate
+    ok(kc, "assert w(s) = 6")  # w(5), not the indeterminate
 
 
 def test_argument_outside_the_source_domain_is_refused(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "assert m2(3) = 6")   # m2 : ℕ → ℕ, bound above
+    ok(kc, "assert m2(3) = 6")  # m2 : ℕ → ℕ, bound above
     text = err(kc, "m2(-1)")
     assert "-1 is not an element of ℕ" in text
 
@@ -734,7 +770,7 @@ def test_argument_outside_the_source_domain_is_refused(kernel: Kernel) -> None:
 def test_result_lands_in_the_target_domain(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let k(t) = t + 7 in ℤ/5 → ℤ/5")
-    text = ok(kc, "k(4)")       # 4 + 7 in ℤ/5, not 11
+    text = ok(kc, "k(4)")  # 4 + 7 in ℤ/5, not 11
     assert "1 ∈ ℤ/5" in text
     ok(kc, "assert k(4) = 1")
 
@@ -751,6 +787,7 @@ def test_symbolic_call_reduces_in_the_arrows_domain(kernel: Kernel) -> None:
 
 
 # -- 10 · registry-driven embeddings ----------------------------------------
+
 
 def test_registered_quotient_embedding_int_to_mod(kernel: Kernel) -> None:
     _, kc = kernel
@@ -778,6 +815,7 @@ def test_unregistered_embedding_is_honest_error(kernel: Kernel) -> None:
 # names bound here (`det`, `z`) appear nowhere else, so these tests do not
 # depend on running after anything.
 
+
 def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
     _, kc = kernel
     # `det` is a declared method, so `det(2)` would otherwise be the prefix
@@ -793,10 +831,11 @@ def test_a_binding_wins_over_the_prefix_method_spelling(kernel: Kernel) -> None:
 # fixture above, whose tests are all before this point); `B` appears nowhere
 # else in this file.
 
+
 def test_both_powerset_ascriptions_are_checked_membership(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let A := {1, 2, 3} in 𝒫(ℤ)")
-    ok(kc, "let B := {3, 4, 5} in 2^ℤ")     # SPEC.md's other spelling
+    ok(kc, "let B := {3, 4, 5} in 2^ℤ")  # SPEC.md's other spelling
     # the ascription is a JUDGMENT, not an annotation: a set that does not
     # lie in the ascribed powerset is refused at the binding
     text = err(kc, "let bad3 := {1, 1/2} in 𝒫(ℤ)")
@@ -810,8 +849,12 @@ def test_the_four_binary_operations(kernel: Kernel) -> None:
     ok(kc, "assert A \\ B = {1, 2}")
     ok(kc, "assert A △ B = {1, 2, 4, 5}")
     # each one rejects a wrong answer
-    for wrong in ("A ∪ B = {1, 2, 3, 4}", "A ∩ B = {4}",
-                  "A \\ B = {1, 2, 3}", "A △ B = {1, 2, 4}"):
+    for wrong in (
+        "A ∪ B = {1, 2, 3, 4}",
+        "A ∩ B = {4}",
+        "A \\ B = {1, 2, 3}",
+        "A △ B = {1, 2, 4}",
+    ):
         assert "false" in err(kc, f"assert {wrong}").lower()
 
 
@@ -863,6 +906,7 @@ def test_infinite_receivers_are_the_honest_gap(kernel: Kernel) -> None:
 # -- 13 · set comprehensions and images ------------------------------------
 # SPEC.md §Set comprehensions. `S`, `E` and the binder names used here appear
 # nowhere else in this file.
+
 
 def test_a_finite_comprehension_is_decided(kernel: Kernel) -> None:
     _, kc = kernel
@@ -927,12 +971,13 @@ def test_a_bounded_image_comprehension_enumerates_exactly(kernel: Kernel) -> Non
     text = ok(kc, "{m2(n) | n ∈ ℕ, 0 ≤ n < 6}")
     assert "{0, 2, 4, 6, 8, 10}" in text
     ok(kc, "assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8, 10}")
-    assert "false" in err(
-        kc, "assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8}").lower()
+    assert (
+        "false"
+        in err(kc, "assert {m2(n) | n ∈ ℕ, 0 ≤ n < 6} = {0, 2, 4, 6, 8}").lower()
+    )
 
 
-def test_a_guard_backed_comprehension_presents_lazily(
-        kernel: Kernel) -> None:
+def test_a_guard_backed_comprehension_presents_lazily(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC §Ellipses' primes set (#31 item 7): a guard the bound extraction
     # does not read presents the set LAZILY, backed by the guard as written —
@@ -960,7 +1005,8 @@ def test_a_guard_backed_comprehension_presents_lazily(
 
 
 def test_a_guard_that_only_the_indeterminate_understands_is_refused(
-        kernel: Kernel) -> None:
+    kernel: Kernel,
+) -> None:
     _, kc = kernel
     # The bounds are read with the binder as an INDETERMINATE, where `n.deg()`
     # answers 1 — while for an integer it is a resolver error. The candidate
@@ -968,15 +1014,17 @@ def test_a_guard_that_only_the_indeterminate_understands_is_refused(
     # enumerates something is validated by construction; these three enumerate
     # NOTHING (two collapse to an empty range, one to the infinite refusal) and
     # would otherwise ship a verdict no element-world reading supported.
-    for g in ("{n ∈ ℤ | n.deg() ≤ 0}", "{n ∈ ℕ | n.deg() ≤ 0}",
-              "{n ∈ ℤ | n.deg() ≤ 1}"):
+    for g in (
+        "{n ∈ ℤ | n.deg() ≤ 0}",
+        "{n ∈ ℕ | n.deg() ≤ 0}",
+        "{n ∈ ℤ | n.deg() ≤ 1}",
+    ):
         text = err(kc, "let zz := %s" % g)
         assert "polynomial comparison" in text, g
         assert "infinite" not in text, g
 
 
-def test_an_unguarded_head_is_read_in_the_element_world_too(
-        kernel: Kernel) -> None:
+def test_an_unguarded_head_is_read_in_the_element_world_too(kernel: Kernel) -> None:
     _, kc = kernel
     # The unguarded path reads the head ONCE, so without an element-world
     # reading the indeterminate's answer would be the whole verdict:
@@ -986,9 +1034,9 @@ def test_an_unguarded_head_is_read_in_the_element_world_too(
         assert "does not evaluate for an element" in text, h
         assert "infinite" not in text, h
     # …while heads that genuinely evaluate for an element still decide
-    ok(kc, "assert {p.deg() | n ∈ ℕ} = {3}")      # constant, element world agrees
+    ok(kc, "assert {p.deg() | n ∈ ℕ} = {3}")  # constant, element world agrees
     ok(kc, "assert {7 | n ∈ ℕ} = {7}")
-    ok(kc, "assert {2n | n ∈ ℕ} = E")             # the progression, unchanged
+    ok(kc, "assert {2n | n ∈ ℕ} = E")  # the progression, unchanged
 
 
 def test_a_constant_guard_is_decided_not_misdiagnosed(kernel: Kernel) -> None:
@@ -1050,6 +1098,7 @@ def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> Non
 
 # -- 12 · LaTeX-first display (#16) ---------------------------------------
 
+
 def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
     # issue #16's three expected shapes, exactly. The payload is the math
@@ -1064,7 +1113,8 @@ def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     ok(kc, "let lM := [1, 2; 3, 4] in Mat₂(ℚ)")
     b = bundle(kc, "lM.inverse()")
     assert b["text/latex"] == (
-        r"$$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$$")
+        r"$$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$$"
+    )
     assert b["text/plain"] == "[-2, 1; 3/2, -1/2]"
 
     ok(kc, "let lq(x) := x^3 - 2x + 1 in ℤ[x]")
@@ -1092,14 +1142,15 @@ def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
     # every LaTeX payload is math-mode LaTeX: MathJax does not typeset the raw
     # ℤ/↦/ℵ₀ the plain rendering uses, so nothing non-ASCII may reach it
     for code, expected in (
-            ("lq.roots()", r"$$\{1\}$$"),
-            ("{0, 2, 4, ...}", r"$$\{0, 2, \ldots\}$$"),
-            ("{1, 2, 3}", r"$$\{1, 2, 3\}$$"),
-            ("𝒫({1, 2})", r"$$\mathcal{P}(\{1, 2\})$$"),
-            ("ℤ", r"$$\mathbb{Z}$$"),
-            ("ℤ/5", r"$$\mathbb{Z}/5\mathbb{Z}$$"),
-            ("|{0, 2, 4, ...}|", r"$$\aleph_0$$"),
-            ("|{1, 2, 3}|", "$$3$$")):
+        ("lq.roots()", r"$$\{1\}$$"),
+        ("{0, 2, 4, ...}", r"$$\{0, 2, \ldots\}$$"),
+        ("{1, 2, 3}", r"$$\{1, 2, 3\}$$"),
+        ("𝒫({1, 2})", r"$$\mathcal{P}(\{1, 2\})$$"),
+        ("ℤ", r"$$\mathbb{Z}$$"),
+        ("ℤ/5", r"$$\mathbb{Z}/5\mathbb{Z}$$"),
+        ("|{0, 2, 4, ...}|", r"$$\aleph_0$$"),
+        ("|{1, 2, 3}|", "$$3$$"),
+    ):
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
         assert b["text/latex"].isascii(), code
@@ -1108,8 +1159,7 @@ def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
         assert "text/plain" in b, code
 
 
-def test_a_value_with_no_latex_form_emits_plain_text_only(
-        kernel: Kernel) -> None:
+def test_a_value_with_no_latex_form_emits_plain_text_only(kernel: Kernel) -> None:
     _, kc = kernel
     # a truth value: `\text{true}` would be typeset prose, not mathematics
     ok(kc, "let lb := 7 in ℤ")
@@ -1147,8 +1197,12 @@ def test_assertions_and_diagnostics_stay_textual(kernel: Kernel) -> None:
     _, outputs = run_cell(kc, "assert 2 + 3 = 5")
     assert bundles(outputs) == []
     assert "✓" in all_text(outputs)
-    for diagnostic in ("#explain_route ln.factor()", "#capabilities",
-                       "#capability_gaps", "#canonical_maps"):
+    for diagnostic in (
+        "#explain_route ln.factor()",
+        "#capabilities",
+        "#capability_gaps",
+        "#canonical_maps",
+    ):
         b = bundle(kc, diagnostic)
         assert "text/latex" not in b, diagnostic
         assert "text/plain" in b, diagnostic
@@ -1174,9 +1228,10 @@ def test_the_value_payload_carries_a_set_result(kernel: Kernel) -> None:
 # the canonical-map registry, so every claim here is a claim about that
 # registry — and `and` is a conjunction of assertions, not a term operator.
 
+
 def test_the_number_system_chain(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ")   # SPEC.md, verbatim
+    ok(kc, "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ")  # SPEC.md, verbatim
     # each link on its own, and the ones nobody registered are false
     ok(kc, "assert ℚ ⊆ ℂ")
     assert "false" in err(kc, "assert ℝ ⊆ ℚ").lower()
@@ -1229,10 +1284,11 @@ def test_a_domain_is_a_receiver_too(kernel: Kernel) -> None:
 # this section produces a decimal. `z` is rebound here (SPEC.md's own name for
 # it); the test that bound it before is above.
 
+
 def test_exact_algebraic_membership(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "assert √2 ∈ ℝ")            # SPEC.md, verbatim
-    ok(kc, "assert 2 + 2i ∈ ℂ")        # SPEC.md, verbatim
+    ok(kc, "assert √2 ∈ ℝ")  # SPEC.md, verbatim
+    ok(kc, "assert 2 + 2i ∈ ℂ")  # SPEC.md, verbatim
     # the memberships that must fail, one per reason
     assert "false" in err(kc, "assert √2 ∈ ℚ").lower()
     assert "false" in err(kc, "assert 2 + 2i ∈ ℝ").lower()
@@ -1245,15 +1301,20 @@ def test_exact_algebraic_membership(kernel: Kernel) -> None:
 
 def test_the_complex_methods(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "let z := 2 + 2i in ℂ")     # SPEC.md, verbatim, and so are the five
+    ok(kc, "let z := 2 + 2i in ℂ")  # SPEC.md, verbatim, and so are the five
     ok(kc, "assert z.re() = 2")
     ok(kc, "assert z.im() = 2")
     ok(kc, "assert z.bar() = 2 - 2i")
     ok(kc, "assert z · z.bar() = 8")
     ok(kc, "assert |z| = 2√2")
     # each one rejects a wrong answer
-    for wrong in ("z.re() = 3", "z.im() = 0", "z.bar() = 2 + 2i",
-                  "z · z.bar() = 4", "|z| = 2"):
+    for wrong in (
+        "z.re() = 3",
+        "z.im() = 0",
+        "z.bar() = 2 + 2i",
+        "z · z.bar() = 4",
+        "|z| = 2",
+    ):
         assert "false" in err(kc, f"assert {wrong}").lower(), wrong
     # the modulus is exact: |2 + 2i| is 2√2 and never 2.828…
     text = ok(kc, "|z|")
@@ -1291,13 +1352,14 @@ def test_the_exact_form_has_a_ceiling_and_says_so(kernel: Kernel) -> None:
 def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
     for code, expected in (
-            ("√2", r"$$\sqrt{2}$$"),
-            ("2√2", r"$$2\sqrt{2}$$"),
-            ("2 + 2i", "$$2 + 2i$$"),
-            ("ℂ", r"$$\mathbb{C}$$")):
+        ("√2", r"$$\sqrt{2}$$"),
+        ("2√2", r"$$2\sqrt{2}$$"),
+        ("2 + 2i", "$$2 + 2i$$"),
+        ("ℂ", r"$$\mathbb{C}$$"),
+    ):
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
-        assert b["text/latex"].isascii(), code   # no `√`, no `ℂ` in a payload
+        assert b["text/latex"].isascii(), code  # no `√`, no `ℂ` in a payload
         assert "text/plain" in b, code
     assert bundle(kc, "√2")["text/plain"] == "√2"
 
@@ -1305,6 +1367,7 @@ def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
 # -- 15 · ℂ[x]: where the cubic splits ---------------------------------------
 # SPEC.md §Polynomials' last two blocks. `p` (x³ - 2x + 1 over ℤ) and `q`
 # (x² - 2 over ℚ) are bound in §3 above; `pc` and `qc` are new here.
+
 
 def test_a_polynomial_evaluated_at_an_exact_irrational(kernel: Kernel) -> None:
     _, kc = kernel
@@ -1318,7 +1381,7 @@ def test_a_polynomial_evaluated_at_an_exact_irrational(kernel: Kernel) -> None:
 
 def test_the_cubic_splits_over_the_complex_numbers(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "let pc := map p to ℂ[x]")     # SPEC.md's `q := map p to ℂ[x]`
+    ok(kc, "let pc := map p to ℂ[x]")  # SPEC.md's `q := map p to ℂ[x]`
     text = ok(kc, "pc.factor()")
     # the CONTENT, not one string: Sage owns the factor order and the unit
     # convention (DESIGN.md decision 7), so what is pinned here is that three
@@ -1335,8 +1398,7 @@ def test_the_cubic_splits_over_the_complex_numbers(kernel: Kernel) -> None:
     assert "not_expressible" in text
 
 
-def test_roots_in_the_complex_numbers_and_the_difference_set(
-        kernel: Kernel) -> None:
+def test_roots_in_the_complex_numbers_and_the_difference_set(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC.md writes `assert q.roots() ⊆ ℂ - ℚ` for q ∈ ℚ[x]. `roots` answers
     # in the polynomial's OWN coefficient ring — the pinned decision above —
@@ -1348,7 +1410,7 @@ def test_roots_in_the_complex_numbers_and_the_difference_set(
     text = ok(kc, "qc.roots()")
     assert "√2" in text and "2.41" not in text and "1.41" not in text
     ok(kc, "assert qc.roots() = {√2, -√2}")
-    ok(kc, "assert qc.roots() ⊆ ℂ - ℚ")     # …with two elements in it
+    ok(kc, "assert qc.roots() ⊆ ℂ - ℚ")  # …with two elements in it
     ok(kc, "assert √2 ∈ qc.roots()")
     assert "false" in err(kc, "assert qc.roots() = {√2}").lower()
     assert "false" in err(kc, "assert 2 ∈ qc.roots()").lower()
@@ -1386,6 +1448,7 @@ def test_a_surd_coefficient_crosses_the_wire(kernel: Kernel) -> None:
 # result carries the exact value, the decimal presenting it, and the ε asked
 # for. This section runs before `i` is shadowed below.
 
+
 def test_the_spec_approximation_line(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC.md, verbatim — the line and the display it writes under it
@@ -1404,14 +1467,17 @@ def test_the_spec_approximation_line(kernel: Kernel) -> None:
 def test_the_approximation_keeps_the_exact_value_it_is_of(kernel: Kernel) -> None:
     _, kc = kernel
     payload = bundle(kc, "map √2 to ℝ/O(1/10^{4})")[
-        "application/vnd.casdsl.value+json"]["value"]
+        "application/vnd.casdsl.value+json"
+    ]["value"]
     assert payload["t"] == "approx", payload
     # the source is the exact algebraic number, unchanged — asking for a
     # decimal presentation does not replace the value with it
-    assert payload["exact"] == {"t": "alg",
-                               "a": {"t": "rat", "num": "0", "den": "1"},
-                               "b": {"t": "rat", "num": "1", "den": "1"},
-                               "d": "2"}, payload
+    assert payload["exact"] == {
+        "t": "alg",
+        "a": {"t": "rat", "num": "0", "den": "1"},
+        "b": {"t": "rat", "num": "1", "den": "1"},
+        "d": "2",
+    }, payload
     assert payload["decimal"] == "1.4142", payload
     # …and both tolerances travel with it: the one requested and the one the
     # backend certified
@@ -1420,7 +1486,8 @@ def test_the_approximation_keeps_the_exact_value_it_is_of(kernel: Kernel) -> Non
 
 
 def test_the_registry_decides_what_may_be_presented_in_the_reals(
-        kernel: Kernel) -> None:
+    kernel: Kernel,
+) -> None:
     _, kc = kernel
     # `map … to ℝ/O(ε)` moves the value into ℝ along the REGISTERED canonical
     # map first, so everything the ⊆-chain covers can be asked for…
@@ -1463,8 +1530,12 @@ def test_the_approximation_target_is_not_a_domain(kernel: Kernel) -> None:
     # `ℝ/O(ε)` is the target of `map … to`, and nothing else — there is no
     # quotient here to be an element of, or for ℝ to be included in, so the
     # claim cannot even be stated (let alone answered `true`)
-    for code in ("ℝ/O(1/10)", "assert ℝ ⊆ ℝ/O(1/10)", "assert √2 ∈ ℝ/O(1/10)",
-                 "let bad5 := ℝ/O(1/10)"):
+    for code in (
+        "ℝ/O(1/10)",
+        "assert ℝ ⊆ ℝ/O(1/10)",
+        "assert √2 ∈ ℝ/O(1/10)",
+        "let bad5 := ℝ/O(1/10)",
+    ):
         text = err(kc, code)
         assert "not a domain" in text and "not transitive" in text, code
 
@@ -1476,9 +1547,14 @@ def test_the_map_spelling_answers_in_its_own_terms(kernel: Kernel) -> None:
     # the map spelling may name it. (`#capability_gaps` and an explicit
     # `x.approximate(ε)` call are the audit surfaces where the method DOES
     # appear — see the ℂ gap above.)
-    for code in ("map √2 to ℝ/O(0)", "map 2 + 2i to ℝ/O(1/10)",
-                 "map √2 to ℝ/O(1/10^{2000})", "map ℤ to ℝ/O(1/10)",
-                 "map √2 to ℝ/O(ℤ)", "(map √2 to ℝ/O(1/10)) + 1"):
+    for code in (
+        "map √2 to ℝ/O(0)",
+        "map 2 + 2i to ℝ/O(1/10)",
+        "map √2 to ℝ/O(1/10^{2000})",
+        "map ℤ to ℝ/O(1/10)",
+        "map √2 to ℝ/O(ℤ)",
+        "(map √2 to ℝ/O(1/10)) + 1",
+    ):
         assert "approximate" not in err(kc, code), code
 
 
@@ -1487,8 +1563,9 @@ def test_the_tolerance_is_read_from_the_surface_spelling(kernel: Kernel) -> None
     # ε is an exact rational, whatever the spelling computes to — a reciprocal
     # power of TWO is displayed as the rational it is, since only a power of
     # ten has the `1/10^{k}` spelling SPEC.md writes
-    assert ("1.4142135623730950 + O(1/9007199254740992)"
-            in ok(kc, "map √2 to ℝ/O(1/2^{53})"))
+    assert "1.4142135623730950 + O(1/9007199254740992)" in ok(
+        kc, "map √2 to ℝ/O(1/2^{53})"
+    )
     assert "1.4 + O(1/3)" in ok(kc, "map √2 to ℝ/O(1/3)")
 
 
@@ -1500,7 +1577,7 @@ def test_an_approximation_is_a_result_not_a_binding(kernel: Kernel) -> None:
     # because there is nothing to be an element of. It displays and it fails
     # loudly; it does not bind to something it is not.
     assert "is not an object" in err(kc, "let ap := map √2 to ℝ/O(1/10^{4})")
-    assert "is not an object" in err(kc, "let apf := n.factor()")   # n = 360
+    assert "is not an object" in err(kc, "let apf := n.factor()")  # n = 360
     # …and two approximations are not compared: |a − b| < ε is not transitive,
     # so the honest outcome is `unknown` rather than a decided equality
     assert "unknown" in err(kc, "assert (map √2 to ℝ/O(1/10^{4})) = 1")
@@ -1514,9 +1591,11 @@ def test_an_approximation_has_no_arithmetic(kernel: Kernel) -> None:
     # unary negation that has its own arm, and a power (whose fold multiplies
     # up from 1, so the refusal must name the user's operator and operand
     # rather than a multiplication by a `1` nobody wrote)
-    for code, op in (("(map √2 to ℝ/O(1/10^{4})) + 1", "addition"),
-                     ("-(map √2 to ℝ/O(1/10^{4}))", "negation"),
-                     ("(map √2 to ℝ/O(1/10^{4}))^2", "exponentiation")):
+    for code, op in (
+        ("(map √2 to ℝ/O(1/10^{4})) + 1", "addition"),
+        ("-(map √2 to ℝ/O(1/10^{4}))", "negation"),
+        ("(map √2 to ℝ/O(1/10^{4}))^2", "exponentiation"),
+    ):
         text = err(kc, code)
         assert f"{op} is not defined on an approximation" in text, code
         assert "compute exactly, then ask for a decimal" in text, code
@@ -1530,7 +1609,7 @@ def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
     ok(kc, "let apz := 2 + 2i in ℂ")
     text = err(kc, "apz.approximate(1/1000)")
     assert "NoImplementation" in text and "approximate" in text
-    assert "2.82" not in text          # never a projection to |z| or to Re z
+    assert "2.82" not in text  # never a projection to |z| or to Re z
     # …while the real one routes, and the diagnostic names the backend
     ok(kc, "let apr := √2 in ℝ")
     text = ok(kc, "#explain_route apr.approximate(1/1000)")
@@ -1555,21 +1634,19 @@ def test_both_spellings_answer_for_the_tolerance_alike(kernel: Kernel) -> None:
         assert "0000000000" not in text, code
 
 
-def test_only_the_tolerance_failures_are_capability_failures(
-        kernel: Kernel) -> None:
+def test_only_the_tolerance_failures_are_capability_failures(kernel: Kernel) -> None:
     _, kc = kernel
     # the wrapper speaks for a missing route and a backend that could not meet
     # ε. A RESOLVE failure is about the receiver, so it must come through
     # untouched — "no backend produced a decimal" over a body naming the
     # profile would be a lie in the wrapper's own words.
-    ok(kc, "let apthree := 3 in ℤ")   # `3.approximate(…)` lexes as a decimal
+    ok(kc, "let apthree := 3 in ℤ")  # `3.approximate(…)` lexes as a decimal
     text = err(kc, "apthree.approximate(1/10)")
     assert "not a method of any category" in text
     assert "capability" not in text.lower()
 
 
-def test_a_non_rational_tolerance_is_refused_in_surface_words(
-        kernel: Kernel) -> None:
+def test_a_non_rational_tolerance_is_refused_in_surface_words(kernel: Kernel) -> None:
     _, kc = kernel
     # both spellings validate ε at the same junction, so neither reaches the
     # backend to be refused in the backend's vocabulary
@@ -1578,15 +1655,18 @@ def test_a_non_rational_tolerance_is_refused_in_surface_words(
     text = err(kc, "apr3.approximate()")
     assert "takes 1 argument(s), got 0" in text
     assert "tolerance" not in text
-    for code in ("apr3.approximate(√2)", "apr3.approximate(ℤ)",
-                 "apr3.approximate({1, 2})", "map √2 to ℝ/O(√2)"):
+    for code in (
+        "apr3.approximate(√2)",
+        "apr3.approximate(ℤ)",
+        "apr3.approximate({1, 2})",
+        "map √2 to ℝ/O(√2)",
+    ):
         text = err(kc, code)
         assert "exact positive rational" in text, code
         assert "sage op" not in text, code
 
 
-def test_a_base_without_arithmetic_names_its_own_operator(
-        kernel: Kernel) -> None:
+def test_a_base_without_arithmetic_names_its_own_operator(kernel: Kernel) -> None:
     _, kc = kernel
     # `Common.same` is a shared SHAPE, not an operation: a fold from 1 would
     # otherwise report a multiplication by a `1` nobody wrote — and answer
@@ -1596,7 +1676,9 @@ def test_a_base_without_arithmetic_names_its_own_operator(
         text = err(kc, f"assert {base}^2 = 1")
         assert "exponentiation is not defined on" in text, base
         assert "multiplication" not in text, base
-        assert "exponentiation is not defined on" in err(kc, f"assert {base}^0 = 1"), base
+        assert "exponentiation is not defined on" in err(kc, f"assert {base}^0 = 1"), (
+            base
+        )
     # …while a base that really has arithmetic is untouched
     ok(kc, "assert 2^10 = 1024")
     ok(kc, "assert (1/2)^0 = 1")
@@ -1622,8 +1704,7 @@ def test_set_equality_stays_linear_on_sorted_sides(kernel: Kernel) -> None:
     ok(kc, "assert {1, 2, ..., 9999} = {1, 2, ..., 9999}")
 
 
-def test_i_means_the_imaginary_unit_in_every_session_state(
-        kernel: Kernel) -> None:
+def test_i_means_the_imaginary_unit_in_every_session_state(kernel: Kernel) -> None:
     _, kc = kernel
     # `i` is a RESERVED symbol (ruling 2026-07-31, #31 item 3) — unlike the
     # shadowable `R`/`d` spellings, no binding may take it, so `2 + 2i` is
@@ -1651,6 +1732,7 @@ def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
 # bound in §4 above; `v` and `b` are SPEC.md's own names and appear nowhere
 # else in this file. The inverse is Sage-routed, so these are the lines that
 # cannot be decided at build time.
+
 
 def test_matrix_vector_application_in_every_spelling(kernel: Kernel) -> None:
     _, kc = kernel
@@ -1680,7 +1762,8 @@ def test_a_vector_is_typeset_as_the_tuple_it_is(kernel: Kernel) -> None:
 
 
 def test_the_action_is_shape_checked_and_decides_the_wrong_vector(
-        kernel: Kernel) -> None:
+    kernel: Kernel,
+) -> None:
     _, kc = kernel
     # a matrix applies to vectors of its own size and to no other — the whole
     # reason a vector is not presented as a one-column matrix
@@ -1698,6 +1781,7 @@ def test_the_action_is_shape_checked_and_decides_the_wrong_vector(
 # echelon form. `u₁`, `u₂`, `W` are SPEC.md's own names and appear nowhere else.
 # A subspace is presented by a REDUCED basis, which is what makes dim,
 # membership and equality decidable from the presentation alone.
+
 
 def test_rank_and_kernel_of_a_matrix(kernel: Kernel) -> None:
     _, kc = kernel
@@ -1732,7 +1816,8 @@ def test_the_span_answers_dim_membership_and_equality(kernel: Kernel) -> None:
     assert bd["text/plain"] == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
     assert bd["text/latex"] == (
         r"$$\mathrm{span}_{\mathbb{Q}}\{(1, 0, 1), (0, 1, 1)\} "
-        r"\leq \mathbb{Q}^{3}$$")
+        r"\leq \mathbb{Q}^{3}$$"
+    )
     assert bd["text/latex"].isascii()
 
 
@@ -1770,6 +1855,7 @@ def test_the_subspace_is_a_set_and_a_qq_module(kernel: Kernel) -> None:
 # names and appear nowhere else. Mat₃(ℚ) is the first matrix past 2×2 to reach
 # the routed ℚ ops, so `det` is exercised at that size here too.
 
+
 def test_companion_matrix_charpoly_and_trace(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let r(x) := x³ - 2x + 1 in ℚ[x]")
@@ -1806,6 +1892,7 @@ def test_the_trace_reaches_where_det_gaps(kernel: Kernel) -> None:
 # SPEC.md §A composed computation's first block, verbatim. `r` is the ℚ[x]
 # cubic bound in §19; `roots` appears nowhere else in this file.
 
+
 def test_the_root_set_over_c_and_its_aggregations(kernel: Kernel) -> None:
     _, kc = kernel
     ok(kc, "let roots := {a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)")
@@ -1818,8 +1905,7 @@ def test_the_root_set_over_c_and_its_aggregations(kernel: Kernel) -> None:
     assert bundle(kc, "roots")["text/plain"] == "{-1/2 - (1/2)√5, -1/2 + (1/2)√5, 1}"
 
 
-def test_the_index_domain_decides_where_the_roots_are_sought(
-        kernel: Kernel) -> None:
+def test_the_index_domain_decides_where_the_roots_are_sought(kernel: Kernel) -> None:
     _, kc = kernel
     # `{a ∈ D | p(a) = 0}` seeks the solutions IN D — over ℚ the cubic has one
     # root and over ℂ it has three. That is the mathematics, not a default
@@ -1875,6 +1961,7 @@ def test_the_juxtaposition_residual_has_a_workaround(kernel: Kernel) -> None:
 
 
 # -- 21 · the ruled surface items of #31 -----------------------------------
+
 
 def test_bare_definition_is_a_command(kernel: Kernel) -> None:
     _, kc = kernel
@@ -2015,8 +2102,8 @@ def test_membership_is_admitted_in_guard_position(kernel: Kernel) -> None:
     # the set presents lazily by its guard (#31 item 7)
     text = ok(kc, "let Za := {n in \\NN | fa(n) \\in 2\\NN}")
     assert "∈ 2·ℕ" in text
-    ok(kc, "assert 2 ∈ Za")     # fa(2) = 4, even
-    ok(kc, "assert 3 ∉ Za")     # fa(3) = 9, odd
+    ok(kc, "assert 2 ∈ Za")  # fa(2) = 4, even
+    ok(kc, "assert 3 ∉ Za")  # fa(3) = 9, odd
 
 
 def test_series_inclusion_is_the_registrys_answer(kernel: Kernel) -> None:
