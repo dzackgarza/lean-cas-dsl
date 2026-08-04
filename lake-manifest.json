@@ -15,7 +15,7 @@
    "type": "git",
    "subDir": "worker",
    "scope": "",
-   "rev": "6b46bacf86771770d0209ec3ebd22997b63150de",
+   "rev": "8980b4b86f2eb9fcb132cf8a6165e8c126816fd6",
    "name": "«nbdsl-worker»",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
