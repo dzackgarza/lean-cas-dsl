@@ -31,8 +31,8 @@ setup:
 # and reinstall the Python kernel adapter, so the installed kernel matches
 # the worker the lake build just compiled. Run before test-push so a stale
 # .lake/packages/nbdsl-worker or venv never serves old kernel code to the
-# notebook re-exec. Also kill any running nbdsl kernel processes so
-# JupyterLab restarts them from the fresh install on the next cell run.
+# notebook re-exec. Restarts all open casdsl notebook kernels via the
+# Jupyter Assistant API so JupyterLab picks up the fresh install.
 sync-kernel:
     @lake update nbdsl-worker
     @lake build nbdsl_worker
@@ -40,8 +40,9 @@ sync-kernel:
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
         --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
-    @-pkill -f "python.*nbdsl_kernel.*connection_file" 2>/dev/null || true
-    @-pkill -f "nbdsl_worker --req-fd" 2>/dev/null || true
+    @for nb in $$(/home/dzack/gitclones/jupyter-assistant-api/japi list-notebooks --format json 2>/dev/null | jq -r '.result' | rg 'cas-dsl/.*\.ipynb' | cut -f1); do \
+      /home/dzack/gitclones/jupyter-assistant-api/japi restart-notebook "$$nb" '{"kernel_name": "casdsl"}' 2>/dev/null || true; \
+    done
 
 # The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
 # commit gate and must stay fast.
