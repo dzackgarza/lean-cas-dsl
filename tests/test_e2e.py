@@ -264,9 +264,9 @@ def test_the_differential_display(kernel: Kernel) -> None:
     # a differential in math mode
     b = bundle(kc, "d(f)")
     assert b["text/plain"] == "(6x + 1) dx"
-    assert b["text/latex"] == "$$(6x + 1)\\,dx$$"
+    assert b["text/latex"] == "$(6x + 1)\\,dx$"
     b = bundle(kc, "X")
-    assert b["text/latex"] == "$$\\mathrm{Spec}\\, \\mathbb{Q}[x]$$"
+    assert b["text/latex"] == "$\\mathrm{Spec}\\, \\mathbb{Q}[x]$"
 
 
 def test_the_indefinite_integral_is_a_coset(kernel: Kernel) -> None:
@@ -302,7 +302,7 @@ def test_the_indefinite_integral_is_a_coset(kernel: Kernel) -> None:
 def test_the_coset_typesets(kernel: Kernel) -> None:
     _, kc = kernel
     b = bundle(kc, "∫ f dx")
-    assert b["text/latex"] == "$$x^{3} + (1/2)x^{2} + x + \\mathbb{Q}$$"
+    assert b["text/latex"] == "$x^{3} + (1/2)x^{2} + x + \\mathbb{Q}$"
 
 
 def test_a_limit_is_an_exact_value_or_a_named_refusal(kernel: Kernel) -> None:
@@ -675,10 +675,10 @@ def test_a_symbolic_body_typesets(kernel: Kernel) -> None:
     # `\sin` and `e^{t}` are math mode's own spellings; the plain text stays
     # in the bundle as the fallback every consumer can read
     b = bundle(kc, "sine")
-    assert b["text/latex"] == "$$t \\mapsto \\sin(t)$$"
+    assert b["text/latex"] == "$t \\mapsto \\sin(t)$"
     assert b["text/plain"] == "t ↦ sin(t)"
     b = bundle(kc, "expo")
-    assert b["text/latex"] == "$$t \\mapsto e^{t}$$"
+    assert b["text/latex"] == "$t \\mapsto e^{t}$"
 
 
 def test_typed_colon_ascription_spelling(kernel: Kernel) -> None:
@@ -1109,38 +1109,39 @@ def test_the_comprehension_binder_is_scoped_to_the_braces(kernel: Kernel) -> Non
 def test_the_showcase_shapes_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
     # issue #16's three expected shapes, exactly. The payload is the math
-    # wrapped in `$$…$$` — the display register, which is what makes a
-    # notebook typeset it with no show() call; `text/plain` stays in the
-    # bundle as the fallback.
+    # wrapped in `$…$` — INLINE math on purpose (owner, 2026-08-06): a result
+    # is a line of mathematics, left-aligned in its output area, never a
+    # centered display block; `text/plain` stays in the bundle as the
+    # fallback.
     ok(kc, "let ln := 360 in ℤ")
     b = bundle(kc, "ln.factor()")
-    assert b["text/latex"] == r"$$2^{3} \cdot 3^{2} \cdot 5$$"
+    assert b["text/latex"] == r"$2^{3} \cdot 3^{2} \cdot 5$"
     assert b["text/plain"] == "2^3 * 3^2 * 5"
 
     ok(kc, "let lM := [1, 2; 3, 4] in Mat₂(ℚ)")
     b = bundle(kc, "lM.inverse()")
     assert b["text/latex"] == (
-        r"$$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$$"
+        r"$\begin{pmatrix} -2 & 1 \\ 3/2 & -1/2 \end{pmatrix}$"
     )
     assert b["text/plain"] == "[-2, 1; 3/2, -1/2]"
 
     ok(kc, "let lq(x) := x^3 - 2x + 1 in ℤ[x]")
     b = bundle(kc, "lq")
-    assert b["text/latex"] == r"$$x^{3} - 2x + 1$$"
+    assert b["text/latex"] == r"$x^{3} - 2x + 1$"
     assert b["text/plain"] == "x^3 - 2x + 1"
 
     # a ℚ[x] factorization with non-unit content: the unit is a scalar like
     # any other, so an integral rational is an integer and never `2/1`
     ok(kc, "let lr(x) := 2*x^2 - 2 in ℚ[x]")
     b = bundle(kc, "lr.factor()")
-    assert b["text/latex"] == r"$$2 \cdot (x - 1) \cdot (x + 1)$$"
+    assert b["text/latex"] == r"$2 \cdot (x - 1) \cdot (x + 1)$"
     assert b["text/plain"] == "2 * (x - 1) * (x + 1)"
 
     # …and a CONSTANT has no factors at all: the unit alone is the answer, in
-    # both spellings. An empty core would publish `$$$$` and an empty plain
+    # both spellings. An empty core would publish `$` and an empty plain
     ok(kc, "let lc(x) := 1 in ℚ[x]")
     b = bundle(kc, "lc.factor()")
-    assert b["text/latex"] == "$$1$$"
+    assert b["text/latex"] == "$1$"
     assert b["text/plain"] == "1"
 
 
@@ -1149,14 +1150,14 @@ def test_sets_domains_and_cardinals_are_typeset(kernel: Kernel) -> None:
     # every LaTeX payload is math-mode LaTeX: MathJax does not typeset the raw
     # ℤ/↦/ℵ₀ the plain rendering uses, so nothing non-ASCII may reach it
     for code, expected in (
-        ("lq.roots()", r"$$\{1\}$$"),
-        ("{0, 2, 4, ...}", r"$$\{0, 2, \ldots\}$$"),
-        ("{1, 2, 3}", r"$$\{1, 2, 3\}$$"),
-        ("𝒫({1, 2})", r"$$\mathcal{P}(\{1, 2\})$$"),
-        ("ℤ", r"$$\mathbb{Z}$$"),
-        ("ℤ/5", r"$$\mathbb{Z}/5\mathbb{Z}$$"),
-        ("|{0, 2, 4, ...}|", r"$$\aleph_0$$"),
-        ("|{1, 2, 3}|", "$$3$$"),
+        ("lq.roots()", r"$\{1\}$"),
+        ("{0, 2, 4, ...}", r"$\{0, 2, \ldots\}$"),
+        ("{1, 2, 3}", r"$\{1, 2, 3\}$"),
+        ("𝒫({1, 2})", r"$\mathcal{P}(\{1, 2\})$"),
+        ("ℤ", r"$\mathbb{Z}$"),
+        ("ℤ/5", r"$\mathbb{Z}/5\mathbb{Z}$"),
+        ("|{0, 2, 4, ...}|", r"$\aleph_0$"),
+        ("|{1, 2, 3}|", "$3$"),
     ):
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
@@ -1195,7 +1196,7 @@ def test_a_value_with_no_latex_form_emits_plain_text_only(kernel: Kernel) -> Non
     # …while a plain ASCII binder still typesets, so the guard narrows nothing
     ok(kc, "let lt := t ↦ t² + 1 in ℝ → ℝ")
     b = bundle(kc, "lt")
-    assert b["text/latex"] == r"$$t \mapsto t^{2} + 1$$"
+    assert b["text/latex"] == r"$t \mapsto t^{2} + 1$"
 
 
 def test_assertions_and_diagnostics_stay_textual(kernel: Kernel) -> None:
@@ -1359,10 +1360,10 @@ def test_the_exact_form_has_a_ceiling_and_says_so(kernel: Kernel) -> None:
 def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
     for code, expected in (
-        ("√2", r"$$\sqrt{2}$$"),
-        ("2√2", r"$$2\sqrt{2}$$"),
-        ("2 + 2i", "$$2 + 2i$$"),
-        ("ℂ", r"$$\mathbb{C}$$"),
+        ("√2", r"$\sqrt{2}$"),
+        ("2√2", r"$2\sqrt{2}$"),
+        ("2 + 2i", "$2 + 2i$"),
+        ("ℂ", r"$\mathbb{C}$"),
     ):
         b = bundle(kc, code)
         assert b["text/latex"] == expected, code
@@ -1427,7 +1428,7 @@ def test_roots_in_the_complex_numbers_and_the_difference_set(kernel: Kernel) -> 
     text = err(kc, "|ℂ - ℚ|")
     assert "cannot state the cardinality" in text
     b = bundle(kc, "ℂ - ℚ")
-    assert b["text/latex"] == r"$$\mathbb{C} \setminus \mathbb{Q}$$"
+    assert b["text/latex"] == r"$\mathbb{C} \setminus \mathbb{Q}$"
     assert b["text/plain"] == "ℂ - ℚ"
 
 
@@ -1461,7 +1462,7 @@ def test_the_spec_approximation_line(kernel: Kernel) -> None:
     # SPEC.md, verbatim — the line and the display it writes under it
     b = bundle(kc, "map √2 to ℝ/O(1/10^{10})")
     assert b["text/plain"] == "1.4142135623 + O(1/10^{10})"
-    assert b["text/latex"] == "$$1.4142135623 + O(1/10^{10})$$"
+    assert b["text/latex"] == "$1.4142135623 + O(1/10^{10})$"
     assert b["text/latex"].isascii()
     # the DIGITS are the claim, not decoration: a coarser tolerance shows
     # fewer of them, and the exact value is never a decimal until asked
@@ -1762,10 +1763,10 @@ def test_a_vector_is_typeset_as_the_tuple_it_is(kernel: Kernel) -> None:
     # the conventions table's choice: the TUPLE, which is SPEC.md's own
     # spelling and the one the surface reads back — a column pmatrix would
     # typeset something the input syntax does not say
-    assert bd["text/latex"] == "$$(1, 2)$$"
+    assert bd["text/latex"] == "$(1, 2)$"
     assert bd["text/plain"] == "(1, 2)"
     assert bd["text/latex"].isascii()
-    assert bundle(kc, "ℚ²")["text/latex"] == r"$$\mathbb{Q}^{2}$$"
+    assert bundle(kc, "ℚ²")["text/latex"] == r"$\mathbb{Q}^{2}$"
 
 
 def test_the_action_is_shape_checked_and_decides_the_wrong_vector(
@@ -1822,8 +1823,8 @@ def test_the_span_answers_dim_membership_and_equality(kernel: Kernel) -> None:
     bd = bundle(kc, "W")
     assert bd["text/plain"] == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
     assert bd["text/latex"] == (
-        r"$$\mathrm{span}_{\mathbb{Q}}\{(1, 0, 1), (0, 1, 1)\} "
-        r"\leq \mathbb{Q}^{3}$$"
+        r"$\mathrm{span}_{\mathbb{Q}}\{(1, 0, 1), (0, 1, 1)\} "
+        r"\leq \mathbb{Q}^{3}$"
     )
     assert bd["text/latex"].isascii()
 
