@@ -369,13 +369,14 @@ about is {(Value.ofRat (Value.detQ n rats)).render}")
   | "sym_taylor", .seriesV .. => .ok v
   | "gcd_int", .int _ => .ok v
   | "is_prime_int", .bool _ => .ok v
-  -- the EMPTY set is the honest answer for a polynomial with no root in its
-  -- own coefficient ring (x² − 2 over ℚ), so it is a result like any other
-  | "roots_poly_z", .setV .. => .ok v
-  | "roots_poly_q", .setV .. => .ok v
-  -- over ℂ a nonzero polynomial splits, so this set is never empty — but the
-  -- kind check is the same one: a factorization here would be an adapter bug
-  | "roots_poly_c", .setV .. => .ok v
+  -- a MULTISET (the anchor `Polynomial.roots` is), multiplicity carried by
+  -- repetition; EMPTY is the honest answer for a polynomial with no root in
+  -- its own coefficient ring (x² − 2 over ℚ), so it is a result like any other
+  | "roots_poly_z", .msetV .. => .ok v
+  | "roots_poly_q", .msetV .. => .ok v
+  -- over ℂ a nonzero polynomial splits, so this multiset is never empty — but
+  -- the kind check is the same one: a factorization here would be an adapter bug
+  | "roots_poly_c", .msetV .. => .ok v
   | _, _ =>
       .error (.protocolError
         s!"sage: op {repr op} returned {v.render}, which is not the value kind it promises")

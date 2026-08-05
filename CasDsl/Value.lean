@@ -134,6 +134,14 @@ inductive Value where
   set; it is a `Value` only because that is what crosses the backend wire.
   CEILING: a backend can return an explicit finite set, nothing wider. -/
   | setV (elems : Array Value) (dom : Domain)
+  /-- A finite MULTISET of elements of one domain, as an executor RESULT —
+  what `roots` answers (its anchor `Polynomial.roots` is `Multiset`-valued:
+  `(x−1)²` has the root 1 twice). Multiplicity is carried by REPETITION — a
+  representative list, exactly as Mathlib's `Multiset` is a list up to
+  permutation. `Denote.ofValue` turns it into `SetPresentation.multiset`;
+  it is a `Value` only because that is what crosses the backend wire.
+  CEILING: an explicit finite multiset, nothing wider. -/
+  | msetV (elems : Array Value) (dom : Domain)
   /-- The third set an executor may return: a SUBSPACE of `ℚⁿ`, presented by
   a basis in reduced row echelon form (`Value.mkSpanBasis`). SPEC.md's
   `span_QQ{u₁, u₂}` and `M.ker()` are both this.
@@ -392,6 +400,13 @@ progressions, literal order for finite sets, a registered convention for
 `domainSet`). -/
 inductive SetPresentation where
   | finite (dom : Domain) (elems : Array Value)
+  /-- A finite MULTISET, elements carried with repetition (`p.roots()`, whose
+  anchor `Polynomial.roots` is `Multiset`-valued). Not a second spelling of
+  `finite`: the display repeats, `|·|` counts with multiplicity and equality
+  compares counts, while `∈` and `⊆` read the SUPPORT — Mathlib's own split
+  (`Multiset.card`/`=` against `∈`/`Multiset.Subset`). A finite SET compared
+  against one is lifted along `Finset.val`, every multiplicity 1. -/
+  | multiset (dom : Domain) (elems : Array Value)
   /-- `{a, b, ...}` / `{a, ..., z}`: first, step, optional inclusive last. -/
   | arithProg (dom : Domain) (first step : Value) (last? : Option Value)
   /-- The underlying set of a domain (`ℤ` used as a set). -/
@@ -875,6 +890,9 @@ partial def render : Value → String
       "(" ++ ", ".intercalate (gens.toList.map render) ++ ")"
   | .setV elems _ =>
       "{" ++ ", ".intercalate (elems.toList.map render) ++ "}"
+  -- repetition IS the display: `{1, 1}` is how a multiset says the root is double
+  | .msetV elems _ =>
+      "{" ++ ", ".intercalate (elems.toList.map render) ++ "}"
   -- the AMBIENT is part of the display, in SPEC.md's own subobject notation:
   -- without it the trivial subspace would render as an empty `span_ℚ{}` that
   -- says nothing about which space it is the zero of
@@ -1198,6 +1216,9 @@ partial def latex? : Value → Option String
   | .setV elems _ => do
       let es ← elems.mapM latex?
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
+  | .msetV elems _ => do
+      let es ← elems.mapM latex?
+      return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
   | .spanV n basis => do
       let bs ← basis.mapM latex?
       return "\\mathrm{span}_{\\mathbb{Q}}\\{" ++ ", ".intercalate bs.toList
@@ -1374,6 +1395,8 @@ namespace SetPresentation
 partial def render : SetPresentation → String
   | .finite _ elems =>
       "{" ++ ", ".intercalate (elems.toList.map (·.render)) ++ "}"
+  | .multiset _ elems =>
+      "{" ++ ", ".intercalate (elems.toList.map (·.render)) ++ "}"
   | .arithProg _ first step none =>
       s!"\{{first.render}, {Value.progSecond "…" first step}, ...}"
   | .arithProg _ first step (some last) =>
@@ -1395,6 +1418,9 @@ instance : ToString SetPresentation := ⟨render⟩
 that has none. -/
 partial def latex? : SetPresentation → Option String
   | .finite _ elems => do
+      let es ← elems.mapM Value.latex?
+      return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
+  | .multiset _ elems => do
       let es ← elems.mapM Value.latex?
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
   | .arithProg _ first step last? => do

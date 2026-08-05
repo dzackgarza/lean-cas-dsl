@@ -109,6 +109,12 @@ partial def valueToJson : Value → Json
       Json.mkObj
         [("t", "set"), ("elems", Json.arr (elems.map valueToJson)),
          ("dom", domainToJson dom)]
+  -- multiplicity rides as repetition, the same representative list the
+  -- constructor carries — no second multiplicity encoding to drift from it
+  | .msetV elems dom =>
+      Json.mkObj
+        [("t", "mset"), ("elems", Json.arr (elems.map valueToJson)),
+         ("dom", domainToJson dom)]
   | .spanV n basis =>
       Json.mkObj
         [("t", "span"), ("n", toJson n), ("basis", Json.arr (basis.map valueToJson))]
@@ -319,6 +325,9 @@ partial def valueFromJson (j : Json) : Except String Value := do
   | "set" =>
       let elems ← (← arrField j "elems").mapM valueFromJson
       return .setV elems (← domainFromJson (← field j "dom"))
+  | "mset" =>
+      let elems ← (← arrField j "elems").mapM valueFromJson
+      return .msetV elems (← domainFromJson (← field j "dom"))
   | "span" =>
       -- decoded THROUGH the normalizing constructor, exactly as `alg` is
       -- decoded through `mkAlg`: a frame carrying a dependent or unreduced

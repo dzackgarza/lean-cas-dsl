@@ -259,11 +259,13 @@ this slice presents" },
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },
   { id := `roots, receiver := `PolynomialElems,
     anchor := ``Polynomial.roots,
-    conventions := "the anchor is a MULTISET; the runtime presentation is a set until the \
-multiset result model lands (SPEC-REGISTRY-TYPE-PREPASS §3.3)",
-    resultDoc := "the set of roots lying in the polynomial's own coefficient ring",
-    doc := "the set of roots IN THE COEFFICIENT RING — an empty result means \
-the polynomial has no root there, not that none exists in an extension" },
+    conventions := "the anchor is a MULTISET and so is the result: multiplicity shows by \
+repetition, |·| counts with it",
+    resultDoc := "the multiset of roots lying in the polynomial's own coefficient ring, \
+with multiplicity",
+    doc := "the multiset of roots IN THE COEFFICIENT RING, counted with multiplicity — \
+an empty result means the polynomial has no root there, not that none exists \
+in an extension" },
   { id := `det, receiver := `MatrixElems,
     anchor := ``Matrix.det,
     resultDoc := "a scalar of the entry domain",
@@ -572,6 +574,12 @@ private def stdProfileRules : Array ProfileRule := #[
   -- CountableSets — a missed specificity, never a false claim
   { pattern := .progression .anyDom, cat := `CountableSets, slots := #[.setDom] },
   { pattern := .finiteSet, cat := `FiniteSets, slots := #[.setDom] },
+  -- a MULTISET (`p.roots()`) enters at `Sets`, where `∈`, `=`, `⊆` and `|·|`
+  -- are declared — its equality and cardinality executors read the counts.
+  -- Deliberately NOT `FiniteSets`: the finite-set binary operations and `nth`
+  -- are not claimed for it. A transitional judgment — a multiset is not a
+  -- set; the catalogue migration (lean-lattices#49) gives it its own entry
+  { pattern := .multisetPres, cat := `Sets },
   -- `A × B` and `𝒫(A)` are DENOTED sets: a pattern over one presentation
   -- cannot see the factors, and their strength is exactly what the factors
   -- decide (𝒫 of a finite set is finite, 𝒫(ℤ) is uncountable), so the only
@@ -1084,6 +1092,19 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env polyC `factor [`PIDElems, `FactorizationElems] `sage
   expectRouted env polyC `roots [] `sage
   expectRouted env polyC `deg [] `native
+  -- the multiset `roots` answers with profiles at `Sets`: `∈`, `=`, `⊆` and
+  -- `|·|` reach it, while the finite-set binary operations and `nth` are
+  -- honestly never claimed for it
+  let mset11 : Obj := .setObj (.multiset .int #[.int 1, .int 1])
+  expectRouted env mset11 `contains [] `native
+  expectRouted env mset11 `set_eq [] `native
+  expectRouted env mset11 `subset [] `native
+  expectRouted env mset11 `cardinality [] `native
+  -- `union` is declared on Sets, so on a multiset it is a structured
+  -- capability GAP (no route accepts the presentation); `nth` is declared
+  -- only below Sets and is not even applicable
+  expectGap env mset11 `union []
+  expectNotApplicable env mset11 `nth
   -- a polynomial over ℤ/5 is still a polynomial: `deg` is a structural read
   -- and routes, `roots` is not implemented there and gaps
   expectRouted env (.elem (.poly (.mod 5)) (Value.mkPoly (.mod 5) #[Value.mkMod 5 1]))

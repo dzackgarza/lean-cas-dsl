@@ -86,6 +86,10 @@ inductive PresPattern where
   | elemOf (d : DomainPattern)
   | domainIs (d : DomainPattern)
   | finiteSet
+  /-- A finite multiset (`p.roots()`'s result presentation). Distinct from
+  `finiteSet` so the finite-set binary operations are never claimed for it —
+  what a multiset answers is `∈`, `=`, `⊆` and `|·|`. -/
+  | multisetPres
   | progression (dom : DomainPattern)
   | domainSetOf (d : DomainPattern)
   /-- `A × B`; the factors are not inspected (a pattern language over one
@@ -153,6 +157,7 @@ def accepts : PresPattern → Obj → Bool
   | .elemOf p, .elem d _ => p.accepts d
   | .domainIs p, .domainObj d => p.accepts d
   | .finiteSet, .setObj (.finite ..) => true
+  | .multisetPres, .setObj (.multiset ..) => true
   | .progression p, .setObj (.arithProg d ..) => p.accepts d
   | .domainSetOf p, .setObj (.domainSet d) => p.accepts d
   | .productSet, .setObj (.product ..) => true
@@ -180,6 +185,7 @@ def implies : PresPattern → PresPattern → Bool
   | .domainSetOf p, .domainSetOf q => p.implies q
   | .progression p, .progression q => p.implies q
   | .finiteSet, .finiteSet => true
+  | .multisetPres, .multisetPres => true
   | .productSet, .productSet => true
   | .powersetSet, .powersetSet => true
   | .domainDiffSet, .domainDiffSet => true
@@ -198,6 +204,7 @@ def implies : PresPattern → PresPattern → Bool
   | .domainIs _, .anySet => true
   | .domainSetOf _, .anySet => true
   | .finiteSet, .anySet => true
+  | .multisetPres, .anySet => true
   | .progression _, .anySet => true
   | .productSet, .anySet => true
   | .powersetSet, .anySet => true

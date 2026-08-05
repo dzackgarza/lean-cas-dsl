@@ -25,7 +25,7 @@ except ImportError as exc:  # running outside `sage -python` is a wiring bug
     )
     sys.exit(1)
 
-ADAPTER_VERSION = "0.1.0"
+ADAPTER_VERSION = "0.2.0"
 PROTOCOL = 1
 
 # Where a decimal presentation stops being one worth materializing. A loud
@@ -245,19 +245,23 @@ def op_is_prime_int(args):
 
 
 def _roots(ring, coeffs, enc, dom):
-    """The SET of roots in the polynomial's own coefficient ring.
+    """The MULTISET of roots in the polynomial's own coefficient ring.
 
     Sage's `roots()` returns (root, multiplicity) pairs over the base ring, so
-    a polynomial with no root there — x^2 - 2 over QQ — yields the empty set.
-    That is the answer, not a failure. Multiplicity is dropped: this op
-    promises a set.
+    a polynomial with no root there — x^2 - 2 over QQ — yields the empty
+    multiset. That is the answer, not a failure. Multiplicity is KEPT, carried
+    by repetition: this op mirrors `Polynomial.roots`, which is
+    Multiset-valued — (x - 1)^2 answers {1, 1}.
     """
     f = ring(coeffs)
     if f.is_zero():
         raise BackendError(
             "not_a_set", "every element is a root of the zero polynomial"
         )
-    return {"t": "set", "elems": [enc(root) for root, _ in f.roots()], "dom": dom}
+    elems = []
+    for root, mult in f.roots():
+        elems.extend([enc(root)] * mult)
+    return {"t": "mset", "elems": elems, "dom": dom}
 
 
 def op_roots_poly_z(args):

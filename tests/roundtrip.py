@@ -233,7 +233,7 @@ def check_factor_poly_c(adapter):
 
 def check_roots_poly_c(adapter):
     def elems(value):
-        assert value["t"] == "set" and value["dom"] == {"d": "complex"}, value
+        assert value["t"] == "mset" and value["dom"] == {"d": "complex"}, value
         return sorted(exact(e) for e in value["elems"])
 
     # x^2 - 2 has NO rational root (checked above) and exactly two in C
@@ -304,7 +304,7 @@ def check_is_prime_int(adapter):
 
 def check_roots(adapter):
     def elems(value, decode):
-        assert value["t"] == "set", value
+        assert value["t"] == "mset", value
         return [decode(e) for e in value["elems"]]
 
     # x^3 - 2x + 1 over ZZ: 1 is the only root in ZZ
@@ -327,6 +327,10 @@ def check_roots(adapter):
     # …and a rational root of a rational polynomial IS found: 2x - 1
     value = adapter.ok("roots_poly_q", {"coeffs": [q(-1), q(2)]})
     assert elems(value, rat) == ["1/2"], value
+
+    # the result is a MULTISET: (x - 1)^2 answers its double root TWICE
+    value = adapter.ok("roots_poly_q", {"coeffs": [q(1), q(-2), q(1)]})
+    assert elems(value, rat) == ["1/1", "1/1"], value
 
     # every element is a root of the zero polynomial: not a set to return
     reply = adapter.call("roots_poly_z", {"coeffs": []})

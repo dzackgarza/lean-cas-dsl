@@ -843,12 +843,13 @@ def asSet? : Denote → Option SetPresentation
   | _ => none
 
 /-- Wrap an executor result: it becomes an object when it presents one. A
-set-valued result becomes the ordinary set OBJECT, so `p.roots()` is a set
-like any other — the set methods, `∈` and set equality all reach it through
-the usual profile rules rather than through a second notion of set. -/
+set-valued (or multiset-valued) result becomes the ordinary set OBJECT, so
+`p.roots()` answers to the set methods — `∈`, `=`, `⊆`, `|·|` — through the
+usual profile rules rather than through a second notion of set. -/
 def ofValue (v : Value) : Denote :=
   match v with
   | .setV elems dom => .obj (.setObj (.finite dom elems))
+  | .msetV elems dom => .obj (.setObj (.multiset dom elems))
   | .progV dom first step last? => .obj (.setObj (.arithProg dom first step last?))
   | .spanV n basis => .obj (.setObj (.span n basis))
   | .cosetV offset kernel => .obj (.setObj (.coset offset kernel))
@@ -931,6 +932,7 @@ def renderPattern : PresPattern → String
   | .elemOf d => s!"element of {renderDomainPattern d}"
   | .domainIs d => s!"the domain {renderDomainPattern d}"
   | .finiteSet => "a finite set"
+  | .multisetPres => "a finite multiset"
   | .progression d => s!"a progression over {renderDomainPattern d}"
   | .domainSetOf d => s!"the underlying set of {renderDomainPattern d}"
   | .productSet => "a cartesian product"
@@ -1308,41 +1310,30 @@ ceiling, a loud stop rather than a longer silent search")
 /-- The ruled `roots` default (owner rulings, 2026-07-31; DESIGN.md §Exact
 number systems): `p.roots()` answers in `p`'s own coefficient ring, and no
 spelling silently applies a field extension. The help the ruling asks for in
-exchange is EXACT, not a disjunction: the deficit is decided from the
-FACTORIZATION — the same checked route `p.factor()` rides — whose linear
-factors carry the root multiplicities, so the note fires precisely when
-`p` fails to SPLIT in its ring (Σ mᵢ < deg) and says how many roots lie in
-an extension, counted with multiplicity. `(x−1)²` over ℚ splits and gets no
-note. A note is ADVICE on an unexpected-but-true result, never a refusal
-(owner, 2026-07-31); it names the escalation SPEC.md already writes and the
-explicit multiplicity access (`factor`). The comprehension spelling
-`{a ∈ D | p(a) = 0}` names its ring itself, so it gets no note; ℂ[x]
-receivers get none either, because everything splits there. -/
+exchange is EXACT, not a disjunction: the result is a MULTISET (the anchor
+`Polynomial.roots` is), so its size already counts the roots in the ring
+with multiplicity, and the note fires precisely when `p` fails to SPLIT
+there (size < deg) — no second backend call decides it. `(x−1)²` over ℚ
+splits and gets no note. A note is ADVICE on an unexpected-but-true result,
+never a refusal (owner, 2026-07-31); it names the escalation SPEC.md already
+writes. The comprehension spelling `{a ∈ D | p(a) = 0}` names its ring
+itself, so it gets no note; ℂ[x] receivers get none either, because
+everything splits there. -/
 partial def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
     (m : Name) (result : Denote) : EvalM Unit := do
   unless m == `roots do return ()
   let .elem (.poly d) (.poly _ coeffs) := recv | return ()
   if d == .complex then return ()
-  let some (.finite _ elems) := result.asSet? | return ()
+  let some (.multiset _ elems) := result.asSet? | return ()
   -- degree = size − 1 (coefficients ascending, no trailing zeros); constants
   -- promise nothing, so only degree ≥ 1 can be deficient
   let deg := coeffs.size - 1
-  -- deg distinct roots already force a split — no factorization needed
+  -- the multiset size IS Σ mᵢ over the ring's linear factors, so size = deg
+  -- is exactly "splits"
   if coeffs.size < 2 || elems.size == deg then return ()
-  -- the roots route exists only where the factor route does (ℤ[x], ℚ[x]),
-  -- so a factor failure here is a real defect and stays loud
-  let .val (.factorization _ factors _) ← callMethod ctx recv `factor #[]
-    | throw (.msg s!"`factor` did not answer with a factorization while \
-deciding whether {recv.presentation} splits")
-  let multTotal := factors.foldl (init := 0) fun t (f, k) =>
-    match f with
-    | .poly _ cs => if cs.size == 2 then t + k else t
-    | _ => t
-  if multTotal == deg then return ()
   let p := match recvStx with | .ref n => s!"{n}" | _ => "p"
-  ctx.notes.modify (·.push s!"{p} does not split over {d.render}: {multTotal} of {deg} roots (with \
-multiplicity) lie there. `{p}.factor()` shows the multiplicities; \
-`map {p} to ℂ[x]` reaches the rest")
+  ctx.notes.modify (·.push s!"{p} does not split over {d.render}: {elems.size} of {deg} roots (with \
+multiplicity) lie there. `map {p} to ℂ[x]` reaches the rest")
 
 /-- `k · S` (SPEC.md §Ellipses' `2ℕ`; ruling 2026-07-31, #31 item 6) — the
 IMAGE of the scaling map, as a presentation: an arithmetic progression
@@ -1943,7 +1934,13 @@ DOMAIN D, and {idx.presentation} is not one")
             throw (.msg s!"the solutions are sought in {d.render}, the index \
 set's own ring, but the equation `{p.render} = 0` does not present in \
 {(Domain.poly d).render}: {inner}")
-      callMethod ctx (.elem (.poly d) pd) `roots #[]
+      let r ← callMethod ctx (.elem (.poly d) pd) `roots #[]
+      -- `{a ∈ D | p(a) = 0}` is SET-builder notation, so the multiset the
+      -- method answers collapses to its support here — the solution SET
+      match r.asSet? with
+      | some (.multiset dm es) =>
+          return .obj (.setObj (.finite dm (Native.dedupValues es)))
+      | _ => return r
   | .aggregate m binder index body => do
       ofStr (checkBindableName binder)
       let idx ← eval ctx index

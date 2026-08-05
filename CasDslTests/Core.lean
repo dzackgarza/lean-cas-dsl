@@ -492,6 +492,35 @@ private def out (opId : String) (o : Obj) (args : Array Obj) : Option Value :=
 #guard out "set_eq" (.setObj (.arithProg .nat (.int 0) (.int 1) (some (.int 100000))))
     #[.domainObj .nat] == none
 
+/-! ### Multisets: `p.roots()`'s result presentation (anchor `Polynomial.roots`)
+
+`=` and `|·|` read the multiplicities; `∈` and `⊆` read the support — the
+`Multiset.card`/`=` against `∈`/`Multiset.Subset` split. A finite SET on the
+other side of `=` lifts along `Finset.val`, every multiplicity 1. -/
+
+private def mset11 : Obj := .setObj (.multiset .int #[.int 1, .int 1])
+
+-- the double root is TWO of them: |(x−1)².roots()| = 2
+#guard out "cardinality" mset11 #[] == some (.cardinal (.finite 2))
+#guard out "contains" mset11 #[.elem .int (.int 1)] == some (.bool true)
+#guard out "contains" mset11 #[.elem .int (.int 2)] == some (.bool false)
+-- count-for-count, in any order — and a dedup would make this one TRUE
+#guard out "set_eq" mset11 #[.setObj (.multiset .int #[.int 1])] == some (.bool false)
+#guard out "set_eq" (.setObj (.multiset .int #[.int 1, .int 2, .int 1]))
+    #[.setObj (.multiset .int #[.int 2, .int 1, .int 1])] == some (.bool true)
+-- against a finite set: {1} says the root is SIMPLE — false for (x−1)²…
+#guard out "set_eq" mset11 #[.setObj (.finite .int #[.int 1])] == some (.bool false)
+-- …and true where every multiplicity is 1, in either orientation
+#guard out "set_eq" (.setObj (.multiset .int #[.int 2, .int 1]))
+    #[.setObj (.finite .int #[.int 1, .int 2])] == some (.bool true)
+#guard out "set_eq" (.setObj (.finite .int #[.int 1]))
+    #[.setObj (.multiset .int #[.int 1])] == some (.bool true)
+#guard out "set_eq" (.setObj (.multiset .int #[])) #[.setObj (.finite .int #[])] ==
+  some (.bool true)
+-- `⊆` is support inclusion (`Multiset.Subset`), so {1, 1} lies inside {1}
+#guard out "subset" mset11 #[.setObj (.finite .int #[.int 1])] == some (.bool true)
+#guard out "subset" mset11 #[.domainObj .nat] == some (.bool true)
+
 /-! ### SPEC.md §Finite sets: the binary operations, inclusion, and the two
 DENOTED presentations
 

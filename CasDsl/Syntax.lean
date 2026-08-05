@@ -848,6 +848,7 @@ private def valueJson (d : Denote) : Json :=
   match d.value?, d.asSet? with
   | some v, _ => Codec.valueToJson v
   | none, some (.finite dom elems) => Codec.valueToJson (.setV elems dom)
+  | none, some (.multiset dom elems) => Codec.valueToJson (.msetV elems dom)
   | none, some (.arithProg dom first step last?) =>
       Codec.valueToJson (.progV dom first step last?)
   | none, some (.span n basis) => Codec.valueToJson (.spanV n basis)

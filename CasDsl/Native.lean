@@ -632,6 +632,8 @@ private def powersetExpCap : Nat := 4096
 
 partial def presCard : SetPresentation → Except ExecError Cardinality
   | .finite _ elems => .ok (.finite (dedupValues elems).size)
+  -- `Multiset.card` counts WITH multiplicity: `|(x−1)².roots()| = 2`
+  | .multiset _ elems => .ok (.finite elems.size)
   | .domainSet d =>
       match domainCard d with
       | some c => .ok c
@@ -695,6 +697,9 @@ private inductive SetNormal where
   /-- A coset by its CANONICAL representative (constant term zero) and its
   kernel — canonical for the same reason, so it compares as data too. -/
   | coset (offset : Value) (kernel : Domain)
+  /-- A multiset by a representative list, repetition kept: equality is
+  count-for-count (`Multiset.count`), which no dedup survives. -/
+  | mset (elems : Array Value)
 
 private def scalarSortable (vs : Array Value) : Bool :=
   vs.all (fun v => match v with | .int _ | .rat _ => true | _ => false)
@@ -749,6 +754,8 @@ private def normalizeSet : Obj → Except ExecError SetNormal
   -- dedupes by comparison instead. Equality below is order-free either way.
   | .setObj (.finite _ elems) =>
       .ok (.fin (if scalarSortable elems then sortDedup elems else dedupValues elems))
+  -- repetition kept: the multiplicities ARE the data equality compares
+  | .setObj (.multiset _ elems) => .ok (.mset elems)
   | .setObj (.domainSet d) | .domainObj d => normalizeDomain d
   | .setObj (.arithProg _ first step last?) => normalizeProg first step last?
   -- the basis arrives reduced (`Value.mkSpanBasis` is the only constructor),
@@ -766,6 +773,16 @@ private def normalizeSet : Obj → Except ExecError SetNormal
       .error (.badRequest s!"the native backend cannot normalize {o.presentation} \
 for comparison: a denoted set has no element list here")
   | o => .error (.badRequest s!"{o.presentation} is not a set")
+
+private def msetCount (vs : Array Value) (x : Value) : Nat :=
+  vs.foldl (fun n v => if valueEq v x == some true then n + 1 else n) 0
+
+/-- Two representative lists present one multiset exactly when they agree
+count-for-count. Equal sizes plus counts checked from one side suffice: the
+counts of `a`'s distinct elements already sum to `|a| = |b|`, so `b` holds
+no element outside them. -/
+private def msetEq (a b : Array Value) : Bool :=
+  a.size == b.size && a.all fun x => msetCount a x == msetCount b x
 
 private def setNormalEq : SetNormal → SetNormal → Bool
   -- both sides are deduped, so equal sizes plus one-way membership IS
@@ -795,6 +812,11 @@ private def setNormalEq : SetNormal → SetNormal → Bool
   -- two cosets are equal exactly when their canonical representatives and
   -- their kernels are: no subtraction, no search
   | .coset o1 k1, .coset o2 k2 => k1 == k2 && o1 == o2
+  | .mset a, .mset b => msetEq a b
+  -- a finite SET lifts along `Finset.val` — every multiplicity 1 — so
+  -- `p.roots() = {1}` states the root is SIMPLE, and `(x−1)².roots() = {1}`
+  -- is false rather than a dedup that hides the double root
+  | .mset a, .fin b | .fin b, .mset a => msetEq a b
   | _, _ => false
 
 /-! ## Inclusion by presentation normalization
@@ -813,7 +835,12 @@ the preferred-canonical-map registry's claim (DESIGN.md §Coercions), not a
 fact this backend may restate — so it is refused here rather than answered
 twice. -/
 
-private def normalSubset : SetNormal → SetNormal → Except ExecError Bool
+private partial def normalSubset : SetNormal → SetNormal → Except ExecError Bool
+  -- `Multiset.Subset` reads the SUPPORT — `∀ a ∈ m, a ∈ t`, multiplicity
+  -- ignored — so a multiset on either side reduces to its dedup and the
+  -- ordinary arms decide the rest
+  | .mset a, rhs => normalSubset (.fin (dedupValues a)) rhs
+  | lhs, .mset b => normalSubset lhs (.fin (dedupValues b))
   | .fin a, .fin b =>
       .ok (a.all fun x => b.any fun y => valueEq x y == some true)
   | .fin a, .dom d => .ok (a.all (inDomain? d))
@@ -1114,6 +1141,8 @@ this slice presents no value for")
         let x ← scalarArg "contains" args
         match o with
         | .setObj (.finite _ elems) => return .bool (memOf elems x)
+        -- `a ∈ m` asks about the support, so repetition changes nothing
+        | .setObj (.multiset _ elems) => return .bool (memOf elems x)
         | .setObj (.arithProg _ first step last?) => progContains first step last? x
         -- a series against a series RING whose coefficient domains differ is
         -- the one membership this backend will not answer: the inclusion
@@ -1147,7 +1176,9 @@ domain is carried across")
       -- other receiver refuses rather than guessing at one.
       | .setObj (.domainDiff p m) =>
           match o with
-          | .setObj (.finite _ elems) =>
+          -- a multiset's inclusion reads its support, so the same pointwise
+          -- membership settles `q.roots() ⊆ ℂ - ℚ`
+          | .setObj (.finite _ elems) | .setObj (.multiset _ elems) =>
               return .bool (elems.all (diffMember p m))
           | o => .error (.badRequest
               s!"the native backend decides inclusion in {rhs.presentation} for an \

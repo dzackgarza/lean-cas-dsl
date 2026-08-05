@@ -412,23 +412,24 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     text = ok(kc, "p.roots()")  # x³ - 2x + 1 over ℤ; p(1) = 0
     assert "{1}" in text
     # the ruled default (owner rulings, 2026-07-31): the coefficient ring
-    # answers, and the note is EXACT — decided from the factorization's
-    # multiplicities, so it states how many roots lie in an extension and
-    # names both the escalation and the multiplicity access
-    assert "p does not split in ℤ" in text
-    assert "total multiplicity 1 of degree 3" in text
+    # answers, and the note is EXACT — the result is a MULTISET (the anchor
+    # Polynomial.roots is), so its size counts the roots in the ring with
+    # multiplicity and the note states how many lie in an extension
+    assert "p does not split over ℤ" in text
+    assert "1 of 3 roots (with multiplicity) lie there" in text
     assert "map p to ℂ[x]" in text
-    assert "p.factor()" in text
     ok(kc, "assert 1 ∈ p.roots()")
+    # a set literal on the right lifts along Finset.val: it also states the
+    # roots are SIMPLE, which p's one rational root is
     ok(kc, "assert p.roots() = {1}")
     text = err(kc, "assert 2 ∈ p.roots()")
     assert "false" in text.lower()
-    # SPEC.md's q: x² - 2 has NO root in ℚ. The empty set is the answer —
+    # SPEC.md's q: x² - 2 has NO root in ℚ. The empty multiset is the answer —
     # not an error, and not a silent reach into an extension field.
     ok(kc, "let q := x ↦ x² - 2 in ℚ[x]")
     text = ok(kc, "q.roots()")
     assert "{}" in text
-    assert "q does not split in ℚ" in text
+    assert "q does not split over ℚ" in text
     assert "map q to ℂ[x]" in text
     # the note rides along wherever the call happens — a vacuously true
     # `⊆`/`=` over the empty root set stays TRUE (a proposition has a truth
@@ -440,22 +441,26 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     text = err(kc, "assert p.roots() = {}")
     assert "false" in text.lower()
     # a polynomial that splits with distinct roots: no note
-    # (set equality, not the rendered string: the element ORDER is Sage's)
+    # (multiset equality, not the rendered string: the element ORDER is Sage's)
     ok(kc, "let sp := x ↦ x² - 3x + 2 in ℚ[x]")
     text = ok(kc, "sp.roots()")
     assert "does not split" not in text
     ok(kc, "assert sp.roots() = {1, 2}")
-    # (x - 1)² SPLITS in ℚ — both roots are there, counted with
-    # multiplicity — so the exact note stays silent where the old
-    # distinct-count trigger would have cried wolf
+    # (x - 1)² SPLITS in ℚ, and the multiset SHOWS both copies of the double
+    # root: repetition is the display, |·| counts with multiplicity, and the
+    # set literal {1} — simple roots — is now honestly FALSE
     ok(kc, "let rp := x ↦ x² - 2x + 1 in ℚ[x]")
     text = ok(kc, "rp.roots()")
-    assert "{1}" in text
+    assert "{1, 1}" in text
     assert "does not split" not in text
+    ok(kc, "assert |rp.roots()| = 2")
+    ok(kc, "assert 1 ∈ rp.roots()")
+    text = err(kc, "assert rp.roots() = {1}")
+    assert "false" in text.lower()
     # over ℂ[x] everything splits: never a note
     ok(kc, "let rpc := map rp to ℂ[x]")
     text = ok(kc, "rpc.roots()")
-    assert "{1}" in text
+    assert "{1, 1}" in text
     assert "does not split" not in text
 
 
@@ -1215,7 +1220,7 @@ def test_the_value_payload_carries_a_set_result(kernel: Kernel) -> None:
     # `Denote.value?`, and the payload used to carry a bare null for it
     b = bundle(kc, "lq.roots()")
     payload = b["application/vnd.casdsl.value+json"]
-    assert payload["value"]["t"] == "set"
+    assert payload["value"]["t"] == "mset"
     assert payload["value"]["elems"] == [{"t": "int", "v": "1"}]
     b = bundle(kc, "{0, 2, 4, ...}")
     assert b["application/vnd.casdsl.value+json"]["value"]["t"] == "progression"
