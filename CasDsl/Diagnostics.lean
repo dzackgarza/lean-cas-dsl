@@ -212,21 +212,31 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
 
 /-! ## `#capabilities` -/
 
+/-- Each method in the register `#explain_route` speaks: the dependent
+signature over the declaring category's telescope, ≐ its anchor, then the
+implemented subcategories as routes — never a table of record fields. -/
 private def capabilityLines (env : Environment) : Array String × Array Json := Id.run do
   let mut lines : Array String := #[]
   let mut js : Array Json := #[]
   for d in methods env do
     let rs := routesFor env d.id
+    let telescope := (catDecl? env d.receiver).map (·.telescope) |>.getD #[]
+    let owner :=
+      if telescope.isEmpty then s!" — declared on {renderName d.receiver}"
+      else String.join (telescope.toList.map fun cls => s!" [{cls} R]")
+    let anchor := if d.anchor == .anonymous then "" else s!"  ≐ {d.anchor}"
     let impl :=
-      if rs.isEmpty then "NO ROUTE"
+      if rs.isEmpty then "NO ROUTE is registered"
       else "; ".intercalate (rs.toList.map fun r =>
-        s!"{renderPattern r.pattern} → {r.backend}:{r.opId}")
-    lines := lines.push s!"  {pad d.id.toString 14}{pad (renderName d.receiver) 22}{impl}"
+        s!"{renderPattern r.pattern} → {r.backend} {repr r.opId}")
+    lines := lines.push s!"{d.id} (x : R){owner}{anchor}"
+    lines := lines.push s!"  {impl}"
     if !d.doc.isEmpty then
-      lines := lines.push s!"  {pad "" 36}{d.doc}"
+      lines := lines.push s!"  {d.doc}"
     js := js.push <| Json.mkObj
       [("method", .str d.id.toString), ("receiver", .str (renderName d.receiver)),
        ("arity", .num d.arity), ("doc", .str d.doc),
+       ("anchor", .str (if d.anchor == .anonymous then "" else d.anchor.toString)),
        -- the declaration's advisory TEMPLATE, `{…}` placeholders as declared
        ("advisory", .str d.advisory),
        ("routes", .arr (rs.map routeJson))]
@@ -236,12 +246,11 @@ def elabCapabilities : CommandElabM Unit := do
   let env ← getEnv
   let (lines, js) := capabilityLines env
   let orphans := (methods env).filter (routesFor env ·.id |>.isEmpty)
-  let header := s!"  {pad "method" 14}{pad "receiver category" 22}routes"
   let footer :=
-    if orphans.isEmpty then "  (every declared method has at least one route)"
-    else s!"  {orphans.size} method(s) with no registered route: \
+    if orphans.isEmpty then "(every declared method has at least one route)"
+    else s!"{orphans.size} method(s) with no registered route: \
 {", ".intercalate (orphans.toList.map (·.id.toString))}"
-  let text := String.intercalate "\n" (header :: lines.toList ++ [footer])
+  let text := String.intercalate "\n" (lines.toList ++ [footer])
   logInfo text
   emitOutput {
     data :=

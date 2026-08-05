@@ -334,7 +334,8 @@ private def qGap : CapabilityGap := {
 #guard contains (renderGap qGap) "NoImplementation"
 #guard contains (renderGap qGap) "nth"
 #guard contains (renderGap qGap) "ℚ"
-#guard contains (renderGap qGap) "routes considered: 1"
+-- the considered routes are named in the sentence, never as a field dump
+#guard contains (renderGap qGap) "the domain ℤ → native \"nth\""
 #guard !contains (renderGap qGap).toLower "unknown"
 -- the inheritance chain that made the method available is reported as such
 #guard contains (renderGap qGap) "inherited through CountableSets(ℚ) ≤ Sets"

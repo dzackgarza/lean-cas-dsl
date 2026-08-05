@@ -969,24 +969,26 @@ def renderSemanticPath (entry : CatRef) (via : List Name)
       s!"transported by functor '{step.functor}' to {step.image.presentation}, \
 then {renderVia entry via}"
 
-/-- The structured capability gap. The literal token `NoImplementation` is
-part of the contract: it is what an audit greps for, and it marks the
-failure as an execution-layer backlog item rather than a mathematical one. -/
+/-- The structured capability gap, in the same register `#explain_route`
+speaks: sentences built from registry data, never a dump of record fields.
+The literal token `NoImplementation` is part of the contract: it is what an
+audit greps for, and it marks the failure as an execution-layer backlog item
+rather than a mathematical one. -/
 def renderGap (g : CapabilityGap) : String :=
   let routes :=
-    if g.routesConsidered.isEmpty then "    (none registered for this method)"
-    else String.intercalate "\n"
-      (g.routesConsidered.toList.map fun r => s!"    - {renderRoute r}")
-  s!"NoImplementation: '{g.method}' is mathematically available here, but no \
-registered route can execute it for this presentation.
-  method:            {g.method}
-  receiver category: {renderCat g.receiverCategory}
-  presentation:      {g.presentation}
-  semantic path:     {renderSemanticPath g.receiverCategory g.semanticVia g.viaFunctor}
-  routes considered: {g.routesConsidered.size}
-{routes}
-This is a developer backlog item, not a narrowing of the mathematics: the \
-method stays available on the category."
+    if g.routesConsidered.isEmpty then
+      s!"no route is registered for '{g.method}' at all"
+    else
+      s!"the registered routes — " ++
+        "; ".intercalate (g.routesConsidered.toList.map fun r =>
+          s!"{renderPattern r.pattern} → {r.backend} {repr r.opId}") ++
+        " — accept none of it"
+  let path := renderSemanticPath g.receiverCategory g.semanticVia g.viaFunctor
+  s!"NoImplementation: '{g.method}' is mathematically available for \
+x = {g.presentation} ({path}), but {routes}.
+The method stays available on {renderCat g.receiverCategory}; executing it \
+for this presentation is a developer backlog item, never a narrowing of the \
+mathematics."
 
 def renderResolveError : ResolveError → String
   | .unknownMethod m =>
