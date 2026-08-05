@@ -716,7 +716,7 @@ binder ('{binder}'), and `{stx[10].getId}` is not it"
   | ``casSpan =>
       let n := stx[0].getId
       if n != `span_QQ then
-        .error s!"`{n}\{…}` is not a construction of this surface: the span \
+        .error s!"`{n}\{…}` is not a recognized construction: the span \
 SPEC.md writes is `span_QQ\{…}`, the subspace of ℚⁿ its generators span"
       else return .spanOf (← stx[2].getSepArgs.mapM toExpr)
   | ``casCmp => return .cmp (← cmpOp stx[1]) (← toExpr stx[0]) (← toExpr stx[2])
@@ -764,7 +764,7 @@ is what this slice presents"
       if !stx[3].isNone then
         let head := match ← toExpr stx[0] with | .ref n => n | _ => Name.anonymous
         if head != `kernel then
-          .error s!"`{head}(… : …)` is not a construction of this surface: the \
+          .error s!"`{head}(… : …)` is not a recognized construction: the \
 one SPEC.md writes is `kernel(d/dx : ℚ[x] → ℚ[x])`, the kernel of a derivation"
         else if h : args.size = 1 then
           return .kernelOf (args[0]'(by simp [h])) (← toExpr stx[3][1])

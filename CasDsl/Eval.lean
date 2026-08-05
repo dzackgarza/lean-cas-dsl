@@ -672,11 +672,10 @@ still lexes, so `is_prime` and dotted names are untouched): the reservation
 is enforced where a name is INTRODUCED — the session bindings, and every
 binder position of this evaluator. -/
 def reservedConstantMsg? : Name → Option String
-  | `e => some "`e` is Euler's constant, a reserved symbol of this surface: \
-`e^t` means exp(t), `exp(x)` spells the same function, and no binding may \
-shadow it"
-  | `i => some "`i` is the imaginary unit i ∈ ℂ, a reserved symbol of this \
-surface, and no binding may shadow it"
+  | `e => some "`e` is reserved for Euler's constant — `e^t` means exp(t), and \
+`exp(x)` is the same function — so `e` cannot be rebound"
+  | `i => some "`i` is reserved for the imaginary unit i ∈ ℂ, so it cannot be \
+rebound"
   | _ => none
 
 /-- Refuse to introduce a reserved constant name — shared by the command
@@ -703,12 +702,12 @@ reported as different ones. It LISTS the vocabulary, because a closed list is
 what keeps this surface backend-blind: an unknown name is never handed to a
 backend to interpret however it likes. -/
 def notSymbolic (what : String) : String :=
-  s!"{what} is not a function expression this slice presents. The vocabulary \
-is the binder, exact rationals, the constants \
+  s!"{what} is not a recognized function expression. The vocabulary: the \
+binder, exact rationals, the constants \
 {", ".intercalate (SymExpr.constants.map toString)}, the functions \
-{", ".intercalate (SymExpr.functions.map toString)}, and + - * / ^ — \
-a body outside it is a GAP that names itself, never a symbol passed to a \
-backend to read as it likes"
+{", ".intercalate (SymExpr.functions.map toString)}, and + - * / ^. A body \
+outside it is a structured gap — it is never handed to a backend to \
+interpret"
 
 /-- Read a surface expression as a symbolic expression in `binder`.
 
@@ -1154,8 +1153,8 @@ family management and stays deferred. -/
 private def embeddingNote (ctx : EvalCtx) (recv : Obj) (m : Name) : EvalM Unit := do
   unless m == `roots || m == `factor do return ()
   let .elem (.poly .complex) _ := recv | return ()
-  ctx.notes.modify (·.push "the algebraic numbers of this result are rendered \
-under a choice QQbar ↪ ℂ")
+  ctx.notes.modify (·.push "algebraic numbers are rendered under a fixed \
+embedding QQbar ↪ ℂ")
 
 /-- A result with no domain is not an object. Shared by the two places that ask
 for one, so the cause is stated wherever it bites. -/
@@ -1209,9 +1208,9 @@ places that can reach it — a shape the bound extraction cannot read, and a
 guard whose ELEMENT-world reading does not produce a truth value — so an
 undecidable guard cannot be reported two ways depending on which one noticed. -/
 private def undecidableGuard (binder : Name) : EvalError :=
-  undecidableComprehension s!"this slice decides a comprehension whose guard is \
-a polynomial comparison in the binder ('{binder}') — `{binder}² ≤ 20`, \
-`0 ≤ {binder} < 6` — and this guard is not one."
+  undecidableComprehension s!"a comprehension guard must be a polynomial comparison in the binder \
+('{binder}') — `{binder}² ≤ 20`, `0 ≤ {binder} < 6` — and this guard is \
+not one."
 
 /-- …and the same for a HEAD that the index set's elements do not evaluate.
 An unguarded comprehension presents its head after reading it ONCE, so
@@ -1341,11 +1340,9 @@ deciding whether {recv.presentation} splits")
     | _ => t
   if multTotal == deg then return ()
   let p := match recvStx with | .ref n => s!"{n}" | _ => "p"
-  ctx.notes.modify (·.push s!"{p} does not split in {d.render}: its \
-{elems.size} root(s) there carry total multiplicity {multTotal} of degree \
-{deg} (`{p}.factor()` shows the multiplicities), and the remaining \
-{deg - multTotal} lie in an extension. For all of them: \
-`let {p}C := map {p} to ℂ[x]`, then `{p}C.roots()`")
+  ctx.notes.modify (·.push s!"{p} does not split over {d.render}: {multTotal} of {deg} roots (with \
+multiplicity) lie there. `{p}.factor()` shows the multiplicities; \
+`map {p} to ℂ[x]` reaches the rest")
 
 /-- `k · S` (SPEC.md §Ellipses' `2ℕ`; ruling 2026-07-31, #31 item 6) — the
 IMAGE of the scaling map, as a presentation: an arithmetic progression
@@ -1576,7 +1573,7 @@ differential 1-form here is a POLYNOMIAL against the free generator `dx`")
         | throw (.msg s!"`E[[t]]` is the formal power series over a DOMAIN, and {c.presentation} is not one")
       return .obj (.domainObj (.series d))
   | .truncTarget k =>
-      throw (.msg s!"`E[[t]]/(t^{k})` is the TARGET of `map … to` — a request that a series be presented by its first {k} coefficients — and nothing else: it is not a domain, not a set, and not a quotient ring this surface presents. There is no Domain constructor for it, so it answers no membership, cardinality or inclusion question")
+      throw (.msg s!"`E[[t]]/(t^{k})` is the TARGET of `map … to` — a request that a series be presented by its first {k} coefficients — and nothing else: it is not a domain, not a set, and not a quotient ring CasDsl presents. There is no Domain constructor for it, so it answers no membership, cardinality or inclusion question")
   -- SPEC.md §Ellipses' `∑_{n ∈ ℕ} n² tⁿ`. The RULE is read with the sum's
   -- binder as the indeterminate — the move the root set and the guarded
   -- comprehension both make — so the coefficients come out exactly, and a
@@ -1589,9 +1586,9 @@ differential 1-form here is a POLYNOMIAL against the free generator `dx`")
       let rv ← ofStr (asValueOf (← eval { ctx with indet? := some (binder, .int) } rule)
         s!"the coefficient rule of a generating sum")
       let some (c, cs) := asPolyCoeffs rv
-        | throw (.msg s!"{rv.render} is not a polynomial in '{binder}': the rule of a generating sum gives the coefficient of tⁿ as a polynomial in n, and this slice reads no wider rule")
+        | throw (.msg s!"{rv.render} is not a polynomial in '{binder}': the rule of a generating sum gives the coefficient of tⁿ as a polynomial in n, and no wider rule is read")
       let some qs := cs.mapM Native.toRat?
-        | throw (.msg s!"the rule {rv.render} has a coefficient this slice cannot read as a rational, and a series' coefficients are exact rationals here")
+        | throw (.msg s!"the rule {rv.render} has a coefficient that cannot be read as an exact rational, and a series' coefficients are exact rationals")
       return Denote.ofValue (.seriesV c (.rule qs))
   | .coeffOf k series => do
       let sv ← ofStr (asValueOf (← eval ctx series) s!"`[t^{k}]…`")
@@ -1763,8 +1760,8 @@ universal differential can present as a 1-form")
                 -- backend takes limits, definite integrals and expansions OF
                 -- it, and evaluating `sin(2)` here would be an approximation
                 -- this surface has no business inventing
-                | .sym _ => s!"{fv.render} has a SYMBOLIC body, and this slice \
-does not evaluate one at a point — it presents the expression so a limit, a \
+                | .sym _ => s!"{fv.render} has a SYMBOLIC body, which is never \
+evaluated at a point — it presents the expression so a limit, a \
 definite integral or a Taylor expansion can be taken of it. A decimal for \
 {body.render} at a point would be an approximation, which is a separate \
 operation on an exact element and not something a call inserts"
@@ -1776,10 +1773,10 @@ operation on an exact element and not something a call inserts"
           | some (.domainSet d) =>
               if d == src then callMethod ctx (← ofStr (asObjOf fv)) `image #[]
               else throw (.msg s!"{fv.render} is declared on {src.render}, so \
-{d.render} is not its source: this slice images the source domain only")
+{d.render} is not its source: only the source domain is imaged")
           | some s =>
-              throw (.msg s!"this slice computes the image of a function's SOURCE \
-domain, not of {s.render}")
+              throw (.msg s!"the image is taken of a function's SOURCE domain, \
+not of {s.render}")
           | none =>
             let x ← ofStr (atDomain ctx.canonMaps src (← ofStr (asValueOf arg)))
             let y ← ofStr (applyPoly ctx.canonMaps body x)
@@ -1818,7 +1815,7 @@ domain of this hom")
       return .obj (.setObj (← ofStr (progressionOf ctx.canonMaps vs l)))
   | .matLit rows cols entries => do
       if rows != cols then
-        throw (.msg s!"the slice presents square matrices only, got {rows}×{cols}")
+        throw (.msg s!"only square matrices are presented, got {rows}×{cols}")
       let vs ← entries.mapM fun e => do ofStr (asValueOf (← eval ctx e))
       let d ← ofStr (elemsDomain ctx.canonMaps vs)
       let rs ← (Array.range rows).mapM fun i =>
@@ -2024,10 +2021,10 @@ partial def evalComprehension (ctx : EvalCtx) (head : CasExpr) (binder : Name)
   ofStr (checkBindableName binder)
   let idx ← eval ctx index
   let some (.domainSet dom) := idx.asSet?
-    | throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
+    | throw (.msg s!"a comprehension indexes over ℕ or ℤ, not \
 {idx.presentation}")
   unless dom == .nat || dom == .int do
-    throw (.msg s!"a comprehension indexes over ℕ or ℤ in this slice, not \
+    throw (.msg s!"a comprehension indexes over ℕ or ℤ, not \
 {dom.render}")
   -- ONE element-world reading, at a candidate of the index domain. The
   -- indeterminate world answers for guards and heads that are meaningless for
@@ -2396,7 +2393,7 @@ def evalHomBinding (binders : Array Name) (body : CasExpr) (asc : Ascription)
     | throw (.msg "a multi-binder `↦` definition is a hom of free ℚ-modules, \
 and is ascribed its function domain: `let φ: ℚ³ → ℚ := (a, b, c) ↦ a + b - c`")
   let .vector n .rat := src
-    | throw (.msg s!"this slice reads a multi-binder map on a free ℚ-module \
+    | throw (.msg s!"a multi-binder map is read on a free ℚ-module \
 ℚⁿ, and {src.render} is not one — the ceiling the span machinery has")
   if n != binders.size then
     throw (.msg s!"{src.render} has {n} coordinates, and this map binds \
@@ -2415,7 +2412,7 @@ writes {es.size}")
 tuple, one linear form per coordinate")
     | .rat, e => pure #[e]
     | t, _ =>
-        throw (.msg s!"this slice reads a multi-binder map into ℚ or ℚᵐ, and \
+        throw (.msg s!"a multi-binder map is read into ℚ or ℚᵐ, and \
 {t.render} is not one — the ceiling the span machinery has")
   let rows ← comps.mapM fun c => ofStr (linearRow binders c)
   return .elem (.funcs src tgt) (.hom src tgt binders rows)

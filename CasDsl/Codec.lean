@@ -209,7 +209,7 @@ private def vocabName (j : Json) (k what : String) (allowed : List Lean.Name)
   let n := Lean.Name.mkSimple s
   if allowed.contains n then return n
   else
-    .error s!"{repr s} is not one of the {what} this slice presents \
+    .error s!"{repr s} is not one of the {what} CasDsl presents \
 ({", ".intercalate (allowed.map toString)}) in {j.compress}"
 
 partial def symFromJson (j : Json) : Except String SymExpr := do

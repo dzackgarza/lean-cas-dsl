@@ -114,7 +114,7 @@ private def stdCategories : Array CatDecl := #[
     doc := "sets: cardinality, membership, and equality of presentations" },
     -- telescope deliberately empty: membership claims nothing beyond being a type
   { name := `CountableSets, parents := #[`Sets], telescope := #[``Countable],
-    doc := "countable sets, so their elements can be indexed when an \
+    doc := "countable sets: their elements can be indexed once an \
 enumeration is registered" },
   { name := `FiniteSets, parents := #[`CountableSets], telescope := #[``Finite],
     doc := "finite sets" },
@@ -133,8 +133,8 @@ irreducibles exists and is unique up to units and order" },
 by one element" },
   { name := `EuclideanElems, parents := #[`PIDElems],
     telescope := #[``EuclideanDomain],
-    doc := "elements of a euclidean domain (a division algorithm, hence \
-also a PID and a UFD)" },
+    doc := "elements of a euclidean domain: a division algorithm, hence \
+also a PID and a UFD" },
   { name := `Modules,
     doc := "modules over a commutative ring" },
   { name := `SmallModules, parents := #[`Modules],
