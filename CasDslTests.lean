@@ -1,4 +1,5 @@
 import CasDslTests.Core
+import CasDslTests.Denote
 import CasDslTests.Codec
 import CasDslTests.Latex
 import CasDslTests.Std

@@ -1,4 +1,6 @@
 import CasDsl.Value
+import CasDsl.Mathlib.Denote
+import CasDsl.Mathlib.Anchors
 import CasDsl.Category
 import CasDsl.Registry
 import CasDsl.Resolve
