@@ -2412,8 +2412,8 @@ def evalBinding (ctx : EvalCtx) (e : CasExpr) (asc? : Option CasExpr) : EvalM Ob
   | .lam binder body, some a =>
       evalBinderBinding ctx binder body (← evalAscription ctx a)
   | .lam binder _, none =>
-      throw (.msg s!"`{binder} ↦ …` needs an ascription naming the domains it \
-runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
+      throw (.msg s!"`{binder} ↦ …` needs an ascription naming its domain and \
+codomain, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
   | .lamN binders body, some a =>
       evalHomBinding binders body (← evalAscription ctx a)
   | .lamN _ _, none =>

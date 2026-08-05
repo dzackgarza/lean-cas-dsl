@@ -80,10 +80,12 @@ test-ci: test _test-full
 [private]
 test-commit: test
 
-# Re-execute the committed notebooks (demo + boundaries) against the live
-# casdsl kernel: outputs stay genuine kernel output (a23ee30 standard) and
-# the runnable-trail rule holds — a live error cell fails this gate, since
-# the document model would block every cell below it.
+# Re-execute the committed notebooks against the live casdsl kernel:
+# outputs stay genuine kernel output (a23ee30 standard). The demo is a
+# runnable trail — a live error cell fails this gate, since the document
+# model would block every cell below it — while boundaries.ipynb runs with
+# errors allowed: its refusals ARE its content, and the gate fails instead
+# if it stops producing them.
 [private]
 _notebook-reexec:
     @.venv/bin/python scripts/reexec_notebooks.py
