@@ -48,11 +48,10 @@ partial def Domain.denote : Domain → MetaM Expr
   | .funcs s t => do mkArrow (← denote s) (← denote t)
   | .series c => do mkAppM ``PowerSeries #[← denote c]
 
-/-- Fully apply a class to a type — synthesizing the class's OWN instance
-parameters (`UniqueFactorizationMonoid` needs `CancelCommMonoidWithZero`) —
-then synthesize the membership itself. Failure at either step is the honest
-report that the claimed mathematics does not hold at this type. -/
-def synthMembership (cls : Name) (T : Expr) : MetaM Unit := do
+/-- Fully apply a class to a type, synthesizing the class's OWN instance
+parameters (`UniqueFactorizationMonoid` needs `CancelCommMonoidWithZero`).
+The result is the class TYPE at `T`, ready for `synthInstance`. -/
+def classApp (cls : Name) (T : Expr) : MetaM Expr := do
   let mut e ← mkAppM cls #[T]
   let mut ty ← whnf (← inferType e)
   while ty.isForall do
@@ -61,6 +60,34 @@ def synthMembership (cls : Name) (T : Expr) : MetaM Unit := do
       throwError "{cls} has a non-instance parameter this check cannot fill"
     e := mkApp e (← synthInstance bt)
     ty ← whnf (← inferType e)
-  discard <| synthInstance e
+  return e
+
+/-- Synthesize a class membership at a type. Failure is the honest report
+that the claimed mathematics does not hold there. -/
+def synthMembership (cls : Name) (T : Expr) : MetaM Unit := do
+  discard <| synthInstance (← classApp cls T)
+
+/-- Run `k` under instance binders for each class of `telescope` at `R` —
+the hypotheses of a quantified derivation. -/
+partial def withTelescopeInsts (R : Expr) (telescope : List Name)
+    (k : MetaM α) : MetaM α :=
+  match telescope with
+  | [] => k
+  | cls :: rest => do
+      withLocalDecl `inst .instImplicit (← classApp cls R) fun _ =>
+        withTelescopeInsts R rest k
+
+/-- The quantified inclusion edge, discharged by elaboration:
+`∀ R [src-telescope R], tgt-class R` for every class of the target's
+telescope. Returns the first class that does NOT follow, or `none` when the
+edge is a theorem. -/
+def synthEdgeImplication (srcTel tgtTel : Array Name) : MetaM (Option Name) := do
+  let u ← mkFreshLevelMVar
+  withLocalDecl `R .default (mkSort (mkLevelSucc u)) fun R =>
+    withTelescopeInsts R srcTel.toList do
+      for cls in tgtTel do
+        try synthMembership cls R
+        catch _ => return some cls
+      return none
 
 end CasDsl

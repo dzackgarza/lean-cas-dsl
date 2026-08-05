@@ -56,6 +56,21 @@ def registerCategory! (d : CatDecl) : CommandElabM Unit := do
     unless isClass (← getEnv) cls do
       throwError "category '{d.name}' names '{cls}' in its telescope, but \
 that is not a class in the current environment"
+  -- every inclusion edge is a THEOREM, discharged here: the rendered
+  -- `child ≤ parent` chain may never claim an implication Lean cannot prove
+  for p in d.parents do
+    let some parent := catDecl? (← getEnv) p
+      | throwError "category '{d.name}' names an unregistered parent '{p}'"
+    if parent.telescope.isEmpty then continue
+    if d.telescope.isEmpty then
+      throwError "the edge '{d.name}' ≤ '{p}' claims {parent.telescope} \
+from a category with no telescope — an implication from nothing, which is \
+not a theorem"
+    match ← liftTermElabM (synthEdgeImplication d.telescope parent.telescope) with
+    | none => pure ()
+    | some cls =>
+        throwError "the edge '{d.name}' ≤ '{p}' is not a theorem: Lean \
+cannot derive {cls} from {d.telescope}"
   registerWith addCategoryChecked d
 
 def registerMethod! (d : MethodDecl) : CommandElabM Unit := do

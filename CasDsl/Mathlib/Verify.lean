@@ -31,16 +31,26 @@ private def receiverDomain? : Obj → Option Domain
   | .domainObj d => some d
   | _ => none
 
-/-- `none` = verified (or not judgeable: empty telescope, no denoted type);
-`some cls` = the class that failed to synthesize at the receiver. -/
-def verifyResolution (env : Environment) (declaredOn : Name) (concrete : Obj)
-    : IO (Option Name) := do
-  let some cat := catDecl? env declaredOn | return none
-  if cat.telescope.isEmpty then return none
+/-- `none` = verified (or not judgeable: empty telescopes, no denoted
+type); `some cls` = the class that failed to synthesize at the receiver.
+
+The ENTRY category's telescope is judged when it claims anything — with
+every inclusion edge a registration-time theorem, the entry membership
+grounds the whole displayed chain. A claimless entry (a family-pattern
+category) falls back to the declaring category's telescope, so the walk
+still cannot grant what Mathlib refuses. -/
+def verifyResolution (env : Environment) (entry declaredOn : Name)
+    (concrete : Obj) : IO (Option Name) := do
+  let telescopeOf (n : Name) : Array Name :=
+    ((catDecl? env n).map (·.telescope)).getD #[]
+  let tel :=
+    if (telescopeOf entry).isEmpty then telescopeOf declaredOn
+    else telescopeOf entry
+  if tel.isEmpty then return none
   let some d := receiverDomain? concrete | return none
   runSemanticCheck env do
     let T ← d.denote
-    for cls in cat.telescope do
+    for cls in tel do
       try synthMembership cls T
       catch _ => return some cls
     return none

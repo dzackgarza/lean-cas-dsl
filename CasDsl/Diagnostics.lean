@@ -84,7 +84,7 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
       ownerTelescope := (catDecl? ctx.env res.decl.receiver).map (·.telescope) |>.getD #[]
       chain := charClassOf ctx.env res.profileEntry.name
         :: res.via.map (charClassOf ctx.env)
-      verified? := ← verifyResolution ctx.env res.decl.receiver concrete
+      verified? := ← verifyResolution ctx.env res.profileEntry.name res.decl.receiver concrete
     }
 
 /-- The method as a Lean-style signature over its declaring telescope:

@@ -70,7 +70,7 @@ run_cmd do
   let res ← match resolveMethod env' six `factor with
     | .ok r => pure r
     | .error _ => throwError "the walk did not even propose factor for ℤ/6"
-  match ← verifyResolution env' res.decl.receiver (res.concreteReceiver six) with
+  match ← verifyResolution env' res.profileEntry.name res.decl.receiver (res.concreteReceiver six) with
   | some _ => pure ()   -- the tripwire fired: Mathlib refused the drift
   | none => throwError "verifyResolution accepted a membership Mathlib refutes"
 
