@@ -290,12 +290,13 @@ def check_is_prime_int(adapter):
 
     assert is_prime(7) is True
     assert is_prime(8) is False
-    # the boundary cases the METHOD declares (normalized primality: −7 is
-    # irreducible but 7 is the normalized representative of its associate
-    # class), pinned here so backend and declaration cannot drift apart
+    # the boundary cases the METHOD declares (x is prime iff (x) is a nonzero
+    # prime ideal — the 2026-08-05 ruling, lean-lattices#56 v2.5), pinned here
+    # so backend and declaration cannot drift apart: a unit and zero are not
+    # prime, and −7 IS, because (−7) = (7)
     assert is_prime(1) is False
     assert is_prime(0) is False
-    assert is_prime(-7) is False
+    assert is_prime(-7) is True
     # a magnitude no 64-bit path could carry: 2^127 − 1 is a Mersenne prime
     assert is_prime(2**127 - 1) is True
     print("is_prime_int: ok")
