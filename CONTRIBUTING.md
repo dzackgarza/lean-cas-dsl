@@ -209,3 +209,11 @@ availability is a path of functors, not subcategory containment), then
 op conventions` with the docs link, then the result shape. The notebook
 receives it as markdown (typeset math, clickable docs); plain contexts get
 the same sentences as text.
+
+**The anchor discipline (guideline).** The anchor may not carry stronger
+hypotheses than the declared generality of its home: `Polynomial.roots` is
+the IsDomain *carrier* of an any-commutative-ring meaning, and citing
+`EuclideanDomain.gcd` for a UFD-level declaration was an algorithm posing
+as a meaning. This is judgment, not automation — though its mechanical
+core (the anchor constant elaborates at the declared generality) is an
+ordinary typecheck if a gate is ever wanted.

@@ -1995,9 +1995,14 @@ Recorded on issue #35 until this section landed; #35 now points here.
   Mathlib's `Denumerable` order adopted verbatim for ℤ and ℚ — 0, −1, 1,
   −2, 2, …;
 - the concrete declaration syntax for notebook-level categories (proposal
-  owed under issue #6);
-- the logging layer's level surface and directive syntax (#8);
-- which methods beyond `unit_group` the GAP bridge routes first (#3).
+  owed under issue #6) — DEFERRED (2026-08-06) until the lean-categories
+  blockers land;
+- ~~the logging layer~~ RESOLVED in direction (2026-08-06, #8): opt-in and
+  toggleable per cell/notebook (magic); the current default output stands;
+  what remains is a principled logging module, not design;
+- the GAP bridge (#3): RESEARCH FIRST (2026-08-06) — direct adapter versus
+  routing through libgap, with a hazard analysis (libgap warts, ownership
+  complexity of a bridge); method sequencing follows.
 
 ## Ceilings (deliberate, documented)
 
