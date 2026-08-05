@@ -266,7 +266,8 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
   let e ← match ← toExpr stx with
     | .ok e => pure e
     | .error m => throwError m
-  let ctx : EvalCtx := { env := ← getEnv, notes := ← IO.mkRef #[] }
+  let ctx : EvalCtx := { env := ← getEnv, notes := ← IO.mkRef #[],
+                         annotations := ← IO.mkRef #[] }
   let x ← match ← (explain ctx e).run with
     | .ok x => pure x
     | .error err => throwError err.render

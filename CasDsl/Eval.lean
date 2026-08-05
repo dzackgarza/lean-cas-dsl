@@ -1057,6 +1057,13 @@ structure EvalCtx where
   the one producer today is the ruled `roots` default (`rootsRingNote`),
   where the ruling itself asks for the help. -/
   notes : IO.Ref (Array String)
+  /-- Choice annotations accumulated while a statement evaluates, appended
+  IN NOTATION to the statement's rendered result (ruling 2026-08-06): a
+  disclosed choice the answer rides — the fixed embedding ℚ̄ ↪ ℂ, the √
+  branch cut — qualifies the result the way units do, so it is part of the
+  result line, never a standalone prose note. Text is in the emitted-text
+  register (CONTRIBUTING §7): LaTeX prose with inline `$…$`. -/
+  annotations : IO.Ref (Array String)
 
 abbrev EvalM := ExceptT EvalError IO
 
@@ -1069,6 +1076,11 @@ private def ofStr (r : Except String α) : EvalM α :=
 allowed to insert. Read from the environment, exactly like the categories and
 routes: nothing in this module knows which embeddings the prelude ships. -/
 def EvalCtx.canonMaps (ctx : EvalCtx) : Array CanonicalMap := canonicalMaps ctx.env
+
+/-- Push a choice annotation, deduplicated: a statement reaching the same
+choice twice (`√8 = 2√2` evaluates two roots) discloses it once. -/
+def EvalCtx.annotate (ctx : EvalCtx) (a : String) : EvalM Unit :=
+  ctx.annotations.modify fun as => if as.contains a then as else as.push a
 
 def EvalCtx.isBound (ctx : EvalCtx) (n : Name) : Bool :=
   (binding? ctx.env n).isSome || ctx.indet?.any (·.1 == n)
@@ -1124,12 +1136,11 @@ the mathematics")
       | .error e => throw (.exec e)
       | .ok v =>
         -- a provider-declared advisory rides the op's result (`OpSig.advisory`,
-        -- registration data): pushed generically, deduplicated so one statement
-        -- reaching the op twice still says it once
+        -- registration data) as a choice annotation appended to it in
+        -- notation — the disclosure qualifies the answer the way units do
         if let some sig := opSig? ctx.env r.backend r.opId then
           unless sig.advisory.isEmpty do
-            ctx.notes.modify fun ns =>
-              if ns.contains sig.advisory then ns else ns.push sig.advisory
+            ctx.annotate sig.advisory
         return Denote.ofValue v
 
 /-! `callMethod` and `rootsRingNote` live INSIDE the `mutual` block below:
@@ -1623,12 +1634,12 @@ left unstated rather than guessed")
 {v.render} is not one, and it is not approximated")
       let r ← ofStr (Value.sqrtOfRat q)
       -- an ALGEBRAIC root is one of two, and the spelling picks a branch —
-      -- an embedding choice, logged at use (#31 item 10, log-at-use ruling):
-      -- the non-negative root for a positive radicand, i·√|d| upward for a
-      -- negative one. A rational root is ordinary arithmetic and gets no note.
+      -- a choice disclosed on the result it rides (ruling 2026-08-06), in
+      -- notation: the principal branch, named by its cut. A rational root
+      -- is ordinary arithmetic and carries nothing.
       if let .alg .. := r then
-        ctx.notes.modify (·.push s!"√ denotes the principal branch: the \
-non-negative root for a positive radicand, i·√|d| for a negative one")
+        ctx.annotate "with a branch cut $C = \\{\\, z \\in \\mathbb{C} : \
+\\operatorname{Re} z < 0,\\ \\operatorname{Im} z = 0 \\,\\}$"
       return Denote.ofValue r
   | .magnitude e => do
       -- the bars are a SPELLING: which method they name is the receiver's
@@ -2106,7 +2117,7 @@ end
 test harness's seam. The syntax layer builds its own `EvalCtx` instead,
 because it drains the notes into `info` output (`Syntax.runCas`). -/
 def runEval (env : Environment) (e : CasExpr) : IO (Except EvalError Denote) := do
-  (eval { env, notes := ← IO.mkRef #[] } e).run
+  (eval { env, notes := ← IO.mkRef #[], annotations := ← IO.mkRef #[] } e).run
 
 /-! ## Ascription
 

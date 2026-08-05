@@ -327,7 +327,8 @@ third. -/
 open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  let ctx : EvalCtx := { env, notes := ← IO.mkRef #[] }
+  let ctx : EvalCtx := { env, notes := ← IO.mkRef #[],
+                         annotations := ← IO.mkRef #[] }
   let setLit : CasExpr := .finSet #[.num 0, .num 1, .num 2, .num 3]
   match ← (evalAssert ctx .eq (.ref `F) setLit).run with
   | .ok (some false) => pure ()

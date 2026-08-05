@@ -427,13 +427,15 @@ the source link the diagnostics render for a sage route. -/
 private def adapterSource : String :=
   "https://github.com/dzackgarza/lean-cas-dsl/blob/main/backends/sage_adapter.py"
 
-/-- The QQbar ↪ ℂ advisory (#31 item 10, log-at-use ruling): every algebraic
-number this backend positions in ℂ rides Sage's one fixed embedding of
-QQbar, and that CHOICE is disclosed where it flows — on the ℂ[x] ops whose
-results are complex algebraic values — never declared silently. Registration
-data on those ops' signatures; the evaluator renders it generically. -/
+/-- The ℚ̄ ↪ ℂ advisory (ruling 2026-08-06, inline choice annotations):
+every algebraic number this backend positions in ℂ rides Sage's one fixed
+embedding of ℚ̄, and that CHOICE is disclosed IN NOTATION on the results it
+flows through — appended to the rendered result of the ℂ[x] ops whose
+values are complex algebraic numbers, never a standalone prose note.
+Registration data on those ops' signatures; the evaluator appends it
+generically. -/
 private def qqbarAdvisory : String :=
-  "algebraic numbers are presented through a fixed embedding ℚ̄ ↪ ℂ"
+  "under a fixed embedding $\\bar{\\mathbb{Q}} \\hookrightarrow \\mathbb{C}$"
 
 /-- The Sage reference manual, the external documentation every op below
 links (`OpSig.docUrl` — the docs of the FUNCTION the backend runs, never a

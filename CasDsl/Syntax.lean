@@ -873,18 +873,31 @@ private def parseCas (stx : Syntax) : CommandElabM CasExpr := do
   | .error m => throwError m
 
 private def casCtx (ambient? : Option Domain := none) : CommandElabM EvalCtx := do
-  return { env := ← getEnv, ambient?, notes := ← IO.mkRef #[] }
+  return { env := ← getEnv, ambient?, notes := ← IO.mkRef #[],
+           annotations := ← IO.mkRef #[] }
 
 /-- Run an evaluation and surface its accumulated notes as `info` lines.
 Drained on BOTH outcomes: a note describes a call that already succeeded
 (the roots deficit), and a later failure in the same statement does not
-unsay it. -/
+unsay it. Choice annotations are NOT drained here — they are part of the
+result, and each emission site appends them (`annotationSuffix`); on a
+failure they die with the result they were to qualify. -/
 private def runCas (ctx : EvalCtx) (x : EvalM α) : CommandElabM α := do
   let r ← x.run
   for note in ← ctx.notes.modifyGet fun ns => (ns, #[]) do logInfo note
   match r with
   | .ok a => return a
   | .error e => throwError e.render
+
+/-- The choice annotations a statement accumulated, as the suffix its
+rendered result carries (ruling 2026-08-06): a disclosed choice — the fixed
+embedding ℚ̄ ↪ ℂ, the √ branch cut — is appended in notation to the
+dependent result, the way units qualify a measurement. The text is in the
+emitted-text register (CONTRIBUTING §7), so it follows a result on the
+plain and the LaTeX surface alike. -/
+private def annotationSuffix (ctx : EvalCtx) : CommandElabM String := do
+  let anns ← ctx.annotations.modifyGet fun as => (as, #[])
+  return String.join (anns.toList.map (" " ++ ·))
 
 /-- The source text of a syntax node, for echoing an assertion back at the
 mathematician in the spelling they wrote. -/
@@ -904,15 +917,16 @@ private def ambientOf (tail? : Option Syntax) : CommandElabM (Option Domain) := 
       | .obj (.domainObj d) => return some d
       | other => throwError s!"`in {other.render}` is not a domain"
 
-private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
+private def bindObj (n : Name) (o : Obj) (annots : String := "") : CommandElabM Unit := do
   -- `e` and `i` are reserved SYMBOLS (ruling 2026-07-31, #31 item 3):
   -- Euler's constant and the imaginary unit, which no binding may shadow
   if let some m := reservedConstantMsg? n then throwError m
   modifyEnv fun env => addBinding env (n, o)
   emitOutput {
     data :=
-      [("text/plain", .str s!"{n} := {o.presentation}")]
-      ++ (o.presentationLatex?.toList.map fun l => ("text/latex", Json.str s!"${n} := {l}$"))
+      [("text/plain", .str s!"{n} := {o.presentation}{annots}")]
+      ++ (o.presentationLatex?.toList.map fun l =>
+            ("text/latex", Json.str s!"${n} := {l}${annots}"))
   }
 
 /-- `let x [: T] := e [in C]`. Both ascriptions are CHECKED judgments, and a
@@ -925,17 +939,19 @@ def elabCasLet (idStx valStx : Syntax) (asc? : Option Syntax)
   let a? ← asc?.mapM parseCas
   let t? ← tail?.mapM parseCas
   let ctx ← casCtx
-  bindObj idStx.getId (← runCas ctx do
+  let o ← runCas ctx do
     let o ← evalBinding ctx e a?
     match t? with
     | none => pure o
-    | some t => ascribe ctx o (← evalAscription ctx t))
+    | some t => ascribe ctx o (← evalAscription ctx t)
+  bindObj idStx.getId o (← annotationSuffix ctx)
 
 def elabCasLetPoly (idStx xStx valStx ascStx : Syntax) : CommandElabM Unit := do
   let e ← parseCas valStx
   let a ← parseCas ascStx
   let ctx ← casCtx
-  bindObj idStx.getId (← runCas ctx (evalPolyBinding ctx xStx.getId e a))
+  let o ← runCas ctx (evalPolyBinding ctx xStx.getId e a)
+  bindObj idStx.getId o (← annotationSuffix ctx)
 
 private def relOf (relStx : Syntax) : CommandElabM AssertRel :=
   match relStx.getKind with
@@ -974,7 +990,7 @@ def elabCasAssert (parts : Array Syntax) (tail? : Option Syntax)
     | some false => throwError s!"assertion is false: {which}"
     | none => throwError s!"the assertion outcome is unknown: the two sides of \
 {which} are not comparable"
-  logInfo s!"✓ {stated}"
+  logInfo s!"✓ {stated}{← annotationSuffix ctx}"
 
 /-- A bare proposition cell: `gcd(84, 30) = 6`. A proposition is three-valued
 — `true | false | unknown` — and the cell displays that truth value, by the
@@ -1000,7 +1016,7 @@ def elabCasAssertBare (parts : Array Syntax) (tail? : Option Syntax)
     | none => if outcome == some true then outcome := none
   let truth : String := match outcome with
     | some true => "true" | some false => "false" | none => "unknown"
-  emitOutput { data := [("text/plain", .str truth)] }
+  emitOutput { data := [("text/plain", .str s!"{truth}{← annotationSuffix ctx}")] }
 
 /-- A bare expression cell: display the value as text and as a structured
 MIME bundle. LaTeX-first (#16): a value with a natural LaTeX form carries it
@@ -1015,10 +1031,11 @@ text size with undersized delimiters. -/
 def elabCasShow (stx : Syntax) : CommandElabM Unit := do
   let ctx ← casCtx
   let d ← runCas ctx (eval ctx (← parseCas stx))
+  let annots ← annotationSuffix ctx
   emitOutput {
     data :=
-      [("text/plain", .str d.render)]
-      ++ (d.latex?.toList.map fun l => ("text/latex", Json.str s!"${l}$"))
+      [("text/plain", .str s!"{d.render}{annots}")]
+      ++ (d.latex?.toList.map fun l => ("text/latex", Json.str s!"${l}${annots}"))
       ++ [("application/vnd.casdsl.value+json", denoteJson d)]
   }
 

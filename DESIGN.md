@@ -1208,9 +1208,13 @@ structure Route where
 ```
 
   Op signatures (`OpSig`) carry `doc`/`docUrl` and a provider-owned
-  `advisory` the evaluator pushes generically with the op's results
-  (Sage's fixed QQbar ↪ ℂ embedding disclosure rides the ℂ[x] ops this
-  way — registration data, no advisory text in `Eval.lean`).
+  `advisory` — the disclosure of a choice the op's answers ride, which
+  the evaluator appends generically, IN NOTATION, to every rendered
+  result of the op (ruling 2026-08-06, inline choice annotations:
+  Sage's fixed ℚ̄ ↪ ℂ embedding rides the ℂ[x] ops as "… under a fixed
+  embedding $\bar{\mathbb{Q}} \hookrightarrow \mathbb{C}$", and the √
+  spelling's branch choice is annotated the same way, by its cut).
+  Registration data, no advisory text in `Eval.lean`.
 
 - **Functors** are the transport layer, and are registry data too:
 
@@ -1944,21 +1948,27 @@ field on `CanonicalMap`, constructions refusing until a choice is named) is
 FAMILY MANAGEMENT — precisely the CategoryGraph cut — and stays deferred to
 the foundations rewrite.
 
-The two flows that carry a choice today, and their notes:
+The two flows that carry a choice today, and how it is disclosed (ruling
+2026-08-06: a disclosed choice is an ANNOTATION appended in notation to the
+dependent result — it qualifies the answer the way units do — never a
+standalone prose note):
 
 - **`√d`** denotes ONE root by convention — the non-negative branch for a
   positive radicand (`nonNegSurd`), `i·√|d|` upward for a negative one — and
-  the `.sqrt` evaluation pushes a note saying so whenever the result is
-  algebraic (a rational root is ordinary arithmetic and gets none);
-- **`QQbar ↪ ℂ`**: all exact algebraic arithmetic rides Sage's one fixed
-  embedding (`enc_alg` settles conjugates by exact QQbar comparison), and the
-  ℂ[x] `roots`/`factor` calls — where complex algebraic results actually
-  surface — push a note naming it (`embeddingNote`).
+  the `.sqrt` evaluation annotates any algebraic result with the cut that
+  names that branch, "with a branch cut $C = \{\, z \in \mathbb{C} :
+  \operatorname{Re} z < 0,\ \operatorname{Im} z = 0 \,\}$" (a rational root
+  is ordinary arithmetic and carries nothing);
+- **`ℚ̄ ↪ ℂ`**: all exact algebraic arithmetic rides Sage's one fixed
+  embedding (`enc_alg` settles conjugates by exact comparison in ℚ̄), and
+  the ℂ[x] `roots`/`factor` results — where complex algebraic values
+  actually surface — carry "under a fixed embedding $\bar{\mathbb{Q}}
+  \hookrightarrow \mathbb{C}$" (the ops' registered `advisory`).
 
 The prelude's chain ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ is made of maps that are unique, so
 no other non-canonical choice is being made yet; when splitting fields,
 abstract number fields or Galois-orbit root sets arrive, their choices join
-the log-at-use discipline (or force the registry question at CategoryGraph).
+the annotation discipline (or force the registry question at CategoryGraph).
 
 ## Governing rulings (2026-08-05 review — this file is the owner)
 

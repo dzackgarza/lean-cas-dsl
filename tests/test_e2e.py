@@ -462,6 +462,11 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     text = ok(kc, "rpc.roots()")
     assert "{1, 1}" in text
     assert "does not split" not in text
+    # the backend's ℚ̄ ↪ ℂ embedding is a CHOICE the answer rides, disclosed
+    # as an annotation appended to the result in notation (ruling 2026-08-06)
+    # — never a standalone prose line
+    assert "under a fixed embedding" in text
+    assert "presented through" not in text
 
 
 def test_a_duplicated_literal_is_one_set(kernel: Kernel) -> None:
@@ -1310,6 +1315,12 @@ def test_exact_algebraic_membership(kernel: Kernel) -> None:
     # the value is a normal form, not a decimal: `√8` IS `2√2`
     text = ok(kc, "√8")
     assert "2√2" in text and "2.82" not in text
+    # the √ spelling picks a branch, and the CHOICE is disclosed on the
+    # result, in notation (ruling 2026-08-06) — never a standalone note
+    assert "with a branch cut" in text
+    assert "principal branch" not in text
+    # a rational root is ordinary arithmetic: no choice, no annotation
+    assert "branch cut" not in ok(kc, "√9")
     ok(kc, "assert √8 = 2√2")
     ok(kc, "assert √2 · √2 = 2")
 
@@ -1321,7 +1332,9 @@ def test_the_complex_methods(kernel: Kernel) -> None:
     ok(kc, "assert z.im() = 2")
     ok(kc, "assert z.bar() = 2 - 2i")
     ok(kc, "assert z · z.bar() = 8")
-    ok(kc, "assert |z| = 2√2")
+    # the RHS spelling `2√2` picks a branch; the ✓ line carries the choice
+    text = ok(kc, "assert |z| = 2√2")
+    assert "✓" in text and "with a branch cut" in text
     # each one rejects a wrong answer
     for wrong in (
         "z.re() = 3",
@@ -1364,11 +1377,20 @@ def test_the_exact_form_has_a_ceiling_and_says_so(kernel: Kernel) -> None:
     assert "is not approximated" in text
 
 
+BRANCH_CUT = (
+    " with a branch cut"
+    r" $C = \{\, z \in \mathbb{C} : \operatorname{Re} z < 0,"
+    r"\ \operatorname{Im} z = 0 \,\}$"
+)
+
+
 def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
     _, kc = kernel
+    # a √ spelling carries its branch-cut annotation on BOTH surfaces
+    # (ruling 2026-08-06), after the closing `$` on the latex one
     for code, expected in (
-        ("√2", r"$\sqrt{2}$"),
-        ("2√2", r"$2\sqrt{2}$"),
+        ("√2", r"$\sqrt{2}$" + BRANCH_CUT),
+        ("2√2", r"$2\sqrt{2}$" + BRANCH_CUT),
         ("2 + 2i", "$2 + 2i$"),
         ("ℂ", r"$\mathbb{C}$"),
     ):
@@ -1376,7 +1398,7 @@ def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
         assert b["text/latex"] == expected, code
         assert b["text/latex"].isascii(), code  # no `√`, no `ℂ` in a payload
         assert "text/plain" in b, code
-    assert bundle(kc, "√2")["text/plain"] == "√2"
+    assert bundle(kc, "√2")["text/plain"] == "√2" + BRANCH_CUT
 
 
 # -- 15 · ℂ[x]: where the cubic splits ---------------------------------------
@@ -1468,15 +1490,17 @@ def test_the_spec_approximation_line(kernel: Kernel) -> None:
     _, kc = kernel
     # SPEC.md, verbatim — the line and the display it writes under it
     b = bundle(kc, "map √2 to ℝ/O(1/10^{10})")
-    assert b["text/plain"] == "1.4142135623 + O(1/10^{10})"
-    assert b["text/latex"] == "$1.4142135623 + O(1/10^{10})$"
+    # the decimal is OF the branch the √ spelling picked, so the annotation
+    # rides the approximation exactly as it rides the exact value
+    assert b["text/plain"] == "1.4142135623 + O(1/10^{10})" + BRANCH_CUT
+    assert b["text/latex"] == "$1.4142135623 + O(1/10^{10})$" + BRANCH_CUT
     assert b["text/latex"].isascii()
     # the DIGITS are the claim, not decoration: a coarser tolerance shows
     # fewer of them, and the exact value is never a decimal until asked
     assert "1.41 + O(1/10^{2})" in ok(kc, "map √2 to ℝ/O(1/10^{2})")
     # …and the exact value itself is untouched by having been asked: no cell
     # that did not ask for a decimal produces one
-    assert bundle(kc, "√2")["text/plain"] == "√2"
+    assert bundle(kc, "√2")["text/plain"] == "√2" + BRANCH_CUT
 
 
 def test_the_approximation_keeps_the_exact_value_it_is_of(kernel: Kernel) -> None:

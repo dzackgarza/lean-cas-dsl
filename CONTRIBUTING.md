@@ -96,10 +96,12 @@ The executor's receiver match, restated as checked registration data:
 - `backendFn`, `conventions`, `doc` and `docUrl` are rendered by the
   diagnostics — see §7 for what belongs in each; an op naming no external
   docs falls back to the adapter source at registration.
-- `advisory` is a standing note pushed with every result of the op — the
-  provider's own disclosure of a choice the answer rides (Sage's fixed
-  QQbar ↪ ℂ embedding). Registration data: no advisory text may live in
-  `Eval.lean`.
+- `advisory` is the provider's own disclosure of a choice the answer
+  rides (Sage's fixed ℚ̄ ↪ ℂ embedding), appended IN NOTATION to every
+  rendered result of the op — a qualifying phrase like "under a fixed
+  embedding $\bar{\mathbb{Q}} \hookrightarrow \mathbb{C}$", written in
+  the §7 register, never a standalone prose note. Registration data: no
+  advisory text may live in `Eval.lean`.
 
 ## 4 · Executors
 
