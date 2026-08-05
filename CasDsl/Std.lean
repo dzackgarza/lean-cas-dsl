@@ -220,14 +220,15 @@ leading unit in ℤ, monic factors over a field",
     doc := "a greatest common divisor — unique up to units in a UFD, which is \
 where the operation first makes sense" },
   { id := `is_prime, receiver := `FactorizationElems,
-    anchor := ``Irreducible,
-    conventions := "irreducible AND normalized (`normalize x = x`) — in ℤ, the positive representative",
+    anchor := ``Prime,
+    conventions := "a backend whose integer primality bakes in positivity is \
+adapted at the executor via |x| — legitimate because (x) = (|x|); the \
+predicate's VALUE is never a convention",
     resultDoc := "a boolean",
-    doc := "primality in the NORMALIZED sense: is this element irreducible AND \
-the normalized representative of its associate class? In ℤ that is the ordinary \
-'is a prime number', so −7 answers FALSE — it is irreducible, but 7 is the \
-normalized representative of {7, −7}. Declared where irreducibility first makes \
-sense: the elements of a UFD" },
+    doc := "primality: x is prime iff (x) is a nonzero prime ideal — \
+equivalently p ∣ ab ⇒ p ∣ a ∨ p ∣ b. So −7 IS prime, exactly as 7 is: \
+(−7) = (7). Prime implies irreducible over a domain, and the converse holds \
+in a UFD, which is where the method is declared" },
   -- SPEC.md §Differentials' `(d/dx)(f)`, and the same operation `d(f)` wraps
   -- as a 1-form. Declared on PolynomialElems because differentiating is a
   -- STRUCTURAL read of a polynomial — it makes sense over any coefficient

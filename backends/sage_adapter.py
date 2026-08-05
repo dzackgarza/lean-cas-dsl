@@ -237,8 +237,11 @@ def op_gcd_int(args):
 
 
 def op_is_prime_int(args):
-    """Primality in ZZ, by Sage's own convention (DESIGN.md decision 7)."""
-    return {"t": "bool", "v": bool(Integer(args["n"]).is_prime())}
+    """x is prime iff (x) is a nonzero prime ideal, so (-7) is prime because
+    (-7) = (7). Sage's Integer.is_prime bakes positivity into the predicate;
+    |x| adapts it to the true one — the executor computes the mathematics,
+    the semantics never bends to a backend."""
+    return {"t": "bool", "v": bool(Integer(args["n"]).abs().is_prime())}
 
 
 def _roots(ring, coeffs, enc, dom):
