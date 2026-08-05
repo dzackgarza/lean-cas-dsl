@@ -48,20 +48,22 @@ private structure Explanation where
   decl : MethodDecl
   functor? : Option FunctorDecl
   outcome : RouteOutcome
-  /-- Noun phrase for the category the receiver entered at. -/
-  entryCaption : String
-  /-- Noun phrases along the inheritance chain, entry excluded. -/
-  viaCaptions : List String
-  /-- Noun phrase for the category the method is declared on. -/
-  ownerCaption : String
+  /-- The declaring category's telescope — the instance brackets of the
+  method's signature. -/
+  ownerTelescope : Array Name
+  /-- The characteristic class (or name) of the entry category, then of
+  each step of the inheritance chain: the receiver's instance chain. -/
+  chain : List String
   verified? : Option Name
 
-/-- The noun phrase a category's doc leads with — its caption. The doc
-strings are written to open with one ("elements of a unique factorization
-domain: …"), so the caption is the text before the first colon. -/
-private def captionOf (env : Environment) (n : Name) : String :=
+/-- The characteristic Mathlib class of a category — the most specific
+entry of its telescope, which dependency order puts last — or its bare
+name when it claims none. -/
+private def charClassOf (env : Environment) (n : Name) : String :=
   match catDecl? env n with
-  | some c => if c.doc.isEmpty then renderName n else (c.doc.splitOn ":").headD c.doc
+  | some c => match c.telescope.back? with
+    | some cls => cls.toString
+    | none => renderName n
   | none => renderName n
 
 private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
@@ -79,68 +81,65 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
       method := m, receiver := recv, res, decl := res.decl
       functor? := res.viaFunctor.bind fun s => functorDecl? ctx.env s.functor
       outcome := routeFor ctx.env res concrete
-      entryCaption := captionOf ctx.env res.profileEntry.name
-      viaCaptions := res.via.map (captionOf ctx.env)
-      ownerCaption := captionOf ctx.env res.decl.receiver
+      ownerTelescope := (catDecl? ctx.env res.decl.receiver).map (·.telescope) |>.getD #[]
+      chain := charClassOf ctx.env res.profileEntry.name
+        :: res.via.map (charClassOf ctx.env)
       verified? := ← verifyResolution ctx.env res.decl.receiver concrete
     }
 
-/-- The transport sentence, or the empty string when the method arrived
-without a functor step. `source → target` comes from the registration; a
-step whose functor is not in the registry says so rather than inventing an
-edge. -/
-private def transportSentence (x : Explanation) : String :=
+/-- The method as a Lean-style signature over its declaring telescope:
+`factor (x : R) [CommRing R] [IsDomain R] [UniqueFactorizationMonoid R]`. -/
+private def signatureLine (x : Explanation) : String :=
+  let brackets := x.ownerTelescope.toList.map fun cls => s!" [{cls} R]"
+  let args := if x.decl.arity == 0 then "" else s!" — takes {x.decl.argDoc}"
+  s!"{x.method} (x : R){String.join brackets}{args}"
+
+/-- The anchor line: what a trusted answer is an answer TO. -/
+private def meaningLine (d : MethodDecl) : String :=
+  if d.anchor == .anonymous then
+    if d.conventions.isEmpty then "" else s!"  ≐ ({d.conventions})\n"
+  else
+    let conv := if d.conventions.isEmpty then "" else s!" — {d.conventions}"
+    s!"  ≐ {d.anchor}{conv}\n"
+
+/-- The receiver's instance chain, with Mathlib's verdict on it. -/
+private def receiverLine (x : Explanation) : String :=
+  let ring := match x.receiver with
+    | .elem d _ => s!"; R = {d.render}"
+    | _ => ""
+  let verdict := match x.verified? with
+    | none => "synthesized"
+    | some cls => s!"✗ {cls} FAILED to synthesize — registration defect"
+  s!"x = {x.receiver.presentation}{ring} : \
+{" ≤ ".intercalate x.chain}  ({verdict})"
+
+/-- The transport step, when the method arrived through a functor. An edge
+no registered functor provides is reported, never invented. -/
+private def transportLine (x : Explanation) : String :=
   match x.res.viaFunctor with
   | none => ""
   | some step =>
       let edge := match x.functor? with
-        | some f => s!"{renderName f.source} → {renderName f.target}"
-        | none => "an edge NO registered functor provides"
-      s!"It is reached through the functor '{step.functor}' ({edge}): the \
-receiver is carried to {step.image.presentation}, and the question is \
-answered there.\n"
-
-/-- How the receiver qualifies, as a sentence: where it entered the
-category graph and the inclusions that carry it to the declaration. -/
-private def qualificationSentence (x : Explanation) : String :=
-  let entry := s!"{x.receiver.presentation} is one of the {x.entryCaption}"
-  if x.viaCaptions.isEmpty then
-    s!"{entry}, where the method is declared."
-  else
-    s!"{entry}; {" ".intercalate (x.viaCaptions.map
-      fun c => s!"those are among the {c},")} where the method is declared."
-
-/-- Mathlib's verdict on the availability, stated as such. -/
-private def verificationSentence (x : Explanation) : String :=
-  match x.verified? with
-  | none => "Lean verified the membership against Mathlib at this call."
-  | some cls => s!"WARNING: Lean could NOT synthesize {cls} here — the \
-category graph and Mathlib disagree, which is a registration defect."
-
-private def meaningSentence (d : MethodDecl) : String :=
-  if d.anchor == .anonymous then
-    if d.conventions.isEmpty then "" else s!"Its meaning: {d.conventions}.\n"
-  else
-    let conv := if d.conventions.isEmpty then "" else s!" — {d.conventions}"
-    s!"Its meaning is `{d.anchor}`{conv}.\n"
+        | some f => s!" : {renderName f.source} ⟶ {renderName f.target}"
+        | none => " (NO registered functor provides this edge)"
+      s!"via {step.functor}{edge}, image {step.image.presentation}\n"
 
 private def explanationText (x : Explanation) : String :=
-  let opening := s!"`{x.method}` — {x.decl.doc}.\n\
-It is declared on {x.ownerCaption}.\n"
-  let body := s!"{transportSentence x}{qualificationSentence x} \
-{verificationSentence x}\n{meaningSentence x.decl}"
+  let head := s!"{signatureLine x}\n{meaningLine x.decl}\
+{receiverLine x}\n{transportLine x}"
   let tail := match x.outcome with
     | .chosen r =>
-        s!"Implementation: backend `{r.backend}`, operation {repr r.opId}, \
-covering {renderPattern r.pattern}."
+        s!"route: {r.backend} {repr r.opId} — implemented for \
+{renderPattern r.pattern}"
+        ++ (if r.priority == 0 then "" else s!" (priority {r.priority})")
         ++ (if x.decl.resultDoc.isEmpty then ""
-            else s!"\nThe result is {x.decl.resultDoc}.")
+            else s!"\nresult: {x.decl.resultDoc}")
     | .gap g => renderGap g
     | .ambiguousRoutes rs =>
         let ls := String.intercalate "\n" (rs.toList.map fun r => s!"  - {renderRoute r}")
-        s!"Routing is AMBIGUOUS — {rs.size} implementations tied on priority \
+        s!"route: AMBIGUOUS — {rs.size} implementations tied on priority \
 (a configuration error):\n{ls}"
-  opening ++ body ++ tail
+  head ++ tail
 
 private def explanationJson (x : Explanation) : Json :=
   let decision := match x.outcome with
