@@ -40,8 +40,8 @@ sync-kernel:
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
         --prelude-module CasDsl.Notebook --name casdsl --display-name "CasDsl (Lean 4)"
-    @for nb in $$(/home/dzack/gitclones/jupyter-assistant-api/japi list-notebooks --format json 2>/dev/null | jq -r '.result' | rg 'cas-dsl/.*\.ipynb' | cut -f1); do \
-      /home/dzack/gitclones/jupyter-assistant-api/japi restart-notebook "$$nb" '{"kernel_name": "casdsl"}' 2>/dev/null || true; \
+    @for nb in $(/home/dzack/gitclones/jupyter-assistant-api/japi list-notebooks --format json 2>/dev/null | jq -r '.result' | rg 'cas-dsl/.*\.ipynb' | cut -f1); do \
+      /home/dzack/gitclones/jupyter-assistant-api/japi restart-notebook "$nb" '{"kernel_name": "casdsl"}' 2>/dev/null || true; \
     done
 
 # The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
