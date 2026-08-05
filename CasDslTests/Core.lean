@@ -519,6 +519,38 @@ private def A123 : SetPresentation := .finite .int (ints [1, 2, 3])
 /-- `{0, 2, 4, ...}` — the progression SPEC.md's `{2n | n ∈ ℕ}` denotes. -/
 private def evens : Obj := .setObj (.arithProg .nat (.int 0) (.int 2) none)
 
+/-! `∑`/`∏` are attached to the structure of the ELEMENTS (owner ruling
+2026-08-06): the fold uses the same addition/product the binary operators
+use, so whatever adds, sums. -/
+
+private def vec2 (a b : Rat) : Value := .vec 2 .rat #[.rat a, .rat b]
+private def vecSet (vs : List Value) : Obj :=
+  .setObj (.finite (.vector 2 .rat) vs.toArray)
+
+-- vectors add componentwise, so a set of them sums
+#guard out "set_sum" (vecSet [vec2 1 0, vec2 0 1, vec2 2 5]) #[] ==
+  some (vec2 3 6)
+-- the empty sum is the domain's own zero — the zero VECTOR here, never a scalar 0
+#guard out "set_sum" (vecSet []) #[] == some (vec2 0 0)
+-- ℚⁿ carries no product of vectors: ∏ refuses, ∑ does not
+#guard out "set_prod" (vecSet [vec2 1 0, vec2 0 1]) #[] == none
+-- polynomials add and multiply, so their sets sum and take products:
+-- (x − 1)(x + 1) = x² − 1, and their sum is 2x
+#guard out "set_sum" (.setObj (.finite (.poly .int)
+    #[Value.mkPoly .int (ints [-1, 1]), Value.mkPoly .int (ints [1, 1])])) #[] ==
+  some (Value.mkPoly .int (ints [0, 2]))
+#guard out "set_prod" (.setObj (.finite (.poly .int)
+    #[Value.mkPoly .int (ints [-1, 1]), Value.mkPoly .int (ints [1, 1])])) #[] ==
+  some (Value.mkPoly .int (ints [-1, 0, 1]))
+-- a SET of matrices has no product — multiplication does not commute and a
+-- set does not order its factors — while their SUM is fine
+#guard out "set_prod" (.setObj (.finite (.matrix 2 .rat)
+    #[.mat 2 .rat #[#[.rat 1, .rat 0], #[.rat 0, .rat 1]]])) #[] == none
+#guard out "set_sum" (.setObj (.finite (.matrix 2 .rat)
+    #[.mat 2 .rat #[#[.rat 1, .rat 0], #[.rat 0, .rat 1]],
+      .mat 2 .rat #[#[.rat 0, .rat 2], #[.rat 3, .rat 0]]])) #[] ==
+  some (.mat 2 .rat #[#[.rat 1, .rat 2], #[.rat 3, .rat 1]])
+
 #guard out "set_union" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
   some (.setV (ints [1, 2, 3, 4, 5]) .int)
 #guard out "set_intersect" (finSet [1, 2, 3]) #[finSet [3, 4, 5]] ==
@@ -780,14 +812,17 @@ private def finiteOf (d : Domain) (vs : Array Value) : Obj :=
 -- a set counts each element once
 #guard (Native.run "set_sum" (finiteOf .int #[.int 1, .int 1, .int 2]) #[]).toOption
   == some (Value.int 3)
--- …and elements with NO arithmetic are a refusal, never the seed: a fold that
--- answered `0` here would report a value nobody wrote (the defect family
--- `scalarPow`'s own guard exists for)
+-- vectors ADD (owner ruling 2026-08-06: ∑ is attached to the elements'
+-- additive structure), so their sets sum — a singleton is itself — while
+-- ∏ refuses: ℚⁿ carries no product of vectors
 #guard (Native.run "set_sum" (finiteOf (.vector 2 .rat) #[qv [1, 2]]) #[]).toOption
-  == none
+  == some (qv [1, 2])
 #guard (Native.run "set_prod" (finiteOf (.vector 2 .rat) #[qv [1, 2]]) #[]).toOption
   == none
-#guard (Native.run "set_sum" (finiteOf (.matrix 2 .rat) #[m1234]) #[]).toOption == none
+-- matrices add too; their SET product refuses (nothing orders the factors)
+#guard (Native.run "set_sum" (finiteOf (.matrix 2 .rat) #[m1234]) #[]).toOption
+  == some m1234
+#guard (Native.run "set_prod" (finiteOf (.matrix 2 .rat) #[m1234]) #[]).toOption == none
 -- the aggregations need an EXPLICIT finite receiver, like the binary ones
 #guard (Native.run "set_sum" (.domainObj .int) #[]).toOption == none
 

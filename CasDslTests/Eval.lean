@@ -36,16 +36,16 @@ private def embeds : Array CanonicalMap := #[
 
 private def x : Array Value := #[.int 0, .int 1]
 
-#guard (polyAdd #[.int 1, .int 2] #[.int 3]).toOption == some #[.int 4, .int 2]
-#guard (polySub #[.int 1] #[.int 1, .int 5]).toOption == some #[.int 0, .int (-5)]
+#guard (Native.polyAdd #[.int 1, .int 2] #[.int 3]).toOption == some #[.int 4, .int 2]
+#guard (Native.polySub #[.int 1] #[.int 1, .int 5]).toOption == some #[.int 0, .int (-5)]
 -- (1 + 2x)(1 + 3x) = 1 + 5x + 6x²
-#guard (polyMul #[.int 1, .int 2] #[.int 1, .int 3]).toOption
+#guard (Native.polyMul #[.int 1, .int 2] #[.int 1, .int 3]).toOption
   == some #[.int 1, .int 5, .int 6]
-#guard (polyMul #[] #[.int 1]).toOption == some #[]
-#guard (polyPow x 3).toOption == some #[.int 0, .int 0, .int 0, .int 1]
-#guard (polyPow x 0).toOption == some #[.int 1]
+#guard (Native.polyMul #[] #[.int 1]).toOption == some #[]
+#guard (Native.polyPow x 3).toOption == some #[.int 0, .int 0, .int 0, .int 1]
+#guard (Native.polyPow x 0).toOption == some #[.int 1]
 -- ℤ coefficients meeting ℚ coefficients promote pointwise
-#guard (polyAdd #[.int 1] #[.rat (1/2)]).toOption == some #[.rat (3/2)]
+#guard (Native.polyAdd #[.int 1] #[.rat (1/2)]).toOption == some #[.rat (3/2)]
 
 /-- The notebook's `x^3 - 2x + 1`, evaluated as the surface evaluator does. -/
 private def cubic : Except String Value := do

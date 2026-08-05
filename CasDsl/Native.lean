@@ -413,6 +413,87 @@ def polyEval (coeff : Domain) (coeffs : Array Value) (x : Value)
   coeffs.reverse.foldlM (init := zeroOf coeff) fun acc c => do
     scalarAdd (← scalarMul acc x) c
 
+/-! ### Value arithmetic within one kind
+
+Polynomial coefficient arithmetic (degrees managed here, coefficients on the
+scalar operations above), and the ONE addition/product the surface's binary
+operators and the set folds both use — owner ruling 2026-08-06: `∑` and `∏`
+are attached to the additive/multiplicative structure itself, so the fold
+and the binary operation can never disagree. -/
+
+private def pad (cs : Array Value) (i : Nat) : Value :=
+  cs[i]?.getD (.int 0)
+
+def polyAdd (a b : Array Value) : Except String (Array Value) :=
+  (Array.range (max a.size b.size)).mapM fun i =>
+    scalarAdd (pad a i) (pad b i)
+
+def polySub (a b : Array Value) : Except String (Array Value) :=
+  (Array.range (max a.size b.size)).mapM fun i =>
+    scalarSub (pad a i) (pad b i)
+
+def polyMul (a b : Array Value) : Except String (Array Value) := do
+  if a.isEmpty || b.isEmpty then return #[]
+  let mut out := Array.replicate (a.size + b.size - 1) (Value.int 0)
+  for i in [0:a.size] do
+    for j in [0:b.size] do
+      out := out.set! (i + j) (← scalarAdd out[i + j]!
+        (← scalarMul a[i]! b[j]!))
+  return out
+
+def polyNeg (a : Array Value) : Except String (Array Value) :=
+  a.mapM scalarNeg
+
+/-- `p^k` by repeated multiplication; the exponent is a nonnegative
+integer, exactly as for scalars. -/
+def polyPow (a : Array Value) (k : Nat) : Except String (Array Value) :=
+  (List.range k).foldlM (fun acc _ => polyMul acc a) #[Value.int 1]
+
+private def entrywise (what : String) (f : Value → Value → Except String Value)
+    : Value → Value → Except String Value
+  | .vec n e as, .vec m e' bs =>
+      if n == m && e == e' then do
+        return .vec n e (← (as.zip bs).mapM fun (a, b) => f a b)
+      else .error s!"{what} needs two vectors of one space, got \
+{(Domain.vector n e).render} and {(Domain.vector m e').render}"
+  | .mat n e as, .mat m e' bs =>
+      if n == m && e == e' then do
+        return .mat n e (← (as.zip bs).mapM fun (ra, rb) =>
+          (ra.zip rb).mapM fun (a, b) => f a b)
+      else .error s!"{what} needs two matrices of one shape, got \
+{(Domain.matrix n e).render} and {(Domain.matrix m e').render}"
+  | a, b => f a b
+
+/-- Addition of two values of one kind: scalars promote and add, two
+polynomials over ONE coefficient domain add coefficientwise (cross-domain
+joins are the surface's business), vectors add componentwise and matrices
+entrywise — ℚⁿ and Matₙ(R) are additive groups. -/
+def addValues : Value → Value → Except String Value
+  | .poly ca as, .poly cb bs =>
+      if ca == cb then do return Value.mkPoly ca (← polyAdd as bs)
+      else .error s!"addition of polynomials over {ca.render} and {cb.render} \
+needs the surface's coefficient join"
+  | a, b => entrywise "addition" scalarAdd a b
+
+def subValues : Value → Value → Except String Value
+  | .poly ca as, .poly cb bs =>
+      if ca == cb then do return Value.mkPoly ca (← polySub as bs)
+      else .error s!"subtraction of polynomials over {ca.render} and {cb.render} \
+needs the surface's coefficient join"
+  | a, b => entrywise "subtraction" scalarSub a b
+
+/-- The product of two values of one kind. Two VECTORS refuse — ℚⁿ carries
+no product of vectors — while a matrix times a vector stays the ACTION
+`scalarMul` already computes. -/
+def mulValues : Value → Value → Except String Value
+  | .poly ca as, .poly cb bs =>
+      if ca == cb then do return Value.mkPoly ca (← polyMul as bs)
+      else .error s!"multiplication of polynomials over {ca.render} and \
+{cb.render} needs the surface's coefficient join"
+  | .vec n e _, .vec .. => .error s!"{(Domain.vector n e).render} carries no \
+product of two vectors"
+  | a, b => scalarMul a b
+
 /-- Cardinality of a domain used as a set. `ℤ/0 ≅ ℤ` is infinite.
 
 `none` = this slice's `Cardinality` cannot state it: ℝ and ℂ are uncountable
@@ -925,26 +1006,31 @@ private def binarySetOp (op : String) (o : Obj) (args : Array Obj)
 set: the elements are DEDUPLICATED first, because a set's aggregate counts
 each element once however the literal was written.
 
-The EMPTY set answers with the identity — `0` for a sum and `1` for a product
-— and those are the mathematical answers, pinned as such. Everything else
-must have SCALAR ARITHMETIC first (`hasScalarArithmetic`, the predicate the
-power path already uses): a fold seeded with an identity over values that have
-none would otherwise report that seed, which is an answer nobody wrote. -/
-private def foldSet (op what : String) (seed : Value)
-    (step : Value → Value → Except String Value) (o : Obj)
+The fold uses the SAME addition/product the binary operators use
+(`addValues`/`mulValues` — owner ruling 2026-08-06): `∑` holds exactly where
+the elements add, so a set of vectors or polynomials sums like anything
+else. The EMPTY sum is the domain's own zero; the empty product is `1`
+where the elements multiply. A `∏` over vectors refuses — ℚⁿ carries no
+product — and over a SET of matrices refuses too: matrix multiplication is
+not commutative, and a set does not order its factors. -/
+private def foldSet (op what : String) (isSum : Bool) (o : Obj)
     : Except ExecError Value := do
-  let (_, elems) ← finiteElems op o
+  let (d, elems) ← finiteElems op o
   let elems := dedupValues elems
-  for v in elems do
-    -- a CAPABILITY ceiling, stated as one: a sum of vectors is perfectly
-    -- defined mathematics; this backend folds scalar arithmetic only, and
-    -- refusing beats reporting the fold's own seed as the answer
-    unless hasScalarArithmetic v do
-      .error (.badRequest s!"the native backend computes {what} for SCALAR \
-elements only, and {v.render} is not one it can add or multiply — an \
-implementation ceiling, not a claim that {what} is undefined; without \
-arithmetic the fold would report its own seed ({seed.render})")
-  Except.mapError ExecError.badRequest (elems.foldlM step seed)
+  unless isSum do
+    match d with
+    | .vector n e => .error (.badRequest s!"{(Domain.vector n e).render} \
+carries no product of vectors, so {what} over this set has no meaning")
+    | .matrix .. => .error (.badRequest s!"{what} over a SET of matrices is \
+not defined: matrix multiplication is not commutative, and a set does not \
+order its factors")
+    | _ => pure ()
+  match elems[0]? with
+  | none => return (if isSum then zeroOf d else .int 1)
+  | some h =>
+      let step := if isSum then addValues else mulValues
+      Except.mapError ExecError.badRequest
+        ((elems.extract 1 elems.size).foldlM step h)
 
 /-- The receiver of a complex-plane method: an element carrying an exact
 number. Anything else inside the routed shape (a matrix entry domain that is
@@ -1163,8 +1249,8 @@ domain is carried across")
 explicit finite set only, and {o.presentation} is not one")
       | rhs => return .bool (← normalSubset (← normalizeSet o) (← normalizeSet rhs))
   -- SPEC.md §A composed computation: Σ and Π over a finite set
-  | "set_sum" => foldSet "set_sum" "the sum" (.int 0) scalarAdd o
-  | "set_prod" => foldSet "set_prod" "the product" (.int 1) scalarMul o
+  | "set_sum" => foldSet "set_sum" "the sum" (isSum := true) o
+  | "set_prod" => foldSet "set_prod" "the product" (isSum := false) o
   | "set_union" => binarySetOp "set_union" o args (· ++ ·)
   | "set_intersect" =>
       binarySetOp "set_intersect" o args fun a b => a.filter (memOf b)

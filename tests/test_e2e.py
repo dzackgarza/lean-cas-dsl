@@ -1951,6 +1951,15 @@ def test_the_and_chain_survives_identifier_conjuncts(kernel: Kernel) -> None:
     # a bare "false", with identifier conjuncts too
     text = err(kc, "assert v = v and v = b")
     assert "v = b" in text and "of v = v and v = b" in text
+    # ℚⁿ is an additive group, and `+`/`−`/`∑` are one arithmetic (owner
+    # ruling 2026-08-06): vectors add componentwise, and the set sum folds
+    # the same addition the binary operator uses
+    ok(kc, "assert v + b = (6, 13)")
+    ok(kc, "assert b - v = (4, 9)")
+    ok(kc, "assert ∑_{u ∈ {v, b}} u = (6, 13)")
+    # …while ℚⁿ carries no product of two vectors: `∏` refuses by name
+    text = err(kc, "∏_{u ∈ {v, b}} u")
+    assert "no product" in text
 
 
 def test_the_juxtaposition_residual_has_a_workaround(kernel: Kernel) -> None:

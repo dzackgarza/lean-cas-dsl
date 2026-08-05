@@ -401,11 +401,19 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
   -- bound), so it misses this specificity exactly as it misses FiniteSets.
   { id := `sum, receiver := `FiniteSets,
     anchor := ``Finset.sum,
+    conventions := "attached to the additive structure of the ELEMENTS (owner \
+ruling 2026-08-06): the fold uses the same addition the binary + uses, so \
+scalars, polynomials, vectors and matrices all sum, and the two operations \
+can never disagree",
     resultDoc := "an element of the domain the set's elements share",
     doc := "the sum of the elements, each counted once — SPEC.md's \
-`∑_{x ∈ X} x`. The empty sum is 0" },
+`∑_{x ∈ X} x`. The empty sum is the domain's zero" },
   { id := `prod, receiver := `FiniteSets,
     anchor := ``Finset.prod,
+    conventions := "attached to the multiplicative structure of the ELEMENTS \
+(owner ruling 2026-08-06), and a SET product needs a commutative one: vectors \
+refuse (ℚⁿ carries no product) and matrix sets refuse (no order to take the \
+factors in)",
     resultDoc := "an element of the domain the set's elements share",
     doc := "the product of the elements, each counted once — SPEC.md's \
 `∏_{x ∈ X} x`. The empty product is 1" },

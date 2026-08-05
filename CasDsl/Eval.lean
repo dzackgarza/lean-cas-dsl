@@ -243,10 +243,10 @@ partial def domainSubset (rules : Array CanonicalMap)
 
 /-! ### Polynomial arithmetic
 
-Coefficients ride on `Native`'s exact scalar operations (which promote along
-`ℤ ⊆ ℚ` internally — the executor's own implementation detail, not a surface
-coercion); this layer only manages degrees and the resulting coefficient
-domain, which is the registry-driven `domJoin`. -/
+The arithmetic itself lives in `Native` (`polyAdd` and friends, shared with
+the set folds); this layer contributes only what needs the registry — the
+JOINED coefficient domain of a mixed-domain operation (`domJoin`) and the
+coercions into it. -/
 
 /-- A value as `(coefficient domain, ascending coefficients)`; a scalar is
 its own constant polynomial. -/
@@ -259,34 +259,6 @@ def asPolyCoeffs : Value → Option (Domain × Array Value)
   -- lets `x² - √2 in ℂ[x]` be written at all
   | v@(.alg _ _ d) => some (if d < 0 then .complex else .real, #[v])
   | _ => none
-
-private def pad (cs : Array Value) (i : Nat) : Value :=
-  cs[i]?.getD (.int 0)
-
-def polyAdd (a b : Array Value) : Except String (Array Value) :=
-  (Array.range (max a.size b.size)).mapM fun i =>
-    Native.scalarAdd (pad a i) (pad b i)
-
-def polySub (a b : Array Value) : Except String (Array Value) :=
-  (Array.range (max a.size b.size)).mapM fun i =>
-    Native.scalarSub (pad a i) (pad b i)
-
-def polyMul (a b : Array Value) : Except String (Array Value) := do
-  if a.isEmpty || b.isEmpty then return #[]
-  let mut out := Array.replicate (a.size + b.size - 1) (Value.int 0)
-  for i in [0:a.size] do
-    for j in [0:b.size] do
-      out := out.set! (i + j) (← Native.scalarAdd out[i + j]!
-        (← Native.scalarMul a[i]! b[j]!))
-  return out
-
-def polyNeg (a : Array Value) : Except String (Array Value) :=
-  a.mapM Native.scalarNeg
-
-/-- `p^k` by repeated multiplication; the exponent is a nonnegative
-integer, exactly as for scalars. -/
-def polyPow (a : Array Value) (k : Nat) : Except String (Array Value) :=
-  (List.range k).foldlM (fun acc _ => polyMul acc a) #[Value.int 1]
 
 private def exponentNat? : Value → Option Nat
   | .int z => if z < 0 then none else some z.toNat
@@ -309,7 +281,7 @@ def valueBin (rules : Array CanonicalMap) (op : BinOp) (a b : Value)
           | .error s!"{a.render} is not a polynomial"
         let some k := exponentNat? b
           | .error s!"exponentiation needs a nonnegative integer exponent, got {b.render}"
-        return Value.mkPoly ca (← (← polyPow as k).mapM (coerceValue rules ca))
+        return Value.mkPoly ca (← (← Native.polyPow as k).mapM (coerceValue rules ca))
     | _ =>
         let some (ca, as) := asPolyCoeffs a
           | .error s!"{a.render} is not a polynomial"
@@ -318,21 +290,23 @@ def valueBin (rules : Array CanonicalMap) (op : BinOp) (a b : Value)
         let some d ← domJoin rules ca cb
           | .error s!"{ca.render}[x] and {cb.render}[x] have no common coefficient domain"
         let cs ← match op with
-          | .add => polyAdd as bs
-          | .sub => polySub as bs
-          | _ => polyMul as bs
+          | .add => Native.polyAdd as bs
+          | .sub => Native.polySub as bs
+          | _ => Native.polyMul as bs
         return Value.mkPoly d (← cs.mapM (coerceValue rules d))
   else
+    -- the SAME operations the set folds use (`Native.addValues`/`mulValues`),
+    -- so `v + w` and `∑_{x ∈ {v, w}} x` cannot disagree
     match op with
-    | .add => Native.scalarAdd a b
-    | .sub => Native.scalarSub a b
-    | .mul => Native.scalarMul a b
+    | .add => Native.addValues a b
+    | .sub => Native.subValues a b
+    | .mul => Native.mulValues a b
     | .div => Native.scalarDiv a b
     | .pow => Native.scalarPow a b
 
 def valueNeg (a : Value) : Except String Value :=
   match a with
-  | .poly c cs => do return Value.mkPoly c (← polyNeg cs)
+  | .poly c cs => do return Value.mkPoly c (← Native.polyNeg cs)
   | v => Native.scalarNeg v
 
 /-! ### Functions
@@ -442,16 +416,23 @@ compose: the target of the right factor is not the source of the left"
 
 /-! ### Set literals -/
 
-/-- Element domain of a literal element list. -/
+/-- Element domain of a literal element list: the JOIN of the elements' own
+domains, from the first element's — a seed domain would wrongly ask every
+literal to join with it (`{v, b}` over ℚ² shares no domain with ℤ). The
+empty literal keeps the ℤ tag: nothing constrains it, and every set
+comparison ignores the tag of an empty presentation. -/
 def elemsDomain (rules : Array CanonicalMap) (vs : Array Value)
-    : Except String Domain :=
-  vs.foldlM (init := Domain.int) fun d v =>
+    : Except String Domain := do
+  let elemDom : Value → Except String Domain := fun v =>
     match valueDom? v with
     | none => .error (notAnElement v "it cannot be an element of a set literal")
-    | some d' => do
-        match ← domJoin rules d d' with
-        | some j => .ok j
-        | none => .error s!"{d.render} and {d'.render} have no common domain"
+    | some d => .ok d
+  let some v0 := vs[0]? | return Domain.int
+  vs.foldlM (init := ← elemDom v0) fun d v => do
+    let d' ← elemDom v
+    match ← domJoin rules d d' with
+    | some j => .ok j
+    | none => .error s!"{d.render} and {d'.render} have no common domain"
 
 /-- Build the progression a `{a, b, …, ...}` literal denotes: the step is
 inferred from the two leading elements (one leading element means step 1),
