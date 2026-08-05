@@ -34,8 +34,10 @@ setup:
 # .lake/packages/nbdsl-worker or venv never serves old kernel code to the
 # notebook re-exec (test-push runs this first for that reason). Restarting
 # the open casdsl notebooks makes JupyterLab pick up the fresh install; a
-# notebook that fails to restart fails the recipe.
-# Sync the installed casdsl kernel to the latest nbdsl-worker and restart notebooks
+# notebook that fails to restart fails the recipe. The JupyterLab federated
+# extension converges too, copied from the same Lake checkout rev into
+# ~/.local/share/jupyter/labextensions (a browser reload picks it up).
+# Sync the installed casdsl kernel + lab extension to the latest nbdsl-worker
 sync-kernel:
     @lake update nbdsl-worker
     @lake build nbdsl_worker
@@ -46,11 +48,21 @@ sync-kernel:
     @for nb in $(/home/dzack/gitclones/jupyter-assistant-api/japi list-notebooks --format json 2>/dev/null | jq -r '.result' | rg 'cas-dsl/.*\.ipynb' | cut -f1); do \
       /home/dzack/gitclones/jupyter-assistant-api/japi restart-notebook "$nb" '{"kernel_name": "casdsl"}'; \
     done
+    @mkdir -p ~/.local/share/jupyter/labextensions
+    @rsync -a --delete \
+        .lake/packages/nbdsl-worker/jupyterlab_nbdsl/jupyterlab_nbdsl/labextension/ \
+        ~/.local/share/jupyter/labextensions/jupyterlab_nbdsl/
+    @cp .lake/packages/nbdsl-worker/jupyterlab_nbdsl/install.json \
+        ~/.local/share/jupyter/labextensions/jupyterlab_nbdsl/install.json
 
 # The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
 # commit gate and must stay fast.
+# The worker's oleans are toolchain-bound, so this repo and the kernel repo
+# must pin the same Lean (release.toml there is the source of truth). The
+# diff below fails the gate loudly on drift, naming both pins.
 # Run the QC preflight: compile Lean and the Python adapter, then the Lean laws.
 test: build
+    @diff -u .lake/packages/nbdsl-worker/worker/lean-toolchain lean-toolchain
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
     @python3 -m py_compile backends/sage_adapter.py tests/roundtrip.py
