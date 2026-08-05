@@ -1705,14 +1705,16 @@ Conventions (one spelling each, chosen once):
 Everything emitted is math-mode LaTeX: no raw `ℤ`, `↦` or `ℵ₀` survives into
 a payload, because MathJax does not typeset them.
 
-Textual on purpose (no `text/latex`, and no bundle at all — these are
-`logInfo` lines): assertion check-marks, every diagnostic (`#explain_route`,
-`#capabilities`, `#capability_gaps`, `#canonical_maps` keep their
-`text/plain` + `vnd` bundle), capability-gap refusals, all error messages,
-and the binding echo `h := t ↦ t² + 1 ∈ ℝ → ℝ`. The echo is a *statement
-about* a binding rather than a value display, and it reaches the notebook as
-a log line with no MIME bundle to put LaTeX in; typesetting it would mean
-inventing a bundle for it, which is a display change, not this one.
+Textual on purpose (no `text/latex` — `logInfo` lines): assertion
+check-marks, every diagnostic (`#explain_route`, `#capabilities`,
+`#capability_gaps`, `#canonical_maps` keep their `text/plain` + `vnd`
+bundle), capability-gap refusals, and all error messages.
+
+One emission per event. A cell result, a bare proposition's truth value, and
+the binding echo `h := t ↦ t² + 1 ∈ ℝ → ℝ` each emit exactly ONE MIME bundle
+and no `logInfo` duplicate: the frontend shows `text/latex` when the bundle
+carries it and `text/plain` otherwise, so LaTeX replaces the plain text
+rather than appearing beside it — Sage's convention.
 
 Values with NO natural form, deliberately:
 

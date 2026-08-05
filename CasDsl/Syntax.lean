@@ -910,7 +910,6 @@ private def bindObj (n : Name) (o : Obj) : CommandElabM Unit := do
   -- Euler's constant and the imaginary unit, which no binding may shadow
   if let some m := reservedConstantMsg? n then throwError m
   modifyEnv fun env => addBinding env (n, o)
-  logInfo s!"{n} := {o.presentation}"
   emitOutput {
     data :=
       [("text/plain", .str s!"{n} := {o.presentation}")]
@@ -1002,7 +1001,6 @@ def elabCasAssertBare (parts : Array Syntax) (tail? : Option Syntax)
     | none => if outcome == some true then outcome := none
   let truth : String := match outcome with
     | some true => "true" | some false => "false" | none => "unknown"
-  logInfo truth
   emitOutput { data := [("text/plain", .str truth)] }
 
 /-- A bare expression cell: display the value as text and as a structured
@@ -1016,7 +1014,6 @@ text size with undersized delimiters. -/
 def elabCasShow (stx : Syntax) : CommandElabM Unit := do
   let ctx ← casCtx
   let d ← runCas ctx (eval ctx (← parseCas stx))
-  logInfo d.render
   emitOutput {
     data :=
       [("text/plain", .str d.render)]
