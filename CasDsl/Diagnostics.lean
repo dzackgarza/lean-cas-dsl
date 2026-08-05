@@ -32,11 +32,16 @@ initialize underNotebookKernel : Bool ← do
   return (← IO.getEnv "NBDSL_PROJECT").isSome
 
 /-- Emit a diagnostic ONCE: as its bundle under the kernel, as an info
-message anywhere else (one emission per event — DESIGN.md ruling 3). -/
+message anywhere else (one emission per event — DESIGN.md ruling 3). A
+markdown rendering, when given, joins the bundle so the notebook typesets
+the mathematics and links the docs; the plain text stays the fallback. -/
 private def emitDiagnostic (text : String) (mime : String) (payload : Json)
-    : CommandElabM Unit := do
+    (markdown : Option String := none) : CommandElabM Unit := do
   unless underNotebookKernel do logInfo text
-  emitOutput { data := [("text/plain", .str text), (mime, payload)] }
+  emitOutput { data :=
+    [("text/plain", .str text)]
+    ++ (markdown.toList.map fun m => ("text/markdown", Json.str m))
+    ++ [(mime, payload)] }
 
 /-- Left-align in a column, never letting a long cell run into the next one. -/
 private def pad (s : String) (n : Nat) : String :=
@@ -63,15 +68,12 @@ private structure Explanation where
   decl : MethodDecl
   functor? : Option FunctorDecl
   outcome : RouteOutcome
-  /-- The declaring category's telescope — the instance brackets of the
-  method's signature. -/
-  ownerTelescope : Array Name
   /-- The characteristic class (or name) of the entry category, then of
   each step of the inheritance chain: the receiver's instance chain. -/
   chain : List String
   verified? : Option Name
   /-- The chosen route's declared op signature, when one is registered —
-  the provider's doc, source link and advisory ride on it. -/
+  the provider's real function, conventions, docs link and advisory. -/
   sig? : Option OpSig
 
 /-- The characteristic Mathlib class of a category — the most specific
@@ -100,7 +102,6 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
       method := m, receiver := recv, res, decl := res.decl
       functor? := res.viaFunctor.bind fun s => functorDecl? ctx.env s.functor
       outcome
-      ownerTelescope := (catDecl? ctx.env res.decl.receiver).map (·.telescope) |>.getD #[]
       chain := charClassOf ctx.env res.profileEntry.name
         :: res.via.map (charClassOf ctx.env)
       verified? := ← verifyResolution ctx.env res.profileEntry.name res.decl.receiver concrete
@@ -109,65 +110,61 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
         | _ => none
     }
 
-/-- The method as a Lean-style signature over its declaring telescope:
-`factor (x : R) [CommRing R] [IsDomain R] [UniqueFactorizationMonoid R]`. -/
-private def signatureLine (x : Explanation) : String :=
-  let brackets := x.ownerTelescope.toList.map fun cls => s!" [{cls} R]"
-  let args := if x.decl.arity == 0 then "" else s!" — takes {x.decl.argDoc}"
-  s!"{x.method} (x : R){String.join brackets}{args}"
-
-/-- The anchor line: what a trusted answer is an answer TO. -/
-private def meaningLine (d : MethodDecl) : String :=
-  if d.anchor == .anonymous then
-    if d.conventions.isEmpty then "" else s!"  ≐ ({d.conventions})\n"
-  else
-    let conv := if d.conventions.isEmpty then "" else s!" — {d.conventions}"
-    s!"  ≐ {d.anchor}{conv}\n"
-
-/-- The receiver's instance chain, with Mathlib's verdict on it. -/
-private def receiverLine (x : Explanation) : String :=
-  let ring := match x.receiver with
-    | .elem d _ => s!"; R = {d.render}"
-    | _ => ""
+/-- The availability path as the arrow chain it is (owner ruling,
+2026-08-06): method availability needs a path of functors, not subcategory
+containment, so every step is an arrow — the element into its domain, a
+transport step labeled with its functor, then the characteristic classes
+climbed, with Mathlib's verdict on the whole path. -/
+private def chainText (x : Explanation) : String :=
+  let start := match x.receiver with
+    | .elem d v => s!"{v.render} ⟶ {d.render}"
+    | o => o.presentation
+  let transport := match x.res.viaFunctor with
+    | some step => s!" —{step.functor}⟶ {step.image.presentation}"
+    | none => ""
+  let classes := String.join (x.chain.map fun c => s!" ⟶ {c}")
   let verdict := match x.verified? with
-    | none => "synthesized"
-    | some cls => s!"✗ {cls} FAILED to synthesize — registration defect"
-  s!"x = {x.receiver.presentation}{ring} : \
-{" ≤ ".intercalate x.chain}  ({verdict})"
+    | none => "  (synthesized)"
+    | some cls => s!"  (✗ {cls} FAILED to synthesize — registration defect)"
+  start ++ transport ++ classes ++ verdict
 
-/-- The transport step, when the method arrived through a functor. An edge
-no registered functor provides is reported, never invented. -/
-private def transportLine (x : Explanation) : String :=
-  match x.res.viaFunctor with
-  | none => ""
-  | some step =>
-      let edge := match x.functor? with
-        | some f => s!" : {renderName f.source} ⟶ {renderName f.target}"
-        | none => " (NO registered functor provides this edge)"
-      s!"via {step.functor}{edge}, image {step.image.presentation}\n"
+/-- What a trusted answer is an answer TO: the anchor, the method's general
+mathematical statement, and its generality-level conventions. -/
+private def meaningText (x : Explanation) : String :=
+  let head := if x.decl.anchor == .anonymous then s!"{x.method}"
+    else s!"{x.method} ≐ {x.decl.anchor}"
+  let doc := if x.decl.doc.isEmpty then "" else s!": {x.decl.doc}"
+  let conv := if x.decl.conventions.isEmpty then "" else s!" — {x.decl.conventions}"
+  head ++ doc ++ conv
+
+/-- The chosen implementation: the backend and the REAL function it runs
+(the wire op id stays in the JSON payload), its op-level conventions, its
+standing advisory, and the EXTERNAL documentation link. -/
+private def routeText (x : Explanation) (r : Route) : String :=
+  let fn := match x.sig? with
+    | some sig => if sig.backendFn.isEmpty then s!"op {repr r.opId}" else sig.backendFn
+    | none => s!"op {repr r.opId}"
+  let conv := match x.sig? with
+    | some sig => if sig.conventions.isEmpty then "" else s!" — {sig.conventions}"
+    | none => ""
+  let sigDoc := match x.sig? with
+    | some sig => if sig.doc.isEmpty then "" else s!"\n{sig.doc}"
+    | none => ""
+  let advisory := match x.sig? with
+    | some sig => if sig.advisory.isEmpty then "" else s!"\nadvisory: {sig.advisory}"
+    | none => ""
+  let docs :=
+    let url := if r.docUrl.isEmpty then (x.sig?.map (·.docUrl)).getD "" else r.docUrl
+    if url.isEmpty then "" else s!"\ndocs: {url}"
+  s!"via {r.backend}, {fn}{conv}"
+  ++ (if r.priority == 0 then "" else s!" (priority {r.priority})")
+  ++ (if r.doc.isEmpty then "" else s!"\n{r.doc}")
+  ++ sigDoc ++ advisory ++ docs
 
 private def explanationText (x : Explanation) : String :=
-  let head := s!"{signatureLine x}\n{meaningLine x.decl}\
-{receiverLine x}\n{transportLine x}"
   let tail := match x.outcome with
     | .chosen r =>
-        -- provider-declared registration data: the op's doc, its standing
-        -- advisory, and a source link (the route's own overrides the op's)
-        let sigDoc := match x.sig? with
-          | some sig => if sig.doc.isEmpty then "" else s!"\n{sig.doc}"
-          | none => ""
-        let advisory := match x.sig? with
-          | some sig => if sig.advisory.isEmpty then "" else s!"\nadvisory: {sig.advisory}"
-          | none => ""
-        let source :=
-          let url := if r.docUrl.isEmpty then
-            (x.sig?.map (·.docUrl)).getD "" else r.docUrl
-          if url.isEmpty then "" else s!"\nsource: {url}"
-        s!"route: {r.backend} {repr r.opId} — implemented for \
-{renderPattern r.pattern}"
-        ++ (if r.priority == 0 then "" else s!" (priority {r.priority})")
-        ++ (if r.doc.isEmpty then "" else s!"\n{r.doc}")
-        ++ sigDoc ++ advisory ++ source
+        routeText x r
         ++ (if x.decl.resultDoc.isEmpty then ""
             else s!"\nresult: {x.decl.resultDoc}")
     | .gap g => renderGap g
@@ -175,16 +172,71 @@ private def explanationText (x : Explanation) : String :=
         let ls := String.intercalate "\n" (rs.toList.map fun r => s!"  - {renderRoute r}")
         s!"route: AMBIGUOUS — {rs.size} implementations tied on priority \
 (a configuration error):\n{ls}"
-  head ++ tail
+  s!"{chainText x}\n{meaningText x}\n{tail}"
+
+/-- A name inside math mode: `\mathrm` for the ASCII identifiers Mathlib
+class names are, `\text` for anything carrying notation of its own. -/
+private def mathName (s : String) : String :=
+  if s.all (fun c => c.isAlphanum || c == '.' || c == '_') then s!"\\mathrm\{{s}}"
+  else s!"\\text\{{s}}"
+
+/-- The markdown rendering: the same sentences, typeset — the chain as
+inline math, the docs link clickable, the method doc's own `$…$` left for
+MathJax. -/
+private def explanationMarkdown (x : Explanation) : String :=
+  let start := match x.receiver with
+    | .elem d v =>
+        let vl := (v.latex?).getD s!"\\text\{{v.render}}"
+        s!"{vl} \\longrightarrow {d.latex}"
+    | o => (o.latex?).getD s!"\\text\{{o.presentation}}"
+  let transport := match x.res.viaFunctor with
+    | some step =>
+        let img := (step.image.latex?).getD s!"\\text\{{step.image.presentation}}"
+        s!" \\xrightarrow\{{mathName step.functor.toString}} {img}"
+    | none => ""
+  let classes := String.join (x.chain.map fun c => s!" \\longrightarrow {mathName c}")
+  let verdict := match x.verified? with
+    | none => "  *(synthesized)*"
+    | some cls => s!"  ✗ **{cls} failed to synthesize — registration defect**"
+  let chainLine := s!"${start}{transport}{classes}$" ++ verdict
+  let meaningLine :=
+    let head := if x.decl.anchor == .anonymous then s!"**{x.method}**"
+      else s!"**{x.method}** ≐ `{x.decl.anchor}`"
+    let doc := if x.decl.doc.isEmpty then "" else s!": {x.decl.doc}"
+    let conv := if x.decl.conventions.isEmpty then "" else s!" — {x.decl.conventions}"
+    head ++ doc ++ conv
+  let tail := match x.outcome with
+    | .chosen r =>
+        let url := if r.docUrl.isEmpty
+          then (x.sig?.map (fun (s : OpSig) => s.docUrl)).getD "" else r.docUrl
+        let fn := match x.sig? with
+          | some sig => if sig.backendFn.isEmpty then s!"op `{r.opId}`" else s!"`{sig.backendFn}`"
+          | none => s!"op `{r.opId}`"
+        let fnLinked := if url.isEmpty then fn else s!"[{fn}]({url})"
+        let conv := match x.sig? with
+          | some sig => if sig.conventions.isEmpty then "" else s!" — {sig.conventions}"
+          | none => ""
+        let advisory := match x.sig? with
+          | some sig => if sig.advisory.isEmpty then "" else s!"\n\n*advisory: {sig.advisory}*"
+          | none => ""
+        s!"via {r.backend}, {fnLinked}{conv}"
+        ++ (if r.doc.isEmpty then "" else s!"\n\n{r.doc}")
+        ++ advisory
+        ++ (if x.decl.resultDoc.isEmpty then "" else s!"\n\nresult: {x.decl.resultDoc}")
+    | .gap g => renderGap g
+    | .ambiguousRoutes _ => ""  -- the plain text carries the configuration error
+  s!"{chainLine}\n\n{meaningLine}\n\n{tail}"
 
 private def explanationJson (x : Explanation) : Json :=
   let decision := match x.outcome with
     | .chosen r =>
         Json.mkObj
           [("decision", .str "chosen"), ("route", routeJson r),
+           ("backendFn", .str ((x.sig?.map (·.backendFn)).getD "")),
+           ("opConventions", .str ((x.sig?.map (·.conventions)).getD "")),
            ("opDoc", .str ((x.sig?.map (·.doc)).getD "")),
            ("advisory", .str ((x.sig?.map (·.advisory)).getD "")),
-           ("source", .str (if r.docUrl.isEmpty then
+           ("docs", .str (if r.docUrl.isEmpty then
              (x.sig?.map (·.docUrl)).getD "" else r.docUrl))]
     | .gap g =>
         Json.mkObj
@@ -219,28 +271,27 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
     | .ok x => pure x
     | .error err => throwError err.render
   emitDiagnostic (explanationText x) "application/vnd.casdsl.route+json"
-    (explanationJson x)
+    (explanationJson x) (markdown := some (explanationMarkdown x))
 
 /-! ## `#capabilities` -/
 
-/-- Each method in the register `#explain_route` speaks: the dependent
-signature over the declaring category's telescope, ≐ its anchor, then the
-implemented subcategories as routes — never a table of record fields. -/
+/-- Each method in the register `#explain_route` speaks: the method ≐ its
+anchor with its declaring category, then the implementations as routes
+naming the REAL backend functions — never a table of record fields. -/
 private def capabilityLines (env : Environment) : Array String × Array Json := Id.run do
   let mut lines : Array String := #[]
   let mut js : Array Json := #[]
   for d in methods env do
     let rs := routesFor env d.id
-    let telescope := (catDecl? env d.receiver).map (·.telescope) |>.getD #[]
-    let owner :=
-      if telescope.isEmpty then s!" — declared on {renderName d.receiver}"
-      else String.join (telescope.toList.map fun cls => s!" [{cls} R]")
-    let anchor := if d.anchor == .anonymous then "" else s!"  ≐ {d.anchor}"
+    let anchor := if d.anchor == .anonymous then "" else s!" ≐ {d.anchor}"
     let impl :=
       if rs.isEmpty then "NO ROUTE is registered"
       else "; ".intercalate (rs.toList.map fun r =>
-        s!"{renderPattern r.pattern} → {r.backend} {repr r.opId}")
-    lines := lines.push s!"{d.id} (x : R){owner}{anchor}"
+        let fn := match opSig? env r.backend r.opId with
+          | some sig => if sig.backendFn.isEmpty then s!"op {repr r.opId}" else sig.backendFn
+          | none => s!"op {repr r.opId}"
+        s!"{renderPattern r.pattern} → {r.backend} {fn}")
+    lines := lines.push s!"{d.id}{anchor} — declared on {renderName d.receiver}"
     lines := lines.push s!"  {impl}"
     if !d.doc.isEmpty then
       lines := lines.push s!"  {d.doc}"

@@ -453,10 +453,18 @@ structure OpSig where
   backend : Name
   opId : String
   accepts : Array PresPattern
+  /-- The REAL function the backend runs — `Integer.factor()`, not the wire
+  op id. What the diagnostics display; the op id stays wire bookkeeping.
+  Empty for an op that is its own implementation (a native op). -/
+  backendFn : String := ""
+  /-- Presentation conventions specific to THIS op — the receiver-specific
+  choices that do not belong at the method's generality (the unit is ±1 with
+  all factors positive in ℤ; factors are monic over a field). -/
+  conventions : String := ""
   /-- One line on what this op computes, rendered by the diagnostics. -/
   doc : String := ""
-  /-- Where this op's implementation or documentation lives (a source or
-  docs link), rendered by the diagnostics. -/
+  /-- Where the EXTERNAL function's documentation lives (the Sage reference
+  page for `backendFn`); for a native op, the implementation source. -/
   docUrl : String := ""
   /-- A static advisory pushed alongside every result of this op: the
   PROVIDER's own disclosure of a choice the answer rides (Sage's fixed

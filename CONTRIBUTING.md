@@ -4,14 +4,14 @@ This documents how a computation gets **wired**: op signature, route,
 executor, adapter. It is the half of the contributor contract that is
 stable under the registry migration (issue #35).
 
-The **mathematical half** — declaring a category, a membership, a method
-with its Mathlib anchor, and the provider docs — is deliberately not
-documented yet: its citation form is owned by the upstream catalogue
-(lean-lattices#56) and lands with the pinned consumer contract
-(lean-lattices#49). Until then, treat the declarations in `CasDsl/Std.lean`
-as the examples of record, and expect that half to change shape. The worked
+Of the **mathematical half**, the structural part — declaring a category
+and a membership — is deliberately not documented yet: its citation form is
+owned by the upstream catalogue (lean-lattices#56) and lands with the
+pinned consumer contract (lean-lattices#49). Until then, treat the
+declarations in `CasDsl/Std.lean` as the examples of record. The worked
 external-backend example (a numpy implementation of Vinberg's algorithm)
-ships with that half.
+ships with that half. The DOCUMENTATION part of the mathematical half is
+specified now — see §7, "Authoring the documentation fields."
 
 ## The path of a call
 
@@ -93,9 +93,9 @@ The executor's receiver match, restated as checked registration data:
 
 - Registered with `registerOpSig!` in a `run_cmd`; a duplicate
   `(backend, opId)` is a build error, never a precedence question.
-- `doc`/`docUrl` are rendered by the diagnostics (`#explain_route` prints
-  the source link); stamp a module-wide `docUrl` at registration rather
-  than repeating it per entry.
+- `backendFn`, `conventions`, `doc` and `docUrl` are rendered by the
+  diagnostics — see §7 for what belongs in each; an op naming no external
+  docs falls back to the adapter source at registration.
 - `advisory` is a standing note pushed with every result of the op — the
   provider's own disclosure of a choice the answer rides (Sage's fixed
   QQbar ↪ ℂ embedding). Registration data: no advisory text may live in
@@ -145,9 +145,67 @@ commit/push (`just test`, `just test-ci`):
   process directly, pinning each op's wire behavior against live Sage,
   boundary cases included.
 - **Product surface** — `tests/test_e2e.py` drives the installed
-  kernelspec end to end; the demo notebook is re-executed
-  (`scripts/reexec_demo.py`) so committed outputs are genuine kernel
-  output, never hand-written.
+  kernelspec end to end; the committed notebooks are re-executed
+  (`scripts/reexec_notebooks.py`) so their outputs are genuine kernel
+  output — the demo as a runnable trail, boundaries with its live
+  refusals.
 - **Wording** — user-facing diagnostic text is pinned verbatim
   (`CasDslTests/Wording.lean`, `#guard_msgs`); a wording change is a
   reviewed product change.
+
+## 7 · Authoring the documentation fields
+
+Everything in these fields is **emitted text**: the diagnostics render it
+verbatim to a research mathematician. The build enforces the mechanical
+parts (the banned-vocabulary gate in `CasDslTests/Wording.lean` runs over
+every field below), and `#explain_route`'s wording is pinned verbatim — a
+field edit is a reviewed product change.
+
+**The register.** Write LaTeX prose with inline math (`$…$`). Rendered
+surfaces typeset it; plain-text surfaces show the source, which a
+mathematician reads fluently — so the text must read acceptably both ways.
+State mathematics in notation, never in prose paraphrase ("$x =
+u\prod_i p_i^{e_i}$", not "a unit times prime powers"). No caps-as-emphasis,
+no internal vocabulary, no project-management language; an unimplemented
+case is a capability ceiling and must never be worded as mathematical
+undefinedness.
+
+**Placement — the generality rule.** Every sentence lives at the widest
+level where it is true:
+
+- `MethodDecl.doc` — the general mathematical statement of the operation,
+  at the declaring category's generality. The worked example:
+
+  ```
+  for $x \in R$ a UFD: a factorization $x = u\prod_i p_i^{e_i}$
+  with $u$ a unit, each $p_i$ irreducible and $e_i \geq 1$
+  ```
+
+  Nothing receiver-specific may appear here.
+- `MethodDecl.conventions` — presentation choices true at the same
+  generality ("stated up to units"). A convention chooses presentations,
+  never the value of a well-defined predicate.
+- `MethodDecl.advisory` — the template for an unexpected-but-true result,
+  `{…}` placeholders filled by the method's own semantics.
+- `OpSig.backendFn` — the REAL function the backend runs
+  (`Integer.factor()`), which is what the diagnostics display; the wire
+  `opId` is bookkeeping and never user-facing.
+- `OpSig.conventions` — the receiver-specific presentation choices that
+  motivated the op ("the unit is ±1, with all prime factors positive";
+  "factors are monic; the unit carries the leading coefficient"). This is
+  where per-ring normalization lives, never on the method.
+- `OpSig.docUrl` — the EXTERNAL documentation of `backendFn` (the Sage
+  reference page), verified to exist. Never a link back into this
+  repository — the reader already knows the provider; an op naming no
+  external docs falls back to the adapter source at registration.
+- `Route.doc`/`Route.docUrl` — only for what the *binding* means beyond
+  the op itself; usually empty.
+
+**How it renders.** `#explain_route` shows: the availability path as an
+arrow chain (`$360 \longrightarrow \mathbb{Z} \longrightarrow
+\mathrm{EuclideanDomain} \longrightarrow \dots$` — arrows, because
+availability is a path of functors, not subcategory containment), then
+`method ≐ anchor: doc — conventions`, then `via backend, backendFn —
+op conventions` with the docs link, then the result shape. The notebook
+receives it as markdown (typeset math, clickable docs); plain contexts get
+the same sentences as text.

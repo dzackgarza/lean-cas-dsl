@@ -571,8 +571,7 @@ def test_cardinality_transported_along_forgetful_functor(kernel: Kernel) -> None
 def test_transport_step_visible_only_in_diagnostics(kernel: Kernel) -> None:
     _, kc = kernel
     text = ok(kc, "#explain_route F.cardinality()")
-    assert "UnderlyingSet" in text
-    assert "Modules" in text and "Sets" in text
+    assert "UnderlyingSet" in text and "Sets" in text
 
 
 def test_transport_does_not_preempt_direct_resolution(kernel: Kernel) -> None:
@@ -1084,7 +1083,8 @@ def test_is_prime_is_a_ufd_method(kernel: Kernel) -> None:
     ok(kc, "let m8 := 8 in ℤ")
     assert "false" in ok(kc, "m8.is_prime()")
     text = ok(kc, "#explain_route m7.is_prime()")
-    assert "sage" in text.lower() and "FactorizationElems" in text
+    assert "sage" in text.lower() and "UniqueFactorizationMonoid" in text
+    assert "Integer.is_prime()" in text
     # …so irreducibility in ℤ[x] is available and not executable
     text = err(kc, "p.is_prime()")
     assert "NoImplementation" in text and "is_prime" in text
@@ -1214,6 +1214,13 @@ def test_assertions_and_diagnostics_stay_textual(kernel: Kernel) -> None:
         b = bundle(kc, diagnostic)
         assert "text/latex" not in b, diagnostic
         assert "text/plain" in b, diagnostic
+    # #explain_route is typeset: markdown carrying the arrow chain as inline
+    # math and the external docs as a link (owner ruling, 2026-08-06)
+    b = bundle(kc, "#explain_route ln.factor()")
+    assert "text/markdown" in b
+    md = b["text/markdown"]
+    assert "\\longrightarrow" in md and "doc.sagemath.org" in md
+    assert "Integer.factor()" in md
 
 
 def test_the_value_payload_carries_a_set_result(kernel: Kernel) -> None:
@@ -1621,7 +1628,7 @@ def test_the_complex_approximation_is_a_structured_gap(kernel: Kernel) -> None:
     # …while the real one routes, and the diagnostic names the backend
     ok(kc, "let apr := √2 in ℝ")
     text = ok(kc, "#explain_route apr.approximate(1/1000)")
-    assert "sage" in text and "approx_real" in text and "ComplexElems" in text
+    assert "sage" in text and "AA" in text and "ComplexElems" in text
 
 
 def test_both_spellings_answer_for_the_tolerance_alike(kernel: Kernel) -> None:

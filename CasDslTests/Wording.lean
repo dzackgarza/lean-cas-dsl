@@ -13,11 +13,10 @@ import CasDsl
 namespace CasDslTests
 
 /--
-info: factor (x : R) [CommRing R] [IsDomain R] [UniqueFactorizationMonoid R]
-  ≐ UniqueFactorizationMonoid.factors — stated up to units; answers are normalized — positive leading unit in ℤ, monic factors over a field
-x = 360 ∈ ℤ; R = ℤ : EuclideanDomain ≤ IsPrincipalIdealRing ≤ UniqueFactorizationMonoid  (synthesized)
-route: sage "factor_int" — implemented for element of ℤ
-source: https://github.com/dzackgarza/lean-cas-dsl/blob/main/backends/sage_adapter.py
+info: 360 ⟶ ℤ ⟶ EuclideanDomain ⟶ IsPrincipalIdealRing ⟶ UniqueFactorizationMonoid  (synthesized)
+factor ≐ UniqueFactorizationMonoid.factors: for $x \in R$ a UFD: a factorization $x = u\prod_i p_i^{e_i}$ with $u$ a unit, each $p_i$ irreducible and $e_i \geq 1$ — stated up to units
+via sage, Integer.factor() — the unit is ±1, with all prime factors positive
+docs: https://doc.sagemath.org/html/en/reference/rings_standard/sage/rings/integer.html#sage.rings.integer.Integer.factor
 result: a factorization: a unit and irreducible factors with multiplicity
 -/
 #guard_msgs in

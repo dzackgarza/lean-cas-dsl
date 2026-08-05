@@ -208,27 +208,30 @@ inclusion edge. -/
 private def stdMethods : Array MethodDecl := #[
   { id := `factor, receiver := `FactorizationElems,
     anchor := ``UniqueFactorizationMonoid.factors,
-    conventions := "stated up to units; answers are normalized — positive \
-leading unit in ℤ, monic factors over a field",
+    -- receiver-specific normalizations (±1 unit in ℤ, monic over a field,
+    -- content × primitive in ℤ[x]) live on the ops that make them
+    conventions := "stated up to units",
     resultDoc := "a factorization: a unit and irreducible factors with multiplicity",
-    doc := "factor into irreducibles/primes with multiplicity" },
+    doc := "for $x \\in R$ a UFD: a factorization $x = u\\prod_i p_i^{e_i}$ \
+with $u$ a unit, each $p_i$ irreducible and $e_i \\geq 1$" },
   { id := `gcd, receiver := `FactorizationElems, arity := 1,
     -- the carrier at the DECLARED generality: a gcd up to units, which a UFD
     -- has. `EuclideanDomain.gcd` is how the integer route computes one — an
     -- algorithm choice, not the meaning
     anchor := ``GCDMonoid.gcd,
-    conventions := "unique up to units (Associated); the answer is the normalized representative",
+    conventions := "stated up to associates; which representative answers is \
+the op's convention",
     argDoc := "another element of the same ring",
     resultDoc := "a greatest common divisor, up to units",
-    doc := "a greatest common divisor, unique up to units" },
+    doc := "$\\gcd(x, y)$ — a common divisor every common divisor divides, \
+unique up to units" },
   { id := `is_prime, receiver := `FactorizationElems,
     anchor := ``Prime,
-    conventions := "a backend whose integer primality bakes in positivity is \
-adapted at the executor via |x| — legitimate because (x) = (|x|); the \
-predicate's VALUE is never a convention",
+    -- the |x| adaptation of Sage's positivity-laden predicate lives on the
+    -- op; the predicate's VALUE is never a convention
     resultDoc := "a boolean",
-    doc := "primality: x is prime iff (x) is a nonzero prime ideal — so −7 is \
-prime exactly as 7 is, (−7) = (7)" },
+    doc := "primality: $x$ is prime iff $(x)$ is a nonzero prime ideal — so \
+$-7$ is prime exactly as $7$ is, $(-7) = (7)$" },
   -- SPEC.md §Differentials' `(d/dx)(f)`, and the same operation `d(f)` wraps
   -- as a 1-form. Declared on PolynomialElems because differentiating is a
   -- STRUCTURAL read of a polynomial — it makes sense over any coefficient
@@ -305,13 +308,12 @@ subspace by a reduced basis" },
     doc := "the characteristic polynomial det(xI − M)" },
   -- …and the matrix a polynomial names
   { id := `companion_matrix, receiver := `PolynomialElems,
+    -- which of the four layouts answers is the op's convention
     conventions := "Mathlib holds no companion-matrix carrier at this version — an \
-extension-module candidate; the four layouts are similar matrices",
+extension-module candidate",
     resultDoc := "a square matrix of the polynomial's own degree",
-    doc := "the companion matrix: the matrix whose characteristic polynomial \
-is this one. Which of the four layouts a backend uses is its own convention — \
-they are similar matrices, so the size, the trace, the determinant and the \
-characteristic polynomial are the same for all of them" },
+    doc := "the companion matrix: a matrix whose characteristic polynomial \
+is this one" },
   -- …and the one method a subspace owns
   { id := `dim, receiver := `«QQ-Mod»,
     anchor := ``Module.finrank,

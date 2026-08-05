@@ -435,49 +435,116 @@ data on those ops' signatures; the evaluator renders it generically. -/
 private def qqbarAdvisory : String :=
   "algebraic numbers are presented through a fixed embedding ℚ̄ ↪ ℂ"
 
+/-- The Sage reference manual, the external documentation every op below
+links (`OpSig.docUrl` — the docs of the FUNCTION the backend runs, never a
+link back into this repo). -/
+private def sageRef : String := "https://doc.sagemath.org/html/en/reference"
+
 /-- The receiver signatures of the sage ops, restated from the encoders
-above as checked registration data (see `OpSig`). -/
+above as checked registration data (see `OpSig`). `backendFn` names the
+real Sage function; `conventions` carries the receiver-specific
+presentation choices that do not belong at the method's generality. -/
 private def sageOpSigs : Array OpSig := #[
-  { backend := `sage, opId := "factor_int", accepts := #[.elemOf (.exact .int)] },
+  { backend := `sage, opId := "factor_int", accepts := #[.elemOf (.exact .int)],
+    backendFn := "Integer.factor()",
+    conventions := "the unit is ±1, with all prime factors positive",
+    docUrl := s!"{sageRef}/rings_standard/sage/rings/integer.html\
+#sage.rings.integer.Integer.factor" },
   { backend := `sage, opId := "factor_poly_q",
-    accepts := #[.elemOf (.polyOver (.exact .rat))] },
+    accepts := #[.elemOf (.polyOver (.exact .rat))],
+    backendFn := "Polynomial.factor()",
+    conventions := "factors are monic; the unit carries the leading coefficient",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.factor" },
   { backend := `sage, opId := "factor_poly_z",
-    accepts := #[.elemOf (.polyOver (.exact .int))] },
+    accepts := #[.elemOf (.polyOver (.exact .int))],
+    backendFn := "Polynomial.factor()",
+    conventions := "content × primitive: the integer content rides the unit, \
+and primitive factors have positive leading coefficient",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.factor" },
   { backend := `sage, opId := "mat_det_q",
-    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+    accepts := #[.elemOf (.matrixOver (.exact .rat))],
+    backendFn := "Matrix.det()",
+    docUrl := s!"{sageRef}/matrices/sage/matrix/matrix2.html\
+#sage.matrix.matrix2.Matrix.det" },
   { backend := `sage, opId := "mat_inv_q",
-    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+    accepts := #[.elemOf (.matrixOver (.exact .rat))],
+    backendFn := "Matrix.inverse()",
+    docUrl := s!"{sageRef}/matrices/sage/matrix/matrix2.html" },
   { backend := `sage, opId := "mat_charpoly_q",
-    accepts := #[.elemOf (.matrixOver (.exact .rat))] },
+    accepts := #[.elemOf (.matrixOver (.exact .rat))],
+    backendFn := "Matrix.charpoly()",
+    conventions := "monic, in the variable x",
+    docUrl := s!"{sageRef}/matrices/sage/matrix/matrix2.html\
+#sage.matrix.matrix2.Matrix.charpoly" },
   { backend := `sage, opId := "poly_companion_q",
-    accepts := #[.elemOf (.polyOver (.exact .rat))] },
-  { backend := `sage, opId := "gcd_int", accepts := #[.elemOf (.exact .int)] },
-  { backend := `sage, opId := "is_prime_int", accepts := #[.elemOf (.exact .int)] },
+    accepts := #[.elemOf (.polyOver (.exact .rat))],
+    backendFn := "companion_matrix()",
+    conventions := "which of the four layouts is the backend's own choice — \
+they are similar matrices",
+    docUrl := s!"{sageRef}/matrices/sage/matrix/special.html\
+#sage.matrix.special.companion_matrix" },
+  { backend := `sage, opId := "gcd_int", accepts := #[.elemOf (.exact .int)],
+    backendFn := "gcd()",
+    conventions := "the nonnegative representative",
+    docUrl := s!"{sageRef}/rings_standard/sage/arith/misc.html\
+#sage.arith.misc.gcd" },
+  { backend := `sage, opId := "is_prime_int", accepts := #[.elemOf (.exact .int)],
+    backendFn := "Integer.is_prime()",
+    conventions := "computed as |x|.is_prime() — Sage's predicate bakes in \
+positivity, and (x) = (|x|)",
+    docUrl := s!"{sageRef}/rings_standard/sage/rings/integer.html\
+#sage.rings.integer.Integer.is_prime" },
   { backend := `sage, opId := "roots_poly_z",
-    accepts := #[.elemOf (.polyOver (.exact .int))] },
+    accepts := #[.elemOf (.polyOver (.exact .int))],
+    backendFn := "Polynomial.roots()",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.roots" },
   { backend := `sage, opId := "roots_poly_q",
-    accepts := #[.elemOf (.polyOver (.exact .rat))] },
+    accepts := #[.elemOf (.polyOver (.exact .rat))],
+    backendFn := "Polynomial.roots()",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.roots" },
   { backend := `sage, opId := "factor_poly_c",
     accepts := #[.elemOf (.polyOver (.exact .complex))],
+    backendFn := "Polynomial.factor()",
+    conventions := "factors are monic; the unit carries the leading coefficient",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.factor",
     advisory := qqbarAdvisory },
   { backend := `sage, opId := "roots_poly_c",
     accepts := #[.elemOf (.polyOver (.exact .complex))],
+    backendFn := "Polynomial.roots()",
+    docUrl := s!"{sageRef}/polynomial_rings/sage/rings/polynomial/\
+polynomial_element.html#sage.rings.polynomial.polynomial_element.Polynomial.roots",
     advisory := qqbarAdvisory },
   -- the exact REALS, and nothing else: a decimal presentation of a complex
   -- number is not something this op implements, and the route registered for
   -- `approximate` may therefore not send it one
   { backend := `sage, opId := "approx_real",
-    accepts := #[.elemOf (.exact .real)] },
+    accepts := #[.elemOf (.exact .real)],
+    backendFn := "AA (exact algebraic reals)",
+    conventions := "exact truncation at the k-th digit through AA; 10^{-k} is \
+returned as the achieved bound",
+    docUrl := s!"{sageRef}/number_fields/sage/rings/qqbar.html" },
   -- the three analysis operations, all on a FUNCTION receiver
-  { backend := `sage, opId := "sym_limit", accepts := #[.elemOf .anyFuncs] },
+  { backend := `sage, opId := "sym_limit", accepts := #[.elemOf .anyFuncs],
+    backendFn := "limit()",
+    docUrl := s!"{sageRef}/calculus/sage/calculus/calculus.html" },
   { backend := `sage, opId := "sym_definite_integral",
-    accepts := #[.elemOf .anyFuncs] },
-  { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs] }
+    accepts := #[.elemOf .anyFuncs],
+    backendFn := "integrate()",
+    docUrl := s!"{sageRef}/calculus/sage/calculus/calculus.html" },
+  { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs],
+    backendFn := "Expression.taylor()",
+    docUrl := s!"{sageRef}/calculus/sage/symbolic/expression.html" }
 ]
 
--- every op is implemented in the one adapter file, so the source link is
--- stamped here rather than repeated on each entry
-run_cmd (sageOpSigs.map ({ · with docUrl := adapterSource })).forM registerOpSig!
+-- an op that names no external documentation falls back to the adapter
+-- source; one that does keeps its external link untouched
+run_cmd (sageOpSigs.map (fun s =>
+  if s.docUrl.isEmpty then { s with docUrl := adapterSource } else s)).forM registerOpSig!
 
 /-- One executor-table entry per op, driven by the same array the signature
 check reads (see the note on `nativeOpSigs`' registration). -/
