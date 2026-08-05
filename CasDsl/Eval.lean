@@ -17,6 +17,7 @@ Two disciplines are load-bearing here:
   adds registry reads and executor calls, nothing else.
 -/
 import CasDsl.Native
+import CasDsl.Mathlib.Verify
 
 namespace CasDsl
 
@@ -1126,6 +1127,12 @@ private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     if args.size != res.decl.arity then
       throw (.msg s!"'{m}' takes {res.decl.arity} argument(s), got {args.size}")
     let concrete := res.concreteReceiver recv
+    -- the walk proposed this availability; Mathlib must agree (invariant I7)
+    if let some cls ← verifyResolution ctx.env res.decl.receiver concrete then
+      throw (.msg s!"'{m}' is declared where {cls} holds, and Lean cannot \
+synthesize {cls} for {concrete.presentation} — the category graph and \
+Mathlib disagree here, which is a registration defect, not a property of \
+the mathematics")
     match routeFor ctx.env res concrete with
     | .gap g => throw (.gap g)
     | .ambiguousRoutes rs => throw (.tiedRoutes m rs)

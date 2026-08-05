@@ -51,21 +51,6 @@ private def PresPattern.concreteDomain? : PresPattern → Option Domain
   | .domainSetOf p => p.concrete?
   | _ => none
 
-/-- Fully apply a class to a type — synthesizing the class's OWN instance
-parameters (`UniqueFactorizationMonoid` needs `CancelCommMonoidWithZero`) —
-then synthesize the membership itself. Failure at either step is the honest
-report that the claimed mathematics does not hold at this type. -/
-def synthMembership (cls : Name) (T : Expr) : MetaM Unit := do
-  let mut e ← mkAppM cls #[T]
-  let mut ty ← whnf (← inferType e)
-  while ty.isForall do
-    let .forallE _ bt _ bi := ty | break
-    unless bi == .instImplicit do
-      throwError "{cls} has a non-instance parameter this check cannot fill"
-    e := mkApp e (← synthInstance bt)
-    ty ← whnf (← inferType e)
-  discard <| synthInstance e
-
 def registerCategory! (d : CatDecl) : CommandElabM Unit := do
   for cls in d.telescope do
     unless isClass (← getEnv) cls do
