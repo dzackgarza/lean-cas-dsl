@@ -56,11 +56,12 @@ def all_text(outputs: list[Any]) -> str:
         c = m["content"]
         if m["msg_type"] == "stream":
             chunks.append(c["text"])
+        # protocol-required keys, indexed so a malformed message fails loudly
         elif m["msg_type"] in ("display_data", "execute_result"):
-            chunks.append(str(c.get("data", {})))
+            chunks.append(str(c["data"]))
         elif m["msg_type"] == "error":
-            chunks.append(c.get("evalue", ""))
-            chunks.append("\n".join(c.get("traceback", [])))
+            chunks.append(c["evalue"])
+            chunks.append("\n".join(c["traceback"]))
     return "".join(chunks)
 
 
