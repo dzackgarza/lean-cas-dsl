@@ -1820,8 +1820,9 @@ only the reals are routed, and a real decimal presents no complex value) —
 each one available, none executable, all asserted as gaps by the proofs at the
 end of `Std.lean`. (The
 original gaps — `nth` on ℚ and `factor` on ℤ[x] — were routed in round
-three per the user-decided closure paths, #17/#18; the ℚ enumeration is
-the registered Cantor zigzag, revisitable like ℤ's convention.)
+three per the user-decided closure paths, #17/#18; the enumerations of ℤ
+and ℚ are Mathlib's `Denumerable` order, adopted verbatim — 2026-08-05
+ruling, #35.)
 
 ## Decisions inherited from the anti-drift record (binding)
 
@@ -1867,9 +1868,10 @@ Formerly open questions, now user-decided — none was silently resolved:
   long-running computations exist (#4, deferred until a workload hurts);
 - **which backend follows Sage**: GAP, direct adapter, justified by
   `unit_group` on ℤ/n (issue #3);
-- **enumeration of ℚ**: Cantor zigzag (reduced-fraction skipping), a
-  registered revisitable choice like ℤ's; implementing it must also
-  replace the notebook's fails-on-purpose `ℚ[3]` demo (issue #17);
+- **enumeration of ℚ**: SUPERSEDED (2026-08-05 ruling, #35) — Mathlib's
+  `Denumerable` order is adopted verbatim for ℤ and ℚ (`nth` calls
+  `Denumerable.ofNat`); no CasDsl-owned enumeration exists (originally the
+  Cantor zigzag, #17);
 - **`factor` on ℤ[x]**: routed via Sage, content × primitive (#18) — the
   `map p to ℚ[x]` demo stays, reframed as the canonical-map demo;
 - **route/op agreement**: checked at build time via registered op
@@ -1905,8 +1907,9 @@ the log-at-use discipline (or force the registry question at CategoryGraph).
 
 ## Open questions (kept open — do not silently resolve)
 
-- default enumeration convention for `ℤ` (slice: 0, 1, −1, 2, −2, …,
-  zero-based — a *registered choice*, revisitable);
+- ~~default enumeration convention for `ℤ`~~ RESOLVED (2026-08-05, #35):
+  Mathlib's `Denumerable` order adopted verbatim for ℤ and ℚ — 0, −1, 1,
+  −2, 2, …;
 - the concrete declaration syntax for notebook-level categories (proposal
   owed under issue #6);
 - the logging layer's level surface and directive syntax (#8);

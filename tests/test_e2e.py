@@ -522,10 +522,10 @@ def test_progressions_membership_and_identity(kernel: Kernel) -> None:
 
 def test_countable_indexing_and_cardinality(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "ℤ[3]")  # registered convention 0, 1, −1, 2, −2, …
-    assert "2" in text
-    text = ok(kc, "ℚ[3]")  # Cantor zigzag: 0, 1, −1, 1/2, … (#17)
-    assert "1/2" in text
+    text = ok(kc, "ℤ[3]")  # the adopted Denumerable order: 0, −1, 1, −2, 2, …
+    assert "-2" in text
+    text = ok(kc, "ℚ[2]")  # …and for ℚ: 0, −1, −1/2, 1, 1/2, … (#35)
+    assert "-1/2" in text
     text = ok(kc, "X.cardinality()")
     assert "ℵ₀" in text
 
@@ -1723,11 +1723,11 @@ def test_i_means_the_imaginary_unit_in_every_session_state(kernel: Kernel) -> No
 def test_a_binding_wins_over_the_indeterminate_reading(kernel: Kernel) -> None:
     _, kc = kernel
     # unbound, `z` would be the indeterminate of ℤ[z] exactly as `x` is above.
-    # Bound, the brackets are an INDEX — the registered ℤ enumeration
-    # 0, 1, −1, 2, −2, 3 — so no bound name is ever read as an indeterminate.
+    # Bound, the brackets are an INDEX — the adopted Denumerable order
+    # 0, −1, 1, −2, 2, −3 — so no bound name is ever read as an indeterminate.
     ok(kc, "let z := 5 in ℤ")
     text = ok(kc, "ℤ[z]")
-    assert "'3'" in text
+    assert "'-3'" in text
     # …and the membership assertion asks about that integer, not about a ring
     text = err(kc, "assert z ∈ ℤ[z]")
     assert "'contains' is not a method" in text

@@ -334,14 +334,11 @@ codomain, read off the same derived rows" },
     doc := "the annihilator ideal of the module" },
   { id := `nth, receiver := `CountableSets, arity := 1,
     anchor := ``Denumerable.ofNat,
-    conventions := "for ℚ the documented zigzag is the DSL's own declared enumeration, \
-not the anchor instance's order",
     argDoc := "a nonnegative index (0-based)",
     resultDoc := "the element at that index",
-    doc := "the element at an index of the REGISTERED enumeration of this set \
-(for ℤ: 0, 1, −1, 2, −2, …; for ℚ: the Cantor zigzag 0, 1, −1, 1/2, −1/2, 2, \
-−2, 1/3, …) — a documented, revisitable choice, never a claim that the set is \
-intrinsically ordered that way" },
+    doc := "the element at an index of the anchor instance's enumeration, \
+adopted verbatim (for ℤ: 0, −1, 1, −2, 2, …; for ℚ: 0, −1, −1/2, 1, 1/2, …) — \
+an enumeration is DATA, never a claim that the set is intrinsically ordered" },
   { id := `cardinality, receiver := `Sets,
     anchor := ``Cardinal.mk,
     resultDoc := "a cardinal (finite n, or ℵ₀)",
@@ -1024,8 +1021,8 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- transport, even though a functor out of Modules is registered: round one
   -- wins unconditionally, so round two can never take this method away
   expectRouted env (.cyclicModule 4) `annihilator [`Modules] `native (functor? := none)
-  -- ℚ is countable and, since round three (#17), enumerable: the Cantor
-  -- zigzag is its registered convention, so `nth` routes
+  -- ℚ is countable and enumerable: `nth` routes, answering through the
+  -- adopted `Denumerable` order (#35)
   expectRouted env (.domainObj .rat) `nth [] `native
   -- THE central separation: `det` is meaningful on any MatrixElems member,
   -- and only ℚ-entry matrices are routed — Mat₂(ℤ/5) is the honest gap
