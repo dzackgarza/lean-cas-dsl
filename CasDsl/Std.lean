@@ -265,7 +265,12 @@ repetition, |·| counts with it",
 with multiplicity",
     doc := "the multiset of roots IN THE COEFFICIENT RING, counted with multiplicity — \
 an empty result means the polynomial has no root there, not that none exists \
-in an extension" },
+in an extension",
+    -- the ruled default's advisory (owner rulings, 2026-07-31): fired by
+    -- `Eval.rootsRingNote` exactly when the receiver fails to split in its
+    -- own ring; the text lives here, at the declaration
+    advisory := "{p} does not split over {ring}: {have} of {deg} roots (with \
+multiplicity) lie there. `map {p} to ℂ[x]` reaches the rest" },
   { id := `det, receiver := `MatrixElems,
     anchor := ``Matrix.det,
     resultDoc := "a scalar of the entry domain",

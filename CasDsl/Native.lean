@@ -1373,7 +1373,11 @@ private def nativeOpSigs : Array OpSig := #[
   { backend := `native, opId := "func_image", accepts := #[.elemOf .anyFuncs] }
 ]
 
-run_cmd nativeOpSigs.forM registerOpSig!
+-- every op is implemented in this one module, so the source link is stamped
+-- here rather than repeated on each entry
+run_cmd (nativeOpSigs.map
+  ({ · with docUrl := "https://github.com/dzackgarza/lean-cas-dsl/blob/main/CasDsl/Native.lean" }))
+  |>.forM registerOpSig!
 
 /-- One executor-table entry per op this module implements, driven by the same
 array the signature check reads: an op is executable exactly when it is

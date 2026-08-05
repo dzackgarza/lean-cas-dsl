@@ -66,6 +66,12 @@ structure MethodDecl where
   convention — unit normalization for `factor`, associates for `gcd` — the
   convention is declared here, beside the anchor, never left implicit. -/
   conventions : String := ""
+  /-- An advisory TEMPLATE for an unexpected-but-true result of this method
+  (a note is ADVICE, never a refusal — owner ruling 2026-07-31). The TEXT
+  lives here at the declaration; the method's own semantics decide when it
+  fires and substitute the `{…}` placeholders (`Eval.renderAdvisory`).
+  Empty = the method carries no advisory. -/
+  advisory : String := ""
   deriving BEq, Repr, Inhabited
 
 /-- First-order matcher over `Domain` (serializable — no closures). -/
@@ -425,6 +431,12 @@ structure Route where
   /-- Deterministic selection: highest wins; a tie among applicable routes
   is an explicit ambiguity error, never a silent pick. -/
   priority : Nat := 0
+  /-- One line on what this particular binding means (when the method's own
+  doc does not cover it), rendered by the diagnostics. -/
+  doc : String := ""
+  /-- Where this binding's implementation or documentation lives (a source
+  or docs link), rendered by the diagnostics. Overrides the op's own. -/
+  docUrl : String := ""
   deriving BEq, Repr, Inhabited
 
 /-- The declared receiver signature of one backend operation: `opId` of
@@ -441,6 +453,16 @@ structure OpSig where
   backend : Name
   opId : String
   accepts : Array PresPattern
+  /-- One line on what this op computes, rendered by the diagnostics. -/
+  doc : String := ""
+  /-- Where this op's implementation or documentation lives (a source or
+  docs link), rendered by the diagnostics. -/
+  docUrl : String := ""
+  /-- A static advisory pushed alongside every result of this op: the
+  PROVIDER's own disclosure of a choice the answer rides (Sage's fixed
+  embedding QQbar ↪ ℂ on the ℂ[x] ops). Registration data, rendered
+  generically — no advisory text lives in the evaluator. -/
+  advisory : String := ""
   deriving BEq, Repr, Inhabited
 
 /-- One transport step: the functor that was applied, and the receiver it

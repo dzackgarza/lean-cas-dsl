@@ -1140,23 +1140,25 @@ the mathematics")
     | .chosen r =>
       match ← execute r concrete args with
       | .error e => throw (.exec e)
-      | .ok v => return Denote.ofValue v
+      | .ok v =>
+        -- a provider-declared advisory rides the op's result (`OpSig.advisory`,
+        -- registration data): pushed generically, deduplicated so one statement
+        -- reaching the op twice still says it once
+        if let some sig := opSig? ctx.env r.backend r.opId then
+          unless sig.advisory.isEmpty do
+            ctx.notes.modify fun ns =>
+              if ns.contains sig.advisory then ns else ns.push sig.advisory
+        return Denote.ofValue v
 
 /-! `callMethod` and `rootsRingNote` live INSIDE the `mutual` block below:
 the predicate-set intercept (#31 item 7) evaluates a stored guard, so
 `callMethod` and `eval` are mutually recursive. -/
 
-/-- The QQbar ↪ ℂ advisory (#31 item 10, log-at-use ruling): every algebraic
-number a backend positions in ℂ rides Sage's one fixed embedding of QQbar,
-and that CHOICE is logged where it flows — the ℂ[x] `roots`/`factor` calls,
-whose results are complex algebraic values — never declared silently. The
-declaration registry (a choice named at registration) is CategoryGraph-era
-family management and stays deferred. -/
-private def embeddingNote (ctx : EvalCtx) (recv : Obj) (m : Name) : EvalM Unit := do
-  unless m == `roots || m == `factor do return ()
-  let .elem (.poly .complex) _ := recv | return ()
-  ctx.notes.modify (·.push "algebraic numbers are rendered under a fixed \
-embedding QQbar ↪ ℂ")
+/-- Fill an advisory template's `{…}` placeholders. Generic on purpose: the
+advisory TEXT lives at its registration site (`MethodDecl.advisory`,
+`OpSig.advisory`), never in this module. -/
+def renderAdvisory (template : String) (subs : List (String × String)) : String :=
+  subs.foldl (fun s (k, v) => s.replace ("{" ++ k ++ "}") v) template
 
 /-- A result with no domain is not an object. Shared by the two places that ask
 for one, so the cause is stated wherever it bites. -/
@@ -1331,9 +1333,14 @@ partial def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
   -- the multiset size IS Σ mᵢ over the ring's linear factors, so size = deg
   -- is exactly "splits"
   if coeffs.size < 2 || elems.size == deg then return ()
+  -- the TEXT is the declaration's (`MethodDecl.advisory`); this site owns
+  -- only the firing condition and the placeholder values
+  let some decl := (methods ctx.env).find? (·.id == `roots) | return ()
+  if decl.advisory.isEmpty then return ()
   let p := match recvStx with | .ref n => s!"{n}" | _ => "p"
-  ctx.notes.modify (·.push s!"{p} does not split over {d.render}: {elems.size} of {deg} roots (with \
-multiplicity) lie there. `map {p} to ℂ[x]` reaches the rest")
+  ctx.notes.modify (·.push (renderAdvisory decl.advisory
+    [("p", p), ("ring", d.render), ("have", toString elems.size),
+     ("deg", toString deg)]))
 
 /-- `k · S` (SPEC.md §Ellipses' `2ℕ`; ruling 2026-07-31, #31 item 6) — the
 IMAGE of the scaling map, as a presentation: an arithmetic progression
@@ -1674,7 +1681,6 @@ that space and in no other")
       let as ← args.mapM fun a => do ofStr (asObjOf (← eval ctx a))
       let d ← callMethod ctx r m as
       rootsRingNote ctx recv r m d
-      embeddingNote ctx r m
       return d
   | .index recv arg => do
       let r ← eval ctx recv

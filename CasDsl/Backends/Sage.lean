@@ -422,6 +422,19 @@ def executor : Executor := fun opId receiver args => do
         | .error m => return .error (.protocolError s!"sage: {m}")
         | .ok v => return expectKind opId receiver v
 
+/-- The Python half of this adapter, where every op below is implemented —
+the source link the diagnostics render for a sage route. -/
+private def adapterSource : String :=
+  "https://github.com/dzackgarza/lean-cas-dsl/blob/main/backends/sage_adapter.py"
+
+/-- The QQbar ↪ ℂ advisory (#31 item 10, log-at-use ruling): every algebraic
+number this backend positions in ℂ rides Sage's one fixed embedding of
+QQbar, and that CHOICE is disclosed where it flows — on the ℂ[x] ops whose
+results are complex algebraic values — never declared silently. Registration
+data on those ops' signatures; the evaluator renders it generically. -/
+private def qqbarAdvisory : String :=
+  "algebraic numbers are rendered under a fixed embedding QQbar ↪ ℂ"
+
 /-- The receiver signatures of the sage ops, restated from the encoders
 above as checked registration data (see `OpSig`). -/
 private def sageOpSigs : Array OpSig := #[
@@ -445,9 +458,11 @@ private def sageOpSigs : Array OpSig := #[
   { backend := `sage, opId := "roots_poly_q",
     accepts := #[.elemOf (.polyOver (.exact .rat))] },
   { backend := `sage, opId := "factor_poly_c",
-    accepts := #[.elemOf (.polyOver (.exact .complex))] },
+    accepts := #[.elemOf (.polyOver (.exact .complex))],
+    advisory := qqbarAdvisory },
   { backend := `sage, opId := "roots_poly_c",
-    accepts := #[.elemOf (.polyOver (.exact .complex))] },
+    accepts := #[.elemOf (.polyOver (.exact .complex))],
+    advisory := qqbarAdvisory },
   -- the exact REALS, and nothing else: a decimal presentation of a complex
   -- number is not something this op implements, and the route registered for
   -- `approximate` may therefore not send it one
@@ -460,7 +475,9 @@ private def sageOpSigs : Array OpSig := #[
   { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs] }
 ]
 
-run_cmd sageOpSigs.forM registerOpSig!
+-- every op is implemented in the one adapter file, so the source link is
+-- stamped here rather than repeated on each entry
+run_cmd (sageOpSigs.map ({ · with docUrl := adapterSource })).forM registerOpSig!
 
 /-- One executor-table entry per op, driven by the same array the signature
 check reads (see the note on `nativeOpSigs`' registration). -/

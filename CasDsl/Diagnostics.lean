@@ -31,7 +31,7 @@ private def routeJson (r : Route) : Json :=
   Json.mkObj
     [("method", .str r.method.toString), ("pattern", .str (renderPattern r.pattern)),
      ("backend", .str r.backend.toString), ("opId", .str r.opId),
-     ("priority", .num r.priority)]
+     ("priority", .num r.priority), ("doc", .str r.doc), ("docUrl", .str r.docUrl)]
 
 /-! ## `#explain_route` -/
 
@@ -55,6 +55,9 @@ private structure Explanation where
   each step of the inheritance chain: the receiver's instance chain. -/
   chain : List String
   verified? : Option Name
+  /-- The chosen route's declared op signature, when one is registered —
+  the provider's doc, source link and advisory ride on it. -/
+  sig? : Option OpSig
 
 /-- The characteristic Mathlib class of a category — the most specific
 entry of its telescope, which dependency order puts last — or its bare
@@ -77,14 +80,18 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
   | .error err => throw (.resolve m recv err)
   | .ok res =>
     let concrete := res.concreteReceiver recv
+    let outcome := routeFor ctx.env res concrete
     return {
       method := m, receiver := recv, res, decl := res.decl
       functor? := res.viaFunctor.bind fun s => functorDecl? ctx.env s.functor
-      outcome := routeFor ctx.env res concrete
+      outcome
       ownerTelescope := (catDecl? ctx.env res.decl.receiver).map (·.telescope) |>.getD #[]
       chain := charClassOf ctx.env res.profileEntry.name
         :: res.via.map (charClassOf ctx.env)
       verified? := ← verifyResolution ctx.env res.profileEntry.name res.decl.receiver concrete
+      sig? := match outcome with
+        | .chosen r => opSig? ctx.env r.backend r.opId
+        | _ => none
     }
 
 /-- The method as a Lean-style signature over its declaring telescope:
@@ -129,9 +136,23 @@ private def explanationText (x : Explanation) : String :=
 {receiverLine x}\n{transportLine x}"
   let tail := match x.outcome with
     | .chosen r =>
+        -- provider-declared registration data: the op's doc, its standing
+        -- advisory, and a source link (the route's own overrides the op's)
+        let sigDoc := match x.sig? with
+          | some sig => if sig.doc.isEmpty then "" else s!"\n{sig.doc}"
+          | none => ""
+        let advisory := match x.sig? with
+          | some sig => if sig.advisory.isEmpty then "" else s!"\nadvisory: {sig.advisory}"
+          | none => ""
+        let source :=
+          let url := if r.docUrl.isEmpty then
+            (x.sig?.map (·.docUrl)).getD "" else r.docUrl
+          if url.isEmpty then "" else s!"\nsource: {url}"
         s!"route: {r.backend} {repr r.opId} — implemented for \
 {renderPattern r.pattern}"
         ++ (if r.priority == 0 then "" else s!" (priority {r.priority})")
+        ++ (if r.doc.isEmpty then "" else s!"\n{r.doc}")
+        ++ sigDoc ++ advisory ++ source
         ++ (if x.decl.resultDoc.isEmpty then ""
             else s!"\nresult: {x.decl.resultDoc}")
     | .gap g => renderGap g
@@ -144,7 +165,12 @@ private def explanationText (x : Explanation) : String :=
 private def explanationJson (x : Explanation) : Json :=
   let decision := match x.outcome with
     | .chosen r =>
-        Json.mkObj [("decision", .str "chosen"), ("route", routeJson r)]
+        Json.mkObj
+          [("decision", .str "chosen"), ("route", routeJson r),
+           ("opDoc", .str ((x.sig?.map (·.doc)).getD "")),
+           ("advisory", .str ((x.sig?.map (·.advisory)).getD "")),
+           ("source", .str (if r.docUrl.isEmpty then
+             (x.sig?.map (·.docUrl)).getD "" else r.docUrl))]
     | .gap g =>
         Json.mkObj
           [("decision", .str "gap"),
@@ -201,6 +227,8 @@ private def capabilityLines (env : Environment) : Array String × Array Json := 
     js := js.push <| Json.mkObj
       [("method", .str d.id.toString), ("receiver", .str (renderName d.receiver)),
        ("arity", .num d.arity), ("doc", .str d.doc),
+       -- the declaration's advisory TEMPLATE, `{…}` placeholders as declared
+       ("advisory", .str d.advisory),
        ("routes", .arr (rs.map routeJson))]
   return (lines, js)
 

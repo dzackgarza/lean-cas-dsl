@@ -17,6 +17,7 @@ info: factor (x : R) [CommRing R] [IsDomain R] [UniqueFactorizationMonoid R]
   ≐ UniqueFactorizationMonoid.factors — the anchor is stated up to units; the answer is normalized — positive leading unit in ℤ, monic factors over a field
 x = 360 ∈ ℤ; R = ℤ : EuclideanDomain ≤ IsPrincipalIdealRing ≤ UniqueFactorizationMonoid  (synthesized)
 route: sage "factor_int" — implemented for element of ℤ
+source: https://github.com/dzackgarza/lean-cas-dsl/blob/main/backends/sage_adapter.py
 result: a factorization: a unit and irreducible factors with multiplicity
 -/
 #guard_msgs in
