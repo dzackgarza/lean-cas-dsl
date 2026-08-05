@@ -284,7 +284,9 @@ for a polynomial of degree {d}: the companion matrix has the polynomial's own si
     | .error (.badRequest "the second coefficient is not a rational")
     let some const := ratOf? coeffs[0]!
     | .error (.badRequest "the constant coefficient is not a rational")
-    let trace := (Array.range n).foldl (fun acc i => acc + rats[i]![i]!) 0
+    -- parenthesized: with Mathlib in the import closure, `![` lexes as the
+    -- Matrix-literal token, so `xs[i]![j]!` no longer parses unparenthesized
+    let trace := (Array.range n).foldl (fun acc i => acc + (rats[i]!)[i]!) 0
     let expectTrace := -(sub / lead)
     let expectDet := (if d % 2 == 0 then 1 else -1) * const / lead
     if trace != expectTrace then

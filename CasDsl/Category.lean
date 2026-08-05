@@ -36,6 +36,13 @@ structure CatDecl where
   name : Name
   parents : Array Name := #[]
   doc : String := ""
+  /-- The Mathlib classes this category's membership MEANS, in dependency
+  order (`SPEC-REGISTRY-TYPE-PREPASS` §3.2): registering an object into this
+  category elaborates each class at the object's denoted type, so a
+  membership the classes cannot discharge fails the build. Empty is honest
+  only for `Sets` (every type) and, during the migration, for nodes slated
+  for re-anchoring or deletion. -/
+  telescope : Array Name := #[]
   deriving BEq, Repr, Inhabited
 
 /-- A category-owned method declaration. Owns mathematical identity and

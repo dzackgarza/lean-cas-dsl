@@ -19,6 +19,7 @@ import Mathlib.RingTheory.PrincipalIdealDomain
 import Mathlib.RingTheory.Polynomial.UniqueFactorization
 import Mathlib.Logic.Denumerable
 import Mathlib.Data.Rat.Denumerable
+import Mathlib.Data.Finsupp.Encodable
 import Mathlib.Analysis.Real.Cardinality
 import Mathlib.Data.Complex.Basic
 import Mathlib.Algebra.Field.ZMod
@@ -69,5 +70,21 @@ example : Denumerable ℚ := inferInstance
 -- the sharpness claim Mathlib CAN state: ℝ is not countable, so `Sets` is
 -- its true strength and `nth` honestly never reaches it
 example : Uncountable ℝ := inferInstance
+
+/-- A polynomial ring over a countable coefficient ring is countable.
+Mathlib holds this for the underlying `Finsupp` (`ℕ →₀ R`); the
+`Polynomial` structure wrapper does not transport it automatically, so this
+instance is the bridge — stated in full generality, a candidate upstream
+contribution. It is what admits ℤ[x] and ℚ[x] into `CountableSets`. -/
+instance {R : Type*} [Semiring R] [Countable R] : Countable (Polynomial R) :=
+  -- two structure wrappers sit between R[x] and the Finsupp Mathlib knows
+  -- to be countable; compose their coefficient injections
+  have inj : Function.Injective
+      (fun p : Polynomial R => (p.toFinsupp.coeff : ℕ →₀ R)) := fun _ _ h =>
+    Polynomial.toFinsupp_injective (congrArg AddMonoidAlgebra.ofCoeff h)
+  inj.countable
+
+example : Countable (Polynomial ℤ) := inferInstance
+example : Countable (Polynomial ℚ) := inferInstance
 
 end CasDsl.Anchors

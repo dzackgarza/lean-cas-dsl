@@ -414,7 +414,9 @@ private def matMulRows (a b : Array (Array Rat)) : Array (Array Rat) :=
     let mut acc : Rat := 0
     for k in [0:b.size] do
       let c : Rat := ar[k]?.getD 0
-      acc := acc + c * b[k]![j]!
+      -- parenthesized: with Mathlib in the import closure, `![` lexes as
+      -- the Matrix-literal token, so `xs[i]![j]!` no longer parses bare
+      acc := acc + c * (b[k]!)[j]!
     return acc
 
 /-- `f ∘ g` = `binder ↦ f(g(binder))`, keeping `g`'s binder.

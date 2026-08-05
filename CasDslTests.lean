@@ -1,5 +1,6 @@
 import CasDslTests.Core
 import CasDslTests.Denote
+import CasDslTests.Membership
 import CasDslTests.Codec
 import CasDslTests.Latex
 import CasDslTests.Std

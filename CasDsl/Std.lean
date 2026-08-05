@@ -112,19 +112,29 @@ user-facing — they are what `#capabilities` prints. -/
 private def stdCategories : Array CatDecl := #[
   { name := `Sets,
     doc := "sets: cardinality, membership, and equality of presentations" },
-  { name := `CountableSets, parents := #[`Sets],
-    doc := "sets equipped with a registered enumeration (countable), so their \
-elements can be indexed" },
-  { name := `FiniteSets, parents := #[`CountableSets],
-    doc := "sets presented by an explicit finite list of elements" },
-  { name := `CommRingElems,
+    -- telescope deliberately empty: membership claims nothing beyond being a type
+  { name := `CountableSets, parents := #[`Sets], telescope := #[``Countable],
+    doc := "countable sets, so their elements can be indexed when an \
+enumeration is registered" },
+  { name := `FiniteSets, parents := #[`CountableSets], telescope := #[``Finite],
+    doc := "finite sets" },
+  { name := `CommRingElems, telescope := #[``CommRing],
     doc := "elements of a commutative ring" },
   { name := `FactorizationElems, parents := #[`CommRingElems],
+    telescope := #[``CommRing, ``IsDomain, ``UniqueFactorizationMonoid],
     doc := "elements of a unique factorization domain: a factorization into \
 irreducibles exists and is unique up to units and order" },
-  { name := `EuclideanElems, parents := #[`FactorizationElems],
-    doc := "elements of a euclidean domain (a division algorithm, hence also \
-a UFD)" },
+  -- The PID layer Mathlib's own instance chain factors through: every
+  -- euclidean domain is a PID, every PID a UFD (CasDsl/Mathlib/Anchors.lean
+  -- discharges both edges). SNF-era methods will be declared here.
+  { name := `PIDElems, parents := #[`FactorizationElems],
+    telescope := #[``CommRing, ``IsDomain, ``IsPrincipalIdealRing],
+    doc := "elements of a principal ideal domain: every ideal is generated \
+by one element" },
+  { name := `EuclideanElems, parents := #[`PIDElems],
+    telescope := #[``EuclideanDomain],
+    doc := "elements of a euclidean domain (a division algorithm, hence \
+also a PID and a UFD)" },
   { name := `Modules,
     doc := "modules over a commutative ring" },
   { name := `SmallModules, parents := #[`Modules],
@@ -938,7 +948,7 @@ def expectNotApplicable (env : Environment) (o : Obj) (m : Name)
 def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- EuclideanElems ≤ FactorizationElems carries `factor` to integers, and
   -- the developer routed it to sage
-  expectRouted env (.elem .int (.int 360)) `factor [`FactorizationElems] `sage
+  expectRouted env (.elem .int (.int 360)) `factor [`PIDElems, `FactorizationElems] `sage
   -- THE inheritance demo: `annihilator` is declared only on Modules and
   -- reaches the fixture through SmallModules ≤ Modules — DIRECTLY, with no
   -- transport, even though a functor out of Modules is registered: round one
@@ -1001,7 +1011,7 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- no upward leak: ℤ/5 elements are CommRingElems, `factor` lives below
   expectNotApplicable env (.elem (.mod 5) (Value.mkMod 5 2)) `factor
   -- gcd is declared where gcds exist — on UFD elements — and routed for ℤ
-  expectRouted env (.elem .int (.int 84)) `gcd [`FactorizationElems] `sage
+  expectRouted env (.elem .int (.int 84)) `gcd [`PIDElems, `FactorizationElems] `sage
   -- …so an ℤ[x] gcd is available and NOT executable: an honest backlog item,
   -- exactly like det over ℤ/5, never a reason to move the declaration
   expectGap env polyZ `gcd []
@@ -1014,7 +1024,7 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectRouted env polyQ `roots [] `sage
   -- SPEC.md §Polynomials: over ℂ the same two operations are routed to their
   -- own ops — which is where the cubic splits and where `x² − 2` has roots
-  expectRouted env polyC `factor [`FactorizationElems] `sage
+  expectRouted env polyC `factor [`PIDElems, `FactorizationElems] `sage
   expectRouted env polyC `roots [] `sage
   expectRouted env polyC `deg [] `native
   -- a polynomial over ℤ/5 is still a polynomial: `deg` is a structural read
@@ -1105,7 +1115,7 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   expectNotApplicable env (.setObj (.powerset finSet123)) `nth
   -- SPEC.md §Ellipses' `n.is_prime()`: declared where primes exist, routed
   -- for ℤ — so irreducibility in ℤ[x] is available and not executable
-  expectRouted env (.elem .int (.int 7)) `is_prime [`FactorizationElems] `sage
+  expectRouted env (.elem .int (.int 7)) `is_prime [`PIDElems, `FactorizationElems] `sage
   expectGap env polyZ `is_prime []
   -- SPEC.md's `e.image()`: the image is the one method functions own natively
   expectRouted env doubling `image [] `native

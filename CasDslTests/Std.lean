@@ -32,7 +32,7 @@ run_cmd do
   -- ℤ used as an object enumerates by the registered convention
   expectRouted env (.domainObj .int) `nth [] `native
   -- the ℚ[x] element the notebook obtains by `map p to ℚ[x]` factors
-  expectRouted env polyQ `factor [`FactorizationElems] `sage
+  expectRouted env polyQ `factor [`PIDElems, `FactorizationElems] `sage
   expectRouted env mat2Q `det [] `sage
   expectRouted env mat2Q `inverse [] `sage
 

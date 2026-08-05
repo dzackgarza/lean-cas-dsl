@@ -988,7 +988,9 @@ private def kernelGens (n : Nat) (rows : Array (Array Rat)) : Array Value := Id.
     if !pivots.contains free then
       let mut comps := (Array.replicate n (0 : Rat)).set! free 1
       for i in [0:pivots.size] do
-        comps := comps.set! pivots[i]! (-(red[i]![free]!))
+        -- parenthesized: with Mathlib in the import closure, `![` lexes as
+        -- the Matrix-literal token, so `xs[i]![j]!` no longer parses bare
+        comps := comps.set! pivots[i]! (-((red[i]!)[free]!))
       gens := gens.push (.vec n .rat (comps.map Value.rat))
   return gens
 
