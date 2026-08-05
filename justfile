@@ -80,11 +80,13 @@ test-ci: test _test-full
 [private]
 test-commit: test
 
-# Re-execute the demo notebook against the live casdsl kernel so committed
-# outputs are genuine kernel output (a23ee30 standard), never hand-written.
+# Re-execute the committed notebooks (demo + boundaries) against the live
+# casdsl kernel: outputs stay genuine kernel output (a23ee30 standard) and
+# the runnable-trail rule holds — a live error cell fails this gate, since
+# the document model would block every cell below it.
 [private]
 _notebook-reexec:
-    @.venv/bin/python scripts/reexec_demo.py
+    @.venv/bin/python scripts/reexec_notebooks.py
 
 [private]
 test-push: sync-kernel test-ci _notebook-reexec
