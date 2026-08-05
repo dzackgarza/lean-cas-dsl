@@ -142,7 +142,8 @@ inductive Value
   | vec (n : Nat) (entry : Domain) (comps : Array Value)   -- (1, 2) ∈ ℚ²
   | factorization (unit : Value) (factors : Array (Value × Nat)) (dom : Domain)
   | idealV (gens : Array Value) (ring : Domain)    -- e.g. annihilator result
-  | setV (elems : Array Value) (dom : Domain)      -- e.g. p.roots()
+  | setV (elems : Array Value) (dom : Domain)      -- a finite set result
+  | msetV (elems : Array Value) (dom : Domain)     -- p.roots(): repetition = multiplicity
   | progV (dom : Domain) (first step : Value) (last? : Option Value)  -- e.image()
   | spanV (n : Nat) (basis : Array Value)          -- M.ker(), a subspace of ℚⁿ
   | cardinal (c : Cardinality)     -- finite n | countablyInfinite
@@ -151,6 +152,7 @@ inductive Value
 
 inductive SetPresentation
   | finite (dom : Domain) (elems : Array Value)
+  | multiset (dom : Domain) (elems : Array Value)  -- with repetition; |·| counts it
   | arithProg (dom : Domain) (first step : Value) (last? : Option Value)
   | domainSet (d : Domain)         -- the underlying set of ℤ, ℕ, ℚ, …
   | span (n : Nat) (basis : Array Value)   -- span_ℚ{…} ≤ ℚⁿ, by a REDUCED basis
@@ -165,13 +167,18 @@ inductive Obj                       -- the thing a notebook binding names
   | cyclicModule (n : Nat)                  -- the ℤ-module ℤ/n (module fixture)
 ```
 
-`setV`, `progV` and `spanV` are the three shapes an EXECUTOR may return as a
-set (`p.roots()`, `e.image()`, `M.ker()`); `Denote.ofValue` turns them into
-the ordinary `setObj (.finite …)` / `setObj (.arithProg …)` /
-`setObj (.span …)`, so a returned set is a set object like any literal one —
-same profile rules, same `contains`, same set equality — rather than a second
-notion of set. CEILING: an explicit finite list, an arithmetic progression,
-and a subspace of ℚⁿ, nothing wider. `product` and `powerset` are DENOTED
+`setV`, `msetV`, `progV` and `spanV` are the shapes an EXECUTOR may return
+as a set-like object (`e.image()`, `p.roots()`, `M.ker()`);
+`Denote.ofValue` turns them into the ordinary `setObj (.finite …)` /
+`setObj (.multiset …)` / `setObj (.arithProg …)` / `setObj (.span …)`, so a
+returned set answers to the set methods like any literal one — same profile
+rules, same `contains`, same equality — rather than a second notion of set.
+The multiset is not a second spelling of `finite`: display repeats, `|·|`
+counts with multiplicity and `=` compares counts (a finite SET on the other
+side lifts along `Finset.val`), while `∈` and `⊆` read the support —
+Mathlib's own `Multiset.card`/`=` versus `∈`/`Multiset.Subset` split.
+CEILING: an explicit finite list, a finite multiset, an arithmetic
+progression, and a subspace of ℚⁿ, nothing wider. `product` and `powerset` are DENOTED
 sets (see §Sets): presentations whose elements — pairs, and sets — no `Value`
 presents.
 
@@ -251,16 +258,17 @@ all.
   RULED (owner, 2026-07-31, refined the same day): the ring default STANDS
   — `p.roots()` always means the roots in `p`'s own coefficient ring, and
   no spelling implicitly applies a field extension or passes to an
-  algebraic closure. `roots` returns the plain root SET: there is no
-  multiset in the data model, and the owner's chosen carrier for
-  multiplicity is the FACTORIZATION the surface already has —
-  `p.factor()`'s linear factors hold the `(rᵢ, mᵢ)` pairs. The deficit
-  note is therefore EXACT rather than a disjunction: `Eval.rootsRingNote`
-  reads the factorization through the same checked route and fires
-  precisely when `p` fails to SPLIT in its ring (Σ mᵢ < deg), stating how
-  many roots lie in an extension counted with multiplicity and naming both
-  `factor` (the multiplicities) and the `map p to ℂ[x]` escalation;
-  `(x−1)²` over ℚ splits and gets no note. Two owner principles anchor the
+  algebraic closure. SUPERSEDED IN CARRIER (approved pre-pass, 2026-08-05,
+  SPEC-REGISTRY-TYPE-PREPASS §3.3): `roots` returns the MULTISET its
+  anchor `Polynomial.roots` returns — multiplicity shown by repetition
+  (`(x−1)²` answers `{1, 1}`), `|·|` counted with it — replacing the
+  earlier set-plus-factor-carrier convention, which hid the double root.
+  The deficit note is EXACT and needs no second call:
+  `Eval.rootsRingNote` reads the multiset's size (which IS Σ mᵢ over the
+  ring's linear factors) against the degree and fires precisely when `p`
+  fails to SPLIT in its ring, naming the `map p to ℂ[x]` escalation;
+  `(x−1)²` over ℚ splits and gets no note. The note's TEXT is the
+  declaration's (`MethodDecl.advisory`), not the evaluator's. Two owner principles anchor the
   behavior: a PROPOSITION over the result has a truth value and is never
   refused — `assert q.roots() ⊆ ℂ - ℚ` stays vacuously TRUE over ℚ, with
   the unexpectedness carried as the advisory note (§Sets ⊆ ruling) — and a
@@ -1107,7 +1115,9 @@ binder over ℕ or ℤ from a polynomial COMPARISON and tests candidates
 (§Comprehensions and images). Solving an equation is a different operation,
 and one the surface already has — the equation is read with the binder as the
 INDETERMINATE, moved to `p − q`, presented in `D[x]`, and handed to `roots`.
-Same method, same route, same backend, one implementation.
+Same method, same route, same backend, one implementation — and since the
+production is SET-builder notation, the multiset the method answers
+collapses to its support here: the solution SET.
 
 `=` gains no term-level meaning by this: it appears inside this production and
 nowhere else in a term, so the guarded comprehension is untouched and still
@@ -1124,7 +1134,19 @@ the elements and `ℝ = ℝ` answers true. Those two questions used to be tied
 together by one normal form; the refusal that belongs to the cardinality
 (`ℂ.cardinality()`) is unchanged.
 
-## Categories (`Category.lean`, `Registry.lean`)
+## Categories (`Category.lean`, `Registry.lean`) — the TRANSITIONAL registry
+
+**Status (2026-08-05 review, issue #35).** The categorical semantic layer is
+owned upstream: the requirements catalogue is lean-lattices#56, and the
+pinned consumer contract is lean-lattices#49. When #49 lands, this repo's
+`CatDecl`/parents registry is **deleted, not refactored** — categories
+become citations of catalogue entries, and any construct the catalogue
+omits becomes a build failure. Until then the registry below is
+transitional: frozen in shape, tethered to Mathlib at every claim it still
+makes, and honest about the residue it cannot state (e.g. a multiset —
+`p.roots()`'s result — profiles at `Sets` for its `∈`/`=`/`⊆`/`|·|`
+methods although a multiset is not a set, and Σ/Π over a bare multiset is
+not presentable here; the catalogue gives it its own entry).
 
 ```lean
 inductive ParamVal | dom (d : Domain) | nat (n : Nat)
@@ -1137,6 +1159,14 @@ structure CatRef where
 - The **inheritance graph** is on category *names*: a `CatDecl` registers
   `parents : Array Name`; params pass through unchanged along an edge
   (`SmallModules(ℤ) ≤ Modules(ℤ)` because `SmallModules ≤ Modules`).
+- A `CatDecl` carries a **telescope** — the Mathlib classes its membership
+  MEANS, in dependency order. Registering an object into a category
+  elaborates each class at the object's denoted type
+  (`CasDsl/Mathlib/Denote.lean` is the single by-fiat presentation-tag ↦
+  Lean-type bridge), so a membership the classes cannot discharge fails
+  the build; a registered inclusion edge must likewise be an implication
+  Mathlib discharges. An empty telescope is honest only for `Sets` and for
+  nodes slated for re-anchoring or deletion at the migration.
 - An object's **profile** is the set of `CatRef`s it directly inhabits
   (computed by `Std.profileOf : Obj → Array CatRef`); the resolver closes
   over parent edges. Profiles are rich: `ℤ` enters with sets, countable
@@ -1145,14 +1175,24 @@ structure CatRef where
 
 ```lean
 structure MethodDecl where
-  id        : Name           -- stable mathematical identity, e.g. `factor
-  receiver  : Name           -- receiver category NAME (any params)
-  argDoc    : String         -- slice keeps arg validation at execution
-  resultDoc : String
-  doc       : String
+  id          : Name       -- stable mathematical identity, e.g. `factor
+  receiver    : Name       -- receiver category NAME (any params)
+  argDoc      : String     -- slice keeps arg validation at execution
+  resultDoc   : String
+  doc         : String
+  anchor      : Name       -- the Mathlib constant the answer is an answer TO
+  conventions : String     -- presentation choices vs the anchor, stated
+  advisory    : String     -- advice template for an unexpected-but-true result
 ```
 
   No method declaration names a backend, algorithm, or capability limit.
+  The **anchor** is checked to exist at registration; `.anonymous` is
+  permitted only where Mathlib holds no carrier, and `conventions` must
+  then say so. A **convention chooses presentations** (display order, unit
+  normalization, chosen basis), never the value of a well-defined
+  predicate. The **advisory** text lives at the declaration; the method's
+  own semantics decide when it fires and fill the `{…}` placeholders
+  (`roots`' does-not-split note is the one producer today).
 
 - **Routes** live in a *separate* registry (the computability layer):
 
@@ -1163,7 +1203,14 @@ structure Route where
   backend  : Name            -- `native or `sage (executor looked up by name)
   opId     : String          -- backend operation identity
   priority : Nat             -- deterministic tie-break: highest wins, tie = error
+  doc      : String          -- rendered by the diagnostics
+  docUrl   : String          -- source/docs link, rendered by the diagnostics
 ```
+
+  Op signatures (`OpSig`) carry `doc`/`docUrl` and a provider-owned
+  `advisory` the evaluator pushes generically with the op's results
+  (Sage's fixed QQbar ↪ ℂ embedding disclosure rides the ℂ[x] ops this
+  way — registration data, no advisory text in `Eval.lean`).
 
 - **Functors** are the transport layer, and are registry data too:
 
@@ -1231,6 +1278,14 @@ Every caller routes and executes against `res.concreteReceiver o` — the
 transported image, not the object it passed in. Nothing else — no method
 declaration, no backend contract — may assume the resolver does only
 direct/inherited lookup.
+
+**The walk proposes; Mathlib disposes (runtime tripwire, 944f248).** Every
+method call re-verifies the entry category's membership against Mathlib
+(`verifyResolution` synthesizes the declaring category's telescope at the
+concrete receiver's denoted type). A resolution the graph walk produces
+that Lean cannot re-derive is reported as a registration defect — never
+executed and never repaired in place. This is invariant I7 of
+SPEC-REGISTRY-TYPE-PREPASS and survives the #49 migration unchanged.
 
 Ceilings of round two (deliberate): **one hop** (the image is resolved by
 round one only — no functor composition, no path search, no preferred-path
@@ -1904,6 +1959,35 @@ The prelude's chain ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ is made of maps that are
 no other non-canonical choice is being made yet; when splitting fields,
 abstract number fields or Galois-orbit root sets arrive, their choices join
 the log-at-use discipline (or force the registry question at CategoryGraph).
+
+## Governing rulings (2026-08-05 review — this file is the owner)
+
+Recorded on issue #35 until this section landed; #35 now points here.
+
+1. **Elaborated claims only.** A semantic claim the registry makes must be
+   an elaborated Mathlib term — a claim Lean cannot discharge fails the
+   build. The **exact trusted boundary**: exactly one by-fiat
+   correspondence exists (the codec's presentation-tag ↦ Lean-type bridge,
+   `CasDsl/Mathlib/Denote.lean`), and backend-computed VALUES are the only
+   other trusted residue; both are labeled as such where they live.
+2. **The notation register.** The audience is a research mathematician:
+   diagnostics render Lean-literate notation — the dependent signature
+   over the declaring classes, the receiver's instance chain with Lean's
+   live verdict, `≐` for the anchor, the implemented subcategory — never
+   prose exposition of standard mathematics and never a dump of internal
+   record fields. `#explain_route`, `#capabilities` and the gap rendering
+   all speak it; `CasDslTests/Wording.lean` pins it verbatim.
+3. **One emission per event** — per binding, result, and truth cell;
+   LaTeX replaces plain text rather than stacking above it (§LaTeX-first
+   display).
+4. **Conventions choose presentations** (display order, unit
+   normalization in rendering, chosen basis) — never the values of
+   well-defined predicates. Hence the `is_prime` correction (7a6140c):
+   (−7) is prime because (−7) = (7).
+5. **The categorical semantic layer is owned upstream** (lean-lattices#56
+   catalogue, #54 fibred-family idiom, #49 consumer contract): this
+   repo's `CatDecl`/parents registry is transitional and gets deleted,
+   not refactored, when #49 lands. Local tracking: issue #35.
 
 ## Open questions (kept open — do not silently resolve)
 
