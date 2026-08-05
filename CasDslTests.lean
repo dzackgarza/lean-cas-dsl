@@ -3,5 +3,6 @@ import CasDslTests.Codec
 import CasDslTests.Latex
 import CasDslTests.Std
 import CasDslTests.Eval
+import CasDslTests.Extension
 import CasDslTests.Transport
 import CasDslTests.CanonicalMaps

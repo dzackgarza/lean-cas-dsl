@@ -119,7 +119,7 @@ private def explanationJson (x : Explanation) : Json :=
      ("routing", decision)]
 
 def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
-  let e ← match toExpr stx with
+  let e ← match ← toExpr stx with
     | .ok e => pure e
     | .error m => throwError m
   let ctx : EvalCtx := { env := ← getEnv, notes := ← IO.mkRef #[] }

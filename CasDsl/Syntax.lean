@@ -608,7 +608,35 @@ private def cmpOp (stx : Syntax) : Except String CmpOp :=
   | ">" => .ok .gt
   | other => .error s!"{other} is not a comparison"
 
-partial def toExpr (stx : Syntax) : Except String CasExpr := do
+/-- A translator for a `casTerm` production contributed outside this module.
+It receives the full recursive translator for its child terms, so a
+contributed node composes with every production that already exists. -/
+abbrev TermTranslator :=
+  (Syntax → Except String CasExpr) → Syntax → Except String CasExpr
+
+/-- Contributed `casTerm` translators. CODE WIRING like the executor table
+(`Route.lean`): keyed by syntax node kind, holds no state a notebook can
+observe, and is rebuilt identically on every process start by the
+contributing modules' `initialize` blocks. `casTerm` is an open syntax
+category; this table is what makes that opening real — a production added
+outside this module parses AND translates, without an edit to `toExprCore`. -/
+initialize termTranslatorsRef : IO.Ref (Array (SyntaxNodeKind × TermTranslator)) ←
+  IO.mkRef #[]
+
+/-- Register a translator for a contributed `casTerm` production. A duplicate
+kind is a build-time programming error, not a precedence question: it throws.
+The kinds `toExprCore` matches itself are not shadowable — the table is
+consulted only for nodes the core match does not know. -/
+def registerTermTranslator (k : SyntaxNodeKind) (t : TermTranslator) : IO Unit := do
+  let table ← termTranslatorsRef.get
+  if table.any (·.1 == k) then
+    throw <| IO.userError s!"a casTerm translator for '{k}' is already registered"
+  termTranslatorsRef.set (table.push (k, t))
+
+partial def toExprCore (ext : SyntaxNodeKind → Option TermTranslator)
+    (stx : Syntax) : Except String CasExpr := do
+  -- every recursive translation below re-enters with the same extensions
+  let toExpr := toExprCore ext
   match stx.getKind with
   | ``casNatDom | ``casNatDomBS => return .dom .nat
   | ``casIntDom | ``casIntDomBS => return .dom .int
@@ -795,7 +823,18 @@ of a set literal"
       if cells.any (·.size != cols) then
         .error "every row of a matrix literal must have the same length"
       return .matLit cells.size cols (← cells.flatten.mapM toExpr)
-  | k => .error s!"unsupported cas syntax node '{k}'"
+  | k =>
+      match ext k with
+      | some t => t toExpr stx
+      | none => .error s!"unsupported cas syntax node '{k}'"
+
+/-- Translate a `casTerm`, consulting the contributed-production table. The
+elaborators enter here; `toExprCore` with an empty lookup is the closed core
+grammar alone. -/
+def toExpr (stx : Syntax) : IO (Except String CasExpr) := do
+  let table ← termTranslatorsRef.get
+  return toExprCore
+    (fun k => table.findSome? fun (n, t) => if n == k then some t else none) stx
 
 /-! ## Rendering results -/
 
@@ -830,7 +869,7 @@ Defined ABOVE the command block so their `do`/`let` bodies parse before the
 `let` command production exists. -/
 
 private def parseCas (stx : Syntax) : CommandElabM CasExpr := do
-  match toExpr stx with
+  match ← toExpr stx with
   | .ok e => return e
   | .error m => throwError m
 
