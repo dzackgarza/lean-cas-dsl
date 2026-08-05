@@ -227,16 +227,16 @@ private def noArithmetic (op : String) (v : Value) : String :=
   match v with
   | .approx .. =>
       s!"{op} is not defined on an approximation ({v.render}): the value carries \
-a REQUESTED tolerance, not an error term, and this slice does not invent an \
-error calculus to propagate one — compute exactly, then ask for a decimal \
-presentation of the result"
+a requested tolerance, not an error term, and no error calculus is invented \
+here to propagate one — compute exactly, then ask for a decimal presentation \
+of the result"
   -- a symbolic expression refuses for the neighbouring reason: it is a
   -- PRESENTATION a backend computes limits and expansions from, not a number,
   -- and there is no arithmetic on it here that would not be invented
   | .sym _ =>
-      s!"{op} is not defined on the symbolic expression {v.render}: this slice \
-presents such an expression so a limit, a definite integral or a Taylor \
-expansion can be taken of it, and does no arithmetic with one"
+      s!"{op} is not defined on the symbolic expression {v.render}: such an \
+expression is presented for a limit, a definite integral or a Taylor \
+expansion, and no arithmetic is done with one here"
   | v => s!"{op} is not defined on {v.render}"
 
 /-- Why two operands have no common kind — with `noArithmetic`, the ONE place
@@ -472,14 +472,16 @@ def addValues : Value → Value → Except String Value
   | .poly ca as, .poly cb bs =>
       if ca == cb then do return Value.mkPoly ca (← polyAdd as bs)
       else .error s!"addition of polynomials over {ca.render} and {cb.render} \
-needs the surface's coefficient join"
+needs a common coefficient domain; the elaborator inserts that join, not \
+this backend"
   | a, b => entrywise "addition" scalarAdd a b
 
 def subValues : Value → Value → Except String Value
   | .poly ca as, .poly cb bs =>
       if ca == cb then do return Value.mkPoly ca (← polySub as bs)
       else .error s!"subtraction of polynomials over {ca.render} and {cb.render} \
-needs the surface's coefficient join"
+needs a common coefficient domain; the elaborator inserts that join, not \
+this backend"
   | a, b => entrywise "subtraction" scalarSub a b
 
 /-- The product of two values of one kind. Two VECTORS refuse — ℚⁿ carries
@@ -489,7 +491,8 @@ def mulValues : Value → Value → Except String Value
   | .poly ca as, .poly cb bs =>
       if ca == cb then do return Value.mkPoly ca (← polyMul as bs)
       else .error s!"multiplication of polynomials over {ca.render} and \
-{cb.render} needs the surface's coefficient join"
+{cb.render} needs a common coefficient domain; the elaborator inserts that \
+join, not this backend"
   | .vec n e _, .vec .. => .error s!"{(Domain.vector n e).render} carries no \
 product of two vectors"
   | a, b => scalarMul a b
@@ -724,8 +727,8 @@ predicate presentation decides membership, not size")
             s!"2^{n} is too large to present as a cardinal here (cap {powersetExpCap})")
       | .countablyInfinite =>
           .error (.badRequest
-            "the powerset of a countably infinite set is uncountable, which this \
-slice's Cardinality cannot state")
+            "the powerset of a countably infinite set is uncountable, which no \
+cardinal presented here can state")
 
 /-! ## Set equality by presentation normalization
 
@@ -1181,8 +1184,8 @@ def run (opId : String) (o : Obj) (args : Array Obj) : Except ExecError Value :=
           let x ← setArg "contains" args
           return .bool (← normalSubset (← normalizeSet x) (← normalizeSet (.setObj s)))
       | .setObj (.product ..) =>
-          .error (.badRequest s!"{o.presentation} has pairs for elements, which \
-this slice presents no value for")
+          .error (.badRequest s!"{o.presentation} has pairs for elements, and \
+no value here presents a pair")
       -- `x ∈ ℂ - ℚ` is decided POINTWISE, which is the whole content of this
       -- presentation: in the first domain and not in the second, both by the
       -- membership test the domains already have

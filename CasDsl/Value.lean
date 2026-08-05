@@ -896,9 +896,14 @@ partial def render : Value → String
   -- the AMBIENT is part of the display, in SPEC.md's own subobject notation:
   -- without it the trivial subspace would render as an empty `span_ℚ{}` that
   -- says nothing about which space it is the zero of
+  -- the TRIVIAL subspace displays as the {0} it is — an empty `span_ℚ{}`
+  -- names no vector, and the mathematician's own spelling of the zero
+  -- subspace is {0}
   | .spanV n basis =>
-      "span_ℚ{" ++ ", ".intercalate (basis.toList.map render) ++ "} ≤ "
-        ++ (Domain.vector n .rat).render
+      if basis.isEmpty then s!"\{0} ≤ {(Domain.vector n .rat).render}"
+      else
+        "span_ℚ{" ++ ", ".intercalate (basis.toList.map render) ++ "} ≤ "
+          ++ (Domain.vector n .rat).render
   | .progV _ first step last? =>
       let tail := match last? with | some l => s!", ..., {render l}" | none => ", ..."
       s!"\{{render first}, step {render step}{tail}}"
@@ -1029,7 +1034,7 @@ def mkSpanBasis (n : Nat) (gens : Array Value) : Except String (Array Value) := 
     match ratComps? n g with
     | some r => .ok r
     | none => .error s!"{g.render} is not a vector of {(Domain.vector n .rat).render}: \
-this slice spans subspaces over ℚ, and a generator outside it is a gap rather \
+subspaces are spanned over ℚ here, and a generator outside ℚⁿ is a gap rather \
 than a guess"
   return (rref n rows).map fun r => .vec n .rat (r.map Value.rat)
 
@@ -1129,7 +1134,7 @@ def spanContains (n : Nat) (basis : Array Value) (v : Value)
   | .vec m _ _ =>
       if m != n then return false
       let some cs := ratComps? n v
-        | .error s!"{v.render} has a component this slice cannot read as a \
+        | .error s!"{v.render} has a component that does not read as a \
 rational, so its membership in a ℚ-subspace is a gap rather than a guess"
       let rows ← basis.mapM fun r =>
         match ratComps? n r with
@@ -1220,6 +1225,8 @@ partial def latex? : Value → Option String
       let es ← elems.mapM latex?
       return "\\{" ++ ", ".intercalate es.toList ++ "\\}"
   | .spanV n basis => do
+      if basis.isEmpty then
+        return "\\{0\\} \\leq " ++ (Domain.vector n .rat).latex
       let bs ← basis.mapM latex?
       return "\\mathrm{span}_{\\mathbb{Q}}\\{" ++ ", ".intercalate bs.toList
         ++ "\\} \\leq " ++ (Domain.vector n .rat).latex
@@ -1343,8 +1350,8 @@ def mkApprox (exact : Value) (decimal : String) (eps achieved : Rat)
     .error s!"a certified bound of O({tolText achieved}) does not meet the \
 requested O({tolText eps}): the bound must be positive and at most what was asked"
   let some (a, b, d) := realParts? exact
-    | .error s!"{exact.render} is not one of the exact REAL values this slice \
-presents (a rational, or a + b√d with d > 0), so no decimal certificate covers it"
+    | .error s!"{exact.render} is not one of the exact real values presented \
+here (a rational, or a + b√d with d > 0), so no decimal certificate covers it"
   let some r := decimalToRat? decimal
     | .error s!"{repr decimal} is not a decimal presentation"
   unless absLtRat (a - r) b d achieved do
@@ -1402,8 +1409,10 @@ partial def render : SetPresentation → String
   | .arithProg _ first step (some last) =>
       s!"\{{first.render}, {Value.progSecond "…" first step}, ..., {last.render}}"
   | .span n basis =>
-      "span_ℚ{" ++ ", ".intercalate (basis.toList.map (·.render)) ++ "} ≤ "
-        ++ (Domain.vector n .rat).render
+      if basis.isEmpty then s!"\{0} ≤ {(Domain.vector n .rat).render}"
+      else
+        "span_ℚ{" ++ ", ".intercalate (basis.toList.map (·.render)) ++ "} ≤ "
+          ++ (Domain.vector n .rat).render
   | .domainSet d => d.render
   | .product a b => s!"{render a} × {render b}"
   | .powerset s => s!"𝒫({render s})"
@@ -1432,6 +1441,8 @@ partial def latex? : SetPresentation → Option String
         | none => some ", \\ldots"
       return "\\{" ++ f ++ ", " ++ Value.progSecond "\\ldots" first step ++ tail ++ "\\}"
   | .span n basis => do
+      if basis.isEmpty then
+        return "\\{0\\} \\leq " ++ (Domain.vector n .rat).latex
       let bs ← basis.mapM Value.latex?
       return "\\mathrm{span}_{\\mathbb{Q}}\\{" ++ ", ".intercalate bs.toList
         ++ "\\} \\leq " ++ (Domain.vector n .rat).latex

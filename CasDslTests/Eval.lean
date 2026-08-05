@@ -1058,7 +1058,7 @@ run_cmd do
   refuses env (.mapTo sqrt2 (.approxTarget (.dom .int))) "exact positive rational"
   -- `ℝ/O(ε)` is not a value anywhere else, so `ℝ ⊆ ℝ/O(ε)` cannot be stated
   -- at all — let alone answered `true`
-  refuses env (.approxTarget tenth) "not a domain"
+  refuses env (.approxTarget tenth) "not a quotient of ℝ"
   -- the CANONICAL-MAP registry owns which values may be presented in ℝ, and
   -- it registers no map of ℂ into it: `2 + 2i` is refused before any backend
   -- is asked, by the registry rather than by a special case here

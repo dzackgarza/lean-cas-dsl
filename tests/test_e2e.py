@@ -392,7 +392,7 @@ def test_a_generating_series_and_its_truncation(kernel: Kernel) -> None:
     # a truncation target written anywhere but after `map … to` is a loud
     # refusal, exactly as `ℝ/O(ε)` is
     text = err(kc, "assert sq ∈ ℤ[[t]]/(t^5)")
-    assert "not a domain" in text
+    assert "answers no membership" in text
 
 
 def test_a_binding_shadows_the_differential(kernel: Kernel) -> None:
@@ -416,7 +416,7 @@ def test_roots_are_the_ones_in_the_coefficient_ring(kernel: Kernel) -> None:
     # Polynomial.roots is), so its size counts the roots in the ring with
     # multiplicity and the note states how many lie in an extension
     assert "p does not split over ℤ" in text
-    assert "1 of 3 roots (with multiplicity) lie there" in text
+    assert "has 1 of its 3 roots there (with multiplicity)" in text
     assert "map p to ℂ[x]" in text
     ok(kc, "assert 1 ∈ p.roots()")
     # a set literal on the right lifts along Finset.val: it also states the
@@ -637,13 +637,14 @@ def test_a_body_the_polynomial_engine_cannot_express_is_symbolic(
     assert "t ↦ sin(t)" in text
     ok(kc, "let recip := t ↦ 1/t in ℝ → ℝ")
     # a symbolic body is a PRESENTATION: nothing here evaluates it at a point,
-    # and the refusal says so rather than approximating
+    # and the refusal names the implementation boundary — never a claim that
+    # sin(0) is mathematically out of reach
     text = err(kc, "sine(0)")
-    assert "SYMBOLIC body" in text and "approximation" in text
+    assert "symbolic body" in text and "not implemented" in text
     # …and a RATIONAL body is refused at a point for the same reason: `1/t` is
-    # an expression this slice presents, not a function it evaluates
+    # a presented expression, not a function evaluated here
     text = err(kc, "recip(2)")
-    assert "SYMBOLIC body" in text and "approximation" in text
+    assert "symbolic body" in text and "not implemented" in text
     # the POLYNOMIAL reading is preferred wherever it applies, and these are
     # the sentinels: both are identities of function expressions, which only
     # that reading decides
@@ -1067,7 +1068,7 @@ def test_both_caps_fail_loudly_rather_than_truncating(kernel: Kernel) -> None:
     _, kc = kernel
     # a bound the guard really does impose, past what the slice will test
     text = err(kc, "let big := {n ∈ ℤ | n² ≤ 10000000000}")
-    assert "tests at most" in text and "20000000001" in text
+    assert "are tested here" in text and "20000000001" in text
     # 2^n past `powersetExpCap` stops being worth materializing
     assert "1024" in ok(kc, "|𝒫(ℤ/10)|")
     text = err(kc, "|𝒫(ℤ/5000)|")
@@ -1352,7 +1353,7 @@ def test_the_exact_form_has_a_ceiling_and_says_so(kernel: Kernel) -> None:
     ok(kc, "assert (1 + √2) · (1 - √2) = -1")
     # √ of something that is not a rational is refused rather than approximated
     text = err(kc, "√(1 + √2)")
-    assert "does not approximate" in text
+    assert "is not approximated" in text
 
 
 def test_exact_algebraic_values_are_typeset(kernel: Kernel) -> None:
@@ -1543,7 +1544,7 @@ def test_the_approximation_target_is_not_a_domain(kernel: Kernel) -> None:
         "let bad5 := ℝ/O(1/10)",
     ):
         text = err(kc, code)
-        assert "not a domain" in text and "not transitive" in text, code
+        assert "not a quotient of ℝ" in text and "not transitive" in text, code
 
 
 def test_the_map_spelling_answers_in_its_own_terms(kernel: Kernel) -> None:
@@ -1798,7 +1799,7 @@ def test_rank_and_kernel_of_a_matrix(kernel: Kernel) -> None:
     # the ambient space — which is what `0` spells there
     ok(kc, "assert M.ker() = {0}")
     text = ok(kc, "M.ker()")
-    assert "span_ℚ{}" in text and "ℚ²" in text
+    assert "{0} ≤ ℚ²" in text
 
 
 def test_the_span_answers_dim_membership_and_equality(kernel: Kernel) -> None:
@@ -2050,7 +2051,7 @@ def test_the_product_space_and_affine_space_pins(kernel: Kernel) -> None:
     # `AA^n(K)` is the pinned affine-space spelling, held for #13 demand:
     # it parses, and refuses BY NAME rather than as a parse error
     text = err(kc, "AA^2(QQ)")
-    assert "AA^n(K)" in text and "refused rather than approximated" in text
+    assert "AA^n(K)" in text and "not implemented" in text
 
 
 def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
@@ -2062,7 +2063,7 @@ def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
     # coming back is the regression these pin.
     text = err(kc, "let Rf := CC[x_0, x_1, ..., x_9]")
     assert (
-        "D[x_0, x_1, ..., x_n]" in text and "refused rather than approximated" in text
+        "D[x_0, x_1, ..., x_n]" in text and "not implemented" in text
     )
     assert "unexpected token" not in text
     # …and the family is the spelling, not the ellipsis: two names is already
@@ -2070,10 +2071,10 @@ def test_the_rest_of_the_boundary_refuses_by_name_too(kernel: Kernel) -> None:
     assert "D[x_0, x_1, ..., x_n]" in err(kc, "let Rf2 := CC[x_0, x_1]")
     ok(kc, "let Rf3 := CC[x_0]")
     text = err(kc, "assert 3 in Algebras/CC")
-    assert "Algebras/K" in text and "refused rather than approximated" in text
+    assert "Algebras/K" in text and "not implemented" in text
     assert "'Algebras' is not bound" not in text
     text = err(kc, "(3).dimension()")
-    assert "Krull dimension" in text and "refused rather than approximated" in text
+    assert "Krull dimension" in text and "not implemented" in text
     assert "there is no method named" not in text
 
 
@@ -2083,7 +2084,7 @@ def test_a_hom_is_not_an_object_of_the_category_it_runs_in(kernel: Kernel) -> No
     # (#31 item 4), and it refuses by name rather than reporting `Mod` — a
     # name the author only ever wrote inside `Mod(QQ)` — as unbound (#32)
     text = err(kc, "let gm: QQ^3 -> QQ := (a, b, c) |-> a + b - c in Mod(QQ)")
-    assert "MORPHISM" in text and "refused rather than read as membership" in text
+    assert "morphism" in text and "refused rather than read as membership" in text
     assert "'Mod' is not bound" not in text
     # the refused cell commits nothing, the atomicity every refusal has
     assert "'gm' is not bound" in err(kc, "gm")

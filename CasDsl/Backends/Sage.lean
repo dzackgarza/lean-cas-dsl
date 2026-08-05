@@ -151,7 +151,7 @@ private def approxRealArgs (receiver : Obj) (args : Array Obj)
   -- guard was bypassed — a defect here, not a user error
   | .elem .real _, #[o] => .error (.protocolError
       s!"sage: approx_real received the tolerance {o.presentation}, which the \
-surface guard should already have refused")
+tolerance guard upstream should already have refused")
   -- unreachable for the same reason, one layer up: the method's declared
   -- arity is checked before any executor is reached
   | .elem .real _, as => .error (.protocolError
@@ -433,7 +433,7 @@ QQbar, and that CHOICE is disclosed where it flows — on the ℂ[x] ops whose
 results are complex algebraic values — never declared silently. Registration
 data on those ops' signatures; the evaluator renders it generically. -/
 private def qqbarAdvisory : String :=
-  "algebraic numbers are rendered under a fixed embedding QQbar ↪ ℂ"
+  "algebraic numbers are presented through a fixed embedding ℚ̄ ↪ ℂ"
 
 /-- The receiver signatures of the sage ops, restated from the encoders
 above as checked registration data (see `OpSig`). -/

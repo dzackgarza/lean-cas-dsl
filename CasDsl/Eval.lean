@@ -653,8 +653,8 @@ still lexes, so `is_prime` and dotted names are untouched): the reservation
 is enforced where a name is INTRODUCED — the session bindings, and every
 binder position of this evaluator. -/
 def reservedConstantMsg? : Name → Option String
-  | `e => some "`e` is reserved for Euler's constant — `e^t` means exp(t), and \
-`exp(x)` is the same function — so `e` cannot be rebound"
+  | `e => some "`e` is reserved for Euler's constant (`e^t` = exp(t)) and \
+cannot be rebound"
   | `i => some "`i` is reserved for the imaginary unit i ∈ ℂ, so it cannot be \
 rebound"
   | _ => none
@@ -967,9 +967,9 @@ def renderGap (g : CapabilityGap) : String :=
   let path := renderSemanticPath g.receiverCategory g.semanticVia g.viaFunctor
   s!"NoImplementation: '{g.method}' is mathematically available for \
 x = {g.presentation} ({path}), but {routes}.
-The method stays available on {renderCat g.receiverCategory}; executing it \
-for this presentation is a developer backlog item, never a narrowing of the \
-mathematics."
+The method stays available on {renderCat g.receiverCategory}; the \
+mathematics is not narrowed — an implementation for this presentation does \
+not exist yet."
 
 def renderResolveError : ResolveError → String
   | .unknownMethod m =>
@@ -979,9 +979,8 @@ def renderResolveError : ResolveError → String
       -- not to carry
       if m == `dimension then
         "dimension() — the Krull dimension of a ring (SPEC.md §Ellipses) — is \
-the pinned spelling of a tier-2 feature, held for demand: the spelling is \
-reserved, and the dimension is refused rather than approximated. A \
-subspace's `dim()` is the dimension this slice computes"
+not implemented: the spelling is reserved for it. A subspace's `dim()` is \
+the dimension computed here"
       else s!"there is no method named '{m}' in the registry"
   | .notApplicable m profile declaredOn =>
       let prof := ", ".intercalate (profile.toList.map renderCat)
@@ -1410,10 +1409,9 @@ partial def eval (ctx : EvalCtx) : CasExpr → EvalM Denote
       -- still wins, exactly as it does for `AA`.
       if let .ref `Algebras := a then
         if !ctx.isBound `Algebras then
-          throw (.msg "Algebras/K — the algebras over K — is the pinned \
-spelling of a category FAMILY this slice does not register, held for demand: \
-the spelling is reserved, and the family is refused rather than \
-approximated. `Mod(K)` is the module category that is registered")
+          throw (.msg "Algebras/K — the algebras over K — is not implemented: \
+the spelling is reserved for that category family. `Mod(K)` is the module \
+category that is registered")
       -- `ℤ/n` is a domain term, not a division; every other `/` is exact
       -- division in ℚ.
       let x ← eval ctx a
@@ -1433,9 +1431,8 @@ approximated. `Mod(K)` is the module category that is registered")
       -- still wins, exactly as a binding wins over a constant.
       if let .ref `AA := a then
         if !ctx.isBound `AA then
-          throw (.msg "AA^n(K) — affine n-space over K — is the pinned \
-spelling of a tier-2 feature, held for demand: the spelling is reserved, and \
-the feature is refused rather than approximated")
+          throw (.msg "AA^n(K) — affine n-space over K — is not implemented: \
+the spelling is reserved for it")
       -- `2^X` is SPEC.md's other spelling of `𝒫(X)`; every other `^` is
       -- exponentiation, including `2^|A|` (a cardinal is not a set). The
       -- EXPONENT is evaluated first — it is what decides which reading this
@@ -1457,7 +1454,8 @@ no other reading of an exponent over {s.render}")
           | .obj (.domainObj d), some (.int n) =>
               if n > 0 then return .obj (.domainObj (.vector n.toNat d))
               else throw (.msg s!"{d.render}^{n} is not a domain: the vectors of \
-{d.render} have a POSITIVE length, and this slice presents no other")
+{d.render} have a positive length, and no other power of a domain is \
+presented here")
           | _, _ =>
             let xv ← ofStr (asValueOf x)
             return Denote.ofValue
@@ -1559,7 +1557,10 @@ differential 1-form here is a POLYNOMIAL against the free generator `dx`")
         | throw (.msg s!"`E[[t]]` is the formal power series over a DOMAIN, and {c.presentation} is not one")
       return .obj (.domainObj (.series d))
   | .truncTarget k =>
-      throw (.msg s!"`E[[t]]/(t^{k})` is the TARGET of `map … to` — a request that a series be presented by its first {k} coefficients — and nothing else: it is not a domain, not a set, and not a quotient ring CasDsl presents. There is no Domain constructor for it, so it answers no membership, cardinality or inclusion question")
+      throw (.msg s!"`E[[t]]/(t^{k})` occurs here only as the target of \
+`map … to` — a request that a series be presented by its first {k} \
+coefficients. The quotient ring itself is not presented in CasDsl, so it \
+answers no membership, cardinality or inclusion question")
   -- SPEC.md §Ellipses' `∑_{n ∈ ℕ} n² tⁿ`. The RULE is read with the sum's
   -- binder as the indeterminate — the move the root set and the guarded
   -- comprehension both make — so the coefficients come out exactly, and a
@@ -1611,23 +1612,23 @@ along, as in `ℚ[x] → ℚ[x]`; got {a.presentation}")
             return .obj (.domainObj c)
           else
             throw (.msg s!"the kernel of d/dx on {src.render} is the constants \
-only where the integers are invertible in {c.render}; over {c.render} this \
-slice does not state it rather than answering with a ring it has not checked")
+only where the integers are invertible in {c.render}; over {c.render} it is \
+left unstated rather than guessed")
       | d => throw (.msg s!"d/dx differentiates a POLYNOMIAL ring, and \
 {d.render} is not one")
   | .sqrt e => do
       let v ← ofStr (asValueOf (← eval ctx e) "√")
       let some q := Native.toRat? v
-        | throw (.msg s!"√ presents the exact square root of a rational; \
-{v.render} is not one, and this slice does not approximate it")
+        | throw (.msg s!"√ takes the exact square root of a rational; \
+{v.render} is not one, and it is not approximated")
       let r ← ofStr (Value.sqrtOfRat q)
       -- an ALGEBRAIC root is one of two, and the spelling picks a branch —
       -- an embedding choice, logged at use (#31 item 10, log-at-use ruling):
       -- the non-negative root for a positive radicand, i·√|d| upward for a
       -- negative one. A rational root is ordinary arithmetic and gets no note.
       if let .alg .. := r then
-        ctx.notes.modify (·.push s!"√ denotes ONE root by convention — the \
-non-negative branch (upward, i·√|d|, for a negative radicand)")
+        ctx.notes.modify (·.push s!"√ denotes the principal branch: the \
+non-negative root for a positive radicand, i·√|d| for a negative one")
       return Denote.ofValue r
   | .magnitude e => do
       -- the bars are a SPELLING: which method they name is the receiver's
@@ -1745,11 +1746,9 @@ universal differential can present as a 1-form")
                 -- backend takes limits, definite integrals and expansions OF
                 -- it, and evaluating `sin(2)` here would be an approximation
                 -- this surface has no business inventing
-                | .sym _ => s!"{fv.render} has a SYMBOLIC body, which is never \
-evaluated at a point — it presents the expression so a limit, a \
-definite integral or a Taylor expansion can be taken of it. A decimal for \
-{body.render} at a point would be an approximation, which is a separate \
-operation on an exact element and not something a call inserts"
+                | .sym _ => s!"{fv.render} has a symbolic body: the expression \
+is presented for a limit, a definite integral or a Taylor expansion, and \
+evaluation at a point is not implemented for symbolic bodies"
                 | v => s!"{v.render} is not a polynomial body"))
           let arg ← eval { ctx with callBinder? := some (binder, ring) } args[0]!
           -- SPEC.md's `e(ℕ)`: applying a function to its SOURCE is the image,
@@ -1856,10 +1855,10 @@ vector of the space meant — `span_QQ{(0, 0)}` — or obtained, as `M.ker()`"))
       let v ← ofStr (asValueOf (← eval ctx e))
       return .obj (.elem d (← ofStr (coerceValue ctx.canonMaps d v)))
   | .approxTarget _ =>
-      throw (.msg "`ℝ/O(ε)` is the TARGET of `map … to ℝ/O(ε)` — a requested \
-tolerance for a decimal presentation — and nothing else: it is not a domain, \
-not a set, and not a quotient of ℝ (|a - b| < ε is not transitive, so there \
-are no classes here to be an element of, or to include ℝ in)")
+      throw (.msg "`ℝ/O(ε)` occurs here only as the target of `map … to` — a \
+requested tolerance for a decimal presentation. It is not a quotient of ℝ \
+(|a - b| < ε is not transitive, so there are no classes to be an element \
+of), and it answers no membership or inclusion question")
   | .arrow src tgt => do
       let s ← eval ctx src
       let t ← eval ctx tgt
@@ -1873,8 +1872,8 @@ each side")
       let gv ← ofStr (asValueOf (← eval ctx g))
       return Denote.ofValue (← ofStr (composeFuncs ctx.canonMaps fv gv))
   | .lam binder _ =>
-      throw (.msg s!"`{binder} ↦ …` is a function definition: bind it with the \
-domains it runs between, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
+      throw (.msg s!"`{binder} ↦ …` is a function definition: bind it with its \
+domain and codomain, as in `let h := {binder} ↦ {binder}^2 + 1 in ℝ → ℝ`")
   | .lamN _ _ =>
       throw (.msg "a multi-binder `↦` definition is a hom of free ℚ-modules: \
 bind it with its function domain, as in \
@@ -2078,15 +2077,15 @@ lazily by its guard (#31 item 7); the image of a lazy set is not presented."))
       let some lo := lo?
         | do guardProbe
              throw (.msg s!"the guard does not bound '{binder}' from below, so this \
-comprehension is infinite: this slice presents a decided finite set or nothing")
+comprehension is infinite: only decided finite sets are built here")
       let some hi := b.hi
         | do guardProbe
              throw (.msg s!"the guard does not bound '{binder}' from above, so this \
-comprehension is infinite: this slice presents a decided finite set or nothing")
+comprehension is infinite: only decided finite sets are built here")
       if hi < lo then guardProbe
       if hi - lo + 1 > comprehensionCap then
         throw (.msg s!"the guard bounds '{binder}' to {hi - lo + 1} candidates; \
-this slice tests at most {comprehensionCap}")
+at most {comprehensionCap} are tested here")
       let mut out : Array Value := #[]
       for i in [0 : (max 0 (hi - lo + 1)).toNat] do
         let k := lo + Int.ofNat i
@@ -2210,10 +2209,9 @@ def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
       -- morphism-is-not-an-object hold (#31 item 4) — CategoryGraph-era
       -- ontology, and refused BY NAME rather than as an empty profile
       if let .elem _ (.hom ..) := o then
-        throw (.msg s!"a hom is a MORPHISM, and `in {renderCat c}` states \
-membership among a category's OBJECTS: a map is not an object of the \
-category it runs in. Ascribing a hom to a category is refused rather than \
-read as membership — the arrow `{o.presentation}` already names its domains")
+        throw (.msg s!"a hom is a morphism, not an object of {renderCat c}; \
+ascribing it there is refused rather than read as membership — the arrow \
+`{o.presentation}` already names its domain and codomain")
       let o' := match o with
         | .domainObj (.mod n) => Obj.cyclicModule n
         | o => o

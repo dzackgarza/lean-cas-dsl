@@ -738,9 +738,9 @@ private def wBasis : Array Value := #[qv [1, 0, 1], qv [0, 1, 1]]
 #guard Value.detQ 3 #[#[0, 0, -1], #[1, 0, 2], #[0, 1, 0]] == -1
 
 #guard (Value.spanV 3 wBasis).render == "span_ℚ{(1, 0, 1), (0, 1, 1)} ≤ ℚ³"
-#guard (Value.spanV 2 #[]).render == "span_ℚ{} ≤ ℚ²"
-#guard (Value.spanV 2 #[]).latex?
-  == some "\\mathrm{span}_{\\mathbb{Q}}\\{\\} \\leq \\mathbb{Q}^{2}"
+-- the trivial subspace displays as the {0} it is, never as an empty span
+#guard (Value.spanV 2 #[]).render == "{0} ≤ ℚ²"
+#guard (Value.spanV 2 #[]).latex? == some "\\{0\\} \\leq \\mathbb{Q}^{2}"
 
 /-! ### First-class homs (DESIGN.md §Homs are first-class, #31 item 4)
 

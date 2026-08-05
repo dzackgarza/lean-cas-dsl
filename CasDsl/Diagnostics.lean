@@ -23,6 +23,21 @@ open Worker (emitOutput)
 
 /-! ## Shared rendering -/
 
+/-- Whether this process is the notebook worker (the kernelspec exports
+`NBDSL_PROJECT` to it, and children inherit it). Under the kernel the MIME
+bundle is the ONE emission — `logInfo` would render the same text twice;
+outside it (plain `lake env lean`, the `#guard_msgs` wording pins) the
+bundle has no renderer and `logInfo` is the one emission. -/
+initialize underNotebookKernel : Bool ← do
+  return (← IO.getEnv "NBDSL_PROJECT").isSome
+
+/-- Emit a diagnostic ONCE: as its bundle under the kernel, as an info
+message anywhere else (one emission per event — DESIGN.md ruling 3). -/
+private def emitDiagnostic (text : String) (mime : String) (payload : Json)
+    : CommandElabM Unit := do
+  unless underNotebookKernel do logInfo text
+  emitOutput { data := [("text/plain", .str text), (mime, payload)] }
+
 /-- Left-align in a column, never letting a long cell run into the next one. -/
 private def pad (s : String) (n : Nat) : String :=
   s ++ String.ofList (List.replicate (max 1 (n - s.length)) ' ')
@@ -203,12 +218,8 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
   let x ← match ← (explain ctx e).run with
     | .ok x => pure x
     | .error err => throwError err.render
-  logInfo (explanationText x)
-  emitOutput {
-    data :=
-      [("text/plain", .str (explanationText x)),
-       ("application/vnd.casdsl.route+json", explanationJson x)]
-  }
+  emitDiagnostic (explanationText x) "application/vnd.casdsl.route+json"
+    (explanationJson x)
 
 /-! ## `#capabilities` -/
 
@@ -248,16 +259,11 @@ def elabCapabilities : CommandElabM Unit := do
   let orphans := (methods env).filter (routesFor env ·.id |>.isEmpty)
   let footer :=
     if orphans.isEmpty then "(every declared method has at least one route)"
-    else s!"{orphans.size} method(s) with no registered route: \
+    else s!"methods with no registered route: \
 {", ".intercalate (orphans.toList.map (·.id.toString))}"
   let text := String.intercalate "\n" (lines.toList ++ [footer])
-  logInfo text
-  emitOutput {
-    data :=
-      [("text/plain", .str text),
-       ("application/vnd.casdsl.capabilities+json",
-        Json.mkObj [("methods", .arr js)])]
-  }
+  emitDiagnostic text "application/vnd.casdsl.capabilities+json"
+    (Json.mkObj [("methods", .arr js)])
 
 /-! ## `#capability_gaps`
 
@@ -275,13 +281,6 @@ private inductive GapClass where
   | noRoute
   | noMatchingRoute (considered : Nat)
   | tied (n : Nat)
-
-private def gapClassText : GapClass → String
-  | .implemented => "implemented"
-  | .noRoute => "no route is registered for this method"
-  | .noMatchingRoute n =>
-      s!"no route matches this presentation ({n} registered for the method, none matching)"
-  | .tied n => s!"{n} routes tied on priority (configuration error)"
 
 private def gapClassTag : GapClass → String
   | .implemented => "implemented"
@@ -308,7 +307,10 @@ private def methodIds (env : Environment) : Array Name :=
 
 def elabCapabilityGaps : CommandElabM Unit := do
   let env ← getEnv
-  let mut lines : Array String := #[]
+  -- grouped by method: sixty near-identical rows compress to one line per
+  -- method naming the presentations it gaps on. The per-pair record —
+  -- category, availability path, transport — stays in the JSON payload
+  let mut groups : Array (Name × String × Array String) := #[]
   let mut js : Array Json := #[]
   let mut implemented : Nat := 0
   for (label, o) in representatives env do
@@ -317,12 +319,16 @@ def elabCapabilityGaps : CommandElabM Unit := do
       | none => pure ()
       | some (_, .implemented) => implemented := implemented + 1
       | some (res, cls) =>
-        lines := lines.push
-          s!"  {pad label 18}{pad m.toString 14}{pad (renderCat res.profileEntry) 22}\
-{gapClassText cls}"
-        lines := lines.push
-          s!"  {pad "" 32}available by: \
-{renderSemanticPath res.profileEntry res.via res.viaFunctor}"
+        let short := match cls with
+          | .implemented => "implemented"
+          | .noRoute => "no route registered"
+          | .noMatchingRoute _ => "no route accepts"
+          | .tied n => s!"{n} routes tied on priority (configuration error)"
+        match groups.findIdx? (fun (m', s, _) => m' == m && s == short) with
+        | some i =>
+            let (m', s, ls) := groups[i]!
+            groups := groups.set! i (m', s, ls.push label)
+        | none => groups := groups.push (m, short, #[label])
         js := js.push <| Json.mkObj
           [("representative", .str label), ("presentation", .str o.presentation),
            ("method", .str m.toString),
@@ -336,20 +342,17 @@ def elabCapabilityGaps : CommandElabM Unit := do
                              ("image", .str step.image.presentation)]
              | none => .null),
            ("class", .str (gapClassTag cls))]
+  let lines := groups.map fun (m, short, ls) =>
+    s!"  {pad m.toString 18}{short}: {"; ".intercalate ls.toList}"
   let header :=
     if representatives env |>.isEmpty then
       "  (no representative presentations are registered — nothing to audit)"
-    else s!"  {pad "representative" 18}{pad "method" 14}{pad "category" 22}status"
-  let footer := s!"  {implemented} method/representative pair(s) are implemented; \
-{js.size} are backlog."
+    else "  method            unimplemented for"
+  let footer := s!"  implemented: {implemented} method/representative pairs; \
+unimplemented: {js.size}."
   let text := String.intercalate "\n" (header :: lines.toList ++ [footer])
-  logInfo text
-  emitOutput {
-    data :=
-      [("text/plain", .str text),
-       ("application/vnd.casdsl.gaps+json",
-        Json.mkObj [("gaps", .arr js), ("implemented", .num implemented)])]
-  }
+  emitDiagnostic text "application/vnd.casdsl.gaps+json"
+    (Json.mkObj [("gaps", .arr js), ("implemented", .num implemented)])
 
 /-! ## `#canonical_maps`
 
@@ -383,13 +386,8 @@ def elabCanonicalMaps : CommandElabM Unit := do
 ever inserted)"
     else
       String.intercalate "\n" (s!"  {pad "map" 12}op" :: lines.toList)
-  logInfo text
-  emitOutput {
-    data :=
-      [("text/plain", .str text),
-       ("application/vnd.casdsl.canonicalmaps+json",
-        Json.mkObj [("canonicalMaps", .arr js)])]
-  }
+  emitDiagnostic text "application/vnd.casdsl.canonicalmaps+json"
+    (Json.mkObj [("canonicalMaps", .arr js)])
 
 /-! ## Commands -/
 
