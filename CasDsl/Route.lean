@@ -18,25 +18,32 @@ open Lean
 /-- A backend implementation: operation id, receiver, arguments. -/
 abbrev Executor := String → Obj → Array Obj → IO (Except ExecError Value)
 
-/-- The executor table is CODE WIRING, not semantic state: it maps a backend
-name to a Lean function, holds no registrations a notebook can observe, and
-is rebuilt identically on every process start by the `initialize` blocks of
-the backend modules. The plugin state law (all semantic state in the
-`Environment`) therefore does not reach it — routes, the semantic half, live
-in `routeExt`. -/
-initialize executorTableRef : IO.Ref (Array (Name × Executor)) ← IO.mkRef #[]
+/-- The executor table is CODE WIRING, not semantic state: it maps a
+`(backend, opId)` pair to a Lean function, holds no registrations a notebook
+can observe, and is rebuilt identically on every process start by the
+`initialize` blocks of the backend modules. The plugin state law (all
+semantic state in the `Environment`) therefore does not reach it — routes,
+the semantic half, live in `routeExt`.
 
-/-- Register a backend implementation. A duplicate name is a build-time
-programming error, not a precedence question: it throws. -/
-def registerExecutor (backend : Name) (e : Executor) : IO Unit := do
+Keying by `(backend, opId)` rather than backend alone is what lets a module
+outside `Native.lean` contribute an operation to an existing backend: it
+registers its own `OpSig`, route and executor entry, and never edits the
+backend's dispatch. -/
+initialize executorTableRef : IO.Ref (Array ((Name × String) × Executor)) ← IO.mkRef #[]
+
+/-- Register a backend implementation for one operation. A duplicate
+`(backend, opId)` is a build-time programming error, not a precedence
+question: it throws. -/
+def registerExecutor (backend : Name) (opId : String) (e : Executor) : IO Unit := do
   let table ← executorTableRef.get
-  if table.any (·.1 == backend) then
-    throw <| IO.userError s!"executor for backend '{backend}' is already registered"
-  executorTableRef.set (table.push (backend, e))
+  if table.any (·.1 == (backend, opId)) then
+    throw <| IO.userError
+      s!"executor for op '{opId}' on backend '{backend}' is already registered"
+  executorTableRef.set (table.push ((backend, opId), e))
 
-def getExecutor? (backend : Name) : IO (Option Executor) := do
-  return (← executorTableRef.get).findSome? fun (n, e) =>
-    if n == backend then some e else none
+def getExecutor? (backend : Name) (opId : String) : IO (Option Executor) := do
+  return (← executorTableRef.get).findSome? fun (k, e) =>
+    if k == (backend, opId) then some e else none
 
 /-- The three honest results of routing. Rendering each one distinctly is
 the caller's job: a gap is a backlog item, tied routes are a developer
@@ -80,10 +87,10 @@ def routeFor (env : Environment) (res : Resolution) (o : Obj) : RouteOutcome :=
 executor is reported as an unavailable backend and never rerouted. -/
 def execute (route : Route) (o : Obj) (args : Array Obj)
     : IO (Except ExecError Value) := do
-  match ← getExecutor? route.backend with
+  match ← getExecutor? route.backend route.opId with
   | some e => e route.opId o args
   | none =>
       return .error <| .backendUnavailable route.backend
-        s!"no executor is registered for backend '{route.backend}'"
+        s!"no executor is registered for op '{route.opId}' on backend '{route.backend}'"
 
 end CasDsl

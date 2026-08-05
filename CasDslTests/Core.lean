@@ -980,16 +980,22 @@ private def probe (backend : Name) (opId : String) : Route :=
   { method := `probe, pattern := .anyObj, backend, opId }
 
 #eval show IO Unit from do
-  registerExecutor `casdslTestDummy fun opId _ _ =>
+  registerExecutor `casdslTestDummy "ping" fun opId _ _ =>
     return .ok (.bool (opId == "ping"))
   let r ← execute (probe `casdslTestDummy "ping") (.domainObj .int) #[]
   unless r.toOption == some (.bool true) do
     throw <| IO.userError "registered executor did not run"
+  -- the table is keyed by (backend, opId): an op the backend never declared
+  -- is unavailable even though the backend name is registered
+  match ← execute (probe `casdslTestDummy "pong") (.domainObj .int) #[] with
+  | .error (.backendUnavailable ..) => pure ()
+  | _ => throw <| IO.userError "an undeclared op on a known backend was not \
+reported as unavailable"
   match ← execute (probe `casdslTestNoSuchBackend "ping") (.domainObj .int) #[] with
   | .error (.backendUnavailable ..) => pure ()
   | _ => throw <| IO.userError "a missing backend was not reported as unavailable"
-  -- importing `CasDsl.Native` registers the native backend
-  if (← getExecutor? `native).isNone then
+  -- importing `CasDsl.Native` registers every declared native op
+  if (← getExecutor? `native "annihilator_cyclic").isNone then
     throw <| IO.userError "the native executor is not registered"
   let r ← execute (probe `native "annihilator_cyclic") (.cyclicModule 12) #[]
   unless r.toOption == some (.idealV #[.int 12] .int) do

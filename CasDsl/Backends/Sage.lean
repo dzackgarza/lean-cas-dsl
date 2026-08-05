@@ -419,8 +419,6 @@ def executor : Executor := fun opId receiver args => do
         | .error m => return .error (.protocolError s!"sage: {m}")
         | .ok v => return expectKind opId receiver v
 
-initialize registerExecutor `sage executor
-
 /-- The receiver signatures of the sage ops, restated from the encoders
 above as checked registration data (see `OpSig`). -/
 private def sageOpSigs : Array OpSig := #[
@@ -460,5 +458,9 @@ private def sageOpSigs : Array OpSig := #[
 ]
 
 run_cmd sageOpSigs.forM registerOpSig!
+
+/-- One executor-table entry per op, driven by the same array the signature
+check reads (see the note on `nativeOpSigs`' registration). -/
+initialize sageOpSigs.forM fun s => registerExecutor s.backend s.opId executor
 
 end CasDsl.Sage

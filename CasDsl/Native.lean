@@ -1281,8 +1281,6 @@ def exec : Executor := fun opId o args => return run opId o args
 
 end Native
 
-initialize registerExecutor `native Native.exec
-
 /-- The receiver signatures of the native ops, restated from `Native.run`'s
 matches as checked registration data: `addRouteChecked` refuses any route
 that would send this backend a receiver shape outside these patterns. -/
@@ -1343,5 +1341,11 @@ private def nativeOpSigs : Array OpSig := #[
 ]
 
 run_cmd nativeOpSigs.forM registerOpSig!
+
+/-- One executor-table entry per op this module implements, driven by the same
+array the signature check reads: an op is executable exactly when it is
+declared. `Native.run`'s own catch-all arm stays as the function's guard, but
+routing can no longer reach it — an op absent here is `backendUnavailable`. -/
+initialize nativeOpSigs.forM fun s => registerExecutor s.backend s.opId Native.exec
 
 end CasDsl
