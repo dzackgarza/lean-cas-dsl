@@ -207,14 +207,21 @@ inclusion edge. -/
 
 private def stdMethods : Array MethodDecl := #[
   { id := `factor, receiver := `FactorizationElems,
+    anchor := ``UniqueFactorizationMonoid.factors,
+    conventions := "the anchor is stated up to units; the answer is normalized — positive \
+leading unit in ℤ, monic factors over a field",
     resultDoc := "a factorization: a unit and irreducible factors with multiplicity",
     doc := "factor into irreducibles/primes with multiplicity" },
   { id := `gcd, receiver := `FactorizationElems, arity := 1,
+    anchor := ``EuclideanDomain.gcd,
+    conventions := "unique up to units (Associated); the answer is the normalized representative",
     argDoc := "another element of the same ring",
     resultDoc := "a greatest common divisor, up to units",
     doc := "a greatest common divisor — unique up to units in a UFD, which is \
 where the operation first makes sense" },
   { id := `is_prime, receiver := `FactorizationElems,
+    anchor := ``Irreducible,
+    conventions := "irreducible AND normalized (`normalize x = x`) — in ℤ, the positive representative",
     resultDoc := "a boolean",
     doc := "primality in the NORMALIZED sense: is this element irreducible AND \
 the normalized representative of its associate class? In ℤ that is the ordinary \
@@ -226,6 +233,7 @@ sense: the elements of a UFD" },
   -- STRUCTURAL read of a polynomial — it makes sense over any coefficient
   -- ring, including ones where factorization does not
   { id := `derivative, receiver := `PolynomialElems,
+    anchor := ``Polynomial.derivative,
     resultDoc := "a polynomial over the same coefficient ring",
     doc := "the formal derivative d/dx: the coefficient of xⁱ becomes i·cᵢ, \
 shifted down by one. Exact coefficient arithmetic, so it is NATIVE and no \
@@ -235,6 +243,8 @@ backend is asked — there is nothing here for one to get wrong" },
   -- of primitives, a COSET of the constants, not one primitive with a
   -- convention about which
   { id := `antiderivative, receiver := `PolynomialElems,
+    anchor := ``Polynomial.derivative,
+    conventions := "the FULL preimage under the anchor: a coset of the constants",
     resultDoc := "the coset `F + K` of ALL primitives, where K is the \
 constants of the ring",
     doc := "the indefinite integral ∫ f dx: the complete set of primitives, \
@@ -242,36 +252,50 @@ which is a coset of ker(d/dx). Exact coefficient arithmetic (cᵢ/(i+1) shifted 
 up by one), so it is NATIVE — and routed where the division lands somewhere \
 this slice presents" },
   { id := `deg, receiver := `PolynomialElems,
+    anchor := ``Polynomial.degree,
+    conventions := "the anchor's ⊥ at the zero polynomial is the refusal (not natDegree's 0)",
     resultDoc := "a nonnegative integer (the zero polynomial has no degree)",
     doc := "the degree: the largest exponent carrying a nonzero coefficient" },
   { id := `roots, receiver := `PolynomialElems,
+    anchor := ``Polynomial.roots,
+    conventions := "the anchor is a MULTISET; the runtime presentation is a set until the \
+multiset result model lands (SPEC-REGISTRY-TYPE-PREPASS §3.3)",
     resultDoc := "the set of roots lying in the polynomial's own coefficient ring",
     doc := "the set of roots IN THE COEFFICIENT RING — an empty result means \
 the polynomial has no root there, not that none exists in an extension" },
   { id := `det, receiver := `MatrixElems,
+    anchor := ``Matrix.det,
     resultDoc := "a scalar of the entry domain",
     doc := "the determinant" },
   { id := `inverse, receiver := `MatrixElems,
+    anchor := ``Matrix.inv,
     resultDoc := "a matrix over the entry domain (or its fraction field)",
     doc := "the multiplicative inverse, when it exists" },
   -- SPEC.md §Vectors and matrices' `M.rank()` and `M.ker()`
   { id := `rank, receiver := `MatrixElems,
+    anchor := ``Matrix.rank,
     resultDoc := "a nonnegative integer, at most the size of the matrix",
     doc := "the rank: the dimension of the row (equivalently column) space" },
   { id := `ker, receiver := `MatrixElems,
+    anchor := ``LinearMap.ker,
+    conventions := "of the linear map the matrix presents in the standard frame",
     resultDoc := "the subspace {v : M v = 0} of the matrix's own vector space",
     doc := "the KERNEL of the matrix read as a linear map — the vectors it \
 sends to zero, presented as a subspace by a basis" },
   -- SPEC.md §A composed computation's `C.trace()` and `C.charpoly()`
   { id := `trace, receiver := `MatrixElems,
+    anchor := ``Matrix.trace,
     resultDoc := "a scalar of the entry domain",
     doc := "the trace: the sum of the diagonal entries, which is also the sum \
 of the eigenvalues with multiplicity" },
   { id := `charpoly, receiver := `MatrixElems,
+    anchor := ``Matrix.charpoly,
     resultDoc := "a monic polynomial of the matrix's own size, over the entry domain",
     doc := "the characteristic polynomial det(xI − M)" },
   -- …and the matrix a polynomial names
   { id := `companion_matrix, receiver := `PolynomialElems,
+    conventions := "Mathlib holds no companion-matrix carrier at this version — an \
+extension-module candidate; the four layouts are similar matrices",
     resultDoc := "a square matrix of the polynomial's own degree",
     doc := "the companion matrix: the matrix whose characteristic polynomial \
 is this one. Which of the four LAYOUTS a backend uses is its own convention — \
@@ -279,24 +303,31 @@ they are similar matrices, so the size, the trace, the determinant and the \
 characteristic polynomial are the same for all of them" },
   -- …and the one method a subspace owns
   { id := `dim, receiver := `«QQ-Mod»,
+    anchor := ``Module.finrank,
     resultDoc := "a nonnegative integer",
     doc := "the dimension: the number of vectors in a basis" },
   -- SPEC.md §Subspaces and spans' `W = ker φ`, under the homs-are-first-class
   -- ruling: kernels and images are operations ON THE HOM, presenting
   -- subobjects of its domain and codomain
   { id := `ker, receiver := `HomElems,
+    anchor := ``LinearMap.ker,
     resultDoc := "the subspace {v : φ(v) = 0} of the hom's domain",
     doc := "the KERNEL of the hom — the subobject of its domain it sends to \
 zero, presented as a span by the same reduced echelon form every subspace \
 carries, computed from the DERIVED standard-frame rows" },
   { id := `im, receiver := `HomElems,
+    anchor := ``LinearMap.range,
     resultDoc := "the subspace φ(ℚⁿ) of the hom's codomain",
     doc := "the IMAGE of the hom — the span of the generators' images in its \
 codomain, read off the same derived rows" },
   { id := `annihilator, receiver := `Modules,
+    anchor := ``Module.annihilator,
     resultDoc := "an ideal of the base ring",
     doc := "the annihilator ideal of the module" },
   { id := `nth, receiver := `CountableSets, arity := 1,
+    anchor := ``Denumerable.ofNat,
+    conventions := "for ℚ the documented zigzag is the DSL's own declared enumeration, \
+not the anchor instance's order",
     argDoc := "a nonnegative index (0-based)",
     resultDoc := "the element at that index",
     doc := "the element at an index of the REGISTERED enumeration of this set \
@@ -304,18 +335,23 @@ codomain, read off the same derived rows" },
 −2, 1/3, …) — a documented, revisitable choice, never a claim that the set is \
 intrinsically ordered that way" },
   { id := `cardinality, receiver := `Sets,
+    anchor := ``Cardinal.mk,
     resultDoc := "a cardinal (finite n, or ℵ₀)",
     doc := "the number of elements" },
   { id := `contains, receiver := `Sets, arity := 1,
+    anchor := ``Membership.mem,
     argDoc := "a candidate element",
     resultDoc := "a boolean",
     doc := "membership of an element in the set" },
   { id := `set_eq, receiver := `Sets, arity := 1,
+    anchor := ``Set.ext,
+    conventions := "decided by presentation normalization — a documented ceiling",
     argDoc := "another set",
     resultDoc := "a boolean",
     doc := "equality of two sets, by presentation normalization (a documented \
 ceiling, not a general decision procedure)" },
   { id := `subset, receiver := `Sets, arity := 1,
+    anchor := ``HasSubset.Subset,
     argDoc := "another set",
     resultDoc := "a boolean",
     doc := "inclusion: every element of the receiver is an element of the \
@@ -324,15 +360,19 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
   -- SETS, all of them, whatever presentation. Only explicit finite ones are
   -- routed, so `ℤ ∪ A` is the honest structured gap.
   { id := `union, receiver := `Sets, arity := 1,
+    anchor := ``Set.union,
     argDoc := "another set", resultDoc := "a set",
     doc := "the union of two sets" },
   { id := `intersect, receiver := `Sets, arity := 1,
+    anchor := ``Set.inter,
     argDoc := "another set", resultDoc := "a set",
     doc := "the intersection of two sets" },
   { id := `diff, receiver := `Sets, arity := 1,
+    anchor := ``Set.diff,
     argDoc := "another set", resultDoc := "a set",
     doc := "the difference A \\ B: the elements of A that are not in B" },
   { id := `symdiff, receiver := `Sets, arity := 1,
+    anchor := ``symmDiff,
     argDoc := "another set", resultDoc := "a set",
     doc := "the symmetric difference A △ B = (A \\ B) ∪ (B \\ A)" },
   -- SPEC.md §A composed computation's `∑_{a ∈ roots} a` and `∏`. Declared on
@@ -343,26 +383,34 @@ argument — the same judgment `X ∈ 𝒫(A)` asks" },
   -- as `progression`, which enters at CountableSets (a pattern cannot see the
   -- bound), so it misses this specificity exactly as it misses FiniteSets.
   { id := `sum, receiver := `FiniteSets,
+    anchor := ``Finset.sum,
     resultDoc := "an element of the domain the set's elements share",
     doc := "the sum of the elements, each counted once — SPEC.md's \
 `∑_{x ∈ X} x`. The empty sum is 0" },
   { id := `prod, receiver := `FiniteSets,
+    anchor := ``Finset.prod,
     resultDoc := "an element of the domain the set's elements share",
     doc := "the product of the elements, each counted once — SPEC.md's \
 `∏_{x ∈ X} x`. The empty product is 1" },
   -- SPEC.md §Exact number systems' complex methods. `bar` and `|·|` are the
   -- surface's own spellings of conjugation and the modulus.
   { id := `re, receiver := `ComplexElems,
+    anchor := ``Complex.re,
     resultDoc := "a real number",
     doc := "the real part" },
   { id := `im, receiver := `ComplexElems,
+    anchor := ``Complex.im,
     resultDoc := "a real number",
     doc := "the imaginary part — the REAL coefficient of i, so `(2 + 2i).im()` \
 is 2 and not 2i" },
   { id := `bar, receiver := `ComplexElems,
+    anchor := ``starRingEnd,
+    conventions := "the ring conjugation of ℂ; a real number is its own conjugate",
     resultDoc := "an element of the same domain",
     doc := "complex conjugation; a real number is its own conjugate" },
   { id := `abs, receiver := `ComplexElems,
+    anchor := ``Norm.norm,
+    conventions := "the modulus is ℂ's norm; on a real number, the absolute value",
     resultDoc := "a nonnegative real number",
     doc := "the modulus |z| — the bars are its surface spelling, and on a real \
 number it is the absolute value" },
@@ -371,6 +419,9 @@ number it is the absolute value" },
   -- the reals only (§4), so a complex receiver is an honest gap rather than a
   -- projection nobody asked for.
   { id := `approximate, receiver := `ComplexElems, arity := 1,
+    anchor := ``Dist.dist,
+    conventions := "the contract: dist(answer, value) ≤ ε in ℝ; the numeric strategy is \
+the backend's own",
     argDoc := "the requested absolute tolerance ε — an exact positive rational",
     resultDoc := "a decimal presentation certified to lie within ε of the exact \
 value, carrying that value and the tolerance that was requested",
@@ -383,6 +434,7 @@ is the backend's own business and is named nowhere in this surface" },
   -- FunctionElems: each is asked of a FUNCTION, and each answers with an
   -- exact value or a series rather than with anything approximate
   { id := `limit, receiver := `FunctionElems, arity := 1,
+    anchor := ``Filter.Tendsto,
     argDoc := "the point the variable runs to — an exact rational, or one of \
 the symbolic constants (π, ∞)",
     resultDoc := "an exact value",
@@ -392,12 +444,15 @@ limit, so what is checked of the reply is its KIND — an exact value, never a \
 decimal. This surface claims no epsilon-delta semantics and ℝ gains none; the \
 limit is an OPERATION whose answer is exact or a refusal" },
   { id := `definite_integral, receiver := `FunctionElems, arity := 2,
+    anchor := ``intervalIntegral,
     argDoc := "the lower and upper bounds",
     resultDoc := "an exact value",
     doc := "the definite integral of the body between two bounds. TRUSTED in \
 the same sense the limit is, and refused rather than approximated when the \
 answer is not one of the exact values this slice presents" },
   { id := `taylor_expansion, receiver := `FunctionElems, arity := 1,
+    anchor := ``iteratedDeriv,
+    conventions := "coefficient k is iteratedDeriv k f a / k!",
     argDoc := "the point to expand about",
     resultDoc := "a formal power series, known to a documented number of terms",
     doc := "the Taylor expansion about a point, as a formal power series in \
@@ -408,6 +463,7 @@ that does not is refused rather than turned into a decimal. The number of \
 terms is a documented CEILING of this slice, not something the call \
 negotiates: a truncation past it is a loud refusal naming it" },
   { id := `image, receiver := `FunctionElems,
+    anchor := ``Set.image,
     resultDoc := "the set of values the function takes on its source",
     doc := "the image of the SOURCE domain — the set `f(src)`, which is what \
 `f(ℕ)` denotes as well" }

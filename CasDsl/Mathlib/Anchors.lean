@@ -23,6 +23,19 @@ import Mathlib.Data.Finsupp.Encodable
 import Mathlib.Analysis.Real.Cardinality
 import Mathlib.Data.Complex.Basic
 import Mathlib.Algebra.Field.ZMod
+-- anchor constants for the method catalogue (CasDsl/Std.lean): a method's
+-- `anchor` must be in the environment when its registration elaborates
+import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+import Mathlib.LinearAlgebra.Matrix.Trace
+import Mathlib.LinearAlgebra.Matrix.Charpoly.Basic
+import Mathlib.LinearAlgebra.Matrix.Rank
+import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
+import Mathlib.LinearAlgebra.Dimension.Finrank
+import Mathlib.RingTheory.Ideal.Maps
+import Mathlib.Order.Filter.Basic
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
+import Mathlib.Analysis.Calculus.IteratedDeriv.Defs
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 
 namespace CasDsl.Anchors
 

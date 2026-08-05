@@ -58,7 +58,12 @@ def registerCategory! (d : CatDecl) : CommandElabM Unit := do
 that is not a class in the current environment"
   registerWith addCategoryChecked d
 
-def registerMethod! (d : MethodDecl) : CommandElabM Unit :=
+def registerMethod! (d : MethodDecl) : CommandElabM Unit := do
+  unless d.anchor == .anonymous do
+    unless (← getEnv).contains d.anchor do
+      throwError "method '{d.id}' anchors its meaning to '{d.anchor}', but \
+no such constant exists — the anchor must be real Mathlib (or extension) \
+mathematics"
   registerWith addMethodChecked d
 
 def registerRoute! (r : Route) : CommandElabM Unit :=

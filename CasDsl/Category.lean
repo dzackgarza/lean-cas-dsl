@@ -56,6 +56,16 @@ structure MethodDecl where
   argDoc : String := ""
   resultDoc : String := ""
   doc : String := ""
+  /-- The Mathlib constant giving this method's MEANING — what a trusted
+  backend answer is an answer to (`factor ↦
+  UniqueFactorizationMonoid.factors`). Registration checks the constant
+  exists. `.anonymous` is permitted only where Mathlib holds no carrier for
+  the operation; `conventions` must then say so. -/
+  anchor : Name := .anonymous
+  /-- Where the method's answer and the anchor differ by a stated
+  convention — unit normalization for `factor`, associates for `gcd` — the
+  convention is declared here, beside the anchor, never left implicit. -/
+  conventions : String := ""
   deriving BEq, Repr, Inhabited
 
 /-- First-order matcher over `Domain` (serializable — no closures). -/
