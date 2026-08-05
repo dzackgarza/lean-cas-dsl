@@ -936,10 +936,14 @@ private def foldSet (op what : String) (seed : Value)
   let (_, elems) ← finiteElems op o
   let elems := dedupValues elems
   for v in elems do
+    -- a CAPABILITY ceiling, stated as one: a sum of vectors is perfectly
+    -- defined mathematics; this backend folds scalar arithmetic only, and
+    -- refusing beats reporting the fold's own seed as the answer
     unless hasScalarArithmetic v do
-      .error (.badRequest s!"{what} over this set is not defined: {v.render} has \
-no arithmetic here, so the fold would report its own seed ({seed.render}) \
-instead of refusing")
+      .error (.badRequest s!"the native backend computes {what} for SCALAR \
+elements only, and {v.render} is not one it can add or multiply — an \
+implementation ceiling, not a claim that {what} is undefined; without \
+arithmetic the fold would report its own seed ({seed.render})")
   Except.mapError ExecError.badRequest (elems.foldlM step seed)
 
 /-- The receiver of a complex-plane method: an element carrying an exact

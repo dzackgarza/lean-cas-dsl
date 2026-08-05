@@ -213,7 +213,10 @@ leading unit in ℤ, monic factors over a field",
     resultDoc := "a factorization: a unit and irreducible factors with multiplicity",
     doc := "factor into irreducibles/primes with multiplicity" },
   { id := `gcd, receiver := `FactorizationElems, arity := 1,
-    anchor := ``EuclideanDomain.gcd,
+    -- the carrier at the DECLARED generality: a gcd up to units, which a UFD
+    -- has. `EuclideanDomain.gcd` is how the integer route computes one — an
+    -- algorithm choice, not the meaning
+    anchor := ``GCDMonoid.gcd,
     conventions := "unique up to units (Associated); the answer is the normalized representative",
     argDoc := "another element of the same ring",
     resultDoc := "a greatest common divisor, up to units",
@@ -260,7 +263,11 @@ this slice presents" },
   { id := `roots, receiver := `PolynomialElems,
     anchor := ``Polynomial.roots,
     conventions := "the anchor is a MULTISET and so is the result: multiplicity shows by \
-repetition, |·| counts with it",
+repetition, |·| counts with it. The meaning is a ↦ Polynomial.rootMultiplicity a p, \
+which any commutative ring has (owner ruling 2026-08-06); the anchor constant is its \
+IsDomain carrier, where |roots| ≤ deg. Off domains the count can exceed the degree \
+(x² − 1 over ℤ/8 has four simple roots) — the question stands there; only routes are \
+missing",
     resultDoc := "the multiset of roots lying in the polynomial's own coefficient ring, \
 with multiplicity",
     doc := "the multiset of roots IN THE COEFFICIENT RING, counted with multiplicity — \
@@ -334,11 +341,16 @@ codomain, read off the same derived rows" },
     doc := "the annihilator ideal of the module" },
   { id := `nth, receiver := `CountableSets, arity := 1,
     anchor := ``Denumerable.ofNat,
+    conventions := "declared on Countable because that is where the QUESTION is askable \
+(owner ruling 2026-08-06); an implementation may not claim the method without \
+producing the enumeration it answers through. The shipped ones: the Denumerable \
+instances for ℕ/ℤ/ℚ, element order for a finite list, progression order, and \
+first-match trial in ℕ-order for a guarded subset",
     argDoc := "a nonnegative index (0-based)",
     resultDoc := "the element at that index",
-    doc := "the element at an index of the anchor instance's enumeration, \
-adopted verbatim (for ℤ: 0, −1, 1, −2, 2, …; for ℚ: 0, −1, −1/2, 1, 1/2, …) — \
-an enumeration is DATA, never a claim that the set is intrinsically ordered" },
+    doc := "the element at an index of a PRODUCED enumeration — for ℤ and ℚ the anchor \
+instance's, adopted verbatim (ℤ: 0, −1, 1, −2, 2, …; ℚ: 0, −1, −1/2, 1, 1/2, …). An \
+enumeration is DATA, never a claim that the set is intrinsically ordered" },
   { id := `cardinality, receiver := `Sets,
     anchor := ``Cardinal.mk,
     resultDoc := "a cardinal (finite n, or ℵ₀)",

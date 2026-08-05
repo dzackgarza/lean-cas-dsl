@@ -1321,19 +1321,24 @@ there (size < deg) — no second backend call decides it. `(x−1)²` over ℚ
 splits and gets no note. A note is ADVICE on an unexpected-but-true result,
 never a refusal (owner, 2026-07-31); it names the escalation SPEC.md already
 writes. The comprehension spelling `{a ∈ D | p(a) = 0}` names its ring
-itself, so it gets no note; ℂ[x] receivers get none either, because
-everything splits there. -/
+itself, so it gets no note; ℂ[x] receivers get none either (everything
+splits there), and the guard names the rings whose splitting theory the
+note cites — ℤ and ℚ — rather than excluding ℂ. -/
 partial def rootsRingNote (ctx : EvalCtx) (recvStx : CasExpr) (recv : Obj)
     (m : Name) (result : Denote) : EvalM Unit := do
   unless m == `roots do return ()
   let .elem (.poly d) (.poly _ coeffs) := recv | return ()
-  if d == .complex then return ()
+  -- the note's theory is UFD splitting over these rings, so the guard names
+  -- them rather than excluding ℂ: over a NON-domain (ℤ/8) the root count can
+  -- exceed the degree and size = deg would not mean "splits" — a coefficient
+  -- ring routed later must justify its own note, not inherit this one
+  unless d == .int || d == .rat do return ()
   let some (.multiset _ elems) := result.asSet? | return ()
   -- degree = size − 1 (coefficients ascending, no trailing zeros); constants
   -- promise nothing, so only degree ≥ 1 can be deficient
   let deg := coeffs.size - 1
-  -- the multiset size IS Σ mᵢ over the ring's linear factors, so size = deg
-  -- is exactly "splits"
+  -- over these rings the multiset size IS Σ mᵢ over the ring's linear
+  -- factors, so size = deg is exactly "splits"
   if coeffs.size < 2 || elems.size == deg then return ()
   -- the TEXT is the declaration's (`MethodDecl.advisory`); this site owns
   -- only the firing condition and the placeholder values
