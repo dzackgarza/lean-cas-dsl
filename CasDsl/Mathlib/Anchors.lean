@@ -36,6 +36,15 @@ import Mathlib.Order.Filter.Basic
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import Mathlib.Analysis.Calculus.IteratedDeriv.Defs
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
+-- anchor constants for the category graph (CasDsl/Std.lean): each node
+-- names the category it denotes where Mathlib names one; otherwise the
+-- constant defining it — the class cutting a full subcategory, or the
+-- object whose elements the node fibres over
+import Mathlib.CategoryTheory.Types.Basic
+import Mathlib.CategoryTheory.FintypeCat
+import Mathlib.Algebra.Category.ModuleCat.Basic
+import Mathlib.Algebra.Category.Ring.Basic
+import Mathlib.AlgebraicGeometry.Scheme
 
 namespace CasDsl.Anchors
 
@@ -99,5 +108,19 @@ instance {R : Type*} [Semiring R] [Countable R] : Countable (Polynomial R) :=
 
 example : Countable (Polynomial ℤ) := inferInstance
 example : Countable (Polynomial ℚ) := inferInstance
+
+-- the categories themselves; the registry stores names extracted from
+-- this diagram
+example : CategoryTheory.Category (Type _) := CategoryTheory.types
+example : CategoryTheory.Category FintypeCat := inferInstance
+example : CategoryTheory.Category (ModuleCat ℚ) := inferInstance
+example : CategoryTheory.Category AlgebraicGeometry.Scheme := inferInstance
+
+-- ℤ/n is a cyclic ℤ-module: ⊤ = span ℤ {1}
+example (n : ℕ) [NeZero n] : (⊤ : Submodule ℤ (ZMod n)).IsPrincipal :=
+  ⟨1, le_antisymm
+    (fun x _ => Submodule.mem_span_singleton.mpr
+      ⟨(x.val : ℤ), by simp [zsmul_eq_mul, ZMod.natCast_val, ZMod.cast_id]⟩)
+    le_top⟩
 
 end CasDsl.Anchors

@@ -1156,9 +1156,19 @@ structure CatRef where
   params : Array ParamVal    -- instantiation data, preserved along edges
 ```
 
-- The **inheritance graph** is on category *names*: a `CatDecl` registers
-  `parents : Array Name`; params pass through unchanged along an edge
+- The primary objects are **categories and functors**; the registry stores
+  the name-graph *extracted* from that diagram — a derivative encoding the
+  transitional resolver walks. A `CatDecl` registers `parents : Array Name`
+  (each an inclusion functor); params pass through unchanged along an edge
   (`EuclideanElems(ℤ) ≤ PIDElems(ℤ)` because `EuclideanElems ≤ PIDElems`).
+- Every `CatDecl` carries an **anchor** — the category it means, where
+  Mathlib names it (`Modules ↦ ModuleCat`, `FiniteSets ↦ FintypeCat`,
+  `Schemes/QQ ↦` the over-category of $\operatorname{Spec}\mathbb{Q}$ in
+  `AlgebraicGeometry.Scheme`), otherwise the constant defining it (the
+  class cutting a full subcategory, or the object whose elements the entry
+  fibres over). Registration refuses an entry with no anchor or an anchor
+  absent from the environment: a name with no mathematics behind it is not
+  registrable. `CasDsl/Mathlib/Anchors.lean` is the ledger.
 - A `CatDecl` carries a **telescope** — the Mathlib classes its membership
   MEANS, in dependency order. Registering an object into a category
   elaborates each class at the object's denoted type

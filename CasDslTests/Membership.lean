@@ -47,8 +47,11 @@ run_cmd do
 
 -- a category may not cite a telescope entry that is not a class
 run_cmd do
-  let bogus : CatDecl := { name := `BogusCat, telescope := #[`Nat.succ] }
+  let bogus : CatDecl := { name := `BogusCat, anchor := ``Nat,
+                           telescope := #[`Nat.succ] }
   mustRefuse "a telescope naming a non-class" (registerCategory! bogus)
+  let unanchored : CatDecl := { name := `SmallModules }
+  mustRefuse "a category denoting nothing in Mathlib" (registerCategory! unanchored)
 
 /-! ## The runtime tripwire (invariant I7)
 

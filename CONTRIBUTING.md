@@ -212,7 +212,11 @@ op conventions` with the docs link, then the result shape. The notebook
 receives it as markdown (typeset math, clickable docs); plain contexts get
 the same sentences as text.
 
-**The anchor discipline (guideline).** The anchor may not carry stronger
+**The anchor discipline (guideline).** Categories carry anchors as checked
+registration data: a `CatDecl` names the category it means in Mathlib
+(`ModuleCat`, `FintypeCat`), or the constant defining it where Mathlib
+holds no name, and registration refuses the entry otherwise. For methods
+the discipline is judgment: the anchor may not carry stronger
 hypotheses than the declared generality of its home: `Polynomial.roots` is
 the IsDomain *carrier* of an any-commutative-ring meaning, and citing
 `EuclideanDomain.gcd` for a UFD-level declaration was an algorithm posing

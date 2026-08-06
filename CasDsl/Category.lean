@@ -29,9 +29,11 @@ structure CatRef where
   params : Array ParamVal := #[]
   deriving BEq, Repr, Hashable, Inhabited
 
-/-- A registered category: its name and its registered parent NAMES
-(the subcategory inclusions of round one — the only non-direct method
-transport). -/
+/-- A registered category. The category is the primary object; this entry
+is its name in the extracted graph the resolver walks, `anchor` ties the
+name to the category it means in Mathlib, and each parent NAME stands for
+an inclusion functor (the subcategory inclusions of round one — the only
+non-direct method transport). -/
 structure CatDecl where
   name : Name
   parents : Array Name := #[]
@@ -43,6 +45,14 @@ structure CatDecl where
   only for `Sets` (every type) and, during the migration, for nodes slated
   for re-anchoring or deletion. -/
   telescope : Array Name := #[]
+  /-- The category this entry means, where Mathlib names it (`ModuleCat`,
+  `FintypeCat`, `CategoryTheory.types`, `AlgebraicGeometry.Scheme`). When
+  the category has no Mathlib name of its own, the constant that defines
+  it: the class cutting a full subcategory (`EuclideanDomain` cuts
+  euclidean domains out of `CommRingCat`), or the object whose elements the
+  entry fibres over (`Complex`). Required at registration — a name with no
+  mathematics behind it is not registrable. -/
+  anchor : Name := .anonymous
   deriving BEq, Repr, Inhabited
 
 /-- A category-owned method declaration. Owns mathematical identity and

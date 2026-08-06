@@ -52,12 +52,20 @@ private def PresPattern.concreteDomain? : PresPattern → Option Domain
   | _ => none
 
 def registerCategory! (d : CatDecl) : CommandElabM Unit := do
+  if d.anchor == .anonymous then
+    throwError "category '{d.name}' denotes nothing in Mathlib — a node \
+must name the category it means (or the constant defining it), and a name \
+with no mathematics behind it is not registrable"
+  unless (← getEnv).contains d.anchor do
+    throwError "category '{d.name}' anchors its meaning to '{d.anchor}', \
+but that constant is not in the current environment"
   for cls in d.telescope do
     unless isClass (← getEnv) cls do
       throwError "category '{d.name}' names '{cls}' in its telescope, but \
 that is not a class in the current environment"
-  -- every inclusion edge is a THEOREM, discharged here: the rendered
-  -- `child ≤ parent` chain may never claim an implication Lean cannot prove
+  -- an inclusion edge is the inclusion functor `child ↪ parent`; its
+  -- object-level content — the instance implication — is discharged here,
+  -- so the rendered `child ≤ parent` chain never claims what Lean cannot prove
   for p in d.parents do
     let some parent := catDecl? (← getEnv) p
       | throwError "category '{d.name}' names an unregistered parent '{p}'"
