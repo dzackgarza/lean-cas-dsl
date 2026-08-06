@@ -50,7 +50,7 @@ run_cmd do
   let bogus : CatDecl := { name := `BogusCat, anchor := ``Nat,
                            telescope := #[`Nat.succ] }
   mustRefuse "a telescope naming a non-class" (registerCategory! bogus)
-  let unanchored : CatDecl := { name := `SmallModules }
+  let unanchored : CatDecl := { name := `NicePosets }
   mustRefuse "a category denoting nothing in Mathlib" (registerCategory! unanchored)
 
 /-! ## The runtime tripwire (invariant I7)
