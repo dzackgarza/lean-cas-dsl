@@ -1148,6 +1148,28 @@ makes, and honest about the residue it cannot state (e.g. a multiset —
 methods although a multiset is not a set, and Σ/Π over a bare multiset is
 not presentable here; the catalogue gives it its own entry).
 
+### Migration seam inventory (handoff item 8)
+
+What each seam owns today, and its fate when the upstream chain
+(#54 → #55 → #56 → #49) lands. "Deleted" means replaced by a citation of
+the upstream construct; "stable" means the migration does not touch it.
+
+| Seam (owner) | Today | At #49 |
+|---|---|---|
+| `CatDecl` registry (`Std.lean` §1) | name-graph extracted from the category diagram; telescopes; anchors | **deleted** — names become catalogue citations (#56); the anchors are the ready-made dictionary local name → category |
+| Profile rules (`profileFrom`) | presentation → direct memberships | **replaced** — membership becomes fibred-family data (#54); the presentation-pattern language survives as the matcher |
+| Inclusion edges (`parents`) | inclusion functors, object-level content proved at registration | **replaced** — real functors in the catalogue; the edge-is-a-theorem gate transfers as a requirement on it |
+| Resolver (`Resolve.lean`) | parent-closure walk + one-hop functor transport | **rewritten** — resolution as structural-functor composition (#53); round-one-wins, ambiguity-is-an-error, and `#method N` selection are pinned rulings that transfer |
+| Functor registry (`FunctorDecl`, `UnderlyingSet`) | first-order object maps, one hop, no result lifting | **replaced** — catalogue functors; the three ceilings dissolve with it |
+| Canonical maps (`CanonicalMap`) | preferred coercions, pattern pairs | **replaced** — canonical isos via universal properties (2026-08-06 ruling); `map e to D` semantics transfer |
+| Telescope machinery (`Denote`, `Verify`, `Register` gates) | unary-class synthesis at denoted types; tripwire re-judging each call | **subsumed** — memberships arrive as functor images; `Denote` (presentation ↦ type) remains the Mathlib bridge |
+| Ascription judgment (`Eval.ascribe`) | membership closed over inclusion edges | **re-derived** against catalogue membership; the closure semantics (inclusion is implication) is the pinned ruling |
+| Method declarations (`MethodDecl`) | semantic layer: id, receiver, anchor, conventions, advisory | **re-homed** — contracts declared on catalogue categories (#53); every field transfers |
+| Routes / `OpSig`s / executors | computability layer, keyed on presentation patterns | **stable** (CONTRIBUTING's wiring half); selection re-keys to functor images (#53) without touching op contracts |
+| Value / codec / adapters / wire | exact values, checked replies | **stable** — untouched by the migration |
+| Diagnostics (`#explain_route`, `#capabilities`) | availability as name chains | **re-rendered** — chains become genuine functor paths; wording pins re-derived then |
+| Acceptance proofs (`expectRouted`/`expectGap`) | pins against the transitional resolver | **restated** against the new resolution, claim for claim |
+
 ```lean
 inductive ParamVal | dom (d : Domain) | nat (n : Nat)
 
