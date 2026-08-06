@@ -897,6 +897,56 @@ private def symF : Obj :=
   (qm [[0, 0, 0], [0, 0, 0], [0, 0, 0]])
 -- …and the size is the polynomial's own degree
 #guard !replyOK "poly_companion_q" cubic (qm [[0, -1], [1, 0]])
+
+/-! ### Factorizations are multiplied back; roots are evaluated
+
+`u · ∏ pᵢ^{eᵢ}` must be the receiver, and `p(r)` must be 0 — checked in
+exact arithmetic on this side. Over ℚ̄ the entries have no arithmetic here,
+so the degree bookkeeping (factor) and the split count (roots) are the
+checks. -/
+
+private def n360 : Obj := .elem .int (.int 360)
+
+#guard replyOK "factor_int" n360
+  (.factorization (.int 1) #[(.int 2, 3), (.int 3, 2), (.int 5, 1)] .int)
+-- a factorization of some OTHER integer is a wrong answer to this call
+#guard !replyOK "factor_int" n360
+  (.factorization (.int 1) #[(.int 2, 3), (.int 3, 2)] .int)
+-- …and the unit is part of the product: −360's factorization is not 360's
+#guard !replyOK "factor_int" n360
+  (.factorization (.int (-1)) #[(.int 2, 3), (.int 3, 2), (.int 5, 1)] .int)
+
+/-- `x² − 1` over ℚ, ascending. -/
+private def pSquareMinusOne : Obj :=
+  .elem (.poly .rat) (.poly .rat #[.rat (-1), .rat 0, .rat 1])
+private def linear (a b : Rat) : Value := .poly .rat #[.rat a, .rat b]
+
+#guard replyOK "factor_poly_q" pSquareMinusOne
+  (.factorization (.rat 1) #[(linear (-1) 1, 1), (linear 1 1, 1)] (.poly .rat))
+-- (x + 1)² is well-formed and wrong
+#guard !replyOK "factor_poly_q" pSquareMinusOne
+  (.factorization (.rat 1) #[(linear 1 1, 2)] (.poly .rat))
+-- …and dropping the unit is wrong: 2x² − 2 = 2(x − 1)(x + 1)
+#guard !replyOK "factor_poly_q"
+  (.elem (.poly .rat) (.poly .rat #[.rat (-2), .rat 0, .rat 2]))
+  (.factorization (.rat 1) #[(linear (-1) 1, 1), (linear 1 1, 1)] (.poly .rat))
+
+#guard replyOK "roots_poly_q" pSquareMinusOne (.msetV #[.rat 1, .rat (-1)] .rat)
+-- 2 is not a root of x² − 1, however well-formed the reply
+#guard !replyOK "roots_poly_q" pSquareMinusOne (.msetV #[.rat 2] .rat)
+-- EMPTY stays the honest answer where the ring has no roots
+#guard replyOK "roots_poly_q"
+  (.elem (.poly .rat) (.poly .rat #[.rat (-2), .rat 0, .rat 1]))
+  (.msetV #[] .rat)
+
+-- over ℂ the multiset counts the degree, multiplicity included
+#guard replyOK "roots_poly_c" pSquareMinusOne
+  (.msetV #[.rat 1, .rat (-1)] .complex)
+#guard !replyOK "roots_poly_c" pSquareMinusOne (.msetV #[.rat 1] .complex)
+#guard replyOK "factor_poly_c" pSquareMinusOne
+  (.factorization (.rat 1) #[(linear (-1) 1, 1), (linear 1 1, 1)] (.poly .complex))
+#guard !replyOK "factor_poly_c" pSquareMinusOne
+  (.factorization (.rat 1) #[(linear 1 1, 1)] (.poly .complex))
 #guard !replyOK "poly_companion_q" cubic (.rat 2)
 
 #guard valueEq (.cardinal (.finite 3)) (.int 3) == some true

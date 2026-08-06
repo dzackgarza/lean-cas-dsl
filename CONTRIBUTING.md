@@ -77,8 +77,11 @@ One module per backend. Its jobs, in order (see `Sage.lean`):
   promises — a well-formed value of the wrong kind is an adapter defect,
   not a result. Where exact arithmetic on this side can check the answer
   against the receiver (a determinant, a charpoly's monicity, a companion
-  matrix's trace/determinant, an approximation's certificate), check it.
-  These checks are pure functions, `#guard`-tested in
+  matrix's trace/determinant, an approximation's certificate, a
+  factorization's product $u\prod_i p_i^{e_i}$, a claimed root's
+  evaluation $p(r) = 0$), check it; where the entries have no arithmetic
+  here (ℚ̄), check the invariant that survives — degree bookkeeping, the
+  split count. These checks are pure functions, `#guard`-tested in
   `CasDslTests/Core.lean` so deleting one fails the build.
 
 ## 3 · Op signatures (`OpSig`)

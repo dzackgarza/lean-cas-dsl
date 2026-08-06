@@ -301,6 +301,100 @@ of this polynomial has determinant {(Value.ofRat expectDet).render} — the prod
 of its roots, which every companion layout shares")
     else .ok v
 
+/-- Ascending-coefficient product over ℚ, for the factorization check below.
+Local for the same reason as `ratOf?`. -/
+private def mulRatPoly (a b : Array Rat) : Array Rat := Id.run do
+  if a.isEmpty || b.isEmpty then return #[]
+  let mut out := Array.replicate (a.size + b.size - 1) (0 : Rat)
+  for i in [0:a.size] do
+    for j in [0:b.size] do
+      out := out.set! (i + j) (out[i + j]! + a[i]! * b[j]!)
+  return out
+
+private def trimRatPoly (a : Array Rat) : Array Rat :=
+  ((a.toList.reverse.dropWhile (· == 0)).reverse).toArray
+
+private def renderRatPoly (a : Array Rat) : String :=
+  (Value.mkPoly .rat (a.map Value.ofRat)).render
+
+/-- A factorization is checked by MULTIPLYING IT BACK: `u · ∏ pᵢ^{eᵢ}` must
+be the element the op was asked about, coefficient by coefficient (an
+integer is the constant polynomial it presents). Exact arithmetic over ℚ is
+available on this side, so a well-formed factorization of some OTHER
+element is a wrong answer to this call. -/
+def checkFactorization (op : String) (recv : Array Rat) (v : Value) :
+    Except ExecError Value := do
+  let .factorization unit factors _ := v
+    | .error (.protocolError
+        s!"sage: {op} returned {v.render}, which is not a factorization")
+  let toCoeffs : Value → Option (Array Rat) := fun
+    | .poly _ cs => cs.mapM ratOf?
+    | w => (ratOf? w).map (#[·])
+  let some u := toCoeffs unit
+    | .error (.protocolError s!"sage: {op} returned the unit {unit.render}, \
+which is outside ℚ")
+  let mut prod := u
+  for (f, m) in factors do
+    let some fc := toCoeffs f
+      | .error (.protocolError s!"sage: {op} returned the factor {f.render}, \
+which is outside ℚ[x]")
+    for _ in [0:m] do
+      prod := mulRatPoly prod fc
+  if trimRatPoly prod == trimRatPoly recv then .ok v
+  else
+    .error (.protocolError s!"sage: {op} returned {v.render}, whose product \
+is {renderRatPoly prod} — not the {renderRatPoly recv} it was asked to factor")
+
+/-- Over ℚ̄ the factor entries have no exact arithmetic on this side, so what
+is checked is the DEGREE BOOKKEEPING: the unit is a constant and
+`∑ eᵢ · deg pᵢ` is the receiver's degree. -/
+def checkFactorDegrees (deg : Nat) (v : Value) : Except ExecError Value := do
+  let .factorization unit factors _ := v
+    | .error (.protocolError
+        s!"sage: factor_poly_c returned {v.render}, which is not a factorization")
+  let degOf : Value → Nat := fun
+    | .poly _ cs => cs.size - 1
+    | _ => 0
+  if degOf unit != 0 then
+    .error (.protocolError s!"sage: factor_poly_c returned the unit \
+{unit.render}, which is not a constant")
+  else
+    let total := factors.foldl (fun acc (f, m) => acc + m * degOf f) 0
+    if total == deg then .ok v
+    else .error (.protocolError s!"sage: factor_poly_c returned factors of \
+total degree {total} for a polynomial of degree {deg}")
+
+/-- Each claimed root is EVALUATED: `p(r) = 0`, by Horner over ℚ. A
+well-formed element that the polynomial does not vanish at is a wrong
+answer to this call. -/
+def checkRoots (op : String) (coeffs : Array Rat) (v : Value) :
+    Except ExecError Value := do
+  let .msetV elems _ := v
+    | .error (.protocolError
+        s!"sage: {op} returned {v.render}, which is not a multiset")
+  for e in elems do
+    let some r := ratOf? e
+      | .error (.protocolError s!"sage: {op} returned {e.render}, which is \
+outside the coefficient ring")
+    let val := coeffs.foldr (fun c acc => acc * r + c) (0 : Rat)
+    if val != 0 then
+      .error (.protocolError s!"sage: {op} claims {e.render} is a root, but \
+the polynomial evaluates to {(Value.ofRat val).render} there")
+  .ok v
+
+/-- Over ℂ a nonzero polynomial splits: the roots, with multiplicity, number
+exactly the degree. The entries may be algebraic irrationals with no exact
+arithmetic on this side, but the COUNT is checkable. -/
+def checkSplitCount (deg : Nat) (v : Value) : Except ExecError Value :=
+  match v with
+  | .msetV elems _ =>
+      if elems.size == deg then .ok v
+      else .error (.protocolError s!"sage: roots_poly_c returned \
+{elems.size} roots with multiplicity for a polynomial of degree {deg} — \
+over ℂ it has exactly {deg}")
+  | v => .error (.protocolError
+      s!"sage: roots_poly_c returned {v.render}, which is not a multiset")
+
 /-- The decoded reply must be the kind of value the op promises; a
 well-formed value of the wrong kind is an adapter defect, not a result.
 
@@ -323,10 +417,33 @@ def expectKind (op : String) (o : Obj) (v : Value) : Except ExecError Value :=
           else .error (.protocolError s!"sage: approx_real returned an \
 approximation of {exact.render}, but was asked for {recv.render}")
       | o => .error (offSignature "approx_real" o)
-  | "factor_int", .factorization .. => .ok v
-  | "factor_poly_q", .factorization .. => .ok v
-  | "factor_poly_z", .factorization .. => .ok v
-  | "factor_poly_c", .factorization .. => .ok v
+  -- factorizations are multiplied back and compared to the receiver; over
+  -- ℚ̄ (factor_poly_c) the entries have no exact arithmetic here, so the
+  -- degree bookkeeping is the check
+  | "factor_int", _ =>
+      match o with
+      | .elem .int (.int z) => checkFactorization "factor_int" #[(z : Rat)] v
+      | o => .error (offSignature "factor_int" o)
+  | "factor_poly_q", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) =>
+          match cs.mapM ratOf? with
+          | some rc => checkFactorization "factor_poly_q" rc v
+          | none => .error (.badRequest
+              "factor_poly_q: the receiver has a coefficient outside ℚ")
+      | o => .error (offSignature "factor_poly_q" o)
+  | "factor_poly_z", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) =>
+          match cs.mapM ratOf? with
+          | some rc => checkFactorization "factor_poly_z" rc v
+          | none => .error (.badRequest
+              "factor_poly_z: the receiver has a coefficient outside ℤ")
+      | o => .error (offSignature "factor_poly_z" o)
+  | "factor_poly_c", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) => checkFactorDegrees (cs.size - 1) v
+      | o => .error (offSignature "factor_poly_c" o)
   -- the determinant is CHECKED, not merely kind-checked: `Value.detQ` is the
   -- same elimination `checkCompanion` above already calls, so the exact
   -- answer is available on this side for the cost of reading the receiver.
@@ -371,12 +488,30 @@ about is {(Value.ofRat (Value.detQ n rats)).render}")
   | "is_prime_int", .bool _ => .ok v
   -- a MULTISET (the anchor `Polynomial.roots` is), multiplicity carried by
   -- repetition; EMPTY is the honest answer for a polynomial with no root in
-  -- its own coefficient ring (x² − 2 over ℚ), so it is a result like any other
-  | "roots_poly_z", .msetV .. => .ok v
-  | "roots_poly_q", .msetV .. => .ok v
-  -- over ℂ a nonzero polynomial splits, so this multiset is never empty — but
-  -- the kind check is the same one: a factorization here would be an adapter bug
-  | "roots_poly_c", .msetV .. => .ok v
+  -- its own coefficient ring (x² − 2 over ℚ), so it is a result like any
+  -- other — and every claimed root is EVALUATED
+  | "roots_poly_z", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) =>
+          match cs.mapM ratOf? with
+          | some rc => checkRoots "roots_poly_z" rc v
+          | none => .error (.badRequest
+              "roots_poly_z: the receiver has a coefficient outside ℤ")
+      | o => .error (offSignature "roots_poly_z" o)
+  | "roots_poly_q", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) =>
+          match cs.mapM ratOf? with
+          | some rc => checkRoots "roots_poly_q" rc v
+          | none => .error (.badRequest
+              "roots_poly_q: the receiver has a coefficient outside ℚ")
+      | o => .error (offSignature "roots_poly_q" o)
+  -- over ℂ a nonzero polynomial splits; the algebraic entries have no exact
+  -- arithmetic here, so the count against the degree is the check
+  | "roots_poly_c", _ =>
+      match o with
+      | .elem (.poly _) (.poly _ cs) => checkSplitCount (cs.size - 1) v
+      | o => .error (offSignature "roots_poly_c" o)
   | _, _ =>
       .error (.protocolError
         s!"sage: op {repr op} returned {v.render}, which is not the value kind it promises")
