@@ -85,10 +85,20 @@ test-commit: test
 # runnable trail — a live error cell fails this gate, since the document
 # model would block every cell below it — while boundaries.ipynb runs with
 # errors allowed: its refusals ARE its content, and the gate fails instead
-# if it stops producing them.
+# if it stops producing them. Re-execution is byte-stable when nothing
+# changed; a genuine output change is committed here and the push is
+# stopped once, so the next push carries it.
 [private]
 _notebook-reexec:
-    @.venv/bin/python scripts/reexec_notebooks.py
+    #!/usr/bin/env bash
+    set -euo pipefail
+    .venv/bin/python scripts/reexec_notebooks.py
+    if ! git diff --quiet -- notebooks/demo.ipynb notebooks/boundaries.ipynb; then
+        git add notebooks/demo.ipynb notebooks/boundaries.ipynb
+        git commit -m "chore: notebook re-execution at the push gate"
+        echo "notebook outputs changed: committed here — push again to include them" >&2
+        exit 1
+    fi
 
 [private]
 test-push: sync-kernel test-ci _notebook-reexec
