@@ -1814,7 +1814,8 @@ Category graph (names; `≤` = registered parent edge):
 ```text
 FiniteSets ≤ CountableSets ≤ Sets
 EuclideanElems ≤ FactorizationElems ≤ CommRingElems
-Modules                           (annihilator; the ℤ/n fixture profiles here)
+CyclicModules ≤ Modules           (annihilator declared on Modules,
+                                   inherited by the ℤ/n fixture)
 MatrixElems                       (det/inverse/rank/ker/trace/charpoly;
                                    params (n, entry))
 PolynomialElems                   (deg/roots/companion_matrix; params (the ring))
@@ -1827,7 +1828,7 @@ QQ-Mod                            (dim; an ascription TAG at this stage —
 Profiles (selected): `ℤ` (domainObj) ∈ {Sets, CountableSets, …};
 `n ∈ ℤ` (elem) ∈ {EuclideanElems(ℤ)}; `q ∈ ℚ[x]` ∈ {EuclideanElems(ℚ[x]),
 PolynomialElems(ℚ[x])}; `M ∈ Mat₂(ℚ)` ∈ {MatrixElems(2, ℚ)};
-`cyclicModule n` ∈ {Modules(ℤ)}. `ℤ[x]`/`ℚ[x]` as domainObjs are
+`cyclicModule n` ∈ {CyclicModules(ℤ)}. `ℤ[x]`/`ℚ[x]` as domainObjs are
 CountableSets, which is what `p ∈ ℤ[x]` asks of them. `ℝ` and `ℂ` are `Sets`
 and nothing narrower — both are uncountable, so `nth` (declared on
 CountableSets) correctly does not reach them, while membership does.
@@ -1840,11 +1841,12 @@ ComplexElems; `dim` on QQ-Mod;
 `nth`, `cardinality`, `contains`,
 `set_eq`, `subset`, `union`, `intersect`, `diff`, `symdiff` on the set
 hierarchy, and `sum`/`prod` on FiniteSets (§Aggregation). Inheritance is
-exercised for real: `factor` reaches integers via `EuclideanElems ≤
-FactorizationElems` with **no forwarding declaration**. `annihilator` is
-declared once on `Modules` — defined for any module — and the shipped
-implementation answers cyclic ℤ-modules: that ceiling is the route's
-receiver pattern, never a category node.
+exercised twice for real: `factor` reaches integers via `EuclideanElems ≤
+FactorizationElems`, and `annihilator` reaches the fixture via
+`CyclicModules ≤ Modules` — declared once, for any module, with **no
+forwarding declaration**. That the shipped implementation answers only
+cyclic ℤ-modules is the route's receiver pattern: the membership states
+mathematics, the route states computability.
 
 `PolynomialElems` deliberately carries NO parent edge. Degree and roots are
 a *structural* read of a polynomial and make sense over any coefficient
@@ -1861,7 +1863,7 @@ One functor ships: `UnderlyingSet : Modules → Sets` (object map: the
 `F.cardinality()` work on the module fixture — a method declared on `Sets`,
 which the module does not inhabit, reached by transporting the receiver and
 routed against the image. `annihilator` on the same object still resolves
-directly on `Modules`, untransported; both claims are asserted
+through the inclusion edge, untransported; both claims are asserted
 in `acceptanceProofs`.
 
 The deliberate capability gaps shipped by the universe (honest, auditable):

@@ -503,15 +503,25 @@ def test_matrix_inverse_and_det(kernel: Kernel) -> None:
     ok(kc, "assert M.det() = -2")
 
 
-# -- 5 · the module fixture ------------------------------------------------
+# -- 5 · subcategory inheritance ------------------------------------------
 
 
-def test_annihilator_is_declared_on_modules(kernel: Kernel) -> None:
+def test_annihilator_inherited_through_subcategory(kernel: Kernel) -> None:
     _, kc = kernel
-    # declared on Modules — any module; the implementation answers cyclic
-    # ℤ-modules, and that ceiling is the route's pattern, not a category
-    ok(kc, "let F := ℤ/4 in Modules(ℤ)")
+    # ℤ/4 is a cyclic ℤ-module; `annihilator` is declared on Modules — any
+    # module — and arrives through CyclicModules ≤ Modules. The narrower
+    # implementation ceiling (cyclic ℤ-modules) is the route's pattern.
+    ok(kc, "let F := ℤ/4 in CyclicModules(ℤ)")
     text = ok(kc, "F.annihilator()")
+    assert "(4)" in text
+
+
+def test_category_ascription_closes_over_inclusion(kernel: Kernel) -> None:
+    _, kc = kernel
+    # an inclusion is an implication: a cyclic module IS a module, so the
+    # ascription into the parent category holds as well
+    ok(kc, "let F2 := ℤ/4 in Modules(ℤ)")
+    text = ok(kc, "F2.annihilator()")
     assert "(4)" in text
 
 
@@ -568,7 +578,7 @@ def test_failed_cell_commits_nothing_prior_state_intact(kernel: Kernel) -> None:
 
 def test_cardinality_transported_along_forgetful_functor(kernel: Kernel) -> None:
     _, kc = kernel
-    # F := ℤ/4 in Modules(ℤ), bound by the annihilator test; cardinality
+    # F := ℤ/4 in CyclicModules(ℤ), bound by the annihilator test; cardinality
     # is declared on Sets and arrives via UnderlyingSet : Modules → Sets
     text = ok(kc, "F.cardinality()")
     assert "4" in text
@@ -583,7 +593,7 @@ def test_transport_step_visible_only_in_diagnostics(kernel: Kernel) -> None:
 
 def test_transport_does_not_preempt_direct_resolution(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "F.annihilator()")  # still direct — declared on Modules
+    text = ok(kc, "F.annihilator()")  # untransported, through CyclicModules ≤ Modules
     assert "(4)" in text
 
 

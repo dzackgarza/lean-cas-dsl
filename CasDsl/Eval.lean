@@ -2201,7 +2201,8 @@ nor a registered category")
 
 /-- Apply and CHECK an ascription. Membership is a judgment: a domain
 ascription must admit the preferred canonical map, and a category ascription
-must actually hold in the object's profile.
+must actually hold in the object's profile — closed over registered inclusion
+edges, because an inclusion is an implication.
 
 CEILING: the only ascription-directed reinterpretation is `ℤ/n` read as the
 cyclic ℤ-module when the ascribed category is a module category. Making
@@ -2226,7 +2227,13 @@ ascribing it there is refused rather than read as membership — the arrow \
       let o' := match o with
         | .domainObj (.mod n) => Obj.cyclicModule n
         | o => o
-      if (profileOf ctx.env o').contains c then return o'
+      -- membership closes over registered inclusion edges, params preserved:
+      -- an inclusion is an implication, so `ℤ/4 in Modules(ℤ)` holds because
+      -- ℤ/4 ∈ CyclicModules(ℤ) and CyclicModules ≤ Modules
+      let inCat := (profileOf ctx.env o').any fun p =>
+        p.params == c.params &&
+          (parentClosure (categories ctx.env) p.name).any (·.1 == c.name)
+      if inCat then return o'
       else
         let prof := ", ".intercalate ((profileOf ctx.env o').toList.map renderCat)
         throw (.msg s!"{o'.presentation} is not in {renderCat c} \
