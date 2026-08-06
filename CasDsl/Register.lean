@@ -59,7 +59,7 @@ with no mathematics behind it is not registrable"
   unless (← getEnv).contains d.anchor do
     throwError "category '{d.name}' anchors its meaning to '{d.anchor}', \
 but that constant is not in the current environment"
-  for cls in d.telescope do
+  for cls in d.telescope ++ d.paramTelescope do
     unless isClass (← getEnv) cls do
       throwError "category '{d.name}' names '{cls}' in its telescope, but \
 that is not a class in the current environment"
@@ -69,16 +69,23 @@ that is not a class in the current environment"
   for p in d.parents do
     let some parent := catDecl? (← getEnv) p
       | throwError "category '{d.name}' names an unregistered parent '{p}'"
-    if parent.telescope.isEmpty then continue
-    if d.telescope.isEmpty then
-      throwError "the edge '{d.name}' ≤ '{p}' claims {parent.telescope} \
+    unless parent.telescope.isEmpty do
+      if d.telescope.isEmpty then
+        throwError "the edge '{d.name}' ≤ '{p}' claims {parent.telescope} \
 from a category with no telescope — an implication from nothing, which is \
 not a theorem"
-    match ← liftTermElabM (synthEdgeImplication d.telescope parent.telescope) with
-    | none => pure ()
-    | some cls =>
-        throwError "the edge '{d.name}' ≤ '{p}' is not a theorem: Lean \
+      match ← liftTermElabM (synthEdgeImplication d.telescope parent.telescope) with
+      | none => pure ()
+      | some cls =>
+          throwError "the edge '{d.name}' ≤ '{p}' is not a theorem: Lean \
 cannot derive {cls} from {d.telescope}"
+    -- the ring-parameterized layer: the child must claim every class the
+    -- parent claims — subset is the discharged implication here; a
+    -- quantified two-type derivation is the catalogue's game
+    for cls in parent.paramTelescope do
+      unless d.paramTelescope.contains cls do
+        throwError "the edge '{d.name}' ≤ '{p}' is not a theorem at the \
+ring parameter: '{p}' claims {cls}, which '{d.name}' does not"
   registerWith addCategoryChecked d
 
 def registerMethod! (d : MethodDecl) : CommandElabM Unit := do

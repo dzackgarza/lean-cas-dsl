@@ -1162,7 +1162,7 @@ the upstream construct; "stable" means the migration does not touch it.
 | Resolver (`Resolve.lean`) | parent-closure walk + one-hop functor transport | **rewritten** — resolution as structural-functor composition (#53); round-one-wins, ambiguity-is-an-error, and `#method N` selection are pinned rulings that transfer |
 | Functor registry (`FunctorDecl`, `UnderlyingSet`) | first-order object maps, one hop, no result lifting | **replaced** — catalogue functors; the three ceilings dissolve with it |
 | Canonical maps (`CanonicalMap`) | preferred coercions, pattern pairs | **replaced** — canonical isos via universal properties (2026-08-06 ruling); `map e to D` semantics transfer |
-| Telescope machinery (`Denote`, `Verify`, `Register` gates) | unary-class synthesis at denoted types; tripwire re-judging each call | **subsumed** — memberships arrive as functor images; `Denote` (presentation ↦ type) remains the Mathlib bridge |
+| Telescope machinery (`Denote`, `Verify`, `Register` gates) | class synthesis at denoted types (unary, and ring-parameterized via `paramTelescope`); tripwire re-judging each call | **subsumed** — memberships arrive as functor images; `Denote` (presentation ↦ type) remains the Mathlib bridge |
 | Ascription judgment (`Eval.ascribe`) | membership closed over inclusion edges | **re-derived** against catalogue membership; the closure semantics (inclusion is implication) is the pinned ruling |
 | Method declarations (`MethodDecl`) | semantic layer: id, receiver, anchor, conventions, advisory | **re-homed** — contracts declared on catalogue categories (#53); every field transfers |
 | Routes / `OpSig`s / executors | computability layer, keyed on presentation patterns | **stable** (CONTRIBUTING's wiring half); selection re-keys to functor images (#53) without touching op contracts |
@@ -1197,8 +1197,16 @@ structure CatRef where
   (`CasDsl/Mathlib/Denote.lean` is the single by-fiat presentation-tag ↦
   Lean-type bridge), so a membership the classes cannot discharge fails
   the build; a registered inclusion edge must likewise be an implication
-  Mathlib discharges. An empty telescope is honest only for `Sets` and for
-  nodes slated for re-anchoring or deletion at the migration.
+  Mathlib discharges. The **`paramTelescope`** layer states the
+  ring-parameterized claims: `Modules(ℤ)` membership means
+  `Module ℤ M`, and `CyclicModules(ℤ)` adds the cyclicity class
+  (`IsCyclicModule`, the `⊤ = span R {x}` bridge in `Anchors.lean`) —
+  synthesized at the parameter and the member's carrier together, and
+  re-judged at every call by the tripwire. At this layer an inclusion
+  edge is a theorem by subset (the child claims every class the parent
+  claims); the quantified two-type derivation is the catalogue's game.
+  An empty telescope is honest only for `Sets` and for nodes slated for
+  re-anchoring or deletion at the migration.
 - An object's **profile** is the set of `CatRef`s it directly inhabits
   (computed by `Std.profileOf : Obj → Array CatRef`); the resolver closes
   over parent edges. Profiles are rich: `ℤ` enters with sets, countable

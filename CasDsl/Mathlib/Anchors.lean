@@ -116,11 +116,20 @@ example : CategoryTheory.Category FintypeCat := inferInstance
 example : CategoryTheory.Category (ModuleCat ℚ) := inferInstance
 example : CategoryTheory.Category AlgebraicGeometry.Scheme := inferInstance
 
--- ℤ/n is a cyclic ℤ-module: ⊤ = span ℤ {1}
-example (n : ℕ) [NeZero n] : (⊤ : Submodule ℤ (ZMod n)).IsPrincipal :=
-  ⟨1, le_antisymm
-    (fun x _ => Submodule.mem_span_singleton.mpr
-      ⟨(x.val : ℤ), by simp [zsmul_eq_mul, ZMod.natCast_val, ZMod.cast_id]⟩)
-    le_top⟩
+/-- A cyclic `R`-module: one element spans, `⊤ = span R {x}`. Stated as a
+class so membership synthesis can discharge it (`CyclicModules`'
+`paramTelescope`); a candidate upstream contribution, like the
+`Countable (Polynomial R)` bridge above. -/
+class IsCyclicModule (R M : Type*) [Semiring R] [AddCommGroup M] [Module R M] :
+    Prop where
+  principal : (⊤ : Submodule R M).IsPrincipal
+
+/-- ℤ/n is a cyclic ℤ-module: ⊤ = span ℤ {1} (at n = 0 this is ℤ itself). -/
+instance (n : ℕ) : IsCyclicModule ℤ (ZMod n) :=
+  ⟨⟨1, le_antisymm
+    (fun x _ => Submodule.mem_span_singleton.mpr (by
+      obtain ⟨a, rfl⟩ := ZMod.intCast_surjective x
+      exact ⟨a, by simp [zsmul_eq_mul]⟩))
+    le_top⟩⟩
 
 end CasDsl.Anchors

@@ -42,9 +42,15 @@ structure CatDecl where
   order (`SPEC-REGISTRY-TYPE-PREPASS` §3.2): registering an object into this
   category elaborates each class at the object's denoted type, so a
   membership the classes cannot discharge fails the build. Empty is honest
-  only for `Sets` (every type) and, during the migration, for nodes slated
-  for re-anchoring or deletion. -/
+  only for `Sets` (every type), for nodes whose claim lives in
+  `paramTelescope`, and, during the migration, for nodes slated for
+  re-anchoring or deletion. -/
   telescope : Array Name := #[]
+  /-- The ring-parameterized layer of the telescope: classes elaborated at
+  the entry's first category parameter and the member's carrier together —
+  `Modules(ℤ)` membership means `Module ℤ M`. Same discipline as
+  `telescope`; the split exists because the arities differ. -/
+  paramTelescope : Array Name := #[]
   /-- The category this entry means, where Mathlib names it (`ModuleCat`,
   `FintypeCat`, `CategoryTheory.types`, `AlgebraicGeometry.Scheme`). When
   the category has no Mathlib name of its own, the constant that defines

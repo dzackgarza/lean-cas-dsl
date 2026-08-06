@@ -1123,7 +1123,7 @@ private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
       throw (.msg s!"'{m}' takes {res.decl.arity} argument(s), got {args.size}")
     let concrete := res.concreteReceiver recv
     -- the walk proposed this availability; Mathlib must agree (invariant I7)
-    if let some cls ← verifyResolution ctx.env res.profileEntry.name res.decl.receiver concrete then
+    if let some cls ← verifyResolution ctx.env res.profileEntry res.decl.receiver concrete then
       throw (.msg s!"'{m}' is declared where {cls} holds, and Lean cannot \
 synthesize {cls} for {concrete.presentation} — the category graph and \
 Mathlib disagree here, which is a registration defect, not a property of \

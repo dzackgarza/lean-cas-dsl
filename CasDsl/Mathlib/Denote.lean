@@ -48,11 +48,13 @@ partial def Domain.denote : Domain → MetaM Expr
   | .funcs s t => do mkArrow (← denote s) (← denote t)
   | .series c => do mkAppM ``PowerSeries #[← denote c]
 
-/-- Fully apply a class to a type, synthesizing the class's OWN instance
-parameters (`UniqueFactorizationMonoid` needs `CancelCommMonoidWithZero`).
-The result is the class TYPE at `T`, ready for `synthInstance`. -/
-def classApp (cls : Name) (T : Expr) : MetaM Expr := do
-  let mut e ← mkAppM cls #[T]
+/-- Fully apply a class to explicit arguments, synthesizing the class's OWN
+instance parameters (`UniqueFactorizationMonoid` needs
+`CancelCommMonoidWithZero`; `Module R M` needs `Semiring R` and
+`AddCommGroup M`). The result is the class TYPE, ready for
+`synthInstance`. -/
+def classApp (cls : Name) (args : Array Expr) : MetaM Expr := do
+  let mut e ← mkAppM cls args
   let mut ty ← whnf (← inferType e)
   while ty.isForall do
     let .forallE _ bt _ bi := ty | break
@@ -65,7 +67,12 @@ def classApp (cls : Name) (T : Expr) : MetaM Expr := do
 /-- Synthesize a class membership at a type. Failure is the honest report
 that the claimed mathematics does not hold there. -/
 def synthMembership (cls : Name) (T : Expr) : MetaM Unit := do
-  discard <| synthInstance (← classApp cls T)
+  discard <| synthInstance (← classApp cls #[T])
+
+/-- Synthesize a class membership at explicit arguments — the
+ring-parameterized form (`Module ℤ (ZMod n)`). -/
+def synthMembershipAt (cls : Name) (args : Array Expr) : MetaM Unit := do
+  discard <| synthInstance (← classApp cls args)
 
 /-- Run `k` under instance binders for each class of `telescope` at `R` —
 the hypotheses of a quantified derivation. -/
@@ -74,7 +81,7 @@ partial def withTelescopeInsts (R : Expr) (telescope : List Name)
   match telescope with
   | [] => k
   | cls :: rest => do
-      withLocalDecl `inst .instImplicit (← classApp cls R) fun _ =>
+      withLocalDecl `inst .instImplicit (← classApp cls #[R]) fun _ =>
         withTelescopeInsts R rest k
 
 /-- The quantified inclusion edge, discharged by elaboration:

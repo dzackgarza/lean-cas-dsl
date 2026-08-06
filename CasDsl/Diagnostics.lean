@@ -104,7 +104,7 @@ private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
       outcome
       chain := charClassOf ctx.env res.profileEntry.name
         :: res.via.map (charClassOf ctx.env)
-      verified? := ← verifyResolution ctx.env res.profileEntry.name res.decl.receiver concrete
+      verified? := ← verifyResolution ctx.env res.profileEntry res.decl.receiver concrete
       sig? := match outcome with
         | .chosen r => opSig? ctx.env r.backend r.opId
         | _ => none
