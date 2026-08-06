@@ -41,19 +41,16 @@ Three invariants, enforced end to end:
    a structured, auditable `NoImplementation` gap—never a hidden method, a
    narrowed category, or a fake value.
 
-▶ **[View a rendered demo notebook](notebooks/demo.ipynb)** — a self-contained
-walkthrough with embedded outputs.
-
-The worked proof is
-[`notebooks/categorical-cas.ipynb`](notebooks/categorical-cas.ipynb) — a
-pedagogical notebook covering trusted assertions (`assert 2 + 3 = 0 in
-ℤ/5`), Sage-backed factorization over ℤ and ℚ[x], `gcd(84, 30)` in the
-prefix spelling SPEC.md uses, the registered `ℤ ⊆ ℚ` preferred canonical map
-(`map p to ℚ[x]`), calling a polynomial as a function (`q(1)`), membership
-in a polynomial ring (`x ∈ ℤ[x]`), `p.deg()` and `p.roots()` — whose empty
-result over ℚ is an answer, not a failure — exact matrix inverses over ℚ,
-inherited `annihilator`,
-progression sets with Haskell-style ellipses, countable indexing
+The worked proof is the pair of committed notebooks, re-executed against
+the live kernel (`scripts/reexec_notebooks.py`) so every embedded output
+is genuine: [`notebooks/demo.ipynb`](notebooks/demo.ipynb) — the runnable
+trail through the product surface (exact arithmetic and trusted
+assertions, Sage-backed factorization, roots as multisets with their
+disclosed choices, exact matrices over ℚ, the inherited `annihilator` and
+transport along the forgetful functor, calculus, progression sets with
+Haskell-style ellipses, countable indexing) — and
+[`notebooks/boundaries.ipynb`](notebooks/boundaries.ipynb) — the refusal
+catalogue, executed with its errors, because a refusal is content there
 (`ℤ[3]` under the registered `0, 1, −1, 2, −2, …` choice), exact algebraic
 numbers (`√2 ∈ ℝ`, `2 + 2i ∈ ℂ`, `|2 + 2i| = 2√2` — never a decimal) with
 the ⊆-chain read off the canonical-map registry, the cubic split over ℂ[x],
@@ -91,11 +88,11 @@ fail honestly as capability gaps).
 ```bash
 lake exe cache get && lake build CasDsl nbdsl_worker
 just setup            # venv + kernel adapter + casdsl kernelspec
-jupyter lab notebooks/categorical-cas.ipynb   # kernel: "CasDsl (Lean 4)"
+jupyter lab notebooks/demo.ipynb              # kernel: "CasDsl (Lean 4)"
 ```
 
 `just test` runs the full gate: Lean build + no-sorry, the Sage adapter
-roundtrip (against real Sage), and the 116-test E2E suite through the
+roundtrip (against real Sage), and the E2E suite through the
 installed kernelspec.
 
 ## Architecture

@@ -3,8 +3,8 @@
 Drives the installed `casdsl` kernelspec with jupyter_client, exercising the
 whole stack: ZMQ → nbdsl kernel → framed fds → Lean worker → CasDsl prelude
 → capability router → native/Sage executors. The cells and expected values
-mirror notebooks/categorical-cas.ipynb (the installed-notebook boundary of
-PLAN-CAS-VERTICAL-SLICE).
+mirror the committed notebooks (demo.ipynb, the runnable trail;
+boundaries.ipynb, the refusal catalogue).
 
 Run: .venv/bin/pytest tests/test_e2e.py
 (after: .venv/bin/python -m nbdsl_kernel.install --project . \
