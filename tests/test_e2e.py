@@ -503,12 +503,14 @@ def test_matrix_inverse_and_det(kernel: Kernel) -> None:
     ok(kc, "assert M.det() = -2")
 
 
-# -- 5 · subcategory inheritance ------------------------------------------
+# -- 5 · the module fixture ------------------------------------------------
 
 
-def test_annihilator_inherited_through_subcategory(kernel: Kernel) -> None:
+def test_annihilator_is_declared_on_modules(kernel: Kernel) -> None:
     _, kc = kernel
-    ok(kc, "let F := ℤ/4 in SmallModules(ℤ)")
+    # declared on Modules — any module; the implementation answers cyclic
+    # ℤ-modules, and that ceiling is the route's pattern, not a category
+    ok(kc, "let F := ℤ/4 in Modules(ℤ)")
     text = ok(kc, "F.annihilator()")
     assert "(4)" in text
 
@@ -566,7 +568,7 @@ def test_failed_cell_commits_nothing_prior_state_intact(kernel: Kernel) -> None:
 
 def test_cardinality_transported_along_forgetful_functor(kernel: Kernel) -> None:
     _, kc = kernel
-    # F := ℤ/4 in SmallModules(ℤ), bound by the annihilator test; cardinality
+    # F := ℤ/4 in Modules(ℤ), bound by the annihilator test; cardinality
     # is declared on Sets and arrives via UnderlyingSet : Modules → Sets
     text = ok(kc, "F.cardinality()")
     assert "4" in text
@@ -581,7 +583,7 @@ def test_transport_step_visible_only_in_diagnostics(kernel: Kernel) -> None:
 
 def test_transport_does_not_preempt_direct_resolution(kernel: Kernel) -> None:
     _, kc = kernel
-    text = ok(kc, "F.annihilator()")  # still direct, through SmallModules ≤ Modules
+    text = ok(kc, "F.annihilator()")  # still direct — declared on Modules
     assert "(4)" in text
 
 
@@ -1182,7 +1184,7 @@ def test_a_value_with_no_latex_form_emits_plain_text_only(kernel: Kernel) -> Non
     assert "application/vnd.casdsl.value+json" in b
     # the module fixture: displaying it as ℤ/4ℤ would be the RING, and
     # equality here is category-bound
-    ok(kc, "let lF := ℤ/4 in SmallModules(ℤ)")
+    ok(kc, "let lF := ℤ/4 in Modules(ℤ)")
     b = bundle(kc, "lF")
     assert b["text/plain"] == "ℤ/4 as ℤ-module"
     assert "text/latex" not in b

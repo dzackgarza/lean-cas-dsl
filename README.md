@@ -9,11 +9,12 @@ where operations first make sense, running as a Jupyter kernel via
 let n := 360 in ℤ
 n.factor()                 -- 2^3 * 3^2 * 5   (a Sage-computed, trusted value —
                             --  but no expression ever names a backend)
-let F := ℤ/4 in SmallModules(ℤ)
-F.annihilator()            -- (4)             (annihilator is declared once, on
-                            --  the appropriate module category and inherited)
-ℚ[3]                       -- NoImplementation: nth is *semantically* available
-                            --  (ℚ is countable) — there is just no route yet
+let F := ℤ/4 in Modules(ℤ)
+F.annihilator()            -- (4)             (declared once, on Modules — any
+                            --  module; implemented for cyclic ℤ-modules)
+let A := [1, 2; 3, 4] in Mat₂(ℤ/5)
+A.det()                    -- NoImplementation: det is *semantically* available
+                            --  on any square matrix — there is just no route yet
 ```
 
 Three invariants, enforced end to end:

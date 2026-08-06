@@ -137,8 +137,6 @@ by one element" },
 also a PID and a UFD" },
   { name := `Modules,
     doc := "modules over a commutative ring" },
-  { name := `SmallModules, parents := #[`Modules],
-    doc := "modules small enough to present by explicit finite data" },
   { name := `MatrixElems,
     doc := "square matrices over a commutative ring; params (size, entry domain)" },
   -- Polynomials are a STRUCTURAL view, not a divisibility one: `deg` and
@@ -201,9 +199,9 @@ run_cmd stdCategories.forM registerCategory!
 
 Each declaration names the category where the operation first makes sense —
 NOT the categories that can currently execute it. `annihilator` is declared
-once, on `Modules`; `SmallModules` deliberately carries no declaration of
-its own, so the notebook's fixture receives it purely through the registered
-inclusion edge. -/
+once, on `Modules` — it is defined for any module; that the shipped
+implementation answers only cyclic ℤ-modules is route data (§4), never a
+category. -/
 
 private def stdMethods : Array MethodDecl := #[
   { id := `factor, receiver := `FactorizationElems,
@@ -628,10 +626,10 @@ private def stdProfileRules : Array ProfileRule := #[
   -- of a function domain it inhabits the function hierarchy independently —
   -- the same two-hierarchy pattern
   { pattern := .homElem, cat := `HomElems },
-  -- the module fixture: ℤ/n as a ℤ-module, in the PROPER subcategory only.
-  -- `Modules` membership arrives through the inclusion edge, which is what
-  -- makes `annihilator` a real inheritance demonstration.
-  { pattern := .cyclicMod, cat := `SmallModules, slots := #[.const (.dom .int)] }
+  -- the module fixture: ℤ/n as a cyclic ℤ-module, a member of Modules(ℤ).
+  -- That the annihilator implementation answers only cyclic modules is the
+  -- route's pattern (§4), not a membership.
+  { pattern := .cyclicMod, cat := `Modules, slots := #[.const (.dom .int)] }
 ]
 
 run_cmd stdProfileRules.forM registerProfileRule!
@@ -646,8 +644,8 @@ or an implementation.
 
 The resolver consults these only where round one found NOTHING, so registering
 a functor can never take a method away from an object that already had it:
-`annihilator` still reaches the fixture directly through `SmallModules ≤
-Modules`, and the acceptance proofs below assert exactly that. -/
+`annihilator` still resolves directly on `Modules`, and the acceptance proofs
+below assert exactly that. -/
 
 private def stdFunctors : Array FunctorDecl := #[
   { name := `UnderlyingSet, source := `Modules, target := `Sets,
@@ -1030,11 +1028,11 @@ def acceptanceProofs (env : Environment) : CommandElabM Unit := do
   -- EuclideanElems ≤ FactorizationElems carries `factor` to integers, and
   -- the developer routed it to sage
   expectRouted env (.elem .int (.int 360)) `factor [`PIDElems, `FactorizationElems] `sage
-  -- THE inheritance demo: `annihilator` is declared only on Modules and
-  -- reaches the fixture through SmallModules ≤ Modules — DIRECTLY, with no
-  -- transport, even though a functor out of Modules is registered: round one
-  -- wins unconditionally, so round two can never take this method away
-  expectRouted env (.cyclicModule 4) `annihilator [`Modules] `native (functor? := none)
+  -- `annihilator` is declared only on Modules and resolves on the fixture
+  -- DIRECTLY, with no transport, even though a functor out of Modules is
+  -- registered: round one wins unconditionally, so round two can never take
+  -- this method away
+  expectRouted env (.cyclicModule 4) `annihilator [] `native (functor? := none)
   -- ℚ is countable and enumerable: `nth` routes, answering through the
   -- adopted `Denumerable` order (#35)
   expectRouted env (.domainObj .rat) `nth [] `native

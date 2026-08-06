@@ -23,7 +23,7 @@ inductive ParamVal where
 
 /-- An instantiated category: a node of the name-level inheritance graph
 plus instantiation data. Params are preserved unchanged along inheritance
-edges (`SmallModules(ℤ) ≤ Modules(ℤ)` because `SmallModules ≤ Modules`). -/
+edges (`EuclideanElems(ℤ) ≤ PIDElems(ℤ)` because `EuclideanElems ≤ PIDElems`). -/
 structure CatRef where
   name : Name
   params : Array ParamVal := #[]
