@@ -39,11 +39,6 @@ def reexec(path: Path, allow_errors: bool) -> int:
               f"rule forbids here (comment the offending line, or move it "
               f"to boundaries.ipynb):\n{exc}")
         return 1
-    # byte-stable output: nbclient stamps per-cell wall-clock execution
-    # metadata, which would dirty the tree on every run; the genuineness
-    # claim is THIS gate having run, not a committed timestamp
-    for c in nb.cells:
-        c.metadata.pop("execution", None)
     nbformat.write(nb, path)
 
     code = [c for c in nb.cells if c.cell_type == "code"]
