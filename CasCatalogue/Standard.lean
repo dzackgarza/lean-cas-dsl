@@ -18,6 +18,7 @@ public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
 public import CasCatalogue.Leaves.Modules.Rank
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Fused
 public import CasCatalogue.Leaves.Algebra.RingTables
+public import CasCatalogue.Leaves.Algebra.RingActions
 public import CasCatalogue.Leaves.Foundation.Cardinality
 public import CasCatalogue.Leaves.Foundation.Subsets
 public import CasCatalogue.Leaves.Modules.Finite
@@ -302,6 +303,9 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.monoids.semigroup.table"⟩,
   ⟨"act.semigroups.magma.table"⟩,
   ⟨"act.magmas.set.table"⟩,
+  ⟨"act.rings.multiplicative_monoid.table"⟩,
+  ⟨"act.rings.additive_group.table"⟩,
+  ⟨"act.additive_groups.to_groups.table"⟩,
   ⟨"act.subobjects_groups.domain.table"⟩,
   ⟨"act.subobjects_groups.inclusion.table"⟩,
   ⟨"act.modules.rank.int_free"⟩,
@@ -363,6 +367,7 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.modules.int_free"⟩, ⟨"rz.modules_total.int_free"⟩, ⟨"rz.bilin_module.int_gram"⟩,
   ⟨"rz.lattice.int_gram"⟩, ⟨"rz.core_modules.int_free"⟩, ⟨"rz.magmas.table"⟩,
   ⟨"rz.semigroups.table"⟩, ⟨"rz.monoids.table"⟩, ⟨"rz.groups.table"⟩,
+  ⟨"rz.additive_groups.table"⟩,
   ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
   ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩]

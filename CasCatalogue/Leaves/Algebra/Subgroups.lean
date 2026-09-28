@@ -127,13 +127,14 @@ noncomputable def subgroupDenotation :
 
 /-- The domain action: a subgroup is its own group table. -/
 def domainAction : RealizedAction domainDeclaration.{0} subgroupDenotation groupDenotation where
-  action := { obj := fun h => h.source, map := fun h => ⟨by cases h.down; rfl⟩ }
+  action :=
+    { obj := fun h => h.source
+      map := fun h => by cases h.down; exact MonoidTableHom.id _ }
   realizes :=
     { obj := fun _ => rfl
       map := fun h => by
         rcases h with ⟨rfl⟩
-        simp only [subgroupDenotation, groupDenotation, eqToHom_refl, Functor.map_id,
-          Category.id_comp]
+        simp only [subgroupDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
         rfl }
 
 /-- The inclusion action: the retained embedding, as an arrow. -/

@@ -24,6 +24,7 @@ public import CasCatalogue.Leaves.Algebra.GroupTables
 public import CasCatalogue.Leaves.Algebra.KernelDecode
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Algebra.RingActions
 public import CasCatalogue.Leaves.Algebra.RingTables
 public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Elements

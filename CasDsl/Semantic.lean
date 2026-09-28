@@ -299,7 +299,10 @@ where
     let fusedRoutes := (routesFor env (Name.mkSimple method)).filter fun r => r.realizes == key
     let lines := #[s!"{method} on {pres.presentation} (a point of {category}, {realizer})",
       s!"  route:       {state.renderRoute resolution.route}",
-      s!"  method:      {resolution.method.id.raw} = {resolution.method.functor.raw}",
+      s!"  method:      {resolution.method.id.raw} = {resolution.method.functor.raw}"] ++
+      (if resolution.comparisons.isEmpty then #[] else
+        #[s!"  identified:  the other routes by {resolution.comparisons.toList.map (·.raw)} \
+(registered comparisons; the route's result is theirs)"]) ++ #[
       s!"  realization: " ++ (if value?.isSome then
           "composed Lean-native actions (Lean-checked computation)"
         else if realizer.endsWith "(trusted)" then

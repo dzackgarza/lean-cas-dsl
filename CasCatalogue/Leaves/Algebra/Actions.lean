@@ -18,7 +18,8 @@ public meta import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
 
 A finite magma is realized by its multiplication table on `Fin n`; a semigroup, monoid or group
 table adds the unit, inverse and the proofs of their laws, checked once when the table is built
-(by `decide`). These realizers cover objects and their identities. The forgetful functors
+(by `decide`). Morphisms are realized by table homomorphisms (maps preserving the multiplication,
+and the unit for monoids and groups). The forgetful functors
 `Grp → Mon → Semigrp → Magma` act by dropping data; the commutativity classifier on magmas
 (`clf.magmas.commutative`) is decided by inspecting the table.
 
@@ -77,72 +78,88 @@ instance (t : GroupTable) : Group t.Carrier where
   inv := t.inv
   inv_mul_cancel := t.inv_mul
 
-/-! ### Realizers: tables and their identities -/
+/-! ### Table homomorphisms -/
 
-abbrev magmaRealizer : Realizer := ⟨MagmaTable, fun a b => PLift (a = b)⟩
-abbrev semigroupRealizer : Realizer := ⟨SemigroupTable, fun a b => PLift (a = b)⟩
-abbrev monoidRealizer : Realizer := ⟨MonoidTable, fun a b => PLift (a = b)⟩
-abbrev groupRealizer : Realizer := ⟨GroupTable, fun a b => PLift (a = b)⟩
+/-- A homomorphism of magma tables: a map preserving the multiplication. -/
+structure MagmaTableHom (a b : MagmaTable) where
+  map : Fin a.size → Fin b.size
+  map_mul : ∀ x y, map (a.mul x y) = b.mul (map x) (map y)
+
+/-- The identity homomorphism. -/
+def MagmaTableHom.id (a : MagmaTable) : MagmaTableHom a a := ⟨fun x => x, fun _ _ => rfl⟩
+
+/-- The multiplicative map a table homomorphism denotes. -/
+def MagmaTableHom.hom {a b : MagmaTable} (f : MagmaTableHom a b) : a.Carrier →ₙ* b.Carrier :=
+  ⟨f.map, f.map_mul⟩
+
+/-- A homomorphism of monoid tables: it preserves the multiplication and the unit. -/
+structure MonoidTableHom (a b : MonoidTable) extends MagmaTableHom a.toMagmaTable b.toMagmaTable where
+  map_one : map a.one = b.one
+
+/-- The identity homomorphism. -/
+def MonoidTableHom.id (a : MonoidTable) : MonoidTableHom a a :=
+  { MagmaTableHom.id a.toMagmaTable with map_one := rfl }
+
+/-- The monoid homomorphism a table homomorphism denotes. -/
+def MonoidTableHom.hom {a b : MonoidTable} (f : MonoidTableHom a b) : a.Carrier →* b.Carrier :=
+  ⟨⟨f.map, f.map_one⟩, f.map_mul⟩
+
+/-! ### Realizers: tables and their homomorphisms -/
+
+abbrev magmaRealizer : Realizer := ⟨MagmaTable, MagmaTableHom⟩
+abbrev semigroupRealizer : Realizer :=
+  ⟨SemigroupTable, fun a b => MagmaTableHom a.toMagmaTable b.toMagmaTable⟩
+abbrev monoidRealizer : Realizer := ⟨MonoidTable, MonoidTableHom⟩
+abbrev groupRealizer : Realizer :=
+  ⟨GroupTable, fun a b => MonoidTableHom a.toMonoidTable b.toMonoidTable⟩
 
 noncomputable def magmaDenotation : Denotation magmaRealizer Algebra.Magmas.{0} where
   obj t := MagmaCat.of t.Carrier
-  map h := eqToHom (by cases h.down; rfl)
+  map f := MagmaCat.ofHom f.hom
 
 noncomputable def semigroupDenotation : Denotation semigroupRealizer Algebra.Semigroups.{0} where
   obj t := Semigrp.of t.Carrier
-  map h := eqToHom (by cases h.down; rfl)
+  map f := Semigrp.ofHom f.hom
 
 noncomputable def monoidDenotation : Denotation monoidRealizer Algebra.Monoids.{0} where
   obj t := MonCat.of t.Carrier
-  map h := eqToHom (by cases h.down; rfl)
+  map f := MonCat.ofHom f.hom
 
 noncomputable def groupDenotation : Denotation groupRealizer Algebra.Groups.{0} where
   obj t := GrpCat.of t.Carrier
-  map h := eqToHom (by cases h.down; rfl)
+  map f := GrpCat.ofHom f.hom
 
 /-! ### The forgetful actions -/
 
 def groupToMonoid :
     RealizedAction (forget₂ GrpCat.{0} MonCat) groupDenotation monoidDenotation where
-  action := { obj := GroupTable.toMonoidTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  action := { obj := GroupTable.toMonoidTable, map := fun f => f }
   realizes :=
     { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [groupDenotation, monoidDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
-        rfl }
+      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
 
 def monoidToSemigroup :
     RealizedAction (forget₂ MonCat.{0} Semigrp) monoidDenotation semigroupDenotation where
-  action := { obj := MonoidTable.toSemigroupTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  action := { obj := MonoidTable.toSemigroupTable, map := fun f => f.toMagmaTableHom }
   realizes :=
     { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [monoidDenotation, semigroupDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
-        rfl }
+      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
 
 def semigroupToMagma :
     RealizedAction (forget₂ Semigrp.{0} MagmaCat) semigroupDenotation magmaDenotation where
-  action := { obj := SemigroupTable.toMagmaTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  action := { obj := SemigroupTable.toMagmaTable, map := fun f => f }
   realizes :=
     { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [semigroupDenotation, magmaDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
-        rfl }
+      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
 
 /-- The underlying set of a finite magma: the forgetful functor of the binary-operation
 classifier, `Magma → Set`, on tables. -/
 def magmaToSet : RealizedAction (forget MagmaCat.{0}) magmaDenotation
     CasCatalogue.Foundation.Actions.setDenotation where
-  action := { obj := fun t => .finite t.size, map := fun h => by cases h.down; exact id }
+  action := { obj := fun t => .finite t.size, map := fun f => f.map }
   realizes :=
     { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [magmaDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
-        rfl }
+      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
 
 /-! ### Deciding commutativity from the table -/
 
