@@ -12,13 +12,13 @@ public import CasCatalogue.Tools.ExportJson
 
 example : True := by
   fail_if_success
-    let _ := LeanCategories.registryExt.addEntry
+    let _ := CasCatalogue.registryExt.addEntry
     trivial
   fail_if_success
     let _ := CasCatalogue.Tools.snapshotManifestJson
     trivial
   fail_if_success
-    let _ := LeanCategories.RegistrySnapshot
+    let _ := CasCatalogue.RegistrySnapshot
     trivial
   exact True.intro
 

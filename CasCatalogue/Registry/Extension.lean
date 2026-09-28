@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Typed
+public import CasCatalogue.Action
 public import LeanCategories.CategoryTheory.OneCat.Classifier
 public import CasCatalogue.Realization
 public import CasCatalogue.FamilyFibration
@@ -39,6 +40,7 @@ inductive RegistryEntry
   | opaque (e : OpaqueCategoryEntry)
   | fibration (e : FibrationEntry)
   | constructor (e : ConstructorEntry)
+  | action (e : FunctorActionEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -50,6 +52,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .opaque e => e.id.raw
   | .fibration e => e.id.raw
   | .constructor e => e.id.raw
+  | .action e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -63,6 +66,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
       e.ports.flatMap fun p => #[p.declaration, p.realization]
   | .fibration e => #[e.evidence]
   | .constructor e => #[e.semantics]
+  | .action e => #[e.realization]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -72,6 +76,7 @@ structure RegistryState where
   opaqueCategories : Array OpaqueCategoryEntry := #[]
   fibrations : Array FibrationEntry := #[]
   constructors : Array ConstructorEntry := #[]
+  actions : Array FunctorActionEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -307,6 +312,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .opaque e => { s with opaqueCategories := s.opaqueCategories.push e }
   | s, .fibration e => { s with fibrations := s.fibrations.push e }
   | s, .constructor e => { s with constructors := s.constructors.push e }
+  | s, .action e => { s with actions := s.actions.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -315,7 +321,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.functors.toList.map RegistryEntry.functor ++
     state.opaqueCategories.toList.map RegistryEntry.opaque ++
     state.fibrations.toList.map RegistryEntry.fibration ++
-    state.constructors.toList.map RegistryEntry.constructor
+    state.constructors.toList.map RegistryEntry.constructor ++
+    state.actions.toList.map RegistryEntry.action
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -488,6 +495,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for fibration in state.fibrations do
     unless (state.functor? fibration.projection).isSome do
       throw s!"fibration entry {fibration.id.raw} has an unregistered projection"
+  for action in state.actions do
+    unless (state.functor? action.functor).isSome do
+      throw s!"action entry {action.id.raw} realizes an unregistered functor"
   pure ()
 
 private def registryValidationFailed (result : Except String Unit) : Bool :=
@@ -549,6 +559,11 @@ private initialize registryExt : SimplePersistentEnvExtension RegistryEntry Regi
       | .error message => panic! s!"invalid normalized-category registry in imported modules: {message}"
       | .ok () => state
 }
+
+/-- The registry state of the current environment, read-only. The only write path is
+`addRegistryEntryChecked`, through the `normalized_registry` command. -/
+def registryState : CoreM RegistryState :=
+  return registryExt.getState (← getEnv)
 
 /-- The result type of a declaration after exposing all of its parameters. -/
 def declarationResultType (declaration : Name) : MetaM Expr := do
@@ -1371,6 +1386,36 @@ def validateFibrationEvidence (state : RegistryState) (e : FibrationEntry) : Met
     throwError
       "fibration {e.id.raw} evidence {e.evidence} is not about its projection {e.projection.raw}"
 
+/-- The registered functor `entry`'s declaration, applied to fresh metavariables for its
+parameters, as a Mathlib functor. -/
+def registeredFunctorInstance (entry : FunctorEntry) : MetaM Expr := do
+  let declarationConstant ← mkConstWithFreshMVarLevels entry.declaration
+  let (declarationArgs, _, _) ← forallMetaTelescopeReducing (← inferType declarationConstant)
+  let declarationValue := mkAppN declarationConstant declarationArgs
+  let declarationType ← whnf (← inferType declarationValue)
+  if declarationType.isAppOf ``CategoryTheory.Cat.Hom then
+    mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[declarationValue]
+  else
+    pure declarationValue
+
+/-- An action row's realization must be a `RealizedAction F dC dD` whose functor `F` is an
+instance of its registered functor's declaration (CC-ACTION). -/
+def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) : MetaM Unit := do
+  let functor ← match state.functor? e.functor with
+    | some entry => pure entry
+    | none => throwError "action {e.id.raw} realizes an unregistered functor {e.functor.raw}"
+  let registered ← registeredFunctorInstance functor
+  let realizationConstant ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, realizationType) ← forallMetaTelescopeReducing (← inferType realizationConstant)
+  let realizationType ← whnfR realizationType
+  unless realizationType.isAppOfArity ``CasCatalogue.RealizedAction 9 do
+    throwError "action {e.id.raw} realization {e.realization} is not a RealizedAction"
+  let realizedFunctor := realizationType.getAppArgs[6]!
+  unless ← withTransparency .all <| isDefEq realizedFunctor registered do
+    throwError
+      "action {e.id.raw} realization {e.realization} does not realize the registered functor \
+      {e.functor.raw}"
+
 /-- Inspect declaration types before atomically persisting a registry entry. -/
 def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   let state := registryExt.getState (← getEnv)
@@ -1421,6 +1466,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
         ensureFunctorRealization port.realization
         validateOpaquePortRealization state port
   | .fibration e => validateFibrationEvidence state e
+  | .action e => validateActionRealization state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -1739,6 +1785,12 @@ structure RegistryManifestConstructor where
   semantics : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestAction where
+  id : String
+  functor : String
+  realization : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -1748,6 +1800,7 @@ structure RegistryManifest where
   categoryFamilies : Array RegistryManifestFamily
   fibrations : Array RegistryManifestFibration
   constructors : Array RegistryManifestConstructor
+  actions : Array RegistryManifestAction
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -1842,6 +1895,8 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
         | .category => "category"
         | .object => "object"
         | .functor => "functor" }
+    actions := (state.actions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, functor := e.functor.raw, realization := e.realization.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

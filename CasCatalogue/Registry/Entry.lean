@@ -38,6 +38,17 @@ structure FibrationEntry where
   evidence : Lean.Name
   deriving Repr
 
+/-- A functor action registry row (CC-ACTION): `realization` names a `RealizedAction F dC dD`,
+an executable object and morphism action on realizations together with the proof that it
+commutes with denotation, where `F` is (an instance of) the registered functor `functor`'s
+declaration. A composite functor's action is the composite of its factors' actions and is never
+registered. -/
+structure FunctorActionEntry where
+  id : ActionId
+  functor : FunctorId
+  realization : Lean.Name
+  deriving Repr
+
 /-- The kind of one argument of a typed category constructor. -/
 inductive ConstructorArgKind
   | category

@@ -13,10 +13,12 @@ public import LeanCategories.Lattices.Valued.ScaleAndEvenness
 public import LeanCategories.Modules.Mathlib
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Expressions
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.CatalogueRegistration
 public meta import CasCatalogue.Registry.Extension
 public meta import CasCatalogue.Leaves.Lattices.Valued.Catalogue
 public meta import CasCatalogue.Leaves.Lattices.Valued.Expressions
 public meta import CasCatalogue.Leaves.Modules.Catalogue
+public meta import CasCatalogue.Leaves.Modules.Bilinear.Valued.Expressions
 
 @[expose] public section
 
@@ -301,6 +303,23 @@ noncomputable def fractionFieldPerfectFiniteProjectiveForgetRealization
   { sourceRealization := fractionFieldPerfectFiniteProjectiveLatticeRealization R
     targetRealization := integralLatticeRealization R }
 
+/-- The inclusion of lattices into formed modules (the lattice property's full subcategory
+inclusion, FOUNDATIONS §19.2). -/
+noncomputable def latticeFormForgetDeclaration (R : Type u) [CommRing R]
+    (W : Type u) [AddCommGroup W] [Module R W] :
+    latticeCategory R W ⟶
+      CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory R W :=
+  (isLattice R W).ι.toCatHom
+
+noncomputable def latticeFormForgetRealization (R : Type u) [CommRing R]
+    (W : Type u) [AddCommGroup W] [Module R W] :
+    FunctorRealization LatticeFormForget (latticeCategory R W)
+      (CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleCategory R W)
+      (isLattice R W).ι :=
+  { sourceRealization := latticeRealization R W
+    targetRealization :=
+      CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleRealization R W }
+
 noncomputable def latticeChangeValueDeclaration (R : Type u) [CommRing R]
     (W W' : Type u) [AddCommGroup W] [Module R W]
     [AddCommGroup W'] [Module R W'] (f : W →ₗ[R] W') :
@@ -465,6 +484,16 @@ normalized_registry .category
     expression := UnimodularLattice
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.unimodularLatticeRealization }
+
+normalized_registry .functor
+  { id := FunctorId.latticeFormForget
+    source := Lattice
+    target := CasCatalogue.Modules.Bilinear.Valued.Catalogue.BilinModule
+    declaration :=
+      `CasCatalogue.Lattices.Valued.CatalogueRegistration.latticeFormForgetDeclaration
+    realization :=
+      `CasCatalogue.Lattices.Valued.CatalogueRegistration.latticeFormForgetRealization
+    expression := LatticeFormForget }
 
 normalized_registry .functor
   { id := FunctorId.latticeChangeValue

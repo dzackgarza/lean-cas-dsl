@@ -68,6 +68,12 @@ structure ConstructorId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered functor action on realizations (CC-ACTION), e.g.
+`act.modules.underlying.int_free`. -/
+structure ActionId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -93,6 +99,7 @@ structure OpaquePortId where
 
 instance : Inhabited CategoryId := ⟨⟨""⟩⟩
 instance : Inhabited FibrationId := ⟨⟨""⟩⟩
+instance : Inhabited ActionId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

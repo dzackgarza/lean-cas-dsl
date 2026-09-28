@@ -299,10 +299,11 @@ function. -/
 
 /-- The object map of a registered functor, as registry data.
 
-CEILING (the same shape as `DomainPattern`'s): a functor whose object map is
-not expressible by one of these constructors adds a constructor here. That is
-a deliberate, visible edit to the engine's vocabulary rather than a closure
-smuggled into the environment; nothing infers an object map. -/
+RETIRED as a mechanism (CC-ACTION, `specs/computational-core.md`): no constructor is added
+here. A functor's object and morphism actions are registered as `RealizedAction` rows in
+`CasCatalogue` (`CasCatalogue/Action.lean`), checked against the functor's Mathlib
+denotation; this enum and its one consumer are deleted when the resolver moves onto that
+registry (plan node `cc-dsl-migration`). -/
 inductive ObjMap where
   /-- The forgetful map of the module fixture: the ℤ-module `ℤ/n` to its
   underlying set, presented as the explicit finite list of residues. -/

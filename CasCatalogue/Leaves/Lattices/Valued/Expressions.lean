@@ -3,6 +3,7 @@ module
 public import CasCatalogue.Syntax
 public import CasCatalogue.Leaves.Lattices.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Expressions
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Expressions
 
 @[expose] public section
 
@@ -33,6 +34,10 @@ def FractionFieldPerfectFiniteProjectiveLattice : CategoryExpr :=
 def UnimodularLattice : CategoryExpr :=
   .familyApp CategoryFamilyId.unimodularLattice
     #[.variable ParameterId.r, .variable ParameterId.domain]
+
+/-- A lattice is a formed module with a property: the full subcategory inclusion. -/
+def LatticeFormForget : FunctorExpr Lattice CasCatalogue.Modules.Bilinear.Valued.Catalogue.BilinModule :=
+  .atomic FunctorId.latticeFormForget
 
 def LatticeChangeValue : FunctorExpr Lattice
     (.familyApp CategoryFamilyId.lattice

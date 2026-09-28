@@ -9,6 +9,7 @@ public import CasCatalogue.Leaves.Lattices.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
 public import CasCatalogue.FibrationRegistration
 public import CasCatalogue.ConstructorRegistration
+public import CasCatalogue.Leaves.Lattices.Valued.Actions
 
 @[expose] public section
 
@@ -118,6 +119,7 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.bilinModuleBaseChange,
   FunctorId.bilinModuleChangeValue,
   FunctorId.bilinModuleForget,
+  FunctorId.latticeFormForget,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -156,6 +158,13 @@ def expectedFibrationIds : Array FibrationId := #[
 def expectedConstructorIds : Array ConstructorId := #[
   ConstructorId.arrow, ConstructorId.core, ConstructorId.slice, ConstructorId.coslice,
   ConstructorId.elements, ConstructorId.subobjects, ConstructorId.functorCategory]
+
+/-- Stable functor-action rows owned by the standard catalogue (CC-ACTION). -/
+def expectedActionIds : Array ActionId := #[
+  ⟨"act.lattice.forget_form.int_gram"⟩,
+  ⟨"act.bilin_module.forget.int_gram"⟩,
+  ⟨"act.modules.fibre_inclusion.int_free"⟩,
+  ⟨"act.modules.underlying.int_free"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
@@ -197,6 +206,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedConstructorIds (·.raw))
   validateStableIdSet "fibrations" (manifest.fibrations.map (·.id))
     (rawIds expectedFibrationIds (·.raw))
+  validateStableIdSet "actions" (manifest.actions.map (·.id))
+    (rawIds expectedActionIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"
