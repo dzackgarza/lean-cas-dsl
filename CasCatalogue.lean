@@ -63,6 +63,7 @@ public import CasCatalogue.Lift
 public import CasCatalogue.LiftProbes
 public import CasCatalogue.Memo
 public import CasCatalogue.PropsProbes
+public import CasCatalogue.QuadFibrationRegistration
 public import CasCatalogue.Realization
 public import CasCatalogue.RealizeProbes
 public import CasCatalogue.Registry.Entry

@@ -1,5 +1,6 @@
 module
 
+public import CasCatalogue.QuadFibrationRegistration
 public import CasCatalogue.LatticeRefinements
 public import CasCatalogue.Leaves.Foundation.CatalogueRegistration
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
@@ -48,6 +49,7 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.finiteFreeLatticesOverRings,
   CategoryId.unimodularLatticesOverRings,
   CategoryId.evenIntegralLattices,
+  CategoryId.quadFormsOverRings,
   CategoryId.bilinModule,
   CategoryId.commutativeRings,
   CategoryId.crystals,
@@ -218,6 +220,7 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.latticesToBil,
   FunctorId.finiteProjectiveLatticesToBil,
   FunctorId.integralLatticesToBil,
+  FunctorId.quadFormsRing,
   FunctorId.freeCoverForget,
   FunctorId.basedModuleForget,
   FunctorId.integralLatticeForget,
@@ -297,7 +300,8 @@ def expectedFunctorIds : Array FunctorId := #[
 def expectedFibrationIds : Array FibrationId := #[
   FibrationId.modules,
   FibrationId.modulesExt,
-  FibrationId.bilinForms]
+  FibrationId.bilinForms,
+  FibrationId.quadForms]
 
 /-- Stable category-constructor rows owned by the standard catalogue. -/
 def expectedConstructorIds : Array ConstructorId := #[
