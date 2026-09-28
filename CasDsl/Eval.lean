@@ -872,7 +872,6 @@ def toleranceOf (v? : Option Value) (presentation : String) : Except String Rat 
 
 inductive EvalError where
   | msg (m : String)
-  | resolve (m : Name) (recv : Obj) (e : ResolveError)
   | gap (g : CapabilityGap)
   | tiedRoutes (m : Name) (rs : Array Route)
   | exec (e : ExecError)
@@ -886,10 +885,6 @@ inductive EvalError where
   deriving Inhabited
 
 /-! ### Rendering the structured failures -/
-
-def renderParam : ParamVal → String
-  | .dom d => d.render
-  | .nat n => toString n
 
 /-- A registered name as the mathematician spells it. Lean escapes a name
 that is not an identifier — the category SPEC.md writes `QQ-Mod` prints as
@@ -913,16 +908,15 @@ def renderSemanticCategory (category : String) (base : Option Domain) : String :
   | "cat.modules_r", some b => s!"Mod({b.render})"
   | "cat.groups", none => "Groups"
   | "cat.rings", none => "Rings"
+  | "cat.sets", none => "Sets"
+  | "cat.schemes_over_q", none => "Schemes/ℚ"
   | c, _ => c
-
-def renderCat (c : CatRef) : String :=
-  if c.params.isEmpty then renderName c.name
-  else s!"{renderName c.name}({", ".intercalate (c.params.toList.map renderParam)})"
 
 def renderPattern : PresPattern → String
   | .elemOf d => s!"element of {renderDomainPattern d}"
   | .domainIs d => s!"the domain {renderDomainPattern d}"
   | .finiteSet => "a finite set"
+  | .finiteSetOver d => s!"a finite set of elements of {renderDomainPattern d}"
   | .multisetPres => "a finite multiset"
   | .progression d => s!"a progression over {renderDomainPattern d}"
   | .domainSetOf d => s!"the underlying set of {renderDomainPattern d}"
@@ -944,23 +938,6 @@ def renderRoute (r : Route) : String :=
   s!"{r.method} for {renderPattern r.pattern} → backend {r.backend}, \
 op {repr r.opId}, priority {r.priority}"
 
-/-- How a method became semantically available, in the wording the
-diagnostics and the gap share. -/
-def renderVia (entry : CatRef) (via : List Name) : String :=
-  if via.isEmpty then s!"declared directly on {renderCat entry}"
-  else s!"inherited through {" ≤ ".intercalate (renderCat entry :: via.map renderName)}"
-
-/-- The full semantic chain, transport step included. A transported
-resolution's `entry`/`via` describe the IMAGE, so reporting them alone would
-silently omit the only step that explains why a module was routed as a set. -/
-def renderSemanticPath (entry : CatRef) (via : List Name)
-    (viaFunctor : Option FunctorStep) : String :=
-  match viaFunctor with
-  | none => renderVia entry via
-  | some step =>
-      s!"transported by functor '{step.functor}' to {step.image.presentation}, \
-then {renderVia entry via}"
-
 /-- The structured capability gap, in the same register `#explain_route`
 speaks: sentences built from registry data, never a dump of record fields.
 The literal token `NoImplementation` is part of the contract: it is what an
@@ -975,44 +952,10 @@ def renderGap (g : CapabilityGap) : String :=
         "; ".intercalate (g.routesConsidered.toList.map fun r =>
           s!"{renderPattern r.pattern} → {r.backend} {repr r.opId}") ++
         " — accept none of it"
-  let path := renderSemanticPath g.receiverCategory g.semanticVia g.viaFunctor
   s!"NoImplementation: '{g.method}' is mathematically available for \
-x = {g.presentation} ({path}), but {routes}.
-The method stays available on {renderCat g.receiverCategory}; the \
-mathematics is not narrowed — an implementation for this presentation does \
-not exist yet."
-
-def renderResolveError : ResolveError → String
-  | .unknownMethod m =>
-      -- SPEC.md §Ellipses' `R.dimension()` is the Krull dimension of a ring,
-      -- held for #13 demand with the multivariate algebras it is asked of —
-      -- a HELD method, named as one, rather than a name the registry happens
-      -- not to carry
-      if m == `dimension then
-        "dimension() — the Krull dimension of a ring (SPEC.md §Ellipses) — is \
-not implemented: the spelling is reserved for it. A subspace's `dim()` is \
-the dimension computed here"
-      else s!"there is no method named '{m}' in the registry"
-  | .notApplicable m profile declaredOn =>
-      let prof := ", ".intercalate (profile.toList.map renderCat)
-      let decl := ", ".intercalate (declaredOn.toList.map renderName)
-      s!"'{m}' is not a method of any category this object belongs to.\n  \
-profile:      {if prof.isEmpty then "(none)" else prof}\n  \
-declared on:  {if decl.isEmpty then "(nowhere)" else decl}"
-  | .ambiguous m cands =>
-      let cs := ", ".intercalate (cands.toList.map fun r =>
-        match r.viaFunctor with
-        | some step => s!"{renderName r.decl.receiver} (transported by functor '{step.functor}')"
-        | none => s!"{renderName r.decl.receiver} (via {renderCat r.profileEntry})")
-      s!"'{m}' reaches this object along more than one incomparable path: {cs}. \
-Declare it on a common subcategory, remove one declaration, or unregister one \
-of the competing functors — the resolver does not rank them."
-  | .functorTargetMismatch f target imageProfile =>
-      let prof := ", ".intercalate (imageProfile.toList.map renderCat)
-      s!"the registration of functor '{f}' is defective: it declares target \
-'{target}', but the profile of the image it produced here is \
-{if prof.isEmpty then "empty" else prof}, which does not reach '{target}'. Fix \
-the functor's declared target or its object map; the resolver will not use it."
+x = {g.presentation} (resolved: {g.route}), but {routes}.
+The method stays available where it is owned; the mathematics is not narrowed — an \
+implementation for this presentation does not exist yet."
 
 def renderExecError : ExecError → String
   | .backendUnavailable b d => s!"the '{b}' backend is unavailable: {d}"
@@ -1022,7 +965,6 @@ def renderExecError : ExecError → String
 
 def EvalError.render : EvalError → String
   | .msg m => m
-  | .resolve _ recv e => s!"{renderResolveError e}\n  receiver:     {recv.presentation}"
   | .gap g => renderGap g
   | .approxRequest eps e =>
       s!"no configured backend produced a decimal presentation within \
@@ -1121,75 +1063,69 @@ private def approxEps? (m : Name) (args : Array Obj) : Option (Except String Rat
     -- tolerance cannot be the reason for a call that carries none
     | none => none
 
-/-- A method call on a semantic point (`CasDsl/Semantic.lean`): resolved by the `CasCatalogue`
-registry and run along the route by the registered actions. Its realizations (CC-ROUTE) are the
-Lean composite, when registered actions realize the method too; fused backend routes registered for
-exactly this composite, run on the receiver; and backend routes for the method run on the route's
-image. With no backend selected (`EvalCtx.realization?`) the Lean composite runs when it exists —
-a Lean-checked value before a trusted one (CC-TRUST); otherwise, or when a backend is selected,
-the applicable backend routes of the highest priority. -/
-private def runOnPoint (ctx : EvalCtx) (category : String) (base : Option Domain) (pres : Obj)
-    (m : Name) (args : Array Obj) : EvalM Denote := do
-  if let some decl := (methodDecls ctx.env m)[0]? then
-    if args.size != decl.arity then
-      throw (.msg s!"'{m}' takes {decl.arity} argument(s), got {args.size}")
-  let plan ← match ← (Semantic.call ctx.env category base pres m.toString (!args.isEmpty) : IO _) with
+/-- How a method call on a value is realized, chosen without running it (CC-ROUTE): the Lean
+composite (registered actions realize the route and the method), or a registered backend route —
+a fused route on the receiver itself, or a route on the route's image — or a structured gap, or a
+tie between routes. `route` is the resolution, rendered. -/
+inductive Realization where
+  | lean (value : Value) (route : String)
+  | backend (r : Route) (receiver : Obj) (route : String)
+  | gap (g : CapabilityGap)
+  | tied (rs : Array Route)
+  deriving Inhabited
+
+/-- Choose the realization of `recv.m(…)`: the receiver's category (carried by a point, else typed
+at construction), the registry's resolution and the route's image (`Semantic.call`), then — with no
+backend selected — the Lean composite when it exists, a Lean-checked value before a trusted one
+(CC-TRUST); otherwise, or when a backend is selected, the applicable backend routes of the highest
+priority. A family typing is re-judged by Mathlib at the concrete receiver (invariant I7). -/
+def realizationOf (env : Environment) (recv : Obj) (m : Name) (withArguments : Bool)
+    (backend? : Option Name := none) : IO (Except String Realization) := do
+  let pres := match recv with
+    | .point _ _ p => p
+    | o => o
+  let typed ← match typeOf env recv with
+    | .ok t => pure t
+    | .error e => return .error s!"'{m}' is not a method of any category this object \
+belongs to: {e}"
+  if let some cls ← verifyTyping env typed.classes pres then
+    return .error s!"{pres.presentation} is typed in {typed.category}, which needs {cls}, and \
+Lean cannot synthesize {cls} there — the typing rule and Mathlib disagree, which is a \
+registration defect, not a property of the mathematics"
+  let plan ← match ← Semantic.call env typed.category typed.base pres m.toString withArguments with
     | .ok plan => pure plan
-    | .error e => throw (.msg e)
-  if ctx.realization?.isNone then
-    if let some v := plan.value? then return Denote.ofValue v
+    | .error e => return .error e
+  if backend?.isNone then
+    if let some v := plan.value? then return .ok (.lean v plan.route)
   let key := some (plan.method, plan.steps)
-  let routes := routesFor ctx.env m
+  let routes := routesFor env m
   let fused := (routes.filter fun r => r.realizes == key && r.pattern.accepts pres).map (·, pres)
   let onImage := match plan.image? with
     | some image =>
         (routes.filter fun r => r.realizes.isNone && r.pattern.accepts image).map (·, image)
     | none => #[]
-  let candidates := (fused ++ onImage).filter fun (r, _) =>
-    ctx.realization?.all (· == r.backend)
-  let best := candidates.foldl (init := 0) fun p (r, _) => max p r.priority
-  match (candidates.filter (·.1.priority == best)).toList with
-  | [] =>
-      let selected := match ctx.realization? with
-        | some b => s!" by the backend {b}"
-        | none => ""
-      throw (.msg s!"NoImplementation: '{m}' resolves to {plan.route}, and no registered \
-route implements it{selected} on {pres.presentation} or on its image\
-{(plan.image?.map fun o => " " ++ o.presentation).getD ""}")
-  | [(r, receiver)] =>
-      match ← execute r receiver args with
-      | .error e => throw (.exec e)
-      | .ok v => return Denote.ofValue v
-  | rs => throw (.tiedRoutes m (rs.map (·.1)).toArray)
+  let candidates := (fused ++ onImage).filter fun (r, _) => backend?.all (· == r.backend)
+  let target := plan.image?.getD pres
+  return .ok <| match selectRoute env m plan.route target (candidates.map (·.1)) with
+    | .gap g => .gap g
+    | .ambiguousRoutes rs => .tied rs
+    | .chosen r => .backend r ((candidates.find? (·.1 == r)).elim target (·.2)) plan.route
 
-/-- Resolve (semantics), route (computability), execute — the ONLY path from
-the surface to an implementation.
-
-Routing and execution use `res.concreteReceiver`, so a resolution that went
-through a functor runs against the transported image. Arguments are NOT
-transported: a method's arguments belong to its declaration, not to the
-receiver's presentation. -/
+/-- Resolve (semantics), route (computability), execute — the ONLY path from the surface to an
+implementation (`realizationOf`, then the chosen realization runs). Arguments are NOT
+transported: they belong to the method, not to the receiver's presentation. -/
 private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
-  if let .point category base pres := recv then
-    return ← runOnPoint ctx category base pres m args
-  match resolveMethod ctx.env recv m with
-  | .error e => throw (.resolve m recv e)
-  | .ok res =>
-    if args.size != res.decl.arity then
-      throw (.msg s!"'{m}' takes {res.decl.arity} argument(s), got {args.size}")
-    let concrete := res.concreteReceiver recv
-    -- the walk proposed this availability; Mathlib must agree (invariant I7)
-    if let some cls ← verifyResolution ctx.env res.profileEntry res.decl.receiver concrete then
-      throw (.msg s!"'{m}' is declared where {cls} holds, and Lean cannot \
-synthesize {cls} for {concrete.presentation} — the category graph and \
-Mathlib disagree here, which is a registration defect, not a property of \
-the mathematics")
-    match routeFor ctx.env res concrete with
-    | .gap g => throw (.gap g)
-    | .ambiguousRoutes rs => throw (.tiedRoutes m rs)
-    | .chosen r =>
-      match ← execute r concrete args with
+  if let some decl := (methodDecls ctx.env m)[0]? then
+    if args.size != decl.arity then
+      throw (.msg s!"'{m}' takes {decl.arity} argument(s), got {args.size}")
+  match ← (realizationOf ctx.env recv m (!args.isEmpty) ctx.realization? : IO _) with
+  | .error e => throw (.msg e)
+  | .ok (.lean v _) => return Denote.ofValue v
+  | .ok (.gap g) => throw (.gap g)
+  | .ok (.tied rs) => throw (.tiedRoutes m rs)
+  | .ok (.backend r receiver _) =>
+      match ← execute r receiver args with
       | .error e => throw (.exec e)
       | .ok v =>
         -- a provider-declared advisory rides the op's result (`OpSig.advisory`,
@@ -2194,86 +2130,38 @@ inductive Ascription where
   /-- A registered `CasCatalogue` category (with its base ring for a module fibre): the object
   becomes a semantic point of it (`CasDsl/Semantic.lean`). -/
   | semantic (category : String) (base : Option Domain)
-  | category (c : CatRef)
   /-- `let A := {1, 2, 3} in 𝒫(ℤ)`: the ascription names a SET, and the
   judgment is membership in it — decided by the same routed `contains` the
   surface's `∈` uses, which on a powerset is the inclusion `A ⊆ ℤ`. -/
   | member (s : Obj)
 
-/-- The category an ascription term names, if any. Only the two shapes the
-surface produces (`C` and `C(p₁, …)`) are category ascriptions. -/
-def categoryAscription? (env : Environment) : CasExpr → Option (Name × Array CasExpr)
-  | .ref n => if (catDecl? env n).isSome then some (n, #[]) else none
-  -- `Mod(QQ)` — the CANONICAL module-category spelling (ruling 2026-07-31,
-  -- the four spelling pins): `Mod(K)` names the registered category `K-Mod`,
-  -- whose hyphenated spelling stays the accepted alias. The registered NAME
-  -- stays ASCII (a Lean name), exactly as `Schemes/QQ` does; `renderName`
-  -- displays the canonical form. Before the generic application arm, which
-  -- would otherwise swallow the unregistered name `Mod` and answer nothing.
-  | .app (.ref `Mod) #[arg] =>
-      -- the base is a domain TOKEN (`ℚ`) or a domain ALIAS ident (`QQ`) —
-      -- the same two spellings every domain position accepts
-      let d? := match arg with
-        | .dom d => some d
-        | .ref a => domainAlias? a
-        | _ => none
-      match d? with
-      | some d =>
-          let n := Name.mkSimple s!"{asciiDomain d}-Mod"
-          if (catDecl? env n).isSome then some (n, #[]) else none
-      | none => none
-  | .app (.ref n) args => if (catDecl? env n).isSome then some (n, args) else none
-  -- SPEC.md writes a HYPHENATED category name — `in QQ-Mod` — which the term
-  -- grammar reads as a subtraction of two names. In ASCRIPTION position that
-  -- reading has no other meaning (neither name is bound, and a difference of
-  -- two unbound names is an error), so `A-B` names the registered category
-  -- `A-B` when there is one, and is the ordinary error when there is not
-  | .bin .sub (.ref a) (.ref b) =>
-      let n := Name.mkSimple s!"{a}-{b}"
-      if (catDecl? env n).isSome then some (n, #[]) else none
-  -- …and SPEC.md §Differentials writes a SLASHED one, `in Schemes/ℚ`, which
-  -- the term grammar reads as a quotient of a name by a domain. The reading
-  -- is the same move for the same reason: in ascription position it has no
-  -- other meaning, so it names the registered category when there is one.
-  -- The domain is spelled in ASCII inside the registered name (`Schemes/QQ`)
-  -- because a Lean name may not carry `ℚ`; `renderName` puts it back
-  | .bin .div (.ref a) (.dom d) =>
-      let n := Name.mkSimple s!"{a}/{asciiDomain d}"
-      if (catDecl? env n).isSome then some (n, #[]) else none
+/-- The registered category an ascription spells, if any, with its base-ring argument
+unevaluated. The spellings are `C`, `C(R)`, SPEC.md's hyphenated `QQ-Mod` (read by the term grammar
+as a subtraction) and slashed `Schemes/ℚ` (read as a quotient): in ascription position neither
+reading has another meaning. -/
+def categorySpelling? : CasExpr → Option (String × Option CasExpr)
+  | .ref n => some (n.toString, none)
+  | .app (.ref n) #[arg] => some (n.toString, some arg)
+  | .bin .sub (.ref a) (.ref b) => some (s!"{a}-{b}", none)
+  | .bin .div (.ref a) (.dom d) => some (s!"{a}/{d.render}", none)
+  | .bin .div (.ref a) (.ref b) => (domainAlias? b).map fun d => (s!"{a}/{d.render}", none)
   | _ => none
-where
-  asciiDomain : Domain → String
-    | .nat => "NN" | .int => "ZZ" | .rat => "QQ"
-    | .real => "RR" | .complex => "CC" | d => d.render
-
-private def paramOf : Denote → Except String ParamVal
-  | .obj (.domainObj d) => .ok (.dom d)
-  | .obj (.elem _ (.int k)) =>
-      if k ≥ 0 then .ok (.nat k.toNat)
-      else .error s!"{k} is not a category parameter"
-  | r => .error s!"{r.presentation} is not a category parameter"
 
 def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
-  -- `Modules(R)` and `Mod(R)` name the registered module fibre over the domain `R`. TRANSITIONAL
-  -- (plan node `cc-dsl-migration`): while the name-level graph still registers `QQ-Mod`, `Mod(R)`
-  -- is read semantically only where that graph names nothing; the graph is being deleted.
-  if let .ref head := e then
-    if let some (category, base) := Semantic.surfaceCategory? head none then
-      return .semantic category base
-  if let .app (.ref head) #[arg] := e then
-    if head == `Modules || (head == `Mod && (categoryAscription? ctx.env e).isNone) then
-      if let .obj (.domainObj base) ← eval ctx arg then
-        if let some (category, base) := Semantic.surfaceCategory? head (some base) then
-          return .semantic category base
-  match categoryAscription? ctx.env e with
-  | some (n, args) =>
-      let ps ← args.mapM fun a => do ofStr (paramOf (← eval ctx a))
-      return .category { name := n, params := ps }
-  | none =>
-      match ← eval ctx e with
-      | .obj (.domainObj d) => return .domain d
-      | .obj (.setObj s) => return .member (.setObj s)
-      | other => throw (.msg s!"{other.presentation} is neither a domain, a set, \
+  if let some (spelling, arg?) := categorySpelling? e then
+    let base? ← match arg? with
+      | none => pure none
+      | some arg => do
+          match ← eval ctx arg with
+          | .obj (.domainObj d) => pure (some d)
+          | _ => pure none
+    if arg?.isNone || base?.isSome then
+      if let some (category, base) := Semantic.surfaceCategory? spelling base? then
+        return .semantic category base
+  match ← eval ctx e with
+  | .obj (.domainObj d) => return .domain d
+  | .obj (.setObj s) => return .member (.setObj s)
+  | other => throw (.msg s!"{other.presentation} is neither a domain, a set, \
 nor a registered category")
 
 /-- Apply and CHECK an ascription. Membership is a judgment: a domain
@@ -2292,35 +2180,27 @@ def ascribe (ctx : EvalCtx) (o : Obj) : Ascription → EvalM Obj
           if d' == d then return o
           else throw (.msg s!"{d'.render} is not an element of {d.render}")
       | o => throw (.msg s!"{o.presentation} is not an element of {d.render}")
-  | .category c => do
-      -- a hom is a MORPHISM, and a category ascription states membership
-      -- among a category's OBJECTS. `let φ: ℚ³ → ℚ := … in Mod(ℚ)` is the
-      -- morphism-is-not-an-object hold (#31 item 4) — CategoryGraph-era
-      -- ontology, and refused BY NAME rather than as an empty profile
-      if let .elem _ (.hom ..) := o then
-        throw (.msg s!"a hom is a morphism, not an object of {renderCat c}; \
-ascribing it there is refused rather than read as membership — the arrow \
-`{o.presentation}` already names its domain and codomain")
-      let o' := match o with
-        | .domainObj (.mod n) => Obj.cyclicModule n
-        | o => o
-      -- membership closes over registered inclusion edges, params preserved:
-      -- an inclusion is an implication, so `ℤ/4 in Modules(ℤ)` holds because
-      -- ℤ/4 ∈ CyclicModules(ℤ) and CyclicModules ≤ Modules
-      let inCat := (profileOf ctx.env o').any fun p =>
-        p.params == c.params &&
-          (parentClosure (categories ctx.env) p.name).any (·.1 == c.name)
-      if inCat then return o'
-      else
-        let prof := ", ".intercalate ((profileOf ctx.env o').toList.map renderCat)
-        throw (.msg s!"{o'.presentation} is not in {renderCat c} \
-(its profile is {if prof.isEmpty then "empty" else prof})")
   | .semantic category base => do
-      -- membership in a registered category is realization by one of its registered realizers:
-      -- the category is the ascription's, the presentation only selects the realizer
-      if Semantic.realizes category base o then return .point category base o
-      throw (.msg s!"{o.presentation} is not realized as an object of \
-{renderSemanticCategory category base} by any registered realizer")
+      -- a hom is a MORPHISM, and a category ascription states membership among a category's
+      -- OBJECTS: refused by name rather than read as membership (#31 item 4)
+      if let .elem _ (.hom ..) := o then
+        throw (.msg s!"a hom is a morphism, not an object of \
+{renderSemanticCategory category base}; ascribing it there is refused rather than read as \
+membership — the arrow `{o.presentation}` already names its domain and codomain")
+      -- ℤ/n ascribed to a module category is the cyclic module (the one reinterpretation)
+      let o' := match o, base with
+        | .domainObj (.mod n), some .int => Obj.cyclicModule n
+        | o, _ => o
+      -- membership is realization by a registered Lean realizer of the category …
+      if Semantic.realizes category base o' then return .point category base o'
+      -- … or the value's own construction: it is typed in the category, or in one from which a
+      -- registered structural route reaches it (a subspace of ℚ³ is a ℚ-module through its
+      -- domain). The value keeps its own, more specific category.
+      if let .ok typed := typeOf ctx.env o' then
+        if ← (Semantic.reaches ctx.env typed.category category : IO Bool) then
+          return .point typed.category typed.base o'
+      throw (.msg s!"{o'.presentation} is not in {renderSemanticCategory category base}: no \
+registered realizer realizes it there, and it is not constructed in a category that reaches it")
   | .member s => do
       match (← callMethod ctx s `contains #[o]).value? with
       | some (.bool true) => return o

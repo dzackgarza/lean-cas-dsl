@@ -77,11 +77,10 @@ example : UniqueFactorizationMonoid (Polynomial ℤ) := inferInstance
 example : IsDomain (Polynomial ℤ) := inferInstance
 example : CommRing (ZMod 5) := inferInstance
 
-section
--- ℤ/5 is a field BECAUSE 5 is prime — the hypothesis is part of the claim
-local instance : Fact (Nat.Prime 5) := ⟨by decide⟩
+-- ℤ/5 is a field BECAUSE 5 is prime — the hypothesis is part of the claim, and it is a global
+-- instance because the typing rule for ℤ/5[x] (polynomials over a field) is synthesized with it
+instance fact_prime_five : Fact (Nat.Prime 5) := ⟨by decide⟩
 example : Field (ZMod 5) := inferInstance
-end
 
 -- the registered enumerations: ℕ, ℤ, ℚ are denumerable (enumeration is
 -- DATA — Mathlib's equivalence, or a declared alternative, never a silent one)

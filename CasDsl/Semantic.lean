@@ -22,6 +22,7 @@ the decoders send handles back. Neither decides a category.
 import Lean
 import CasDsl.Value
 import CasDsl.Mathlib.Verify
+import CasDsl.Registry
 import CasCatalogue.Resolve
 import CasCatalogue.Standard
 import CasCatalogue.Leaves.Algebra.GroupTables
@@ -35,12 +36,17 @@ open CasCatalogue.Foundation.Subsets
 /-! ## Surface categories -/
 
 /-- The registered category a surface category spelling names, with its base ring for a module
-fibre. `Modules(R)` and `Mod(R)` are the fibre `Mod_R` of the module fibration. -/
-def surfaceCategory? (head : Name) (base : Option Domain) : Option (String × Option Domain) :=
-  match head, base with
-  | `Modules, some b | `Mod, some b => some ("cat.modules_r", some b)
-  | `Groups, none => some ("cat.groups", none)
-  | `Rings, none => some ("cat.rings", none)
+fibre, by its surface spelling. `Modules(R)`, `Mod(R)` and `QQ-Mod` are fibres `Mod_R` of the
+module fibration. -/
+def surfaceCategory? (spelling : String) (base : Option Domain) :
+    Option (String × Option Domain) :=
+  match spelling, base with
+  | "Modules", some b | "Mod", some b => some ("cat.modules_r", some b)
+  | "QQ-Mod", none => some ("cat.modules_r", some .rat)
+  | "Schemes/ℚ", none => some ("cat.schemes_over_q", none)
+  | "Groups", none => some ("cat.groups", none)
+  | "Rings", none => some ("cat.rings", none)
+  | "Sets", none => some ("cat.sets", none)
   | _, _ => none
 
 /-! ## Codecs -/
@@ -57,7 +63,7 @@ that category. `none`: no registered realizer of this category realizes the pres
 def encode (category : String) (base : Option Domain) (pres : Obj) : Option Encoded :=
   match category, base, pres with
   -- ℤ/n as a cyclic ℤ-module
-  | "cat.modules_r", some .int, .domainObj (.mod n) =>
+  | "cat.modules_r", some .int, .cyclicModule n =>
       some ⟨"rz.modules.cyclic_int", mkConst ``CasCatalogue.Modules.Finite.cyclicDenotation,
         mkNatLit n⟩
   -- ℤᵏ, free
@@ -143,6 +149,9 @@ structure Plan where
   value? : Option Value
   /-- The route's image `U(x)`, decoded, for a method realized by a backend on the image. -/
   image? : Option Obj
+  /-- Whether the image is the trusted presentation of the receiver itself (no Lean realizer
+  realizes the receiver; CC-TRUST), rather than computed by Lean actions. -/
+  trusted : Bool := false
   deriving Inhabited
 
 /-- The registered category of a point, by id. -/
@@ -150,6 +159,24 @@ def categoryExpr (state : RegistryState) (category : String) : Except String Cat
   match state.categories.find? (·.id.raw == category) with
   | some entry => .ok entry.expression
   | none => .error s!"no registered category {category}"
+
+/-- Whether a registered structural route leads from `source` to `target` (or they are the same
+category): the value of `source` is then an object of `target` through that route. -/
+def reaches (env : Environment) (source target : String) : IO Bool :=
+  if source == target then pure true else
+  runSemanticCheck env do
+    let state ← registryState
+    match categoryExpr state source, categoryExpr state target with
+    | .ok s, .ok t => return !(state.routes s t).isEmpty
+    | _, _ => return false
+
+/-- The report for a name that is neither a registered method nor a property. SPEC.md §Ellipses'
+`R.dimension()` (the Krull dimension of a ring) is HELD, and said so. -/
+def unknownMethod (name : String) : String :=
+  if name == "dimension" then
+    "dimension() — the Krull dimension of a ring (SPEC.md §Ellipses) — is not implemented: the \
+spelling is reserved for it. A subspace's `dim()` is the dimension computed here"
+  else s!"there is no method named '{name}' in the registry"
 
 /-- The Boolean answer of a closed `Decision` term. -/
 unsafe def evalAnswerUnsafe (e : Expr) : MetaM (Option Bool) :=
@@ -164,10 +191,16 @@ def propertyCall (state : RegistryState) (expression : CategoryExpr) (category :
     (base : Option Domain) (pres : Obj) (name : String) : MetaM (Except String Plan) := do
   let resolution ← match state.resolveProperty expression name with
     | .ok r => pure r
+    | .error (.unknownMethod _) => return .error (unknownMethod name)
+    | .error e@(.notApplicable ..) =>
+        return .error s!"'{name}' is not a method of any category this object belongs to: \
+{e.render state}"
     | .error e => return .error (e.render state)
   let some encoded := encode category base pres
-    | return .error s!"no registered realizer of {category} realizes {pres.presentation} \
-        (CC-SEP)"
+    | return .ok { route := state.renderPropertyResolution resolution
+                   method := resolution.property.id.raw
+                   steps := resolution.route.refs.map (·.label)
+                   value? := none, image? := some pres, trusted := true }
   let routeAction ← composeRouteFrom state encoded.denotation resolution.route
   let image ← mkAppM ``RealizedAction.obj #[routeAction, encoded.handle]
   let mut decisions : Array Expr := #[]
@@ -207,10 +240,17 @@ where
       -- a property query is spelled as a method call (`G.is_abelian()`, CC-PROP)
       | .error (.unknownMethod _) =>
           return ← propertyCall state expression category base pres method
+      | .error e@(.notApplicable ..) =>
+          return .error s!"'{method}' is not a method of any category this object belongs \
+to: {e.render state}"
       | .error e => return .error (e.render state)
     let some encoded := encode category base pres
-      | return .error s!"no registered realizer of {category} realizes {pres.presentation} \
-          (CC-SEP)"
+      -- no Lean realizer: the backend's presentation realizes the point, and each structural
+      -- step presents its image by the same presentation (a trusted realization, CC-TRUST)
+      | return .ok { route := state.renderResolution resolution
+                     method := resolution.method.id.raw
+                     steps := resolution.route.refs.map (·.label)
+                     value? := none, image? := some pres, trusted := true }
     let (image, value?) ← realizedCall state resolution encoded.denotation encoded.handle
     let value? ← if withArguments then pure none else
       match value? with
@@ -219,7 +259,9 @@ where
     return .ok { route := state.renderResolution resolution
                  method := resolution.method.id.raw
                  steps := resolution.route.refs.map (·.label)
-                 value?, image? := ← decodeImage image }
+                 -- an empty route's image is the receiver itself
+                 value?, image? := (← decodeImage image) <|>
+                   (if resolution.route.steps.isEmpty then some pres else none) }
 
 /-- `#explain_route` for a semantic point: the resolved route and the realizations of it — the
 receiver's realizer, whether registered actions realize the whole composite, and every registered
@@ -237,19 +279,22 @@ where
       | .ok r => pure r
       | .error (.unknownMethod _) => return ← explainProperty state expression
       | .error e => return .error (e.render state)
-    let some encoded := encode category base pres
-      | return .error s!"no registered realizer of {category} realizes {pres.presentation}"
-    let (_, value?) ← realizedCall state resolution encoded.denotation encoded.handle
+    let (realizer, value?) ← match encode category base pres with
+      | some encoded => do
+          let (_, value?) ← realizedCall state resolution encoded.denotation encoded.handle
+          pure (s!"realized by {encoded.realizer}", value?)
+      | none => pure ("realized by its backend presentation (trusted)", none)
     let fused := state.implementations.filter fun e =>
       e.method == resolution.method.id && e.route == resolution.route.refs
     let key := some (resolution.method.id.raw, resolution.route.refs.map (·.label))
     let fusedRoutes := (routesFor env (Name.mkSimple method)).filter fun r => r.realizes == key
-    let lines := #[s!"{method} on {pres.presentation} (a point of {category}, realized by \
-        {encoded.realizer})",
+    let lines := #[s!"{method} on {pres.presentation} (a point of {category}, {realizer})",
       s!"  route:       {state.renderRoute resolution.route}",
       s!"  method:      {resolution.method.id.raw} = {resolution.method.functor.raw}",
       s!"  realization: " ++ (if value?.isSome then
           "composed Lean-native actions (Lean-checked computation)"
+        else if realizer.endsWith "(trusted)" then
+          "the receiver's presentation along the route, then a backend route on it"
         else "the route's registered actions, then a backend route on the image")] ++
       fused.map (fun e => s!"  realization: {e.id.raw} by {e.backend} ({e.trust.label})") ++
       fusedRoutes.map fun r =>

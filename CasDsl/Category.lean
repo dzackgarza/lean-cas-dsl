@@ -15,58 +15,12 @@ namespace CasDsl
 
 open Lean (Name)
 
-/-- Category instantiation parameter. -/
-inductive ParamVal where
-  | dom (d : Domain)
-  | nat (n : Nat)
-  deriving BEq, Repr, Hashable, Inhabited
-
-/-- An instantiated category: a node of the name-level inheritance graph
-plus instantiation data. Params are preserved unchanged along inheritance
-edges (`EuclideanElems(ℤ) ≤ PIDElems(ℤ)` because `EuclideanElems ≤ PIDElems`). -/
-structure CatRef where
-  name : Name
-  params : Array ParamVal := #[]
-  deriving BEq, Repr, Hashable, Inhabited
-
-/-- A registered category. The category is the primary object; this entry
-is its name in the extracted graph the resolver walks, `anchor` ties the
-name to the category it means in Mathlib, and each parent NAME stands for
-an inclusion functor (the subcategory inclusions of round one — the only
-non-direct method transport). -/
-structure CatDecl where
-  name : Name
-  parents : Array Name := #[]
-  doc : String := ""
-  /-- The Mathlib classes this category's membership MEANS, in dependency
-  order (`SPEC-REGISTRY-TYPE-PREPASS` §3.2): registering an object into this
-  category elaborates each class at the object's denoted type, so a
-  membership the classes cannot discharge fails the build. Empty is honest
-  only for `Sets` (every type), for nodes whose claim lives in
-  `paramTelescope`, and, during the migration, for nodes slated for
-  re-anchoring or deletion. -/
-  telescope : Array Name := #[]
-  /-- The ring-parameterized layer of the telescope: classes elaborated at
-  the entry's first category parameter and the member's carrier together —
-  `Modules(ℤ)` membership means `Module ℤ M`. Same discipline as
-  `telescope`; the split exists because the arities differ. -/
-  paramTelescope : Array Name := #[]
-  /-- The category this entry means, where Mathlib names it (`ModuleCat`,
-  `FintypeCat`, `CategoryTheory.types`, `AlgebraicGeometry.Scheme`). When
-  the category has no Mathlib name of its own, the constant that defines
-  it: the class cutting a full subcategory (`EuclideanDomain` cuts
-  euclidean domains out of `CommRingCat`), or the object whose elements the
-  entry fibres over (`Complex`). Required at registration — a name with no
-  mathematics behind it is not registrable. -/
-  anchor : Name := .anonymous
-  deriving BEq, Repr, Inhabited
-
-/-- A category-owned method declaration. Owns mathematical identity and
-interface — never a backend, algorithm, or current capability limit. -/
+/-- The surface signature of a method: its arity and documentation, keyed by the method NAME.
+Its mathematical owner and meaning are the registered method row of that name in the
+`CasCatalogue` registry (the functor it names); nothing here states where the method lives, and
+nothing here may name a backend. -/
 structure MethodDecl where
   id : Name
-  /-- Receiver category NAME; applies at any instantiation of it. -/
-  receiver : Name
   /-- Number of surface arguments after the receiver (`nth` has 1). -/
   arity : Nat := 0
   argDoc : String := ""
@@ -110,6 +64,8 @@ inductive PresPattern where
   | elemOf (d : DomainPattern)
   | domainIs (d : DomainPattern)
   | finiteSet
+  /-- A finite set whose element domain matches the pattern. -/
+  | finiteSetOver (d : DomainPattern)
   /-- A finite multiset (`p.roots()`'s result presentation). Distinct from
   `finiteSet` so the finite-set binary operations are never claimed for it —
   what a multiset answers is `∈`, `=`, `⊆` and `|·|`. -/
@@ -186,6 +142,7 @@ def accepts : PresPattern → Obj → Bool
   | .elemOf p, .elem d _ => p.accepts d
   | .domainIs p, .domainObj d => p.accepts d
   | .finiteSet, .setObj (.finite ..) => true
+  | .finiteSetOver p, .setObj (.finite d _) => p.accepts d
   | .multisetPres, .setObj (.multiset ..) => true
   | .progression p, .setObj (.arithProg d ..) => p.accepts d
   | .domainSetOf p, .setObj (.domainSet d) => p.accepts d
@@ -215,6 +172,9 @@ def implies : PresPattern → PresPattern → Bool
   | .domainSetOf p, .domainSetOf q => p.implies q
   | .progression p, .progression q => p.implies q
   | .finiteSet, .finiteSet => true
+  | .finiteSetOver p, .finiteSetOver q => p.implies q
+  | .finiteSetOver _, .finiteSet => true
+  | .finiteSetOver _, .anySet => true
   | .multisetPres, .multisetPres => true
   | .productSet, .productSet => true
   | .powersetSet, .powersetSet => true
@@ -247,102 +207,18 @@ def implies : PresPattern → PresPattern → Bool
 
 end PresPattern
 
-/-- How one instantiation parameter of a profile-rule category is derived
-from the matched object. First-order so profile rules are registry data. -/
-inductive ParamSlot where
-  | const (v : ParamVal)
-  /-- The domain of a matched `.elem`. -/
-  | elemDom
-  /-- The `n` of a matched `.elem` in `Matₙ(entry)`. -/
-  | matSize
-  /-- The entry domain of a matched matrix element. -/
-  | matEntry
-  /-- The element domain of a matched set presentation / `domainObj`. -/
-  | setDom
-  deriving BEq, Repr, Inhabited
+/-- A typing rule: presentations matching `pattern` are CONSTRUCTED as points of the registered
+`CasCatalogue` category `category` (for a module fibre, over the ring `base`). Typing happens once,
+when a value is made; the value then carries its category, and transport never re-derives it
+(CC-SEP). When several rules match, the one with the most specific pattern types the value.
 
-/-- A registered category-membership rule: objects matching `pattern`
-inhabit `cat` instantiated by `slots`. Profiles are data — a new category
-or presentation family registers rules; it never edits the engine. -/
-structure ProfileRule where
+`classes` are the Mathlib classes the claim needs at the presentation's denoted domain; for a
+concrete domain they are synthesized at registration, so a false typing fails the build. -/
+structure TypingRule where
   pattern : PresPattern
-  cat : Name
-  slots : Array ParamSlot := #[]
-  deriving BEq, Repr, Inhabited
-
-namespace ParamSlot
-
-/-- Instantiate one slot against the matched object. `none` when the slot
-does not apply to this presentation (the rule then contributes nothing —
-a registration mistake surfaced by `#capabilities`, not a crash). -/
-def instantiate : ParamSlot → Obj → Option ParamVal
-  | .const v, _ => some v
-  | .elemDom, .elem d _ => some (.dom d)
-  | .matSize, .elem (.matrix n _) _ => some (.nat n)
-  | .matEntry, .elem (.matrix _ e) _ => some (.dom e)
-  | .setDom, .setObj (.finite d _) => some (.dom d)
-  | .setDom, .setObj (.arithProg d ..) => some (.dom d)
-  | .setDom, .setObj (.domainSet d) => some (.dom d)
-  | .setDom, .domainObj d => some (.dom d)
-  | _, _ => none
-
-end ParamSlot
-
-namespace ProfileRule
-
-/-- The instantiated category this rule assigns to `o`, if it accepts. -/
-def apply (r : ProfileRule) (o : Obj) : Option CatRef := do
-  guard <| r.pattern.accepts o
-  let params ← r.slots.mapM (·.instantiate o)
-  return { name := r.cat, params }
-
-end ProfileRule
-
-/-! ## Functors (the transport layer)
-
-A registered functor is what lets a method declared on category `D` reach a
-receiver of category `C`: `X.m()` becomes `F(X).m()` when `F : C → D` is
-registered. Like every other registry payload these are first-order,
-serializable data — so the OBJECT MAP is an inductive tag, not a Lean
-function. -/
-
-/-- The object map of a registered functor, as registry data.
-
-RETIRED as a mechanism (CC-ACTION, `specs/computational-core.md`): no constructor is added
-here. A functor's object and morphism actions are registered as `RealizedAction` rows in
-`CasCatalogue` (`CasCatalogue/Action.lean`), checked against the functor's Mathlib
-denotation; this enum and its one consumer are deleted when the resolver moves onto that
-registry (plan node `cc-dsl-migration`). -/
-inductive ObjMap where
-  /-- The forgetful map of the module fixture: the ℤ-module `ℤ/n` to its
-  underlying set, presented as the explicit finite list of residues. -/
-  | cyclicToFiniteSet
-  deriving BEq, Repr, Inhabited
-
-namespace ObjMap
-
-/-- The image of `o`, or `none` when the map is not defined on this
-presentation (the functor then simply does not apply — never a guess). -/
-def apply : ObjMap → Obj → Option Obj
-  | .cyclicToFiniteSet, .cyclicModule n =>
-      -- `ℤ/0 ≅ ℤ` is not finite, so the finite-list presentation is not its
-      -- underlying set: the map is undefined there rather than wrong.
-      if n == 0 then none
-      else some (.setObj (.finite (.mod n)
-        ((Array.range n).map fun i => Value.mkMod n (Int.ofNat i))))
-  | .cyclicToFiniteSet, _ => none
-
-end ObjMap
-
-/-- A registered functor along which the resolver may transport a receiver.
-
-`source` and `target` are category NAMES — this is the semantic layer, so no
-field of it may ever name a backend. -/
-structure FunctorDecl where
-  name : Name
-  source : Name
-  target : Name
-  objMap : ObjMap
+  category : String
+  base : Option Domain := none
+  classes : Array Name := #[]
   doc : String := ""
   deriving BEq, Repr, Inhabited
 
@@ -503,68 +379,15 @@ structure OpSig where
   advisory : String := ""
   deriving BEq, Repr, Inhabited
 
-/-- One transport step: the functor that was applied, and the receiver it
-produced. The image is what routing and execution see. -/
-structure FunctorStep where
-  functor : Name
-  image : Obj
-  deriving Repr, Inhabited
-
-/-- How a method became semantically available for a receiver. -/
-structure Resolution where
-  decl : MethodDecl
-  /-- The instantiated category on the receiver's profile that supplied the
-  method (directly or through parents). When `viaFunctor` is set this is a
-  category of the IMAGE's profile, not the original receiver's. -/
-  profileEntry : CatRef
-  /-- Name-level inheritance chain from `profileEntry.name` up to
-  `decl.receiver` (empty = declared directly on the profile entry). -/
-  via : List Name
-  /-- Set when the method was reached by transporting the receiver along a
-  registered functor. Every caller must route and execute against
-  `concreteReceiver`, never the object it passed in. -/
-  viaFunctor : Option FunctorStep := none
-  deriving Repr, Inhabited
-
-/-- The receiver that routing and execution must use: the transported image
-when the method was reached through a functor, otherwise `o` unchanged. -/
-def Resolution.concreteReceiver (res : Resolution) (o : Obj) : Obj :=
-  match res.viaFunctor with
-  | some step => step.image
-  | none => o
-
-inductive ResolveError where
-  /-- Not declared on any category reachable from the profile. `declaredOn`
-  lists where the method IS declared, for an honest error message. -/
-  | notApplicable (method : Name) (profile : Array CatRef) (declaredOn : Array Name)
-  /-- Distinct declarations reachable from incomparable profile entries, or
-  (for transport) more than one registered functor carrying the method to this
-  receiver. Competing candidates are reported, never ordered. -/
-  | ambiguous (method : Name) (candidates : Array Resolution)
-  | unknownMethod (method : Name)
-  /-- A registered functor applied to the receiver, but the profile of its
-  image does not reach its declared `target`: the REGISTRATION is defective.
-  Resolution stops here — a functor whose declared target is not the one it
-  actually lands in may not be used, and guessing past it would launder a
-  broken registration into a mathematical answer. -/
-  | functorTargetMismatch (functor : Name) (target : Name) (imageProfile : Array CatRef)
-  deriving Repr, Inhabited
-
-/-- The structured capability gap: semantically available, no executable
-route. An auditable developer backlog item — surfaced at execution, never
-repaired by narrowing semantics. -/
+/-- The structured capability gap: the method resolves (the registry found its owner and a
+route), and no registered implementation runs it on this presentation. An auditable backlog item,
+surfaced at execution, never repaired by narrowing semantics. -/
 structure CapabilityGap where
   method : Name
-  receiverCategory : CatRef
-  /-- The presentation routing was attempted for — the TRANSPORTED receiver
-  when `viaFunctor` is set. -/
+  /-- The resolved route, rendered by the registry. -/
+  route : String
+  /-- The presentation routing was attempted for: the route's image. -/
   presentation : String
-  /-- Inheritance chain that made the method semantically available. -/
-  semanticVia : List Name
-  /-- The transport step, when the method reached this receiver through a
-  functor: without it the reported semantic chain would not explain how a
-  module ended up being routed as a set. -/
-  viaFunctor : Option FunctorStep := none
   routesConsidered : Array Route
   deriving Repr, Inhabited
 

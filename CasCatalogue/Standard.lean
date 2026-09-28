@@ -132,7 +132,8 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.limitValues,
   CategoryId.integralValues,
   CategoryId.taylorValues,
-  CategoryId.ideals]
+  CategoryId.ideals,
+  CategoryId.coreSubobjectsModules]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -263,6 +264,7 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.multisetContains,
   FunctorId.multisetCard,
   FunctorId.multisetEquals,
+  FunctorId.multisetSubset,
   FunctorId.re,
   FunctorId.im,
   FunctorId.bar,
@@ -273,7 +275,10 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.integral,
   FunctorId.taylor,
   FunctorId.modulesAnnihilator,
-  FunctorId.arrowsModulesImage]
+  FunctorId.arrowsModulesImage,
+  FunctorId.subobjectsModulesForget,
+  FunctorId.subobjectsModulesDomain,
+  FunctorId.subobjectsModulesRank]
 
 /-- Stable fibration rows owned by the standard catalogue. -/
 def expectedFibrationIds : Array FibrationId := #[
@@ -336,6 +341,7 @@ def expectedMethodIds : Array MethodId :=
     ⟨"meth.multiset_contains"⟩,
     ⟨"meth.multiset_cardinality"⟩,
     ⟨"meth.multiset_set_eq"⟩,
+    ⟨"meth.multiset_subset"⟩,
     ⟨"meth.complex_re"⟩,
     ⟨"meth.complex_im"⟩,
     ⟨"meth.bar"⟩,
@@ -348,7 +354,8 @@ def expectedMethodIds : Array MethodId :=
     ⟨"meth.annihilator"⟩,
     ⟨"meth.dim"⟩,
     ⟨"meth.arrow_ker"⟩,
-    ⟨"meth.arrow_im"⟩]
+    ⟨"meth.arrow_im"⟩,
+    ⟨"meth.subobject_dim"⟩]
 
 /-- Stable realizer rows owned by the standard catalogue (CC-SEP). -/
 def expectedRealizerIds : Array RealizerId := #[

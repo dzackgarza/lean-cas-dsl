@@ -3,7 +3,7 @@ import CasDsl.Mathlib.Denote
 import CasDsl.Mathlib.Anchors
 import CasDsl.Category
 import CasDsl.Registry
-import CasDsl.Resolve
+import CasDsl.Typing
 import CasDsl.Route
 import CasDsl.Native
 import CasDsl.Codec

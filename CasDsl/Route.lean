@@ -3,13 +3,13 @@ The capability router and the executor table.
 
 Routing is the COMPUTABILITY layer: it selects a registered implementation
 for a concrete presentation, and its failures never travel back into
-semantics. `routeFor` therefore reports three distinct outcomes rather than
+semantics. `selectRoute` therefore reports three distinct outcomes rather than
 collapsing them — a structured capability gap (auditable developer backlog),
 a configuration ambiguity (two applicable routes tied on priority), or a
 choice.
 -/
 import Lean
-import CasDsl.Resolve
+import CasDsl.Typing
 
 namespace CasDsl
 
@@ -54,31 +54,17 @@ inductive RouteOutcome where
   | ambiguousRoutes (rs : Array Route)
   deriving Repr, Inhabited
 
-/-- Select the implementation for a resolved method on a concrete receiver.
-
-`o` must be the CONCRETE receiver — `res.concreteReceiver`, i.e. the
-transported image when the resolution went through a functor. Passing the
-original object there would route a module as a module and then execute it as
-a set.
-
-`routesConsidered` in a gap deliberately lists *every* route registered for
-the method id, including the ones whose pattern did not match — that list is
-the audit value of the gap. -/
-def routeFor (env : Environment) (res : Resolution) (o : Obj) : RouteOutcome :=
-  let all := routesFor env res.decl.id
-  let applicable := all.filter (·.pattern.accepts o)
-  if applicable.isEmpty then
-    .gap {
-      method := res.decl.id
-      receiverCategory := res.profileEntry
-      presentation := o.presentation
-      semanticVia := res.via
-      viaFunctor := res.viaFunctor
-      routesConsidered := all
-    }
+/-- Select the implementation of method `method` for the concrete receiver `o` — the route's
+image (or, for a fused route, the receiver itself), never a presentation the method was not resolved
+for. `candidates` are the applicable routes the caller admits; `route` is the resolution, rendered,
+for the gap. A gap lists every route registered for the method: that list is its audit value. -/
+def selectRoute (env : Environment) (method : Name) (route : String) (o : Obj)
+    (candidates : Array Route) : RouteOutcome :=
+  if candidates.isEmpty then
+    .gap { method, route, presentation := o.presentation, routesConsidered := routesFor env method }
   else
-    let best := applicable.foldl (init := 0) fun p r => max p r.priority
-    let top := applicable.filter (·.priority == best)
+    let best := candidates.foldl (init := 0) fun p r => max p r.priority
+    let top := candidates.filter (·.priority == best)
     match top[0]?, top.size with
     | some r, 1 => .chosen r
     | _, _ => .ambiguousRoutes top

@@ -27,13 +27,6 @@ abbrev Binding := Name × Obj
 that `#capability_gaps` crosses with the declared methods. -/
 abbrev Representative := String × Obj
 
-initialize categoryExt :
-    SimplePersistentEnvExtension CatDecl (Array CatDecl) ←
-  registerSimplePersistentEnvExtension {
-    addEntryFn := Array.push
-    addImportedFn := fun arrs => arrs.flatten
-  }
-
 initialize methodExt :
     SimplePersistentEnvExtension MethodDecl (Array MethodDecl) ←
   registerSimplePersistentEnvExtension {
@@ -55,15 +48,8 @@ initialize opSigExt :
     addImportedFn := fun arrs => arrs.flatten
   }
 
-initialize functorExt :
-    SimplePersistentEnvExtension FunctorDecl (Array FunctorDecl) ←
-  registerSimplePersistentEnvExtension {
-    addEntryFn := Array.push
-    addImportedFn := fun arrs => arrs.flatten
-  }
-
-initialize profileRuleExt :
-    SimplePersistentEnvExtension ProfileRule (Array ProfileRule) ←
+initialize typingRuleExt :
+    SimplePersistentEnvExtension TypingRule (Array TypingRule) ←
   registerSimplePersistentEnvExtension {
     addEntryFn := Array.push
     addImportedFn := fun arrs => arrs.flatten
@@ -92,17 +78,13 @@ initialize representativeExt :
 
 /-! ## Accessors -/
 
-def categories (env : Environment) : Array CatDecl := categoryExt.getState env
-
 def methods (env : Environment) : Array MethodDecl := methodExt.getState env
 
 def routes (env : Environment) : Array Route := routeExt.getState env
 
 def opSigs (env : Environment) : Array OpSig := opSigExt.getState env
 
-def functors (env : Environment) : Array FunctorDecl := functorExt.getState env
-
-def profileRules (env : Environment) : Array ProfileRule := profileRuleExt.getState env
+def typingRules (env : Environment) : Array TypingRule := typingRuleExt.getState env
 
 /-- The registered preferred canonical maps — everything the surface may insert
 as a coercion. An empty registry means the surface performs no coercion at
@@ -116,9 +98,6 @@ def representatives (env : Environment) : Array Representative :=
 
 /-! ## Adders -/
 
-def addCategory (env : Environment) (d : CatDecl) : Environment :=
-  categoryExt.addEntry env d
-
 def addMethod (env : Environment) (d : MethodDecl) : Environment :=
   methodExt.addEntry env d
 
@@ -128,11 +107,8 @@ def addRoute (env : Environment) (r : Route) : Environment :=
 def addOpSig (env : Environment) (s : OpSig) : Environment :=
   opSigExt.addEntry env s
 
-def addFunctor (env : Environment) (f : FunctorDecl) : Environment :=
-  functorExt.addEntry env f
-
-def addProfileRule (env : Environment) (r : ProfileRule) : Environment :=
-  profileRuleExt.addEntry env r
+def addTypingRule (env : Environment) (r : TypingRule) : Environment :=
+  typingRuleExt.addEntry env r
 
 def addCanonicalMap (env : Environment) (r : CanonicalMap) : Environment :=
   canonicalMapExt.addEntry env r
@@ -145,17 +121,7 @@ def addRepresentative (env : Environment) (r : Representative) : Environment :=
 
 /-! ## Lookups -/
 
-def catDecl? (env : Environment) (n : Name) : Option CatDecl :=
-  (categories env).find? (·.name == n)
-
-/-- The registered functor of that name — how a diagnostic recovers the
-`source → target` of a transport step recorded in a `Resolution`. -/
-def functorDecl? (env : Environment) (n : Name) : Option FunctorDecl :=
-  (functors env).find? (·.name == n)
-
-/-- Every declaration of `id`. The same method identity is declared on
-several receiver categories in general (that is what makes specificity
-resolution necessary), so this is an array, never an `Option`. -/
+/-- The surface signature of `id` (at most one is registered). -/
 def methodDecls (env : Environment) (id : Name) : Array MethodDecl :=
   (methods env).filter (·.id == id)
 
@@ -175,15 +141,9 @@ def opSig? (env : Environment) (backend : Name) (opId : String) : Option OpSig :
 Used by the prelude and by user-facing registration commands: a clash is
 reported, never resolved by overwriting or by keeping both. -/
 
-def addCategoryChecked (env : Environment) (d : CatDecl) : Except String Environment :=
-  if (catDecl? env d.name).isSome then
-    .error s!"category '{d.name}' is already registered"
-  else
-    .ok (addCategory env d)
-
 def addMethodChecked (env : Environment) (d : MethodDecl) : Except String Environment :=
-  if (methods env).any (fun m => m.id == d.id && m.receiver == d.receiver) then
-    .error s!"method '{d.id}' is already declared on category '{d.receiver}'"
+  if (methods env).any (fun m => m.id == d.id) then
+    .error s!"method '{d.id}' already has a registered surface signature"
   else
     .ok (addMethod env d)
 
@@ -221,22 +181,13 @@ def addOpSigChecked (env : Environment) (s : OpSig) : Except String Environment 
   else
     .ok (addOpSig env s)
 
-/-- Functors are keyed by name: it is what a `Resolution` records and what a
-diagnostic resolves back to a `source → target`, so two functors may not
-share one. -/
-def addFunctorChecked (env : Environment) (f : FunctorDecl) : Except String Environment :=
-  if (functorDecl? env f.name).isSome then
-    .error s!"functor '{f.name}' is already registered"
+/-- Typing rules are keyed by their pattern: two rules for one pattern would type the same
+presentation twice. (Overlapping patterns are resolved by specificity when a value is typed.) -/
+def addTypingRuleChecked (env : Environment) (r : TypingRule) : Except String Environment :=
+  if (typingRules env).any (·.pattern == r.pattern) then
+    .error s!"a typing rule for {repr r.pattern} is already registered"
   else
-    .ok (addFunctor env f)
-
-def addProfileRuleChecked (env : Environment) (r : ProfileRule)
-    : Except String Environment :=
-  if (profileRules env).any (· == r) then
-    .error s!"profile rule assigning category '{r.cat}' to this pattern is \
-already registered"
-  else
-    .ok (addProfileRule env r)
+    .ok (addTypingRule env r)
 
 /-- Embeddings are keyed by the PAIR of patterns: two rules accepting the
 same `(source, target)` pair would make a coercion ambiguous, and the

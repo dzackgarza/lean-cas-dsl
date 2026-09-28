@@ -1,14 +1,8 @@
 /-
-Runtime availability verification (SPEC-REGISTRY-TYPE-PREPASS, invariant
-I7): the category walk PROPOSES a method's availability; Mathlib DISPOSES.
-
-`verifyResolution` re-judges a resolution at the concrete receiver: every
-telescope class of the category the method is DECLARED on must synthesize
-at the receiver's denoted type. Registration already checks concrete
-profile rules, so this firing means the walk and Mathlib disagree — a
-family-pattern membership that does not actually hold, a corrupted
-registry, or a Mathlib change. The disagreement surfaces as an error at the
-call, never as a silently granted method.
+Runtime typing verification (SPEC-REGISTRY-TYPE-PREPASS, invariant I7): a typing rule over a
+family of domains PROPOSES the category a value is constructed in; Mathlib DISPOSES, at the
+concrete receiver. A disagreement surfaces as an error at the call, never as a silently granted
+method.
 -/
 import CasDsl.Mathlib.Denote
 import CasDsl.Registry
@@ -32,43 +26,17 @@ private def receiverDomain? : Obj → Option Domain
   | .cyclicModule n => some (.mod n)
   | _ => none
 
-/-- `none` = verified (or not judgeable: empty telescopes, no denoted
-type); `some cls` = the class that failed to synthesize at the receiver.
-
-The ENTRY category's telescopes are judged when they claim anything — with
-every inclusion edge a registration-time theorem, the entry membership
-grounds the whole displayed chain. A claimless entry (a family-pattern
-category) falls back to the declaring category's telescopes, so the walk
-still cannot grant what Mathlib refuses.
-
-Two layers, one judgment: `telescope` classes synthesize at the member's
-denoted carrier (`Countable ℚ`), `paramTelescope` classes at the entry's
-ring parameter and the carrier together (`Module ℤ (ZMod n)`). -/
-def verifyResolution (env : Environment) (entry : CatRef) (declaredOn : Name)
-    (concrete : Obj) : IO (Option Name) := do
-  let telescopesOf (n : Name) : Array Name × Array Name :=
-    match catDecl? env n with
-    | some d => (d.telescope, d.paramTelescope)
-    | none => (#[], #[])
-  let (etel, eptel) := telescopesOf entry.name
-  let (tel, ptel) :=
-    if etel.isEmpty && eptel.isEmpty then telescopesOf declaredOn
-    else (etel, eptel)
-  if tel.isEmpty && ptel.isEmpty then return none
-  let some d := receiverDomain? concrete | return none
+/-- Verify a typing at a concrete receiver: every class of the rule must synthesize at the
+receiver's denoted domain. `none` = verified (or nothing to judge: no classes, no denoted domain);
+`some cls` = the class that failed. Registration already verifies rules over a concrete domain, so
+this fires only for a family rule (`polyOver anyDom`) that does not hold at this member. -/
+def verifyTyping (env : Environment) (classes : Array Name) (o : Obj) : IO (Option Name) := do
+  let some d := receiverDomain? o | return none
   runSemanticCheck env do
     let T ← d.denote
-    for cls in tel do
+    for cls in classes do
       try synthMembership cls T
       catch _ => return some cls
-    if !ptel.isEmpty then
-      -- the entry's params ride inclusion edges unchanged, so they are the
-      -- right instantiation even when the claim fell back to `declaredOn`
-      if let some (ParamVal.dom pd) := entry.params[0]? then
-        let P ← pd.denote
-        for cls in ptel do
-          try synthMembershipAt cls #[P, T]
-          catch _ => return some cls
     return none
 
 end CasDsl

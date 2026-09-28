@@ -55,81 +55,50 @@ private def routeJson (r : Route) : Json :=
 
 /-! ## `#explain_route` -/
 
-/-- The routing decision for one method call, taken apart. `functor?` is the
-registered declaration behind a transport step, so the explanation can name
-`source → target` rather than just the functor's name. `verified?` is
-Mathlib's own judgment of the availability — `some cls` names the class
-that failed, `none` means every telescope class synthesized (or the
-receiver has nothing synthesis could judge). -/
+/-- The routing decision for one method call, taken apart: the receiver, the registry's
+resolution (rendered route) and the chosen realization, with the method's surface signature and
+the chosen op's declared signature. -/
 private structure Explanation where
   method : Name
   receiver : Obj
-  res : Resolution
+  route : String
   decl : MethodDecl
-  functor? : Option FunctorDecl
-  outcome : RouteOutcome
-  /-- The characteristic class (or name) of the entry category, then of
-  each step of the inheritance chain: the receiver's instance chain. -/
-  chain : List String
-  verified? : Option Name
-  /-- The chosen route's declared op signature, when one is registered —
-  the provider's real function, conventions, docs link and advisory. -/
+  outcome : Realization
   sig? : Option OpSig
-
-/-- The characteristic Mathlib class of a category — the most specific
-entry of its telescope, which dependency order puts last — or its bare
-name when it claims none. -/
-private def charClassOf (env : Environment) (n : Name) : String :=
-  match catDecl? env n with
-  | some c => match c.telescope.back? with
-    | some cls => cls.toString
-    | none => renderName n
-  | none => renderName n
 
 private def explain (ctx : EvalCtx) (e : CasExpr) : EvalM Explanation := do
   -- the prefix spelling IS a method call, rewritten exactly as `eval` does it
-  let .method recvE m _ := (prefixMethodCall? ctx.isBound ctx.env e).getD e
+  let .method recvE m args := (prefixMethodCall? ctx.isBound ctx.env e).getD e
     | throw (.msg "#explain_route needs a method call, e.g. `#explain_route n.factor()`")
   -- only the receiver is evaluated: explaining a route must not take it
   let some recv := (← eval ctx recvE).obj?
     | throw (.msg "the receiver of the explained call is not an object")
-  match resolveMethod ctx.env recv m with
-  | .error err => throw (.resolve m recv err)
-  | .ok res =>
-    let concrete := res.concreteReceiver recv
-    let outcome := routeFor ctx.env res concrete
-    return {
-      method := m, receiver := recv, res, decl := res.decl
-      functor? := res.viaFunctor.bind fun s => functorDecl? ctx.env s.functor
-      outcome
-      chain := charClassOf ctx.env res.profileEntry.name
-        :: res.via.map (charClassOf ctx.env)
-      verified? := ← verifyResolution ctx.env res.profileEntry res.decl.receiver concrete
-      sig? := match outcome with
-        | .chosen r => opSig? ctx.env r.backend r.opId
-        | _ => none
-    }
+  let outcome ← match ← (realizationOf ctx.env recv m (!args.isEmpty) : IO _) with
+    | .ok o => pure o
+    | .error err => throw (.msg err)
+  let route := match outcome with
+    | .lean _ r | .backend _ _ r => r
+    | .gap g => g.route
+    | .tied _ => ""
+  return {
+    method := m, receiver := recv, route
+    decl := ((methodDecls ctx.env m)[0]?).getD { id := m }
+    outcome
+    sig? := match outcome with
+      | .backend r _ _ => opSig? ctx.env r.backend r.opId
+      | _ => none }
 
-/-- The availability path as the arrow chain it is (owner ruling,
-2026-08-06): method availability needs a path of functors, not subcategory
-containment, so every step is an arrow — the element into its domain, a
-transport step labeled with its functor, then the characteristic classes
-climbed, with Mathlib's verdict on the whole path. -/
+/-- The availability path: the receiver, the category it is a point of, and the registry's route
+of structural functors to the method's owner (owner ruling 2026-08-06: availability is a path of
+functors). -/
 private def chainText (x : Explanation) : String :=
   let start := match x.receiver with
     | .elem d v => s!"{v.render} ⟶ {d.render}"
     | o => o.presentation
-  let transport := match x.res.viaFunctor with
-    | some step => s!" —{step.functor}⟶ {step.image.presentation}"
-    | none => ""
-  let classes := String.join (x.chain.map fun c => s!" ⟶ {c}")
-  let verdict := match x.verified? with
-    | none => "  (synthesized)"
-    | some cls => s!"  (✗ {cls} FAILED to synthesize — registration defect)"
-  start ++ transport ++ classes ++ verdict
+  s!"{start}\n  resolved: {x.route}"
 
-/-- What a trusted answer is an answer TO: the anchor, the method's general
-mathematical statement, and its generality-level conventions. -/
+/-- What a trusted answer is an answer TO: the method's meaning (the registered functor named in
+the route), its documentation and generality-level conventions. -/
 private def meaningText (x : Explanation) : String :=
   let head := if x.decl.anchor == .anonymous then s!"{x.method}"
     else s!"{x.method} ≐ {x.decl.anchor}"
@@ -163,12 +132,13 @@ private def routeText (x : Explanation) (r : Route) : String :=
 
 private def explanationText (x : Explanation) : String :=
   let tail := match x.outcome with
-    | .chosen r =>
+    | .lean _ _ => "via composed Lean-native actions (a Lean-checked computation)"
+    | .backend r _ _ =>
         routeText x r
         ++ (if x.decl.resultDoc.isEmpty then ""
             else s!"\nresult: {x.decl.resultDoc}")
     | .gap g => renderGap g
-    | .ambiguousRoutes rs =>
+    | .tied rs =>
         let ls := String.intercalate "\n" (rs.toList.map fun r => s!"  - {renderRoute r}")
         s!"route: AMBIGUOUS — {rs.size} implementations tied on priority \
 (a configuration error):\n{ls}"
@@ -189,16 +159,7 @@ private def explanationMarkdown (x : Explanation) : String :=
         let vl := (v.latex?).getD s!"\\text\{{v.render}}"
         s!"{vl} \\longrightarrow {d.latex}"
     | o => (o.latex?).getD s!"\\text\{{o.presentation}}"
-  let transport := match x.res.viaFunctor with
-    | some step =>
-        let img := (step.image.latex?).getD s!"\\text\{{step.image.presentation}}"
-        s!" \\xrightarrow\{{mathName step.functor.toString}} {img}"
-    | none => ""
-  let classes := String.join (x.chain.map fun c => s!" \\longrightarrow {mathName c}")
-  let verdict := match x.verified? with
-    | none => "  *(synthesized)*"
-    | some cls => s!"  ✗ **{cls} failed to synthesize — registration defect**"
-  let chainLine := s!"${start}{transport}{classes}$" ++ verdict
+  let chainLine := s!"${start}$ — resolved: `{x.route}`"
   let meaningLine :=
     let head := if x.decl.anchor == .anonymous then s!"**{x.method}**"
       else s!"**{x.method}** ≐ `{x.decl.anchor}`"
@@ -206,7 +167,8 @@ private def explanationMarkdown (x : Explanation) : String :=
     let conv := if x.decl.conventions.isEmpty then "" else s!" — {x.decl.conventions}"
     head ++ doc ++ conv
   let tail := match x.outcome with
-    | .chosen r =>
+    | .lean _ _ => "via composed Lean-native actions (a Lean-checked computation)"
+    | .backend r _ _ =>
         let url := if r.docUrl.isEmpty
           then (x.sig?.map (fun (s : OpSig) => s.docUrl)).getD "" else r.docUrl
         let fn := match x.sig? with
@@ -224,12 +186,13 @@ private def explanationMarkdown (x : Explanation) : String :=
         ++ advisory
         ++ (if x.decl.resultDoc.isEmpty then "" else s!"\n\nresult: {x.decl.resultDoc}")
     | .gap g => renderGap g
-    | .ambiguousRoutes _ => ""  -- the plain text carries the configuration error
+    | .tied _ => ""  -- the plain text carries the configuration error
   s!"{chainLine}\n\n{meaningLine}\n\n{tail}"
 
 private def explanationJson (x : Explanation) : Json :=
   let decision := match x.outcome with
-    | .chosen r =>
+    | .lean _ _ => Json.mkObj [("decision", .str "lean")]
+    | .backend r _ _ =>
         Json.mkObj
           [("decision", .str "chosen"), ("route", routeJson r),
            ("backendFn", .str ((x.sig?.map (·.backendFn)).getD "")),
@@ -242,24 +205,13 @@ private def explanationJson (x : Explanation) : Json :=
         Json.mkObj
           [("decision", .str "gap"),
            ("routesConsidered", .arr (g.routesConsidered.map routeJson))]
-    | .ambiguousRoutes rs =>
+    | .tied rs =>
         Json.mkObj
           [("decision", .str "ambiguous"), ("routes", .arr (rs.map routeJson))]
-  let transport := match x.res.viaFunctor, x.functor? with
-    | none, _ => Json.null
-    | some step, f? =>
-        Json.mkObj
-          [("functor", .str step.functor.toString),
-           ("source", match f? with | some f => .str f.source.toString | none => .null),
-           ("target", match f? with | some f => .str f.target.toString | none => .null),
-           ("image", .str step.image.presentation)]
   Json.mkObj
     [("method", .str x.method.toString),
      ("receiver", .str x.receiver.presentation),
-     ("transport", transport),
-     ("profileEntry", .str (renderCat x.res.profileEntry)),
-     ("via", .arr ((x.res.via.map fun n => Json.str n.toString)).toArray),
-     ("declaredOn", .str (renderName x.res.decl.receiver)),
+     ("resolution", .str x.route),
      ("routing", decision)]
 
 def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
@@ -268,12 +220,6 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
     | .error m => throwError m
   let ctx : EvalCtx := { env := ← getEnv, notes := ← IO.mkRef #[],
                          annotations := ← IO.mkRef #[] }
-  -- a semantic point is explained by the registry that resolves it
-  if let .method recvE m _ := e then
-    if let .ok (.obj (.point category base pres)) ← (eval ctx recvE).run then
-      match ← Semantic.explain ctx.env category base pres m.toString with
-      | .ok text => logInfo text; return
-      | .error err => throwError err
   let x ← match ← (explain ctx e).run with
     | .ok x => pure x
     | .error err => throwError err.render
@@ -285,7 +231,15 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
 /-- Each method in the register `#explain_route` speaks: the method ≐ its
 anchor with its declaring category, then the implementations as routes
 naming the REAL backend functions — never a table of record fields. -/
-private def capabilityLines (env : Environment) : Array String × Array Json := Id.run do
+private def capabilityLines (env : Environment) (state : CasCatalogue.RegistryState) :
+    Array String × Array Json := Id.run do
+  -- a method's owners are the registry's method (or property) rows of its name
+  let owned (m : Name) : String :=
+    let ms := (state.methods.filter (·.name == m.toString)).map fun r =>
+      s!"{state.categoryName r.owner} ({r.functor.raw})"
+    let ps := (state.properties.filter (·.name == m.toString)).map fun p => p.classifier.raw
+    let all := ms ++ ps
+    if all.isEmpty then "(no registered owner)" else ", ".intercalate all.toList
   let mut lines : Array String := #[]
   let mut js : Array Json := #[]
   for d in methods env do
@@ -298,12 +252,13 @@ private def capabilityLines (env : Environment) : Array String × Array Json := 
           | some sig => if sig.backendFn.isEmpty then s!"op {repr r.opId}" else sig.backendFn
           | none => s!"op {repr r.opId}"
         s!"{renderPattern r.pattern} → {r.backend} {fn}")
-    lines := lines.push s!"{d.id}{anchor} — declared on {renderName d.receiver}"
+    let owners := owned d.id
+    lines := lines.push s!"{d.id}{anchor} — owned by {owners}"
     lines := lines.push s!"  {impl}"
     if !d.doc.isEmpty then
       lines := lines.push s!"  {d.doc}"
     js := js.push <| Json.mkObj
-      [("method", .str d.id.toString), ("receiver", .str (renderName d.receiver)),
+      [("method", .str d.id.toString), ("owners", .str (owned d.id)),
        ("arity", .num d.arity), ("doc", .str d.doc),
        ("anchor", .str (if d.anchor == .anonymous then "" else d.anchor.toString)),
        -- the declaration's advisory TEMPLATE, `{…}` placeholders as declared
@@ -313,7 +268,7 @@ private def capabilityLines (env : Environment) : Array String × Array Json := 
 
 def elabCapabilities : CommandElabM Unit := do
   let env ← getEnv
-  let (lines, js) := capabilityLines env
+  let (lines, js) := capabilityLines env (← liftTermElabM CasCatalogue.registryState)
   let orphans := (methods env).filter (routesFor env ·.id |>.isEmpty)
   let footer :=
     if orphans.isEmpty then "(every declared method has at least one route)"
@@ -346,18 +301,16 @@ private def gapClassTag : GapClass → String
   | .noMatchingRoute _ => "no-matching-route"
   | .tied _ => "ambiguous-routes"
 
-private def classify (env : Environment) (o : Obj) (m : Name)
-    : Option (Resolution × GapClass) :=
-  match resolveMethod env o m with
-  | .error _ => none
-  | .ok res =>
-      match routeFor env res (res.concreteReceiver o) with
-      | .chosen _ => some (res, .implemented)
-      | .ambiguousRoutes rs => some (res, .tied rs.size)
-      | .gap g =>
-          some (res,
-            if g.routesConsidered.isEmpty then .noRoute
-            else .noMatchingRoute g.routesConsidered.size)
+private def classify (env : Environment) (o : Obj) (m : Name) (arity : Nat) :
+    IO (Option (String × GapClass)) := do
+  match ← realizationOf env o m (arity > 0) with
+  | .error _ => return none
+  | .ok (.lean _ route) | .ok (.backend _ _ route) => return some (route, .implemented)
+  | .ok (.tied rs) => return some ("", .tied rs.size)
+  | .ok (.gap g) =>
+      return some (g.route,
+        if g.routesConsidered.isEmpty then .noRoute
+        else .noMatchingRoute g.routesConsidered.size)
 
 private def methodIds (env : Environment) : Array Name :=
   (methods env).foldl (init := #[]) fun acc d =>
@@ -373,10 +326,11 @@ def elabCapabilityGaps : CommandElabM Unit := do
   let mut implemented : Nat := 0
   for (label, o) in representatives env do
     for m in methodIds env do
-      match classify env o m with
+      let arity := ((methodDecls env m)[0]?.map (·.arity)).getD 0
+      match ← classify env o m arity with
       | none => pure ()
       | some (_, .implemented) => implemented := implemented + 1
-      | some (res, cls) =>
+      | some (route, cls) =>
         let short := match cls with
           | .implemented => "implemented"
           | .noRoute => "no route registered"
@@ -390,15 +344,7 @@ def elabCapabilityGaps : CommandElabM Unit := do
         js := js.push <| Json.mkObj
           [("representative", .str label), ("presentation", .str o.presentation),
            ("method", .str m.toString),
-           ("receiverCategory", .str (renderCat res.profileEntry)),
-           ("via", .arr ((res.via.map fun n => Json.str n.toString)).toArray),
-           -- the transport step, when the method reached this representative
-           -- through a functor: the image is what routing was attempted for
-           ("transport", match res.viaFunctor with
-             | some step =>
-                 Json.mkObj [("functor", .str step.functor.toString),
-                             ("image", .str step.image.presentation)]
-             | none => .null),
+           ("resolution", .str route),
            ("class", .str (gapClassTag cls))]
   let lines := groups.map fun (m, short, ls) =>
     s!"  {pad m.toString 18}{short}: {"; ".intercalate ls.toList}"

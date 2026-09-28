@@ -118,6 +118,7 @@ def prod : FunctorId := ⟨"fun.ring_finite_lists.prod"⟩
 def multisetContains : FunctorId := ⟨"fun.multiset_points.contains"⟩
 def multisetCard : FunctorId := ⟨"fun.multiset_points.cardinality"⟩
 def multisetEquals : FunctorId := ⟨"fun.multiset_points.set_eq"⟩
+def multisetSubset : FunctorId := ⟨"fun.multiset_points.subset"⟩
 def re : FunctorId := ⟨"fun.complex_points.re"⟩
 def im : FunctorId := ⟨"fun.complex_points.im"⟩
 def bar : FunctorId := ⟨"fun.complex_points.bar"⟩
@@ -206,6 +207,7 @@ def ProdExpr : FunctorExpr RingFiniteLists RingValues := .atomic FunctorId.prod
 def MultisetContainsExpr : FunctorExpr MultisetPoints PointPredicateValues := .atomic FunctorId.multisetContains
 def MultisetCardExpr : FunctorExpr MultisetPoints Naturals := .atomic FunctorId.multisetCard
 def MultisetEqualsExpr : FunctorExpr MultisetPoints SubsetPredicateValues := .atomic FunctorId.multisetEquals
+def MultisetSubsetExpr : FunctorExpr MultisetPoints SubsetPredicateValues := .atomic FunctorId.multisetSubset
 def ReExpr : FunctorExpr ComplexPoints RealPoints := .atomic FunctorId.re
 def ImExpr : FunctorExpr ComplexPoints RealPoints := .atomic FunctorId.im
 def BarExpr : FunctorExpr ComplexPoints ComplexPoints := .atomic FunctorId.bar
@@ -442,6 +444,9 @@ def multisetCardRealization : FunctorRealization MultisetCardExpr multisetPoints
   { sourceRealization := multisetPointsRealization, targetRealization := naturalsRealization }
 def multisetEqualsDeclaration : multisetPointsCategory ⥤ subsetPredicateValuesCategory := LeanCategories.Foundation.multisetEquals.{0}
 def multisetEqualsRealization : FunctorRealization MultisetEqualsExpr multisetPointsCategory subsetPredicateValuesCategory multisetEqualsDeclaration :=
+  { sourceRealization := multisetPointsRealization, targetRealization := subsetPredicateValuesRealization }
+def multisetSubsetDeclaration : multisetPointsCategory ⥤ subsetPredicateValuesCategory := LeanCategories.Foundation.multisetSubsetOf.{0}
+def multisetSubsetRealization : FunctorRealization MultisetSubsetExpr multisetPointsCategory subsetPredicateValuesCategory multisetSubsetDeclaration :=
   { sourceRealization := multisetPointsRealization, targetRealization := subsetPredicateValuesRealization }
 def reDeclaration : complexPointsCategory ⥤ realPointsCategory := LeanCategories.Analytic.re
 def reRealization : FunctorRealization ReExpr complexPointsCategory realPointsCategory reDeclaration :=
@@ -741,6 +746,10 @@ normalized_registry .functor
     declaration := `CasCatalogue.Elements.multisetEqualsDeclaration, realization := `CasCatalogue.Elements.multisetEqualsRealization
     expression := MultisetEqualsExpr }
 normalized_registry .functor
+  { id := FunctorId.multisetSubset, source := MultisetPoints, target := SubsetPredicateValues
+    declaration := `CasCatalogue.Elements.multisetSubsetDeclaration, realization := `CasCatalogue.Elements.multisetSubsetRealization
+    expression := MultisetSubsetExpr }
+normalized_registry .functor
   { id := FunctorId.re, source := ComplexPoints, target := RealPoints
     declaration := `CasCatalogue.Elements.reDeclaration, realization := `CasCatalogue.Elements.reRealization
     expression := ReExpr }
@@ -851,6 +860,9 @@ normalized_registry .method
 normalized_registry .method
   { id := ⟨"meth.multiset_set_eq"⟩, name := "set_eq", owner := MultisetPoints
     functor := FunctorId.multisetEquals, shape := .object }
+normalized_registry .method
+  { id := ⟨"meth.multiset_subset"⟩, name := "subset", owner := MultisetPoints
+    functor := FunctorId.multisetSubset, shape := .object }
 normalized_registry .method
   { id := ⟨"meth.complex_re"⟩, name := "re", owner := ComplexPoints
     functor := FunctorId.re, shape := .object }
