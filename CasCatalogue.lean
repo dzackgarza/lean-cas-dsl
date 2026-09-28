@@ -26,6 +26,7 @@ public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Algebra.RingTables
 public import CasCatalogue.Leaves.Algebra.Subgroups
+public import CasCatalogue.Leaves.Elements
 public import CasCatalogue.Leaves.Exceptional.Catalogue
 public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
 public import CasCatalogue.Leaves.Foundation.Actions
@@ -51,6 +52,7 @@ public import CasCatalogue.Leaves.Modules.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Expressions
 public import CasCatalogue.Leaves.Modules.FibrationRegistryProbes
 public import CasCatalogue.Leaves.Modules.Finite
+public import CasCatalogue.Leaves.Modules.Operations
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions

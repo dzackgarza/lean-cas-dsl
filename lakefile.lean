@@ -20,7 +20,7 @@ require mathlib from git
 /- The mathematics: categories, functors, fibrations and their theory. This package owns
 the CAS machinery over it (registry, resolution, realizations, backends). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "34e31a8302298416365d6870530c6a48c13508f2"
+  "https://github.com/dzackgarza/lean-categories" @ "a8a87a64e2513618714d95e7571725075cc2475b"
 
 @[default_target]
 lean_lib CasDsl where

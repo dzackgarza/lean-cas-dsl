@@ -107,8 +107,14 @@ run_cmd liftTermElabM do
       catch _ => pure false) then
     throwError "a receiver was accepted without a registered realizer"
   -- CC-ROUTE: one owner, several realizations of the same composite.
-  unless (state.methods.filter (·.name == "cardinality")).size == 1 do
-    throwError "cardinality has more than one owner"
+  -- (Multisets own a different `cardinality`, counting multiplicity; no route reaches it from
+  -- formed modules.)
+  let some bilin := state.categories.find? (·.id.raw == "cat.bilin_module")
+    | throwError "cat.bilin_module is not registered"
+  let reachable := (state.methods.filter (·.name == "cardinality")).filter fun m =>
+    !(state.routes bilin.expression m.owner).isEmpty
+  unless reachable.map (·.id.raw) == #["meth.cardinality"] do
+    throwError "cardinality has more than one owner on formed modules"
   unless (state.implementations.filter (·.method.raw == "meth.cardinality")).size == 2 do
     throwError "the two backend realizations are not both registered"
 
