@@ -87,6 +87,12 @@ def encode (category : String) (base : Option Domain) (pres : Obj) : Option Enco
   | "cat.rings", none, .domainObj (.mod (k + 1)) =>
       some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
         mkApp (mkConst ``CasCatalogue.Algebra.GroupTables.zmodRingTable) (mkNatLit k)⟩
+  -- `(ℤ/(k+1))[x]/(x² + c₁x + c₀)` as `QuadraticAlgebra (ZMod (k+1)) (-c₀) (-c₁)`
+  | "cat.rings", none, .polyQuotient (k + 1) #[c₀, c₁] =>
+      let neg (c : Nat) := (k + 1 - c % (k + 1)) % (k + 1)
+      some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
+        mkApp3 (mkConst ``CasCatalogue.Algebra.GroupTables.quadraticTableNat) (mkNatLit k)
+          (mkNatLit (neg c₀)) (mkNatLit (neg c₁))⟩
   | _, _, _ => none
 
 /-- The finite set `{0, …, n-1}` of residues, as the notebook presents `ℤ/n`'s elements. -/
@@ -178,6 +184,23 @@ def subobjectsIn (env : Environment) (source target : String) : IO Bool :=
     match categoryExpr state source, categoryExpr state target with
     | .ok s, .ok t => return s.syntacticEq (.construct ConstructorId.subobjects #[.category t])
     | _, _ => return false
+
+/-- The registered handle isomorphisms from the realization of `pres` to that of `pres'`, both
+points of `category` (CC-CARRIER): a comparison of two presentations is registered data, found by
+matching the encoded handles against the rows' endpoints — never an identification by what the
+two are isomorphic to. -/
+def isomorphisms (env : Environment) (category : String) (base : Option Domain) (pres pres' : Obj) :
+    IO (Array String) :=
+  runSemanticCheck env do
+    let state ← registryState
+    let (some e, some e') := (encode category base pres, encode category base pres')
+      | return #[]
+    let mut out := #[]
+    for row in state.handleIsos do
+      unless row.realizer.raw == e.realizer && row.realizer.raw == e'.realizer do continue
+      if (← isDefEq (mkConst row.source) e.handle) && (← isDefEq (mkConst row.target) e'.handle) then
+        out := out.push row.id.raw
+    return out
 
 /-- The report for a name that is neither a registered method nor a property. SPEC.md §Ellipses'
 `R.dimension()` (the Krull dimension of a ring) is HELD, and said so. -/

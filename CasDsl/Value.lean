@@ -493,6 +493,10 @@ inductive Obj where
   /-- The dihedral group of order `2n`, `Dihedral(n)` (Mathlib's `DihedralGroup n`). A
   presentation only: it names an object of `Groups` once ascribed there. -/
   | dihedralGroup (n : Nat)
+  /-- `(ℤ/p)[x]/(f)` for a monic `f = x^d + c_{d-1} x^{d-1} + … + c₀`, stored as `#[c₀, …, c_{d-1}]`
+  reduced mod `p`. A presentation of a ring by its defining polynomial: two defining polynomials give
+  two presentations, related only by a registered isomorphism (CC-CARRIER). -/
+  | polyQuotient (p : Nat) (coeffs : Array Nat)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -1467,6 +1471,19 @@ partial def latex? : SetPresentation → Option String
 
 end SetPresentation
 
+/-- `x^d + c_{d-1} x^{d-1} + … + c₀` from `#[c₀, …, c_{d-1}]`, zero terms omitted. -/
+def monicRender (cs : Array Nat) : String :=
+  let d := cs.size
+  let term (k c : Nat) : String :=
+    if k == 0 then toString c
+    else
+      let x := if k == 1 then "x" else s!"x^{k}"
+      if c == 1 then x else s!"{c}{x}"
+  let lower := (List.range d).reverse.filterMap fun k =>
+    let c := cs[k]!
+    if c == 0 then none else some (term k c)
+  " + ".intercalate ((if d == 0 then "1" else if d == 1 then "x" else s!"x^{d}") :: lower)
+
 namespace Obj
 
 def render : Obj → String
@@ -1480,6 +1497,7 @@ def render : Obj → String
     | some b => s!"{render pres} as {b.render}-module"
     | none => render pres
   | .dihedralGroup n => s!"Dihedral({n})"
+  | .polyQuotient p cs => s!"(ℤ/{p})[x]/({monicRender cs})"
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -1498,6 +1516,7 @@ def latex? : Obj → Option String
   -- the module fixture above)
   | .point .. => none
   | .dihedralGroup n => some s!"D_{n}"
+  | .polyQuotient .. => none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -1509,6 +1528,7 @@ def presentation : Obj → String
   | .symObj e => e.render
   | o@(.point ..) => o.render
   | o@(.dihedralGroup _) => o.render
+  | o@(.polyQuotient ..) => o.render
 
 /-- The LaTeX form matching `presentation`: for an element, the value and
 its domain (`v \\in D`); for other objects, `latex?` unchanged. -/

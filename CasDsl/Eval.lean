@@ -1424,6 +1424,18 @@ category that is registered")
       | .obj (.domainObj .int), .obj (.elem _ (.int n)) =>
           if n > 0 then return .obj (.domainObj (.mod n.toNat))
           else throw (.msg s!"ℤ/{n} needs a positive modulus")
+      -- `(ℤ/p)[x]/(f)`: the ring presented by a monic defining polynomial
+      | .obj (.domainObj (.poly (.mod p))), .obj (.elem (.poly _) (.poly _ coeffs)) =>
+          let residue : Value → Option Nat
+            | .int z => some (z % (p : Int)).toNat
+            | .mod _ v => some (v % p)
+            | _ => none
+          let some cs := coeffs.mapM residue
+            | throw (.msg s!"(ℤ/{p})[x]/(f) needs f with integer or residue coefficients")
+          let cs : List Nat := (cs.toList.reverse.dropWhile (· == 0)).reverse
+          unless cs.length ≥ 2 && cs.getLast? == some 1 do
+            throw (.msg s!"(ℤ/{p})[x]/(f) is presented for a monic f of positive degree")
+          return .obj (.polyQuotient p cs.dropLast.toArray)
       | _, _ =>
           return Denote.ofValue
             (← ofStr (valueBin ctx.canonMaps .div (← ofStr (asValueOf x))
@@ -2554,6 +2566,16 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
         -- Sets question stays one explicit call away — `F.set_eq(X)`
         -- transports its receiver, exactly like `∈`.
         return some neg
+      else if let (.obj (.point c base p), .obj (.point c' _ p')) := (a, b) then
+        -- two objects of a category: the same presentation is the same object; two different
+        -- presentations are compared by registered isomorphisms, and equality is not decided
+        -- (CC-CARRIER) — a registered isomorphism is data relating them, not an identification
+        if c == c' && p == p' then return some (!neg)
+        let isos ← (Semantic.isomorphisms ctx.env c base p p' : IO _)
+        let related := if isos.isEmpty then "no registered isomorphism relates them"
+          else s!"they are related by the registered isomorphism(s) {isos.toList}"
+        throw (.msg s!"equality of the objects {p.presentation} and {p'.presentation} of \
+{renderSemanticCategory c base} is not decided: {related}")
       else
         let some va := a.value?
           | throw (.msg s!"{a.render} is not comparable")
