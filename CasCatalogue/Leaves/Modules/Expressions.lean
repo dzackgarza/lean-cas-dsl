@@ -42,43 +42,43 @@ def FinitelyGeneratedModules : CategoryExpr :=
 def FiniteRankModules : CategoryExpr :=
   .classifierTotal ClassifierId.modulesFiniteRank
 
-def GenFrameExpr : CategoryExpr :=
-  .familyApp CategoryFamilyId.genFrame
+def FreeCoverExpr : CategoryExpr :=
+  .familyApp CategoryFamilyId.freeCover
     #[.variable ParameterId.r, .variable ParameterId.n]
 
-def BasisFrameExpr : CategoryExpr :=
-  .familyApp CategoryFamilyId.basisFrame
+def BasedModuleExpr : CategoryExpr :=
+  .familyApp CategoryFamilyId.basedModule
     #[.variable ParameterId.r, .variable ParameterId.n]
 
 def CoordExpr : CategoryExpr :=
   .familyApp CategoryFamilyId.coord
     #[.variable ParameterId.r, .variable ParameterId.n]
 
-def GenFrameIndexedExpr : CategoryExpr :=
-  .familyApp CategoryFamilyId.genFrameIndexed
+def FreeCoverIndexedExpr : CategoryExpr :=
+  .familyApp CategoryFamilyId.freeCoverIndexed
     #[.variable ParameterId.r, .variable ParameterId.i]
 
-def BasisFrameIndexedExpr : CategoryExpr :=
-  .familyApp CategoryFamilyId.basisFrameIndexed
+def BasedModuleIndexedExpr : CategoryExpr :=
+  .familyApp CategoryFamilyId.basedModuleIndexed
     #[.variable ParameterId.r, .variable ParameterId.i]
 
 def CoordIndexedExpr : CategoryExpr :=
   .familyApp CategoryFamilyId.coordIndexed
     #[.variable ParameterId.r, .variable ParameterId.i]
 
-def BasisFrameToGenFrameExpr : FunctorExpr BasisFrameExpr GenFrameExpr :=
-  .atomic FunctorId.basisFrameToGenFrame
+def BasedModuleToFreeCoverExpr : FunctorExpr BasedModuleExpr FreeCoverExpr :=
+  .atomic FunctorId.basedModuleToFreeCover
 
-def FromBasisFrameExpr : FunctorExpr BasisFrameExpr CoordExpr :=
-  .atomic FunctorId.fromBasisFrame
+def FromBasedModuleExpr : FunctorExpr BasedModuleExpr CoordExpr :=
+  .atomic FunctorId.fromBasedModule
 
 def CoordForgetExpr : FunctorExpr CoordExpr Modules.Modules :=
   .atomic FunctorId.coordForget
 
-def GenFrameForgetExpr : FunctorExpr GenFrameIndexedExpr Modules.Modules :=
-  .atomic FunctorId.genFrameForget
+def FreeCoverForgetExpr : FunctorExpr FreeCoverIndexedExpr Modules.Modules :=
+  .atomic FunctorId.freeCoverForget
 
-def BasisFrameForgetExpr : FunctorExpr BasisFrameIndexedExpr Modules.Modules :=
-  .atomic FunctorId.basisFrameForget
+def BasedModuleForgetExpr : FunctorExpr BasedModuleIndexedExpr Modules.Modules :=
+  .atomic FunctorId.basedModuleForget
 
 end CasCatalogue.Modules

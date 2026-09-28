@@ -3,7 +3,7 @@ module
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Leaves.Modules.Expressions
 public import LeanCategories.Modules.Mathlib
-public import LeanCategories.Modules.Framed
+public import LeanCategories.Modules.TruncatedResolutions
 public import LeanCategories.Modules.Total
 public import CasCatalogue.FamilyFibration
 public import CasCatalogue.Leaves.Foundation.CatalogueRegistration
@@ -88,7 +88,7 @@ noncomputable def modulesUnderlyingRealization :
   { sourceRealization := modulesTotalRealization
     targetRealization := Foundation.CatalogueRegistration.setsRealization }
 
-noncomputable def genFrameFamilyTransport :
+noncomputable def freeCoverFamilyTransport :
     Pseudofunctor
       (LocallyDiscrete (Discrete (Σ _R : CommRingCat.{u}, Nat))ᵒᵖ)
       (Cat.{u, u + 1}) :=
@@ -96,16 +96,16 @@ noncomputable def genFrameFamilyTransport :
     (P := Σ _R : CommRingCat.{u}, Nat)
     (fun (parameter : Σ _R : CommRingCat.{u}, Nat) =>
       letI := parameter.1.commRing
-      (Cat.of (GenFrame parameter.1 (Fin parameter.2)) : ObjCat.{u + 1, u}))
+      (Cat.of (FreeCover parameter.1 (Fin parameter.2)) : ObjCat.{u + 1, u}))
 
-noncomputable def genFrameFamilyRealization :
+noncomputable def freeCoverFamilyRealization :
     CategoryFamilyRealization.{u + 1, u, u + 1, u + 1}
-      CategoryFamilyId.genFrame .commRingNat
+      CategoryFamilyId.freeCover .commRingNat
       (P := Discrete (Σ _R : CommRingCat.{u}, Nat)) where
-  transport := genFrameFamilyTransport
+  transport := freeCoverFamilyTransport
   transportSemantics := .discrete
 
-noncomputable def basisFrameFamilyTransport :
+noncomputable def basedModuleFamilyTransport :
     Pseudofunctor
       (LocallyDiscrete (Discrete (Σ _R : CommRingCat.{u}, Nat))ᵒᵖ)
       (Cat.{u, u + 1}) :=
@@ -113,13 +113,13 @@ noncomputable def basisFrameFamilyTransport :
     (P := Σ _R : CommRingCat.{u}, Nat)
     (fun (parameter : Σ _R : CommRingCat.{u}, Nat) =>
       letI := parameter.1.commRing
-      (Cat.of (BasisFrame parameter.1 (Fin parameter.2)) : ObjCat.{u + 1, u}))
+      (Cat.of (BasedModule parameter.1 (Fin parameter.2)) : ObjCat.{u + 1, u}))
 
-noncomputable def basisFrameFamilyRealization :
+noncomputable def basedModuleFamilyRealization :
     CategoryFamilyRealization.{u + 1, u, u + 1, u + 1}
-      CategoryFamilyId.basisFrame .commRingNat
+      CategoryFamilyId.basedModule .commRingNat
       (P := Discrete (Σ _R : CommRingCat.{u}, Nat)) where
-  transport := basisFrameFamilyTransport
+  transport := basedModuleFamilyTransport
   transportSemantics := .discrete
 
 noncomputable def coordFamilyTransport :
@@ -139,7 +139,7 @@ noncomputable def coordFamilyRealization :
   transport := coordFamilyTransport
   transportSemantics := .discrete
 
-noncomputable def genFrameIndexedFamilyTransport :
+noncomputable def freeCoverIndexedFamilyTransport :
     Pseudofunctor
       (LocallyDiscrete
         (Discrete (Σ _R : CommRingCat.{u}, Type v))ᵒᵖ)
@@ -148,17 +148,17 @@ noncomputable def genFrameIndexedFamilyTransport :
     (P := Σ _R : CommRingCat.{u}, Type v)
     (fun parameter =>
       letI := parameter.1.commRing
-      Cat.of (GenFrame parameter.1 parameter.2))
+      Cat.of (FreeCover parameter.1 parameter.2))
 
-noncomputable def genFrameIndexedFamilyRealization :
+noncomputable def freeCoverIndexedFamilyRealization :
     CategoryFamilyRealization.{max (u + 1) (v + 1), max u v,
       max (u + 1) (v + 1), max (u + 1) (v + 1)}
-      CategoryFamilyId.genFrameIndexed .commRingIndexType
+      CategoryFamilyId.freeCoverIndexed .commRingIndexType
       (P := Discrete (Σ _R : CommRingCat.{u}, Type v)) where
-  transport := genFrameIndexedFamilyTransport
+  transport := freeCoverIndexedFamilyTransport
   transportSemantics := .discrete
 
-noncomputable def basisFrameIndexedFamilyTransport :
+noncomputable def basedModuleIndexedFamilyTransport :
     Pseudofunctor
       (LocallyDiscrete
         (Discrete (Σ _R : CommRingCat.{u}, Type v))ᵒᵖ)
@@ -167,14 +167,14 @@ noncomputable def basisFrameIndexedFamilyTransport :
     (P := Σ _R : CommRingCat.{u}, Type v)
     (fun parameter =>
       letI := parameter.1.commRing
-      Cat.of (BasisFrame parameter.1 parameter.2))
+      Cat.of (BasedModule parameter.1 parameter.2))
 
-noncomputable def basisFrameIndexedFamilyRealization :
+noncomputable def basedModuleIndexedFamilyRealization :
     CategoryFamilyRealization.{max (u + 1) (v + 1), max u v,
       max (u + 1) (v + 1), max (u + 1) (v + 1)}
-      CategoryFamilyId.basisFrameIndexed .commRingIndexType
+      CategoryFamilyId.basedModuleIndexed .commRingIndexType
       (P := Discrete (Σ _R : CommRingCat.{u}, Type v)) where
-  transport := basisFrameIndexedFamilyTransport
+  transport := basedModuleIndexedFamilyTransport
   transportSemantics := .discrete
 
 noncomputable def coordIndexedFamilyTransport :
@@ -196,37 +196,37 @@ noncomputable def coordIndexedFamilyRealization :
   transport := coordIndexedFamilyTransport
   transportSemantics := .discrete
 
-noncomputable def genFrameCategory (R : Type u) [CommRing R] (n : Nat) : ObjCat.{u + 1, u} :=
-  Cat.of (GenFrame R (Fin n))
+noncomputable def freeCoverCategory (R : Type u) [CommRing R] (n : Nat) : ObjCat.{u + 1, u} :=
+  Cat.of (FreeCover R (Fin n))
 
-noncomputable def basisFrameCategory (R : Type u) [CommRing R] (n : Nat) : ObjCat.{u + 1, u} :=
-  Cat.of (BasisFrame R (Fin n))
+noncomputable def basedModuleCategory (R : Type u) [CommRing R] (n : Nat) : ObjCat.{u + 1, u} :=
+  Cat.of (BasedModule R (Fin n))
 
 noncomputable def coordCategory (R : Type u) [CommRing R] (n : Nat) : ObjCat.{u + 1, u} :=
   Cat.of (Coord R (Fin n))
 
-noncomputable def genFrameIndexedCategory (R : Type u) [CommRing R] (I : Type v) :
+noncomputable def freeCoverIndexedCategory (R : Type u) [CommRing R] (I : Type v) :
     ObjCat.{max (u + 1) (v + 1), max u v} :=
-  Cat.of (GenFrame R I)
+  Cat.of (FreeCover R I)
 
-noncomputable def basisFrameIndexedCategory (R : Type u) [CommRing R] (I : Type v) :
+noncomputable def basedModuleIndexedCategory (R : Type u) [CommRing R] (I : Type v) :
     ObjCat.{max (u + 1) (v + 1), max u v} :=
-  Cat.of (BasisFrame R I)
+  Cat.of (BasedModule R I)
 
 noncomputable def coordIndexedCategory (R : Type u) [CommRing R] (I : Type v) :
     ObjCat.{max (u + 1) (v + 1), max u v} :=
   Cat.of (Coord R I)
 
-noncomputable def genFrameRealization (R : Type u) [CommRing R] (n : Nat) :
-    CategoryRealization Modules.GenFrameExpr (genFrameCategory R n) where
-  familyFibre := some (.mk genFrameFamilyRealization {
+noncomputable def freeCoverRealization (R : Type u) [CommRing R] (n : Nat) :
+    CategoryRealization Modules.FreeCoverExpr (freeCoverCategory R n) where
+  familyFibre := some (.mk freeCoverFamilyRealization {
     parameter := ⟨CommRingCat.of R, n⟩
     parameterQuotation := .commRingNat (CommRingCat.of R) n
     category_eq := by rfl })
 
-noncomputable def basisFrameRealization (R : Type u) [CommRing R] (n : Nat) :
-    CategoryRealization Modules.BasisFrameExpr (basisFrameCategory R n) where
-  familyFibre := some (.mk basisFrameFamilyRealization {
+noncomputable def basedModuleRealization (R : Type u) [CommRing R] (n : Nat) :
+    CategoryRealization Modules.BasedModuleExpr (basedModuleCategory R n) where
+  familyFibre := some (.mk basedModuleFamilyRealization {
     parameter := ⟨CommRingCat.of R, n⟩
     parameterQuotation := .commRingNat (CommRingCat.of R) n
     category_eq := by rfl })
@@ -238,16 +238,16 @@ noncomputable def coordRealization (R : Type u) [CommRing R] (n : Nat) :
     parameterQuotation := .commRingNat (CommRingCat.of R) n
     category_eq := by rfl })
 
-noncomputable def genFrameIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
-    CategoryRealization Modules.GenFrameIndexedExpr (genFrameIndexedCategory R I) where
-  familyFibre := some (.mk genFrameIndexedFamilyRealization {
+noncomputable def freeCoverIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
+    CategoryRealization Modules.FreeCoverIndexedExpr (freeCoverIndexedCategory R I) where
+  familyFibre := some (.mk freeCoverIndexedFamilyRealization {
     parameter := ⟨CommRingCat.of R, I⟩
     parameterQuotation := .commRingIndexTypeRI (CommRingCat.of R) I
     category_eq := by rfl })
 
-noncomputable def basisFrameIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
-    CategoryRealization Modules.BasisFrameIndexedExpr (basisFrameIndexedCategory R I) where
-  familyFibre := some (.mk basisFrameIndexedFamilyRealization {
+noncomputable def basedModuleIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
+    CategoryRealization Modules.BasedModuleIndexedExpr (basedModuleIndexedCategory R I) where
+  familyFibre := some (.mk basedModuleIndexedFamilyRealization {
     parameter := ⟨CommRingCat.of R, I⟩
     parameterQuotation := .commRingIndexTypeRI (CommRingCat.of R) I
     category_eq := by rfl })
@@ -268,18 +268,18 @@ noncomputable def finiteRankModulesRealization (R : RingCat.{u}) :
     CategoryRealization Modules.FiniteRankModules
       (Modules.Mathlib.finiteRank R).total := { familyFibre := none }
 
-noncomputable def basisFrameToGenFrameRealization (R : Type u) [CommRing R] (n : Nat) :
-    FunctorRealization Modules.BasisFrameToGenFrameExpr
-      (basisFrameCategory R n) (genFrameCategory R n)
-      (basisFrameToGenFrame R (Fin n)) :=
-  { sourceRealization := basisFrameRealization R n
-    targetRealization := genFrameRealization R n }
+noncomputable def basedModuleToFreeCoverRealization (R : Type u) [CommRing R] (n : Nat) :
+    FunctorRealization Modules.BasedModuleToFreeCoverExpr
+      (basedModuleCategory R n) (freeCoverCategory R n)
+      (basedModuleToFreeCover R (Fin n)) :=
+  { sourceRealization := basedModuleRealization R n
+    targetRealization := freeCoverRealization R n }
 
-noncomputable def fromBasisFrameRealization (R : Type u) [CommRing R] (n : Nat) :
-    FunctorRealization Modules.FromBasisFrameExpr
-      (basisFrameCategory R n) (coordCategory R n)
-      (Coord.fromBasisFrame R (Fin n)) :=
-  { sourceRealization := basisFrameRealization R n
+noncomputable def fromBasedModuleRealization (R : Type u) [CommRing R] (n : Nat) :
+    FunctorRealization Modules.FromBasedModuleExpr
+      (basedModuleCategory R n) (coordCategory R n)
+      (Coord.fromBasedModule R (Fin n)) :=
+  { sourceRealization := basedModuleRealization R n
     targetRealization := coordRealization R n }
 
 noncomputable def coordForgetRealization (R : Type u) [CommRing R] (n : Nat) :
@@ -289,54 +289,54 @@ noncomputable def coordForgetRealization (R : Type u) [CommRing R] (n : Nat) :
   { sourceRealization := coordRealization R n
     targetRealization := modulesRealization (RingCat.of R) }
 
-noncomputable def basisFrameToGenFrameDeclaration (R : Type u) [CommRing R] (n : Nat) :
-    basisFrameCategory R n ⟶ genFrameCategory R n :=
-  (basisFrameToGenFrame R (Fin n)).toCatHom
+noncomputable def basedModuleToFreeCoverDeclaration (R : Type u) [CommRing R] (n : Nat) :
+    basedModuleCategory R n ⟶ freeCoverCategory R n :=
+  (basedModuleToFreeCover R (Fin n)).toCatHom
 
-noncomputable def fromBasisFrameDeclaration (R : Type u) [CommRing R] (n : Nat) :
-    basisFrameCategory R n ⟶ coordCategory R n :=
-  (Coord.fromBasisFrame R (Fin n)).toCatHom
+noncomputable def fromBasedModuleDeclaration (R : Type u) [CommRing R] (n : Nat) :
+    basedModuleCategory R n ⟶ coordCategory R n :=
+  (Coord.fromBasedModule R (Fin n)).toCatHom
 
 noncomputable def coordForgetDeclaration (R : Type u) [CommRing R] (n : Nat) :
     coordCategory R n ⟶ Modules.Mathlib.ModulesOf (RingCat.of R) :=
   (Coord.forget R (Fin n)).toCatHom
 
-noncomputable def genFrameForgetIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
-    FunctorRealization Modules.GenFrameForgetExpr
-      (genFrameIndexedCategory R I)
+noncomputable def freeCoverForgetIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
+    FunctorRealization Modules.FreeCoverForgetExpr
+      (freeCoverIndexedCategory R I)
     (Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R))
-      (GenFrame.forget R I) :=
-  { sourceRealization := genFrameIndexedRealization R I
+      (FreeCover.forget R I) :=
+  { sourceRealization := freeCoverIndexedRealization R I
     targetRealization := modulesRealization.{u, max u v} (RingCat.of R) }
 
-noncomputable def basisFrameForgetIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
-    FunctorRealization Modules.BasisFrameForgetExpr
-      (basisFrameIndexedCategory R I)
+noncomputable def basedModuleForgetIndexedRealization (R : Type u) [CommRing R] (I : Type v) :
+    FunctorRealization Modules.BasedModuleForgetExpr
+      (basedModuleIndexedCategory R I)
     (Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R))
-      (BasisFrame.forget R I) :=
-  { sourceRealization := basisFrameIndexedRealization R I
+      (BasedModule.forget R I) :=
+  { sourceRealization := basedModuleIndexedRealization R I
     targetRealization := modulesRealization.{u, max u v} (RingCat.of R) }
 
-noncomputable def genFrameForgetIndexedDeclaration (R : Type u) [CommRing R] (I : Type v) :
-    genFrameIndexedCategory R I ⥤ Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R) :=
-  GenFrame.forget R I
+noncomputable def freeCoverForgetIndexedDeclaration (R : Type u) [CommRing R] (I : Type v) :
+    freeCoverIndexedCategory R I ⥤ Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R) :=
+  FreeCover.forget R I
 
-noncomputable def basisFrameForgetIndexedDeclaration (R : Type u) [CommRing R] (I : Type v) :
-    basisFrameIndexedCategory R I ⥤ Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R) :=
-  BasisFrame.forget R I
+noncomputable def basedModuleForgetIndexedDeclaration (R : Type u) [CommRing R] (I : Type v) :
+    basedModuleIndexedCategory R I ⥤ Modules.Mathlib.ModulesOf.{u, max u v} (RingCat.of R) :=
+  BasedModule.forget R I
 
 /-! The indexed registrations keep ring and index universes independent. -/
 universe uR uI
 
 example (R : Type uR) [CommRing R] (I : Type uI) :
-    CategoryRealization Modules.GenFrameIndexedExpr
-      (genFrameIndexedCategory R I) :=
-  genFrameIndexedRealization R I
+    CategoryRealization Modules.FreeCoverIndexedExpr
+      (freeCoverIndexedCategory R I) :=
+  freeCoverIndexedRealization R I
 
 example (R : Type uR) [CommRing R] (I : Type uI) :
-    CategoryRealization Modules.BasisFrameIndexedExpr
-      (basisFrameIndexedCategory R I) :=
-  basisFrameIndexedRealization R I
+    CategoryRealization Modules.BasedModuleIndexedExpr
+      (basedModuleIndexedCategory R I) :=
+  basedModuleIndexedRealization R I
 
 example (R : Type uR) [CommRing R] :
     CategoryRealization Modules.CoordIndexedExpr
@@ -364,16 +364,16 @@ normalized_registry .categoryFamily
     transportSemantics := .restrictionOfScalars }
 
 normalized_registry .categoryFamily
-  { id := CategoryFamilyId.genFrame,
+  { id := CategoryFamilyId.freeCover,
     schema := .commRingNat
-    realization := `CasCatalogue.Modules.CatalogueRegistration.genFrameFamilyRealization
-    transport := `CasCatalogue.Modules.CatalogueRegistration.genFrameFamilyTransport
+    realization := `CasCatalogue.Modules.CatalogueRegistration.freeCoverFamilyRealization
+    transport := `CasCatalogue.Modules.CatalogueRegistration.freeCoverFamilyTransport
     transportSemantics := .discrete }
 normalized_registry .categoryFamily
-  { id := CategoryFamilyId.basisFrame,
+  { id := CategoryFamilyId.basedModule,
     schema := .commRingNat
-    realization := `CasCatalogue.Modules.CatalogueRegistration.basisFrameFamilyRealization
-    transport := `CasCatalogue.Modules.CatalogueRegistration.basisFrameFamilyTransport
+    realization := `CasCatalogue.Modules.CatalogueRegistration.basedModuleFamilyRealization
+    transport := `CasCatalogue.Modules.CatalogueRegistration.basedModuleFamilyTransport
     transportSemantics := .discrete }
 normalized_registry .categoryFamily
   { id := CategoryFamilyId.coord,
@@ -382,16 +382,16 @@ normalized_registry .categoryFamily
     transport := `CasCatalogue.Modules.CatalogueRegistration.coordFamilyTransport
     transportSemantics := .discrete }
 normalized_registry .categoryFamily
-  { id := CategoryFamilyId.genFrameIndexed,
+  { id := CategoryFamilyId.freeCoverIndexed,
     schema := .commRingIndexType
-    realization := `CasCatalogue.Modules.CatalogueRegistration.genFrameIndexedFamilyRealization
-    transport := `CasCatalogue.Modules.CatalogueRegistration.genFrameIndexedFamilyTransport
+    realization := `CasCatalogue.Modules.CatalogueRegistration.freeCoverIndexedFamilyRealization
+    transport := `CasCatalogue.Modules.CatalogueRegistration.freeCoverIndexedFamilyTransport
     transportSemantics := .discrete }
 normalized_registry .categoryFamily
-  { id := CategoryFamilyId.basisFrameIndexed,
+  { id := CategoryFamilyId.basedModuleIndexed,
     schema := .commRingIndexType
-    realization := `CasCatalogue.Modules.CatalogueRegistration.basisFrameIndexedFamilyRealization
-    transport := `CasCatalogue.Modules.CatalogueRegistration.basisFrameIndexedFamilyTransport
+    realization := `CasCatalogue.Modules.CatalogueRegistration.basedModuleIndexedFamilyRealization
+    transport := `CasCatalogue.Modules.CatalogueRegistration.basedModuleIndexedFamilyTransport
     transportSemantics := .discrete }
 normalized_registry .categoryFamily
   { id := CategoryFamilyId.coordIndexed,
@@ -438,30 +438,30 @@ normalized_registry .category
     realization := `CasCatalogue.Modules.CatalogueRegistration.finiteRankModulesRealization}
 
 normalized_registry .category
-  { id := CategoryId.genFrame,
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.genFrameCategory
-    expression := Modules.GenFrameExpr
-    realization := `CasCatalogue.Modules.CatalogueRegistration.genFrameRealization }
+  { id := CategoryId.freeCover,
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.freeCoverCategory
+    expression := Modules.FreeCoverExpr
+    realization := `CasCatalogue.Modules.CatalogueRegistration.freeCoverRealization }
 normalized_registry .category
-  { id := CategoryId.basisFrame,
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameCategory
-    expression := Modules.BasisFrameExpr
-    realization := `CasCatalogue.Modules.CatalogueRegistration.basisFrameRealization }
+  { id := CategoryId.basedModule,
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.basedModuleCategory
+    expression := Modules.BasedModuleExpr
+    realization := `CasCatalogue.Modules.CatalogueRegistration.basedModuleRealization }
 normalized_registry .category
   { id := CategoryId.coord,
     declaration := `CasCatalogue.Modules.CatalogueRegistration.coordCategory
     expression := Modules.CoordExpr
     realization := `CasCatalogue.Modules.CatalogueRegistration.coordRealization }
 normalized_registry .category
-  { id := CategoryId.genFrameIndexed,
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.genFrameIndexedCategory
-    expression := Modules.GenFrameIndexedExpr
-    realization := `CasCatalogue.Modules.CatalogueRegistration.genFrameIndexedRealization }
+  { id := CategoryId.freeCoverIndexed,
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.freeCoverIndexedCategory
+    expression := Modules.FreeCoverIndexedExpr
+    realization := `CasCatalogue.Modules.CatalogueRegistration.freeCoverIndexedRealization }
 normalized_registry .category
-  { id := CategoryId.basisFrameIndexed,
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameIndexedCategory
-    expression := Modules.BasisFrameIndexedExpr
-    realization := `CasCatalogue.Modules.CatalogueRegistration.basisFrameIndexedRealization }
+  { id := CategoryId.basedModuleIndexed,
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.basedModuleIndexedCategory
+    expression := Modules.BasedModuleIndexedExpr
+    realization := `CasCatalogue.Modules.CatalogueRegistration.basedModuleIndexedRealization }
 normalized_registry .category
   { id := CategoryId.coordIndexed,
     declaration := `CasCatalogue.Modules.CatalogueRegistration.coordIndexedCategory
@@ -469,21 +469,21 @@ normalized_registry .category
     realization := `CasCatalogue.Modules.CatalogueRegistration.coordIndexedRealization }
 
 normalized_registry .functor
-  { id := FunctorId.basisFrameToGenFrame,
-    source := Modules.BasisFrameExpr
-    target := Modules.GenFrameExpr
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameToGenFrameDeclaration
+  { id := FunctorId.basedModuleToFreeCover,
+    source := Modules.BasedModuleExpr
+    target := Modules.FreeCoverExpr
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.basedModuleToFreeCoverDeclaration
     realization :=
-      `CasCatalogue.Modules.CatalogueRegistration.basisFrameToGenFrameRealization
-    expression := Modules.BasisFrameToGenFrameExpr
+      `CasCatalogue.Modules.CatalogueRegistration.basedModuleToFreeCoverRealization
+    expression := Modules.BasedModuleToFreeCoverExpr
     structural := true }
 normalized_registry .functor
-  { id := FunctorId.fromBasisFrame,
-    source := Modules.BasisFrameExpr
+  { id := FunctorId.fromBasedModule,
+    source := Modules.BasedModuleExpr
     target := Modules.CoordExpr
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.fromBasisFrameDeclaration
-    realization := `CasCatalogue.Modules.CatalogueRegistration.fromBasisFrameRealization
-    expression := Modules.FromBasisFrameExpr }
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.fromBasedModuleDeclaration
+    realization := `CasCatalogue.Modules.CatalogueRegistration.fromBasedModuleRealization
+    expression := Modules.FromBasedModuleExpr }
 normalized_registry .functor
   { id := FunctorId.coordForget,
     source := Modules.CoordExpr
@@ -493,22 +493,22 @@ normalized_registry .functor
     expression := Modules.CoordForgetExpr
     structural := true }
 normalized_registry .functor
-  { id := FunctorId.genFrameForget,
-    source := Modules.GenFrameIndexedExpr
+  { id := FunctorId.freeCoverForget,
+    source := Modules.FreeCoverIndexedExpr
     target := Modules.Modules
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.genFrameForgetIndexedDeclaration
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.freeCoverForgetIndexedDeclaration
     realization :=
-      `CasCatalogue.Modules.CatalogueRegistration.genFrameForgetIndexedRealization
-    expression := Modules.GenFrameForgetExpr
+      `CasCatalogue.Modules.CatalogueRegistration.freeCoverForgetIndexedRealization
+    expression := Modules.FreeCoverForgetExpr
     structural := true }
 normalized_registry .functor
-  { id := FunctorId.basisFrameForget,
-    source := Modules.BasisFrameIndexedExpr
+  { id := FunctorId.basedModuleForget,
+    source := Modules.BasedModuleIndexedExpr
     target := Modules.Modules
-    declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameForgetIndexedDeclaration
+    declaration := `CasCatalogue.Modules.CatalogueRegistration.basedModuleForgetIndexedDeclaration
     realization :=
-      `CasCatalogue.Modules.CatalogueRegistration.basisFrameForgetIndexedRealization
-    expression := Modules.BasisFrameForgetExpr
+      `CasCatalogue.Modules.CatalogueRegistration.basedModuleForgetIndexedRealization
+    expression := Modules.BasedModuleForgetExpr
     structural := true }
 
 normalized_registry .category

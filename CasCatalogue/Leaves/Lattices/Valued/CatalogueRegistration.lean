@@ -7,7 +7,7 @@ public import CasCatalogue.Leaves.Lattices.Valued.Catalogue
 public import LeanCategories.Lattices.Valued.ChangeValue
 public import LeanCategories.Lattices.Valued.DefiniteIndefinite
 public import CasCatalogue.Leaves.Lattices.Valued.Expressions
-public import LeanCategories.Lattices.Valued.Framed
+public import LeanCategories.Lattices.Valued.Based
 public import LeanCategories.Lattices.Valued.MetricDual
 public import LeanCategories.Lattices.Valued.ScaleAndEvenness
 public import LeanCategories.Modules.Mathlib

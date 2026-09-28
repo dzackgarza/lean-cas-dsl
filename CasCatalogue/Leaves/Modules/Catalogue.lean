@@ -14,11 +14,11 @@ def modulesTotal : CategoryId := ⟨"cat.modules_total"⟩
 def finitelyGeneratedModules : CategoryId := ⟨"cat.finitelygeneratedmodules"⟩
 def finiteRankModules : CategoryId := ⟨"cat.finiterankmodules"⟩
 def freeModules : CategoryId := ⟨"cat.freemodules"⟩
-def genFrame : CategoryId := ⟨"cat.gen_frame"⟩
-def basisFrame : CategoryId := ⟨"cat.basis_frame"⟩
+def freeCover : CategoryId := ⟨"cat.free_cover"⟩
+def basedModule : CategoryId := ⟨"cat.based_module"⟩
 def coord : CategoryId := ⟨"cat.coord"⟩
-def genFrameIndexed : CategoryId := ⟨"cat.gen_frame_indexed"⟩
-def basisFrameIndexed : CategoryId := ⟨"cat.basis_frame_indexed"⟩
+def freeCoverIndexed : CategoryId := ⟨"cat.free_cover_indexed"⟩
+def basedModuleIndexed : CategoryId := ⟨"cat.based_module_indexed"⟩
 def coordIndexed : CategoryId := ⟨"cat.coord_indexed"⟩
 end CategoryId
 
@@ -30,21 +30,21 @@ end ClassifierId
 
 namespace CategoryFamilyId
 def modules : CategoryFamilyId := ⟨"fam.modules"⟩
-def genFrame : CategoryFamilyId := ⟨"fam.gen_frame"⟩
-def basisFrame : CategoryFamilyId := ⟨"fam.basis_frame"⟩
+def freeCover : CategoryFamilyId := ⟨"fam.free_cover"⟩
+def basedModule : CategoryFamilyId := ⟨"fam.based_module"⟩
 def coord : CategoryFamilyId := ⟨"fam.coord"⟩
-def genFrameIndexed : CategoryFamilyId := ⟨"fam.gen_frame_indexed"⟩
-def basisFrameIndexed : CategoryFamilyId := ⟨"fam.basis_frame_indexed"⟩
+def freeCoverIndexed : CategoryFamilyId := ⟨"fam.free_cover_indexed"⟩
+def basedModuleIndexed : CategoryFamilyId := ⟨"fam.based_module_indexed"⟩
 def coordIndexed : CategoryFamilyId := ⟨"fam.coord_indexed"⟩
 
 end CategoryFamilyId
 
 namespace FunctorId
-def basisFrameToGenFrame : FunctorId := ⟨"fun.basis_frame.to_gen_frame"⟩
-def fromBasisFrame : FunctorId := ⟨"fun.coord.from_basis_frame"⟩
+def basedModuleToFreeCover : FunctorId := ⟨"fun.based_module.to_free_cover"⟩
+def fromBasedModule : FunctorId := ⟨"fun.coord.from_based_module"⟩
 def coordForget : FunctorId := ⟨"fun.coord.forget"⟩
-def genFrameForget : FunctorId := ⟨"fun.gen_frame.forget"⟩
-def basisFrameForget : FunctorId := ⟨"fun.basis_frame.forget"⟩
+def freeCoverForget : FunctorId := ⟨"fun.free_cover.forget"⟩
+def basedModuleForget : FunctorId := ⟨"fun.based_module.forget"⟩
 /-- The fibre inclusion `ι_R : R-Mod ⥤ ∫ᶜ Mod`. -/
 def modulesFibreInclusion : FunctorId := ⟨"fun.modules.fibre_inclusion"⟩
 /-- Restriction of scalars `φ^* : S-Mod ⥤ R-Mod`, the reindexing of the module fibration. -/
