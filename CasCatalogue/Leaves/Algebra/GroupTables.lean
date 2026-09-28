@@ -88,6 +88,23 @@ def quadraticTable (n : ℕ) (a b : ZMod (n + 1)) : RingTable :=
 /-- The same table, from natural-number parameters (the notebook's handle). -/
 def quadraticTableNat (n a b : ℕ) : RingTable := quadraticTable n a b
 
+/-- The index in `quadraticTableNat n a b` of `re + im ω` (the table's own enumeration). -/
+def quadraticIndexNat (n a b re im : ℕ) : ℕ :=
+  ((quadraticEnum n a b).symm ⟨(re : ZMod (n + 1)), (im : ZMod (n + 1))⟩).val
+
+/-- The coefficients `(re, im)` of the element with index `k` of `quadraticTableNat n a b`. -/
+def quadraticCoeffsNat (n a b k : ℕ) : ℕ × ℕ :=
+  if hk : k < (n + 1) * (n + 1) then
+    let z := quadraticEnum n a b ⟨k, hk⟩
+    (z.re.val, z.im.val)
+  else (0, 0)
+
+/-- Transport an element index along a handle isomorphism of ring tables: `none` off the source
+table. -/
+def transportIndex {a b : RingTable} (h : HandleIso ringTableDenotation a b) (k : ℕ) :
+    Option ℕ :=
+  if hk : k < a.size then some (h.hom.map ⟨k, hk⟩).val else none
+
 /-- `𝔽₉ = 𝔽₃[x]/(x² + 1)`: `x² = 2`. -/
 abbrev f9x : RingTable := quadraticTableNat 2 2 0
 /-- `𝔽₉ = 𝔽₃[y]/(y² + y + 2)`: `y² = 1 + 2y`. -/

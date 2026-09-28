@@ -94,6 +94,33 @@ run_cmd do
         throwError s!"K2 = K1 was refused for another reason: {e.render}"
   | .ok v => throwError s!"K2 = K1 was decided ({v})"
 
+/-! Elements of a presented ring are residue classes of polynomials (`let a := u in K1` is the
+image of `u` under `(ℤ/3)[x] → K1`); `map a to K2` moves an element along the registered
+isomorphism, and only along one. `x ↦ y + 2` sends `x` to `x + 2` of `K2`, and `x² = 2` in `K1` to
+`2`. -/
+
+let u(x) := x in (ZZ/3)[x]
+let sq(x) := x^2 in (ZZ/3)[x]
+let two(x) := 2 in (ZZ/3)[x]
+let w(x) := x + 2 in (ZZ/3)[x]
+let a := u in K1
+let a2 := sq in K1
+let t := two in K1
+let c := w in K2
+
+assert a2 = t
+assert a ≠ t
+assert map a to K2 = c
+assert map a2 to K2 = map t to K2
+
+/-- error: no registered isomorphism from (ℤ/3)[x]/(x^2 + x + 2) to (ℤ/3)[x]/(x^2 + 1): the element is not transported -/
+#guard_msgs in
+let back := map c to K1
+
+/-- error: x ∈ (ℤ/3)[x]/(x^2 + 1) and x + 2 ∈ (ℤ/3)[x]/(x^2 + x + 2) are elements of different presented rings: equality is not decided; `map … to` moves an element along a registered isomorphism -/
+#guard_msgs in
+assert a = c
+
 /-! ## Formed modules and lattices over the module fibration (CC-TRANSPORT, CC-FIB)
 
 A Gram matrix ascribed to `BilinModules(ℤ)` is a ℤ-valued bilinear form on `ℤⁿ`; ascribed to

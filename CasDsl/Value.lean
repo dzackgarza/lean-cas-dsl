@@ -497,6 +497,9 @@ inductive Obj where
   reduced mod `p`. A presentation of a ring by its defining polynomial: two defining polynomials give
   two presentations, related only by a registered isomorphism (CC-CARRIER). -/
   | polyQuotient (p : Nat) (coeffs : Array Nat)
+  /-- An element of a presented ring `ring = (ℤ/p)[x]/(f)`: the residue class of
+  `c₀ + c₁x + … + c_{d-1}x^{d-1}`, its reduced representative, stored as `#[c₀, …, c_{d-1}]`. -/
+  | ringElem (ring : Obj) (coeffs : Array Nat)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -1496,6 +1499,17 @@ def monicRender (cs : Array Nat) : String :=
     if c == 0 then none else some (term k c)
   " + ".intercalate ((if d == 0 then "1" else if d == 1 then "x" else s!"x^{d}") :: lower)
 
+/-- `c₀ + c₁x + …` from `#[c₀, c₁, …]`, highest degree first, zero terms omitted. -/
+def residueRender (cs : Array Nat) : String :=
+  let terms := (List.range cs.size).reverse.filterMap fun k =>
+    let c := cs[k]!
+    if c == 0 then none
+    else if k == 0 then some (toString c)
+    else
+      let x := if k == 1 then "x" else s!"x^{k}"
+      some (if c == 1 then x else s!"{c}{x}")
+  if terms.isEmpty then "0" else " + ".intercalate terms
+
 namespace Obj
 
 def render : Obj → String
@@ -1511,6 +1525,7 @@ def render : Obj → String
     | _, none => render pres
   | .dihedralGroup n => s!"Dihedral({n})"
   | .polyQuotient p cs => s!"(ℤ/{p})[x]/({monicRender cs})"
+  | .ringElem ring cs => s!"{residueRender cs} ∈ {render ring}"
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -1530,6 +1545,7 @@ def latex? : Obj → Option String
   | .point .. => none
   | .dihedralGroup n => some s!"D_{n}"
   | .polyQuotient .. => none
+  | .ringElem .. => none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -1542,6 +1558,7 @@ def presentation : Obj → String
   | o@(.point ..) => o.render
   | o@(.dihedralGroup _) => o.render
   | o@(.polyQuotient ..) => o.render
+  | o@(.ringElem ..) => o.render
 
 /-- The LaTeX form matching `presentation`: for an element, the value and
 its domain (`v \\in D`); for other objects, `latex?` unchanged. -/

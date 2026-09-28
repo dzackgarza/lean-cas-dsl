@@ -60,6 +60,14 @@ structure Encoded where
   denotation : Expr
   handle : Expr
 
+/-- `(ℤ/(k+1))[x]/(x² + c₁x + c₀)` as the parameters `(k, -c₀, -c₁)` of
+`QuadraticAlgebra (ZMod (k+1)) (-c₀) (-c₁)` (`ω² = -c₁ω - c₀`). -/
+def quadraticParams? : Obj → Option (Nat × Nat × Nat)
+  | .polyQuotient (k + 1) #[c₀, c₁] =>
+      let neg (c : Nat) := (k + 1 - c % (k + 1)) % (k + 1)
+      some (k, neg c₀, neg c₁)
+  | _ => none
+
 /-- Encode a presentation of an object of `category` (over `base`) into a realizer registered for
 that category. `none`: no registered realizer of this category realizes the presentation. -/
 def encode (category : String) (base : Option Domain) (pres : Obj) : Option Encoded :=
@@ -90,11 +98,11 @@ def encode (category : String) (base : Option Domain) (pres : Obj) : Option Enco
       some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
         mkApp (mkConst ``CasCatalogue.Algebra.GroupTables.zmodRingTable) (mkNatLit k)⟩
   -- `(ℤ/(k+1))[x]/(x² + c₁x + c₀)` as `QuadraticAlgebra (ZMod (k+1)) (-c₀) (-c₁)`
-  | "cat.rings", none, .polyQuotient (k + 1) #[c₀, c₁] =>
-      let neg (c : Nat) := (k + 1 - c % (k + 1)) % (k + 1)
+  | "cat.rings", none, pres@(.polyQuotient ..) => do
+      let (k, a, b) ← quadraticParams? pres
       some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
         mkApp3 (mkConst ``CasCatalogue.Algebra.GroupTables.quadraticTableNat) (mkNatLit k)
-          (mkNatLit (neg c₀)) (mkNatLit (neg c₁))⟩
+          (mkNatLit a) (mkNatLit b)⟩
   -- an integer Gram matrix: a ℤ-valued bilinear form on ℤⁿ, and a lattice when symmetric
   | "cat.bilin_module", some .int, .elem (.matrix n .int) (.mat _ _ rows) =>
       (intRows? rows).map fun rs =>
@@ -224,6 +232,46 @@ def isomorphisms (env : Environment) (category : String) (base : Option Domain) 
       if (← isDefEq (mkConst row.source) e.handle) && (← isDefEq (mkConst row.target) e'.handle) then
         out := out.push row.id.raw
     return out
+
+unsafe def evalNatUnsafe (e : Expr) : MetaM Nat := evalExpr Nat (mkConst ``Nat) e
+@[implemented_by evalNatUnsafe] opaque evalNat (e : Expr) : MetaM Nat
+
+unsafe def evalOptNatUnsafe (e : Expr) : MetaM (Option Nat) :=
+  evalExpr (Option Nat) (mkApp (mkConst ``Option [levelZero]) (mkConst ``Nat)) e
+@[implemented_by evalOptNatUnsafe] opaque evalOptNat (e : Expr) : MetaM (Option Nat)
+
+unsafe def evalNatPairUnsafe (e : Expr) : MetaM (Nat × Nat) :=
+  evalExpr (Nat × Nat) (mkApp2 (mkConst ``Prod [levelZero, levelZero]) (mkConst ``Nat) (mkConst ``Nat)) e
+@[implemented_by evalNatPairUnsafe] opaque evalNatPair (e : Expr) : MetaM (Nat × Nat)
+
+/-- Transport the element `c₀ + c₁x` of the presented ring `pres` to `pres'` along a registered
+handle isomorphism (CC-CARRIER). The element is located in the source table by the table's own
+enumeration, moved by the isomorphism's map, and read back by the target's enumeration. Without a
+registered isomorphism the element is not transported, and the error says so. -/
+def transportElement (env : Environment) (pres pres' : Obj) (coeffs : Array Nat) :
+    IO (Except String (Array Nat)) :=
+  runSemanticCheck env do
+    let state ← registryState
+    let (some (k, a, b), some (k', a', b'), some e, some e') :=
+        (quadraticParams? pres, quadraticParams? pres', encode "cat.rings" none pres,
+          encode "cat.rings" none pres')
+      | return .error s!"elements of {pres.presentation} and {pres'.presentation} have no \
+registered realization to transport between"
+    let mut row? := none
+    for row in state.handleIsos do
+      if (← isDefEq (mkConst row.source) e.handle) && (← isDefEq (mkConst row.target) e'.handle) then
+        row? := some row
+    let some row := row?
+      | return .error s!"no registered isomorphism from {pres.presentation} to \
+{pres'.presentation}: the element is not transported"
+    let idx ← evalNat (mkAppN (mkConst ``CasCatalogue.Algebra.GroupTables.quadraticIndexNat)
+      #[mkNatLit k, mkNatLit a, mkNatLit b, mkNatLit (coeffs.getD 0 0), mkNatLit (coeffs.getD 1 0)])
+    let some idx' ← evalOptNat (← mkAppM ``CasCatalogue.Algebra.GroupTables.transportIndex
+        #[mkConst row.evidence, mkNatLit idx])
+      | return .error s!"{row.id.raw} does not act on the element {coeffs}"
+    let (re, im) ← evalNatPair (mkAppN (mkConst ``CasCatalogue.Algebra.GroupTables.quadraticCoeffsNat)
+      #[mkNatLit k', mkNatLit a', mkNatLit b', mkNatLit idx'])
+    return .ok #[re, im]
 
 /-- The report for a name that is neither a registered method nor a property. SPEC.md §Ellipses'
 `R.dimension()` (the Krull dimension of a ring) is HELD, and said so. -/

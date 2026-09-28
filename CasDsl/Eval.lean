@@ -1866,6 +1866,17 @@ vector of the space meant — `span_QQ{(0, 0)}` — or obtained, as `M.ker()`"))
       return Denote.ofValue (.seriesV c (.terms qs))
   | .mapTo e target => do
       let t ← eval ctx target
+      -- an element of a presented ring, moved to another presentation along a registered
+      -- isomorphism (CC-CARRIER); there is no identification by what the two are isomorphic to
+      if let .obj (.point "cat.rings" none r'@(.polyQuotient ..)) := t then
+        match ← eval ctx e with
+        | .obj (.ringElem r cs) =>
+            if r == r' then return .obj (.ringElem r cs)
+            match ← (Semantic.transportElement ctx.env r r' cs : IO _) with
+            | .ok cs' => return .obj (.ringElem r' cs')
+            | .error msg => throw (.msg msg)
+        | other => throw (.msg s!"`map … to {r'.presentation}` needs an element of a presented \
+ring, got {other.presentation}")
       let .obj (.domainObj d) := t
         | throw (.msg s!"`map … to` needs a domain, got {t.presentation}")
       let v ← ofStr (asValueOf (← eval ctx e))
@@ -2140,6 +2151,9 @@ inductive Ascription where
   judgment is membership in it — decided by the same routed `contains` the
   surface's `∈` uses, which on a powerset is the inclusion `A ⊆ ℤ`. -/
   | member (s : Obj)
+  /-- `let a := u in K` for a presented ring `K = (ℤ/p)[x]/(f)`: `a` is the residue class of the
+  polynomial `u` — its image under the quotient map `(ℤ/p)[x] → K`. -/
+  | elementOf (ring : Obj)
 
 /-- The registered category an ascription spells, if any, with its base-ring argument
 unevaluated. The spellings are `C`, `C(R)`, SPEC.md's hyphenated `QQ-Mod` (read by the term grammar
@@ -2167,8 +2181,32 @@ def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
   match ← eval ctx e with
   | .obj (.domainObj d) => return .domain d
   | .obj (.setObj s) => return .member (.setObj s)
+  | .obj (.point "cat.rings" none r@(.polyQuotient ..)) => return .elementOf r
   | other => throw (.msg s!"{other.presentation} is neither a domain, a set, \
 nor a registered category")
+
+/-- The residue in `ℤ/p` of an integer or residue coefficient. -/
+private def residueMod (p : Nat) : Value → Option Nat
+  | .int z => some (z % (p : Int)).toNat
+  | .mod _ v => some (v % p)
+  | _ => none
+
+/-- The reduced representative of `u` modulo the monic `f = x^d + c_{d-1}x^{d-1} + … + c₀` over
+`ℤ/p` (`fcs = #[c₀, …, c_{d-1}]`): the remainder of polynomial division by a monic polynomial,
+coefficients `#[r₀, …, r_{d-1}]`. -/
+def reduceMonic (p : Nat) (fcs : Array Nat) (us : List Nat) : Array Nat := Id.run do
+  let d := fcs.size
+  let mut cs := (us.map (· % p)).toArray
+  let mut m := cs.size
+  while m > d do
+    m := m - 1
+    let c := cs[m]!
+    -- subtract c·x^{m-d}·f: x^m ↦ -(c_{d-1}x^{m-1} + … + c₀x^{m-d})
+    cs := cs.set! m 0
+    for i in [0:d] do
+      let j := m - d + i
+      cs := cs.set! j ((cs[j]! + (p - c * fcs[i]! % p)) % p)
+  return (List.range d).toArray.map fun i => cs.getD i 0
 
 /-- Apply and CHECK an ascription. Membership is a judgment: a domain
 ascription must admit the preferred canonical map, and a category ascription
@@ -2211,6 +2249,21 @@ membership — the arrow `{o.presentation}` already names its domain and codomai
             return o'
       throw (.msg s!"{o'.presentation} is not in {renderSemanticCategory category base}: no \
 registered realizer realizes it there, and it is not constructed in a category that reaches it")
+  | .elementOf ring => do
+      let .polyQuotient p fcs := ring
+        | throw (.msg s!"{ring.presentation} has no element presentation")
+      if let .ringElem r _ := o then
+        if r == ring then return o
+        throw (.msg s!"{o.presentation} is an element of another presented ring; `map … to` \
+moves it along a registered isomorphism")
+      let coeffs? : Option (List Nat) := match o with
+        | .elem _ (.poly _ cs) => cs.toList.mapM (residueMod p)
+        | .elem _ v => (residueMod p v).map ([·])
+        | _ => none
+      let some us := coeffs?
+        | throw (.msg s!"{o.presentation} is not a polynomial over ℤ/{p}, so it names no residue \
+class in {ring.presentation}")
+      return .ringElem ring (reduceMonic p fcs us)
   | .member s => do
       match (← callMethod ctx s `contains #[o]).value? with
       | some (.bool true) => return o
@@ -2560,6 +2613,12 @@ def evalAssert (ctx : EvalCtx) (rel : AssertRel) (l r : CasExpr)
         -- Sets question stays one explicit call away — `F.set_eq(X)`
         -- transports its receiver, exactly like `∈`.
         return some neg
+      else if let (.obj (.ringElem r cs), .obj (.ringElem r' cs')) := (a, b) then
+        -- residue classes in one presentation are equal exactly when their reduced
+        -- representatives are; across presentations there is no common ring to compare in
+        if r == r' then return some (neg != (cs == cs'))
+        throw (.msg s!"{a.render} and {b.render} are elements of different presented rings: \
+equality is not decided; `map … to` moves an element along a registered isomorphism")
       else if let (.obj (.point c base p), .obj (.point c' _ p')) := (a, b) then
         -- two objects of a category: the same presentation is the same object; two different
         -- presentations are compared by registered isomorphisms, and equality is not decided
