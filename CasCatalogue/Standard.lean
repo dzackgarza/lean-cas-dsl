@@ -14,6 +14,7 @@ public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Algebra.Subgroups
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -78,7 +79,11 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.unimodularLattice,
   CategoryId.cardinals,
   CategoryId.subobjectsGroups,
-  CategoryId.arrowsGroups]
+  CategoryId.arrowsGroups,
+  CategoryId.arrowsModules,
+  CategoryId.subobjectsModules,
+  CategoryId.arrowsBilinModule,
+  CategoryId.subobjectsBilinModule]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -136,6 +141,8 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.monoidsSemigroup,
   FunctorId.subobjectsGroupsDomain,
   FunctorId.subobjectsGroupsInclusion,
+  FunctorId.arrowsBilinModuleForget,
+  FunctorId.arrowsModulesKernel,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -190,7 +197,11 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.subobjects_groups.inclusion.table"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
-def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩]
+def expectedMethodIds : Array MethodId :=
+  #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩]
+
+/-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
+def expectedLiftIds : Array LiftId := #[⟨"lift.bilin_module.restrict"⟩]
 
 /-- Stable comparison rows owned by the standard catalogue (CC-COHERE). -/
 def expectedComparisonIds : Array ComparisonId := #[⟨"cmp.rings.carrier"⟩]
@@ -251,6 +262,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedPropertyIds (·.raw))
   validateStableIdSet "deciders" (manifest.deciders.map (·.id))
     (rawIds expectedDeciderIds (·.raw))
+  validateStableIdSet "lifts" (manifest.lifts.map (·.id))
+    (rawIds expectedLiftIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

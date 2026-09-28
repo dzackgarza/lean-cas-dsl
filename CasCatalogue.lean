@@ -37,6 +37,7 @@ public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Actions
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Expressions
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
 public import CasCatalogue.Leaves.Modules.Catalogue
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Expressions
@@ -44,6 +45,8 @@ public import CasCatalogue.Leaves.Modules.FibrationRegistryProbes
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions
+public import CasCatalogue.Lift
+public import CasCatalogue.LiftProbes
 public import CasCatalogue.PropsProbes
 public import CasCatalogue.Realization
 public import CasCatalogue.Registry.Entry

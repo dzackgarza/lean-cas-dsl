@@ -73,6 +73,17 @@ structure MethodEntry where
   owner : CategoryExpr
   functor : FunctorId
   shape : MethodShape
+  /-- The result is a subobject of the receiver's image, and must be lifted back along every
+  step of the route to become a subobject of the receiver itself (CC-LIFT). -/
+  returnsToSource : Bool := false
+  deriving Repr
+
+/-- A lift row (CC-LIFT): `evidence` names a `MonoLift U`, lifts of subobjects along a functor
+`U : C ⥤ D`; it serves the route step `edge`, which must be `U.mapArrow : Arr(C) ⥤ Arr(D)`. -/
+structure LiftEntry where
+  id : LiftId
+  edge : EdgeRef
+  evidence : Lean.Name
   deriving Repr
 
 /-- A comparison row (CC-COHERE): two structural routes `left` and `right` from `source` to

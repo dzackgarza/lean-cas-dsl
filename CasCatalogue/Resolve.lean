@@ -41,6 +41,9 @@ structure Resolution where
   method : MethodEntry
   route : Route
   comparisons : Array ComparisonId := #[]
+  /-- For a method that returns to the source side, the registered lift serving each route
+  step (CC-LIFT). -/
+  lifts : Array LiftId := #[]
 
 instance : Inhabited Resolution :=
   ⟨{ method := { id := default, name := "", owner := .atom default, functor := ⟨""⟩
@@ -110,6 +113,9 @@ inductive ResolutionError
   | ambiguous (name : String) (candidates : Array Resolution)
   /-- Several routes reach the host of a property's classifier, and nothing identifies them. -/
   | ambiguousProperty (name : String) (candidates : Array PropertyResolution)
+  /-- The method's result must return to the receiver's side, and a route step has no
+  registered lift of subobjects. -/
+  | missingLift (name : String) (resolution : Resolution) (step : EdgeRef)
 
 /-- The display name of a category expression: its registered id, if it has one. -/
 def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) : String :=
@@ -129,8 +135,10 @@ def RegistryState.renderResolution (state : RegistryState) (resolution : Resolut
     | .isoInvariant => " on the core"
   let comparisons := if resolution.comparisons.isEmpty then "" else
     s!" ; identified by {resolution.comparisons.toList.map (·.raw)}"
+  let lifts := if resolution.lifts.isEmpty then "" else
+    s!" ; lifted back by {resolution.lifts.toList.map (·.raw)}"
   s!"{state.renderRoute resolution.route} ; {resolution.method.id.raw} = \
-    {resolution.method.functor.raw}{shape}{comparisons}"
+    {resolution.method.functor.raw}{shape}{comparisons}{lifts}"
 
 /-- A property resolution, rendered. -/
 def RegistryState.renderPropertyResolution (state : RegistryState)
@@ -149,6 +157,10 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
       s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
         comparison identifies them:\n" ++
         "\n".intercalate (candidates.toList.map fun c => "  " ++ state.renderResolution c)
+  | .missingLift name resolution step =>
+      s!"`{name}` resolves to {state.renderResolution resolution}, but its result must return \
+        to the receiver's side and no lift of subobjects is registered along {step.label} \
+        (CC-LIFT)"
   | .ambiguousProperty name candidates =>
       s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
         comparison identifies them:\n" ++
@@ -170,7 +182,14 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
       -- One semantic route (#53 §8 steps 6–7). The representative is chosen only now, after
       -- equivalence is established, canonically by its rendered route, never by order.
       let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
-      pure { sorted[0]! with comparisons }
+      let resolution := { sorted[0]! with comparisons }
+      if !resolution.method.returnsToSource then return resolution
+      let mut lifts := #[]
+      for step in resolution.route.refs do
+        match state.lifts.find? (·.edge == step) with
+        | some lift => lifts := lifts.push lift.id
+        | none => throw (.missingLift name resolution step)
+      pure { resolution with lifts }
   | _ => throw (.ambiguous name candidates)
 
 /-- Resolve the property query `receiver.name` (CC-PROP): a property row with this name (an

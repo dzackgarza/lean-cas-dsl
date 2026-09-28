@@ -8,6 +8,7 @@ public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Typed
 public import CasCatalogue.Action
 public import CasCatalogue.Decide
+public import CasCatalogue.Lift
 public import Mathlib.CategoryTheory.Core
 public import LeanCategories.CategoryTheory.OneCat.Classifier
 public import CasCatalogue.Realization
@@ -47,6 +48,7 @@ inductive RegistryEntry
   | comparison (e : ComparisonEntry)
   | property (e : PropertyEntry)
   | decider (e : DeciderEntry)
+  | lift (e : LiftEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -63,6 +65,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .comparison e => e.id.raw
   | .property e => e.id.raw
   | .decider e => e.id.raw
+  | .lift e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -81,6 +84,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .comparison e => #[e.evidence]
   | .property _ => #[]
   | .decider e => #[e.realization]
+  | .lift e => #[e.evidence]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -95,6 +99,7 @@ structure RegistryState where
   comparisons : Array ComparisonEntry := #[]
   properties : Array PropertyEntry := #[]
   deciders : Array DeciderEntry := #[]
+  lifts : Array LiftEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -335,6 +340,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .comparison e => { s with comparisons := s.comparisons.push e }
   | s, .property e => { s with properties := s.properties.push e }
   | s, .decider e => { s with deciders := s.deciders.push e }
+  | s, .lift e => { s with lifts := s.lifts.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -348,7 +354,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.methods.toList.map RegistryEntry.method ++
     state.comparisons.toList.map RegistryEntry.comparison ++
     state.properties.toList.map RegistryEntry.property ++
-    state.deciders.toList.map RegistryEntry.decider
+    state.deciders.toList.map RegistryEntry.decider ++
+    state.lifts.toList.map RegistryEntry.lift
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -1735,6 +1742,19 @@ def validateNotPropertyAtom (state : RegistryState) (e : NamedCategoryEntry) : M
       throwError "category {e.id.raw} is a property subcategory of {other.id.raw}: register the \
         property as a classifier on {other.id.raw}"
 
+/-- A lift row's evidence must be a `MonoLift U` and its edge the functor `U.mapArrow`. -/
+def validateLift (state : RegistryState) (e : LiftEntry) : MetaM Unit := do
+  let edge ← state.edgeFunctor e.edge
+  let evidence ← mkConstWithFreshMVarLevels e.evidence
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType evidence)
+  let type ← whnfR type
+  unless type.isAppOfArity ``CasCatalogue.MonoLift 5 do
+    throwError "lift {e.id.raw}: {e.evidence} is not a MonoLift"
+  let onArrows ← mkAppHere ``CategoryTheory.Functor.mapArrow #[type.getAppArgs[4]!]
+  unless ← withTransparency .all <| isDefEq onArrows edge do
+    throwError "lift {e.id.raw}: {e.evidence} lifts along a functor whose action on arrows is \
+      not {e.edge.label}"
+
 /-- A method row names a registered functor whose source is its owner (`.object`) or the core
 of its owner (`.isoInvariant`, the registered constructor whose semantics is
 `CasCatalogue.Constructors.core`). -/
@@ -1817,6 +1837,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .comparison e => validateComparison state e
   | .property e => validateProperty state e
   | .decider e => validateDecider state e
+  | .lift e => validateLift state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2148,6 +2169,7 @@ structure RegistryManifestMethod where
   owner : RegistryManifestCategoryExpr
   functor : String
   shape : String
+  returnsToSource : Bool
   deriving BEq, Repr, ToJson, FromJson
 
 structure RegistryManifestComparison where
@@ -2172,6 +2194,12 @@ structure RegistryManifestDecider where
   realization : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestLift where
+  id : String
+  edge : String
+  evidence : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -2186,6 +2214,7 @@ structure RegistryManifest where
   comparisons : Array RegistryManifestComparison
   properties : Array RegistryManifestProperty
   deciders : Array RegistryManifestDecider
+  lifts : Array RegistryManifestLift
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2287,7 +2316,8 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       functor := e.functor.raw,
       shape := match e.shape with
         | .object => "object"
-        | .isoInvariant => "isoInvariant" }
+        | .isoInvariant => "isoInvariant",
+      returnsToSource := e.returnsToSource }
     comparisons := (state.comparisons.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, source := registryManifestCategoryExpr e.source,
       target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
@@ -2297,6 +2327,8 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       receiver := e.receiver.map registryManifestCategoryExpr }
     deciders := (state.deciders.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, classifier := e.classifier.raw, realization := e.realization.toString }
+    lifts := (state.lifts.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, edge := e.edge.label, evidence := e.evidence.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

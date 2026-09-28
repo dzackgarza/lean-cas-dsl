@@ -6,6 +6,7 @@ module
 
 public import LeanCategories.CategoryTheory.OneCat.Universes
 public import Mathlib.CategoryTheory.Comma.Arrow
+public import LeanCategories.CategoryTheory.OneCat.KernelFunctor
 public import Mathlib.CategoryTheory.Comma.Over.Basic
 public import Mathlib.CategoryTheory.Core
 public import Mathlib.CategoryTheory.Elements
@@ -48,8 +49,8 @@ def coslice (C : ObjCat.{u, v}) (X : C) : ObjCat.{max u v, v} := Cat.of (Under X
 def elements (C : ObjCat.{u, v}) (U : C ⥤ Type v) : ObjCat.{max u v, v} :=
   Cat.of U.Elements
 
-/-- The monomorphism property on arrows. -/
-def isMonoArrow (C : ObjCat.{u, v}) : ObjectProperty (Arrow C) := fun f ↦ Mono f.hom
+/-- The monomorphism property on arrows (owned by `LeanCategories.isMonoArrow`). -/
+abbrev isMonoArrow (C : ObjCat.{u, v}) : ObjectProperty (Arrow C) := LeanCategories.isMonoArrow C
 
 /-- `Subobjects(C)`: the full subcategory of `Arr(C)` on monomorphisms. -/
 def subobjects (C : ObjCat.{u, v}) : ObjCat.{max u v, v} :=

@@ -94,6 +94,11 @@ structure DeciderId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered lift of subobjects along a route step (CC-LIFT). -/
+structure LiftId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -124,6 +129,7 @@ instance : Inhabited MethodId := ⟨⟨""⟩⟩
 instance : Inhabited ComparisonId := ⟨⟨""⟩⟩
 instance : Inhabited PropertyId := ⟨⟨""⟩⟩
 instance : Inhabited DeciderId := ⟨⟨""⟩⟩
+instance : Inhabited LiftId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩
