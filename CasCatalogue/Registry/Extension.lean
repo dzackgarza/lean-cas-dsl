@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Typed
 public import CasCatalogue.Action
+public import Mathlib.CategoryTheory.Core
 public import LeanCategories.CategoryTheory.OneCat.Classifier
 public import CasCatalogue.Realization
 public import CasCatalogue.FamilyFibration
@@ -1471,6 +1472,35 @@ def RegistryState.structuralEdges (state : RegistryState) : Array StructuralEdge
     | _ => none
   rows ++ forgets
 
+/-- A structural route between two categories: its steps, in order. -/
+structure Route where
+  source : CategoryExpr
+  target : CategoryExpr
+  steps : Array StructuralEdge
+
+/-- The registered functor ids along a route. -/
+def Route.functorIds (route : Route) : Array FunctorId := route.steps.filterMap (·.functor?)
+
+/-- The steps of a route. -/
+def Route.refs (route : Route) : Array EdgeRef := route.steps.map (·.ref)
+
+/-- All simple structural routes from `source` to `target`. A route never revisits a category,
+so the enumeration is finite; `fuel` bounds its length. -/
+partial def RegistryState.routes (state : RegistryState) (source target : CategoryExpr)
+    (fuel : Nat := 32) : Array Route :=
+  let edges := state.structuralEdges
+  let rec go (current : CategoryExpr) (visited : List CategoryExpr) (fuel : Nat) :
+      Array (Array StructuralEdge) :=
+    if current.syntacticEq target then #[#[]]
+    else if fuel = 0 then #[]
+    else
+      edges.foldl (init := #[]) fun acc edge =>
+        if edge.source.syntacticEq current &&
+            !(visited.any (·.syntacticEq edge.target)) then
+          acc ++ (go edge.target (edge.target :: visited) (fuel - 1)).map (#[edge] ++ ·)
+        else acc
+  (go source [source] fuel).map fun steps => { source, target, steps }
+
 /-- The edges along `steps` if they form a structural route from `source` to `target`. -/
 def RegistryState.routeEdges? (state : RegistryState) (source target : CategoryExpr)
     (steps : Array EdgeRef) : Option (Array StructuralEdge) := do
@@ -1555,6 +1585,64 @@ def validateComparison (state : RegistryState) (e : ComparisonEntry) : MetaM Uni
   unless ← withTransparency .all <| isDefEq args[3]! right do
     throwError "comparison {e.id.raw} evidence is not about its right route"
 
+/-- Apply the constant `name` to `explicitArgs`, unifying every argument at the current
+metavariable depth (unlike `mkAppM`), so metavariables of the arguments, universe levels
+included, are assigned. -/
+def mkAppHere (name : Name) (explicitArgs : Array Expr) : MetaM Expr := do
+  let constant ← mkConstWithFreshMVarLevels name
+  let (args, binders, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let mut k : Nat := 0
+  for i in [0:args.size] do
+    if binders[i]!.isExplicit then
+      let some arg := explicitArgs[k]? | throwError "mkAppHere: too few arguments for {name}"
+      unless ← isDefEq args[i]! arg do
+        throwError "mkAppHere: argument {k} does not fit {name}"
+      k := k + 1
+  instantiateMVars (mkAppN constant args)
+
+/-- A route's steps, rendered. -/
+def renderSteps (steps : Array EdgeRef) : String :=
+  " ⋙ ".intercalate (steps.toList.map (·.label))
+
+/-- CC-IMMEDIATE, functors: a structural functor that is definitionally the composite of an
+existing structural route between the same endpoints adds no mathematics and is rejected, naming
+that composite. A structural functor with the same endpoints but different content (a second
+port) is admitted; the resulting ambiguity needs a comparison (CC-COHERE). -/
+def validateImmediateFunctor (state : RegistryState) (e : FunctorEntry) : MetaM Unit := do
+  unless e.structural do return
+  let others := { state with functors := state.functors.filter (·.id != e.id) }
+  for route in others.routes e.source e.target do
+    if route.steps.isEmpty then continue
+    let duplicate ← withoutModifyingState do
+      let composite ← others.routeFunctor route.refs
+      let declared ← registeredFunctorInstance e
+      withTransparency .all <| isDefEq declared composite
+    if duplicate then
+      throwError "functor {e.id.raw} adds nothing: it is the existing structural composite \
+        {renderSteps route.refs}"
+
+/-- CC-IMMEDIATE, methods (#53 §5): a method whose functor is definitionally an existing method
+pulled back along a structural route is declared below its lowest generating level, and is
+rejected naming that method and route. -/
+def validateMethodLevel (state : RegistryState) (e : MethodEntry) (functor : FunctorEntry) :
+    MetaM Unit := do
+  for other in state.methods do
+    if other.id == e.id || other.shape != e.shape then continue
+    let some otherFunctor := state.functor? other.functor | continue
+    for route in state.routes e.owner other.owner do
+      if route.steps.isEmpty then continue
+      let pulledBack ← withoutModifyingState do
+        let along ← state.routeFunctor route.refs
+        let along ← match e.shape with
+          | .object => pure along
+          | .isoInvariant => mkAppHere ``CategoryTheory.Functor.core #[along]
+        let composite ← mkFunctorComp along (← registeredFunctorInstance otherFunctor)
+        let declared ← registeredFunctorInstance functor
+        withTransparency .all <| isDefEq declared composite
+      if pulledBack then
+        throwError "method {e.id.raw} is declared below its generating level: it is \
+          {other.id.raw} along {renderSteps route.refs}"
+
 /-- A method row names a registered functor whose source is its owner (`.object`) or the core
 of its owner (`.isoInvariant`, the registered constructor whose semantics is
 `CasCatalogue.Constructors.core`). -/
@@ -1578,6 +1666,7 @@ def validateMethodEntry (state : RegistryState) (e : MethodEntry) : MetaM Unit :
       unless isCoreOfOwner do
         throwError
           "method {e.id.raw}: functor {e.functor.raw} is not defined on the core of its owner"
+  validateMethodLevel state e functor
 
 /-- Inspect declaration types before atomically persisting a registry entry. -/
 def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
@@ -1620,6 +1709,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
       ensureFunctorDeclaration e.declaration
       ensureFunctorRealization e.realization
       validateFunctorDeclarationRealization state e.expression e.declaration e.realization
+      validateImmediateFunctor state e
   | .opaque e => do
       ensureCategoryDeclaration e.declaration
       ensureCategoryRealization e.realization

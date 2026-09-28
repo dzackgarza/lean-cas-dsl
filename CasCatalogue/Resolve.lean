@@ -35,35 +35,6 @@ open Lean Meta Elab Term Command
 
 namespace CasCatalogue
 
-/-- A structural route between two categories: its steps, in order. -/
-structure Route where
-  source : CategoryExpr
-  target : CategoryExpr
-  steps : Array StructuralEdge
-
-/-- The registered functor ids along a route. -/
-def Route.functorIds (route : Route) : Array FunctorId := route.steps.filterMap (·.functor?)
-
-/-- The steps of a route. -/
-def Route.refs (route : Route) : Array EdgeRef := route.steps.map (·.ref)
-
-/-- All simple structural routes from `source` to `target`. A route never revisits a category,
-so the enumeration is finite; `fuel` bounds its length. -/
-partial def RegistryState.routes (state : RegistryState) (source target : CategoryExpr)
-    (fuel : Nat := 32) : Array Route :=
-  let edges := state.structuralEdges
-  let rec go (current : CategoryExpr) (visited : List CategoryExpr) (fuel : Nat) :
-      Array (Array StructuralEdge) :=
-    if current.syntacticEq target then #[#[]]
-    else if fuel = 0 then #[]
-    else
-      edges.foldl (init := #[]) fun acc edge =>
-        if edge.source.syntacticEq current &&
-            !(visited.any (·.syntacticEq edge.target)) then
-          acc ++ (go edge.target (edge.target :: visited) (fuel - 1)).map (#[edge] ++ ·)
-        else acc
-  (go source [source] fuel).map fun steps => { source, target, steps }
-
 /-- A resolved method call: the method row, the route to its owner, and the registered
 comparisons that identified every other candidate route with it (its provenance). -/
 structure Resolution where
