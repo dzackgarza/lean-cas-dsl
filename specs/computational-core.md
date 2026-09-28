@@ -589,23 +589,23 @@ That leaves the backend free to be messy internally.
 
 ---
 
-## 6. Where `lean-cas-dsl` stands (at `ddcf982`)
+## 6. Where `lean-cas-dsl` stands (at `a191b61`)
 
-What it already gets right, and what must change:
+The table records what `ddcf982` had and what became of it in `cc-dsl-migration`.
 
-| Present | Keep / change |
+| At `ddcf982` | Now |
 |---|---|
-| `Resolution.concreteReceiver`: execution sees \(F(X)\), not \(X\) | **keep**; generalize to composites (CC-TRANSPORT) |
-| `MethodDecl` (semantic) vs `Route` (computability) separation | **keep**; key routes by `FunctorExpr` (CC-ROUTE) |
-| Mathlib anchors: `CatDecl.telescope`/`anchor`, `MethodDecl.anchor`, `Denote`/`Verify` | **keep**; these are the start of Lean-owned meaning |
-| Structured gaps (`notApplicable`, `ambiguous`, `functorTargetMismatch`) | **keep**; add missing-lift and missing-comparison gaps |
-| `ObjMap` enum, one constructor per map | **retire** (CC-ACTION) |
-| `Obj` presentations whose categories come from `profileFrom` pattern rules | **change**: typed semantic objects; presentations select realizations only (CC-SEP) |
-| The transported image's category re-derived from its presentation (hence `functorTargetMismatch`) | **change**: \(F(X):\mathcal D\) by construction |
-| `parentClosure`: shortest chain kept, diamonds collapsed | **remove** (CC-RESOLVE, CC-COHERE) |
-| Transport consulted only when inheritance fails ("NEVER A PREEMPTION") | **removed** 2026-09-28 (CC-UNIFORM); the one corpus case it decided (`size` on `Modules` and `Sets`) is now a reported ambiguity |
-| Parameters "ride along unchanged" on parent edges | **change**: fibres of stated fibrations, with reindexing as change of base (CC-FIB) |
-| "ONE HOP", "NO RESULT LIFTING" ceilings | **remove** (CC-TRANSPORT, CC-LIFT) |
+| `Resolution.concreteReceiver`: execution sees \(F(X)\), not \(X\) | **kept, generalized**: `Eval.realizationOf` runs the registered actions along the whole route, or hands the image to a backend route (CC-TRANSPORT) |
+| `MethodDecl` (semantic) vs `Route` (computability) separation | **kept**; a fused route is keyed by the composite it realizes (`Route.realizes`, CC-ROUTE) |
+| Mathlib anchors: `CatDecl.telescope`/`anchor`, `MethodDecl.anchor`, `Denote`/`Verify` | **kept** as `MethodDecl.anchor` and `TypingRule.classes` (synthesized at registration; `verifyTyping` at the call) |
+| Structured gaps (`notApplicable`, `ambiguous`, `functorTargetMismatch`) | **kept** as registry resolution errors and `CapabilityGap` naming the resolved route; `functorTargetMismatch` is unrepresentable (typed functor rows) |
+| `ObjMap` enum, one constructor per map | **retired** (CC-ACTION) |
+| `Obj` presentations whose categories come from `profileFrom` pattern rules | **changed**: a value is a point of a registered category — by ascription, else by the most specific `TypingRule` at construction; presentations select realizations only (CC-SEP) |
+| The transported image's category re-derived from its presentation | **changed**: \(F(X):\mathcal D\) by construction |
+| `parentClosure`: shortest chain kept, diamonds collapsed | **removed** with `CatDecl`/`FunctorDecl`/`ProfileRule`/`resolveCore` (CC-RESOLVE, CC-COHERE) |
+| Transport consulted only when inheritance fails ("NEVER A PREEMPTION") | **removed** (CC-UNIFORM); the one corpus case it decided (`size` on `Modules` and `Sets`) is a reported ambiguity |
+| Parameters "ride along unchanged" on parent edges | **changed**: fibres of stated fibrations, reindexing as change of base (CC-FIB) |
+| "ONE HOP", "NO RESULT LIFTING" ceilings | **removed** (CC-TRANSPORT); result lifting is CC-LIFT's |
 
 ---
 
@@ -620,8 +620,8 @@ What it already gets right, and what must change:
   the resolver and closure (CC-RESOLVE, CC-CLOSURE, CC-UNIFORM, CC-COHERE, CC-PROP), the
   realization/implementation registry (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO), adapters and
   decoding (CC-ADAPTER, CC-DECODE), the surface syntax and elaborator, and the backend
-  bridges. Its older name-level graph (`CatDecl`/`FunctorDecl`) is retired in favour of
-  `CasCatalogue`.
+  bridges. Its older name-level graph (`CatDecl`/`FunctorDecl`) was deleted in
+  `cc-dsl-migration`; `CasCatalogue` is the only graph.
 
 This follows #53 §7 ("no second semantic method registry"): `FunctorEntry` stays the
 unique semantic authority, and the name-level graph must not survive as a parallel one.
