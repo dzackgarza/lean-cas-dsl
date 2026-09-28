@@ -79,6 +79,11 @@ structure MethodId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered comparison between two structural routes (CC-COHERE). -/
+structure ComparisonId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -106,6 +111,7 @@ instance : Inhabited CategoryId := ⟨⟨""⟩⟩
 instance : Inhabited FibrationId := ⟨⟨""⟩⟩
 instance : Inhabited ActionId := ⟨⟨""⟩⟩
 instance : Inhabited MethodId := ⟨⟨""⟩⟩
+instance : Inhabited ComparisonId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

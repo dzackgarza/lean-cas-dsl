@@ -42,6 +42,7 @@ inductive RegistryEntry
   | constructor (e : ConstructorEntry)
   | action (e : FunctorActionEntry)
   | method (e : MethodEntry)
+  | comparison (e : ComparisonEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -55,6 +56,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .constructor e => e.id.raw
   | .action e => e.id.raw
   | .method e => e.id.raw
+  | .comparison e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -70,6 +72,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .constructor e => #[e.semantics]
   | .action e => #[e.realization]
   | .method _ => #[]
+  | .comparison e => #[e.evidence]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -81,6 +84,7 @@ structure RegistryState where
   constructors : Array ConstructorEntry := #[]
   actions : Array FunctorActionEntry := #[]
   methods : Array MethodEntry := #[]
+  comparisons : Array ComparisonEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -318,6 +322,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .constructor e => { s with constructors := s.constructors.push e }
   | s, .action e => { s with actions := s.actions.push e }
   | s, .method e => { s with methods := s.methods.push e }
+  | s, .comparison e => { s with comparisons := s.comparisons.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -328,7 +333,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.fibrations.toList.map RegistryEntry.fibration ++
     state.constructors.toList.map RegistryEntry.constructor ++
     state.actions.toList.map RegistryEntry.action ++
-    state.methods.toList.map RegistryEntry.method
+    state.methods.toList.map RegistryEntry.method ++
+    state.comparisons.toList.map RegistryEntry.comparison
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -507,6 +513,11 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for method in state.methods do
     unless (state.functor? method.functor).isSome do
       throw s!"method entry {method.id.raw} names an unregistered functor"
+  for comparison in state.comparisons do
+    unless (comparison.left ++ comparison.right).all fun
+        | .functor id => (state.functor? id).isSome
+        | .classifierForget id => (state.classifier? id).isSome do
+      throw s!"comparison entry {comparison.id.raw} names an unregistered route step"
   pure ()
 
 private def registryValidationFailed (result : Except String Unit) : Bool :=
@@ -1425,6 +1436,125 @@ def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) :
       "action {e.id.raw} realization {e.realization} does not realize the registered functor \
       {e.functor.raw}"
 
+/-! ### Structural edges (#53 §8, CC-UNIFORM) -/
+
+/-- One structural edge of the registry. -/
+structure StructuralEdge where
+  source : CategoryExpr
+  target : CategoryExpr
+  expression : FunctorExpr source target
+  ref : EdgeRef
+
+/-- The registered functor row of an edge, if it is one. -/
+def StructuralEdge.functor? (edge : StructuralEdge) : Option FunctorId :=
+  match edge.ref with
+  | .functor id => some id
+  | .classifierForget _ => none
+
+/-- A human-readable label of an edge. -/
+def EdgeRef.label : EdgeRef → String
+  | .functor id => id.raw
+  | .classifierForget id => s!"forget[{id.raw}]"
+
+/-- The structural edges: `structural` functor rows and classifier forgetful functors. -/
+def RegistryState.structuralEdges (state : RegistryState) : Array StructuralEdge :=
+  let rows := (state.functors.filter (·.structural)).map fun entry =>
+    { source := entry.source, target := entry.target, expression := entry.expression,
+      ref := .functor entry.id : StructuralEdge }
+  let forgets := state.categories.filterMap fun category =>
+    match category.expression with
+    | .classifierTotal classifier =>
+        (state.classifier? classifier).map fun entry =>
+          { source := .classifierTotal classifier, target := entry.host
+            expression := .classifierForget classifier entry.host
+            ref := .classifierForget classifier }
+    | _ => none
+  rows ++ forgets
+
+/-- The edges along `steps` if they form a structural route from `source` to `target`. -/
+def RegistryState.routeEdges? (state : RegistryState) (source target : CategoryExpr)
+    (steps : Array EdgeRef) : Option (Array StructuralEdge) := do
+  let edges := state.structuralEdges
+  let mut current := source
+  let mut out := #[]
+  for step in steps do
+    let edge ← edges.find? fun edge => edge.ref == step && edge.source.syntacticEq current
+    out := out.push edge
+    current := edge.target
+  if current.syntacticEq target then some out else none
+
+/-- The Mathlib functor of a classifier's forgetful functor `total → host`. -/
+def classifierForgetInstance (entry : ClassifierEntry) : MetaM Expr := do
+  let classifier ← mkConstWithFreshMVarLevels entry.declaration
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType classifier)
+  let mut value := mkAppN classifier args
+  let type ← whnf (← inferType value)
+  if type.isAppOf ``LeanCategories.PropertyClassifier then
+    value ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[value]
+  else if type.isAppOf ``LeanCategories.StructureClassifier then
+    value ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[value]
+  mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[← mkAppM ``LeanCategories.Classifier.forget #[value]]
+
+/-- `F ⋙ G` for functor terms with metavariables: unify `F`'s target with `G`'s source at the
+current depth (so the metavariables of both, including universe levels, are assigned), then apply
+`Functor.comp` at the resulting levels. -/
+def mkFunctorComp (F G : Expr) : MetaM Expr := do
+  let fType ← whnf (← inferType F)
+  let gType ← whnf (← inferType G)
+  let .const ``CategoryTheory.Functor [v₁, v₂, u₁, u₂] := fType.getAppFn
+    | throwError "not a functor: {F}"
+  let .const ``CategoryTheory.Functor [v₂', v₃, u₂', u₃] := gType.getAppFn
+    | throwError "not a functor: {G}"
+  let #[C, instC, D, instD] := fType.getAppArgs | throwError "malformed functor type"
+  let #[D', instD', E, instE] := gType.getAppArgs | throwError "malformed functor type"
+  unless ← isLevelDefEq v₂ v₂' <&&> isLevelDefEq u₂ u₂' <&&> isDefEq D D' <&&>
+      isDefEq instD instD' do
+    throwError "cannot compose {F} with {G}: the middle categories differ"
+  instantiateMVars <| mkAppN (mkConst ``CategoryTheory.Functor.comp [v₁, v₂, v₃, u₁, u₂, u₃])
+    #[C, instC, D, instD, E, instE, F, G]
+
+/-- The Mathlib composite of a structural route. -/
+def RegistryState.routeFunctor (state : RegistryState) (steps : Array EdgeRef) :
+    MetaM Expr := do
+  let mut acc : Option Expr := none
+  for step in steps do
+    let functor ← match step with
+      | .functor id => match state.functor? id with
+          | some entry => registeredFunctorInstance entry
+          | none => throwError "unregistered functor {id.raw}"
+      | .classifierForget id => match state.classifier? id with
+          | some entry => classifierForgetInstance entry
+          | none => throwError "unregistered classifier {id.raw}"
+    acc ← some <$> match acc with
+      | none => pure functor
+      | some previous => mkFunctorComp previous functor
+  match acc with
+  | some functor => pure functor
+  | none => throwError "an empty route has no composite"
+
+/-- A comparison's routes must be structural routes between its endpoints, and its evidence an
+isomorphism between their Mathlib composites (CC-COHERE). -/
+def validateComparison (state : RegistryState) (e : ComparisonEntry) : MetaM Unit := do
+  unless e.source.isRegistered state && e.target.isRegistered state do
+    throwError "comparison {e.id.raw} has an unregistered endpoint"
+  if e.left == e.right then
+    throwError "comparison {e.id.raw} compares a route with itself"
+  for (side, steps) in [("left", e.left), ("right", e.right)] do
+    if (state.routeEdges? e.source e.target steps).isNone then
+      throwError "comparison {e.id.raw}: its {side} side is not a structural route"
+  let left ← state.routeFunctor e.left
+  let right ← state.routeFunctor e.right
+  let evidenceConstant ← mkConstWithFreshMVarLevels e.evidence
+  let (_, _, evidenceType) ← forallMetaTelescopeReducing (← inferType evidenceConstant)
+  let evidenceType ← whnfR evidenceType
+  unless evidenceType.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "comparison {e.id.raw} evidence {e.evidence} is not an isomorphism"
+  let args := evidenceType.getAppArgs
+  unless ← withTransparency .all <| isDefEq args[2]! left do
+    throwError "comparison {e.id.raw} evidence is not about its left route"
+  unless ← withTransparency .all <| isDefEq args[3]! right do
+    throwError "comparison {e.id.raw} evidence is not about its right route"
+
 /-- A method row names a registered functor whose source is its owner (`.object`) or the core
 of its owner (`.isoInvariant`, the registered constructor whose semantics is
 `CasCatalogue.Constructors.core`). -/
@@ -1501,6 +1631,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .fibration e => validateFibrationEvidence state e
   | .action e => validateActionRealization state e
   | .method e => validateMethodEntry state e
+  | .comparison e => validateComparison state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -1834,6 +1965,15 @@ structure RegistryManifestMethod where
   shape : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestComparison where
+  id : String
+  source : RegistryManifestCategoryExpr
+  target : RegistryManifestCategoryExpr
+  left : Array String
+  right : Array String
+  evidence : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -1845,6 +1985,7 @@ structure RegistryManifest where
   constructors : Array RegistryManifestConstructor
   actions : Array RegistryManifestAction
   methods : Array RegistryManifestMethod
+  comparisons : Array RegistryManifestComparison
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -1947,6 +2088,10 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       shape := match e.shape with
         | .object => "object"
         | .isoInvariant => "isoInvariant" }
+    comparisons := (state.comparisons.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, source := registryManifestCategoryExpr e.source,
+      target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
+      right := e.right.map (·.label), evidence := e.evidence.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

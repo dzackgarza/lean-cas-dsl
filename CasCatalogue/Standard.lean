@@ -11,6 +11,7 @@ public import CasCatalogue.FibrationRegistration
 public import CasCatalogue.ConstructorRegistration
 public import CasCatalogue.Leaves.Lattices.Valued.Actions
 public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -180,6 +181,9 @@ def expectedActionIds : Array ActionId := #[
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩]
 
+/-- Stable comparison rows owned by the standard catalogue (CC-COHERE). -/
+def expectedComparisonIds : Array ComparisonId := #[⟨"cmp.rings.carrier"⟩]
+
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
   CategoryId.crystals,
@@ -224,6 +228,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedActionIds (·.raw))
   validateStableIdSet "methods" (manifest.methods.map (·.id))
     (rawIds expectedMethodIds (·.raw))
+  validateStableIdSet "comparisons" (manifest.comparisons.map (·.id))
+    (rawIds expectedComparisonIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

@@ -4,11 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Standard
 public import CasCatalogue.ResolveSyntax
+public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Foundation.Cardinality
 public import CasCatalogue.Leaves.Lattices.Valued.ActionProbes
-public meta import CasCatalogue.Standard
 public meta import CasCatalogue.ResolveSyntax
+public meta import CasCatalogue.Leaves.Algebra.Ports
+public meta import CasCatalogue.Leaves.Foundation.Cardinality
 public meta import CasCatalogue.Leaves.Lattices.Valued.ActionProbes
 
 @[expose] public section
@@ -23,9 +25,10 @@ public meta import CasCatalogue.Leaves.Lattices.Valued.ActionProbes
 * The elaborated term is ordinary Lean: a `let` of the checked composite `FunctorExpr` around the
   composed `RealizedAction` applied to the receiver, with no string-keyed dispatch.
 * The ring diamond: `Ring` reaches `Magma`, and hence `Sets`, along the multiplicative and the
-  additive port, and the two routes are distinct. With no registered comparison, `cardinality` on
-  rings is reported ambiguous with both routes; naming a port with `via` resolves it. (The
-  comparison that identifies them at `Sets` is `cc-cohere`.)
+  additive port, and the two routes are distinct. This module deliberately does not import the
+  comparison row (`Leaves/Algebra/PortComparison.lean`): without it, `cardinality` on rings is
+  reported ambiguous with both routes, and naming a port with `via` resolves it. With it, see
+  `CohereProbes`.
 -/
 
 open Lean Meta Elab Term Command

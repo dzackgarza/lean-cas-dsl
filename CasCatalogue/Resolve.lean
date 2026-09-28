@@ -35,35 +35,6 @@ open Lean Meta Elab Term Command
 
 namespace CasCatalogue
 
-/-- One structural edge of the registry. -/
-structure StructuralEdge where
-  source : CategoryExpr
-  target : CategoryExpr
-  expression : FunctorExpr source target
-  /-- The registered functor row, if the edge is one (a classifier forgetful functor is not). -/
-  functor? : Option FunctorId
-
-/-- A human-readable label of an edge. -/
-def StructuralEdge.label (edge : StructuralEdge) : String :=
-  match edge.functor?, edge.source with
-  | some id, _ => id.raw
-  | none, .classifierTotal classifier => s!"forget[{classifier.raw}]"
-  | none, _ => "?"
-
-/-- The structural edges: `structural` functor rows and classifier forgetful functors. -/
-def RegistryState.structuralEdges (state : RegistryState) : Array StructuralEdge :=
-  let rows := (state.functors.filter (·.structural)).map fun entry =>
-    { source := entry.source, target := entry.target, expression := entry.expression,
-      functor? := some entry.id : StructuralEdge }
-  let forgets := state.categories.filterMap fun category =>
-    match category.expression with
-    | .classifierTotal classifier =>
-        (state.classifier? classifier).map fun entry =>
-          { source := .classifierTotal classifier, target := entry.host
-            expression := .classifierForget classifier entry.host, functor? := none }
-    | _ => none
-  rows ++ forgets
-
 /-- A structural route between two categories: its steps, in order. -/
 structure Route where
   source : CategoryExpr
@@ -72,6 +43,9 @@ structure Route where
 
 /-- The registered functor ids along a route. -/
 def Route.functorIds (route : Route) : Array FunctorId := route.steps.filterMap (·.functor?)
+
+/-- The steps of a route. -/
+def Route.refs (route : Route) : Array EdgeRef := route.steps.map (·.ref)
 
 /-- All simple structural routes from `source` to `target`. A route never revisits a category,
 so the enumeration is finite; `fuel` bounds its length. -/
@@ -90,10 +64,50 @@ partial def RegistryState.routes (state : RegistryState) (source target : Catego
         else acc
   (go source [source] fuel).map fun steps => { source, target, steps }
 
-/-- A resolved method call: the method row and the unique route to its owner. -/
+/-- A resolved method call: the method row, the route to its owner, and the registered
+comparisons that identified every other candidate route with it (its provenance). -/
 structure Resolution where
   method : MethodEntry
   route : Route
+  comparisons : Array ComparisonId := #[]
+
+instance : Inhabited Resolution :=
+  ⟨{ method := { id := default, name := "", owner := .atom default, functor := ⟨""⟩
+                 shape := .object }
+     route := { source := .atom default, target := .atom default, steps := #[] } }⟩
+
+/-- Whether `a` becomes `b` by replacing one occurrence of `left` with `right`. -/
+def rewritesTo (a b left right : Array EdgeRef) : Bool :=
+  (List.range (a.size + 1)).any fun i =>
+    a.extract i (i + left.size) == left &&
+      b == a.extract 0 i ++ right ++ a.extract (i + left.size) a.size
+
+/-- The registered comparison identifying two routes by one rewrite, if any. -/
+def RegistryState.comparisonBetween? (state : RegistryState) (a b : Route) :
+    Option ComparisonId :=
+  (state.comparisons.find? fun c =>
+      rewritesTo a.refs b.refs c.left c.right || rewritesTo a.refs b.refs c.right c.left).map (·.id)
+
+/-- Partition candidates for the same method into classes of routes connected by registered
+comparisons. Returns, for each class, its members and the comparisons used. -/
+def RegistryState.coherenceClasses (state : RegistryState) (candidates : Array Resolution) :
+    Array (Array Resolution × Array ComparisonId) := Id.run do
+  let n := candidates.size
+  let mut classOf : Array Nat := Array.range n
+  let mut used : Array ComparisonId := #[]
+  -- naive union-find over the (small) candidate set
+  for i in [0:n] do
+    for j in [i+1:n] do
+      if candidates[i]!.method.id == candidates[j]!.method.id then
+        if let some c := state.comparisonBetween? candidates[i]!.route candidates[j]!.route then
+          let (ci, cj) := (classOf[i]!, classOf[j]!)
+          if ci != cj then
+            classOf := classOf.map fun k => if k == cj then ci else k
+            unless used.contains c do used := used.push c
+  let reps := (classOf.toList.eraseDups).toArray
+  return reps.map fun r =>
+    let members := (Array.range n).filter (classOf[·]! == r) |>.map (candidates[·]!)
+    (members, if members.size > 1 then used else #[])
 
 /-- Why a method call does not resolve. -/
 inductive ResolutionError
@@ -113,15 +127,17 @@ def RegistryState.categoryName (state : RegistryState) (expression : CategoryExp
 /-- A route, rendered as `A --F--> B --G--> C`. -/
 def RegistryState.renderRoute (state : RegistryState) (route : Route) : String :=
   route.steps.foldl (init := state.categoryName route.source) fun acc edge =>
-    s!"{acc} --{edge.label}--> {state.categoryName edge.target}"
+    s!"{acc} --{edge.ref.label}--> {state.categoryName edge.target}"
 
 /-- A resolution, rendered with its method functor. -/
 def RegistryState.renderResolution (state : RegistryState) (resolution : Resolution) : String :=
   let shape := match resolution.method.shape with
     | .object => ""
     | .isoInvariant => " on the core"
+  let comparisons := if resolution.comparisons.isEmpty then "" else
+    s!" ; identified by {resolution.comparisons.toList.map (·.raw)}"
   s!"{state.renderRoute resolution.route} ; {resolution.method.id.raw} = \
-    {resolution.method.functor.raw}{shape}"
+    {resolution.method.functor.raw}{shape}{comparisons}"
 
 def ResolutionError.render (state : RegistryState) : ResolutionError → String
   | .unknownMethod name => s!"no method is named `{name}`"
@@ -142,9 +158,13 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
     ((state.routes receiver method.owner).filter fun route =>
         through.all fun id => route.functorIds.contains id).map fun route =>
       { method, route : Resolution }
-  match candidates.toList with
-  | [] => throw (.notApplicable name (methods.map (·.owner)))
-  | [resolution] => pure resolution
+  if candidates.isEmpty then throw (.notApplicable name (methods.map (·.owner)))
+  match (state.coherenceClasses candidates).toList with
+  | [(members, comparisons)] =>
+      -- One semantic route (#53 §8 steps 6–7). The representative is chosen only now, after
+      -- equivalence is established, canonically by its rendered route, never by order.
+      let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
+      pure { sorted[0]! with comparisons }
   | _ => throw (.ambiguous name candidates)
 
 /-! ## Elaboration: the composite as a checked Lean term -/
@@ -198,7 +218,7 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let mut acc : Option Expr := none
   for edge in resolution.route.steps do
     let some id := edge.functor?
-      | throwError "route step {edge.label} has no registered functor to realize"
+      | throwError "route step {edge.ref.label} has no registered functor to realize"
     acc ← some <$> composeAction state acc id
   let methodAction ← composeAction state none resolution.method.functor
   let x ← elabTerm receiver none

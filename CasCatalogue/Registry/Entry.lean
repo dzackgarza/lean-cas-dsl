@@ -68,6 +68,26 @@ structure MethodEntry where
   shape : MethodShape
   deriving Repr
 
+/-- One step of a structural route: a registered structural functor row, or the forgetful
+functor `total(c) → host(c)` of a registered classifier. -/
+inductive EdgeRef
+  | functor (id : FunctorId)
+  | classifierForget (id : ClassifierId)
+  deriving DecidableEq, Repr, Inhabited
+
+/-- A comparison row (CC-COHERE): two structural routes `left` and `right` from `source` to
+`target`, identified by `evidence`, a Lean isomorphism between their composite functors. Two
+routes to a method's owner that differ by replacing `left` with `right` (or conversely) are one
+semantic route. Without such a row they stay distinct. -/
+structure ComparisonEntry where
+  id : ComparisonId
+  source : CategoryExpr
+  target : CategoryExpr
+  left : Array EdgeRef
+  right : Array EdgeRef
+  evidence : Lean.Name
+  deriving Repr
+
 /-- The kind of one argument of a typed category constructor. -/
 inductive ConstructorArgKind
   | category
