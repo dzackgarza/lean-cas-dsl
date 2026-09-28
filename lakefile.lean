@@ -15,7 +15,12 @@ require «nbdsl-worker» from git
     @ "main" / "worker"
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.32.0"
+  "https://github.com/leanprover-community/mathlib4.git" @ "v4.33.0"
+
+/- The mathematics: categories, functors, fibrations and their theory. This package owns
+the CAS machinery over it (registry, resolution, realizations, backends). -/
+require lean_categories from git
+  "https://github.com/dzackgarza/lean-categories" @ "c89c9d400b4bb90a7c23ac5165d987ad31e5bfa3"
 
 @[default_target]
 lean_lib CasDsl where
