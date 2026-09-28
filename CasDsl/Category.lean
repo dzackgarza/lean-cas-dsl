@@ -95,6 +95,8 @@ inductive DomainPattern where
   | exact (d : Domain)
   | polyOver (coeff : DomainPattern)
   | matrixOver (entry : DomainPattern)
+  /-- `Eⁿ` for every length `n`, entries matching `entry`. -/
+  | vectorOver (entry : DomainPattern)
   /-- `ℤ/n` for EVERY modulus `n` — what makes `ℤ → ℤ/n` one embedding rule
   instead of one per modulus. -/
   | anyMod
@@ -152,6 +154,8 @@ partial def accepts : DomainPattern → Domain → Bool
   | .polyOver _, _ => false
   | .matrixOver p, .matrix _ e => p.accepts e
   | .matrixOver _, _ => false
+  | .vectorOver p, .vector _ e => p.accepts e
+  | .vectorOver _, _ => false
   | .anyMod, .mod _ => true
   | .anyMod, _ => false
   | .anyFuncs, .funcs .. => true
@@ -167,6 +171,7 @@ partial def implies : DomainPattern → DomainPattern → Bool
   | .exact d, q => q.accepts d
   | .polyOver p, .polyOver q => p.implies q
   | .matrixOver p, .matrixOver q => p.implies q
+  | .vectorOver p, .vectorOver q => p.implies q
   | .anyMod, .anyMod => true
   | .anyFuncs, .anyFuncs => true
   | _, _ => false
@@ -454,6 +459,10 @@ structure Route where
   /-- Where this binding's implementation or documentation lives (a source
   or docs link), rendered by the diagnostics. Overrides the op's own. -/
   docUrl : String := ""
+  /-- For a FUSED route: the semantic composite it realizes, as the registered method id and the
+  labels of the route's steps (CC-ROUTE). Such a route runs on the receiver of a semantic point
+  itself, computing `m(U(x))` in one backend call; it realizes that composite and nothing else. -/
+  realizes : Option (String × Array String) := none
   deriving BEq, Repr, Inhabited
 
 /-- The declared receiver signature of one backend operation: `opId` of

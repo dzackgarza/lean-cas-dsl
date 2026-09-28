@@ -128,6 +128,14 @@ private def gcdIntArgs (receiver : Obj) (args : Array Obj) : Except ExecError Js
       s!"sage op \"gcd_int\" takes one argument, got {as.size}")
   | o, _ => .error (offSignature "gcd_int" o)
 
+/-- A free module over `ℤ/n` of rank `k` (`n = 0`: `ℤᵏ`), as its presentation `(ℤ/n)ᵏ` or, for
+rank one, `ℤ/n`. -/
+private def moduleCardinalityArgs : Obj → Except ExecError Json
+  | .domainObj (.vector k (.mod n)) => .ok (Json.mkObj [("n", toJson n), ("k", toJson k)])
+  | .domainObj (.vector k .int) => .ok (Json.mkObj [("n", toJson 0), ("k", toJson k)])
+  | .domainObj (.mod n) => .ok (Json.mkObj [("n", toJson n), ("k", toJson 1)])
+  | o => .error (offSignature "module_cardinality" o)
+
 private def isPrimeIntArgs : Obj → Except ExecError Json
   | .elem .int (.int z) => .ok (Json.mkObj [("n", toString z)])
   | o => .error (offSignature "is_prime_int" o)
@@ -543,6 +551,7 @@ def executor : Executor := fun opId receiver args => do
     | "sym_definite_integral" => symDefIntArgs receiver args
     | "sym_taylor" => symTaylorArgs receiver args
     | "is_prime_int" => isPrimeIntArgs receiver
+    | "module_cardinality" => moduleCardinalityArgs receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with
   | .error e => return .error e
@@ -673,6 +682,12 @@ returned as the achieved bound",
     accepts := #[.elemOf .anyFuncs],
     backendFn := "integrate()",
     docUrl := s!"{sageRef}/calculus/sage/calculus/calculus.html" },
+  { backend := `sage, opId := "module_cardinality",
+    accepts := #[.domainIs (.vectorOver .anyMod), .domainIs (.vectorOver (.exact .int)),
+      .domainIs .anyMod],
+    backendFn := "FreeModule(Integers(n), k).cardinality()",
+    doc := "the cardinality of a free module over ℤ/n, in one call",
+    docUrl := s!"{sageRef}/modules/sage/modules/free_module.html" },
   { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs],
     backendFn := "Expression.taylor()",
     docUrl := s!"{sageRef}/calculus/sage/symbolic/expression.html" }

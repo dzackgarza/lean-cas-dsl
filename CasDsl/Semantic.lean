@@ -116,12 +116,19 @@ def decodeResult (value : Expr) : MetaM (Option Value) := do
 
 /-! ## Calls -/
 
-/-- What a method call on a semantic point produced. -/
-inductive Outcome where
-  /-- The composite ran in Lean: the value, and the resolved route. -/
-  | value (v : Value) (route : String)
-  /-- The route ran in Lean and the method must run on the image through a backend route. -/
-  | image (method : String) (image : Obj) (route : String)
+/-- What resolving a method call on a semantic point produced: the resolved composite, and its
+Lean-native realization where the registered actions provide one. -/
+structure Plan where
+  /-- The resolution, rendered. -/
+  route : String
+  /-- The composite's key (CC-ROUTE): the method's id and the labels of the route's steps. -/
+  method : String
+  steps : Array String
+  /-- The value of the composite computed by registered actions, when they realize the method
+  itself (and the call has no arguments). -/
+  value? : Option Value
+  /-- The route's image `U(x)`, decoded, for a method realized by a backend on the image. -/
+  image? : Option Obj
   deriving Inhabited
 
 /-- The registered category of a point, by id. -/
@@ -130,13 +137,14 @@ def categoryExpr (state : RegistryState) (category : String) : Except String Cat
   | some entry => .ok entry.expression
   | none => .error s!"no registered category {category}"
 
-/-- Resolve and run `pres.method` for a point of `category` (CC-TRANSPORT: execution receives the
-image `U(x)`, never `x`). Errors are rendered resolution errors or codec failures. -/
+/-- Resolve `pres.method` for a point of `category` and run the route's registered actions from
+the presentation's realizer (CC-TRANSPORT: execution receives `U(x)`, never `x`). Errors are
+rendered resolution errors or codec failures. -/
 def call (env : Environment) (category : String) (base : Option Domain) (pres : Obj)
-    (method : String) (withArguments : Bool) : IO (Except String Outcome) :=
-  runSemanticCheck env <| tryCatch (body env) fun e => return .error (← e.toMessageData.toString)
+    (method : String) (withArguments : Bool) : IO (Except String Plan) :=
+  runSemanticCheck env <| tryCatch body fun e => return .error (← e.toMessageData.toString)
 where
-  body (_ : Environment) : MetaM (Except String Outcome) := do
+  body : MetaM (Except String Plan) := do
     let state ← registryState
     let expression ← match categoryExpr state category with
       | .ok e => pure e
@@ -144,18 +152,18 @@ where
     let resolution ← match state.resolveMethod expression method with
       | .ok r => pure r
       | .error e => return .error (e.render state)
-    let route := state.renderResolution resolution
     let some encoded := encode category base pres
       | return .error s!"no registered realizer of {category} realizes {pres.presentation} \
           (CC-SEP)"
     let (image, value?) ← realizedCall state resolution encoded.denotation encoded.handle
-    if !withArguments then
-      if let some value := value? then
-        if let some v ← decodeResult value then
-          return .ok (.value v route)
-    match ← decodeImage image with
-    | some obj => return .ok (.image method obj route)
-    | none => return .error s!"the image of {pres.presentation} along {route} has no decoder"
+    let value? ← if withArguments then pure none else
+      match value? with
+      | some value => decodeResult value
+      | none => pure none
+    return .ok { route := state.renderResolution resolution
+                 method := resolution.method.id.raw
+                 steps := resolution.route.refs.map (·.label)
+                 value?, image? := ← decodeImage image }
 
 /-- `#explain_route` for a semantic point: the resolved route and the realizations of it — the
 receiver's realizer, whether registered actions realize the whole composite, and every registered
@@ -177,6 +185,8 @@ where
     let (_, value?) ← realizedCall state resolution encoded.denotation encoded.handle
     let fused := state.implementations.filter fun e =>
       e.method == resolution.method.id && e.route == resolution.route.refs
+    let key := some (resolution.method.id.raw, resolution.route.refs.map (·.label))
+    let fusedRoutes := (routesFor env (Name.mkSimple method)).filter fun r => r.realizes == key
     let lines := #[s!"{method} on {pres.presentation} (a point of {category}, realized by \
         {encoded.realizer})",
       s!"  route:       {state.renderRoute resolution.route}",
@@ -184,7 +194,10 @@ where
       s!"  realization: " ++ (if value?.isSome then
           "composed Lean-native actions (Lean-checked computation)"
         else "the route's registered actions, then a backend route on the image")] ++
-      fused.map fun e => s!"  realization: {e.id.raw} by {e.backend} ({e.trust.label})"
+      fused.map (fun e => s!"  realization: {e.id.raw} by {e.backend} ({e.trust.label})") ++
+      fusedRoutes.map fun r =>
+        s!"  realization: fused route {r.backend} {repr r.opId} on the receiver (trusted \
+          backend assertion){if r.pattern.accepts pres then "" else " — not for this presentation"}"
     return .ok ("\n".intercalate lines.toList)
 
 /-- The membership judgment of an ascription to a registered category: some registered realizer

@@ -893,7 +893,18 @@ private def stdRoutes : Array Route := #[
   { method := `definite_integral, pattern := .elemOf .anyFuncs, backend := `sage,
     opId := "sym_definite_integral" },
   { method := `taylor_expansion, pattern := .elemOf .anyFuncs, backend := `sage,
-    opId := "sym_taylor" }
+    opId := "sym_taylor" },
+  -- A FUSED realization of #53 §11's composite card ∘ U ∘ ι_R on modules over ℤ/n: one Sage
+  -- call on the module itself, never building its underlying set. It realizes exactly that
+  -- composite (CC-ROUTE) and coexists with the Lean-native actions, which run by default.
+  { method := `cardinality, pattern := .domainIs (.vectorOver .anyMod), backend := `sage,
+    opId := "module_cardinality",
+    realizes := some ("meth.cardinality",
+      #["fun.modules.fibre_inclusion", "fun.modules.underlying"]) },
+  { method := `cardinality, pattern := .domainIs .anyMod, backend := `sage,
+    opId := "module_cardinality",
+    realizes := some ("meth.cardinality",
+      #["fun.modules.fibre_inclusion", "fun.modules.underlying"]) }
 ]
 
 run_cmd stdRoutes.forM registerRoute!

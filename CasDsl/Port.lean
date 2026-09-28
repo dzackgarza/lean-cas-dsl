@@ -136,11 +136,27 @@ private def abort {cfg : IO.Process.StdioConfig} (child : IO.Process.Child cfg) 
   try child.kill catch _ => pure ()
   try discard child.wait catch _ => pure ()
 
+/-- The executable a command names: itself when it is a path, else the first `PATH` entry holding
+it. Resolved BEFORE spawning, because a spawn whose `exec` fails is not reported as a failed spawn:
+the child is left writing the parent's own output to the pipe, which would then be read as a
+malformed frame instead of the backend's absence. -/
+def findExecutable? (cmd : String) : IO (Option System.FilePath) := do
+  if cmd.contains '/' then
+    return if ← System.FilePath.pathExists cmd then some cmd else none
+  let path := (← IO.getEnv "PATH").getD ""
+  for dir in path.splitOn ":" do
+    if dir.isEmpty then continue
+    let candidate := System.FilePath.mk dir / cmd
+    if ← candidate.pathExists then return some candidate
+  return none
+
 /-- Spawn the backend and consume its ready frame. A missing binary is
 `backendUnavailable` (selection already happened — this is not retried
 elsewhere); a malformed or wrong-version handshake is a `protocolError` and
 the child is killed rather than left half-spoken-to. -/
 def start (cfg : PortConfig) : IO (Except ExecError PortConn) := do
+  if (← findExecutable? cfg.cmd).isNone then
+    return .error (.backendUnavailable cfg.label s!"'{cfg.cmd}' is not on PATH")
   let spawned : Except ExecError (IO.Process.Child PortStdio) ←
     try
       let child ← IO.Process.spawn

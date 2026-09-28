@@ -39,7 +39,7 @@ private def modUnderlying : Obj :=
 
 /-- A call on a point of `Mod_R`. -/
 private def callOn (env : Environment) (base : Domain) (pres : Obj) (m : String)
-    (withArguments := false) : IO (Except String Semantic.Outcome) :=
+    (withArguments := false) : IO (Except String Semantic.Plan) :=
   Semantic.call env "cat.modules_r" (some base) pres m withArguments
 
 /-! ## The transported image, computed by the registered actions -/
@@ -48,7 +48,8 @@ run_cmd do
   let env ← getEnv
   -- `contains` has no Lean-native action, so the call returns the image it must run on
   match ← callOn env .int (.domainObj (.mod 4)) "contains" (withArguments := true) with
-  | .ok (.image _ image route) =>
+  | .ok { value? := some _, .. } => throwError "`contains` was answered without its argument"
+  | .ok { image? := some image, route, .. } =>
       unless image == modUnderlying do
         throwError s!"U(ℤ/4) is {image.presentation}, expected {modUnderlying.presentation}"
       -- the route is the transport: fibre inclusion, underlying set, the set as a subset
@@ -56,11 +57,11 @@ run_cmd do
           "fun.sets.whole_subset"] do
         unless contains route step do
           throwError s!"the route to `contains` does not pass through {step}: {route}"
-  | .ok (.value ..) => throwError "`contains` was answered without its argument"
+  | .ok _ => throwError "`contains` on ℤ/4 has no decoded image"
   | .error e => throwError s!"`contains` did not resolve on ℤ/4: {e}"
   -- ℤ/0 = ℤ: the underlying set is ℤ, infinite; the functor is total
   match ← callOn env .int (.domainObj (.mod 0)) "cardinality" with
-  | .ok (.value v _) =>
+  | .ok { value? := some v, .. } =>
       unless v == .cardinal .countablyInfinite do
         throwError s!"|U(ℤ/0)| came back as {v.render}, expected ℵ₀"
   | _ => throwError "the cardinality of ℤ/0 as a ℤ-module did not run in Lean"
@@ -73,13 +74,13 @@ structural functors, and the whole composite runs in Lean. -/
 run_cmd do
   let env ← getEnv
   match ← callOn env .int (.domainObj (.mod 4)) "cardinality" with
-  | .ok (.value v route) =>
+  | .ok { value? := some v, route, .. } =>
       unless v == .cardinal (.finite 4) do
         throwError s!"|ℤ/4| came back as {v.render}, expected 4"
       unless contains route "cat.modules_r --fun.modules.fibre_inclusion--> cat.modules_total \
           --fun.modules.underlying--> cat.sets ; meth.cardinality" do
         throwError s!"unexpected route for cardinality: {route}"
-  | .ok (.image ..) => throwError "cardinality of ℤ/4 did not run as a Lean composite"
+  | .ok _ => throwError "cardinality of ℤ/4 did not run as a Lean composite"
   | .error e => throwError s!"cardinality of ℤ/4 failed: {e}"
 
 /-! ## One candidate pool: a call reachable directly and by transport is ambiguous
@@ -235,5 +236,32 @@ run_cmd do
   | .error e => throwError s!"L.cardinality() failed: {e.render}"
   if Semantic.realizes "cat.modules_r" (some (.mod 2)) (.domainObj (.mod 16)) then
     throwError "ℤ/16 was realized as an 𝔽₂-module"
+
+/-! ### The same composite, realized by Sage
+
+A fused Sage route is registered for exactly this composite (`card ∘ U ∘ ι_R`, keyed by
+`meth.cardinality` and the two route steps) and runs on the module itself. Selecting the Sage
+realization runs it: the answer is 16 where Sage is installed; where it is not, the failure is the
+selected backend's absence — never a silent fall back to the Lean composite. -/
+
+run_cmd do
+  let env ← getEnv
+  let ctx : EvalCtx := { env, realization? := some `sage, notes := ← IO.mkRef #[],
+                         annotations := ← IO.mkRef #[] }
+  match ← (eval ctx (.method (.ref `L) `cardinality #[])).run with
+  | .ok d =>
+      unless d.render == "16" do
+        throwError s!"the Sage realization of L.cardinality() gave {d.render}, expected 16"
+  | .error (.exec (.backendUnavailable b _)) =>
+      unless b == `sage do throwError s!"the Sage realization ran on {b}"
+  | .error e => throwError s!"the Sage realization of L.cardinality() failed: {e.render}"
+
+-- a fused route must realize a registered composite: one claiming a route that does not reach
+-- the method's owner is refused at registration
+run_cmd do
+  let bogus : CasDsl.Route := CasDsl.Route.mk `cardinality (.domainIs .anyMod) `sage "module_cardinality" 0 ""
+    "" (some ("meth.cardinality", #["fun.sets.whole_subset"]))
+  let refused ← try checkFusedRoute bogus; pure false catch _ => pure true
+  unless refused do throwError "a fused route realizing no registered composite was accepted"
 
 end CasDslTests.Transport

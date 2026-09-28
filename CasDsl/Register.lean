@@ -23,6 +23,7 @@ import Lean
 import CasDsl.Registry
 import CasDsl.Mathlib.Denote
 import CasDsl.Mathlib.Anchors
+import CasCatalogue.Standard
 
 namespace CasDsl
 
@@ -96,7 +97,26 @@ no such constant exists — the anchor must be real Mathlib (or extension) \
 mathematics"
   registerWith addMethodChecked d
 
-def registerRoute! (r : Route) : CommandElabM Unit :=
+/-- A fused route claims to realize one semantic composite (CC-ROUTE): its method must be a
+registered method row of the route's method name, and its steps a registered structural route from
+some registered category to that method's owner. -/
+def checkFusedRoute (r : Route) : CommandElabM Unit := do
+  let some (methodId, steps) := r.realizes | return
+  let state ← liftTermElabM CasCatalogue.registryState
+  let some method := state.methods.find? (·.id.raw == methodId)
+    | throwError "fused route for '{r.method}': no registered method {methodId}"
+  unless method.name == r.method.toString do
+    throwError "fused route for '{r.method}' claims to realize {methodId}, the method \
+      `{method.name}`"
+  let realized := state.categories.any fun c =>
+    (state.routes c.expression method.owner).any fun route =>
+      route.refs.map (·.label) == steps
+  unless realized do
+    throwError "fused route for '{r.method}': {steps} is not a registered route to the owner \
+      of {methodId}"
+
+def registerRoute! (r : Route) : CommandElabM Unit := do
+  checkFusedRoute r
   registerWith addRouteChecked r
 
 def registerOpSig! (s : OpSig) : CommandElabM Unit :=

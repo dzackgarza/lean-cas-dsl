@@ -236,6 +236,18 @@ def op_gcd_int(args):
     return enc_int(gcd(Integer(args["a"]), Integer(args["b"])))
 
 
+def op_module_cardinality(args):
+    """The cardinality of the free module (Z/n)^k (Z^k when n = 0) — one fused
+    call for card(U(M)), never building the underlying set. The semantic
+    composite it realizes is fixed on the Lean side; this op only answers it."""
+    n, k = int(args["n"]), int(args["k"])
+    base = Integers(n) if n != 0 else ZZ
+    c = FreeModule(base, k).cardinality()
+    if c == Infinity:
+        return {"t": "cardinal", "v": "countably_infinite"}
+    return {"t": "cardinal", "v": "finite", "n": int(c)}
+
+
 def op_is_prime_int(args):
     """x is prime iff (x) is a nonzero prime ideal, so (-7) is prime because
     (-7) = (7). Sage's Integer.is_prime bakes positivity into the predicate;
@@ -571,6 +583,7 @@ OPS = {
     "factor_poly_c": op_factor_poly_c,
     "gcd_int": op_gcd_int,
     "is_prime_int": op_is_prime_int,
+    "module_cardinality": op_module_cardinality,
     "roots_poly_z": op_roots_poly_z,
     "roots_poly_q": op_roots_poly_q,
     "roots_poly_c": op_roots_poly_c,

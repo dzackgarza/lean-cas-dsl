@@ -80,6 +80,7 @@ partial def renderDomainPattern : DomainPattern → String
   | .exact d => d.render
   | .polyOver p => s!"{renderDomainPattern p}[x]"
   | .matrixOver p => s!"Mat(_, {renderDomainPattern p})"
+  | .vectorOver p => s!"({renderDomainPattern p})ⁿ"
   | .anyMod => "ℤ/_"
   | .anyFuncs => "_ → _"
   | .anyDom => "_"
@@ -1034,6 +1035,9 @@ priority. This is a developer configuration error — give one a higher priority
 
 structure EvalCtx where
   env : Environment
+  /-- The backend selected to realize method calls on semantic points (`none`: the Lean composite
+  when one exists). -/
+  realization? : Option Name := none
   /-- Ambient domain of an `… in D` assertion: literals are read in it. -/
   ambient? : Option Domain := none
   /-- The indeterminate bound by `let p(x) := …`, with its coefficient
@@ -1115,29 +1119,45 @@ private def approxEps? (m : Name) (args : Array Obj) : Option (Except String Rat
     | none => none
 
 /-- A method call on a semantic point (`CasDsl/Semantic.lean`): resolved by the `CasCatalogue`
-registry, run along the route by the registered actions, and — when no registered action realizes
-the method itself — finished on the route's image by a registered backend route. -/
+registry and run along the route by the registered actions. Its realizations (CC-ROUTE) are the
+Lean composite, when registered actions realize the method too; fused backend routes registered for
+exactly this composite, run on the receiver; and backend routes for the method run on the route's
+image. With no backend selected (`EvalCtx.realization?`) the Lean composite runs when it exists —
+a Lean-checked value before a trusted one (CC-TRUST); otherwise, or when a backend is selected,
+the applicable backend routes of the highest priority. -/
 private def runOnPoint (ctx : EvalCtx) (category : String) (base : Option Domain) (pres : Obj)
     (m : Name) (args : Array Obj) : EvalM Denote := do
   if let some decl := (methodDecls ctx.env m)[0]? then
     if args.size != decl.arity then
       throw (.msg s!"'{m}' takes {decl.arity} argument(s), got {args.size}")
-  match ← (Semantic.call ctx.env category base pres m.toString (!args.isEmpty) : IO _) with
-  | .error e => throw (.msg e)
-  | .ok (.value v _) => return Denote.ofValue v
-  | .ok (.image _ image route) =>
-      let all := routesFor ctx.env m
-      let applicable := all.filter (·.pattern.accepts image)
-      let best := applicable.foldl (init := 0) fun p r => max p r.priority
-      match (applicable.filter (·.priority == best)).toList with
-      | [] =>
-          throw (.msg s!"NoImplementation: '{m}' resolves to {route}, and no registered \
-route implements it on the image {image.presentation}")
-      | [r] =>
-          match ← execute r image args with
-          | .error e => throw (.exec e)
-          | .ok v => return Denote.ofValue v
-      | rs => throw (.tiedRoutes m rs.toArray)
+  let plan ← match ← (Semantic.call ctx.env category base pres m.toString (!args.isEmpty) : IO _) with
+    | .ok plan => pure plan
+    | .error e => throw (.msg e)
+  if ctx.realization?.isNone then
+    if let some v := plan.value? then return Denote.ofValue v
+  let key := some (plan.method, plan.steps)
+  let routes := routesFor ctx.env m
+  let fused := (routes.filter fun r => r.realizes == key && r.pattern.accepts pres).map (·, pres)
+  let onImage := match plan.image? with
+    | some image =>
+        (routes.filter fun r => r.realizes.isNone && r.pattern.accepts image).map (·, image)
+    | none => #[]
+  let candidates := (fused ++ onImage).filter fun (r, _) =>
+    ctx.realization?.all (· == r.backend)
+  let best := candidates.foldl (init := 0) fun p (r, _) => max p r.priority
+  match (candidates.filter (·.1.priority == best)).toList with
+  | [] =>
+      let selected := match ctx.realization? with
+        | some b => s!" by the backend {b}"
+        | none => ""
+      throw (.msg s!"NoImplementation: '{m}' resolves to {plan.route}, and no registered \
+route implements it{selected} on {pres.presentation} or on its image\
+{(plan.image?.map fun o => " " ++ o.presentation).getD ""}")
+  | [(r, receiver)] =>
+      match ← execute r receiver args with
+      | .error e => throw (.exec e)
+      | .ok v => return Denote.ofValue v
+  | rs => throw (.tiedRoutes m (rs.map (·.1)).toArray)
 
 /-- Resolve (semantics), route (computability), execute — the ONLY path from
 the surface to an implementation.
