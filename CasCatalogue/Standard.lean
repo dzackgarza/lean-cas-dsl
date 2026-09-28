@@ -13,6 +13,7 @@ public import CasCatalogue.Leaves.Lattices.Valued.Actions
 public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Actions
+public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -75,7 +76,9 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.modulePoints,
   CategoryId.endofunctorsSets,
   CategoryId.unimodularLattice,
-  CategoryId.cardinals]
+  CategoryId.cardinals,
+  CategoryId.subobjectsGroups,
+  CategoryId.arrowsGroups]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -131,6 +134,8 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.additiveGroupsToGroups,
   FunctorId.groupsMonoid,
   FunctorId.monoidsSemigroup,
+  FunctorId.subobjectsGroupsDomain,
+  FunctorId.subobjectsGroupsInclusion,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -179,10 +184,13 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.sets.cardinality.presented"⟩,
   ⟨"act.groups.monoid.table"⟩,
   ⟨"act.monoids.semigroup.table"⟩,
-  ⟨"act.semigroups.magma.table"⟩]
+  ⟨"act.semigroups.magma.table"⟩,
+  ⟨"act.magmas.set.table"⟩,
+  ⟨"act.subobjects_groups.domain.table"⟩,
+  ⟨"act.subobjects_groups.inclusion.table"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
-def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩]
+def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩]
 
 /-- Stable comparison rows owned by the standard catalogue (CC-COHERE). -/
 def expectedComparisonIds : Array ComparisonId := #[⟨"cmp.rings.carrier"⟩]

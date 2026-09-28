@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Decide
+public import CasCatalogue.Leaves.Foundation.Actions
 public meta import CasCatalogue.Registry.Extension
 public meta import CasCatalogue.Leaves.Algebra.Ports
 public meta import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
@@ -131,6 +132,18 @@ def semigroupToMagma :
         simp only [semigroupDenotation, magmaDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
         rfl }
 
+/-- The underlying set of a finite magma: the forgetful functor of the binary-operation
+classifier, `Magma → Set`, on tables. -/
+def magmaToSet : RealizedAction (forget MagmaCat.{0}) magmaDenotation
+    CasCatalogue.Foundation.Actions.setDenotation where
+  action := { obj := fun t => .finite t.size, map := fun h => by cases h.down; exact id }
+  realizes :=
+    { obj := fun _ => rfl
+      map := fun h => by
+        rcases h with ⟨rfl⟩
+        simp only [magmaDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
+        rfl }
+
 /-! ### Deciding commutativity from the table -/
 
 /-- Commutativity of a finite magma, decided by inspecting its table. -/
@@ -158,6 +171,9 @@ normalized_registry .action
 normalized_registry .action
   { id := ⟨"act.semigroups.magma.table"⟩, edge := .classifierForget ClassifierId.magmasAssociative
     realization := `CasCatalogue.Algebra.Actions.semigroupToMagma }
+normalized_registry .action
+  { id := ⟨"act.magmas.set.table"⟩, edge := .classifierForget ClassifierId.setsBinaryOperation
+    realization := `CasCatalogue.Algebra.Actions.magmaToSet }
 normalized_registry .property
   { id := ⟨"prop.is_commutative"⟩, name := "is_commutative"
     classifier := ClassifierId.magmasCommutative }

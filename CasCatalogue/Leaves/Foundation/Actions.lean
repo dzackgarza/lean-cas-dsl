@@ -26,11 +26,14 @@ namespace CasCatalogue.Foundation.Actions
 inductive SetHandle
   /-- The set `ℤⁿ`, as functions `Fin n → ℤ`. -/
   | intPow (n : ℕ)
+  /-- The finite set `{0, …, n-1}`, as `Fin n`. -/
+  | finite (n : ℕ)
   deriving DecidableEq, Repr
 
 /-- The set a handle presents. -/
 abbrev SetHandle.carrier : SetHandle → Type
   | .intPow n => Fin n → ℤ
+  | .finite n => Fin n
 
 /-- Sets by presentation; a morphism is a Lean function between the presented sets. -/
 abbrev setRealizer : Realizer := ⟨SetHandle, fun a b => a.carrier → b.carrier⟩

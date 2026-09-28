@@ -19,6 +19,7 @@ public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Exceptional.Catalogue
 public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
 public import CasCatalogue.Leaves.Foundation.Actions
@@ -56,3 +57,4 @@ public import CasCatalogue.Syntax
 public import CasCatalogue.Tools.ExportBoundaryProbe
 public import CasCatalogue.Tools.ExportFull
 public import CasCatalogue.Tools.ExportJson
+public import CasCatalogue.UnivProbes

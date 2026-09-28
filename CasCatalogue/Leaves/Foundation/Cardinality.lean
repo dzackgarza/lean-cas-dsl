@@ -92,12 +92,14 @@ noncomputable def cardinalDenotation : Denotation cardinalRealizer cardinalsCate
 def cardinalityOf : SetHandle → CardinalHandle
   | .intPow 0 => .finite 1
   | .intPow (_ + 1) => .aleph0
+  | .finite n => .finite n
 
 theorem cardinalityOf_denote (a : SetHandle) :
     (cardinalityOf a).denote = Cardinal.mk a.carrier := by
-  rcases a with ⟨_ | n⟩
+  rcases a with ⟨_ | n⟩ | n
   · simp [cardinalityOf, CardinalHandle.denote]
   · exact (Cardinal.mk_eq_aleph0 (Fin (n + 1) → ℤ)).symm
+  · simp [cardinalityOf, CardinalHandle.denote]
 
 /-- The cardinality action on presented sets. -/
 def cardinalityAction :
