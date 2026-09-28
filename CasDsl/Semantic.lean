@@ -24,6 +24,7 @@ import CasDsl.Value
 import CasDsl.Mathlib.Verify
 import CasCatalogue.Resolve
 import CasCatalogue.Standard
+import CasCatalogue.Leaves.Algebra.GroupTables
 
 namespace CasDsl.Semantic
 
@@ -38,6 +39,8 @@ fibre. `Modules(R)` and `Mod(R)` are the fibre `Mod_R` of the module fibration. 
 def surfaceCategory? (head : Name) (base : Option Domain) : Option (String × Option Domain) :=
   match head, base with
   | `Modules, some b | `Mod, some b => some ("cat.modules_r", some b)
+  | `Groups, none => some ("cat.groups", none)
+  | `Rings, none => some ("cat.rings", none)
   | _, _ => none
 
 /-! ## Codecs -/
@@ -67,6 +70,17 @@ def encode (category : String) (base : Option Domain) (pres : Obj) : Option Enco
         some ⟨"rz.modules.zmod_free",
           mkApp (mkConst ``CasCatalogue.Modules.Finite.freeDenotation) (mkNatLit n), mkNatLit k⟩
       else none
+  -- ℤ/n under addition, as an object of `Groups`
+  | "cat.groups", none, .domainObj (.mod (k + 1)) =>
+      some ⟨"rz.groups.table", mkConst ``CasCatalogue.Algebra.Actions.groupDenotation,
+        mkApp (mkConst ``CasCatalogue.Algebra.GroupTables.cyclicTable) (mkNatLit k)⟩
+  | "cat.groups", none, .dihedralGroup (k + 1) =>
+      some ⟨"rz.groups.table", mkConst ``CasCatalogue.Algebra.Actions.groupDenotation,
+        mkApp (mkConst ``CasCatalogue.Algebra.GroupTables.dihedralTable) (mkNatLit k)⟩
+  -- ℤ/n as an object of `Rings`
+  | "cat.rings", none, .domainObj (.mod (k + 1)) =>
+      some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
+        mkApp (mkConst ``CasCatalogue.Algebra.GroupTables.zmodRingTable) (mkNatLit k)⟩
   | _, _, _ => none
 
 /-- The finite set `{0, …, n-1}` of residues, as the notebook presents `ℤ/n`'s elements. -/
@@ -137,6 +151,45 @@ def categoryExpr (state : RegistryState) (category : String) : Except String Cat
   | some entry => .ok entry.expression
   | none => .error s!"no registered category {category}"
 
+/-- The Boolean answer of a closed `Decision` term. -/
+unsafe def evalAnswerUnsafe (e : Expr) : MetaM (Option Bool) :=
+  evalExpr (Option Bool) (mkApp (mkConst ``Option [levelZero]) (mkConst ``Bool)) e
+@[implemented_by evalAnswerUnsafe] opaque evalAnswer (e : Expr) : MetaM (Option Bool)
+
+/-- A property query on a point (CC-PROP, CC-DECIDE): the unique route to the host of the
+property's classifier, run by the registered actions, and the registered decision procedure of
+that classifier applying to the image's realization. An undecided answer is reported as such,
+never as `false`. -/
+def propertyCall (state : RegistryState) (expression : CategoryExpr) (category : String)
+    (base : Option Domain) (pres : Obj) (name : String) : MetaM (Except String Plan) := do
+  let resolution ← match state.resolveProperty expression name with
+    | .ok r => pure r
+    | .error e => return .error (e.render state)
+  let some encoded := encode category base pres
+    | return .error s!"no registered realizer of {category} realizes {pres.presentation} \
+        (CC-SEP)"
+  let routeAction ← composeRouteFrom state encoded.denotation resolution.route
+  let image ← mkAppM ``RealizedAction.obj #[routeAction, encoded.handle]
+  let mut decisions : Array Expr := #[]
+  for decider in state.deciders.filter (·.classifier == resolution.classifier.id) do
+    let procedure ← mkConstWithFreshMVarLevels decider.realization
+    try decisions := decisions.push (← mkAppM ``Decider.decide #[procedure, image])
+    catch _ => pure ()
+  let decision ← match decisions.toList with
+    | [decision] => pure decision
+    | [] => return .error s!"no registered decision procedure for \
+        {resolution.classifier.id.raw} applies to the realization of {pres.presentation}"
+    | _ => return .error s!"several registered decision procedures for \
+        {resolution.classifier.id.raw} apply; choosing one is a realization choice (CC-ROUTE)"
+  let route := state.renderPropertyResolution resolution
+  match ← evalAnswer (← mkAppM ``Decision.answer #[decision]) with
+  | none => return .error s!"`{name}` of {pres.presentation} is undecided by the registered \
+      decision procedure ({route})"
+  | some b =>
+      return .ok { route, method := resolution.property.id.raw
+                   steps := resolution.route.refs.map (·.label)
+                   value? := some (.bool b), image? := none }
+
 /-- Resolve `pres.method` for a point of `category` and run the route's registered actions from
 the presentation's realizer (CC-TRANSPORT: execution receives `U(x)`, never `x`). Errors are
 rendered resolution errors or codec failures. -/
@@ -151,6 +204,9 @@ where
       | .error e => return .error e
     let resolution ← match state.resolveMethod expression method with
       | .ok r => pure r
+      -- a property query is spelled as a method call (`G.is_abelian()`, CC-PROP)
+      | .error (.unknownMethod _) =>
+          return ← propertyCall state expression category base pres method
       | .error e => return .error (e.render state)
     let some encoded := encode category base pres
       | return .error s!"no registered realizer of {category} realizes {pres.presentation} \
@@ -179,6 +235,7 @@ where
       | .error e => return .error e
     let resolution ← match state.resolveMethod expression method with
       | .ok r => pure r
+      | .error (.unknownMethod _) => return ← explainProperty state expression
       | .error e => return .error (e.render state)
     let some encoded := encode category base pres
       | return .error s!"no registered realizer of {category} realizes {pres.presentation}"
@@ -198,6 +255,24 @@ where
       fusedRoutes.map fun r =>
         s!"  realization: fused route {r.backend} {repr r.opId} on the receiver (trusted \
           backend assertion){if r.pattern.accepts pres then "" else " — not for this presentation"}"
+    return .ok ("\n".intercalate lines.toList)
+  explainProperty (state : RegistryState) (expression : CategoryExpr) :
+      MetaM (Except String String) := do
+    let resolution ← match state.resolveProperty expression method with
+      | .ok r => pure r
+      | .error e => return .error (e.render state)
+    let deciders := state.deciders.filter (·.classifier == resolution.classifier.id)
+    let key := some (resolution.property.id.raw, resolution.route.refs.map (·.label))
+    let fusedRoutes := (routesFor env (Name.mkSimple method)).filter fun r => r.realizes == key
+    let lines := #[s!"{method} on {pres.presentation} (a point of {category})",
+        s!"  property:    {resolution.property.id.raw}, owned by the classifier \
+          {resolution.classifier.id.raw} on {state.categoryName resolution.classifier.host}",
+        s!"  route:       {state.renderRoute resolution.route}"] ++
+      deciders.map (fun d => s!"  decided by:  {d.id.raw} (a decision procedure; it does not \
+        define the property)") ++
+      fusedRoutes.map fun r => s!"  realization: fused route {r.backend} {repr r.opId} on the \
+        receiver (trusted backend assertion)\
+        {if r.pattern.accepts pres then "" else " — not for this presentation"}"
     return .ok ("\n".intercalate lines.toList)
 
 /-- The membership judgment of an ascription to a registered category: some registered realizer

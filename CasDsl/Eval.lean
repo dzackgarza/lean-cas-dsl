@@ -911,6 +911,8 @@ def renderName (n : Name) : String :=
 def renderSemanticCategory (category : String) (base : Option Domain) : String :=
   match category, base with
   | "cat.modules_r", some b => s!"Mod({b.render})"
+  | "cat.groups", none => "Groups"
+  | "cat.rings", none => "Rings"
   | c, _ => c
 
 def renderCat (c : CatRef) : String :=
@@ -935,6 +937,7 @@ def renderPattern : PresPattern → String
   | .specObj => "an affine scheme"
   | .symbolic => "a symbolic expression"
   | .homElem => "a hom of free ℚ-modules"
+  | .dihedralPres => "a dihedral group"
   | .anyObj => "any object"
 
 def renderRoute (r : Route) : String :=
@@ -1745,6 +1748,12 @@ that space and in no other")
           let k ← ofStr (asObjOf (← eval ctx arg))
           callMethod ctx o `nth #[k]
   | e@(.app f args) => do
+      -- `Dihedral(n)`: the dihedral group of order 2n, a presentation of an object of `Groups`
+      if let .ref `Dihedral := f then
+        if let #[arg] := args then
+          if let .obj (.elem _ (.int k)) ← eval ctx arg then
+            if k > 0 then return .obj (.dihedralGroup k.toNat)
+          throw (.msg "`Dihedral(n)` takes a positive integer n: the dihedral group of order 2n")
       -- SPEC.md's prefix spelling of a method call is exactly that call
       if let some call := prefixMethodCall? ctx.isBound ctx.env e then
         return (← eval ctx call)
@@ -2248,6 +2257,9 @@ def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
   -- `Modules(R)` and `Mod(R)` name the registered module fibre over the domain `R`. TRANSITIONAL
   -- (plan node `cc-dsl-migration`): while the name-level graph still registers `QQ-Mod`, `Mod(R)`
   -- is read semantically only where that graph names nothing; the graph is being deleted.
+  if let .ref head := e then
+    if let some (category, base) := Semantic.surfaceCategory? head none then
+      return .semantic category base
   if let .app (.ref head) #[arg] := e then
     if head == `Modules || (head == `Mod && (categoryAscription? ctx.env e).isNone) then
       if let .obj (.domainObj base) ← eval ctx arg then

@@ -490,6 +490,9 @@ inductive Obj where
   ascription or constructor that made it and never read off the presentation, which selects a
   realization only (CC-SEP). -/
   | point (category : String) (base : Option Domain) (pres : Obj)
+  /-- The dihedral group of order `2n`, `Dihedral(n)` (Mathlib's `DihedralGroup n`). A
+  presentation only: it names an object of `Groups` once ascribed there. -/
+  | dihedralGroup (n : Nat)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -1476,6 +1479,7 @@ def render : Obj → String
   | .point _ base pres => match base with
     | some b => s!"{render pres} as {b.render}-module"
     | none => render pres
+  | .dihedralGroup n => s!"Dihedral({n})"
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -1493,6 +1497,7 @@ def latex? : Obj → Option String
   -- a point typeset as its presentation alone would display the module as the ring (as for
   -- the module fixture above)
   | .point .. => none
+  | .dihedralGroup n => some s!"D_{n}"
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -1503,6 +1508,7 @@ def presentation : Obj → String
   | .specOf r => s!"Spec {r.render}"
   | .symObj e => e.render
   | o@(.point ..) => o.render
+  | o@(.dihedralGroup _) => o.render
 
 /-- The LaTeX form matching `presentation`: for an element, the value and
 its domain (`v \\in D`); for other objects, `latex?` unchanged. -/

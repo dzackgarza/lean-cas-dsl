@@ -103,6 +103,20 @@ some registered category to that method's owner. -/
 def checkFusedRoute (r : Route) : CommandElabM Unit := do
   let some (methodId, steps) := r.realizes | return
   let state ← liftTermElabM CasCatalogue.registryState
+  -- a property query (CC-PROP): the composite ends at the host of the property's classifier
+  if let some property := state.properties.find? (·.id.raw == methodId) then
+    unless property.name == r.method.toString do
+      throwError "fused route for '{r.method}' claims to realize {methodId}, the property \
+        `{property.name}`"
+    let some classifier := state.classifier? property.classifier
+      | throwError "fused route for '{r.method}': {methodId} has no registered classifier"
+    let realized := state.categories.any fun c =>
+      (state.routes c.expression classifier.host).any fun route =>
+        route.refs.map (·.label) == steps
+    unless realized do
+      throwError "fused route for '{r.method}': {steps} is not a registered route to the host \
+        of {methodId}'s classifier"
+    return
   let some method := state.methods.find? (·.id.raw == methodId)
     | throwError "fused route for '{r.method}': no registered method {methodId}"
   unless method.name == r.method.toString do

@@ -20,6 +20,7 @@ public import CasCatalogue.Leaves.Algebra.Catalogue
 public import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
 public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
+public import CasCatalogue.Leaves.Algebra.GroupTables
 public import CasCatalogue.Leaves.Algebra.KernelDecode
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports

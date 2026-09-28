@@ -904,7 +904,18 @@ private def stdRoutes : Array Route := #[
   { method := `cardinality, pattern := .domainIs .anyMod, backend := `sage,
     opId := "module_cardinality",
     realizes := some ("meth.cardinality",
-      #["fun.modules.fibre_inclusion", "fun.modules.underlying"]) }
+      #["fun.modules.fibre_inclusion", "fun.modules.underlying"]) },
+  -- A FUSED realization of #53 §12's composite: commutativity of the multiplicative operation of
+  -- a group, decided by Sage on the group itself — a decision procedure for the property owned by
+  -- the magma classifier, never its definition.
+  { method := `is_abelian, pattern := .domainIs .anyMod, backend := `sage,
+    opId := "group_is_abelian",
+    realizes := some ("prop.is_abelian", #["fun.groups.monoid", "fun.monoids.semigroup",
+      "forget[clf.magmas.associative]"]) },
+  { method := `is_abelian, pattern := .dihedralPres, backend := `sage,
+    opId := "group_is_abelian",
+    realizes := some ("prop.is_abelian", #["fun.groups.monoid", "fun.monoids.semigroup",
+      "forget[clf.magmas.associative]"]) }
 ]
 
 run_cmd stdRoutes.forM registerRoute!

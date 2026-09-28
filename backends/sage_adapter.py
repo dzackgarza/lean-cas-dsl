@@ -248,6 +248,20 @@ def op_module_cardinality(args):
     return {"t": "cardinal", "v": "finite", "n": int(c)}
 
 
+def op_group_is_abelian(args):
+    """Commutativity of a finite group, decided by Sage in one call on the
+    group itself: the fused realization of is_abelian (a decision of the
+    commutativity of the multiplicative operation; the property is Lean's)."""
+    kind, n = args["kind"], int(args["n"])
+    if kind == "cyclic":
+        group = CyclicPermutationGroup(n)
+    elif kind == "dihedral":
+        group = DihedralGroup(n)  # Sage's DihedralGroup(n) has order 2n
+    else:
+        raise BackendError("bad_request", "unknown group presentation %r" % kind)
+    return {"t": "bool", "v": bool(group.is_abelian())}
+
+
 def op_is_prime_int(args):
     """x is prime iff (x) is a nonzero prime ideal, so (-7) is prime because
     (-7) = (7). Sage's Integer.is_prime bakes positivity into the predicate;
@@ -584,6 +598,7 @@ OPS = {
     "gcd_int": op_gcd_int,
     "is_prime_int": op_is_prime_int,
     "module_cardinality": op_module_cardinality,
+    "group_is_abelian": op_group_is_abelian,
     "roots_poly_z": op_roots_poly_z,
     "roots_poly_q": op_roots_poly_q,
     "roots_poly_c": op_roots_poly_c,

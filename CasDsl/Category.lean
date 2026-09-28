@@ -143,6 +143,8 @@ inductive PresPattern where
   /-- A first-class HOM value (DESIGN.md §Homs are first-class). Its domain
   is a function domain by construction, so this implies `elemOf anyFuncs`. -/
   | homElem
+  /-- `Dihedral(n)`, a presentation of a dihedral group. -/
+  | dihedralPres
   | anyObj
   deriving BEq, Repr, Inhabited
 
@@ -199,6 +201,7 @@ def accepts : PresPattern → Obj → Bool
   | .specObj, .specOf _ => true
   | .symbolic, .symObj _ => true
   | .homElem, .elem (.funcs ..) (.hom ..) => true
+  | .dihedralPres, .dihedralGroup _ => true
   | .anyObj, _ => true
   | _, _ => false
 
@@ -223,6 +226,7 @@ def implies : PresPattern → PresPattern → Bool
   | .specObj, .specObj => true
   | .symbolic, .symbolic => true
   | .homElem, .homElem => true
+  | .dihedralPres, .dihedralPres => true
   -- a hom element's domain is a function domain by construction, so the
   -- element patterns wide enough to accept every function domain subsume it
   | .homElem, .elemOf .anyFuncs => true

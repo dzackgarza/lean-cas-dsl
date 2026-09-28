@@ -136,6 +136,12 @@ private def moduleCardinalityArgs : Obj → Except ExecError Json
   | .domainObj (.mod n) => .ok (Json.mkObj [("n", toJson n), ("k", toJson 1)])
   | o => .error (offSignature "module_cardinality" o)
 
+/-- A finite group presentation: `ℤ/n` (cyclic) or `Dihedral(n)`. -/
+private def groupArgs : Obj → Except ExecError Json
+  | .domainObj (.mod n) => .ok (Json.mkObj [("kind", "cyclic"), ("n", toJson n)])
+  | .dihedralGroup n => .ok (Json.mkObj [("kind", "dihedral"), ("n", toJson n)])
+  | o => .error (offSignature "group_is_abelian" o)
+
 private def isPrimeIntArgs : Obj → Except ExecError Json
   | .elem .int (.int z) => .ok (Json.mkObj [("n", toString z)])
   | o => .error (offSignature "is_prime_int" o)
@@ -494,6 +500,8 @@ about is {(Value.ofRat (Value.detQ n rats)).render}")
   | "sym_taylor", .seriesV .. => .ok v
   | "gcd_int", .int _ => .ok v
   | "is_prime_int", .bool _ => .ok v
+  | "group_is_abelian", .bool _ => .ok v
+  | "module_cardinality", .cardinal _ => .ok v
   -- a MULTISET (the anchor `Polynomial.roots` is), multiplicity carried by
   -- repetition; EMPTY is the honest answer for a polynomial with no root in
   -- its own coefficient ring (x² − 2 over ℚ), so it is a result like any
@@ -552,6 +560,7 @@ def executor : Executor := fun opId receiver args => do
     | "sym_taylor" => symTaylorArgs receiver args
     | "is_prime_int" => isPrimeIntArgs receiver
     | "module_cardinality" => moduleCardinalityArgs receiver
+    | "group_is_abelian" => groupArgs receiver
     | other => .error (.badRequest s!"the sage backend implements no op {repr other}")
   match payload with
   | .error e => return .error e
@@ -688,6 +697,10 @@ returned as the achieved bound",
     backendFn := "FreeModule(Integers(n), k).cardinality()",
     doc := "the cardinality of a free module over ℤ/n, in one call",
     docUrl := s!"{sageRef}/modules/sage/modules/free_module.html" },
+  { backend := `sage, opId := "group_is_abelian", accepts := #[.domainIs .anyMod, .dihedralPres],
+    backendFn := "PermutationGroup.is_abelian()",
+    doc := "commutativity of a finite group, decided in one call",
+    docUrl := s!"{sageRef}/groups/sage/groups/perm_gps/permgroup.html" },
   { backend := `sage, opId := "sym_taylor", accepts := #[.elemOf .anyFuncs],
     backendFn := "Expression.taylor()",
     docUrl := s!"{sageRef}/calculus/sage/symbolic/expression.html" }
