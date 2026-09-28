@@ -15,6 +15,7 @@ public import CasCatalogue.FibrationRegistration
 public import CasCatalogue.Id
 public import CasCatalogue.ImmediateProbes
 public import CasCatalogue.Interpretation
+public import CasCatalogue.LatticeRefinements
 public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Algebra.Catalogue
 public import CasCatalogue.Leaves.Algebra.Catalogue.Magmas

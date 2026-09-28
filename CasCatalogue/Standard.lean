@@ -1,5 +1,6 @@
 module
 
+public import CasCatalogue.LatticeRefinements
 public import CasCatalogue.Leaves.Foundation.CatalogueRegistration
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
@@ -43,6 +44,10 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.latticesOverRings,
   CategoryId.integralForms,
   CategoryId.integralLattices,
+  CategoryId.finiteProjectiveLatticesOverRings,
+  CategoryId.finiteFreeLatticesOverRings,
+  CategoryId.unimodularLatticesOverRings,
+  CategoryId.evenIntegralLattices,
   CategoryId.bilinModule,
   CategoryId.commutativeRings,
   CategoryId.crystals,
@@ -170,6 +175,10 @@ def expectedClassifierIds : Array ClassifierId := #[
   ClassifierId.m2oDistributive,
   ClassifierId.modulesFinitelyGenerated,
   ClassifierId.bilLattice,
+  ClassifierId.bilFinite,
+  ClassifierId.bilFree,
+  ClassifierId.bilEven,
+  ClassifierId.bilUnimodular,
   ClassifierId.bilValues,
   ClassifierId.modulesFiniteRank,
   ClassifierId.modulesFree,
@@ -206,6 +215,9 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.bilinFormsValues,
   FunctorId.modulesExtRegularSection,
   FunctorId.integralFormsToBil,
+  FunctorId.latticesToBil,
+  FunctorId.finiteProjectiveLatticesToBil,
+  FunctorId.integralLatticesToBil,
   FunctorId.freeCoverForget,
   FunctorId.basedModuleForget,
   FunctorId.integralLatticeForget,
