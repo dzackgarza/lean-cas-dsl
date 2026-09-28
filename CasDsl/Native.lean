@@ -148,6 +148,16 @@ private def cardEqInt : Cardinality → Int → Bool
   | .finite n, z => Int.ofNat n == z
   | .countablyInfinite, _ => false
 
+/-- The source sits inside the target by an injective canonical map (`ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ`),
+through which a function's values are carried, and the source is infinite. -/
+def injectiveInto (s t : Domain) : Bool :=
+  let rank : Domain → Option Nat
+    | .nat => some 0 | .int => some 1 | .rat => some 2 | .real => some 3 | .complex => some 4
+    | _ => none
+  match rank s, rank t with
+  | some i, some j => i ≤ j
+  | _, _ => false
+
 /-- The values at `0, …, n-1` of a polynomial body with integer or residue coefficients, computed
 in `ℤ/n`. -/
 def residuesOf (n : Nat) (body : Value) : Option (List Nat) := do
@@ -201,27 +211,26 @@ def valueEq (a b : Value) : Option Bool :=
       else (xs.zip ys).foldlM (init := true) fun acc (x, y) => do
         return acc && (← (promote x y).map Common.eq)
   -- Two functions agree when they agree at every point (CC-DECIDE: a `false` is a claim about
-  -- some point). Equal bodies decide `true`. Different polynomial bodies decide `false` only when
-  -- evaluation is injective: on an infinite source inside an integral domain a nonzero polynomial
-  -- difference has finitely many roots. On `ℤ/n → ℤ/n` the points are enumerated. Otherwise
-  -- (`n ↦ 2n` and `n ↦ 6n` on `ℤ/2 → ℤ/4`, equal as maps) it is undecided — never a `false`
-  -- read off the presentation.
+  -- some point). A body is computed in the source ring and carried to the target by the preferred
+  -- canonical map. Equal bodies decide `true`. Otherwise:
+  -- * the target contains the source injectively (`ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ`, or equal): a nonzero
+  --   polynomial difference has finitely many roots in the infinite source, so `false`;
+  -- * the target is `ℤ/n` and the source is `ℕ`, `ℤ` or `ℤ/n`: an integer polynomial's value mod
+  --   `n` depends only on the argument mod `n`, so the `n` residues decide it exactly;
+  -- * anything else is undecided: `n ↦ 2n` and `n ↦ 6n` are EQUAL maps `ℤ → ℤ/4`, and a `false`
+  --   read off the bodies would be the error CC-DECIDE names.
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
       else match promote fb gb with
         | none => none
         | some c =>
           if c.eq then some true
-          else match s with
-            | .nat | .int | .rat | .real | .complex => some false
-            | .mod 0 => some false
-            -- the body is computed in the source ring; its values are the function's only when
-            -- the target is that ring (a map `ℤ/2 → ℤ/4` has no values computed in `ℤ/2`)
-            | .mod n => if s != t then none else do
-                let fs ← residuesOf n fb
-                let gs ← residuesOf n gb
-                some (fs == gs)
-            | _ => none
+          else match s, t with
+            | .mod n, .mod m => if n != m || n == 0 then none else do
+                some ((← residuesOf n fb) == (← residuesOf n gb))
+            | .nat, .mod n | .int, .mod n => if n == 0 then none else do
+                some ((← residuesOf n fb) == (← residuesOf n gb))
+            | s, t => if injectiveInto s t then some false else none
   -- Two HOMS agree when their domains, codomains and derived standard-frame
   -- rows do; the binders are BOUND names and do not decide, exactly as
   -- `.func`'s binder does not. Against anything else a hom shares no kind,

@@ -166,8 +166,8 @@ let N := [1, 2; 3, 4] in Lattices(ZZ)
 undecided. Here: `n ↦ 2n` and `n ↦ 6n` on `ℤ/2 → ℤ/4` are equal maps written differently, and
 `n ↦ 2n`, `n ↦ 4n` are different ones; the surface computes a body in the source ring, which does
 not give the values of a map into `ℤ/4`, so neither equality is decided — in particular neither is
-`false` for the equal pair. Where evaluation decides, it decides both ways: on `ℤ/2 → ℤ/2` by the
-two points, on `ℤ → ℤ` because a nonzero integer polynomial has finitely many roots. -/
+`false` for the equal pair. Where evaluation decides, it decides both ways: on `ℤ/2 → ℤ/2` and
+`ℤ → ℤ/4` by residues, on `ℤ → ℤ` because a nonzero integer polynomial has finitely many roots. -/
 
 let f := n ↦ 2n in ZZ/2 → ZZ/4
 let g := n ↦ 6n in ZZ/2 → ZZ/4
@@ -181,6 +181,15 @@ let k := n ↦ 3n in ℤ → ℤ
 assert p = q
 assert p ≠ r
 assert h ≠ k
+
+-- on `ℤ → ℤ/4` the values are the bodies' residues mod 4, so the residues decide exactly: the
+-- equal maps `n ↦ 2n` and `n ↦ 6n` are equal (a `false` read off the bodies was the error),
+-- `n ↦ 2n` and `n ↦ 4n` are not
+let a := n ↦ 2n in ℤ → ZZ/4
+let b := n ↦ 6n in ℤ → ZZ/4
+let c := n ↦ 4n in ℤ → ZZ/4
+assert a = b
+assert a ≠ c
 
 /-- error: the assertion outcome is unknown: the two sides of f = g are not comparable -/
 #guard_msgs in
