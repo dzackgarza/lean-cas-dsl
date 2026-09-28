@@ -2322,7 +2322,16 @@ def evalBinderBinding (ctx : EvalCtx) (binder : Name) (body : CasExpr)
           | .msg m => pure (.error m)
           | e => throw e)
       match poly? with
-      | .ok (some v) => return .elem (.funcs src tgt) (.func src tgt binder v)
+      | .ok (some v) =>
+          -- the body is computed in the source ring and carried to the target by the preferred
+          -- canonical map, so a function whose target the source does not map to has no values
+          -- here (`n ↦ 2n` on `ℤ/2 → ℤ/4` is a homomorphism, but not one this reading computes)
+          if src != tgt then
+            if (← ofStr (canonicalMapFor ctx.canonMaps src tgt)).isNone then
+              throw (.msg s!"`{binder} ↦ …` on {src.render} → {tgt.render}: a polynomial body is \
+computed in {src.render} and carried to {tgt.render} by the preferred canonical map, and there is \
+none from {src.render} to {tgt.render}")
+          return .elem (.funcs src tgt) (.func src tgt binder v)
       | tried =>
         match toSymExpr ctx.isBound binder body with
         | .ok sy => return .elem (.funcs src tgt) (.func src tgt binder (.sym sy))

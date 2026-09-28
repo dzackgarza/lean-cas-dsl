@@ -163,44 +163,45 @@ let N := [1, 2; 3, 4] in Lattices(ZZ)
 /-! ## Undecided is not false (CC-DECIDE)
 
 `sage-categories` decided `False` for two equal homomorphisms whose component comparisons were
-undecided. Here: `n ↦ 2n` and `n ↦ 6n` on `ℤ/2 → ℤ/4` are equal maps written differently, and
-`n ↦ 2n`, `n ↦ 4n` are different ones; the surface computes a body in the source ring, which does
-not give the values of a map into `ℤ/4`, so neither equality is decided — in particular neither is
-`false` for the equal pair. Where evaluation decides, it decides both ways: on `ℤ/2 → ℤ/2` and
-`ℤ → ℤ/4` by residues, on `ℤ → ℤ` because a nonzero integer polynomial has finitely many roots. -/
+undecided. Here a function's body is computed in its source ring and carried to the target by the
+preferred canonical map; equality decides only where that evaluation does, and in both directions:
+on `ℤ/2 → ℤ/2` and `ℤ → ℤ/4` by residues (`n ↦ 2n` and `n ↦ 6n` are the same map `ℤ → ℤ/4`), and
+through an injective inclusion such as `ℤ → ℤ` or `ℤ → ℚ` because a nonzero polynomial has finitely
+many roots. Two symbolic bodies — `exp(2x)` and `exp(x)·exp(x)`, the same function — are undecided,
+never unequal. A map whose values this reading cannot compute (`n ↦ 2n` on `ℤ/2 → ℤ/4`, a
+homomorphism but with no canonical map `ℤ/2 → ℤ/4`) is refused at construction rather than admitted
+and compared. -/
 
-let f := n ↦ 2n in ZZ/2 → ZZ/4
-let g := n ↦ 6n in ZZ/2 → ZZ/4
-let f4 := n ↦ 4n in ZZ/2 → ZZ/4
 let p := n ↦ n^2 in ZZ/2 → ZZ/2
 let q := n ↦ n in ZZ/2 → ZZ/2
 let r := n ↦ n + 1 in ZZ/2 → ZZ/2
-let h := n ↦ 2n in ℤ → ℤ
-let k := n ↦ 3n in ℤ → ℤ
-
-assert p = q
-assert p ≠ r
-assert h ≠ k
-
--- on `ℤ → ℤ/4` the values are the bodies' residues mod 4, so the residues decide exactly: the
--- equal maps `n ↦ 2n` and `n ↦ 6n` are equal (a `false` read off the bodies was the error),
--- `n ↦ 2n` and `n ↦ 4n` are not
 let a := n ↦ 2n in ℤ → ZZ/4
 let b := n ↦ 6n in ℤ → ZZ/4
 let c := n ↦ 4n in ℤ → ZZ/4
+let h := n ↦ 2n in ℤ → ℤ
+let k := n ↦ 3n in ℤ → ℤ
+let h' := n ↦ 2n in ℤ → ℚ
+let k' := n ↦ 3n in ℤ → ℚ
+let s1 := x ↦ exp(2 * x) in ℝ → ℝ
+let s2 := x ↦ exp(x) * exp(x) in ℝ → ℝ
+
+assert p = q
+assert p ≠ r
 assert a = b
 assert a ≠ c
+assert h ≠ k
+assert h' ≠ k'
 
-/-- error: the assertion outcome is unknown: the two sides of f = g are not comparable -/
+/-- error: the assertion outcome is unknown: the two sides of s1 = s2 are not comparable -/
 #guard_msgs in
-assert f = g
+assert s1 = s2
 
-/-- error: the assertion outcome is unknown: the two sides of f ≠ g are not comparable -/
+/-- error: the assertion outcome is unknown: the two sides of s1 ≠ s2 are not comparable -/
 #guard_msgs in
-assert f ≠ g
+assert s1 ≠ s2
 
-/-- error: the assertion outcome is unknown: the two sides of f = f4 are not comparable -/
+/-- error: `n ↦ …` on ℤ/2 → ℤ/4: a polynomial body is computed in ℤ/2 and carried to ℤ/4 by the preferred canonical map, and there is none from ℤ/2 to ℤ/4 -/
 #guard_msgs in
-assert f = f4
+let f24 := n ↦ 2n in ZZ/2 → ZZ/4
 
 end CasDslTests.ProbeCorpus
