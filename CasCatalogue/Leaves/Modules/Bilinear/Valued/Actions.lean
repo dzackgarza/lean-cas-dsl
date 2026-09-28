@@ -32,6 +32,11 @@ structure GramHandle where
   gram : Matrix (Fin rank) (Fin rank) ℤ
   deriving DecidableEq, Repr
 
+/-- The Gram handle of an `n × n` integer matrix given by its rows (the notebook's matrix
+literal). -/
+def GramHandle.ofRows (n : ℕ) (rows : List (List ℤ)) : GramHandle :=
+  ⟨n, Matrix.of fun i j => (rows.getD i []).getD j 0⟩
+
 /-- An isometry of Gram forms `ℤᵃ → ℤᵇ`: an integer matrix `A` with `Aᵀ G_b A = G_a`. -/
 structure GramIsometry (a b : GramHandle) where
   matrix : Matrix (Fin b.rank) (Fin a.rank) ℤ

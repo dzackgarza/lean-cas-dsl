@@ -45,6 +45,8 @@ def surfaceCategory? (spelling : String) (base : Option Domain) :
   | "QQ-Mod", none => some ("cat.modules_r", some .rat)
   | "Schemes/ℚ", none => some ("cat.schemes_over_q", none)
   | "Groups", none => some ("cat.groups", none)
+  | "BilinModules", some b => some ("cat.bilin_module", some b)
+  | "Lattices", some b => some ("cat.lattice", some b)
   | "Rings", none => some ("cat.rings", none)
   | "Sets", none => some ("cat.sets", none)
   | _, _ => none
@@ -93,7 +95,28 @@ def encode (category : String) (base : Option Domain) (pres : Obj) : Option Enco
       some ⟨"rz.rings.table", mkConst ``CasCatalogue.Algebra.RingTables.ringTableDenotation,
         mkApp3 (mkConst ``CasCatalogue.Algebra.GroupTables.quadraticTableNat) (mkNatLit k)
           (mkNatLit (neg c₀)) (mkNatLit (neg c₁))⟩
+  -- an integer Gram matrix: a ℤ-valued bilinear form on ℤⁿ, and a lattice when symmetric
+  | "cat.bilin_module", some .int, .elem (.matrix n .int) (.mat _ _ rows) =>
+      (intRows? rows).map fun rs =>
+        ⟨"rz.bilin_module.int_gram",
+          mkConst ``CasCatalogue.Modules.Bilinear.Valued.Actions.gramDenotation,
+          mkApp2 (mkConst ``CasCatalogue.Modules.Bilinear.Valued.Actions.GramHandle.ofRows)
+            (mkNatLit n) (toExpr rs)⟩
+  | "cat.lattice", some .int, .elem (.matrix n .int) (.mat _ _ rows) => do
+      let rs ← intRows? rows
+      unless (List.range n).all fun i => (List.range n).all fun j =>
+          (rs.getD i []).getD j 0 == (rs.getD j []).getD i 0 do none
+      some ⟨"rz.lattice.int_gram",
+        mkConst ``CasCatalogue.Lattices.Valued.Actions.latticeGramDenotation,
+        mkApp3 (mkConst ``CasCatalogue.Lattices.Valued.Actions.LatticeGramHandle.ofRows)
+          (mkNatLit n) (toExpr rs)
+          (mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.true))⟩
   | _, _, _ => none
+where
+  intRows? (rows : Array (Array Value)) : Option (List (List Int)) :=
+    rows.toList.mapM fun row => row.toList.mapM fun
+      | .int z => some z
+      | _ => none
 
 /-- The finite set `{0, …, n-1}` of residues, as the notebook presents `ℤ/n`'s elements. -/
 def residues (n : Nat) : Obj :=

@@ -32,6 +32,11 @@ structure LatticeGramHandle where
   form : GramHandle
   symm : form.gram.IsSymm
 
+/-- The lattice handle of an integer matrix given by its rows, symmetric by evaluation. -/
+def LatticeGramHandle.ofRows (n : ℕ) (rows : List (List ℤ))
+    (symm : decide (GramHandle.ofRows n rows).gram.IsSymm = true) : LatticeGramHandle :=
+  ⟨GramHandle.ofRows n rows, of_decide_eq_true symm⟩
+
 /-- Integer lattices by symmetric Gram matrix, with isometries. -/
 abbrev latticeGramRealizer : Realizer :=
   ⟨LatticeGramHandle, fun a b => GramIsometry a.form b.form⟩

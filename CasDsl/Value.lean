@@ -1471,6 +1471,18 @@ partial def latex? : SetPresentation → Option String
 
 end SetPresentation
 
+/-- The mathematician-facing name of a registered category a notebook value can be a point of. -/
+def semanticCategoryName (category : String) (base : Option Domain) : String :=
+  match category, base with
+  | "cat.modules_r", some b => s!"Mod({b.render})"
+  | "cat.bilin_module", some b => s!"BilinModules({b.render})"
+  | "cat.lattice", some b => s!"Lattices({b.render})"
+  | "cat.groups", none => "Groups"
+  | "cat.rings", none => "Rings"
+  | "cat.sets", none => "Sets"
+  | "cat.schemes_over_q", none => "Schemes/ℚ"
+  | c, _ => c
+
 /-- `x^d + c_{d-1} x^{d-1} + … + c₀` from `#[c₀, …, c_{d-1}]`, zero terms omitted. -/
 def monicRender (cs : Array Nat) : String :=
   let d := cs.size
@@ -1493,9 +1505,10 @@ def render : Obj → String
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
   | .specOf r => s!"Spec {r.render}"
   | .symObj e => e.render
-  | .point _ base pres => match base with
-    | some b => s!"{render pres} as {b.render}-module"
-    | none => render pres
+  | .point c base pres => match c, base with
+    | "cat.modules_r", some b => s!"{render pres} as {b.render}-module"
+    | c, some b => s!"{render pres} in {semanticCategoryName c (some b)}"
+    | _, none => render pres
   | .dihedralGroup n => s!"Dihedral({n})"
   | .polyQuotient p cs => s!"(ℤ/{p})[x]/({monicRender cs})"
 

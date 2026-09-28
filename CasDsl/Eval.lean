@@ -904,13 +904,7 @@ def renderName (n : Name) : String :=
 
 /-- A registered category as the surface spells it. -/
 def renderSemanticCategory (category : String) (base : Option Domain) : String :=
-  match category, base with
-  | "cat.modules_r", some b => s!"Mod({b.render})"
-  | "cat.groups", none => "Groups"
-  | "cat.rings", none => "Rings"
-  | "cat.sets", none => "Sets"
-  | "cat.schemes_over_q", none => "Schemes/ℚ"
-  | c, _ => c
+  semanticCategoryName category base
 
 def renderPattern : PresPattern → String
   | .elemOf d => s!"element of {renderDomainPattern d}"

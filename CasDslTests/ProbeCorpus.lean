@@ -94,4 +94,43 @@ run_cmd do
         throwError s!"K2 = K1 was refused for another reason: {e.render}"
   | .ok v => throwError s!"K2 = K1 was decided ({v})"
 
+/-! ## Formed modules and lattices over the module fibration (CC-TRANSPORT, CC-FIB)
+
+A Gram matrix ascribed to `BilinModules(ℤ)` is a ℤ-valued bilinear form on `ℤⁿ`; ascribed to
+`Lattices(ℤ)` it must be symmetric. Their sets are reached along the registered structural route
+through the fibre `Mod_ℤ` of the module fibration and its total category, and computed by the
+registered actions. -/
+
+let A2 := [2, -1; -1, 2] in Lattices(ZZ)
+let E8 := [2, -1, 0, 0, 0, 0, 0, 0; -1, 2, -1, 0, 0, 0, 0, 0; 0, -1, 2, -1, 0, 0, 0, -1; 0, 0, -1, 2, -1, 0, 0, 0; 0, 0, 0, -1, 2, -1, 0, 0; 0, 0, 0, 0, -1, 2, -1, 0; 0, 0, 0, 0, 0, -1, 2, 0; 0, 0, -1, 0, 0, 0, 0, 2] in Lattices(ZZ)
+let B := [1, 2; 3, 4] in BilinModules(ZZ)
+
+assert A2.cardinality() = ℵ₀
+assert E8.cardinality() = ℵ₀
+assert B.cardinality() = ℵ₀
+assert A2.rank() = 2
+assert E8.rank() = 8
+assert B.rank() = 2
+
+run_cmd do
+  let env ← getEnv
+  let a2 : Obj := .elem (.matrix 2 .int) (.mat 2 .int #[#[.int 2, .int (-1)], #[.int (-1), .int 2]])
+  -- the lattice's route: its form, the form's module in the fibre Mod_ℤ, the total category, sets
+  match ← Semantic.explain env "cat.lattice" (some .int) a2 "cardinality" with
+  | .ok text =>
+      for needle in ["cat.lattice --fun.lattice.forget_form--> cat.bilin_module \
+--fun.bilin_module.forget--> cat.modules_r --fun.modules.fibre_inclusion--> cat.modules_total \
+--fun.modules.underlying--> cat.sets", "realized by rz.lattice.int_gram",
+          "composed Lean-native actions"] do
+        unless contains text needle do
+          throwError s!"the audit of A2.cardinality() does not mention {needle}:\n{text}"
+  | .error e => throwError s!"the audit of A2.cardinality() failed: {e}"
+
+-- a non-symmetric Gram matrix is a bilinear form and not a lattice
+/--
+error: [1, 2; 3, 4] ∈ Mat₂(ℤ) is not in Lattices(ℤ): no registered realizer realizes it there, and it is not constructed in a category that reaches it
+-/
+#guard_msgs in
+let N := [1, 2; 3, 4] in Lattices(ZZ)
+
 end CasDslTests.ProbeCorpus
