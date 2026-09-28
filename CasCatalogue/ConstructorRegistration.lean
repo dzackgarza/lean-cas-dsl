@@ -85,10 +85,12 @@ end
 
 normalized_registry .constructor
   { id := ConstructorId.arrow, signature := #[.category],
-    semantics := `CasCatalogue.Constructors.arrow }
+    semantics := `CasCatalogue.Constructors.arrow
+    functorialAction := some `CasCatalogue.Constructors.arrowMap }
 normalized_registry .constructor
   { id := ConstructorId.core, signature := #[.category],
-    semantics := `CasCatalogue.Constructors.core }
+    semantics := `CasCatalogue.Constructors.core
+    functorialAction := some `CasCatalogue.Constructors.coreMap }
 normalized_registry .constructor
   { id := ConstructorId.slice, signature := #[.category, .object],
     semantics := `CasCatalogue.Constructors.slice }

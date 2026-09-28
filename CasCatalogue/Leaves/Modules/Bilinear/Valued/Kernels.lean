@@ -22,8 +22,8 @@ public meta import CasCatalogue.Leaves.Modules.Bilinear.Valued.Expressions
 
 The kernel is owned by modules: `kernel : Arr(Mod_R) → Subobjects(Mod_R)`
 (`LeanCategories.kernelFunctor`, complete universal data `(K, ι)`). A morphism of formed modules
-reaches it along the structural functor `Arr(BilinModule) → Arr(Mod_R)` (the forgetful functor
-on arrows). The result is a subobject of the *underlying module*; to be a formed submodule of the
+reaches it along `Arr(U) : Arr(BilinModule) → Arr(Mod_R)`, the forgetful functor `U` acting on
+arrows: a derived edge (the arrow constructor is functorial), not a registered row. The result is a subobject of the *underlying module*; to be a formed submodule of the
 formed module it must be lifted back, and the lift is registered data: restriction of the form
 along the kernel inclusion (`BilinModuleCat.restrict`), the cartesian lift of monomorphisms along
 the forgetful functor (`forgetMonoLift`). Without that row the call reports the missing lift.
@@ -43,7 +43,6 @@ def subobjectsBilinModule : CategoryId := ⟨"cat.subobjects_bilin_module"⟩
 end CategoryId
 
 namespace FunctorId
-def arrowsBilinModuleForget : FunctorId := ⟨"fun.arrows_bilin_module.forget"⟩
 def arrowsModulesKernel : FunctorId := ⟨"fun.arrows_modules.kernel"⟩
 end FunctorId
 
@@ -58,8 +57,6 @@ def ArrowsBilin : CategoryExpr :=
   .construct ConstructorId.arrow #[.category Modules.Bilinear.Valued.Catalogue.BilinModule]
 def SubobjectsBilin : CategoryExpr :=
   .construct ConstructorId.subobjects #[.category Modules.Bilinear.Valued.Catalogue.BilinModule]
-def ArrowsForgetExpr : FunctorExpr ArrowsBilin ArrowsModules :=
-  .atomic FunctorId.arrowsBilinModuleForget
 def KernelExpr : FunctorExpr ArrowsModules SubobjectsModules := .atomic FunctorId.arrowsModulesKernel
 
 noncomputable section
@@ -80,17 +77,6 @@ def subobjectsBilinCategory (R : Type u) [CommRing R] (W : Type u) [AddCommGroup
     [Module R W] := Constructors.subobjects (bilinModuleCategory R W)
 def subobjectsBilinRealization (R : Type u) [CommRing R] (W : Type u) [AddCommGroup W]
     [Module R W] : CategoryRealization SubobjectsBilin (subobjectsBilinCategory R W) := {}
-
-/-- A morphism of formed modules is a morphism of their underlying modules. -/
-def arrowsForgetDeclaration (R : Type u) [CommRing R] (W : Type u) [AddCommGroup W]
-    [Module R W] : arrowsBilinCategory R W ⥤ arrowsModulesCategory (RingCat.of R) :=
-  (bilinModuleForgetDeclaration R W).toFunctor.mapArrow
-def arrowsForgetRealization (R : Type u) [CommRing R] (W : Type u) [AddCommGroup W]
-    [Module R W] :
-    FunctorRealization ArrowsForgetExpr (arrowsBilinCategory R W)
-      (arrowsModulesCategory (RingCat.of R)) (arrowsForgetDeclaration R W) :=
-  { sourceRealization := arrowsBilinRealization R W
-    targetRealization := arrowsModulesRealization (RingCat.of R) }
 
 /-- The kernel of a module map, with its inclusion. -/
 def kernelDeclaration (R : RingCat.{u}) :
@@ -173,12 +159,6 @@ normalized_registry .category
     expression := SubobjectsBilin
     realization := `CasCatalogue.Modules.Bilinear.Valued.Kernels.subobjectsBilinRealization }
 normalized_registry .functor
-  { id := FunctorId.arrowsBilinModuleForget, source := ArrowsBilin, target := ArrowsModules
-    declaration := `CasCatalogue.Modules.Bilinear.Valued.Kernels.arrowsForgetDeclaration
-    realization := `CasCatalogue.Modules.Bilinear.Valued.Kernels.arrowsForgetRealization
-    expression := ArrowsForgetExpr
-    structural := true }
-normalized_registry .functor
   { id := FunctorId.arrowsModulesKernel, source := ArrowsModules, target := SubobjectsModules
     declaration := `CasCatalogue.Modules.Bilinear.Valued.Kernels.kernelDeclaration
     realization := `CasCatalogue.Modules.Bilinear.Valued.Kernels.kernelRealization
@@ -187,7 +167,8 @@ normalized_registry .method
   { id := ⟨"meth.kernel"⟩, name := "kernel", owner := ArrowsModules
     functor := FunctorId.arrowsModulesKernel, shape := .object, returnsToSource := true }
 normalized_registry .lift
-  { id := ⟨"lift.bilin_module.restrict"⟩, edge := .functor FunctorId.arrowsBilinModuleForget
+  { id := ⟨"lift.bilin_module.restrict"⟩
+    edge := .constructMap ConstructorId.arrow (.functor FunctorId.bilinModuleForget)
     evidence := `CasCatalogue.Modules.Bilinear.Valued.Kernels.forgetMonoLift }
 
 end CasCatalogue

@@ -198,6 +198,10 @@ noncomputable def evalFunctor (selected : SelectedRealization)
           (FunctorPrimitive.familyReindex family morphism source target) with
       | some candidate => alignFunctor selected candidate
       | none => none
+  | .constructMap _ _ =>
+      -- A constructor's action on a functor is evaluated from the registry's functorial action
+      -- (`RegistryState.edgeFunctor`), not by a selected model of primitives.
+      none
   | .comp left right =>
       match evalFunctor selected left, evalFunctor selected right with
       | some leftValue, some rightValue => by

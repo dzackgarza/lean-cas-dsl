@@ -37,10 +37,12 @@ run_cmd liftTermElabM do
     pure entry.expression
   let arrowsBilin ← category "cat.arrows_bilin_module"
   let arrowsModules ← category "cat.arrows_modules_r"
+  -- `Arr(U)` for the forgetful functor `U` of formed modules: a derived edge.
+  let arrowForget : EdgeRef := .constructMap ConstructorId.arrow (.functor FunctorId.bilinModuleForget)
   -- On formed modules the kernel is lifted back by the registered restriction of forms.
   match state.resolveMethod arrowsBilin "kernel" with
   | .ok r =>
-      unless r.route.functorIds == #[FunctorId.arrowsBilinModuleForget] &&
+      unless r.route.refs == #[arrowForget] &&
           r.lifts.map (·.raw) == #["lift.bilin_module.restrict"] do
         throwError "unexpected: {state.renderResolution r}"
   | .error e => throwError e.render state
@@ -52,7 +54,7 @@ run_cmd liftTermElabM do
   let unlifted := { state with lifts := #[] }
   match unlifted.resolveMethod arrowsBilin "kernel" with
   | .error (.missingLift _ _ step) =>
-      unless step == .functor FunctorId.arrowsBilinModuleForget do
+      unless step == arrowForget do
         throwError "the missing lift names the wrong step: {step.label}"
   | .ok r => throwError "the kernel resolved without a lift: {state.renderResolution r}"
   | .error e => throwError "unexpected: {e.render state}"
@@ -68,7 +70,7 @@ run_cmd liftTermElabM do
   unless ← rejects (lift "lift.probe.wrong_step" (.functor FunctorId.arrowsModulesKernel)
       `CasCatalogue.Modules.Bilinear.Valued.Kernels.forgetMonoLift) do
     throwError "a lift was accepted for a step it does not lift along"
-  unless ← rejects (lift "lift.probe.not_a_lift" (.functor FunctorId.arrowsBilinModuleForget)
+  unless ← rejects (lift "lift.probe.not_a_lift" arrowForget
       `CasCatalogue.Modules.Bilinear.Valued.Kernels.kernelDeclaration) do
     throwError "a non-lift was accepted as a lift"
   for lift in state.lifts do

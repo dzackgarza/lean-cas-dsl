@@ -691,3 +691,9 @@ rediscover them.
 4. Where does the negative-test corpus for §5 live: `lean-categories` (semantic
    rejections) or `lean-cas-dsl` (backend rejections), or split by rule?
 5. #53 §16's ten questions remain open and are inherited unchanged.
+6. (Recorded 2026-09-28 by `cc-closure`.) CC-CLOSURE's acceptance says a new leaf with one
+   structural functor into modules inherits `kernel` with no further declaration, while CC-LIFT
+   says a kernel returning to the source side needs a registered lift. Both cannot hold for a leaf
+   whose property is not known to pass to submodules. The implementation keeps CC-LIFT: the
+   leaf's surface lists `kernel` with the missing lift. Open: whether a property classifier may
+   register "closed under subobjects" once and have its lift derived.

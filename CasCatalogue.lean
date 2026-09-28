@@ -1,6 +1,7 @@
 module
 
 public import CasCatalogue.Action
+public import CasCatalogue.ClosureProbes
 public import CasCatalogue.CohereProbes
 public import CasCatalogue.ConstructorCatalogue
 public import CasCatalogue.ConstructorRegistration
@@ -45,6 +46,7 @@ public import CasCatalogue.Leaves.Modules.FibrationRegistryProbes
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions
+public import CasCatalogue.Leaves.Modules.Rank
 public import CasCatalogue.Lift
 public import CasCatalogue.LiftProbes
 public import CasCatalogue.PropsProbes

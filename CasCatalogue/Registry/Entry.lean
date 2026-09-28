@@ -43,6 +43,9 @@ functor `total(c) → host(c)` of a registered classifier. -/
 inductive EdgeRef
   | functor (id : FunctorId)
   | classifierForget (id : ClassifierId)
+  /-- A functorial constructor applied to a structural edge: `Arr(U)`, `Core(U)`. Derived, never
+  registered. -/
+  | constructMap (constructor : ConstructorId) (inner : EdgeRef)
   deriving DecidableEq, Repr, Inhabited
 
 /-- A functor action registry row (CC-ACTION): `realization` names a `RealizedAction F dC dD`,
@@ -132,6 +135,9 @@ structure ConstructorEntry where
   id : ConstructorId
   signature : Array ConstructorArgKind
   semantics : Lean.Name
+  /-- For a unary category constructor that is functorial, its action on functors
+  (`F : C ⥤ D` to `semantics C ⥤ semantics D`), e.g. `Functor.mapArrow` for `Arr`. -/
+  functorialAction : Option Lean.Name := none
   deriving Repr
 
 /-- Named category registry row. -/

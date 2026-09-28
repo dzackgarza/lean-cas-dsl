@@ -78,7 +78,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .opaque e => #[e.declaration, e.realization] ++
       e.ports.flatMap fun p => #[p.declaration, p.realization]
   | .fibration e => #[e.evidence]
-  | .constructor e => #[e.semantics]
+  | .constructor e => #[e.semantics] ++ e.functorialAction.toArray
   | .action e => #[e.realization]
   | .method _ => #[]
   | .comparison e => #[e.evidence]
@@ -134,6 +134,14 @@ def RegistryState.opaquePort? (state : RegistryState) (id : OpaquePortId) : Opti
     match found with
     | some _ => found
     | none => category.ports.find? fun port => port.id == id) none
+
+/-- Whether a route step names registered rows (a derived `c(U)` needs `c`'s functorial action). -/
+def EdgeRef.isRegisteredIn (state : RegistryState) : EdgeRef → Bool
+  | .functor id => (state.functor? id).isSome
+  | .classifierForget id => (state.classifier? id).isSome
+  | .constructMap constructor inner =>
+      (state.constructor? constructor).any (·.functorialAction.isSome) &&
+        inner.isRegisteredIn state
 
 def duplicateOpaquePortId : List OpaquePortId → Option OpaquePortId
   | [] => none
@@ -305,6 +313,8 @@ partial def FunctorExpr.referencesValid (state : RegistryState)
         CategoryFamilySchema.parameterArgsValid sourceArgs entry.schema &&
           CategoryFamilySchema.parameterArgsValid targetArgs entry.schema
   | .comp left right => left.referencesValid state && right.referencesValid state
+  | .constructMap constructor functor =>
+      (state.constructor? constructor).isSome && functor.referencesValid state
 
 /-- Validate the cospan references of a pullback category before it is persisted. -/
 partial def CategoryExpr.referencesValid (state : RegistryState) : CategoryExpr → Bool
@@ -529,17 +539,13 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
     unless (state.functor? fibration.projection).isSome do
       throw s!"fibration entry {fibration.id.raw} has an unregistered projection"
   for action in state.actions do
-    unless (match action.edge with
-        | .functor id => (state.functor? id).isSome
-        | .classifierForget id => (state.classifier? id).isSome) do
+    unless action.edge.isRegisteredIn state do
       throw s!"action entry {action.id.raw} realizes an unregistered functor"
   for method in state.methods do
     unless (state.functor? method.functor).isSome do
       throw s!"method entry {method.id.raw} names an unregistered functor"
   for comparison in state.comparisons do
-    unless (comparison.left ++ comparison.right).all fun
-        | .functor id => (state.functor? id).isSome
-        | .classifierForget id => (state.classifier? id).isSome do
+    unless (comparison.left ++ comparison.right).all (·.isRegisteredIn state) do
       throw s!"comparison entry {comparison.id.raw} names an unregistered route step"
   for property in state.properties do
     unless (state.classifier? property.classifier).isSome do
@@ -1077,6 +1083,7 @@ inductive FunctorExpr.RegistrationKind
   | familyFibreInclusion (family : CategoryFamilyId)
   | familyReindex (family : CategoryFamilyId)
   | comp
+  | constructMap
 
 def FunctorExpr.registrationKind {source target : CategoryExpr} :
     FunctorExpr source target → FunctorExpr.RegistrationKind
@@ -1087,6 +1094,7 @@ def FunctorExpr.registrationKind {source target : CategoryExpr} :
   | .familyFibreInclusion family _ => .familyFibreInclusion family
   | .familyReindex family _ _ _ => .familyReindex family
   | .comp _ _ => .comp
+  | .constructMap _ _ => .constructMap
 
 /-- Require a registered fibre inclusion or reindexing to be exactly the canonical realization
 (`canonical`) built from the registered family realization. -/
@@ -1159,6 +1167,9 @@ def validateFunctorDeclarationRealization (state : RegistryState) {source target
           throwError "identity functor declaration is not the endpoint identity"
     | .atomic => pure ()
     | .comp => pure ()
+    | .constructMap =>
+        throwError "a constructor's action on a functor is derived from the constructor, never \
+          registered"
     | .familyFibreInclusion family =>
         validateFamilyFunctorRealization state family
           ``CasCatalogue.CategoryFamilyRealization.fibreInclusionRealization realizationValue
@@ -1458,12 +1469,13 @@ structure StructuralEdge where
 def StructuralEdge.functor? (edge : StructuralEdge) : Option FunctorId :=
   match edge.ref with
   | .functor id => some id
-  | .classifierForget _ => none
+  | _ => none
 
 /-- A human-readable label of an edge. -/
 def EdgeRef.label : EdgeRef → String
   | .functor id => id.raw
   | .classifierForget id => s!"forget[{id.raw}]"
+  | .constructMap constructor inner => s!"{constructor.raw}({inner.label})"
 
 /-- The structural edges: `structural` functor rows and classifier forgetful functors. -/
 def RegistryState.structuralEdges (state : RegistryState) : Array StructuralEdge :=
@@ -1479,6 +1491,27 @@ def RegistryState.structuralEdges (state : RegistryState) : Array StructuralEdge
             ref := .classifierForget classifier }
     | _ => none
   rows ++ forgets
+
+/-- The structural edges out of `current`: registered ones, and, when `current` is a unary
+functorial constructor `c(A)`, the edges `c(U) : c(A) → c(B)` for every structural edge
+`U : A → B` (CC-CLOSURE: `Arr(−)` and `Core(−)` act on the structural graph). -/
+partial def RegistryState.edgesFrom (state : RegistryState) (current : CategoryExpr) :
+    Array StructuralEdge :=
+  let base := state.structuralEdges.filter (·.source.syntacticEq current)
+  let derived := match current with
+    | .construct constructor args =>
+        match args.toList, state.constructor? constructor with
+        | [.category inner], some entry =>
+            if entry.functorialAction.isSome then
+              (state.edgesFrom inner).map fun edge =>
+                { source := .construct constructor #[.category edge.source]
+                  target := .construct constructor #[.category edge.target]
+                  expression := .constructMap constructor edge.expression
+                  ref := .constructMap constructor edge.ref }
+            else #[]
+        | _, _ => #[]
+    | _ => #[]
+  base ++ derived
 
 /-- A structural route between two categories: its steps, in order. -/
 structure Route where
@@ -1496,15 +1529,13 @@ def Route.refs (route : Route) : Array EdgeRef := route.steps.map (·.ref)
 so the enumeration is finite; `fuel` bounds its length. -/
 partial def RegistryState.routes (state : RegistryState) (source target : CategoryExpr)
     (fuel : Nat := 32) : Array Route :=
-  let edges := state.structuralEdges
   let rec go (current : CategoryExpr) (visited : List CategoryExpr) (fuel : Nat) :
       Array (Array StructuralEdge) :=
     if current.syntacticEq target then #[#[]]
     else if fuel = 0 then #[]
     else
-      edges.foldl (init := #[]) fun acc edge =>
-        if edge.source.syntacticEq current &&
-            !(visited.any (·.syntacticEq edge.target)) then
+      (state.edgesFrom current).foldl (init := #[]) fun acc edge =>
+        if !(visited.any (·.syntacticEq edge.target)) then
           acc ++ (go edge.target (edge.target :: visited) (fuel - 1)).map (#[edge] ++ ·)
         else acc
   (go source [source] fuel).map fun steps => { source, target, steps }
@@ -1512,11 +1543,10 @@ partial def RegistryState.routes (state : RegistryState) (source target : Catego
 /-- The edges along `steps` if they form a structural route from `source` to `target`. -/
 def RegistryState.routeEdges? (state : RegistryState) (source target : CategoryExpr)
     (steps : Array EdgeRef) : Option (Array StructuralEdge) := do
-  let edges := state.structuralEdges
   let mut current := source
   let mut out := #[]
   for step in steps do
-    let edge ← edges.find? fun edge => edge.ref == step && edge.source.syntacticEq current
+    let edge ← (state.edgesFrom current).find? fun edge => edge.ref == step
     out := out.push edge
     current := edge.target
   if current.syntacticEq target then some out else none
@@ -1551,14 +1581,33 @@ def mkFunctorComp (F G : Expr) : MetaM Expr := do
   instantiateMVars <| mkAppN (mkConst ``CategoryTheory.Functor.comp [v₁, v₂, v₃, u₁, u₂, u₃])
     #[C, instC, D, instD, E, instE, F, G]
 
+/-- Apply the constant `name` to `explicitArgs`, unifying every argument at the current
+metavariable depth (unlike `mkAppM`), so metavariables of the arguments, universe levels
+included, are assigned. -/
+def mkAppHere (name : Name) (explicitArgs : Array Expr) : MetaM Expr := do
+  let constant ← mkConstWithFreshMVarLevels name
+  let (args, binders, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let mut k : Nat := 0
+  for i in [0:args.size] do
+    if binders[i]!.isExplicit then
+      let some arg := explicitArgs[k]? | throwError "mkAppHere: too few arguments for {name}"
+      unless ← isDefEq args[i]! arg do
+        throwError "mkAppHere: argument {k} does not fit {name}"
+      k := k + 1
+  instantiateMVars (mkAppN constant args)
+
 /-- The Mathlib functor of one structural edge. -/
-def RegistryState.edgeFunctor (state : RegistryState) : EdgeRef → MetaM Expr
+partial def RegistryState.edgeFunctor (state : RegistryState) : EdgeRef → MetaM Expr
   | .functor id => match state.functor? id with
       | some entry => registeredFunctorInstance entry
       | none => throwError "unregistered functor {id.raw}"
   | .classifierForget id => match state.classifier? id with
       | some entry => classifierForgetInstance entry
       | none => throwError "unregistered classifier {id.raw}"
+  | .constructMap constructor inner => do
+      let some action := (state.constructor? constructor).bind (·.functorialAction)
+        | throwError "constructor {constructor.raw} has no registered action on functors"
+      mkAppHere action #[← state.edgeFunctor inner]
 
 /-- The Mathlib composite of a structural route. -/
 def RegistryState.routeFunctor (state : RegistryState) (steps : Array EdgeRef) :
@@ -1596,20 +1645,6 @@ def validateComparison (state : RegistryState) (e : ComparisonEntry) : MetaM Uni
   unless ← withTransparency .all <| isDefEq args[3]! right do
     throwError "comparison {e.id.raw} evidence is not about its right route"
 
-/-- Apply the constant `name` to `explicitArgs`, unifying every argument at the current
-metavariable depth (unlike `mkAppM`), so metavariables of the arguments, universe levels
-included, are assigned. -/
-def mkAppHere (name : Name) (explicitArgs : Array Expr) : MetaM Expr := do
-  let constant ← mkConstWithFreshMVarLevels name
-  let (args, binders, _) ← forallMetaTelescopeReducing (← inferType constant)
-  let mut k : Nat := 0
-  for i in [0:args.size] do
-    if binders[i]!.isExplicit then
-      let some arg := explicitArgs[k]? | throwError "mkAppHere: too few arguments for {name}"
-      unless ← isDefEq args[i]! arg do
-        throwError "mkAppHere: argument {k} does not fit {name}"
-      k := k + 1
-  instantiateMVars (mkAppN constant args)
 
 /-- A route's steps, rendered. -/
 def renderSteps (steps : Array EdgeRef) : String :=
@@ -1846,6 +1881,11 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
         throwError "constructor {e.id.raw} semantics does not have its signature's arity"
       unless (← whnfR result).isAppOf ``CategoryTheory.Cat do
         throwError "constructor {e.id.raw} semantics does not return a category"
+      if let some action := e.functorialAction then
+        let actionConstant ← mkConstWithFreshMVarLevels action
+        let (_, _, actionResult) ← forallMetaTelescopeReducing (← inferType actionConstant)
+        unless (← whnf actionResult).isAppOf ``CategoryTheory.Functor do
+          throwError "constructor {e.id.raw}: its action {action} does not return a functor"
 
 /- Validate the elaborated declaration and persist exactly one registry entry. -/
 def addRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
@@ -2052,6 +2092,7 @@ inductive RegistryManifestFunctorExpr
   | familyReindex (family morphism : String)
       (source target : Array RegistryManifestParameterExpr)
   | comp (left right : RegistryManifestFunctorExpr)
+  | constructMap (constructor : String) (functor : RegistryManifestFunctorExpr)
   deriving BEq, Repr
 
 private partial def registryManifestFunctorExprJson : RegistryManifestFunctorExpr → Json
@@ -2068,6 +2109,9 @@ private partial def registryManifestFunctorExprJson : RegistryManifestFunctorExp
   | .comp left right => registryObject [
       ("tag", "comp"), ("left", registryManifestFunctorExprJson left),
       ("right", registryManifestFunctorExprJson right)]
+  | .constructMap constructor functor => registryObject [
+      ("tag", "constructMap"), ("constructor", constructor),
+      ("functor", registryManifestFunctorExprJson functor)]
 
 instance : ToJson RegistryManifestFunctorExpr where
   toJson := registryManifestFunctorExprJson
@@ -2088,6 +2132,8 @@ private partial def registryManifestFunctorExprOfJson : Json → Except String R
           <*> j.getObjValAs? _ "source" <*> j.getObjValAs? _ "target"
     | "comp" => .comp <$> (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "left")) <*>
         (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "right"))
+    | "constructMap" => .constructMap <$> j.getObjValAs? String "constructor" <*>
+        (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "functor"))
     | _ => throw s!"unknown functor expression tag: {tag}"
 
 instance : FromJson RegistryManifestFunctorExpr where
@@ -2252,6 +2298,8 @@ private def registryManifestFunctorExpr {source target : CategoryExpr} :
       .familyReindex family.raw morphism.raw (source.map registryManifestParameterExpr)
         (target.map registryManifestParameterExpr)
   | .comp left right => .comp (registryManifestFunctorExpr left) (registryManifestFunctorExpr right)
+  | .constructMap constructor functor =>
+      .constructMap constructor.raw (registryManifestFunctorExpr functor)
 
 private def registryManifestSchema : CategoryFamilySchema → String
   | .ring => "ring"

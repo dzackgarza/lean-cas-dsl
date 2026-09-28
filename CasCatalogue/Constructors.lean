@@ -36,8 +36,16 @@ universe u v w x
 /-- `Arr(C)`: the arrow category. -/
 def arrow (C : ObjCat.{u, v}) : ObjCat.{max u v, v} := Cat.of (Arrow C)
 
+/-- `Arr(F)`: a functor acts on arrows (Mathlib `Functor.mapArrow`). -/
+def arrowMap {C : ObjCat.{u, v}} {D : ObjCat.{w, x}} (F : C ⥤ D) : arrow C ⥤ arrow D :=
+  F.mapArrow
+
 /-- `Core(C)`: the maximal subgroupoid. -/
 def core (C : ObjCat.{u, v}) : ObjCat.{max u v, v} := Cat.of (Core C)
+
+/-- `Core(F)`: a functor acts on cores (Mathlib `Functor.core`). -/
+def coreMap {C : ObjCat.{u, v}} {D : ObjCat.{w, x}} (F : C ⥤ D) : core C ⥤ core D :=
+  F.core
 
 /-- `Slice(C, X)`: the category of objects over `X`. -/
 def slice (C : ObjCat.{u, v}) (X : C) : ObjCat.{max u v, v} := Cat.of (Over X)

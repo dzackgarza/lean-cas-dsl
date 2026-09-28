@@ -297,6 +297,12 @@ inductive FunctorExpr : CategoryExpr → CategoryExpr → Type
   | comp {source middle target : CategoryExpr}
       (left : FunctorExpr source middle) (right : FunctorExpr middle target) :
       FunctorExpr source target
+  /-- A unary functorial category constructor applied to a functor, e.g. `Arr(F)` or `Core(F)`:
+  the constructor's registered action on functors (`ConstructorEntry.functorialAction`). -/
+  | constructMap (constructor : ConstructorId) {source target : CategoryExpr}
+      (functor : FunctorExpr source target) :
+      FunctorExpr (.construct constructor #[.category source])
+        (.construct constructor #[.category target])
   deriving Repr, Lean.ToExpr
 
 /-!

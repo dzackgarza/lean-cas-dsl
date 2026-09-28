@@ -15,6 +15,7 @@ public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
+public import CasCatalogue.Leaves.Modules.Rank
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -83,7 +84,8 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.arrowsModules,
   CategoryId.subobjectsModules,
   CategoryId.arrowsBilinModule,
-  CategoryId.subobjectsBilinModule]
+  CategoryId.subobjectsBilinModule,
+  CategoryId.coreModules]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -141,8 +143,8 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.monoidsSemigroup,
   FunctorId.subobjectsGroupsDomain,
   FunctorId.subobjectsGroupsInclusion,
-  FunctorId.arrowsBilinModuleForget,
   FunctorId.arrowsModulesKernel,
+  FunctorId.modulesRank,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -194,11 +196,12 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.semigroups.magma.table"⟩,
   ⟨"act.magmas.set.table"⟩,
   ⟨"act.subobjects_groups.domain.table"⟩,
-  ⟨"act.subobjects_groups.inclusion.table"⟩]
+  ⟨"act.subobjects_groups.inclusion.table"⟩,
+  ⟨"act.modules.rank.int_free"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
-  #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩]
+  #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩, ⟨"meth.rank"⟩]
 
 /-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
 def expectedLiftIds : Array LiftId := #[⟨"lift.bilin_module.restrict"⟩]

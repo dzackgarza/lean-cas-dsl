@@ -118,10 +118,26 @@ inductive ResolutionError
   | missingLift (name : String) (resolution : Resolution) (step : EdgeRef)
 
 /-- The display name of a category expression: its registered id, if it has one. -/
-def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) : String :=
+partial def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) :
+    String :=
   match state.categories.find? (·.expression.syntacticEq expression) with
   | some entry => entry.id.raw
-  | none => (repr expression).pretty
+  | none =>
+      let parameter : ParameterExpr → String := fun
+        | .variable id => id.raw
+        | _ => "…"
+      match expression with
+      | .atom id | .opaque id => id.raw
+      | .construct constructor args =>
+          let rendered := args.toList.map fun
+            | .category category => state.categoryName category
+            | .object id => id.raw
+            | .functor id => id.raw
+          s!"{constructor.raw}({", ".intercalate rendered})"
+      | .familyApp family args => s!"{family.raw}({", ".intercalate (args.toList.map parameter)})"
+      | .familyTotal family => s!"total({family.raw})"
+      | .classifierTotal classifier => s!"total({classifier.raw})"
+      | .refine base classifier => s!"{state.categoryName base}|{classifier.raw}"
 
 /-- A route, rendered as `A --F--> B --G--> C`. -/
 def RegistryState.renderRoute (state : RegistryState) (route : Route) : String :=
@@ -213,6 +229,60 @@ def RegistryState.resolveProperty (state : RegistryState) (receiver : CategoryEx
       let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
       pure { sorted[0]! with comparisons }
   | _ => throw (.ambiguousProperty name candidates)
+
+/-! ## The generated operation surface (CC-CLOSURE) -/
+
+/-- One operation available on a receiver, with how it is reached. -/
+structure ClosureRow where
+  name : String
+  /-- `method` or `property`. -/
+  kind : String
+  /-- Whether the call resolves (`some` route rendering) or why not (`none`, with `status`). -/
+  resolved : Bool
+  status : String
+
+/-- The receiver's arrow category `Arr(A)`, through the registered arrow constructor. -/
+def RegistryState.arrowsOf? (state : RegistryState) (receiver : CategoryExpr) :
+    Option CategoryExpr :=
+  (state.constructors.find? (·.semantics == `CasCatalogue.Constructors.arrow)).map fun entry =>
+    .construct entry.id #[.category receiver]
+
+/-- The operations available on `receiver`: every method and property whose owner is reachable by
+structural routes, with the route, or with the reason it does not resolve (ambiguity, a missing
+lift). Nothing here is declared per receiver: the surface is computed from the registry, so adding
+a leaf's structural functors regenerates it (#53 §8 "Static closure"). -/
+def RegistryState.closure (state : RegistryState) (receiver : CategoryExpr) : Array ClosureRow :=
+  let methodNames := (state.methods.map (·.name)).toList.eraseDups
+  let propertyNames := (state.properties.map (·.name)).toList.eraseDups
+  let methods := methodNames.filterMap fun name =>
+    match state.resolveMethod receiver name with
+    | .ok r => some { name, kind := "method", resolved := true
+                      status := state.renderResolution r : ClosureRow }
+    | .error (.notApplicable ..) | .error (.unknownMethod _) => none
+    | .error e => some { name, kind := "method", resolved := false, status := e.render state }
+  let properties := propertyNames.filterMap fun name =>
+    match state.resolveProperty receiver name with
+    | .ok r => some { name, kind := "property", resolved := true
+                      status := state.renderPropertyResolution r : ClosureRow }
+    | .error (.notApplicable ..) | .error (.unknownMethod _) => none
+    | .error e => some { name, kind := "property", resolved := false, status := e.render state }
+  (methods ++ properties).toArray
+
+/-- Report the operation surface of a registered category: on its objects, and on its morphisms
+(the arrow category). -/
+def reportClosure (category : String) : TermElabM Unit := do
+  let state ← registryState
+  let some entry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let render (rows : Array ClosureRow) : String :=
+    "\n".intercalate (rows.toList.map fun row =>
+      s!"  {row.name} ({row.kind}){if row.resolved then "" else " [unavailable]"}: {row.status}")
+  let objects := state.closure entry.expression
+  let morphisms := match state.arrowsOf? entry.expression with
+    | some arrows => state.closure arrows
+    | none => #[]
+  logInfo m!"on objects of {category}:\n{render objects}\non morphisms of {category}:\n\
+    {render morphisms}"
 
 /-! ## Elaboration: the composite as a checked Lean term -/
 
