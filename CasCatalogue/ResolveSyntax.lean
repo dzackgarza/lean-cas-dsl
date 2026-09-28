@@ -19,6 +19,10 @@ public meta import CasCatalogue.Resolve
   classifier's registered decision procedure, applied to the image of `x` along the route.
 * `#resolve name in "cat.id"` reports the route, or why there is none.
 * `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE).
+* `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its epistemic
+  status and provenance (CC-TRUST); `#audit name in "cat.id"` lists its one owner and every
+  realization (CC-ROUTE).
+* `transport% (x) from K₁ to K₂` moves an element along a registered isomorphism (CC-CARRIER).
 
 `via` is a non-reserved token.
 -/
@@ -33,6 +37,13 @@ syntax (name := propertyQuery) "ask% " ident " (" term ") " "in " str (&" via " 
 
 syntax (name := methodsCommand) "#methods " str : command
 
+syntax (name := runCall) "run% " ident " (" term ") " "in " str (&" using " str)? (&" proved")? :
+  term
+
+syntax (name := auditCommand) "#audit " ident " in " str : command
+
+syntax (name := transportCall) "transport% " "(" term ")" &" from " ident &" to " ident : term
+
 syntax (name := resolveCommand) "#resolve " ident " in " str (&" via " str)* : command
 
 /-- The strings of a trailing `(&" via " str)*` group. -/
@@ -46,6 +57,19 @@ meta def viaStrings (group : Syntax) : Array String :=
 @[term_elab propertyQuery] meta def elabPropertyQuerySyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax
   elabPropertyQuery stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
+
+@[term_elab runCall] meta def elabRunSyntax : TermElab := fun stx _ => do
+  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
+  let implementation := if stx[7].getNumArgs > 0 then stx[7][1].isStrLit? else none
+  elabRun stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category implementation
+    (stx[8].getNumArgs > 0)
+
+@[command_elab auditCommand] meta def elabAuditCommand : CommandElab := fun stx => do
+  let some category := stx[3].isStrLit? | throwUnsupportedSyntax
+  liftTermElabM <| reportAudit stx[1].getId.eraseMacroScopes.toString category
+
+@[term_elab transportCall] meta def elabTransportSyntax : TermElab := fun stx _ =>
+  elabTransport ⟨stx[2]⟩ ⟨stx[5]⟩ ⟨stx[7]⟩
 
 @[command_elab methodsCommand] meta def elabMethodsCommand : CommandElab := fun stx => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax

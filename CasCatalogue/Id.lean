@@ -99,6 +99,21 @@ structure LiftId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered realizer (a denotation of handles into a category), CC-SEP. -/
+structure RealizerId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+/-- Stable id of a registered fused implementation of a semantic composite, CC-ROUTE. -/
+structure ImplementationId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+/-- Stable id of a registered isomorphism between two realized objects, CC-CARRIER. -/
+structure HandleIsoId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -130,6 +145,9 @@ instance : Inhabited ComparisonId := ⟨⟨""⟩⟩
 instance : Inhabited PropertyId := ⟨⟨""⟩⟩
 instance : Inhabited DeciderId := ⟨⟨""⟩⟩
 instance : Inhabited LiftId := ⟨⟨""⟩⟩
+instance : Inhabited RealizerId := ⟨⟨""⟩⟩
+instance : Inhabited ImplementationId := ⟨⟨""⟩⟩
+instance : Inhabited HandleIsoId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

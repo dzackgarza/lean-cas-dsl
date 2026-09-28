@@ -28,7 +28,7 @@ inductive SetHandle
   | intPow (n : ℕ)
   /-- The finite set `{0, …, n-1}`, as `Fin n`. -/
   | finite (n : ℕ)
-  deriving DecidableEq, Repr
+  deriving DecidableEq, Repr, Hashable
 
 /-- The set a handle presents. -/
 abbrev SetHandle.carrier : SetHandle → Type

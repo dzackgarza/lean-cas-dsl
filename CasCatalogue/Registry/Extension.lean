@@ -49,6 +49,9 @@ inductive RegistryEntry
   | property (e : PropertyEntry)
   | decider (e : DeciderEntry)
   | lift (e : LiftEntry)
+  | realizer (e : RealizerEntry)
+  | implementation (e : ImplementationEntry)
+  | handleIso (e : HandleIsoEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -66,6 +69,9 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .property e => e.id.raw
   | .decider e => e.id.raw
   | .lift e => e.id.raw
+  | .realizer e => e.id.raw
+  | .implementation e => e.id.raw
+  | .handleIso e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -85,6 +91,9 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .property _ => #[]
   | .decider e => #[e.realization]
   | .lift e => #[e.evidence]
+  | .realizer e => #[e.denotation]
+  | .implementation e => #[e.realization]
+  | .handleIso e => #[e.source, e.target, e.evidence]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -100,6 +109,9 @@ structure RegistryState where
   properties : Array PropertyEntry := #[]
   deciders : Array DeciderEntry := #[]
   lifts : Array LiftEntry := #[]
+  realizers : Array RealizerEntry := #[]
+  implementations : Array ImplementationEntry := #[]
+  handleIsos : Array HandleIsoEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -351,6 +363,9 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .property e => { s with properties := s.properties.push e }
   | s, .decider e => { s with deciders := s.deciders.push e }
   | s, .lift e => { s with lifts := s.lifts.push e }
+  | s, .realizer e => { s with realizers := s.realizers.push e }
+  | s, .implementation e => { s with implementations := s.implementations.push e }
+  | s, .handleIso e => { s with handleIsos := s.handleIsos.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -365,7 +380,10 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.comparisons.toList.map RegistryEntry.comparison ++
     state.properties.toList.map RegistryEntry.property ++
     state.deciders.toList.map RegistryEntry.decider ++
-    state.lifts.toList.map RegistryEntry.lift
+    state.lifts.toList.map RegistryEntry.lift ++
+    state.realizers.toList.map RegistryEntry.realizer ++
+    state.implementations.toList.map RegistryEntry.implementation ++
+    state.handleIsos.toList.map RegistryEntry.handleIso
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -1790,6 +1808,73 @@ def validateLift (state : RegistryState) (e : LiftEntry) : MetaM Unit := do
     throwError "lift {e.id.raw}: {e.evidence} lifts along a functor whose action on arrows is \
       not {e.edge.label}"
 
+/-- The carrier type of a registered category row, with metavariables for its parameters. -/
+def categoryCarrierInstance (entry : NamedCategoryEntry) : MetaM Expr := do
+  let declared ← mkConstWithFreshMVarLevels entry.declaration
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+  mkAppM ``CategoryTheory.Bundled.α #[mkAppN declared args]
+
+/-- A realizer row's denotation must land in its registered category (CC-SEP). -/
+def validateRealizer (state : RegistryState) (e : RealizerEntry) : MetaM Unit := do
+  let some category := state.categories.find? (·.id == e.category)
+    | throwError "realizer {e.id.raw} names an unregistered category {e.category.raw}"
+  let denotation ← mkConstWithFreshMVarLevels e.denotation
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType denotation)
+  let type ← whnfR type
+  unless type.isAppOfArity ``CasCatalogue.Denotation 3 do
+    throwError "realizer {e.id.raw}: {e.denotation} is not a Denotation"
+  unless ← withTransparency .all <| isDefEq type.getAppArgs[1]! (← categoryCarrierInstance category) do
+    throwError "realizer {e.id.raw}: {e.denotation} does not denote into {e.category.raw}"
+
+/-- A fused implementation must be typed by exactly the semantic composite it claims: its route
+functor is the route's composite and its method functor the method's (CC-ROUTE). With no proof it
+can only be a trusted assertion (CC-TRUST). -/
+def validateImplementation (state : RegistryState) (e : ImplementationEntry) : MetaM Unit := do
+  let some method := state.methods.find? (·.id == e.method)
+    | throwError "implementation {e.id.raw} names an unregistered method {e.method.raw}"
+  let some methodFunctor := state.functor? method.functor
+    | throwError "implementation {e.id.raw}: its method has no registered functor"
+  unless method.shape == .isoInvariant do
+    throwError "implementation {e.id.raw}: fused implementations are typed for iso-invariant \
+      methods"
+  let realization ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
+  let type ← whnfR type
+  -- The status is fixed by the evidence: no proof is a trusted assertion, a checker proved sound
+  -- is certificate-checked; nothing else may be claimed.
+  if type.isAppOfArity ``CasCatalogue.TrustedImplementation 12 then
+    unless e.trust == .trustedAssertion do
+      throwError "implementation {e.id.raw}: an unproved implementation is a trusted assertion"
+  else if type.isAppOfArity ``CasCatalogue.CertifiedImplementation 12 then
+    unless e.trust == .certificateChecked do
+      throwError "implementation {e.id.raw}: a certified implementation is certificate-checked"
+  else
+    throwError "implementation {e.id.raw}: {e.realization} is neither a TrustedImplementation \
+      nor a CertifiedImplementation"
+  let args := type.getAppArgs
+  unless ← withTransparency .all <| isDefEq args[8]! (← state.routeFunctor e.route) do
+    throwError "implementation {e.id.raw} does not realize its route"
+  unless ← withTransparency .all <|
+      isDefEq args[9]! (← registeredFunctorInstance methodFunctor) do
+    throwError "implementation {e.id.raw} does not realize its method"
+
+/-- A registered isomorphism must be a `HandleIso` for its realizer's denotation, between exactly
+its source and target handles (CC-CARRIER). -/
+def validateHandleIso (state : RegistryState) (e : HandleIsoEntry) : MetaM Unit := do
+  let some realizer := state.realizers.find? (·.id == e.realizer)
+    | throwError "isomorphism {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  let evidence ← mkConstWithFreshMVarLevels e.evidence
+  let type ← whnfR (← inferType evidence)
+  unless type.isAppOfArity ``CasCatalogue.HandleIso 6 do
+    throwError "isomorphism {e.id.raw}: {e.evidence} is not a HandleIso"
+  let args := type.getAppArgs
+  let checks := #[(args[3]!, ← mkConstWithFreshMVarLevels realizer.denotation, "realizer"),
+    (args[4]!, ← mkConstWithFreshMVarLevels e.source, "source"),
+    (args[5]!, ← mkConstWithFreshMVarLevels e.target, "target")]
+  for (actual, expected, what) in checks do
+    unless ← withTransparency .all <| isDefEq actual expected do
+      throwError "isomorphism {e.id.raw}: its evidence is not about its {what}"
+
 /-- A method row names a registered functor whose source is its owner (`.object`) or the core
 of its owner (`.isoInvariant`, the registered constructor whose semantics is
 `CasCatalogue.Constructors.core`). -/
@@ -1873,6 +1958,9 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .property e => validateProperty state e
   | .decider e => validateDecider state e
   | .lift e => validateLift state e
+  | .realizer e => validateRealizer state e
+  | .implementation e => validateImplementation state e
+  | .handleIso e => validateHandleIso state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2246,6 +2334,30 @@ structure RegistryManifestLift where
   evidence : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestRealizer where
+  id : String
+  category : String
+  denotation : String
+  backend : String
+  deriving BEq, Repr, ToJson, FromJson
+
+structure RegistryManifestImplementation where
+  id : String
+  method : String
+  route : Array String
+  realization : String
+  backend : String
+  trust : String
+  deriving BEq, Repr, ToJson, FromJson
+
+structure RegistryManifestHandleIso where
+  id : String
+  realizer : String
+  source : String
+  target : String
+  evidence : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -2261,6 +2373,9 @@ structure RegistryManifest where
   properties : Array RegistryManifestProperty
   deciders : Array RegistryManifestDecider
   lifts : Array RegistryManifestLift
+  realizers : Array RegistryManifestRealizer
+  implementations : Array RegistryManifestImplementation
+  handleIsos : Array RegistryManifestHandleIso
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2377,6 +2492,15 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       id := e.id.raw, classifier := e.classifier.raw, realization := e.realization.toString }
     lifts := (state.lifts.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, edge := e.edge.label, evidence := e.evidence.toString }
+    realizers := (state.realizers.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, category := e.category.raw, denotation := e.denotation.toString,
+      backend := e.backend }
+    implementations := (state.implementations.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, method := e.method.raw, route := e.route.map (·.label),
+      realization := e.realization.toString, backend := e.backend, trust := e.trust.label }
+    handleIsos := (state.handleIsos.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, realizer := e.realizer.raw, source := e.source.toString,
+      target := e.target.toString, evidence := e.evidence.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

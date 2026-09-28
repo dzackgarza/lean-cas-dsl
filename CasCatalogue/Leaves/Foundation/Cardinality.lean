@@ -129,4 +129,14 @@ normalized_registry .action
   { id := ⟨"act.sets.cardinality.presented"⟩, edge := .functor FunctorId.setsCardinality
     realization := `CasCatalogue.Foundation.Cardinality.cardinalityAction }
 
+normalized_registry .realizer
+  { id := ⟨"rz.sets.presented"⟩, category := ⟨"cat.sets"⟩, backend := "lean"
+    denotation := `CasCatalogue.Foundation.Actions.setDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.core_sets.presented"⟩, category := ⟨"cat.core_sets"⟩, backend := "lean"
+    denotation := `CasCatalogue.Foundation.Cardinality.coreSetDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.cardinals.handles"⟩, category := ⟨"cat.cardinals"⟩, backend := "lean"
+    denotation := `CasCatalogue.Foundation.Cardinality.cardinalDenotation }
+
 end CasCatalogue

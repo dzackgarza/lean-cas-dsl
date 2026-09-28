@@ -184,4 +184,17 @@ normalized_registry .decider
   { id := ⟨"dec.magmas.commutative.table"⟩, classifier := ClassifierId.magmasCommutative
     realization := `CasCatalogue.Algebra.Actions.commutativeDecider }
 
+normalized_registry .realizer
+  { id := ⟨"rz.magmas.table"⟩, category := ⟨"cat.magmas"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Actions.magmaDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.semigroups.table"⟩, category := ⟨"cat.semigroups"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Actions.semigroupDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.monoids.table"⟩, category := ⟨"cat.monoids"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Actions.monoidDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.groups.table"⟩, category := ⟨"cat.groups"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Actions.groupDenotation }
+
 end CasCatalogue

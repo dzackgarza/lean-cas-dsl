@@ -16,6 +16,8 @@ public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
 public import CasCatalogue.Leaves.Modules.Rank
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Fused
+public import CasCatalogue.Leaves.Algebra.RingTables
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -203,6 +205,21 @@ def expectedActionIds : Array ActionId := #[
 def expectedMethodIds : Array MethodId :=
   #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩, ⟨"meth.rank"⟩]
 
+/-- Stable realizer rows owned by the standard catalogue (CC-SEP). -/
+def expectedRealizerIds : Array RealizerId := #[
+  ⟨"rz.sets.presented"⟩, ⟨"rz.core_sets.presented"⟩, ⟨"rz.cardinals.handles"⟩,
+  ⟨"rz.modules.int_free"⟩, ⟨"rz.modules_total.int_free"⟩, ⟨"rz.bilin_module.int_gram"⟩,
+  ⟨"rz.lattice.int_gram"⟩, ⟨"rz.core_modules.int_free"⟩, ⟨"rz.magmas.table"⟩,
+  ⟨"rz.semigroups.table"⟩, ⟨"rz.monoids.table"⟩, ⟨"rz.groups.table"⟩,
+  ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩]
+
+/-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
+def expectedImplementationIds : Array ImplementationId := #[
+  ⟨"impl.bilin_module.cardinality.fused"⟩, ⟨"impl.bilin_module.cardinality.certified"⟩]
+
+/-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
+def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
+
 /-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
 def expectedLiftIds : Array LiftId := #[⟨"lift.bilin_module.restrict"⟩]
 
@@ -267,6 +284,12 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedDeciderIds (·.raw))
   validateStableIdSet "lifts" (manifest.lifts.map (·.id))
     (rawIds expectedLiftIds (·.raw))
+  validateStableIdSet "realizers" (manifest.realizers.map (·.id))
+    (rawIds expectedRealizerIds (·.raw))
+  validateStableIdSet "implementations" (manifest.implementations.map (·.id))
+    (rawIds expectedImplementationIds (·.raw))
+  validateStableIdSet "isomorphisms" (manifest.handleIsos.map (·.id))
+    (rawIds expectedHandleIsoIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

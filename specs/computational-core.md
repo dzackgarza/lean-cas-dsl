@@ -351,8 +351,10 @@ carrier.
   between them is additional mathematical data (a registered isomorphism), never a silent
   identification by backend identity.
 
-**Acceptance.** Two realizations of \(\mathbb F_4\) from different defining polynomials
-yield distinct semantic objects; `ask (K₁ = K₂)` is not decided `true`; a registered
+**Acceptance.** Two realizations of a finite field from different defining polynomials (e.g.
+\(\mathbb F_9=\mathbb F_3[x]/(x^2+1)=\mathbb F_3[y]/(y^2+y+2)\); over \(\mathbb F_2\) the only
+monic irreducible quadratic is \(x^2+x+1\), so \(\mathbb F_4\) has a single one — corrected
+2026-09-28) yield distinct semantic objects; `ask (K₁ = K₂)` is not decided `true`; a registered
 isomorphism between them transports elements, and its absence is reported as absence.
 
 ### CC-MEMO — Memoization of explicit functor applications only

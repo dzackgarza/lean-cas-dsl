@@ -343,6 +343,103 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let value ← mkAppM ``RealizedAction.obj #[methodAction, image]
   return .letE `route (← inferType composite) composite value (nondep := true)
 
+/-- CC-SEP: the receiver's handle must be realized by a registered realizer of the named category;
+its category is never read off the handle. Checked on the first action's source denotation. -/
+def checkRealizer (state : RegistryState) (category : CategoryId) (action : Expr) :
+    TermElabM Unit := do
+  let type ← whnfR (← inferType action)
+  unless type.isAppOfArity ``RealizedAction 9 do return
+  let sourceDenotation := type.getAppArgs[7]!
+  for realizer in state.realizers.filter (·.category == category) do
+    let registered ← mkConstWithFreshMVarLevels realizer.denotation
+    if ← withoutModifyingState (isDefEq sourceDenotation registered) then return
+  throwError "no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
+
+/-- Elaborate `run% name (x) in "cat.id"` (optionally `using "impl.id"`): the value of `x.name`
+with its epistemic status and provenance (CC-TRUST). Without `using`, the value is computed by the
+composed Lean-native actions; with it, by the named fused implementation of the same semantic
+composite (CC-ROUTE). -/
+def elabRun (name : String) (receiver : Term) (category : String) (implementation : Option String)
+    (proved : Bool := false) : TermElabM Expr := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let resolution ← match state.resolveMethod categoryEntry.expression name with
+    | .ok resolution => pure resolution
+    | .error error => throwError error.render state
+  let x ← elabTerm receiver none
+  let rendered := state.renderResolution resolution
+  match implementation with
+  | none =>
+      let mut acc : Option Expr := none
+      for edge in resolution.route.steps do
+        acc ← some <$> composeAction state acc edge.ref
+      if let some routeAction := acc then checkRealizer state categoryEntry.id routeAction
+      let methodAction ← composeAction state none (.functor resolution.method.functor)
+      let image ← match acc with
+        | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
+        | none => pure x
+      let value ← mkAppM ``RealizedAction.obj #[methodAction, image]
+      if proved then
+        -- Kernel reduction, not compiled evaluation: the normal form, with `rfl` for the kernel.
+        let normal ← withTransparency .all <| Meta.reduce value (skipTypes := true)
+        let proof ← mkEqRefl value
+        mkAppM ``Result.ofKernel #[value, normal, proof,
+          toExpr s!"{rendered} ; composed Lean-native actions, reduced by the kernel"]
+      else
+        mkAppM ``Result.mk #[value, mkConst ``Trust.leanChecked,
+          toExpr s!"{rendered} ; composed Lean-native actions"]
+  | some implementationId =>
+      let some entry := state.implementations.find? (·.id.raw == implementationId)
+        | throwError "no registered implementation {implementationId}"
+      unless entry.method == resolution.method.id && entry.route == resolution.route.refs do
+        throwError "implementation {implementationId} realizes a different composite"
+      let fused ← mkConstWithFreshMVarLevels entry.realization
+      let provenance := toExpr s!"{rendered} ; fused by {entry.backend} ({implementationId})"
+      match entry.trust with
+      | .certificateChecked => mkAppM ``CertifiedImplementation.run #[fused, x, provenance]
+      | _ =>
+          let value ← mkAppM ``TrustedImplementation.obj #[fused, x]
+          mkAppM ``Result.mk #[value, mkConst ``Trust.trustedAssertion, provenance]
+
+/-- The method audit (CC-ROUTE): the one semantic owner of `name` on `category` and every
+registered realization of it. -/
+def reportAudit (name category : String) : TermElabM Unit := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let resolution ← match state.resolveMethod categoryEntry.expression name with
+    | .ok resolution => pure resolution
+    | .error error => throwError error.render state
+  let fused := state.implementations.filter fun e =>
+    e.method == resolution.method.id && e.route == resolution.route.refs
+  let lines := #[s!"owner: {resolution.method.id.raw} ({resolution.method.functor.raw})",
+      s!"route: {state.renderRoute resolution.route}",
+      "realization: composed Lean-native actions (Lean-checked computation)"] ++
+    fused.map fun e => s!"realization: {e.id.raw} by {e.backend} ({e.trust.label})"
+  logInfo m!"{"\n".intercalate lines.toList}"
+
+/-- Elaborate `transport% (x) from K₁ to K₂`: move the element `x` of `K₁` to `K₂` along a
+registered isomorphism (CC-CARRIER). Two presentations are never silently identified: with no
+registered isomorphism the call reports its absence. -/
+def elabTransport (element source target : Term) : TermElabM Expr := do
+  let state ← registryState
+  unless source.raw.isIdent && target.raw.isIdent do throwError "transport needs named objects"
+  let sourceName ← resolveGlobalConstNoOverload source.raw
+  let targetName ← resolveGlobalConstNoOverload target.raw
+  let some entry := state.handleIsos.find? fun (e : HandleIsoEntry) =>
+      e.source == sourceName && e.target == targetName
+    | throwError "no registered isomorphism from {sourceName} to {targetName}: the two \
+        presentations are distinct objects, and no comparison relates them (CC-CARRIER)"
+  let evidence ← mkConstWithFreshMVarLevels entry.evidence
+  let hom ← mkAppM ``HandleIso.hom #[evidence]
+  let act ← mkAppM ``ElementAction.act #[hom]
+  let .forallE _ domain codomain _ ← whnf (← inferType act)
+    | throwError "the realizer's element action is not a function"
+  let x ← elabTermEnsuringType element (← whnf domain)
+  -- Expose the target's element type in normal form, so its operations are found.
+  mkExpectedTypeHint (mkApp act x) (← whnf codomain)
+
 /-- Elaborate `ask% name (receiver) in "cat.id"`: resolve the property, compose the registered
 actions along the route, and apply the unique registered decider of the classifier to the image.
 The result is a `Decision` about the image's denotation, inside a `let` of the checked composite

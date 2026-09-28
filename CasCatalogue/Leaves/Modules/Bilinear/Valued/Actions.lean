@@ -65,4 +65,8 @@ normalized_registry .action
     edge := .functor FunctorId.bilinModuleForget
     realization := `CasCatalogue.Modules.Bilinear.Valued.Actions.forgetAction }
 
+normalized_registry .realizer
+  { id := ⟨"rz.bilin_module.int_gram"⟩, category := ⟨"cat.bilin_module"⟩, backend := "lean"
+    denotation := `CasCatalogue.Modules.Bilinear.Valued.Actions.gramDenotation }
+
 end CasCatalogue.Modules.Bilinear.Valued.Actions

@@ -20,6 +20,7 @@ public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Algebra.RingTables
 public import CasCatalogue.Leaves.Algebra.Subgroups
 public import CasCatalogue.Leaves.Exceptional.Catalogue
 public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
@@ -38,6 +39,7 @@ public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Actions
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Expressions
+public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Fused
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Kernels
 public import CasCatalogue.Leaves.Modules.Catalogue
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
@@ -49,8 +51,10 @@ public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions
 public import CasCatalogue.Leaves.Modules.Rank
 public import CasCatalogue.Lift
 public import CasCatalogue.LiftProbes
+public import CasCatalogue.Memo
 public import CasCatalogue.PropsProbes
 public import CasCatalogue.Realization
+public import CasCatalogue.RealizeProbes
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Registry.Typed
@@ -62,4 +66,5 @@ public import CasCatalogue.Syntax
 public import CasCatalogue.Tools.ExportBoundaryProbe
 public import CasCatalogue.Tools.ExportFull
 public import CasCatalogue.Tools.ExportJson
+public import CasCatalogue.Trust
 public import CasCatalogue.UnivProbes

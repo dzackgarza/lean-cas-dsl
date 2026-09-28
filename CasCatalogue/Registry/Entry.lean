@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Syntax
+public import CasCatalogue.Trust
 
 @[expose] public section
 
@@ -86,6 +87,38 @@ structure MethodEntry where
 structure LiftEntry where
   id : LiftId
   edge : EdgeRef
+  evidence : Lean.Name
+  deriving Repr
+
+/-- A realizer row (CC-SEP): `denotation` names a `Denotation R C` whose category `C` is the
+registered category `category`. A handle's category is the category of the realizer it is used
+with; nothing inspects the handle to find one. `backend` names the engine that produces handles. -/
+structure RealizerEntry where
+  id : RealizerId
+  category : CategoryId
+  denotation : Lean.Name
+  backend : String
+  deriving Repr
+
+/-- A fused implementation row (CC-ROUTE, CC-TRUST): a backend realization of the whole composite
+`method ∘ route`, keyed by that semantic composite. It is one more realization of the same
+operation, never a new method, and carries its epistemic status. -/
+structure ImplementationEntry where
+  id : ImplementationId
+  method : MethodId
+  route : Array EdgeRef
+  realization : Lean.Name
+  backend : String
+  trust : Trust
+  deriving Repr
+
+/-- A registered isomorphism between two realized objects (CC-CARRIER): `evidence` names a
+`HandleIso d source target` for the denotation of the registered realizer `realizer`. -/
+structure HandleIsoEntry where
+  id : HandleIsoId
+  realizer : RealizerId
+  source : Lean.Name
+  target : Lean.Name
   evidence : Lean.Name
   deriving Repr
 

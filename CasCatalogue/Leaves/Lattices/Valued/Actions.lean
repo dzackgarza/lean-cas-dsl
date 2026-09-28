@@ -60,4 +60,8 @@ normalized_registry .action
     edge := .functor FunctorId.latticeFormForget
     realization := `CasCatalogue.Lattices.Valued.Actions.formForgetAction }
 
+normalized_registry .realizer
+  { id := ⟨"rz.lattice.int_gram"⟩, category := ⟨"cat.lattice"⟩, backend := "lean"
+    denotation := `CasCatalogue.Lattices.Valued.Actions.latticeGramDenotation }
+
 end CasCatalogue.Lattices.Valued.Actions

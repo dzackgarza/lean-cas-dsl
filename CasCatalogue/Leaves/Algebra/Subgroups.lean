@@ -232,4 +232,11 @@ normalized_registry .action
     edge := .functor FunctorId.subobjectsGroupsInclusion
     realization := `CasCatalogue.Algebra.Subgroups.inclusionAction }
 
+normalized_registry .realizer
+  { id := ⟨"rz.subobjects_groups.table"⟩, category := ⟨"cat.subobjects_groups"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Subgroups.subgroupDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.arrows_groups.table"⟩, category := ⟨"cat.arrows_groups"⟩, backend := "lean"
+    denotation := `CasCatalogue.Algebra.Subgroups.arrowDenotation }
+
 end CasCatalogue

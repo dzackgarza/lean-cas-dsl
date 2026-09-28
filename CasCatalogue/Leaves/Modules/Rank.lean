@@ -100,4 +100,8 @@ normalized_registry .action
   { id := ⟨"act.modules.rank.int_free"⟩, edge := .functor FunctorId.modulesRank
     realization := `CasCatalogue.Modules.Rank.rankAction }
 
+normalized_registry .realizer
+  { id := ⟨"rz.core_modules.int_free"⟩, category := ⟨"cat.core_modules_r"⟩, backend := "lean"
+    denotation := `CasCatalogue.Modules.Rank.coreFreeModuleDenotation }
+
 end CasCatalogue

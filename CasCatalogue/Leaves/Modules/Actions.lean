@@ -36,7 +36,8 @@ namespace CasCatalogue.Modules.Actions
 abbrev freeModuleRealizer : Realizer := ⟨ℕ, fun m n => Matrix (Fin n) (Fin m) ℤ⟩
 
 /-- The denotation in `Mod_ℤ`. -/
-noncomputable def freeModuleDenotation : Denotation freeModuleRealizer (ModuleCat ℤ) where
+noncomputable def freeModuleDenotation :
+    Denotation freeModuleRealizer (Modules.Mathlib.ModulesOf.{0, 0} (RingCat.of ℤ)) where
   obj n := ModuleCat.of ℤ (Fin n → ℤ)
   map A := ModuleCat.ofHom (Matrix.mulVecLin A)
 
@@ -83,5 +84,12 @@ normalized_registry .action
   { id := ⟨"act.modules.underlying.int_free"⟩
     edge := .functor FunctorId.modulesUnderlying
     realization := `CasCatalogue.Modules.Actions.underlyingAction }
+
+normalized_registry .realizer
+  { id := ⟨"rz.modules.int_free"⟩, category := ⟨"cat.modules_r"⟩, backend := "lean"
+    denotation := `CasCatalogue.Modules.Actions.freeModuleDenotation }
+normalized_registry .realizer
+  { id := ⟨"rz.modules_total.int_free"⟩, category := ⟨"cat.modules_total"⟩, backend := "lean"
+    denotation := `CasCatalogue.Modules.Actions.totalFreeModuleDenotation }
 
 end CasCatalogue.Modules.Actions
