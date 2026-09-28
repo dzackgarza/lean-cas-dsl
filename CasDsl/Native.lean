@@ -148,11 +148,24 @@ private def cardEqInt : Cardinality → Int → Bool
   | .finite n, z => Int.ofNat n == z
   | .countablyInfinite, _ => false
 
+/-- The values at `0, …, n-1` of a polynomial body with integer or residue coefficients, computed
+in `ℤ/n`. -/
+def residuesOf (n : Nat) (body : Value) : Option (List Nat) := do
+  let cs : Array Value ← match body with
+    | .poly _ cs => some cs
+    | v@(.int _) | v@(.mod _ _) => some #[v]
+    | _ => none
+  let cs ← cs.toList.mapM fun
+    | .int z => some (z % (n : Int)).toNat
+    | .mod _ v => some (v % n)
+    | _ => none
+  return (List.range n).map fun k => cs.foldr (fun c acc => (c + k * acc) % n) 0
+
 /-- Equality after promotion; `none` = incomparable kinds (never `false`,
 which would claim a mathematical judgment we did not make).
 
 Two functions are equal when they are declared over the same domains and
-their bodies agree — the binder is a BOUND NAME, so `t ↦ t² + 1` and
+their values agree (decided as below) — the binder is a BOUND NAME, so `t ↦ t² + 1` and
 `s ↦ s² + 1` are the same function, and SPEC.md's `assert h = hp` compares
 the two spellings of one body through the polynomial normal form. -/
 def valueEq (a b : Value) : Option Bool :=
@@ -187,9 +200,28 @@ def valueEq (a b : Value) : Option Bool :=
       if xs.size != ys.size then some false
       else (xs.zip ys).foldlM (init := true) fun acc (x, y) => do
         return acc && (← (promote x y).map Common.eq)
+  -- Two functions agree when they agree at every point (CC-DECIDE: a `false` is a claim about
+  -- some point). Equal bodies decide `true`. Different polynomial bodies decide `false` only when
+  -- evaluation is injective: on an infinite source inside an integral domain a nonzero polynomial
+  -- difference has finitely many roots. On `ℤ/n → ℤ/n` the points are enumerated. Otherwise
+  -- (`n ↦ 2n` and `n ↦ 6n` on `ℤ/2 → ℤ/4`, equal as maps) it is undecided — never a `false`
+  -- read off the presentation.
   | .func s t _ fb, .func s' t' _ gb =>
       if s != s' || t != t' then some false
-      else (promote fb gb).map Common.eq
+      else match promote fb gb with
+        | none => none
+        | some c =>
+          if c.eq then some true
+          else match s with
+            | .nat | .int | .rat | .real | .complex => some false
+            | .mod 0 => some false
+            -- the body is computed in the source ring; its values are the function's only when
+            -- the target is that ring (a map `ℤ/2 → ℤ/4` has no values computed in `ℤ/2`)
+            | .mod n => if s != t then none else do
+                let fs ← residuesOf n fb
+                let gs ← residuesOf n gb
+                some (fs == gs)
+            | _ => none
   -- Two HOMS agree when their domains, codomains and derived standard-frame
   -- rows do; the binders are BOUND names and do not decide, exactly as
   -- `.func`'s binder does not. Against anything else a hom shares no kind,

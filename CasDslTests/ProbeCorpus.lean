@@ -133,4 +133,38 @@ error: [1, 2; 3, 4] ∈ Mat₂(ℤ) is not in Lattices(ℤ): no registered reali
 #guard_msgs in
 let N := [1, 2; 3, 4] in Lattices(ZZ)
 
+/-! ## Undecided is not false (CC-DECIDE)
+
+`sage-categories` decided `False` for two equal homomorphisms whose component comparisons were
+undecided. Here: `n ↦ 2n` and `n ↦ 6n` on `ℤ/2 → ℤ/4` are equal maps written differently, and
+`n ↦ 2n`, `n ↦ 4n` are different ones; the surface computes a body in the source ring, which does
+not give the values of a map into `ℤ/4`, so neither equality is decided — in particular neither is
+`false` for the equal pair. Where evaluation decides, it decides both ways: on `ℤ/2 → ℤ/2` by the
+two points, on `ℤ → ℤ` because a nonzero integer polynomial has finitely many roots. -/
+
+let f := n ↦ 2n in ZZ/2 → ZZ/4
+let g := n ↦ 6n in ZZ/2 → ZZ/4
+let f4 := n ↦ 4n in ZZ/2 → ZZ/4
+let p := n ↦ n^2 in ZZ/2 → ZZ/2
+let q := n ↦ n in ZZ/2 → ZZ/2
+let r := n ↦ n + 1 in ZZ/2 → ZZ/2
+let h := n ↦ 2n in ℤ → ℤ
+let k := n ↦ 3n in ℤ → ℤ
+
+assert p = q
+assert p ≠ r
+assert h ≠ k
+
+/-- error: the assertion outcome is unknown: the two sides of f = g are not comparable -/
+#guard_msgs in
+assert f = g
+
+/-- error: the assertion outcome is unknown: the two sides of f ≠ g are not comparable -/
+#guard_msgs in
+assert f ≠ g
+
+/-- error: the assertion outcome is unknown: the two sides of f = f4 are not comparable -/
+#guard_msgs in
+assert f = f4
+
 end CasDslTests.ProbeCorpus
