@@ -1609,6 +1609,8 @@ def mkAppHere (name : Name) (explicitArgs : Array Expr) : MetaM Expr := do
   for i in [0:args.size] do
     if binders[i]!.isExplicit then
       let some arg := explicitArgs[k]? | throwError "mkAppHere: too few arguments for {name}"
+      unless ← isDefEq (← inferType args[i]!) (← inferType arg) do
+        throwError "mkAppHere: argument {k} does not fit {name}"
       unless ← isDefEq args[i]! arg do
         throwError "mkAppHere: argument {k} does not fit {name}"
       k := k + 1

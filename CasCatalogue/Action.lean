@@ -110,6 +110,11 @@ variable {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
   {dC : Denotation RC C} {dD : Denotation RD D} {dE : Denotation RE E}
   {F : C ⥤ D} {G : D ⥤ E}
 
+/-- The identity action realizes the identity functor. -/
+@[macro_inline] def id (dC : Denotation RC C) : RealizedAction (𝟭 C) dC dC where
+  action := { obj := fun a => a, map := fun f => f }
+  realizes := { obj := fun _ => rfl, map := fun _ => by simp }
+
 /-- The realized action of a composite functor is the composite of the realized actions.
 
 It is `macro_inline` so that compiled code never receives the denotations, which are meaning

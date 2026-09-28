@@ -19,6 +19,8 @@ public import CasCatalogue.Leaves.Modules.Rank
 public import CasCatalogue.Leaves.Modules.Bilinear.Valued.Fused
 public import CasCatalogue.Leaves.Algebra.RingTables
 public import CasCatalogue.Leaves.Foundation.Cardinality
+public import CasCatalogue.Leaves.Foundation.Subsets
+public import CasCatalogue.Leaves.Modules.Finite
 
 @[expose] public section
 
@@ -87,7 +89,10 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.subobjectsModules,
   CategoryId.arrowsBilinModule,
   CategoryId.subobjectsBilinModule,
-  CategoryId.coreModules]
+  CategoryId.coreModules,
+  CategoryId.coreSubobjectsSets,
+  CategoryId.subsetPredicates,
+  CategoryId.subsetSubsetPredicates]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -173,7 +178,13 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.quadWFormValue,
   FunctorId.setsIdentity,
   FunctorId.sliceSetsForget,
-  FunctorId.modulePointsProjection]
+  FunctorId.modulePointsProjection,
+  FunctorId.setsWholeSubset,
+  FunctorId.subobjectsSetsDomain,
+  FunctorId.subsetsPointPredicates,
+  FunctorId.subsetsSubsetPredicates,
+  FunctorId.subsetsContains,
+  FunctorId.subsetsEquals]
 
 /-- Stable fibration rows owned by the standard catalogue. -/
 def expectedFibrationIds : Array FibrationId := #[
@@ -199,11 +210,18 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.magmas.set.table"⟩,
   ⟨"act.subobjects_groups.domain.table"⟩,
   ⟨"act.subobjects_groups.inclusion.table"⟩,
-  ⟨"act.modules.rank.int_free"⟩]
+  ⟨"act.modules.rank.int_free"⟩,
+  ⟨"act.modules.fibre_inclusion.cyclic_int"⟩,
+  ⟨"act.modules.underlying.cyclic_int"⟩,
+  ⟨"act.modules.fibre_inclusion.zmod_free"⟩,
+  ⟨"act.modules.underlying.zmod_free"⟩,
+  ⟨"act.sets.whole_subset.presented"⟩,
+  ⟨"act.subobjects_sets.domain.presented"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
-  #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩, ⟨"meth.rank"⟩]
+  #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩, ⟨"meth.rank"⟩,
+    ⟨"meth.contains"⟩, ⟨"meth.set_eq"⟩]
 
 /-- Stable realizer rows owned by the standard catalogue (CC-SEP). -/
 def expectedRealizerIds : Array RealizerId := #[
@@ -211,7 +229,9 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.modules.int_free"⟩, ⟨"rz.modules_total.int_free"⟩, ⟨"rz.bilin_module.int_gram"⟩,
   ⟨"rz.lattice.int_gram"⟩, ⟨"rz.core_modules.int_free"⟩, ⟨"rz.magmas.table"⟩,
   ⟨"rz.semigroups.table"⟩, ⟨"rz.monoids.table"⟩, ⟨"rz.groups.table"⟩,
-  ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩]
+  ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
+  ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
+  ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[

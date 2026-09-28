@@ -18,6 +18,7 @@ Two disciplines are load-bearing here:
 -/
 import CasDsl.Native
 import CasDsl.Mathlib.Verify
+import CasDsl.Semantic
 
 namespace CasDsl
 
@@ -905,6 +906,12 @@ def renderName (n : Name) : String :=
   | "QQ-Mod" => "Mod(ℚ)"
   | s => s
 
+/-- A registered category as the surface spells it. -/
+def renderSemanticCategory (category : String) (base : Option Domain) : String :=
+  match category, base with
+  | "cat.modules_r", some b => s!"Mod({b.render})"
+  | c, _ => c
+
 def renderCat (c : CatRef) : String :=
   if c.params.isEmpty then renderName c.name
   else s!"{renderName c.name}({", ".intercalate (c.params.toList.map renderParam)})"
@@ -1107,6 +1114,31 @@ private def approxEps? (m : Name) (args : Array Obj) : Option (Except String Rat
     -- tolerance cannot be the reason for a call that carries none
     | none => none
 
+/-- A method call on a semantic point (`CasDsl/Semantic.lean`): resolved by the `CasCatalogue`
+registry, run along the route by the registered actions, and — when no registered action realizes
+the method itself — finished on the route's image by a registered backend route. -/
+private def runOnPoint (ctx : EvalCtx) (category : String) (base : Option Domain) (pres : Obj)
+    (m : Name) (args : Array Obj) : EvalM Denote := do
+  if let some decl := (methodDecls ctx.env m)[0]? then
+    if args.size != decl.arity then
+      throw (.msg s!"'{m}' takes {decl.arity} argument(s), got {args.size}")
+  match ← (Semantic.call ctx.env category base pres m.toString (!args.isEmpty) : IO _) with
+  | .error e => throw (.msg e)
+  | .ok (.value v _) => return Denote.ofValue v
+  | .ok (.image _ image route) =>
+      let all := routesFor ctx.env m
+      let applicable := all.filter (·.pattern.accepts image)
+      let best := applicable.foldl (init := 0) fun p r => max p r.priority
+      match (applicable.filter (·.priority == best)).toList with
+      | [] =>
+          throw (.msg s!"NoImplementation: '{m}' resolves to {route}, and no registered \
+route implements it on the image {image.presentation}")
+      | [r] =>
+          match ← execute r image args with
+          | .error e => throw (.exec e)
+          | .ok v => return Denote.ofValue v
+      | rs => throw (.tiedRoutes m rs.toArray)
+
 /-- Resolve (semantics), route (computability), execute — the ONLY path from
 the surface to an implementation.
 
@@ -1116,6 +1148,8 @@ transported: a method's arguments belong to its declaration, not to the
 receiver's presentation. -/
 private def runMethod (ctx : EvalCtx) (recv : Obj) (m : Name) (args : Array Obj)
     : EvalM Denote := do
+  if let .point category base pres := recv then
+    return ← runOnPoint ctx category base pres m args
   match resolveMethod ctx.env recv m with
   | .error e => throw (.resolve m recv e)
   | .ok res =>
@@ -2128,6 +2162,9 @@ module category is the ℤ-module), anything else is a domain. -/
 
 inductive Ascription where
   | domain (d : Domain)
+  /-- A registered `CasCatalogue` category (with its base ring for a module fibre): the object
+  becomes a semantic point of it (`CasDsl/Semantic.lean`). -/
+  | semantic (category : String) (base : Option Domain)
   | category (c : CatRef)
   /-- `let A := {1, 2, 3} in 𝒫(ℤ)`: the ascription names a SET, and the
   judgment is membership in it — decided by the same routed `contains` the
@@ -2188,6 +2225,14 @@ private def paramOf : Denote → Except String ParamVal
   | r => .error s!"{r.presentation} is not a category parameter"
 
 def evalAscription (ctx : EvalCtx) (e : CasExpr) : EvalM Ascription := do
+  -- `Modules(R)` and `Mod(R)` name the registered module fibre over the domain `R`. TRANSITIONAL
+  -- (plan node `cc-dsl-migration`): while the name-level graph still registers `QQ-Mod`, `Mod(R)`
+  -- is read semantically only where that graph names nothing; the graph is being deleted.
+  if let .app (.ref head) #[arg] := e then
+    if head == `Modules || (head == `Mod && (categoryAscription? ctx.env e).isNone) then
+      if let .obj (.domainObj base) ← eval ctx arg then
+        if let some (category, base) := Semantic.surfaceCategory? head (some base) then
+          return .semantic category base
   match categoryAscription? ctx.env e with
   | some (n, args) =>
       let ps ← args.mapM fun a => do ofStr (paramOf (← eval ctx a))
@@ -2238,6 +2283,12 @@ ascribing it there is refused rather than read as membership — the arrow \
         let prof := ", ".intercalate ((profileOf ctx.env o').toList.map renderCat)
         throw (.msg s!"{o'.presentation} is not in {renderCat c} \
 (its profile is {if prof.isEmpty then "empty" else prof})")
+  | .semantic category base => do
+      -- membership in a registered category is realization by one of its registered realizers:
+      -- the category is the ascription's, the presentation only selects the realizer
+      if Semantic.realizes category base o then return .point category base o
+      throw (.msg s!"{o.presentation} is not realized as an object of \
+{renderSemanticCategory category base} by any registered realizer")
   | .member s => do
       match (← callMethod ctx s `contains #[o]).value? with
       | some (.bool true) => return o

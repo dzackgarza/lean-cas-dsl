@@ -32,6 +32,7 @@ public import CasCatalogue.Leaves.Foundation.Cardinality
 public import CasCatalogue.Leaves.Foundation.Catalogue
 public import CasCatalogue.Leaves.Foundation.CatalogueRegistration
 public import CasCatalogue.Leaves.Foundation.Expressions
+public import CasCatalogue.Leaves.Foundation.Subsets
 public import CasCatalogue.Leaves.Lattices.Valued.ActionProbes
 public import CasCatalogue.Leaves.Lattices.Valued.Actions
 public import CasCatalogue.Leaves.Lattices.Valued.Catalogue
@@ -48,6 +49,7 @@ public import CasCatalogue.Leaves.Modules.Catalogue
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Expressions
 public import CasCatalogue.Leaves.Modules.FibrationRegistryProbes
+public import CasCatalogue.Leaves.Modules.Finite
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions

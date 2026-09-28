@@ -8,6 +8,7 @@ public import CasCatalogue.ConstructorRegistration
 public import CasCatalogue.Leaves.Foundation.Actions
 public import LeanCategories.Foundation.Cardinality
 public import Mathlib.SetTheory.Cardinal.Arithmetic
+public import Mathlib.Data.ZMod.Basic
 public meta import CasCatalogue.Registry.Extension
 public meta import CasCatalogue.ConstructorCatalogue
 
@@ -93,13 +94,24 @@ def cardinalityOf : SetHandle → CardinalHandle
   | .intPow 0 => .finite 1
   | .intPow (_ + 1) => .aleph0
   | .finite n => .finite n
+  | .zmod 0 => .aleph0
+  | .zmod (n + 1) => .finite (n + 1)
+  | .zmodPow _ 0 => .finite 1
+  | .zmodPow 0 (_ + 1) => .aleph0
+  | .zmodPow (n + 1) k => .finite ((n + 1) ^ k)
 
 theorem cardinalityOf_denote (a : SetHandle) :
     (cardinalityOf a).denote = Cardinal.mk a.carrier := by
-  rcases a with ⟨_ | n⟩ | n
+  rcases a with ⟨_ | n⟩ | n | ⟨_ | n⟩ | ⟨n, _ | k⟩
   · simp [cardinalityOf, CardinalHandle.denote]
   · exact (Cardinal.mk_eq_aleph0 (Fin (n + 1) → ℤ)).symm
   · simp [cardinalityOf, CardinalHandle.denote]
+  · exact (Cardinal.mk_eq_aleph0 ℤ).symm
+  · simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
+  · simp [cardinalityOf, CardinalHandle.denote]
+  · rcases n with _ | n
+    · exact (Cardinal.mk_eq_aleph0 (Fin (k + 1) → ℤ)).symm
+    · simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
 
 /-- The cardinality action on presented sets. -/
 def cardinalityAction :

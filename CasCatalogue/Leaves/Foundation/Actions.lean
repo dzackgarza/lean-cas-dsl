@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Action
 public import LeanCategories.Foundation.Mathlib
 public import Mathlib.Data.Int.Basic
+public import Mathlib.Data.ZMod.Defs
 
 @[expose] public section
 
@@ -28,12 +29,18 @@ inductive SetHandle
   | intPow (n : ℕ)
   /-- The finite set `{0, …, n-1}`, as `Fin n`. -/
   | finite (n : ℕ)
+  /-- The set `ℤ/n`, as `ZMod n` (`ℤ` itself when `n = 0`). -/
+  | zmod (n : ℕ)
+  /-- The set `(ℤ/n)ᵏ`, as functions `Fin k → ZMod n`. -/
+  | zmodPow (n k : ℕ)
   deriving DecidableEq, Repr, Hashable
 
 /-- The set a handle presents. -/
 abbrev SetHandle.carrier : SetHandle → Type
   | .intPow n => Fin n → ℤ
   | .finite n => Fin n
+  | .zmod n => ZMod n
+  | .zmodPow n k => Fin k → ZMod n
 
 /-- Sets by presentation; a morphism is a Lean function between the presented sets. -/
 abbrev setRealizer : Realizer := ⟨SetHandle, fun a b => a.carrier → b.carrier⟩

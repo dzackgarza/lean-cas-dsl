@@ -297,24 +297,51 @@ def Route.compositeExpr (route : Route) : MetaM Expr := do
 /-- The unique registered action on functor `id` that composes after `acc` (or starts a
 composite, when `acc` is `none`). -/
 def composeAction (state : RegistryState) (acc : Option Expr) (edge : EdgeRef) :
-    TermElabM Expr := do
+    MetaM Expr := do
   let candidates := state.actions.filter (·.edge == edge)
   if candidates.isEmpty then
     throwError "no registered action realizes {edge.label}"
   let mut composed : Array Expr := #[]
   for candidate in candidates do
-    let action ← mkConstWithFreshMVarLevels candidate.realization
+    -- A realization indexed by parameters (the free modules over `ℤ/n`) gets metavariables for
+    -- them, assigned by composing after the realization so far.
+    let constant ← mkConstWithFreshMVarLevels candidate.realization
+    let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+    let action := mkAppN constant arguments
     let result? ← match acc with
       | none => pure (some action)
       | some previous =>
-          try pure (some (← mkAppM ``RealizedAction.comp #[previous, action]))
-          catch _ => pure none
-    if let some result := result? then composed := composed.push result
+          let saved ← saveState
+          try pure (some (← mkAppHere ``RealizedAction.comp #[previous, action]))
+          catch _ => saved.restore; pure none
+    if let some result := result? then composed := composed.push (← instantiateMVars result)
   match composed.toList with
   | [result] => pure result
   | [] => throwError "no registered action on {edge.label} composes with the realization so far"
   | _ => throwError "several registered actions on {edge.label} compose; choosing one is a \
       realization choice (CC-ROUTE), not made here"
+
+/-- The route's registered actions composed after the identity action on `denotation`, the
+receiver's realizer (CC-SEP): the realizer, not the uniqueness of an action, selects each step's
+action. -/
+def composeRouteFrom (state : RegistryState) (denotation : Expr) (route : Route) :
+    MetaM Expr := do
+  let mut acc ← mkAppM ``RealizedAction.id #[denotation]
+  for edge in route.steps do
+    acc ← composeAction state (some acc) edge.ref
+  return acc
+
+/-- The executable image `U(x)` of a handle `x` of the realizer `denotation` along a resolved
+route, and the method's value on it when a registered action realizes the method (`none` when the
+method is realized only by a backend). Both are closed terms, ready for evaluation. -/
+def realizedCall (state : RegistryState) (resolution : Resolution) (denotation handle : Expr) :
+    MetaM (Expr × Option Expr) := do
+  let routeAction ← composeRouteFrom state denotation resolution.route
+  let image ← mkAppM ``RealizedAction.obj #[routeAction, handle]
+  let methodAction? ← try some <$> composeAction state none (.functor resolution.method.functor)
+    catch _ => pure none
+  let value? ← methodAction?.mapM fun action => mkAppM ``RealizedAction.obj #[action, image]
+  return (image, value?)
 
 /-- Elaborate `method% name (receiver) in "cat.id" via "fun.id" …` (syntax in
 `CasCatalogue.ResolveSyntax`): resolve the route, check its

@@ -1,303 +1,167 @@
 /-
-Elaboration-time tests for round two of the resolver: receiver transport
-along registered functors (`CasDsl/Resolve.lean`).
+Receiver transport through the `CasCatalogue` registry (`cc-dsl-migration`).
 
-The first half is `#guard` over the pure core with fixture registrations, so
-every claim about *when* transport happens is checked without an
-`Environment`. What has to be pinned down there is not that transport works —
-it is that it happens in exactly one situation and never competes with round
-one: a direct or inherited declaration wins untransported, two applicable
-functors are an ambiguity rather than a pick, a functor whose source the
-receiver does not reach is not applied, and a receiver whose transported image
-still cannot resolve the method keeps its ORIGINAL `notApplicable` error.
+`x.f` is `f(F(x))`: a method call on a semantic point resolves, by the one
+resolver (`CasCatalogue.RegistryState.resolveMethod`), to a route of
+registered structural functors from the point's category to the method's
+owner, and execution receives the route's image, computed by the registered
+actions from the realizer the presentation encodes into (CC-TRANSPORT,
+CC-SEP). Each claim the name-level transport tests made is asserted here
+against that resolver:
 
-The second half runs against the real standard universe and the real native
-executor: `cardinality` on the ℤ/4 module fixture must resolve through the
-forgetful functor, route against the IMAGE, and come back as the cardinal 4.
+* the transported image is the underlying set, computed by actions (ℤ/4 ↦
+  its four residues; ℤ/0 = ℤ ↦ ℤ, which the old object map could not present);
+* the router and the executor see the image, never the module;
+* a transported resolution records its route;
+* direct and transported routes are one candidate pool: a call reachable
+  both ways is an ambiguity naming both, never settled by which was found
+  first;
+* a method whose owner no structural route reaches is not applicable;
+* a functor row whose declaration does not land in its declared target is
+  rejected at registration, so a mislabeled transport cannot be used;
+* a transported resolution with no implementation on the image is a gap
+  naming the route;
+* the surface: binding, method call, `#explain_route`, argument handling and
+  category-bound `=`; and #53 §11: `(ℤ/2)⁴` in `Mod(ℤ/2)` has cardinality 16.
 -/
 import CasDsl
 
 namespace CasDslTests.Transport
 
-open Lean (Name)
-open CasDsl
-
-/-! ## Fixture registrations (plain data — no `Environment` needed) -/
-
-private def cats : Array CatDecl := #[
-  { name := `Sets },
-  { name := `CountableSets, parents := #[`Sets] },
-  { name := `FiniteSets, parents := #[`CountableSets] },
-  { name := `Modules },
-  { name := `CyclicModules, parents := #[`Modules] },
-  { name := `Rings }
-]
-
-private def rules : Array ProfileRule := #[
-  { pattern := .cyclicMod, cat := `CyclicModules, slots := #[.const (.dom .int)] },
-  { pattern := .finiteSet, cat := `FiniteSets, slots := #[.setDom] }
-]
-
-/-- `size` is declared on BOTH sides of the transport step: on `Sets` (where a
-transported receiver would find it) and on `Modules` (where the receiver finds
-it directly). That overlap is what makes "round one wins" testable. -/
-private def decls : Array MethodDecl := #[
-  { id := `cardinality, receiver := `Sets },
-  { id := `annihilator, receiver := `Modules },
-  { id := `size, receiver := `Sets },
-  { id := `size, receiver := `Modules },
-  { id := `factor, receiver := `Rings }
-]
-
-private def forget : FunctorDecl :=
-  { name := `forget, source := `Modules, target := `Sets, objMap := .cyclicToFiniteSet }
-
-/-- A second forgetful functor with the same source and target: two ways to
-read the same receiver as a set. -/
-private def forget2 : FunctorDecl := { forget with name := `forget2 }
-
-/-- A DEFECTIVE registration: its object map lands in the set hierarchy, but it
-declares `Rings` as its target. -/
-private def mislabeled : FunctorDecl :=
-  { name := `mislabeled, source := `Modules, target := `Rings,
-    objMap := .cyclicToFiniteSet }
-
-/-- Its object map applies to the module fixture, but its source is a category
-the fixture does not inhabit — so it must not be used. -/
-private def fromRings : FunctorDecl :=
-  { name := `fromRings, source := `Rings, target := `Sets,
-    objMap := .cyclicToFiniteSet }
-
-private def modFixture : Obj := .cyclicModule 4
-
-/-- The underlying set of ℤ/4, written out: what `cyclicToFiniteSet` must
-produce, spelled independently of the code that produces it. -/
-private def modUnderlying : Obj :=
-  .setObj (.finite (.mod 4) #[.mod 4 0, .mod 4 1, .mod 4 2, .mod 4 3])
-
-/-! ## The object map is data, and is defined exactly where it is honest -/
-
-#guard ObjMap.cyclicToFiniteSet.apply modFixture == some modUnderlying
--- ℤ/0 ≅ ℤ: not a finite set, so the map is undefined rather than the empty set
-#guard ObjMap.cyclicToFiniteSet.apply (.cyclicModule 0) == none
-#guard ObjMap.cyclicToFiniteSet.apply modUnderlying == none
-#guard ObjMap.cyclicToFiniteSet.apply (.domainObj (.mod 4)) == none
-
-/-! ## `concreteReceiver`: what the router and the executor must see -/
-
-private def direct : Resolution :=
-  { decl := { id := `annihilator, receiver := `Modules }, profileEntry := ⟨`Modules, #[]⟩,
-    via := [] }
-
-#guard direct.concreteReceiver modFixture == modFixture
-#guard { direct with viaFunctor := some ⟨`forget, modUnderlying⟩ }.concreteReceiver
-    modFixture == modUnderlying
-
-/-! ## When transport happens -/
-
-private def resolve (fs : Array FunctorDecl) (o : Obj) (m : Name)
-    : Except ResolveError Resolution :=
-  resolveCoreWithTransport cats decls rules fs o m
-
-private def tag : Except ResolveError Resolution → String
-  | .ok _ => "ok"
-  | .error (.notApplicable ..) => "notApplicable"
-  | .error (.ambiguous ..) => "ambiguous"
-  | .error (.unknownMethod _) => "unknownMethod"
-  | .error (.functorTargetMismatch ..) => "functorTargetMismatch"
-
-/-- Receiver category, inheritance chain, and the transport step (as the
-functor's name and the image it produced). -/
-private def resolved (r : Except ResolveError Resolution)
-    : Option (Name × List Name × CatRef × Option (Name × Obj)) :=
-  r.toOption.map fun res =>
-    (res.decl.receiver, res.via, res.profileEntry,
-      res.viaFunctor.map fun s => (s.functor, s.image))
-
--- THE transported resolution: `cardinality` is declared on `Sets`, which the
--- module fixture does not inhabit; the functor carries the RECEIVER there, and
--- the resolution records both the image and the chain inside the image's
--- profile
-#guard resolved (resolve #[forget] modFixture `cardinality) ==
-  some (`Sets, [`CountableSets, `Sets], ⟨`FiniteSets, #[.dom (.mod 4)]⟩,
-    some (`forget, modUnderlying))
-
--- NO ROUND IS CONSULTED FIRST (CC-UNIFORM): `size` is declared on `Modules`
--- *and* on `Sets`, and `forget` applies, so the call is reachable directly and
--- by transport. The old resolver answered `Modules` because round one ran
--- first; with one candidate pool and no registered comparison between the two
--- declarations it is a reported ambiguity carrying both routes. This is the
--- only case in the corpus that the old priority rule decided.
-#guard tag (resolve #[forget] modFixture `size) == "ambiguous"
-#guard (match resolve #[forget] modFixture `size with
-    | .error (.ambiguous _ cands) =>
-        (cands.map fun r => (r.decl.receiver, r.viaFunctor.isSome)).toList ==
-          [(`Modules, false), (`Sets, true)]
-    | _ => false)
-
--- with no functor registered only the direct declaration reaches it
-#guard resolved (resolve #[] modFixture `size) ==
-  some (`Modules, [`Modules], ⟨`CyclicModules, #[.dom .int]⟩, none)
-
--- a functor whose source the receiver does not reach is not applied, even
--- though its object map is defined on this presentation
-#guard tag (resolve #[fromRings] modFixture `cardinality) == "notApplicable"
-
--- a functor whose object map is undefined on the presentation is not applied
--- (`forget`'s source is reachable from the image's own profile, but a set has
--- no underlying-set image registered)
-#guard tag (resolve #[forget] modUnderlying `annihilator) == "notApplicable"
-
--- with no functors registered at all, nothing changes for round one
-#guard tag (resolve #[] modFixture `cardinality) == "notApplicable"
-
-/-! ## Competing functors are an ambiguity, never a pick -/
-
-#guard tag (resolve #[forget, forget2] modFixture `cardinality) == "ambiguous"
-
-private def candidateFunctors : Except ResolveError Resolution → Array (Option Name)
-  | .error (.ambiguous _ cs) => cs.map fun c => c.viaFunctor.map (·.functor)
-  | _ => #[]
-
--- both candidates are carried, each naming the functor that produced it: the
--- report is what lets a developer unregister one
-#guard candidateFunctors (resolve #[forget, forget2] modFixture `cardinality) ==
-  #[some `forget, some `forget2]
-
-/-! ## Zero transported candidates: the original error, unchanged
-
-`factor` is declared on `Rings`, which neither the module nor its underlying
-set reaches. The reported profile must stay the RECEIVER's — reporting the
-image's profile would blame the wrong object, and continuing to search would
-be the functor-composition this slice does not implement. -/
-
-private def notApplicableAt : Except ResolveError Resolution → Option (Array CatRef × Array Name)
-  | .error (.notApplicable _ profile declaredOn) => some (profile, declaredOn)
-  | _ => none
-
-#guard notApplicableAt (resolve #[forget] modFixture `factor) ==
-  some (#[⟨`CyclicModules, #[.dom .int]⟩], #[`Rings])
--- byte for byte the error round one produced on its own
-#guard notApplicableAt (resolve #[forget] modFixture `factor) ==
-  notApplicableAt (resolve #[] modFixture `factor)
-
-/-! ## A defective functor registration is loud, and stops resolution
-
-CEILING (one hop, and nothing past a defect): `transportCandidates` resolves
-the image with round one only. There is no second hop to test with the shipped
-object map — every image is a set presentation, and no registered object map
-is defined on one — so what is asserted here is the other half of the same
-discipline: the resolver never works *around* a candidate it cannot trust. -/
-
-private def mismatchAt : Except ResolveError Resolution → Option (Name × Name × Array CatRef)
-  | .error (.functorTargetMismatch f t prof) => some (f, t, prof)
-  | _ => none
-
-#guard mismatchAt (resolve #[mislabeled] modFixture `cardinality) ==
-  some (`mislabeled, `Rings, #[⟨`FiniteSets, #[.dom (.mod 4)]⟩])
-
--- and a working functor alongside it does NOT paper over the defect
-#guard tag (resolve #[mislabeled, forget] modFixture `cardinality) == "functorTargetMismatch"
-#guard tag (resolve #[forget, mislabeled] modFixture `cardinality) == "functorTargetMismatch"
-
-/-! ## The transport step is visible in the structured gap
-
-A transported resolution with no route must report the functor: without it the
-gap would claim a set-shaped presentation for a module and leave no trace of
-how the two are related. -/
+open Lean Elab Command Meta
+open CasDsl CasCatalogue
 
 private def contains (hay needle : String) : Bool := (hay.splitOn needle).length > 1
 
-private def transportedGap : CapabilityGap := {
-  method := `nth
-  receiverCategory := ⟨`FiniteSets, #[.dom (.mod 4)]⟩
-  presentation := modUnderlying.presentation
-  semanticVia := [`CountableSets]
-  viaFunctor := some ⟨`UnderlyingSet, modUnderlying⟩
-  routesConsidered := #[]
-}
+/-- The four residues of ℤ/4, spelled independently of the decoder. -/
+private def modUnderlying : Obj :=
+  .setObj (.finite (.mod 4) #[.mod 4 0, .mod 4 1, .mod 4 2, .mod 4 3])
 
-#guard contains (renderGap transportedGap) "NoImplementation"
-#guard contains (renderGap transportedGap) "UnderlyingSet"
-#guard contains (renderSemanticPath transportedGap.receiverCategory
-  transportedGap.semanticVia transportedGap.viaFunctor) "transported by functor"
--- an untransported gap says nothing about functors
-#guard !contains (renderGap { transportedGap with viaFunctor := none }) "transported"
+/-- A call on a point of `Mod_R`. -/
+private def callOn (env : Environment) (base : Domain) (pres : Obj) (m : String)
+    (withArguments := false) : IO (Except String Semantic.Outcome) :=
+  Semantic.call env "cat.modules_r" (some base) pres m withArguments
 
-/-! ## The real universe, the real route, the real executor -/
+/-! ## The transported image, computed by the registered actions -/
 
-open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  let o : Obj := .cyclicModule 4
-  let res ← match resolveMethod env o `cardinality with
-    | .ok res => pure res
-    | .error e =>
-        throwError s!"cardinality must reach {o.presentation} by transport: {repr e}"
-  let some step := res.viaFunctor
-    | throwError s!"cardinality resolved on {o.presentation} without transport"
-  unless step.functor == `UnderlyingSet do
-    throwError s!"cardinality was transported by '{step.functor}', expected 'UnderlyingSet'"
-  unless step.image == modUnderlying do
-    throwError s!"UnderlyingSet(ℤ/4) is {step.image.presentation}, expected \
-{modUnderlying.presentation}"
-  -- the router must see the IMAGE: routing the untransported module finds
-  -- nothing, which is exactly why every caller goes through `concreteReceiver`
-  match routeFor env res o with
-  | .gap _ => pure ()
-  | _ => throwError "a set route matched the untransported module receiver"
-  let route ← match routeFor env res (res.concreteReceiver o) with
-    | .chosen r => pure r
-    | .gap _ => throwError "the transported cardinality call has no route"
-    | .ambiguousRoutes rs => throwError s!"{rs.size} routes tied for transported cardinality"
-  unless route.backend == `native && route.opId == "cardinality" do
-    throwError s!"transported cardinality routed to {route.backend}:{route.opId}"
-  -- and it computes: |ℤ/4| = 4, through the registered executor
-  match ← execute route (res.concreteReceiver o) #[] with
-  | .ok v =>
-      unless v == .cardinal (.finite 4) do
-        throwError s!"the cardinality of ℤ/4 came back as {v.render}, expected 4"
-  | .error e => throwError s!"executing transported cardinality failed: {repr e}"
+  -- `contains` has no Lean-native action, so the call returns the image it must run on
+  match ← callOn env .int (.domainObj (.mod 4)) "contains" (withArguments := true) with
+  | .ok (.image _ image route) =>
+      unless image == modUnderlying do
+        throwError s!"U(ℤ/4) is {image.presentation}, expected {modUnderlying.presentation}"
+      -- the route is the transport: fibre inclusion, underlying set, the set as a subset
+      for step in ["fun.modules.fibre_inclusion", "fun.modules.underlying",
+          "fun.sets.whole_subset"] do
+        unless contains route step do
+          throwError s!"the route to `contains` does not pass through {step}: {route}"
+  | .ok (.value ..) => throwError "`contains` was answered without its argument"
+  | .error e => throwError s!"`contains` did not resolve on ℤ/4: {e}"
+  -- ℤ/0 = ℤ: the underlying set is ℤ, infinite; the functor is total
+  match ← callOn env .int (.domainObj (.mod 0)) "cardinality" with
+  | .ok (.value v _) =>
+      unless v == .cardinal .countablyInfinite do
+        throwError s!"|U(ℤ/0)| came back as {v.render}, expected ℵ₀"
+  | _ => throwError "the cardinality of ℤ/0 as a ℤ-module did not run in Lean"
 
-/-! ## A transported resolution with no route is a gap that names the functor
+/-! ## The transported resolution, and its value
 
-The shipped universe routes every set method that reaches the module fixture,
-so the transported GAP path needs a method with no route to be observable. The
-declaration below is added to a local copy of the environment — it is
-registration data, never committed, so the standard universe is unchanged. -/
+`cardinality` is owned by `Sets` alone; a ℤ-module reaches it through two
+structural functors, and the whole composite runs in Lean. -/
 
-open Lean Elab Command in
 run_cmd do
-  let env := addMethod (← getEnv)
-    { id := `casdslTransportProbe, receiver := `Sets,
-      doc := "a set method with no registered route (test fixture)" }
-  let o : Obj := .cyclicModule 4
-  let res ← match resolveMethod env o `casdslTransportProbe with
-    | .ok res => pure res
-    | .error e => throwError s!"the probe method did not transport: {repr e}"
-  match routeFor env res (res.concreteReceiver o) with
-  | .gap g =>
-      unless (g.viaFunctor.map (·.functor)) == some `UnderlyingSet do
-        throwError "the gap of a transported resolution did not record the functor"
-      unless g.presentation == modUnderlying.presentation do
-        throwError s!"the gap reports the presentation {g.presentation}, expected the \
-transported receiver {modUnderlying.presentation}"
-      -- the rendered chain must explain how a module came to be routed as a set
-      unless contains (renderGap g) "UnderlyingSet" do
-        throwError s!"the rendered gap hides the transport step:\n{renderGap g}"
-  | .chosen r => throwError s!"a method with no route routed to {r.backend}:{r.opId}"
-  | .ambiguousRoutes _ => throwError "a method with no route reported tied routes"
+  let env ← getEnv
+  match ← callOn env .int (.domainObj (.mod 4)) "cardinality" with
+  | .ok (.value v route) =>
+      unless v == .cardinal (.finite 4) do
+        throwError s!"|ℤ/4| came back as {v.render}, expected 4"
+      unless contains route "cat.modules_r --fun.modules.fibre_inclusion--> cat.modules_total \
+          --fun.modules.underlying--> cat.sets ; meth.cardinality" do
+        throwError s!"unexpected route for cardinality: {route}"
+  | .ok (.image ..) => throwError "cardinality of ℤ/4 did not run as a Lean composite"
+  | .error e => throwError s!"cardinality of ℤ/4 failed: {e}"
 
-/-! ## The surface path: binding, method call, and the diagnostic
+/-! ## One candidate pool: a call reachable directly and by transport is ambiguous
 
-`callMethod` is the only remaining place the transported receiver could be
-dropped, so the value is asserted through the evaluator as well. -/
+`size` is declared twice in this module's copy of the registry: on `Sets` (as
+cardinality, reached by transport) and on `Mod_R` itself (as rank, reached by
+the empty route). Neither is consulted first; the call is an ambiguity
+carrying both routes. -/
+
+run_cmd liftTermElabM do
+  -- (`MethodEntry.mk`: in this file `{ … }` is the notebook's set literal)
+  addRegistryEntryChecked (.method (MethodEntry.mk ⟨"meth.probe.size_sets"⟩ "size"
+    Foundation.Sets FunctorId.setsCardinality .isoInvariant false))
+  addRegistryEntryChecked (.method (MethodEntry.mk ⟨"meth.probe.size_modules"⟩ "size"
+    Modules.Modules FunctorId.modulesRank .isoInvariant false))
+
+run_cmd do
+  let env ← getEnv
+  match ← callOn env .int (.domainObj (.mod 4)) "size" with
+  | .error e =>
+      unless contains e "ambiguous" && contains e "meth.probe.size_sets" &&
+          contains e "meth.probe.size_modules" do
+        throwError s!"`size` did not report both candidates: {e}"
+  | .ok _ => throwError "`size`, reachable directly and by transport, was resolved to one"
+
+/-! ## A method no structural route reaches is not applicable
+
+`kernel` is owned by the arrows of modules; a module is not an arrow, so no
+route reaches it. An unknown name is reported as such. -/
+
+run_cmd do
+  let env ← getEnv
+  match ← callOn env .int (.domainObj (.mod 4)) "kernel" with
+  | .error e =>
+      unless contains e "not available here" do
+        throwError s!"`kernel` on a module was not reported inapplicable: {e}"
+  | .ok _ => throwError "`kernel` resolved on a module"
+  match ← callOn env .int (.domainObj (.mod 4)) "casdslNoSuchMethod" with
+  | .error e =>
+      unless contains e "no method is named" do
+        throwError s!"an unknown method was not reported as such: {e}"
+  | .ok _ => throwError "an unknown method resolved"
+
+/-! ## A mislabeled functor cannot be registered
+
+The name-level resolver detected, at call time, a functor whose image did not
+reach its declared target. A registered functor row is typed: its declaration
+must be a functor between the denotations of its endpoints, so a row claiming
+that the underlying-set functor lands in rings is refused before it can be
+used. -/
+
+run_cmd liftTermElabM do
+  let mislabeled : FunctorEntry := FunctorEntry.mk ⟨"fun.probe.mislabeled"⟩
+    Modules.ModulesTotal Algebra.Catalogue.Rings.Rings
+    `CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingDeclaration
+    `CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingRealization
+    (.atomic ⟨"fun.probe.mislabeled"⟩) true
+  let accepted ← try validateRegistryEntryDeclaration (.functor mislabeled); pure true
+    catch _ => pure false
+  if accepted then throwError "a functor row landing outside its declared target was accepted"
+
+/-! ## A transported resolution with no implementation is a gap naming the route -/
+
+run_cmd liftTermElabM do
+  addRegistryEntryChecked (.method (MethodEntry.mk ⟨"meth.probe.unrouted"⟩ "casdslUnrouted"
+    Constructed.SubobjectsSets FunctorId.subsetsContains .isoInvariant false))
 
 let F := ℤ/4 in Modules(ℤ)
 
+run_cmd do
+  let env ← getEnv
+  match ← runEval env (.method (.ref `F) `casdslUnrouted #[]) with
+  | .error e =>
+      let text := e.render
+      unless contains text "NoImplementation" && contains text "fun.modules.underlying" do
+        throwError s!"the gap hides the transport: {text}"
+  | .ok d => throwError s!"a method with no implementation ran: {d.render}"
+
+/-! ## The surface path -/
+
 #explain_route F.cardinality()
 
-open Lean Elab Command in
 run_cmd do
   let env ← getEnv
   match ← runEval env (.method (.ref `F) `cardinality #[]) with
@@ -306,10 +170,9 @@ run_cmd do
         throwError s!"F.cardinality() evaluated to {d.render}, expected 4"
   | .error e => throwError s!"F.cardinality() failed: {e.render}"
 
--- `contains` transports too, and the ARGUMENT is not transported: it is read
--- against the method's declaration, so `2` names the residue class 2 of the
--- underlying set while `1/2` is simply not an element of it
-open Lean Elab Command in
+-- `contains` transports, and the ARGUMENT is not transported: it is read in the
+-- ambient set of the image, so `2` names the residue class 2 while `1/2` is not
+-- an element of it
 run_cmd do
   let env ← getEnv
   let cases : List (String × CasExpr × String) :=
@@ -323,15 +186,10 @@ run_cmd do
 
 /-! ## Bare `=` is category-bound (design review 2026-07-30)
 
-`U(F) = {0, 1, 2, 3}` in Sets — but `F` itself is a module, there is no
-unique module structure on that set, and bare `=` never inserts a functor:
-equality of objects in different categories is TRIVIALLY FALSE. The Sets
-question remains available as the explicit method call, whose receiver
-transports like any other. A resolver change that let bare `=` transport
-would flip the first two assertions; dropping transport would break the
-third. -/
+`U(F) = {0, 1, 2, 3}` in Sets, but `F` is a module: bare `=` never inserts a
+functor, so equality across categories is trivially false. The Sets question
+is the explicit method call, whose receiver transports. -/
 
-open Lean Elab Command in
 run_cmd do
   let env ← getEnv
   let ctx : EvalCtx := { env, notes := ← IO.mkRef #[],
@@ -346,15 +204,36 @@ error: {e.render}"
   match ← (evalAssert ctx .ne (.ref `F) setLit).run with
   | .ok (some true) => pure ()
   | _ => throwError s!"F ≠ {"{0,1,2,3}"} must be trivially true across categories"
-  -- the explicit Sets question, receiver transported: U(F) = {0,1,2,3}
   match ← runEval env (.method (.ref `F) `set_eq #[setLit]) with
   | .ok d =>
       unless d.render == "true" do
         throwError s!"F.set_eq({"{0,1,2,3}"}) evaluated to {d.render}, expected true"
   | .error e => throwError s!"F.set_eq({"{0,1,2,3}"}) failed: {e.render}"
-  -- and two sets still compare as sets, untransported
   match ← (evalAssert ctx .eq setLit setLit).run with
   | .ok (some true) => pure ()
   | _ => throwError s!"{"{0,1,2,3} = {0,1,2,3}"} must remain true in Sets"
+
+/-! ## #53 §11: cardinality of `(ℤ/2)⁴` as an `𝔽₂`-module
+
+The receiver is a point of `Mod_{ℤ/2}`; the resolved method is the one
+cardinality functor on `Core(Sets)`, reached along the module fibration's
+fibre inclusion and underlying-set functor, with no module-specific
+cardinality anywhere. The value is computed by the composed Lean-native
+actions. `ℤ/16` also has 16 elements, but it is not an `𝔽₂`-module: its
+ascription to `Mod(ℤ/2)` is refused, not reinterpreted. -/
+
+let L := (ZZ/2)^4 in Mod(ZZ/2)
+
+#explain_route L.cardinality()
+
+run_cmd do
+  let env ← getEnv
+  match ← runEval env (.method (.ref `L) `cardinality #[]) with
+  | .ok d =>
+      unless d.render == "16" do
+        throwError s!"L.cardinality() evaluated to {d.render}, expected 16"
+  | .error e => throwError s!"L.cardinality() failed: {e.render}"
+  if Semantic.realizes "cat.modules_r" (some (.mod 2)) (.domainObj (.mod 16)) then
+    throwError "ℤ/16 was realized as an 𝔽₂-module"
 
 end CasDslTests.Transport

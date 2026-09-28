@@ -268,6 +268,12 @@ def elabExplainRoute (stx : Syntax) : CommandElabM Unit := do
     | .error m => throwError m
   let ctx : EvalCtx := { env := ← getEnv, notes := ← IO.mkRef #[],
                          annotations := ← IO.mkRef #[] }
+  -- a semantic point is explained by the registry that resolves it
+  if let .method recvE m _ := e then
+    if let .ok (.obj (.point category base pres)) ← (eval ctx recvE).run then
+      match ← Semantic.explain ctx.env category base pres m.toString with
+      | .ok text => logInfo text; return
+      | .error err => throwError err
   let x ← match ← (explain ctx e).run with
     | .ok x => pure x
     | .error err => throwError err.render

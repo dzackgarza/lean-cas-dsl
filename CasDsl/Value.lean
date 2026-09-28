@@ -485,6 +485,11 @@ inductive Obj where
   NO profile — no method reaches it — which is exactly right: an expression
   is something operations are performed WITH, not ON. -/
   | symObj (e : SymExpr)
+  /-- A semantic point: an object of the registered `CasCatalogue` category `category` (for a
+  module fibre, over the base ring `base`), presented by `pres`. Its category is fixed by the
+  ascription or constructor that made it and never read off the presentation, which selects a
+  realization only (CC-SEP). -/
+  | point (category : String) (base : Option Domain) (pres : Obj)
   deriving BEq, Repr, Inhabited
 
 namespace Domain
@@ -1468,6 +1473,9 @@ def render : Obj → String
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
   | .specOf r => s!"Spec {r.render}"
   | .symObj e => e.render
+  | .point _ base pres => match base with
+    | some b => s!"{render pres} as {b.render}-module"
+    | none => render pres
 
 /-- The LaTeX form of an object. The module fixture has none ON PURPOSE:
 `\mathbb{Z}/4\mathbb{Z}` typeset alone is the ring, and equality here is
@@ -1482,6 +1490,9 @@ def latex? : Obj → Option String
   -- `\mathrm{span}` already are in this renderer's table
   | .specOf r => some ("\\mathrm{Spec}\\, " ++ r.latex)
   | .symObj e => if e.latexSafe then some e.latex else none
+  -- a point typeset as its presentation alone would display the module as the ring (as for
+  -- the module fixture above)
+  | .point .. => none
 
 /-- The presentation string used in capability gaps and diagnostics. -/
 def presentation : Obj → String
@@ -1491,6 +1502,7 @@ def presentation : Obj → String
   | .cyclicModule n => s!"ℤ/{n} as ℤ-module"
   | .specOf r => s!"Spec {r.render}"
   | .symObj e => e.render
+  | o@(.point ..) => o.render
 
 /-- The LaTeX form matching `presentation`: for an element, the value and
 its domain (`v \\in D`); for other objects, `latex?` unchanged. -/
