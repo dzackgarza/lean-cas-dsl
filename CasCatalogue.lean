@@ -5,12 +5,14 @@ public import CasCatalogue.CohereProbes
 public import CasCatalogue.ConstructorCatalogue
 public import CasCatalogue.ConstructorRegistration
 public import CasCatalogue.Constructors
+public import CasCatalogue.Decide
 public import CasCatalogue.FamilyFibration
 public import CasCatalogue.FibrationCatalogue
 public import CasCatalogue.FibrationRegistration
 public import CasCatalogue.Id
 public import CasCatalogue.ImmediateProbes
 public import CasCatalogue.Interpretation
+public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Algebra.Catalogue
 public import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
 public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
@@ -41,6 +43,7 @@ public import CasCatalogue.Leaves.Modules.FibrationRegistryProbes
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Catalogue
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.CatalogueRegistration
 public import CasCatalogue.Leaves.Modules.Quadratic.Valued.Expressions
+public import CasCatalogue.PropsProbes
 public import CasCatalogue.Realization
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Extension

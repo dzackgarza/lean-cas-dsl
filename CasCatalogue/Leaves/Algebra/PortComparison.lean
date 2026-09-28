@@ -27,10 +27,10 @@ namespace CasCatalogue
 normalized_registry .comparison
   { id := ⟨"cmp.rings.carrier"⟩, source := Rings, target := Foundation.Sets
     left := #[.functor FunctorId.ringsMultiplicative, .functor FunctorId.monoidsSemigroup,
-      .functor FunctorId.semigroupsMagma, .classifierForget ClassifierId.setsBinaryOperation]
+      .classifierForget ClassifierId.magmasAssociative, .classifierForget ClassifierId.setsBinaryOperation]
     right := #[.functor FunctorId.ringsAdditive, .functor FunctorId.additiveGroupsToGroups,
       .functor FunctorId.groupsMonoid, .functor FunctorId.monoidsSemigroup,
-      .functor FunctorId.semigroupsMagma, .classifierForget ClassifierId.setsBinaryOperation]
+      .classifierForget ClassifierId.magmasAssociative, .classifierForget ClassifierId.setsBinaryOperation]
     evidence := `LeanCategories.Algebra.ringCarrierComparison }
 
 end CasCatalogue

@@ -32,7 +32,8 @@ def Rings : CategoryExpr := .atom CategoryId.rings
 /-- Commutative rings remain an atom until their pullback realization exists. -/
 def CommutativeRings : CategoryExpr := .atom CategoryId.commutativeRings
 
+/-- Division rings are the total of the division classifier on rings (CC-PROP). -/
 def DivisionRings : CategoryExpr :=
-  .atom CategoryId.divisionRings
+  .classifierTotal ClassifierId.ringsDivision
 
 end CasCatalogue.Algebra.Catalogue.Rings

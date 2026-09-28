@@ -12,6 +12,7 @@ public import CasCatalogue.ConstructorRegistration
 public import CasCatalogue.Leaves.Lattices.Valued.Actions
 public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Algebra.PortComparison
+public import CasCatalogue.Leaves.Algebra.Actions
 public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
@@ -130,7 +131,6 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.additiveGroupsToGroups,
   FunctorId.groupsMonoid,
   FunctorId.monoidsSemigroup,
-  FunctorId.semigroupsMagma,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -176,13 +176,22 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.bilin_module.forget.int_gram"⟩,
   ⟨"act.modules.fibre_inclusion.int_free"⟩,
   ⟨"act.modules.underlying.int_free"⟩,
-  ⟨"act.sets.cardinality.presented"⟩]
+  ⟨"act.sets.cardinality.presented"⟩,
+  ⟨"act.groups.monoid.table"⟩,
+  ⟨"act.monoids.semigroup.table"⟩,
+  ⟨"act.semigroups.magma.table"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩]
 
 /-- Stable comparison rows owned by the standard catalogue (CC-COHERE). -/
 def expectedComparisonIds : Array ComparisonId := #[⟨"cmp.rings.carrier"⟩]
+
+/-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
+def expectedPropertyIds : Array PropertyId := #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩]
+
+/-- Stable decision-procedure rows owned by the standard catalogue (CC-DECIDE). -/
+def expectedDeciderIds : Array DeciderId := #[⟨"dec.magmas.commutative.table"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
@@ -230,6 +239,10 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedMethodIds (·.raw))
   validateStableIdSet "comparisons" (manifest.comparisons.map (·.id))
     (rawIds expectedComparisonIds (·.raw))
+  validateStableIdSet "properties" (manifest.properties.map (·.id))
+    (rawIds expectedPropertyIds (·.raw))
+  validateStableIdSet "deciders" (manifest.deciders.map (·.id))
+    (rawIds expectedDeciderIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

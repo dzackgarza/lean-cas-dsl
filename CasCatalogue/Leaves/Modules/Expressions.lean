@@ -32,13 +32,15 @@ def ModulesReindexExpr : FunctorExpr ModulesAtS Modules :=
 def ModulesUnderlyingExpr : FunctorExpr ModulesTotal Foundation.Sets :=
   .atomic FunctorId.modulesUnderlying
 
-def FreeModules : CategoryExpr := .atom CategoryId.freeModules
+/-! The property categories of `R`-modules are the totals of their classifiers (CC-PROP). -/
+
+def FreeModules : CategoryExpr := .classifierTotal ClassifierId.modulesFree
 
 def FinitelyGeneratedModules : CategoryExpr :=
-  .atom CategoryId.finitelyGeneratedModules
+  .classifierTotal ClassifierId.modulesFinitelyGenerated
 
 def FiniteRankModules : CategoryExpr :=
-  .atom CategoryId.finiteRankModules
+  .classifierTotal ClassifierId.modulesFiniteRank
 
 def GenFrameExpr : CategoryExpr :=
   .familyApp CategoryFamilyId.genFrame

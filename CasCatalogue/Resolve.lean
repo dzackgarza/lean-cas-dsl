@@ -59,18 +59,19 @@ def RegistryState.comparisonBetween? (state : RegistryState) (a b : Route) :
   (state.comparisons.find? fun c =>
       rewritesTo a.refs b.refs c.left c.right || rewritesTo a.refs b.refs c.right c.left).map (·.id)
 
-/-- Partition candidates for the same method into classes of routes connected by registered
-comparisons. Returns, for each class, its members and the comparisons used. -/
-def RegistryState.coherenceClasses (state : RegistryState) (candidates : Array Resolution) :
-    Array (Array Resolution × Array ComparisonId) := Id.run do
+/-- Partition candidates into classes of routes connected by registered comparisons; only
+candidates with the same `key` (the same method or property) are ever identified. Returns, for
+each class, its members and the comparisons used. -/
+def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (candidates : Array α)
+    (key : α → String) (route : α → Route) : Array (Array α × Array ComparisonId) := Id.run do
   let n := candidates.size
   let mut classOf : Array Nat := Array.range n
   let mut used : Array ComparisonId := #[]
   -- naive union-find over the (small) candidate set
   for i in [0:n] do
     for j in [i+1:n] do
-      if candidates[i]!.method.id == candidates[j]!.method.id then
-        if let some c := state.comparisonBetween? candidates[i]!.route candidates[j]!.route then
+      if key candidates[i]! == key candidates[j]! then
+        if let some c := state.comparisonBetween? (route candidates[i]!) (route candidates[j]!) then
           let (ci, cj) := (classOf[i]!, classOf[j]!)
           if ci != cj then
             classOf := classOf.map fun k => if k == cj then ci else k
@@ -80,6 +81,25 @@ def RegistryState.coherenceClasses (state : RegistryState) (candidates : Array R
     let members := (Array.range n).filter (classOf[·]! == r) |>.map (candidates[·]!)
     (members, if members.size > 1 then used else #[])
 
+/-- Classes of method candidates. -/
+def RegistryState.coherenceClasses (state : RegistryState) (candidates : Array Resolution) :
+    Array (Array Resolution × Array ComparisonId) :=
+  state.classify candidates (·.method.id.raw) (·.route)
+
+/-- A resolved property query: the property row, its classifier, the route to the classifier's
+host, and the comparisons that identified other routes with it. -/
+structure PropertyResolution where
+  property : PropertyEntry
+  classifier : ClassifierEntry
+  route : Route
+  comparisons : Array ComparisonId := #[]
+
+instance : Inhabited PropertyResolution :=
+  ⟨{ property := { id := default, name := "", classifier := default }
+     classifier := { id := default, declaration := .anonymous, host := .atom default
+                     realization := .anonymous }
+     route := { source := .atom default, target := .atom default, steps := #[] } }⟩
+
 /-- Why a method call does not resolve. -/
 inductive ResolutionError
   /-- No method row has this name. -/
@@ -88,6 +108,8 @@ inductive ResolutionError
   | notApplicable (name : String) (owners : Array CategoryExpr)
   /-- Several routes reach an owner, and nothing identifies them. -/
   | ambiguous (name : String) (candidates : Array Resolution)
+  /-- Several routes reach the host of a property's classifier, and nothing identifies them. -/
+  | ambiguousProperty (name : String) (candidates : Array PropertyResolution)
 
 /-- The display name of a category expression: its registered id, if it has one. -/
 def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) : String :=
@@ -110,6 +132,14 @@ def RegistryState.renderResolution (state : RegistryState) (resolution : Resolut
   s!"{state.renderRoute resolution.route} ; {resolution.method.id.raw} = \
     {resolution.method.functor.raw}{shape}{comparisons}"
 
+/-- A property resolution, rendered. -/
+def RegistryState.renderPropertyResolution (state : RegistryState)
+    (resolution : PropertyResolution) : String :=
+  let comparisons := if resolution.comparisons.isEmpty then "" else
+    s!" ; identified by {resolution.comparisons.toList.map (·.raw)}"
+  s!"{state.renderRoute resolution.route} ; {resolution.property.id.raw} = \
+    {resolution.classifier.id.raw}{comparisons}"
+
 def ResolutionError.render (state : RegistryState) : ResolutionError → String
   | .unknownMethod name => s!"no method is named `{name}`"
   | .notApplicable name owners =>
@@ -119,6 +149,11 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
       s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
         comparison identifies them:\n" ++
         "\n".intercalate (candidates.toList.map fun c => "  " ++ state.renderResolution c)
+  | .ambiguousProperty name candidates =>
+      s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
+        comparison identifies them:\n" ++
+        "\n".intercalate
+          (candidates.toList.map fun c => "  " ++ state.renderPropertyResolution c)
 
 /-- Resolve `receiver.name`, optionally requiring the route to pass through the functors `via`. -/
 def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr) (name : String)
@@ -138,6 +173,28 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
       pure { sorted[0]! with comparisons }
   | _ => throw (.ambiguous name candidates)
 
+/-- Resolve the property query `receiver.name` (CC-PROP): a property row with this name (an
+alias only on its own receiver), and the unique route to its classifier's host. -/
+def RegistryState.resolveProperty (state : RegistryState) (receiver : CategoryExpr)
+    (name : String) (through : Array FunctorId := #[]) :
+    Except ResolutionError PropertyResolution := do
+  let named := state.properties.filter (·.name == name)
+  if named.isEmpty then throw (.unknownMethod name)
+  let applicable := named.filter fun p => p.receiver.all (·.syntacticEq receiver)
+  let entries := applicable.filterMap fun p =>
+    (state.classifier? p.classifier).map fun c => (p, c)
+  let candidates := entries.flatMap fun (property, classifier) =>
+    ((state.routes receiver classifier.host).filter fun route =>
+        through.all fun id => route.functorIds.contains id).map fun route =>
+      { property, classifier, route : PropertyResolution }
+  if candidates.isEmpty then
+    throw (.notApplicable name (entries.map (·.2.host)))
+  match (state.classify candidates (·.property.id.raw) (·.route)).toList with
+  | [(members, comparisons)] =>
+      let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
+      pure { sorted[0]! with comparisons }
+  | _ => throw (.ambiguousProperty name candidates)
+
 /-! ## Elaboration: the composite as a checked Lean term -/
 
 /-- The typed symbolic composite of a route, as a Lean `Expr` of type `FunctorExpr A B`. Lean
@@ -150,11 +207,11 @@ def Route.compositeExpr (route : Route) : MetaM Expr := do
 
 /-- The unique registered action on functor `id` that composes after `acc` (or starts a
 composite, when `acc` is `none`). -/
-def composeAction (state : RegistryState) (acc : Option Expr) (id : FunctorId) :
+def composeAction (state : RegistryState) (acc : Option Expr) (edge : EdgeRef) :
     TermElabM Expr := do
-  let candidates := state.actions.filter (·.functor == id)
+  let candidates := state.actions.filter (·.edge == edge)
   if candidates.isEmpty then
-    throwError "no registered action realizes {id.raw}"
+    throwError "no registered action realizes {edge.label}"
   let mut composed : Array Expr := #[]
   for candidate in candidates do
     let action ← mkConstWithFreshMVarLevels candidate.realization
@@ -166,8 +223,8 @@ def composeAction (state : RegistryState) (acc : Option Expr) (id : FunctorId) :
     if let some result := result? then composed := composed.push result
   match composed.toList with
   | [result] => pure result
-  | [] => throwError "no registered action on {id.raw} composes with the realization so far"
-  | _ => throwError "several registered actions on {id.raw} compose; choosing one is a \
+  | [] => throwError "no registered action on {edge.label} composes with the realization so far"
+  | _ => throwError "several registered actions on {edge.label} compose; choosing one is a \
       realization choice (CC-ROUTE), not made here"
 
 /-- Elaborate `method% name (receiver) in "cat.id" via "fun.id" …` (syntax in
@@ -188,16 +245,49 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let composite ← resolution.route.compositeExpr
   let mut acc : Option Expr := none
   for edge in resolution.route.steps do
-    let some id := edge.functor?
-      | throwError "route step {edge.ref.label} has no registered functor to realize"
-    acc ← some <$> composeAction state acc id
-  let methodAction ← composeAction state none resolution.method.functor
+    acc ← some <$> composeAction state acc edge.ref
+  let methodAction ← composeAction state none (.functor resolution.method.functor)
   let x ← elabTerm receiver none
   let image ← match acc with
     | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
     | none => pure x
   let value ← mkAppM ``RealizedAction.obj #[methodAction, image]
   return .letE `route (← inferType composite) composite value (nondep := true)
+
+/-- Elaborate `ask% name (receiver) in "cat.id"`: resolve the property, compose the registered
+actions along the route, and apply the unique registered decider of the classifier to the image.
+The result is a `Decision` about the image's denotation, inside a `let` of the checked composite
+`FunctorExpr`. -/
+def elabPropertyQuery (name : String) (receiver : Term) (category : String)
+    (through : Array String) : TermElabM Expr := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let resolution ← match state.resolveProperty categoryEntry.expression name
+      (through.map fun raw => ⟨raw⟩) with
+    | .ok resolution => pure resolution
+    | .error error => throwError error.render state
+  logInfo m!"resolved: {state.renderPropertyResolution resolution}"
+  let composite ← resolution.route.compositeExpr
+  let mut acc : Option Expr := none
+  for edge in resolution.route.steps do
+    acc ← some <$> composeAction state acc edge.ref
+  let x ← elabTerm receiver none
+  let image ← match acc with
+    | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
+    | none => pure x
+  let deciders := state.deciders.filter (·.classifier == resolution.classifier.id)
+  let mut decisions : Array Expr := #[]
+  for decider in deciders do
+    let procedure ← mkConstWithFreshMVarLevels decider.realization
+    try decisions := decisions.push (← mkAppM ``Decider.decide #[procedure, image])
+    catch _ => pure ()
+  match decisions.toList with
+  | [decision] => return .letE `route (← inferType composite) composite decision (nondep := true)
+  | [] => throwError "no registered decision procedure for {resolution.classifier.id.raw} \
+      applies to this realization"
+  | _ => throwError "several registered decision procedures apply; choosing one is a \
+      realization choice (CC-ROUTE), not made here"
 
 /-- Report the resolution of `name` on the category `category`, or why there is none. -/
 def reportResolution (name category : String) (through : Array String) : TermElabM Unit := do

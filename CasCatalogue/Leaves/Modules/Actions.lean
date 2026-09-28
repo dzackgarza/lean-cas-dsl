@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Leaves.Foundation.Actions
 public import CasCatalogue.Leaves.Modules.CatalogueRegistration
 public import Mathlib.LinearAlgebra.Matrix.ToLin
+public import CasCatalogue.Decide
 public meta import CasCatalogue.Registry.Extension
 public meta import CasCatalogue.Leaves.Modules.Catalogue
 
@@ -59,14 +60,28 @@ def underlyingAction : RealizedAction modulesUnderlyingDeclaration.{0, 0}
   action := { obj := fun n => .intPow n, map := fun A x => A.mulVec x }
   realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
 
+/-- Equality of two maps of free `ℤ`-modules, decided from their matrices (CC-DECIDE): equal
+matrices give equal maps, and different matrices give different maps (compare on basis vectors),
+so the procedure is complete and never refutes an equality that holds. -/
+def decideMapEq {m n : ℕ} (A B : Matrix (Fin n) (Fin m) ℤ) :
+    Decision (freeModuleDenotation.map (a := m) (b := n) A = freeModuleDenotation.map B) :=
+  if h : A = B then .proved (congrArg (freeModuleDenotation.map (a := m) (b := n)) h)
+  else .refuted fun e => h <| by
+    ext i j
+    have := congrArg
+      (fun f : freeModuleDenotation.obj m ⟶ freeModuleDenotation.obj n =>
+        (ModuleCat.Hom.hom f (Pi.single j 1) : Fin n → ℤ) i) e
+    change A.mulVec (Pi.single j 1) i = B.mulVec (Pi.single j 1) i at this
+    simpa [Matrix.mulVec_single_one] using this
+
 normalized_registry .action
   { id := ⟨"act.modules.fibre_inclusion.int_free"⟩
-    functor := FunctorId.modulesFibreInclusion
+    edge := .functor FunctorId.modulesFibreInclusion
     realization := `CasCatalogue.Modules.Actions.fibreInclusionAction }
 
 normalized_registry .action
   { id := ⟨"act.modules.underlying.int_free"⟩
-    functor := FunctorId.modulesUnderlying
+    edge := .functor FunctorId.modulesUnderlying
     realization := `CasCatalogue.Modules.Actions.underlyingAction }
 
 end CasCatalogue.Modules.Actions

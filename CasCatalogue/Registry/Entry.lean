@@ -38,14 +38,21 @@ structure FibrationEntry where
   evidence : Lean.Name
   deriving Repr
 
+/-- One step of a structural route: a registered structural functor row, or the forgetful
+functor `total(c) → host(c)` of a registered classifier. -/
+inductive EdgeRef
+  | functor (id : FunctorId)
+  | classifierForget (id : ClassifierId)
+  deriving DecidableEq, Repr, Inhabited
+
 /-- A functor action registry row (CC-ACTION): `realization` names a `RealizedAction F dC dD`,
 an executable object and morphism action on realizations together with the proof that it
-commutes with denotation, where `F` is (an instance of) the registered functor `functor`'s
-declaration. A composite functor's action is the composite of its factors' actions and is never
-registered. -/
+commutes with denotation, where `F` is (an instance of) the Mathlib functor of `edge`: a
+registered functor row, or a registered classifier's forgetful functor. A composite functor's
+action is the composite of its factors' actions and is never registered. -/
 structure FunctorActionEntry where
   id : ActionId
-  functor : FunctorId
+  edge : EdgeRef
   realization : Lean.Name
   deriving Repr
 
@@ -68,13 +75,6 @@ structure MethodEntry where
   shape : MethodShape
   deriving Repr
 
-/-- One step of a structural route: a registered structural functor row, or the forgetful
-functor `total(c) → host(c)` of a registered classifier. -/
-inductive EdgeRef
-  | functor (id : FunctorId)
-  | classifierForget (id : ClassifierId)
-  deriving DecidableEq, Repr, Inhabited
-
 /-- A comparison row (CC-COHERE): two structural routes `left` and `right` from `source` to
 `target`, identified by `evidence`, a Lean isomorphism between their composite functors. Two
 routes to a method's owner that differ by replacing `left` with `right` (or conversely) are one
@@ -86,6 +86,25 @@ structure ComparisonEntry where
   left : Array EdgeRef
   right : Array EdgeRef
   evidence : Lean.Name
+  deriving Repr
+
+/-- A property presentation row (CC-PROP): the surface name `name` of the registered classifier
+`classifier`, which alone owns the property's meaning. With `receiver := some A` it is an alias
+available only on `A` (e.g. `is_abelian` on groups for commutativity of the multiplicative port,
+#53 §12); it adds no meaning. -/
+structure PropertyEntry where
+  id : PropertyId
+  name : String
+  classifier : ClassifierId
+  receiver : Option CategoryExpr := none
+  deriving Repr
+
+/-- A decision-procedure row (CC-PROP, CC-DECIDE): `realization` names a `Decider c d` for the
+registered classifier `classifier`. A backend decides a property; it never defines one. -/
+structure DeciderEntry where
+  id : DeciderId
+  classifier : ClassifierId
+  realization : Lean.Name
   deriving Repr
 
 /-- The kind of one argument of a typed category constructor. -/

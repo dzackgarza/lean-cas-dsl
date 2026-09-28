@@ -57,7 +57,7 @@ def formForgetAction : RealizedAction (isLattice ℤ ℤ).ι latticeGramDenotati
 
 normalized_registry .action
   { id := ⟨"act.lattice.forget_form.int_gram"⟩
-    functor := FunctorId.latticeFormForget
+    edge := .functor FunctorId.latticeFormForget
     realization := `CasCatalogue.Lattices.Valued.Actions.formForgetAction }
 
 end CasCatalogue.Lattices.Valued.Actions

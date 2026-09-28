@@ -124,7 +124,7 @@ normalized_registry .method
   { id := ⟨"meth.cardinality"⟩, name := "cardinality", owner := Foundation.Sets
     functor := FunctorId.setsCardinality, shape := .isoInvariant }
 normalized_registry .action
-  { id := ⟨"act.sets.cardinality.presented"⟩, functor := FunctorId.setsCardinality
+  { id := ⟨"act.sets.cardinality.presented"⟩, edge := .functor FunctorId.setsCardinality
     realization := `CasCatalogue.Foundation.Cardinality.cardinalityAction }
 
 end CasCatalogue

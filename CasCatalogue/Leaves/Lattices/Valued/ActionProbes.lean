@@ -92,7 +92,7 @@ run_cmd
     -- Every factor of the composite carries a registered action.
     for id in [FunctorId.latticeFormForget, FunctorId.bilinModuleForget,
         FunctorId.modulesFibreInclusion, FunctorId.modulesUnderlying] do
-      unless state.actions.any (·.functor == id) do
+      unless state.actions.any (·.edge == .functor id) do
         throwError "registered functor {id.raw} carries no action"
     let rejects (entry : RegistryEntry) : MetaM Bool := do
       try
@@ -101,20 +101,20 @@ run_cmd
       catch _ => pure true
     -- An action is accepted only for the functor it realizes.
     unless ← rejects (.action
-        { id := ⟨"act.probe.wrong_functor"⟩, functor := FunctorId.modulesUnderlying
+        { id := ⟨"act.probe.wrong_functor"⟩, edge := .functor FunctorId.modulesUnderlying
           realization := ``wrongFunctorAction }) do
       throwError "the fibre inclusion's action was accepted for the underlying-set functor"
     unless ← rejects (.action
-        { id := ⟨"act.probe.not_an_action"⟩, functor := FunctorId.modulesUnderlying
+        { id := ⟨"act.probe.not_an_action"⟩, edge := .functor FunctorId.modulesUnderlying
           realization := ``a2 }) do
       throwError "a non-action was accepted as an action"
     unless ← rejects (.action
-        { id := ⟨"act.probe.unregistered"⟩, functor := ⟨"fun.probe.unregistered"⟩
+        { id := ⟨"act.probe.unregistered"⟩, edge := .functor ⟨"fun.probe.unregistered"⟩
           realization := ``underlyingAction }) do
       throwError "an action for an unregistered functor was accepted"
     -- Positive control.
     if ← rejects (.action
-        { id := ⟨"act.probe.control"⟩, functor := FunctorId.modulesUnderlying
+        { id := ⟨"act.probe.control"⟩, edge := .functor FunctorId.modulesUnderlying
           realization := ``underlyingAction }) then
       throwError "the underlying-set action was rejected"
 

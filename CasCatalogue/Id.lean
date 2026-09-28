@@ -84,6 +84,16 @@ structure ComparisonId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered property presentation, e.g. `prop.is_commutative`. -/
+structure PropertyId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+/-- Stable id of a registered decision procedure, e.g. `dec.magmas.commutative.table`. -/
+structure DeciderId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -112,6 +122,8 @@ instance : Inhabited FibrationId := ⟨⟨""⟩⟩
 instance : Inhabited ActionId := ⟨⟨""⟩⟩
 instance : Inhabited MethodId := ⟨⟨""⟩⟩
 instance : Inhabited ComparisonId := ⟨⟨""⟩⟩
+instance : Inhabited PropertyId := ⟨⟨""⟩⟩
+instance : Inhabited DeciderId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

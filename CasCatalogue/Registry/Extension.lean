@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Typed
 public import CasCatalogue.Action
+public import CasCatalogue.Decide
 public import Mathlib.CategoryTheory.Core
 public import LeanCategories.CategoryTheory.OneCat.Classifier
 public import CasCatalogue.Realization
@@ -44,6 +45,8 @@ inductive RegistryEntry
   | action (e : FunctorActionEntry)
   | method (e : MethodEntry)
   | comparison (e : ComparisonEntry)
+  | property (e : PropertyEntry)
+  | decider (e : DeciderEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -58,6 +61,8 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .action e => e.id.raw
   | .method e => e.id.raw
   | .comparison e => e.id.raw
+  | .property e => e.id.raw
+  | .decider e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -74,6 +79,8 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .action e => #[e.realization]
   | .method _ => #[]
   | .comparison e => #[e.evidence]
+  | .property _ => #[]
+  | .decider e => #[e.realization]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -86,6 +93,8 @@ structure RegistryState where
   actions : Array FunctorActionEntry := #[]
   methods : Array MethodEntry := #[]
   comparisons : Array ComparisonEntry := #[]
+  properties : Array PropertyEntry := #[]
+  deciders : Array DeciderEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -324,6 +333,8 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .action e => { s with actions := s.actions.push e }
   | s, .method e => { s with methods := s.methods.push e }
   | s, .comparison e => { s with comparisons := s.comparisons.push e }
+  | s, .property e => { s with properties := s.properties.push e }
+  | s, .decider e => { s with deciders := s.deciders.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -335,7 +346,9 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.constructors.toList.map RegistryEntry.constructor ++
     state.actions.toList.map RegistryEntry.action ++
     state.methods.toList.map RegistryEntry.method ++
-    state.comparisons.toList.map RegistryEntry.comparison
+    state.comparisons.toList.map RegistryEntry.comparison ++
+    state.properties.toList.map RegistryEntry.property ++
+    state.deciders.toList.map RegistryEntry.decider
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -509,7 +522,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
     unless (state.functor? fibration.projection).isSome do
       throw s!"fibration entry {fibration.id.raw} has an unregistered projection"
   for action in state.actions do
-    unless (state.functor? action.functor).isSome do
+    unless (match action.edge with
+        | .functor id => (state.functor? id).isSome
+        | .classifierForget id => (state.classifier? id).isSome) do
       throw s!"action entry {action.id.raw} realizes an unregistered functor"
   for method in state.methods do
     unless (state.functor? method.functor).isSome do
@@ -519,6 +534,12 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
         | .functor id => (state.functor? id).isSome
         | .classifierForget id => (state.classifier? id).isSome do
       throw s!"comparison entry {comparison.id.raw} names an unregistered route step"
+  for property in state.properties do
+    unless (state.classifier? property.classifier).isSome do
+      throw s!"property entry {property.id.raw} names an unregistered classifier"
+  for decider in state.deciders do
+    unless (state.classifier? decider.classifier).isSome do
+      throw s!"decider entry {decider.id.raw} names an unregistered classifier"
   pure ()
 
 private def registryValidationFailed (result : Except String Unit) : Bool :=
@@ -1419,26 +1440,6 @@ def registeredFunctorInstance (entry : FunctorEntry) : MetaM Expr := do
   else
     pure declarationValue
 
-/-- An action row's realization must be a `RealizedAction F dC dD` whose functor `F` is an
-instance of its registered functor's declaration (CC-ACTION). -/
-def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) : MetaM Unit := do
-  let functor ← match state.functor? e.functor with
-    | some entry => pure entry
-    | none => throwError "action {e.id.raw} realizes an unregistered functor {e.functor.raw}"
-  let registered ← registeredFunctorInstance functor
-  let realizationConstant ← mkConstWithFreshMVarLevels e.realization
-  let (_, _, realizationType) ← forallMetaTelescopeReducing (← inferType realizationConstant)
-  let realizationType ← whnfR realizationType
-  unless realizationType.isAppOfArity ``CasCatalogue.RealizedAction 9 do
-    throwError "action {e.id.raw} realization {e.realization} is not a RealizedAction"
-  let realizedFunctor := realizationType.getAppArgs[6]!
-  unless ← withTransparency .all <| isDefEq realizedFunctor registered do
-    throwError
-      "action {e.id.raw} realization {e.realization} does not realize the registered functor \
-      {e.functor.raw}"
-
-/-! ### Structural edges (#53 §8, CC-UNIFORM) -/
-
 /-- One structural edge of the registry. -/
 structure StructuralEdge where
   source : CategoryExpr
@@ -1543,18 +1544,21 @@ def mkFunctorComp (F G : Expr) : MetaM Expr := do
   instantiateMVars <| mkAppN (mkConst ``CategoryTheory.Functor.comp [v₁, v₂, v₃, u₁, u₂, u₃])
     #[C, instC, D, instD, E, instE, F, G]
 
+/-- The Mathlib functor of one structural edge. -/
+def RegistryState.edgeFunctor (state : RegistryState) : EdgeRef → MetaM Expr
+  | .functor id => match state.functor? id with
+      | some entry => registeredFunctorInstance entry
+      | none => throwError "unregistered functor {id.raw}"
+  | .classifierForget id => match state.classifier? id with
+      | some entry => classifierForgetInstance entry
+      | none => throwError "unregistered classifier {id.raw}"
+
 /-- The Mathlib composite of a structural route. -/
 def RegistryState.routeFunctor (state : RegistryState) (steps : Array EdgeRef) :
     MetaM Expr := do
   let mut acc : Option Expr := none
   for step in steps do
-    let functor ← match step with
-      | .functor id => match state.functor? id with
-          | some entry => registeredFunctorInstance entry
-          | none => throwError "unregistered functor {id.raw}"
-      | .classifierForget id => match state.classifier? id with
-          | some entry => classifierForgetInstance entry
-          | none => throwError "unregistered classifier {id.raw}"
+    let functor ← state.edgeFunctor step
     acc ← some <$> match acc with
       | none => pure functor
       | some previous => mkFunctorComp previous functor
@@ -1643,6 +1647,94 @@ def validateMethodLevel (state : RegistryState) (e : MethodEntry) (functor : Fun
         throwError "method {e.id.raw} is declared below its generating level: it is \
           {other.id.raw} along {renderSteps route.refs}"
 
+/-- An action row's realization must be a `RealizedAction F dC dD` whose functor `F` is an
+instance of its edge's Mathlib functor (CC-ACTION). -/
+def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) : MetaM Unit := do
+  let registered ← state.edgeFunctor e.edge
+  let realizationConstant ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, realizationType) ← forallMetaTelescopeReducing (← inferType realizationConstant)
+  let realizationType ← whnfR realizationType
+  unless realizationType.isAppOfArity ``CasCatalogue.RealizedAction 9 do
+    throwError "action {e.id.raw} realization {e.realization} is not a RealizedAction"
+  let realizedFunctor := realizationType.getAppArgs[6]!
+  unless ← withTransparency .all <| isDefEq realizedFunctor registered do
+    throwError
+      "action {e.id.raw} realization {e.realization} does not realize {e.edge.label}"
+
+/-- The registered classifier `entry` as a `Classifier` term, with metavariables for parameters. -/
+def classifierInstance (entry : ClassifierEntry) : MetaM Expr := do
+  let classifier ← mkConstWithFreshMVarLevels entry.declaration
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType classifier)
+  let value := mkAppN classifier args
+  let type ← whnf (← inferType value)
+  if type.isAppOf ``LeanCategories.PropertyClassifier then
+    mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[value]
+  else if type.isAppOf ``LeanCategories.StructureClassifier then
+    mkAppM ``LeanCategories.StructureClassifier.toClassifier #[value]
+  else pure value
+
+/-- A property row names a registered classifier; an alias's receiver must reach the classifier's
+host by a structural route. -/
+def validateProperty (state : RegistryState) (e : PropertyEntry) : MetaM Unit := do
+  let some classifier := state.classifier? e.classifier
+    | throwError "property {e.id.raw} names an unregistered classifier {e.classifier.raw}"
+  if let some receiver := e.receiver then
+    unless receiver.isRegistered state do
+      throwError "property {e.id.raw} has an unregistered receiver"
+    if (state.routes receiver classifier.host).isEmpty then
+      throwError "property {e.id.raw}: its receiver has no structural route to the host of \
+        {e.classifier.raw}"
+
+/-- A decider row's realization must be a `Decider c d` for exactly its registered classifier. -/
+def validateDecider (state : RegistryState) (e : DeciderEntry) : MetaM Unit := do
+  let some classifier := state.classifier? e.classifier
+    | throwError "decider {e.id.raw} names an unregistered classifier {e.classifier.raw}"
+  let expected ← classifierInstance classifier
+  let realization ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
+  let type ← whnfR type
+  unless type.isAppOfArity ``CasCatalogue.Decider 4 do
+    throwError "decider {e.id.raw}: {e.realization} is not a Decider"
+  unless ← withTransparency .all <| isDefEq type.getAppArgs[1]! expected do
+    throwError "decider {e.id.raw}: {e.realization} decides a different property than \
+      {e.classifier.raw}"
+
+/-- CC-PROP: a property category is owned by its classifier. An atom category whose declaration is
+a registered classifier's total, or a full subcategory of a registered atom category cut out by a
+property, is rejected: the property must be a classifier and the category its total or a
+refinement, so that no category can be introduced as a label. -/
+def validateNotPropertyAtom (state : RegistryState) (e : NamedCategoryEntry) : MetaM Unit := do
+  unless e.expression matches .atom _ do return
+  for classifier in state.classifiers do
+    let isTotal ← withoutModifyingState do
+      let c ← classifierInstance classifier
+      let total ← mkAppM ``LeanCategories.Classifier.total #[c]
+      let declared ← mkConstWithFreshMVarLevels e.declaration
+      let (args, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+      withTransparency .all <| isDefEq (mkAppN declared args) total
+    if isTotal then
+      throwError "category {e.id.raw} is the total of classifier {classifier.id.raw}: register it \
+        as its classifier total, not as an atom"
+  let carrier? ← withoutModifyingState do
+    let declared ← mkConstWithFreshMVarLevels e.declaration
+    let (args, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+    let carrier ← whnf (← mkAppM ``CategoryTheory.Bundled.α #[mkAppN declared args])
+    if carrier.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory then
+      return some (← instantiateMVars carrier.getAppArgs[0]!)
+    return none
+  let some ambient := carrier? | return
+  for other in state.categories do
+    unless other.expression matches .atom _ do continue
+    if other.id == e.id then continue
+    let isAmbient ← withoutModifyingState do
+      let declared ← mkConstWithFreshMVarLevels other.declaration
+      let (args, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+      let otherCarrier ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN declared args]
+      withTransparency .all <| isDefEq otherCarrier ambient
+    if isAmbient then
+      throwError "category {e.id.raw} is a property subcategory of {other.id.raw}: register the \
+        property as a classifier on {other.id.raw}"
+
 /-- A method row names a registered functor whose source is its owner (`.object`) or the core
 of its owner (`.isoInvariant`, the registered constructor whose semantics is
 `CasCatalogue.Constructors.core`). -/
@@ -1691,6 +1783,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
       | _, some _ =>
           throwError "non-refinement category {e.id.raw} carries a refinement realization"
       | _, none => pure ()
+      validateNotPropertyAtom state e
   | .categoryFamily e => do
       ensureCategoryFamilyRealization e.id e.schema e.realization
       validateCategoryFamilyTransportDecl e.id e.schema e.realization e.transport
@@ -1722,6 +1815,8 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .action e => validateActionRealization state e
   | .method e => validateMethodEntry state e
   | .comparison e => validateComparison state e
+  | .property e => validateProperty state e
+  | .decider e => validateDecider state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2064,6 +2159,19 @@ structure RegistryManifestComparison where
   evidence : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestProperty where
+  id : String
+  name : String
+  classifier : String
+  receiver : Option RegistryManifestCategoryExpr
+  deriving BEq, Repr, ToJson, FromJson
+
+structure RegistryManifestDecider where
+  id : String
+  classifier : String
+  realization : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -2076,6 +2184,8 @@ structure RegistryManifest where
   actions : Array RegistryManifestAction
   methods : Array RegistryManifestMethod
   comparisons : Array RegistryManifestComparison
+  properties : Array RegistryManifestProperty
+  deciders : Array RegistryManifestDecider
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2171,7 +2281,7 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
         | .object => "object"
         | .functor => "functor" }
     actions := (state.actions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
-      id := e.id.raw, functor := e.functor.raw, realization := e.realization.toString }
+      id := e.id.raw, functor := e.edge.label, realization := e.realization.toString }
     methods := (state.methods.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, name := e.name, owner := registryManifestCategoryExpr e.owner,
       functor := e.functor.raw,
@@ -2182,6 +2292,11 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       id := e.id.raw, source := registryManifestCategoryExpr e.source,
       target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
       right := e.right.map (·.label), evidence := e.evidence.toString }
+    properties := (state.properties.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, name := e.name, classifier := e.classifier.raw,
+      receiver := e.receiver.map registryManifestCategoryExpr }
+    deciders := (state.deciders.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, classifier := e.classifier.raw, realization := e.realization.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

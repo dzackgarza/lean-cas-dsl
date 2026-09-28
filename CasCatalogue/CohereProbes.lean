@@ -56,7 +56,7 @@ run_cmd liftTermElabM do
   -- The ports stay distinct at magmas: a method owned there is ambiguous on rings.
   let magmaMethod : MethodEntry :=
     { id := ⟨"meth.probe.magma_method"⟩, name := "probe_magma_method", owner := magmas.expression
-      functor := FunctorId.semigroupsMagma, shape := .object }
+      functor := ⟨"fun.probe.magma_method"⟩, shape := .object }
   let probe := { state with methods := state.methods.push magmaMethod }
   match probe.resolveMethod rings.expression "probe_magma_method" with
   | .error (.ambiguous _ candidates) =>
@@ -69,11 +69,11 @@ run_cmd liftTermElabM do
       pure false
     catch _ => pure true
   let multiplicative : Array EdgeRef := #[.functor FunctorId.ringsMultiplicative,
-    .functor FunctorId.monoidsSemigroup, .functor FunctorId.semigroupsMagma,
+    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
     .classifierForget ClassifierId.setsBinaryOperation]
   let additive : Array EdgeRef := #[.functor FunctorId.ringsAdditive,
     .functor FunctorId.additiveGroupsToGroups, .functor FunctorId.groupsMonoid,
-    .functor FunctorId.monoidsSemigroup, .functor FunctorId.semigroupsMagma,
+    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
     .classifierForget ClassifierId.setsBinaryOperation]
   let comparison (id : String) (left right : Array EdgeRef) (evidence : Name) : RegistryEntry :=
     .comparison

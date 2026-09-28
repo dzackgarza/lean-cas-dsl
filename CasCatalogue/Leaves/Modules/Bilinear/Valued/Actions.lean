@@ -62,7 +62,7 @@ def forgetAction : RealizedAction (forget ℤ ℤ) gramDenotation freeModuleDeno
 
 normalized_registry .action
   { id := ⟨"act.bilin_module.forget.int_gram"⟩
-    functor := FunctorId.bilinModuleForget
+    edge := .functor FunctorId.bilinModuleForget
     realization := `CasCatalogue.Modules.Bilinear.Valued.Actions.forgetAction }
 
 end CasCatalogue.Modules.Bilinear.Valued.Actions

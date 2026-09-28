@@ -30,7 +30,8 @@ def Unital : ClassifierId := ClassifierId.magmasUnital
 def Inverse : ClassifierId := ClassifierId.magmasInverse
 
 /- These named categories remain atoms until their pullback realizations exist. -/
-def Semigroups : CategoryExpr := .atom CategoryId.semigroups
+/-- Semigroups are the associative magmas: the total of the associativity classifier (CC-PROP). -/
+def Semigroups : CategoryExpr := .classifierTotal ClassifierId.magmasAssociative
 def Monoids : CategoryExpr := .atom CategoryId.monoids
 def Groups : CategoryExpr := .atom CategoryId.groups
 

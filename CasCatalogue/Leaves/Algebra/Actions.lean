@@ -1,0 +1,171 @@
+/-
+Copyright (c) 2026 Dzack Garza. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+module
+
+public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Decide
+public meta import CasCatalogue.Registry.Extension
+public meta import CasCatalogue.Leaves.Algebra.Ports
+public meta import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
+
+@[expose] public section
+
+/-!
+# Lean-native realizations of finite magmas, semigroups, monoids and groups
+
+A finite magma is realized by its multiplication table on `Fin n`; a semigroup, monoid or group
+table adds the unit, inverse and the proofs of their laws, checked once when the table is built
+(by `decide`). These realizers cover objects and their identities. The forgetful functors
+`Grp → Mon → Semigrp → Magma` act by dropping data; the commutativity classifier on magmas
+(`clf.magmas.commutative`) is decided by inspecting the table.
+
+Registered presentations of the one property (CC-PROP):
+* `is_commutative`, on any receiver with a structural route to magmas;
+* `is_abelian`, the same classifier, available on groups only (#53 §12).
+-/
+
+open CategoryTheory
+open LeanCategories LeanCategories.Algebra
+
+namespace CasCatalogue.Algebra.Actions
+
+/-- A finite magma, by its multiplication table on `Fin size`. -/
+structure MagmaTable where
+  size : ℕ
+  mul : Fin size → Fin size → Fin size
+
+/-- The carrier of a table. -/
+def MagmaTable.Carrier (t : MagmaTable) : Type := Fin t.size
+
+instance (t : MagmaTable) : Mul t.Carrier := ⟨t.mul⟩
+
+/-- An associative table. -/
+structure SemigroupTable extends MagmaTable where
+  assoc : ∀ a b c, mul (mul a b) c = mul a (mul b c)
+
+instance (t : SemigroupTable) : Semigroup t.Carrier where
+  mul := t.mul
+  mul_assoc := t.assoc
+
+/-- An associative table with a two-sided unit. -/
+structure MonoidTable extends SemigroupTable where
+  one : Fin size
+  one_mul : ∀ a, mul one a = a
+  mul_one : ∀ a, mul a one = a
+
+instance (t : MonoidTable) : Monoid t.Carrier where
+  mul := t.mul
+  mul_assoc := t.assoc
+  one := t.one
+  one_mul := t.one_mul
+  mul_one := t.mul_one
+
+/-- A group table: a monoid table with left inverses. -/
+structure GroupTable extends MonoidTable where
+  inv : Fin size → Fin size
+  inv_mul : ∀ a, mul (inv a) a = one
+
+instance (t : GroupTable) : Group t.Carrier where
+  mul := t.mul
+  mul_assoc := t.assoc
+  one := t.one
+  one_mul := t.one_mul
+  mul_one := t.mul_one
+  inv := t.inv
+  inv_mul_cancel := t.inv_mul
+
+/-! ### Realizers: tables and their identities -/
+
+abbrev magmaRealizer : Realizer := ⟨MagmaTable, fun a b => PLift (a = b)⟩
+abbrev semigroupRealizer : Realizer := ⟨SemigroupTable, fun a b => PLift (a = b)⟩
+abbrev monoidRealizer : Realizer := ⟨MonoidTable, fun a b => PLift (a = b)⟩
+abbrev groupRealizer : Realizer := ⟨GroupTable, fun a b => PLift (a = b)⟩
+
+noncomputable def magmaDenotation : Denotation magmaRealizer Algebra.Magmas.{0} where
+  obj t := MagmaCat.of t.Carrier
+  map h := eqToHom (by cases h.down; rfl)
+
+noncomputable def semigroupDenotation : Denotation semigroupRealizer Algebra.Semigroups.{0} where
+  obj t := Semigrp.of t.Carrier
+  map h := eqToHom (by cases h.down; rfl)
+
+noncomputable def monoidDenotation : Denotation monoidRealizer Algebra.Monoids.{0} where
+  obj t := MonCat.of t.Carrier
+  map h := eqToHom (by cases h.down; rfl)
+
+noncomputable def groupDenotation : Denotation groupRealizer Algebra.Groups.{0} where
+  obj t := GrpCat.of t.Carrier
+  map h := eqToHom (by cases h.down; rfl)
+
+/-! ### The forgetful actions -/
+
+def groupToMonoid :
+    RealizedAction (forget₂ GrpCat.{0} MonCat) groupDenotation monoidDenotation where
+  action := { obj := GroupTable.toMonoidTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  realizes :=
+    { obj := fun _ => rfl
+      map := fun h => by
+        rcases h with ⟨rfl⟩
+        simp only [groupDenotation, monoidDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
+        rfl }
+
+def monoidToSemigroup :
+    RealizedAction (forget₂ MonCat.{0} Semigrp) monoidDenotation semigroupDenotation where
+  action := { obj := MonoidTable.toSemigroupTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  realizes :=
+    { obj := fun _ => rfl
+      map := fun h => by
+        rcases h with ⟨rfl⟩
+        simp only [monoidDenotation, semigroupDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
+        rfl }
+
+def semigroupToMagma :
+    RealizedAction (forget₂ Semigrp.{0} MagmaCat) semigroupDenotation magmaDenotation where
+  action := { obj := SemigroupTable.toMagmaTable, map := fun h => ⟨by cases h.down; rfl⟩ }
+  realizes :=
+    { obj := fun _ => rfl
+      map := fun h => by
+        rcases h with ⟨rfl⟩
+        simp only [semigroupDenotation, magmaDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
+        rfl }
+
+/-! ### Deciding commutativity from the table -/
+
+/-- Commutativity of a finite magma, decided by inspecting its table. -/
+def commutativeDecider : Decider Algebra.commutative.{0} magmaDenotation where
+  decide t :=
+    if h : ∀ a b, t.mul a b = t.mul b a then
+      .proved ⟨⟨⟨magmaDenotation.obj t, h⟩, rfl⟩⟩
+    else
+      .refuted fun ⟨⟨y, hy⟩⟩ => h fun a b => by
+        have hc : IsCommutativeMagma y.obj := y.property
+        change y.obj = magmaDenotation.obj t at hy
+        rw [hy] at hc
+        exact hc a b
+
+end CasCatalogue.Algebra.Actions
+
+namespace CasCatalogue
+
+normalized_registry .action
+  { id := ⟨"act.groups.monoid.table"⟩, edge := .functor FunctorId.groupsMonoid
+    realization := `CasCatalogue.Algebra.Actions.groupToMonoid }
+normalized_registry .action
+  { id := ⟨"act.monoids.semigroup.table"⟩, edge := .functor FunctorId.monoidsSemigroup
+    realization := `CasCatalogue.Algebra.Actions.monoidToSemigroup }
+normalized_registry .action
+  { id := ⟨"act.semigroups.magma.table"⟩, edge := .classifierForget ClassifierId.magmasAssociative
+    realization := `CasCatalogue.Algebra.Actions.semigroupToMagma }
+normalized_registry .property
+  { id := ⟨"prop.is_commutative"⟩, name := "is_commutative"
+    classifier := ClassifierId.magmasCommutative }
+normalized_registry .property
+  { id := ⟨"prop.is_abelian"⟩, name := "is_abelian", classifier := ClassifierId.magmasCommutative
+    receiver := some Algebra.Catalogue.Magmas.Groups }
+normalized_registry .decider
+  { id := ⟨"dec.magmas.commutative.table"⟩, classifier := ClassifierId.magmasCommutative
+    realization := `CasCatalogue.Algebra.Actions.commutativeDecider }
+
+end CasCatalogue

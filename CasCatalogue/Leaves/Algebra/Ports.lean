@@ -25,7 +25,8 @@ A ring has two structural routes to monoids, and they are different structure:
 * the additive port `Ring → AddGrp → Grp`, where `AddGrpCat.toGrp` reads the additive group
   multiplicatively (Mathlib's `Multiplicative`, `Grp/EquivalenceGroupAddGroup.lean`).
 
-Below monoids both continue `Mon → Semigrp → Magma` by Mathlib's `forget₂`. All rows are
+Below monoids both continue `Mon → Semigrp` by Mathlib's `forget₂`, and `Semigrp → Magma` is the
+forgetful functor of the associativity classifier (semigroups are its total), not a row here. All rows are
 structural: each forgets structure or re-reads it through a Mathlib equivalence of categories.
 The routes are *not* identified here: identification needs a registered comparison (CC-COHERE),
 and without one a method reached along both is ambiguous (CC-RESOLVE).
@@ -44,7 +45,6 @@ def ringsAdditive : FunctorId := ⟨"fun.rings.additive_group"⟩
 def additiveGroupsToGroups : FunctorId := ⟨"fun.additive_groups.to_groups"⟩
 def groupsMonoid : FunctorId := ⟨"fun.groups.monoid"⟩
 def monoidsSemigroup : FunctorId := ⟨"fun.monoids.semigroup"⟩
-def semigroupsMagma : FunctorId := ⟨"fun.semigroups.magma"⟩
 end FunctorId
 
 namespace Algebra.Ports
@@ -57,7 +57,6 @@ def AdditiveGroupsToGroupsExpr : FunctorExpr AdditiveGroups Groups :=
   .atomic FunctorId.additiveGroupsToGroups
 def GroupsMonoidExpr : FunctorExpr Groups Monoids := .atomic FunctorId.groupsMonoid
 def MonoidsSemigroupExpr : FunctorExpr Monoids Semigroups := .atomic FunctorId.monoidsSemigroup
-def SemigroupsMagmaExpr : FunctorExpr Semigroups Magmas := .atomic FunctorId.semigroupsMagma
 
 /-- The multiplicative monoid of a ring. -/
 def ringsMultiplicative : Algebra.Rings.{u} ⟶ Algebra.Monoids.{u} :=
@@ -71,8 +70,6 @@ def additiveGroupsToGroups : Algebra.AdditiveGroups.{u} ⟶ Algebra.Groups.{u} :
 def groupsMonoid : Algebra.Groups.{u} ⟶ Algebra.Monoids.{u} := (forget₂ GrpCat MonCat).toCatHom
 def monoidsSemigroup : Algebra.Monoids.{u} ⟶ Algebra.Semigroups.{u} :=
   (forget₂ MonCat Semigrp).toCatHom
-def semigroupsMagma : Algebra.Semigroups.{u} ⟶ Algebra.Magmas.{u} :=
-  (forget₂ Semigrp MagmaCat).toCatHom
 
 noncomputable def ringsMultiplicativeRealization :
     FunctorRealization RingsMultiplicativeExpr Algebra.Rings.{u} Algebra.Monoids.{u}
@@ -94,10 +91,6 @@ noncomputable def monoidsSemigroupRealization :
     FunctorRealization MonoidsSemigroupExpr Algebra.Monoids.{u} Algebra.Semigroups.{u}
       monoidsSemigroup.toFunctor :=
   { sourceRealization := monoidsRealization, targetRealization := semigroupsRealization }
-noncomputable def semigroupsMagmaRealization :
-    FunctorRealization SemigroupsMagmaExpr Algebra.Semigroups.{u} Algebra.Magmas.{u}
-      semigroupsMagma.toFunctor :=
-  { sourceRealization := semigroupsRealization, targetRealization := magmasRealization }
 
 end Algebra.Ports
 
@@ -130,12 +123,6 @@ normalized_registry .functor
     declaration := `CasCatalogue.Algebra.Ports.monoidsSemigroup
     realization := `CasCatalogue.Algebra.Ports.monoidsSemigroupRealization
     expression := Algebra.Ports.MonoidsSemigroupExpr
-    structural := true }
-normalized_registry .functor
-  { id := FunctorId.semigroupsMagma, source := Semigroups, target := Magmas
-    declaration := `CasCatalogue.Algebra.Ports.semigroupsMagma
-    realization := `CasCatalogue.Algebra.Ports.semigroupsMagmaRealization
-    expression := Algebra.Ports.SemigroupsMagmaExpr
     structural := true }
 
 end CasCatalogue
