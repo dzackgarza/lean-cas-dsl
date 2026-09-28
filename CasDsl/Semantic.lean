@@ -170,6 +170,15 @@ def reaches (env : Environment) (source target : String) : IO Bool :=
     | .ok s, .ok t => return !(state.routes s t).isEmpty
     | _, _ => return false
 
+/-- Whether `source` is the category of subobjects in `target`: SPEC.md's
+`span_ℚ{…} ≤ ℚ³ in QQ-Mod` ascribes a subobject to the category it is a subobject IN. -/
+def subobjectsIn (env : Environment) (source target : String) : IO Bool :=
+  runSemanticCheck env do
+    let state ← registryState
+    match categoryExpr state source, categoryExpr state target with
+    | .ok s, .ok t => return s.syntacticEq (.construct ConstructorId.subobjects #[.category t])
+    | _, _ => return false
+
 /-- The report for a name that is neither a registered method nor a property. SPEC.md §Ellipses'
 `R.dimension()` (the Krull dimension of a ring) is HELD, and said so. -/
 def unknownMethod (name : String) : String :=

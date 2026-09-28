@@ -323,9 +323,8 @@ private def contains (hay needle : String) : Bool := (hay.splitOn needle).length
 
 private def qGap : CapabilityGap := {
   method := `nth
-  receiverCategory := { name := `CountableSets, params := #[.dom .rat] }
+  route := "cat.enumerations ; meth.nth = fun.enumerations.nth"
   presentation := "ℚ"
-  semanticVia := [`Sets]
   routesConsidered := #[
     { method := `nth, pattern := .domainIs (.exact .int), backend := `native,
       opId := "nth", priority := 10 }]
@@ -337,10 +336,8 @@ private def qGap : CapabilityGap := {
 -- the considered routes are named in the sentence, never as a field dump
 #guard contains (renderGap qGap) "the domain ℤ → native \"nth\""
 #guard !contains (renderGap qGap).toLower "unknown"
--- the inheritance chain that made the method available is reported as such
-#guard contains (renderGap qGap) "inherited through CountableSets(ℚ) ≤ Sets"
-#guard renderVia { name := `MatrixElems, params := #[.nat 2, .dom .rat] } []
-  == "declared directly on MatrixElems(2, ℚ)"
+-- the registry route that made the method available is reported as such
+#guard contains (renderGap qGap) "resolved: cat.enumerations ; meth.nth"
 
 /-- `e` is refused, in words containing `needle`. A refusal is only worth
 pinning by what it SAYS: each one below distinguishes itself from a

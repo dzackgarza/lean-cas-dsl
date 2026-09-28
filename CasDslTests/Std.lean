@@ -20,29 +20,36 @@ open CasDsl.Std
 
 run_cmd acceptanceProofs (← getEnv)
 
-/-! ## Profiles and routes that the acceptance notebook depends on -/
+/-! ## Typings and realizations that the acceptance notebook depends on -/
 
 run_cmd do
   let env ← getEnv
-  -- matrix elements carry their instantiation data: size and entry domain
-  unless profileOf env mat2Q == #[⟨`MatrixElems, #[.nat 2, .dom .rat]⟩] do
-    throwError s!"Mat₂(ℚ) profile is {repr (profileOf env mat2Q)}"
-  -- `{0, 2, 4, ...}` is countable and enumerable natively
-  expectRouted env (.setObj (.arithProg .int (.int 0) (.int 2) none)) `nth [] `native
+  -- a matrix is constructed as a point of square matrices over commutative rings
+  match typeOf env mat2Q with
+  | .ok t =>
+      unless t.category == "cat.matrix_points" do
+        throwError s!"Mat₂(ℚ) is typed in {t.category}"
+  | .error e => throwError e
+  -- `{0, 2, 4, ...}` is enumerated in its presented order, natively
+  expectRealized env (.setObj (.arithProg .int (.int 0) (.int 2) none)) `nth (some `native)
   -- ℤ used as an object enumerates by the registered convention
-  expectRouted env (.domainObj .int) `nth [] `native
+  expectRealized env (.domainObj .int) `nth (some `native)
   -- the ℚ[x] element the notebook obtains by `map p to ℚ[x]` factors
-  expectRouted env polyQ `factor [`PIDElems, `FactorizationElems] `sage
-  expectRouted env mat2Q `det [] `sage
-  expectRouted env mat2Q `inverse [] `sage
+  expectRealized env polyQ `factor (some `sage)
+  expectRealized env mat2Q `det (some `sage)
+  expectRealized env mat2Q `inverse (some `sage)
 
 /-! ## Re-registration is an error, never a silent overwrite -/
 
+private def factorDecl : MethodDecl := { id := `factor }
+
 run_cmd do
   let env ← getEnv
-  if (addCategoryChecked env { name := `Sets }).toOption.isSome then
-    throwError "re-registering an imported category was not detected as a clash"
-  if (addMethodChecked env { id := `factor, receiver := `FactorizationElems }).toOption.isSome then
+  -- (positional constructors: the imported grammar owns `{ … }`)
+  if (addTypingRuleChecked env (TypingRule.mk (.elemOf (.exact .int)) "cat.ring_points" none
+      #[] "")).toOption.isSome then
+    throwError "re-registering an imported typing rule was not detected as a clash"
+  if (addMethodChecked env factorDecl).toOption.isSome then
     throwError "re-declaring an imported method was not detected as a clash"
 
 end CasDslTests.Std

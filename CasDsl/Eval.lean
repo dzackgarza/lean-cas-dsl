@@ -2194,11 +2194,15 @@ membership — the arrow `{o.presentation}` already names its domain and codomai
       -- membership is realization by a registered Lean realizer of the category …
       if Semantic.realizes category base o' then return .point category base o'
       -- … or the value's own construction: it is typed in the category, or in one from which a
-      -- registered structural route reaches it (a subspace of ℚ³ is a ℚ-module through its
-      -- domain). The value keeps its own, more specific category.
+      -- registered structural route reaches it, or it is a subobject IN the category (a subspace
+      -- `≤ ℚ³ in QQ-Mod`). The value keeps its own, more specific category — which its
+      -- construction already determines, so it is returned as constructed.
       if let .ok typed := typeOf ctx.env o' then
         if ← (Semantic.reaches ctx.env typed.category category : IO Bool) then
-          return .point typed.category typed.base o'
+          return o'
+        if typed.base == base then
+          if ← (Semantic.subobjectsIn ctx.env typed.category category : IO Bool) then
+            return o'
       throw (.msg s!"{o'.presentation} is not in {renderSemanticCategory category base}: no \
 registered realizer realizes it there, and it is not constructed in a category that reaches it")
   | .member s => do

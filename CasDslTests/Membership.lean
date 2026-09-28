@@ -1,9 +1,9 @@
 /-
 Negative guards for the elaborating registration (SPEC-REGISTRY-TYPE-PREPASS
-§3.4): a profile rule claiming a membership Lean cannot discharge must be
+§3.4): a typing rule claiming a membership Lean cannot discharge must be
 REFUSED at registration. The positive direction needs no separate test —
-`CasDsl/Std.lean` now runs the same checks on every concrete standard rule,
-so the library building IS the positive proof.
+`CasDsl/Std.lean` runs the same checks on every concrete standard rule, so the
+library building IS the positive proof.
 -/
 -- deliberately NOT the root: importing `CasDsl` would bring the DSL grammar,
 -- whose set-builder `{ … }` shadows anonymous-constructor braces here
@@ -24,57 +24,51 @@ private def mustRefuse (what : String) (act : CommandElabM Unit)
 -- ℤ/6 is not even a domain, so it is certainly not euclidean — and not a
 -- UFD either
 run_cmd do
-  let asEuclidean : ProfileRule :=
-    { pattern := .elemOf (.exact (.mod 6)), cat := `EuclideanElems,
-      slots := #[.elemDom] }
-  mustRefuse "ℤ/6 as euclidean-domain elements" (registerProfileRule! asEuclidean)
-  let asUFD : ProfileRule :=
-    { pattern := .elemOf (.exact (.mod 6)), cat := `FactorizationElems,
-      slots := #[.elemDom] }
-  mustRefuse "ℤ/6 as UFD elements" (registerProfileRule! asUFD)
+  mustRefuse "ℤ/6 as euclidean-domain elements" <| registerTypingRule!
+    { pattern := .elemOf (.exact (.mod 6)), category := "cat.euclidean_points",
+      classes := #[``EuclideanDomain] }
+  mustRefuse "ℤ/6 as UFD elements" <| registerTypingRule!
+    { pattern := .elemOf (.exact (.mod 6)), category := "cat.ufd_points",
+      classes := #[``IsDomain, ``UniqueFactorizationMonoid] }
 
 -- ℝ is uncountable (Anchors.lean holds the positive Mathlib theorem), and
--- so is ℝ[x]
+-- so is ℝ[x]: neither is an enumeration
 run_cmd do
-  let realCountable : ProfileRule :=
-    { pattern := .domainIs (.exact .real), cat := `CountableSets,
-      slots := #[.setDom] }
-  mustRefuse "ℝ as a countable set" (registerProfileRule! realCountable)
-  let realPolyCountable : ProfileRule :=
-    { pattern := .domainIs (.polyOver (.exact .real)), cat := `CountableSets,
-      slots := #[.setDom] }
-  mustRefuse "ℝ[x] as a countable set" (registerProfileRule! realPolyCountable)
+  mustRefuse "ℝ as an enumerated set" <| registerTypingRule!
+    { pattern := .domainIs (.exact .real), category := "cat.enumerations",
+      classes := #[``Countable] }
+  mustRefuse "ℝ[x] as an enumerated set" <| registerTypingRule!
+    { pattern := .domainIs (.polyOver (.exact .real)), category := "cat.enumerations",
+      classes := #[``Countable] }
 
--- a category may not cite a telescope entry that is not a class
+-- a typing rule may only name a registered category, and only classes
 run_cmd do
-  let bogus : CatDecl := { name := `BogusCat, anchor := ``Nat,
-                           telescope := #[`Nat.succ] }
-  mustRefuse "a telescope naming a non-class" (registerCategory! bogus)
-  let unanchored : CatDecl := { name := `NicePosets }
-  mustRefuse "a category denoting nothing in Mathlib" (registerCategory! unanchored)
+  mustRefuse "a rule into an unregistered category" <| registerTypingRule!
+    { pattern := .elemOf (.exact (.mod 7)), category := "cat.nice_posets" }
+  mustRefuse "a rule citing a non-class" <| registerTypingRule!
+    { pattern := .elemOf (.exact (.mod 7)), category := "cat.ring_points",
+      classes := #[``Nat.succ] }
 
 /-! ## The runtime tripwire (invariant I7)
 
 Registration refuses false CONCRETE memberships, but the pure adders — and,
-in principle, family patterns — can still put the walk and Mathlib in
-disagreement. `verifyResolution` catches it at the call. Simulated drift:
-the pure adder admits ℤ/6 into EuclideanElems without the semantic check;
-the walk then proposes `factor`, and Mathlib refuses it. -/
+in principle, family patterns — can still put the typing and Mathlib in
+disagreement. `verifyTyping` catches it at the call. Simulated drift: the pure
+adder types ℤ/6 in euclidean domains without the semantic check; the call of
+`factor` then fails, naming the class Mathlib refuses. -/
 
 run_cmd do
   let env ← getEnv
-  let drifted : ProfileRule :=
-    { pattern := .elemOf (.exact (.mod 6)), cat := `EuclideanElems,
-      slots := #[.elemDom] }
-  let env' ← match addProfileRuleChecked env drifted with
+  let env' ← match addTypingRuleChecked env
+      { pattern := .elemOf (.exact (.mod 6)), category := "cat.euclidean_points",
+        classes := #[``EuclideanDomain] } with
     | .ok e => pure e
     | .error msg => throwError "the pure adder refused the drift fixture: {msg}"
   let six : Obj := .elem (.mod 6) (Value.mkMod 6 5)
-  let res ← match resolveMethod env' six `factor with
-    | .ok r => pure r
-    | .error _ => throwError "the walk did not even propose factor for ℤ/6"
-  match ← verifyResolution env' res.profileEntry res.decl.receiver (res.concreteReceiver six) with
-  | some _ => pure ()   -- the tripwire fired: Mathlib refused the drift
-  | none => throwError "verifyResolution accepted a membership Mathlib refutes"
+  match ← (realizationOf env' six `factor false : IO _) with
+  | .error msg =>
+      unless (msg.splitOn "Lean cannot synthesize EuclideanDomain").length > 1 do
+        throwError "the drifted call failed for another reason: {msg}"
+  | .ok _ => throwError "verifyTyping accepted a membership Mathlib refutes"
 
 end CasDslTests

@@ -47,7 +47,7 @@ private def callOn (env : Environment) (base : Domain) (pres : Obj) (m : String)
 run_cmd do
   let env ← getEnv
   -- `contains` has no Lean-native action, so the call returns the image it must run on
-  match ← callOn env .int (.domainObj (.mod 4)) "contains" (withArguments := true) with
+  match ← callOn env .int (.cyclicModule 4) "contains" (withArguments := true) with
   | .ok { value? := some _, .. } => throwError "`contains` was answered without its argument"
   | .ok { image? := some image, route, .. } =>
       unless image == modUnderlying do
@@ -60,7 +60,7 @@ run_cmd do
   | .ok _ => throwError "`contains` on ℤ/4 has no decoded image"
   | .error e => throwError s!"`contains` did not resolve on ℤ/4: {e}"
   -- ℤ/0 = ℤ: the underlying set is ℤ, infinite; the functor is total
-  match ← callOn env .int (.domainObj (.mod 0)) "cardinality" with
+  match ← callOn env .int (.cyclicModule 0) "cardinality" with
   | .ok { value? := some v, .. } =>
       unless v == .cardinal .countablyInfinite do
         throwError s!"|U(ℤ/0)| came back as {v.render}, expected ℵ₀"
@@ -73,7 +73,7 @@ structural functors, and the whole composite runs in Lean. -/
 
 run_cmd do
   let env ← getEnv
-  match ← callOn env .int (.domainObj (.mod 4)) "cardinality" with
+  match ← callOn env .int (.cyclicModule 4) "cardinality" with
   | .ok { value? := some v, route, .. } =>
       unless v == .cardinal (.finite 4) do
         throwError s!"|ℤ/4| came back as {v.render}, expected 4"
@@ -99,7 +99,7 @@ run_cmd liftTermElabM do
 
 run_cmd do
   let env ← getEnv
-  match ← callOn env .int (.domainObj (.mod 4)) "size" with
+  match ← callOn env .int (.cyclicModule 4) "size" with
   | .error e =>
       unless contains e "ambiguous" && contains e "meth.probe.size_sets" &&
           contains e "meth.probe.size_modules" do
@@ -113,14 +113,14 @@ route reaches it. An unknown name is reported as such. -/
 
 run_cmd do
   let env ← getEnv
-  match ← callOn env .int (.domainObj (.mod 4)) "kernel" with
+  match ← callOn env .int (.cyclicModule 4) "kernel" with
   | .error e =>
       unless contains e "not available here" do
         throwError s!"`kernel` on a module was not reported inapplicable: {e}"
   | .ok _ => throwError "`kernel` resolved on a module"
-  match ← callOn env .int (.domainObj (.mod 4)) "casdslNoSuchMethod" with
+  match ← callOn env .int (.cyclicModule 4) "casdslNoSuchMethod" with
   | .error e =>
-      unless contains e "no method is named" do
+      unless contains e "no method named" do
         throwError s!"an unknown method was not reported as such: {e}"
   | .ok _ => throwError "an unknown method resolved"
 

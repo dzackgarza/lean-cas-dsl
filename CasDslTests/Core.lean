@@ -1,7 +1,6 @@
 /-
-Elaboration-time tests for the pure core: the inheritance closure, the
-method resolver, profile-rule instantiation, presentation patterns, and the
-native backend's arithmetic and executors.
+Elaboration-time tests for the pure core: typing by the most specific rule,
+presentation patterns, and the native backend's arithmetic and executors.
 
 Everything here is `#guard` over pure functions — a wrong answer fails the
 build. The executor table is the one `IO` surface, smoke-tested with `#eval`
@@ -14,134 +13,31 @@ namespace CasDslTests
 open Lean (Name)
 open CasDsl
 
-/-! ## Fixture registrations (plain data — no `Environment` needed) -/
+/-! ## Typing: the most specific rule constructs the value -/
 
-/-- Chain, diamond and a deliberately cyclic pair. -/
-private def cats : Array CatDecl := #[
-  { name := `Sets },
-  { name := `CountableSets, parents := #[`Sets] },
-  { name := `FiniteSets, parents := #[`CountableSets] },
-  { name := `CommRingElems },
-  { name := `FactorizationElems, parents := #[`CommRingElems] },
-  { name := `EuclideanElems, parents := #[`FactorizationElems] },
-  { name := `A },
-  { name := `B, parents := #[`A] },
-  { name := `C, parents := #[`A] },
-  { name := `D, parents := #[`B, `C] },
-  { name := `X, parents := #[`Y] },
-  { name := `Y, parents := #[`X] }
+private def rules : Array TypingRule := #[
+  { pattern := .elemOf (.polyOver .anyDom), category := "cat.poly_points" },
+  { pattern := .elemOf (.polyOver (.exact .int)), category := "cat.ufd_poly_points" },
+  { pattern := .finiteSet, category := "cat.finite_lists" },
+  { pattern := .finiteSetOver (.exact .int), category := "cat.ring_finite_lists" },
+  { pattern := .productSet, category := "cat.a" },
+  { pattern := .productSet, category := "cat.b" }
 ]
 
-private def decls : Array MethodDecl := #[
-  { id := `factor, receiver := `FactorizationElems },
-  { id := `cardinality, receiver := `Sets },
-  { id := `nth, receiver := `CountableSets, arity := 1 },
-  { id := `size, receiver := `Sets },
-  { id := `size, receiver := `FiniteSets },
-  { id := `both, receiver := `B },
-  { id := `both, receiver := `C }
-]
+private def typed (o : Obj) : Option String := (typeOfIn rules o).toOption.map (·.category)
 
-/-! ## `parentClosure` -/
+-- ℤ[x] is typed by the ℤ-specific rule, ℚ[x] by the family rule
+#guard typed (.elem (.poly .int) (.poly .int #[.int 1])) == some "cat.ufd_poly_points"
+#guard typed (.elem (.poly .rat) (.poly .rat #[.rat 1])) == some "cat.poly_points"
+#guard typed (.setObj (.finite .int #[.int 1])) == some "cat.ring_finite_lists"
+#guard typed (.setObj (.finite .nat #[.int 1])) == some "cat.finite_lists"
+-- no rule: not constructed anywhere; two incomparable rules: a registration defect, reported
+#guard typed (.domainObj .int) == none
+#guard typed (.setObj (.product (.finite .int #[]) (.finite .int #[]))) == none
+-- an ascribed point keeps its category: typing never re-derives it
+#guard typed (.point "cat.modules_r" (some .int) (.cyclicModule 4)) == some "cat.modules_r"
 
--- chain, with the inheritance path recorded (excluding the start)
-#guard parentClosure cats `EuclideanElems ==
-  #[(`EuclideanElems, []), (`FactorizationElems, [`FactorizationElems]),
-    (`CommRingElems, [`FactorizationElems, `CommRingElems])]
-
--- diamond: `A` is reachable twice and appears once, by a shortest path
-#guard (parentClosure cats `D).size == 4
-#guard (parentClosure cats `D).find? (·.1 == `A) == some (`A, [`B, `A])
-
--- an unregistered name is its own closure (no crash, no invention)
-#guard parentClosure cats `Nowhere == #[(`Nowhere, [])]
-
--- a registration cycle terminates
-#guard (parentClosure cats `X).size == 2
-
--- specificity is antisymmetric, and mutually reachable names are incomparable
-#guard strictlyBelow cats `FiniteSets `Sets
-#guard !strictlyBelow cats `Sets `FiniteSets
-#guard !strictlyBelow cats `X `Y
-
-/-! ## `resolveCore` -/
-
-private def tag : Except ResolveError Resolution → String
-  | .ok _ => "ok"
-  | .error (.notApplicable ..) => "notApplicable"
-  | .error (.ambiguous ..) => "ambiguous"
-  | .error (.unknownMethod _) => "unknownMethod"
-  -- round-two failures are `CasDslTests/Transport.lean`'s subject; reaching
-  -- this case from a round-one fixture would itself be the bug
-  | .error (.functorTargetMismatch ..) => "functorTargetMismatch"
-
-private def resolved (r : Except ResolveError Resolution)
-    : Option (Name × List Name × CatRef) :=
-  r.toOption.map fun res => (res.decl.receiver, res.via, res.profileEntry)
-
-private def declaredOn? : Except ResolveError Resolution → Option (Array Name)
-  | .error (.notApplicable _ _ ds) => some ds
-  | _ => none
-
-private def ambiguousCount : Except ResolveError Resolution → Nat
-  | .error (.ambiguous _ cs) => cs.size
-  | _ => 0
-
--- direct hit: declared on the profile entry itself
-#guard resolved (resolveCore cats decls #[⟨`Sets, #[]⟩] `cardinality) ==
-  some (`Sets, [], ⟨`Sets, #[]⟩)
-
--- inherited hit: the chain is recorded and the profile entry's params ride
--- through the inheritance edge unchanged
-#guard resolved (resolveCore cats decls #[⟨`EuclideanElems, #[.dom .int]⟩] `factor) ==
-  some (`FactorizationElems, [`FactorizationElems], ⟨`EuclideanElems, #[.dom .int]⟩)
-
--- one declaration reached from two profile entries is ONE candidate, and the
--- shortest chain wins
-#guard resolved
-    (resolveCore cats decls #[⟨`FiniteSets, #[]⟩, ⟨`CountableSets, #[]⟩] `cardinality) ==
-  some (`Sets, [`Sets], ⟨`CountableSets, #[]⟩)
-
--- most specific declaration wins over the one it inherits from
-#guard resolved (resolveCore cats decls #[⟨`FiniteSets, #[]⟩] `size) ==
-  some (`FiniteSets, [], ⟨`FiniteSets, #[]⟩)
-
--- …and from further down the chain the inherited one is still reachable
-#guard resolved (resolveCore cats decls #[⟨`CountableSets, #[]⟩] `size) ==
-  some (`Sets, [`Sets], ⟨`CountableSets, #[]⟩)
-
--- incomparable receivers: a genuine ambiguity, never an order heuristic
-#guard tag (resolveCore cats decls #[⟨`D, #[]⟩] `both) == "ambiguous"
-#guard ambiguousCount (resolveCore cats decls #[⟨`D, #[]⟩] `both) == 2
-
--- declared, but not on anything this profile reaches: the error names where
--- it IS declared
-#guard tag (resolveCore cats decls #[⟨`Sets, #[]⟩] `factor) == "notApplicable"
-#guard declaredOn? (resolveCore cats decls #[⟨`Sets, #[]⟩] `factor) ==
-  some #[`FactorizationElems]
-
--- not declared anywhere
-#guard tag (resolveCore cats decls #[⟨`Sets, #[]⟩] `nope) == "unknownMethod"
-
--- an empty profile still distinguishes "no such method" from "not applicable"
-#guard tag (resolveCore cats decls #[] `factor) == "notApplicable"
-
-/-! ## Profile rules and presentation patterns -/
-
-#guard (ProfileRule.mk (.elemOf .anyDom) `EuclideanElems #[.elemDom]).apply
-    (.elem .int (.int 5)) == some ⟨`EuclideanElems, #[.dom .int]⟩
-
-#guard (ProfileRule.mk (.elemOf (.matrixOver .anyDom)) `MatrixElems
-    #[.matSize, .matEntry]).apply
-    (.elem (.matrix 2 .rat) (.mat 2 .rat #[])) ==
-  some ⟨`MatrixElems, #[.nat 2, .dom .rat]⟩
-
-#guard (ProfileRule.mk .anySet `Sets #[.setDom]).apply
-    (.setObj (.arithProg .int (.int 0) (.int 2) none)) == some ⟨`Sets, #[.dom .int]⟩
-
--- a slot that cannot be filled contributes nothing rather than crashing
-#guard (ProfileRule.mk .anyObj `MatrixElems #[.matSize]).apply
-    (.elem .int (.int 5)) == none
+/-! ## Presentation patterns -/
 
 #guard (PresPattern.elemOf (.polyOver (.exact .int))).accepts
     (.elem (.poly .int) (.poly .int #[.int 1]))
@@ -1120,19 +1016,11 @@ the registrations are local to this check. -/
 open Lean Elab Command in
 run_cmd do
   let env ← getEnv
-  let env := addCategory env { name := `SmokeSets }
-  let env := addCategory env { name := `SmokeFinite, parents := #[`SmokeSets] }
-  unless (catDecl? env `SmokeFinite).map (·.parents) == some #[`SmokeSets] do
-    throwError "a registered category did not read back"
-  if (addCategoryChecked env { name := `SmokeSets }).toOption.isSome then
-    throwError "a duplicate category registration was not detected"
-
-  let env := addMethod env { id := `smoke, receiver := `SmokeSets }
-  let env := addMethod env { id := `smoke, receiver := `SmokeFinite }
-  unless (methodDecls env `smoke).size == 2 do
-    throwError "the same method id on two receivers must give two declarations"
-  if (addMethodChecked env { id := `smoke, receiver := `SmokeSets }).toOption.isSome then
-    throwError "a duplicate (id, receiver) method registration was not detected"
+  let env := addMethod env { id := `smoke }
+  unless (methodDecls env `smoke).size == 1 do
+    throwError "a registered method did not read back"
+  if (addMethodChecked env { id := `smoke }).toOption.isSome then
+    throwError "a duplicate method registration was not detected"
 
   let r : Route := { method := `smoke, pattern := .anySet, backend := `native, opId := "cardinality" }
   let env := addRoute env r
@@ -1162,14 +1050,11 @@ run_cmd do
   if (addOpSigChecked env dupSig).toOption.isSome then
     throwError "a duplicate op-signature registration was not detected"
 
-  let env := addProfileRule env { pattern := .anySet, cat := `SmokeSets, slots := #[] }
-  -- containment, not exact equality: this module's environment also carries
-  -- the imported `CasDsl.Std` profile rules, which legitimately apply too
-  unless (profileOf env (.domainObj .int)).contains ⟨`SmokeSets, #[]⟩ do
-    throwError "a registered profile rule did not apply"
-  unless (resolveMethod env (.domainObj .int) `smoke).toOption.map (·.decl.receiver)
-      == some `SmokeSets do
-    throwError "resolveMethod did not reach the registered declaration"
+  let env := addTypingRule env { pattern := .dihedralPres, category := "cat.groups" }
+  unless ((typeOf env (.dihedralGroup 3)).toOption.map (·.category)) == some "cat.groups" do
+    throwError "a registered typing rule did not type its presentation"
+  if (addTypingRuleChecked env { pattern := .dihedralPres, category := "cat.sets" }).toOption.isSome then
+    throwError "a second typing rule for one pattern was not detected"
 
   -- rebinding shadows; a representative label is registered once
   let env := addBinding env (`x, .elem .int (.int 1))

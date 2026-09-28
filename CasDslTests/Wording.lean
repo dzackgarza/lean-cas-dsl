@@ -1,7 +1,7 @@
 /-
 The wording pin for `#explain_route` (workstream B of PLAN-REGISTRY-REFOUND):
-the explanation is SENTENCES built from registry data — category captions,
-the Mathlib anchor and its conventions, the verified membership — never a
+the explanation is SENTENCES built from registry data — the registry route
+that resolved the method, the Mathlib anchor and its conventions — never a
 dump of internal record fields. This pin is the product, so a change here is
 a user-facing wording change and is reviewed as one.
 
@@ -13,7 +13,8 @@ import CasDsl
 namespace CasDslTests
 
 /--
-info: 360 ⟶ ℤ ⟶ EuclideanDomain ⟶ IsPrincipalIdealRing ⟶ UniqueFactorizationMonoid  (synthesized)
+info: 360 ⟶ ℤ
+  resolved: cat.euclidean_points --fun.euclidean_points.pid--> cat.pid_points --fun.pid_points.ufd--> cat.ufd_points ; meth.factor = fun.ufd_points.factor
 factor ≐ UniqueFactorizationMonoid.factors: for $x \in R$ a UFD: a factorization $x = u\prod_i p_i^{e_i}$ with $u$ a unit, each $p_i$ irreducible and $e_i \geq 1$ — stated up to units
 via sage, Integer.factor() — the unit is ±1, with all prime factors positive
 docs: https://doc.sagemath.org/html/en/reference/rings_standard/sage/rings/integer.html#sage.rings.integer.Integer.factor
@@ -44,15 +45,13 @@ run_cmd do
     check s!"method {d.id} advisory" d.advisory
     check s!"method {d.id} resultDoc" d.resultDoc
     check s!"method {d.id} argDoc" d.argDoc
-  for c in categories env do
-    check s!"category {c.name} doc" c.doc
+  for r in typingRules env do
+    check s!"typing rule into {r.category} doc" r.doc
   for s in opSigs env do
     check s!"op {s.backend}/{s.opId} doc" s.doc
     check s!"op {s.backend}/{s.opId} advisory" s.advisory
   for r in routes env do
     check s!"route {r.method}→{r.backend}/{r.opId} doc" r.doc
-  for f in functors env do
-    check s!"functor {f.name} doc" f.doc
   for m in canonicalMaps env do
     check s!"canonical map doc" m.doc
 
