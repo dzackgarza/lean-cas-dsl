@@ -4,8 +4,8 @@ The method resolver — the ONE lookup boundary (DESIGN.md §The resolver).
 Round one transports methods along registered subcategory edges: direct
 declaration on a profile entry, or declaration on a category reachable from
 it through parent edges (params ride along unchanged). Round two transports
-the RECEIVER along a registered functor, and runs only where round one found
-nothing (`transportCandidates`, `resolveCoreWithTransport`).
+the RECEIVER along a registered functor (`transportCandidates`). Both rounds
+contribute to one candidate pool (`resolveCoreWithTransport`, CC-UNIFORM).
 
 The decision logic is pure over plain data (`resolveCore`, `parentClosure`,
 `profileFrom`, `transportCandidates`) so it is `#guard`-testable without an
@@ -121,10 +121,9 @@ Three ceilings are deliberate and load-bearing:
   (`cardinality`, `contains` and `nth` of the underlying set ARE the answers
   about the module); a method that did would need a result map registered
   next to the object map, and would be a different feature.
-- **NEVER A PREEMPTION.** Transport is consulted only when round one returned
-  `notApplicable`, so a direct or inherited declaration always wins and a new
-  functor registration can never take a method away from the object that
-  already had it. -/
+- (Removed, CC-UNIFORM.) Transport used to be consulted only when round one
+  returned `notApplicable`. Both rounds now contribute candidates to one pool;
+  a call reachable both ways is ambiguous. -/
 
 /-- Is `cat` reachable upward from something this profile already inhabits?
 Both halves of a transport step ask exactly this: the receiver must reach the
@@ -154,24 +153,23 @@ def transportCandidates (cats : Array CatDecl) (decls : Array MethodDecl)
           out := out.push { res with viaFunctor := some { functor := f.name, image } }
   return out
 
-/-- Resolution over registry contents: round one, then transport.
-
-Round one runs FIRST and wins unconditionally when it succeeds. Only its
-`notApplicable` opens round two, and then exactly one transported candidate
-resolves; several competing functors are the ordinary `ambiguous` error
-carrying all of them, and none leaves the original `notApplicable` untouched. -/
+/-- Resolution over registry contents: inherited candidates and transported candidates are
+one pool (CC-UNIFORM, `specs/computational-core.md`). Neither kind is consulted first: a
+direct or inherited resolution and a transported one for the same call are an ambiguity,
+reported with both, never settled by which round found it. -/
 def resolveCoreWithTransport (cats : Array CatDecl) (decls : Array MethodDecl)
     (rules : Array ProfileRule) (fs : Array FunctorDecl) (o : Obj) (m : Name)
-    : Except ResolveError Resolution :=
+    : Except ResolveError Resolution := do
   let profile := profileFrom rules o
+  let transported ← transportCandidates cats decls rules fs profile o m
   match resolveCore cats decls profile m with
-  | .ok res => .ok res
-  | .error err@(.notApplicable ..) => do
-      let cands ← transportCandidates cats decls rules fs profile o m
-      match cands[0]?, cands.size with
+  | .ok res =>
+      if transported.isEmpty then .ok res else .error (.ambiguous m (#[res] ++ transported))
+  | .error err@(.notApplicable ..) =>
+      match transported[0]?, transported.size with
       | some res, 1 => .ok res
       | none, _ => .error err
-      | _, _ => .error (.ambiguous m cands)
+      | _, _ => .error (.ambiguous m transported)
   | .error err => .error err
 
 /-- Resolve method `m` for the receiver `o` — the ONE lookup boundary.

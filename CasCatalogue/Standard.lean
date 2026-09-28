@@ -10,6 +10,8 @@ public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
 public import CasCatalogue.FibrationRegistration
 public import CasCatalogue.ConstructorRegistration
 public import CasCatalogue.Leaves.Lattices.Valued.Actions
+public import CasCatalogue.Leaves.Algebra.Ports
+public import CasCatalogue.Leaves.Foundation.Cardinality
 
 @[expose] public section
 
@@ -70,7 +72,8 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.subobjectsSets,
   CategoryId.modulePoints,
   CategoryId.endofunctorsSets,
-  CategoryId.unimodularLattice]
+  CategoryId.unimodularLattice,
+  CategoryId.cardinals]
 
 /-- Stable category-family rows owned by the standard catalogue. -/
 def expectedCategoryFamilyIds : Array CategoryFamilyId := #[
@@ -120,6 +123,13 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.bilinModuleChangeValue,
   FunctorId.bilinModuleForget,
   FunctorId.latticeFormForget,
+  FunctorId.setsCardinality,
+  FunctorId.ringsMultiplicative,
+  FunctorId.ringsAdditive,
+  FunctorId.additiveGroupsToGroups,
+  FunctorId.groupsMonoid,
+  FunctorId.monoidsSemigroup,
+  FunctorId.semigroupsMagma,
   FunctorId.finiteProjectiveForget,
   FunctorId.basisFrameToGenFrame,
   FunctorId.fromBasisFrame,
@@ -164,7 +174,11 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.lattice.forget_form.int_gram"⟩,
   ⟨"act.bilin_module.forget.int_gram"⟩,
   ⟨"act.modules.fibre_inclusion.int_free"⟩,
-  ⟨"act.modules.underlying.int_free"⟩]
+  ⟨"act.modules.underlying.int_free"⟩,
+  ⟨"act.sets.cardinality.presented"⟩]
+
+/-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
+def expectedMethodIds : Array MethodId := #[⟨"meth.cardinality"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
@@ -208,6 +222,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedFibrationIds (·.raw))
   validateStableIdSet "actions" (manifest.actions.map (·.id))
     (rawIds expectedActionIds (·.raw))
+  validateStableIdSet "methods" (manifest.methods.map (·.id))
+    (rawIds expectedMethodIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

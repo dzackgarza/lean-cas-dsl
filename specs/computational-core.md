@@ -280,6 +280,15 @@ inclusion, a classifier forgetful functor, a property restriction, a projection 
 Grothendieck construction, a forgetful functor: all are `FunctorExpr` values in the same
 graph, admitted by the same structural-admissibility rule (#53 §8).
 
+*Which functors are edges* (derivation, recorded 2026-09-28 when `cc-resolve` exposed it): an
+edge sends an object to an object it *is* — a forgetful functor, an inclusion, a fibre inclusion
+\(\iota_R\). A fibration's projection to its base or value parameters (\(\int\operatorname{Mod}\to
+\mathbf{Ring}\); \(\operatorname{Bil}\to\int\operatorname{Mod}\) by values) reads a parameter of the
+object and is not an edge: with it as an edge, a module inherited its ring's cardinality and every
+formed module's `cardinality` became ambiguous. Such a projection is reached as an explicit method
+(`base_ring`), never by inheritance. Construction functors (base change, change of values,
+reindexing along \(\varphi\)) are not edges either: they need data the receiver does not carry.
+
 **Acceptance.** Removing the special case "parents first, transport only on failure"
 (`lean-cas-dsl` `Resolve.lean`, "NEVER A PREEMPTION") changes no resolution in the
 existing test corpus except those that the old rule resolved by priority; each such case is
@@ -588,7 +597,7 @@ What it already gets right, and what must change:
 | `Obj` presentations whose categories come from `profileFrom` pattern rules | **change**: typed semantic objects; presentations select realizations only (CC-SEP) |
 | The transported image's category re-derived from its presentation (hence `functorTargetMismatch`) | **change**: \(F(X):\mathcal D\) by construction |
 | `parentClosure`: shortest chain kept, diamonds collapsed | **remove** (CC-RESOLVE, CC-COHERE) |
-| Transport consulted only when inheritance fails ("NEVER A PREEMPTION") | **remove** (CC-UNIFORM) |
+| Transport consulted only when inheritance fails ("NEVER A PREEMPTION") | **removed** 2026-09-28 (CC-UNIFORM); the one corpus case it decided (`size` on `Modules` and `Sets`) is now a reported ambiguity |
 | Parameters "ride along unchanged" on parent edges | **change**: fibres of stated fibrations, with reindexing as change of base (CC-FIB) |
 | "ONE HOP", "NO RESULT LIFTING" ceilings | **remove** (CC-TRANSPORT, CC-LIFT) |
 

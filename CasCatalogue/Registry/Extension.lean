@@ -41,6 +41,7 @@ inductive RegistryEntry
   | fibration (e : FibrationEntry)
   | constructor (e : ConstructorEntry)
   | action (e : FunctorActionEntry)
+  | method (e : MethodEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -53,6 +54,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .fibration e => e.id.raw
   | .constructor e => e.id.raw
   | .action e => e.id.raw
+  | .method e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -67,6 +69,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .fibration e => #[e.evidence]
   | .constructor e => #[e.semantics]
   | .action e => #[e.realization]
+  | .method _ => #[]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -77,6 +80,7 @@ structure RegistryState where
   fibrations : Array FibrationEntry := #[]
   constructors : Array ConstructorEntry := #[]
   actions : Array FunctorActionEntry := #[]
+  methods : Array MethodEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -313,6 +317,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .fibration e => { s with fibrations := s.fibrations.push e }
   | s, .constructor e => { s with constructors := s.constructors.push e }
   | s, .action e => { s with actions := s.actions.push e }
+  | s, .method e => { s with methods := s.methods.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -322,7 +327,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.opaqueCategories.toList.map RegistryEntry.opaque ++
     state.fibrations.toList.map RegistryEntry.fibration ++
     state.constructors.toList.map RegistryEntry.constructor ++
-    state.actions.toList.map RegistryEntry.action
+    state.actions.toList.map RegistryEntry.action ++
+    state.methods.toList.map RegistryEntry.method
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -498,6 +504,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for action in state.actions do
     unless (state.functor? action.functor).isSome do
       throw s!"action entry {action.id.raw} realizes an unregistered functor"
+  for method in state.methods do
+    unless (state.functor? method.functor).isSome do
+      throw s!"method entry {method.id.raw} names an unregistered functor"
   pure ()
 
 private def registryValidationFailed (result : Except String Unit) : Bool :=
@@ -1416,6 +1425,30 @@ def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) :
       "action {e.id.raw} realization {e.realization} does not realize the registered functor \
       {e.functor.raw}"
 
+/-- A method row names a registered functor whose source is its owner (`.object`) or the core
+of its owner (`.isoInvariant`, the registered constructor whose semantics is
+`CasCatalogue.Constructors.core`). -/
+def validateMethodEntry (state : RegistryState) (e : MethodEntry) : MetaM Unit := do
+  let functor ← match state.functor? e.functor with
+    | some entry => pure entry
+    | none => throwError "method {e.id.raw} names an unregistered functor {e.functor.raw}"
+  unless e.owner.isRegistered state do
+    throwError "method {e.id.raw} has an unregistered owner"
+  match e.shape with
+  | .object =>
+      unless functor.source.syntacticEq e.owner do
+        throwError "method {e.id.raw}: functor {e.functor.raw} is not defined on its owner"
+  | .isoInvariant =>
+      let isCoreOfOwner : Bool := match functor.source with
+        | .construct constructor #[.category category] =>
+            category.syntacticEq e.owner &&
+              (state.constructor? constructor).any
+                (·.semantics == `CasCatalogue.Constructors.core)
+        | _ => false
+      unless isCoreOfOwner do
+        throwError
+          "method {e.id.raw}: functor {e.functor.raw} is not defined on the core of its owner"
+
 /-- Inspect declaration types before atomically persisting a registry entry. -/
 def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   let state := registryExt.getState (← getEnv)
@@ -1467,6 +1500,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
         validateOpaquePortRealization state port
   | .fibration e => validateFibrationEvidence state e
   | .action e => validateActionRealization state e
+  | .method e => validateMethodEntry state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -1753,6 +1787,7 @@ structure RegistryManifestFunctor where
   declaration : String
   realization : String
   expression : RegistryManifestFunctorExpr
+  structural : Bool
   deriving BEq, Repr, ToJson, FromJson
 
 structure RegistryManifestPort where
@@ -1791,6 +1826,14 @@ structure RegistryManifestAction where
   realization : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestMethod where
+  id : String
+  name : String
+  owner : RegistryManifestCategoryExpr
+  functor : String
+  shape : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifest where
   schemaVersion : String
   categories : Array RegistryManifestCategory
@@ -1801,6 +1844,7 @@ structure RegistryManifest where
   fibrations : Array RegistryManifestFibration
   constructors : Array RegistryManifestConstructor
   actions : Array RegistryManifestAction
+  methods : Array RegistryManifestMethod
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -1867,7 +1911,7 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       id := e.id.raw,
       source := registryManifestCategoryExpr e.source, target := registryManifestCategoryExpr e.target,
       declaration := e.declaration.toString, realization := e.realization.toString,
-      expression := registryManifestFunctorExpr e.expression }
+      expression := registryManifestFunctorExpr e.expression, structural := e.structural }
     opaqueCategories := opaqueEntries.map fun e => {
       id := e.id.raw, declaration := e.declaration.toString, realization := e.realization.toString,
       reason := e.reason,
@@ -1897,6 +1941,12 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
         | .functor => "functor" }
     actions := (state.actions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, functor := e.functor.raw, realization := e.realization.toString }
+    methods := (state.methods.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, name := e.name, owner := registryManifestCategoryExpr e.owner,
+      functor := e.functor.raw,
+      shape := match e.shape with
+        | .object => "object"
+        | .isoInvariant => "isoInvariant" }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

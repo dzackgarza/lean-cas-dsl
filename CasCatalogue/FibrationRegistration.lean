@@ -316,7 +316,8 @@ normalized_registry .functor
       `CasCatalogue.Catalogue.FibrationRegistration.integralFormsToBilDeclaration
     realization :=
       `CasCatalogue.Catalogue.FibrationRegistration.integralFormsToBilRealization
-    expression := Fibrations.IntegralFormsToBilExpr }
+    expression := Fibrations.IntegralFormsToBilExpr
+    structural := true }
 normalized_registry .category
   { id := CategoryId.integralLattices,
     declaration := `CasCatalogue.Catalogue.FibrationRegistration.integralLatticesCategory

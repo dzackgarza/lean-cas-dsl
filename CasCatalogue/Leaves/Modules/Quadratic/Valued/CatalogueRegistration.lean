@@ -166,7 +166,8 @@ normalized_registry .functor
       `CasCatalogue.Modules.Quadratic.Valued.CatalogueRegistration.quadModuleForgetDeclaration
     realization :=
       `CasCatalogue.Modules.Quadratic.Valued.CatalogueRegistration.quadModuleForgetRealization
-    expression := QuadModuleForget }
+    expression := QuadModuleForget
+    structural := true }
 
 normalized_registry .functor
   { id := FunctorId.quadModuleChangeValue
@@ -198,6 +199,7 @@ normalized_registry .functor
       `CasCatalogue.Modules.Quadratic.Valued.CatalogueRegistration.quadWFormCarrierDeclaration
     realization :=
       `CasCatalogue.Modules.Quadratic.Valued.CatalogueRegistration.quadWFormCarrierRealization
-    expression := QuadWFormCarrier }
+    expression := QuadWFormCarrier
+    structural := true }
 
 end CasCatalogue.Modules.Quadratic.Valued.CatalogueRegistration

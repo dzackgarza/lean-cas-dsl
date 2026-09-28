@@ -122,15 +122,22 @@ private def resolved (r : Except ResolveError Resolution)
   some (`Sets, [`CountableSets, `Sets], ⟨`FiniteSets, #[.dom (.mod 4)]⟩,
     some (`forget, modUnderlying))
 
--- ROUND ONE WINS UNCONDITIONALLY: `size` is declared on `Modules` *and* on
--- `Sets`, and `forget` applies — the direct declaration resolves untransported,
--- and the two rounds never compete (a resolver that merged them would report
--- an ambiguity here, one that preferred transport would answer `Sets`)
-#guard resolved (resolve #[forget] modFixture `size) ==
-  some (`Modules, [`Modules], ⟨`CyclicModules, #[.dom .int]⟩, none)
+-- NO ROUND IS CONSULTED FIRST (CC-UNIFORM): `size` is declared on `Modules`
+-- *and* on `Sets`, and `forget` applies, so the call is reachable directly and
+-- by transport. The old resolver answered `Modules` because round one ran
+-- first; with one candidate pool and no registered comparison between the two
+-- declarations it is a reported ambiguity carrying both routes. This is the
+-- only case in the corpus that the old priority rule decided.
+#guard tag (resolve #[forget] modFixture `size) == "ambiguous"
+#guard (match resolve #[forget] modFixture `size with
+    | .error (.ambiguous _ cands) =>
+        (cands.map fun r => (r.decl.receiver, r.viaFunctor.isSome)).toList ==
+          [(`Modules, false), (`Sets, true)]
+    | _ => false)
 
--- the same declaration is still reached directly when NO functor is registered
-#guard resolved (resolve #[] modFixture `size) == resolved (resolve #[forget] modFixture `size)
+-- with no functor registered only the direct declaration reaches it
+#guard resolved (resolve #[] modFixture `size) ==
+  some (`Modules, [`Modules], ⟨`CyclicModules, #[.dom .int]⟩, none)
 
 -- a functor whose source the receiver does not reach is not applied, even
 -- though its object map is defined on this presentation

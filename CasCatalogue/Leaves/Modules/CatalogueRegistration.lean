@@ -475,7 +475,8 @@ normalized_registry .functor
     declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameToGenFrameDeclaration
     realization :=
       `CasCatalogue.Modules.CatalogueRegistration.basisFrameToGenFrameRealization
-    expression := Modules.BasisFrameToGenFrameExpr }
+    expression := Modules.BasisFrameToGenFrameExpr
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.fromBasisFrame,
     source := Modules.BasisFrameExpr
@@ -489,7 +490,8 @@ normalized_registry .functor
     target := Modules.Modules
     declaration := `CasCatalogue.Modules.CatalogueRegistration.coordForgetDeclaration
     realization := `CasCatalogue.Modules.CatalogueRegistration.coordForgetRealization
-    expression := Modules.CoordForgetExpr }
+    expression := Modules.CoordForgetExpr
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.genFrameForget,
     source := Modules.GenFrameIndexedExpr
@@ -497,7 +499,8 @@ normalized_registry .functor
     declaration := `CasCatalogue.Modules.CatalogueRegistration.genFrameForgetIndexedDeclaration
     realization :=
       `CasCatalogue.Modules.CatalogueRegistration.genFrameForgetIndexedRealization
-    expression := Modules.GenFrameForgetExpr }
+    expression := Modules.GenFrameForgetExpr
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.basisFrameForget,
     source := Modules.BasisFrameIndexedExpr
@@ -505,7 +508,8 @@ normalized_registry .functor
     declaration := `CasCatalogue.Modules.CatalogueRegistration.basisFrameForgetIndexedDeclaration
     realization :=
       `CasCatalogue.Modules.CatalogueRegistration.basisFrameForgetIndexedRealization
-    expression := Modules.BasisFrameForgetExpr }
+    expression := Modules.BasisFrameForgetExpr
+    structural := true }
 
 normalized_registry .category
   { id := CategoryId.modulesTotal,
@@ -520,7 +524,8 @@ normalized_registry .functor
       `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionDeclaration
     realization :=
       `CasCatalogue.Modules.CatalogueRegistration.modulesFibreInclusionRealization
-    expression := Modules.ModulesFibreInclusionExpr }
+    expression := Modules.ModulesFibreInclusionExpr
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.modulesReindex,
     source := Modules.ModulesAtS
@@ -534,7 +539,8 @@ normalized_registry .functor
     target := Foundation.Sets
     declaration := `CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingDeclaration
     realization := `CasCatalogue.Modules.CatalogueRegistration.modulesUnderlyingRealization
-    expression := Modules.ModulesUnderlyingExpr }
+    expression := Modules.ModulesUnderlyingExpr
+    structural := true }
 
 end
 end CasCatalogue.Modules.CatalogueRegistration

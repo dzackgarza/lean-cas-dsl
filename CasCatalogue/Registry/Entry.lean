@@ -49,6 +49,25 @@ structure FunctorActionEntry where
   realization : Lean.Name
   deriving Repr
 
+/-- How a method's semantic functor consumes its receiver. -/
+inductive MethodShape
+  /-- The functor's source is the owner category itself. -/
+  | object
+  /-- The functor's source is `Core(owner)`: an isomorphism invariant of objects of the owner. -/
+  | isoInvariant
+  deriving DecidableEq, Repr, Inhabited
+
+/-- A method presentation row (#53 §7): the surface name `name` of the registered functor
+`functor`, owned at the category `owner` (its lowest generating level, #53 §5). It creates no
+semantics: it names checked functor semantics. -/
+structure MethodEntry where
+  id : MethodId
+  name : String
+  owner : CategoryExpr
+  functor : FunctorId
+  shape : MethodShape
+  deriving Repr
+
 /-- The kind of one argument of a typed category constructor. -/
 inductive ConstructorArgKind
   | category
@@ -106,6 +125,14 @@ structure FunctorEntry where
   declaration : Lean.Name
   realization : Lean.Name
   expression : FunctorExpr source target
+  /-- Whether this functor sends an object to its *underlying* object (a forgetful functor,
+  an inclusion, a fibre inclusion `ι_R : Mod_R → ∫ Mod`): the only kind of registered functor
+  along which methods are inherited (#53 §8, CC-UNIFORM). Not structural: construction functors
+  (base change, change of values, reindexing along a parameter morphism), which need data the
+  receiver does not carry, and a fibration's projection to its base or value parameters
+  (`∫ Mod → Ring`, `Bil → ∫ Mod` by values), which reads a parameter of the object rather than
+  an object it *is*: a module is not a ring, so it must not inherit the ring's cardinality. -/
+  structural : Bool := false
   deriving Repr
 
 /-- Opaque category with typed structural ports. -/

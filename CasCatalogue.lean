@@ -13,9 +13,11 @@ public import CasCatalogue.Leaves.Algebra.Catalogue
 public import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
 public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
+public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Exceptional.Catalogue
 public import CasCatalogue.Leaves.Exceptional.CatalogueRegistration
 public import CasCatalogue.Leaves.Foundation.Actions
+public import CasCatalogue.Leaves.Foundation.Cardinality
 public import CasCatalogue.Leaves.Foundation.Catalogue
 public import CasCatalogue.Leaves.Foundation.CatalogueRegistration
 public import CasCatalogue.Leaves.Foundation.Expressions
@@ -40,6 +42,9 @@ public import CasCatalogue.Realization
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Registry.Typed
+public import CasCatalogue.Resolve
+public import CasCatalogue.ResolveProbes
+public import CasCatalogue.ResolveSyntax
 public import CasCatalogue.Standard
 public import CasCatalogue.Syntax
 public import CasCatalogue.Tools.ExportBoundaryProbe

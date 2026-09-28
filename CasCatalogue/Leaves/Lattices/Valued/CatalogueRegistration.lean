@@ -493,7 +493,8 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.latticeFormForgetDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.latticeFormForgetRealization
-    expression := LatticeFormForget }
+    expression := LatticeFormForget
+    structural := true }
 
 normalized_registry .functor
   { id := FunctorId.latticeChangeValue
@@ -529,7 +530,8 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.finiteProjectiveForgetDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.finiteProjectiveForgetRealization
-    expression := FiniteProjectiveForget }
+    expression := FiniteProjectiveForget
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.integralLatticeForget,
     source := IntegralLattice
@@ -538,7 +540,8 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.integralLatticeForgetDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.integralLatticeForgetRealization
-    expression := IntegralLatticeForget }
+    expression := IntegralLatticeForget
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.coordLatticeToCoord,
     source := CoordLattice
@@ -547,7 +550,8 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.coordLatticeToCoordDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.coordLatticeToCoordRealization
-    expression := CoordLatticeToCoord }
+    expression := CoordLatticeToCoord
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.coordLatticeToIntegral,
     source := CoordLattice
@@ -556,7 +560,8 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.coordLatticeToIntegralDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.coordLatticeToIntegralRealization
-    expression := CoordLatticeToIntegral }
+    expression := CoordLatticeToIntegral
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.fractionFieldPerfectFiniteProjectiveForget
     source := FractionFieldPerfectFiniteProjectiveLattice
@@ -565,6 +570,7 @@ normalized_registry .functor
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.fractionFieldPerfectFiniteProjectiveForgetDeclaration
     realization :=
       `CasCatalogue.Lattices.Valued.CatalogueRegistration.fractionFieldPerfectFiniteProjectiveForgetRealization
-    expression := FractionFieldPerfectFiniteProjectiveForget }
+    expression := FractionFieldPerfectFiniteProjectiveForget
+    structural := true }
 
 end CasCatalogue.Lattices.Valued.CatalogueRegistration

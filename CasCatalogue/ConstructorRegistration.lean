@@ -150,7 +150,8 @@ normalized_registry .functor
       `CasCatalogue.Catalogue.ConstructorRegistration.sliceSetsForgetDeclaration
     realization :=
       `CasCatalogue.Catalogue.ConstructorRegistration.sliceSetsForgetRealization
-    expression := Constructed.SliceSetsForgetExpr }
+    expression := Constructed.SliceSetsForgetExpr
+    structural := true }
 normalized_registry .functor
   { id := FunctorId.modulePointsProjection,
     source := Constructed.ModulePoints
@@ -159,7 +160,8 @@ normalized_registry .functor
       `CasCatalogue.Catalogue.ConstructorRegistration.modulePointsProjectionDeclaration
     realization :=
       `CasCatalogue.Catalogue.ConstructorRegistration.modulePointsProjectionRealization
-    expression := Constructed.ModulePointsProjectionExpr }
+    expression := Constructed.ModulePointsProjectionExpr
+    structural := true }
 
 /-! ### Negative probe: a constructed category must be its constructor's semantics -/
 

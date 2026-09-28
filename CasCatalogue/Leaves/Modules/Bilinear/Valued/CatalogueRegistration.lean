@@ -178,7 +178,8 @@ normalized_registry .functor
       `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleForgetDeclaration
     realization :=
       `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleForgetRealization
-    expression := BilinModuleForget }
+    expression := BilinModuleForget
+    structural := true }
 
 normalized_registry .functor
   { id := FunctorId.bilinModuleChangeValue

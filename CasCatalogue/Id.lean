@@ -74,6 +74,11 @@ structure ActionId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered method presentation, e.g. `meth.cardinality`. -/
+structure MethodId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -100,6 +105,7 @@ structure OpaquePortId where
 instance : Inhabited CategoryId := ⟨⟨""⟩⟩
 instance : Inhabited FibrationId := ⟨⟨""⟩⟩
 instance : Inhabited ActionId := ⟨⟨""⟩⟩
+instance : Inhabited MethodId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩
