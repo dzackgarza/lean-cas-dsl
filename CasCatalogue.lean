@@ -1,6 +1,8 @@
 module
 
 public import CasCatalogue.Action
+public import CasCatalogue.Adapter
+public import CasCatalogue.AdapterProbes
 public import CasCatalogue.ClosureProbes
 public import CasCatalogue.CohereProbes
 public import CasCatalogue.ConstructorCatalogue
@@ -18,6 +20,7 @@ public import CasCatalogue.Leaves.Algebra.Catalogue
 public import CasCatalogue.Leaves.Algebra.Catalogue.Magmas
 public import CasCatalogue.Leaves.Algebra.Catalogue.Rings
 public import CasCatalogue.Leaves.Algebra.CatalogueRegistration
+public import CasCatalogue.Leaves.Algebra.KernelDecode
 public import CasCatalogue.Leaves.Algebra.PortComparison
 public import CasCatalogue.Leaves.Algebra.Ports
 public import CasCatalogue.Leaves.Algebra.RingTables

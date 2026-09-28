@@ -453,19 +453,23 @@ is the semantic inclusion, and a decode that omits the inclusion fails.
 ### CC-ADAPTER — Every leaf has a Lean-side contract module
 
 Arbitrary Python/Julia/GAP modules do not register into the semantic runtime. Each leaf has
-a small Lean module, schematically:
+a small Lean module whose one registration command is `register_leaf`
+(`CasCatalogue/Adapter.lean`):
 
 ```lean
-register_realization OrthogonalGroups.Sage where
-  semantic := OrthogonalGroup
-  backend := .sage
-  objectCodec := …
-  morphismCodec := …
-  structureFunctors := [ realizesFunctor underlyingGroup … ]
-  operations := [ realizes spinorNorm …, realizes discriminantRepresentation … ]
+register_leaf
+  { backend := "sage"
+    contributions := [
+      .realizer { id := ⟨"rz.orthogonal_groups.sage"⟩, category := ⟨"cat.orthogonal_groups"⟩, … },
+      .action { id := ⟨"act.orthogonal_groups.underlying_group.sage"⟩, edge := …, … },
+      .implementation { … spinor norm … }, .decider { … }, .isomorphism { … } ] }
 ```
 
-It must typecheck against the semantic universe. Python cannot create a semantic method by
+The permitted contributions are realizers, functor actions, implementations, deciders and
+registered isomorphisms; codecs live in the realizer's denotation and the decoders producing its
+handles. Each is validated by the registry and must typecheck against the semantic universe.
+The forbidden contributions of §5 are constructors of the same contribution type, so an attempt
+is expressible, and `register_leaf` rejects the whole contract naming the rule. Python cannot create a semantic method by
 exporting a function; Julia cannot create a category; GAP cannot claim that a
 group-specific operation belongs to all groups.
 
