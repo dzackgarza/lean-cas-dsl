@@ -20,13 +20,35 @@ require mathlib from git
 /- The mathematics: categories, functors, fibrations and their theory. This package owns
 the CAS machinery over it (registry, resolution, realizations, backends). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "c89c9d400b4bb90a7c23ac5165d987ad31e5bfa3"
+  "https://github.com/dzackgarza/lean-categories" @ "1e90112662cfee1ac1a45a8f6492f32e020795f9"
 
 @[default_target]
 lean_lib CasDsl where
   -- the prelude module `CasDsl.Notebook` imports the root, not vice versa,
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
+
+/-- The semantic registry: symbolic category and functor expressions, their checked
+denotations in `lean-categories`, and the normalized registry with its exporter. It keeps
+`lean-categories`' elaboration options, which its registration rows rely on. -/
+lean_lib CasCatalogue where
+  globs := #[.andSubmodules `CasCatalogue]
+  leanOptions := #[
+    ⟨`relaxedAutoImplicit, false⟩,
+    ⟨`weak.linter.mathlibStandardSet, true⟩,
+    ⟨`weak.linter.style.header, false⟩,
+    ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
+
+/-- Export the normalized registry manifest as JSON. -/
+lean_exe «cas-registry-export» where
+  root := `CasCatalogue.Tools.ExportMain
+  supportInterpreter := true
+
+/-- Kernel-axiom audit of the registry; the audit runs while `CasCatalogue.Tools.AxiomAudit`
+elaborates. -/
+lean_exe «cas-axiom-audit» where
+  root := `CasCatalogue.Tools.AxiomAuditMain
+  supportInterpreter := true
 
 /-- Elaboration-time tests (`#guard` + `run_cmd` assertions); not part of
 the shipped prelude import graph. -/

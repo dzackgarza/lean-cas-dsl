@@ -160,4 +160,13 @@ Deferred work is tracked in the issues.
 executors, port, Sage adapter, surface syntax, diagnostics, standard
 universe) · `CasDslTests/` (elaboration-time `#guard`/`run_cmd` suites) ·
 `backends/` (the Python half of the Sage adapter) · `tests/` (adapter
-roundtrip + kernel E2E) · `notebooks/` (the live acceptance notebook).
+roundtrip + kernel E2E) · `notebooks/` (the live acceptance notebook) ·
+`CasCatalogue/` (the semantic registry: symbolic category/functor expressions whose
+denotations are checked against the mathematics of
+[`lean-categories`](https://github.com/dzackgarza/lean-categories), the normalized
+registry with `lake exe cas-registry-export`, and `lake exe cas-axiom-audit`) · `specs/`
+(the computational-core requirements and plan that migrate the `CasDsl/` name-level graph
+onto `CasCatalogue`).
+
+All mathematics lives in `lean-categories`, which this package requires; this repository
+owns only the CAS machinery over it.
