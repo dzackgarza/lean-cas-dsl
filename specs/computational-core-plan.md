@@ -28,43 +28,35 @@ local checkout, and this work must be readable wherever the repository is.
 
 ## Current direction (2026-09-29, owner correction)
 
-**Goal.** Replace the `sage-categories` Python Cat/kernel with the Lean-owned system of
-[computational-core.md](computational-core.md). When this is done the Python-based inheritance
-is gone: no C3 method order, no dynamic role classes, no initializer threading, no state grafting,
-no runtime placement (spec §3). Categories, functors, methods, properties and structural routes
-exist only in Lean (`lean-categories` for the mathematics, `lean-cas-dsl` for the registry,
-resolver and realization boundary); what remains of each `sage-categories` leaf is engine code
-(Sage/GAP/Julia calls) behind a typed Lean adapter (`register_leaf`). The kernel capabilities to
-be replaced are those of `sage-categories` milestone A (`core-functor-cell-calculus`,
-`core-selected-transport`, `core-universal-calculus`, `core-properties-refinement`,
-`core-inheritance-coherence`, `core-indexed-calculus`, `core-weighted-calculus`,
-`core-algebraic-calculus`, `core-structured-calculus`, `core-static-and-boundaries`,
-`kernel-cat-complete`). Work that does not move that replacement is drift, however correct.
+**Goal.** `lean-cas-dsl` is rewritten to *be* the system specified in
+[computational-core.md](computational-core.md): a mathematician-facing DSL elaborating into one
+coherent Lean category/functor calculus, over typed realization contracts, over arbitrarily messy
+Sage/GAP/Julia/OSCAR code. This is a new system, not a port. `sage-categories` is the record of
+what such a system must support and of what goes wrong without it (spec §3, §9); its
+implementation and its node structure are not reproduced.
 
-**Correction.** From `cc-probe-corpus` onward (2026-09-28/29) the work turned into building leaf
-features through the notebook surface and leaf mathematics in `lean-categories` (presented-ring
-elements, Gram encoders, function-equality rules, quadratic base change and its fibration, lattice
-classifiers) instead of replacing the kernel.
+**Measure.** The system is done when a leaf with every mistake observed in the research repositories
+(its own subgroup notion, isotropic operations on generic groups, a second `Aut`, a forgotten
+inclusion, a lattices-to-sets shortcut) cannot change what the user sees, and every object presents
+everything expected of its kind (every subgroup has everything subgroups have) plus the leaf's
+genuinely additional operations. Progress is measured against the design points of the spec
+(CC-*), not against leaves.
 
-**Procedure, in order; nothing else is started until the step before it is recorded here:**
+**Correction.** From `cc-probe-corpus` onward (2026-09-28/29) the work built leaf features through
+the notebook surface and leaf mathematics in `lean-categories` instead of the system.
+[kernel-replacement-audit.md](kernel-replacement-audit.md) records the triage.
 
-1. `cc-kernel-audit` — for each `sage-categories` milestone-A kernel node and each row of spec §3,
-   read its owning `sage-categories` contract (topic spec named by the node) and record: the Lean
-   replacement that exists (file, declaration, commit, consumer that exercises it), or the gap.
-   Also inventory the `sage-categories` leaves: what each declares through the Python kernel, and
-   what of it is engine code. Output: [kernel-replacement-audit.md](kernel-replacement-audit.md).
-   No code.
-2. `cc-drift-triage` — classify every commit since `a191b61` (lean-cas-dsl) and `a8a87a6`
-   (lean-categories) as *core*, *probe finding* (names the core node it informs) or *leaf drift*.
-   Output: a section of the audit document. The owner decides revert / quarantine / keep. No code.
-3. Gap nodes — each audited gap becomes a `cc-` node below with its `sage-categories` contract as
-   acceptance and its `Needs`, in dependency order. Only then is code written, one node at a time.
-4. Leaf migration — for each `sage-categories` leaf, its mathematical declarations (categories,
-   functors, methods, properties) move to Lean and its Python keeps only engine calls behind a
-   `register_leaf` adapter. A leaf that needs something the Lean core lacks is a gap for step 3,
-   never code in the leaf.
-5. Deletion — the Python kernel and Cat subtree are removed from `sage-categories`; its public
-   consumers run through the Lean system with no Python inheritance left.
+**Procedure, in order; no code until the step before it is recorded here:**
+
+1. `cc-design-assessment` — assess the current `lean-cas-dsl` against each design point of the spec
+   and the leaf contract (spec §5): what is realized, what is realized wrongly, what is missing,
+   with file locators. The `sage-categories` audit is an input. Output:
+   [design-assessment.md](design-assessment.md).
+2. `cc-drift-triage` — recorded in the audit document; the owner decides revert / quarantine / keep.
+3. Design nodes — each assessed gap becomes a `cc-` node below, with its CC-* requirement as
+   acceptance and its `Needs`, in dependency order. Then code, one node at a time.
+4. Leaves are written against the system only as its consumers; a leaf needing something the system
+   lacks is a design gap for step 3, never code in the leaf or in the DSL surface.
 
 ## DAG
 
@@ -72,8 +64,9 @@ classifiers) instead of replacing the kernel.
 
 | ID | Work and acceptance | Requirements | Needs |
 | --- | --- | --- | --- |
-| `cc-kernel-audit` | **Delivered 2026-09-29: [kernel-replacement-audit.md](kernel-replacement-audit.md).** Step 1 of "Current direction". **Acceptance:** `kernel-replacement-audit.md` has one row per `sage-categories` milestone-A kernel node and per spec §3 row, each naming the owning `sage-categories` contract read, the Lean replacement with file/declaration/commit/consumer, or the gap with the missing capability stated. | all | none |
-| `cc-drift-triage` | **Next.** Step 2 of "Current direction". **Acceptance:** every commit since `a191b61` / `a8a87a6` classified core / probe finding (with its core node) / leaf drift in the audit document; the owner's decision on the drift recorded. | all | `cc-kernel-audit` |
+| `cc-kernel-audit` | **Delivered 2026-09-29: [kernel-replacement-audit.md](kernel-replacement-audit.md)** (input to `cc-design-assessment`: what `sage-categories` supplies that the system must also supply). **Acceptance:** `kernel-replacement-audit.md` has one row per `sage-categories` milestone-A kernel node and per spec §3 row, each naming the owning `sage-categories` contract read, the Lean replacement with file/declaration/commit/consumer, or the gap with the missing capability stated. | all | none |
+| `cc-design-assessment` | **Delivered 2026-09-29: [design-assessment.md](design-assessment.md).** Step 1 of "Current direction". **Acceptance:** `design-assessment.md` covers every CC-* requirement and the leaf contract with realized / realized wrongly / missing and locators. | all | `cc-kernel-audit` |
+| `cc-drift-triage` | **Recorded 2026-09-29 in the audit document; owner decision pending.** Step 2 of "Current direction". **Acceptance:** every commit since `a191b61` / `a8a87a6` classified core / probe finding (with its core node) / leaf drift in the audit document; the owner's decision on the drift recorded. | all | `cc-kernel-audit` |
 | `cc-p0-denotation-audit` | **Audit delivered 2026-09-28: [registry-denotation-audit.md](registry-denotation-audit.md). §4 records the owner's rulings (forms cocartesian over total modules; lattices as refinements of Bil; integrality/evenness as value containment; frames abandoned for resolutions). Closed 2026-09-28; its code consequences are `cc-fib` and `cc-resolutions`.** Audit every registry entry kind (`NamedCategoryEntry`, `CategoryFamilyEntry`, `ClassifierEntry`, `FunctorEntry`, `StructuralPortEntry`, `OpaqueCategoryEntry`) and every `CategoryExpr`/`FunctorExpr`/`NatTransExpr` constructor for its mathematical denotation. For `CategoryFamilyEntry`/`familyApp`: state the fibration (or pseudofunctor with variance) each registered family denotes, citing FOUNDATIONS §13.2 / §83–86 for modules and bimodules; list every family that cannot name one. **Acceptance:** a table in FOUNDATIONS (or a linked appendix) with one row per kind and per registered family, each with its denotation and source; no row reads "parameterized by". Findings that require code changes become children of `cc-fib`. | CC-TRUE, CC-FIB | none |
 | `cc-fib` | **Forms tower delivered 2026-09-28 in Lean: `Bil →p ∫Mod →q CommRing` with `p.IsCofibered` (FOUNDATIONS 31.2b/31.2c, [audit §6](registry-denotation-audit.md)); Module fibration registered 2026-09-28: `familyTotal`/`familyFibreInclusion`/`familyReindex`, `cat.modules_total`, `fun.modules.{fibre_inclusion,reindex,underlying}` with U on the total category; ℤ→ℤ/4 cardinality by `rfl`. Fibration rows 2026-09-28: `FibrationEntry` with checked `IsFibered`/`IsCofibered` evidence; `fib.modules`, `fib.modules_ext`, `fib.bilin_forms` registered. Fibre equivalences 2026-09-28: `Fiber p (R, W) ≌ BilinModuleCat R W` (`BilinFormsOverRings.fibreEquivalence`). Lattices as a refinement of `Bil` 2026-09-28: `clf.bilin_forms.lattice`, `cat.lattices_over_rings` (first registered refinement); `cat.integral_forms` = pullback of `Bil` along the regular section (`fun.modules_ext.regular_section`); `cat.integral_lattices` = its lattice refinement along the registered projection `fun.integral_forms.to_bil`. Lattice conditions as classifiers 2026-09-28 (lean-categories `e71c252`, `CasCatalogue/LatticeRefinements.lean`): `clf.bilin_forms.{finite,free,even,unimodular}` on `Bil`, uniform over rings and value modules (evenness `b(v, v) ∈ 2W`, unimodularity a bijective adjoint), and the refinements `cat.finite_projective_lattices_over_rings`, `cat.finite_free_lattices_over_rings` (of the former), `cat.unimodular_lattices_over_rings`, `cat.even_integral_lattices` (of integral lattices; at `W = R` evenness is `IsEven`, the `2R`-integrality of the diagonal form: `isEven_iff_exists_two_smul`, `isEven_iff_diagonal`), along registered projections to `Bil`. General `I`-integrality/`I`-modularity need an ideal of each object's own ring and are not uniform classifiers; they stay fibrewise (`IsIIntegral`, `IsIModular`). Open: retiring the discrete forms and lattice families — the notebook's Gram realizers (`rz.lattice.int_gram`, `rz.bilin_module.int_gram`) still denote into the family applications at `(ℤ, ℤ)`; retiring them needs fibres of refinements over `(R, W)` as registered expressions.** Represent varying categories as fibrations. Register \(p:\int_R R\text{-}\mathbf{Mod}\to\mathbf{Ring}\) as a cartesian fibration with Mathlib's `ModuleCat.restrictScalars` as reindexing (and the cocartesian structure from `extendScalars` where used, with variance stated at each use). Fibre inclusions \(\iota_R\) and reindexing \(\varphi^{*}\) become `FunctorExpr` values derived from the fibration entry. The underlying-set functor is registered once on the total category. **Acceptance:** the CC-FIB acceptance — fibre over \(R\) evaluates to `ModuleCat R`; restriction along \(\mathbb Z\to\mathbb Z/4\) resolves as reindexing; cardinality agrees across the two fibres because both factor through the one total-category \(U\). | CC-FIB, CC-TRUE | `cc-p0-denotation-audit` |
 | `cc-resolutions` | **2026-09-28: FOUNDATIONS Defs. 13.10–13.11 and Remark 13.12 state resolutions, truncations, presentations (2-truncated free resolutions), bases (length-zero free resolutions) and framings, with sources; §13.5–13.6 marked superseded. Code 2026-09-28 (lean-categories `a16a5d6`): `Modules.Framed` is now `Modules.TruncatedResolutions` — `FreeCover R I` (1-truncated free resolutions), `BasedModule R I` (length zero), `Coord R I`; the six families are registered as `cat.free_cover`, `cat.based_module`, `cat.coord` and their indexed variants; the formed, quadratic and lattice variants are the `Valued/Based` modules. Open: the owner's further framed-bundle conditions (stated as open in Remark 13.12).** State, with sources, the theory of resolutions that replaces frames: augmented resolutions, their truncations (a classical presentation is the 2-truncation), and the general framework (projective/free, simplicial, cofibrant, comonadic). Then framed bundles as bundles with resolutions satisfying the stated conditions. Retire FOUNDATIONS §13.5–13.6 and the six frame families. **Acceptance:** a FOUNDATIONS section with citations for each notion; no code until it exists. | CC-TRUE | `cc-p0-denotation-audit` |
