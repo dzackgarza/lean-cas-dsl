@@ -44,27 +44,21 @@ inductive SubsetHandle
 abbrev SubsetHandle.ambient : SubsetHandle → SetHandle
   | .whole X => X
 
-abbrev subsetRealizer : Realizer := ⟨SubsetHandle, fun a b => a.ambient.carrier → b.ambient.carrier⟩
+/-- Presented subsets, with the morphisms of `Subobjects(Sets)` between their denotations. -/
+abbrev SubsetHandles : Type :=
+  InducedCategory subobjectsSetsCategory.{0} fun a : SubsetHandle =>
+    wholeDeclaration.obj a.ambient.carrier
 
 /-- A whole subset denotes `𝟙 : X ↪ X`. -/
-noncomputable def subsetDenotation : Denotation subsetRealizer subobjectsSetsCategory.{0} where
-  obj a := match a with
-    | .whole X => wholeDeclaration.obj X.carrier
-  map {a b} f := match a, b, f with
-    | .whole _, .whole _, f => wholeDeclaration.map (TypeCat.ofHom f)
+def subsetDenotation : SubsetHandles ⥤ subobjectsSetsCategory.{0} := inducedFunctor _
 
 /-- `whole_subset` on presented sets. -/
-def wholeAction : RealizedAction wholeDeclaration.{0} setDenotation subsetDenotation where
-  action := { obj := .whole, map := fun f => f }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+def wholeAction : RealizedAction wholeDeclaration.{0} setDenotation subsetDenotation :=
+  RealizedAction.induced wholeDeclaration .whole fun _ => rfl
 
 /-- `domain` on presented subsets: a whole subset is its ambient set. -/
-def domainAction : RealizedAction domainDeclaration.{0} subsetDenotation setDenotation where
-  action := { obj := SubsetHandle.ambient, map := fun {a b} f => match a, b, f with
-    | .whole _, .whole _, f => f }
-  realizes :=
-    { obj := fun a => by cases a; rfl
-      map := fun {a b} f => by cases a; cases b; simp; rfl }
+def domainAction : RealizedAction domainDeclaration.{0} subsetDenotation setDenotation :=
+  RealizedAction.induced domainDeclaration SubsetHandle.ambient fun a => by cases a; rfl
 
 end Foundation.Subsets
 

@@ -19,8 +19,9 @@ public import Lean.Data.Json
 
 The one kernel module a backend leaf (`CasLeaves`) imports. Besides it, a leaf imports the
 registered semantics it realizes (`CasCatalogue.Semantics.*`: category, functor, classifier and
-operation identifiers and their Lean denotations). It exposes the types a leaf's contributions have (`Realizer`, `Denotation`,
-`RealizedAction`, `Decider`, `HandleIso`, implementations), JSON for codecs, and
-`register_leaf`. A leaf module importing any other kernel module is rejected when it registers
+operation identifiers and their Lean denotations). It exposes the types a leaf's contributions have: a realization is a
+category of handles with a denotation functor (Mathlib; `InducedCategory`, `Discrete`, `Core` are the
+usual handle categories), a `RealizedAction` is a handle functor with a `CatCommSq`, a `Decider`, an
+isomorphism of handles, implementations; JSON for codecs; and `register_leaf`. A leaf module importing any other kernel module is rejected when it registers
 (`addLeafRegistryEntryChecked`) and by the leaf-boundary acceptance probe.
 -/

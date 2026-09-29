@@ -49,20 +49,20 @@ def a3 : SubgroupHandle := (decode hostileA3).get (by decide)
 def s3sub : SubgroupHandle := (decode hostileS3).get (by decide)
 
 /- Generic subgroup operations, inherited through the domain functor. -/
-#guard method% cardinality (a3) in "cat.subobjects_groups" == CardinalHandle.finite 3
-#guard method% cardinality (s3sub) in "cat.subobjects_groups" == CardinalHandle.finite 6
+#guard method% cardinality (⟨a3⟩) in "cat.subobjects_groups" == ⟨CardinalHandle.finite 3⟩
+#guard method% cardinality (⟨s3sub⟩) in "cat.subobjects_groups" == ⟨CardinalHandle.finite 6⟩
 /- The backend's labels are ignored; the property is decided. -/
-#guard (ask% is_commutative (a3) in "cat.subobjects_groups").answer == some true
-#guard (ask% is_commutative (s3sub) in "cat.subobjects_groups").answer == some false
+#guard (ask% is_commutative (⟨a3⟩) in "cat.subobjects_groups").answer == some true
+#guard (ask% is_commutative (⟨s3sub⟩) in "cat.subobjects_groups").answer == some false
 /- The inclusion is the retained embedding: `A₃ = {1, r, r²}` inside `S₃`. -/
-#guard ((List.ofFn (method% inclusion (a3) in "cat.subobjects_groups").map).map (·.val)).mergeSort
-  == [0, 1, 2]
+#guard ((List.ofFn (method% inclusion (⟨a3⟩) in "cat.subobjects_groups").as.map).map
+  (·.val)).mergeSort == [0, 1, 2]
 
 /-- `H.inclusion` denotes the semantic inclusion of the subobject `H`. -/
-theorem inclusion_is_semantic (H : SubgroupHandle) :
-    arrowDenotation.obj (inclusionAction.obj H) =
-      inclusionDeclaration.obj (subgroupDenotation.obj H) :=
-  inclusionAction.obj_denote H
+noncomputable def inclusion_is_semantic (H : SubgroupHandle) :
+    arrowDenotation.obj (inclusionAction.obj ⟨H⟩) ≅
+      inclusionDeclaration.obj (subgroupDenotation.obj ⟨H⟩) :=
+  inclusionAction.objIso ⟨H⟩
 
 /-- The subobject a subgroup handle denotes, in Mathlib's `Subobject` lattice. -/
 noncomputable def asSubobject (H : SubgroupHandle) : Subobject (GrpCat.of H.target.Carrier) :=

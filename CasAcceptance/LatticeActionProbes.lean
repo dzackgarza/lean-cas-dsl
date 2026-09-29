@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasLeaves.Lattices.Valued.Actions
+public import CasCatalogue.ResolveSyntax
 public meta import CasLeaves.Lattices.Valued.Actions
+public meta import CasCatalogue.ResolveSyntax
 
 @[expose] public section
 
@@ -35,16 +37,17 @@ def latticeToSetsExpr :
       (.comp Modules.ModulesFibreInclusionExpr Modules.ModulesUnderlyingExpr))
 
 /-- The composite action: ordinary composition of the four registered actions. -/
-def latticeToSets := formForgetAction.comp (forgetAction.comp
+noncomputable def latticeToSets := formForgetAction.comp (forgetAction.comp
   (fibreInclusionAction.comp underlyingAction))
 
-/-- Its denotation is the composite functor applied to the lattice (CC-ACTION, spec §8). -/
-theorem latticeToSets_denote (L : LatticeGramHandle) :
-    setDenotation.obj (latticeToSets.obj L) =
+/-- Its denotation is the composite functor applied to the lattice, through the pasted square
+(CC-ACTION, spec §8). -/
+noncomputable def latticeToSets_denote (L : LatticeGramHandle) :
+    setDenotation.obj (latticeToSets.obj L) ≅
       (modulesUnderlyingDeclaration.{0, 0}.obj
         ((modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ)).obj
           ((forget ℤ ℤ).obj ((isLattice ℤ ℤ).ι.obj (latticeGramDenotation.obj L))))) :=
-  latticeToSets.obj_denote L
+  latticeToSets.objIso L
 
 /-- The `A₂` root lattice. -/
 def a2 : LatticeGramHandle := ⟨⟨2, !![2, -1; -1, 2]⟩, by decide⟩
@@ -63,22 +66,26 @@ def e8 : LatticeGramHandle :=
 /-- The isometry of `A₂` exchanging the two simple roots. -/
 def a2Swap : GramIsometry a2.form a2.form := ⟨!![0, 1; 1, 0], by decide⟩
 
-#guard latticeToSets.obj a2 == .intPow 2
-#guard latticeToSets.obj e8 == .intPow 8
-#guard latticeToSets.obj a2 ==
-  underlyingAction.obj (fibreInclusionAction.obj (forgetAction.obj (formForgetAction.obj a2)))
-#guard latticeToSets.obj e8 ==
-  underlyingAction.obj (fibreInclusionAction.obj (forgetAction.obj (formForgetAction.obj e8)))
+/-- The same isometry, as a morphism handle of lattices. -/
+noncomputable def a2SwapHom : @Quiver.Hom LatticeGramHandles _ a2 a2 :=
+  InducedCategory.homMk (ObjectProperty.homMk (gramDenotation.map a2Swap.toHom))
+
+#guard (exec% (latticeToSets.obj a2) : SetHandle) == .intPow 2
+#guard (exec% (latticeToSets.obj e8) : SetHandle) == .intPow 8
+#guard (exec% (latticeToSets.obj a2) : SetHandle) ==
+  exec% (underlyingAction.obj (fibreInclusionAction.obj (forgetAction.obj (formForgetAction.obj a2))))
+#guard (exec% (latticeToSets.obj e8) : SetHandle) ==
+  exec% (underlyingAction.obj (fibreInclusionAction.obj (forgetAction.obj (formForgetAction.obj e8))))
 
 /- The composite morphism action computes: the swap acts on `ℤ²` by exchanging coordinates, and
 agrees with applying the four morphism actions in turn. -/
-#guard List.ofFn (n := 2) (latticeToSets.map (a := a2) (b := a2) a2Swap ![3, 5]) == [5, 3]
-#guard List.ofFn (n := 2) (latticeToSets.map (a := a2) (b := a2) a2Swap ![3, 5]) ==
-  List.ofFn (n := 2) (underlyingAction.map (fibreInclusionAction.map (forgetAction.map
-    (formForgetAction.map (a := a2) (b := a2) a2Swap))) ![3, 5])
+#guard List.ofFn (n := 2) ((exec% (latticeToSets.map a2SwapHom)).hom ![3, 5]) == [5, 3]
+#guard List.ofFn (n := 2) ((exec% (latticeToSets.map a2SwapHom)).hom ![3, 5]) ==
+  List.ofFn (n := 2) ((exec% (underlyingAction.map (fibreInclusionAction.map (forgetAction.map
+    (formForgetAction.map a2SwapHom))))).hom ![3, 5])
 
 /-- A registered functor that is not the one the action realizes. -/
-def wrongFunctorAction := fibreInclusionAction
+noncomputable def wrongFunctorAction := fibreInclusionAction
 
 open Lean Meta Elab Command in
 run_cmd

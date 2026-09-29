@@ -38,67 +38,65 @@ namespace CasCatalogue.Modules.Finite
 
 /-! ### Cyclic `ℤ`-modules -/
 
-/-- Cyclic `ℤ`-modules: `n` denotes `ℤ/n`, a morphism handle is a `ℤ`-linear map. -/
-abbrev cyclicRealizer : Realizer := ⟨ℕ, fun m n => ZMod m →ₗ[ℤ] ZMod n⟩
+/-- Cyclic `ℤ`-modules: `n` denotes `ℤ/n`; morphisms are the `ℤ`-linear maps (`InducedCategory`). -/
+abbrev CyclicModules : Type :=
+  InducedCategory (ModuleCat.{0} (RingCat.of ℤ)) fun n : ℕ => ModuleCat.of (RingCat.of ℤ) (ZMod n)
 
 /-- The denotation in `Mod_ℤ`. -/
 noncomputable def cyclicDenotation :
-    Denotation cyclicRealizer (Modules.Mathlib.ModulesOf.{0, 0} (RingCat.of ℤ)) where
-  obj n := ModuleCat.of ℤ (ZMod n)
-  map f := ModuleCat.ofHom f
+    CyclicModules ⥤ Modules.Mathlib.ModulesOf.{0, 0} (RingCat.of ℤ) :=
+  inducedFunctor _
 
 /-- The denotation in the `ℤ`-fibre of the total module category. -/
-noncomputable def totalCyclicDenotation :
-    Denotation cyclicRealizer modulesTotalCategory.{0, 0} where
-  obj n := (⟨RingCat.of ℤ, ModuleCat.of ℤ (ZMod n)⟩ : ModulesOverRings.{0, 0})
-  map f := (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ)).map (ModuleCat.ofHom f)
+noncomputable def totalCyclicDenotation : CyclicModules ⥤ modulesTotalCategory.{0, 0} :=
+  cyclicDenotation ⋙ modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ)
 
 /-- The fibre inclusion `ι_ℤ` on cyclic-module handles. -/
-def cyclicFibreInclusionAction :
+noncomputable def cyclicFibreInclusionAction :
     RealizedAction (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ))
-      cyclicDenotation totalCyclicDenotation where
-  action := { obj := fun n => n, map := fun f => f }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+      cyclicDenotation totalCyclicDenotation :=
+  RealizedAction.ofEq (𝟭 _) (Functor.id_comp _)
 
 /-- The underlying set of `ℤ/n`, presented as `ZMod n`. -/
-def cyclicUnderlyingAction : RealizedAction modulesUnderlyingDeclaration.{0, 0}
-    totalCyclicDenotation setDenotation where
-  action := { obj := fun n => .zmod n, map := fun f x => f x }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+noncomputable def cyclicUnderlyingAction : RealizedAction modulesUnderlyingDeclaration.{0, 0}
+    totalCyclicDenotation setDenotation :=
+  (RealizedAction.induced
+    (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ) ⋙ modulesUnderlyingDeclaration)
+    (fun n => SetHandle.zmod n) fun _ => rfl).pull
 
 /-! ### Free modules over `ℤ/n` -/
 
-/-- Free `ℤ/n`-modules of finite rank: `k` denotes `(ℤ/n)ᵏ`, an `m × k` matrix a linear map
-`(ℤ/n)ᵏ → (ℤ/n)ᵐ`. -/
-abbrev freeRealizer (n : ℕ) : Realizer := ⟨ℕ, fun k m => Matrix (Fin m) (Fin k) (ZMod n)⟩
+/-- Free `ℤ/n`-modules of finite rank: `k` denotes `(ℤ/n)ᵏ`; morphisms are the linear maps. -/
+abbrev FreeModules (n : ℕ) : Type :=
+  InducedCategory (ModuleCat.{0} (RingCat.of (ZMod n))) fun k : ℕ =>
+    ModuleCat.of (RingCat.of (ZMod n)) (Fin k → ZMod n)
+
+/-- The morphism handle of an `m × k` matrix over `ℤ/n`: `x ↦ A x`. -/
+def matrixHom {n k m : ℕ} (A : Matrix (Fin m) (Fin k) (ZMod n)) :
+    @Quiver.Hom (FreeModules n) _ k m :=
+  InducedCategory.homMk (ModuleCat.ofHom (Matrix.mulVecLin A))
 
 /-- The denotation in the fibre `Mod_{ℤ/n}`. -/
 noncomputable def freeDenotation (n : ℕ) :
-    Denotation (freeRealizer n) (Modules.Mathlib.ModulesOf.{0, 0} (RingCat.of (ZMod n))) where
-  obj k := ModuleCat.of (ZMod n) (Fin k → ZMod n)
-  map A := ModuleCat.ofHom (Matrix.mulVecLin A)
+    FreeModules n ⥤ Modules.Mathlib.ModulesOf.{0, 0} (RingCat.of (ZMod n)) :=
+  inducedFunctor _
 
 /-- The denotation in the `ℤ/n`-fibre of the total module category. -/
-noncomputable def totalFreeDenotation (n : ℕ) :
-    Denotation (freeRealizer n) modulesTotalCategory.{0, 0} where
-  obj k := (⟨RingCat.of (ZMod n), ModuleCat.of (ZMod n) (Fin k → ZMod n)⟩ :
-    ModulesOverRings.{0, 0})
-  map A := (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of (ZMod n))).map
-    (ModuleCat.ofHom (Matrix.mulVecLin A))
+noncomputable def totalFreeDenotation (n : ℕ) : FreeModules n ⥤ modulesTotalCategory.{0, 0} :=
+  freeDenotation n ⋙ modulesFibreInclusionDeclaration.{0, 0} (RingCat.of (ZMod n))
 
 /-- The fibre inclusion `ι_{ℤ/n}` on free-module handles. -/
-def freeFibreInclusionAction (n : ℕ) :
+noncomputable def freeFibreInclusionAction (n : ℕ) :
     RealizedAction (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of (ZMod n)))
-      (freeDenotation n) (totalFreeDenotation n) where
-  action := { obj := fun k => k, map := fun A => A }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+      (freeDenotation n) (totalFreeDenotation n) :=
+  RealizedAction.ofEq (𝟭 _) (Functor.id_comp _)
 
-/-- The underlying set of `(ℤ/n)ᵏ`, presented as `Fin k → ZMod n`; a matrix acts by
-matrix-vector multiplication. -/
-def freeUnderlyingAction (n : ℕ) : RealizedAction modulesUnderlyingDeclaration.{0, 0}
-    (totalFreeDenotation n) setDenotation where
-  action := { obj := fun k => .zmodPow n k, map := fun A x => A.mulVec x }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+/-- The underlying set of `(ℤ/n)ᵏ`, presented as `Fin k → ZMod n`. -/
+noncomputable def freeUnderlyingAction (n : ℕ) : RealizedAction modulesUnderlyingDeclaration.{0, 0}
+    (totalFreeDenotation n) setDenotation :=
+  (RealizedAction.induced
+    (modulesFibreInclusionDeclaration.{0, 0} (RingCat.of (ZMod n)) ⋙ modulesUnderlyingDeclaration)
+    (fun k => SetHandle.zmodPow n k) fun _ => rfl).pull
 
 end CasCatalogue.Modules.Finite
 

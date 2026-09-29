@@ -51,46 +51,27 @@ def HomHandle.hom (h : HomHandle) : h.source.Carrier →* h.target.Carrier :=
 structure SubgroupHandle extends HomHandle where
   injective : ∀ a b, map a = map b → a = b
 
-abbrev arrowRealizer : Realizer := ⟨HomHandle, fun a b => PLift (a = b)⟩
-abbrev subgroupRealizer : Realizer := ⟨SubgroupHandle, fun a b => PLift (a = b)⟩
-
-noncomputable def arrowDenotation : Denotation arrowRealizer arrowsGroupsCategory.{0} where
-  obj h := Arrow.mk (GrpCat.ofHom h.hom)
-  map h := eqToHom (by cases h.down; rfl)
+/-- Homomorphisms of group tables, with identities only (`Discrete`), denoting arrows of groups. -/
+noncomputable def arrowDenotation : Discrete HomHandle ⥤ arrowsGroupsCategory.{0} :=
+  Discrete.functor fun h => Arrow.mk (GrpCat.ofHom h.hom)
 
 theorem SubgroupHandle.mono (h : SubgroupHandle) :
     Mono (GrpCat.ofHom h.toHomHandle.hom) :=
   (GrpCat.mono_iff_injective _).mpr fun a b e => h.injective a b e
 
 /-- A subgroup handle denotes the subobject `H ↪ G`: the monomorphism, not just `H`. -/
-noncomputable def subgroupDenotation :
-    Denotation subgroupRealizer subobjectsGroupsCategory.{0} where
-  obj h := ⟨Arrow.mk (GrpCat.ofHom h.toHomHandle.hom), h.mono⟩
-  map h := eqToHom (by cases h.down; rfl)
+noncomputable def subgroupDenotation : Discrete SubgroupHandle ⥤ subobjectsGroupsCategory.{0} :=
+  Discrete.functor fun h => ⟨Arrow.mk (GrpCat.ofHom h.toHomHandle.hom), h.mono⟩
 
 /-- The domain action: a subgroup is its own group table. -/
-def domainAction : RealizedAction domainDeclaration.{0} subgroupDenotation groupDenotation where
-  action :=
-    { obj := fun h => h.source
-      map := fun h => by cases h.down; exact MonoidTableHom.id _ }
-  realizes :=
-    { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [subgroupDenotation, eqToHom_refl, Functor.map_id, Category.id_comp]
-        rfl }
+noncomputable def domainAction :
+    RealizedAction domainDeclaration.{0} subgroupDenotation groupDenotation :=
+  RealizedAction.discrete _ (fun h => h.source) fun _ => rfl
 
 /-- The inclusion action: the retained embedding, as an arrow. -/
-def inclusionAction :
-    RealizedAction inclusionDeclaration.{0} subgroupDenotation arrowDenotation where
-  action := { obj := fun h => h.toHomHandle, map := fun h => ⟨by cases h.down; rfl⟩ }
-  realizes :=
-    { obj := fun _ => rfl
-      map := fun h => by
-        rcases h with ⟨rfl⟩
-        simp only [subgroupDenotation, arrowDenotation, eqToHom_refl, Functor.map_id,
-          Category.id_comp]
-        rfl }
+noncomputable def inclusionAction :
+    RealizedAction inclusionDeclaration.{0} subgroupDenotation arrowDenotation :=
+  RealizedAction.discrete _ (fun h => ⟨h.toHomHandle⟩) fun _ => rfl
 
 /-! ### Decoding a hostile backend subgroup -/
 

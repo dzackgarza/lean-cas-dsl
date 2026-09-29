@@ -36,13 +36,9 @@ universe u
 
 /-! ### Lean-native realization -/
 
-/-- Presented sets with their identity isomorphisms: a realizer of `Core(Sets)`. -/
-abbrev coreSetRealizer : Realizer := ⟨SetHandle, fun a b => PLift (a = b)⟩
-
-/-- A presented set, as an object of `Core(Sets)`. -/
-noncomputable def coreSetDenotation : Denotation coreSetRealizer coreSetsCategory.{0} where
-  obj a := ⟨setDenotation.obj a⟩
-  map h := eqToHom (by cases h.down; rfl)
+/-- The core of the realization of sets, `Core(SetHandles) ⥤ Core(Sets)` (`Functor.core`): a
+realization of `Core(Sets)`, whose morphism handles are bijections of presented sets. -/
+def coreSetDenotation : Core SetHandles ⥤ coreSetsCategory.{0} := setDenotation.core
 
 /-- Executable cardinals: finite ones and `ℵ₀`. -/
 inductive CardinalHandle
@@ -50,17 +46,14 @@ inductive CardinalHandle
   | aleph0
   deriving DecidableEq, Repr
 
-/-- Cardinal handles, with equalities as morphisms: a realizer of `Disc(Card)`. -/
-abbrev cardinalRealizer : Realizer := ⟨CardinalHandle, fun a b => PLift (a = b)⟩
-
 /-- The cardinal a handle denotes. -/
 def CardinalHandle.denote : CardinalHandle → Cardinal.{0}
   | .finite n => n
   | .aleph0 => Cardinal.aleph0
 
-noncomputable def cardinalDenotation : Denotation cardinalRealizer cardinalsCategory.{0} where
-  obj a := Discrete.mk a.denote
-  map h := eqToHom (by cases h.down; rfl)
+/-- Cardinal handles, `Discrete CardinalHandle`, denote cardinals in `Disc(Card)`. -/
+noncomputable def cardinalDenotation : Discrete CardinalHandle ⥤ cardinalsCategory.{0} :=
+  Discrete.functor fun a => Discrete.mk a.denote
 
 /-- The cardinality of a presented set. -/
 def cardinalityOf : SetHandle → CardinalHandle
@@ -72,6 +65,13 @@ def cardinalityOf : SetHandle → CardinalHandle
   | .zmodPow _ 0 => .finite 1
   | .zmodPow 0 (_ + 1) => .aleph0
   | .zmodPow (n + 1) k => .finite ((n + 1) ^ k)
+
+theorem CardinalHandle.denote_injective : Function.Injective CardinalHandle.denote := by
+  rintro (m | _) (n | _) h <;> simp only [CardinalHandle.denote] at h
+  · exact congrArg _ (Nat.cast_injective h)
+  · exact absurd h (Cardinal.nat_lt_aleph0 m).ne
+  · exact absurd h.symm (Cardinal.nat_lt_aleph0 n).ne
+  · rfl
 
 theorem cardinalityOf_denote (a : SetHandle) :
     (cardinalityOf a).denote = Cardinal.mk a.carrier := by
@@ -87,12 +87,22 @@ theorem cardinalityOf_denote (a : SetHandle) :
     · simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
 
 /-- The cardinality action on presented sets. -/
-def cardinalityAction :
+theorem cardinalityOf_iso {a b : SetHandles} (e : a ≅ b) : cardinalityOf a = cardinalityOf b :=
+  CardinalHandle.denote_injective <| by
+    rw [cardinalityOf_denote, cardinalityOf_denote]
+    exact Cardinal.mk_congr ((setDenotation.mapIso e).toEquiv)
+
+/-- The cardinality of a presented set, on the core: isomorphic sets have one cardinality. -/
+def cardinalityHandles : Core SetHandles ⥤ Discrete CardinalHandle where
+  obj a := ⟨cardinalityOf a.of⟩
+  map f := eqToHom (congrArg Discrete.mk (cardinalityOf_iso f.iso))
+
+noncomputable def cardinalityAction :
     RealizedAction setsCardinality.{0} coreSetDenotation cardinalDenotation where
-  action := { obj := cardinalityOf, map := fun h => ⟨by cases h.down; rfl⟩ }
-  realizes :=
-    { obj := fun a => congrArg Discrete.mk (cardinalityOf_denote a)
-      map := fun _ => ULift.ext _ _ (Subsingleton.elim _ _) }
+  action := cardinalityHandles
+  square := ⟨NatIso.ofComponents
+    (fun a => eqToIso (congrArg Discrete.mk (cardinalityOf_denote a.of)))
+    (fun _ => (Discrete.instSubsingletonDiscreteHom _ _).elim _ _)⟩
 
 end Foundation.Cardinality
 

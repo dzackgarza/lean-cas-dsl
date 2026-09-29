@@ -638,12 +638,15 @@ objects carry meaning but no computation; `lean-cas-dsl`'s `Obj` values compute 
 type. The resolution adopted here:
 
 - the semantic layer is `CategoryExpr`/`FunctorExpr` with Mathlib denotations (existing);
-- each registered functor carries an executable action **on realizations** and a
-  statement that the action commutes with denotation (CC-ACTION); for trusted backends the
-  statement may be a trusted assertion recorded under CC-TRUST;
+- a realization of a category `C` is a category of handles `R` with a denotation functor
+  `d : R ⥤ C`; each registered functor `F` carries a functor on handles `a_F` and a
+  2-commutative square `a_F ⋙ d_D ≅ d_C ⋙ F` (Mathlib `CatCommSq`), and composites are pasted
+  squares (CC-ACTION); for trusted backends the square may be a trusted assertion recorded under
+  CC-TRUST;
 - a semantic point is a pair (category expression, realization) whose realization's
-  denotation lies in that category; evaluation of a composite applies the actions in turn
-  and the result's denotation is the composite functor applied to the original's.
+  denotation lies in that category; evaluation of a composite applies the handle functors in
+  turn, and the result's denotation is isomorphic, through the pasted square, to the composite
+  functor applied to the original's.
 
 This keeps #53 §6.1's goal — elaboration emits an ordinary Lean term — while letting
 execution run on realizations. When a Lean-native realization exists the two coincide.

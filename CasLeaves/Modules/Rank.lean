@@ -36,22 +36,29 @@ namespace Modules.Rank
 
 universe u
 
-/-- Free `ℤ`-modules of finite rank, with their identity isomorphisms. -/
-abbrev coreFreeModuleRealizer : Realizer := ⟨ℕ, fun a b => PLift (a = b)⟩
+/-- The core of the free-module realization, `Core(FreeModules) ⥤ Core(Mod_ℤ)` (`Functor.core`):
+morphism handles are linear isomorphisms. -/
+noncomputable def coreFreeModuleDenotation : Core Modules.Actions.FreeModules ⥤ coreModulesCategory (RingCat.of ℤ) :=
+  freeModuleDenotation.core
 
-noncomputable def coreFreeModuleDenotation :
-    Denotation coreFreeModuleRealizer (coreModulesCategory (RingCat.of ℤ)) where
-  obj n := ⟨freeModuleDenotation.obj n⟩
-  map h := eqToHom (by cases h.down; rfl)
+/-- Isomorphic free `ℤ`-modules of finite rank have the same rank. -/
+theorem rank_eq_of_iso {m n : Modules.Actions.FreeModules} (e : m ≅ n) : (m : ℕ) = n := by
+  let e' : (Fin m → ℤ) ≃ₗ[ℤ] (Fin n → ℤ) := (freeModuleDenotation.mapIso e).toLinearEquiv
+  simpa using e'.finrank_eq
+
+/-- The rank of `ℤⁿ` is `n`, on the core. -/
+def rankHandles : Core Modules.Actions.FreeModules ⥤ Discrete CardinalHandle where
+  obj n := ⟨.finite n.of⟩
+  map f := eqToHom (by rw [rank_eq_of_iso f.iso])
 
 /-- The rank of `ℤⁿ` is `n`. -/
-def rankAction :
+noncomputable def rankAction :
     RealizedAction (rankDeclaration (RingCat.of ℤ)) coreFreeModuleDenotation
       cardinalDenotation where
-  action := { obj := fun n => .finite n, map := fun h => ⟨by cases h.down; rfl⟩ }
-  realizes :=
-    { obj := fun n => congrArg Discrete.mk (rank_fin_fun (R := ℤ) n).symm
-      map := fun _ => ULift.ext _ _ (Subsingleton.elim _ _) }
+  action := rankHandles
+  square := ⟨NatIso.ofComponents
+    (fun n => eqToIso (congrArg Discrete.mk (rank_fin_fun (R := ℤ) n.of).symm))
+    (fun _ => (Discrete.instSubsingletonDiscreteHom _ _).elim _ _)⟩
 
 end Modules.Rank
 

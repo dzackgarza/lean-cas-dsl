@@ -90,7 +90,7 @@ structure LiftEntry where
   evidence : Lean.Name
   deriving Repr
 
-/-- A realizer row (CC-SEP): `denotation` names a `Denotation R C` whose category `C` is the
+/-- A realizer row (CC-SEP): `denotation` names a denotation functor `R ⥤ C` whose category `C` is the
 registered category `category`. A handle's category is the category of the realizer it is used
 with; nothing inspects the handle to find one. `backend` names the engine that produces handles. -/
 structure RealizerEntry where
@@ -113,7 +113,7 @@ structure ImplementationEntry where
   deriving Repr
 
 /-- A registered isomorphism between two realized objects (CC-CARRIER): `evidence` names a
-`HandleIso d source target` for the denotation of the registered realizer `realizer`. -/
+an isomorphism `source ≅ target` in the handle category of the registered realizer `realizer`. -/
 structure HandleIsoEntry where
   id : HandleIsoId
   realizer : RealizerId

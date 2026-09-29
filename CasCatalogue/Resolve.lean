@@ -321,6 +321,68 @@ def composeAction (state : RegistryState) (acc : Option Expr) (edge : EdgeRef) :
   | _ => throwError "several registered actions on {edge.label} compose; choosing one is a \
       realization choice (CC-ROUTE), not made here"
 
+/-- Whether `e` mentions a noncomputable constant. -/
+def mentionsNoncomputable (env : Environment) (e : Expr) : Bool :=
+  (e.find? fun sub => sub.isConst && Lean.isNoncomputable env sub.constName!).isSome
+
+/-- The executable form of a term built from realized actions. A realized action bundles its
+handle functor with a square between noncomputable denotations (meaning, CC-SEP). Every subterm
+that mentions a noncomputable constant is put in weak head normal form (unfolding definitions),
+and its arguments and bodies are treated the same way; types, proofs and subterms that mention no
+noncomputable constant are left as they are. What remains is handle-level computation, so compiled
+code never receives a denotation. -/
+partial def executable (e : Expr) : MetaM Expr := do
+  unless mentionsNoncomputable (← getEnv) e do return e
+  if (← isProof e) || (← isType e) then return e
+  let e ← withTransparency .all <| whnf e
+  match e with
+  | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← executable body)
+  | _ => return mkAppN e.getAppFn (← e.getAppArgs.mapM executable)
+
+/-- The handle type of the source realization of a realized action. -/
+def sourceHandles (action : Expr) : MetaM Expr := do
+  return (← whnfR (← inferType action)).getAppArgs[4]!
+
+/-- Elaborate a receiver as an object handle of `handles`, when it is known. -/
+def elabReceiver (receiver : Term) (handles : Option Expr) : TermElabM Expr := do
+  match handles with
+  | some handles =>
+      let x ← elabTermEnsuringType receiver handles
+      synthesizeSyntheticMVarsNoPostponing
+      instantiateMVars x
+  | none => elabTerm receiver none
+
+/-- The handle type of the receiver: the source of the route's action, or, with no route, of the
+method's action (for an iso-invariant method, the realization whose core that source is). -/
+def receiverHandles (method : MethodEntry) (route methodAction : Option Expr) :
+    MetaM (Option Expr) := do
+  if let some route := route then return some (← sourceHandles route)
+  let some methodAction := methodAction | return none
+  let handles ← sourceHandles methodAction
+  match method.shape with
+  | .isoInvariant => return if handles.isApp then some handles.appArg! else none
+  | _ => return some handles
+
+/-- The handle a method's functor receives: the image itself, or, for an iso-invariant method (a
+functor on the core), the same object as an object of the core of its realization. -/
+def methodInput (method : MethodEntry) (image : Expr) : MetaM Expr :=
+  match method.shape with
+  | .isoInvariant => mkAppM ``CategoryTheory.Core.mk #[image]
+  | _ => pure image
+
+/-- The executable form of `e`, carrying the kernel-checked equation `executable e = e`: the
+value computed is, by definition, the value of the composed realized actions. The equation is a
+proof, erased from compiled code. -/
+def certifiedExecutable (e : Expr) : MetaM Expr := do
+  let value ← executable e
+  let equation ← mkEq value e
+  let proof ← mkExpectedTypeHint (← mkEqRefl value) equation
+  return .letE `realizes equation proof value (nondep := true)
+
+/-- `α.obj x` for a realized action `α`, in executable form. -/
+def realizedObj (action handle : Expr) : MetaM Expr := do
+  executable (← mkAppM ``RealizedAction.obj #[action, handle])
+
 /-- The route's registered actions composed after the identity action on `denotation`, the
 receiver's realizer (CC-SEP): the realizer, not the uniqueness of an action, selects each step's
 action. -/
@@ -337,10 +399,11 @@ method is realized only by a backend). Both are closed terms, ready for evaluati
 def realizedCall (state : RegistryState) (resolution : Resolution) (denotation handle : Expr) :
     MetaM (Expr × Option Expr) := do
   let routeAction ← composeRouteFrom state denotation resolution.route
-  let image ← mkAppM ``RealizedAction.obj #[routeAction, handle]
+  let image ← realizedObj routeAction handle
   let methodAction? ← try some <$> composeAction state none (.functor resolution.method.functor)
     catch _ => pure none
-  let value? ← methodAction?.mapM fun action => mkAppM ``RealizedAction.obj #[action, image]
+  let value? ← methodAction?.mapM fun action => do
+    realizedObj action (← methodInput resolution.method image)
   return (image, value?)
 
 /-- Elaborate `method% name (receiver) in "cat.id" via "fun.id" …` (syntax in
@@ -363,11 +426,12 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   for edge in resolution.route.steps do
     acc ← some <$> composeAction state acc edge.ref
   let methodAction ← composeAction state none (.functor resolution.method.functor)
-  let x ← elabTerm receiver none
+  let x ← elabReceiver receiver (← receiverHandles resolution.method acc (some methodAction))
   let image ← match acc with
     | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
     | none => pure x
-  let value ← mkAppM ``RealizedAction.obj #[methodAction, image]
+  let value ← certifiedExecutable
+    (← mkAppM ``RealizedAction.obj #[methodAction, ← methodInput resolution.method image])
   return .letE `route (← inferType composite) composite value (nondep := true)
 
 /-- CC-SEP: the receiver's handle must be realized by a registered realizer of the named category;
@@ -375,8 +439,8 @@ its category is never read off the handle. Checked on the first action's source 
 def checkRealizer (state : RegistryState) (category : CategoryId) (action : Expr) :
     TermElabM Unit := do
   let type ← whnfR (← inferType action)
-  unless type.isAppOfArity ``RealizedAction 9 do return
-  let sourceDenotation := type.getAppArgs[7]!
+  unless type.isAppOfArity ``RealizedAction 11 do return
+  let sourceDenotation := type.getAppArgs[9]!
   for realizer in state.realizers.filter (·.category == category) do
     let registered ← mkConstWithFreshMVarLevels realizer.denotation
     if ← withoutModifyingState (isDefEq sourceDenotation registered) then return
@@ -394,7 +458,6 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
   let resolution ← match state.resolveMethod categoryEntry.expression name with
     | .ok resolution => pure resolution
     | .error error => throwError error.render state
-  let x ← elabTerm receiver none
   let rendered := state.renderResolution resolution
   match implementation with
   | none =>
@@ -403,10 +466,12 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
         acc ← some <$> composeAction state acc edge.ref
       if let some routeAction := acc then checkRealizer state categoryEntry.id routeAction
       let methodAction ← composeAction state none (.functor resolution.method.functor)
+      let x ← elabReceiver receiver
+        (← receiverHandles resolution.method acc (some methodAction))
       let image ← match acc with
-        | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
+        | some routeAction => realizedObj routeAction x
         | none => pure x
-      let value ← mkAppM ``RealizedAction.obj #[methodAction, image]
+      let value ← realizedObj methodAction (← methodInput resolution.method image)
       if proved then
         -- Kernel reduction, not compiled evaluation: the normal form, with `rfl` for the kernel.
         let normal ← withTransparency .all <| Meta.reduce value (skipTypes := true)
@@ -421,6 +486,7 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
         | throwError "no registered implementation {implementationId}"
       unless entry.method == resolution.method.id && entry.route == resolution.route.refs do
         throwError "implementation {implementationId} realizes a different composite"
+      let x ← elabTerm receiver none
       let fused ← mkConstWithFreshMVarLevels entry.realization
       let provenance := toExpr s!"{rendered} ; fused by {entry.backend} ({implementationId})"
       match entry.trust with
@@ -459,7 +525,7 @@ def elabTransport (element source target : Term) : TermElabM Expr := do
     | throwError "no registered isomorphism from {sourceName} to {targetName}: the two \
         presentations are distinct objects, and no comparison relates them (CC-CARRIER)"
   let evidence ← mkConstWithFreshMVarLevels entry.evidence
-  let hom ← mkAppM ``HandleIso.hom #[evidence]
+  let hom ← mkAppM ``CategoryTheory.Iso.hom #[evidence]
   let act ← mkAppM ``ElementAction.act #[hom]
   let .forallE _ domain codomain _ ← whnf (← inferType act)
     | throwError "the realizer's element action is not a function"
@@ -485,15 +551,15 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
   let mut acc : Option Expr := none
   for edge in resolution.route.steps do
     acc ← some <$> composeAction state acc edge.ref
-  let x ← elabTerm receiver none
+  let x ← elabReceiver receiver (← acc.mapM fun a => (sourceHandles a : MetaM Expr))
   let image ← match acc with
-    | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
+    | some routeAction => realizedObj routeAction x
     | none => pure x
   let deciders := state.deciders.filter (·.classifier == resolution.classifier.id)
   let mut decisions : Array Expr := #[]
   for decider in deciders do
     let procedure ← mkConstWithFreshMVarLevels decider.realization
-    try decisions := decisions.push (← mkAppM ``Decider.decide #[procedure, image])
+    try decisions := decisions.push (← executable (← mkAppM ``Decider.decide #[procedure, image]))
     catch _ => pure ()
   match decisions.toList with
   | [decision] => return .letE `route (← inferType composite) composite decision (nondep := true)

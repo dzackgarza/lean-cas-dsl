@@ -71,8 +71,8 @@ normalized_registry .category
 #methods "cat.lattice"
 
 /- Lattices inherit `rank`, computed through the composed actions: `rank A₂ = 2`, `rank E₈ = 8`. -/
-#guard method% rank (a2) in "cat.lattice" == CardinalHandle.finite 2
-#guard method% rank (e8) in "cat.lattice" == CardinalHandle.finite 8
+#guard method% rank (a2) in "cat.lattice" == ⟨CardinalHandle.finite 2⟩
+#guard method% rank (e8) in "cat.lattice" == ⟨CardinalHandle.finite 8⟩
 
 run_cmd liftTermElabM do
   let state ← registryState

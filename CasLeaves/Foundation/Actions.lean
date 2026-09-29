@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Leaf
 public import LeanCategories.Foundation.Mathlib
+public import Mathlib.CategoryTheory.InducedCategory
 public import Mathlib.Data.Int.Basic
 public import Mathlib.Data.ZMod.Defs
 public meta import CasCatalogue.Leaf
@@ -43,12 +44,19 @@ abbrev SetHandle.carrier : SetHandle → Type
   | .zmod n => ZMod n
   | .zmodPow n k => Fin k → ZMod n
 
-/-- Sets by presentation; a morphism is a Lean function between the presented sets. -/
-abbrev setRealizer : Realizer := ⟨SetHandle, fun a b => a.carrier → b.carrier⟩
+/-- Presented sets: the full subcategory of `Sets` on the presented carriers
+(`InducedCategory`), so a morphism handle is a function between the presented sets. -/
+abbrev SetHandles : Type := InducedCategory (Type) SetHandle.carrier
+
+/-- Handles are compared as presentations (not as sets: that is a decision about denotations). -/
+instance : DecidableEq SetHandles := inferInstanceAs (DecidableEq SetHandle)
+instance : Repr SetHandles := inferInstanceAs (Repr SetHandle)
 
 /-- A set handle denotes the set it presents, a function the function. -/
-noncomputable def setDenotation : Denotation setRealizer LeanCategories.Foundation.Mathlib.Sets.{0} where
-  obj a := a.carrier
-  map f := TypeCat.ofHom f
+def setDenotation : SetHandles ⥤ LeanCategories.Foundation.Mathlib.Sets.{0} :=
+  inducedFunctor SetHandle.carrier
+
+/-- The elements of a presented set. -/
+instance : ElementAction SetHandles := ⟨setDenotation⟩
 
 end CasCatalogue.Foundation.Actions

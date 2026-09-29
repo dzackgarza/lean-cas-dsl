@@ -43,9 +43,6 @@ structure GramIsometry (a b : GramHandle) where
   matrix : Matrix (Fin b.rank) (Fin a.rank) ℤ
   preserves : matrix.transpose * b.gram * matrix = a.gram
 
-/-- Integer bilinear forms by Gram matrix, with isometries. -/
-abbrev gramRealizer : Realizer := ⟨GramHandle, GramIsometry⟩
-
 /-- A matrix `A` with `Aᵀ H A = G` preserves the forms: `(A x)ᵀ H (A y) = xᵀ G y`. -/
 theorem toLinearMap₂'_isometry {m n : ℕ} (A : Matrix (Fin n) (Fin m) ℤ)
     (G : Matrix (Fin m) (Fin m) ℤ) (H : Matrix (Fin n) (Fin n) ℤ)
@@ -55,16 +52,24 @@ theorem toLinearMap₂'_isometry {m n : ℕ} (A : Matrix (Fin n) (Fin m) ℤ)
     ← Matrix.mulVec_mulVec y (A.transpose * H) A, ← Matrix.mulVec_mulVec _ A.transpose H,
     Matrix.dotProduct_mulVec x A.transpose, Matrix.vecMul_transpose]
 
-/-- The denotation in `BilinModule(ℤ, ℤ)`: `G` denotes `(ℤⁿ, (x, y) ↦ xᵀ G y)`. -/
-noncomputable def gramDenotation : Denotation gramRealizer (BilinModuleCat ℤ ℤ) where
-  obj a := BilinModuleCat.ofBilinMap (Matrix.toLinearMap₂' ℤ a.gram)
-  map f := BilinModuleCat.homMk (Matrix.mulVecLin f.matrix)
-    (toLinearMap₂'_isometry f.matrix _ _ f.preserves)
+/-- Integer bilinear forms by Gram matrix, with the isometries of their denotations
+(`InducedCategory`): `G` denotes `(ℤⁿ, (x, y) ↦ xᵀ G y)`. -/
+abbrev GramHandles : Type :=
+  InducedCategory (BilinModuleCat ℤ ℤ) fun a : GramHandle =>
+    BilinModuleCat.ofBilinMap (Matrix.toLinearMap₂' ℤ a.gram)
 
-/-- The forgetful functor on Gram handles: keep the rank and the matrix of the isometry. -/
-def forgetAction : RealizedAction (forget ℤ ℤ) gramDenotation freeModuleDenotation where
-  action := { obj := fun a => a.rank, map := fun f => f.matrix }
-  realizes := { obj := fun _ => rfl, map := fun _ => by simp; rfl }
+/-- The denotation in `BilinModule(ℤ, ℤ)`. -/
+noncomputable def gramDenotation : GramHandles ⥤ BilinModuleCat ℤ ℤ := inducedFunctor _
+
+/-- The isometry an integer matrix `A` with `Aᵀ G_b A = G_a` denotes: `x ↦ A x`. -/
+noncomputable def GramIsometry.toHom {a b : GramHandle} (f : GramIsometry a b) :
+    @Quiver.Hom GramHandles _ a b :=
+  InducedCategory.homMk (BilinModuleCat.homMk (Matrix.mulVecLin f.matrix)
+    (toLinearMap₂'_isometry f.matrix _ _ f.preserves))
+
+/-- The forgetful functor on Gram handles: keep the rank. -/
+noncomputable def forgetAction : RealizedAction (forget ℤ ℤ) gramDenotation freeModuleDenotation :=
+  RealizedAction.induced _ GramHandle.rank fun _ => rfl
 
 register_leaf
   { backend := "lean"

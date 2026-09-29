@@ -77,19 +77,19 @@ def RingTableHom.hom {a b : RingTable} (f : RingTableHom a b) : a.Carrier →+* 
   map_zero' := f.map_zero
   map_add' := f.map_add
 
-/-- Ring tables with table homomorphisms. -/
-abbrev ringTableRealizer : Realizer := ⟨RingTable, RingTableHom⟩
+/-- Ring tables, with the ring homomorphisms between their denotations (`InducedCategory`). -/
+abbrev RingTables : Type := InducedCategory RingCat.{0} fun t : RingTable => RingCat.of t.Carrier
 
 /-- A ring table denotes a ring. -/
-noncomputable def ringTableDenotation :
-    Denotation ringTableRealizer LeanCategories.Algebra.Rings.{0} where
-  obj t := RingCat.of t.Carrier
-  map f := RingCat.ofHom f.hom
+def ringTableDenotation : RingTables ⥤ LeanCategories.Algebra.Rings.{0} := inducedFunctor _
 
-/-- Table homomorphisms act on elements. -/
-instance : ElementAction ringTableRealizer where
-  Elt t := Fin t.size
-  act f x := f.map x
+/-- The elements of a ring table: its underlying set. -/
+instance : ElementAction RingTables := ⟨inducedFunctor _ ⋙ forget RingCat⟩
+
+/-- The morphism handle of a table homomorphism. -/
+def RingTableHom.toHandle {a b : RingTable} (f : RingTableHom a b) :
+    @Quiver.Hom RingTables _ a b :=
+  InducedCategory.homMk (RingCat.ofHom f.hom)
 
 /-- `𝔽₃[t]/(t² - c₁ t - c₀)` on `a + 3b ↦ a + b t`. -/
 def quadraticMul (c₁ c₀ : ℕ) (x y : Fin 9) : Fin 9 :=
@@ -135,14 +135,16 @@ def f9bToA : RingTableHom f9b f9a :=
     map_add := by decide, map_mul := by decide, map_one := by decide, map_zero := by decide }
 
 /-- The registered isomorphism between the two presentations. -/
-def f9Iso : HandleIso ringTableDenotation f9a f9b where
-  hom := f9aToB
-  inv := f9bToA
-  hom_inv := by
+def f9Iso : @Iso RingTables _ f9a f9b where
+  hom := f9aToB.toHandle
+  inv := f9bToA.toHandle
+  hom_inv_id := by
+    apply InducedCategory.hom_ext
     apply RingCat.hom_ext
     ext x
     exact (show ∀ y : Fin 9, f9bToAMap (f9aToBMap y) = y by decide) x
-  inv_hom := by
+  inv_hom_id := by
+    apply InducedCategory.hom_ext
     apply RingCat.hom_ext
     ext x
     exact (show ∀ y : Fin 9, f9aToBMap (f9bToAMap y) = y by decide) x

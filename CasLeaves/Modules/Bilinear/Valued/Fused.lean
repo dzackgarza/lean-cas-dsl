@@ -38,7 +38,7 @@ def fusedCardinality :
         modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ) ⋙
         modulesUnderlyingDeclaration.{0, 0})
       setsCardinality.{0} gramDenotation cardinalDenotation where
-  obj g := if g.rank = 0 then .finite 1 else .aleph0
+  obj g := ⟨if g.rank = 0 then .finite 1 else .aleph0⟩
 
 /-- The same composite, realized by a backend that returns the rank it used as a certificate;
 the checker compares it with the handle, and acceptance is proved to imply the answer. -/
@@ -48,7 +48,7 @@ def certifiedCardinality :
         modulesFibreInclusionDeclaration.{0, 0} (RingCat.of ℤ) ⋙
         modulesUnderlyingDeclaration.{0, 0})
       setsCardinality.{0} gramDenotation cardinalDenotation where
-  obj g := cardinalityOf (.intPow g.rank)
+  obj g := ⟨cardinalityOf (.intPow g.rank)⟩
   Certificate := ℕ
   certificate g := g.rank
   check g n := n == g.rank

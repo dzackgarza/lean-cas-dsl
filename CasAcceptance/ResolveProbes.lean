@@ -44,12 +44,12 @@ namespace CasCatalogue.ResolveProbes
 #resolve cardinality in "cat.rings" via "fun.rings.multiplicative_monoid"
 
 /- Execution receives `U(x)`: the value is computed by the composed actions. -/
-#guard method% cardinality (a2.form) in "cat.bilin_module" == CardinalHandle.aleph0
-#guard method% cardinality (a2) in "cat.lattice" == CardinalHandle.aleph0
-#guard method% cardinality (e8) in "cat.lattice" == CardinalHandle.aleph0
+#guard method% cardinality (a2.form) in "cat.bilin_module" == ⟨CardinalHandle.aleph0⟩
+#guard method% cardinality (a2) in "cat.lattice" == ⟨CardinalHandle.aleph0⟩
+#guard method% cardinality (e8) in "cat.lattice" == ⟨CardinalHandle.aleph0⟩
 /-- The zero lattice: `ℤ⁰` has one element. -/
 def zeroLattice : Lattices.Valued.Actions.LatticeGramHandle := ⟨⟨0, !![]⟩, by decide⟩
-#guard method% cardinality (zeroLattice) in "cat.lattice" == CardinalHandle.finite 1
+#guard method% cardinality (zeroLattice) in "cat.lattice" == ⟨CardinalHandle.finite 1⟩
 
 /-- The value of a method call on the zero-rank Gram form, as elaborated. -/
 def zeroFormCardinality := method% cardinality (zeroLattice.form) in "cat.bilin_module"

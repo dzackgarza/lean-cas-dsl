@@ -50,7 +50,7 @@ def viaFused :=
 
 /- One value, four epistemic statuses. -/
 #guard [viaActions, viaKernel, viaCertified, viaFused].map (·.value) ==
-  List.replicate 4 (CardinalHandle.finite 1)
+  List.replicate 4 ⟨CardinalHandle.finite 1⟩
 #guard [viaActions, viaKernel, viaCertified, viaFused].map (·.trust) ==
   [.leanChecked, .kernelTheorem, .certificateChecked, .trustedAssertion]
 #guard (run% cardinality (a2Form) in "cat.bilin_module").value ==

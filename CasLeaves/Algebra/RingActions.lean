@@ -21,7 +21,7 @@ public meta import CasCatalogue.Semantics.Algebra.Ports
   additive-group table (`AddGroup.ofLeftAxioms`, as for the ring); `AddGrpCat.toGrp` then reads
   it multiplicatively, as a group table.
 
-A ring-table homomorphism is a homomorphism of both tables. With the group, monoid, semigroup and
+With the group, monoid, semigroup and
 magma actions this realizes both routes from rings to sets, which the registered comparison
 `cmp.rings.carrier` identifies (CC-COHERE): a ring's cardinality is computed along either.
 -/
@@ -40,21 +40,11 @@ def RingTable.toMonoidTable (t : RingTable) : MonoidTable where
   one_mul := t.one_mul
   mul_one a := (t.mul_comm a t.one).trans (t.one_mul a)
 
-/-- A ring-table homomorphism, on multiplicative monoids. -/
-def RingTableHom.toMonoidTableHom {a b : RingTable} (f : RingTableHom a b) :
-    MonoidTableHom a.toMonoidTable b.toMonoidTable where
-  map := f.map
-  map_mul := f.map_mul
-  map_one := f.map_one
-
 /-- The multiplicative port, realized on tables. -/
 def ringToMonoid :
     RealizedAction (Algebra.Ports.ringsMultiplicative.{0}).toFunctor ringTableDenotation
-      monoidDenotation where
-  action := { obj := RingTable.toMonoidTable, map := RingTableHom.toMonoidTableHom }
-  realizes :=
-    { obj := fun _ => rfl
-      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
+      monoidDenotation :=
+  RealizedAction.induced _ RingTable.toMonoidTable fun _ => rfl
 
 /-- A finite additive group, by its addition table on `Fin size`; its `AddGroup` structure is
 Mathlib's `AddGroup.ofLeftAxioms`, the one a ring table's additive group has. -/
@@ -76,31 +66,16 @@ instance (t : AddGroupTable) : AddGroup t.Carrier :=
   letI : Neg t.Carrier := ⟨t.neg⟩
   AddGroup.ofLeftAxioms t.add_assoc t.zero_add t.neg_add_cancel
 
-/-- A homomorphism of additive-group tables. -/
-structure AddGroupTableHom (a b : AddGroupTable) where
-  map : Fin a.size → Fin b.size
-  map_add : ∀ x y, map (a.add x y) = b.add (map x) (map y)
+/-- Additive-group tables, with the homomorphisms of their denotations (`InducedCategory`). -/
+abbrev AddGroupTables : Type :=
+  InducedCategory AddGrpCat.{0} fun t : AddGroupTable => AddGrpCat.of t.Carrier
 
-/-- The additive homomorphism a table homomorphism denotes. -/
-def AddGroupTableHom.hom {a b : AddGroupTable} (f : AddGroupTableHom a b) :
-    a.Carrier →+ b.Carrier :=
-  AddMonoidHom.mk' (M := a.Carrier) (G := b.Carrier) f.map f.map_add
-
-abbrev additiveGroupRealizer : Realizer := ⟨AddGroupTable, AddGroupTableHom⟩
-
-noncomputable def additiveGroupDenotation :
-    Denotation additiveGroupRealizer LeanCategories.Algebra.AdditiveGroups.{0} where
-  obj t := AddGrpCat.of t.Carrier
-  map f := AddGrpCat.ofHom f.hom
+def additiveGroupDenotation : AddGroupTables ⥤ LeanCategories.Algebra.AdditiveGroups.{0} :=
+  inducedFunctor _
 
 /-- The additive group table of a ring table. -/
 def RingTable.toAddGroupTable (t : RingTable) : AddGroupTable :=
   { t with }
-
-/-- A ring-table homomorphism, on additive groups. -/
-def RingTableHom.toAddGroupTableHom {a b : RingTable} (f : RingTableHom a b) :
-    AddGroupTableHom a.toAddGroupTable b.toAddGroupTable :=
-  ⟨f.map, f.map_add⟩
 
 theorem ringToAdditiveGroup_obj (t : RingTable) :
     additiveGroupDenotation.obj t.toAddGroupTable =
@@ -109,11 +84,8 @@ theorem ringToAdditiveGroup_obj (t : RingTable) :
 /-- The additive port, realized on tables. -/
 def ringToAdditiveGroup :
     RealizedAction (Algebra.Ports.ringsAdditive.{0}).toFunctor ringTableDenotation
-      additiveGroupDenotation where
-  action := { obj := RingTable.toAddGroupTable, map := RingTableHom.toAddGroupTableHom }
-  realizes :=
-    { obj := ringToAdditiveGroup_obj
-      map := fun _ => by simp only [eqToHom_refl, Category.id_comp, Category.comp_id]; rfl }
+      additiveGroupDenotation :=
+  RealizedAction.induced _ RingTable.toAddGroupTable ringToAdditiveGroup_obj
 
 /-- The group table of an additive-group table, read multiplicatively. -/
 def AddGroupTable.toGroupTable (t : AddGroupTable) : GroupTable where
@@ -136,27 +108,11 @@ theorem additiveGroupToGroup_obj (t : AddGroupTable) :
       (Multiplicative.group : Group (Multiplicative t.Carrier)) := Group.ext rfl
   exact congrArg (fun i => @GrpCat.of t.toGroupTable.Carrier i) h
 
-/-- A morphism of groups agrees with `g` conjugated by object equalities once it does so on
-elements. -/
-theorem grp_eq_conj {A B C D : GrpCat.{0}} (h₁ : A = B) (h₂ : C = D) (f : A ⟶ C)
-    (g : B ⟶ D) (H : ∀ x : A, g (cast (congrArg (fun Z : GrpCat.{0} => (Z : Type)) h₁) x) =
-      cast (congrArg (fun Z : GrpCat.{0} => (Z : Type)) h₂) (f x)) :
-    f = eqToHom h₁ ≫ g ≫ eqToHom h₂.symm := by
-  subst h₁; subst h₂
-  simp only [eqToHom_refl, Category.id_comp, Category.comp_id]
-  exact GrpCat.ext fun x => (H x).symm
-
 /-- `AddGrpCat.toGrp`, realized on tables: an additive-group table read multiplicatively. -/
 def additiveGroupToGroup :
     RealizedAction (Algebra.Ports.additiveGroupsToGroups.{0}).toFunctor additiveGroupDenotation
-      groupDenotation where
-  action :=
-    { obj := AddGroupTable.toGroupTable
-      map := fun f => { map := f.map, map_mul := f.map_add, map_one := f.hom.map_zero } }
-  realizes :=
-    { obj := additiveGroupToGroup_obj
-      map := fun {a b} _ => grp_eq_conj (additiveGroupToGroup_obj a) (additiveGroupToGroup_obj b) _ _
-        fun _ => rfl }
+      groupDenotation :=
+  RealizedAction.induced _ AddGroupTable.toGroupTable additiveGroupToGroup_obj
 
 end CasCatalogue.Algebra.RingTables
 

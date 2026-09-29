@@ -63,40 +63,39 @@ def label : Trust → String
 end Trust
 
 /-- A computed value with its epistemic status and provenance. -/
-structure Result (α : Type) where
+structure Result (α : Type _) where
   value : α
   trust : Trust
   provenance : String
   deriving Repr
 
-universe u v u' v' u'' v''
+universe u v u' v' u'' v'' w w' x x'
 
 /-- A fused, unproved realization of `x ↦ M(Core(U)(x))` for an iso-invariant method `M` reached
 along `U`: the indices fix the claim, and nothing proves it. -/
 structure TrustedImplementation {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
-    {E : Type u''} [Category.{v''} E] {RC RE : Realizer}
-    (U : C ⥤ D) (M : Core D ⥤ E) (dC : Denotation RC C) (dE : Denotation RE E) where
-  obj : RC.Obj → RE.Obj
+    {E : Type u''} [Category.{v''} E] {RC : Type w} [Category.{x} RC] {RE : Type w'}
+    [Category.{x'} RE] (U : C ⥤ D) (M : Core D ⥤ E) (dC : RC ⥤ C) (dE : RE ⥤ E) where
+  obj : RC → RE
 
 end CasCatalogue
 
 namespace CasCatalogue
 
-/-- A registered isomorphism between two realized objects (CC-CARRIER): morphism handles in both
-directions whose denotations are mutually inverse. Two presentations of isomorphic objects are
-different objects; this is the additional data that relates them. -/
-structure HandleIso {R : Realizer} {C : Type u} [Category.{v} C] (d : Denotation R C)
-    (a b : R.Obj) where
-  hom : R.Hom a b
-  inv : R.Hom b a
-  hom_inv : d.map hom ≫ d.map inv = 𝟙 _
-  inv_hom : d.map inv ≫ d.map hom = 𝟙 _
-
-/-- Realizers whose morphism handles act on element handles, so that an isomorphism transports
+/-- Realizations whose handles present sets of elements: a functor from handles to types, so that
+a morphism handle (in particular a registered isomorphism of handles, CC-CARRIER) transports
 elements. -/
-class ElementAction (R : Realizer) where
-  Elt : R.Obj → Type
-  act : {a b : R.Obj} → R.Hom a b → Elt a → Elt b
+class ElementAction (R : Type w) [Category.{x} R] where
+  elements : R ⥤ Type
+
+/-- The elements of a handle. -/
+abbrev ElementAction.Elt {R : Type w} [Category.{x} R] [ElementAction R] (a : R) : Type :=
+  (ElementAction.elements (R := R)).obj a
+
+/-- Transport of elements along a morphism handle. -/
+def ElementAction.act {R : Type w} [Category.{x} R] [ElementAction R] {a b : R} (f : a ⟶ b)
+    (x : ElementAction.Elt a) : ElementAction.Elt b :=
+  (ElementAction.elements (R := R)).map f x
 
 end CasCatalogue
 
@@ -105,27 +104,27 @@ namespace CasCatalogue
 /-- A backend realization of `x ↦ M(Core(U)(x))` that returns a certificate with its answer, and a
 Lean checker whose acceptance is proved to imply the answer's correctness. -/
 structure CertifiedImplementation {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
-    {E : Type u''} [Category.{v''} E] {RC RE : Realizer}
-    (U : C ⥤ D) (M : Core D ⥤ E) (dC : Denotation RC C) (dE : Denotation RE E) where
-  obj : RC.Obj → RE.Obj
+    {E : Type u''} [Category.{v''} E] {RC : Type w} [Category.{x} RC] {RE : Type w'}
+    [Category.{x'} RE] (U : C ⥤ D) (M : Core D ⥤ E) (dC : RC ⥤ C) (dE : RE ⥤ E) where
+  obj : RC → RE
   Certificate : Type
-  certificate : RC.Obj → Certificate
-  check : RC.Obj → Certificate → Bool
+  certificate : RC → Certificate
+  check : RC → Certificate → Bool
   sound : ∀ a, check a (certificate a) = true → dE.obj (obj a) = M.obj ⟨U.obj (dC.obj a)⟩
 
 /-- Run a certified implementation: certificate-checked when its checker accepts, otherwise only
 the backend's assertion. (`macro_inline`: compiled code never receives the denotations.) -/
 @[macro_inline] def CertifiedImplementation.run {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
-    {E : Type u''} [Category.{v''} E] {RC RE : Realizer}
-    {U : C ⥤ D} {M : Core D ⥤ E} {dC : Denotation RC C} {dE : Denotation RE E}
-    (impl : CertifiedImplementation U M dC dE) (a : RC.Obj) (provenance : String) :
-    Result RE.Obj :=
+    {E : Type u''} [Category.{v''} E] {RC : Type w} [Category.{x} RC] {RE : Type w'}
+    [Category.{x'} RE] {U : C ⥤ D} {M : Core D ⥤ E} {dC : RC ⥤ C} {dE : RE ⥤ E}
+    (impl : CertifiedImplementation U M dC dE) (a : RC) (provenance : String) :
+    Result RE :=
   if impl.check a (impl.certificate a) then ⟨impl.obj a, .certificateChecked, provenance⟩
   else ⟨impl.obj a, .trustedAssertion, provenance ++ " (certificate rejected)"⟩
 
 /-- A result whose value is its computation's kernel-reduced normal form: the kernel checks
 `computed = value` when the enclosing declaration is added. -/
-def Result.ofKernel {α : Type} (computed value : α) (_ : computed = value) (provenance : String) :
+def Result.ofKernel {α : Type _} (computed value : α) (_ : computed = value) (provenance : String) :
     Result α :=
   ⟨value, .kernelTheorem, provenance⟩
 

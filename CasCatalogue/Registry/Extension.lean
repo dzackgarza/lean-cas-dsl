@@ -1716,9 +1716,9 @@ def validateActionRealization (state : RegistryState) (e : FunctorActionEntry) :
   let realizationConstant ← mkConstWithFreshMVarLevels e.realization
   let (_, _, realizationType) ← forallMetaTelescopeReducing (← inferType realizationConstant)
   let realizationType ← whnfR realizationType
-  unless realizationType.isAppOfArity ``CasCatalogue.RealizedAction 9 do
+  unless realizationType.isAppOfArity ``CasCatalogue.RealizedAction 11 do
     throwError "action {e.id.raw} realization {e.realization} is not a RealizedAction"
-  let realizedFunctor := realizationType.getAppArgs[6]!
+  let realizedFunctor := realizationType.getAppArgs[8]!
   unless ← withTransparency .all <| isDefEq realizedFunctor registered do
     throwError
       "action {e.id.raw} realization {e.realization} does not realize {e.edge.label}"
@@ -1755,7 +1755,7 @@ def validateDecider (state : RegistryState) (e : DeciderEntry) : MetaM Unit := d
   let realization ← mkConstWithFreshMVarLevels e.realization
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
   let type ← whnfR type
-  unless type.isAppOfArity ``CasCatalogue.Decider 4 do
+  unless type.isAppOfArity ``CasCatalogue.Decider 5 do
     throwError "decider {e.id.raw}: {e.realization} is not a Decider"
   unless ← withTransparency .all <| isDefEq type.getAppArgs[1]! expected do
     throwError "decider {e.id.raw}: {e.realization} decides a different property than \
@@ -1823,9 +1823,9 @@ def validateRealizer (state : RegistryState) (e : RealizerEntry) : MetaM Unit :=
   let denotation ← mkConstWithFreshMVarLevels e.denotation
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType denotation)
   let type ← whnfR type
-  unless type.isAppOfArity ``CasCatalogue.Denotation 3 do
-    throwError "realizer {e.id.raw}: {e.denotation} is not a Denotation"
-  unless ← withTransparency .all <| isDefEq type.getAppArgs[1]! (← categoryCarrierInstance category) do
+  unless type.isAppOfArity ``CategoryTheory.Functor 4 do
+    throwError "realizer {e.id.raw}: {e.denotation} is not a denotation functor (handles ⥤ C)"
+  unless ← withTransparency .all <| isDefEq type.getAppArgs[2]! (← categoryCarrierInstance category) do
     throwError "realizer {e.id.raw}: {e.denotation} does not denote into {e.category.raw}"
 
 /-- A fused implementation must be typed by exactly the semantic composite it claims: its route
@@ -1844,35 +1844,36 @@ def validateImplementation (state : RegistryState) (e : ImplementationEntry) : M
   let type ← whnfR type
   -- The status is fixed by the evidence: no proof is a trusted assertion, a checker proved sound
   -- is certificate-checked; nothing else may be claimed.
-  if type.isAppOfArity ``CasCatalogue.TrustedImplementation 12 then
+  if type.isAppOfArity ``CasCatalogue.TrustedImplementation 14 then
     unless e.trust == .trustedAssertion do
       throwError "implementation {e.id.raw}: an unproved implementation is a trusted assertion"
-  else if type.isAppOfArity ``CasCatalogue.CertifiedImplementation 12 then
+  else if type.isAppOfArity ``CasCatalogue.CertifiedImplementation 14 then
     unless e.trust == .certificateChecked do
       throwError "implementation {e.id.raw}: a certified implementation is certificate-checked"
   else
     throwError "implementation {e.id.raw}: {e.realization} is neither a TrustedImplementation \
       nor a CertifiedImplementation"
   let args := type.getAppArgs
-  unless ← withTransparency .all <| isDefEq args[8]! (← state.routeFunctor e.route) do
+  unless ← withTransparency .all <| isDefEq args[10]! (← state.routeFunctor e.route) do
     throwError "implementation {e.id.raw} does not realize its route"
   unless ← withTransparency .all <|
-      isDefEq args[9]! (← registeredFunctorInstance methodFunctor) do
+      isDefEq args[11]! (← registeredFunctorInstance methodFunctor) do
     throwError "implementation {e.id.raw} does not realize its method"
 
-/-- A registered isomorphism must be a `HandleIso` for its realizer's denotation, between exactly
-its source and target handles (CC-CARRIER). -/
+/-- A registered isomorphism must be an isomorphism `source ≅ target` in the handle category of
+its realizer, between exactly its source and target handles (CC-CARRIER). -/
 def validateHandleIso (state : RegistryState) (e : HandleIsoEntry) : MetaM Unit := do
   let some realizer := state.realizers.find? (·.id == e.realizer)
     | throwError "isomorphism {e.id.raw} names an unregistered realizer {e.realizer.raw}"
   let evidence ← mkConstWithFreshMVarLevels e.evidence
   let type ← whnfR (← inferType evidence)
-  unless type.isAppOfArity ``CasCatalogue.HandleIso 6 do
-    throwError "isomorphism {e.id.raw}: {e.evidence} is not a HandleIso"
+  unless type.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "isomorphism {e.id.raw}: {e.evidence} is not an isomorphism of handles"
+  let denotationType ← whnfR (← inferType (← mkConstWithFreshMVarLevels realizer.denotation))
   let args := type.getAppArgs
-  let checks := #[(args[3]!, ← mkConstWithFreshMVarLevels realizer.denotation, "realizer"),
-    (args[4]!, ← mkConstWithFreshMVarLevels e.source, "source"),
-    (args[5]!, ← mkConstWithFreshMVarLevels e.target, "target")]
+  let checks := #[(args[0]!, denotationType.getAppArgs[0]!, "realizer"),
+    (args[2]!, ← mkConstWithFreshMVarLevels e.source, "source"),
+    (args[3]!, ← mkConstWithFreshMVarLevels e.target, "target")]
   for (actual, expected, what) in checks do
     unless ← withTransparency .all <| isDefEq actual expected do
       throwError "isomorphism {e.id.raw}: its evidence is not about its {what}"

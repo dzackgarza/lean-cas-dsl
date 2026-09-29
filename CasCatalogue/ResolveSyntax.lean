@@ -46,6 +46,10 @@ syntax (name := transportCall) "transport% " "(" term ")" &" from " ident &" to 
 
 syntax (name := resolveCommand) "#resolve " ident " in " str (&" via " str)* : command
 
+/-- `exec% e`: the executable form of `e` (`executable`), for evaluating realized actions whose
+denotations are noncomputable. -/
+syntax (name := execTerm) "exec% " term:max : term
+
 /-- The strings of a trailing `(&" via " str)*` group. -/
 meta def viaStrings (group : Syntax) : Array String :=
   group.getArgs.filterMap fun through => through[1].isStrLit?
@@ -70,6 +74,12 @@ meta def viaStrings (group : Syntax) : Array String :=
 
 @[term_elab transportCall] meta def elabTransportSyntax : TermElab := fun stx _ =>
   elabTransport ⟨stx[2]⟩ ⟨stx[5]⟩ ⟨stx[7]⟩
+
+@[term_elab execTerm] meta def elabExecTerm : TermElab := fun stx expected? => do
+  let e ← elabTerm stx[1] expected?
+  synthesizeSyntheticMVarsNoPostponing
+  let e ← instantiateMVars e
+  Meta.mkExpectedTypeHint (← executable e) (← Meta.inferType e)
 
 @[command_elab methodsCommand] meta def elabMethodsCommand : CommandElab := fun stx => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax

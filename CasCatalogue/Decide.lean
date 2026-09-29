@@ -29,7 +29,7 @@ open CategoryTheory
 
 namespace CasCatalogue
 
-universe uObj uHom
+universe uObj uHom w x
 
 /-- The property query of FOUNDATIONS Def. 46.4: the fibre of the classifier over `X` is
 inhabited. -/
@@ -82,7 +82,7 @@ end Decision
 /-- A decision procedure for the property `c` on the handles of a realizer `R`, stated about
 their denotations. -/
 structure Decider {C : LeanCategories.ObjCat.{uObj, uHom}} (c : LeanCategories.Classifier C)
-    {R : Realizer} (d : Denotation R C) where
-  decide : (a : R.Obj) → Decision (Classifier.Holds c (d.obj a))
+    {R : Type w} [Category.{x} R] (d : R ⥤ C) where
+  decide : (a : R) → Decision (Classifier.Holds c (d.obj a))
 
 end CasCatalogue
