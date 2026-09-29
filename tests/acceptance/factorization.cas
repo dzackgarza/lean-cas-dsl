@@ -1,0 +1,23 @@
+-- Factorization and approximation (SPEC.md, "Exact number systems", "Polynomials"): prime
+-- factorizations in ℕ, factors over ℂ, and approximations of exact reals. Each test is admitted
+-- once and never changed.
+
+test factorization.prime_factors "SPEC.md: 360 = 2³ · 3² · 5, so its prime factors are 2, 3, 5":
+  assert (360).prime_factors() = {2, 3, 5}
+
+test factorization.multiplicity_two "SPEC.md: 360 = 2³ · 3² · 5, so 2 has exponent 3":
+  assert (360).multiplicity(2) = 3
+
+test factorization.multiplicity_three "SPEC.md: 360 = 2³ · 3² · 5, so 3 has exponent 2":
+  assert (360).multiplicity(3) = 2
+
+test factorization.multiplicity_seven "7 does not divide 360: exponent 0":
+  assert (360).multiplicity(7) = 0
+
+let p(x) := x³ - 2x + 1 in ℤ[x]
+
+test factorization.over_complexes "SPEC.md: over ℂ, x³ - 2x + 1 = (x - 1)(x - (-1 + √5)/2)(x - (-1 - √5)/2), the roots of x² + x - 1 being (-1 ± √5)/2":
+  assert (map p to ℂ[x]).factors() = {x - 1, x - (-1 + √5)/2, x - (-1 - √5)/2}
+
+test factorization.approximation "SPEC.md: √2 = 1.4142135623… to within 10⁻¹⁰ (√2 = 1.41421356237…)":
+  assert |√2 - 1.4142135623| < 0.0000000001

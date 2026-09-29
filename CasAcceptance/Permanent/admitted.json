@@ -47,6 +47,12 @@
     "ellipses.prime": "97533571ebb11899d85815e993130677cba50235f77750c9f8d6b06040be8677",
     "ellipses.squares_even": "0e9bed2aaed3e1e960507cd05b700695f516b6244c69a0a414e7deb0748524aa",
     "eq.rev_rev": "1023103c0bcfabef16b9fab2a2d0b28dfc1c90c81f1182c24bc8fa034a4a1891",
+    "factorization.approximation": "80f60b97dd33a0a6fa334f32119c5d8a08d515e2f35293a678e2716ff3c63dce",
+    "factorization.multiplicity_seven": "e769e9fa0fc9e130293aff5e149dfeb9f19a645974a84747743386973cab2ff3",
+    "factorization.multiplicity_three": "09a39cda1825876b875894f7ea49996c45d756cf574b9b2f06120516199bdf84",
+    "factorization.multiplicity_two": "1bdd1aaf8d94bfe6d5e0f8489786957fcc418b5d16a259289cac3cd7c8236976",
+    "factorization.over_complexes": "ab9f16ff1c62f93d43f388e72550d305f37f160bc3bc78029e17cda1980598ab",
+    "factorization.prime_factors": "2bbbe9e689e0b81e45d972d6a1a61993b30ec6435ddf360bf853f75298f5164a",
     "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
     "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550",
     "finite_sets.card": "673beb6aa8a93ab96dd9a966447f658668f669c052d08cd6780db7fa11dfcc4a",
@@ -157,5 +163,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "30855894606436c2dd489132757d079f9e41379a"
+  "lean_categories": "1a8684feb75f4eb2bf9e7c1360f7fb742b445d52"
 }

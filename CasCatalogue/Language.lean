@@ -55,6 +55,7 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* a decimal `1.4142` is the fraction `14142/10⁴`; a numeral receives families (`(360).m()`);
 * `M⁻¹`: the registered partial inverse; a registered family given a partial value `a ∈ P⊥` where
   it takes an element of `P` is lifted along `(-)⊥` (defined where `a` is, joined if the family is
   itself partial);
@@ -102,6 +103,8 @@ namespace CasCatalogue.Language
 
 declare_syntax_cat cas_term
 syntax:max num : cas_term
+/-- A decimal `1.4142`: the fraction `14142/10⁴`. -/
+syntax:max scientific : cas_term
 syntax:max ident : cas_term
 syntax:max (name := casAtom) ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
 syntax:max "ℵ₀" : cas_term
@@ -457,6 +460,9 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   let state ← registryState
   match stx with
   | `(cas_term| $n:num) => return .nat n.getNat
+  | `(cas_term| $d:scientific) =>
+      let (mantissa, _, exponent) := d.getScientific
+      divide (.nat mantissa) (.nat (10 ^ exponent)) ambient?
   | `(cas_term| ($t)) => eval scope t category? ambient?
   | `(cas_term| $t in $c) =>
       if let `(cas_term| $name:ident) := c then
@@ -624,7 +630,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | `(cas_term| d), `(cas_term| $v:ident) =>
           if let some x ← differentialVariable? v.getId then return ← derivativeAt x
           throwStratum .invalid m!"`d/{v.getId}`: {v.getId} is not d of a variable"
-      | _, _ => divide (← eval scope a none ambient?) (← eval scope n) ambient?
+      | _, _ => divide (← eval scope a) (← eval scope n) ambient?
   | `(cas_term| $b ^ $k) =>
       match b with
       | `(cas_term| (ℤ / $n)) =>
@@ -738,6 +744,8 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
       asObject receiver
     else pure receiver
   if let .element .. := receiver then return ← applyNamed state name #[receiver]
+  -- `(360).prime_factors()`: a numeral, in the set the family takes.
+  if let .nat _ := receiver then return ← applyNamed state name #[receiver]
   -- `f.image()`: the image of a map, by the registered power object.
   if let .morphism h _ _ _ (some (X, Y)) := receiver then
     if name == "image" then return ← imageOfMap h X Y
@@ -1017,7 +1025,8 @@ partial def generatorOf (P : Value) : M Value := do
       #[← terminalAt S, hom]) P
 
 /-- The variables of the polynomial rings `R[v]` of `stx` (and of the bindings it uses) that `stx`
-uses, bound to their generators. A variable of two different rings is ambiguous. -/
+uses, bound to their generators: of a ring `stx` writes, else of a ring of a binding it uses. A
+variable of two different such rings is ambiguous. -/
 partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value)) := do
   let rings := ringsIn scope #[] stx
   let loose := looseIdentifiers stx
@@ -1029,10 +1038,13 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     if done.contains v || !used || scope.contains v || (ctx.bound.lookup v).isSome then
       continue
     done := done.push v
-    let written := (rings.filter (·.1 == v)).map (shown ·.2)
+    -- The rings the statement writes itself come before those of the bindings it uses.
+    let own := (ringsIn {} #[] stx).filter (·.1 == v)
+    let candidates := if own.isEmpty then rings.filter (·.1 == v) else own
+    let written := candidates.map (shown ·.2)
     unless written.all (· == written[0]!) do
       throwStratum .invalid m!"{v} is the variable of several rings: {written.toList}"
-    let some (_, ring) := rings.find? (·.1 == v) | unreachable!
+    let some (_, ring) := candidates[0]? | unreachable!
     bindings := (v, ← generatorOf (← eval scope ring)) :: bindings
   return bindings
 
@@ -1155,7 +1167,7 @@ partial def callWith (scope : Scope) (t : Syntax) (name : String) (args : Array 
       if (← read).mode == .realized then
         throwStratum .noImplementation m!"no registered realization threads the maps of {name}"
       applyFamily entry.declaration category operands (maps := #[f])
-  | v@(.element ..) => applyFamily entry.declaration category (#[v] ++ operands)
+  | v@(.element ..) | v@(.nat _) => applyFamily entry.declaration category (#[v] ++ operands)
   | _ => throwStratum .invalid m!"`{name}` is called on a map or an element"
 
 /-- `t ↦ e` read at the stage `ℝ` as a partial map `ℝ → ℝ⊥` (a total one is carried into `ℝ⊥`). -/

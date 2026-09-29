@@ -21,17 +21,17 @@ require mathlib from git
 package owns the CAS machinery over it (resolution and propagation, the language, the permanent
 tests, the harness, the notebook). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "30855894606436c2dd489132757d079f9e41379a"
+  "https://github.com/dzackgarza/lean-categories" @ "1a8684feb75f4eb2bf9e7c1360f7fb742b445d52"
 
 /- The leaf contract: the kernel's interface for computational leaves, published on its own so
 that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
 require cas_leaf_contracts from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "66a584296d9aaa078d308921afeee0e97e1fdb30"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "78a87d5771a58219e078ca45abd443283a63dd52"
 
 /- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
 `lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/
 require cas_leaves from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "44bb92d7c6c9dbcffff6b2632b4cb85ce20ca854"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "199907d03e4105b99e01a8bf17715fcc7bb45dd4"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
