@@ -25,6 +25,7 @@ namespace FunctorId
 
 def bilinModuleForget : FunctorId := ⟨"fun.bilin_module.forget"⟩
 def bilWFormBaseChange : FunctorId := ⟨"fun.bil_wform.base_change"⟩
+def bilWFormCarrier : FunctorId := ⟨"fun.bil_wform.carrier"⟩
 def bilinModuleChangeValue : FunctorId := ⟨"fun.bilin_module.change_value"⟩
 def bilinModuleBaseChange : FunctorId := ⟨"fun.bilin_module.base_change"⟩
 

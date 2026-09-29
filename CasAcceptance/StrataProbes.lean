@@ -8,6 +8,8 @@ public import CasAcceptance.Standard
 public import CasAcceptance.Surface.Semantic
 public import CasAcceptance.Surface.Realized
 public import CasCatalogue.ResolveSyntax
+public import CasCatalogue.LimitCallSyntax
+public meta import CasCatalogue.LimitCallSyntax
 public meta import CasAcceptance.Standard
 public meta import CasAcceptance.Surface.Semantic
 public meta import CasAcceptance.Surface.Realized
@@ -21,8 +23,9 @@ public meta import CasCatalogue.ResolveSyntax
 * **Neutrality.** One registry elaborated without leaves and with every leaf has the same operation
   surface on sets, finite sets, groups and bilinear modules, and different implementation gaps.
   Installing realizations changes only computability.
-* **Invalid.** An unknown method, an unregistered category, and a method whose owner no structural
-  route reaches (`annihilator` on sets) fail as invalid calls.
+* **Invalid.** An unknown method, an unregistered category, a method whose owner no structural
+  route reaches (`annihilator` on sets), and an unregistered limit (an equalizer in sets) fail as
+  invalid calls.
 * **NoImplementation.** `cardinality` applies to finite sets, but no registered action realizes
   the forgetful functor on finite sets presented by `n`, and the call fails as `NoImplementation`,
   not as an invalid call.
@@ -62,6 +65,11 @@ run_cmd liftTermElabM do
   expectStratum .invalid (← `(method% frobnicate (someSet) in "cat.sets"))
   expectStratum .invalid (← `(method% cardinality (someSet) in "cat.no_such_category"))
   expectStratum .invalid (← `(method% annihilator (someSet) in "cat.sets"))
+  -- No equalizer is registered in sets, nor returned to it along a lift.
+  expectStratum .invalid
+    (← `(limit% equalizer
+      (CategoryTheory.Limits.parallelPair (CategoryTheory.CategoryStruct.id someSet)
+        (CategoryTheory.CategoryStruct.id someSet)) in "cat.sets"))
   expectStratum .noImplementation (← `(method% cardinality (threePoints) in "cat.finite_sets"))
   -- `set_eq` applies to sets through their whole subset; no action of it is registered.
   expectStratum .noImplementation (← `(method% set_eq (someSet) in "cat.sets"))

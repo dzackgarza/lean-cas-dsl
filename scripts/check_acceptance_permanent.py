@@ -8,7 +8,8 @@ hash is recorded in `CasAcceptance/Permanent/admitted.json`.
 
     check_acceptance_permanent.py           fail if an admitted assertion changed or disappeared,
                                             or an assertion is not admitted
-    check_acceptance_permanent.py --admit   admit new assertions; never changes an admitted one
+    check_acceptance_permanent.py --admit   admit new assertions and record the current pin;
+                                            never changes an admitted one
     check_acceptance_permanent.py --correct "reason"
                                             re-admit changed assertions after an upstream
                                             correction to the mathematics: only when the pinned
@@ -97,11 +98,15 @@ def main() -> int:
             return 1
         for i in new:
             admitted[i] = current[i]
+        manifest["lean_categories"] = pin()
         MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         return 0
     if args:
         raise SystemExit(__doc__)
     problems += [f"assertion {i} is not admitted (run with --admit)" for i in new]
+    if pin() != manifest["lean_categories"] and not changed and not missing:
+        problems.append("lean-categories was re-pinned: record the pin with --admit, in the "
+                        "re-pinning commit")
     if problems:
         print("permanent acceptance assertions are append-only:", file=sys.stderr)
         print("\n".join("  " + p for p in problems), file=sys.stderr)

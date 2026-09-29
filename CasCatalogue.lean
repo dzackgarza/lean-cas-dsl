@@ -18,6 +18,8 @@ public import CasCatalogue.Id
 public import CasCatalogue.Interpretation
 public import CasCatalogue.Leaf
 public import CasCatalogue.Lift
+public import CasCatalogue.LimitCall
+public import CasCatalogue.LimitCallSyntax
 public import CasCatalogue.Limits
 public import CasCatalogue.Memo
 public import CasCatalogue.Realization

@@ -170,8 +170,34 @@ A wrong answer is acceptance's to detect. Failures are thrown by `throwStratum`,
 - The pullback, coproduct and A₂-discriminant values are not yet stated: limits have no public surface, and their probes build cones directly (`cc-limit-surface`).
 - Inputs are presented by leaf handle constructors (`SetHandle.prod`, `zmodPow`) until registered constructors have a surface (`cc-constructor-surface`).
 - Proofs unfold the leaf's denotation, which is permitted because proofs are not admitted text. |
-| `cc-limit-surface` | **Next.** Reuse: [`specs/reuse/cc-limit-surface.md`](reuse/cc-limit-surface.md). A public surface for registered limits and colimits: `limit% shape (diagram) in "cat"` and `colimit% …` resolve through `resolveLimit` (lifts included), realize the cone or cocone on the diagram's realizer, and expose the apex's semantic value and the mediator of a competing cone. `resolveLimit` failures become stratified. **Acceptance:** permanent assertions, cited, for the pullback of `Fin 3 → Fin 2 ← Fin 2` (3 elements), the coproduct `Fin 2 ⊔ Fin 3` (5), and the A₂ discriminant group (`ℤ/3`, SPLAG ch. 4 §6.1), all through the surface. | CC-UNIV, CC-LIFT | `cc-acceptance-permanent` |
-| `cc-constructor-surface` | Inputs of acceptance assertions and of the notebook are built by registered constructors (`(ℤ/n)^k`, products, `Fin n`) through a public surface, not by a leaf's handle constructors. The realizer of the result is selected as for receivers. **Acceptance:** `Permanent/Cardinality` is restated through constructors, with new ids and the old assertions kept. | CC-CALC, CC-SEP | `cc-limit-surface` |
+| `cc-limit-surface` | **Delivered 2026-09-29.** Reuse: [`specs/reuse/cc-limit-surface.md`](reuse/cc-limit-surface.md). `CasCatalogue/LimitCall.lean`: `limit% shape (D) in "cat"` and `colimit% shape (D) in "cat"`.
+- They resolve the registered limit (`resolveLimit`, now also for colimits), taking creation lifts for limits.
+- They elaborate `D` as a diagram of the handles of the unique realizer with a limit realization of that limit (along that lift).
+- They take the registered presentation at `D ⋙ d` (`⋙ U` for a lift), identified with the shape's standard form by Mathlib's `diagramIsoCospan`, `diagramIsoPair` or `diagramIsoParallelPair`.
+- They complete it with the leaf's apex handle and identification into `realizedLimitCone`, `realizedReturnedLimitCone` or `realizedColimitCocone`.
+
+A lift's functor must be full and faithful: a `PropertyClassifier`'s fields, or Lean's instances. Otherwise the call is `noImplementation`, and a morphism rule is owed.
+
+Failures are stratified. An unregistered limit is `invalid`. No realization on the diagram, a realizer without a fully faithful denotation, or a presentation not matching the apex is `noImplementation`. Several matches are `ambiguousRealization`.
+
+Upstream, re-pinned twice:
+- lean-categories `5423142` adds instances making `finite.forget.toFunctor` full and faithful (from `FintypeCat`).
+- A second commit adds `carrierFunctor : BilWFormCat R ⥤ ModuleCat R`, registered here as the structural `fun.bil_wform.carrier`.
+
+The second was found by acceptance. Without it, `cardinality` did not apply to `cat.bil_wform` at all (`invalid`). Now it applies, and it is a `NoImplementation` gap.
+
+`CasAcceptance/Permanent/Limits.lean` holds four cited, admitted assertions:
+- the pullback of `[0,1,1]` and `[1,0]` in sets has 3 elements (proved);
+- the same pullback returned to finite sets has 3 elements (gap: no action of the forgetful functor on presented finite sets);
+- `Fin 2 ⊔ Fin 3` has 5 elements (proved);
+- the A₂ discriminant group has order 3 (SPLAG ch. 4 §6.1; gap: no action of `fun.bil_wform.carrier` on presented forms).
+
+**Checked:** gate green. `StrataProbes`: an unregistered equalizer in sets is `invalid`.
+
+**Residual:**
+- Mediators of competing cones are reached through Mathlib's `IsLimit.lift` and `IsColimit.desc` on the returned cone, and no permanent assertion about them is stated yet.
+- The standard-form table covers pullback, (co)product and (co)kernel/(co)equalizer. |
+| `cc-constructor-surface` | **Next.** Reuse: [`specs/reuse/cc-constructor-surface.md`](reuse/cc-constructor-surface.md). Inputs of acceptance assertions and of the notebook are built by registered constructors (`(ℤ/n)^k`, products, `Fin n`) through a public surface, not by a leaf's handle constructors. The realizer of the result is selected as for receivers. **Acceptance:** `Permanent/Cardinality` is restated through constructors, with new ids and the old assertions kept. | CC-CALC, CC-SEP | `cc-limit-surface` |
 | `cc-sem-upstream` | Move all mathematics out of `lean-cas-dsl`. Every row and every definition in `CasCatalogue/Semantics/*` (categories, structural functors, classifiers, methods, properties, cells, limits, adjunctions, lifts, constructors, families) moves into `lean-categories` as its proof-carrying registry, with the registry schema it needs (lean-categories #49, #53). Rows become typed data there, and parameters become typed terms, never strings. **Acceptance:**
 - `lean-categories` builds and audits its registry without `lean-cas-dsl`;
 - `CasCatalogue/Semantics` holds no row and no definition;

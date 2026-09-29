@@ -35,4 +35,7 @@ def BilWFormBaseChange : FunctorExpr BilWForm
     (.familyApp CategoryFamilyId.bilWForm #[.variable ParameterId.s]) :=
   .atomic FunctorId.bilWFormBaseChange
 
+def BilWFormCarrier : FunctorExpr BilWForm Modules.Modules :=
+  .atomic FunctorId.bilWFormCarrier
+
 end CasCatalogue.Modules.Bilinear.Valued.Catalogue

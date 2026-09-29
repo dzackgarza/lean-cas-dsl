@@ -257,17 +257,21 @@ structure LimitResolution where
   lift : Option LiftId := none
   deriving Repr, BEq
 
-/-- Resolve a limit of shape `shape` in `category`: its own registered presentation, else the
-unique registered creation lift of `shape` limits out of `category` into a category with one. -/
-def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String) :
-    Except String LimitResolution := do
+/-- Resolve a limit (or, with `colimit`, a colimit) of shape `shape` in `category`: its own
+registered presentation, else, for a limit, the unique registered creation lift of `shape` limits
+out of `category` into a category with one. -/
+def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String)
+    (colimit : Bool := false) : Except String LimitResolution := do
   let direct := state.limits.filter fun l =>
-    !l.colimit && l.category == category && l.shape == shape
+    l.colimit == colimit && l.category == category && l.shape == shape
   if let some l := direct[0]? then
     if direct.size > 1 then throw s!"{category.raw} has {direct.size} registered {shape} limits"
     return { limit := l.id }
   let some entry := state.categories.find? (·.id == category)
     | throw s!"{category.raw} is not a registered category"
+  -- Creation lifts return limits only.
+  if colimit then
+    throw s!"no {shape} colimit is registered in {category.raw}"
   let returned := state.lifts.filterMap fun lift => do
     guard (lift.kind == .createsLimits shape)
     let edge ← state.structuralEdge? lift.edge

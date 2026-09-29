@@ -97,6 +97,19 @@ noncomputable def bilinModuleForgetRealization (R : Type u) [CommRing R]
   { sourceRealization := bilinModuleRealization R W
     targetRealization := CasCatalogue.Modules.CatalogueRegistration.modulesRealization (RingCat.of R) }
 
+/-- The carrier functor of formed modules with varying values
+(`LeanCategories.Modules.Bilinear.Valued.carrierFunctor`). -/
+noncomputable def bilWFormCarrierRealization (R : Type u) [CommRing R] :
+    FunctorRealization BilWFormCarrier (bilWFormCategory R)
+      (Modules.Mathlib.ModulesOf (RingCat.of R))
+      (LeanCategories.Modules.Bilinear.Valued.carrierFunctor R) :=
+  { sourceRealization := bilWFormRealization R
+    targetRealization := CasCatalogue.Modules.CatalogueRegistration.modulesRealization (RingCat.of R) }
+
+noncomputable def bilWFormCarrierDeclaration (R : Type u) [CommRing R] :
+    bilWFormCategory R ⟶ Modules.Mathlib.ModulesOf (RingCat.of R) :=
+  (LeanCategories.Modules.Bilinear.Valued.carrierFunctor R).toCatHom
+
 noncomputable def bilinModuleChangeValueRealization (R : Type u) [CommRing R]
     (W W' : Type u) [AddCommGroup W] [Module R W]
     [AddCommGroup W'] [Module R W'] (f : W →ₗ[R] W') :
@@ -179,6 +192,17 @@ normalized_registry .functor
     realization :=
       `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilinModuleForgetRealization
     expression := BilinModuleForget
+    structural := true }
+
+normalized_registry .functor
+  { id := FunctorId.bilWFormCarrier
+    source := BilWForm
+    target := Modules.Modules
+    declaration :=
+      `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormCarrierDeclaration
+    realization :=
+      `CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.bilWFormCarrierRealization
+    expression := BilWFormCarrier
     structural := true }
 
 normalized_registry .functor
