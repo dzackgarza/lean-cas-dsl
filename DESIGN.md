@@ -81,9 +81,8 @@ CasDsl/Syntax.lean      surface syntax: commands + casTerm category
 CasDsl/Diagnostics.lean #explain_route, #capabilities, #capability_gaps
 CasDsl/Std.lean         standard universe: categories, methods, routes, profiles
 CasDsl/Notebook.lean    the prelude module (the plugin manifest)
-backends/sage_adapter.py   Python half of the Sage adapter (runs under sage -python)
 CasDslTests/            Lean #guard + elaboration-time test modules
-tests/                  Python roundtrip against real Sage + E2E kernel run
+tests/                  E2E kernel run
 ```
 
 Dependency arrows flow downward only. `Port.lean` knows nothing about Sage
@@ -1496,7 +1495,8 @@ takes the coefficients of an algebraic number from its own minimal polynomial
 and settles which conjugate it is by an exact `QQbar` comparison. A root of
 degree > 2 over ℚ leaves the `a + b√d` presentation and is the loud
 `not_expressible` refusal, never a decimal.
-The adapter (`backends/sage_adapter.py`) runs under `sage -python`, builds
+(Superseded: backend programs now belong to leaves; see README "Backends are owned by leaves".)
+The adapter (formerly `backends/sage_adapter.py`) ran under `sage -python`, built
 native Sage parents/elements from the typed request, and returns trusted
 typed results with provenance versions. It never receives generated Sage
 source and never proxies another CAS. Adapter discovery: env

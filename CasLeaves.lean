@@ -30,3 +30,4 @@ public import CasLeaves.Modules.Bilinear.Valued.Fused
 public import CasLeaves.Modules.Bilinear.Valued.WForms
 public import CasLeaves.Modules.Finite
 public import CasLeaves.Modules.Rank
+public import CasLeaves.Modules.SageCardinality

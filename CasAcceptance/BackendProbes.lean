@@ -5,7 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasAcceptance.AdapterProbes
+public import CasLeaves.Modules.SageCardinality
 public meta import CasAcceptance.AdapterProbes
+public meta import CasLeaves.Modules.SageCardinality
 
 @[expose] public section
 
@@ -25,11 +27,18 @@ Where GAP is installed (`CAS_GAP_PYTHON`, default `.venv/bin/python` with `passa
   a decoder, is rejected at its contract;
 * the registry, the user-visible surface, is the same before and after.
 
-Where GAP is not installed the connection reports it unavailable, and nothing is exercised.
+Where Sage is installed (`CAS_SAGE_PYTHON`, default `.venv/bin/python` with
+`passagemath-modules`), the Sage cardinality leaf's program answers `meth.cardinality` on `(ℤ/n)^k`,
+and the decoded cardinals equal the Lean-native ones (`cardinalityOf`).
+
+Where an engine is not installed the connection reports it unavailable, and nothing is exercised
+for it.
 -/
 
 open Lean Meta Elab Term Command
 open CasCatalogue.Algebra.KernelDecode CasCatalogue.Algebra.GapKernels CasCatalogue.AdapterProbes
+open CasCatalogue.Modules.SageCardinality CasCatalogue.Foundation.Cardinality
+open CasCatalogue.Foundation.Actions
 
 namespace CasCatalogue.BackendProbes
 
@@ -81,5 +90,21 @@ run_cmd liftTermElabM do
     throwError "a backend operation without a decoder was accepted"
   unless (← checkedRegistryManifest) == before do
     throwError "a backend changed the registry"
+
+run_cmd liftTermElabM do
+  match ← connectSage (← registryState) with
+  | .error (.unavailable backend reason) =>
+      logInfo m!"{backend} is not installed here ({reason}); the Sage leaf is not exercised"
+  | .error e => throwError e.render
+  | .ok c =>
+      unless c.ready.capabilities == #["meth.cardinality"] do
+        throwError "Sage announces {c.ready.capabilities}"
+      for (n, k) in [(4, 3), (0, 2), (5, 0), (0, 0), (7, 1)] do
+        match ← sageCardinality c n k with
+        | .ok card =>
+            unless card == cardinalityOf (.zmodPow n k) do
+              throwError "Sage's cardinality of (ℤ/{n})^{k} is {repr card}"
+        | .error e => throwError "Sage's answer was rejected: {e}"
+      Backend.stop c
 
 end CasCatalogue.BackendProbes

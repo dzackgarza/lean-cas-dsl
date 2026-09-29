@@ -277,7 +277,8 @@ def expectedLimitRealizationIds : Array LimitRealizationId :=
     ⟨"colimr.bil_w_form.cokernel.presented"⟩]
 
 /-- Stable backend operation rows (CC-ADAPTER). -/
-def expectedBackendOperationIds : Array BackendOperationId := #[⟨"bop.gap.groups.kernel"⟩]
+def expectedBackendOperationIds : Array BackendOperationId :=
+  #[⟨"bop.gap.groups.kernel"⟩, ⟨"bop.sage.modules.cardinality"⟩]
 
 /-- Stable equality rows (CC-DECIDE). -/
 def expectedEqualityIds : Array EqualityId := #[⟨"eq.sets.presented"⟩]

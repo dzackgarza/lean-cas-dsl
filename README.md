@@ -126,12 +126,14 @@ an optimized Sage method may realize a whole composite directly. Neither may
 redefine the mathematical source of the operation or erase typed parameters,
 operation ports, or route provenance.
 
-The Sage bridge is a **direct adapter** (`CasDsl/Backends/Sage.lean` +
-`backends/sage_adapter.py` under `sage -python`, framed typed JSON —
-`CasDsl/Port.lean` is generic and contains no Sage branches). Sage brokers
-nothing: future GAP/Singular/Macaulay2 bridges are parallel direct
-adapters registering realizations against the *existing* mathematical
-operations.
+Backends are owned by leaves. The core owns only the port protocol and its contract
+(`CasCatalogue/Port.lean`): a backend announces operations keyed by registered semantic
+operations, each declared for it by a registered `backendOperation` row with the decoder of its
+answers. Each leaf owns the program behind its port, in any language (GAP kernels:
+`CasLeaves/Algebra/GapKernels/gap_kernels.py`; Sage cardinalities:
+`CasLeaves/Modules/SageCardinality/sage_cardinality.py`; a Python reference implementation of the
+protocol is `port/python/cas_port.py`). `CasDsl/Backends/Sage.lean` is a leftover of the old
+notebook engine, which executed backends itself; the notebook rebuild (`cc-notebook`) removes it.
 
 All notebook/session state is held in persistent environment extensions per
 the [plugin state law](https://github.com/dzackgarza/lean-jupyter-kernel/blob/main/docs/plugins.md),
@@ -159,8 +161,7 @@ Deferred work is tracked in the issues.
 `CasDsl/` (engine: value model, registries, resolver, router, native
 executors, port, Sage adapter, surface syntax, diagnostics, standard
 universe) · `CasDslTests/` (elaboration-time `#guard`/`run_cmd` suites) ·
-`backends/` (the Python half of the Sage adapter) · `tests/` (adapter
-roundtrip + kernel E2E) · `notebooks/` (the live acceptance notebook) ·
+`port/` (reference implementations of the backend port protocol) · `tests/` (kernel E2E) · `notebooks/` (the live acceptance notebook) ·
 `CasCatalogue/` (the semantic registry: symbolic category/functor expressions whose
 denotations are checked against the mathematics of
 [`lean-categories`](https://github.com/dzackgarza/lean-categories), the normalized
