@@ -95,7 +95,7 @@ def misnamed : Option BackendResult :=
 
 #guard (rejection sign (withoutInclusion sign)).map (mentions "defining arrow") == some true
 #guard (rejection sign tooSmall).map (mentions "misses kernel") == some true
-#guard (rejection sign misnamed).map (mentions "not op.groups.kernel") == some true
+#guard (rejection sign misnamed).map (mentions "not lim.groups.kernel") == some true
 
 run_cmd liftTermElabM do
   let expectRule (contribution : LeafContribution) (rule : String) : MetaM Unit := do

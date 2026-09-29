@@ -6,6 +6,7 @@ module
 
 public import CasAcceptance.AdapterProbes
 public import CasAcceptance.AdjunctionProbes
+public import CasAcceptance.BackendProbes
 public import CasAcceptance.CellProbes
 public import CasAcceptance.ClosureProbes
 public import CasAcceptance.CohereExecProbes

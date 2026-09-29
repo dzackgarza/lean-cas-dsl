@@ -17,7 +17,7 @@ public meta import CasCatalogue.Leaf
 A backend answers "the kernel of `f : G → H`" as
 
 ```text
-BackendResult { operation := "op.groups.kernel",
+BackendResult { operation := "lim.groups.kernel",
                 encoded := {"subgroup": {...}, "inclusion": [...]} }
 ```
 
@@ -40,8 +40,8 @@ structure BackendResult where
   operation : String
   encoded : Json
 
-/-- The semantic operation this decoder serves. -/
-def kernelOperation : String := "op.groups.kernel"
+/-- The registered semantic operation this decoder serves: the kernel of groups. -/
+def kernelOperation : String := "lim.groups.kernel"
 
 /-- The kernel elements of a table homomorphism. -/
 def kernelElements (f : HomHandle) : List (Fin f.source.size) :=

@@ -271,6 +271,9 @@ def expectedLimitRealizationIds : Array LimitRealizationId :=
   #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
     ⟨"limr.finite_sets.pullback.returned"⟩]
 
+/-- Stable backend operation rows (CC-ADAPTER). -/
+def expectedBackendOperationIds : Array BackendOperationId := #[⟨"bop.gap.groups.kernel"⟩]
+
 /-- Stable equality rows (CC-DECIDE). -/
 def expectedEqualityIds : Array EqualityId := #[⟨"eq.sets.presented"⟩]
 
@@ -352,6 +355,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
   validateStableIdSet "limits" (manifest.limits.map (·.id)) (rawIds expectedLimitIds (·.raw))
   validateStableIdSet "limit realizations" (manifest.limitRealizations.map (·.id))
     (rawIds expectedLimitRealizationIds (·.raw))
+  validateStableIdSet "backend operations" (manifest.backendOperations.map (·.id))
+    (rawIds expectedBackendOperationIds (·.raw))
   validateStableIdSet "equalities" (manifest.equalities.map (·.id))
     (rawIds expectedEqualityIds (·.raw))
   validateStableIdSet "adjunctions" (manifest.adjunctions.map (·.id))

@@ -42,6 +42,8 @@ inductive LeafContribution
   | limitRealization (entry : LimitRealizationEntry)
   /-- A category's equality of morphisms, decided on a realization. -/
   | equality (entry : EqualityEntry)
+  /-- A backend's answer to a registered semantic operation, with its decoder. -/
+  | backendOperation (entry : BackendOperationEntry)
   -- Forbidden (spec §5).
   /-- A public category because the backend library has a class. -/
   | category (entry : NamedCategoryEntry)
@@ -69,7 +71,7 @@ inductive LeafContribution
 /-- The §5 rule a forbidden contribution violates, or `none` if it is permitted. -/
 def LeafContribution.violation : LeafContribution → Option String
   | .realizer _ | .action _ | .implementation _ | .decider _ | .isomorphism _
-  | .limitRealization _ | .equality _ => none
+  | .limitRealization _ | .equality _ | .backendOperation _ => none
   | .category e => some s!"§5: a backend leaf cannot invent a public category ({e.id.raw}); \
       categories are registered from lean-categories"
   | .method e => some s!"§5: a backend leaf cannot attach a method to a mathematical object \
@@ -102,6 +104,7 @@ def LeafContribution.entry? : LeafContribution → Option RegistryEntry
   | .isomorphism e => some (.handleIso e)
   | .limitRealization e => some (.limitRealization e)
   | .equality e => some (.equality e)
+  | .backendOperation e => some (.backendOperation e)
   | _ => none
 
 /-- A backend leaf's contract. -/

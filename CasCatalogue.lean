@@ -21,6 +21,7 @@ public import CasCatalogue.Realization
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Registry.Typed
+public import CasCatalogue.Port
 public import CasCatalogue.Refine
 public import CasCatalogue.Resolve
 public import CasCatalogue.ResolveSyntax

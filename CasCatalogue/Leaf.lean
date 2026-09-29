@@ -12,6 +12,7 @@ public import CasCatalogue.Realization
 public import CasCatalogue.Constructors
 public import CasCatalogue.Limits
 public import CasCatalogue.Refine
+public import CasCatalogue.Port
 public import Lean.Data.Json
 
 @[expose] public section

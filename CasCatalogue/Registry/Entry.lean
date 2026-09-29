@@ -159,6 +159,17 @@ structure LimitRealizationEntry where
   lift : Option LiftId := none
   deriving Repr
 
+/-- A backend operation row (CC-ADAPTER, CC-DECODE): the backend `backend` answers the registered
+semantic operation `operation` (a registered limit or method id; the key its adapter announces and
+is called by), and `decoder` decodes its untrusted JSON answer into the operation's semantic result
+type, or rejects it (`… → Json → Except String τ`). -/
+structure BackendOperationEntry where
+  id : BackendOperationId
+  backend : String
+  operation : String
+  decoder : Lean.Name
+  deriving Repr
+
 /-- An equality row (CC-DECIDE): `realization` names a `HomEquality d` for the denotation `d` of
 the registered realizer `realizer`: the category's equality of morphisms, decided on its handles
 (three-valued, with evidence). -/

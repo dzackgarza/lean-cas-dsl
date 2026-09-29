@@ -119,6 +119,11 @@ structure LimitRealizationId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of an operation a backend declares on a registered semantic operation. -/
+structure BackendOperationId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable id of a category's registered equality procedure on a realization. -/
 structure EqualityId where
   raw : String
@@ -166,6 +171,7 @@ instance : Inhabited LimitId := ⟨⟨""⟩⟩
 instance : Inhabited LimitRealizationId := ⟨⟨""⟩⟩
 instance : Inhabited AdjunctionId := ⟨⟨""⟩⟩
 instance : Inhabited EqualityId := ⟨⟨""⟩⟩
+instance : Inhabited BackendOperationId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

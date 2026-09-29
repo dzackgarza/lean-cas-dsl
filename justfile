@@ -27,6 +27,7 @@ build:
 setup:
     @lake exe cache get
     @uv venv .venv
+    @uv pip install -p .venv/bin/python passagemath-gap
     @uv pip install -p .venv/bin/python nbclient \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \

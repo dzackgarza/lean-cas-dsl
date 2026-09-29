@@ -57,6 +57,7 @@ inductive RegistryEntry
   | limitRealization (e : LimitRealizationEntry)
   | adjunction (e : AdjunctionEntry)
   | equality (e : EqualityEntry)
+  | backendOperation (e : BackendOperationEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -81,6 +82,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .limitRealization e => e.id.raw
   | .adjunction e => e.id.raw
   | .equality e => e.id.raw
+  | .backendOperation e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -107,6 +109,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .limitRealization e => #[e.realization]
   | .adjunction e => #[e.declaration]
   | .equality e => #[e.realization]
+  | .backendOperation e => #[e.decoder]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -129,6 +132,7 @@ structure RegistryState where
   limitRealizations : Array LimitRealizationEntry := #[]
   adjunctions : Array AdjunctionEntry := #[]
   equalities : Array EqualityEntry := #[]
+  backendOperations : Array BackendOperationEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -387,6 +391,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .limitRealization e => { s with limitRealizations := s.limitRealizations.push e }
   | s, .adjunction e => { s with adjunctions := s.adjunctions.push e }
   | s, .equality e => { s with equalities := s.equalities.push e }
+  | s, .backendOperation e => { s with backendOperations := s.backendOperations.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -408,7 +413,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.limits.toList.map RegistryEntry.limit ++
     state.limitRealizations.toList.map RegistryEntry.limitRealization ++
     state.adjunctions.toList.map RegistryEntry.adjunction ++
-    state.equalities.toList.map RegistryEntry.equality
+    state.equalities.toList.map RegistryEntry.equality ++
+    state.backendOperations.toList.map RegistryEntry.backendOperation
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -590,6 +596,10 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for realization in state.limitRealizations do
     unless state.limits.any (·.id == realization.limit) do
       throw s!"limit realization {realization.id.raw} names an unregistered limit"
+  for operation in state.backendOperations do
+    unless state.limits.any (·.id.raw == operation.operation) ||
+        state.methods.any (·.id.raw == operation.operation) do
+      throw s!"backend operation {operation.id.raw} names an unregistered operation"
   for equality in state.equalities do
     unless state.realizers.any (·.id == equality.realizer) do
       throw s!"equality entry {equality.id.raw} names an unregistered realizer"
@@ -1921,6 +1931,18 @@ def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry)
     throwError "limit realization {e.id.raw}: {e.realization} does not return an apex handle \
       with its identification"
 
+/-- A backend operation row keys a registered limit or method, and its decoder returns an
+`Except String` of the decoded result. -/
+def validateBackendOperation (state : RegistryState) (e : BackendOperationEntry) :
+    MetaM Unit := do
+  unless state.limits.any (·.id.raw == e.operation) || state.methods.any (·.id.raw == e.operation) do
+    throwError "backend operation {e.id.raw}: {e.operation} is not a registered semantic operation"
+  let decoder ← mkConstWithFreshMVarLevels e.decoder
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType decoder)
+  let type ← whnfR type
+  unless type.isAppOf ``Except && (← isDefEq type.appFn!.appArg! (mkConst ``String)) do
+    throwError "backend operation {e.id.raw}: {e.decoder} is not a decoder (… → Except String τ)"
+
 /-- An equality row names a `HomEquality` for exactly its realizer's denotation. -/
 def validateEquality (state : RegistryState) (e : EqualityEntry) : MetaM Unit := do
   let some realizer := state.realizers.find? (·.id == e.realizer)
@@ -2135,6 +2157,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .limitRealization e => validateLimitRealization state e
   | .adjunction e => validateAdjunction state e
   | .equality e => validateEquality state e
+  | .backendOperation e => validateBackendOperation state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2171,7 +2194,7 @@ def leafApiModule : Name := `CasCatalogue.Leaf
 /-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
 def RegistryEntry.isLeafContribution : RegistryEntry → Bool
   | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _
-  | .limitRealization _ | .equality _ => true
+  | .limitRealization _ | .equality _ | .backendOperation _ => true
   | _ => false
 
 /-- The registered semantics a leaf realizes; public to leaves. -/
@@ -2593,6 +2616,13 @@ structure RegistryManifestLimitRealization where
   lift : Option String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestBackendOperation where
+  id : String
+  backend : String
+  operation : String
+  decoder : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestEquality where
   id : String
   realizer : String
@@ -2672,6 +2702,7 @@ structure RegistryManifest where
   limitRealizations : Array RegistryManifestLimitRealization
   adjunctions : Array RegistryManifestAdjunction
   equalities : Array RegistryManifestEquality
+  backendOperations : Array RegistryManifestBackendOperation
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2812,6 +2843,9 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       declaration := e.declaration.toString }
     equalities := (state.equalities.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, realizer := e.realizer.raw, realization := e.realization.toString }
+    backendOperations := (state.backendOperations.qsort (fun a b => a.id.raw < b.id.raw)).map
+      fun e => { id := e.id.raw, backend := e.backend, operation := e.operation
+                 decoder := e.decoder.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)
