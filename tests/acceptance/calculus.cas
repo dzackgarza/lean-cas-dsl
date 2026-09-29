@@ -1,0 +1,29 @@
+-- Elementary calculus (SPEC.md, "Elementary calculus"): limits, definite integrals and Taylor
+-- expansions, each a partial value (in ℝ⊥), defined exactly where its mathematics is; an asserted
+-- value states that it is defined and equal. Each test is admitted once and never changed.
+
+test calculus.limit_sinc "SPEC.md: lim_{t → 0} sin(t)/t = 1 (sin(t)/t is undefined at 0; the limit is on t ≠ 0)":
+  assert lim_{t → 0} sin(t)/t = 1
+
+test calculus.limit_infinity "SPEC.md: lim_{t → ∞} 1/t = 0":
+  assert lim_{t → ∞} 1/t = 0
+
+test calculus.integral_square "SPEC.md: ∫₀¹ t² dt = [t³/3]₀¹ = 1/3":
+  assert ∫_{0}^{1} t² dt = 1/3
+
+test calculus.integral_sine "SPEC.md: ∫₀^π sin(t) dt = [-cos t]₀^π = 2":
+  assert ∫_{0}^{π} sin(t) dt = 2
+
+let f := t ↦ exp(t) in ℝ → ℝ
+
+let Tf := f.taylor_expansion(0)
+
+test calculus.taylor_exp "SPEC.md: the Taylor expansion of e^t at 0 is defined (e^t is smooth), an element of ℝ[[t]]":
+  assert Tf ∈ ℝ[[t]]
+
+let g := t ↦ sin(t) in ℝ → ℝ
+
+let Tg := g.taylor_expansion(0)
+
+test calculus.taylor_sin "SPEC.md: the Taylor expansion of sin t at 0 is defined (sin is smooth), an element of ℝ[[t]]":
+  assert Tg ∈ ℝ[[t]]

@@ -1,5 +1,11 @@
 {
   "assertions": {
+    "calculus.integral_sine": "2371b04b81bbed6ea4254a89e0b9109f8db36205384b0ff81b0bc705257c9fee",
+    "calculus.integral_square": "15ae63d1987103fb745b5ea3ffb8c155e907af55e2db36f232b4638fe0ea3096",
+    "calculus.limit_infinity": "7ce5736968c1c1c0a324dc2fa4ffbebacb1ed66bf09b670bad441679f35901cb",
+    "calculus.limit_sinc": "6f01a4fe0a6ae1b1cb99b3b33597f88ad5ae700feaf8375e005067b7c6918d17",
+    "calculus.taylor_exp": "aa4c7fa2c426fc70d0f181826763270bb46534c4dec6ffa7cce759a90d71ac7d",
+    "calculus.taylor_sin": "9da078e38f17a7132852cb87138b97903fc33542742829f35288a0de050938d2",
     "card.fin2_times_z3": "b7be53fd20826e6bb8ece54db7e666a72e306455e2f1872d18a1be4873158f72",
     "card.finite_sets.three": "c1b06813e9432c712e220e21b6177ff554f7d67b484da6cc12f05857e513b74f",
     "card.integers": "2dfa449f6862fa76882e6d130da61e8e23c283b1af340bc7521bd4ebe9426514",
@@ -138,5 +144,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "a3c1115745f9bd5eaeb78680a6c5c12c506bfe6e"
+  "lean_categories": "a21e91124db27fe898ccd1df81d5f9f2d7cfa0cb"
 }
