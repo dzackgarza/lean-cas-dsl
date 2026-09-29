@@ -5,7 +5,7 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 
 | query | hits used |
 |---|---|
-| `Functor.Fiber ObjectProperty ι essential image` | see `cc-refine.md`; Mathlib `FiberedCategory/Fiber.lean`, `ObjectProperty/FullSubcategory.lean` |
+| `Functor.Fiber ObjectProperty ι essential image` | none; checked directly: Mathlib `FiberedCategory/Fiber.lean`, `ObjectProperty/FullSubcategory.lean` |
 
 ## Owner
 - A property classifier's total is Mathlib's `P.FullSubcategory` with forgetful functor `P.ι`; its

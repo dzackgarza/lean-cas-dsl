@@ -26,9 +26,15 @@ open CategoryTheory
 
 namespace CasCatalogue
 
-universe v u v' u'
+universe v u v' u' uObj uHom
 
 variable {C : Type u} [Category.{v} C] {R : Type u'} [Category.{v'} R]
+
+/-- The fibre of the classifier of a property over `X` is inhabited iff `X` has the property: for a
+property classifier, the registered decision of `Holds` is a decision of `P`. -/
+theorem Classifier.holds_ofProperty {C : LeanCategories.ObjCat.{uObj, uHom}} (P : ObjectProperty C)
+    (X : C) : Classifier.Holds (LeanCategories.Classifier.ofProperty P) X ↔ P X :=
+  ⟨fun ⟨⟨Y, e⟩⟩ => e ▸ Y.property, fun h => ⟨⟨⟨X, h⟩, rfl⟩⟩⟩
 
 /-- The handles whose denotations satisfy `P`. -/
 abbrev Refined (d : R ⥤ C) (P : ObjectProperty C) : Type u' := (P.inverseImage d).FullSubcategory

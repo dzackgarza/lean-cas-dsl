@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Semantics.Limits.Lifts
+public import CasCatalogue.Refine
 public meta import CasCatalogue.Registry.Extension
 
 @[expose] public section
@@ -24,10 +25,11 @@ namespace CasCatalogue.Foundation.Finiteness
 
 universe u
 
-/-- The fibre of the forgetful functor of finite sets over `X` is inhabited iff `X` is finite. -/
+/-- `clf.sets.finite` is the classifier of the property `Finite` (`FintypeCat` is Mathlib's full
+subcategory of finite types), so its fibre over `X` is inhabited iff `X` is finite. -/
 theorem finiteHolds_iff (X : LeanCategories.Foundation.Mathlib.Sets.{u}) :
     Classifier.Holds LeanCategories.Foundation.Mathlib.finite X ↔ Finite X :=
-  ⟨fun ⟨⟨Y, e⟩⟩ => by subst e; exact Y.property, fun h => ⟨⟨⟨X, h⟩, rfl⟩⟩⟩
+  Classifier.holds_ofProperty (C := LeanCategories.Foundation.Mathlib.Sets.{u}) (fun X => Finite X) X
 
 end CasCatalogue.Foundation.Finiteness
 

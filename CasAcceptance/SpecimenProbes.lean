@@ -19,8 +19,8 @@ composition.
 
 * Formed modules by form (`CasLeaves.Modules.Bilinear.Valued.Forms`): the hyperbolic plane
   `U = (ℤ², (x, y) ↦ x₀y₁ + x₁y₀)` and the symplectic plane `(x, y) ↦ x₀y₁ − x₁y₀`, given by their
-  formulas. The leaf registers two realizers and one action each for the immediate functors
-  (formed module → module, lattice → formed module); `cardinality` and `rank` arrive along
+  formulas. The leaf registers two realizers, one action each for the immediate functors
+  (formed module → module, lattice → formed module), and the decider of `is_lattice` on forms; `cardinality` and `rank` arrive along
   `BilinModule → Mod_ℤ → ∫Mod → Sets`. `U` is proved a lattice and re-typed into lattices as the same
   handle, where the same methods resolve; the symplectic plane is refuted and stays a formed module.
 * The ring diamond and `𝔽₉` under two presentations: `CohereExecProbes`, `RealizeProbes`.
@@ -70,6 +70,14 @@ def uLattice := uLattice?.get (by decide +kernel)
 theorem uLattice_same : latticeForgetAction.obj uLattice = u :=
   refine_eq_some (Option.some_get _).symm
 
+/- Through the registry: `is_lattice` is the registered property classifier `clf.bilin_module.lattice`
+(the classifier of `isLattice`, whose total is `cat.lattice`), decided by its registered decider,
+and `refine%` re-types with no per-property lemma. -/
+#guard (ask% is_lattice (u) in "cat.bilin_module").answer == some true
+#guard (ask% is_lattice (w) in "cat.bilin_module").answer == some false
+#guard (refine% (u) in "cat.bilin_module" to "cat.lattice").isSome
+#guard (refine% (w) in "cat.bilin_module" to "cat.lattice").isNone
+
 /- The methods of lattices resolve on the same handle. -/
 #guard method% cardinality (uLattice) in "cat.lattice" == ⟨CardinalHandle.aleph0⟩
 
@@ -83,9 +91,11 @@ run_cmd liftTermElabM do
   let kinds := rows.map fun
     | .realizer e => s!"realizer {e.category.raw}"
     | .action e => s!"action {e.edge.label}"
+    | .decider e => s!"decider {e.classifier.raw}"
     | row => s!"other {row.stableId}"
   unless kinds.qsort (· < ·) == #["action fun.bilin_module.forget",
-      "action fun.lattice.forget_form", "realizer cat.bilin_module", "realizer cat.lattice"] do
+      "action fun.lattice.forget_form", "decider clf.bilin_module.lattice",
+      "realizer cat.bilin_module", "realizer cat.lattice"] do
     throwError "the forms specimen declares {kinds}"
 
 end CasCatalogue.SpecimenProbes

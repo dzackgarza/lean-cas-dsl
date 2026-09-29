@@ -8,9 +8,11 @@ public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Actions
 public import CasLeaves.Lattices.Valued.Actions
 public import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
+public import CasCatalogue.Semantics.Lattices.Valued.Property
 public import Mathlib.LinearAlgebra.BilinearForm.Hom
 public meta import CasCatalogue.Leaf
 public meta import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
+public meta import CasCatalogue.Semantics.Lattices.Valued.Property
 
 @[expose] public section
 
@@ -67,6 +69,11 @@ def decideLattice (a : FormHandle) : Decision (isLattice ℤ ℤ (formDenotation
   (decideSymm a.form).map
     ⟨fun h => ⟨inferInstanceAs (Module.Projective ℤ (Fin a.rank → ℤ)), h⟩, fun h => h.2⟩
 
+/-- The decider of `clf.bilin_module.lattice` on forms. -/
+def latticeDecider :
+    Decider (Lattices.Valued.Property.latticeClassifier ℤ ℤ) formDenotation where
+  decide a := (decideLattice a).map (Classifier.holds_ofProperty _ _).symm
+
 /-- Formed modules proved to be lattices, as lattices. -/
 noncomputable def latticeDenotation : Refined formDenotation (isLattice ℤ ℤ) ⥤ LatticeCat ℤ ℤ :=
   refinedDenotation formDenotation (isLattice ℤ ℤ)
@@ -89,6 +96,9 @@ register_leaf
   .action
   { id := ⟨"act.bilin_module.forget.form"⟩, edge := .functor FunctorId.bilinModuleForget
     realization := `CasCatalogue.Modules.Bilinear.Valued.Forms.formForgetAction },
+  .decider
+  { id := ⟨"dec.bilin_module.lattice.form"⟩, classifier := ClassifierId.bilinModuleLattice
+    realization := `CasCatalogue.Modules.Bilinear.Valued.Forms.latticeDecider },
   .realizer
   { id := ⟨"rz.lattice.form_refined"⟩, category := ⟨"cat.lattice"⟩, backend := "lean"
     denotation := `CasCatalogue.Modules.Bilinear.Valued.Forms.latticeDenotation },

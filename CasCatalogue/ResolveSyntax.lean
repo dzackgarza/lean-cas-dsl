@@ -22,6 +22,9 @@ public meta import CasCatalogue.Resolve
   equal morphisms.
 * `memo% (table) name (x) in "cat.id"` is `method% name (x) in "cat.id"` through the memo table
   `table` (CC-MEMO): an `IO` action, the same value with `none`.
+* `refine% (x) in "cat.id" to "cat.id'"` re-types `x` into the refinement of its category by a
+  registered property, after the property's registered decision (CC-PROP): `some` of the same
+  handle when proved, `none` otherwise.
 * `#resolve name in "cat.id"` reports the route, or why there is none.
 * `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE).
 * `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its epistemic
@@ -44,6 +47,8 @@ syntax (name := equalityQuery) "eq% " "(" term ") " "(" term ") " "in " str : te
 
 syntax (name := memoCall) "memo% " "(" term ") " ident " (" term ") " "in " str (&" via " str)* :
   term
+
+syntax (name := refineCall) "refine% " "(" term ") " "in " str &" to " str : term
 
 syntax (name := methodsCommand) "#methods " str : command
 
@@ -80,6 +85,11 @@ meta def viaStrings (group : Syntax) : Array String :=
   let some category := stx[9].isStrLit? | throwUnsupportedSyntax
   elabMemoCall ⟨stx[2]⟩ stx[4].getId.eraseMacroScopes.toString ⟨stx[6]⟩ category
     (viaStrings stx[10])
+
+@[term_elab refineCall] meta def elabRefineSyntax : TermElab := fun stx _ => do
+  let some source := stx[5].isStrLit? | throwUnsupportedSyntax
+  let some target := stx[7].isStrLit? | throwUnsupportedSyntax
+  elabRefine ⟨stx[2]⟩ source target
 
 @[term_elab runCall] meta def elabRunSyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax

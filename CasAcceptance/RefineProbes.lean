@@ -48,6 +48,8 @@ def decideIsFinite (x : SetHandles) : Decision (IsFinite (setDenotation.obj x)) 
 def r? : Option (Refined setDenotation IsFinite) := refine a (decideIsFinite a)
 
 #guard r?.isSome
+#guard (refine% (a) in "cat.sets" to "cat.finite_sets").isSome
+#guard (refine% (z) in "cat.sets" to "cat.finite_sets").isNone
 #guard (refine z (decideIsFinite z)).isNone
 #guard (refine (d := setDenotation) (P := IsFinite) a .undecided).isNone
 

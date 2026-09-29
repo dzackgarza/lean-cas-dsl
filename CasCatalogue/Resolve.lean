@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Memo
+public import CasCatalogue.Refine
 
 @[expose] public section
 
@@ -755,6 +756,72 @@ def elabEqualityQuery (f g : Term) (category : String) : TermElabM Expr := do
   | [decision] => return decision
   | [] => throwError "no registered equality of {category} applies to these morphisms"
   | _ => throwError "several registered equalities of {category} apply to these morphisms"
+
+/-- The registered classifiers on `source` that are classifiers of a property (`ofProperty P`,
+found by unification) with total `target`, as `(classifier, P)`. -/
+def propertyClassifierInto (state : RegistryState) (source target : NamedCategoryEntry) :
+    MetaM (Option (ClassifierEntry × Expr × Expr)) := do
+  let attempt (entry : ClassifierEntry) : MetaM (Expr × Expr) := do
+    let declared ← mkConstWithFreshMVarLevels target.declaration
+    let (targetArgs, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+    let total := mkAppN declared targetArgs
+    let c ← mkConstWithFreshMVarLevels entry.declaration
+    let (args, _, _) ← forallMetaTelescopeReducing (← inferType c)
+    let classifier := mkAppN c args
+    let host := (← whnfR (← inferType classifier)).appArg!
+    let P ← mkFreshExprMVar (← mkAppOptM ``CategoryTheory.ObjectProperty
+      #[← mkAppM ``CategoryTheory.Bundled.α #[host], none])
+    unless ← withTransparency .all <| isDefEq classifier
+        (← mkAppOptM ``LeanCategories.Classifier.ofProperty #[host, P]) do
+      throwError "{entry.id.raw} is not the classifier of a property"
+    unless ← withTransparency .all <| isDefEq
+        (← mkAppM ``LeanCategories.Classifier.total #[classifier]) total do
+      throwError "{entry.id.raw} does not have the total {target.id.raw}"
+    return (← instantiateMVars classifier, ← instantiateMVars P)
+  let candidates := state.classifiers.filter (·.host.syntacticEq source.expression)
+  let mut matching : Array ClassifierEntry := #[]
+  for entry in candidates do
+    if ← withoutModifyingState (try discard (attempt entry); pure true catch _ => pure false) then
+      matching := matching.push entry
+  match matching.toList with
+  | [entry] => return some (entry, ← attempt entry)
+  | [] => return none
+  | _ => throwError "several property classifiers on {source.id.raw} have the total {target.id.raw}"
+
+/-- Elaborate `refine% (x) in "cat.src" to "cat.tgt"` (CC-PROP, CC-DECIDE): `cat.tgt` is the total
+of the unique registered classifier of a property `P` on `cat.src`; its registered decider on the
+receiver's realization decides `Holds`, which is `P` of the denotation
+(`Classifier.holds_ofProperty`), and `refine` re-types the receiver: `some` of the same handle in
+the refinement when proved, `none` otherwise. -/
+def elabRefine (receiver : Term) (source target : String) : TermElabM Expr := do
+  let state ← registryState
+  let some src := state.categories.find? (·.id.raw == source)
+    | throwError "no registered category {source}"
+  let some tgt := state.categories.find? (·.id.raw == target)
+    | throwError "no registered category {target}"
+  let some (entry, classifier, P) ← propertyClassifierInto state src tgt
+    | throwError "{target} is not the refinement of {source} by a registered property"
+  let (denotation, x) ← receiverRealization state src.id receiver
+  let mut decisions : Array Expr := #[]
+  for decider in state.deciders.filter (·.classifier == entry.id) do
+    let procedure ← mkConstWithFreshMVarLevels decider.realization
+    try
+      let decision ← mkAppM ``Decider.decide #[procedure, x]
+      decisions := decisions.push decision
+    catch _ => pure ()
+  let [decision] := decisions.toList
+    | throwError "no unique registered decider of {entry.id.raw} applies to this realization"
+  let denoted := (← instantiateMVars (← inferType decision)).appArg!.appArg!
+  let host := (← whnfR (← inferType classifier)).appArg!
+  -- The classifier's parameters and universes are those of the receiver's denotation.
+  unless ← withTransparency .all <| isDefEq (← inferType denoted)
+      (← mkAppM ``CategoryTheory.Bundled.α #[host]) do
+    throwError "the receiver does not denote an object of the host of {entry.id.raw}"
+  let host ← instantiateMVars host
+  let P ← instantiateMVars P
+  let property ← mkAppM ``Decision.map
+    #[← mkAppOptM ``Classifier.holds_ofProperty #[host, P, denoted], decision]
+  mkAppOptM ``refine #[none, none, none, none, denotation, P, x, property]
 
 /-- Report the resolution of `name` on the category `category`, or why there is none. -/
 def reportResolution (name category : String) (through : Array String) : TermElabM Unit := do

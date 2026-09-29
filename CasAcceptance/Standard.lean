@@ -130,7 +130,8 @@ def expectedClassifierIds : Array ClassifierId := #[
   ClassifierId.modulesFree,
   ClassifierId.setsBinaryOperation,
   ClassifierId.setsFinite,
-  ClassifierId.setsGraded]
+  ClassifierId.setsGraded,
+  ClassifierId.bilinModuleLattice]
 
 /-- Stable functor rows owned by the standard catalogue. -/
 def expectedFunctorIds : Array FunctorId := #[
@@ -290,11 +291,12 @@ def expectedLiftIds : Array LiftId :=
 
 /-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
 def expectedPropertyIds : Array PropertyId :=
-  #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩, ⟨"prop.is_finite"⟩]
+  #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩, ⟨"prop.is_finite"⟩, ⟨"prop.is_lattice"⟩]
 
 /-- Stable decision-procedure rows owned by the standard catalogue (CC-DECIDE). -/
 def expectedDeciderIds : Array DeciderId :=
-  #[⟨"dec.magmas.commutative.table"⟩, ⟨"dec.sets.finite.presented"⟩]
+  #[⟨"dec.magmas.commutative.table"⟩, ⟨"dec.sets.finite.presented"⟩,
+    ⟨"dec.bilin_module.lattice.form"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
