@@ -55,6 +55,9 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `[t^n]f`: the registered coefficient; `∑_{n ∈ X} e` of power series is the registered formal
+  (`t`-adic) sum, over a named set or a subset; `x^n` for `n ∈ ℕ` an element: the registered power;
+  a statement's bound generator read inside a map is carried to its stage;
 * a decimal `1.4142` is the fraction `14142/10⁴`; a numeral receives families (`(360).m()`);
 * `M⁻¹`: the registered partial inverse; a registered family given a partial value `a ∈ P⊥` where
   it takes an element of `P` is lifted along `(-)⊥` (defined where `a` is, joined if the family is
@@ -191,6 +194,8 @@ syntax:60 (name := casDefinite) "∫_{" cas_term "}^{" cas_term "} " cas_term:71
 syntax:max (name := casSeries) cas_term:max noWs "[" noWs "[" ident "]" noWs "]" : cas_term
 /-- `M⁻¹`, and `M⁻¹(v)` applied. -/
 syntax:max (name := casInverse) cas_term:max noWs "⁻¹" (noWs "(" cas_term,* ")")? : cas_term
+/-- `[tⁿ]f`, `[t^n]f`, `[t]f`: the coefficient of `tⁿ` in a power series. -/
+syntax:max (name := casCoefficientOf) "[" cas_term "]" noWs cas_term:max : cas_term
 /-- `∫ ω`: the primitives of a differential. -/
 syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
 
@@ -464,23 +469,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       let (mantissa, _, exponent) := d.getScientific
       divide (.nat mantissa) (.nat (10 ^ exponent)) ambient?
   | `(cas_term| ($t)) => eval scope t category? ambient?
-  | `(cas_term| $t in $c) =>
-      if let `(cas_term| $name:ident) := c then
-        if state.categories.any (·.name == name.getId.toString) then
-          return ← eval scope t (some (← categoryNamed state name.getId.toString)) ambient?
-      -- `t in X` for a set `X`: `t` with its numerals in `X`.
-      let X ← eval scope c
-      match X with
-      | .homSet .. => eval scope t category? (some X)
-      | .object .. =>
-          -- `t` is an element of `X`, or of a set included in `X`.
-          match ← toElement (← eval scope t category? (some X)) X with
-          | v@(.element _ Y) =>
-              if (← coercionMap Y X).isNone then
-                throwStratum .invalid m!"`{shown t}` is not an element of `{shown c}`"
-              coerceTo v X
-          | v => pure v
-      | _ => throwStratum .invalid m!"`in` takes a category, a set or a set of maps"
+  | `(cas_term| $t in $c) => evalIn scope t c category? ambient?
   | `(cas_term| $x ⊆ $y) =>
       -- Named sets: the registered inclusions decide it; nothing is realized. Otherwise subsets:
       -- the order of the Boolean algebra `𝒫(X)`.
@@ -575,7 +564,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       applyOperation "+" #[elements[0]!, ← applyOperation "-" #[elements[1]!] X] X
   | `(cas_term| ℵ₀) => return .literal `«ℵ₀»
   | `(cas_term| $x:ident) =>
-      if let some v := (← read).bound.lookup x.getId then return v
+      if let some v := (← read).bound.lookup x.getId then return ← restage v
       if let some t := scope.get? x.getId then
         let rings ← ringBindings scope t
         return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
@@ -631,15 +620,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
           if let some x ← differentialVariable? v.getId then return ← derivativeAt x
           throwStratum .invalid m!"`d/{v.getId}`: {v.getId} is not d of a variable"
       | _, _ => divide (← eval scope a) (← eval scope n) ambient?
-  | `(cas_term| $b ^ $k) =>
-      match b with
-      | `(cas_term| (ℤ / $n)) =>
-          object state "ZModPower" #[← eval scope n, ← eval scope k] category?
-      | _ =>
-        match ← eval scope b none ambient?, ← eval scope k with
-        | .nat 2, X@(.object ..) => powerSetOf X
-        | base, .nat e => power scope base e ambient?
-        | _, _ => throwStratum .invalid m!"`^` is `2^X` of a set or `x^k` of an element"
+  | `(cas_term| $b ^ $k) => evalPower scope b k category? ambient?
   | `(cas_term| $a × $b) => product scope false a b category?
   | `(cas_term| $a ⊔ $b) => product scope true a b category?
   | _ => evalKinds scope stx category? ambient?
@@ -674,18 +655,7 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
   if stx.getKind == ``casBig then
     let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
     return ← bigOperator scope name stx[2].getId stx[4] stx[6]
-  if stx.getKind == ``casProgression then
-    return ← progression scope stx[1].getSepArgs
-  if stx.getKind == ``casMultiples then
-    let k : NumLit := ⟨stx[0]⟩
-    let atom := (stx[1].find? (·.isAtom)).map (·.getAtomVal) |>.getD "ℕ"
-    let set : Syntax := mkNode ``casAtom #[mkAtom atom]
-    let e ← `(cas_term| $k:num · $(mkIdent `«multiple index»):ident)
-    return ← imageOf scope e `«multiple index» (← eval scope set)
-  if stx.getKind == ``casInverse then
-    let inverse ← applyNamed state "⁻¹" #[← eval scope stx[0]]
-    if stx[2].getNumArgs == 0 then return inverse
-    return ← apply scope inverse (stx[2][1].getSepArgs)
+  if let some v ← evalNotation scope stx then return v
   if stx.getKind == ``casSeries then
     return ← object state "PowerSeries" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casCallWith then
@@ -720,6 +690,71 @@ partial def applyIdentifier (scope : Scope) (f : Ident) (args : Array Syntax)
   if ((← read).bound.lookup f.getId).isSome || scope.contains f.getId then
     return ← apply scope (← eval scope (← `(cas_term| $f:ident)) category?) args
   named scope f.getId.toString args category?
+
+/-- `t in C` for a category `C`, `t in X` for a set `X` (`t` is an element of `X`, or of a set
+included in `X`, or a partial value over `X`), `t in X → Y`. -/
+partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCategoryEntry)
+    (ambient? : Option Value) : M Value := do
+  let state ← registryState
+  if let `(cas_term| $name:ident) := c then
+    if state.categories.any (·.name == name.getId.toString) then
+      return ← eval scope t (some (← categoryNamed state name.getId.toString)) ambient?
+  -- `t in X` for a set `X`: `t` with its numerals in `X`.
+  let X ← eval scope c
+  match X with
+  | .homSet .. => eval scope t category? (some X)
+  | .object .. =>
+      -- `t` is an element of `X`, or of a set included in `X`.
+      match ← toElement (← eval scope t category? (some X)) X with
+      | v@(.element _ Y) =>
+          -- A partial value over `X` (in `X⊥`) stays partial.
+          if let .object _ _ (some (entry, #[P])) := Y then
+            if entry.name == "Partial" && (← coercionMap P X).isSome then return v
+          if (← coercionMap Y X).isNone then
+            throwStratum .invalid m!"`{shown t}` is not an element of `{shown c}`"
+          coerceTo v X
+      | v => pure v
+  | _ => throwStratum .invalid m!"`in` takes a category, a set or a set of maps"
+
+/-- `b ^ k`: `(ℤ/n)^k`, `2^X` of a set, `x^k` of an element with a numeral or `ℕ` exponent. -/
+partial def evalPower (scope : Scope) (b k : Syntax) (category? : Option NamedCategoryEntry)
+    (ambient? : Option Value) : M Value := do
+  let state ← registryState
+  match b with
+  | `(cas_term| (ℤ / $n)) =>
+      object state "ZModPower" #[← eval scope n, ← eval scope k] category?
+  | _ =>
+    match ← eval scope b none ambient?, ← eval scope k with
+    | .nat 2, X@(.object ..) => powerSetOf X
+    | base, .nat e => power scope base e ambient?
+    -- An exponent that is an element of `ℕ`: the registered power of a monoid.
+    | base@(.element ..), e@(.element ..) => applyNamed state "^" #[base, e]
+    | _, _ => throwStratum .invalid m!"`^` is `2^X` of a set or `x^k` of an element"
+
+/-- Progressions, multiples, inverses and coefficients, by syntax kind. -/
+partial def evalNotation (scope : Scope) (stx : Syntax) : M (Option Value) := do
+  let state ← registryState
+  if stx.getKind == ``casProgression then
+    return some (← progression scope stx[1].getSepArgs)
+  if stx.getKind == ``casMultiples then
+    let k : NumLit := ⟨stx[0]⟩
+    let atom := (stx[1].find? (·.isAtom)).map (·.getAtomVal) |>.getD "ℕ"
+    let set : Syntax := mkNode ``casAtom #[mkAtom atom]
+    let e ← `(cas_term| $k:num · $(mkIdent `«multiple index»):ident)
+    return some (← imageOf scope e `«multiple index» (← eval scope set))
+  if stx.getKind == ``casInverse then
+    let inverse ← applyNamed state "⁻¹" #[← eval scope stx[0]]
+    if stx[2].getNumArgs == 0 then return some inverse
+    return some (← apply scope inverse (stx[2][1].getSepArgs))
+  if stx.getKind == ``casCoefficientOf then
+    let n ← match stx[1] with
+      | `(cas_term| $_:ident ^ $k:num) => pure k.getNat
+      | `(cas_term| $_:ident²) => pure 2
+      | `(cas_term| $_:ident³) => pure 3
+      | `(cas_term| $_:ident) => pure 1
+      | m => throwStratum .invalid m!"`[{shown m}]` is a monomial `tⁿ`"
+    return some (← applyNamed state "coefficient" #[← eval scope stx[3], .nat n])
+  return none
 
 /-- The registered object `name` at the numeral parameters `args`. -/
 partial def object (state : RegistryState) (name : String) (args : Array Value)
@@ -1236,11 +1271,19 @@ partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
 `t ↦ e : X → Y`, applied to `A`; a partial value, defined for finite `A`. -/
 partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax) : M Value := do
   let state ← registryState
-  let subset ← eval scope A
+  -- A named set is its whole subset.
+  let subset ← match ← eval scope A with
+    | X@(.object ..) => imageOfMap (← identityAt X) X X
+    | v => pure v
   let some (_, X) ← powerSetOf? subset
     | throwStratum .invalid m!"`{name}_\{{t} ∈ …}` ranges over a subset"
   let .element f Y ← atStage scope t X e none
     | throwStratum .invalid m!"`{shown e}` is an element"
+  -- A sum of power series is formal (`t`-adic), over the series' coefficients.
+  let (name, Y') := match Y with
+    | .object _ _ (some (entry, #[R])) => if entry.name == "PowerSeries" && name == "∑" then
+        ("∑ₜ", R) else (name, Y)
+    | _ => (name, Y)
   let some entry := state.morphisms.find? (·.name == name)
     | throwStratum .invalid m!"no registered {name}"
   if (← read).mode == .realized then
@@ -1249,7 +1292,7 @@ partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax
   let .object p category _ := P | unreachable!
   let target ← object state "Partial" #[Y] none
   let .object q _ _ := target | unreachable!
-  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y])*
+  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y'])*
     $(← quoteExpr f))) p q category
   return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[A', family]) target
 
@@ -1670,6 +1713,15 @@ partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
   let image ← homIn (← `($(mkCIdent po.image) $(← paramTerms #[X, Y])* $(← quoteExpr f)))
     one p category
   return .element (← staged image) P
+
+/-- A bound value at the current stage: a global element `1 → X` (a ring's generator bound for a
+whole statement) read inside a map is `S → 1 → X`. -/
+partial def restage (v : Value) : M Value := do
+  let (.element h X, some (.object s ..)) := (v, (← read).stage) | return v
+  let some (domain, _) := homEnds? (← whnfR (← inferType h)) | return v
+  let .object one .. ← oneObject | return v
+  if (← isDefEq domain s) || !(← isDefEq domain one) then return v
+  return .element (← staged h) X
 
 /-- A global element `1 → X` at the current stage `S`: `S → 1 → X`. -/
 partial def staged (hom : Expr) : M Expr := do

@@ -1,0 +1,16 @@
+-- Formal power series (SPEC.md, "Ellipses"): infinite formal sums in ℤ[[t]], defined when
+-- t-adically summable, and their coefficients. Each test is admitted once and never changed.
+
+let f := ∑_{n ∈ ℕ} n² · t^n in ℤ[[t]]
+
+test series.coefficient_two "SPEC.md: [t²] ∑ n² tⁿ = 2² = 4":
+  assert [t^2]f = 4
+
+test series.coefficient_three "SPEC.md: [t³] ∑ n² tⁿ = 3² = 9":
+  assert [t³]f = 9
+
+test series.coefficient_zero "[t⁰] ∑ n² tⁿ = 0² = 0":
+  assert [t^0]f = 0
+
+test series.coefficient_four "SPEC.md: [t⁴] ∑ n² tⁿ = 16":
+  assert [t^4]f = 16

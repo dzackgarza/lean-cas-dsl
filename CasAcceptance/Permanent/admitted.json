@@ -141,6 +141,10 @@
     "polynomials.no_rational_roots": "ac0cc67857c9e293565d22d1624cbd842937128b8bb47e9ee66274ab428ab330",
     "polynomials.root": "93ccca02e274db1162cb411ae119d3f46343b303cd541a9a9a5ec970648bcdcb",
     "polynomials.variable": "1172e830532c6515788d151e107d074a967c37a9649d5927a5e8702af4e00137",
+    "series.coefficient_four": "ebe4d9d0e65bf51224f5756cc965ffa44f2662156f28a53cf5e2904bacfe5940",
+    "series.coefficient_three": "f9998e6ab5c7dc58fa18a4b431ad5cc1a728f320d95780690efba67ae2ad75ab",
+    "series.coefficient_two": "05affdbf01b7b4e5e61411654e35101005256a6ab371de5b7db244581d2ba2e9",
+    "series.coefficient_zero": "246447c0a1d7475d99f96cfede74c72abe73fc67adf942fec3b0e89ea72097db",
     "sets.apply.rev": "a9bb7d1ac375adce52a6ab1ad6835fdfd374649939d6b2490a231c743ab3030f",
     "sets.apply.rev_rev": "bb2bcc5be11c577fc75fd9acb5ab3fc264e59b0ac5c4058931bc4ccb02470e77",
     "sets.card.fin2_sqcup_fin3": "60be5a4d9d33c9b38fef037b4b3619d32aac486c27f28b0fb89e068e71d8e4fd",
@@ -163,5 +167,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "1a8684feb75f4eb2bf9e7c1360f7fb742b445d52"
+  "lean_categories": "fa10a86516abeef73cd671afd5adb7aaef332249"
 }
