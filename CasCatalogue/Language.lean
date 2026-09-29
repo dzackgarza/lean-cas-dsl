@@ -6,6 +6,9 @@ module
 
 public import CasCatalogue.ObjectCall
 public import CasCatalogue.LimitCall
+-- The whole pinned semantic release: what the language can say never depends on which leaves are
+-- installed.
+public import LeanCategories.Catalogue
 
 @[expose] public section
 

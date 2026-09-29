@@ -23,7 +23,14 @@ default:
 build:
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
-    @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit
+    @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+
+# Run the acceptance suite over the given leaf modules (default: all of this repository's
+# leaves); writes every result to .tmp/harness.json. Gaps are the report, not failures.
+harness *leaves="CasLeaves":
+    @lake build cas-harness {{leaves}}
+    @mkdir -p .tmp
+    @lake exe cas-harness --report .tmp/harness.json {{leaves}}
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec
 setup:

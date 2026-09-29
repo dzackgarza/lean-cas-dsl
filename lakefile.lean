@@ -78,6 +78,11 @@ lean_exe «cas-registry-export» where
   root := `CasTools.ExportMain
   supportInterpreter := true
 
+/-- Run the acceptance suite over given leaf modules (`CasTools.Harness`). -/
+lean_exe «cas-harness» where
+  root := `CasTools.HarnessMain
+  supportInterpreter := true
+
 /-- Kernel-axiom audit of the core, the leaves and the probes; the audit runs while
 `CasTools.AxiomAudit` elaborates. -/
 lean_exe «cas-axiom-audit» where
