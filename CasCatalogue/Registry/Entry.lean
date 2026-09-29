@@ -145,6 +145,15 @@ structure LimitRealizationEntry where
   realization : Lean.Name
   deriving Repr
 
+/-- An adjunction row (CC-CALC): `declaration` is a Mathlib `Adjunction L R` between the registered
+functors `left` and `right` (unit, counit, and the transpose `homEquiv`), e.g. `constLimAdj`. -/
+structure AdjunctionEntry where
+  id : AdjunctionId
+  left : FunctorId
+  right : FunctorId
+  declaration : Lean.Name
+  deriving Repr
+
 /-- A cell row (CC-CALC, CC-COHERE): a natural transformation `declaration : L ⟶ R` (or, when `invertible`,
 a natural isomorphism `L ≅ R`) between the composites `L`, `R` of the registered functors along
 `left` and `right` (the identity of `source` when empty). The cell is Mathlib's; the row names it

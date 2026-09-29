@@ -69,6 +69,8 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.subobjectsSets,
   CategoryId.modulePoints,
   CategoryId.endofunctorsSets,
+  CategoryId.walkingPair,
+  CategoryId.setsPairDiagrams,
   CategoryId.unimodularLattice,
   CategoryId.cardinals,
   CategoryId.subobjectsGroups,
@@ -188,7 +190,9 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.subobjectsModulesForget,
   FunctorId.subobjectsModulesDomain,
   FunctorId.subobjectsModulesRank,
-  FunctorId.setsList]
+  FunctorId.setsList,
+  FunctorId.setsPairDiagonal,
+  FunctorId.setsPairLimit]
 
 /-- Stable fibration rows owned by the standard catalogue. -/
 def expectedFibrationIds : Array FibrationId := #[
@@ -224,7 +228,8 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.modules.fibre_inclusion.zmod_free"⟩,
   ⟨"act.modules.underlying.zmod_free"⟩,
   ⟨"act.sets.whole_subset.presented"⟩,
-  ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩]
+  ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩,
+  ⟨"act.sets.pair_diagonal.presented"⟩, ⟨"act.sets.pair_limit.presented"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
@@ -245,7 +250,8 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.additive_groups.table"⟩,
   ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
-  ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩]
+  ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
+  ⟨"rz.sets.pair_diagrams.presented"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[
@@ -260,6 +266,9 @@ def expectedCellIds : Array NaturalTransformationId := #[
 def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩]
 def expectedLimitRealizationIds : Array LimitRealizationId :=
   #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩]
+
+/-- Stable adjunction rows (CC-CALC). -/
+def expectedAdjunctionIds : Array AdjunctionId := #[AdjunctionId.setsPairDiagonalLimit]
 
 /-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
 def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
@@ -333,6 +342,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
   validateStableIdSet "limits" (manifest.limits.map (·.id)) (rawIds expectedLimitIds (·.raw))
   validateStableIdSet "limit realizations" (manifest.limitRealizations.map (·.id))
     (rawIds expectedLimitRealizationIds (·.raw))
+  validateStableIdSet "adjunctions" (manifest.adjunctions.map (·.id))
+    (rawIds expectedAdjunctionIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasAcceptance.AdapterProbes
+public import CasAcceptance.AdjunctionProbes
 public import CasAcceptance.CellProbes
 public import CasAcceptance.ClosureProbes
 public import CasAcceptance.CohereExecProbes

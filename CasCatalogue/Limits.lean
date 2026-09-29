@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Action
 public import Mathlib.CategoryTheory.Limits.HasLimits
+public import Mathlib.CategoryTheory.Whiskering
 
 @[expose] public section
 
@@ -63,5 +64,14 @@ theorem realizedLimitCone_leg (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (
     (φ : d.obj a ≅ L.cone.pt) (j : J) :
     d.map ((realizedLimitCone hd L a φ).cone.π.app j) = φ.hom ≫ L.cone.π.app j := by
   simp [realizedLimitCone]
+
+/-- The realized limit of `D` computed through an adjunction `Δ ⊣ L`: the apex is the image of `D`
+under the realized action of the right adjoint `L`, and the limit cone of `D ⋙ d` is Mathlib's
+(`coneOfAdj`, legs the counit, mediators the transposes, `isLimitConeOfAdj`). -/
+noncomputable def realizedLimitConeOfAdj (hd : d.FullyFaithful) {L : (J ⥤ C) ⥤ C}
+    (adj : Functor.const J ⊣ L) (aL : RealizedAction L ((Functor.whiskeringRight J R C).obj d) d)
+    (D : J ⥤ R) : LimitCone D :=
+  realizedLimitCone hd ⟨coneOfAdj adj (D ⋙ d), isLimitConeOfAdj adj (D ⋙ d)⟩ (aL.obj D)
+    (aL.objIso D)
 
 end CasCatalogue

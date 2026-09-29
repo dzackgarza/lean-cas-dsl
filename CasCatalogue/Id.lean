@@ -119,6 +119,11 @@ structure LimitRealizationId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered adjunction, e.g. `adj.sets.pair.diagonal_limit`. -/
+structure AdjunctionId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -154,6 +159,7 @@ instance : Inhabited ImplementationId := ⟨⟨""⟩⟩
 instance : Inhabited HandleIsoId := ⟨⟨""⟩⟩
 instance : Inhabited LimitId := ⟨⟨""⟩⟩
 instance : Inhabited LimitRealizationId := ⟨⟨""⟩⟩
+instance : Inhabited AdjunctionId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

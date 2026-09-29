@@ -13,6 +13,7 @@ public import CasLeaves.Algebra.Subgroups
 public import CasLeaves.Foundation.Actions
 public import CasLeaves.Foundation.Cardinality
 public import CasLeaves.Foundation.Lists
+public import CasLeaves.Foundation.PairDiagrams
 public import CasLeaves.Foundation.Pullbacks
 public import CasLeaves.Foundation.Subsets
 public import CasLeaves.Lattices.Valued.Actions

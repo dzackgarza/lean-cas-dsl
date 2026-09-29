@@ -37,6 +37,8 @@ inductive SetHandle
   | zmodPow (n k : ℕ)
   /-- The set of finite lists of elements of a presented set: the image under `L = List`. -/
   | list (a : SetHandle)
+  /-- The product of two presented sets. -/
+  | prod (a b : SetHandle)
   deriving DecidableEq, Repr, Hashable
 
 /-- The set a handle presents. -/
@@ -46,6 +48,7 @@ abbrev SetHandle.carrier : SetHandle → Type
   | .zmod n => ZMod n
   | .zmodPow n k => Fin k → ZMod n
   | .list a => List a.carrier
+  | .prod a b => a.carrier × b.carrier
 
 /-- Presented sets: the full subcategory of `Sets` on the presented carriers
 (`InducedCategory`), so a morphism handle is a function between the presented sets. -/

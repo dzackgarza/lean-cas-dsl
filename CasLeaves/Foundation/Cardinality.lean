@@ -68,6 +68,11 @@ def cardinalityOf : SetHandle → CardinalHandle
   | .list a => match cardinalityOf a with
     | .finite 0 => .finite 1
     | _ => .aleph0
+  | .prod a b => match cardinalityOf a, cardinalityOf b with
+    | .finite m, .finite n => .finite (m * n)
+    | .finite 0, .aleph0 => .finite 0
+    | .aleph0, .finite 0 => .finite 0
+    | _, _ => .aleph0
 
 /-- Every presented set is countable. -/
 theorem _root_.CasCatalogue.Foundation.Actions.SetHandle.countable :
@@ -78,6 +83,8 @@ theorem _root_.CasCatalogue.Foundation.Actions.SetHandle.countable :
   | .zmodPow 0 _ => inferInstanceAs (Countable (Fin _ → ℤ))
   | .zmodPow (_ + 1) _ => inferInstance
   | .list a => haveI := a.countable; inferInstanceAs (Countable (List a.carrier))
+  | .prod a b =>
+      haveI := a.countable; haveI := b.countable; inferInstanceAs (Countable (a.carrier × b.carrier))
 
 theorem CardinalHandle.denote_injective : Function.Injective CardinalHandle.denote := by
   rintro (m | _) (n | _) h <;> simp only [CardinalHandle.denote] at h
@@ -120,6 +127,17 @@ theorem cardinalityOf_denote : ∀ a : SetHandle,
           rw [← ha]; exact Cardinal.aleph0_ne_zero)
         simp [cardinalityOf, h, CardinalHandle.denote, SetHandle.carrier,
           Cardinal.mk_list_eq_aleph0]
+  | .prod a b => by
+      have hp : Cardinal.mk (SetHandle.prod a b).carrier =
+          Cardinal.mk a.carrier * Cardinal.mk b.carrier := by
+        simp [SetHandle.carrier, Cardinal.mk_prod]
+      rw [hp, ← cardinalityOf_denote a, ← cardinalityOf_denote b]
+      simp only [cardinalityOf]
+      rcases cardinalityOf a with (_ | m) | _ <;> rcases cardinalityOf b with (_ | n) | _ <;>
+        simp [CardinalHandle.denote]
+      all_goals first
+        | rw [← Nat.cast_succ, Cardinal.nat_mul_aleph0 (Nat.succ_ne_zero _)]
+        | rw [← Nat.cast_succ, Cardinal.aleph0_mul_nat (Nat.succ_ne_zero _)]
 
 theorem cardinalityOf_iso {a b : SetHandles} (e : a ≅ b) : cardinalityOf a = cardinalityOf b :=
   CardinalHandle.denote_injective <| by

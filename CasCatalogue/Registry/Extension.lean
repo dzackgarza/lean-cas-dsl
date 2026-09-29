@@ -54,6 +54,7 @@ inductive RegistryEntry
   | cell (e : CellEntry)
   | limit (e : LimitEntry)
   | limitRealization (e : LimitRealizationEntry)
+  | adjunction (e : AdjunctionEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -76,6 +77,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .cell e => e.id.raw
   | .limit e => e.id.raw
   | .limitRealization e => e.id.raw
+  | .adjunction e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -100,6 +102,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .cell e => #[e.declaration]
   | .limit e => #[e.declaration]
   | .limitRealization e => #[e.realization]
+  | .adjunction e => #[e.declaration]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -120,6 +123,7 @@ structure RegistryState where
   cells : Array CellEntry := #[]
   limits : Array LimitEntry := #[]
   limitRealizations : Array LimitRealizationEntry := #[]
+  adjunctions : Array AdjunctionEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -376,6 +380,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .cell e => { s with cells := s.cells.push e }
   | s, .limit e => { s with limits := s.limits.push e }
   | s, .limitRealization e => { s with limitRealizations := s.limitRealizations.push e }
+  | s, .adjunction e => { s with adjunctions := s.adjunctions.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -395,7 +400,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.handleIsos.toList.map RegistryEntry.handleIso ++
     state.cells.toList.map RegistryEntry.cell ++
     state.limits.toList.map RegistryEntry.limit ++
-    state.limitRealizations.toList.map RegistryEntry.limitRealization
+    state.limitRealizations.toList.map RegistryEntry.limitRealization ++
+    state.adjunctions.toList.map RegistryEntry.adjunction
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -577,6 +583,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for realization in state.limitRealizations do
     unless state.limits.any (·.id == realization.limit) do
       throw s!"limit realization {realization.id.raw} names an unregistered limit"
+  for adjunction in state.adjunctions do
+    unless (state.functor? adjunction.left).isSome && (state.functor? adjunction.right).isSome do
+      throw s!"adjunction entry {adjunction.id.raw} names an unregistered functor"
   for cell in state.cells do
     unless (cell.left ++ cell.right).all (·.isRegisteredIn state) do
       throw s!"cell entry {cell.id.raw} names an unregistered functor"
@@ -1854,6 +1863,19 @@ def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry)
     throwError "limit realization {e.id.raw}: {e.realization} does not return an apex handle \
       with its identification"
 
+/-- An adjunction row names a Mathlib `Adjunction L R` between exactly its two registered
+functors. -/
+def validateAdjunction (state : RegistryState) (e : AdjunctionEntry) : MetaM Unit := do
+  let declaration ← mkConstWithFreshMVarLevels e.declaration
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
+  let type ← whnfR type
+  unless type.isAppOfArity ``CategoryTheory.Adjunction 6 do
+    throwError "adjunction {e.id.raw}: {e.declaration} is not an adjunction"
+  let args := type.getAppArgs
+  for (actual, id, side) in #[(args[4]!, e.left, "left"), (args[5]!, e.right, "right")] do
+    unless ← withTransparency .all <| isDefEq actual (← state.routeFunctor #[.functor id]) do
+      throwError "adjunction {e.id.raw}: its {side} adjoint is not {id.raw}"
+
 /-- The identity functor on the source of the functor `F`. -/
 def identityOnSourceOf (F : Expr) : MetaM Expr := do
   let type ← whnf (← inferType F)
@@ -2038,6 +2060,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .cell e => validateCell state e
   | .limit e => validateLimit state e
   | .limitRealization e => validateLimitRealization state e
+  | .adjunction e => validateAdjunction state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2495,6 +2518,13 @@ structure RegistryManifestLimitRealization where
   realization : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestAdjunction where
+  id : String
+  left : String
+  right : String
+  declaration : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestProperty where
   id : String
   name : String
@@ -2558,6 +2588,7 @@ structure RegistryManifest where
   cells : Array RegistryManifestCell
   limits : Array RegistryManifestLimit
   limitRealizations : Array RegistryManifestLimitRealization
+  adjunctions : Array RegistryManifestAdjunction
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2690,6 +2721,9 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
     limitRealizations := (state.limitRealizations.qsort (fun a b => a.id.raw < b.id.raw)).map
       fun e => { id := e.id.raw, limit := e.limit.raw, realizer := e.realizer.raw,
                  realization := e.realization.toString }
+    adjunctions := (state.adjunctions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, left := e.left.raw, right := e.right.raw,
+      declaration := e.declaration.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

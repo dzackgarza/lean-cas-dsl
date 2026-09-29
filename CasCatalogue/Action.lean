@@ -9,6 +9,8 @@ public import Mathlib.CategoryTheory.EqToHom
 public import Mathlib.CategoryTheory.InducedCategory
 public import Mathlib.CategoryTheory.Discrete.Basic
 public import Mathlib.CategoryTheory.Whiskering
+public import Mathlib.CategoryTheory.Adjunction.Basic
+public import Mathlib.CategoryTheory.HomCongr
 
 @[expose] public section
 
@@ -143,5 +145,38 @@ theorem realizedCell_comp (hD : dD.FullyFaithful) (aF : RealizedAction F dC dD)
   simp
 
 end Cells
+
+/-! ### Transposes along an adjunction
+
+An adjunction `adj : F ⊣ G` (Mathlib's; its transpose is `adj.homEquiv`) is realized, over fully
+faithful realizations of both categories, by the bijection of morphism handles
+`(aF x ⟶ y) ≃ (x ⟶ aG y)` whose denotation is `adj.homEquiv` conjugated by the two squares: a
+composite of Mathlib equivalences (`FullyFaithful.homEquiv`, `Iso.homCongr`), so the transpose
+and its inverse are mutually inverse by construction. -/
+
+section Transposes
+
+variable {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
+  {RC : Type w} [Category.{x} RC] {RD : Type w'} [Category.{x'} RD]
+  {dC : RC ⥤ C} {dD : RD ⥤ D} {F : C ⥤ D} {G : D ⥤ C}
+
+/-- The realized transpose along `adj : F ⊣ G`: morphism handles `aF x ⟶ y` correspond to
+morphism handles `x ⟶ aG y`, and the denotation of the correspondence is `adj.homEquiv`. -/
+def realizedHomEquiv (hC : dC.FullyFaithful) (hD : dD.FullyFaithful) (adj : F ⊣ G)
+    (aF : RealizedAction F dC dD) (aG : RealizedAction G dD dC) (x : RC) (y : RD) :
+    (aF.obj x ⟶ y) ≃ (x ⟶ aG.obj y) :=
+  hD.homEquiv.trans <| ((aF.objIso x).homCongr (Iso.refl _)).trans <|
+    (adj.homEquiv _ _).trans <| ((Iso.refl _).homCongr (aG.objIso y)).symm.trans hC.homEquiv.symm
+
+/-- The denotation of a realized transpose is the transpose of the denotation, conjugated by the
+squares. -/
+theorem realizedHomEquiv_map (hC : dC.FullyFaithful) (hD : dD.FullyFaithful) (adj : F ⊣ G)
+    (aF : RealizedAction F dC dD) (aG : RealizedAction G dD dC) {x : RC} {y : RD}
+    (f : aF.obj x ⟶ y) :
+    dC.map (realizedHomEquiv hC hD adj aF aG x y f) =
+      adj.homEquiv _ _ ((aF.objIso x).inv ≫ dD.map f) ≫ (aG.objIso y).inv := by
+  simp [realizedHomEquiv, Iso.homCongr_apply]
+
+end Transposes
 
 end CasCatalogue
