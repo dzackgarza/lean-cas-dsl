@@ -197,11 +197,25 @@ The second was found by acceptance. Without it, `cardinality` did not apply to `
 **Residual:**
 - Mediators of competing cones are reached through Mathlib's `IsLimit.lift` and `IsColimit.desc` on the returned cone, and no permanent assertion about them is stated yet.
 - The standard-form table covers pullback, (co)product and (co)kernel/(co)equalizer. |
-| `cc-constructor-surface` | **Next.** Reuse: [`specs/reuse/cc-constructor-surface.md`](reuse/cc-constructor-surface.md). Inputs of acceptance assertions and of the notebook are built by registered constructors (`(ℤ/n)^k`, products, `Fin n`) through a public surface, not by a leaf's handle constructors. The realizer of the result is selected as for receivers. **Acceptance:** `Permanent/Cardinality` is restated through constructors, with new ids and the old assertions kept. | CC-CALC, CC-SEP | `cc-limit-surface` |
-| `cc-sem-upstream` | Move all mathematics out of `lean-cas-dsl`. Every row and every definition in `CasCatalogue/Semantics/*` (categories, structural functors, classifiers, methods, properties, cells, limits, adjunctions, lifts, constructors, families) moves into `lean-categories` as its proof-carrying registry, with the registry schema it needs (lean-categories #49, #53). Rows become typed data there, and parameters become typed terms, never strings. **Acceptance:**
+| `cc-constructor-surface` | Reuse: [`specs/reuse/cc-constructor-surface.md`](reuse/cc-constructor-surface.md). Inputs of acceptance assertions and of the notebook are built by registered object constructors (`ℤ/n`, `(ℤ/n)^k`, `Fin n`, products as registered limits) through a public surface, not by a leaf's handle constructors. The presenting realizer is selected as for receivers. The registry has category constructors only (`ConstructorEntry`), so this needs semantic rows for named objects and object constructors. Those rows are mathematics, authored in `lean-categories` after `cc-sem-upstream` and read here after `cc-sem-derive`. Leaves add presentation rows: a handle with its identification with the named object. **Acceptance:** `Permanent/Cardinality` and `Permanent/Limits` are restated through constructors, with new ids and the old assertions kept. | CC-CALC, CC-SEP | `cc-sem-derive` |
+| `cc-sem-upstream` | **Next.** Reuse: [`specs/reuse/cc-sem-upstream.md`](reuse/cc-sem-upstream.md). Move all mathematics out of `lean-cas-dsl`. Every row and every definition in `CasCatalogue/Semantics/*` (categories, structural functors, classifiers, methods, properties, cells, limits, adjunctions, lifts, constructors, families) moves into `lean-categories` as its proof-carrying registry, with the registry schema it needs (lean-categories #49, #53). Rows become typed data there, and parameters become typed terms, never strings. It has two steps, each gated:
+1. **Split.** Here, `RegistryState` becomes two persistent extensions.
+   - The semantic registry holds categories, families, classifiers, functors, opaque categories, fibrations, constructors, methods, properties, lifts, cells, limits and adjunctions.
+   - The realization registry holds realizers, actions, implementations, deciders, isomorphisms, limit realizations, equalities and backend operations.
+
+   Their schemas, validators and write commands are separate (`normalized_registry` for the first, `register_leaf` for the second). A realization row is validated against the imported semantic registry. The step is gated by the gate staying green with the manifest export unchanged.
+2. **Move.** The semantic half moves to `lean-categories` (`LeanCategories/Registry/*`), together with `CasCatalogue/Semantics/*`:
+   - the symbolic syntax (`Syntax`, the semantic ids, `Realization`, `FamilyFibration`);
+   - the schema and validators;
+   - the write command;
+   - the rows and their definitions.
+
+   `lean-cas-dsl` imports it at the pin.
+
+**Acceptance:**
 - `lean-categories` builds and audits its registry without `lean-cas-dsl`;
 - `CasCatalogue/Semantics` holds no row and no definition;
-- `CasAcceptance` passes unchanged against the re-pinned release. | CC-SEP; architecture.md "Single semantic authority" | `cc-constructor-surface` |
+- `CasAcceptance` passes unchanged against the re-pinned release. | CC-SEP; architecture.md "Single semantic authority" | `cc-limit-surface` |
 | `cc-sem-derive` | `lean-cas-dsl` reads the semantic registry only from the pinned `lean-categories` release, as a derived projection. Remove the semantic write path (`normalized_registry`) from this repository. Write authority for semantic rows is `lean-categories` modules only. **Acceptance:**
 - a `lean-cas-dsl` module attempting a semantic row fails to elaborate, naming the rule, shown in a probe;
 - `cas-registry-export` output equals that of the pinned release. | CC-SEP | `cc-sem-upstream` |
@@ -229,8 +243,9 @@ The second was found by acceptance. Without it, `cardinality` did not apply to `
 ## Order
 
 Alignment with [architecture.md](architecture.md) (owner direction 2026-09-29):
-`cc-failure-strata` → `cc-acceptance-permanent` → `cc-limit-surface` → `cc-constructor-surface` → `cc-sem-upstream` → `cc-sem-derive` →
-`cc-external-leaf`.
+`cc-failure-strata` → `cc-acceptance-permanent` → `cc-limit-surface` → `cc-sem-upstream` →
+`cc-sem-derive` → `cc-constructor-surface` → `cc-external-leaf`. Object rows for the constructor
+surface are mathematics, so they are authored upstream after the registry moves.
 Historical order:
 
 `cc-p0-denotation-audit` first: it decides what the existing family machinery *means*
