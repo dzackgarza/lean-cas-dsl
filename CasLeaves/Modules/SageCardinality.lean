@@ -45,6 +45,16 @@ def sageCardinality (c : Backend.Conn) (n k : ℕ) : IO (Except Backend.PortErro
   Backend.callDecoded c "meth.cardinality" (Json.mkObj [("n", toJson n), ("k", toJson k)])
     decodeCardinality
 
+/-- The cardinality of `(ℤ/n)^k` by a fresh connection to the leaf's program. -/
+def sageCardinalityOf (n k : ℕ) (state : RegistryState) :
+    IO (Except Backend.PortError CardinalHandle) := do
+  match ← connectSage state with
+  | .error e => return .error e
+  | .ok c =>
+      let answer ← sageCardinality c n k
+      Backend.stop c
+      return answer
+
 end CasCatalogue.Modules.SageCardinality
 
 namespace CasCatalogue

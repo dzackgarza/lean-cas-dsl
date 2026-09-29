@@ -1,0 +1,17 @@
+{
+  "assertions": {
+    "card.fin2_times_z3": "b7be53fd20826e6bb8ece54db7e666a72e306455e2f1872d18a1be4873158f72",
+    "card.finite_sets.three": "c1b06813e9432c712e220e21b6177ff554f7d67b484da6cc12f05857e513b74f",
+    "card.integers": "2dfa449f6862fa76882e6d130da61e8e23c283b1af340bc7521bd4ebe9426514",
+    "card.sage.z4_cubed": "c366ae0c4cd2ce880e2b7b8bf49d40587cddd07821661ae1df1c1ee98053269a",
+    "card.sage.z5_empty_power": "5e044604e29dfd8a8f4ba25046996caf6128914b79767238c0701f8ed2e444ff",
+    "card.z4_cubed": "ee701ae336dd924293881d16a986ad58bfc8c7566a7d815a5f08b53843ed2967",
+    "card.z5_empty_power": "bab3b17d71974042a5533a345ad00238f7cd7be7ac5f8378b37517b7fab14b4f",
+    "card.z7": "1fa2fb0e94295ab86010ccb209269c40b1bf4e1ed4ca807a04a544a444ece92e",
+    "eq.rev_rev": "1023103c0bcfabef16b9fab2a2d0b28dfc1c90c81f1182c24bc8fa034a4a1891",
+    "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
+    "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550"
+  },
+  "corrections": [],
+  "lean_categories": "0102b2f4401ef6bd52c15b4504f4f85a69383ab7"
+}

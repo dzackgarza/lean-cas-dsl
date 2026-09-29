@@ -41,6 +41,10 @@ namespace CasCatalogue
 
 syntax (name := methodCall) "method% " ident " (" term ") " "in " str (&" via " str)* : term
 
+/-- `value% name (x) in "cat.id"`: the semantic value of `method% name (x) in "cat.id"`, the
+denotation of its result (`elabValueCall`). -/
+syntax (name := valueCall) "value% " ident " (" term ") " "in " str (&" via " str)* : term
+
 syntax (name := propertyQuery) "ask% " ident " (" term ") " "in " str (&" via " str)* : term
 
 syntax (name := equalityQuery) "eq% " "(" term ") " "(" term ") " "in " str : term
@@ -80,6 +84,10 @@ meta def viaStrings (group : Syntax) : Array String :=
 @[term_elab methodCall] meta def elabMethodCallSyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax
   elabMethodCall stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
+
+@[term_elab valueCall] meta def elabValueCallSyntax : TermElab := fun stx _ => do
+  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
+  elabValueCall stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
 
 @[term_elab propertyQuery] meta def elabPropertyQuerySyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax

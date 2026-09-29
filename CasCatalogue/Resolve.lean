@@ -596,6 +596,27 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let value ← certifiedExecutable value
   return .letE `route (← inferType composite) composite value (nondep := true)
 
+/-- Elaborate `value% name (receiver) in "cat.id" via …`: the semantic value of the call, the
+denotation of its realized result, an object of the method's codomain. A proposition about it
+names no realization: the realization computed it, and its denotation is what is asserted. -/
+def elabValueCall (name : String) (receiver : Term) (category : String)
+    (through : Array String) : TermElabM Expr := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwStratum .invalid m!"no registered category {category}"
+  let resolution ← match state.resolveMethod categoryEntry.expression name
+      (through.map fun raw => ⟨raw⟩) with
+    | .ok resolution => pure resolution
+    | .error error => throwStratum .invalid (error.render state)
+  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
+  let (routeAction?, _, value) ← realizedMethodCall state resolution denotation x
+  let imageDenotation ← match routeAction? with
+    | some routeAction => targetDenotation routeAction
+    | none => pure denotation
+  let methodAction ← methodActionFor state resolution.method imageDenotation
+  let resultDenotation ← targetDenotation methodAction
+  mkAppM ``Prefunctor.obj #[← mkAppM ``CategoryTheory.Functor.toPrefunctor #[resultDenotation], value]
+
 /-- Elaborate `memo% (table) name (receiver) in "cat.id" via …` (CC-MEMO): the call of
 `method% name (receiver) in "cat.id"`, resolved once into the function `y ↦ y.name` on the
 receiver's handles, and applied through the memo table `table : Option (MemoTable R V)`, keyed by

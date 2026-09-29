@@ -21,6 +21,7 @@ public import CasAcceptance.LiftFaithfulProbes
 public import CasAcceptance.LiftLimitProbes
 public import CasAcceptance.LiftProbes
 public import CasAcceptance.LimitProbes
+public import CasAcceptance.Permanent.Cardinality
 public import CasAcceptance.PropsProbes
 public import CasAcceptance.RealizeProbes
 public import CasAcceptance.RefineProbes

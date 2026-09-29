@@ -52,6 +52,20 @@ leaf, `CasLeaves/Modules/SageCardinality.lean` with its `sage_cardinality.py`.
 
 ## Acceptance assertions
 
+Permanent assertions live in `CasAcceptance/Permanent/`:
+
+```lean
+#accept "card.z4_cubed" from "Mathlib Fintype.card_fun, ZMod.card: |(ℤ/n)^k| = n^k" :
+  (value% cardinality (z4Cubed) in "cat.sets").as = 64 := by
+  simp [cardinalDenotation, CardinalHandle.denote]; rfl
+#accept_backend "card.sage.z4_cubed" from "agreement with card.z4_cubed" :
+  (sageCardinalityOf 4 3) agrees (method% cardinality (z4Cubed) in "cat.sets").as
+```
+
+After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`. The text up to
+`:=` is then permanent, while the proof after it may change. An assertion that no realization
+computes yet is recorded as a gap (`#acceptance_gaps`), not a failure.
+
 - State the proposition in the mathematical language, through the public surfaces.
 - Write its expected value from a proof, a cited source or an independent oracle before you run
   anything, and record that provenance.

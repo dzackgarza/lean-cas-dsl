@@ -137,7 +137,7 @@ node that owes one.
 | Installing or removing a leaf adds or removes methods | `#methods` reads semantic rows only. `StrataProbes` finds the surfaces identical with and without every leaf, while `#gaps` differs. | — |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port. `connect` refuses any capability that is not declared on a registered operation. | — |
 | A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. | — |
-| An acceptance assertion changes because a leaf changed | Policy only | `cc-acceptance-permanent` |
+| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
 | A computational failure is "fixed" by weakening semantics | Transitional: the semantics are still editable here (`CasCatalogue/Semantics`) | `cc-sem-upstream`, `cc-sem-derive` |
 | A research notebook coins missing mathematics | `research` AGENTS.md | — |
 | `lean-cas-dsl` itself authors mathematics | **Violated, transitionally.** `CasCatalogue/Semantics/*` is a local semantic registry written with `normalized_registry`. | `cc-sem-upstream`, `cc-sem-derive` |

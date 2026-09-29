@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
+public import CasCatalogue.Acceptance
+public import CasCatalogue.AcceptanceSyntax
 public import CasCatalogue.Action
 public import CasCatalogue.Adapter
 public import CasCatalogue.CellCall

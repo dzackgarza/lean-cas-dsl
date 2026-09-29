@@ -144,14 +144,38 @@ A wrong answer is acceptance's to detect. Failures are thrown by `throwStratum`,
 - `resolveLimit` still reports failures as `Except String`, and has no surface elaborator.
 - A `backendOperation` row is keyed by the operation, not by a realizer, so `#gaps` lists such backends per method, not per presentation.
 - The leaf's own call (`sageCardinality c n k`) ties the backend to the presentation; `cc-acceptance-permanent` asserts through it. |
-| `cc-acceptance-permanent` | **Next.** `CasAcceptance/Permanent/*`: black-box assertions in the mathematical language. Each is a value equation through a public surface, or an "implementation exists" claim for a stated slice, and carries the provenance of its expected value (a proof term, a citation, or a named independent oracle). None reads a handle's internals, a backend or a leaf module. The gate refuses to delete or modify an admitted assertion: an append-only manifest of assertion hashes, checked by a script. The one exception is a commit that changes the `lean-categories` pin and names the upstream correction. **Acceptance:**
-- the existing value probes whose expected values are cited are re-stated there, with sources (the A₂ discriminant ℤ/3; `card((ℤ/n)^k)`; the pullback and coproduct cardinalities);
-- editing any admitted assertion fails the gate, shown by a scratch commit;
-- the gap report of `cc-failure-strata` lists the permanent assertions that currently have no implementation. | CC-TRUE, CC-SEP | `cc-failure-strata` |
+| `cc-acceptance-permanent` | **Delivered 2026-09-29.** Reuse: [`specs/reuse/cc-acceptance-permanent.md`](reuse/cc-acceptance-permanent.md). `CasCatalogue/Acceptance.lean` and `AcceptanceSyntax.lean` add three commands:
+- `#accept "id" from "source" : P := proof` admits `P`, a proposition about semantic values, as the theorem `CasAcceptance.Permanent.«id»`. A call in `P` that no realization computes records a gap, and the build continues. With `realized`, the gap fails instead.
+- `#accept_backend "id" from "source" : (call) agrees value` runs a backend realization and requires its answer to equal a value whose denotation another assertion proves. An unavailable backend is recorded. A malformed answer or a different answer fails.
+- `#acceptance_gaps` lists the assertions no realization computes here.
+
+`value% name (x) in "cat"` is the semantic value of a call: the denotation of its result, an object of the method's codomain. Propositions about it name no realization. `scripts/check_acceptance_permanent.py`, run by `just build`, keeps `CasAcceptance/Permanent/admitted.json`. It fails when an admitted assertion (its text up to `:=`, whitespace collapsed) changes or disappears, or when an assertion is not admitted. `--admit` admits only new assertions. `--correct "reason"` re-admits changed assertions only when the pinned `lean-categories` revision differs from the recorded one, and records the reason. The proof after `:=` may change.
+
+`CasAcceptance/Permanent/Cardinality.lean` states eleven assertions, each citing its source:
+- `|Fin 2 × ℤ/3| = 6`, `|(ℤ/4)^3| = 64`, `|(ℤ/7)^1| = 7`, `|(ℤ/5)^0| = 1` and `|ℤ| = ℵ₀`, all proved;
+- ℤ is not finite and `Fin 2 × ℤ/3` is finite, decided;
+- `rev ∘ rev = id` on `Fin 3`, decided;
+- `|Fin 3| = 3` on finite sets, a recorded gap: no action realizes the forgetful functor on finite sets presented by `n`;
+- Sage's `|(ℤ/4)^3|` and `|(ℤ/5)^0|` agree with the proved realization.
+
+**Checked:**
+- gate green;
+- changing `64` to `65` fails the script, and `--correct` is refused at the admitted pin;
+- a proof-only change passes;
+- a false `#accept` fails its proof;
+- a disagreeing `#accept_backend` fails as a wrong answer;
+- a repeated id is refused.
+
+**Residual:**
+- The pullback, coproduct and A₂-discriminant values are not yet stated: limits have no public surface, and their probes build cones directly (`cc-limit-surface`).
+- Inputs are presented by leaf handle constructors (`SetHandle.prod`, `zmodPow`) until registered constructors have a surface (`cc-constructor-surface`).
+- Proofs unfold the leaf's denotation, which is permitted because proofs are not admitted text. |
+| `cc-limit-surface` | **Next.** Reuse: [`specs/reuse/cc-limit-surface.md`](reuse/cc-limit-surface.md). A public surface for registered limits and colimits: `limit% shape (diagram) in "cat"` and `colimit% …` resolve through `resolveLimit` (lifts included), realize the cone or cocone on the diagram's realizer, and expose the apex's semantic value and the mediator of a competing cone. `resolveLimit` failures become stratified. **Acceptance:** permanent assertions, cited, for the pullback of `Fin 3 → Fin 2 ← Fin 2` (3 elements), the coproduct `Fin 2 ⊔ Fin 3` (5), and the A₂ discriminant group (`ℤ/3`, SPLAG ch. 4 §6.1), all through the surface. | CC-UNIV, CC-LIFT | `cc-acceptance-permanent` |
+| `cc-constructor-surface` | Inputs of acceptance assertions and of the notebook are built by registered constructors (`(ℤ/n)^k`, products, `Fin n`) through a public surface, not by a leaf's handle constructors. The realizer of the result is selected as for receivers. **Acceptance:** `Permanent/Cardinality` is restated through constructors, with new ids and the old assertions kept. | CC-CALC, CC-SEP | `cc-limit-surface` |
 | `cc-sem-upstream` | Move all mathematics out of `lean-cas-dsl`. Every row and every definition in `CasCatalogue/Semantics/*` (categories, structural functors, classifiers, methods, properties, cells, limits, adjunctions, lifts, constructors, families) moves into `lean-categories` as its proof-carrying registry, with the registry schema it needs (lean-categories #49, #53). Rows become typed data there, and parameters become typed terms, never strings. **Acceptance:**
 - `lean-categories` builds and audits its registry without `lean-cas-dsl`;
 - `CasCatalogue/Semantics` holds no row and no definition;
-- `CasAcceptance` passes unchanged against the re-pinned release. | CC-SEP; architecture.md "Single semantic authority" | `cc-acceptance-permanent` |
+- `CasAcceptance` passes unchanged against the re-pinned release. | CC-SEP; architecture.md "Single semantic authority" | `cc-constructor-surface` |
 | `cc-sem-derive` | `lean-cas-dsl` reads the semantic registry only from the pinned `lean-categories` release, as a derived projection. Remove the semantic write path (`normalized_registry`) from this repository. Write authority for semantic rows is `lean-categories` modules only. **Acceptance:**
 - a `lean-cas-dsl` module attempting a semantic row fails to elaborate, naming the rule, shown in a probe;
 - `cas-registry-export` output equals that of the pinned release. | CC-SEP | `cc-sem-upstream` |
@@ -179,7 +203,7 @@ A wrong answer is acceptance's to detect. Failures are thrown by `throwStratum`,
 ## Order
 
 Alignment with [architecture.md](architecture.md) (owner direction 2026-09-29):
-`cc-failure-strata` → `cc-acceptance-permanent` → `cc-sem-upstream` → `cc-sem-derive` →
+`cc-failure-strata` → `cc-acceptance-permanent` → `cc-limit-surface` → `cc-constructor-surface` → `cc-sem-upstream` → `cc-sem-derive` →
 `cc-external-leaf`.
 Historical order:
 
