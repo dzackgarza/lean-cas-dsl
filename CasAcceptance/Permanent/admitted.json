@@ -78,6 +78,11 @@
     "integration.normalized": "e480cf8a56d3218cf208a24abf3b4b6d148bb9d978363199716a49b9be40da47",
     "integration.normalized_count": "2816885c03bf809cef21e94cdd1958a6cebe453073bdde7cfd12eef333411c19",
     "integration.primitives": "65254a389e185bbce48bd9b56b6ac7eff709a0357c14e33577ff7964574941bf",
+    "inverses.det": "b85b498810838fef20cc091bc2bd02325c834c56ec0279b68d66725983527415",
+    "inverses.left": "1124d9f23bed4a6c906e95c964338f423df1c3a4c888f6f069a871833f443c32",
+    "inverses.right": "a7807f6002bf7fc57e7f0ca024f8517c910032a675e9e9fb098c5af7a5b0cadb",
+    "inverses.solve": "7d021f30b93fcbf9064a8129e7a083ee636c2efaf5beff4e332d9ec48cafbea5",
+    "inverses.value": "52c02b504ff60a8c24ba38bca2d5b281128e244f6a7694519252bc11fc799b67",
     "lattices.discriminant.a1": "5589b3f331394e0adf56211450b776a75a73fd6b1053bd553a6ffaba879897ee",
     "lattices.discriminant.a2": "ce47144917f35e70637e267bc9662fb5cedaea41682960ae36bf6369e8866419",
     "lattices.discriminant.a3": "8f83e2ce5fb0b820c2bfc6a01e0ff4ae372207db540d23da95a26238e7b50ecf",
@@ -152,5 +157,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "65247eabd4805d2912e8d73e4bf7dc668354e0f6"
+  "lean_categories": "30855894606436c2dd489132757d079f9e41379a"
 }

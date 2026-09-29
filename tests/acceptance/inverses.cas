@@ -1,0 +1,26 @@
+-- Matrix inverses (SPEC.md, "Vectors and matrices"): M⁻¹ is a partial value, defined when det M
+-- is a unit; maps applied to it are defined where it is. Each test is admitted once and never
+-- changed.
+
+let M := [1, 2;
+          3, 4]
+ in Mat₂(ℚ)
+
+let v := (1, 2) in ℚ²
+
+let b := (5, 11) in ℚ²
+
+test inverses.value "SPEC.md: M⁻¹ = (1/det M)[4, -2; -3, 1] = [-2, 1; 3/2, -1/2] (det M = -2)":
+  assert M⁻¹ = [-2, 1; 3/2, -1/2] in Mat₂(ℚ)
+
+test inverses.solve "SPEC.md: M⁻¹ b = v, since M v = b":
+  assert M⁻¹ b = v
+
+test inverses.left "SPEC.md: M⁻¹(M v) = v":
+  assert M⁻¹(M v) = v
+
+test inverses.right "SPEC.md: M(M⁻¹ b) = b":
+  assert M(M⁻¹ b) = b
+
+test inverses.det "det(M⁻¹) = 1/det M = -1/2":
+  assert (M⁻¹).det() = -1/2

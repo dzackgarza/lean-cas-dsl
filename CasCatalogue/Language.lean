@@ -55,6 +55,9 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `M⁻¹`: the registered partial inverse; a registered family given a partial value `a ∈ P⊥` where
+  it takes an element of `P` is lifted along `(-)⊥` (defined where `a` is, joined if the family is
+  itself partial);
 * `{a₀, a₁, …, ...}`: the arithmetic progression `{a₀ + d k | k ∈ ℕ}` its numerals begin; `kℕ`:
   `{k n | n ∈ ℕ}`; a named set compared with a subset is its image there (`{0, 1, 2, ...} = ℕ`);
 * `lim_{t → a} e`, `lim_{t → ∞} e`, `∫_{a}^{b} e dt`, `f.m(a, …)` (`f.taylor_expansion(0)`),
@@ -183,6 +186,8 @@ syntax:max (name := casInfinity) "∞" : cas_term
 syntax:60 (name := casDefinite) "∫_{" cas_term "}^{" cas_term "} " cas_term:71 ident : cas_term
 /-- The formal power series `R[[t]]` over `R` in the variable `t`. -/
 syntax:max (name := casSeries) cas_term:max noWs "[" noWs "[" ident "]" noWs "]" : cas_term
+/-- `M⁻¹`, and `M⁻¹(v)` applied. -/
+syntax:max (name := casInverse) cas_term:max noWs "⁻¹" (noWs "(" cas_term,* ")")? : cas_term
 /-- `∫ ω`: the primitives of a differential. -/
 syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
 
@@ -619,7 +624,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | `(cas_term| d), `(cas_term| $v:ident) =>
           if let some x ← differentialVariable? v.getId then return ← derivativeAt x
           throwStratum .invalid m!"`d/{v.getId}`: {v.getId} is not d of a variable"
-      | _, _ => divide (← eval scope a) (← eval scope n)
+      | _, _ => divide (← eval scope a none ambient?) (← eval scope n) ambient?
   | `(cas_term| $b ^ $k) =>
       match b with
       | `(cas_term| (ℤ / $n)) =>
@@ -671,6 +676,10 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
     let set : Syntax := mkNode ``casAtom #[mkAtom atom]
     let e ← `(cas_term| $k:num · $(mkIdent `«multiple index»):ident)
     return ← imageOf scope e `«multiple index» (← eval scope set)
+  if stx.getKind == ``casInverse then
+    let inverse ← applyNamed state "⁻¹" #[← eval scope stx[0]]
+    if stx[2].getNumArgs == 0 then return inverse
+    return ← apply scope inverse (stx[2][1].getSepArgs)
   if stx.getKind == ``casSeries then
     return ← object state "PowerSeries" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casCallWith then
@@ -902,6 +911,12 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     | _, _ => pure #[source]
   unless sources.size == elements.size do
     throwStratum .invalid m!"{declaration} takes {sources.size} operands"
+  -- A partial operand (in `P⊥`) where the family takes a set, not a partial value: lifted.
+  for i in [0:elements.size] do
+    if let .element _ (.object _ _ (some (entry, #[P]))) := elements[i]! then
+      let source ← whnfR (← instantiateMVars sources[i]!)
+      if entry.name == "Partial" && !source.isMVar && !source.isAppOf ``Option then
+        return ← liftPartial declaration category elements i P target? numerals maps
   for (a, k) in explicit.zip numerals do
     unless ← isDefEq a (mkNatLit k) do
       throwStratum .invalid m!"{declaration} does not take the numeral {k} there"
@@ -943,6 +958,51 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     | some T => pure T
     | none => recognize state (← instantiateMVars target) category
   applyTo family elements target
+
+/-- The family `declaration` with its `i`-th operand `a ∈ P⊥` partial: the family at the generic
+element of `P` (the other operands constant), `g : P → C`, then `a ≫ g⊥ : 1 → C⊥` (the action of
+`(-)⊥` on maps), joined to `C'⊥` when `C = C'⊥`. Defined where `a` is. -/
+partial def liftPartial (declaration : Name) (category : NamedCategoryEntry)
+    (elements : Array Value) (i : Nat) (P : Value) (target? : Option Value) (numerals : Array Nat)
+    (maps : Array Expr) : M Value := do
+  let state ← registryState
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization threads partial values"
+  if (← read).stage.isSome then
+    throwStratum .invalid m!"a partial operand of {declaration} within a map is not lifted"
+  let family (name : String) : M Name := do
+    let some entry := state.morphisms.find? (·.name == name)
+      | throwStratum .invalid m!"no registered {name}"
+    return entry.declaration
+  let .element a PP := elements[i]! | unreachable!
+  let generic := Value.element (← identityAt P) P
+  let atP ← withReader (fun ctx => { ctx with stage := some P }) do
+    let operands ← elements.mapIdxM fun j v => do
+      if j == i then return generic
+      match v with
+      | .element h Y =>
+          return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt P, h]) Y
+      | _ => return v
+    applyFamily declaration category operands target? numerals maps
+  let .element g C := atP | throwStratum .invalid m!"{declaration} gives an element"
+  let lifted ← applyTo (← `($(mkCIdent (← family "lift ⊥")) $(← paramTerms #[P, C])*
+    $(← quoteExpr g))) #[.element a PP] (← object state "Partial" #[C] none)
+  if let .object _ _ (some (entry, #[C'])) := C then
+    if entry.name == "Partial" then
+      return ← applyTo (← `($(mkCIdent (← family "join ⊥")) $(← paramTerms #[C'])*)) #[lifted]
+        (← object state "Partial" #[C'] none)
+  return lifted
+
+/-- The registered application of the set of the element `f`, its category and the set's
+parameters; for a partial value in `P⊥`, that of `P`. -/
+partial def applicationOf? (f : Value) :
+    M (Option (Name × NamedCategoryEntry × Array Value)) := do
+  let .element _ (.object _ category (some (entry, params))) := f | return none
+  if let some application := entry.application then return some (application, category, params)
+  if entry.name == "Partial" then
+    if let #[P@(.object ..)] := params then
+      return ← applicationOf? (.element (mkConst ``Unit) P)
+  return none
 
 /-- The generator of `R[x]` (its registered distinguished element), at the current stage. -/
 partial def generatorOf (P : Value) : M Value := do
@@ -1199,8 +1259,7 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   -- vector).
   try applyNamed (← registryState) "•" #[a, b]
   catch e =>
-    let .element _ (.object _ category (some (entry, _))) := a | throw e
-    let some application := entry.application | throw e
+    let some (application, category, _) ← applicationOf? a | throw e
     applyFamily application category #[a, b]
 
 /-- `p + Y` for a named set `Y` included in the set `X` of `p`: the coset `{p + c | c ∈ Y}`, the
@@ -1242,12 +1301,16 @@ partial def derivativeAt (g : Value) : M Value := do
 
 /-- `a / b`: the registered division `K × K∖{0} → K`, where `K` is the set of `a` (else `ℚ`) and
 `b` is an element of `K∖{0}`: a nonzero numeral, or a value there. -/
-partial def divide (a b : Value) : M Value := do
+partial def divide (a b : Value) (ambient? : Option Value := none) : M Value := do
   let state ← registryState
-  let K ← match a with
-    | .element _ K => pure K
-    | _ => object state "ℚ" #[] none
-  let nonzero ← object state "nonzero" #[K] none
+  let K ← match a, ambient? with
+    | .element _ K, _ | _, some K => pure K
+    | _, _ => object state "ℚ" #[] none
+  -- `K` must be a division ring; otherwise (`-1/2` of `-1 ∈ ℤ`) division is in `ℚ`.
+  let (K, nonzero) ← try pure (K, ← object state "nonzero" #[K] none) catch _ => do
+    let rationals ← object state "ℚ" #[] none
+    pure (rationals, ← object state "nonzero" #[rationals] none)
+  let a ← coerceTo a K
   let b ← match b with
     | .nat 0 => throwStratum .invalid m!"`/ 0`: 0 is not in the domain of division"
     | .nat _ => toElement b nonzero
@@ -1564,8 +1627,8 @@ partial def lambda (scope : Scope) (t : Name) (e : Syntax) (X Y : Value) : M Val
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
   -- An element of a set with a registered application (a polynomial `p(a)`): that application at
   -- `p` and `a`; a numeral `a` is an element of the set of coefficients, the set's parameter.
-  if let .element _ (.object _ category (some (entry, params))) := f then
-    let some application := entry.application
+  if let .element _ (.object _ _ (some (entry, _))) := f then
+    let some (application, category, params) ← applicationOf? f
       | throwStratum .invalid m!"the elements of {entry.name} are not applied"
     let #[arg] := args | throwStratum .invalid m!"an element of {entry.name} takes one argument"
     let v ← match ← eval scope arg with
@@ -1819,7 +1882,8 @@ partial def binders (stx : Syntax) : Array Name :=
     | _ =>
       if stx.getKind == ``casBig then #[stx[2].getId]
       else if stx.getKind == ``casLimit then #[stx[1].getId]
-      else if stx.getKind == ``casDefinite then #[stx[6].getId] ++ (differentialOf? stx[6].getId).toArray
+      else if stx.getKind == ``casDefinite then
+        #[stx[6].getId] ++ (differentialOf? stx[6].getId).toArray
       else #[]
   own ++ stx.getArgs.flatMap binders
 
@@ -1855,6 +1919,7 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
   let named (n : Name) : Bool :=
     let s := n.toString
     s == "id" || state.objects.any (·.name == s) || state.morphisms.any (·.name == s) ||
+      (subscripted? s).any (fun (base, _) => state.objects.any (·.name == base)) ||
       state.categories.any (·.name == s) || state.methods.any (·.name == s) ||
       state.properties.any (·.name == s) || state.limits.any (·.shape == s)
   let free := (looseIdentifiers stx).filter fun n =>
