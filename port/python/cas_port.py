@@ -1,6 +1,8 @@
-"""Frames of the backend port (`CasCatalogue/Port.lean`): the ASCII decimal byte length of the
-payload, a newline, then that many bytes of UTF-8 JSON. stdout carries only frames; stderr is the
-adapter's log stream."""
+"""Reference implementation, in Python, of the backend port protocol that `CasCatalogue/Port.lean`
+specifies: frames are the ASCII decimal byte length of the payload, a newline, then that many bytes
+of UTF-8 JSON; stdout carries only frames, stderr is the program's log stream. The core owns the
+protocol, not backend programs: a leaf's program may use this module or speak the protocol in any
+language."""
 
 import json
 import sys

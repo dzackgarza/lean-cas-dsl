@@ -15,7 +15,8 @@ public meta import CasCatalogue.Semantics.Limits.Registration
 /-!
 # Kernels of groups computed by GAP
 
-The GAP adapter (`backends/gap_adapter.py`) answers the registered semantic operation
+The leaf's backend program (`CasLeaves/Algebra/GapKernels/gap_kernels.py`, owned by this leaf)
+answers the registered semantic operation
 `lim.groups.kernel`: GAP computes the kernel of a homomorphism of group tables, and the answer is
 decoded by `decodeKernel` into a subgroup of the source with its inclusion (checked: group laws,
 injective homomorphism, exactly the kernel), or rejected. The leaf declares the operation for the
@@ -37,14 +38,14 @@ def encodeHom (f : HomHandle) : Json :=
   Json.mkObj [("source", encodeTable f.source), ("target", encodeTable f.target),
     ("map", Json.arr <| (List.finRange f.source.size).toArray.map fun a => toJson (f.map a).val)]
 
-/-- The adapter command: `CAS_GAP_PYTHON` (default `.venv/bin/python`) running the adapter, with
+/-- The command running the leaf's program: `CAS_GAP_PYTHON` (default `.venv/bin/python`) running the adapter, with
 the given flags. -/
 def gapCommand : IO String := return (← IO.getEnv "CAS_GAP_PYTHON").getD ".venv/bin/python"
 
 /-- Connect to the GAP adapter, checking its announced operations against the registry. -/
 def connectGap (state : RegistryState) (flags : Array String := #[]) :
     IO (Except Backend.PortError Backend.Conn) := do
-  Backend.connect state "gap" (← gapCommand) (#["backends/gap_adapter.py"] ++ flags)
+  Backend.connect state "gap" (← gapCommand) (#["CasLeaves/Algebra/GapKernels/gap_kernels.py"] ++ flags)
 
 /-- The kernel of `f`, computed by GAP and decoded, or the reason it is rejected. -/
 def gapKernel (c : Backend.Conn) (f : HomHandle) : IO (Except String SubgroupHandle) := do

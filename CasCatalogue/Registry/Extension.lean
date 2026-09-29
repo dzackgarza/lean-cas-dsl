@@ -1940,7 +1940,9 @@ def validateBackendOperation (state : RegistryState) (e : BackendOperationEntry)
   let decoder ← mkConstWithFreshMVarLevels e.decoder
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType decoder)
   let type ← whnfR type
-  unless type.isAppOf ``Except && (← isDefEq type.appFn!.appArg! (mkConst ``String)) do
+  let isDecoder ← if type.isAppOfArity ``Except 2 then isDefEq type.appFn!.appArg! (mkConst ``String)
+    else pure false
+  unless isDecoder do
     throwError "backend operation {e.id.raw}: {e.decoder} is not a decoder (… → Except String τ)"
 
 /-- An equality row names a `HomEquality` for exactly its realizer's denotation. -/

@@ -27,6 +27,7 @@ build:
 setup:
     @lake exe cache get
     @uv venv .venv
+    # The GAP kernels leaf's engine (CasLeaves/Algebra/GapKernels/gap_kernels.py).
     @uv pip install -p .venv/bin/python passagemath-gap
     @uv pip install -p .venv/bin/python nbclient \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'

@@ -12,8 +12,12 @@ public import Lean.Data.Json
 /-!
 # The backend port (CC-ADAPTER)
 
+The core owns this protocol and its contract, never a backend program: each leaf owns the
+program behind its port, in whatever language its engine needs.
+
 A backend is a child process speaking length-prefixed JSON frames (the ASCII decimal byte length,
-a newline, the UTF-8 payload; `backends/framing.py`). It first announces itself and its
+a newline, the UTF-8 payload; a Python reference implementation is `port/python/cas_port.py`).
+It first announces itself and its
 capabilities, then answers requests `{request_id, op, args}` with `{request_id, status, value}`.
 
 Its operations are keyed by registered semantic operations: every capability it announces must be

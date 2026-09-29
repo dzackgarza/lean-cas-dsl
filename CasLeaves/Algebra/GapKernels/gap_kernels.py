@@ -1,6 +1,7 @@
-"""GAP adapter (CC-ADAPTER): operations keyed by registered semantic operations, computed by GAP
-(through `libgap`), answered as untrusted JSON that the Lean leaf decodes into the operation's
-semantic result type or rejects.
+"""The backend program of the GAP kernels leaf (`CasLeaves/Algebra/GapKernels.lean`), owned by the
+leaf: operations keyed by registered semantic operations, computed by GAP (through `libgap`),
+answered as untrusted JSON that the leaf decodes into the operation's semantic result type or
+rejects. It speaks the port protocol through the core's Python reference module `cas_port`.
 
 * `lim.groups.kernel`: the kernel `K ↪ G` of a homomorphism of group tables `f : G → H`, computed
   by GAP's `Kernel` of `GroupHomomorphismByImages` between the right regular permutation
@@ -10,18 +11,21 @@ semantic result type or rejects.
 operation that is not registered (an own subgroup notion), `forget-inclusion` answers a kernel
 without its inclusion, `whole-group` answers the whole group as the kernel.
 
-Run with a Python that has `passagemath-gap` (or Sage): `.venv/bin/python backends/gap_adapter.py`.
+Run with a Python that has `passagemath-gap` (or Sage), from the repository root:
+`.venv/bin/python CasLeaves/Algebra/GapKernels/gap_kernels.py`.
 """
 
+import os
 import sys
 
-from framing import serve
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "port", "python"))
+from cas_port import serve  # noqa: E402
 
 try:
     import sage.all__sagemath_gap  # noqa: F401  (initializes libgap)
     from sage.libs.gap.libgap import libgap
 except ImportError as exc:
-    sys.stderr.write("gap_adapter: GAP (libgap) is not importable: %s\n" % exc)
+    sys.stderr.write("gap_kernels: GAP (libgap) is not importable: %s\n" % exc)
     sys.exit(1)
 
 ADAPTER_VERSION = "0.1.0"
