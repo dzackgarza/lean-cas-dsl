@@ -1,0 +1,36 @@
+-- Ellipses (SPEC.md, "Ellipses"): `{a₀, a₁, …, ...}` is the arithmetic progression its numerals
+-- begin, {a₀ + d k | k ∈ ℕ}; `kℕ` the multiples of k. Each test is admitted once and never changed.
+
+let X := {0, 1, 2, ...}
+
+test ellipses.naturals "SPEC.md: {0, 1, 2, ...} = ℕ":
+  assert X = ℕ
+
+let Y := {0, 2, 4, ...}
+
+test ellipses.evens "SPEC.md: {0, 2, 4, ...} = {2n | n ∈ ℕ}":
+  assert Y = {2n | n ∈ ℕ}
+
+test ellipses.multiples "SPEC.md: {0, 2, 4, ...} = 2ℕ":
+  assert Y = 2ℕ
+
+let f : ℕ → ℕ := n ↦ n^2
+
+let Z := {n ∈ ℕ | f(n) ∈ 2ℕ}
+
+test ellipses.even_square "SPEC.md: 4² = 16 ∈ 2ℕ, so 4 ∈ Z":
+  assert 4 ∈ Z
+
+test ellipses.odd_square "SPEC.md: 3² = 9 ∉ 2ℕ, so 3 ∉ Z":
+  assert 3 ∉ Z
+
+test ellipses.squares_even "n² is even exactly when n is even (2 is prime), so Z = 2ℕ":
+  assert Z = Y
+
+let primes := {n ∈ ℕ | n.is_prime()}
+
+test ellipses.prime "SPEC.md: 7 is prime":
+  assert 7 ∈ primes
+
+test ellipses.not_prime "SPEC.md: 9 = 3 · 3 is not prime":
+  assert 9 ∉ primes

@@ -38,6 +38,14 @@
     "differentials.derivative": "ae37a8c782223f8a8a333dcbc679eda486de098f74ca3ade5e0eabe65d4db4a7",
     "differentials.differential": "e5ab09ff696266f751df07fbcf749d01cce28f09b1610e669153326ba4e4833b",
     "differentials.member": "c7a0e5fa96af555121d4ac49f3306f714d53a42fd0a2a9caf17d9cfc6b8e33e8",
+    "ellipses.even_square": "9f9d3bc0dbc3680862728df99211baf3d0df10ca949cb6386a0bc77fbe2c4468",
+    "ellipses.evens": "2573efdd7c2ce298aeb6b4d0ff5dd7001306b89aa603a57ddb0909110c3ff6e7",
+    "ellipses.multiples": "0f06f0a325a681e54f9a3f5d39c1ad0f17e28075ff05c7bab259859d68936159",
+    "ellipses.naturals": "39ab5b56c4800380a8f6e9c34626fed7ea1713d408ab71ea7aba20b9a7cdc4ec",
+    "ellipses.not_prime": "07b7d366ab53d4d79149f0c3dbe08c6f08e622baf70175f668853e9cbb174617",
+    "ellipses.odd_square": "236773a1257aad46b7572451eacf9cf72645bc0ac90e4272a0dde098dc45ec5c",
+    "ellipses.prime": "97533571ebb11899d85815e993130677cba50235f77750c9f8d6b06040be8677",
+    "ellipses.squares_even": "0e9bed2aaed3e1e960507cd05b700695f516b6244c69a0a414e7deb0748524aa",
     "eq.rev_rev": "1023103c0bcfabef16b9fab2a2d0b28dfc1c90c81f1182c24bc8fa034a4a1891",
     "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
     "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550",
@@ -144,5 +152,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "a21e91124db27fe898ccd1df81d5f9f2d7cfa0cb"
+  "lean_categories": "65247eabd4805d2912e8d73e4bf7dc668354e0f6"
 }

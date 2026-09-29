@@ -55,6 +55,8 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `{a₀, a₁, …, ...}`: the arithmetic progression `{a₀ + d k | k ∈ ℕ}` its numerals begin; `kℕ`:
+  `{k n | n ∈ ℕ}`; a named set compared with a subset is its image there (`{0, 1, 2, ...} = ℕ`);
 * `lim_{t → a} e`, `lim_{t → ∞} e`, `∫_{a}^{b} e dt`, `f.m(a, …)` (`f.taylor_expansion(0)`),
   `R[[t]]`: the registered partial limits, integrals and families at maps; `a / b` for a divisor
   not known to be nonzero is the registered partial division; `x ∈ Y` for `x` in a set `Z ⊇ Y` is
@@ -141,6 +143,12 @@ syntax:55 cas_term:56 " → " cas_term:55 : cas_term
 syntax:51 ident " ↦ " cas_term:51 : cas_term
 /-- A set literal `{x₁, …, xₙ}`, a subset of an enclosing `𝒫(X)`, else of `𝒫(ℤ)`. -/
 syntax:max "{" cas_term,* "}" : cas_term
+/-- `{a₀, a₁, …, ...}`: the arithmetic progression its numerals begin, `{a₀ + d k | k ∈ ℕ}` with
+`d = a₁ - a₀`; the numerals must have that constant difference. -/
+syntax:max (name := casProgression) "{" sepBy1(cas_term, ", ", ", ", allowTrailingSep) "..." "}" :
+  cas_term
+/-- `2ℕ`: the multiples `{2k | k ∈ ℕ}` of a numeral in a named set. -/
+syntax:max (name := casMultiples) num noWs ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
 /-- The subset `{t ∈ X | P}` a predicate classifies. -/
 syntax:max "{" ident " ∈ " cas_term " | " cas_term "}" : cas_term
 /-- The image `{e | t ∈ X}` of `t ↦ e`. -/
@@ -655,6 +663,14 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
   if stx.getKind == ``casBig then
     let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
     return ← bigOperator scope name stx[2].getId stx[4] stx[6]
+  if stx.getKind == ``casProgression then
+    return ← progression scope stx[1].getSepArgs
+  if stx.getKind == ``casMultiples then
+    let k : NumLit := ⟨stx[0]⟩
+    let atom := (stx[1].find? (·.isAtom)).map (·.getAtomVal) |>.getD "ℕ"
+    let set : Syntax := mkNode ``casAtom #[mkAtom atom]
+    let e ← `(cas_term| $k:num · $(mkIdent `«multiple index»):ident)
+    return ← imageOf scope e `«multiple index» (← eval scope set)
   if stx.getKind == ``casSeries then
     return ← object state "PowerSeries" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casCallWith then
@@ -1107,7 +1123,7 @@ partial def limit (scope : Scope) (t : Name) (a e : Syntax) : M Value := do
   if a.getKind == ``casInfinity then
     let .object one _ _ ← oneObject | unreachable!
     let h ← homIn (← `($(mkCIdent (← family "lim ∞")) $(← quoteExpr f))) one q category
-    return .element h target
+    return .element (← staged h) target
   let R ← object state "ℝ" #[] none
   let point ← coerceTo (← eval scope a none (some R)) R
   applyTo (← `($(mkCIdent (← family "lim")) $(← quoteExpr f))) #[point] target
@@ -1127,6 +1143,22 @@ partial def definite (scope : Scope) (a b e : Syntax) (dt : Name) : M Value := d
   let bounds ← #[a, b].mapM fun x => do coerceTo (← eval scope x none (some R)) R
   applyTo (← `($(mkCIdent entry.declaration) $(← quoteExpr f))) bounds
     (← object state "Partial" #[R] none)
+
+/-- `{a₀, a₁, …, ...}`: the image of `k ↦ a₀ + d k` on `ℕ`, `d = a₁ - a₀`. -/
+partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
+  let numerals ← xs.mapM fun x => do
+    let .nat n ← eval scope x | throwStratum .invalid m!"a progression `…, ...` is of numerals"
+    return n
+  let (some a, some b) := (numerals[0]?, numerals[1]?)
+    | throwStratum .invalid m!"a progression `…, ...` begins with two numerals"
+  unless a ≤ b do throwStratum .invalid m!"a progression `…, ...` in ℕ increases"
+  let d := b - a
+  unless (numerals.toList.zip numerals.toList.tail).all (fun (x, y) => y = x + d) do
+    throwStratum .invalid m!"`{numerals.toList}, ...` is not an arithmetic progression"
+  let k := mkIdent `«progression index»
+  let (a, d) := (Syntax.mkNumLit (toString a), Syntax.mkNumLit (toString d))
+  let e ← `(cas_term| $a:num + $d:num · $k:ident)
+  imageOf scope e `«progression index» (← object (← registryState) "ℕ" #[] none)
 
 /-- `∑_{t ∈ A} e` (`name` is `∑` or `∏`) over a subset `A ⊆ X`: the registered family at the map
 `t ↦ e : X → Y`, applied to `A`; a partial value, defined for finite `A`. -/
@@ -1248,7 +1280,7 @@ partial def complementOf (X Y : Value) : M Value := do
   let everything ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt X, truth]
   let univ ← homIn (← `($(mkCIdent po.transpose) $(← paramTerms #[X])* $(← quoteExpr everything)))
     one p category
-  applyOperation "\\" #[.element univ P, image] P
+  applyOperation "\\" #[.element (← staged univ) P, image] P
 
 /-- The registered object a term names and its numeral parameters, without realizing it. -/
 partial def namedObject (scope : Scope) (stx : Syntax) : M (ObjectEntry × Array Nat) := do
@@ -1562,7 +1594,13 @@ partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
     throwStratum .noImplementation m!"no registered realization computes images of maps"
   let image ← homIn (← `($(mkCIdent po.image) $(← paramTerms #[X, Y])* $(← quoteExpr f)))
     one p category
-  return .element image P
+  return .element (← staged image) P
+
+/-- A global element `1 → X` at the current stage `S`: `S → 1 → X`. -/
+partial def staged (hom : Expr) : M Expr := do
+  match (← read).stage with
+  | none => return hom
+  | some S => mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
 
 /-- `{e | t ∈ X}`, the image of `t ↦ e`. -/
 partial def imageOf (scope : Scope) (e : Syntax) (t : Name) (X : Value) : M Value := do
@@ -1584,7 +1622,7 @@ partial def comprehension (scope : Scope) (t : Name) (X : Value) (p : Syntax) : 
       predicate classifies"
   let subset ← homIn (← `($(mkCIdent po.transpose) $(← paramTerms #[X])* $(← quoteExpr predicate)))
     one pHandle category
-  return .element subset P
+  return .element (← staged subset) P
 
 /-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the union of singletons. -/
 partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
@@ -1605,7 +1643,8 @@ partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Va
   match xs.toList with
   | [] =>
       let .object one _ _ ← oneObject | unreachable!
-      return .element (← homIn (← `($(mkCIdent po.empty) $(← paramTerms #[X])*)) one p category) P
+      let empty ← homIn (← `($(mkCIdent po.empty) $(← paramTerms #[X])*)) one p category
+      return .element (← staged empty) P
   | x :: rest =>
       let mut acc ← singletonOf x
       for y in rest do acc ← applyOperation po.union #[acc, ← singletonOf y] P
@@ -1714,6 +1753,17 @@ def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
   let (left, right) ← match left, right with
     | .element _ X, _ => pure (left, ← toElement right X)
     | _, .element _ X => pure (← toElement left X, right)
+    | _, _ => pure (left, right)
+  -- A named set `Y` compared with a subset of `Z ⊇ Y`: its image in `Z` (`{0, 1, 2, ...} = ℕ`).
+  let asSubset (v : Value) (P : Value) : M Value := do
+    let (.object .., some (_, Z)) := (v, ← powerOf? P) | return v
+    match ← coercionMap v Z with
+    | some (some ι) => imageOfMap ι v Z
+    | some none => imageOfMap (← identityAt v) v Z
+    | none => return v
+  let (left, right) ← match left, right with
+    | .object .., .element _ P => pure (← asSubset left P, right)
+    | .element _ P, .object .. => pure (left, ← asSubset right P)
     | _, _ => pure (left, right)
   -- Elements of two sets, one included in the other, are compared in the larger.
   let (left, right) ← match left, right with
