@@ -1,0 +1,11 @@
+-- Integral lattices and their discriminant groups (Conway–Sloane, SPLAG).
+-- Each test is admitted once and never changed (scripts/check_acceptance_permanent.py).
+
+test lattices.discriminant.a1 "Conway–Sloane, SPLAG ch. 4 §6.1: A_n^♯/A_n ≅ ℤ/(n+1)":
+  assert |cokernel(to_dual(1))| = 2
+
+test lattices.discriminant.a2 "Conway–Sloane, SPLAG ch. 4 §6.1: A_n^♯/A_n ≅ ℤ/(n+1)":
+  assert |cokernel(to_dual(2))| = 3
+
+test lattices.discriminant.a3 "Conway–Sloane, SPLAG ch. 4 §6.1: A_n^♯/A_n ≅ ℤ/(n+1)":
+  assert |cokernel(to_dual(3))| = 4

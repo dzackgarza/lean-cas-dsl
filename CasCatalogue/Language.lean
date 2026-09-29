@@ -150,7 +150,11 @@ def standardDiagram (shape : String) (args : Array Value) : TermElabM Term := do
   | "pushout", #[f, g] => `(CategoryTheory.Limits.span $f $g)
   | "product", #[x, y] | "coproduct", #[x, y] => `(CategoryTheory.Limits.pair $x $y)
   | "equalizer", #[f, g] | "coequalizer", #[f, g] => `(CategoryTheory.Limits.parallelPair $f $g)
-  | "kernel", #[f] | "cokernel", #[f] => `(CategoryTheory.Limits.parallelPair $f 0)
+  | "kernel", #[f] | "cokernel", #[f] =>
+      -- The zero morphism between the handles, as the preimage of the zero of the category.
+      let .morphism _ a b category := args[0]! | unreachable!
+      let zero ← elabHomCall (← `(0)) (← quoteExpr a) (← quoteExpr b) category.id.raw
+      `(CategoryTheory.Limits.parallelPair $f $(← quoteExpr zero))
   | _, _ => throwStratum .invalid m!"a {shape} of {args.size} arguments has no standard diagram"
 
 mutual
