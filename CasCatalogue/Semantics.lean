@@ -29,6 +29,7 @@ public import CasCatalogue.Semantics.LatticeRefinements
 public import CasCatalogue.Semantics.Lattices.Valued.Catalogue
 public import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
 public import CasCatalogue.Semantics.Lattices.Valued.Expressions
+public import CasCatalogue.Semantics.Limits.Lifts
 public import CasCatalogue.Semantics.Limits.Registration
 public import CasCatalogue.Semantics.Modules.Bilinear.Valued.Catalogue
 public import CasCatalogue.Semantics.Modules.Bilinear.Valued.CatalogueRegistration

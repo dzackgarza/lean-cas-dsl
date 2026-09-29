@@ -71,6 +71,7 @@ def expectedCategoryIds : Array CategoryId := #[
   CategoryId.endofunctorsSets,
   CategoryId.walkingPair,
   CategoryId.setsPairDiagrams,
+  CategoryId.finiteSets,
   CategoryId.unimodularLattice,
   CategoryId.cardinals,
   CategoryId.subobjectsGroups,
@@ -251,7 +252,7 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
   ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
-  ⟨"rz.sets.pair_diagrams.presented"⟩]
+  ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[
@@ -265,7 +266,8 @@ def expectedCellIds : Array NaturalTransformationId := #[
 /-- Stable limit presentations and their realizations (CC-UNIV). -/
 def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩]
 def expectedLimitRealizationIds : Array LimitRealizationId :=
-  #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩]
+  #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
+    ⟨"limr.finite_sets.pullback.returned"⟩]
 
 /-- Stable adjunction rows (CC-CALC). -/
 def expectedAdjunctionIds : Array AdjunctionId := #[AdjunctionId.setsPairDiagonalLimit]
@@ -274,7 +276,8 @@ def expectedAdjunctionIds : Array AdjunctionId := #[AdjunctionId.setsPairDiagona
 def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
 
 /-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
-def expectedLiftIds : Array LiftId := #[⟨"lift.bilin_module.restrict"⟩]
+def expectedLiftIds : Array LiftId :=
+  #[⟨"lift.bilin_module.restrict"⟩, LiftId.finiteSetsPullbacks]
 
 /-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
 def expectedPropertyIds : Array PropertyId := #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩]

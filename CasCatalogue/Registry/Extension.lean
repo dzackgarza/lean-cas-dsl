@@ -10,6 +10,7 @@ public import CasCatalogue.Action
 public import CasCatalogue.Decide
 public import CasCatalogue.Lift
 public import Mathlib.CategoryTheory.Core
+public import Mathlib.CategoryTheory.Limits.Creates
 public import LeanCategories.CategoryTheory.OneCat.Classifier
 public import CasCatalogue.Realization
 public import CasCatalogue.FamilyFibration
@@ -1797,18 +1798,52 @@ def validateNotPropertyAtom (state : RegistryState) (e : NamedCategoryEntry) : M
       throwError "category {e.id.raw} is a property subcategory of {other.id.raw}: register the \
         property as a classifier on {other.id.raw}"
 
-/-- A lift row's evidence must be a `MonoLift U` and its edge the functor `U.mapArrow`. -/
+/-- The index category `J` of a registered limit row: its declaration is a family of
+`LimitCone (F : J ⥤ C)`. -/
+def limitShapeIndex (e : LimitEntry) : MetaM Expr := do
+  let declaration ← mkConstWithFreshMVarLevels e.declaration
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
+  let type ← whnfR type
+  unless type.isAppOf ``CategoryTheory.Limits.LimitCone do
+    throwError "limit {e.id.raw}: {e.declaration} is not a family of limit cones"
+  return (← whnf (← inferType type.appArg!)).getAppArgs[0]!
+
+/-- The structural edge of a route step: its source and target categories. -/
+def RegistryState.structuralEdge? (state : RegistryState) (ref : EdgeRef) :
+    Option StructuralEdge :=
+  state.structuralEdges.find? (·.ref == ref)
+
+/-- A lift row's evidence is a `MonoLift U` whose `U.mapArrow` is the row's step (subobjects), or
+Mathlib's `CreatesLimitsOfShape J U` whose `U` is the row's step and whose `J` is the shape of the
+registered limits named by the row (limits). -/
 def validateLift (state : RegistryState) (e : LiftEntry) : MetaM Unit := do
   let edge ← state.edgeFunctor e.edge
   let evidence ← mkConstWithFreshMVarLevels e.evidence
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType evidence)
   let type ← whnfR type
-  unless type.isAppOfArity ``CasCatalogue.MonoLift 5 do
-    throwError "lift {e.id.raw}: {e.evidence} is not a MonoLift"
-  let onArrows ← mkAppHere ``CategoryTheory.Functor.mapArrow #[type.getAppArgs[4]!]
-  unless ← withTransparency .all <| isDefEq onArrows edge do
-    throwError "lift {e.id.raw}: {e.evidence} lifts along a functor whose action on arrows is \
-      not {e.edge.label}"
+  match e.kind with
+  | .subobjects =>
+      unless type.isAppOfArity ``CasCatalogue.MonoLift 5 do
+        throwError "lift {e.id.raw}: {e.evidence} is not a MonoLift"
+      let onArrows ← mkAppHere ``CategoryTheory.Functor.mapArrow #[type.getAppArgs[4]!]
+      unless ← withTransparency .all <| isDefEq onArrows edge do
+        throwError "lift {e.id.raw}: {e.evidence} lifts along a functor whose action on arrows \
+          is not {e.edge.label}"
+  | .createsLimits shape =>
+      unless type.isAppOfArity ``CategoryTheory.CreatesLimitsOfShape 7 do
+        throwError "lift {e.id.raw}: {e.evidence} is not a creation of limits (CreatesLimitsOfShape)"
+      let args := type.getAppArgs
+      unless (state.structuralEdge? e.edge).isSome do
+        throwError "lift {e.id.raw}: {e.edge.label} is not a structural step"
+      unless ← withTransparency .all <| isDefEq args[6]! edge do
+        throwError "lift {e.id.raw}: {e.evidence} creates limits along a functor other than \
+          {e.edge.label}"
+      let shapes := state.limits.filter (·.shape == shape)
+      if shapes.isEmpty then
+        throwError "lift {e.id.raw}: no registered limit has the shape {shape}"
+      for limit in shapes do
+        unless ← withTransparency .all <| isDefEq args[4]! (← limitShapeIndex limit) do
+          throwError "lift {e.id.raw}: {e.evidence} creates limits of another shape than {shape}"
 
 /-- The carrier type of a registered category row, with metavariables for its parameters. -/
 def categoryCarrierInstance (entry : NamedCategoryEntry) : MetaM Expr := do
@@ -1857,6 +1892,20 @@ def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry)
     throwError "limit realization {e.id.raw} names an unregistered limit {e.limit.raw}"
   unless state.realizers.any (·.id == e.realizer) do
     throwError "limit realization {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  if let some liftId := e.lift then
+    let some lift := state.lifts.find? (·.id == liftId)
+      | throwError "limit realization {e.id.raw} names an unregistered lift {liftId.raw}"
+    let some limit := state.limits.find? (·.id == e.limit) | unreachable!
+    unless lift.kind == .createsLimits limit.shape do
+      throwError "limit realization {e.id.raw}: {liftId.raw} does not create {limit.shape} limits"
+    let some edge := state.structuralEdge? lift.edge
+      | throwError "limit realization {e.id.raw}: {liftId.raw} is not along a structural step"
+    unless (state.category? edge.target).any (·.id == limit.category) do
+      throwError "limit realization {e.id.raw}: {liftId.raw} does not land in {limit.category.raw}"
+    let some realizer := state.realizers.find? (·.id == e.realizer) | unreachable!
+    unless (state.category? edge.source).any (·.id == realizer.category) do
+      throwError "limit realization {e.id.raw}: {e.realizer.raw} does not realize the source of \
+        {liftId.raw}"
   let realization ← mkConstWithFreshMVarLevels e.realization
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
   unless (← whnfR type).isAppOf ``Sigma do
@@ -2516,6 +2565,7 @@ structure RegistryManifestLimitRealization where
   limit : String
   realizer : String
   realization : String
+  lift : Option String
   deriving BEq, Repr, ToJson, FromJson
 
 structure RegistryManifestAdjunction where
@@ -2542,6 +2592,7 @@ structure RegistryManifestLift where
   id : String
   edge : String
   evidence : String
+  kind : String
   deriving BEq, Repr, ToJson, FromJson
 
 structure RegistryManifestRealizer where
@@ -2700,7 +2751,10 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
     deciders := (state.deciders.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, classifier := e.classifier.raw, realization := e.realization.toString }
     lifts := (state.lifts.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
-      id := e.id.raw, edge := e.edge.label, evidence := e.evidence.toString }
+      id := e.id.raw, edge := e.edge.label, evidence := e.evidence.toString
+      kind := match e.kind with
+        | .subobjects => "subobjects"
+        | .createsLimits shape => s!"creates_limits:{shape}" }
     realizers := (state.realizers.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, category := e.category.raw, denotation := e.denotation.toString,
       backend := e.backend }
@@ -2720,7 +2774,7 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       declaration := e.declaration.toString }
     limitRealizations := (state.limitRealizations.qsort (fun a b => a.id.raw < b.id.raw)).map
       fun e => { id := e.id.raw, limit := e.limit.raw, realizer := e.realizer.raw,
-                 realization := e.realization.toString }
+                 realization := e.realization.toString, lift := e.lift.map (·.raw) }
     adjunctions := (state.adjunctions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, left := e.left.raw, right := e.right.raw,
       declaration := e.declaration.toString }

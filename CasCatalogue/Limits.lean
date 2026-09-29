@@ -65,6 +65,23 @@ theorem realizedLimitCone_leg (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (
     d.map ((realizedLimitCone hd L a φ).cone.π.app j) = φ.hom ≫ L.cone.π.app j := by
   simp [realizedLimitCone]
 
+/-- A limit returned along a fully faithful functor `U : C ⥤ E` (CC-LIFT): for a diagram of
+handles `D` whose image in `E` has the limit cone `L`, and an apex handle lying over `L`'s apex, the
+limit cone of `D` has as legs and mediators the preimages along `d ⋙ U` of `L`'s. A fully faithful
+`U` creates the limits whose apex lies in its image (Mathlib `createsLimitOfFullyFaithfulOfIso`);
+the registered creation lift names it, and the backend's apex handle is the witness. -/
+def realizedReturnedLimitCone {E : Type*} [Category E] (hd : d.FullyFaithful) {U : C ⥤ E}
+    (hU : U.FullyFaithful) (L : LimitCone ((D ⋙ d) ⋙ U)) (a : R) (φ : U.obj (d.obj a) ≅ L.cone.pt) :
+    LimitCone D :=
+  realizedLimitCone (hd.comp hU) L a φ
+
+/-- The legs of a returned limit lie over the legs of `L`. -/
+theorem realizedReturnedLimitCone_leg {E : Type*} [Category E] (hd : d.FullyFaithful) {U : C ⥤ E}
+    (hU : U.FullyFaithful) (L : LimitCone ((D ⋙ d) ⋙ U)) (a : R) (φ : U.obj (d.obj a) ≅ L.cone.pt)
+    (j : J) :
+    U.map (d.map ((realizedReturnedLimitCone hd hU L a φ).cone.π.app j)) = φ.hom ≫ L.cone.π.app j :=
+  realizedLimitCone_leg (d := d ⋙ U) (hd.comp hU) L a φ j
+
 /-- The realized limit of `D` computed through an adjunction `Δ ⊣ L`: the apex is the image of `D`
 under the realized action of the right adjoint `L`, and the limit cone of `D ⋙ d` is Mathlib's
 (`coneOfAdj`, legs the counit, mediators the transposes, `isLimitConeOfAdj`). -/

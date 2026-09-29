@@ -240,11 +240,42 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
       if !resolution.method.returnsToSource then return resolution
       let mut lifts := #[]
       for step in resolution.route.refs do
-        match state.lifts.find? (·.edge == step) with
+        match state.lifts.find? (fun l => l.kind == .subobjects && l.edge == step) with
         | some lift => lifts := lifts.push lift.id
         | none => throw (.missingLift name resolution step)
       pure { resolution with lifts }
   | _ => throw (.ambiguous name candidates)
+
+/-- How a limit of a registered shape in a registered category is computed (CC-UNIV, CC-LIFT): a
+registered presentation in the category itself, or one in the target of a registered creation lift
+out of it, returned along that lift, which the resolution names. -/
+structure LimitResolution where
+  limit : LimitId
+  lift : Option LiftId := none
+  deriving Repr, BEq
+
+/-- Resolve a limit of shape `shape` in `category`: its own registered presentation, else the
+unique registered creation lift of `shape` limits out of `category` into a category with one. -/
+def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String) :
+    Except String LimitResolution := do
+  let direct := state.limits.filter fun l => l.category == category && l.shape == shape
+  if let some l := direct[0]? then
+    if direct.size > 1 then throw s!"{category.raw} has {direct.size} registered {shape} limits"
+    return { limit := l.id }
+  let some entry := state.categories.find? (·.id == category)
+    | throw s!"{category.raw} is not a registered category"
+  let returned := state.lifts.filterMap fun lift => do
+    guard (lift.kind == .createsLimits shape)
+    let edge ← state.structuralEdge? lift.edge
+    guard (edge.source.syntacticEq entry.expression)
+    let target ← state.category? edge.target
+    let limit ← state.limits.find? fun l => l.category == target.id && l.shape == shape
+    pure ({ limit := limit.id, lift := some lift.id } : LimitResolution)
+  match returned.toList with
+  | [r] => return r
+  | [] => throw s!"no {shape} limit is registered in {category.raw} or returned to it along a \
+      registered lift"
+  | _ => throw s!"{shape} limits in {category.raw} are returned along several lifts"
 
 /-- Resolve the property query `receiver.name` (CC-PROP): a property row with this name (an
 alias only on its own receiver), and the unique route to its classifier's host. -/

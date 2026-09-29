@@ -82,12 +82,23 @@ structure MethodEntry where
   returnsToSource : Bool := false
   deriving Repr
 
-/-- A lift row (CC-LIFT): `evidence` names a `MonoLift U`, lifts of subobjects along a functor
-`U : C ⥤ D`; it serves the route step `edge`, which must be `U.mapArrow : Arr(C) ⥤ Arr(D)`. -/
+/-- What a lift row returns to the source of a functor `U : C ⥤ D` (CC-LIFT). -/
+inductive LiftKind
+  /-- Subobjects: `evidence` is a `MonoLift U`, and the row's step is `U.mapArrow`. -/
+  | subobjects
+  /-- Limits of the registered shape `shape`: `evidence` is Mathlib's `CreatesLimitsOfShape J U`
+  for the functor `U` of the row's step, where `J` is the shape of the registered limits named
+  `shape`. A limit computed in `D` is returned to `C` along it. -/
+  | createsLimits (shape : String)
+  deriving DecidableEq, Repr
+
+/-- A lift row (CC-LIFT): `evidence` returns results computed along the route step `edge` to its
+source, as `kind` says: subobjects (a `MonoLift`), or limits (Mathlib's `CreatesLimitsOfShape`). -/
 structure LiftEntry where
   id : LiftId
   edge : EdgeRef
   evidence : Lean.Name
+  kind : LiftKind := .subobjects
   deriving Repr
 
 /-- A realizer row (CC-SEP): `denotation` names a denotation functor `R ⥤ C` whose category `C` is the
@@ -143,6 +154,9 @@ structure LimitRealizationEntry where
   limit : LimitId
   realizer : RealizerId
   realization : Lean.Name
+  /-- A creation lift along which the limit, computed in the lift's target, is returned to the
+  realizer's category, the lift's source (CC-LIFT). -/
+  lift : Option LiftId := none
   deriving Repr
 
 /-- An adjunction row (CC-CALC): `declaration` is a Mathlib `Adjunction L R` between the registered
