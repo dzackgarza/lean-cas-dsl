@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.ObjectCall
 public import CasCatalogue.LimitCall
+public import CasCatalogue.Semantic
 -- The whole pinned semantic release: what the language can say never depends on which leaves are
 -- installed.
 public import LeanCategories.Catalogue
@@ -57,9 +58,11 @@ Statements:
 * `assert P`, `assert P = true | false | unknown`: the decision of a property;
 * `assert implemented X`: a realization computes `X`.
 
-Each statement has an outcome: it holds, it is wrong, its computation is a gap (`NoImplementation`
-or an ambiguous realization), its backend is unavailable, its answer is malformed, or it is not a
-valid statement. `CasCatalogue.TestSuite` runs files of statements.
+Each statement is read twice. Its semantic reading (`CasCatalogue.Semantic`) elaborates it from
+the catalogue alone, whatever leaves are installed; failing that, it is not a valid statement.
+Its realized reading then decides it through realizations: it holds, it is wrong, its computation
+is a gap (`NoImplementation` or an ambiguous realization), its backend is unavailable, or its
+answer is malformed. `CasCatalogue.TestSuite` runs files of statements.
 -/
 
 open Lean Meta Elab Term
@@ -128,6 +131,42 @@ inductive Value
 binding whose computation is a gap is itself a gap. -/
 abbrev Scope := Std.HashMap Name Syntax
 
+/-- How a term is read: for its mathematics alone (`semantic`: objects are their declarations,
+morphisms, limits, methods and properties are the catalogue's; failure is invalidity), or through
+realizations (`realized`: handles of leaves; failure is a gap). Every statement is read both ways,
+semantically first (`CasCatalogue.Semantic`). -/
+inductive Mode
+  | semantic
+  | realized
+  deriving BEq, Inhabited
+
+/-- The language's evaluation monad: elaboration in a reading. -/
+abbrev M := ReaderT Mode TermElabM
+
+/-- The morphism `f : a ⟶ b` of `category`: elaborated there, or realized as the morphism of
+handles denoting it. -/
+def homIn (f : Term) (a b : Expr) (category : NamedCategoryEntry) : M Expr := do
+  match ← read with
+  | .semantic => Semantic.hom f a b
+  | .realized => elabHomCall f (← exprToSyntax a) (← exprToSyntax b) category.id.raw
+
+/-- The registered limit (colimit, if `colimit`) of `shape` at the diagram `D` of `category`. -/
+def limitIn (colimit : Bool) (shape : String) (D : Term) (category : NamedCategoryEntry) :
+    M Expr := do
+  match ← read with
+  | .semantic =>
+      let diagram ← instantiateMVars (← elabTermAndSynthesize D none)
+      Semantic.limit colimit shape diagram category.id.raw
+  | .realized => elabLimitCall colimit shape D category.id.raw
+
+/-- The apex of a limit cone or colimit cocone. -/
+def apexOf (colimit : Bool) (L : Expr) : MetaM Expr :=
+  if colimit then do
+    mkAppM ``CategoryTheory.Limits.Cocone.pt
+      #[← mkAppM ``CategoryTheory.Limits.ColimitCocone.cocone #[L]]
+  else do
+    mkAppM ``CategoryTheory.Limits.Cone.pt #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[L]]
+
 /-- The registered category named `name`. -/
 def categoryNamed (state : RegistryState) (name : String) : TermElabM NamedCategoryEntry := do
   let some entry := state.categories.find? (·.name == name)
@@ -162,12 +201,12 @@ def numeralTerms (name : String) (values : Array Value) : TermElabM (Array Term)
     | _ => throwStratum .invalid m!"the parameters of {name} are numerals"
 
 /-- The standard diagram of the shape `shape` on the values `args` (Mathlib's standard forms). -/
-def standardDiagram (shape : String) (args : Array Value) : TermElabM Term := do
+def standardDiagram (shape : String) (args : Array Value) : M Term := do
   let quote : Value → TermElabM Term
     | .object handle .. => quoteExpr handle
     | .morphism hom .. => quoteExpr hom
     | _ => throwStratum .invalid m!"the diagram of a {shape} is of objects and morphisms"
-  let ts ← args.mapM quote
+  let ts ← args.mapM (liftM ∘ quote)
   match shape, ts with
   | "pullback", #[f, g] => `(CategoryTheory.Limits.cospan $f $g)
   | "pushout", #[f, g] => `(CategoryTheory.Limits.span $f $g)
@@ -176,7 +215,7 @@ def standardDiagram (shape : String) (args : Array Value) : TermElabM Term := do
   | "kernel", #[f] | "cokernel", #[f] =>
       -- The zero morphism between the handles, as the preimage of the zero of the category.
       let .morphism _ a b category := args[0]! | unreachable!
-      let zero ← elabHomCall (← `(0)) (← quoteExpr a) (← quoteExpr b) category.id.raw
+      let zero ← homIn (← `(0)) a b category
       `(CategoryTheory.Limits.parallelPair $f $(← quoteExpr zero))
   | _, _ => throwStratum .invalid m!"a {shape} of {args.size} arguments has no standard diagram"
 
@@ -195,6 +234,13 @@ def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
+/-- A fact the catalogue itself decides (a registered inclusion): `True` read semantically, and
+`some true` read through realizations, which it does not consult. -/
+def decided : M Value := do
+  match ← read with
+  | .semantic => return .answer (mkConst ``True)
+  | .realized => return answerOf (some true)
+
 unsafe def evalAnswerUnsafe (e : Expr) : TermElabM (Option Bool) :=
   evalExpr (Option Bool) (mkApp (mkConst ``Option [0]) (mkConst ``Bool)) e
 
@@ -203,7 +249,7 @@ opaque evalAnswer (e : Expr) : TermElabM (Option Bool)
 
 /-- The morphism `a → b` of the registered graph literal of their category with the graph `pairs`
 of numerals, named by the element literals of `a`'s and `b`'s objects. -/
-def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : TermElabM Value := do
+def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
   let state ← registryState
   let .object a category (some (source, sourceParams)) := a
     | throwStratum .invalid m!"the domain of a graph is a named object"
@@ -225,14 +271,14 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : TermElabM Value := do
   let Y ← `($(mkCIdent target.declaration) $(← numeralTerms target.name (targetParams.map .nat))*)
   let semantic ← `($(mkCIdent form.denotation) (X := $X) (Y := $Y) [$entries,*] (by decide)
     (by decide))
-  let hom ← elabHomCall semantic (← quoteExpr a) (← quoteExpr b) category.id.raw
+  let hom ← homIn semantic a b category
   return .morphism hom a b category
 
 mutual
 
 /-- The value of a term, in the category `category?` of an enclosing `in C`. -/
 partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry := none)
-    (ambient? : Option Value := none) : TermElabM Value := do
+    (ambient? : Option Value := none) : M Value := do
   let state ← registryState
   match stx with
   | `(cas_term| $n:num) => return .nat n.getNat
@@ -251,7 +297,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       let (super, superParams) ← namedObject scope y
       unless subParams == superParams do
         throwStratum .invalid m!"`⊆` relates named sets at the same parameters"
-      if includes state sub.id super.id then return answerOf (some true)
+      if includes state sub.id super.id then return ← decided
       throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
   | `(cas_term| $x ∈ $y) =>
       let Y ← eval scope y
@@ -259,11 +305,15 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
         | throwStratum .invalid m!"`∈` is membership in a named set"
       match ← toElement (← eval scope x none (some Y)) Y with
       | .element _ (.object _ _ (some (sub, _))) =>
-          if includes state sub.id super.id then return answerOf (some true)
+          if includes state sub.id super.id then return ← decided
           throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
       | _ => throwStratum .invalid m!"`∈` relates an element and a named set"
   | `(cas_term| $p and $q) =>
-      let answer (t : Syntax) : TermElabM (Option Bool) := do
+      if (← read) == .semantic then
+        let (.answer a, .answer b) := (← eval scope p, ← eval scope q)
+          | throwStratum .invalid m!"`and` joins propositions"
+        return .answer (mkAnd a b)
+      let answer (t : Syntax) : M (Option Bool) := do
         let .answer e ← eval scope t | throwStratum .invalid m!"`and` joins decisions"
         evalAnswer (← executable e)
       return answerOf <| match ← answer p, ← answer q with
@@ -327,27 +377,34 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
 
 /-- The registered object `name` at the numeral parameters `args`. -/
 partial def object (state : RegistryState) (name : String) (args : Array Value)
-    (category? : Option NamedCategoryEntry) : TermElabM Value := do
+    (category? : Option NamedCategoryEntry) : M Value := do
   let entry ← objectNamed state name category?
   let some category := state.categories.find? (·.id == entry.category)
     | throwStratum .invalid m!"the object {name} has an unregistered category"
   let params ← args.mapM fun
     | .nat n => pure (Syntax.mkNumLit (toString n) : Term)
     | _ => throwStratum .invalid m!"the parameters of {name} are numerals"
-  let handle ← elabObjectCall entry.id.raw params category.id.raw none
+  let handle ← match ← read with
+    | .semantic => Semantic.object entry params
+    | .realized => elabObjectCall entry.id.raw params category.id.raw none
   let numerals := args.filterMap fun | .nat n => some n | _ => none
   return .object handle category (some (entry, numerals))
 
 /-- The method or property `name` of the object `t`. -/
 partial def call (scope : Scope) (t : Syntax) (name : String)
-    (category? : Option NamedCategoryEntry) : TermElabM Value := do
+    (category? : Option NamedCategoryEntry) : M Value := do
   let state ← registryState
   let receiver ← eval scope t category?
   if let .element .. := receiver then return ← applyNamed state name #[receiver]
   let .object handle category _ := receiver
     | throwStratum .invalid m!"`{name}` is called on an object or an element"
+  let isProperty := state.properties.any (·.name == name) && !state.methods.any (·.name == name)
+  if (← read) == .semantic then
+    if isProperty then return .answer (← Semantic.property name handle category)
+    let (value, target) ← Semantic.method name handle category
+    return .object value target
   let receiver ← quoteExpr handle
-  if state.properties.any (·.name == name) && !state.methods.any (·.name == name) then
+  if isProperty then
     let decision ← elabPropertyQuery name receiver category.id.raw #[]
     return .answer (← mkAppM ``Decision.answer #[decision])
   let value ← elabMethodCall name receiver category.id.raw #[]
@@ -363,14 +420,13 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
 /-- The identifier `name` applied to `args`: `id`, or the unique registered object, morphism family or
 (co)limit shape of that name. -/
 partial def named (scope : Scope) (name : String) (args : Array Syntax)
-    (category? : Option NamedCategoryEntry) : TermElabM Value := do
+    (category? : Option NamedCategoryEntry) : M Value := do
   let state ← registryState
   if name == "id" then
     let #[x] := args | throwStratum .invalid m!"`id(X)` is the identity of an object `X`"
     let .object a category _ ← eval scope x category?
       | throwStratum .invalid m!"`id(X)` is the identity of an object `X`"
-    let hom ← elabHomCall (← `(CategoryTheory.CategoryStruct.id _)) (← quoteExpr a)
-      (← quoteExpr a) category.id.raw
+    let hom ← homIn (← `(CategoryTheory.CategoryStruct.id _)) a a category
     return .morphism hom a a category
   let inScope (c : CategoryId) := category?.all (c == ·.id)
   let objects := state.objects.filter fun o => o.name == name && inScope o.category
@@ -388,15 +444,8 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
       let category ← match (values[0]? : Option Value) with
         | some (.object _ c _) | some (.morphism _ _ _ c) => pure c
         | _ => throwStratum .invalid m!"a {name} is of objects or morphisms"
-      let presentation ← elabLimitCall limit.colimit name (← standardDiagram name values)
-        category.id.raw
-      let apex ← if limit.colimit then
-          mkAppM ``CategoryTheory.Limits.Cocone.pt
-            #[← mkAppM ``CategoryTheory.Limits.ColimitCocone.cocone #[presentation]]
-        else
-          mkAppM ``CategoryTheory.Limits.Cone.pt
-            #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]]
-      return .object apex category
+      let presentation ← limitIn limit.colimit name (← standardDiagram name values) category
+      return .object (← apexOf limit.colimit presentation) category
   | true, true, none => throwStratum .invalid m!"nothing registered is named {name}"
   | _, _, _ => throwStratum .invalid m!"several kinds of registered rows are named {name}"
 
@@ -405,7 +454,7 @@ parameters, and the rest are elements it is applied to (`gcd(84, 30)`, `rev(3, 0
 is a morphism between the named objects it relates, or an element if its source is `1`
 (`i : 1 → ℂ`). -/
 partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Array Syntax)
-    (scope : Scope) : TermElabM Value := do
+    (scope : Scope) : M Value := do
   let some category := state.categories.find? (·.id == entry.category)
     | throwStratum .invalid m!"the morphism {entry.name} has an unregistered category"
   let declaration ← mkConstWithFreshMVarLevels entry.declaration
@@ -438,7 +487,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
   let sourceValue ← recognize state source category
   let .object a _ origin := sourceValue
     | throwStratum .invalid m!"the source of {entry.name} is not an object"
-  let hom ← elabHomCall (← quoteExpr semantic) (← quoteExpr a) (← quoteExpr b) category.id.raw
+  let hom ← homIn (← quoteExpr semantic) a b category
   -- A morphism from the terminal set `Fin(1)` is an element.
   if let some (object, #[1]) := origin then
     if object.name == "Fin" then return .element hom targetValue
@@ -447,15 +496,15 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
 /-- The object `x` of `category` as the registered object it is (reducibly) at numeral
 parameters. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry) :
-    TermElabM Value := do
+    M Value := do
   let mut found : Array (ObjectEntry × Array Nat) := #[]
   for entry in state.objects.filter (·.category == category.id) do
     let declaration ← mkConstWithFreshMVarLevels entry.declaration
     let (args, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
-    let numerals? ← withoutModifyingState do
+    let numerals? ← (withoutModifyingState do
       unless ← withReducible (isDefEq (mkAppN declaration args) x) do return none
       let values ← args.mapM fun a => do (Meta.evalNat (← instantiateMVars a)).run
-      return values.mapM id
+      return values.mapM id : MetaM _)
     if let some numerals := numerals? then found := found.push (entry, numerals)
   let #[(entry, numerals)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
@@ -463,7 +512,7 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
 
 /-- The registered morphism named `name` without parameters, applied to elements. -/
 partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value) :
-    TermElabM Value := do
+    M Value := do
   let some entry := state.morphisms.find? (·.name == name)
     | throwStratum .invalid m!"no registered function of elements is named {name}"
   let declaration ← mkConstWithFreshMVarLevels entry.declaration
@@ -477,9 +526,9 @@ partial def applyNamed (state : RegistryState) (name : String) (elements : Array
   applyTo (← quoteExpr semantic) elements (← recognize state target category)
 
 /-- The registered object a term names and its numeral parameters, without realizing it. -/
-partial def namedObject (scope : Scope) (stx : Syntax) : TermElabM (ObjectEntry × Array Nat) := do
+partial def namedObject (scope : Scope) (stx : Syntax) : M (ObjectEntry × Array Nat) := do
   let state ← registryState
-  let numerals (args : Array Syntax) : TermElabM (Array Nat) := args.mapM fun a => do
+  let numerals (args : Array Syntax) : M (Array Nat) := args.mapM fun a => do
     let .nat n ← eval scope a | throwStratum .invalid m!"a parameter is a numeral"
     return n
   match stx with
@@ -505,7 +554,7 @@ partial def namedObject (scope : Scope) (stx : Syntax) : TermElabM (ObjectEntry 
 /-- The morphism `{x ↦ y, …} : s → t` with that graph, by the registered graph literal of the
 category of `s` and `t`, whose elements are the registered element literals of `s` and `t`. -/
 partial def graph (scope : Scope) (pairs : Array Syntax) (s t : Syntax)
-    (category? : Option NamedCategoryEntry) : TermElabM Value := do
+    (category? : Option NamedCategoryEntry) : M Value := do
   let a ← eval scope s category?
   let .object _ category _ := a | throwStratum .invalid m!"the domain of a graph is an object"
   let b ← eval scope t (some category)
@@ -520,7 +569,7 @@ partial def graph (scope : Scope) (pairs : Array Syntax) (s t : Syntax)
 is an element, else `ℤ`. Each operand is evaluated once, and again only if it defaulted to another
 set than its siblings'. -/
 partial def operands (scope : Scope) (args : Array Syntax) (ambient? : Option Value) :
-    TermElabM (Array Value × Value) := do
+    M (Array Value × Value) := do
   let values ← args.mapM (eval scope · none ambient?)
   let X ← match ambient? with
     | some X => pure X
@@ -539,12 +588,12 @@ partial def operands (scope : Scope) (args : Array Syntax) (ambient? : Option Va
 
 /-- The registered operation `name` on the operands `args`. -/
 partial def operate (scope : Scope) (name : String) (args : Array Syntax)
-    (ambient? : Option Value) : TermElabM Value := do
+    (ambient? : Option Value) : M Value := do
   let (elements, X) ← operands scope args ambient?
   applyOperation name elements X
 
 /-- `v` as an element of the set `X`: an element already, or the element a numeral names. -/
-partial def toElement (v : Value) (X : Value) : TermElabM Value := do
+partial def toElement (v : Value) (X : Value) : M Value := do
   match v with
   | .element .. => return v
   | .nat k =>
@@ -557,7 +606,7 @@ partial def toElement (v : Value) (X : Value) : TermElabM Value := do
 `X`'s unique refinement that has one of that name, at that refinement. Its morphism
 `X^arity → X` is composed with the product mediator of the operands. -/
 partial def applyOperation (name : String) (elements : Array Value) (X : Value) :
-    TermElabM Value := do
+    M Value := do
   let state ← registryState
   let .object _ _ (some (base, params)) := X
     | throwStratum .invalid m!"`{name}` is an operation on the elements of a named set"
@@ -580,7 +629,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value) 
 realized from the registered product of the operands' sets (or their set) to the set `target`,
 composed with the operands' mediator. The result is an element of `target`, typed `1 ⟶ target`. -/
 partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) :
-    TermElabM Value := do
+    M Value := do
   let .object b category _ := target
     | throwStratum .invalid m!"the value of a function of elements is in a named set"
   let operands ← elements.mapM fun
@@ -593,7 +642,7 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) 
   let (source, mediator) ← match operands with
     | #[(x, a₁), (y, a₂)] =>
         let diagram ← `(CategoryTheory.Limits.pair $(← quoteExpr a₁) $(← quoteExpr a₂))
-        let cone ← elabLimitCall false "product" diagram category.id.raw
+        let cone ← limitIn false "product" diagram category
         let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt
           #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[cone]]
         let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[x, y]
@@ -602,13 +651,13 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) 
         pure (apex, ← mkExpectedTypeHint lift (← mkAppM ``Quiver.Hom #[one, apex]))
     | #[(x, a₁)] => pure (a₁, x)
     | _ => throwStratum .invalid m!"a function of elements takes one or two operands"
-  let f ← elabHomCall semantic (← quoteExpr source) (← quoteExpr b) category.id.raw
+  let f ← homIn semantic source b category
   let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[mediator, f]
   return .element (← mkExpectedTypeHint composite (← mkAppM ``Quiver.Hom #[one, b])) target
 
 /-- The registered product of `a` and `b`, or their coproduct if `colimit`. -/
 partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
-    (category? : Option NamedCategoryEntry) : TermElabM Value := do
+    (category? : Option NamedCategoryEntry) : M Value := do
   let symbol := if colimit then "⊔" else "×"
   let .object x category _ ← eval scope a category?
     | throwStratum .invalid m!"`{symbol}` is of objects"
@@ -618,14 +667,8 @@ partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
     throwStratum .invalid m!"`{symbol}` of objects of {category.name} and {category'.name}"
   let diagram ← `(CategoryTheory.Limits.pair $(← quoteExpr x) $(← quoteExpr y))
   let shape := if colimit then "coproduct" else "product"
-  let presentation ← elabLimitCall colimit shape diagram category.id.raw
-  let apex ← if colimit then
-      mkAppM ``CategoryTheory.Limits.Cocone.pt
-        #[← mkAppM ``CategoryTheory.Limits.ColimitCocone.cocone #[presentation]]
-    else
-      mkAppM ``CategoryTheory.Limits.Cone.pt
-        #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]]
-  return .object apex category
+  let presentation ← limitIn colimit shape diagram category
+  return .object (← apexOf colimit presentation) category
 
 end
 
@@ -673,9 +716,82 @@ def observes (state : RegistryState) (handle : Expr) (category : NamedCategoryEn
   let expected ← literalExpr form.type literal
   evalBool (← executable (← mkDecide (← mkEq observed expected)))
 
-/-- Run a statement, within the `let` bindings `scope`. -/
-def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
+/-- The proposition that the value `X` of `category` is the literal `literal`, read semantically:
+`X = denote literal` for the category's registered literal form. -/
+def literalProp (state : RegistryState) (X : Expr) (category : NamedCategoryEntry)
+    (literal : Value) : TermElabM Expr := do
+  let some form := state.literals.find? (·.category == category.id)
+    | throwStratum .invalid m!"{category.name} has no registered literal form"
+  let denoted ← mkAppM form.denotation #[← literalExpr form.type literal]
+  unless ← withTransparency .all <| isDefEq (← inferType X) (← inferType denoted) do
+    throwStratum .invalid m!"a value of {category.name} is compared with a literal of another type"
+  mkEq X denoted
+
+/-- Whether a decision decides `true` (realized), after `executable`. -/
+def decidesTrue (decision : Expr) : TermElabM Bool := do
+  evalBool (← executable (← mkAppM ``BEq.beq #[← mkAppM ``Decision.answer #[decision],
+    toExpr (some true)]))
+
+/-- The comparison `l = r`: semantically, the proposition it states is formed (and must be);
+through realizations, it is decided. -/
+def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
   let state ← registryState
+  let semantic := (← read) == .semantic
+  let right ← eval scope r
+  let ambient := match right with
+    | .element _ X => some X
+    | _ => none
+  let left ← eval scope l none ambient
+  -- Elements are compared as morphisms `1 → X`; a numeral side is an element of `X`.
+  let (left, right) ← match left, right with
+    | .element _ X, _ => pure (left, ← toElement right X)
+    | _, .element _ X => pure (← toElement left X, right)
+    | _, _ => pure (left, right)
+  let wrong := Outcome.wrong s!"{shown l} is not {shown r}"
+  match left, right with
+  | .element f (.object _ category _), .element g _ | .morphism f _ _ category, .morphism g _ _ _ =>
+      if semantic then discard <| mkEq f g; return .holds
+      let decision ← elabEqualityQuery (← quoteExpr f) (← quoteExpr g) category.id.raw
+      return if ← decidesTrue decision then .holds else wrong
+  | .element .., _ => throwStratum .invalid m!"an element is compared with an element"
+  | .morphism .., _ => throwStratum .invalid m!"a morphism is compared with a morphism"
+  | .object X category _, _ =>
+      if semantic then discard <| literalProp state X category right; return .holds
+      return if ← observes state X category right then .holds else wrong
+  | .answer answer, _ =>
+      let expected ← match right with
+        | .literal `true => pure (some true)
+        | .literal `false => pure (some false)
+        | .literal `unknown => pure none
+        | _ => throwStratum .invalid m!"a decision is `true`, `false` or `unknown`"
+      if semantic then return .holds
+      let e ← mkAppM ``BEq.beq #[answer, toExpr expected]
+      return if ← evalBool (← executable e) then .holds else wrong
+  | _, _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
+
+/-- A statement read in the current mode. -/
+def statement (scope : Scope) (stx : Syntax) : M Outcome := do
+  let semantic := (← read) == .semantic
+  match stx with
+  | `(cas_stmt| let $_:ident := $t) => discard <| eval scope t; return .holds
+  | `(cas_stmt| assert implemented $t) => discard <| eval scope t; return .holds
+  | `(cas_stmt| assert $l = $r) => assertEqual scope l r
+  | `(cas_stmt| assert $p) =>
+      let .answer answer ← eval scope p | throwStratum .invalid m!"`assert P` needs a property"
+      if semantic then return .holds
+      let e ← mkAppM ``BEq.beq #[answer, toExpr (some true)]
+      return if ← evalBool (← executable e) then .holds else .wrong s!"{shown p} is not true"
+  | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
+
+/-- Run a statement, within the `let` bindings `scope`: first its semantic reading, whose failure
+makes it invalid whatever is realized; then its realized reading, where a missing realization is a
+gap. A `let` binds its term either way; its realized failure surfaces where it is used. -/
+def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
+  let scope' := match stx with
+    | `(cas_stmt| let $x:ident := $t) => scope.insert x.getId t
+    | _ => scope
+  try discard <| (statement scope stx).run .semantic
+  catch e => throwError "not a valid statement: {e.toMessageData}"
   let classify (e : Exception) : TermElabM Outcome := do
     match Exception.stratum? e with
     | some .noImplementation | some .ambiguousRealization =>
@@ -683,64 +799,8 @@ def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
     | some .unavailable => return .unavailable (← e.toMessageData.toString)
     | some .malformed => return .malformed (← e.toMessageData.toString)
     | _ => throw e
-  match stx with
-  | `(cas_stmt| let $x:ident := $t) =>
-      -- An invalid binding fails here; one whose computation is a gap is bound all the same.
-      try discard <| eval scope t catch e => discard <| classify e
-      return (.holds, scope.insert x.getId t)
-  | `(cas_stmt| assert implemented $t) =>
-      try discard <| eval scope t; return (.holds, scope)
-      catch e => return (← classify e, scope)
-  | `(cas_stmt| assert $l = $r) =>
-      try
-        let right ← eval scope r
-        let ambient := match right with
-          | .element _ X => some X
-          | _ => none
-        let left ← eval scope l none ambient
-        -- Elements are compared as morphisms `1 → X`; a numeral side is an element of `X`.
-        let (left, right) ← match left, right with
-          | .element _ X, _ => pure (left, ← toElement right X)
-          | _, .element _ X => pure (← toElement left X, right)
-          | _, _ => pure (left, right)
-        match left with
-        | .element f X =>
-            let .element g _ := right
-              | throwStratum .invalid m!"an element is compared with an element"
-            let .object _ category _ := X | unreachable!
-            let decision ← elabEqualityQuery (← quoteExpr f) (← quoteExpr g) category.id.raw
-            let e ← mkAppM ``BEq.beq #[← mkAppM ``Decision.answer #[decision], toExpr (some true)]
-            if ← evalBool (← executable e) then return (.holds, scope)
-            return (.wrong s!"{shown l} is not {shown r}", scope)
-        | .object handle category _ =>
-            if ← observes state handle category right then return (.holds, scope)
-            return (.wrong s!"{shown l} is not {shown r}", scope)
-        | .morphism f _ _ category =>
-            let .morphism g _ _ _ := right
-              | throwStratum .invalid m!"a morphism is compared with a morphism"
-            let decision ← elabEqualityQuery (← quoteExpr f) (← quoteExpr g) category.id.raw
-            let e ← mkAppM ``BEq.beq #[← mkAppM ``Decision.answer #[decision], toExpr (some true)]
-            if ← evalBool (← executable e) then return (.holds, scope)
-            return (.wrong s!"{shown l} = {shown r} is not decided true", scope)
-        | .answer answer =>
-            let expected ← match right with
-              | .literal `true => pure (some true)
-              | .literal `false => pure (some false)
-              | .literal `unknown => pure none
-              | _ => throwStratum .invalid m!"a decision is `true`, `false` or `unknown`"
-            let e ← mkAppM ``BEq.beq #[answer, toExpr expected]
-            if ← evalBool (← executable e) then return (.holds, scope)
-            return (.wrong s!"{shown l} is not {shown r}", scope)
-        | _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
-      catch e => return (← classify e, scope)
-  | `(cas_stmt| assert $p) =>
-      try
-        let .answer answer ← eval scope p
-          | throwStratum .invalid m!"`assert P` needs a property"
-        let e ← mkAppM ``BEq.beq #[answer, toExpr (some true)]
-        if ← evalBool (← executable e) then return (.holds, scope)
-        return (.wrong s!"{shown p} is not true", scope)
-      catch e => return (← classify e, scope)
-  | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
+  let outcome ← try (statement scope stx).run .realized catch e => classify e
+  if let `(cas_stmt| let $_:ident := $_) := stx then return (.holds, scope')
+  return (outcome, scope')
 
 end CasCatalogue.Language
