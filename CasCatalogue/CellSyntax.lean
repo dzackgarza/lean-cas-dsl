@@ -123,22 +123,7 @@ def elabCellCall (cell : Syntax) (receiver : Term) (category : String) : TermEla
   let some categoryEntry := state.categories.find? (·.id.raw == category)
     | throwError "no registered category {category}"
   let t ← elabCellTerm state cell
-  -- The realization of `x`: the unique registered realizer of the category it elaborates in.
-  let mut found : Array (RealizerEntry × Expr × Expr) := #[]
-  for realizer in state.realizers.filter (·.category == categoryEntry.id) do
-    let denotation ← mkConstWithFreshMVarLevels realizer.denotation
-    let saved ← saveState
-    try
-      let x ← elabTermEnsuringType receiver (← sourceHandles' denotation)
-      synthesizeSyntheticMVarsNoPostponing
-      found := found.push (realizer, denotation, ← instantiateMVars x)
-    catch _ => pure ()
-    saved.restore
-  let #[(_, denotation, _)] := found
-    | throwError "the receiver is realized by {found.size} registered realizers of {category}"
-  let x ← elabTermEnsuringType receiver (← sourceHandles' denotation)
-  synthesizeSyntheticMVarsNoPostponing
-  let x ← instantiateMVars x
+  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
   let aL ← composeSteps state denotation t.left
   let aR ← composeSteps state denotation t.right
   let target := (← whnfR (← inferType aL)).getAppArgs[10]!
@@ -152,9 +137,5 @@ def elabCellCall (cell : Syntax) (receiver : Term) (category : String) : TermEla
     | throwError "no registered fully faithful realization of the cell's target"
   let realized ← mkAppHere ``realizedCell #[hD, aL, aR, t.nat]
   certifiedExecutable (← mkAppHere ``CategoryTheory.NatTrans.app #[realized, x])
-where
-  /-- The handle type of a denotation functor. -/
-  sourceHandles' (denotation : Expr) : MetaM Expr := do
-    return (← whnfR (← inferType denotation)).getAppArgs[0]!
 
 end CasCatalogue

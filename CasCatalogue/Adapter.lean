@@ -50,7 +50,7 @@ inductive LeafContribution
   /-- A forgetful route: a structural functor. -/
   | forgetfulRoute (entry : FunctorEntry)
   /-- An identification of two presentations (a coherence between routes). -/
-  | identification (entry : ComparisonEntry)
+  | identification (entry : CellEntry)
   /-- A public coercion between two categories. -/
   | coercion (source target : CategoryExpr)
   /-- A refinement of an object's semantic type after construction. -/

@@ -131,7 +131,8 @@ run_cmd liftTermElabM do
     | throwError "fun.groups.monoid is not registered"
   expectRule (.forgetfulRoute { groupsMonoid with id := ⟨"fun.probe.groups_to_sets"⟩ })
     "cannot create an implicit forgetful route"
-  let some comparison := state.comparisons[0]? | throwError "no comparison is registered"
+  let some comparison := state.cells.find? (·.invertible)
+    | throwError "no comparison is registered"
   expectRule (.identification comparison)
     "cannot decide that two presentations are the same"
   expectRule (.coercion groups.expression Foundation.Sets) "cannot add public coercions"

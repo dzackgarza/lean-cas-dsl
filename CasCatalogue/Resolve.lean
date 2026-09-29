@@ -40,7 +40,7 @@ comparisons that identified every other candidate route with it (its provenance)
 structure Resolution where
   method : MethodEntry
   route : Route
-  comparisons : Array ComparisonId := #[]
+  comparisons : Array NaturalTransformationId := #[]
   /-- For a method that returns to the source side, the registered lift serving each route
   step (CC-LIFT). -/
   lifts : Array LiftId := #[]
@@ -56,37 +56,62 @@ def rewritesTo (a b left right : Array EdgeRef) : Bool :=
     a.extract i (i + left.size) == left &&
       b == a.extract 0 i ++ right ++ a.extract (i + left.size) a.size
 
-/-- The registered comparison identifying two routes by one rewrite, if any. -/
-def RegistryState.comparisonBetween? (state : RegistryState) (a b : Route) :
-    Option ComparisonId :=
-  (state.comparisons.find? fun c =>
-      rewritesTo a.refs b.refs c.left c.right || rewritesTo a.refs b.refs c.right c.left).map (·.id)
+/-- The registered comparisons from route `a` to route `b` (CC-COHERE): invertible cells between
+two distinct structural composites, whose `left` occurs in `a` and is replaced by their `right` in
+`b`. -/
+def RegistryState.comparisonsFrom (state : RegistryState) (a b : Route) :
+    Array NaturalTransformationId :=
+  (state.cells.filter fun c =>
+      c.invertible && c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
+        rewritesTo a.refs b.refs c.left c.right).map (·.id)
+
+/-- A class of routes identified by registered comparisons. -/
+structure CoherenceClass (α : Type) where
+  members : Array α
+  /-- The comparisons used to identify the members. -/
+  comparisons : Array NaturalTransformationId
+  /-- Pairs of members related by more than one comparison: an ambiguity (no comparison is
+  chosen). -/
+  ambiguities : Array (α × α × Array NaturalTransformationId)
+  /-- The members no comparison points into: the route a call runs on is the unique one. -/
+  sources : Array α
 
 /-- Partition candidates into classes of routes connected by registered comparisons; only
-candidates with the same `key` (the same method or property) are ever identified. Returns, for
-each class, its members and the comparisons used. -/
+candidates with the same `key` (the same method or property) are ever identified. A comparison is
+directed (its `left` to its `right`); a class's call runs on its unique source route, so no route
+is chosen by an order of candidates, rows or renderings. -/
 def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (candidates : Array α)
-    (key : α → String) (route : α → Route) : Array (Array α × Array ComparisonId) := Id.run do
+    (key : α → String) (route : α → Route) : Array (CoherenceClass α) := Id.run do
   let n := candidates.size
   let mut classOf : Array Nat := Array.range n
-  let mut used : Array ComparisonId := #[]
-  -- naive union-find over the (small) candidate set
+  let mut incoming : Array Bool := Array.replicate n false
+  let mut used : Array NaturalTransformationId := #[]
+  let mut ambiguities : Array (Nat × Nat × Array NaturalTransformationId) := #[]
   for i in [0:n] do
-    for j in [i+1:n] do
-      if key candidates[i]! == key candidates[j]! then
-        if let some c := state.comparisonBetween? (route candidates[i]!) (route candidates[j]!) then
+    for j in [0:n] do
+      if i != j && key candidates[i]! == key candidates[j]! then
+        let cells := state.comparisonsFrom (route candidates[i]!) (route candidates[j]!)
+        if cells.size > 1 then
+          ambiguities := ambiguities.push (i, j, cells)
+        unless cells.isEmpty do
+          incoming := incoming.set! j true
           let (ci, cj) := (classOf[i]!, classOf[j]!)
           if ci != cj then
             classOf := classOf.map fun k => if k == cj then ci else k
+          for c in cells do
             unless used.contains c do used := used.push c
   let reps := (classOf.toList.eraseDups).toArray
   return reps.map fun r =>
-    let members := (Array.range n).filter (classOf[·]! == r) |>.map (candidates[·]!)
-    (members, if members.size > 1 then used else #[])
+    let indices := (Array.range n).filter (classOf[·]! == r)
+    { members := indices.map (candidates[·]!)
+      comparisons := if indices.size > 1 then used else #[]
+      ambiguities := (ambiguities.filter fun (i, _, _) => classOf[i]! == r).map
+        fun (i, j, cells) => (candidates[i]!, candidates[j]!, cells)
+      sources := (indices.filter (!incoming[·]!)).map (candidates[·]!) }
 
 /-- Classes of method candidates. -/
 def RegistryState.coherenceClasses (state : RegistryState) (candidates : Array Resolution) :
-    Array (Array Resolution × Array ComparisonId) :=
+    Array (CoherenceClass Resolution) :=
   state.classify candidates (·.method.id.raw) (·.route)
 
 /-- A resolved property query: the property row, its classifier, the route to the classifier's
@@ -95,7 +120,7 @@ structure PropertyResolution where
   property : PropertyEntry
   classifier : ClassifierEntry
   route : Route
-  comparisons : Array ComparisonId := #[]
+  comparisons : Array NaturalTransformationId := #[]
 
 instance : Inhabited PropertyResolution :=
   ⟨{ property := { id := default, name := "", classifier := default }
@@ -116,6 +141,10 @@ inductive ResolutionError
   /-- The method's result must return to the receiver's side, and a route step has no
   registered lift of subobjects. -/
   | missingLift (name : String) (resolution : Resolution) (step : EdgeRef)
+  /-- Two routes are related by several registered comparisons; none is chosen. -/
+  | ambiguousComparison (name : String) (a b : Route) (cells : Array NaturalTransformationId)
+  /-- Identified routes with no unique source route to run on. -/
+  | noSourceRoute (name : String) (sources : Array Route)
 
 /-- The display name of a category expression: its registered id, if it has one. -/
 partial def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) :
@@ -177,6 +206,13 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
       s!"`{name}` resolves to {state.renderResolution resolution}, but its result must return \
         to the receiver's side and no lift of subobjects is registered along {step.label} \
         (CC-LIFT)"
+  | .ambiguousComparison name a b cells =>
+      s!"`{name}`: the routes {state.renderRoute a} and {state.renderRoute b} are related by \
+        several registered comparisons {cells.toList.map (·.raw)}; choosing one is not made here"
+  | .noSourceRoute name sources =>
+      s!"`{name}`: the identified routes have {sources.size} source routes under their \
+        comparisons, so none is designated to run on:\n" ++
+        "\n".intercalate (sources.toList.map fun r => "  " ++ state.renderRoute r)
   | .ambiguousProperty name candidates =>
       s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
         comparison identifies them:\n" ++
@@ -194,11 +230,13 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
       { method, route : Resolution }
   if candidates.isEmpty then throw (.notApplicable name (methods.map (·.owner)))
   match (state.coherenceClasses candidates).toList with
-  | [(members, comparisons)] =>
-      -- One semantic route (#53 §8 steps 6–7). The representative is chosen only now, after
-      -- equivalence is established, canonically by its rendered route, never by order.
-      let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
-      let resolution := { sorted[0]! with comparisons }
+  | [cls] =>
+      -- One semantic route (#53 §8 steps 6–7), run on the source of its comparisons.
+      if let some (a, b, cells) := cls.ambiguities[0]? then
+        throw (.ambiguousComparison name a.route b.route cells)
+      let #[source] := cls.sources
+        | throw (.noSourceRoute name (cls.sources.map (·.route)))
+      let resolution := { source with comparisons := cls.comparisons }
       if !resolution.method.returnsToSource then return resolution
       let mut lifts := #[]
       for step in resolution.route.refs do
@@ -225,9 +263,12 @@ def RegistryState.resolveProperty (state : RegistryState) (receiver : CategoryEx
   if candidates.isEmpty then
     throw (.notApplicable name (entries.map (·.2.host)))
   match (state.classify candidates (·.property.id.raw) (·.route)).toList with
-  | [(members, comparisons)] =>
-      let sorted := members.qsort fun a b => state.renderRoute a.route < state.renderRoute b.route
-      pure { sorted[0]! with comparisons }
+  | [cls] =>
+      if let some (a, b, cells) := cls.ambiguities[0]? then
+        throw (.ambiguousComparison name a.route b.route cells)
+      let #[source] := cls.sources
+        | throw (.noSourceRoute name (cls.sources.map (·.route)))
+      pure { source with comparisons := cls.comparisons }
   | _ => throw (.ambiguousProperty name candidates)
 
 /-! ## The generated operation surface (CC-CLOSURE) -/
@@ -328,16 +369,23 @@ def mentionsNoncomputable (env : Environment) (e : Expr) : Bool :=
 /-- The executable form of a term built from realized actions. A realized action bundles its
 handle functor with a square between noncomputable denotations (meaning, CC-SEP). Every subterm
 that mentions a noncomputable constant is put in weak head normal form (unfolding definitions),
-and its arguments and bodies are treated the same way; types, proofs and subterms that mention no
+and its arguments, bodies and types are treated the same way; proofs and subterms that mention no
 noncomputable constant are left as they are. What remains is handle-level computation, so compiled
 code never receives a denotation. -/
 partial def executable (e : Expr) : MetaM Expr := do
   unless mentionsNoncomputable (← getEnv) e do return e
-  if (← isProof e) || (← isType e) then return e
+  if ← isProof e then return e
   let e ← withTransparency .all <| whnf e
   match e with
   | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← executable body)
-  | _ => return mkAppN e.getAppFn (← e.getAppArgs.mapM executable)
+  | .forallE .. => forallTelescope e fun xs body => do mkForallFVars xs (← executable body)
+  | _ =>
+      -- A head that is a projection stuck on its structure (say, of a cast along an equation
+      -- that holds only propositionally) keeps that structure in executable form too.
+      let fn ← match e.getAppFn with
+        | .proj s i b => pure (.proj s i (← executable b))
+        | fn => pure fn
+      return mkAppN fn (← e.getAppArgs.mapM executable)
 
 /-- The handle type of the source realization of a realized action. -/
 def sourceHandles (action : Expr) : MetaM Expr := do
@@ -370,6 +418,12 @@ def methodInput (method : MethodEntry) (image : Expr) : MetaM Expr :=
   | .isoInvariant => mkAppM ``CategoryTheory.Core.mk #[image]
   | _ => pure image
 
+/-- A type whose data arguments (the objects of a hom type, say) are in executable form, so that
+code using a value of it receives no denotation through its implicit arguments. -/
+def executableType (type : Expr) : MetaM Expr := do
+  let type ← whnfR type
+  return mkAppN type.getAppFn (← type.getAppArgs.mapM executable)
+
 /-- The executable form of `e`, carrying the kernel-checked equation `executable e = e`: the
 value computed is, by definition, the value of the composed realized actions. The equation is a
 proof, erased from compiled code. -/
@@ -377,6 +431,7 @@ def certifiedExecutable (e : Expr) : MetaM Expr := do
   let value ← executable e
   let equation ← mkEq value e
   let proof ← mkExpectedTypeHint (← mkEqRefl value) equation
+  let value ← mkExpectedTypeHint value (← executableType (← inferType e))
   return .letE `realizes equation proof value (nondep := true)
 
 /-- `α.obj x` for a realized action `α`, in executable form. -/
@@ -393,6 +448,78 @@ def composeRouteFrom (state : RegistryState) (denotation : Expr) (route : Route)
     acc ← composeAction state (some acc) edge.ref
   return acc
 
+/-- CC-SEP: the receiver, elaborated as a handle of the unique registered realizer of `category`
+whose handles accept it, with that realizer's denotation. The realizer, never the handle's shape
+or the uniqueness of an action, selects the actions a call composes. -/
+def receiverRealization (state : RegistryState) (category : CategoryId) (receiver : Term) :
+    TermElabM (Expr × Expr) := do
+  let attempt (realizer : RealizerEntry) : TermElabM (Expr × Expr) := do
+    let denotation ← mkConstWithFreshMVarLevels realizer.denotation
+    let (args, _, _) ← forallMetaTelescopeReducing (← inferType denotation)
+    let denotation := mkAppN denotation args
+    let handles := (← whnfR (← inferType denotation)).getAppArgs[0]!
+    let x ← withoutErrToSorry <| elabTermEnsuringType receiver handles
+    synthesizeSyntheticMVarsNoPostponing
+    return (← instantiateMVars denotation, ← instantiateMVars x)
+  let mut accepting : Array RealizerEntry := #[]
+  for realizer in state.realizers.filter (·.category == category) do
+    let saved ← saveState
+    try
+      discard <| attempt realizer
+      accepting := accepting.push realizer
+    catch _ => pure ()
+    saved.restore
+  match accepting with
+  | #[realizer] => attempt realizer
+  | #[] => throwError "no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
+  | _ => throwError "the receiver is a handle of {accepting.size} registered realizers of \
+      {category.raw} ({accepting.toList.map (·.id.raw)}); which realization it is must be stated"
+
+/-- The target denotation of a realized action. -/
+def targetDenotation (action : Expr) : MetaM Expr := do
+  return (← whnfR (← inferType action)).getAppArgs[10]!
+
+/-- The source denotation of a realized action. -/
+def sourceDenotation (action : Expr) : MetaM Expr := do
+  return (← whnfR (← inferType action)).getAppArgs[9]!
+
+/-- The unique registered action of the method's functor on the realization of the image (for an
+iso-invariant method, on the core of that realization). -/
+def methodActionFor (state : RegistryState) (method : MethodEntry) (imageDenotation : Expr) :
+    MetaM Expr := do
+  let expected ← match method.shape with
+    | .isoInvariant => mkAppM ``CategoryTheory.Functor.core #[imageDenotation]
+    | .object => pure imageDenotation
+  let mut found : Array Expr := #[]
+  for candidate in state.actions.filter (·.edge == .functor method.functor) do
+    let constant ← mkConstWithFreshMVarLevels candidate.realization
+    let (args, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+    let action := mkAppN constant args
+    let source ← sourceDenotation action
+    if ← withoutModifyingState (withTransparency .all (isDefEq source expected)) then
+      discard <| isDefEq (← sourceDenotation action) expected
+      found := found.push (← instantiateMVars action)
+  match found with
+  | #[action] => return action
+  | #[] => throwError "no registered action of {method.functor.raw} acts on this realization"
+  | _ => throwError "several registered actions of {method.functor.raw} act on this realization"
+
+/-- The composed route action from the receiver's realization, the image, and the method's value,
+for a resolved method call. -/
+def realizedMethodCall (state : RegistryState) (resolution : Resolution) (denotation x : Expr) :
+    MetaM (Option Expr × Expr × Expr) := do
+  let routeAction? ← if resolution.route.steps.isEmpty then pure none
+    else some <$> composeRouteFrom state denotation resolution.route
+  let image ← match routeAction? with
+    | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
+    | none => pure x
+  let imageDenotation ← match routeAction? with
+    | some routeAction => targetDenotation routeAction
+    | none => pure denotation
+  let methodAction ← methodActionFor state resolution.method imageDenotation
+  let value ← mkAppM ``RealizedAction.obj #[methodAction, ← methodInput resolution.method image]
+  return (routeAction?, image, value)
+
 /-- The executable image `U(x)` of a handle `x` of the realizer `denotation` along a resolved
 route, and the method's value on it when a registered action realizes the method (`none` when the
 method is realized only by a backend). Both are closed terms, ready for evaluation. -/
@@ -400,10 +527,11 @@ def realizedCall (state : RegistryState) (resolution : Resolution) (denotation h
     MetaM (Expr × Option Expr) := do
   let routeAction ← composeRouteFrom state denotation resolution.route
   let image ← realizedObj routeAction handle
-  let methodAction? ← try some <$> composeAction state none (.functor resolution.method.functor)
+  let value? ← try
+      let action ← methodActionFor state resolution.method (← targetDenotation routeAction)
+      some <$> realizedObj action (← methodInput resolution.method
+        (← mkAppM ``RealizedAction.obj #[routeAction, handle]))
     catch _ => pure none
-  let value? ← methodAction?.mapM fun action => do
-    realizedObj action (← methodInput resolution.method image)
   return (image, value?)
 
 /-- Elaborate `method% name (receiver) in "cat.id" via "fun.id" …` (syntax in
@@ -422,16 +550,9 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
     | .error error => throwError error.render state
   logInfo m!"resolved: {state.renderResolution resolution}"
   let composite ← resolution.route.compositeExpr
-  let mut acc : Option Expr := none
-  for edge in resolution.route.steps do
-    acc ← some <$> composeAction state acc edge.ref
-  let methodAction ← composeAction state none (.functor resolution.method.functor)
-  let x ← elabReceiver receiver (← receiverHandles resolution.method acc (some methodAction))
-  let image ← match acc with
-    | some routeAction => mkAppM ``RealizedAction.obj #[routeAction, x]
-    | none => pure x
-  let value ← certifiedExecutable
-    (← mkAppM ``RealizedAction.obj #[methodAction, ← methodInput resolution.method image])
+  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
+  let (_, _, value) ← realizedMethodCall state resolution denotation x
+  let value ← certifiedExecutable value
   return .letE `route (← inferType composite) composite value (nondep := true)
 
 /-- CC-SEP: the receiver's handle must be realized by a registered realizer of the named category;
@@ -461,17 +582,9 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
   let rendered := state.renderResolution resolution
   match implementation with
   | none =>
-      let mut acc : Option Expr := none
-      for edge in resolution.route.steps do
-        acc ← some <$> composeAction state acc edge.ref
-      if let some routeAction := acc then checkRealizer state categoryEntry.id routeAction
-      let methodAction ← composeAction state none (.functor resolution.method.functor)
-      let x ← elabReceiver receiver
-        (← receiverHandles resolution.method acc (some methodAction))
-      let image ← match acc with
-        | some routeAction => realizedObj routeAction x
-        | none => pure x
-      let value ← realizedObj methodAction (← methodInput resolution.method image)
+      let (denotation, x) ← receiverRealization state categoryEntry.id receiver
+      let (_, _, value) ← realizedMethodCall state resolution denotation x
+      let value ← executable value
       if proved then
         -- Kernel reduction, not compiled evaluation: the normal form, with `rfl` for the kernel.
         let normal ← withTransparency .all <| Meta.reduce value (skipTypes := true)
@@ -548,13 +661,9 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
     | .error error => throwError error.render state
   logInfo m!"resolved: {state.renderPropertyResolution resolution}"
   let composite ← resolution.route.compositeExpr
-  let mut acc : Option Expr := none
-  for edge in resolution.route.steps do
-    acc ← some <$> composeAction state acc edge.ref
-  let x ← elabReceiver receiver (← acc.mapM fun a => (sourceHandles a : MetaM Expr))
-  let image ← match acc with
-    | some routeAction => realizedObj routeAction x
-    | none => pure x
+  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
+  let image ← if resolution.route.steps.isEmpty then pure x
+    else mkAppM ``RealizedAction.obj #[← composeRouteFrom state denotation resolution.route, x]
   let deciders := state.deciders.filter (·.classifier == resolution.classifier.id)
   let mut decisions : Array Expr := #[]
   for decider in deciders do

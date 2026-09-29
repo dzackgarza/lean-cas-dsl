@@ -14,9 +14,9 @@ public meta import CasCatalogue.Semantics.Algebra.Ports
 /-!
 # The ring diamond is coherent at sets (CC-COHERE, #53 §9)
 
-The multiplicative and the additive route from rings to sets are identified by
-`LeanCategories.Algebra.ringCarrierComparison`, the identity natural isomorphism between their
-composites. The comparison covers the whole route to `Sets`: the two ports stay distinct at
+The multiplicative and the additive route from rings to sets are identified by the invertible
+cell `LeanCategories.Algebra.ringCarrierComparison`, the identity natural isomorphism between their
+composites; a call reached along either route runs on its source route (the multiplicative one). The comparison covers the whole route to `Sets`: the two ports stay distinct at
 monoids and magmas, where they carry different operations.
 -/
 
@@ -24,13 +24,13 @@ open CasCatalogue.Algebra.Catalogue.Magmas CasCatalogue.Algebra.Catalogue.Rings
 
 namespace CasCatalogue
 
-normalized_registry .comparison
+normalized_registry .cell
   { id := ⟨"cmp.rings.carrier"⟩, source := Rings, target := Foundation.Sets
     left := #[.functor FunctorId.ringsMultiplicative, .functor FunctorId.monoidsSemigroup,
       .classifierForget ClassifierId.magmasAssociative, .classifierForget ClassifierId.setsBinaryOperation]
     right := #[.functor FunctorId.ringsAdditive, .functor FunctorId.additiveGroupsToGroups,
       .functor FunctorId.groupsMonoid, .functor FunctorId.monoidsSemigroup,
       .classifierForget ClassifierId.magmasAssociative, .classifierForget ClassifierId.setsBinaryOperation]
-    evidence := `LeanCategories.Algebra.ringCarrierComparison }
+    declaration := `LeanCategories.Algebra.ringCarrierComparison, invertible := true }
 
 end CasCatalogue

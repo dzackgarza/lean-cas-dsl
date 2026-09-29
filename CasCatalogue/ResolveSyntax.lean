@@ -79,7 +79,7 @@ meta def viaStrings (group : Syntax) : Array String :=
   let e ← elabTerm stx[1] expected?
   synthesizeSyntheticMVarsNoPostponing
   let e ← instantiateMVars e
-  Meta.mkExpectedTypeHint (← executable e) (← Meta.inferType e)
+  Meta.mkExpectedTypeHint (← executable e) (← executableType (← Meta.inferType e))
 
 @[command_elab methodsCommand] meta def elabMethodsCommand : CommandElab := fun stx => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax

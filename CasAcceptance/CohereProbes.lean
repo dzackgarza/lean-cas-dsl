@@ -19,8 +19,8 @@ multiplicative and additive routes from rings to sets):
 * `cardinality` on rings resolves, and its provenance names the comparison;
 * the ports stay distinct where they carry different structure: a method owned at magmas is still
   ambiguous on rings, since the comparison covers only the route to sets;
-* registration rejects a comparison whose evidence is about other functors, whose sides are not
-  structural routes between its endpoints, or which compares a route with itself.
+* registration rejects a comparison whose evidence is about other functors or whose sides are not
+  composites between its endpoints; a cell from a route to itself identifies nothing.
 
 `ResolveProbes` shows the same call ambiguous without the comparison row.
 -/
@@ -76,21 +76,30 @@ run_cmd liftTermElabM do
     .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
     .classifierForget ClassifierId.setsBinaryOperation]
   let comparison (id : String) (left right : Array EdgeRef) (evidence : Name) : RegistryEntry :=
-    .comparison
+    .cell
       { id := ⟨id⟩
         source := rings.expression
         target := Foundation.Sets
         left := left
         right := right
-        evidence := evidence }
+        declaration := evidence
+        invertible := true }
   let carrier := `LeanCategories.Algebra.ringCarrierComparison
   if !(← rejects (comparison "cmp.probe.unrelated" multiplicative additive ``unrelatedIso)) then
     throwError "a comparison with unrelated evidence was accepted"
   if !(← rejects (comparison "cmp.probe.not_a_route"
       #[.functor FunctorId.ringsMultiplicative] additive carrier)) then
     throwError "a comparison whose side is not a route to its target was accepted"
-  if !(← rejects (comparison "cmp.probe.self" multiplicative multiplicative carrier)) then
-    throwError "a comparison of a route with itself was accepted"
+  -- A cell from a route to itself is an automorphism, never an identification of routes.
+  let multiplicativeRoute : Route :=
+    { source := rings.expression, target := Foundation.Sets
+      steps := (state.routeEdges? rings.expression Foundation.Sets multiplicative).getD #[] }
+  let selfCell : CellEntry :=
+    { id := ⟨"cmp.probe.self"⟩, source := rings.expression, target := Foundation.Sets
+      left := multiplicative, right := multiplicative, declaration := carrier, invertible := true }
+  unless ({ state with cells := state.cells.push selfCell }).comparisonsFrom
+      multiplicativeRoute multiplicativeRoute |>.isEmpty do
+    throwError "a cell of a route to itself identified routes"
   if ← rejects (comparison "cmp.probe.control" multiplicative additive carrier) then
     throwError "the carrier comparison was rejected"
 

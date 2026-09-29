@@ -45,7 +45,6 @@ inductive RegistryEntry
   | constructor (e : ConstructorEntry)
   | action (e : FunctorActionEntry)
   | method (e : MethodEntry)
-  | comparison (e : ComparisonEntry)
   | property (e : PropertyEntry)
   | decider (e : DeciderEntry)
   | lift (e : LiftEntry)
@@ -66,7 +65,6 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .constructor e => e.id.raw
   | .action e => e.id.raw
   | .method e => e.id.raw
-  | .comparison e => e.id.raw
   | .property e => e.id.raw
   | .decider e => e.id.raw
   | .lift e => e.id.raw
@@ -89,7 +87,6 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .constructor e => #[e.semantics] ++ e.functorialAction.toArray
   | .action e => #[e.realization]
   | .method _ => #[]
-  | .comparison e => #[e.evidence]
   | .property _ => #[]
   | .decider e => #[e.realization]
   | .lift e => #[e.evidence]
@@ -108,7 +105,6 @@ structure RegistryState where
   constructors : Array ConstructorEntry := #[]
   actions : Array FunctorActionEntry := #[]
   methods : Array MethodEntry := #[]
-  comparisons : Array ComparisonEntry := #[]
   properties : Array PropertyEntry := #[]
   deciders : Array DeciderEntry := #[]
   lifts : Array LiftEntry := #[]
@@ -363,7 +359,6 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .constructor e => { s with constructors := s.constructors.push e }
   | s, .action e => { s with actions := s.actions.push e }
   | s, .method e => { s with methods := s.methods.push e }
-  | s, .comparison e => { s with comparisons := s.comparisons.push e }
   | s, .property e => { s with properties := s.properties.push e }
   | s, .decider e => { s with deciders := s.deciders.push e }
   | s, .lift e => { s with lifts := s.lifts.push e }
@@ -382,7 +377,6 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.constructors.toList.map RegistryEntry.constructor ++
     state.actions.toList.map RegistryEntry.action ++
     state.methods.toList.map RegistryEntry.method ++
-    state.comparisons.toList.map RegistryEntry.comparison ++
     state.properties.toList.map RegistryEntry.property ++
     state.deciders.toList.map RegistryEntry.decider ++
     state.lifts.toList.map RegistryEntry.lift ++
@@ -568,9 +562,6 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for method in state.methods do
     unless (state.functor? method.functor).isSome do
       throw s!"method entry {method.id.raw} names an unregistered functor"
-  for comparison in state.comparisons do
-    unless (comparison.left ++ comparison.right).all (·.isRegisteredIn state) do
-      throw s!"comparison entry {comparison.id.raw} names an unregistered route step"
   for cell in state.cells do
     unless (cell.left ++ cell.right).all (·.isRegisteredIn state) do
       throw s!"cell entry {cell.id.raw} names an unregistered functor"
@@ -1651,30 +1642,6 @@ def RegistryState.routeFunctor (state : RegistryState) (steps : Array EdgeRef) :
   | some functor => pure functor
   | none => throwError "an empty route has no composite"
 
-/-- A comparison's routes must be structural routes between its endpoints, and its evidence an
-isomorphism between their Mathlib composites (CC-COHERE). -/
-def validateComparison (state : RegistryState) (e : ComparisonEntry) : MetaM Unit := do
-  unless e.source.isRegistered state && e.target.isRegistered state do
-    throwError "comparison {e.id.raw} has an unregistered endpoint"
-  if e.left == e.right then
-    throwError "comparison {e.id.raw} compares a route with itself"
-  for (side, steps) in [("left", e.left), ("right", e.right)] do
-    if (state.routeEdges? e.source e.target steps).isNone then
-      throwError "comparison {e.id.raw}: its {side} side is not a structural route"
-  let left ← state.routeFunctor e.left
-  let right ← state.routeFunctor e.right
-  let evidenceConstant ← mkConstWithFreshMVarLevels e.evidence
-  let (_, _, evidenceType) ← forallMetaTelescopeReducing (← inferType evidenceConstant)
-  let evidenceType ← whnfR evidenceType
-  unless evidenceType.isAppOfArity ``CategoryTheory.Iso 4 do
-    throwError "comparison {e.id.raw} evidence {e.evidence} is not an isomorphism"
-  let args := evidenceType.getAppArgs
-  unless ← withTransparency .all <| isDefEq args[2]! left do
-    throwError "comparison {e.id.raw} evidence is not about its left route"
-  unless ← withTransparency .all <| isDefEq args[3]! right do
-    throwError "comparison {e.id.raw} evidence is not about its right route"
-
-
 /-- A route's steps, rendered. -/
 def renderSteps (steps : Array EdgeRef) : String :=
   " ⋙ ".intercalate (steps.toList.map (·.label))
@@ -2018,7 +1985,6 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .fibration e => validateFibrationEvidence state e
   | .action e => validateActionRealization state e
   | .method e => validateMethodEntry state e
-  | .comparison e => validateComparison state e
   | .property e => validateProperty state e
   | .decider e => validateDecider state e
   | .lift e => validateLift state e
@@ -2458,15 +2424,6 @@ structure RegistryManifestMethod where
   returnsToSource : Bool
   deriving BEq, Repr, ToJson, FromJson
 
-structure RegistryManifestComparison where
-  id : String
-  source : RegistryManifestCategoryExpr
-  target : RegistryManifestCategoryExpr
-  left : Array String
-  right : Array String
-  evidence : String
-  deriving BEq, Repr, ToJson, FromJson
-
 structure RegistryManifestCell where
   id : String
   source : RegistryManifestCategoryExpr
@@ -2531,7 +2488,6 @@ structure RegistryManifest where
   constructors : Array RegistryManifestConstructor
   actions : Array RegistryManifestAction
   methods : Array RegistryManifestMethod
-  comparisons : Array RegistryManifestComparison
   properties : Array RegistryManifestProperty
   deciders : Array RegistryManifestDecider
   lifts : Array RegistryManifestLift
@@ -2644,10 +2600,6 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
         | .object => "object"
         | .isoInvariant => "isoInvariant",
       returnsToSource := e.returnsToSource }
-    comparisons := (state.comparisons.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
-      id := e.id.raw, source := registryManifestCategoryExpr e.source,
-      target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
-      right := e.right.map (·.label), evidence := e.evidence.toString }
     properties := (state.properties.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, name := e.name, classifier := e.classifier.raw,
       receiver := e.receiver.map registryManifestCategoryExpr }

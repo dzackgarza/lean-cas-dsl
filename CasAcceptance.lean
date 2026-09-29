@@ -7,6 +7,7 @@ module
 public import CasAcceptance.AdapterProbes
 public import CasAcceptance.CellProbes
 public import CasAcceptance.ClosureProbes
+public import CasAcceptance.CohereExecProbes
 public import CasAcceptance.CohereProbes
 public import CasAcceptance.FibrationRegistryProbes
 public import CasAcceptance.ImmediateProbes

@@ -254,16 +254,13 @@ def expectedImplementationIds : Array ImplementationId := #[
 /-- Stable cell rows owned by the standard catalogue (CC-CALC). -/
 def expectedCellIds : Array NaturalTransformationId := #[
   NaturalTransformationId.listUnit, NaturalTransformationId.listJoin,
-  NaturalTransformationId.listReverse]
+  NaturalTransformationId.listReverse, ⟨"cmp.rings.carrier"⟩]
 
 /-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
 def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
 
 /-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
 def expectedLiftIds : Array LiftId := #[⟨"lift.bilin_module.restrict"⟩]
-
-/-- Stable comparison rows owned by the standard catalogue (CC-COHERE). -/
-def expectedComparisonIds : Array ComparisonId := #[⟨"cmp.rings.carrier"⟩]
 
 /-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
 def expectedPropertyIds : Array PropertyId := #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩]
@@ -315,8 +312,6 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedActionIds (·.raw))
   validateStableIdSet "methods" (manifest.methods.map (·.id))
     (rawIds expectedMethodIds (·.raw))
-  validateStableIdSet "comparisons" (manifest.comparisons.map (·.id))
-    (rawIds expectedComparisonIds (·.raw))
   validateStableIdSet "properties" (manifest.properties.map (·.id))
     (rawIds expectedPropertyIds (·.raw))
   validateStableIdSet "deciders" (manifest.deciders.map (·.id))

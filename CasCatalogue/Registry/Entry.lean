@@ -125,10 +125,12 @@ structure HandleIsoEntry where
   evidence : Lean.Name
   deriving Repr
 
-/-- A cell row (CC-CALC): a natural transformation `declaration : L ⟶ R` (or, when `invertible`,
+/-- A cell row (CC-CALC, CC-COHERE): a natural transformation `declaration : L ⟶ R` (or, when `invertible`,
 a natural isomorphism `L ≅ R`) between the composites `L`, `R` of the registered functors along
 `left` and `right` (the identity of `source` when empty). The cell is Mathlib's; the row names it
-so that it can be composed, whiskered and realized. -/
+so that it can be composed, whiskered and realized. An invertible cell between two distinct
+structural routes identifies them (a comparison): a call reached along either runs on the route the
+cell's direction designates, and its component carries data between the two. -/
 structure CellEntry where
   id : NaturalTransformationId
   source : CategoryExpr
@@ -137,19 +139,6 @@ structure CellEntry where
   right : Array EdgeRef
   declaration : Lean.Name
   invertible : Bool := false
-  deriving Repr
-
-/-- A comparison row (CC-COHERE): two structural routes `left` and `right` from `source` to
-`target`, identified by `evidence`, a Lean isomorphism between their composite functors. Two
-routes to a method's owner that differ by replacing `left` with `right` (or conversely) are one
-semantic route. Without such a row they stay distinct. -/
-structure ComparisonEntry where
-  id : ComparisonId
-  source : CategoryExpr
-  target : CategoryExpr
-  left : Array EdgeRef
-  right : Array EdgeRef
-  evidence : Lean.Name
   deriving Repr
 
 /-- A property presentation row (CC-PROP): the surface name `name` of the registered classifier
