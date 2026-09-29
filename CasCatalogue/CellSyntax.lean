@@ -114,7 +114,7 @@ def composeSteps (state : RegistryState) (denotation : Expr) (steps : Array Edge
     MetaM Expr := do
   let mut acc ← mkAppHere ``RealizedAction.id #[denotation]
   for step in steps do
-    acc ← composeAction state (some acc) step
+    acc ← composeAction state acc step
   return acc
 
 /-- Elaborate `cell% c at (x) in "cat.id"`. -/

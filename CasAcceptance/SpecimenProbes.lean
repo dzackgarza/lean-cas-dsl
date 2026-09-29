@@ -43,11 +43,18 @@ def hyperbolic : LinearMap.BilinForm ℤ (Fin 2 → ℤ) := coord 0 1 + coord 1 
 /-- `(x, y) ↦ x₀y₁ − x₁y₀`. -/
 def symplectic : LinearMap.BilinForm ℤ (Fin 2 → ℤ) := coord 0 1 - coord 1 0
 
+/-- The zero form on `ℤ⁰`. -/
+def zero : FormHandles := (⟨0, 0⟩ : FormHandle)
+
 def u : FormHandles := (⟨2, hyperbolic⟩ : FormHandle)
 def w : FormHandles := (⟨2, symplectic⟩ : FormHandle)
 
-/- Methods of formed modules arrive by composition. -/
+/- Methods of formed modules arrive by composition; `BilinModule` has two realizations (Gram
+matrices and forms), and each call composes the actions of its receiver's realizer. -/
 #guard method% cardinality (u) in "cat.bilin_module" == ⟨CardinalHandle.aleph0⟩
+#guard method% cardinality (CasCatalogue.Modules.Bilinear.Valued.Actions.GramHandle.ofRows 2
+  [[0, 1], [1, 0]]) in "cat.bilin_module" == ⟨CardinalHandle.aleph0⟩
+#guard method% cardinality (zero) in "cat.bilin_module" == ⟨CardinalHandle.finite 1⟩
 #guard (decideLattice u).answer == some true
 #guard (decideLattice w).answer == some false
 

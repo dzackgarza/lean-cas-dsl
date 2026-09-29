@@ -109,7 +109,7 @@ run_cmd liftTermElabM do
   let state ← registryState
   let gram ← mkAppM ``RealizedAction.id
     #[mkConst ``CasCatalogue.Modules.Bilinear.Valued.Actions.gramDenotation]
-  let routeAction ← composeAction state (some gram) (.functor FunctorId.bilinModuleForget)
+  let routeAction ← composeAction state gram (.functor FunctorId.bilinModuleForget)
   checkRealizer state ⟨"cat.bilin_module"⟩ routeAction
   let unrealized := { state with realizers := #[] }
   if (← try checkRealizer unrealized ⟨"cat.bilin_module"⟩ routeAction; pure true

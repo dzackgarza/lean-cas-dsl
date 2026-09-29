@@ -367,10 +367,10 @@ def Route.compositeExpr (route : Route) : MetaM Expr := do
     acc ← mkAppM ``FunctorExpr.comp #[acc, toExpr edge.expression]
   return acc
 
-/-- The unique registered action on functor `id` that composes after `acc` (or starts a
-composite, when `acc` is `none`). -/
-def composeAction (state : RegistryState) (acc : Option Expr) (edge : EdgeRef) :
-    MetaM Expr := do
+/-- The unique registered action on the step `edge` that composes after `acc`, the realization so
+far: a composition always starts at the identity action of the receiver's realizer
+(`composeRouteFrom`), which selects each step's action (CC-SEP). -/
+def composeAction (state : RegistryState) (acc : Expr) (edge : EdgeRef) : MetaM Expr := do
   let candidates := state.actions.filter (·.edge == edge)
   if candidates.isEmpty then
     throwError "no registered action realizes {edge.label}"
@@ -381,18 +381,15 @@ def composeAction (state : RegistryState) (acc : Option Expr) (edge : EdgeRef) :
     let constant ← mkConstWithFreshMVarLevels candidate.realization
     let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
     let action := mkAppN constant arguments
-    let result? ← match acc with
-      | none => pure (some action)
-      | some previous =>
-          let saved ← saveState
-          try pure (some (← mkAppHere ``RealizedAction.comp #[previous, action]))
-          catch _ => saved.restore; pure none
-    if let some result := result? then composed := composed.push (← instantiateMVars result)
+    let saved ← saveState
+    try composed := composed.push (← instantiateMVars
+        (← mkAppHere ``RealizedAction.comp #[acc, action]))
+    catch _ => saved.restore
   match composed.toList with
   | [result] => pure result
   | [] => throwError "no registered action on {edge.label} composes with the realization so far"
-  | _ => throwError "several registered actions on {edge.label} compose; choosing one is a \
-      realization choice (CC-ROUTE), not made here"
+  | _ => throwError "several registered actions on {edge.label} compose with the realization so \
+      far; choosing one is a realization choice (CC-ROUTE), not made here"
 
 /-- Whether `e` mentions a noncomputable constant. -/
 def mentionsNoncomputable (env : Environment) (e : Expr) : Bool :=
@@ -477,7 +474,7 @@ def composeRouteFrom (state : RegistryState) (denotation : Expr) (route : Route)
     MetaM Expr := do
   let mut acc ← mkAppM ``RealizedAction.id #[denotation]
   for edge in route.steps do
-    acc ← composeAction state (some acc) edge.ref
+    acc ← composeAction state acc edge.ref
   return acc
 
 /-- CC-SEP: the receiver, elaborated as a handle of the unique registered realizer of `category`
