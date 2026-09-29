@@ -95,6 +95,38 @@ the notebook surface and leaf mathematics in `lean-categories` instead of the sy
    - **Acceptance**: permanent, leaf-agnostic assertions whose expected values come from proof,
      citation or an independent oracle (`cc-acceptance-permanent`).
 
+## Direction after the owner correction of 2026-09-29 (second)
+
+The plan above built kernel mechanics and then drifted into leaf work: realizing specific
+operations, chasing a discriminant's realization. That is long-tail work, not this plan's work.
+
+**Where the work is.**
+1. **The mathematical API, in `lean-categories`.** This is about 90% of the work, and it is where the
+   API design happens. It formalizes the categories, objects, elements and methods (usually functors,
+   or morphisms on elements) that the language offers, each at its lowest owner, with its surface
+   name.
+2. **The permanent test suite, in `lean-cas-dsl`.** Tests are written in the DSL, as SPEC.md writes
+   mathematics (`assert |(ℤ/4)^3| = 64`). They are admitted once and never changed, and they assert
+   facts and the existence of implementations. This needs a DSL that states such facts through the
+   catalogue alone, and a harness that reads and runs test files.
+3. **Leaves.** These are mechanical and external. A leaf satisfies the intake contract, never sees the
+   tests, and is measured by the harness. This repository's leaves exist only as litmus probes of the
+   kernel, of `Cat` and of `lean-categories`. A leaf is written or changed here only when doing so
+   exposes such a deficiency.
+
+**Nodes, in order.** The `lc-api-*` nodes are `lean-categories`' and are listed here as
+prerequisites of the language.
+
+| ID | Work and acceptance | Needs |
+| --- | --- | --- |
+| `lc-api-names` | **Upstream.** Every registered category, object and method carries its surface name; the language resolves every identifier only through these rows. **Acceptance:** `Sets`, `FiniteSets`, `Groups`, `Rings`, `Card`; `ℤ`, `ℕ`, `Fin`, `ZMod`; `cardinality`, `is_finite` are names in the catalogue, and no name is defined in `lean-cas-dsl`. | — |
+| `lc-api-literals` | **Upstream.** Literal forms of result categories: cardinals first (`n`, `ℵ₀`), with their denotations. **Acceptance:** a literal row for `cat.cardinals` whose denotation is Mathlib's `Cardinal`. | — |
+| `cc-dsl-language` | **Next.** A DSL syntax category for SPEC.md's statements (`let`, `assert`, `E.m()`, `|E|`, `X × Y`, `ℤ/n`, `E in C`, literals). It elaborates through the catalogue's names, objects, limits and methods, and names no category id, handle, realizer or leaf. **Acceptance:** `assert |(ℤ/4)^3| = 64` and `assert |ℕ| = ℵ₀` elaborate to the semantic proposition, with its realization selected by the kernel. | `lc-api-names`, `lc-api-literals` |
+| `cc-observations` | Realization rows that observe a result handle as a literal and carry a proof (`d.obj h = denote (observe h)`). Comparing a computed value with a literal then needs neither leaf code nor a proof unfolding it. **Acceptance:** the cardinal realizer's observation; a comparison decided by evaluation alone. | `cc-dsl-language` |
+| `cc-dsl-tests` | The acceptance suite as DSL files (`tests/acceptance/*.cas`). Each statement carries its id and provenance and is admitted append-only. A harness command runs the files and reports each statement's outcome: holds, gap, unavailable, wrong, malformed or invalid. `assert implemented …` states that an implementation exists. **Acceptance:** the facts of `Permanent/*.lean` restated as DSL tests and run by the harness; editing an admitted test fails the gate. | `cc-observations` |
+| `cc-harness` | Runs the suite over a set of installed leaf packages, each depending only on the intake contract, and derives the implementation gaps. Leaves never import or see the suite. **Acceptance:** the suite over this repository's litmus leaves, with the gap report as its output. | `cc-dsl-tests` |
+| `lc-api-spec` | **Upstream, continuous: the bulk of the work.** SPEC.md's vocabulary, section by section (number systems, finite sets, comprehensions, functions, polynomials), as catalogue rows: categories, objects, elements, and methods on objects and on elements. Each section closes with its DSL tests admitted in `cc-dsl-tests`, gaps allowed. | `cc-dsl-tests` |
+
 ## DAG
 
 `Needs` lists immediate prerequisites.
@@ -239,7 +271,7 @@ Here, `CasCatalogue/Registry/Extension.lean` keeps the realization registry. Its
   - the registry's semantic part equals `lean-categories`' semantic registry row for row;
   - the categories the probes use are present.
 - The export's semantic part is read from `lean-categories` by construction; a row-for-row comparison stands in for comparing export files. | CC-SEP | `cc-sem-upstream` |
-| `cc-external-leaf` | **Delivered 2026-09-29.** Reuse: [`specs/reuse/cc-external-leaf.md`](reuse/cc-external-leaf.md). A leaf can now live outside this repository.
+| `cc-external-leaf` | **Delivered 2026-09-29 as the intake contract; its lockstep leaf is withdrawn.** A leaf may live in any package. Any module outside the core, its probes, the notebook and `lean-categories` that writes realization rows is a leaf (`isLeafModule`). It may import only its intake contract: `CasCatalogue.Leaf`, the catalogue, Mathlib, `lean-categories` and its own package. It may not import the acceptance suite, the kernel's internals, or this repository's litmus leaves (`LeafBoundaryProbes`). `#acceptance_rerun` is the harness's command. A research leaf package was written and then removed (research `eced386`): it imported the suite and this repository's leaves, which the contract forbids, and leaves are not written in lockstep with the language. | CC-ADAPTER | `cc-constructor-surface` |
 - **Admission.** A leaf may live in another package, under its own root. Any module outside the core, its probes, the notebook and `lean-categories` that writes realization rows is a leaf (`isLeafModule`). It may import the leaf API, the catalogue, this repository's leaves, its own package, Mathlib and `lean-categories`, and the leaf boundary checks it.
 - **Rerun.** `#accept` records keep the command, namespace and opens that wrote them. `#acceptance_rerun [expecting "id"…]` re-elaborates every admitted assertion in the current environment (workflow step 8).
 - **The package.** `research/leaves` (`ResearchLeaves`, research `4438a4c`, pinned to lean-cas-dsl `2c2e31c`) realizes the registered forgetful functor of finite sets on finite sets presented by `n`.

@@ -38,6 +38,19 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   Never collapse one kind into another. Never turn a gap into a fallback, a default or a nearby
   answer.
 
+# Where the work is (read second)
+
+About 90% of the work is formalizing the mathematical API in `lean-categories`: categories,
+objects, elements and methods, the last usually as functors, with surface names. That is where the
+API is designed. Next comes the permanent test suite here, written in the DSL. Leaves are
+mechanical, external, long-tail work.
+- Never write or extend a leaf to make a test pass, and never chase a realization of a specific
+  operation as progress.
+- This repository's leaves are litmus probes: change one only when that exposes a deficiency of the
+  kernel, `Cat` or `lean-categories`, and name that deficiency in the commit.
+- A leaf never sees the tests. It depends only on the intake contract (`CasCatalogue.Leaf` and the
+  catalogue), and the harness runs the suite over installed leaves.
+
 # Search before authoring (gate-enforced)
 
 Before writing any Lean definition for a plan node, search the formalization corpus

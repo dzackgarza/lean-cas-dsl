@@ -463,12 +463,13 @@ def RegistryEntry.isLeafContribution : RegistryEntry → Bool
 /-- The registered semantics a leaf realizes; public to leaves. -/
 def semanticsRoot : Name := `LeanCategories.Catalogue.Semantics
 
-/-- A direct import a leaf module may have: the leaf API, the registered semantics, the leaves of
-this repository and of its own package (`own`, its root), and the mathematics. Every other kernel
-module is internal. -/
+/-- A direct import a leaf module may have: its intake contract, i.e. the leaf API and the pinned
+catalogue with the mathematics (Mathlib, `lean-categories`), and its own package (`own`, its root).
+A leaf never imports the acceptance suite, the kernel's internals, or another package's leaves: this
+repository's leaves (`CasLeaves`) are litmus probes of the kernel, and only they import each other. -/
 def leafImportAllowed (module : Name) (own : Name := leafRoot) : Bool :=
   module == leafApiModule ||
-    [semanticsRoot, leafRoot, own, `Mathlib, `LeanCategories, `Init].any (·.isPrefixOf module)
+    [semanticsRoot, own, `Mathlib, `LeanCategories, `Init].any (·.isPrefixOf module)
 
 /-- The direct imports of a leaf module that it may not have. -/
 def leafImportViolations (imports : Array Name) (own : Name := leafRoot) : Array Name :=

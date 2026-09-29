@@ -38,6 +38,11 @@ run_cmd liftTermElabM do
 
 #guard leafImportViolations #[`CasCatalogue.Leaf, `CasLeaves.Algebra.Actions,
   `Mathlib.Algebra.Group.Defs, `LeanCategories.Foundation.Mathlib] == #[]
+-- A leaf of another package (root `Ext`) has only its intake contract: not this repository's
+-- litmus leaves, not the acceptance suite.
+#guard leafImportViolations #[`CasCatalogue.Leaf, `Ext.Engine, `LeanCategories.Catalogue.Syntax,
+  `CasLeaves.Foundation.FiniteSets, `CasAcceptance.Standard] `Ext ==
+    #[`CasLeaves.Foundation.FiniteSets, `CasAcceptance.Standard]
 #guard leafImportViolations #[`CasCatalogue.Leaf, `CasCatalogue.Registry.Extension,
   `CasCatalogue.Resolve] == #[`CasCatalogue.Registry.Extension, `CasCatalogue.Resolve]
 
