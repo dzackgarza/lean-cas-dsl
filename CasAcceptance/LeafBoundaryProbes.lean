@@ -19,7 +19,8 @@ public meta import CasAcceptance.Standard
 * A module of the leaf library that imports a core-internal module cannot register: its first
   `register_leaf` fails naming the import. Simulated here by elaborating a row as the module
   `CasLeaves.Probe` with this probe's imports (which include core internals).
-* `normalized_registry` fails in any module outside the core library, whatever it registers.
+* `normalized_registry` fails in any module outside `lean-categories`, whatever it registers: in
+  a leaf, the notebook, the core and its probes.
 * The leaf write path refuses semantic rows even from a leaf with clean imports.
 -/
 
@@ -63,12 +64,12 @@ run_cmd liftTermElabM do
   unless ← rejectsAs `CasLeaves.Probe "imports core-internal modules"
       (addLeafRegistryEntryChecked realizerRow) do
     throwError "a leaf importing core internals registered a row"
-  unless ← rejectsAs `CasLeaves.Probe "is not in the core library"
-      (addRegistryEntryChecked categoryRow) do
-    throwError "normalized_registry ran in a leaf module"
-  unless ← rejectsAs `Notebook.Session "is not in the core library"
-      (addRegistryEntryChecked categoryRow) do
-    throwError "normalized_registry ran outside the core"
+  -- Semantic rows are written only in `lean-categories`: a leaf, the notebook, the core and its
+  -- probes are all refused.
+  for module in [`CasLeaves.Probe, `Notebook.Session, `CasCatalogue.Probe, `CasAcceptance.Probe] do
+    unless ← rejectsAs module "is not a `lean-categories` module"
+        (addRegistryEntryChecked categoryRow) do
+      throwError "a semantic row was written in {module}"
   unless ← rejectsAs `CasAcceptance.Probe "contributes only realizers"
       (addLeafRegistryEntryChecked categoryRow) do
     throwError "the leaf write path accepted a semantic row"

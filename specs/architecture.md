@@ -138,26 +138,15 @@ node that owes one.
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port. `connect` refuses any capability that is not declared on a registered operation. | — |
 | A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. | — |
 | An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
-| A computational failure is "fixed" by weakening semantics | Transitional: the semantics are still editable here (`CasCatalogue/Semantics`) | `cc-sem-upstream`, `cc-sem-derive` |
+| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md | — |
-| `lean-cas-dsl` itself authors mathematics | **Violated, transitionally.** `CasCatalogue/Semantics/*` is a local semantic registry written with `normalized_registry`. | `cc-sem-upstream`, `cc-sem-derive` |
+| `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
 
-## Transitional state
+## Where the semantic registry lives
 
-`CasCatalogue/Semantics/*` is a second, editable semantic database. It denotes `lean-categories`
-and Mathlib declarations, but the choice of rows (which categories are public, which functors are
-structural, which operations are methods, which comparisons exist), and some of its definitions,
-are authored here. That is the one standing violation of single authority. It is scheduled for
-deletion:
-
-* `cc-sem-upstream` moves every semantic row and definition into `lean-categories`, as its
-  proof-carrying registry;
-* `cc-sem-derive` makes `lean-cas-dsl` read that registry from the pinned release and removes the
-  write path (`normalized_registry`) from this repository.
-
-Until then:
-
-* a semantic row added here must be one `lean-categories` owns mathematically;
-* it must cite that owner;
-* its move is part of `cc-sem-upstream`;
-* no semantic row is ever added, removed or weakened to make a leaf compute.
+The semantic registry, the catalogue, is `lean-categories`' (`LeanCategories.Catalogue`, namespace
+`CasCatalogue`). It holds the symbolic calculus of category and functor expressions, the witnesses
+tying each expression to its Lean category, the schema and validators of semantic rows, the
+`normalized_registry` command, and the rows. `lean-cas-dsl` imports it at the pinned revision; its
+own registry (`CasCatalogue.Registry.Extension`) adds realization rows only, each validated against
+the semantics it realizes. `cc-sem-upstream` and `cc-sem-derive` made this so on 2026-09-29.

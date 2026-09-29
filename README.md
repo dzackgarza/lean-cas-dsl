@@ -33,7 +33,8 @@ In short:
 | Silo | Owns |
 | --- | --- |
 | `lean-categories` | All mathematics: categories, functors, classifiers, operations, coherences |
-| kernel (`CasCatalogue`) | Deterministic interpretation of the pinned mathematics: denotation, availability, propagation, resolution, ambiguity, refinement. It also owns the leaf API and the port protocol. |
+| catalogue (`LeanCategories.Catalogue`, in `lean-categories`) | The semantic registry: the symbolic calculus, the registered categories, functors, classifiers, methods, cells, limits and adjunctions, each checked against its mathematics |
+| kernel (`CasCatalogue`) | Deterministic interpretation of the pinned mathematics: denotation, availability, propagation, resolution, ambiguity, refinement. It also owns the realization registry, the leaf API and the port protocol. |
 | leaves (`CasLeaves`) | Realizations of registered operations on presentations, and the backend programs behind them. They contribute zero mathematics. |
 | acceptance (`CasAcceptance`) | Black-box assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
 | notebook (`CasDsl`) | Surface syntax only |
@@ -41,21 +42,20 @@ In short:
 Semantic availability and computability are separate. An operation that applies but has no
 realization is a `NoImplementation` gap, and never a missing method. The requirements are in
 [`specs/computational-core.md`](specs/computational-core.md), and the execution order is in
-[`specs/computational-core-plan.md`](specs/computational-core-plan.md). The local semantic
-registry (`CasCatalogue/Semantics`) is transitional: it moves into `lean-categories`.
+[`specs/computational-core-plan.md`](specs/computational-core-plan.md). The semantic registry
+is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at the pin and writes
+no semantic row.
 
 ## Layout
 
 - `CasCatalogue/`, the kernel:
-  - the registry and its validators (`Registry/`);
-  - the symbolic calculus (`Syntax`);
-  - realizations (`Action`, `Realization`, `Trust`);
+  - realized actions and trust (`Action`, `Trust`);
   - resolution (`Resolve`, `ResolveSyntax`);
-  - limits and lifts (`Limits`, `Lift`);
+  - realized limits and their surface (`Limits`, `LimitCall`);
   - refinement and decisions (`Refine`, `Decide`);
   - memoization (`Memo`);
   - the leaf API (`Leaf`, `Adapter`) and the backend port (`Port`);
-  - the transitional semantic registry (`Semantics/`).
+  - the realization registry over `lean-categories`' semantic registry (`Registry/`).
 - `CasLeaves/`: the leaves. Each file is one `register_leaf` contract, and its backend program sits
   next to it.
 - `CasAcceptance/`: the probes and the standard universe.

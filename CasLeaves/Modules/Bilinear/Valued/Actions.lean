@@ -6,10 +6,10 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Actions
-public import CasCatalogue.Semantics.Modules.Bilinear.Valued.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.CatalogueRegistration
 public import Mathlib.LinearAlgebra.Matrix.SesquilinearForm
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Modules.Bilinear.Valued.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Catalogue
 
 @[expose] public section
 

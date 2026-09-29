@@ -6,24 +6,24 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Actions
-public import CasCatalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public import CasLeaves.Foundation.Cardinality
 public import LeanCategories.Modules.RankFunctor
 public import Mathlib.LinearAlgebra.Dimension.Constructions
-public import CasCatalogue.Semantics.Modules.Rank
+public import LeanCategories.Catalogue.Semantics.Modules.Rank
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.ConstructorCatalogue
-public meta import CasCatalogue.Semantics.Modules.Expressions
-public meta import CasCatalogue.Semantics.Foundation.Cardinality
+public meta import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Expressions
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public meta import CasLeaves.Foundation.Cardinality
-public meta import CasCatalogue.Semantics.Modules.Rank
+public meta import LeanCategories.Catalogue.Semantics.Modules.Rank
 
 @[expose] public section
 
 /-!
-# Lean-native realizations for `CasCatalogue.Semantics.Modules.Rank`
+# Lean-native realizations for `LeanCategories.Catalogue.Semantics.Modules.Rank`
 
-The leaf half of `CasCatalogue.Semantics.Modules.Rank`: handles, their denotations and the actions of the registered functors on
+The leaf half of `LeanCategories.Catalogue.Semantics.Modules.Rank`: handles, their denotations and the actions of the registered functors on
 them, contributed through `register_leaf`.
 -/
 

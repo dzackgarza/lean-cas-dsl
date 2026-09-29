@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Exceptional.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Exceptional.CatalogueRegistration
 public import Mathlib.Algebra.Ring.MinimalAxioms
 public import Mathlib.Algebra.Category.Ring.Basic
 public meta import CasCatalogue.Leaf

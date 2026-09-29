@@ -5,20 +5,20 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.ConstructorRegistration
+public import LeanCategories.Catalogue.Semantics.ConstructorRegistration
 public import CasLeaves.Foundation.Actions
 public import LeanCategories.Foundation.Subsets
-public import CasCatalogue.Semantics.Foundation.Subsets
+public import LeanCategories.Catalogue.Semantics.Foundation.Subsets
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.ConstructorCatalogue
-public meta import CasCatalogue.Semantics.Foundation.Subsets
+public meta import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Subsets
 
 @[expose] public section
 
 /-!
-# Lean-native realizations for `CasCatalogue.Semantics.Foundation.Subsets`
+# Lean-native realizations for `LeanCategories.Catalogue.Semantics.Foundation.Subsets`
 
-The leaf half of `CasCatalogue.Semantics.Foundation.Subsets`: handles, their denotations and the actions of the registered functors on
+The leaf half of `LeanCategories.Catalogue.Semantics.Foundation.Subsets`: handles, their denotations and the actions of the registered functors on
 them, contributed through `register_leaf`.
 -/
 

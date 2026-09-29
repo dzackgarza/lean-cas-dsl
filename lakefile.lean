@@ -17,10 +17,10 @@ require «nbdsl-worker» from git
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.33.0"
 
-/- The mathematics: categories, functors, fibrations and their theory. This package owns
-the CAS machinery over it (registry, resolution, realizations, backends). -/
+/- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
+package owns the CAS machinery over it (resolution, realizations, the leaf API, the notebook). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "824ad3aba57a0b14f933aa53e0cfb08edf068c81"
+  "https://github.com/dzackgarza/lean-categories" @ "60ba00478d1d55d374efb250383370c7aa7ab26f"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
@@ -29,11 +29,10 @@ lean_lib CasDsl where
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
 
-/-- The core: the kernel (symbolic category and functor expressions, the registry, resolution,
-realization and decision machinery, the leaf contract) and the semantic registry
-(`CasCatalogue.Semantics`: categories, functors, classifiers and operations registered from
-`lean-categories`). Only this library and `CasAcceptance` may register semantics. It keeps
-`lean-categories`' elaboration options, which its registration rows rely on. -/
+/-- The core: resolution, realization and decision machinery, the realization registry and the
+leaf contract, over `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
+reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
+elaboration options. -/
 @[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]

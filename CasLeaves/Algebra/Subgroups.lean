@@ -6,22 +6,22 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Algebra.Actions
-public import CasCatalogue.Semantics.ConstructorRegistration
+public import LeanCategories.Catalogue.Semantics.ConstructorRegistration
 public import Mathlib.Algebra.Category.Grp.EpiMono
 public import Mathlib.CategoryTheory.Subobject.Lattice
 public import Mathlib.Algebra.Category.Grp.Limits
-public import CasCatalogue.Semantics.Algebra.Subgroups
+public import LeanCategories.Catalogue.Semantics.Algebra.Subgroups
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.ConstructorCatalogue
-public meta import CasCatalogue.Semantics.Algebra.Catalogue.Magmas
-public meta import CasCatalogue.Semantics.Algebra.Subgroups
+public meta import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Catalogue.Magmas
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Subgroups
 
 @[expose] public section
 
 /-!
-# Lean-native realizations for `CasCatalogue.Semantics.Algebra.Subgroups`
+# Lean-native realizations for `LeanCategories.Catalogue.Semantics.Algebra.Subgroups`
 
-The leaf half of `CasCatalogue.Semantics.Algebra.Subgroups`: handles, their denotations and the actions of the registered functors on
+The leaf half of `LeanCategories.Catalogue.Semantics.Algebra.Subgroups`: handles, their denotations and the actions of the registered functors on
 them, contributed through `register_leaf`.
 -/
 

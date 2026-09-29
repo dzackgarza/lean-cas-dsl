@@ -6,11 +6,11 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Actions
-public import CasCatalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public import CasLeaves.Foundation.Cardinality
 public import Mathlib.Data.ZMod.Basic
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Modules.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Catalogue
 
 @[expose] public section
 

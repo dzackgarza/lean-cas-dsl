@@ -5,11 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Foundation.PairDiagrams
+public import LeanCategories.Catalogue.Semantics.Foundation.PairDiagrams
 public import CasLeaves.Foundation.Actions
 public import Mathlib.CategoryTheory.Functor.Const
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Foundation.PairDiagrams
+public meta import LeanCategories.Catalogue.Semantics.Foundation.PairDiagrams
 
 @[expose] public section
 

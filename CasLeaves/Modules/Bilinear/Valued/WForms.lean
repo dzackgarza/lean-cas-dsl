@@ -5,12 +5,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Limits.Registration
+public import LeanCategories.Catalogue.Semantics.Limits.Registration
 public import Mathlib.Algebra.BigOperators.Fin
 public import Mathlib.Data.Rat.Cast.Defs
 public import Mathlib.Tactic.Ring
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Limits.Registration
+public meta import LeanCategories.Catalogue.Semantics.Limits.Registration
 
 @[expose] public section
 

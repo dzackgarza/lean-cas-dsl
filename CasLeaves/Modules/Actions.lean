@@ -6,10 +6,10 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Foundation.Actions
-public import CasCatalogue.Semantics.Modules.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 public import Mathlib.LinearAlgebra.Matrix.ToLin
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Modules.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Catalogue
 
 @[expose] public section
 

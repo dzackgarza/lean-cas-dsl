@@ -6,9 +6,9 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Bilinear.Valued.Actions
-public import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueRegistration
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Lattices.Valued.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Lattices.Valued.Catalogue
 
 @[expose] public section
 

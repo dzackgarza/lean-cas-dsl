@@ -1,8 +1,8 @@
 module
 
-public import CasCatalogue.Semantics
+public import LeanCategories.Catalogue.Semantics
 public import CasLeaves
-public meta import CasCatalogue.Semantics
+public meta import LeanCategories.Catalogue.Semantics
 public meta import CasLeaves
 
 @[expose] public section

@@ -8,7 +8,7 @@ public import CasCatalogue.Leaf
 public import CasLeaves.Algebra.RingTables
 public import CasLeaves.Algebra.Actions
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Algebra.Ports
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
 
 @[expose] public section
 

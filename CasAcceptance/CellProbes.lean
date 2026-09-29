@@ -93,7 +93,7 @@ run_cmd liftTermElabM do
       throw e
   -- `η` is not a cell `L ⟶ L`.
   try
-    withoutModifyingEnv <| addRegistryEntryChecked (.cell
+    withoutModifyingEnv <| validateRegistryEntryDeclaration (.cell
       { id := ⟨"cell.probe.wrong"⟩, source := Foundation.Sets, target := Foundation.Sets
         left := #[.functor FunctorId.setsList], right := #[.functor FunctorId.setsList]
         declaration := `LeanCategories.Foundation.listUnit })

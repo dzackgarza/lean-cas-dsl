@@ -5,13 +5,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.ResolveSyntax
-public import CasCatalogue.Semantics.Algebra.Ports
-public import CasCatalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Algebra.Ports
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public import CasLeaves.Foundation.Cardinality
 public import CasAcceptance.LatticeActionProbes
 public meta import CasCatalogue.ResolveSyntax
-public meta import CasCatalogue.Semantics.Algebra.Ports
-public meta import CasCatalogue.Semantics.Foundation.Cardinality
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public meta import CasLeaves.Foundation.Cardinality
 public meta import CasAcceptance.LatticeActionProbes
 
@@ -28,7 +28,7 @@ public meta import CasAcceptance.LatticeActionProbes
   composed `RealizedAction` applied to the receiver, with no string-keyed dispatch.
 * The ring diamond: `Ring` reaches `Magma`, and hence `Sets`, along the multiplicative and the
   additive port, and the two routes are distinct. This module deliberately does not import the
-  comparison row (`CasCatalogue/Semantics/Algebra/PortComparison.lean`): without it, `cardinality` on rings is
+  comparison row (`lean-categories` `LeanCategories/Catalogue/Semantics/Algebra/PortComparison.lean`): without it, `cardinality` on rings is
   reported ambiguous with both routes, and naming a port with `via` resolves it. With it, see
   `CohereProbes`.
 -/

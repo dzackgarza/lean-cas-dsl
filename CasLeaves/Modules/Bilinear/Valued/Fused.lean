@@ -6,11 +6,11 @@ module
 
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Bilinear.Valued.Actions
-public import CasCatalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public import CasLeaves.Foundation.Cardinality
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Modules.Catalogue
-public meta import CasCatalogue.Semantics.Modules.Bilinear.Valued.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Catalogue
+public meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.Catalogue
 
 @[expose] public section
 

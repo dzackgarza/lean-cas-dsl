@@ -12,9 +12,9 @@ This file says where each kind of contribution goes.
 | A proposition the language should always make true | `CasAcceptance/`, as a permanent assertion |
 | Resolution, realization, the leaf API, the port or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
 
-`CasCatalogue/Semantics/` is the transitional local semantic registry. Do not grow it except under
-a plan node. Any row added there names its `lean-categories` owner and moves upstream with
-`cc-sem-upstream`.
+The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
+`LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
+`lean-categories`; this repository reads the registry at the pinned revision.
 
 ## Writing a leaf
 
@@ -37,7 +37,7 @@ backend program, in any language, sits next to it.
 Everything else is rejected at `register_leaf`, naming the rule it breaks: categories, methods,
 properties, subcategories, forgetful routes, identifications, coercions, refinements of objects,
 result classes, generic semantics and natural transformations. A `CasLeaves` module may import
-only `CasCatalogue.Leaf`, `CasCatalogue.Semantics.*`, `CasLeaves.*`, Mathlib and
+only `CasCatalogue.Leaf`, `CasLeaves.*`, Mathlib and
 `lean-categories`.
 
 If a leaf seems to need one of the rejected contributions, or needs to forward an inherited

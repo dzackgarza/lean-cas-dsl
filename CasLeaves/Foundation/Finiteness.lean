@@ -5,11 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Foundation.Finiteness
+public import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
 public import CasLeaves.Foundation.Cardinality
 public import CasLeaves.Foundation.FiniteSets
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Foundation.Finiteness
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Finiteness
 
 @[expose] public section
 

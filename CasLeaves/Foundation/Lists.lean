@@ -5,10 +5,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Foundation.Lists
+public import LeanCategories.Catalogue.Semantics.Foundation.Lists
 public import CasLeaves.Foundation.Actions
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Foundation.Lists
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Lists
 
 @[expose] public section
 

@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Action
-public import LeanCategories.CategoryTheory.OneCat.Classifier
+public import LeanCategories.Catalogue.Holds
 public import Mathlib.CategoryTheory.FiberedCategory.Fiber
 
 @[expose] public section
@@ -30,12 +30,6 @@ open CategoryTheory
 namespace CasCatalogue
 
 universe uObj uHom w x
-
-/-- The property query of FOUNDATIONS Def. 46.4: the fibre of the classifier over `X` is
-inhabited. -/
-def Classifier.Holds {C : LeanCategories.ObjCat.{uObj, uHom}} (c : LeanCategories.Classifier C)
-    (X : C) : Prop :=
-  Nonempty (c.forget.toFunctor.Fiber X)
 
 /-- A three-valued decision of `p`, with evidence for either answer. -/
 inductive Decision (p : Prop) where

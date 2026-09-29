@@ -4,8 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Semantics.Modules.CatalogueRegistration
-public meta import CasCatalogue.Semantics.Modules.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+public meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
+public import CasCatalogue.Registry.Extension
+public meta import CasCatalogue.Registry.Extension
 
 @[expose] public section
 

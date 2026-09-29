@@ -5,22 +5,22 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.ConstructorRegistration
+public import LeanCategories.Catalogue.Semantics.ConstructorRegistration
 public import CasLeaves.Foundation.Actions
 public import LeanCategories.Foundation.Cardinality
 public import Mathlib.SetTheory.Cardinal.Arithmetic
 public import Mathlib.Data.ZMod.Basic
-public import CasCatalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.ConstructorCatalogue
-public meta import CasCatalogue.Semantics.Foundation.Cardinality
+public meta import LeanCategories.Catalogue.Semantics.ConstructorCatalogue
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
 
 @[expose] public section
 
 /-!
-# Lean-native realizations for `CasCatalogue.Semantics.Foundation.Cardinality`
+# Lean-native realizations for `LeanCategories.Catalogue.Semantics.Foundation.Cardinality`
 
-The leaf half of `CasCatalogue.Semantics.Foundation.Cardinality`: handles, their denotations and the actions of the registered functors on
+The leaf half of `LeanCategories.Catalogue.Semantics.Foundation.Cardinality`: handles, their denotations and the actions of the registered functors on
 them, contributed through `register_leaf`.
 -/
 

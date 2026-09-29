@@ -619,7 +619,7 @@ corrects the earlier text of this section.
   (CC-TRUE's and CC-FIB's mathematical content, CC-LAWS). It also owns which of these are
   registered as the CAS's semantics, as a proof-carrying registry (lean-categories #49, #53).
   It holds no resolver, realization or backend code.
-- `lean-cas-dsl` (this repository) derives the language from the pinned release:
+- `lean-cas-dsl` (this repository) derives the language from the pinned release (its catalogue):
   - the resolver and closure (CC-RESOLVE, CC-CLOSURE, CC-UNIFORM, CC-COHERE, CC-PROP);
   - the realization and implementation registry (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO);
   - the leaf API and the port protocol (CC-ADAPTER, CC-DECODE);
@@ -627,9 +627,8 @@ corrects the earlier text of this section.
   - the permanent acceptance suite.
 
   Backend programs are owned by their leaves.
-- **Transitional:** the symbolic semantic registry (`CasCatalogue/Semantics`) is still authored
-  here. `cc-sem-upstream` and `cc-sem-derive` move it into `lean-categories` and leave only its
-  derived projection here.
+- The symbolic semantic registry (the catalogue, `LeanCategories.Catalogue`) is `lean-categories`';
+  this repository reads it at the pin and writes none (`cc-sem-upstream`, `cc-sem-derive`).
 
 This follows #53 §7 ("no second semantic method registry"). The name-level graph
 (`CatDecl`/`FunctorDecl`) was deleted in `cc-dsl-migration`. Decision of 2026-09-28 (user): all

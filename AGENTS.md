@@ -11,10 +11,10 @@ Every plan node and edit conforms to it. In practice it forbids the following.
 * **Missing mathematics goes upstream.** If you need a category, functor, classifier, operation
   or coherence that is not formal, stop. Formalize it in `lean-categories`, or open the request
   there. Then release, re-pin, and continue here.
-  - Never coin it in `CasCatalogue/Semantics`, a leaf, a probe or the notebook.
-  - The local semantic registry is transitional; `cc-sem-upstream` and `cc-sem-derive` remove it.
-    Until they close, a row added there must name its `lean-categories` owner, and it moves with
-    those nodes.
+  - Never coin it in this repository: a leaf, a probe, the notebook or the kernel.
+  - The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`). `normalized_registry`
+    refuses every module outside it, and `SemanticProjectionProbes` checks that every semantic row
+    here was written upstream.
 * **Never shape semantics by computability.** Do not add, remove, narrow or weaken a semantic row,
   domain or result type because a backend can or cannot compute something. A backend's limits
   restrict its realization only.

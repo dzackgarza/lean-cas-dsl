@@ -8,8 +8,8 @@ public import CasCatalogue.Adapter
 public import CasCatalogue.Action
 public import CasCatalogue.Decide
 public import CasCatalogue.Trust
-public import CasCatalogue.Realization
-public import CasCatalogue.Constructors
+public import LeanCategories.Catalogue.Realization
+public import LeanCategories.Catalogue.Constructors
 public import CasCatalogue.Limits
 public import CasCatalogue.Refine
 public import CasCatalogue.Port
@@ -21,7 +21,7 @@ public import Lean.Data.Json
 # The leaf API
 
 The one kernel module a backend leaf (`CasLeaves`) imports. Besides it, a leaf imports the
-registered semantics it realizes (`CasCatalogue.Semantics.*`: category, functor, classifier and
+registered semantics it realizes (`LeanCategories.Catalogue.Semantics.*`: category, functor, classifier and
 operation identifiers and their Lean denotations). It exposes the types a leaf's contributions have: a realization is a
 category of handles with a denotation functor (Mathlib; `InducedCategory`, `Discrete`, `Core` are the
 usual handle categories), a `RealizedAction` is a handle functor with a `CatCommSq`, a `Decider`, an

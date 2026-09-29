@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Semantics
+public import LeanCategories.Catalogue.Semantics
 public import CasCatalogue.ResolveSyntax
 public meta import CasCatalogue.ResolveSyntax
 

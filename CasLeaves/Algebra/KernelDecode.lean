@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Algebra.Subgroups
+public import LeanCategories.Catalogue.Semantics.Algebra.Subgroups
 public import CasLeaves.Algebra.Subgroups
 public meta import CasCatalogue.Leaf
 

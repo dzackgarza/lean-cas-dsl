@@ -7,12 +7,12 @@ module
 public import CasCatalogue.Leaf
 public import CasLeaves.Modules.Actions
 public import CasLeaves.Lattices.Valued.Actions
-public import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
-public import CasCatalogue.Semantics.Lattices.Valued.Property
+public import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueRegistration
+public import LeanCategories.Catalogue.Semantics.Lattices.Valued.Property
 public import Mathlib.LinearAlgebra.BilinearForm.Hom
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
-public meta import CasCatalogue.Semantics.Lattices.Valued.Property
+public meta import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueRegistration
+public meta import LeanCategories.Catalogue.Semantics.Lattices.Valued.Property
 
 @[expose] public section
 

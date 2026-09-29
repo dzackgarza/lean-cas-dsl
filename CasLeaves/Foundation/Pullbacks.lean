@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Limits.Registration
+public import LeanCategories.Catalogue.Semantics.Limits.Registration
 public import CasLeaves.Foundation.Cardinality
 public import Mathlib.Data.List.NodupEquivFin
 public meta import CasCatalogue.Leaf

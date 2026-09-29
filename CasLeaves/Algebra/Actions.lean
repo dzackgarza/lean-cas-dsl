@@ -5,11 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Leaf
-public import CasCatalogue.Semantics.Algebra.Ports
+public import LeanCategories.Catalogue.Semantics.Algebra.Ports
 public import CasLeaves.Foundation.Actions
 public meta import CasCatalogue.Leaf
-public meta import CasCatalogue.Semantics.Algebra.Ports
-public meta import CasCatalogue.Semantics.Algebra.Catalogue.Magmas
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Catalogue.Magmas
 
 @[expose] public section
 
