@@ -275,3 +275,41 @@ Lean counterpart. Counts are approximate.
 
 Core-owned engines (`catlab`, `gap`, `fp_categories`, `category_limits`, `functor_categories`, …)
 serve `cat/` and have no Lean bridge.
+
+## Drift triage (`cc-drift-triage`)
+
+Every commit after the `cc-dsl-migration` code (lean-cas-dsl `a191b61`, lean-categories `a8a87a6`).
+*Core*: moves the kernel replacement. *Probe finding*: leaf-driven, but exposed a defect of a core
+node (named). *Leaf drift*: leaf features or leaf mathematics, not kernel replacement.
+
+### lean-cas-dsl
+
+| commit | content | class | core finding / owner |
+|---|---|---|---|
+| `b5d49e6` | plan row and spec §6 for `cc-dsl-migration` | core (ledger) | — |
+| `6947b8c` | ring diamond in the notebook; table realizers carry homomorphisms; ring-port table actions; `#explain_route` names comparisons | probe finding | realizers admitting only identity morphisms cannot carry functor actions (CC-ACTION / `cc-realize`); the resolver picks the first route of a comparison class and never applies the comparison (`core-inheritance-coherence`, audit finding 4) |
+| `a65656e` | `(ZZ/p)[x]/(f)` presentations, `QuadraticAlgebra` tables, `x ↦ y+2` isomorphism, object equality refused naming isomorphisms | leaf drift, one probe finding | equality of objects is not decidable from presentations; isomorphisms are registered data (CC-CARRIER); the notebook's equality is not category-owned (`core-properties-refinement`, "Equality") |
+| `f067d66` | Gram-matrix encoders for `BilinModules(ZZ)` / `Lattices(ZZ)` | leaf drift, one probe finding | leaf codecs are hard-coded in `CasDsl/Semantic.lean:encode` instead of being contributed by the leaf's adapter (CC-ADAPTER / CC-DECODE) |
+| `d26df90`, `7446650` | function-equality rules in `Native.valueEq` | leaf drift, one probe finding | equality is decided by a DSL-local heuristic instead of a category-owned three-valued decider (`core-properties-refinement`, "Equality"; CC-DECIDE); the first version answered `false` for equal maps |
+| `6095dc7` | residue-class elements of presented rings and `map … to` along the isomorphism | leaf drift | hand-rolled polynomial reduction in `Eval.lean` (`reduceMonic`) |
+| `08c70f2` | refuse functions with no canonical map to the target | leaf drift | — |
+| `79a4a15` | registry families renamed to truncated resolutions | core (plan item `cc-resolutions`) | — |
+| `ffb0341`, `02c6ae6` | pins and plan rows | ledger | — |
+| `cc72957` | lattice classifiers and refinements in `CasCatalogue/LatticeRefinements.lean` | leaf drift | — |
+| `2ddea64` | `fib.quad_forms` registration | leaf drift | — |
+
+### lean-categories
+
+| commit | content | class | core finding / owner |
+|---|---|---|---|
+| `a3fd4f2` | `subobjectMap` (Sub(C) ⥤ Sub(D) along a mono-preserving functor); multiset support inclusion | core (generic subobject calculus, `core-universal-calculus`); multiset part leaf | — |
+| `a16a5d6` | frames renamed to truncated free resolutions | core (plan item `cc-resolutions`) | — |
+| `aaf7af3` | characteristic-free quadratic base change; `Quad` coherence isos; Δ and evenness | leaf drift (leaf mathematics) | — |
+| `e71c252` | lattice property classifiers on `Bil` | leaf drift | — |
+| `2794bef` | `Quad` pseudofunctor and Grothendieck construction | leaf drift | — |
+
+### Owner decision
+
+Pending. Options per drift commit: revert, quarantine (move out of the core modules, e.g. leaf
+codecs out of `CasDsl/Semantic.lean`), or keep as leaf content not counted as progress. The probe
+findings above become gap nodes in step 3 regardless.
