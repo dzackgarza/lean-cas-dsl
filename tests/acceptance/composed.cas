@@ -1,0 +1,37 @@
+-- A composed computation (SPEC.md, "A composed computation"): the roots of r = x³ - 2x + 1 in ℂ,
+-- sums and products over them, its companion matrix, and composition of functions. Each test is
+-- admitted once and never changed.
+
+let r(x) := x³ - 2x + 1 in ℚ[x]
+
+let roots := {a ∈ ℂ | r(a) = 0} in 𝒫(ℂ)
+
+test composed.root_count "SPEC.md: r = (x - 1)(x² + x - 1) has the three distinct roots 1, (-1 ± √5)/2":
+  assert |roots| = 3
+
+test composed.root_one "SPEC.md: r(1) = 1 - 2 + 1 = 0":
+  assert 1 ∈ roots
+
+test composed.root_sum "SPEC.md: the sum of the roots of a monic cubic x³ + a x² + b x + c is -a = 0 (Vieta)":
+  assert ∑_{a ∈ roots} a = 0
+
+test composed.root_product "SPEC.md: the product of the roots of a monic cubic x³ + a x² + b x + c is -c = -1 (Vieta)":
+  assert ∏_{a ∈ roots} a = -1
+
+let C := companion_matrix(3, r)
+
+test composed.charpoly "SPEC.md: the characteristic polynomial of the companion matrix of a monic r is r":
+  assert C.charpoly() = r
+
+test composed.det "SPEC.md: det C = (-1)ⁿ r(0) = -1 for n = 3":
+  assert C.det() = -1
+
+test composed.trace "SPEC.md: tr C = minus the x² coefficient of r = 0":
+  assert C.trace() = 0
+
+let f(t) := t^2 in ℝ → ℝ
+
+let g(t) := t^3 in ℝ → ℝ
+
+test composed.composition "SPEC.md: (f ∘ g)(t) = f(t³) = (t³)² = t⁶":
+  assert (f ∘ g)(t) = t^6

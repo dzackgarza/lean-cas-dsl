@@ -55,6 +55,9 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `∑_{t ∈ A} e`, `∏_{t ∈ A} e`: the registered sums and products at `t ↦ e` over a subset `A`,
+  partial values (in `Y⊥`, defined for finite `A`); a value compared with one is carried into it by
+  its constants;
 * `Xⁿ` (`ℚ²`) for a set `X`: `Vec(X, n)`; `(x₁, …, xₙ)`: the tuple by the registered `()` and
   `cons`; `[a, b; c, d]`: the matrix with these rows (`rows`); `N₂(…)` is `N(2, …)` (`Mat₂(ℚ)`);
   `M v`, `M * v`, `M(v)`: the registered application of `M`'s set;
@@ -156,6 +159,8 @@ syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
 syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
 /-- A matrix `[a, b; c, d]`, by its rows. -/
 syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
+/-- `∑_{a ∈ A} e`, `∏_{a ∈ A} e`: over a finite subset `A`. -/
+syntax:60 (name := casBig) ("∑" <|> "∏") "_{" ident " ∈ " cas_term "} " cas_term:60 : cas_term
 /-- `∫ ω`: the primitives of a differential. -/
 syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
 
@@ -614,6 +619,9 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
     return ← tuple scope (#[stx[1]] ++ stx[3].getSepArgs) ambient?
   if stx.getKind == ``casMatrix then
     return ← matrix scope (stx[1].getSepArgs.map (·.getSepArgs)) ambient?
+  if stx.getKind == ``casBig then
+    let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
+    return ← bigOperator scope name stx[2].getId stx[4] stx[6]
   if stx.getKind == ``casIntegral then
     return ← applyNamed state "∫" #[← eval scope stx[1]]
   if stx.getKind == ``casActed then
@@ -729,7 +737,18 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
   let overSets ← forallTelescopeReducing (← inferType declaration) fun xs _ =>
     xs.anyM fun x => return !(← inferType x).isConstOf ``Nat
   if overSets then
-    return ← applyFamily entry.declaration category (← args.mapM (eval scope · none))
+    -- Its leading numeral parameters (`companion_matrix(3, r)`), then its operands.
+    let leading ← forallTelescopeReducing (← inferType declaration) fun xs _ => do
+      let mut k := 0
+      for x in xs do
+        unless (← inferType x).isConstOf ``Nat do break
+        k := k + 1
+      return k
+    let numerals ← (args.extract 0 leading).mapM fun a => do
+      let .nat n ← eval scope a | throwStratum .invalid m!"{entry.name} takes {leading} numerals first"
+      return n
+    return ← applyFamily entry.declaration category
+      (← (args.extract leading args.size).mapM (eval scope · none)) (numerals := numerals)
   let arity ← forallTelescopeReducing (← inferType declaration) fun xs _ => pure xs.size
   unless arity ≤ args.size do
     throwStratum .invalid m!"{entry.name} takes {arity} parameters"
@@ -801,7 +820,8 @@ partial def applyNamed (state : RegistryState) (name : String) (elements : Array
 unified from the sets of the operands and from `target?`, the set it is to land in (`deg` on
 `ℤ[x]` is `deg ℤ`); a numeral operand is an element of the set the family then takes there. -/
 partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
-    (elements : Array Value) (target? : Option Value := none) : M Value := do
+    (elements : Array Value) (target? : Option Value := none) (numerals : Array Nat := #[]) :
+    M Value := do
   let state ← registryState
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
@@ -817,6 +837,9 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     | _, _ => pure #[source]
   unless sources.size == elements.size do
     throwStratum .invalid m!"{declaration} takes {sources.size} operands"
+  for (a, k) in explicit.zip numerals do
+    unless ← isDefEq a (mkNatLit k) do
+      throwStratum .invalid m!"{declaration} does not take the numeral {k} there"
   if semantic then
     if let some (.object t ..) := target? then
       unless ← isDefEq target t do
@@ -882,13 +905,16 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   let (.object y _ yOrigin, .object x category xOrigin) := (Y, X) | return none
   if y == x || (← isDefEq y x) then return some none
   if let some (entry, params) := xOrigin then
-    if let (some constants, some (Value.object p ..)) := (entry.constants, params[0]?) then
-      if ← isDefEq p y then
+    if let (some constants, some P@(Value.object p ..)) := (entry.constants, params[0]?) then
+      -- Into its parameter `P` (itself, or along a coercion), then its constants `P ↪ X`.
+      if let some into ← coercionMap Y P then
         if (← read).mode == .realized then
           throwStratum .noImplementation m!"no registered realization threads the parameters of \
             {constants}"
-        let ι ← homIn (← `($(mkCIdent constants) $(← paramTerms params)*)) y x category
-        return some (some ι)
+        let ι ← homIn (← `($(mkCIdent constants) $(← paramTerms params)*)) p x category
+        return some (some (← match into with
+          | some ι₀ => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι₀, ι]
+          | none => pure ι))
   if let (some (sub, #[]), some (super, #[])) := (yOrigin, xOrigin) then
     if let some chain := inclusionChain state sub.id super.id then
       return some (some (← inclusionMap chain Y))
@@ -975,6 +1001,27 @@ partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Opt
     tuple scope row rowAmbient
   let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
   applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
+
+/-- `∑_{t ∈ A} e` (`name` is `∑` or `∏`) over a subset `A ⊆ X`: the registered family at the map
+`t ↦ e : X → Y`, applied to `A`; a partial value, defined for finite `A`. -/
+partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax) : M Value := do
+  let state ← registryState
+  let subset ← eval scope A
+  let some (_, X) ← powerSetOf? subset
+    | throwStratum .invalid m!"`{name}_\{{t} ∈ …}` ranges over a subset"
+  let .element f Y ← atStage scope t X e none
+    | throwStratum .invalid m!"`{shown e}` is an element"
+  let some entry := state.morphisms.find? (·.name == name)
+    | throwStratum .invalid m!"no registered {name}"
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization computes {name} over a subset"
+  let .element A' P := subset | unreachable!
+  let .object p category _ := P | unreachable!
+  let target ← object state "Partial" #[Y] none
+  let .object q _ _ := target | unreachable!
+  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y])*
+    $(← quoteExpr f))) p q category
+  return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[A', family]) target
 
 /-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
 action `•` of `a` on `b` (`(6x + 1) dx`), else the registered application of `a` (`M v`). -/
@@ -1149,6 +1196,12 @@ partial def toElement (v : Value) (X : Value) : M Value := do
   match v with
   | .element .. => return v
   | .nat k =>
+      -- A set without numerals of its own but with constants from its parameter (`Y⊥`): the
+      -- numeral of the parameter.
+      if let .object _ _ (some (entry, params)) := X then
+        if let (some _, some P@(Value.object ..)) := (entry.constants, params[0]?) then
+          unless (← registryState).elementLiterals.any (·.object == entry.id) do
+            return ← coerceTo (← toElement v P) X
       let one ← oneObject
       let .morphism hom _ _ _ _ ← graphOf one X #[(0, k)] | unreachable!
       -- At a stage `S`, the constant `S → 1 → X`.
@@ -1580,13 +1633,13 @@ def letBinding? (stx : Syntax) : TermElabM (Option (Name × Syntax)) := do
       | _ => return some (f.getId, ← `(cas_term| $t:ident ↦ $e))
   | _ => return none
 
-/-- The variables a term binds (`t` in `t ↦ e`, `{t ∈ X | P}`, `{e | t ∈ X}`). -/
+/-- The variables a term binds (`t` in `t ↦ e`, `{t ∈ X | P}`, `{e | t ∈ X}`, `∑_{t ∈ A} e`). -/
 partial def binders (stx : Syntax) : Array Name :=
   let own : Array Name := match stx with
     | `(cas_term| $t:ident ↦ $_) => #[t.getId]
     | `(cas_term| {$t:ident ∈ $_ | $_}) => #[t.getId]
     | `(cas_term| {$_ | $t:ident ∈ $_}) => #[t.getId]
-    | _ => #[]
+    | _ => if stx.getKind == ``casBig then #[stx[2].getId] else #[]
   own ++ stx.getArgs.flatMap binders
 
 /-- Whether a term is the variable `v`. -/

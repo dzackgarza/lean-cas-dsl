@@ -10,6 +10,14 @@
     "card.z7": "1fa2fb0e94295ab86010ccb209269c40b1bf4e1ed4ca807a04a544a444ece92e",
     "colimit.bil_wform.a2_discriminant.card": "b00452df0298d96caec728ed25fbf4cc4b73e2e62d1490db59e028656feeb23e",
     "colimit.sets.coproduct.card": "99dec517a838ac4a80f8cb254b261ef35811f98829de3926485ef8f41025fffb",
+    "composed.charpoly": "62293571ead99283bea98dea8728e12cf6962347b1824a717ad1cf7ef0acd226",
+    "composed.composition": "dc5297b00587c42882215a9a34d1aa97f51f4e76990c10672e676159d1206bbb",
+    "composed.det": "c045e6de4f9fd87d475138c1e2c04046947badc7e9db2c958803667e84b8382c",
+    "composed.root_count": "87befb8a34bc04fee4597f63d6a0b59cbbe9dbe2b47c3485607dcac08307cae1",
+    "composed.root_one": "387771c35616871e1071781a17b70ae10088cf7154affb4d919486d5be4a91b8",
+    "composed.root_product": "6c53a69d4742c208f459a7acc54f628a30c872d2592f2eb307949fb1721ec02d",
+    "composed.root_sum": "aac17cbb0a09accf317c595dcb65c7b13468c1d1289bfa1f703fe709f5a7fde4",
+    "composed.trace": "a73e80d2b2d7a174c5fc5f768f0213760508bd296445833a595df5d22445e80a",
     "comprehension.card": "88dfef7eb8637216734812c63470b4177e85d28ed5f98eec614d944623abe938",
     "comprehension.elements": "b05152f537851318a75235740a1ffa350ea060e5f7e5376cae09a31d1979d78b",
     "comprehension.even_card": "8cf8c030e9408e3b760cc110fbed0f3dedef158db03468dcc059be6d9682867a",
@@ -130,5 +138,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "9f1c7b92fb376e8b8bf4e19053e01f2a2934eab6"
+  "lean_categories": "a3c1115745f9bd5eaeb78680a6c5c12c506bfe6e"
 }
