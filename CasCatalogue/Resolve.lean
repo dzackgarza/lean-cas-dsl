@@ -260,7 +260,8 @@ structure LimitResolution where
 unique registered creation lift of `shape` limits out of `category` into a category with one. -/
 def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String) :
     Except String LimitResolution := do
-  let direct := state.limits.filter fun l => l.category == category && l.shape == shape
+  let direct := state.limits.filter fun l =>
+    !l.colimit && l.category == category && l.shape == shape
   if let some l := direct[0]? then
     if direct.size > 1 then throw s!"{category.raw} has {direct.size} registered {shape} limits"
     return { limit := l.id }
@@ -271,7 +272,7 @@ def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (
     let edge ← state.structuralEdge? lift.edge
     guard (edge.source.syntacticEq entry.expression)
     let target ← state.category? edge.target
-    let limit ← state.limits.find? fun l => l.category == target.id && l.shape == shape
+    let limit ← state.limits.find? fun l => !l.colimit && l.category == target.id && l.shape == shape
     pure ({ limit := limit.id, lift := some lift.id } : LimitResolution)
   match returned.toList with
   | [r] => return r

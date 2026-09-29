@@ -268,10 +268,11 @@ def expectedCellIds : Array NaturalTransformationId := #[
   NaturalTransformationId.listReverse, ⟨"cmp.rings.carrier"⟩]
 
 /-- Stable limit presentations and their realizations (CC-UNIV). -/
-def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩]
+def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩,
+  ⟨"colim.sets.coproduct"⟩, ⟨"colim.bil_w_form.cokernel"⟩]
 def expectedLimitRealizationIds : Array LimitRealizationId :=
   #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
-    ⟨"limr.finite_sets.pullback.returned"⟩]
+    ⟨"limr.finite_sets.pullback.returned"⟩, ⟨"colimr.sets.coproduct.finite"⟩]
 
 /-- Stable backend operation rows (CC-ADAPTER). -/
 def expectedBackendOperationIds : Array BackendOperationId := #[⟨"bop.gap.groups.kernel"⟩]

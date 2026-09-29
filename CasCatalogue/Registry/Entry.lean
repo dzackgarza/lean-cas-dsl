@@ -144,6 +144,8 @@ structure LimitEntry where
   category : CategoryId
   shape : String
   declaration : Lean.Name
+  /-- A colimit presentation: `declaration` is a family of Mathlib `ColimitCocone`s. -/
+  colimit : Bool := false
   deriving Repr
 
 /-- A backend's presentation of the apex of a registered limit on one of its realizations:

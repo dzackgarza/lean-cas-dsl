@@ -1823,8 +1823,10 @@ def limitShapeIndex (e : LimitEntry) : MetaM Expr := do
   let declaration ← mkConstWithFreshMVarLevels e.declaration
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
   let type ← whnfR type
-  unless type.isAppOf ``CategoryTheory.Limits.LimitCone do
-    throwError "limit {e.id.raw}: {e.declaration} is not a family of limit cones"
+  let expected := if e.colimit then ``CategoryTheory.Limits.ColimitCocone
+    else ``CategoryTheory.Limits.LimitCone
+  unless type.isAppOf expected do
+    throwError "limit {e.id.raw}: {e.declaration} is not a family of {expected}s"
   return (← whnf (← inferType type.appArg!)).getAppArgs[0]!
 
 /-- The structural edge of a route step: its source and target categories. -/
@@ -1857,7 +1859,7 @@ def validateLift (state : RegistryState) (e : LiftEntry) : MetaM Unit := do
       unless ← withTransparency .all <| isDefEq args[6]! edge do
         throwError "lift {e.id.raw}: {e.evidence} creates limits along a functor other than \
           {e.edge.label}"
-      let shapes := state.limits.filter (·.shape == shape)
+      let shapes := state.limits.filter fun l => !l.colimit && l.shape == shape
       if shapes.isEmpty then
         throwError "lift {e.id.raw}: no registered limit has the shape {shape}"
       for limit in shapes do
@@ -1888,16 +1890,16 @@ def validateRealizer (state : RegistryState) (e : RealizerEntry) : MetaM Unit :=
     unless ← withTransparency .all <| isDefEq witnessType.appArg! (mkAppN denotation #[]) do
       throwError "realizer {e.id.raw}: {witness} is not about its denotation"
 
-/-- A limit row names a family of Mathlib `LimitCone`s of diagrams in its registered category. -/
+/-- A limit row names a family of Mathlib `LimitCone`s (a colimit row, of `ColimitCocone`s) of
+diagrams in its registered category. -/
 def validateLimit (state : RegistryState) (e : LimitEntry) : MetaM Unit := do
   let some category := state.categories.find? (·.id == e.category)
     | throwError "limit {e.id.raw} names an unregistered category {e.category.raw}"
+  discard <| limitShapeIndex e
   let declaration ← mkConstWithFreshMVarLevels e.declaration
   let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
   let type ← whnfR type
-  unless type.isAppOf ``CategoryTheory.Limits.LimitCone do
-    throwError "limit {e.id.raw}: {e.declaration} is not a family of limit cones"
-  -- `LimitCone (F : J ⥤ C)`: the diagram lands in the registered category.
+  -- `LimitCone (F : J ⥤ C)`, `ColimitCocone (F : J ⥤ C)`: the diagram lands in the category.
   let diagramType ← whnf (← inferType type.appArg!)
   unless ← withTransparency .all <| isDefEq diagramType.getAppArgs[2]!
       (← categoryCarrierInstance category) do
@@ -2608,6 +2610,7 @@ structure RegistryManifestLimit where
   category : String
   shape : String
   declaration : String
+  colimit : Bool
   deriving BEq, Repr, ToJson, FromJson
 
 structure RegistryManifestLimitRealization where
@@ -2836,7 +2839,7 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       invertible := e.invertible }
     limits := (state.limits.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, category := e.category.raw, shape := e.shape,
-      declaration := e.declaration.toString }
+      declaration := e.declaration.toString, colimit := e.colimit }
     limitRealizations := (state.limitRealizations.qsort (fun a b => a.id.raw < b.id.raw)).map
       fun e => { id := e.id.raw, limit := e.limit.raw, realizer := e.realizer.raw,
                  realization := e.realization.toString, lift := e.lift.map (·.raw) }

@@ -128,4 +128,55 @@ noncomputable def realizedLimitConeOfAdj (hd : d.FullyFaithful) {L : (J ⥤ C) �
   realizedLimitCone hd ⟨coneOfAdj adj (D ⋙ d), isLimitConeOfAdj adj (D ⋙ d)⟩ (aL.obj D)
     (aL.objIso D)
 
+/-! ### Colimits (the dual)
+
+Mathlib's precedent for the morphism rule is `TopCat.isColimitCoconeOfForget`: the descent below,
+made a continuous map by a proof. -/
+
+/-- A colimit cocone of `G`, transported to a diagram `F ≅ G` (`IsColimit.precomposeHomEquiv`). -/
+def colimitCoconeOfIso {F G : J ⥤ C} (α : F ≅ G) (L : ColimitCocone G) : ColimitCocone F :=
+  ⟨(Cocone.precompose α.hom).obj L.cocone,
+    (IsColimit.precomposeHomEquiv α L.cocone).symm L.isColimit⟩
+
+/-- A colimit returned along a faithful functor `F` (the dual of `realizedLiftedLimitCone`): the
+coprojections and every descent are the ones below, lifted by the morphism rule; reflection proves
+that the descents below are morphisms above. -/
+def realizedLiftedColimitCocone {E : Type*} [Category E] {F : R ⥤ E} [F.Faithful]
+    [ReflectsColimit D F] (rule : MorphismRule F) (L : ColimitCocone (D ⋙ F)) (a : R)
+    (φ : F.obj a ≅ L.cocone.pt)
+    (legs : ∀ j, ∃ f : D.obj j ⟶ a, F.map f = L.cocone.ι.app j ≫ φ.inv) : ColimitCocone D :=
+  let c : Cocone D :=
+    { pt := a
+      ι :=
+        { app := fun j => rule.lift _ (legs j)
+          naturality := fun j k f => by
+            apply F.map_injective
+            simp only [Functor.const_obj_obj, Functor.const_obj_map, Category.comp_id,
+              Functor.map_comp, rule.map_lift]
+            rw [← Category.assoc, ← Functor.comp_map, L.cocone.w f] } }
+  have hc : IsColimit (F.mapCocone c) :=
+    IsColimit.ofIsoColimit L.isColimit (Cocone.ext φ.symm fun j => by simp [c, rule.map_lift])
+  ⟨c, IsColimit.ofFaithful F hc
+    (fun s => rule.lift (hc.desc (F.mapCocone s))
+      ⟨(isColimitOfReflects F hc).desc s, hc.uniq (F.mapCocone s) _ fun j => by
+        simp only [Functor.mapCocone_ι_app, ← F.map_comp, (isColimitOfReflects F hc).fac]⟩)
+    fun _ => rule.map_lift _ _⟩
+
+/-- The coprojections of a lifted colimit lie over those of `L`. -/
+theorem realizedLiftedColimitCocone_leg {E : Type*} [Category E] {F : R ⥤ E} [F.Faithful]
+    [ReflectsColimit D F] (rule : MorphismRule F) (L : ColimitCocone (D ⋙ F)) (a : R)
+    (φ : F.obj a ≅ L.cocone.pt)
+    (legs : ∀ j, ∃ f : D.obj j ⟶ a, F.map f = L.cocone.ι.app j ≫ φ.inv) (j : J) :
+    F.map (show D.obj j ⟶ a from (realizedLiftedColimitCocone rule L a φ legs).cocone.ι.app j) =
+      L.cocone.ι.app j ≫ φ.inv :=
+  rule.map_lift _ _
+
+/-- The realized colimit over a fully faithful realization: the backend presents the apex. -/
+def realizedColimitCocone (hd : d.FullyFaithful) (L : ColimitCocone (D ⋙ d)) (a : R)
+    (φ : d.obj a ≅ L.cocone.pt) : ColimitCocone D :=
+  haveI := hd.faithful
+  haveI := hd.full
+  realizedLiftedColimitCocone (MorphismRule.ofFullyFaithful hd) L a φ fun _ =>
+    ⟨hd.preimage _, hd.map_preimage _⟩
+
 end CasCatalogue

@@ -10,6 +10,7 @@ public import CasAcceptance.BackendProbes
 public import CasAcceptance.CellProbes
 public import CasAcceptance.ClosureProbes
 public import CasAcceptance.CohereExecProbes
+public import CasAcceptance.ColimitProbes
 public import CasAcceptance.CohereProbes
 public import CasAcceptance.FibrationRegistryProbes
 public import CasAcceptance.ImmediateProbes
