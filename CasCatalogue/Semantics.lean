@@ -4,23 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Action
-public import CasCatalogue.Adapter
-public import CasCatalogue.Constructors
-public import CasCatalogue.Decide
-public import CasCatalogue.FamilyFibration
-public import CasCatalogue.Id
-public import CasCatalogue.Interpretation
-public import CasCatalogue.Leaf
-public import CasCatalogue.Lift
-public import CasCatalogue.Memo
-public import CasCatalogue.Realization
-public import CasCatalogue.Registry.Entry
-public import CasCatalogue.Registry.Extension
-public import CasCatalogue.Registry.Typed
-public import CasCatalogue.Resolve
-public import CasCatalogue.ResolveSyntax
-public import CasCatalogue.Semantics
 public import CasCatalogue.Semantics.Algebra.Catalogue
 public import CasCatalogue.Semantics.Algebra.Catalogue.Magmas
 public import CasCatalogue.Semantics.Algebra.Catalogue.Rings
@@ -57,5 +40,3 @@ public import CasCatalogue.Semantics.Modules.Quadratic.Valued.CatalogueRegistrat
 public import CasCatalogue.Semantics.Modules.Quadratic.Valued.Expressions
 public import CasCatalogue.Semantics.Modules.Rank
 public import CasCatalogue.Semantics.QuadFibrationRegistration
-public import CasCatalogue.Syntax
-public import CasCatalogue.Trust

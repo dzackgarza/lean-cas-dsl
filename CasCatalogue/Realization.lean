@@ -128,58 +128,77 @@ noncomputable def CategoryFamilyRealization.canonicalDiscreteDomainTransport
   discreteFamilyTransport.{uObj, uHom, uParam + 1}
     (fun parameter => realization.fibre ⟨parameter⟩)
 
-/- Typed evidence for one exact family application. -/
-opaque CategoryFamilyParameterQuotation (schema : CategoryFamilySchema)
-    (arguments : Array ParameterExpr) {P : Type uParameterType} (parameter : P) : Prop
+/-- Evidence that `arguments` is a well-sorted symbolic argument list for `schema`
+(`CategoryFamilySchema.parameterArgsValid`), attached to the parameter a fibre is taken at.
+
+The fibre's category is fixed by the witness's `parameter` and checked by its `category_eq`;
+the quotation checks the symbolic side only. In particular the label
+`apply3 tensorProduct r s w` is checked to be well-sorted (`w` a module over `r`, the result a
+module over `s`), not to name the supplied base-change parameter. -/
+def CategoryFamilyParameterQuotation (schema : CategoryFamilySchema)
+    (arguments : Array ParameterExpr) {P : Type uParameterType} (_parameter : P) : Prop :=
+  CategoryFamilySchema.parameterArgsValid arguments schema = true
 
 namespace CategoryFamilyParameterQuotation
 
-axiom ringR (R : RingCat.{u}) :
-    CategoryFamilyParameterQuotation .ring #[.variable ParameterId.r] R
-axiom ringS (S : RingCat.{u}) :
-    CategoryFamilyParameterQuotation .ring #[.variable ParameterId.s] S
-axiom commRingR (R : CommRingCat.{u}) :
+theorem ringR (R : RingCat.{u}) :
+    CategoryFamilyParameterQuotation .ring #[.variable ParameterId.r] R := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem ringS (S : RingCat.{u}) :
+    CategoryFamilyParameterQuotation .ring #[.variable ParameterId.s] S := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingR (R : CommRingCat.{u}) :
     CategoryFamilyParameterQuotation .commRing #[.variable ParameterId.r]
-      (Discrete.mk R : Discrete (CommRingCat.{u}))
-axiom commRingS (S : CommRingCat.{u}) :
+      (Discrete.mk R : Discrete (CommRingCat.{u})) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingS (S : CommRingCat.{u}) :
     CategoryFamilyParameterQuotation .commRing #[.variable ParameterId.s]
-      (Discrete.mk S : Discrete (CommRingCat.{u}))
-axiom commRingModuleRW (R : CommRingCat.{u}) (W : ModuleCat.{u} R) :
+      (Discrete.mk S : Discrete (CommRingCat.{u})) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingModuleRW (R : CommRingCat.{u}) (W : ModuleCat.{u} R) :
     CategoryFamilyParameterQuotation .commRingModule
       #[.variable ParameterId.r, .variable ParameterId.w]
-      (Discrete.mk (⟨R, W⟩ : Σ R : CommRingCat.{u}, ModuleCat.{u} R))
-axiom commRingModuleSW (S : CommRingCat.{u}) (W : ModuleCat.{u} S) :
+      (Discrete.mk (⟨R, W⟩ : Σ R : CommRingCat.{u}, ModuleCat.{u} R)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingModuleSW (S : CommRingCat.{u}) (W : ModuleCat.{u} S) :
     CategoryFamilyParameterQuotation .commRingModule
       #[.variable ParameterId.s, .variable ParameterId.w]
-      (Discrete.mk (⟨S, W⟩ : Σ S : CommRingCat.{u}, ModuleCat.{u} S))
-axiom commRingModuleRWPrime (R : CommRingCat.{u}) (W : ModuleCat.{u} R) :
+      (Discrete.mk (⟨S, W⟩ : Σ S : CommRingCat.{u}, ModuleCat.{u} S)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingModuleRWPrime (R : CommRingCat.{u}) (W : ModuleCat.{u} R) :
     CategoryFamilyParameterQuotation .commRingModule
       #[.variable ParameterId.r, .variable ParameterId.wPrime]
-      (Discrete.mk (⟨R, W⟩ : Σ R : CommRingCat.{u}, ModuleCat.{u} R))
-axiom commRingModuleSWPrime (S : CommRingCat.{u}) (W : ModuleCat.{u} S) :
+      (Discrete.mk (⟨R, W⟩ : Σ R : CommRingCat.{u}, ModuleCat.{u} R)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingModuleSWPrime (S : CommRingCat.{u}) (W : ModuleCat.{u} S) :
     CategoryFamilyParameterQuotation .commRingModule
       #[.variable ParameterId.s, .variable ParameterId.wPrime]
-      (Discrete.mk (⟨S, W⟩ : Σ S : CommRingCat.{u}, ModuleCat.{u} S))
-axiom commRingModuleTensorProduct (R S W : Type u) [CommRing R] [CommRing S]
+      (Discrete.mk (⟨S, W⟩ : Σ S : CommRingCat.{u}, ModuleCat.{u} S)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingModuleTensorProduct (R S W : Type u) [CommRing R] [CommRing S]
     [Algebra R S] [AddCommGroup W] [Module R W] :
     CategoryFamilyParameterQuotation .commRingModule
       #[.variable ParameterId.s,
         .apply3 ParameterOperationId.tensorProduct
           (.variable ParameterId.r) (.variable ParameterId.s) (.variable ParameterId.w)]
       (Discrete.mk (⟨CommRingCat.of S, ModuleCat.of S (TensorProduct R S W)⟩ :
-        Σ S : CommRingCat.{u}, ModuleCat.{u} S))
-axiom commRingNat (R : CommRingCat.{u}) (n : Nat) :
+        Σ S : CommRingCat.{u}, ModuleCat.{u} S)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingNat (R : CommRingCat.{u}) (n : Nat) :
     CategoryFamilyParameterQuotation .commRingNat
       #[.variable ParameterId.r, .variable ParameterId.n]
-      (Discrete.mk (⟨R, n⟩ : Σ _R : CommRingCat.{u}, Nat))
-axiom commRingIndexTypeRI (R : CommRingCat.{u}) (I : Type v) :
+      (Discrete.mk (⟨R, n⟩ : Σ _R : CommRingCat.{u}, Nat)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem commRingIndexTypeRI (R : CommRingCat.{u}) (I : Type v) :
     CategoryFamilyParameterQuotation .commRingIndexType
       #[.variable ParameterId.r, .variable ParameterId.i]
-      (Discrete.mk (⟨R, I⟩ : Σ _R : CommRingCat.{u}, Type v))
-axiom domain (R : CommRingCat.{u}) (hR : IsDomain R) :
+      (Discrete.mk (⟨R, I⟩ : Σ _R : CommRingCat.{u}, Type v)) := by
+  unfold CategoryFamilyParameterQuotation; decide
+theorem domain (R : CommRingCat.{u}) (hR : IsDomain R) :
     CategoryFamilyParameterQuotation .domain
       #[.variable ParameterId.r, .variable ParameterId.domain]
-      (Discrete.mk (⟨R, hR⟩ : PSigma fun _R : CommRingCat.{u} => IsDomain _R))
+      (Discrete.mk (⟨R, hR⟩ : PSigma fun _R : CommRingCat.{u} => IsDomain _R)) := by
+  unfold CategoryFamilyParameterQuotation; decide
 
 end CategoryFamilyParameterQuotation
 structure CategoryFamilyFibreWitness (category : ObjCat.{uObj, uHom})

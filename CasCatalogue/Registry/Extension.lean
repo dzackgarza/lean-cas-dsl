@@ -1977,8 +1977,45 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
         unless (← whnf actionResult).isAppOf ``CategoryTheory.Functor do
           throwError "constructor {e.id.raw}: its action {action} does not return a functor"
 
+/-! ### Who may write the registry (CC-ADAPTER, CC-SEP)
+
+Semantics — categories, functors, classifiers, methods, properties, comparisons, lifts, families,
+fibrations, constructors — are registered only by the core library (`CasCatalogue`) and its
+acceptance probes (`CasAcceptance`). A backend leaf (`CasLeaves`) contributes only realizers,
+actions, implementations, deciders and isomorphisms of realized objects, only through
+`register_leaf`, and imports only the leaf API `CasCatalogue.Leaf`, the registered semantics
+(`CasCatalogue.Semantics.*`), other leaves, Mathlib and `lean-categories`. The module a row is written in is read from the environment, so the rule
+holds whatever path the row takes. -/
+
+/-- The library roots that author semantics: the core and its acceptance probes. -/
+def semanticAuthorRoots : List Name := [`CasCatalogue, `CasAcceptance]
+
+/-- The library root of backend leaves. -/
+def leafRoot : Name := `CasLeaves
+
+/-- The leaf API: the one core module a leaf imports. -/
+def leafApiModule : Name := `CasCatalogue.Leaf
+
+/-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
+def RegistryEntry.isLeafContribution : RegistryEntry → Bool
+  | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _ => true
+  | _ => false
+
+/-- The registered semantics a leaf realizes; public to leaves. -/
+def semanticsRoot : Name := `CasCatalogue.Semantics
+
+/-- A direct import a leaf module may have: the leaf API, the registered semantics, other leaves,
+and the mathematics. Every other kernel module is internal. -/
+def leafImportAllowed (module : Name) : Bool :=
+  module == leafApiModule ||
+    [semanticsRoot, leafRoot, `Mathlib, `LeanCategories, `Init].any (·.isPrefixOf module)
+
+/-- The direct imports of a leaf module that it may not have. -/
+def leafImportViolations (imports : Array Name) : Array Name :=
+  imports.filter (!leafImportAllowed ·)
+
 /- Validate the elaborated declaration and persist exactly one registry entry. -/
-def addRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
+private def persistRegistryEntry (entry : RegistryEntry) : MetaM Unit := do
   validateRegistryEntryDeclaration entry
   let env ← getEnv
   let state := registryExt.getState env
@@ -2034,6 +2071,56 @@ def addRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
     if (env.find? declaration).isNone then
       throwError "registry entry {entry.stableId} refers to unknown declaration {declaration}"
   modifyEnv (registryExt.addEntry · entry)
+
+/-- Register one semantic row. Only the core library and its acceptance probes may. -/
+def addRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
+  let module := (← getEnv).mainModule
+  unless semanticAuthorRoots.contains module.getRoot do
+    throwError "registry row {entry.stableId}: {module} is not in the core library; semantics are \
+      registered only by `CasCatalogue`, and a backend leaf contributes through `register_leaf`"
+  persistRegistryEntry entry
+
+/-- Register one row of a backend leaf: a permitted contribution, written in a leaf module (or an
+acceptance probe) whose direct imports are the leaf API, other leaves and the mathematics. -/
+def addLeafRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
+  let env ← getEnv
+  let module := env.mainModule
+  let root := module.getRoot
+  unless root == leafRoot || semanticAuthorRoots.contains root do
+    throwError "leaf row {entry.stableId}: {module} is neither a leaf nor a core module"
+  unless entry.isLeafContribution do
+    throwError "leaf row {entry.stableId}: a backend leaf contributes only realizers, actions, \
+      implementations, deciders and isomorphisms (spec §5)"
+  if root == leafRoot then
+    let bad := leafImportViolations (env.header.imports.map (·.module))
+    unless bad.isEmpty do
+      throwError "leaf module {module} imports core-internal modules {bad.toList}; a leaf \
+        imports only {leafApiModule}, {semanticsRoot}.*, other leaves, Mathlib and lean-categories"
+  persistRegistryEntry entry
+
+/-- Every registry row, grouped by the imported module that wrote it. -/
+def registryRowsByModule (env : Environment) : Array (Name × Array RegistryEntry) :=
+  env.header.moduleNames.mapIdx fun index module =>
+    (module, registryExt.getModuleEntries env index)
+
+/-- Violations of the leaf boundary among the imported modules: a leaf module with a forbidden
+direct import or a non-leaf row, and a row written outside the core, its probes and the leaves. -/
+def leafBoundaryViolations (env : Environment) : Array String := Id.run do
+  let mut violations := #[]
+  for (module, rows) in registryRowsByModule env do
+    let root := module.getRoot
+    if root == leafRoot then
+      if let some index := env.getModuleIdx? module then
+        let imports := env.header.moduleData[index.toNat]!.imports.map (·.module)
+        for bad in leafImportViolations imports do
+          violations := violations.push s!"{module} imports {bad}"
+      for row in rows do
+        unless row.isLeafContribution do
+          violations := violations.push s!"{module} registers the semantic row {row.stableId}"
+    else if !semanticAuthorRoots.contains root then
+      for row in rows do
+        violations := violations.push s!"{module} (outside the core) registers {row.stableId}"
+  return violations
 
 /--
 Atomically elaborate and register one authored registry declaration.

@@ -29,10 +29,11 @@ lean_lib CasDsl where
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
 
-/-- The semantic registry: symbolic category and functor expressions, their checked
-denotations in `lean-categories`, and the normalized registry with its exporter. It keeps
-`lean-categories`' elaboration options, which its registration rows rely on. Its glob includes
-every acceptance probe (`*Probes.lean`), so building it runs them. -/
+/-- The core: the kernel (symbolic category and functor expressions, the registry, resolution,
+realization and decision machinery, the leaf contract) and the semantic registry
+(`CasCatalogue.Semantics`: categories, functors, classifiers and operations registered from
+`lean-categories`). Only this library and `CasAcceptance` may register semantics. It keeps
+`lean-categories`' elaboration options, which its registration rows rely on. -/
 @[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]
@@ -42,15 +43,39 @@ lean_lib CasCatalogue where
     ⟨`weak.linter.style.header, false⟩,
     ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
 
+/-- Backend leaves. Each leaf imports only the leaf API `CasCatalogue.Leaf`, other leaves, Mathlib
+and `lean-categories`, and contributes only through `register_leaf` (CC-ADAPTER, spec §5). -/
+lean_lib CasLeaves where
+  globs := #[.andSubmodules `CasLeaves]
+  leanOptions := #[
+    ⟨`relaxedAutoImplicit, false⟩,
+    ⟨`weak.linter.mathlibStandardSet, true⟩,
+    ⟨`weak.linter.style.header, false⟩,
+    ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
+
+/-- Acceptance probes of the core over the standard universe (semantics and leaves); building
+the library runs them. -/
+lean_lib CasAcceptance where
+  globs := #[.andSubmodules `CasAcceptance]
+  leanOptions := #[
+    ⟨`relaxedAutoImplicit, false⟩,
+    ⟨`weak.linter.mathlibStandardSet, true⟩,
+    ⟨`weak.linter.style.header, false⟩,
+    ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
+
+/-- The registry exporter and the axiom audit. -/
+lean_lib CasTools where
+  globs := #[.submodules `CasTools]
+
 /-- Export the normalized registry manifest as JSON. -/
 lean_exe «cas-registry-export» where
-  root := `CasCatalogue.Tools.ExportMain
+  root := `CasTools.ExportMain
   supportInterpreter := true
 
-/-- Kernel-axiom audit of the registry; the audit runs while `CasCatalogue.Tools.AxiomAudit`
-elaborates. -/
+/-- Kernel-axiom audit of the core, the leaves and the probes; the audit runs while
+`CasTools.AxiomAudit` elaborates. -/
 lean_exe «cas-axiom-audit» where
-  root := `CasCatalogue.Tools.AxiomAuditMain
+  root := `CasTools.AxiomAuditMain
   supportInterpreter := true
 
 /-- Elaboration-time tests (`#guard` + `run_cmd` assertions); not part of

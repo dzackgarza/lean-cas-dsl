@@ -110,10 +110,17 @@ def LeafContract.check (contract : LeafContract) : MetaM (Array RegistryEntry) :
     entries := entries.push entry
   return entries
 
-/-- Check a leaf contract, then register its rows. -/
+/-- Check a leaf contract, then register its rows: all of them or none. The rows are first
+registered in a discarded environment, so a row may depend on an earlier one of the same contract
+(an isomorphism of a realizer's handles), and a failure registers nothing. -/
 def registerLeaf (contract : LeafContract) : MetaM Unit := do
-  for entry in ← contract.check do
-    addRegistryEntryChecked entry
+  for contribution in contract.contributions do
+    if let some rule := contribution.violation then
+      throwError "leaf {contract.backend}: {rule}"
+  let entries := contract.contributions.filterMap (·.entry?)
+  withoutModifyingEnv do
+    for entry in entries do addLeafRegistryEntryChecked entry
+  for entry in entries do addLeafRegistryEntryChecked entry
 
 /--
 `register_leaf { backend := "sage", contributions := [ … ] }` registers a backend leaf's
