@@ -179,4 +179,12 @@ def realizedColimitCocone (hd : d.FullyFaithful) (L : ColimitCocone (D ⋙ d)) (
   realizedLiftedColimitCocone (MorphismRule.ofFullyFaithful hd) L a φ fun _ =>
     ⟨hd.preimage _, hd.map_preimage _⟩
 
+/-- The denotation of a coprojection of the realized colimit is the coprojection of `L` followed by
+`φ⁻¹`. -/
+theorem realizedColimitCocone_leg (hd : d.FullyFaithful) (L : ColimitCocone (D ⋙ d)) (a : R)
+    (φ : d.obj a ≅ L.cocone.pt) (j : J) :
+    d.map (show D.obj j ⟶ a from (realizedColimitCocone hd L a φ).cocone.ι.app j) =
+      L.cocone.ι.app j ≫ φ.inv :=
+  hd.map_preimage _
+
 end CasCatalogue

@@ -27,5 +27,6 @@ public import CasLeaves.Modules.Actions
 public import CasLeaves.Modules.Bilinear.Valued.Actions
 public import CasLeaves.Modules.Bilinear.Valued.Forms
 public import CasLeaves.Modules.Bilinear.Valued.Fused
+public import CasLeaves.Modules.Bilinear.Valued.WForms
 public import CasLeaves.Modules.Finite
 public import CasLeaves.Modules.Rank

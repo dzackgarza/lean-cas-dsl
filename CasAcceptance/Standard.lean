@@ -256,7 +256,8 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
   ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
   ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩,
-  ⟨"rz.finite_sets.refined"⟩, ⟨"rz.bilin_module.form"⟩, ⟨"rz.lattice.form_refined"⟩]
+  ⟨"rz.finite_sets.refined"⟩, ⟨"rz.bilin_module.form"⟩, ⟨"rz.lattice.form_refined"⟩,
+  ⟨"rz.bil_wform.presented"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[
@@ -272,7 +273,8 @@ def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.gro
   ⟨"colim.sets.coproduct"⟩, ⟨"colim.bil_w_form.cokernel"⟩]
 def expectedLimitRealizationIds : Array LimitRealizationId :=
   #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
-    ⟨"limr.finite_sets.pullback.returned"⟩, ⟨"colimr.sets.coproduct.finite"⟩]
+    ⟨"limr.finite_sets.pullback.returned"⟩, ⟨"colimr.sets.coproduct.finite"⟩,
+    ⟨"colimr.bil_w_form.cokernel.presented"⟩]
 
 /-- Stable backend operation rows (CC-ADAPTER). -/
 def expectedBackendOperationIds : Array BackendOperationId := #[⟨"bop.gap.groups.kernel"⟩]
