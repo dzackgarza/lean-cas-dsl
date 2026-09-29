@@ -6,6 +6,8 @@ module
 
 public import CasCatalogue.Action
 public import CasCatalogue.Adapter
+public import CasCatalogue.CellCall
+public import CasCatalogue.CellSyntax
 public import CasCatalogue.Constructors
 public import CasCatalogue.Decide
 public import CasCatalogue.FamilyFibration
@@ -39,6 +41,7 @@ public import CasCatalogue.Semantics.Foundation.Cardinality
 public import CasCatalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.Semantics.Foundation.CatalogueRegistration
 public import CasCatalogue.Semantics.Foundation.Expressions
+public import CasCatalogue.Semantics.Foundation.Lists
 public import CasCatalogue.Semantics.Foundation.Subsets
 public import CasCatalogue.Semantics.LatticeRefinements
 public import CasCatalogue.Semantics.Lattices.Valued.Catalogue

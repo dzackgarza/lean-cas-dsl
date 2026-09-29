@@ -8,6 +8,7 @@ public import Mathlib.CategoryTheory.CatCommSq
 public import Mathlib.CategoryTheory.EqToHom
 public import Mathlib.CategoryTheory.InducedCategory
 public import Mathlib.CategoryTheory.Discrete.Basic
+public import Mathlib.CategoryTheory.Whiskering
 
 @[expose] public section
 
@@ -103,5 +104,44 @@ def discrete {A : Type w} (dC : Discrete A ⥤ C) (o : A → RD)
   ⟨Discrete.functor o, ⟨Discrete.natIso fun a => eqToIso (h a.as)⟩⟩
 
 end RealizedAction
+
+/-! ### Cells on realizations
+
+A natural transformation `α : F ⟶ G` is realized, over a fully faithful realization of its
+target, by the unique natural transformation of handle functors whose denotation is `α`
+conjugated by the two squares: the preimage under `Functor.FullyFaithful.whiskeringRight`
+(Mathlib). Its components are morphism handles, computed as preimages (for an induced realization,
+`InducedCategory.homMk`). Composition, whiskering and inverses of cells are Mathlib's, and the
+realization respects them because the preimage does. -/
+
+section Cells
+
+variable {C : Type u} [Category.{v} C] {D : Type u'} [Category.{v'} D]
+  {RC : Type w} [Category.{x} RC] {RD : Type w'} [Category.{x'} RD]
+  {dC : RC ⥤ C} {dD : RD ⥤ D} {F G H : C ⥤ D}
+
+/-- The realization of `α : F ⟶ G` between realized actions of `F` and `G`. -/
+def realizedCell (hD : dD.FullyFaithful) (aF : RealizedAction F dC dD)
+    (aG : RealizedAction G dC dD) (α : F ⟶ G) : aF.action ⟶ aG.action :=
+  (hD.whiskeringRight RC).preimage
+    (aF.square.iso.hom ≫ Functor.whiskerLeft dC α ≫ aG.square.iso.inv)
+
+theorem realizedCell_id (hD : dD.FullyFaithful) (aF : RealizedAction F dC dD) :
+    realizedCell hD aF aF (𝟙 F) = 𝟙 aF.action := by
+  apply (hD.whiskeringRight RC).map_injective
+  rw [realizedCell, Functor.FullyFaithful.map_preimage, Functor.map_id]
+  simp
+
+theorem realizedCell_comp (hD : dD.FullyFaithful) (aF : RealizedAction F dC dD)
+    (aG : RealizedAction G dC dD) (aH : RealizedAction H dC dD) (α : F ⟶ G) (β : G ⟶ H) :
+    realizedCell hD aF aH (α ≫ β) = realizedCell hD aF aG α ≫ realizedCell hD aG aH β := by
+  apply (hD.whiskeringRight RC).map_injective
+  rw [Functor.map_comp, realizedCell, realizedCell, realizedCell,
+    Functor.FullyFaithful.map_preimage, Functor.FullyFaithful.map_preimage,
+    Functor.FullyFaithful.map_preimage]
+  ext a
+  simp
+
+end Cells
 
 end CasCatalogue

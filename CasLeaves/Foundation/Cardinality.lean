@@ -65,28 +65,62 @@ def cardinalityOf : SetHandle → CardinalHandle
   | .zmodPow _ 0 => .finite 1
   | .zmodPow 0 (_ + 1) => .aleph0
   | .zmodPow (n + 1) k => .finite ((n + 1) ^ k)
+  | .list a => match cardinalityOf a with
+    | .finite 0 => .finite 1
+    | _ => .aleph0
+
+/-- Every presented set is countable. -/
+theorem _root_.CasCatalogue.Foundation.Actions.SetHandle.countable :
+    ∀ a : SetHandle, Countable a.carrier
+  | .intPow _ | .finite _ => inferInstance
+  | .zmod 0 => inferInstanceAs (Countable ℤ)
+  | .zmod (_ + 1) => inferInstance
+  | .zmodPow 0 _ => inferInstanceAs (Countable (Fin _ → ℤ))
+  | .zmodPow (_ + 1) _ => inferInstance
+  | .list a => haveI := a.countable; inferInstanceAs (Countable (List a.carrier))
 
 theorem CardinalHandle.denote_injective : Function.Injective CardinalHandle.denote := by
   rintro (m | _) (n | _) h <;> simp only [CardinalHandle.denote] at h
   · exact congrArg _ (Nat.cast_injective h)
-  · exact absurd h (Cardinal.nat_lt_aleph0 m).ne
-  · exact absurd h.symm (Cardinal.nat_lt_aleph0 n).ne
+  · exact absurd h (Cardinal.natCast_lt_aleph0 (n := m)).ne
+  · exact absurd h.symm (Cardinal.natCast_lt_aleph0 (n := n)).ne
   · rfl
 
-theorem cardinalityOf_denote (a : SetHandle) :
-    (cardinalityOf a).denote = Cardinal.mk a.carrier := by
-  rcases a with ⟨_ | n⟩ | n | ⟨_ | n⟩ | ⟨n, _ | k⟩
-  · simp [cardinalityOf, CardinalHandle.denote]
-  · exact (Cardinal.mk_eq_aleph0 (Fin (n + 1) → ℤ)).symm
-  · simp [cardinalityOf, CardinalHandle.denote]
-  · exact (Cardinal.mk_eq_aleph0 ℤ).symm
-  · simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
-  · simp [cardinalityOf, CardinalHandle.denote]
-  · rcases n with _ | n
-    · exact (Cardinal.mk_eq_aleph0 (Fin (k + 1) → ℤ)).symm
-    · simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
+theorem cardinalityOf_denote : ∀ a : SetHandle,
+    (cardinalityOf a).denote = Cardinal.mk a.carrier
+  | .intPow 0 => by simp [cardinalityOf, CardinalHandle.denote]
+  | .intPow (n + 1) => (Cardinal.mk_eq_aleph0 (Fin (n + 1) → ℤ)).symm
+  | .finite n => by simp [cardinalityOf, CardinalHandle.denote]
+  | .zmod 0 => (Cardinal.mk_eq_aleph0 ℤ).symm
+  | .zmod (n + 1) => by simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
+  | .zmodPow n 0 => by simp [cardinalityOf, CardinalHandle.denote]
+  | .zmodPow 0 (k + 1) => (Cardinal.mk_eq_aleph0 (Fin (k + 1) → ℤ)).symm
+  | .zmodPow (n + 1) (k + 1) => by
+      simp [cardinalityOf, CardinalHandle.denote, SetHandle.carrier, ZMod.card]
+  | .list a => by
+      haveI := a.countable
+      have ha := cardinalityOf_denote a
+      rcases h : cardinalityOf a with (_ | n) | _
+      · -- the empty set: its only list is `[]`
+        rw [h] at ha
+        haveI : IsEmpty a.carrier := Cardinal.mk_eq_zero_iff.mp (by simpa [CardinalHandle.denote]
+          using ha.symm)
+        haveI : Unique (List a.carrier) := ⟨⟨[]⟩, fun l => by cases l with
+          | nil => rfl
+          | cons x _ => exact isEmptyElim x⟩
+        have : Cardinal.mk (List a.carrier) = 1 := Cardinal.mk_eq_one _
+        simp [cardinalityOf, h, CardinalHandle.denote, SetHandle.carrier, this]
+      · rw [h] at ha
+        haveI : Nonempty a.carrier := Cardinal.mk_ne_zero_iff.mp (by
+          rw [← ha]; simp [CardinalHandle.denote])
+        simp [cardinalityOf, h, CardinalHandle.denote, SetHandle.carrier,
+          Cardinal.mk_list_eq_aleph0]
+      · rw [h] at ha
+        haveI : Nonempty a.carrier := Cardinal.mk_ne_zero_iff.mp (by
+          rw [← ha]; exact Cardinal.aleph0_ne_zero)
+        simp [cardinalityOf, h, CardinalHandle.denote, SetHandle.carrier,
+          Cardinal.mk_list_eq_aleph0]
 
-/-- The cardinality action on presented sets. -/
 theorem cardinalityOf_iso {a b : SetHandles} (e : a ≅ b) : cardinalityOf a = cardinalityOf b :=
   CardinalHandle.denote_injective <| by
     rw [cardinalityOf_denote, cardinalityOf_denote]
@@ -116,7 +150,8 @@ register_leaf
     realization := `CasCatalogue.Foundation.Cardinality.cardinalityAction },
   .realizer
   { id := ⟨"rz.sets.presented"⟩, category := ⟨"cat.sets"⟩, backend := "lean"
-    denotation := `CasCatalogue.Foundation.Actions.setDenotation },
+    denotation := `CasCatalogue.Foundation.Actions.setDenotation
+    fullyFaithful := some `CasCatalogue.Foundation.Actions.setDenotationFullyFaithful },
   .realizer
   { id := ⟨"rz.core_sets.presented"⟩, category := ⟨"cat.core_sets"⟩, backend := "lean"
     denotation := `CasCatalogue.Foundation.Cardinality.coreSetDenotation },

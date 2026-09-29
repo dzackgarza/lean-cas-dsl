@@ -187,7 +187,8 @@ def expectedFunctorIds : Array FunctorId := #[
   FunctorId.arrowsModulesImage,
   FunctorId.subobjectsModulesForget,
   FunctorId.subobjectsModulesDomain,
-  FunctorId.subobjectsModulesRank]
+  FunctorId.subobjectsModulesRank,
+  FunctorId.setsList]
 
 /-- Stable fibration rows owned by the standard catalogue. -/
 def expectedFibrationIds : Array FibrationId := #[
@@ -223,7 +224,7 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.modules.fibre_inclusion.zmod_free"⟩,
   ⟨"act.modules.underlying.zmod_free"⟩,
   ⟨"act.sets.whole_subset.presented"⟩,
-  ⟨"act.subobjects_sets.domain.presented"⟩]
+  ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
@@ -249,6 +250,11 @@ def expectedRealizerIds : Array RealizerId := #[
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[
   ⟨"impl.bilin_module.cardinality.fused"⟩, ⟨"impl.bilin_module.cardinality.certified"⟩]
+
+/-- Stable cell rows owned by the standard catalogue (CC-CALC). -/
+def expectedCellIds : Array NaturalTransformationId := #[
+  NaturalTransformationId.listUnit, NaturalTransformationId.listJoin,
+  NaturalTransformationId.listReverse]
 
 /-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
 def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
@@ -323,6 +329,7 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedImplementationIds (·.raw))
   validateStableIdSet "isomorphisms" (manifest.handleIsos.map (·.id))
     (rawIds expectedHandleIsoIds (·.raw))
+  validateStableIdSet "cells" (manifest.cells.map (·.id)) (rawIds expectedCellIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"

@@ -20,14 +20,20 @@ Direct check: `Mathlib/CategoryTheory/CatCommSq.lean` (`CatCommSq T L R B`: an i
 - A realization of `C` is a category of handles `R_C` with a functor `d_C : R_C ⥤ C`.
 - A realized action of `F : C ⥤ D` is `a_F : R_C ⥤ R_D` with `CatCommSq a_F d_C d_D F`
   (`a_F ⋙ d_D ≅ d_C ⋙ F`). Composition of realized actions is Mathlib's pasting of `CatCommSq`.
-- A realized cell over `α : F ⟶ G` is a `NatTrans a_F ⟶ a_G` compatible with `α` through the two
-  squares; its composites are Mathlib's.
+- A realized cell over `α : F ⟶ G`, when the target denotation `d_D` is fully faithful, is the
+  preimage under `Functor.FullyFaithful.whiskeringRight` (Mathlib `Whiskering.lean`) of
+  `sq_F.hom ≫ (d_C ◁ α) ≫ sq_G.inv : a_F ⋙ d_D ⟶ a_G ⋙ d_D`: no leaf data, no new structure.
+  Induced realizations are fully faithful by `fullyFaithfulInducedFunctor`, whose preimage is
+  `InducedCategory.homMk`, so components compute.
+- The list functor and its cells: Mathlib `ofTypeMonad List` (unit, join); reversal from
+  `List.map_reverse`, `List.reverse_reverse` (lean-categories `Foundation/ListFunctor.lean`).
 - infinity-cosmos: not needed for 1-categories of handles; revisit if a node needs the homotopy
   2-category of an ∞-cosmos.
 
 ## New code, and why no dependency supplies it
-Only the registry rows (`cell`, `cellAction`), the typed lookup of registered squares, and the
-executable components (a leaf's functions on handles). Everything with categorical content is the
+The registry row `cell` (a registered `NatTrans` or `Iso` between registered functor expressions),
+its validation, the `cell%` elaborator composing registered cells with Mathlib's operations, and
+the realizer's named full-faithfulness witness. Everything with categorical content is the
 Mathlib term it names.
 
 ## Rejected

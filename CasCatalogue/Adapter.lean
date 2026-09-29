@@ -59,6 +59,8 @@ inductive LeafContribution
   | resultClass (name : String)
   /-- Generic subobject, kernel or image semantics. -/
   | genericSemantics (entry : LiftEntry)
+  /-- A natural transformation between registered functors: new semantics. -/
+  | naturalTransformation (entry : CellEntry)
 
 /-- The §5 rule a forbidden contribution violates, or `none` if it is permitted. -/
 def LeafContribution.violation : LeafContribution → Option String
@@ -83,6 +85,8 @@ def LeafContribution.violation : LeafContribution → Option String
       classes ({name}); results decode into the operation's semantic result type"
   | .genericSemantics e => some s!"§5: a backend leaf cannot define generic subgroup, kernel or \
       image semantics ({e.id.raw})"
+  | .naturalTransformation e => some s!"§5: a backend leaf cannot declare a natural \
+      transformation ({e.id.raw}); cells are registered from lean-categories"
 
 /-- The registry row of a permitted contribution. -/
 def LeafContribution.entry? : LeafContribution → Option RegistryEntry

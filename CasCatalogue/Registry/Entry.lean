@@ -98,6 +98,9 @@ structure RealizerEntry where
   category : CategoryId
   denotation : Lean.Name
   backend : String
+  /-- A `Functor.FullyFaithful` witness for the denotation, when it is fully faithful (an induced
+  realization): cells are then realized on it as preimages. -/
+  fullyFaithful : Option Lean.Name := none
   deriving Repr
 
 /-- A fused implementation row (CC-ROUTE, CC-TRUST): a backend realization of the whole composite
@@ -120,6 +123,20 @@ structure HandleIsoEntry where
   source : Lean.Name
   target : Lean.Name
   evidence : Lean.Name
+  deriving Repr
+
+/-- A cell row (CC-CALC): a natural transformation `declaration : L ⟶ R` (or, when `invertible`,
+a natural isomorphism `L ≅ R`) between the composites `L`, `R` of the registered functors along
+`left` and `right` (the identity of `source` when empty). The cell is Mathlib's; the row names it
+so that it can be composed, whiskered and realized. -/
+structure CellEntry where
+  id : NaturalTransformationId
+  source : CategoryExpr
+  target : CategoryExpr
+  left : Array EdgeRef
+  right : Array EdgeRef
+  declaration : Lean.Name
+  invertible : Bool := false
   deriving Repr
 
 /-- A comparison row (CC-COHERE): two structural routes `left` and `right` from `source` to

@@ -52,6 +52,7 @@ inductive RegistryEntry
   | realizer (e : RealizerEntry)
   | implementation (e : ImplementationEntry)
   | handleIso (e : HandleIsoEntry)
+  | cell (e : CellEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -72,6 +73,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .realizer e => e.id.raw
   | .implementation e => e.id.raw
   | .handleIso e => e.id.raw
+  | .cell e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -91,9 +93,10 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .property _ => #[]
   | .decider e => #[e.realization]
   | .lift e => #[e.evidence]
-  | .realizer e => #[e.denotation]
+  | .realizer e => #[e.denotation] ++ e.fullyFaithful.toArray
   | .implementation e => #[e.realization]
   | .handleIso e => #[e.source, e.target, e.evidence]
+  | .cell e => #[e.declaration]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -112,6 +115,7 @@ structure RegistryState where
   realizers : Array RealizerEntry := #[]
   implementations : Array ImplementationEntry := #[]
   handleIsos : Array HandleIsoEntry := #[]
+  cells : Array CellEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -366,6 +370,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .realizer e => { s with realizers := s.realizers.push e }
   | s, .implementation e => { s with implementations := s.implementations.push e }
   | s, .handleIso e => { s with handleIsos := s.handleIsos.push e }
+  | s, .cell e => { s with cells := s.cells.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -383,7 +388,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.lifts.toList.map RegistryEntry.lift ++
     state.realizers.toList.map RegistryEntry.realizer ++
     state.implementations.toList.map RegistryEntry.implementation ++
-    state.handleIsos.toList.map RegistryEntry.handleIso
+    state.handleIsos.toList.map RegistryEntry.handleIso ++
+    state.cells.toList.map RegistryEntry.cell
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -565,6 +571,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for comparison in state.comparisons do
     unless (comparison.left ++ comparison.right).all (·.isRegisteredIn state) do
       throw s!"comparison entry {comparison.id.raw} names an unregistered route step"
+  for cell in state.cells do
+    unless (cell.left ++ cell.right).all (·.isRegisteredIn state) do
+      throw s!"cell entry {cell.id.raw} names an unregistered functor"
   for property in state.properties do
     unless (state.classifier? property.classifier).isSome do
       throw s!"property entry {property.id.raw} names an unregistered classifier"
@@ -1827,6 +1836,58 @@ def validateRealizer (state : RegistryState) (e : RealizerEntry) : MetaM Unit :=
     throwError "realizer {e.id.raw}: {e.denotation} is not a denotation functor (handles ⥤ C)"
   unless ← withTransparency .all <| isDefEq type.getAppArgs[2]! (← categoryCarrierInstance category) do
     throwError "realizer {e.id.raw}: {e.denotation} does not denote into {e.category.raw}"
+  if let some witness := e.fullyFaithful then
+    let witnessType ← whnfR (← inferType (← mkConstWithFreshMVarLevels witness))
+    unless witnessType.isAppOf ``CategoryTheory.Functor.FullyFaithful do
+      throwError "realizer {e.id.raw}: {witness} is not a FullyFaithful witness"
+    unless ← withTransparency .all <| isDefEq witnessType.appArg! (mkAppN denotation #[]) do
+      throwError "realizer {e.id.raw}: {witness} is not about its denotation"
+
+/-- The identity functor on the source of the functor `F`. -/
+def identityOnSourceOf (F : Expr) : MetaM Expr := do
+  let type ← whnf (← inferType F)
+  let .const ``CategoryTheory.Functor [v₁, _, u₁, _] := type.getAppFn
+    | throwError "not a functor: {F}"
+  let #[C, instC, _, _] := type.getAppArgs | throwError "malformed functor type"
+  return mkAppN (mkConst ``CategoryTheory.Functor.id [v₁, u₁]) #[C, instC]
+
+/-- The Mathlib composites along `left` and `right`; an empty list is the identity of the source
+of the other side (a cell between two identities is not registered). -/
+def RegistryState.cellEndpoints (state : RegistryState) (left right : Array EdgeRef) :
+    MetaM (Expr × Expr) := do
+  match left.isEmpty, right.isEmpty with
+  | false, false => return (← state.routeFunctor left, ← state.routeFunctor right)
+  | true, false =>
+      let R ← state.routeFunctor right
+      return (← identityOnSourceOf R, R)
+  | false, true =>
+      let L ← state.routeFunctor left
+      return (L, ← identityOnSourceOf L)
+  | true, true => throwError "a cell between two identity functors is an endomorphism of 𝟭"
+
+/-- A cell row names a natural transformation (an isomorphism when invertible) between exactly
+the composites of its two lists of registered functors (CC-CALC). -/
+def validateCell (state : RegistryState) (e : CellEntry) : MetaM Unit := do
+  let (left, right) ← state.cellEndpoints e.left e.right
+  let declaration ← mkConstWithFreshMVarLevels e.declaration
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
+  let (actualLeft, actualRight) ← do
+    let type ← whnfR type
+    if type.isAppOfArity ``CategoryTheory.Iso 4 then
+      unless e.invertible do
+        throwError "cell {e.id.raw}: {e.declaration} is an isomorphism; register it invertible"
+      pure (type.getAppArgs[2]!, type.getAppArgs[3]!)
+    else
+      if e.invertible then
+        throwError "cell {e.id.raw}: an invertible cell is a natural isomorphism"
+      let type ← whnf type
+      unless type.isAppOfArity ``CategoryTheory.NatTrans 6 do
+        throwError "cell {e.id.raw}: {e.declaration} is not a natural transformation"
+      pure (type.getAppArgs[4]!, type.getAppArgs[5]!)
+  unless ← withTransparency .all <| isDefEq actualLeft left do
+    throwError "cell {e.id.raw}: its source functor is not the composite {renderSteps e.left}"
+  unless ← withTransparency .all <| isDefEq actualRight right do
+    throwError "cell {e.id.raw}: its target functor is not the composite {renderSteps e.right}"
 
 /-- A fused implementation must be typed by exactly the semantic composite it claims: its route
 functor is the route's composite and its method functor the method's (CC-ROUTE). With no proof it
@@ -1964,6 +2025,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .realizer e => validateRealizer state e
   | .implementation e => validateImplementation state e
   | .handleIso e => validateHandleIso state e
+  | .cell e => validateCell state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2405,6 +2467,16 @@ structure RegistryManifestComparison where
   evidence : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestCell where
+  id : String
+  source : RegistryManifestCategoryExpr
+  target : RegistryManifestCategoryExpr
+  left : Array String
+  right : Array String
+  declaration : String
+  invertible : Bool
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestProperty where
   id : String
   name : String
@@ -2466,6 +2538,7 @@ structure RegistryManifest where
   realizers : Array RegistryManifestRealizer
   implementations : Array RegistryManifestImplementation
   handleIsos : Array RegistryManifestHandleIso
+  cells : Array RegistryManifestCell
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2591,6 +2664,11 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
     handleIsos := (state.handleIsos.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, realizer := e.realizer.raw, source := e.source.toString,
       target := e.target.toString, evidence := e.evidence.toString }
+    cells := (state.cells.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, source := registryManifestCategoryExpr e.source,
+      target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
+      right := e.right.map (·.label), declaration := e.declaration.toString,
+      invertible := e.invertible }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

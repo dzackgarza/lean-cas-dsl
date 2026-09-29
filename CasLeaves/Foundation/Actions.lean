@@ -35,6 +35,8 @@ inductive SetHandle
   | zmod (n : ℕ)
   /-- The set `(ℤ/n)ᵏ`, as functions `Fin k → ZMod n`. -/
   | zmodPow (n k : ℕ)
+  /-- The set of finite lists of elements of a presented set: the image under `L = List`. -/
+  | list (a : SetHandle)
   deriving DecidableEq, Repr, Hashable
 
 /-- The set a handle presents. -/
@@ -43,6 +45,7 @@ abbrev SetHandle.carrier : SetHandle → Type
   | .finite n => Fin n
   | .zmod n => ZMod n
   | .zmodPow n k => Fin k → ZMod n
+  | .list a => List a.carrier
 
 /-- Presented sets: the full subcategory of `Sets` on the presented carriers
 (`InducedCategory`), so a morphism handle is a function between the presented sets. -/
@@ -58,5 +61,10 @@ def setDenotation : SetHandles ⥤ LeanCategories.Foundation.Mathlib.Sets.{0} :=
 
 /-- The elements of a presented set. -/
 instance : ElementAction SetHandles := ⟨setDenotation⟩
+
+/-- Induced realizations are fully faithful (`fullyFaithfulInducedFunctor`): cells are realized
+on presented sets as preimages. -/
+def setDenotationFullyFaithful : setDenotation.FullyFaithful :=
+  fullyFaithfulInducedFunctor SetHandle.carrier
 
 end CasCatalogue.Foundation.Actions

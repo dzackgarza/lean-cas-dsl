@@ -20,7 +20,7 @@ require mathlib from git
 /- The mathematics: categories, functors, fibrations and their theory. This package owns
 the CAS machinery over it (registry, resolution, realizations, backends). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "2794bef6adcf6e3c83ce3b0f742b60c8732007ef"
+  "https://github.com/dzackgarza/lean-categories" @ "dda37247ee7b91bb0dbea2a49138e55de221716b"
 
 /- The notebook layer. Not built by the gate while the architecture changes (plan
 `cc-notebook`): it is rebuilt on the finished architecture, not carried forward. -/
