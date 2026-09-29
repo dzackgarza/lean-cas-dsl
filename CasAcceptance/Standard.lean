@@ -231,7 +231,8 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.sets.whole_subset.presented"⟩,
   ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩,
   ⟨"act.sets.pair_diagonal.presented"⟩, ⟨"act.sets.pair_limit.presented"⟩,
-  ⟨"act.finite_sets.forget.refined"⟩]
+  ⟨"act.finite_sets.forget.refined"⟩, ⟨"act.bilin_module.forget.form"⟩,
+  ⟨"act.lattice.forget_form.form_refined"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
@@ -254,7 +255,7 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
   ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
   ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩,
-  ⟨"rz.finite_sets.refined"⟩]
+  ⟨"rz.finite_sets.refined"⟩, ⟨"rz.bilin_module.form"⟩, ⟨"rz.lattice.form_refined"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[

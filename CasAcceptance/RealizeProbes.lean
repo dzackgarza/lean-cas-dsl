@@ -107,7 +107,9 @@ run_cmd liftTermElabM do
   | none => pure ()
   -- CC-SEP: the receiver's category comes from a registered realizer, not from its handle.
   let state ← registryState
-  let routeAction ← composeAction state none (.functor FunctorId.bilinModuleForget)
+  let gram ← mkAppM ``RealizedAction.id
+    #[mkConst ``CasCatalogue.Modules.Bilinear.Valued.Actions.gramDenotation]
+  let routeAction ← composeAction state (some gram) (.functor FunctorId.bilinModuleForget)
   checkRealizer state ⟨"cat.bilin_module"⟩ routeAction
   let unrealized := { state with realizers := #[] }
   if (← try checkRealizer unrealized ⟨"cat.bilin_module"⟩ routeAction; pure true

@@ -51,7 +51,7 @@ def refinedInclusion (d : R ⥤ C) (P : ObjectProperty C) :
 
 /-- Re-typing after a decision: proved places the same handle in the refinement; refuted and
 undecided leave it unplaced. -/
-def refine {d : R ⥤ C} {P : ObjectProperty C} (a : R) : Decision (P (d.obj a)) → Option (Refined d P)
+@[macro_inline] def refine {d : R ⥤ C} {P : ObjectProperty C} (a : R) : Decision (P (d.obj a)) → Option (Refined d P)
   | .proved h => some ⟨a, h⟩
   | _ => none
 
