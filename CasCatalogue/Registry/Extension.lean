@@ -52,6 +52,8 @@ inductive RegistryEntry
   | implementation (e : ImplementationEntry)
   | handleIso (e : HandleIsoEntry)
   | cell (e : CellEntry)
+  | limit (e : LimitEntry)
+  | limitRealization (e : LimitRealizationEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -72,6 +74,8 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .implementation e => e.id.raw
   | .handleIso e => e.id.raw
   | .cell e => e.id.raw
+  | .limit e => e.id.raw
+  | .limitRealization e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -94,6 +98,8 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .implementation e => #[e.realization]
   | .handleIso e => #[e.source, e.target, e.evidence]
   | .cell e => #[e.declaration]
+  | .limit e => #[e.declaration]
+  | .limitRealization e => #[e.realization]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -112,6 +118,8 @@ structure RegistryState where
   implementations : Array ImplementationEntry := #[]
   handleIsos : Array HandleIsoEntry := #[]
   cells : Array CellEntry := #[]
+  limits : Array LimitEntry := #[]
+  limitRealizations : Array LimitRealizationEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -366,6 +374,8 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .implementation e => { s with implementations := s.implementations.push e }
   | s, .handleIso e => { s with handleIsos := s.handleIsos.push e }
   | s, .cell e => { s with cells := s.cells.push e }
+  | s, .limit e => { s with limits := s.limits.push e }
+  | s, .limitRealization e => { s with limitRealizations := s.limitRealizations.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -383,7 +393,9 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.realizers.toList.map RegistryEntry.realizer ++
     state.implementations.toList.map RegistryEntry.implementation ++
     state.handleIsos.toList.map RegistryEntry.handleIso ++
-    state.cells.toList.map RegistryEntry.cell
+    state.cells.toList.map RegistryEntry.cell ++
+    state.limits.toList.map RegistryEntry.limit ++
+    state.limitRealizations.toList.map RegistryEntry.limitRealization
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -562,6 +574,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for method in state.methods do
     unless (state.functor? method.functor).isSome do
       throw s!"method entry {method.id.raw} names an unregistered functor"
+  for realization in state.limitRealizations do
+    unless state.limits.any (·.id == realization.limit) do
+      throw s!"limit realization {realization.id.raw} names an unregistered limit"
   for cell in state.cells do
     unless (cell.left ++ cell.right).all (·.isRegisteredIn state) do
       throw s!"cell entry {cell.id.raw} names an unregistered functor"
@@ -1810,6 +1825,35 @@ def validateRealizer (state : RegistryState) (e : RealizerEntry) : MetaM Unit :=
     unless ← withTransparency .all <| isDefEq witnessType.appArg! (mkAppN denotation #[]) do
       throwError "realizer {e.id.raw}: {witness} is not about its denotation"
 
+/-- A limit row names a family of Mathlib `LimitCone`s of diagrams in its registered category. -/
+def validateLimit (state : RegistryState) (e : LimitEntry) : MetaM Unit := do
+  let some category := state.categories.find? (·.id == e.category)
+    | throwError "limit {e.id.raw} names an unregistered category {e.category.raw}"
+  let declaration ← mkConstWithFreshMVarLevels e.declaration
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType declaration)
+  let type ← whnfR type
+  unless type.isAppOf ``CategoryTheory.Limits.LimitCone do
+    throwError "limit {e.id.raw}: {e.declaration} is not a family of limit cones"
+  -- `LimitCone (F : J ⥤ C)`: the diagram lands in the registered category.
+  let diagramType ← whnf (← inferType type.appArg!)
+  unless ← withTransparency .all <| isDefEq diagramType.getAppArgs[2]!
+      (← categoryCarrierInstance category) do
+    throwError "limit {e.id.raw}: its diagrams are not in {e.category.raw}"
+
+/-- A limit realization row names a registered limit and a registered realizer, and its
+realization returns an apex handle with an identification (a dependent pair). -/
+def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry) :
+    MetaM Unit := do
+  unless state.limits.any (·.id == e.limit) do
+    throwError "limit realization {e.id.raw} names an unregistered limit {e.limit.raw}"
+  unless state.realizers.any (·.id == e.realizer) do
+    throwError "limit realization {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  let realization ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
+  unless (← whnfR type).isAppOf ``Sigma do
+    throwError "limit realization {e.id.raw}: {e.realization} does not return an apex handle \
+      with its identification"
+
 /-- The identity functor on the source of the functor `F`. -/
 def identityOnSourceOf (F : Expr) : MetaM Expr := do
   let type ← whnf (← inferType F)
@@ -1992,6 +2036,8 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .implementation e => validateImplementation state e
   | .handleIso e => validateHandleIso state e
   | .cell e => validateCell state e
+  | .limit e => validateLimit state e
+  | .limitRealization e => validateLimitRealization state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2027,7 +2073,8 @@ def leafApiModule : Name := `CasCatalogue.Leaf
 
 /-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
 def RegistryEntry.isLeafContribution : RegistryEntry → Bool
-  | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _ => true
+  | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _
+  | .limitRealization _ => true
   | _ => false
 
 /-- The registered semantics a leaf realizes; public to leaves. -/
@@ -2434,6 +2481,20 @@ structure RegistryManifestCell where
   invertible : Bool
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestLimit where
+  id : String
+  category : String
+  shape : String
+  declaration : String
+  deriving BEq, Repr, ToJson, FromJson
+
+structure RegistryManifestLimitRealization where
+  id : String
+  limit : String
+  realizer : String
+  realization : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestProperty where
   id : String
   name : String
@@ -2495,6 +2556,8 @@ structure RegistryManifest where
   implementations : Array RegistryManifestImplementation
   handleIsos : Array RegistryManifestHandleIso
   cells : Array RegistryManifestCell
+  limits : Array RegistryManifestLimit
+  limitRealizations : Array RegistryManifestLimitRealization
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2621,6 +2684,12 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       target := registryManifestCategoryExpr e.target, left := e.left.map (·.label),
       right := e.right.map (·.label), declaration := e.declaration.toString,
       invertible := e.invertible }
+    limits := (state.limits.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, category := e.category.raw, shape := e.shape,
+      declaration := e.declaration.toString }
+    limitRealizations := (state.limitRealizations.qsort (fun a b => a.id.raw < b.id.raw)).map
+      fun e => { id := e.id.raw, limit := e.limit.raw, realizer := e.realizer.raw,
+                 realization := e.realization.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

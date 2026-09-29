@@ -109,6 +109,16 @@ structure HandleIsoId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a registered limit presentation, e.g. `lim.sets.pullback`. -/
+structure LimitId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+/-- Stable id of a backend's presentation of the apex of a registered limit. -/
+structure LimitRealizationId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable functor id. -/
 structure FunctorId where
   raw : String
@@ -142,6 +152,8 @@ instance : Inhabited LiftId := ⟨⟨""⟩⟩
 instance : Inhabited RealizerId := ⟨⟨""⟩⟩
 instance : Inhabited ImplementationId := ⟨⟨""⟩⟩
 instance : Inhabited HandleIsoId := ⟨⟨""⟩⟩
+instance : Inhabited LimitId := ⟨⟨""⟩⟩
+instance : Inhabited LimitRealizationId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

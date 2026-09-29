@@ -10,6 +10,7 @@ public import CasCatalogue.Decide
 public import CasCatalogue.Trust
 public import CasCatalogue.Realization
 public import CasCatalogue.Constructors
+public import CasCatalogue.Limits
 public import Lean.Data.Json
 
 @[expose] public section

@@ -125,6 +125,26 @@ structure HandleIsoEntry where
   evidence : Lean.Name
   deriving Repr
 
+/-- A limit presentation row (CC-UNIV): `declaration` is a family of Mathlib `LimitCone`s (apex,
+legs, `IsLimit` with its mediator) of the diagrams of one shape in the registered category
+`category`, e.g. `Types.pullbackLimitCone` for pullbacks of sets. -/
+structure LimitEntry where
+  id : LimitId
+  category : CategoryId
+  shape : String
+  declaration : Lean.Name
+  deriving Repr
+
+/-- A backend's presentation of the apex of a registered limit on one of its realizations:
+`realization` sends a diagram of handles to an apex handle with the identification of its
+denotation with the apex (the legs and mediators are then the core's, `realizedLimitCone`). -/
+structure LimitRealizationEntry where
+  id : LimitRealizationId
+  limit : LimitId
+  realizer : RealizerId
+  realization : Lean.Name
+  deriving Repr
+
 /-- A cell row (CC-CALC, CC-COHERE): a natural transformation `declaration : L ⟶ R` (or, when `invertible`,
 a natural isomorphism `L ≅ R`) between the composites `L`, `R` of the registered functors along
 `left` and `right` (the identity of `source` when empty). The cell is Mathlib's; the row names it

@@ -38,6 +38,8 @@ inductive LeafContribution
   | implementation (entry : ImplementationEntry)
   | decider (entry : DeciderEntry)
   | isomorphism (entry : HandleIsoEntry)
+  /-- The presentation of the apex of a registered limit on a realization. -/
+  | limitRealization (entry : LimitRealizationEntry)
   -- Forbidden (spec §5).
   /-- A public category because the backend library has a class. -/
   | category (entry : NamedCategoryEntry)
@@ -64,7 +66,8 @@ inductive LeafContribution
 
 /-- The §5 rule a forbidden contribution violates, or `none` if it is permitted. -/
 def LeafContribution.violation : LeafContribution → Option String
-  | .realizer _ | .action _ | .implementation _ | .decider _ | .isomorphism _ => none
+  | .realizer _ | .action _ | .implementation _ | .decider _ | .isomorphism _
+  | .limitRealization _ => none
   | .category e => some s!"§5: a backend leaf cannot invent a public category ({e.id.raw}); \
       categories are registered from lean-categories"
   | .method e => some s!"§5: a backend leaf cannot attach a method to a mathematical object \
@@ -95,6 +98,7 @@ def LeafContribution.entry? : LeafContribution → Option RegistryEntry
   | .implementation e => some (.implementation e)
   | .decider e => some (.decider e)
   | .isomorphism e => some (.handleIso e)
+  | .limitRealization e => some (.limitRealization e)
   | _ => none
 
 /-- A backend leaf's contract. -/

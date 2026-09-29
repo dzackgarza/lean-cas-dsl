@@ -367,49 +367,49 @@ def mentionsNoncomputable (env : Environment) (e : Expr) : Bool :=
   (e.find? fun sub => sub.isConst && Lean.isNoncomputable env sub.constName!).isSome
 
 /-- The executable form of a term built from realized actions. A realized action bundles its
-handle functor with a square between noncomputable denotations (meaning, CC-SEP). Every subterm
-that mentions a noncomputable constant is put in weak head normal form (unfolding definitions),
-and its arguments, bodies and types are treated the same way; proofs and subterms that mention no
-noncomputable constant are left as they are. What remains is handle-level computation, so compiled
-code never receives a denotation. -/
+handle functor with a square between noncomputable denotations (meaning, CC-SEP); only the handle
+functor is ever executed. So: a noncomputable or reducible head is unfolded; a projection is
+reduced by bringing its structure to a constructor and taking the field (so the square, another
+field, is dropped unevaluated); arguments, bodies and types are treated the same way; every
+other head, and every subterm that mentions no noncomputable constant, is kept as it is (it
+compiles). Proofs are kept. -/
 partial def executable (e : Expr) : MetaM Expr := do
   unless mentionsNoncomputable (← getEnv) e do return e
   if ← isProof e then return e
-  let e ← withTransparency .all <| whnf e
   match e with
   | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← executable body)
   | .forallE .. => forallTelescope e fun xs body => do mkForallFVars xs (← executable body)
+  | .mdata _ b => executable b
+  | .letE _ _ v b _ => executable (b.instantiate1 v)
   | _ =>
-      -- A head that is a projection stuck on its structure (say, of a cast along an equation
-      -- that holds only propositionally) keeps that structure in executable form too.
-      let fn ← match e.getAppFn with
-        | .proj s i b => pure (.proj s i (← executable b))
-        | fn => pure fn
-      return mkAppN fn (← e.getAppArgs.mapM executable)
-
-/-- The handle type of the source realization of a realized action. -/
-def sourceHandles (action : Expr) : MetaM Expr := do
-  return (← whnfR (← inferType action)).getAppArgs[4]!
-
-/-- Elaborate a receiver as an object handle of `handles`, when it is known. -/
-def elabReceiver (receiver : Term) (handles : Option Expr) : TermElabM Expr := do
-  match handles with
-  | some handles =>
-      let x ← elabTermEnsuringType receiver handles
-      synthesizeSyntheticMVarsNoPostponing
-      instantiateMVars x
-  | none => elabTerm receiver none
-
-/-- The handle type of the receiver: the source of the route's action, or, with no route, of the
-method's action (for an iso-invariant method, the realization whose core that source is). -/
-def receiverHandles (method : MethodEntry) (route methodAction : Option Expr) :
-    MetaM (Option Expr) := do
-  if let some route := route then return some (← sourceHandles route)
-  let some methodAction := methodAction | return none
-  let handles ← sourceHandles methodAction
-  match method.shape with
-  | .isoInvariant => return if handles.isApp then some handles.appArg! else none
-  | _ => return some handles
+      let fn := e.getAppFn
+      let args := e.getAppArgs
+      match fn with
+      | .proj _ i struct => projectField struct i args
+      | .const c _ =>
+          let env ← getEnv
+          if Lean.isNoncomputable env c || (← isReducible c) ||
+              (← getProjectionFnInfo? c).isSome then
+            match ← withTransparency .all (unfoldDefinition? e) with
+            | some e' => executable e'.headBeta
+            | none => return mkAppN fn (← args.mapM executable)
+          else
+            return mkAppN fn (← args.mapM executable)
+      | _ => return mkAppN fn (← args.mapM executable)
+where
+  /-- The field `i` of `struct`, applied to `args`: `struct` is brought to a constructor. -/
+  projectField (struct : Expr) (i : Nat) (args : Array Expr) : MetaM Expr := do
+    let struct' ← withTransparency .all <| whnf struct
+    if let .const c _ := struct'.getAppFn then
+      if let some (.ctorInfo ctor) := (← getEnv).find? c then
+        return ← executable (mkAppN struct'.getAppArgs[ctor.numParams + i]! args).headBeta
+    return mkAppN (.proj (← inferStructName struct') i (← executable struct'))
+      (← args.mapM executable)
+  inferStructName (struct : Expr) : MetaM Name := do
+    let type ← whnf (← inferType struct)
+    match type.getAppFn with
+    | .const n _ => return n
+    | _ => throwError "executable: projection of a non-structure"
 
 /-- The handle a method's functor receives: the image itself, or, for an iso-invariant method (a
 functor on the core), the same object as an object of the core of its realization. -/

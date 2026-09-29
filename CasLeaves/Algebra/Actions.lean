@@ -91,6 +91,10 @@ def semigroupDenotation : SemigroupTables ⥤ Algebra.Semigroups.{0} := inducedF
 def monoidDenotation : MonoidTables ⥤ Algebra.Monoids.{0} := inducedFunctor _
 def groupDenotation : GroupTables ⥤ Algebra.Groups.{0} := inducedFunctor _
 
+/-- Group tables are an induced realization, hence fully faithful. -/
+def groupDenotationFullyFaithful : groupDenotation.FullyFaithful :=
+  fullyFaithfulInducedFunctor _
+
 /-! ### The forgetful actions -/
 
 def groupToMonoid : RealizedAction (forget₂ GrpCat.{0} MonCat) groupDenotation monoidDenotation :=
@@ -157,6 +161,7 @@ register_leaf
     denotation := `CasCatalogue.Algebra.Actions.monoidDenotation },
   .realizer
   { id := ⟨"rz.groups.table"⟩, category := ⟨"cat.groups"⟩, backend := "lean"
-    denotation := `CasCatalogue.Algebra.Actions.groupDenotation }] }
+    denotation := `CasCatalogue.Algebra.Actions.groupDenotation
+    fullyFaithful := some `CasCatalogue.Algebra.Actions.groupDenotationFullyFaithful }] }
 
 end CasCatalogue

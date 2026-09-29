@@ -6,12 +6,14 @@ module
 
 public import CasLeaves.Algebra.Actions
 public import CasLeaves.Algebra.KernelDecode
+public import CasLeaves.Algebra.Kernels
 public import CasLeaves.Algebra.RingActions
 public import CasLeaves.Algebra.RingTables
 public import CasLeaves.Algebra.Subgroups
 public import CasLeaves.Foundation.Actions
 public import CasLeaves.Foundation.Cardinality
 public import CasLeaves.Foundation.Lists
+public import CasLeaves.Foundation.Pullbacks
 public import CasLeaves.Foundation.Subsets
 public import CasLeaves.Lattices.Valued.Actions
 public import CasLeaves.Modules.Actions

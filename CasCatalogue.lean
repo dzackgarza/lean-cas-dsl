@@ -15,6 +15,7 @@ public import CasCatalogue.Id
 public import CasCatalogue.Interpretation
 public import CasCatalogue.Leaf
 public import CasCatalogue.Lift
+public import CasCatalogue.Limits
 public import CasCatalogue.Memo
 public import CasCatalogue.Realization
 public import CasCatalogue.Registry.Entry
@@ -47,6 +48,7 @@ public import CasCatalogue.Semantics.LatticeRefinements
 public import CasCatalogue.Semantics.Lattices.Valued.Catalogue
 public import CasCatalogue.Semantics.Lattices.Valued.CatalogueRegistration
 public import CasCatalogue.Semantics.Lattices.Valued.Expressions
+public import CasCatalogue.Semantics.Limits.Registration
 public import CasCatalogue.Semantics.Modules.Bilinear.Valued.Catalogue
 public import CasCatalogue.Semantics.Modules.Bilinear.Valued.CatalogueRegistration
 public import CasCatalogue.Semantics.Modules.Bilinear.Valued.Expressions

@@ -14,6 +14,7 @@ public import CasAcceptance.ImmediateProbes
 public import CasAcceptance.LatticeActionProbes
 public import CasAcceptance.LeafBoundaryProbes
 public import CasAcceptance.LiftProbes
+public import CasAcceptance.LimitProbes
 public import CasAcceptance.PropsProbes
 public import CasAcceptance.RealizeProbes
 public import CasAcceptance.ResolveProbes

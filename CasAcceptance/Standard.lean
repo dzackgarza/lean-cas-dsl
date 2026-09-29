@@ -256,6 +256,11 @@ def expectedCellIds : Array NaturalTransformationId := #[
   NaturalTransformationId.listUnit, NaturalTransformationId.listJoin,
   NaturalTransformationId.listReverse, ⟨"cmp.rings.carrier"⟩]
 
+/-- Stable limit presentations and their realizations (CC-UNIV). -/
+def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩]
+def expectedLimitRealizationIds : Array LimitRealizationId :=
+  #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩]
+
 /-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
 def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
 
@@ -325,6 +330,9 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
   validateStableIdSet "isomorphisms" (manifest.handleIsos.map (·.id))
     (rawIds expectedHandleIsoIds (·.raw))
   validateStableIdSet "cells" (manifest.cells.map (·.id)) (rawIds expectedCellIds (·.raw))
+  validateStableIdSet "limits" (manifest.limits.map (·.id)) (rawIds expectedLimitIds (·.raw))
+  validateStableIdSet "limit realizations" (manifest.limitRealizations.map (·.id))
+    (rawIds expectedLimitRealizationIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))
     (rawIds expectedOpaqueCategoryIds (·.raw))
   validateStableIdSet "opaque ports"
