@@ -3,8 +3,9 @@
 
 An admitted assertion is the text of an `#accept` command up to its `:=` (its id, provenance and
 proposition; the proof after `:=` is how it is checked, and may change), or the whole text of an
-`#accept_backend` command, in `CasAcceptance/Permanent/*.lean`, with whitespace collapsed. Its
-hash is recorded in `CasAcceptance/Permanent/admitted.json`.
+`#accept_backend` command, in `CasAcceptance/Permanent/*.lean`, or a `test <id> "source": stmt`
+item of the DSL suite `tests/acceptance/*.cas` together with the `let` items before it in its file,
+with whitespace collapsed. Its hash is recorded in `CasAcceptance/Permanent/admitted.json`.
 
     check_acceptance_permanent.py           fail if an admitted assertion changed or disappeared,
                                             or an assertion is not admitted
@@ -27,6 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DIR = ROOT / "CasAcceptance" / "Permanent"
 MANIFEST = DIR / "admitted.json"
 START = re.compile(r'^#accept(_backend)? "([^"]+)"')
+SUITE = ROOT / "tests" / "acceptance"
+TEST = re.compile(r'^test (\S+) "')
 
 
 def pin() -> str:
@@ -61,6 +64,23 @@ def assertions() -> dict[str, str]:
             if ident in found:
                 raise SystemExit(f"{path.name}: the assertion {ident} is stated twice")
             found[ident] = hashlib.sha256(text.encode()).hexdigest()
+    for path in sorted(SUITE.glob("*.cas")):
+        lets: list[str] = []
+        for item in re.split(r"\n\s*\n", path.read_text()):
+            lines = [l for l in item.splitlines() if l.strip() and not l.lstrip().startswith("--")]
+            if not lines:
+                continue
+            text = " ".join(" ".join(lines).split())
+            m = TEST.match(text)
+            if text.startswith("let "):
+                lets.append(text)
+            elif not m:
+                raise SystemExit(f"{path.name}: an item is neither a test nor a let: {text}")
+            else:
+                ident = m.group(1)
+                if ident in found:
+                    raise SystemExit(f"{path.name}: the assertion {ident} is stated twice")
+                found[ident] = hashlib.sha256(" ; ".join(lets + [text]).encode()).hexdigest()
     return found
 
 

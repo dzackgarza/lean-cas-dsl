@@ -1,0 +1,34 @@
+-- Named sets, their products, cardinalities and finiteness (SPEC.md, "Finite sets").
+-- Each test is admitted once and never changed (scripts/check_acceptance_permanent.py).
+
+test sets.card.z4_cubed "Mathlib Fintype.card_fun, ZMod.card: |(ℤ/n)^k| = n^k":
+  assert |(ℤ/4)^3| = 64
+
+test sets.card.z7 "Mathlib Fintype.card_fun, ZMod.card: |(ℤ/n)^k| = n^k":
+  assert |(ℤ/7)^1| = 7
+
+test sets.card.z5_empty_power "Mathlib Fintype.card_fun: |X^0| = 1":
+  assert |(ℤ/5)^0| = 1
+
+test sets.card.integers "Mathlib Cardinal.mk_int: |ℤ| = ℵ₀":
+  assert |ℤ| = ℵ₀
+
+test sets.card.naturals "Mathlib Cardinal.mk_nat: |ℕ| = ℵ₀":
+  assert |ℕ| = ℵ₀
+
+test sets.card.fin2_times_z3 "Mathlib Fintype.card_prod, Fintype.card_fin, ZMod.card: 2 · 3":
+  assert |Fin(2) × ℤ/3| = 6
+
+test sets.finite.integers "Mathlib Int.infinite: ℤ is infinite":
+  assert ℤ.is_finite() = false
+
+test sets.finite.fin2_times_z3 "Mathlib Finite.instProd: a product of finite sets is finite":
+  assert (Fin(2) × ℤ/3).is_finite()
+
+test sets.implemented.card_fin "a realization computes |Fin(3)|":
+  assert implemented |Fin(3)|
+
+let A := Fin(2) × ℤ/3
+
+test sets.card.square "Mathlib Fintype.card_prod: |A × A| = |A|², |A| = 6":
+  assert |A × A| = 36

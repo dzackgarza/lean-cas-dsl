@@ -118,4 +118,15 @@ structure PresentationEntry where
   presentation : Lean.Name
   deriving Repr
 
+/-- An observation row (CC-DECODE): `observe : (h : R) → { l : T // d.obj h = denote l }`, reading
+each handle of the realizer `realizer` as a literal of the registered literal form `literal`
+(`T`, `denote`), with the proof that the handle denotes that literal. A computed value is compared
+with a literal by evaluating the observation alone. -/
+structure ObservationEntry where
+  id : ObservationId
+  realizer : RealizerId
+  literal : LiteralId
+  observe : Lean.Name
+  deriving Repr
+
 end CasCatalogue

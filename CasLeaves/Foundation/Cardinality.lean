@@ -156,6 +156,13 @@ noncomputable def cardinalityAction :
     (fun a => eqToIso (congrArg Discrete.mk (cardinalityOf_denote a.of)))
     (fun _ => (Discrete.instSubsingletonDiscreteHom _ _).elim _ _)⟩
 
+/-- A cardinal handle, read as the literal it denotes. -/
+def observeCardinal (h : Discrete CardinalHandle) :
+    { l : CardinalLiteral // cardinalDenotation.obj h = CardinalLiteral.denote l } :=
+  match h with
+  | ⟨.finite n⟩ => ⟨.finite n, rfl⟩
+  | ⟨.aleph0⟩ => ⟨.aleph0, rfl⟩
+
 end Foundation.Cardinality
 
 open Foundation.Cardinality
@@ -175,6 +182,10 @@ register_leaf
     denotation := `CasCatalogue.Foundation.Cardinality.coreSetDenotation },
   .realizer
   { id := ⟨"rz.cardinals.handles"⟩, category := ⟨"cat.cardinals"⟩, backend := "lean"
-    denotation := `CasCatalogue.Foundation.Cardinality.cardinalDenotation }] }
+    denotation := `CasCatalogue.Foundation.Cardinality.cardinalDenotation },
+  .observation
+  { id := ⟨"obs.cardinals.handles"⟩, realizer := ⟨"rz.cardinals.handles"⟩
+    literal := ⟨"lit.cardinals"⟩
+    observe := `CasCatalogue.Foundation.Cardinality.observeCardinal }] }
 
 end CasCatalogue

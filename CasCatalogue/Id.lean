@@ -66,6 +66,12 @@ structure PresentationId where
   deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited PresentationId := ⟨⟨""⟩⟩
+/-- Stable id of an observation row: a leaf's reading of its handles as literals. -/
+structure ObservationId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+instance : Inhabited ObservationId := ⟨⟨""⟩⟩
 instance : Inhabited ActionId := ⟨⟨""⟩⟩
 instance : Inhabited DeciderId := ⟨⟨""⟩⟩
 instance : Inhabited RealizerId := ⟨⟨""⟩⟩

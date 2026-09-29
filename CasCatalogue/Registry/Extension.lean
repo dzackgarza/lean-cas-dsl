@@ -57,6 +57,8 @@ inductive RegistryEntry
   | backendOperation (e : BackendOperationEntry)
   | object (e : ObjectEntry)
   | presentation (e : PresentationEntry)
+  | literal (e : LiteralEntry)
+  | observation (e : ObservationEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -84,6 +86,8 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .backendOperation e => e.id.raw
   | .object e => e.id.raw
   | .presentation e => e.id.raw
+  | .literal e => e.id.raw
+  | .observation e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -113,6 +117,8 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .backendOperation e => #[e.decoder]
   | .object e => #[e.declaration]
   | .presentation e => #[e.presentation]
+  | .literal e => #[e.type, e.denotation]
+  | .observation e => #[e.observe]
 
 
 /-- A semantic row, as a registry row. -/
@@ -131,6 +137,7 @@ def RegistryEntry.ofSemantic : SemanticEntry → RegistryEntry
   | .limit e => .limit e
   | .adjunction e => .adjunction e
   | .object e => .object e
+  | .literal e => .literal e
 
 /-- The semantic row a registry row is, if it is one. -/
 def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
@@ -148,6 +155,7 @@ def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
   | .limit e => some (.limit e)
   | .adjunction e => some (.adjunction e)
   | .object e => some (.object e)
+  | .literal e => some (.literal e)
   | _ => none
 
 /-- The realization rows. -/
@@ -161,6 +169,7 @@ structure RealizationState where
   equalities : Array EqualityEntry := #[]
   backendOperations : Array BackendOperationEntry := #[]
   presentations : Array PresentationEntry := #[]
+  observations : Array ObservationEntry := #[]
   deriving Inhabited
 
 /-- The registry: the imported semantic registry and the realization rows. -/
@@ -179,6 +188,7 @@ private def RealizationState.apply : RealizationState → RegistryEntry → Real
   | s, .equality e => { s with equalities := s.equalities.push e }
   | s, .backendOperation e => { s with backendOperations := s.backendOperations.push e }
   | s, .presentation e => { s with presentations := s.presentations.push e }
+  | s, .observation e => { s with observations := s.observations.push e }
   | s, _ => s
 
 /-- Every row: the semantic rows, then the realization rows. -/
@@ -192,7 +202,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.limitRealizations.toList.map RegistryEntry.limitRealization ++
     state.equalities.toList.map RegistryEntry.equality ++
     state.backendOperations.toList.map RegistryEntry.backendOperation ++
-    state.presentations.toList.map RegistryEntry.presentation
+    state.presentations.toList.map RegistryEntry.presentation ++
+    state.observations.toList.map RegistryEntry.observation
 
 /-- Whether this row's stable ID conflicts with a registered row. -/
 def RegistryState.hasEntryId (state : RegistryState) (entry : RegistryEntry) : Bool :=
@@ -336,6 +347,31 @@ def validatePresentation (state : RegistryState) (e : PresentationEntry) : MetaM
       isDefEq identification.getAppArgs[3]! (mkAppN declared objectArgs) do
     throwError "presentation {e.id.raw}: {e.presentation} does not present {object.id.raw}"
 
+/-- An observation row's `observe` reads each handle of its realizer as a literal of the registered
+literal form of the realizer's category, with the proof that the handle denotes it. -/
+def validateObservation (state : RegistryState) (e : ObservationEntry) : MetaM Unit := do
+  let some realizer := state.realizers.find? (·.id == e.realizer)
+    | throwError "observation {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  let some literal := state.literals.find? (·.id == e.literal)
+    | throwError "observation {e.id.raw} names an unregistered literal form {e.literal.raw}"
+  unless literal.category == realizer.category do
+    throwError "observation {e.id.raw}: {e.literal.raw} is not a literal form of \
+      {realizer.category.raw}"
+  let denotation ← mkConstWithFreshMVarLevels realizer.denotation
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType denotation)
+  let denotation := mkAppN denotation args
+  let handles := (← whnfR (← inferType denotation)).getAppArgs[0]!
+  let expected ← withLocalDeclD `h handles fun h => do
+    let denoted ← mkAppM ``Prefunctor.obj
+      #[← mkAppM ``CategoryTheory.Functor.toPrefunctor #[denotation], h]
+    let body ← withLocalDeclD `l (mkConst literal.type) fun l => do
+      mkLambdaFVars #[l] (← mkEq denoted (mkApp (← mkConstWithFreshMVarLevels literal.denotation) l))
+    mkForallFVars #[h] (← mkAppM ``Subtype #[body])
+  let observe ← mkConstWithFreshMVarLevels e.observe
+  unless ← withTransparency .all <| isDefEq (← inferType observe) expected do
+    throwError "observation {e.id.raw}: {e.observe} is not `(h : handles) → \
+      \{ l : {literal.type} // d.obj h = {literal.denotation} l }`"
+
 /-- A backend operation row keys a registered limit or method, and its decoder returns an
 `Except String` of the decoded result. -/
 def validateBackendOperation (state : RegistryState) (e : BackendOperationEntry) :
@@ -430,6 +466,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .equality e => validateEquality state e
   | .backendOperation e => validateBackendOperation state e
   | .presentation e => validatePresentation state e
+  | .observation e => validateObservation state e
   | entry => match entry.toSemantic? with
     | some e => validateSemanticEntryDeclaration e
     | none => pure ()
@@ -457,7 +494,7 @@ def leafApiModule : Name := `CasCatalogue.Leaf
 /-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
 def RegistryEntry.isLeafContribution : RegistryEntry → Bool
   | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _
-  | .limitRealization _ | .equality _ | .backendOperation _ | .presentation _ => true
+  | .limitRealization _ | .equality _ | .backendOperation _ | .presentation _ | .observation _ => true
   | _ => false
 
 /-- The registered semantics a leaf realizes; public to leaves. -/

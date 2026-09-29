@@ -46,6 +46,8 @@ inductive LeafContribution
   | backendOperation (entry : BackendOperationEntry)
   /-- Handles presenting the values of a registered object, with their identifications. -/
   | presentation (entry : PresentationEntry)
+  /-- The reading of handles as literals, with proofs. -/
+  | observation (entry : ObservationEntry)
   -- Forbidden (spec §5).
   /-- A public category because the backend library has a class. -/
   | category (entry : NamedCategoryEntry)
@@ -73,7 +75,7 @@ inductive LeafContribution
 /-- The §5 rule a forbidden contribution violates, or `none` if it is permitted. -/
 def LeafContribution.violation : LeafContribution → Option String
   | .realizer _ | .action _ | .implementation _ | .decider _ | .isomorphism _
-  | .limitRealization _ | .equality _ | .backendOperation _ | .presentation _ => none
+  | .limitRealization _ | .equality _ | .backendOperation _ | .presentation _ | .observation _ => none
   | .category e => some s!"§5: a backend leaf cannot invent a public category ({e.id.raw}); \
       categories are registered from lean-categories"
   | .method e => some s!"§5: a backend leaf cannot attach a method to a mathematical object \
@@ -108,6 +110,7 @@ def LeafContribution.entry? : LeafContribution → Option RegistryEntry
   | .equality e => some (.equality e)
   | .backendOperation e => some (.backendOperation e)
   | .presentation e => some (.presentation e)
+  | .observation e => some (.observation e)
   | _ => none
 
 /-- A backend leaf's contract. -/

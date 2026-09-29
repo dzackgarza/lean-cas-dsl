@@ -20,7 +20,7 @@ require mathlib from git
 /- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
 package owns the CAS machinery over it (resolution, realizations, the leaf API, the notebook). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "413cd65644f83d0d1c45d06b61ca5855c10308d2"
+  "https://github.com/dzackgarza/lean-categories" @ "390edd9741829b9de8b00c55cd9baae655253610"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
@@ -52,10 +52,17 @@ lean_lib CasLeaves where
     ⟨`weak.linter.style.header, false⟩,
     ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
 
+/-- The permanent acceptance suite, in the language (`CasCatalogue.TestSuite`). -/
+input_dir acceptanceSuite where
+  path := "tests/acceptance"
+  text := true
+  filter := .extension "cas"
+
 /-- Acceptance probes of the core over the standard universe (semantics and leaves); building
-the library runs them. -/
+the library runs them, and `CasAcceptance.Suite` runs the suite (rebuilt when a test changes). -/
 lean_lib CasAcceptance where
   globs := #[.andSubmodules `CasAcceptance]
+  needs := #[acceptanceSuite]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,

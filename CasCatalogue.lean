@@ -15,6 +15,7 @@ public import CasCatalogue.Decide
 public import CasCatalogue.Failure
 public import CasCatalogue.Id
 public import CasCatalogue.Leaf
+public import CasCatalogue.Language
 public import CasCatalogue.LimitCall
 public import CasCatalogue.LimitCallSyntax
 public import CasCatalogue.Limits
@@ -27,4 +28,5 @@ public import CasCatalogue.Port
 public import CasCatalogue.Refine
 public import CasCatalogue.Resolve
 public import CasCatalogue.ResolveSyntax
+public import CasCatalogue.TestSuite
 public import CasCatalogue.Trust
