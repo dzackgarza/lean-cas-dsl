@@ -1,9 +1,9 @@
 # lean-cas-dsl — categorically organized CAS in Lean, an nbdsl DSL plugin.
 #
 # One Lake package (library CasDsl + prelude CasDsl.Notebook) over the
-# nbdsl-worker core. Backend programs belong to the leaves that use them
-# (CasLeaves/**/<leaf>/*.py, speaking the port protocol of
-# CasCatalogue/Port.lean). Lake owns compilation; language-level QC
+# nbdsl-worker core. The leaves (`lean-cas-dsl-leaves`, package cas_leaves) and
+# their backend programs are a dependency, written against the leaf contract
+# (`lean-cas-dsl-leaf-contracts`). Lake owns compilation; language-level QC
 # delegates to the global gates.
 #
 # Not adopted: lean-axiom-audit — it requires a target-private
@@ -36,9 +36,9 @@ harness *leaves="CasLeaves":
 setup:
     @lake exe cache get
     @uv venv .venv
-    # The GAP kernels leaf's engine (CasLeaves/Algebra/GapKernels/gap_kernels.py).
+    # The GAP kernels leaf's engine (cas_leaves: CasLeaves/Algebra/GapKernels/gap_kernels.py).
     @uv pip install -p .venv/bin/python passagemath-gap
-    # The Sage cardinality leaf's engine (CasLeaves/Modules/SageCardinality/sage_cardinality.py).
+    # The Sage cardinality leaf's engine (cas_leaves: CasLeaves/Modules/SageCardinality/sage_cardinality.py).
     @uv pip install -p .venv/bin/python passagemath-modules
     @uv pip install -p .venv/bin/python nbclient \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
@@ -82,7 +82,7 @@ test: build
     @lake exe cas-registry-export > /dev/null
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
-    @python3 -m py_compile port/python/cas_port.py CasLeaves/Algebra/GapKernels/gap_kernels.py CasLeaves/Modules/SageCardinality/sage_cardinality.py
+    @python3 -m py_compile CasAcceptance/Strata/hostile_cardinality.py
 
 # Drives the installed casdsl kernelspec (`just setup` first) through the demo notebook.
 [private]

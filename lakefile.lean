@@ -18,9 +18,20 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.33.0"
 
 /- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
-package owns the CAS machinery over it (resolution, realizations, the leaf API, the notebook). -/
+package owns the CAS machinery over it (resolution and propagation, the language, the permanent
+tests, the harness, the notebook). -/
 require lean_categories from git
   "https://github.com/dzackgarza/lean-categories" @ "b5678b7597c68476e4562397af5b7280ca4df16a"
+
+/- The leaf contract: the kernel's interface for computational leaves, published on its own so
+that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
+require cas_leaf_contracts from git
+  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "db89b89e8c8e2f5ee6d41b14591c981afb5207a8"
+
+/- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
+`lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/
+require cas_leaves from git
+  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "ccaa0a15bc1534f6a56dafb4788b6df6b178c79a"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
@@ -29,23 +40,13 @@ lean_lib CasDsl where
   -- so the lib must glob submodules or the kernelspec's olean is never built
   globs := #[.andSubmodules `CasDsl]
 
-/-- The core: resolution, realization and decision machinery, the realization registry and the
-leaf contract, over `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
+/-- The core: resolution, propagation, calls and the language, over the leaf contract
+(`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
 reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
 elaboration options. -/
 @[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]
-  leanOptions := #[
-    ⟨`relaxedAutoImplicit, false⟩,
-    ⟨`weak.linter.mathlibStandardSet, true⟩,
-    ⟨`weak.linter.style.header, false⟩,
-    ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
-
-/-- Backend leaves. Each leaf imports only the leaf API `CasCatalogue.Leaf`, other leaves, Mathlib
-and `lean-categories`, and contributes only through `register_leaf` (CC-ADAPTER, spec §5). -/
-lean_lib CasLeaves where
-  globs := #[.andSubmodules `CasLeaves]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,

@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Failure
-public import CasCatalogue.Port
+public import CasContract.Failure
+public import CasContract.Port
 public import Lean.Elab.Command
 
 public section

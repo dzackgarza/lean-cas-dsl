@@ -6,8 +6,8 @@ module
 
 public import CasCatalogue.Acceptance
 public meta import CasCatalogue.Acceptance
-public meta import CasCatalogue.Failure
-public meta import CasCatalogue.Port
+public meta import CasContract.Failure
+public meta import CasContract.Port
 
 public section
 

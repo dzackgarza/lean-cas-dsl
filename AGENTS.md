@@ -46,10 +46,15 @@ API is designed. Next comes the permanent test suite here, written in the DSL. L
 mechanical, external, long-tail work.
 - Never write or extend a leaf to make a test pass, and never chase a realization of a specific
   operation as progress.
-- This repository's leaves are litmus probes: change one only when that exposes a deficiency of the
-  kernel, `Cat` or `lean-categories`, and name that deficiency in the commit.
-- A leaf never sees the tests. It depends only on the intake contract (`CasCatalogue.Leaf` and the
-  catalogue), and the harness runs the suite over installed leaves.
+- The leaves live in `lean-cas-dsl-leaves` and the leaf contract in `lean-cas-dsl-leaf-contracts`
+  (`specs/architecture.md`, "Packages"). This repository depends on both; neither depends on it.
+  Its leaves are litmus probes: change one only when that exposes a deficiency of the kernel, the
+  contract or `lean-categories`, and name that deficiency in the commit.
+- A leaf never sees the tests. It depends only on the leaf contract (`CasContract.Leaf`) and the
+  catalogue, and the harness runs the suite over installed leaves (`just harness`).
+- The contract is the kernel's: change it together with the kernel, release it, re-pin it in the
+  leaves and here. Development builds link `.lake/packages/{cas_leaf_contracts,cas_leaves}` to the
+  working trees, as for `lean_categories`.
 
 # Search before authoring (gate-enforced)
 

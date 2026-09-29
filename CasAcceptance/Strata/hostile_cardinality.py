@@ -2,11 +2,8 @@
 answers the registered operation `meth.cardinality` outside the operation's result type
 (`n = 1`), and fails while computing (`n = 2`)."""
 
-import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "port", "python"))
-from cas_port import serve  # noqa: E402
+from cas_port import serve  # the leaf contract's reference port, on PYTHONPATH
 
 
 def op_cardinality(args):

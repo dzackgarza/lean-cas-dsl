@@ -13,7 +13,7 @@ public meta import CasAcceptance.Standard
 # Acceptance for `cc-leaf-boundary` (CC-ADAPTER, CC-IMMEDIATE, CC-SEP)
 
 * Every imported leaf module (`CasLeaves.*`) has only permitted direct imports — the leaf API
-  `CasCatalogue.Leaf`, other leaves, Mathlib, `lean-categories` — and wrote only permitted rows
+  `CasContract.Leaf`, other leaves, Mathlib, `lean-categories` — and wrote only permitted rows
   (realizers, actions, implementations, deciders, isomorphisms); no module outside the core, its
   probes and the leaves wrote any row (`leafBoundaryViolations`).
 * A module of the leaf library that imports a core-internal module cannot register: its first
@@ -36,15 +36,15 @@ run_cmd liftTermElabM do
   unless leaves.size ≥ 10 do
     throwError "the standard universe imports only {leaves.size} leaf modules"
 
-#guard leafImportViolations #[`CasCatalogue.Leaf, `CasLeaves.Algebra.Actions,
+#guard leafImportViolations #[`CasContract.Leaf, `CasLeaves.Algebra.Actions,
   `Mathlib.Algebra.Group.Defs, `LeanCategories.Foundation.Mathlib] == #[]
 -- A leaf of another package (root `Ext`) has only its intake contract: not this repository's
 -- litmus leaves, not the acceptance suite.
-#guard leafImportViolations #[`CasCatalogue.Leaf, `Ext.Engine, `LeanCategories.Catalogue.Syntax,
+#guard leafImportViolations #[`CasContract.Leaf, `Ext.Engine, `LeanCategories.Catalogue.Syntax,
   `CasLeaves.Foundation.FiniteSets, `CasAcceptance.Standard] `Ext ==
     #[`CasLeaves.Foundation.FiniteSets, `CasAcceptance.Standard]
-#guard leafImportViolations #[`CasCatalogue.Leaf, `CasCatalogue.Registry.Extension,
-  `CasCatalogue.Resolve] == #[`CasCatalogue.Registry.Extension, `CasCatalogue.Resolve]
+#guard leafImportViolations #[`CasContract.Leaf, `CasContract.Registry.Extension,
+  `CasCatalogue.Resolve] == #[`CasContract.Registry.Extension, `CasCatalogue.Resolve]
 
 /-- A realizer row of an already-registered category, and a semantic row. -/
 def realizerRow : RegistryEntry := .realizer

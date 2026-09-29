@@ -6,8 +6,8 @@ module
 
 public import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
 public meta import LeanCategories.Catalogue.Semantics.Modules.CatalogueRegistration
-public import CasCatalogue.Registry.Extension
-public meta import CasCatalogue.Registry.Extension
+public import CasContract.Registry.Extension
+public meta import CasContract.Registry.Extension
 
 @[expose] public section
 

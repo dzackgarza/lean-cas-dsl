@@ -15,8 +15,8 @@ may not reinterpret it.**
 | Silo | Owns | Owns nothing of |
 | --- | --- | --- |
 | `lean-categories` | All mathematics: categories and higher categories, n-morphisms and their composition, structural and forgetful functors, classifiers and their pullbacks, category-valued constructors and typed parameter families, selected structures and fibres, operations (every user-facing method is a formal operation, section, functor, classifier query or composite), predicates, coherences and comparison cells, domains and codomains. Auditable as mathematics alone: proofs, citations, no `sorry`, no project axioms. | Backends, what is computable, how anything is executed. |
-| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. The leaf API, the port protocol, the realization registry and its validation. | Any mathematics. It derives `Lat → R-Mod → Set → Card`; it never states "lattices have cardinality". |
-| Leaves (`CasLeaves`, and leaves hosted elsewhere) | Realizations only: (semantic operation or composite, supported presentations) ↦ implementation, plus the programs behind their ports, in any language, arbitrarily ugly internally. | What exists, what category anything is in, which operations it has, what an operation means or returns, which structural functors exist, what is inherited, what acceptance asserts. |
+| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. The leaf API, the port protocol, the realization registry and its validation, published separately as the leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`), which depends on `lean-categories` only. | Any mathematics. It derives `Lat → R-Mod → Set → Card`; it never states "lattices have cardinality". |
+| Leaves (`CasLeaves` in `lean-cas-dsl-leaves`, and leaves hosted elsewhere), depending on the leaf contract and `lean-categories` only | Realizations only: (semantic operation or composite, supported presentations) ↦ implementation, plus the programs behind their ports, in any language, arbitrarily ugly internally. | What exists, what category anything is in, which operations it has, what an operation means or returns, which structural functors exist, what is inherited, what acceptance asserts. |
 | `lean-cas-dsl` acceptance (`CasAcceptance`) | Permanent black-box assertions phrased in the mathematical language, and the derived report of implementation gaps. | Leaf internals, backend representations, algorithms. |
 | `research` | Research experiments and notebooks, formalization requests upstream, and possibly realization leaves. | Any ontology, parity denominator or semantic registry. |
 
@@ -139,10 +139,24 @@ node that owes one.
 | A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. | — |
 | An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
 | A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
-| A leaf sees, imports or edits the tests | The suite is `tests/acceptance/*.cas`, read only by the runner (`CasCatalogue.TestSuite`). A leaf may import only `CasCatalogue.Leaf`, the catalogue, Mathlib and its own root (`leafImportAllowed`). `cas-harness` imports the leaves beside the runner and checks the intake contract before running anything. | — |
+| A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it. A leaf module may import only `CasContract.Leaf`, the catalogue, Mathlib and its own root (`leafImportAllowed`, at `register_leaf`); `cas-harness` imports the leaves beside the runner and checks the intake contract before running anything. | — |
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md; its realizations live in `research/leaves`, whose modules are leaves under the same boundary (`isLeafModule`) | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
+
+## Packages
+
+| Package (repository) | Depends on | Holds |
+| --- | --- | --- |
+| `lean_categories` (`lean-categories`) | Mathlib | all mathematics and the catalogue |
+| `cas_leaf_contracts` (`lean-cas-dsl-leaf-contracts`) | `lean_categories` | the leaf contract: realization registry and validation, realized actions, decisions and limits, the port protocol and its Python reference implementation, `register_leaf` |
+| `cas_leaves` (`lean-cas-dsl-leaves`) | the two above | the leaves and their backend programs |
+| `cas-dsl` (`lean-cas-dsl`) | all three | the kernel's resolution, calls and language, the permanent suite, the harness, the notebook |
+
+The leaf contract is the kernel's, not `lean-categories'`: it is about what is computable and how
+it is executed, of which `lean-categories` owns nothing and which its audit never reads. It is
+published apart from the kernel only so that a leaf depends on nothing else of it. It changes with
+the kernel, is released, and is re-pinned by the leaves and here; a leaf never changes it to fit.
 
 ## Where the semantic registry lives
 
@@ -150,5 +164,5 @@ The semantic registry, the catalogue, is `lean-categories`' (`LeanCategories.Cat
 `CasCatalogue`). It holds the symbolic calculus of category and functor expressions, the witnesses
 tying each expression to its Lean category, the schema and validators of semantic rows, the
 `normalized_registry` command, and the rows. `lean-cas-dsl` imports it at the pinned revision; its
-own registry (`CasCatalogue.Registry.Extension`) adds realization rows only, each validated against
+own registry (`CasContract.Registry.Extension`) adds realization rows only, each validated against
 the semantics it realizes. `cc-sem-upstream` and `cc-sem-derive` made this so on 2026-09-29.

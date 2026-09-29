@@ -4,11 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Adapter
+public import CasContract.Adapter
 public import CasAcceptance.UnivProbes
 public import CasLeaves.Algebra.KernelDecode
 public import CasLeaves.Algebra.RingTables
-public meta import CasCatalogue.Adapter
+public meta import CasContract.Adapter
 public meta import CasAcceptance.UnivProbes
 public meta import CasLeaves.Algebra.KernelDecode
 public meta import CasLeaves.Algebra.RingTables

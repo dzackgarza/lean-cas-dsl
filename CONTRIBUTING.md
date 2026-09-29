@@ -8,9 +8,10 @@ This file says where each kind of contribution goes.
 | You need | It goes to |
 | --- | --- |
 | A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`: formalize it there (or open the request), release, and re-pin here. Never coin it here, in a leaf, or in `research`. |
-| Something that computes a registered operation on some presentation | A leaf (`CasLeaves/`, or an external package once `cc-external-leaf` lands) |
-| A proposition the language should always make true | `CasAcceptance/`, as a permanent assertion |
-| Resolution, realization, the leaf API, the port or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
+| Something that computes a registered operation on some presentation | A leaf, in `lean-cas-dsl-leaves` (`CasLeaves/`) or another package written against the leaf contract |
+| A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
+| Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
+| The realization registry, the leaf API or the port | The leaf contract (`lean-cas-dsl-leaf-contracts`, `CasContract/`), with the kernel change that needs it |
 
 The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
 `LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
@@ -18,13 +19,12 @@ The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows un
 
 ## Writing a leaf
 
-A leaf is a Lean module ending in a single `register_leaf` contract, under `CasLeaves/` here or in
-another package under its own root (for example `research/leaves`, `ResearchLeaves.*`, pinned to
-this repository). Its backend program, in any language, sits next to it. In another package,
-`#acceptance_rerun` reruns this repository's permanent assertions unchanged with the new
-realizations; a gap closed there shows as `now holds`.
+A leaf is a Lean module ending in a single `register_leaf` contract, under `CasLeaves/` in
+`lean-cas-dsl-leaves` or in another package under its own root, depending on the leaf contract and
+`lean-categories` only. Its backend program, in any language, sits next to it. `lean-cas-dsl`'s harness (`cas-harness`, `just harness`) runs the permanent suite over the
+installed leaves and reports each gap; a leaf package never imports or runs the suite.
 
-**What a leaf may contribute** (`CasCatalogue/Adapter.lean`):
+**What a leaf may contribute** (`CasContract/Adapter.lean`):
 
 | Contribution | What it says |
 | --- | --- |
@@ -41,13 +41,13 @@ realizations; a gap closed there shows as `now holds`.
 Everything else is rejected at `register_leaf`, naming the rule it breaks: categories, methods,
 properties, subcategories, forgetful routes, identifications, coercions, refinements of objects,
 result classes, generic semantics and natural transformations. A leaf module may import only
-`CasCatalogue.Leaf`, `CasLeaves.*`, modules of its own package, Mathlib and `lean-categories`.
+`CasContract.Leaf`, `CasLeaves.*`, modules of its own package, Mathlib and `lean-categories`.
 
 If a leaf seems to need one of the rejected contributions, or needs to forward an inherited
 method, the defect is upstream. Fix it there.
 
-**Backends.** A backend is a child process speaking the port protocol (`CasCatalogue/Port.lean`;
-reference implementation `port/python/cas_port.py`). Its announced capabilities must be registered
+**Backends.** A backend is a child process speaking the port protocol (`CasContract/Port.lean`;
+reference implementation `python/cas_port.py` of the contract, put on the adapter's `PYTHONPATH`). Its announced capabilities must be registered
 operation ids declared by `backendOperation` rows, or `connect` refuses it. Its answers are
 untrusted JSON, decoded into the operation's semantic result type or rejected. A backend's
 restrictions restrict its realization, never the operation's domain. Model: the Sage cardinality

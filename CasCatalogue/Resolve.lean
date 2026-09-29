@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasCatalogue.Registry.Extension
+public import CasContract.Registry.Extension
 public import CasCatalogue.Memo
-public import CasCatalogue.Refine
-public import CasCatalogue.Failure
+public import CasContract.Refine
+public import CasContract.Failure
 
 @[expose] public section
 
