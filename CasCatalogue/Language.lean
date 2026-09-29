@@ -19,8 +19,8 @@ registered literal form (`64`, `ℵ₀` in `Card`). It names no category id, han
 the kernel resolves each call and selects its realization.
 
 Terms:
-* `N` or `N(a, …)`: the registered object named `N` (in the category of an enclosing `in C`, or
-  the unique one of that name), at the numeral parameters `a, …`;
+* `N` or `N(a, …)`: the registered object named `N` at the numeral parameters `a, …`: the unrefined
+  object of that name, or in an enclosing `in C` its refinement in `C` (`Fin(3) in FiniteSets`);
 * `ℤ/n` is `ZMod(n)`, and `(ℤ/n)^k` is `ZModPower(n, k)`;
 * `X × Y`, `X ⊔ Y`: the registered product and coproduct in the category of `X` and `Y`;
 * `m(a, …)`: the registered morphism family named `m` at the numeral parameters `a, …`;
@@ -101,8 +101,9 @@ inductive Value
   | answer (answer : Expr)
   deriving Inhabited
 
-/-- The `let` bindings of a file. -/
-abbrev Scope := Std.HashMap Name Value
+/-- The `let` bindings of a file: each name's term, evaluated where it is used, so that a use of a
+binding whose computation is a gap is itself a gap. -/
+abbrev Scope := Std.HashMap Name Syntax
 
 /-- The registered category named `name`. -/
 def categoryNamed (state : RegistryState) (name : String) : TermElabM NamedCategoryEntry := do
@@ -110,11 +111,14 @@ def categoryNamed (state : RegistryState) (name : String) : TermElabM NamedCateg
     | throwStratum .invalid m!"no registered category is named {name}"
   return entry
 
-/-- The registered object named `name`, in `category` when given. -/
+/-- The registered object named `name`: in `category` when given (a refinement there), and
+otherwise the unrefined object of that name. -/
 def objectNamed (state : RegistryState) (name : String) (category? : Option NamedCategoryEntry) :
     TermElabM ObjectEntry := do
   let candidates := state.objects.filter fun o =>
-    o.name == name && category?.all (o.category == ·.id)
+    o.name == name && match category? with
+      | some c => o.category == c.id
+      | none => o.refines.isNone
   match candidates with
   | #[object] => return object
   | #[] => throwStratum .invalid m!"no registered object is named {name}{match category? with
@@ -162,7 +166,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       eval scope t (some (← categoryNamed state c.getId.toString))
   | `(cas_term| ℵ₀) => return .literal `«ℵ₀»
   | `(cas_term| $x:ident) =>
-      if let some v := scope.get? x.getId then return v
+      if let some t := scope.get? x.getId then return ← eval scope t category?
       let name := x.getId.toString
       if state.objects.any (·.name == name) then object state name #[] category?
       else return .literal x.getId
@@ -422,7 +426,10 @@ def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
     | some .malformed => return .malformed (← e.toMessageData.toString)
     | _ => throw e
   match stx with
-  | `(cas_stmt| let $x:ident := $t) => return (.holds, scope.insert x.getId (← eval scope t))
+  | `(cas_stmt| let $x:ident := $t) =>
+      -- An invalid binding fails here; one whose computation is a gap is bound all the same.
+      try discard <| eval scope t catch e => discard <| classify e
+      return (.holds, scope.insert x.getId t)
   | `(cas_stmt| assert implemented $t) =>
       try discard <| eval scope t; return (.holds, scope)
       catch e => return (← classify e, scope)

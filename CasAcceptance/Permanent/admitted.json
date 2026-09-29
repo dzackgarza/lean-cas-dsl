@@ -13,6 +13,8 @@
     "eq.rev_rev": "1023103c0bcfabef16b9fab2a2d0b28dfc1c90c81f1182c24bc8fa034a4a1891",
     "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
     "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550",
+    "finite_sets.card.three": "1f8177098149f099c9eefcb3cd331876a39d46f47520cc3f9111d6f4a606da64",
+    "finite_sets.limit.pullback.card": "416946aba41c989a663c7f8508a263d39e3361565dc16d720fe12ed8dcd0d8f8",
     "limit.finite_sets.pullback.card": "cffabc842afe209e0c4ef9a29b8f4057abec1255e1812a69acc1ddbd0ba7cf28",
     "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c",
     "obj.card.fin2_times_z3": "04f3a502a5777f935ce49d364c32e89bd22842f062c8ed4d3e75f1914a76b6f2",
@@ -42,5 +44,5 @@
     "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681"
   },
   "corrections": [],
-  "lean_categories": "ae0f4c6669290c8acac3bf6849502077361e269e"
+  "lean_categories": "536555f4eecf164e8fab5c1e096472bc6d9fcb0f"
 }

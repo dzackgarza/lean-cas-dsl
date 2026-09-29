@@ -48,3 +48,13 @@ let g := {0 ↦ 1, 1 ↦ 0} : Fin(2) → Fin(2)
 
 test sets.limit.pullback.card "Mathlib Types.pullbackLimitCone: {(x, y) | f x = g y} = {(0,1), (1,0), (2,0)}":
   assert |pullback(f, g)| = 3
+
+test finite_sets.card.three "Mathlib Fintype.card_fin: |Fin 3| = 3":
+  assert |Fin(3) in FiniteSets| = 3
+
+let f' := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : (Fin(3) in FiniteSets) → (Fin(2) in FiniteSets)
+
+let g' := {0 ↦ 1, 1 ↦ 0} : (Fin(2) in FiniteSets) → (Fin(2) in FiniteSets)
+
+test finite_sets.limit.pullback.card "Mathlib Types.pullbackLimitCone, created by FintypeCat ⥤ Type: 3 pairs":
+  assert |pullback(f', g')| = 3
