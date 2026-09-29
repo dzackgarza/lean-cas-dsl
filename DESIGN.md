@@ -1,5 +1,16 @@
 # CasDsl — design of the vertical slice
 
+> **Historical.** This document designed the first engine: a value model, codecs, typing rules,
+> routes, executors and a Sage bridge. `cc-notebook` removed that engine on 2026-09-29. It no
+> longer governs anything.
+>
+> - The architecture is [`specs/architecture.md`](specs/architecture.md).
+> - The requirements are [`specs/computational-core.md`](specs/computational-core.md).
+> - The execution order is [`specs/computational-core-plan.md`](specs/computational-core-plan.md).
+> - [`SPEC.md`](SPEC.md) remains the target for the surface notation.
+>
+> Keep this document as the record of what that engine did and why it was replaced.
+
 A categorically organized CAS hosted in Lean, shipped as a DSL plugin for
 [lean-jupyter-kernel](https://github.com/dzackgarza/lean-jupyter-kernel).
 

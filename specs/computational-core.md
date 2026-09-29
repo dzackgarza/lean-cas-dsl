@@ -1,6 +1,6 @@
 # Computational core: Lean-owned semantics over untrusted realization engines
 
-**Status.** Requirements specification, recorded 2026-09-28 from the owner's directive
+**Status.** Requirements specification under [architecture.md](architecture.md), which controls where they differ; recorded 2026-09-28 from the owner's directive
 of that date. It extends [#53](https://github.com/dzackgarza/lean-categories/issues/53)
 (functorial method resolution) and
 [#54](https://github.com/dzackgarza/lean-categories/issues/54) (typed constructors and
@@ -611,22 +611,30 @@ The table records what `ddcf982` had and what became of it in `cc-dsl-migration`
 
 ## 7. Division of ownership between the two Lean repositories
 
-- `lean-categories` owns mathematics only: categories, functors, fibrations, classifiers and
-  their theory (CC-TRUE's and CC-FIB's mathematical content, CC-LAWS), as a library that this
-  package requires. It holds no registry, resolver or realization code.
-- `lean-cas-dsl` (this repository) owns the CAS machinery over it: the symbolic registry of
-  category and functor expressions with their checked denotations into `lean-categories`
-  (`CasCatalogue/`: CC-CALC's syntax, CC-IMMEDIATE, the registry manifest and its exporter),
-  the resolver and closure (CC-RESOLVE, CC-CLOSURE, CC-UNIFORM, CC-COHERE, CC-PROP), the
-  realization/implementation registry (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO), adapters and
-  decoding (CC-ADAPTER, CC-DECODE), the surface syntax and elaborator, and the backend
-  bridges. Its older name-level graph (`CatDecl`/`FunctorDecl`) was deleted in
-  `cc-dsl-migration`; `CasCatalogue` is the only graph.
+[architecture.md](architecture.md) owns this division; the owner's direction of 2026-09-29
+corrects the earlier text of this section.
 
-This follows #53 §7 ("no second semantic method registry"): `FunctorEntry` stays the
-unique semantic authority, and the name-level graph must not survive as a parallel one.
-Decision of 2026-09-28 (user): all foundational mathematics lives in `lean-categories`;
-every other repository owns only the Lean its interfaces need and imports the rest.
+- `lean-categories` owns all mathematics: categories, functors, fibrations, classifiers,
+  operations (every method), coherences, typed constructors and families, and their theory
+  (CC-TRUE's and CC-FIB's mathematical content, CC-LAWS). It also owns which of these are
+  registered as the CAS's semantics, as a proof-carrying registry (lean-categories #49, #53).
+  It holds no resolver, realization or backend code.
+- `lean-cas-dsl` (this repository) derives the language from the pinned release:
+  - the resolver and closure (CC-RESOLVE, CC-CLOSURE, CC-UNIFORM, CC-COHERE, CC-PROP);
+  - the realization and implementation registry (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO);
+  - the leaf API and the port protocol (CC-ADAPTER, CC-DECODE);
+  - the surface syntax and elaborator;
+  - the permanent acceptance suite.
+
+  Backend programs are owned by their leaves.
+- **Transitional:** the symbolic semantic registry (`CasCatalogue/Semantics`) is still authored
+  here. `cc-sem-upstream` and `cc-sem-derive` move it into `lean-categories` and leave only its
+  derived projection here.
+
+This follows #53 §7 ("no second semantic method registry"). The name-level graph
+(`CatDecl`/`FunctorDecl`) was deleted in `cc-dsl-migration`. Decision of 2026-09-28 (user): all
+foundational mathematics lives in `lean-categories`, and every other repository owns only the Lean
+its interfaces need and imports the rest.
 
 ---
 

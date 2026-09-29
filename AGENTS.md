@@ -1,3 +1,43 @@
+# Architecture contract (read first)
+
+[`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
+- `lean-categories` owns all mathematics;
+- this repository derives the language from `lean-categories`' pinned release and owns no ontology;
+- leaves only realize operations that are already formal;
+- `research` owns no ontology.
+
+Every plan node and edit conforms to it. In practice it forbids the following.
+
+* **Missing mathematics goes upstream.** If you need a category, functor, classifier, operation
+  or coherence that is not formal, stop. Formalize it in `lean-categories`, or open the request
+  there. Then release, re-pin, and continue here.
+  - Never coin it in `CasCatalogue/Semantics`, a leaf, a probe or the notebook.
+  - The local semantic registry is transitional; `cc-sem-upstream` and `cc-sem-derive` remove it.
+    Until they close, a row added there must name its `lean-categories` owner, and it moves with
+    those nodes.
+* **Never shape semantics by computability.** Do not add, remove, narrow or weaken a semantic row,
+  domain or result type because a backend can or cannot compute something. A backend's limits
+  restrict its realization only.
+* **Leaves contribute zero mathematics.** A leaf registers realizations of registered operations
+  on presentations, and nothing else. If writing a leaf seems to need a new method, placement,
+  forwarding or edge, the defect is upstream. Fix it there, never in the leaf.
+* **Acceptance assertions are permanent.**
+  - Write the expected value from a proof, a citation or an independent oracle before running
+    anything. Never take it from the implementation under test.
+  - Never edit an admitted assertion because an implementation changed. Add new assertions
+    instead.
+  - Only an upstream correction to the mathematics changes an assertion, in the commit that
+    re-pins it.
+* **Failures stay stratified.** The five kinds are:
+  1. semantically invalid;
+  2. `NoImplementation`;
+  3. unavailable or crashed;
+  4. malformed output;
+  5. wrong answer.
+
+  Never collapse one kind into another. Never turn a gap into a fallback, a default or a nearby
+  answer.
+
 # Search before authoring (gate-enforced)
 
 Before writing any Lean definition for a plan node, search the formalization corpus
