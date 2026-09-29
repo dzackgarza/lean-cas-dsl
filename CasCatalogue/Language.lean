@@ -47,6 +47,14 @@ Terms:
   sets of its operands (`deg` on `ℤ[x]` is `deg ℤ`), and `map p to S[x]` also from the set it lands
   in; `√x` is `sqrt(x)`;
 * `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the registered inclusion's image;
+  `p + Y`: the coset `{p + c | c ∈ Y}`;
+* elements of a set `Y` included in `X` (registered constants `R ↪ R[x]`, or inclusions `ℚ ⊆ ℝ`)
+  are elements of `X` where one is needed (`(1/2)x²`, `1/3 = t` in `ℝ`);
+* `a / b`: the registered division `K × K∖{0} → K`; a numeral divisor is a nonzero numeral;
+* `d(p)`, `dx` (`d(x)` for a variable `x`), `d/dx`, `∫ ω`: the registered differential, derivative
+  and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
+  action `•` (`(6x + 1) dx`);
+* `a = b` within a term: the registered equality predicate `X × X → Ω`;
 * `X.m()`: the registered method or property `m`, resolved from the category of `X`;
 * `|X|`: `X.cardinality()`;
 * `X in C`: `X` in the category named `C`; `t in X` for a set `X`: `t` with its numerals in `X`;
@@ -61,7 +69,8 @@ Statements:
   monomorphisms `X ↪ … ↪ Y`, or `X = Y`); no realization is consulted;
 * `x ∈ Y`: `x`, with its numerals in `Y`, is an element of `Y` or of a set registered in `Y`;
 * `P and Q`: both decisions (three-valued);
-* `assert f = g` for morphisms: the category's registered equality decides it;
+* `assert f = g` for morphisms: the category's registered equality decides it (an asserted
+  equation is this comparison, not the predicate `=`);
 * `assert P`, `assert P = true | false | unknown`: the decision of a property;
 * `assert implemented X`: a realization computes `X`.
 
@@ -76,7 +85,7 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.Language
 
-declare_syntax_cat cas_term (behavior := both)
+declare_syntax_cat cas_term
 syntax:max num : cas_term
 syntax:max ident : cas_term
 syntax:max (name := casAtom) ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
@@ -99,6 +108,8 @@ syntax:45 cas_term:46 " ⊆ " cas_term:46 : cas_term
 syntax:45 cas_term:46 " ∈ " cas_term:46 : cas_term
 syntax:35 cas_term:36 " and " cas_term:35 : cas_term
 syntax:45 cas_term:46 " ∉ " cas_term:46 : cas_term
+/-- `a = b`: asserted, a comparison (`assert`); within a term, the predicate `=` into `Ω`. -/
+syntax:45 cas_term:46 " = " cas_term:46 : cas_term
 syntax:45 cas_term:46 " ≤ " cas_term:46 : cas_term
 syntax:45 cas_term:46 " < " cas_term:46 : cas_term
 syntax:65 cas_term:65 " ∪ " cas_term:66 : cas_term
@@ -107,8 +118,10 @@ syntax:65 cas_term:65 " \\ " cas_term:66 : cas_term
 syntax:65 cas_term:65 " △ " cas_term:66 : cas_term
 syntax:max cas_term:max noWs "²" : cas_term
 syntax:max cas_term:max noWs "³" : cas_term
-/-- `2n`: a numeral times a variable. -/
-syntax:max (name := casScaled) num noWs ident : cas_term
+/-- `2n`, `3x²`: a numeral times a variable (or its square or cube). -/
+syntax:max (name := casScaled) num noWs ident (noWs ("²" <|> "³"))? : cas_term
+/-- `2√2`: a numeral times a square root. -/
+syntax:max (name := casScaledRoot) num noWs "√" noWs cas_term:max : cas_term
 syntax:max "𝒫" noWs "(" cas_term ")" : cas_term
 /-- The set of maps `X → Y`. -/
 syntax:55 cas_term:56 " → " cas_term:55 : cas_term
@@ -126,8 +139,16 @@ syntax:max "(" cas_term ")" noWs "(" cas_term,* ")" : cas_term
 syntax:max (name := casRing) cas_term:max noWs "[" ident "]" : cas_term
 /-- `√x`: `sqrt(x)`. -/
 syntax:max "√" noWs cas_term:max : cas_term
-/-- `map p to S[x]`: the registered `map` landing in `S[x]`. -/
-syntax:max (name := casMap) &"map" cas_term:max &"to" cas_term:max : cas_term
+/-- `map p to S[x]`: the registered `map` landing in `S[x]`. (`map` is a keyword of the language:
+a module importing it does not use `map` as a bare identifier.) -/
+syntax:max (name := casMap) "map " cas_term:max " to " cas_term:max : cas_term
+/-- `(a)x`, `(a)x²`: a parenthesized coefficient times a variable (or its square or cube). -/
+syntax:max (name := casCoefficient) "(" cas_term ")" noWs ident (noWs ("²" <|> "³"))? : cas_term
+/-- `a dx`, `f dx`: juxtaposition, the product in a set both are in, else the registered action
+`•` (a polynomial times a differential). -/
+syntax:70 (name := casActed) cas_term:71 ident : cas_term
+/-- `∫ ω`: the primitives of a differential. -/
+syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
 
 /-- A pair `x ↦ y` of a graph literal. -/
 declare_syntax_cat cas_pair
@@ -140,7 +161,6 @@ syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
 syntax "let " ident noWs "(" ident ")" " := " cas_term : cas_stmt
 syntax "assert " &"implemented " cas_term : cas_stmt
-syntax "assert " cas_term " = " cas_term : cas_stmt
 syntax "assert " cas_term : cas_stmt
 
 /-- A test item: a statement with its id and the provenance of its expected value. -/
@@ -327,6 +347,13 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
   if stx.getKind == ``casRing then looseIdentifiers stx[0]
   else if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
+/-- The variable `v` that the name `dv` is the differential of. -/
+def differentialOf? (n : Name) : Option Name :=
+  match n with
+  | .str .anonymous s =>
+      if s.startsWith "d" && s.length > 1 then some (.mkSimple (s.toList.drop 1).asString) else none
+  | _ => none
+
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
@@ -430,6 +457,9 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| $x \ $y) => operate scope "\\" #[x, y] ambient?
   | `(cas_term| $x △ $y) => operate scope "△" #[x, y] ambient?
   | `(cas_term| $x ≤ $y) => operate scope "≤" #[x, y] ambient?
+  | `(cas_term| $x = $y) =>
+      let (elements, _) ← operands scope #[x, y] ambient?
+      applyNamed state "=" elements
   | `(cas_term| $x < $y) => operate scope "<" #[x, y] ambient?
   | `(cas_term| $x²) => power scope (← eval scope x none ambient?) 2 ambient?
   | `(cas_term| $x³) => power scope (← eval scope x none ambient?) 3 ambient?
@@ -447,10 +477,20 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
           polynomials (`in R[x]`)"
   | `(cas_term| √$x) => applyNamed state "sqrt" #[← eval scope x]
   | `(cas_term| {$xs,*}) => setLiteral scope xs.getElems ambient?
-  | `(cas_term| {$t:ident ∈ $X | $p}) => comprehension scope t.getId (← asObject (← eval scope X)) p
+  | `(cas_term| {$t:ident ∈ $X | $p}) =>
+      let A ← eval scope X
+      -- `{t ∈ A | P}` for a subset `A ⊆ X` is `A ∩ {t ∈ X | P}`.
+      if let some (_, base) ← powerSetOf? A then
+        let P ← powerSetOf base
+        return ← applyOperation "∩" #[A, ← comprehension scope t.getId base p] P
+      comprehension scope t.getId (← asObject A) p
   | `(cas_term| {$e | $t:ident ∈ $X}) => imageOf scope e t.getId (← asObject (← eval scope X))
   | `(cas_term| ($f)($args,*)) => apply scope (← eval scope f category?) args.getElems
-  | `(cas_term| $x + $y) => operate scope "+" #[x, y] ambient?
+  | `(cas_term| $x + $y) =>
+      -- `p + Y` for a named set `Y` of constants: the coset `{p + c | c ∈ Y}`.
+      if (← try some <$> namedObject scope y catch _ => pure none).isSome then
+        return ← cosetOf (← eval scope x none ambient?) (← eval scope y)
+      operate scope "+" #[x, y] ambient?
   | `(cas_term| $x · $y) => operate scope "·" #[x, y] ambient?
   | `(cas_term| -$x) => operate scope "-" #[x] ambient?
   | `(cas_term| $x - $y) =>
@@ -468,6 +508,8 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
         return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
           eval scope t category? ambient?
       let name := x.getId.toString
+      -- `dv` for a variable `v`: its differential `d(v)`.
+      if let some v ← differentialVariable? x.getId then return ← applyNamed state "d" #[v]
       if state.objects.any (·.name == name) then object state name #[] category?
       else if state.morphisms.any (·.name == name) then named scope name #[] category?
       else return .literal x.getId
@@ -507,9 +549,12 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | _ => call scope t "cardinality" category?
   | `(cas_term| $t.$m:ident()) => call scope t m.getId.toString category?
   | `(cas_term| $a / $n) =>
-      match a with
-      | `(cas_term| ℤ) => object state "ZMod" #[← eval scope n] category?
-      | _ => throwStratum .invalid m!"`/` is the quotient `ℤ/n` only"
+      match a, n with
+      | `(cas_term| ℤ), _ => object state "ZMod" #[← eval scope n] category?
+      | `(cas_term| d), `(cas_term| $v:ident) =>
+          if let some x ← differentialVariable? v.getId then return ← derivativeAt x
+          throwStratum .invalid m!"`d/{v.getId}`: {v.getId} is not d of a variable"
+      | _, _ => divide (← eval scope a) (← eval scope n)
   | `(cas_term| $b ^ $k) =>
       match b with
       | `(cas_term| (ℤ / $n)) =>
@@ -521,19 +566,41 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
         | _, _ => throwStratum .invalid m!"`^` is `2^X` of a set or `x^k` of an element"
   | `(cas_term| $a × $b) => product scope false a b category?
   | `(cas_term| $a ⊔ $b) => product scope true a b category?
-  | _ =>
-      if stx.getKind == ``casRing then
-        return ← object state "Poly" #[← asObject (← eval scope stx[0])] none
-      if stx.getKind == ``casMap then
-        return ← applyNamed state "map" #[← eval scope stx[1]] (some (← eval scope stx[3]))
-      -- `2n`: a numeral times a variable.
-      if stx.getKind == ``casScaled then
-        return ← operate scope "·"
-          #[← `(cas_term| $(⟨stx[0]⟩):num), ← `(cas_term| $(⟨stx[1]⟩):ident)] ambient?
-      -- The atoms `ℤ`, `ℕ`, `ℚ`, `ℝ`, `ℂ`: objects named by their notation.
-      match stx.getKind == ``casAtom, stx.find? (·.isAtom) with
-      | true, some atom => object state atom.getAtomVal #[] category?
-      | _, _ => throwStratum .invalid m!"not a term of the language: {stx}"
+  | _ => evalKinds scope stx category? ambient?
+
+/-- The terms of the language named by their syntax kind. -/
+partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry)
+    (ambient? : Option Value) : M Value := do
+  let state ← registryState
+  if stx.getKind == ``casRing then
+    return ← object state "Poly" #[← asObject (← eval scope stx[0])] none
+  if stx.getKind == ``casMap then
+    return ← applyNamed state "map" #[← eval scope stx[1]] (some (← eval scope stx[3]))
+  if stx.getKind == ``casCoefficient then
+    let b ← eval scope (← `(cas_term| $(⟨stx[3]⟩):ident)) none ambient?
+    let b ← match stx[4].find? (·.isAtom) |>.map (·.getAtomVal) with
+      | some "²" => power scope b 2 ambient?
+      | some "³" => power scope b 3 ambient?
+      | _ => pure b
+    return ← juxtapose (← eval scope stx[1]) b ambient?
+  if stx.getKind == ``casIntegral then
+    return ← applyNamed state "∫" #[← eval scope stx[1]]
+  if stx.getKind == ``casActed then
+    let b ← eval scope (← `(cas_term| $(⟨stx[1]⟩):ident)) none ambient?
+    return ← juxtapose (← eval scope stx[0]) b ambient?
+  -- `2n`, `3x²`, `2√2`: a numeral times a term.
+  if stx.getKind == ``casScaled || stx.getKind == ``casScaledRoot then
+    let factor ← if stx.getKind == ``casScaledRoot then `(cas_term| √$(⟨stx[2]⟩)) else
+      let v : Ident := ⟨stx[1]⟩
+      match stx[2].find? (·.isAtom) |>.map (·.getAtomVal) with
+        | some "²" => `(cas_term| $v:ident²)
+        | some "³" => `(cas_term| $v:ident³)
+        | _ => `(cas_term| $v:ident)
+    return ← operate scope "·" #[← `(cas_term| $(⟨stx[0]⟩):num), factor] ambient?
+  -- The atoms `ℤ`, `ℕ`, `ℚ`, `ℝ`, `ℂ`: objects named by their notation.
+  match stx.getKind == ``casAtom, stx.find? (·.isAtom) with
+  | true, some atom => object state atom.getAtomVal #[] category?
+  | _, _ => throwStratum .invalid m!"not a term of the language: {stx}"
 
 /-- The registered object `name` at the numeral parameters `args`. -/
 partial def object (state : RegistryState) (name : String) (args : Array Value)
@@ -552,6 +619,10 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
     (category? : Option NamedCategoryEntry) : M Value := do
   let state ← registryState
   let receiver ← eval scope t category?
+  -- A method of sets on a subset: of its extent.
+  let receiver ← if (← powerSetOf? receiver).isSome && state.methods.any (·.name == name) then
+      asObject receiver
+    else pure receiver
   if let .element .. := receiver then return ← applyNamed state name #[receiver]
   -- `f.image()`: the image of a map, by the registered power object.
   if let .morphism h _ _ _ (some (X, Y)) := receiver then
@@ -618,6 +689,11 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
   let some category := state.categories.find? (·.id == entry.category)
     | throwStratum .invalid m!"the morphism {entry.name} has an unregistered category"
   let declaration ← mkConstWithFreshMVarLevels entry.declaration
+  -- A family over sets (`d` over the rings `R`): its parameters come from its operands.
+  let overSets ← forallTelescopeReducing (← inferType declaration) fun xs _ =>
+    xs.anyM fun x => return !(← inferType x).isConstOf ``Nat
+  if overSets then
+    return ← applyFamily entry.declaration category (← args.mapM (eval scope · none))
   let arity ← forallTelescopeReducing (← inferType declaration) fun xs _ => pure xs.size
   unless arity ≤ args.size do
     throwStratum .invalid m!"{entry.name} takes {arity} parameters"
@@ -751,7 +827,8 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
   let mut bindings : List (Name × Value) := []
   let mut done : Array Name := #[]
   for (v, _) in rings do
-    if done.contains v || !loose.contains v || scope.contains v || (ctx.bound.lookup v).isSome then
+    let used := loose.contains v || loose.any (differentialOf? · == some v)
+    if done.contains v || !used || scope.contains v || (ctx.bound.lookup v).isSome then
       continue
     done := done.push v
     let written := (rings.filter (·.1 == v)).map (shown ·.2)
@@ -760,6 +837,126 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     let some (_, ring) := rings.find? (·.1 == v) | unreachable!
     bindings := (v, ← generatorOf (← eval scope ring)) :: bindings
   return bindings
+
+/-- How the elements of the set `Y` are elements of the set `X`: `some none` if they are the same
+set, `some (some ι)` along `ι : Y ⟶ X`, the registered constants of `X` from its parameter `Y`
+(`ℚ ↪ ℚ[x]`) or a chain of registered inclusions (`ℚ ⊆ ℝ`); `none` otherwise. -/
+partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
+  let state ← registryState
+  let (.object y _ yOrigin, .object x category xOrigin) := (Y, X) | return none
+  if y == x || (← isDefEq y x) then return some none
+  if let some (entry, params) := xOrigin then
+    if let (some constants, some (Value.object p ..)) := (entry.constants, params[0]?) then
+      if ← isDefEq p y then
+        if (← read).mode == .realized then
+          throwStratum .noImplementation m!"no registered realization threads the parameters of \
+            {constants}"
+        let ι ← homIn (← `($(mkCIdent constants) $(← paramTerms params)*)) y x category
+        return some (some ι)
+  if let (some (sub, #[]), some (super, #[])) := (yOrigin, xOrigin) then
+    if let some chain := inclusionChain state sub.id super.id then
+      return some (some (← inclusionMap chain Y))
+  return none
+
+/-- The composite `Y ↪ … ↪ X` of a chain of registered inclusions out of `Y`. -/
+partial def inclusionMap (chain : Array InclusionEntry) (Y : Value) : M Expr := do
+  let state ← registryState
+  let .object _ category _ := Y | throwStratum .invalid m!"an inclusion is of named sets"
+  let handleOf (id : ObjectId) : M Expr := do
+    let some entry := state.objects.find? (·.id == id) | unreachable!
+    let .object h .. ← object state entry.name #[] none | unreachable!
+    return h
+  let mut ι ← identityAt Y
+  for e in chain do
+    let h ← homIn (mkCIdent e.declaration) (← handleOf e.sub) (← handleOf e.super) category
+    ι ← mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, h]
+  return ι
+
+/-- `v` as an element of `X`: a numeral's element there, or an element carried along the inclusion
+of its set in `X` (`coercionMap`). -/
+partial def coerceTo (v : Value) (X : Value) : M Value := do
+  match v with
+  | .element h Y =>
+      match ← coercionMap Y X with
+      | some (some ι) => return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[h, ι]) X
+      | _ => return v
+  | _ => toElement v X
+
+/-- A set among `sets` that each of them is included in. -/
+partial def commonSet? (sets : Array Value) : M (Option Value) := do
+  for X in sets do
+    if ← sets.allM fun Y => return (← coercionMap Y X).isSome then return some X
+  return none
+
+/-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
+action `•` of `a` on `b` (`(6x + 1) dx`). -/
+partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
+  let sets := #[a, b].filterMap fun | .element _ X => some X | _ => none
+  if let .element .. := a then
+    let inAmbient ← match ambient? with
+      | some X => do
+          if ← sets.allM fun Y => return (← coercionMap Y X).isSome then pure (some X) else pure none
+      | none => pure none
+    let common ← match inAmbient with
+      | some X => pure (some X)
+      | none => commonSet? sets
+    if let some X := common then
+      return ← applyOperation "·" #[← coerceTo a X, ← coerceTo b X] X
+  applyNamed (← registryState) "•" #[a, b]
+
+/-- `p + Y` for a named set `Y` included in the set `X` of `p`: the coset `{p + c | c ∈ Y}`, the
+image of `c ↦ p + c` (at the stage `Y`). -/
+partial def cosetOf (p Y : Value) : M Value := do
+  let .element h X := p | throwStratum .invalid m!"a coset `p + Y` is of an element `p`"
+  let some coercion ← coercionMap Y X
+    | throwStratum .invalid m!"`+`: the set is not included in the set of the element"
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization computes cosets"
+  let ι ← match coercion with
+    | some ι => pure ι
+    | none => identityAt Y
+  let sum ← withReader (fun ctx => { ctx with stage := some Y }) do
+    let constant ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt Y, h]
+    applyOperation "+" #[.element constant X, .element ι X] X
+  let .element s _ := sum | throwStratum .invalid m!"`+` of elements is an element"
+  imageOfMap s Y X
+
+/-- The generator `v` that the name `dv` is the differential of, when `v` is bound to one. -/
+partial def differentialVariable? (n : Name) : M (Option Value) := do
+  let some v := differentialOf? n | return none
+  let some g := (← read).bound.lookup v | return none
+  let .element _ (.object _ _ (some (entry, _))) := g | return none
+  return if entry.generator.isSome then some g else none
+
+/-- `d/dv : R[v] → R[v]`, the registered `derivative` at the ring of the generator `g`. -/
+partial def derivativeAt (g : Value) : M Value := do
+  let state ← registryState
+  let .element _ P@(.object p category (some (_, params))) := g
+    | throwStratum .invalid m!"`d/dv` is along a variable"
+  let some entry := state.morphisms.find? (·.name == "derivative")
+    | throwStratum .invalid m!"no registered derivative"
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization threads the parameters of \
+      {entry.declaration}"
+  let h ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms params)*)) p p category
+  return .morphism h p p category (some (P, P))
+
+/-- `a / b`: the registered division `K × K∖{0} → K`, where `K` is the set of `a` (else `ℚ`) and
+`b` is an element of `K∖{0}`: a nonzero numeral, or a value there. -/
+partial def divide (a b : Value) : M Value := do
+  let state ← registryState
+  let K ← match a with
+    | .element _ K => pure K
+    | _ => object state "ℚ" #[] none
+  let nonzero ← object state "nonzero" #[K] none
+  let b ← match b with
+    | .nat 0 => throwStratum .invalid m!"`/ 0`: 0 is not in the domain of division"
+    | .nat _ => toElement b nonzero
+    | .element _ (.object _ _ (some (entry, _))) =>
+        if entry.name == "nonzero" then pure b
+        else throwStratum .invalid m!"a divisor is an element of K∖\{0}, not of {entry.name}"
+    | _ => throwStratum .invalid m!"a divisor is an element"
+  applyNamed state "/" #[a, b]
 
 /-- `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the image of the registered
 inclusion `Y ↪ X`, `univ \ ι(Y)` with `univ` the transpose of `X → 1 → Ω`. -/
@@ -773,15 +970,7 @@ partial def complementOf (X Y : Value) : M Value := do
   if (← read).mode == .realized then
     throwStratum .noImplementation m!"no registered realization computes complements"
   let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
-  let handleOf (id : ObjectId) : M Expr := do
-    let some entry := state.objects.find? (·.id == id) | unreachable!
-    let .object h .. ← object state entry.name #[] none | unreachable!
-    return h
-  let mut ι ← identityAt Y
-  for e in chain do
-    let h ← homIn (mkCIdent e.declaration) (← handleOf e.sub) (← handleOf e.super) category
-    ι ← mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, h]
-  let image ← imageOfMap ι Y X
+  let image ← imageOfMap (← inclusionMap chain Y) Y X
   let P ← powerSetOf X
   let .object p _ _ := P | unreachable!
   let .object one _ _ ← oneObject | unreachable!
@@ -839,20 +1028,21 @@ set than its siblings'. -/
 partial def operands (scope : Scope) (args : Array Syntax) (ambient? : Option Value) :
     M (Array Value × Value) := do
   let values ← args.mapM (eval scope · none ambient?)
+  let sets := values.filterMap fun | .element _ X => some X | _ => none
+  -- The enclosing set, else one all the operands' sets are included in, else the first.
   let X ← match ambient? with
     | some X => pure X
-    | none => match values.findSome? (fun | .element _ X => some X | _ => none) with
-      | some X => pure X
-      | none => object (← registryState) "ℤ" #[] none
-  let handle : Value → Option Expr
-    | .object a .. => some a
-    | _ => none
+    | none => match ← commonSet? sets, sets[0]? with
+      | some X, _ | none, some X => pure X
+      | none, none => object (← registryState) "ℤ" #[] none
+  -- An operand in another set that is not included in `X` is read again in `X`.
   let values ← (args.zip values).mapM fun (arg, v) => do
     match v with
     | .element _ Y =>
-        if ambient?.isNone && handle Y != handle X then eval scope arg none (some X) else pure v
+        if ambient?.isNone && (← coercionMap Y X).isNone then eval scope arg none (some X)
+        else pure v
     | _ => pure v
-  return (← values.mapM (toElement · X), X)
+  return (← values.mapM (coerceTo · X), X)
 
 /-- The registered operation `name` on the operands `args`. -/
 partial def operate (scope : Scope) (name : String) (args : Array Syntax)
@@ -1244,6 +1434,13 @@ def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
     | .element _ X, _ => pure (left, ← toElement right X)
     | _, .element _ X => pure (← toElement left X, right)
     | _, _ => pure (left, right)
+  -- Elements of two sets, one included in the other, are compared in the larger.
+  let (left, right) ← match left, right with
+    | .element _ X, .element _ Y =>
+        if (← coercionMap Y X).isSome then pure (left, ← coerceTo right X)
+        else if (← coercionMap X Y).isSome then pure (← coerceTo left Y, right)
+        else pure (left, right)
+    | _, _ => pure (left, right)
   let wrong := Outcome.wrong s!"{shown l} is not {shown r}"
   match left, right with
   | .element f (.object _ category _), .element g _
@@ -1327,7 +1524,9 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
       state.properties.any (·.name == s) || state.limits.any (·.shape == s)
   let free := (looseIdentifiers stx).filter fun n =>
     n.isAtomic && !bound.contains n && !scope.contains n && (ctx.bound.lookup n).isNone &&
-      !keywords.contains n && !named n
+      !keywords.contains n && !named n &&
+      -- `dv`, the differential of a bound variable `v`.
+      !((differentialOf? n).any fun v => (ctx.bound.lookup v).isSome)
   let free := free.foldl (fun acc n => if acc.contains n then acc else acc.push n) #[]
   match free.toList with
   | [] => k
@@ -1349,7 +1548,7 @@ def statement (scope : Scope) (stx : Syntax) : M Outcome := do
     return .holds
   withFreeVariables scope stx do
   match stx with
-  | `(cas_stmt| assert implemented $t) => discard <| eval scope t; return .holds
+  | `(cas_stmt| assert implemented $t:cas_term) => discard <| eval scope t; return .holds
   | `(cas_stmt| assert $t in $X) =>
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
@@ -1359,8 +1558,8 @@ def statement (scope : Scope) (stx : Syntax) : M Outcome := do
           if x == y || (← withTransparency .all <| isDefEq x y) then return .holds
           return .wrong s!"{shown t} is not an element of {shown X}"
       | _ => discard <| eval scope (← `(cas_term| $t in $X)); return .holds
-  | `(cas_stmt| assert $l = $r) => assertEqual scope l r
   | `(cas_stmt| assert $p) =>
+      if let `(cas_term| $l = $r) := p then return ← assertEqual scope l r
       let answer ← asAnswer (← eval scope p)
       if semantic then return .holds
       let e ← mkAppM ``BEq.beq #[answer, toExpr (some true)]

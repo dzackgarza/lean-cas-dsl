@@ -1,0 +1,42 @@
+-- Differentials and indefinite integration (SPEC.md, "Differentials", "Indefinite integration"):
+-- the universal derivation d : ℚ[x] → Ω¹_{ℚ[x]/ℚ} ≅ ℚ[x] dx, d/dx, and ∫ ω = {g | d g = ω}, a
+-- coset of the constants. Each test is admitted once and never changed.
+
+let f := x ↦ 3x² + x + 1 in ℚ[x]
+
+test differentials.member "SPEC.md: f = 3x² + x + 1 is an element of ℚ[x]":
+  assert f ∈ ℚ[x]
+
+test differentials.degree "SPEC.md: deg(3x² + x + 1) = 2":
+  assert f.deg() = 2
+
+test differentials.at_two "SPEC.md: f(2) = 3 · 4 + 2 + 1 = 15":
+  assert f(2) = 15
+
+test differentials.differential "SPEC.md: d(3x² + x + 1) = (6x + 1) dx in Ω¹_{ℚ[x]/ℚ} (d is a derivation over ℚ: d(x²) = 2x dx, d(1) = 0)":
+  assert d(f) = (6x + 1) dx
+
+test differentials.derivative "SPEC.md: (d/dx)(3x² + x + 1) = 6x + 1":
+  assert (d/dx)(f) = 6x + 1
+
+test integration.primitives "SPEC.md: ∫ f dx = x³ + (1/2)x² + x + ℚ, the primitives of (3x² + x + 1) dx, a coset of the kernel ℚ of d":
+  assert ∫ f dx = x³ + (1/2)x² + x + ℚ
+
+let Fs := {h ∈ ∫ f dx | h(0) = 0} in 𝒫(ℚ[x])
+
+test integration.normalized_count "SPEC.md: exactly one primitive vanishes at 0 (primitives differ by constants c, and h(0) = c)":
+  assert Fs.cardinality() = 1
+
+test integration.normalized "SPEC.md: the primitive vanishing at 0 is x³ + (1/2)x² + x":
+  assert Fs = {x³ + (1/2)x² + x}
+
+let F := x³ + (1/2)x² + x in ℚ[x]
+
+test integration.differential "SPEC.md: d(x³ + (1/2)x² + x) = (3x² + x + 1) dx = f dx":
+  assert d(F) = f dx
+
+test integration.derivative "SPEC.md: (d/dx)(x³ + (1/2)x² + x) = 3x² + x + 1 = f":
+  assert (d/dx)(F) = f
+
+test integration.at_zero "F(0) = 0":
+  assert F(0) = 0

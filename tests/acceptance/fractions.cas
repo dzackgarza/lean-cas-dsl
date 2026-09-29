@@ -1,0 +1,22 @@
+-- Fractions (SPEC.md, "Exact number systems"): division K × K∖{0} → K, defined on its domain.
+-- Each test is admitted once and never changed.
+
+test fractions.member "SPEC.md: 7/3 ∈ ℚ":
+  assert 7/3 ∈ ℚ
+
+test fractions.halves "1/2 + 1/2 = 1 in ℚ":
+  assert 1/2 + 1/2 = 1 in ℚ
+
+test fractions.cancel "(7/3) · 3 = 7 in ℚ":
+  assert (7/3) · 3 = 7 in ℚ
+
+test fractions.lowest_terms "6/4 = 3/2 in ℚ":
+  assert 6/4 = 3/2
+
+test fractions.sqrt_member "SPEC.md: √2 ∈ ℝ":
+  assert √2 ∈ ℝ
+
+let z := 2 + 2i in ℂ
+
+test fractions.modulus "SPEC.md: |2 + 2i| = √(2² + 2²) = √8 = 2√2":
+  assert |z| = 2√2
