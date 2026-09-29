@@ -40,11 +40,10 @@ def connectSage (state : RegistryState) : IO (Except Backend.PortError Backend.C
   Backend.connect state "sage" (← sageCommand)
     #["CasLeaves/Modules/SageCardinality/sage_cardinality.py"]
 
-/-- The cardinality of `(ℤ/n)^k`, computed by Sage and decoded. -/
-def sageCardinality (c : Backend.Conn) (n k : ℕ) : IO (Except String CardinalHandle) := do
-  match ← Backend.call c "meth.cardinality" (Json.mkObj [("n", toJson n), ("k", toJson k)]) with
-  | .error e => return .error e.render
-  | .ok answer => return decodeCardinality answer
+/-- The cardinality of `(ℤ/n)^k`, computed by Sage and decoded; a rejected answer is malformed. -/
+def sageCardinality (c : Backend.Conn) (n k : ℕ) : IO (Except Backend.PortError CardinalHandle) :=
+  Backend.callDecoded c "meth.cardinality" (Json.mkObj [("n", toJson n), ("k", toJson k)])
+    decodeCardinality
 
 end CasCatalogue.Modules.SageCardinality
 

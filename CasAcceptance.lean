@@ -27,4 +27,7 @@ public import CasAcceptance.RefineProbes
 public import CasAcceptance.SpecimenProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard
+public import CasAcceptance.StrataProbes
+public import CasAcceptance.Surface.Realized
+public import CasAcceptance.Surface.Semantic
 public import CasAcceptance.UnivProbes

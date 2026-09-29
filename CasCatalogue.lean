@@ -10,6 +10,7 @@ public import CasCatalogue.CellCall
 public import CasCatalogue.CellSyntax
 public import CasCatalogue.Constructors
 public import CasCatalogue.Decide
+public import CasCatalogue.Failure
 public import CasCatalogue.FamilyFibration
 public import CasCatalogue.Id
 public import CasCatalogue.Interpretation

@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Registry.Extension
+public import CasCatalogue.Failure
 public import Lean.Data.Json
 
 @[expose] public section
@@ -40,13 +41,23 @@ inductive PortError
   | contract (message : String)
   /-- The backend reported an error for a request. -/
   | backend (kind message : String)
+  /-- The answer is not a value of the operation's result type: its decoder rejected it. -/
+  | malformed (operation message : String)
   deriving Repr, Inhabited
+
+/-- The stratum of a port failure. A backend that cannot start or that reports an error is
+unavailable. An answer outside the protocol or rejected by its decoder is malformed. A connection
+refused for announcing undeclared operations is unavailable: the realization is not admitted. -/
+def PortError.stratum : PortError → Stratum
+  | .unavailable .. | .contract _ | .backend .. => .unavailable
+  | .protocol _ | .malformed .. => .malformed
 
 def PortError.render : PortError → String
   | .unavailable b r => s!"{b} is unavailable: {r}"
   | .protocol m => s!"protocol error: {m}"
   | .contract m => s!"contract violation: {m}"
   | .backend k m => s!"backend error ({k}): {m}"
+  | .malformed o m => s!"the answer to {o} is not a value of its result type: {m}"
 
 /-- What an adapter announces. -/
 structure Ready where
@@ -152,5 +163,12 @@ def call (c : Conn) (op : String) (args : Json) : IO (Except PortError Json) := 
     | "ok" => field reply "value"
     | "error" => throw (.backend (← str reply "kind") (← str reply "message"))
     | status => throw (.protocol s!"{c.ready.backend} answered {op} with status {status}")
+
+/-- Call `op` and decode its answer with the operation's registered decoder: a rejection is
+`malformed`, never a value. -/
+def callDecoded {τ : Type} (c : Conn) (op : String) (args : Json)
+    (decode : Json → Except String τ) : IO (Except PortError τ) := do
+  return (← call c op args) >>= fun answer =>
+    (decode answer).mapError fun m => .malformed op m
 
 end CasCatalogue.Backend

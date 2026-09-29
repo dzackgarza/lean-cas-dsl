@@ -134,7 +134,7 @@ node that owes one.
 | A leaf forwards an inherited method | No method rows are available to a leaf. An implementation must realize a registered composite, and validation checks its square. | — |
 | A leaf narrows a domain or changes a result type | Rows cannot restate a domain. An implementation's type is checked against the composite's realized codomain. | — |
 | A leaf inserts a placement or inheritance edge | `forgetfulRoute` and `coercion` are rejected | — |
-| Installing or removing a leaf adds or removes methods | `#methods` reads semantic rows only | `cc-failure-strata` pins it with a probe |
+| Installing or removing a leaf adds or removes methods | `#methods` reads semantic rows only. `StrataProbes` finds the surfaces identical with and without every leaf, while `#gaps` differs. | — |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port. `connect` refuses any capability that is not declared on a registered operation. | — |
 | A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. | — |
 | An acceptance assertion changes because a leaf changed | Policy only | `cc-acceptance-permanent` |

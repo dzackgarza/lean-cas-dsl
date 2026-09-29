@@ -52,6 +52,14 @@ syntax (name := refineCall) "refine% " "(" term ") " "in " str &" to " str : ter
 
 syntax (name := methodsCommand) "#methods " str : command
 
+/-- `#gaps "cat.id"`: the implementation gaps of a category (`gapsReport`). -/
+syntax (name := gapsCommand) "#gaps " str : command
+
+/-- `closure_report% "cat.id"` and `gaps_report% "cat.id"`: the two reports as string literals, so
+that surfaces elaborated in different import sets can be compared. -/
+syntax (name := closureReportTerm) "closure_report% " str : term
+syntax (name := gapsReportTerm) "gaps_report% " str : term
+
 syntax (name := runCall) "run% " ident " (" term ") " "in " str (&" using " str)? (&" proved")? :
   term
 
@@ -113,6 +121,18 @@ meta def viaStrings (group : Syntax) : Array String :=
 @[command_elab methodsCommand] meta def elabMethodsCommand : CommandElab := fun stx => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax
   liftTermElabM <| reportClosure category
+
+@[command_elab gapsCommand] meta def elabGapsCommand : CommandElab := fun stx => do
+  let some category := stx[1].isStrLit? | throwUnsupportedSyntax
+  liftTermElabM <| do logInfo (← gapsReport category)
+
+@[term_elab closureReportTerm] meta def elabClosureReportTerm : TermElab := fun stx _ => do
+  let some category := stx[1].isStrLit? | throwUnsupportedSyntax
+  return toExpr (← closureReport category)
+
+@[term_elab gapsReportTerm] meta def elabGapsReportTerm : TermElab := fun stx _ => do
+  let some category := stx[1].isStrLit? | throwUnsupportedSyntax
+  return toExpr (← gapsReport category)
 
 @[command_elab resolveCommand] meta def elabResolveCommand : CommandElab := fun stx => do
   let some category := stx[3].isStrLit? | throwUnsupportedSyntax

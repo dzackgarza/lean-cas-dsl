@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Registry.Extension
 public import CasCatalogue.Memo
 public import CasCatalogue.Refine
+public import CasCatalogue.Failure
 
 @[expose] public section
 
@@ -345,10 +346,10 @@ def RegistryState.closure (state : RegistryState) (receiver : CategoryExpr) : Ar
 
 /-- Report the operation surface of a registered category: on its objects, and on its morphisms
 (the arrow category). -/
-def reportClosure (category : String) : TermElabM Unit := do
+def closureReport (category : String) : TermElabM String := do
   let state ← registryState
   let some entry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let render (rows : Array ClosureRow) : String :=
     "\n".intercalate (rows.toList.map fun row =>
       s!"  {row.name} ({row.kind}){if row.resolved then "" else " [unavailable]"}: {row.status}")
@@ -356,8 +357,11 @@ def reportClosure (category : String) : TermElabM Unit := do
   let morphisms := match state.arrowsOf? entry.expression with
     | some arrows => state.closure arrows
     | none => #[]
-  logInfo m!"on objects of {category}:\n{render objects}\non morphisms of {category}:\n\
+  return s!"on objects of {category}:\n{render objects}\non morphisms of {category}:\n\
     {render morphisms}"
+
+def reportClosure (category : String) : TermElabM Unit := do
+  logInfo (← closureReport category)
 
 /-! ## Elaboration: the composite as a checked Lean term -/
 
@@ -375,7 +379,7 @@ far: a composition always starts at the identity action of the receiver's realiz
 def composeAction (state : RegistryState) (acc : Expr) (edge : EdgeRef) : MetaM Expr := do
   let candidates := state.actions.filter (·.edge == edge)
   if candidates.isEmpty then
-    throwError "no registered action realizes {edge.label}"
+    throwStratum .noImplementation m!"no registered action realizes {edge.label}"
   let mut composed : Array Expr := #[]
   for candidate in candidates do
     -- A realization indexed by parameters (the free modules over `ℤ/n`) gets metavariables for
@@ -389,9 +393,11 @@ def composeAction (state : RegistryState) (acc : Expr) (edge : EdgeRef) : MetaM 
     catch _ => saved.restore
   match composed.toList with
   | [result] => pure result
-  | [] => throwError "no registered action on {edge.label} composes with the realization so far"
-  | _ => throwError "several registered actions on {edge.label} compose with the realization so \
-      far; choosing one is a realization choice (CC-ROUTE), not made here"
+  | [] => throwStratum .noImplementation
+            m!"no registered action on {edge.label} composes with the realization so far"
+  | _ => throwStratum .ambiguousRealization
+           m!"several registered actions on {edge.label} compose with the realization so far; \
+             choosing one is a realization choice (CC-ROUTE), not made here"
 
 /-- Whether `e` mentions a noncomputable constant. -/
 def mentionsNoncomputable (env : Environment) (e : Expr) : Bool :=
@@ -502,9 +508,11 @@ def receiverRealization (state : RegistryState) (category : CategoryId) (receive
     saved.restore
   match accepting with
   | #[realizer] => attempt realizer
-  | #[] => throwError "no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
-  | _ => throwError "the receiver is a handle of {accepting.size} registered realizers of \
-      {category.raw} ({accepting.toList.map (·.id.raw)}); which realization it is must be stated"
+  | #[] => throwStratum .noImplementation
+             m!"no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
+  | _ => throwStratum .ambiguousRealization
+           m!"the receiver is a handle of {accepting.size} registered realizers of {category.raw} \
+             ({accepting.toList.map (·.id.raw)}); which realization it is must be stated"
 
 /-- The target denotation of a realized action. -/
 def targetDenotation (action : Expr) : MetaM Expr := do
@@ -532,8 +540,10 @@ def methodActionFor (state : RegistryState) (method : MethodEntry) (imageDenotat
       found := found.push (← instantiateMVars action)
   match found with
   | #[action] => return action
-  | #[] => throwError "no registered action of {method.functor.raw} acts on this realization"
-  | _ => throwError "several registered actions of {method.functor.raw} act on this realization"
+  | #[] => throwStratum .noImplementation
+             m!"no registered action of {method.functor.raw} acts on this realization"
+  | _ => throwStratum .ambiguousRealization
+           m!"several registered actions of {method.functor.raw} act on this realization"
 
 /-- The composed route action from the receiver's realization, the image, and the method's value,
 for a resolved method call. -/
@@ -574,11 +584,11 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
     (through : Array String) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let resolution ← match state.resolveMethod categoryEntry.expression name
       (through.map fun raw => ⟨raw⟩) with
     | .ok resolution => pure resolution
-    | .error error => throwError error.render state
+    | .error error => throwStratum .invalid (error.render state)
   logInfo m!"resolved: {state.renderResolution resolution}"
   let composite ← resolution.route.compositeExpr
   let (denotation, x) ← receiverRealization state categoryEntry.id receiver
@@ -594,11 +604,11 @@ def elabMemoCall (table : Term) (name : String) (receiver : Term) (category : St
     (through : Array String) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let resolution ← match state.resolveMethod categoryEntry.expression name
       (through.map fun raw => ⟨raw⟩) with
     | .ok resolution => pure resolution
-    | .error error => throwError error.render state
+    | .error error => throwStratum .invalid (error.render state)
   let key := state.renderResolution resolution
   logInfo m!"resolved: {key}"
   let (denotation, x) ← receiverRealization state categoryEntry.id receiver
@@ -622,7 +632,8 @@ def checkRealizer (state : RegistryState) (category : CategoryId) (action : Expr
   for realizer in state.realizers.filter (·.category == category) do
     let registered ← mkConstWithFreshMVarLevels realizer.denotation
     if ← withoutModifyingState (isDefEq sourceDenotation registered) then return
-  throwError "no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
+  throwStratum .noImplementation
+      m!"no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
 
 /-- Elaborate `run% name (x) in "cat.id"` (optionally `using "impl.id"`): the value of `x.name`
 with its epistemic status and provenance (CC-TRUST). Without `using`, the value is computed by the
@@ -632,10 +643,10 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
     (proved : Bool := false) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let resolution ← match state.resolveMethod categoryEntry.expression name with
     | .ok resolution => pure resolution
-    | .error error => throwError error.render state
+    | .error error => throwStratum .invalid (error.render state)
   let rendered := state.renderResolution resolution
   match implementation with
   | none =>
@@ -653,9 +664,9 @@ def elabRun (name : String) (receiver : Term) (category : String) (implementatio
           toExpr s!"{rendered} ; composed Lean-native actions"]
   | some implementationId =>
       let some entry := state.implementations.find? (·.id.raw == implementationId)
-        | throwError "no registered implementation {implementationId}"
+        | throwStratum .invalid m!"no registered implementation {implementationId}"
       unless entry.method == resolution.method.id && entry.route == resolution.route.refs do
-        throwError "implementation {implementationId} realizes a different composite"
+        throwStratum .invalid m!"implementation {implementationId} realizes a different composite"
       let x ← elabTerm receiver none
       let fused ← mkConstWithFreshMVarLevels entry.realization
       let provenance := toExpr s!"{rendered} ; fused by {entry.backend} ({implementationId})"
@@ -670,10 +681,10 @@ registered realization of it. -/
 def reportAudit (name category : String) : TermElabM Unit := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let resolution ← match state.resolveMethod categoryEntry.expression name with
     | .ok resolution => pure resolution
-    | .error error => throwError error.render state
+    | .error error => throwStratum .invalid (error.render state)
   let fused := state.implementations.filter fun e =>
     e.method == resolution.method.id && e.route == resolution.route.refs
   let lines := #[s!"owner: {resolution.method.id.raw} ({resolution.method.functor.raw})",
@@ -687,18 +698,20 @@ registered isomorphism (CC-CARRIER). Two presentations are never silently identi
 registered isomorphism the call reports its absence. -/
 def elabTransport (element source target : Term) : TermElabM Expr := do
   let state ← registryState
-  unless source.raw.isIdent && target.raw.isIdent do throwError "transport needs named objects"
+  unless source.raw.isIdent && target.raw.isIdent do
+    throwStratum .invalid m!"transport needs named objects"
   let sourceName ← resolveGlobalConstNoOverload source.raw
   let targetName ← resolveGlobalConstNoOverload target.raw
   let some entry := state.handleIsos.find? fun (e : HandleIsoEntry) =>
       e.source == sourceName && e.target == targetName
-    | throwError "no registered isomorphism from {sourceName} to {targetName}: the two \
+    | throwStratum .noImplementation
+        m!"no registered isomorphism from {sourceName} to {targetName}: the two \
         presentations are distinct objects, and no comparison relates them (CC-CARRIER)"
   let evidence ← mkConstWithFreshMVarLevels entry.evidence
   let hom ← mkAppM ``CategoryTheory.Iso.hom #[evidence]
   let act ← mkAppM ``ElementAction.act #[hom]
   let .forallE _ domain codomain _ ← whnf (← inferType act)
-    | throwError "the realizer's element action is not a function"
+    | throwStratum .invalid m!"the realizer's element action is not a function"
   let x ← elabTermEnsuringType element (← whnf domain)
   -- Expose the target's element type in normal form, so its operations are found.
   mkExpectedTypeHint (mkApp act x) (← whnf codomain)
@@ -711,11 +724,11 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
     (through : Array String) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let resolution ← match state.resolveProperty categoryEntry.expression name
       (through.map fun raw => ⟨raw⟩) with
     | .ok resolution => pure resolution
-    | .error error => throwError error.render state
+    | .error error => throwStratum .invalid (error.render state)
   logInfo m!"resolved: {state.renderPropertyResolution resolution}"
   let composite ← resolution.route.compositeExpr
   let (denotation, x) ← receiverRealization state categoryEntry.id receiver
@@ -729,10 +742,12 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
     catch _ => pure ()
   match decisions.toList with
   | [decision] => return .letE `route (← inferType composite) composite decision (nondep := true)
-  | [] => throwError "no registered decision procedure for {resolution.classifier.id.raw} \
-      applies to this realization"
-  | _ => throwError "several registered decision procedures apply; choosing one is a \
-      realization choice (CC-ROUTE), not made here"
+  | [] => throwStratum .noImplementation
+            m!"no registered decision procedure for {resolution.classifier.id.raw} applies to \
+              this realization"
+  | _ => throwStratum .ambiguousRealization
+           m!"several registered decision procedures apply; choosing one is a realization choice \
+             (CC-ROUTE), not made here"
 
 /-- Elaborate `eq% (f) (g) in "cat.id"`: the category's equality of the morphism handles `f` and
 `g`, decided by the unique registered equality procedure of a realizer of the category whose
@@ -740,7 +755,7 @@ handles they are. The result is a `Decision` about their denotations (CC-DECIDE)
 def elabEqualityQuery (f g : Term) (category : String) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let f ← elabTerm f none
   let g ← elabTerm g none
   synthesizeSyntheticMVarsNoPostponing
@@ -755,8 +770,10 @@ def elabEqualityQuery (f g : Term) (category : String) : TermElabM Expr := do
     catch _ => pure ()
   match decisions.toList with
   | [decision] => return decision
-  | [] => throwError "no registered equality of {category} applies to these morphisms"
-  | _ => throwError "several registered equalities of {category} apply to these morphisms"
+  | [] => throwStratum .noImplementation
+            m!"no registered equality of {category} applies to these morphisms"
+  | _ => throwStratum .ambiguousRealization
+           m!"several registered equalities of {category} apply to these morphisms"
 
 /-- The registered classifiers on `source` that are classifiers of a property (`ofProperty P`,
 found by unification) with total `target`, as `(classifier, P)`. -/
@@ -774,10 +791,10 @@ def propertyClassifierInto (state : RegistryState) (source target : NamedCategor
       #[← mkAppM ``CategoryTheory.Bundled.α #[host], none])
     unless ← withTransparency .all <| isDefEq classifier
         (← mkAppOptM ``LeanCategories.Classifier.ofProperty #[host, P]) do
-      throwError "{entry.id.raw} is not the classifier of a property"
+      throwStratum .invalid m!"{entry.id.raw} is not the classifier of a property"
     unless ← withTransparency .all <| isDefEq
         (← mkAppM ``LeanCategories.Classifier.total #[classifier]) total do
-      throwError "{entry.id.raw} does not have the total {target.id.raw}"
+      throwStratum .invalid m!"{entry.id.raw} does not have the total {target.id.raw}"
     return (← instantiateMVars classifier, ← instantiateMVars P)
   let candidates := state.classifiers.filter (·.host.syntacticEq source.expression)
   let mut matching : Array ClassifierEntry := #[]
@@ -787,7 +804,8 @@ def propertyClassifierInto (state : RegistryState) (source target : NamedCategor
   match matching.toList with
   | [entry] => return some (entry, ← attempt entry)
   | [] => return none
-  | _ => throwError "several property classifiers on {source.id.raw} have the total {target.id.raw}"
+  | _ => throwStratum .invalid
+           m!"several property classifiers on {source.id.raw} have the total {target.id.raw}"
 
 /-- Elaborate `refine% (x) in "cat.src" to "cat.tgt"` (CC-PROP, CC-DECIDE): `cat.tgt` is the total
 of the unique registered classifier of a property `P` on `cat.src`; its registered decider on the
@@ -797,11 +815,11 @@ the refinement when proved, `none` otherwise. -/
 def elabRefine (receiver : Term) (source target : String) : TermElabM Expr := do
   let state ← registryState
   let some src := state.categories.find? (·.id.raw == source)
-    | throwError "no registered category {source}"
+    | throwStratum .invalid m!"no registered category {source}"
   let some tgt := state.categories.find? (·.id.raw == target)
-    | throwError "no registered category {target}"
+    | throwStratum .invalid m!"no registered category {target}"
   let some (entry, classifier, P) ← propertyClassifierInto state src tgt
-    | throwError "{target} is not the refinement of {source} by a registered property"
+    | throwStratum .invalid m!"{target} is not the refinement of {source} by a registered property"
   let (denotation, x) ← receiverRealization state src.id receiver
   let mut decisions : Array Expr := #[]
   for decider in state.deciders.filter (·.classifier == entry.id) do
@@ -811,13 +829,14 @@ def elabRefine (receiver : Term) (source target : String) : TermElabM Expr := do
       decisions := decisions.push decision
     catch _ => pure ()
   let [decision] := decisions.toList
-    | throwError "no unique registered decider of {entry.id.raw} applies to this realization"
+    | throwStratum .noImplementation
+        m!"no unique registered decider of {entry.id.raw} applies to this realization"
   let denoted := (← instantiateMVars (← inferType decision)).appArg!.appArg!
   let host := (← whnfR (← inferType classifier)).appArg!
   -- The classifier's parameters and universes are those of the receiver's denotation.
   unless ← withTransparency .all <| isDefEq (← inferType denoted)
       (← mkAppM ``CategoryTheory.Bundled.α #[host]) do
-    throwError "the receiver does not denote an object of the host of {entry.id.raw}"
+    throwStratum .invalid m!"the receiver does not denote an object of the host of {entry.id.raw}"
   let host ← instantiateMVars host
   let P ← instantiateMVars P
   let property ← mkAppM ``Decision.map
@@ -828,11 +847,71 @@ def elabRefine (receiver : Term) (source target : String) : TermElabM Expr := do
 def reportResolution (name category : String) (through : Array String) : TermElabM Unit := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   match state.resolveMethod categoryEntry.expression name (through.map fun raw => ⟨raw⟩) with
   | .ok resolution =>
       discard <| resolution.route.compositeExpr
       logInfo m!"{state.renderResolution resolution}"
-  | .error error => throwError error.render state
+  | .error error => throwStratum .invalid (error.render state)
+
+/-! ## Implementation gaps (derived, `specs/architecture.md` "Failure is stratified") -/
+
+/-- How a resolved method is realized on the handles of a realizer. -/
+inductive Coverage
+  /-- By the registered actions along its route and of its method, composed. -/
+  | actions
+  /-- By fused implementations of its composite. -/
+  | implementations (ids : Array ImplementationId)
+  /-- By nothing: the realization failure, `NoImplementation` or an ambiguous realization. -/
+  | gap (reason : String)
+
+/-- The coverage of `resolution` on the handles of `realizer`. Only a realization failure is a
+gap; any other failure propagates. -/
+def RegistryState.coverage (state : RegistryState) (resolution : Resolution)
+    (realizer : RealizerEntry) : MetaM Coverage := do
+  let fused := state.implementations.filter fun i =>
+    i.method == resolution.method.id && i.route == resolution.route.refs
+  try
+    withoutModifyingState do
+      let denotation ← mkConstWithFreshMVarLevels realizer.denotation
+      let (args, _, _) ← forallMetaTelescopeReducing (← inferType denotation)
+      let denotation := mkAppN denotation args
+      let handles := (← whnfR (← inferType denotation)).getAppArgs[0]!
+      withLocalDeclD `x handles fun x =>
+        discard <| realizedMethodCall state resolution denotation x
+    return .actions
+  catch e =>
+    match Exception.stratum? e with
+    | some .noImplementation | some .ambiguousRealization =>
+        if fused.isEmpty then return .gap (← e.toMessageData.toString)
+        else return .implementations (fused.map (·.id))
+    | _ => throw e
+
+/-- The implementation gaps of a registered category: for each method on its surface and each
+registered realizer of it, how the method is realized, or the gap. The backends declaring an
+answer to the method are listed with it. Only realizations enter this report; the surface it
+ranges over is `closure`, which reads semantic rows only. -/
+def gapsReport (category : String) : TermElabM String := do
+  let state ← registryState
+  let some entry := state.categories.find? (·.id.raw == category)
+    | throwStratum .invalid m!"no registered category {category}"
+  let realizers := state.realizers.filter (·.category == entry.id)
+  let names := (state.methods.map (·.name)).toList.eraseDups
+  let mut lines : Array String := #[]
+  for name in names do
+    let .ok resolution := state.resolveMethod entry.expression name | continue
+    let backends := (state.backendOperations.filter (·.operation == resolution.method.id.raw)).map
+      (·.backend)
+    let answered := if backends.isEmpty then "" else s!" ; answered by {backends.toList}"
+    if realizers.isEmpty then
+      lines := lines.push
+        s!"  {name}: NoImplementation: no registered realizer of {category}{answered}"
+    for realizer in realizers do
+      let status := match ← state.coverage resolution realizer with
+        | .actions => "composed actions"
+        | .implementations ids => s!"implementations {ids.toList.map ImplementationId.raw}"
+        | .gap reason => reason
+      lines := lines.push s!"  {name} on {realizer.id.raw}: {status}{answered}"
+  return s!"implementation gaps of {category}:\n" ++ "\n".intercalate lines.toList
 
 end CasCatalogue

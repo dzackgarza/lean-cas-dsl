@@ -47,11 +47,10 @@ def connectGap (state : RegistryState) (flags : Array String := #[]) :
     IO (Except Backend.PortError Backend.Conn) := do
   Backend.connect state "gap" (← gapCommand) (#["CasLeaves/Algebra/GapKernels/gap_kernels.py"] ++ flags)
 
-/-- The kernel of `f`, computed by GAP and decoded, or the reason it is rejected. -/
-def gapKernel (c : Backend.Conn) (f : HomHandle) : IO (Except String SubgroupHandle) := do
-  match ← Backend.call c kernelOperation (encodeHom f) with
-  | .error e => return .error e.render
-  | .ok encoded => return decodeKernel f { operation := kernelOperation, encoded }
+/-- The kernel of `f`, computed by GAP and decoded; a rejected answer is malformed. -/
+def gapKernel (c : Backend.Conn) (f : HomHandle) : IO (Except Backend.PortError SubgroupHandle) :=
+  Backend.callDecoded c kernelOperation (encodeHom f) fun encoded =>
+    decodeKernel f { operation := kernelOperation, encoded }
 
 end CasCatalogue.Algebra.GapKernels
 

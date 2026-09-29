@@ -58,7 +58,7 @@ run_cmd liftTermElabM do
         | .ok k =>
             unless members k == expected && (nativeKernel f).map members == some expected do
               throwError "GAP's kernel {members k} is not {expected}"
-        | .error e => throwError "GAP's kernel was rejected: {e}"
+        | .error e => throwError "GAP's kernel was rejected: {e.render}"
       Backend.stop c
       -- A backend's own subgroup notion is not a registered operation: refused at connection.
       match ← connectGap state #["--hostile=capability"] with
@@ -71,7 +71,8 @@ run_cmd liftTermElabM do
           ("--hostile=whole-group", "not contained in the kernel")] do
         let .ok c ← connectGap state #[flag] | throwError "cannot start the adapter with {flag}"
         match ← gapKernel c sign with
-        | .error message => unless mentions reason message do throwError message
+        | .error e =>
+            unless e.stratum == .malformed && mentions reason e.render do throwError e.render
         | .ok _ => throwError "the answer of {flag} was accepted"
         Backend.stop c
   -- A leaf declaring a backend operation that is not a registered semantic operation (an
@@ -104,7 +105,7 @@ run_cmd liftTermElabM do
         | .ok card =>
             unless card == cardinalityOf (.zmodPow n k) do
               throwError "Sage's cardinality of (ℤ/{n})^{k} is {repr card}"
-        | .error e => throwError "Sage's answer was rejected: {e}"
+        | .error e => throwError "Sage's answer was rejected: {e.render}"
       Backend.stop c
 
 end CasCatalogue.BackendProbes
