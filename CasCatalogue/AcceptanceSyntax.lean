@@ -27,11 +27,11 @@ syntax (name := acceptBackendCommand)
 
 syntax (name := acceptanceGapsCommand) "#acceptance_gaps" : command
 
-@[command_elab acceptCommand] meta def elabAccept : CommandElab := fun stx => do
+/-- Check an `#accept` command: its status, admitting it as a theorem when `admit`. -/
+meta def checkAccept (stx : Syntax) (admit : Bool) : CommandElabM Status := do
   let some id := stx[1].isStrLit? | throwUnsupportedSyntax
-  let some source := stx[3].isStrLit? | throwUnsupportedSyntax
   let realized := !stx[4].isNone
-  let status ← liftTermElabM do
+  liftTermElabM do
     try
       let type ← withoutErrToSorry <| elabType stx[6]
       synthesizeSyntheticMVarsNoPostponing
@@ -41,8 +41,9 @@ syntax (name := acceptanceGapsCommand) "#acceptance_gaps" : command
       let proof ← instantiateMVars proof
       if type.hasSorry || proof.hasSorry || type.hasMVar || proof.hasMVar then
         throwError "the assertion {id} is not closed"
-      addDecl <| .thmDecl
-        { name := theoremName id, levelParams := [], type, value := proof }
+      if admit then
+        addDecl <| .thmDecl
+          { name := theoremName id, levelParams := [], type, value := proof }
       pure Status.holds
     catch e =>
       match Exception.stratum? e with
@@ -51,16 +52,12 @@ syntax (name := acceptanceGapsCommand) "#acceptance_gaps" : command
           pure (.gap (← e.toMessageData.toString))
       | some .unavailable => pure (.unavailable (← e.toMessageData.toString))
       | _ => throw e
-  addRecord { id, source, status }
-  match status with
-  | .holds => pure ()
-  | .gap reason => logInfo m!"acceptance gap {id}: {reason}"
-  | .unavailable reason => logInfo m!"acceptance {id} not exercised: {reason}"
 
-@[command_elab acceptBackendCommand] meta def elabAcceptBackend : CommandElab := fun stx => do
+/-- Check an `#accept_backend` command. -/
+meta def checkAcceptBackend (stx : Syntax) : CommandElabM Status := do
   let some id := stx[1].isStrLit? | throwUnsupportedSyntax
   let some source := stx[3].isStrLit? | throwUnsupportedSyntax
-  let status ← liftTermElabM do
+  liftTermElabM do
     let call ← withoutErrToSorry <| elabTerm stx[6] none
     synthesizeSyntheticMVarsNoPostponing
     let value ← withoutErrToSorry <| elabTerm stx[9] none
@@ -76,9 +73,60 @@ syntax (name := acceptanceGapsCommand) "#acceptance_gaps" : command
         match e.stratum with
         | .unavailable => pure (.unavailable e.render)
         | s => throwStratum s m!"acceptance {id}: {e.render}"
-  addRecord { id, source, status }
+
+/-- The record of an assertion elaborated here. -/
+meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
+  let some id := stx[1].isStrLit? | throwUnsupportedSyntax
+  let some source := stx[3].isStrLit? | throwUnsupportedSyntax
+  return { id, source, status, command := stx, «namespace» := ← getCurrNamespace
+           openDecls := ← getOpenDecls }
+
+@[command_elab acceptCommand] meta def elabAccept : CommandElab := fun stx => do
+  let status ← checkAccept stx (admit := true)
+  let record ← recordOf stx status
+  let id := record.id
+  addRecord record
+  match status with
+  | .holds => pure ()
+  | .gap reason => logInfo m!"acceptance gap {id}: {reason}"
+  | .unavailable reason => logInfo m!"acceptance {id} not exercised: {reason}"
+
+@[command_elab acceptBackendCommand] meta def elabAcceptBackend : CommandElab := fun stx => do
+  let status ← checkAcceptBackend stx
+  let record ← recordOf stx status
+  addRecord record
   if let .unavailable reason := status then
-    logInfo m!"acceptance {id} not exercised: {reason}"
+    logInfo m!"acceptance {record.id} not exercised: {reason}"
+
+syntax (name := acceptanceRerunCommand) "#acceptance_rerun" : command
+
+/-- Rerun every admitted assertion of the imported modules here, in the namespace and `open`s it
+was written in. A wrong or malformed answer fails; the statuses are reported. -/
+@[command_elab acceptanceRerunCommand] meta def elabAcceptanceRerun : CommandElab := fun _ => do
+  let mut passing : Nat := 0
+  let mut lines : Array String := #[]
+  for record in records (← getEnv) do
+    let rerun : CommandElabM Status := withoutModifyingEnv do
+      -- The scoped notations of the namespaces the assertion was written in, and of its opens.
+      let mut namespaces := record.namespace.components.foldl
+        (fun acc c => acc.push (acc.back?.getD .anonymous ++ c)) #[]
+      for decl in record.openDecls do
+        if let .simple ns _ := decl then namespaces := namespaces.push ns
+      for ns in namespaces do activateScoped ns
+      withScope (fun scope => { scope with currNamespace := record.namespace
+                                           openDecls := record.openDecls }) do
+        if record.command.getKind == ``acceptCommand then checkAccept record.command false
+        else checkAcceptBackend record.command
+    let status ← try rerun catch e =>
+      throwError "acceptance {record.id} ({record.source}) fails here: {e.toMessageData}"
+    match record.status, status with
+    | .holds, .holds => passing := passing + 1
+    | _, .holds =>
+        passing := passing + 1
+        lines := lines.push s!"  {record.id}: now holds"
+    | _, .gap reason => lines := lines.push s!"  {record.id}: gap: {reason}"
+    | _, .unavailable reason => lines := lines.push s!"  {record.id}: not exercised: {reason}"
+  logInfo m!"acceptance rerun: {passing} of {(records (← getEnv)).size} hold\n{"\n".intercalate lines.toList}"
 
 @[command_elab acceptanceGapsCommand] meta def elabAcceptanceGaps : CommandElab := fun _ => do
   let lines := (records (← getEnv)).toList.filterMap fun r => match r.status with

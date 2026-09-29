@@ -463,15 +463,26 @@ def RegistryEntry.isLeafContribution : RegistryEntry → Bool
 /-- The registered semantics a leaf realizes; public to leaves. -/
 def semanticsRoot : Name := `LeanCategories.Catalogue.Semantics
 
-/-- A direct import a leaf module may have: the leaf API, the registered semantics, other leaves,
-and the mathematics. Every other kernel module is internal. -/
-def leafImportAllowed (module : Name) : Bool :=
+/-- A direct import a leaf module may have: the leaf API, the registered semantics, the leaves of
+this repository and of its own package (`own`, its root), and the mathematics. Every other kernel
+module is internal. -/
+def leafImportAllowed (module : Name) (own : Name := leafRoot) : Bool :=
   module == leafApiModule ||
-    [semanticsRoot, leafRoot, `Mathlib, `LeanCategories, `Init].any (·.isPrefixOf module)
+    [semanticsRoot, leafRoot, own, `Mathlib, `LeanCategories, `Init].any (·.isPrefixOf module)
 
 /-- The direct imports of a leaf module that it may not have. -/
-def leafImportViolations (imports : Array Name) : Array Name :=
-  imports.filter (!leafImportAllowed ·)
+def leafImportViolations (imports : Array Name) (own : Name := leafRoot) : Array Name :=
+  imports.filter (!leafImportAllowed · own)
+
+/-- The notebook's roots: it registers nothing (`CasDslTests.Boundary`). -/
+def notebookRoots : List Name := [`CasDsl, `CasDslTests]
+
+/-- Whether a module is a leaf: any module outside the core, its probes, the notebook and
+`lean-categories`. Leaves may live in other packages (`research`), under their own root. -/
+def isLeafModule (module : Name) : Bool :=
+  let root := module.getRoot
+  !(realizationAuthorRoots.contains root || semanticAuthorRoots.contains root ||
+    notebookRoots.contains root)
 
 /- Validate the elaborated declaration and persist exactly one realization row. -/
 private def persistRealizationEntry (entry : RegistryEntry) : MetaM Unit := do
@@ -501,13 +512,13 @@ def addLeafRegistryEntryChecked (entry : RegistryEntry) : MetaM Unit := do
   let env ← getEnv
   let module := env.mainModule
   let root := module.getRoot
-  unless root == leafRoot || realizationAuthorRoots.contains root do
+  unless isLeafModule module || realizationAuthorRoots.contains root do
     throwError "leaf row {entry.stableId}: {module} is neither a leaf nor a core module"
   unless entry.isLeafContribution do
     throwError "leaf row {entry.stableId}: a backend leaf contributes only realizers, actions, \
       implementations, deciders and isomorphisms (spec §5)"
-  if root == leafRoot then
-    let bad := leafImportViolations (env.header.imports.map (·.module))
+  if isLeafModule module then
+    let bad := leafImportViolations (env.header.imports.map (·.module)) root
     unless bad.isEmpty do
       throwError "leaf module {module} imports core-internal modules {bad.toList}; a leaf \
         imports only {leafApiModule}, {semanticsRoot}.*, other leaves, Mathlib and lean-categories"
@@ -525,17 +536,18 @@ def leafBoundaryViolations (env : Environment) : Array String := Id.run do
   let mut violations := #[]
   for (module, rows) in registryRowsByModule env do
     let root := module.getRoot
-    if root == leafRoot then
+    -- A leaf: every module of this repository's leaves, and any other module writing rows.
+    if leafRoot.isPrefixOf module || (isLeafModule module && !rows.isEmpty) then
       if let some index := env.getModuleIdx? module then
         let imports := env.header.moduleData[index.toNat]!.imports.map (·.module)
-        for bad in leafImportViolations imports do
+        for bad in leafImportViolations imports root do
           violations := violations.push s!"{module} imports {bad}"
       for row in rows do
         unless row.isLeafContribution do
           violations := violations.push s!"{module} registers the semantic row {row.stableId}"
-    else if !realizationAuthorRoots.contains root && !semanticAuthorRoots.contains root then
+    else if notebookRoots.contains root then
       for row in rows do
-        violations := violations.push s!"{module} (outside the core) registers {row.stableId}"
+        violations := violations.push s!"{module} (the notebook) registers {row.stableId}"
   return violations
 
 private def registryObject (fields : List (String × Json)) : Json := Json.mkObj fields

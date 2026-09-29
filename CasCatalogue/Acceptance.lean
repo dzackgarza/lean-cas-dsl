@@ -46,11 +46,16 @@ inductive Status
   | unavailable (reason : String)
   deriving Inhabited, Repr
 
+/-- An admitted assertion: its id, provenance and status here, and what reruns it elsewhere: the
+command and the namespace and `open`s it was elaborated in. -/
 structure Record where
   id : String
   source : String
   status : Status
-  deriving Inhabited, Repr
+  command : Syntax := .missing
+  «namespace» : Name := .anonymous
+  openDecls : List OpenDecl := []
+  deriving Inhabited
 
 private initialize acceptanceExt : SimplePersistentEnvExtension Record (Array Record) ←
   registerSimplePersistentEnvExtension {
