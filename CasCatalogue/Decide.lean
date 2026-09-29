@@ -79,6 +79,13 @@ theorem answer_ne_false_of {d : Decision p} (h : p) : d.answer ≠ some false :=
 
 end Decision
 
+/-- A decision procedure for equality of morphism handles of a realization `d`, stated about their
+denotations: equality is the category's, decided on the realization. A refutation carries a proof
+of `d.map f ≠ d.map g`, so two equal morphisms, however constructed, are never decided unequal. -/
+structure HomEquality {C : Type uObj} [Category.{uHom} C] {R : Type w} [Category.{x} R]
+    (d : R ⥤ C) where
+  decide : ∀ {a b : R} (f g : a ⟶ b), Decision (d.map f = d.map g)
+
 /-- A decision procedure for the property `c` on the handles of a realizer `R`, stated about
 their denotations. -/
 structure Decider {C : LeanCategories.ObjCat.{uObj, uHom}} (c : LeanCategories.Classifier C)

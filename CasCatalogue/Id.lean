@@ -119,6 +119,11 @@ structure LimitRealizationId where
   raw : String
   deriving DecidableEq, Repr, Hashable
 
+/-- Stable id of a category's registered equality procedure on a realization. -/
+structure EqualityId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
 /-- Stable id of a registered adjunction, e.g. `adj.sets.pair.diagonal_limit`. -/
 structure AdjunctionId where
   raw : String
@@ -160,6 +165,7 @@ instance : Inhabited HandleIsoId := ⟨⟨""⟩⟩
 instance : Inhabited LimitId := ⟨⟨""⟩⟩
 instance : Inhabited LimitRealizationId := ⟨⟨""⟩⟩
 instance : Inhabited AdjunctionId := ⟨⟨""⟩⟩
+instance : Inhabited EqualityId := ⟨⟨""⟩⟩
 instance : Inhabited ClassifierId := ⟨⟨""⟩⟩
 instance : Inhabited CategoryFamilyId := ⟨⟨""⟩⟩
 instance : Inhabited ParameterId := ⟨⟨""⟩⟩

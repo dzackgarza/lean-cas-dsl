@@ -159,6 +159,15 @@ structure LimitRealizationEntry where
   lift : Option LiftId := none
   deriving Repr
 
+/-- An equality row (CC-DECIDE): `realization` names a `HomEquality d` for the denotation `d` of
+the registered realizer `realizer`: the category's equality of morphisms, decided on its handles
+(three-valued, with evidence). -/
+structure EqualityEntry where
+  id : EqualityId
+  realizer : RealizerId
+  realization : Lean.Name
+  deriving Repr
+
 /-- An adjunction row (CC-CALC): `declaration` is a Mathlib `Adjunction L R` between the registered
 functors `left` and `right` (unit, counit, and the transpose `homEquiv`), e.g. `constLimAdj`. -/
 structure AdjunctionEntry where

@@ -19,6 +19,7 @@ public import CasAcceptance.LiftProbes
 public import CasAcceptance.LimitProbes
 public import CasAcceptance.PropsProbes
 public import CasAcceptance.RealizeProbes
+public import CasAcceptance.RefineProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard
 public import CasAcceptance.UnivProbes

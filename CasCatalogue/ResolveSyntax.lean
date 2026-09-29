@@ -17,6 +17,9 @@ public meta import CasCatalogue.Resolve
   registered functor, selecting a port.
 * `ask% name (x) in "cat.id"` decides the property `name` of `x` (CC-PROP): a `Decision` from the
   classifier's registered decision procedure, applied to the image of `x` along the route.
+* `eq% (f) (g) in "cat.id"` decides the category's equality of two morphism handles (CC-DECIDE):
+  a `Decision` from the registered equality procedure of their realization; never `false` for
+  equal morphisms.
 * `#resolve name in "cat.id"` reports the route, or why there is none.
 * `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE).
 * `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its epistemic
@@ -34,6 +37,8 @@ namespace CasCatalogue
 syntax (name := methodCall) "method% " ident " (" term ") " "in " str (&" via " str)* : term
 
 syntax (name := propertyQuery) "ask% " ident " (" term ") " "in " str (&" via " str)* : term
+
+syntax (name := equalityQuery) "eq% " "(" term ") " "(" term ") " "in " str : term
 
 syntax (name := methodsCommand) "#methods " str : command
 
@@ -61,6 +66,10 @@ meta def viaStrings (group : Syntax) : Array String :=
 @[term_elab propertyQuery] meta def elabPropertyQuerySyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax
   elabPropertyQuery stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
+
+@[term_elab equalityQuery] meta def elabEqualityQuerySyntax : TermElab := fun stx _ => do
+  let some category := stx[8].isStrLit? | throwUnsupportedSyntax
+  elabEqualityQuery ⟨stx[2]⟩ ⟨stx[5]⟩ category
 
 @[term_elab runCall] meta def elabRunSyntax : TermElab := fun stx _ => do
   let some category := stx[6].isStrLit? | throwUnsupportedSyntax

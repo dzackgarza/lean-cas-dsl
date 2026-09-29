@@ -230,7 +230,8 @@ def expectedActionIds : Array ActionId := #[
   ⟨"act.modules.underlying.zmod_free"⟩,
   ⟨"act.sets.whole_subset.presented"⟩,
   ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩,
-  ⟨"act.sets.pair_diagonal.presented"⟩, ⟨"act.sets.pair_limit.presented"⟩]
+  ⟨"act.sets.pair_diagonal.presented"⟩, ⟨"act.sets.pair_limit.presented"⟩,
+  ⟨"act.finite_sets.forget.refined"⟩]
 
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
@@ -252,7 +253,8 @@ def expectedRealizerIds : Array RealizerId := #[
   ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
   ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
   ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
-  ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩]
+  ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩,
+  ⟨"rz.finite_sets.refined"⟩]
 
 /-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
 def expectedImplementationIds : Array ImplementationId := #[
@@ -269,6 +271,9 @@ def expectedLimitRealizationIds : Array LimitRealizationId :=
   #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
     ⟨"limr.finite_sets.pullback.returned"⟩]
 
+/-- Stable equality rows (CC-DECIDE). -/
+def expectedEqualityIds : Array EqualityId := #[⟨"eq.sets.presented"⟩]
+
 /-- Stable adjunction rows (CC-CALC). -/
 def expectedAdjunctionIds : Array AdjunctionId := #[AdjunctionId.setsPairDiagonalLimit]
 
@@ -280,10 +285,12 @@ def expectedLiftIds : Array LiftId :=
   #[⟨"lift.bilin_module.restrict"⟩, LiftId.finiteSetsPullbacks]
 
 /-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
-def expectedPropertyIds : Array PropertyId := #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩]
+def expectedPropertyIds : Array PropertyId :=
+  #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩, ⟨"prop.is_finite"⟩]
 
 /-- Stable decision-procedure rows owned by the standard catalogue (CC-DECIDE). -/
-def expectedDeciderIds : Array DeciderId := #[⟨"dec.magmas.commutative.table"⟩]
+def expectedDeciderIds : Array DeciderId :=
+  #[⟨"dec.magmas.commutative.table"⟩, ⟨"dec.sets.finite.presented"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
@@ -345,6 +352,8 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
   validateStableIdSet "limits" (manifest.limits.map (·.id)) (rawIds expectedLimitIds (·.raw))
   validateStableIdSet "limit realizations" (manifest.limitRealizations.map (·.id))
     (rawIds expectedLimitRealizationIds (·.raw))
+  validateStableIdSet "equalities" (manifest.equalities.map (·.id))
+    (rawIds expectedEqualityIds (·.raw))
   validateStableIdSet "adjunctions" (manifest.adjunctions.map (·.id))
     (rawIds expectedAdjunctionIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))

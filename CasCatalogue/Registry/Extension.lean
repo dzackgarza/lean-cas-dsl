@@ -56,6 +56,7 @@ inductive RegistryEntry
   | limit (e : LimitEntry)
   | limitRealization (e : LimitRealizationEntry)
   | adjunction (e : AdjunctionEntry)
+  | equality (e : EqualityEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -79,6 +80,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .limit e => e.id.raw
   | .limitRealization e => e.id.raw
   | .adjunction e => e.id.raw
+  | .equality e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -104,6 +106,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .limit e => #[e.declaration]
   | .limitRealization e => #[e.realization]
   | .adjunction e => #[e.declaration]
+  | .equality e => #[e.realization]
 
 structure RegistryState where
   categories : Array NamedCategoryEntry := #[]
@@ -125,6 +128,7 @@ structure RegistryState where
   limits : Array LimitEntry := #[]
   limitRealizations : Array LimitRealizationEntry := #[]
   adjunctions : Array AdjunctionEntry := #[]
+  equalities : Array EqualityEntry := #[]
   deriving Inhabited
 
 /-- Registered category-constructor lookup by stable ID. -/
@@ -382,6 +386,7 @@ private def RegistryState.apply : RegistryState → RegistryEntry → RegistrySt
   | s, .limit e => { s with limits := s.limits.push e }
   | s, .limitRealization e => { s with limitRealizations := s.limitRealizations.push e }
   | s, .adjunction e => { s with adjunctions := s.adjunctions.push e }
+  | s, .equality e => { s with equalities := s.equalities.push e }
 
 def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :=
   state.categories.toList.map RegistryEntry.category ++
@@ -402,7 +407,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.cells.toList.map RegistryEntry.cell ++
     state.limits.toList.map RegistryEntry.limit ++
     state.limitRealizations.toList.map RegistryEntry.limitRealization ++
-    state.adjunctions.toList.map RegistryEntry.adjunction
+    state.adjunctions.toList.map RegistryEntry.adjunction ++
+    state.equalities.toList.map RegistryEntry.equality
 
 def registryEntryPairAllowed : RegistryEntry → RegistryEntry → Bool
   | .category category, right =>
@@ -584,6 +590,9 @@ private def validatePersistedRegistryState (state : RegistryState) : Except Stri
   for realization in state.limitRealizations do
     unless state.limits.any (·.id == realization.limit) do
       throw s!"limit realization {realization.id.raw} names an unregistered limit"
+  for equality in state.equalities do
+    unless state.realizers.any (·.id == equality.realizer) do
+      throw s!"equality entry {equality.id.raw} names an unregistered realizer"
   for adjunction in state.adjunctions do
     unless (state.functor? adjunction.left).isSome && (state.functor? adjunction.right).isSome do
       throw s!"adjunction entry {adjunction.id.raw} names an unregistered functor"
@@ -1912,6 +1921,21 @@ def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry)
     throwError "limit realization {e.id.raw}: {e.realization} does not return an apex handle \
       with its identification"
 
+/-- An equality row names a `HomEquality` for exactly its realizer's denotation. -/
+def validateEquality (state : RegistryState) (e : EqualityEntry) : MetaM Unit := do
+  let some realizer := state.realizers.find? (·.id == e.realizer)
+    | throwError "equality {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  let realization ← mkConstWithFreshMVarLevels e.realization
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType realization)
+  let type ← whnfR type
+  unless type.isAppOf ``CasCatalogue.HomEquality do
+    throwError "equality {e.id.raw}: {e.realization} is not a HomEquality"
+  let denotation ← mkConstWithFreshMVarLevels realizer.denotation
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType denotation)
+  unless ← withTransparency .all <| isDefEq type.appArg! (mkAppN denotation args) do
+    throwError "equality {e.id.raw}: {e.realization} decides equality on another realization \
+      than {e.realizer.raw}"
+
 /-- An adjunction row names a Mathlib `Adjunction L R` between exactly its two registered
 functors. -/
 def validateAdjunction (state : RegistryState) (e : AdjunctionEntry) : MetaM Unit := do
@@ -2110,6 +2134,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .limit e => validateLimit state e
   | .limitRealization e => validateLimitRealization state e
   | .adjunction e => validateAdjunction state e
+  | .equality e => validateEquality state e
   | .constructor e => do
       let semanticsConstant ← mkConstWithFreshMVarLevels e.semantics
       let (_, binderInfos, result) ←
@@ -2146,7 +2171,7 @@ def leafApiModule : Name := `CasCatalogue.Leaf
 /-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
 def RegistryEntry.isLeafContribution : RegistryEntry → Bool
   | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _
-  | .limitRealization _ => true
+  | .limitRealization _ | .equality _ => true
   | _ => false
 
 /-- The registered semantics a leaf realizes; public to leaves. -/
@@ -2568,6 +2593,12 @@ structure RegistryManifestLimitRealization where
   lift : Option String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestEquality where
+  id : String
+  realizer : String
+  realization : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestAdjunction where
   id : String
   left : String
@@ -2640,6 +2671,7 @@ structure RegistryManifest where
   limits : Array RegistryManifestLimit
   limitRealizations : Array RegistryManifestLimitRealization
   adjunctions : Array RegistryManifestAdjunction
+  equalities : Array RegistryManifestEquality
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -2778,6 +2810,8 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
     adjunctions := (state.adjunctions.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, left := e.left.raw, right := e.right.raw,
       declaration := e.declaration.toString }
+    equalities := (state.equalities.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, realizer := e.realizer.raw, realization := e.realization.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

@@ -22,6 +22,7 @@ public import CasCatalogue.Semantics.Foundation.Cardinality
 public import CasCatalogue.Semantics.Foundation.Catalogue
 public import CasCatalogue.Semantics.Foundation.CatalogueRegistration
 public import CasCatalogue.Semantics.Foundation.Expressions
+public import CasCatalogue.Semantics.Foundation.Finiteness
 public import CasCatalogue.Semantics.Foundation.Lists
 public import CasCatalogue.Semantics.Foundation.PairDiagrams
 public import CasCatalogue.Semantics.Foundation.Subsets

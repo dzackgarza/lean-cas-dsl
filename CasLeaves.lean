@@ -12,7 +12,9 @@ public import CasLeaves.Algebra.RingTables
 public import CasLeaves.Algebra.Subgroups
 public import CasLeaves.Foundation.Actions
 public import CasLeaves.Foundation.Cardinality
+public import CasLeaves.Foundation.Equality
 public import CasLeaves.Foundation.FiniteSets
+public import CasLeaves.Foundation.Finiteness
 public import CasLeaves.Foundation.Lists
 public import CasLeaves.Foundation.PairDiagrams
 public import CasLeaves.Foundation.Pullbacks

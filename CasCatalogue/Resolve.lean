@@ -708,6 +708,30 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
   | _ => throwError "several registered decision procedures apply; choosing one is a \
       realization choice (CC-ROUTE), not made here"
 
+/-- Elaborate `eq% (f) (g) in "cat.id"`: the category's equality of the morphism handles `f` and
+`g`, decided by the unique registered equality procedure of a realizer of the category whose
+handles they are. The result is a `Decision` about their denotations (CC-DECIDE). -/
+def elabEqualityQuery (f g : Term) (category : String) : TermElabM Expr := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let f ← elabTerm f none
+  let g ← elabTerm g none
+  synthesizeSyntheticMVarsNoPostponing
+  let mut decisions : Array Expr := #[]
+  for equality in state.equalities do
+    unless state.realizers.any fun r => r.id == equality.realizer && r.category == categoryEntry.id do
+      continue
+    let procedure ← mkConstWithFreshMVarLevels equality.realization
+    try
+      let decision ← executable (← mkAppM ``HomEquality.decide #[procedure, f, g])
+      decisions := decisions.push decision
+    catch _ => pure ()
+  match decisions.toList with
+  | [decision] => return decision
+  | [] => throwError "no registered equality of {category} applies to these morphisms"
+  | _ => throwError "several registered equalities of {category} apply to these morphisms"
+
 /-- Report the resolution of `name` on the category `category`, or why there is none. -/
 def reportResolution (name category : String) (through : Array String) : TermElabM Unit := do
   let state ← registryState
