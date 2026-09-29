@@ -36,3 +36,23 @@ test numbers.membership.zmod "3 ∈ ℤ/5":
 
 test numbers.membership.negative "SPEC.md: -3 ∈ ℤ":
   assert -3 ∈ ℤ
+
+test numbers.gcd "SPEC.md: gcd(84, 30) = 6":
+  assert gcd(84, 30) = 6
+
+let z := 2 + 2 · i in ℂ
+
+test numbers.complex.re "SPEC.md: z = 2 + 2i, re z = 2":
+  assert z.re() = 2
+
+test numbers.complex.im "SPEC.md: z = 2 + 2i, im z = 2":
+  assert z.im() = 2
+
+test numbers.complex.bar "SPEC.md: conj(2 + 2i) = 2 - 2i":
+  assert z.bar() = 2 - 2 · i
+
+test numbers.complex.norm "SPEC.md: (2 + 2i)(2 - 2i) = 8":
+  assert z · z.bar() = 8
+
+test numbers.complex.abs "SPEC.md: |2 + 2i| = √8 = 2√2":
+  assert |z| = 2 · sqrt(2)

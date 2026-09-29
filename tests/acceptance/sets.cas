@@ -58,3 +58,9 @@ let g' := {0 ↦ 1, 1 ↦ 0} : (Fin(2) in FiniteSets) → (Fin(2) in FiniteSets)
 
 test finite_sets.limit.pullback.card "Mathlib Types.pullbackLimitCone, created by FintypeCat ⥤ Type: 3 pairs":
   assert |pullback(f', g')| = 3
+
+test sets.apply.rev "Mathlib Fin.rev: rev 0 = 2 in Fin 3":
+  assert rev(3, 0) = 2 in Fin(3)
+
+test sets.apply.rev_rev "Mathlib Fin.rev_rev: rev (rev 1) = 1 in Fin 4":
+  assert rev(4, rev(4, 1)) = 1 in Fin(4)

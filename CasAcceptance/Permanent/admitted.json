@@ -20,8 +20,14 @@
     "lattices.discriminant.a3": "8f83e2ce5fb0b820c2bfc6a01e0ff4ae372207db540d23da95a26238e7b50ecf",
     "limit.finite_sets.pullback.card": "cffabc842afe209e0c4ef9a29b8f4057abec1255e1812a69acc1ddbd0ba7cf28",
     "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c",
+    "numbers.complex.abs": "3624aabb0ed8b745e5fbb57564a6ef6ebcfdbcb415274440b4297d91c7680fba",
+    "numbers.complex.bar": "cc297686151dc4a811ffb69cd7896d800d3f8f6431cf5b740c70534bcc24e19f",
+    "numbers.complex.im": "dd66eeab5b3d58057d0abc06e0d3a84caf8ffce226039cb420389c3ff98439fc",
+    "numbers.complex.norm": "4baf77c597d63257319eb4af61925a94a15f97e430eb991d7e1c668b08c792a6",
+    "numbers.complex.re": "376fe81d8da931749a0560cde419efceacc6f1ea213219cd68e964eb113dfd75",
     "numbers.containments": "a000da44dc5614ea0d18c9b9dc019719612d5a76a65f005e6a4861e839b4dd7b",
     "numbers.containments.transitive": "42a87532ebdbe14a6011fdcb93815653f77114ee5b307fa7c938cdee23e2b051",
+    "numbers.gcd": "b545e15a543feda5be509abb5157465a69bd490866f457dc7dc54d7e455d8440",
     "numbers.integers.sum": "308875939a7a59390d9ff159640136576bfc112e8125a099b1a0c4b80138757e",
     "numbers.membership.negative": "04e439f6764d649a4a719590ec3b7acd3f5ae3154bca1cefa0fddd1985f2e76b",
     "numbers.membership.zmod": "193bac855e204dfb8b658f682bdc65d58b33da4bdcaeaf49473ec1d5f70a1200",
@@ -43,6 +49,8 @@
     "obj.finite.fin2_times_z3": "fd0c378a7185f577f9a3c8d72f61e4a1edf60266a8f7056edba0ee863141b8ad",
     "obj.finite.integers": "50854cfb5ca7acb7c351046a4884fb56b1060a4a5f6dbc7ed9b6909492aa8b89",
     "obj.limit.sets.pullback.card": "6a6886ac318e595a71dc954d4d2466ae386d4ff2a11a877d3b5e9350c29948a9",
+    "sets.apply.rev": "a9bb7d1ac375adce52a6ab1ad6835fdfd374649939d6b2490a231c743ab3030f",
+    "sets.apply.rev_rev": "bb2bcc5be11c577fc75fd9acb5ab3fc264e59b0ac5c4058931bc4ccb02470e77",
     "sets.card.fin2_sqcup_fin3": "60be5a4d9d33c9b38fef037b4b3619d32aac486c27f28b0fb89e068e71d8e4fd",
     "sets.card.fin2_times_z3": "497e04336197e3bb975c151d7067065434fe77e84dbe975f2dbf7e7dbc665547",
     "sets.card.integers": "2fbad067d3643174e88706509bb49ba70dc6cc3082063d0fc89e27b36ff42ea7",
@@ -59,5 +67,5 @@
     "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681"
   },
   "corrections": [],
-  "lean_categories": "4a13f2a644b45ee741a013754825efd6a4a53c2b"
+  "lean_categories": "b5678b7597c68476e4562397af5b7280ca4df16a"
 }

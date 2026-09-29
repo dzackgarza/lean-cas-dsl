@@ -20,7 +20,7 @@ require mathlib from git
 /- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
 package owns the CAS machinery over it (resolution, realizations, the leaf API, the notebook). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "4a13f2a644b45ee741a013754825efd6a4a53c2b"
+  "https://github.com/dzackgarza/lean-categories" @ "b5678b7597c68476e4562397af5b7280ca4df16a"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
