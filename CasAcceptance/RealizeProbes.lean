@@ -57,21 +57,28 @@ def viaFused :=
   (run% cardinality (a2Form) in "cat.bilin_module" using
     "impl.bilin_module.cardinality.fused").value
 
-/- CC-MEMO: the same values with and without the memo table. -/
-def handles : List SetHandle := [.intPow 0, .intPow 3, .finite 5, .intPow 3, .finite 5]
+/- CC-MEMO: the resolved call through the memo table, keyed by the resolution and the handle;
+the same values with and without it. -/
+def handles : List SetHandles := [.intPow 0, .intPow 3, .finite 5, .intPow 3, .finite 5]
 
-def cardinalities (memo : Option (MemoTable SetHandle CardinalHandle)) : IO (List CardinalHandle) :=
-  handles.mapM (memoApply memo "fun.sets.cardinality" cardinalityOf)
+def cardinalities (memo : Option (MemoTable SetHandles (CategoryTheory.Discrete CardinalHandle))) :
+    IO (List (CategoryTheory.Discrete CardinalHandle)) :=
+  handles.mapM fun x => memo% (memo) cardinality (x) in "cat.sets"
 
 run_cmd liftTermElabM do
-  let table ← MemoTable.new SetHandle CardinalHandle
+  let table ← MemoTable.new SetHandles (CategoryTheory.Discrete CardinalHandle)
   let first ← cardinalities (some table)
+  let afterFirst := (← table.get).size
   let again ← cardinalities (some table)
   let plain ← cardinalities none
   unless first == plain && again == plain do
     throwError "memoization changed a value"
-  unless (← table.get).size == 3 do
+  -- One entry per distinct handle; the repeated calls reuse them.
+  unless afterFirst == 3 && (← table.get).size == 3 do
     throwError "the memo table is not keyed by explicit application"
+  let key := "cat.sets ; meth.cardinality = fun.sets.cardinality on the core"
+  unless (← table.get).keys.all (·.1 == key) do
+    throwError "the memo table is not keyed by the resolved call"
 
 /- CC-CARRIER: two presentations of `𝔽₉`, distinct objects with different multiplications. -/
 #guard (f9a.mul 3 3).val == 2 && (f9b.mul 3 3).val == 7

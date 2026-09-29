@@ -57,6 +57,7 @@ abbrev SetHandles : Type := InducedCategory (Type) SetHandle.carrier
 /-- Handles are compared as presentations (not as sets: that is a decision about denotations). -/
 instance : DecidableEq SetHandles := inferInstanceAs (DecidableEq SetHandle)
 instance : Repr SetHandles := inferInstanceAs (Repr SetHandle)
+instance : Hashable SetHandles := inferInstanceAs (Hashable SetHandle)
 
 /-- A set handle denotes the set it presents, a function the function. -/
 def setDenotation : SetHandles ⥤ LeanCategories.Foundation.Mathlib.Sets.{0} :=

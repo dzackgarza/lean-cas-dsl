@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Registry.Extension
+public import CasCatalogue.Memo
 
 @[expose] public section
 
@@ -585,6 +586,32 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let (_, _, value) ← realizedMethodCall state resolution denotation x
   let value ← certifiedExecutable value
   return .letE `route (← inferType composite) composite value (nondep := true)
+
+/-- Elaborate `memo% (table) name (receiver) in "cat.id" via …` (CC-MEMO): the call of
+`method% name (receiver) in "cat.id"`, resolved once into the function `y ↦ y.name` on the
+receiver's handles, and applied through the memo table `table : Option (MemoTable R V)`, keyed by
+the resolution and the handle (`memoApply`). With `none` it is the plain call. -/
+def elabMemoCall (table : Term) (name : String) (receiver : Term) (category : String)
+    (through : Array String) : TermElabM Expr := do
+  let state ← registryState
+  let some categoryEntry := state.categories.find? (·.id.raw == category)
+    | throwError "no registered category {category}"
+  let resolution ← match state.resolveMethod categoryEntry.expression name
+      (through.map fun raw => ⟨raw⟩) with
+    | .ok resolution => pure resolution
+    | .error error => throwError error.render state
+  let key := state.renderResolution resolution
+  logInfo m!"resolved: {key}"
+  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
+  let handles ← instantiateMVars (← inferType x)
+  let call ← withLocalDeclD `y handles fun y => do
+    let (_, _, value) ← realizedMethodCall state resolution denotation y
+    mkLambdaFVars #[y] (← certifiedExecutable value)
+  let .forallE _ _ values _ ← whnfR (← inferType call)
+    | throwError "the resolved call is not a function of the receiver"
+  let tableType ← mkAppM ``Option #[← mkAppOptM ``MemoTable #[handles, values, none, none]]
+  let table ← elabTermEnsuringType table tableType
+  mkAppOptM ``memoApply #[handles, values, none, none, table, toExpr key, call, x]
 
 /-- CC-SEP: the receiver's handle must be realized by a registered realizer of the named category;
 its category is never read off the handle. Checked on the first action's source denotation. -/
