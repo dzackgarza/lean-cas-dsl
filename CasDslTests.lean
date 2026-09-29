@@ -1,12 +1,8 @@
-import CasDslTests.Core
-import CasDslTests.Denote
-import CasDslTests.Membership
-import CasDslTests.Wording
-import CasDslTests.Codec
-import CasDslTests.Latex
-import CasDslTests.Std
-import CasDslTests.Eval
-import CasDslTests.Extension
-import CasDslTests.Transport
-import CasDslTests.CanonicalMaps
-import CasDslTests.Abelian
+/-
+Copyright (c) 2026 Dzack Garza. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+module
+
+public import CasDslTests.Boundary
+public import CasDslTests.Cells

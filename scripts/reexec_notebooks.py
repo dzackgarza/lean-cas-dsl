@@ -6,11 +6,15 @@ Standards enforced (owner rulings, 2026-08-06, recorded in the vault):
 - the runnable-trail rule: the document model refuses to build on a failed
   cell, so the DEMO may contain no live error cell — any error there fails
   this gate loudly (deliberate refusals ship commented, with live anchors);
-- notebooks/boundaries.ipynb is the sanctioned exception: its errors ARE
-  its content, so it runs with errors allowed and the genuine refusal
-  outputs are committed.
+- refusals are not notebook content: they are checked at build time
+  (CasDslTests.Boundary), and the demo's cells are also built as
+  CasDslTests.Cells from the same generator (scripts/demo_notebook.py).
+
+The kernel's worker resolves its environment with `lake`, so elan's bin
+directory is put on PATH here.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +24,6 @@ import nbformat
 # (path, errors allowed?)
 NOTEBOOKS = [
     (Path("notebooks/demo.ipynb"), False),
-    (Path("notebooks/boundaries.ipynb"), True),
 ]
 
 
@@ -57,6 +60,8 @@ def reexec(path: Path, allow_errors: bool) -> int:
 
 
 def main() -> int:
+    elan = str(Path.home() / ".elan" / "bin")
+    os.environ["PATH"] = elan + os.pathsep + os.environ.get("PATH", "")
     return max(reexec(p, allow) for p, allow in NOTEBOOKS)
 
 

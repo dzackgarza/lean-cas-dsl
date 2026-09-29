@@ -17,12 +17,11 @@ set dotenv-load := true
 default:
     @just --list
 
-# Build the architecture and run its acceptance probes (every CasCatalogue/*Probes.lean is
-# in the CasCatalogue glob). The notebook layer (CasDsl, CasDslTests, nbdsl_worker) is not built
-# while the architecture changes: plan node `cc-notebook` rebuilds it afterwards.
+# Build the core, the leaves and the notebook package, and run their probes: the acceptance
+# probes (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests).
 build:
     @python3 scripts/check_reuse_records.py
-    @lake build CasCatalogue CasLeaves CasAcceptance CasTools cas-registry-export cas-axiom-audit
+    @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec
 setup:
@@ -76,24 +75,21 @@ test: build
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
     @python3 -m py_compile port/python/cas_port.py CasLeaves/Algebra/GapKernels/gap_kernels.py CasLeaves/Modules/SageCardinality/sage_cardinality.py
 
+# Drives the installed casdsl kernelspec (`just setup` first) through the demo notebook.
 [private]
 _test-full:
-    @.venv/bin/pytest tests/test_e2e.py -q
+    @.venv/bin/python scripts/reexec_notebooks.py
 
-# Talks to real Sage and drives the installed casdsl kernelspec
-# (`just setup` first); the full suite behind it is `_test-full`.
-# Run the full QC gate: the preflight, the Sage roundtrip, and the E2E suite.
-test-ci: test
+# Run the full QC gate: the preflight, then the demo notebook through the live kernel.
+test-ci: test _test-full
 
 [private]
 test-commit: test
 
-# Re-execute the committed notebooks against the live casdsl kernel:
+# Re-execute the committed notebook against the live casdsl kernel:
 # outputs stay genuine kernel output (a23ee30 standard). The demo is a
 # runnable trail — a live error cell fails this gate, since the document
-# model would block every cell below it — while boundaries.ipynb runs with
-# errors allowed: its refusals ARE its content, and the gate fails instead
-# if it stops producing them. The re-executed notebooks — execution
+# model would block every cell below it. The re-executed notebook — execution
 # timestamps included, they are the provenance of the genuine outputs —
 # are committed here; the push in flight proceeds, and the commit rides
 # the next one.
@@ -102,8 +98,8 @@ _notebook-reexec:
     #!/usr/bin/env bash
     set -euo pipefail
     .venv/bin/python scripts/reexec_notebooks.py
-    if ! git diff --quiet -- notebooks/demo.ipynb notebooks/boundaries.ipynb; then
-        git add notebooks/demo.ipynb notebooks/boundaries.ipynb
+    if ! git diff --quiet -- notebooks/demo.ipynb; then
+        git add notebooks/demo.ipynb
         git commit -m "chore: notebook session metadata"
     fi
 

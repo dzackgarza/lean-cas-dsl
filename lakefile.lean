@@ -22,8 +22,8 @@ the CAS machinery over it (registry, resolution, realizations, backends). -/
 require lean_categories from git
   "https://github.com/dzackgarza/lean-categories" @ "0102b2f4401ef6bd52c15b4504f4f85a69383ab7"
 
-/- The notebook layer. Not built by the gate while the architecture changes (plan
-`cc-notebook`): it is rebuilt on the finished architecture, not carried forward. -/
+/- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
+Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
 lean_lib CasDsl where
   -- the prelude module `CasDsl.Notebook` imports the root, not vice versa,
   -- so the lib must glob submodules or the kernelspec's olean is never built
@@ -78,6 +78,6 @@ lean_exe «cas-axiom-audit» where
   root := `CasTools.AxiomAuditMain
   supportInterpreter := true
 
-/-- Elaboration-time tests (`#guard` + `run_cmd` assertions); not part of
-the shipped prelude import graph. -/
+/-- The notebook package's boundary and the demo notebook's cells, elaborated with their expected
+values (generated with `notebooks/demo.ipynb` by `scripts/demo_notebook.py`). -/
 lean_lib CasDslTests
