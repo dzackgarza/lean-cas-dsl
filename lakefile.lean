@@ -22,7 +22,8 @@ the CAS machinery over it (registry, resolution, realizations, backends). -/
 require lean_categories from git
   "https://github.com/dzackgarza/lean-categories" @ "2794bef6adcf6e3c83ce3b0f742b60c8732007ef"
 
-@[default_target]
+/- The notebook layer. Not built by the gate while the architecture changes (plan
+`cc-notebook`): it is rebuilt on the finished architecture, not carried forward. -/
 lean_lib CasDsl where
   -- the prelude module `CasDsl.Notebook` imports the root, not vice versa,
   -- so the lib must glob submodules or the kernelspec's olean is never built
@@ -30,7 +31,9 @@ lean_lib CasDsl where
 
 /-- The semantic registry: symbolic category and functor expressions, their checked
 denotations in `lean-categories`, and the normalized registry with its exporter. It keeps
-`lean-categories`' elaboration options, which its registration rows rely on. -/
+`lean-categories`' elaboration options, which its registration rows rely on. Its glob includes
+every acceptance probe (`*Probes.lean`), so building it runs them. -/
+@[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]
   leanOptions := #[
