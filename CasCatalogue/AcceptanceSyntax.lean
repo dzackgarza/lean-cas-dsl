@@ -98,11 +98,15 @@ meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
   if let .unavailable reason := status then
     logInfo m!"acceptance {record.id} not exercised: {reason}"
 
-syntax (name := acceptanceRerunCommand) "#acceptance_rerun" : command
+/-- `#acceptance_rerun`, optionally `expecting "id"…`: the listed assertions must hold here. -/
+syntax (name := acceptanceRerunCommand) "#acceptance_rerun" (&" expecting" (ppSpace str)+)? : command
 
 /-- Rerun every admitted assertion of the imported modules here, in the namespace and `open`s it
 was written in. A wrong or malformed answer fails; the statuses are reported. -/
-@[command_elab acceptanceRerunCommand] meta def elabAcceptanceRerun : CommandElab := fun _ => do
+@[command_elab acceptanceRerunCommand] meta def elabAcceptanceRerun : CommandElab := fun stx => do
+  let expected : Array String := if stx[1].isNone then #[]
+    else stx[1][1].getArgs.filterMap (·.isStrLit?)
+  let mut holding : Array String := #[]
   let mut passing : Nat := 0
   let mut lines : Array String := #[]
   for record in records (← getEnv) do
@@ -119,6 +123,7 @@ was written in. A wrong or malformed answer fails; the statuses are reported. -/
         else checkAcceptBackend record.command
     let status ← try rerun catch e =>
       throwError "acceptance {record.id} ({record.source}) fails here: {e.toMessageData}"
+    if status matches .holds then holding := holding.push record.id
     match record.status, status with
     | .holds, .holds => passing := passing + 1
     | _, .holds =>
@@ -126,6 +131,9 @@ was written in. A wrong or malformed answer fails; the statuses are reported. -/
         lines := lines.push s!"  {record.id}: now holds"
     | _, .gap reason => lines := lines.push s!"  {record.id}: gap: {reason}"
     | _, .unavailable reason => lines := lines.push s!"  {record.id}: not exercised: {reason}"
+  for id in expected do
+    unless holding.contains id do
+      throwError "acceptance {id} does not hold here"
   logInfo m!"acceptance rerun: {passing} of {(records (← getEnv)).size} hold\n{"\n".intercalate lines.toList}"
 
 @[command_elab acceptanceGapsCommand] meta def elabAcceptanceGaps : CommandElab := fun _ => do
