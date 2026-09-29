@@ -1,0 +1,72 @@
+-- Finite sets and set comprehensions (SPEC.md, "Finite sets", "Set comprehensions"), through the
+-- power object 𝒫 of Sets and the Boolean algebras 𝒫(X). Each test is admitted once and never changed.
+
+let A := {1, 2, 3} in 𝒫(ℤ)
+
+let B := {3, 4, 5} in 2^ℤ
+
+test finite_sets.union "SPEC.md: {1,2,3} ∪ {3,4,5} = {1,2,3,4,5}":
+  assert A ∪ B = {1, 2, 3, 4, 5}
+
+test finite_sets.intersection "SPEC.md: {1,2,3} ∩ {3,4,5} = {3}":
+  assert A ∩ B = {3}
+
+test finite_sets.difference "SPEC.md: {1,2,3} ∖ {3,4,5} = {1,2}":
+  assert A \ B = {1, 2}
+
+test finite_sets.symmetric_difference "SPEC.md: {1,2,3} △ {3,4,5} = {1,2,4,5}":
+  assert A △ B = {1, 2, 4, 5}
+
+test finite_sets.card "SPEC.md: |{1,2,3}| = 3":
+  assert |A| = 3
+
+test finite_sets.card_product "SPEC.md: |A × B| = |A| · |B| = 9":
+  assert |A × B| = 9
+
+test finite_sets.card_power_set "SPEC.md: |𝒫(A)| = 2^|A| = 2^3 (Mathlib Fintype.card_set)":
+  assert |𝒫(A)| = 8
+
+test finite_sets.member "SPEC.md: 2 ∈ {1,2,3}":
+  assert 2 ∈ A
+
+test finite_sets.not_member "SPEC.md: 4 ∉ {1,2,3}":
+  assert 4 ∉ A
+
+test finite_sets.subset_union "SPEC.md: A ⊆ A ∪ B":
+  assert A ⊆ A ∪ B
+
+test finite_sets.intersection_subset "SPEC.md: A ∩ B ⊆ A":
+  assert A ∩ B ⊆ A
+
+let S := {n ∈ ℤ | n² ≤ 20}
+
+test comprehension.typed "SPEC.md: {n ∈ ℤ | n² ≤ 20} ∈ 𝒫(ℤ)":
+  assert S in 𝒫(ℤ)
+
+test comprehension.elements "SPEC.md: n² ≤ 20 ⟺ -4 ≤ n ≤ 4 (16 ≤ 20 < 25)":
+  assert S = {-4, -3, -2, -1, 0, 1, 2, 3, 4}
+
+test comprehension.card "SPEC.md: |{n ∈ ℤ | n² ≤ 20}| = 9":
+  assert |S| = 9
+
+let E := {2n | n ∈ ℕ}
+
+test comprehension.image_typed "SPEC.md: {2n | n ∈ ℕ} ∈ 𝒫(ℕ)":
+  assert E in 𝒫(ℕ)
+
+test comprehension.even_member "SPEC.md: 8 = 2 · 4 ∈ 2ℕ":
+  assert 8 ∈ E
+
+test comprehension.odd_not_member "SPEC.md: 9 is odd, 9 ∉ 2ℕ":
+  assert 9 ∉ E
+
+test comprehension.even_card "SPEC.md: |2ℕ| = ℵ₀ (n ↦ 2n is injective)":
+  assert |E| = ℵ₀
+
+let m2 : ℕ → ℕ := n ↦ 2n
+
+test comprehension.image_apply "SPEC.md: m2(ℕ) = {2n | n ∈ ℕ}":
+  assert m2(ℕ) = E
+
+test comprehension.image_method "SPEC.md: m2.image() = {2n | n ∈ ℕ}":
+  assert m2.image() = E
