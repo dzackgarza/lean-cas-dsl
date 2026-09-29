@@ -16,6 +16,10 @@ system must supply.
   levels, a leaf firewall, lifts, closure. It covers a small mathematical universe (sets, subsets,
   magmas→groups/rings with ports, the module fibration, forms and lattices, subgroups) and almost
   none of the generic constructions (limits, adjunctions, cells as data, monoidal structure).
+  Its only realizations of forms and lattices are Gram-matrix handles (`GramHandle`,
+  `rz.lattice.int_gram`): a finite-free realization detail of one specimen leaf, which the notebook
+  layer then exposes as the meaning of `BilinModules(ZZ)` / `Lattices(ZZ)`. That is out of scope for
+  the system: a bilinear module is a module with a map out of `M ⊗ M`, finite or not.
 - **`CasDsl`** is the older notebook system with the new resolver bolted underneath. Its values are
   presentations (`Obj`/`Value`) typed by presentation patterns (`TypingRule`, `Std.lean`); its
   executors are hand-written algorithms (`Native.lean`, ~1500 lines) and a Sage route table keyed

@@ -55,7 +55,14 @@ the notebook surface and leaf mathematics in `lean-categories` instead of the sy
 2. `cc-drift-triage` — recorded in the audit document; the owner decides revert / quarantine / keep.
 3. Design nodes — each assessed gap becomes a `cc-` node below, with its CC-* requirement as
    acceptance and its `Needs`, in dependency order. Then code, one node at a time.
-4. Leaves are written against the system only as its consumers; a leaf needing something the system
+4. **Specimen leaves test the system; they are not its subject.** Lattices, formed modules, the ring
+   diamond and finite fields exist to show that a leaf declares only its immediate structure, that
+   separation of concerns holds, and that everything the user expects of a kind arrives by
+   composition. Their mathematics is stated at its true generality: a bilinear module is an
+   `R`-module with a bilinear map, i.e. a map out of `M ⊗ M` (`L²(ℝ)` with the integration pairing
+   is one), never a matrix. A Gram matrix is at most one leaf's *realization* of a finite free case
+   and never appears in the core, the notebook layer, or a specimen's semantics.
+5. Leaves are written against the system only as its consumers; a leaf needing something the system
    lacks is a design gap for step 3, never code in the leaf or in the DSL surface.
 
 ## DAG
