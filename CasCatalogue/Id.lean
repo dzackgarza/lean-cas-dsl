@@ -60,6 +60,12 @@ structure EqualityId where
   deriving DecidableEq, Repr, Hashable
 
 
+/-- Stable id of a presentation row: a leaf's handles for the values of a named object. -/
+structure PresentationId where
+  raw : String
+  deriving DecidableEq, Repr, Hashable
+
+instance : Inhabited PresentationId := ⟨⟨""⟩⟩
 instance : Inhabited ActionId := ⟨⟨""⟩⟩
 instance : Inhabited DeciderId := ⟨⟨""⟩⟩
 instance : Inhabited RealizerId := ⟨⟨""⟩⟩

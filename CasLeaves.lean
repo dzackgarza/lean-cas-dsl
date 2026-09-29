@@ -15,6 +15,7 @@ public import CasLeaves.Algebra.Subgroups
 public import CasLeaves.Foundation.Actions
 public import CasLeaves.Foundation.Cardinality
 public import CasLeaves.Foundation.Coproducts
+public import CasLeaves.Foundation.Objects
 public import CasLeaves.Foundation.Equality
 public import CasLeaves.Foundation.FiniteSets
 public import CasLeaves.Foundation.Finiteness

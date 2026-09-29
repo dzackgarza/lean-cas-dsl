@@ -55,6 +55,8 @@ inductive RegistryEntry
   | adjunction (e : AdjunctionEntry)
   | equality (e : EqualityEntry)
   | backendOperation (e : BackendOperationEntry)
+  | object (e : ObjectEntry)
+  | presentation (e : PresentationEntry)
   deriving Repr
 
 /-- Stable identifier represented by a heterogeneous registry entry. -/
@@ -80,6 +82,8 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .adjunction e => e.id.raw
   | .equality e => e.id.raw
   | .backendOperation e => e.id.raw
+  | .object e => e.id.raw
+  | .presentation e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
 def RegistryEntry.declarations : RegistryEntry → Array Name
@@ -107,6 +111,8 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .adjunction e => #[e.declaration]
   | .equality e => #[e.realization]
   | .backendOperation e => #[e.decoder]
+  | .object e => #[e.declaration]
+  | .presentation e => #[e.presentation]
 
 
 /-- A semantic row, as a registry row. -/
@@ -124,6 +130,7 @@ def RegistryEntry.ofSemantic : SemanticEntry → RegistryEntry
   | .cell e => .cell e
   | .limit e => .limit e
   | .adjunction e => .adjunction e
+  | .object e => .object e
 
 /-- The semantic row a registry row is, if it is one. -/
 def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
@@ -140,6 +147,7 @@ def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
   | .cell e => some (.cell e)
   | .limit e => some (.limit e)
   | .adjunction e => some (.adjunction e)
+  | .object e => some (.object e)
   | _ => none
 
 /-- The realization rows. -/
@@ -152,6 +160,7 @@ structure RealizationState where
   limitRealizations : Array LimitRealizationEntry := #[]
   equalities : Array EqualityEntry := #[]
   backendOperations : Array BackendOperationEntry := #[]
+  presentations : Array PresentationEntry := #[]
   deriving Inhabited
 
 /-- The registry: the imported semantic registry and the realization rows. -/
@@ -169,6 +178,7 @@ private def RealizationState.apply : RealizationState → RegistryEntry → Real
   | s, .limitRealization e => { s with limitRealizations := s.limitRealizations.push e }
   | s, .equality e => { s with equalities := s.equalities.push e }
   | s, .backendOperation e => { s with backendOperations := s.backendOperations.push e }
+  | s, .presentation e => { s with presentations := s.presentations.push e }
   | s, _ => s
 
 /-- Every row: the semantic rows, then the realization rows. -/
@@ -181,7 +191,8 @@ def RegistryState.registryEntries (state : RegistryState) : List RegistryEntry :
     state.handleIsos.toList.map RegistryEntry.handleIso ++
     state.limitRealizations.toList.map RegistryEntry.limitRealization ++
     state.equalities.toList.map RegistryEntry.equality ++
-    state.backendOperations.toList.map RegistryEntry.backendOperation
+    state.backendOperations.toList.map RegistryEntry.backendOperation ++
+    state.presentations.toList.map RegistryEntry.presentation
 
 /-- Whether this row's stable ID conflicts with a registered row. -/
 def RegistryState.hasEntryId (state : RegistryState) (entry : RegistryEntry) : Bool :=
@@ -210,6 +221,9 @@ def validateRealizationReferences (state : RegistryState) : Except String Unit :
   for equality in state.equalities do
     unless state.realizers.any (·.id == equality.realizer) do
       throw s!"equality entry {equality.id.raw} names an unregistered realizer"
+  for presentation in state.presentations do
+    unless state.objects.any (·.id == presentation.object) do
+      throw s!"presentation {presentation.id.raw} names an unregistered object"
   for decider in state.deciders do
     unless (state.classifier? decider.classifier).isSome do
       throw s!"decider entry {decider.id.raw} names an unregistered classifier"
@@ -292,6 +306,35 @@ def validateLimitRealization (state : RegistryState) (e : LimitRealizationEntry)
   unless (← whnfR type).isAppOf ``Sigma do
     throwError "limit realization {e.id.raw}: {e.realization} does not return an apex handle \
       with its identification"
+
+/-- A presentation row's `presentation` returns, for parameters, a handle of its realizer with an
+identification of its denotation with the registered object's value at the same parameters. -/
+def validatePresentation (state : RegistryState) (e : PresentationEntry) : MetaM Unit := do
+  let some object := state.objects.find? (·.id == e.object)
+    | throwError "presentation {e.id.raw} names an unregistered object {e.object.raw}"
+  let some realizer := state.realizers.find? (·.id == e.realizer)
+    | throwError "presentation {e.id.raw} names an unregistered realizer {e.realizer.raw}"
+  unless realizer.category == object.category do
+    throwError "presentation {e.id.raw}: {e.realizer.raw} does not realize {object.category.raw}"
+  let presentation ← mkConstWithFreshMVarLevels e.presentation
+  let (args, _, type) ← forallMetaTelescopeReducing (← inferType presentation)
+  let type ← whnfR type
+  unless type.isAppOfArity ``Sigma 2 do
+    throwError "presentation {e.id.raw}: {e.presentation} does not return a handle with its \
+      identification"
+  let identification ← whnfR (← inferType (← mkAppM ``Sigma.snd #[mkAppN presentation args]))
+  unless identification.isAppOfArity ``CategoryTheory.Iso 4 do
+    throwError "presentation {e.id.raw}: {e.presentation} does not identify its handle"
+  let declared ← mkConstWithFreshMVarLevels object.declaration
+  let (objectArgs, _, _) ← forallMetaTelescopeReducing (← inferType declared)
+  unless objectArgs.size == args.size do
+    throwError "presentation {e.id.raw}: {e.presentation} does not take {object.id.raw}'s \
+      parameters"
+  for (a, b) in args.zip objectArgs do
+    discard <| isDefEq a b
+  unless ← withTransparency .all <|
+      isDefEq identification.getAppArgs[3]! (mkAppN declared objectArgs) do
+    throwError "presentation {e.id.raw}: {e.presentation} does not present {object.id.raw}"
 
 /-- A backend operation row keys a registered limit or method, and its decoder returns an
 `Except String` of the decoded result. -/
@@ -386,6 +429,7 @@ def validateRegistryEntryDeclaration (entry : RegistryEntry) : MetaM Unit := do
   | .limitRealization e => validateLimitRealization state e
   | .equality e => validateEquality state e
   | .backendOperation e => validateBackendOperation state e
+  | .presentation e => validatePresentation state e
   | entry => match entry.toSemantic? with
     | some e => validateSemanticEntryDeclaration e
     | none => pure ()
@@ -413,7 +457,7 @@ def leafApiModule : Name := `CasCatalogue.Leaf
 /-- The row kinds a backend leaf may contribute (spec §5, permitted contributions 1–4). -/
 def RegistryEntry.isLeafContribution : RegistryEntry → Bool
   | .realizer _ | .action _ | .implementation _ | .decider _ | .handleIso _
-  | .limitRealization _ | .equality _ | .backendOperation _ => true
+  | .limitRealization _ | .equality _ | .backendOperation _ | .presentation _ => true
   | _ => false
 
 /-- The registered semantics a leaf realizes; public to leaves. -/
@@ -784,6 +828,19 @@ structure RegistryManifestBackendOperation where
   decoder : String
   deriving BEq, Repr, ToJson, FromJson
 
+structure RegistryManifestObject where
+  id : String
+  category : String
+  declaration : String
+  deriving BEq, Repr, ToJson, FromJson
+
+structure RegistryManifestPresentation where
+  id : String
+  object : String
+  realizer : String
+  presentation : String
+  deriving BEq, Repr, ToJson, FromJson
+
 structure RegistryManifestEquality where
   id : String
   realizer : String
@@ -864,6 +921,8 @@ structure RegistryManifest where
   adjunctions : Array RegistryManifestAdjunction
   equalities : Array RegistryManifestEquality
   backendOperations : Array RegistryManifestBackendOperation
+  objects : Array RegistryManifestObject
+  presentations : Array RegistryManifestPresentation
   source : String
   deriving BEq, Repr, ToJson, FromJson
 
@@ -1007,6 +1066,11 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
     backendOperations := (state.backendOperations.qsort (fun a b => a.id.raw < b.id.raw)).map
       fun e => { id := e.id.raw, backend := e.backend, operation := e.operation
                  decoder := e.decoder.toString }
+    objects := (state.objects.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, category := e.category.raw, declaration := e.declaration.toString }
+    presentations := (state.presentations.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, object := e.object.raw, realizer := e.realizer.raw
+      presentation := e.presentation.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)

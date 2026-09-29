@@ -107,4 +107,15 @@ structure DeciderEntry where
   deriving Repr
 
 
+/-- A presentation row (CC-CALC, CC-SEP): `presentation : (parameters) → Σ a : R, d.obj a ≅ X`,
+for the registered object `object` with the same parameters: a handle of the realizer `realizer`
+presenting that object's value, with its identification. The leaf never names the object; the
+row states which handles present which values. -/
+structure PresentationEntry where
+  id : PresentationId
+  object : ObjectId
+  realizer : RealizerId
+  presentation : Lean.Name
+  deriving Repr
+
 end CasCatalogue

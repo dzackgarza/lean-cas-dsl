@@ -10,6 +10,8 @@ public import CasAcceptance.Surface.Realized
 public import CasCatalogue.ResolveSyntax
 public import CasCatalogue.LimitCallSyntax
 public meta import CasCatalogue.LimitCallSyntax
+public import CasCatalogue.ObjectCallSyntax
+public meta import CasCatalogue.ObjectCallSyntax
 public meta import CasAcceptance.Standard
 public meta import CasAcceptance.Surface.Semantic
 public meta import CasAcceptance.Surface.Realized
@@ -24,8 +26,8 @@ public meta import CasCatalogue.ResolveSyntax
   surface on sets, finite sets, groups and bilinear modules, and different implementation gaps.
   Installing realizations changes only computability.
 * **Invalid.** An unknown method, an unregistered category, a method whose owner no structural
-  route reaches (`annihilator` on sets), and an unregistered limit (an equalizer in sets) fail as
-  invalid calls.
+  route reaches (`annihilator` on sets), an unregistered limit (an equalizer in sets), an unregistered
+  object and an object of another category fail as invalid calls.
 * **NoImplementation.** `cardinality` applies to finite sets, but no registered action realizes
   the forgetful functor on finite sets presented by `n`, and the call fails as `NoImplementation`,
   not as an invalid call.
@@ -70,6 +72,9 @@ run_cmd liftTermElabM do
     (← `(limit% equalizer
       (CategoryTheory.Limits.parallelPair (CategoryTheory.CategoryStruct.id someSet)
         (CategoryTheory.CategoryStruct.id someSet)) in "cat.sets"))
+  -- An unregistered object, and an object of another category.
+  expectStratum .invalid (← `(obj% "obj.sets.no_such_object" in "cat.sets"))
+  expectStratum .invalid (← `(obj% "obj.sets.fin" (2) in "cat.groups"))
   expectStratum .noImplementation (← `(method% cardinality (threePoints) in "cat.finite_sets"))
   -- `set_eq` applies to sets through their whole subset; no action of it is registered.
   expectStratum .noImplementation (← `(method% set_eq (someSet) in "cat.sets"))

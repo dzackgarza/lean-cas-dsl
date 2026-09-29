@@ -14,8 +14,19 @@
     "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
     "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550",
     "limit.finite_sets.pullback.card": "cffabc842afe209e0c4ef9a29b8f4057abec1255e1812a69acc1ddbd0ba7cf28",
-    "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c"
+    "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c",
+    "obj.card.fin2_times_z3": "04f3a502a5777f935ce49d364c32e89bd22842f062c8ed4d3e75f1914a76b6f2",
+    "obj.card.integers": "99bff20693fb68fe9bb0b83cbe3ae006a0d40660548a4aa4c3133425c8bff3ac",
+    "obj.card.sage.z4_cubed": "367f55c010f6e53907ea890a3a45af05dfa18e898117be75ed3469d3371055f4",
+    "obj.card.z4_cubed": "d44a0d9eeca691dfb14bec1557f88f2a645dacbd17ef7c9f291b3d7f0e15cb49",
+    "obj.card.z5_empty_power": "41c9a102c62608f8757493126fa3548e060ed7638f2769160cfebe88bf5b26ce",
+    "obj.card.z7": "e6ce485956c5b61e30c6a1c38b4041a560e2add12f0f0c41b1dda09668b6c16a",
+    "obj.colimit.sets.coproduct.card": "28df1f9825d59996473d8fe2a8764f6e523c40af6781b7e3e5911e08b87e0ff0",
+    "obj.eq.rev_rev": "884bbda47ed8be3f5ffc45529abc2968188ff4dfa2a789dd9626a7f000aa917c",
+    "obj.finite.fin2_times_z3": "fd0c378a7185f577f9a3c8d72f61e4a1edf60266a8f7056edba0ee863141b8ad",
+    "obj.finite.integers": "50854cfb5ca7acb7c351046a4884fb56b1060a4a5f6dbc7ed9b6909492aa8b89",
+    "obj.limit.sets.pullback.card": "6a6886ac318e595a71dc954d4d2466ae386d4ff2a11a877d3b5e9350c29948a9"
   },
   "corrections": [],
-  "lean_categories": "60ba00478d1d55d374efb250383370c7aa7ab26f"
+  "lean_categories": "413cd65644f83d0d1c45d06b61ca5855c10308d2"
 }

@@ -21,6 +21,8 @@ public import CasCatalogue.Limits
 public import CasCatalogue.Memo
 public import CasCatalogue.Registry.Entry
 public import CasCatalogue.Registry.Extension
+public import CasCatalogue.ObjectCall
+public import CasCatalogue.ObjectCallSyntax
 public import CasCatalogue.Port
 public import CasCatalogue.Refine
 public import CasCatalogue.Resolve
