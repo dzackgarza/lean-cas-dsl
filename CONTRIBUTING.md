@@ -18,8 +18,11 @@ The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows un
 
 ## Writing a leaf
 
-A leaf is one Lean module under `CasLeaves/` ending in a single `register_leaf` contract. Its
-backend program, in any language, sits next to it.
+A leaf is a Lean module ending in a single `register_leaf` contract, under `CasLeaves/` here or in
+another package under its own root (for example `research/leaves`, `ResearchLeaves.*`, pinned to
+this repository). Its backend program, in any language, sits next to it. In another package,
+`#acceptance_rerun` reruns this repository's permanent assertions unchanged with the new
+realizations; a gap closed there shows as `now holds`.
 
 **What a leaf may contribute** (`CasCatalogue/Adapter.lean`):
 
@@ -33,12 +36,12 @@ backend program, in any language, sits next to it.
 | `limitRealization` | This presents the apex of a registered limit or colimit on these handles |
 | `equality` | This decides equality of morphisms of a registered category on these handles |
 | `backendOperation` | Backend `b` answers registered operation `o`, with a decoder into `o`'s semantic result type |
+| `presentation` | These handles present the values of a registered object (`obj%`), each with its identification |
 
 Everything else is rejected at `register_leaf`, naming the rule it breaks: categories, methods,
 properties, subcategories, forgetful routes, identifications, coercions, refinements of objects,
-result classes, generic semantics and natural transformations. A `CasLeaves` module may import
-only `CasCatalogue.Leaf`, `CasLeaves.*`, Mathlib and
-`lean-categories`.
+result classes, generic semantics and natural transformations. A leaf module may import only
+`CasCatalogue.Leaf`, `CasLeaves.*`, modules of its own package, Mathlib and `lean-categories`.
 
 If a leaf seems to need one of the rejected contributions, or needs to forward an inherited
 method, the defect is upstream. Fix it there.

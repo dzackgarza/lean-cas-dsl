@@ -139,7 +139,7 @@ node that owes one.
 | A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. | — |
 | An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
 | A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
-| A research notebook coins missing mathematics | `research` AGENTS.md | — |
+| A research notebook coins missing mathematics | `research` AGENTS.md; its realizations live in `research/leaves`, whose modules are leaves under the same boundary (`isLeafModule`) | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
 
 ## Where the semantic registry lives
