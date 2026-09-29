@@ -1,0 +1,54 @@
+-- Vectors, matrices, subspaces and spans (SPEC.md, "Vectors and matrices", "Subspaces and spans").
+-- Each test is admitted once and never changed.
+
+let M := [1, 2;
+          3, 4]
+ in Mat₂(ℚ)
+
+let v := (1, 2) in ℚ²
+
+let b := (5, 11) in ℚ²
+
+test matrices.product "SPEC.md: M v = (1·1 + 2·2, 3·1 + 4·2) = (5, 11)":
+  assert M*v = b
+
+test matrices.juxtaposition "SPEC.md: M v, written by juxtaposition, is M applied to v":
+  assert M v = b
+
+test matrices.application "M(v) = (5, 11)":
+  assert M(v) = b
+
+test matrices.det "SPEC.md: det M = 1·4 - 2·3 = -2":
+  assert M.det() = -2
+
+test matrices.rank "SPEC.md: rank M = 2 (det M ≠ 0)":
+  assert M.rank() = 2
+
+test matrices.kernel "SPEC.md: ker M = {0} (M is invertible over ℚ)":
+  assert M.ker() = {0}
+
+test matrices.trace "tr M = 1 + 4 = 5":
+  assert M.trace() = 5
+
+test matrices.charpoly "det(x - M) = x² - tr(M) x + det(M) = x² - 5x - 2":
+  assert M.charpoly() = x² - 5x - 2 in ℚ[x]
+
+let u₁ := (1, 0, 1) in ℚ³
+
+let u₂ := (0, 1, 1) in ℚ³
+
+let W := span({u₁, u₂})
+
+test subspaces.dim "SPEC.md: dim span{u₁, u₂} = 2 (u₁, u₂ are independent)":
+  assert W.dim() = 2
+
+test subspaces.member "SPEC.md: (1, 1, 2) = u₁ + u₂ ∈ W":
+  assert (1, 1, 2) ∈ W
+
+test subspaces.not_member "SPEC.md: (1, 1, 0) ∉ W (its third coordinate is not the sum of the first two)":
+  assert (1, 1, 0) ∉ W
+
+let N := [1, 1, -1; 0, 0, 0; 0, 0, 0] in Mat₃(ℚ)
+
+test subspaces.kernel "SPEC.md: W = ker φ for φ(a, b, c) = a + b - c, the kernel of the matrix of φ (both are the plane c = a + b)":
+  assert W = N.ker()

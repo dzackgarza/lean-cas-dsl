@@ -55,6 +55,9 @@ Terms:
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
 * `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `Xⁿ` (`ℚ²`) for a set `X`: `Vec(X, n)`; `(x₁, …, xₙ)`: the tuple by the registered `()` and
+  `cons`; `[a, b; c, d]`: the matrix with these rows (`rows`); `N₂(…)` is `N(2, …)` (`Mat₂(ℚ)`);
+  `M v`, `M * v`, `M(v)`: the registered application of `M`'s set;
 * `X.m()`: the registered method or property `m`, resolved from the category of `X`;
 * `|X|`: `X.cardinality()`;
 * `X in C`: `X` in the category named `C`; `t in X` for a set `X`: `t` with its numerals in `X`;
@@ -147,6 +150,12 @@ syntax:max (name := casCoefficient) "(" cas_term ")" noWs ident (noWs ("²" <|> 
 /-- `a dx`, `f dx`: juxtaposition, the product in a set both are in, else the registered action
 `•` (a polynomial times a differential). -/
 syntax:70 (name := casActed) cas_term:71 ident : cas_term
+/-- `M * v`: juxtaposition written out. -/
+syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
+/-- A tuple `(x₁, …, xₙ)`, an element of `Xⁿ`. -/
+syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
+/-- A matrix `[a, b; c, d]`, by its rows. -/
+syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
 /-- `∫ ω`: the primitives of a differential. -/
 syntax:60 (name := casIntegral) "∫ " cas_term:60 : cas_term
 
@@ -347,6 +356,15 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
   if stx.getKind == ``casRing then looseIdentifiers stx[0]
   else if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
+/-- `N₂₃` as `N` and `23`. -/
+def subscripted? (s : String) : Option (String × Nat) :=
+  let digits := "₀₁₂₃₄₅₆₇₈₉".toList
+  let chars := s.toList
+  let suffix := (chars.reverse.takeWhile digits.contains).reverse
+  let base := chars.take (chars.length - suffix.length)
+  if suffix.isEmpty || base.isEmpty then none
+  else some (base.asString, suffix.foldl (fun n c => 10 * n + digits.idxOf c) 0)
+
 /-- The variable `v` that the name `dv` is the differential of. -/
 def differentialOf? (n : Name) : Option Name :=
   match n with
@@ -414,7 +432,14 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       let X ← eval scope c
       match X with
       | .homSet .. => eval scope t category? (some X)
-      | .object .. => toElement (← eval scope t category? (some X)) X
+      | .object .. =>
+          -- `t` is an element of `X`, or of a set included in `X`.
+          match ← toElement (← eval scope t category? (some X)) X with
+          | v@(.element _ Y) =>
+              if (← coercionMap Y X).isNone then
+                throwStratum .invalid m!"`{shown t}` is not an element of `{shown c}`"
+              coerceTo v X
+          | v => pure v
       | _ => throwStratum .invalid m!"`in` takes a category, a set or a set of maps"
   | `(cas_term| $x ⊆ $y) =>
       -- Named sets: the registered inclusions decide it; nothing is realized. Otherwise subsets:
@@ -583,6 +608,12 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
       | some "³" => power scope b 3 ambient?
       | _ => pure b
     return ← juxtapose (← eval scope stx[1]) b ambient?
+  if stx.getKind == ``casTimes then
+    return ← juxtapose (← eval scope stx[0]) (← eval scope stx[2] none ambient?) ambient?
+  if stx.getKind == ``casTuple then
+    return ← tuple scope (#[stx[1]] ++ stx[3].getSepArgs) ambient?
+  if stx.getKind == ``casMatrix then
+    return ← matrix scope (stx[1].getSepArgs.map (·.getSepArgs)) ambient?
   if stx.getKind == ``casIntegral then
     return ← applyNamed state "∫" #[← eval scope stx[1]]
   if stx.getKind == ``casActed then
@@ -620,7 +651,8 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
   let state ← registryState
   let receiver ← eval scope t category?
   -- A method of sets on a subset: of its extent.
-  let receiver ← if (← powerSetOf? receiver).isSome && state.methods.any (·.name == name) then
+  let receiver ← if (← powerSetOf? receiver).isSome && state.methods.any (·.name == name) &&
+      !state.morphisms.any (·.name == name) then
       asObject receiver
     else pure receiver
   if let .element .. := receiver then return ← applyNamed state name #[receiver]
@@ -659,6 +691,10 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
       | throwStratum .invalid m!"`id(X)` is the identity of an object `X`"
     let hom ← homIn (← `(CategoryTheory.CategoryStruct.id _)) a a category
     return .morphism hom a a category none
+  -- `Mat₂(ℚ)`: a subscript is the leading numeral parameter.
+  if let some (base, k) := subscripted? name then
+    if state.objects.any (·.name == base) && !state.objects.any (·.name == name) then
+      return ← object state base (#[.nat k] ++ (← args.mapM (eval scope · none))) category?
   let inScope (c : CategoryId) := category?.all (c == ·.id)
   let objects := state.objects.filter fun o => o.name == name && inScope o.category
   let morphisms := state.morphisms.filter fun m => m.name == name && inScope m.category
@@ -888,8 +924,60 @@ partial def commonSet? (sets : Array Value) : M (Option Value) := do
     if ← sets.allM fun Y => return (← coercionMap Y X).isSome then return some X
   return none
 
+/-- The tuple of the elements `values` of `X`, in `Xⁿ`: `cons(x₁, … cons(xₙ, ()))`. -/
+partial def tupleOf (values : Array Value) (X : Value) : M Value := do
+  let state ← registryState
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization threads the parameters of tuples"
+  let some empty := state.morphisms.find? (·.name == "()") | throwStratum .invalid m!"no tuples"
+  let E ← object state "Vec" #[X, .nat 0] none
+  let .object e category _ := E | unreachable!
+  let .object one _ _ ← oneObject | unreachable!
+  let mut hom ← homIn (← `($(mkCIdent empty.declaration) $(← paramTerms #[X])*)) one e category
+  if let some S := (← read).stage then
+    hom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
+  let mut acc := Value.element hom E
+  for v in values.reverse do
+    acc ← applyNamed state "cons" #[← coerceTo v X, acc]
+  return acc
+
+/-- `(x₁, …, xₙ)`: in an enclosing `Xⁿ`, else in a set its components are in, else `ℤ`. -/
+partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
+  let X? := match ambient? with
+    | some (.object _ _ (some (entry, #[X, .nat n]))) =>
+        if entry.name == "Vec" && n == xs.size then some X else none
+    | _ => none
+  let values ← xs.mapM (eval scope · none X?)
+  let X ← match X? with
+    | some X => pure X
+    | none =>
+        let sets := values.filterMap fun | .element _ X => some X | _ => none
+        match ← commonSet? sets, sets[0]? with
+        | some X, _ | none, some X => pure X
+        | none, none => object (← registryState) "ℤ" #[] none
+  tupleOf values X
+
+/-- `[a, b; c, d]`: the registered matrix with these rows, in an enclosing `Matₙ(K)`, else over the
+set its entries are in. -/
+partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Option Value) :
+    M Value := do
+  let n := rows.size
+  unless rows.all (·.size == n) do
+    throwStratum .invalid m!"a matrix `[…; …]` is square: {n} rows of {n} entries"
+  let K? := match ambient? with
+    | some (.object _ _ (some (entry, #[.nat m, K]))) =>
+        if entry.name == "Mat" && m == n then some K else none
+    | _ => none
+  let rowValues ← rows.mapM fun row => do
+    let rowAmbient ← match K? with
+      | some K => some <$> object (← registryState) "Vec" #[K, .nat n] none
+      | none => pure none
+    tuple scope row rowAmbient
+  let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
+  applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
+
 /-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
-action `•` of `a` on `b` (`(6x + 1) dx`). -/
+action `•` of `a` on `b` (`(6x + 1) dx`), else the registered application of `a` (`M v`). -/
 partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   let sets := #[a, b].filterMap fun | .element _ X => some X | _ => none
   if let .element .. := a then
@@ -902,7 +990,13 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
       | none => commonSet? sets
     if let some X := common then
       return ← applyOperation "·" #[← coerceTo a X, ← coerceTo b X] X
-  applyNamed (← registryState) "•" #[a, b]
+  -- The registered action `•`, else the registered application of `a`'s set (a matrix on a
+  -- vector).
+  try applyNamed (← registryState) "•" #[a, b]
+  catch e =>
+    let .element _ (.object _ category (some (entry, _))) := a | throw e
+    let some application := entry.application | throw e
+    applyFamily application category #[a, b]
 
 /-- `p + Y` for a named set `Y` included in the set `X` of `p`: the coset `{p + c | c ∈ Y}`, the
 image of `c ↦ p + c` (at the stage `Y`). -/
@@ -1224,6 +1318,8 @@ partial def negate (a : Expr) : M Value := do
 /-- `x^k`: the registered power operation with its numeral exponent. -/
 partial def power (scope : Scope) (base : Value) (k : Nat) (ambient? : Option Value) : M Value := do
   let _ := scope
+  -- `Xⁿ` of a set: its `n`-tuples.
+  if let .object .. := base then return ← object (← registryState) "Vec" #[base, .nat k] none
   let X ← match base, ambient? with
     | .element _ X, _ => pure X
     | _, some X => pure X
@@ -1312,14 +1408,19 @@ partial def comprehension (scope : Scope) (t : Name) (X : Value) (p : Syntax) : 
 
 /-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the union of singletons. -/
 partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
+  -- Without an enclosing `𝒫(X)`: the set its elements are in, else `ℤ`.
   let P ← match ambient? with
     | some P => pure P
-    | none => powerSetOf (← object (← registryState) "ℤ" #[] none)
+    | none =>
+        let sets := (← xs.mapM (eval scope ·)).filterMap fun | .element _ X => some X | _ => none
+        match ← commonSet? sets, sets[0]? with
+        | some X, _ | none, some X => powerSetOf X
+        | none, none => powerSetOf (← object (← registryState) "ℤ" #[] none)
   let some (po, X) ← powerOf? P
     | throwStratum .invalid m!"a set literal is a subset: `in 𝒫(X)`"
   let .object p category _ := P | unreachable!
   let singletonOf (x : Syntax) : M Value := do
-    let element ← toElement (← eval scope x none (some X)) X
+    let element ← coerceTo (← eval scope x none (some X)) X
     applyTo (← `($(mkCIdent po.singleton) $(← paramTerms #[X])*)) #[element] P
   match xs.toList with
   | [] =>
