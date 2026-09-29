@@ -20,7 +20,11 @@
     "lattices.discriminant.a3": "8f83e2ce5fb0b820c2bfc6a01e0ff4ae372207db540d23da95a26238e7b50ecf",
     "limit.finite_sets.pullback.card": "cffabc842afe209e0c4ef9a29b8f4057abec1255e1812a69acc1ddbd0ba7cf28",
     "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c",
+    "numbers.containments": "a000da44dc5614ea0d18c9b9dc019719612d5a76a65f005e6a4861e839b4dd7b",
+    "numbers.containments.transitive": "42a87532ebdbe14a6011fdcb93815653f77114ee5b307fa7c938cdee23e2b051",
     "numbers.integers.sum": "308875939a7a59390d9ff159640136576bfc112e8125a099b1a0c4b80138757e",
+    "numbers.membership.negative": "04e439f6764d649a4a719590ec3b7acd3f5ae3154bca1cefa0fddd1985f2e76b",
+    "numbers.membership.zmod": "193bac855e204dfb8b658f682bdc65d58b33da4bdcaeaf49473ec1d5f70a1200",
     "numbers.rationals.sum": "15d1a7787ee824c9ca2c7af4b31c7fdd4ed66763b6d5168273cca6b0c4d071d5",
     "numbers.zmod5.difference": "63e38c5c85f38d79b40bc06c23406563cf9942ccb9b15568da1ac96e79b9e072",
     "numbers.zmod5.negation": "0ee236f2f6f52c6bbba6b107f9d33e7426c4a1310314664b492fc6fb202defc6",
@@ -55,5 +59,5 @@
     "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681"
   },
   "corrections": [],
-  "lean_categories": "57c5da88b8d1db32472731826828843e83b3decc"
+  "lean_categories": "4a13f2a644b45ee741a013754825efd6a4a53c2b"
 }

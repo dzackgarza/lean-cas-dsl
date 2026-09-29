@@ -49,6 +49,10 @@ Statements:
 * `assert X = L`: the value of `X` is the literal `L` of its category's literal form, compared by
   the result realizer's registered observation, which carries the proof that the handle denotes
   the observed literal;
+* `X ⊆ Y` for named sets: decided by the registered inclusions alone (a chain of registered
+  monomorphisms `X ↪ … ↪ Y`, or `X = Y`); no realization is consulted;
+* `x ∈ Y`: `x`, with its numerals in `Y`, is an element of `Y` or of a set registered in `Y`;
+* `P and Q`: both decisions (three-valued);
 * `assert f = g` for morphisms: the category's registered equality decides it;
 * `assert P`, `assert P = true | false | unknown`: the decision of a property;
 * `assert implemented X`: a realization computes `X`.
@@ -81,6 +85,9 @@ syntax:65 cas_term:65 " - " cas_term:66 : cas_term
 syntax:70 cas_term:70 " · " cas_term:71 : cas_term
 syntax:75 "-" cas_term:75 : cas_term
 syntax:50 cas_term:51 " in " cas_term:51 : cas_term
+syntax:45 cas_term:46 " ⊆ " cas_term:46 : cas_term
+syntax:45 cas_term:46 " ∈ " cas_term:46 : cas_term
+syntax:35 cas_term:36 " and " cas_term:35 : cas_term
 
 /-- A pair `x ↦ y` of a graph literal. -/
 declare_syntax_cat cas_pair
@@ -173,6 +180,27 @@ def standardDiagram (shape : String) (args : Array Value) : TermElabM Term := do
       `(CategoryTheory.Limits.parallelPair $f $(← quoteExpr zero))
   | _, _ => throwStratum .invalid m!"a {shape} of {args.size} arguments has no standard diagram"
 
+/-- Whether a chain of registered inclusions leads from the object `sub` to `super` (at the same
+parameters), or they are the same object. -/
+def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
+  let mut reached : Array ObjectId := #[sub]
+  let mut frontier : Array ObjectId := #[sub]
+  for _ in [0:state.inclusions.size + 1] do
+    let next := frontier.flatMap fun o =>
+      (state.inclusions.filter (·.sub == o)).map (·.super) |>.filter (!reached.contains ·)
+    reached := reached ++ next
+    frontier := next
+  return reached.contains super
+
+/-- A three-valued decision as a value. -/
+def answerOf (b : Option Bool) : Value := .answer (toExpr b)
+
+unsafe def evalAnswerUnsafe (e : Expr) : TermElabM (Option Bool) :=
+  evalExpr (Option Bool) (mkApp (mkConst ``Option [0]) (mkConst ``Bool)) e
+
+@[implemented_by evalAnswerUnsafe]
+opaque evalAnswer (e : Expr) : TermElabM (Option Bool)
+
 /-- The morphism `a → b` of the registered graph literal of their category with the graph `pairs`
 of numerals, named by the element literals of `a`'s and `b`'s objects. -/
 def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : TermElabM Value := do
@@ -217,6 +245,31 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       let X ← eval scope c
       let .object .. := X | throwStratum .invalid m!"`in` takes a category or a set"
       toElement (← eval scope t category? (some X)) X
+  | `(cas_term| $x ⊆ $y) =>
+      -- Semantic: the registered inclusions decide it; nothing is realized.
+      let (sub, subParams) ← namedObject scope x
+      let (super, superParams) ← namedObject scope y
+      unless subParams == superParams do
+        throwStratum .invalid m!"`⊆` relates named sets at the same parameters"
+      if includes state sub.id super.id then return answerOf (some true)
+      throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
+  | `(cas_term| $x ∈ $y) =>
+      let Y ← eval scope y
+      let .object _ _ (some (super, _)) := Y
+        | throwStratum .invalid m!"`∈` is membership in a named set"
+      match ← toElement (← eval scope x none (some Y)) Y with
+      | .element _ (.object _ _ (some (sub, _))) =>
+          if includes state sub.id super.id then return answerOf (some true)
+          throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
+      | _ => throwStratum .invalid m!"`∈` relates an element and a named set"
+  | `(cas_term| $p and $q) =>
+      let answer (t : Syntax) : TermElabM (Option Bool) := do
+        let .answer e ← eval scope t | throwStratum .invalid m!"`and` joins decisions"
+        evalAnswer (← executable e)
+      return answerOf <| match ← answer p, ← answer q with
+        | some false, _ | _, some false => some false
+        | some true, some true => some true
+        | _, _ => none
   | `(cas_term| $x + $y) => operate scope "+" #[x, y] ambient?
   | `(cas_term| $x · $y) => operate scope "·" #[x, y] ambient?
   | `(cas_term| -$x) => operate scope "-" #[x] ambient?
@@ -377,6 +430,32 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
   let #[(entry, numerals)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
   object state entry.name (numerals.map .nat) (some category)
+
+/-- The registered object a term names and its numeral parameters, without realizing it. -/
+partial def namedObject (scope : Scope) (stx : Syntax) : TermElabM (ObjectEntry × Array Nat) := do
+  let state ← registryState
+  let numerals (args : Array Syntax) : TermElabM (Array Nat) := args.mapM fun a => do
+    let .nat n ← eval scope a | throwStratum .invalid m!"a parameter is a numeral"
+    return n
+  match stx with
+  | `(cas_term| ($t)) => namedObject scope t
+  | `(cas_term| $t in $c:ident) =>
+      let (entry, params) ← namedObject scope t
+      let some category := state.categories.find? (·.name == c.getId.toString)
+        | throwStratum .invalid m!"no registered category is named {c.getId}"
+      return (← objectNamed state entry.name (some category), params)
+  | `(cas_term| $x:ident) =>
+      if let some t := scope.get? x.getId then return ← namedObject scope t
+      return (← objectNamed state x.getId.toString none, #[])
+  | `(cas_term| $f:ident($args,*)) =>
+      return (← objectNamed state f.getId.toString none, ← numerals args.getElems)
+  | `(cas_term| ℤ / $n) => return (← objectNamed state "ZMod" none, ← numerals #[n])
+  | `(cas_term| (ℤ / $n) ^ $k) =>
+      return (← objectNamed state "ZModPower" none, ← numerals #[n, k])
+  | _ =>
+      match stx.getKind == ``casAtom, stx.find? (·.isAtom) with
+      | true, some atom => return (← objectNamed state atom.getAtomVal none, #[])
+      | _, _ => throwStratum .invalid m!"{shown stx} does not name a registered object"
 
 /-- The morphism `{x ↦ y, …} : s → t` with that graph, by the registered graph literal of the
 category of `s` and `t`, whose elements are the registered element literals of `s` and `t`. -/

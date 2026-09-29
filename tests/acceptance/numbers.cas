@@ -24,3 +24,15 @@ test numbers.zmod7.value "3 · (4 + 5) = 27 ≡ 6 (mod 7)":
 
 test numbers.rationals.sum "2 + 3 = 5 in ℚ":
   assert 2 + 3 = 5 in ℚ
+
+test numbers.containments "Mathlib Nat.cast_injective, Int.cast_injective, Rat.cast_injective, Complex.ofReal_injective: ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ":
+  assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ
+
+test numbers.containments.transitive "ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ":
+  assert ℕ ⊆ ℂ
+
+test numbers.membership.zmod "3 ∈ ℤ/5":
+  assert 3 ∈ ℤ/5
+
+test numbers.membership.negative "SPEC.md: -3 ∈ ℤ":
+  assert -3 ∈ ℤ
