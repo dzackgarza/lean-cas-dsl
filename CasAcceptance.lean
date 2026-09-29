@@ -15,6 +15,7 @@ public import CasAcceptance.FibrationRegistryProbes
 public import CasAcceptance.ImmediateProbes
 public import CasAcceptance.LatticeActionProbes
 public import CasAcceptance.LeafBoundaryProbes
+public import CasAcceptance.LiftFaithfulProbes
 public import CasAcceptance.LiftLimitProbes
 public import CasAcceptance.LiftProbes
 public import CasAcceptance.LimitProbes

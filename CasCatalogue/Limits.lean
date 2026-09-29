@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Action
 public import Mathlib.CategoryTheory.Limits.HasLimits
+public import Mathlib.CategoryTheory.Limits.Preserves.Basic
 public import Mathlib.CategoryTheory.Whiskering
 
 @[expose] public section
@@ -37,24 +38,60 @@ def limitConeOfIso {F G : J ⥤ C} (α : F ≅ G) (L : LimitCone G) : LimitCone 
 
 variable {d : R ⥤ C} {D : J ⥤ R}
 
-/-- The realized limit of a diagram of handles `D` over a fully faithful realization `d`: the
-apex handle `a`, whose denotation `φ` identifies with the apex of a limit cone `L` of `D ⋙ d`,
-with legs the preimages of `φ` followed by the legs of `L`, is a limit cone of `D`. -/
-def realizedLimitCone (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (a : R)
-    (φ : d.obj a ≅ L.cone.pt) : LimitCone D :=
+/-- The morphism rule of a faithful functor `F : R ⥤ E` (sage-categories D183): a map below that is
+the image of a morphism above is lifted to that morphism, computably. Faithfulness makes the lift
+unique; the rule supplies it as data, where Mathlib's `Functor.preimage` would choose it. -/
+structure MorphismRule {E : Type*} [Category E] (F : R ⥤ E) where
+  lift : ∀ {X Y : R} (g : F.obj X ⟶ F.obj Y), (∃ f, F.map f = g) → (X ⟶ Y)
+  map_lift : ∀ {X Y : R} (g : F.obj X ⟶ F.obj Y) (h : ∃ f, F.map f = g), F.map (lift g h) = g
+
+/-- A fully faithful functor's rule is its preimage. -/
+def MorphismRule.ofFullyFaithful {E : Type*} [Category E] {F : R ⥤ E} (hF : F.FullyFaithful) :
+    MorphismRule F :=
+  ⟨fun g _ => hF.preimage g, fun _ _ => hF.map_preimage _⟩
+
+/-- A limit returned along a faithful functor `F` (CC-LIFT, D183): for a limit cone `L` of `D ⋙ F`
+below and an object `a` above whose image `φ` identifies with `L`'s apex, and whose legs below are
+images of morphisms above (`legs`), the legs and every mediator are the ones below, lifted by the
+morphism rule. That the mediators are morphisms above follows from reflection of the limit
+(Mathlib `isLimitOfReflects`), used only in the proof. -/
+def realizedLiftedLimitCone {E : Type*} [Category E] {F : R ⥤ E} [F.Faithful] [ReflectsLimit D F]
+    (rule : MorphismRule F) (L : LimitCone (D ⋙ F)) (a : R) (φ : F.obj a ≅ L.cone.pt)
+    (legs : ∀ j, ∃ f : a ⟶ D.obj j, F.map f = φ.hom ≫ L.cone.π.app j) : LimitCone D :=
   let c : Cone D :=
     { pt := a
       π :=
-        { app := fun j => hd.preimage (φ.hom ≫ L.cone.π.app j)
+        { app := fun j => rule.lift _ (legs j)
           naturality := fun j k f => by
-            apply hd.map_injective
+            apply F.map_injective
             simp only [Functor.const_obj_obj, Functor.const_obj_map, Category.id_comp,
-              Functor.map_comp, Functor.FullyFaithful.map_preimage, Category.assoc]
+              Functor.map_comp, rule.map_lift, Category.assoc]
             rw [← Functor.comp_map, L.cone.w f] } }
-  have hc : IsLimit (d.mapCone c) :=
-    IsLimit.ofIsoLimit L.isLimit (Cones.ext φ fun j => by simp [c]).symm
+  have hc : IsLimit (F.mapCone c) :=
+    IsLimit.ofIsoLimit L.isLimit (Cones.ext φ fun j => by simp [c, rule.map_lift]).symm
+  ⟨c, IsLimit.ofFaithful F hc
+    (fun s => rule.lift (hc.lift (F.mapCone s))
+      ⟨(isLimitOfReflects F hc).lift s, hc.uniq (F.mapCone s) _ fun j => by
+        simp only [Functor.mapCone_π_app, ← F.map_comp, (isLimitOfReflects F hc).fac]⟩)
+    fun _ => rule.map_lift _ _⟩
+
+/-- The legs of a lifted limit lie over the legs of `L`. -/
+theorem realizedLiftedLimitCone_leg {E : Type*} [Category E] {F : R ⥤ E} [F.Faithful]
+    [ReflectsLimit D F] (rule : MorphismRule F) (L : LimitCone (D ⋙ F)) (a : R)
+    (φ : F.obj a ≅ L.cone.pt) (legs : ∀ j, ∃ f : a ⟶ D.obj j, F.map f = φ.hom ≫ L.cone.π.app j)
+    (j : J) :
+    F.map ((realizedLiftedLimitCone rule L a φ legs).cone.π.app j) = φ.hom ≫ L.cone.π.app j :=
+  rule.map_lift _ _
+
+/-- The realized limit of a diagram of handles `D` over a fully faithful realization `d`: the
+lifted limit along `d` with the preimage as morphism rule; the apex handle `a` is presented by a
+backend, whose denotation `φ` identifies with the apex of a limit cone `L` of `D ⋙ d`. -/
+def realizedLimitCone (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (a : R)
+    (φ : d.obj a ≅ L.cone.pt) : LimitCone D :=
   haveI := hd.faithful
-  ⟨c, IsLimit.ofFaithful d hc (fun s => hd.preimage (hc.lift (d.mapCone s))) fun _ => by simp⟩
+  haveI := hd.full
+  realizedLiftedLimitCone (MorphismRule.ofFullyFaithful hd) L a φ fun j =>
+    ⟨hd.preimage _, hd.map_preimage _⟩
 
 theorem realizedLimitCone_pt (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (a : R)
     (φ : d.obj a ≅ L.cone.pt) : (realizedLimitCone hd L a φ).cone.pt = a := rfl
@@ -62,8 +99,8 @@ theorem realizedLimitCone_pt (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (a
 /-- The denotation of a leg of the realized limit is the leg of `L` after `φ`. -/
 theorem realizedLimitCone_leg (hd : d.FullyFaithful) (L : LimitCone (D ⋙ d)) (a : R)
     (φ : d.obj a ≅ L.cone.pt) (j : J) :
-    d.map ((realizedLimitCone hd L a φ).cone.π.app j) = φ.hom ≫ L.cone.π.app j := by
-  simp [realizedLimitCone]
+    d.map ((realizedLimitCone hd L a φ).cone.π.app j) = φ.hom ≫ L.cone.π.app j :=
+  hd.map_preimage _
 
 /-- A limit returned along a fully faithful functor `U : C ⥤ E` (CC-LIFT): for a diagram of
 handles `D` whose image in `E` has the limit cone `L`, and an apex handle lying over `L`'s apex, the
