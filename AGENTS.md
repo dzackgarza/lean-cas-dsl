@@ -1,3 +1,15 @@
+# Search before authoring (gate-enforced)
+
+Before writing any Lean definition for a plan node, search the formalization corpus
+(`python <lean-categories>/scripts/formalization_corpus.py search '<query>'`, several spellings;
+it indexes Mathlib, infinity-cosmos, agda-categories and more) and write
+`specs/reuse/<node>.md` with `## Queries`, `## Owner` (the existing declarations that own the
+mathematics), and `## New code` (only what no dependency supplies). `just build` runs
+`scripts/check_reuse_records.py` and fails when the plan's **Next** node, or a node delivered from
+2026-09-30 on, has no such record. Categories, functors, natural transformations, whiskering,
+pasting, adjunctions and limits are Mathlib's (`Cat` is a strict bicategory; `CatCommSq`,
+`TwoSquare`); never write a second calculus of them. Failure of record: `cc-cells`, 2026-09-29.
+
 <!-- agent-memory:start -->
 # Agent memory
 

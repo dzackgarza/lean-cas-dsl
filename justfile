@@ -20,6 +20,7 @@ default:
 # in the CasCatalogue glob). The notebook layer (CasDsl, CasDslTests, nbdsl_worker) is not built
 # while the architecture changes: plan node `cc-notebook` rebuilds it afterwards.
 build:
+    @python3 scripts/check_reuse_records.py
     @lake build CasCatalogue CasLeaves CasAcceptance CasTools cas-registry-export cas-axiom-audit
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec
