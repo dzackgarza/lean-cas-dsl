@@ -61,6 +61,7 @@ inductive RegistryEntry
   | elementLiteral (e : ElementLiteralEntry)
   | graphLiteral (e : GraphLiteralEntry)
   | morphism (e : MorphismEntry)
+  | operation (e : OperationEntry)
   | observation (e : ObservationEntry)
   deriving Repr
 
@@ -93,6 +94,7 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .elementLiteral e => e.id.raw
   | .graphLiteral e => e.id.raw
   | .morphism e => e.id.raw
+  | .operation e => e.id.raw
   | .observation e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
@@ -127,6 +129,7 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .elementLiteral e => #[e.denotation]
   | .graphLiteral e => #[e.denotation]
   | .morphism e => #[e.declaration]
+  | .operation e => #[e.declaration]
   | .observation e => #[e.observe]
 
 
@@ -150,6 +153,7 @@ def RegistryEntry.ofSemantic : SemanticEntry → RegistryEntry
   | .elementLiteral e => .elementLiteral e
   | .graphLiteral e => .graphLiteral e
   | .morphism e => .morphism e
+  | .operation e => .operation e
 
 /-- The semantic row a registry row is, if it is one. -/
 def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
@@ -171,6 +175,7 @@ def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
   | .elementLiteral e => some (.elementLiteral e)
   | .graphLiteral e => some (.graphLiteral e)
   | .morphism e => some (.morphism e)
+  | .operation e => some (.operation e)
   | _ => none
 
 /-- The realization rows. -/

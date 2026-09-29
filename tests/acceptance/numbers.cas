@@ -1,0 +1,26 @@
+-- Exact number systems (SPEC.md, "Exact number systems"): elements of the named rings and their
+-- ring operations. Each test is admitted once and never changed.
+
+test numbers.integers.sum "2 + 3 = 5":
+  assert 2 + 3 = 5
+
+test numbers.zmod5.sum "SPEC.md: 2 + 3 = 5 ≡ 0 (mod 5)":
+  assert 2 + 3 = 0 in ℤ/5
+
+test numbers.zmod5.product "2 · 3 = 6 ≡ 1 (mod 5)":
+  assert 2 · 3 = 1 in ℤ/5
+
+test numbers.zmod5.negation "-2 ≡ 3 (mod 5)":
+  assert -2 = 3 in ℤ/5
+
+test numbers.zmod5.difference "2 - 3 = -1 ≡ 4 (mod 5)":
+  assert 2 - 3 = 4 in ℤ/5
+
+test numbers.zmod7.distributive "3 · (4 + 5) = 27 ≡ 6 and 3 · 4 + 3 · 5 = 27 ≡ 6 (mod 7)":
+  assert 3 · (4 + 5) = 3 · 4 + 3 · 5 in ℤ/7
+
+test numbers.zmod7.value "3 · (4 + 5) = 27 ≡ 6 (mod 7)":
+  assert 3 · (4 + 5) = 6 in ℤ/7
+
+test numbers.rationals.sum "2 + 3 = 5 in ℚ":
+  assert 2 + 3 = 5 in ℚ

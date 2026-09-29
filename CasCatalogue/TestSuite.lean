@@ -77,8 +77,9 @@ meta def runFile (path : System.FilePath) : CommandElabM (Array TestResult) := d
       | _ => (none, parsed)
     let id := id?.getD s!"(statement) {item}"
     let attempt ← liftTermElabM <| withoutErrToSorry <|
-      try return Except.ok (← run scope statement)
-      catch e => return Except.error (← e.toMessageData.toString)
+      -- Each test has its own heartbeat budget; a timeout fails that test, not the run.
+      tryCatchRuntimeEx (do return Except.ok (← withCurrHeartbeats (run scope statement)))
+        fun e => do return Except.error (← e.toMessageData.toString)
     match attempt with
     | .error message =>
         results := results.push { file := path, id, kind := "invalid", detail := message }
