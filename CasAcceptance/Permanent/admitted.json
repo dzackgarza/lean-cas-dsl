@@ -73,6 +73,16 @@
     "obj.finite.fin2_times_z3": "fd0c378a7185f577f9a3c8d72f61e4a1edf60266a8f7056edba0ee863141b8ad",
     "obj.finite.integers": "50854cfb5ca7acb7c351046a4884fb56b1060a4a5f6dbc7ed9b6909492aa8b89",
     "obj.limit.sets.pullback.card": "6a6886ac318e595a71dc954d4d2466ae386d4ff2a11a877d3b5e9350c29948a9",
+    "polynomials.at_minus_sqrt2": "a2b0ba4bc7481f096ced657e25791f503db40dad78f5d7781a91dd7a0c1cceb5",
+    "polynomials.at_sqrt2": "b9c52c356bd5c6d47f2d2a91fe3c4ca4bbc27b311b44d0a58b9a9b10c63ed485",
+    "polynomials.degree": "99cea80245ecb6f6599e48c5fa954c30abec95621167ca979d627655cd6b1a79",
+    "polynomials.degree_over_rationals": "8449161c36e90f15493161fc01c06eebd0948ffa84ab20ab897c61f758d756f3",
+    "polynomials.factors": "1e5597aa049483a57e496e0ef1b066a3ecc343764b3499c56b2ff04aeeb9e95c",
+    "polynomials.irrational_roots": "b2e6ca8a8757489aae45338d74efcb5ca3593479323e90117e41f835751f8685",
+    "polynomials.member": "897bb7f42e313e5ae584212d97bb8ca7fda251d777ef9c4c08533024f49484ed",
+    "polynomials.no_rational_roots": "ac0cc67857c9e293565d22d1624cbd842937128b8bb47e9ee66274ab428ab330",
+    "polynomials.root": "93ccca02e274db1162cb411ae119d3f46343b303cd541a9a9a5ec970648bcdcb",
+    "polynomials.variable": "1172e830532c6515788d151e107d074a967c37a9649d5927a5e8702af4e00137",
     "sets.apply.rev": "a9bb7d1ac375adce52a6ab1ad6835fdfd374649939d6b2490a231c743ab3030f",
     "sets.apply.rev_rev": "bb2bcc5be11c577fc75fd9acb5ab3fc264e59b0ac5c4058931bc4ccb02470e77",
     "sets.card.fin2_sqcup_fin3": "60be5a4d9d33c9b38fef037b4b3619d32aac486c27f28b0fb89e068e71d8e4fd",
@@ -91,5 +101,5 @@
     "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681"
   },
   "corrections": [],
-  "lean_categories": "29bad9015ea05f91149a79181da3158623f0edb1"
+  "lean_categories": "9ab8693e97ac0c6ec76ac8b4b696ddc3455becd7"
 }

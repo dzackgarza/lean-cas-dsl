@@ -1,0 +1,36 @@
+-- Polynomials (SPEC.md, "Polynomials"): R[x] with its variable, degree, evaluation, factors, roots
+-- and change of coefficients. Each test is admitted once and never changed.
+
+let p(x) := x³ - 2x + 1 in ℤ[x]
+
+let q := x ↦ x² - 2 in ℚ[x]
+
+test polynomials.variable "SPEC.md: the variable x of ℤ[x] is an element of ℤ[x]":
+  assert x ∈ ℤ[x]
+
+test polynomials.member "SPEC.md: p = x³ - 2x + 1 is an element of ℤ[x]":
+  assert p ∈ ℤ[x]
+
+test polynomials.degree "SPEC.md: deg(x³ - 2x + 1) = 3":
+  assert p.deg() = 3
+
+test polynomials.root "SPEC.md: p(1) = 1 - 2 + 1 = 0":
+  assert p(1) = 0
+
+test polynomials.factors "SPEC.md: x³ - 2x + 1 = (x - 1)(x² + x - 1) over ℤ, both factors irreducible (x² + x - 1 has discriminant 5, not a square)":
+  assert p.factors() = {x - 1, x² + x - 1}
+
+test polynomials.degree_over_rationals "deg is unchanged along the injective ℤ → ℚ: deg(x³ - 2x + 1) = 3 in ℚ[x]":
+  assert (map p to ℚ[x]).deg() = 3
+
+test polynomials.at_sqrt2 "SPEC.md: q(√2) = (√2)² - 2 = 0":
+  assert q(√2) = 0
+
+test polynomials.at_minus_sqrt2 "SPEC.md: q(-√2) = (-√2)² - 2 = 0":
+  assert q(-√2) = 0
+
+test polynomials.no_rational_roots "x² - 2 has no root in ℚ, since √2 is irrational":
+  assert q.roots() = {}
+
+test polynomials.irrational_roots "SPEC.md: the roots of x² - 2 (in ℂ, along ℚ → ℂ) are ±√2, not rational":
+  assert (map q to ℂ[x]).roots() ⊆ ℂ - ℚ

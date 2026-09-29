@@ -40,6 +40,13 @@ Terms:
 * `S(f, …)` for a registered limit or colimit shape `S` (`pullback`, `pushout`, `equalizer`,
   `coequalizer`, `kernel`, `cokernel`): the apex of the registered (co)limit of the standard
   diagram on `f, …` in their category;
+* `R[x]`: `Poly(R)`, in which `x` names the registered generator; `t ↦ e in R[x]` is `e` with `t`
+  the generator; `p(a)` is the registered application of the element `p` (evaluation), a numeral
+  `a` being an element of `R`;
+* `f(x)` and `x.f()` for a registered morphism family `f`: its parameters are unified from the
+  sets of its operands (`deg` on `ℤ[x]` is `deg ℤ`), and `map p to S[x]` also from the set it lands
+  in; `√x` is `sqrt(x)`;
+* `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the registered inclusion's image;
 * `X.m()`: the registered method or property `m`, resolved from the category of `X`;
 * `|X|`: `X.cardinality()`;
 * `X in C`: `X` in the category named `C`; `t in X` for a set `X`: `t` with its numerals in `X`;
@@ -69,7 +76,7 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.Language
 
-declare_syntax_cat cas_term
+declare_syntax_cat cas_term (behavior := both)
 syntax:max num : cas_term
 syntax:max ident : cas_term
 syntax:max (name := casAtom) ("ℤ" <|> "ℕ" <|> "ℚ" <|> "ℝ" <|> "ℂ") : cas_term
@@ -115,6 +122,12 @@ syntax:max "{" ident " ∈ " cas_term " | " cas_term "}" : cas_term
 syntax:max "{" cas_term " | " ident " ∈ " cas_term "}" : cas_term
 /-- The application of a map to arguments. -/
 syntax:max "(" cas_term ")" noWs "(" cas_term,* ")" : cas_term
+/-- The polynomials `R[x]` over `R` in the variable `x`: `Poly(R)`, whose generator `x` names. -/
+syntax:max (name := casRing) cas_term:max noWs "[" ident "]" : cas_term
+/-- `√x`: `sqrt(x)`. -/
+syntax:max "√" noWs cas_term:max : cas_term
+/-- `map p to S[x]`: the registered `map` landing in `S[x]`. -/
+syntax:max (name := casMap) &"map" cas_term:max &"to" cas_term:max : cas_term
 
 /-- A pair `x ↦ y` of a graph literal. -/
 declare_syntax_cat cas_pair
@@ -279,6 +292,41 @@ def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
     frontier := next
   return reached.contains super
 
+/-- The registered inclusions `sub ↪ … ↪ super`, shortest first; `#[]` when they are the same. -/
+def inclusionChain (state : RegistryState) (sub super : ObjectId) :
+    Option (Array InclusionEntry) := Id.run do
+  let mut paths : Array (ObjectId × Array InclusionEntry) := #[(sub, #[])]
+  for _ in [0:state.inclusions.size + 1] do
+    for (o, path) in paths do
+      if o == super then return some path
+    let next := paths.flatMap fun (o, path) =>
+      (state.inclusions.filter (·.sub == o)).map fun e => (e.super, path.push e)
+    paths := paths ++ next.filter fun (o, _) => !paths.any (·.1 == o)
+  return none
+
+/-- The ends of a morphism type `x ⟶ y`. -/
+def homEnds? (type : Expr) : Option (Expr × Expr) :=
+  match type.getAppFn.constName?, type.getAppArgs with
+  | some ``Quiver.Hom, #[_, _, x, y] => some (x, y)
+  | _, _ => none
+
+/-- The polynomial rings `R[v]` a term writes, with those of the `let` bindings it uses: each with
+its variable. -/
+partial def ringsIn (scope : Scope) (seen : Array Name) (stx : Syntax) : Array (Name × Syntax) :=
+  if stx.getKind == ``casRing then #[(stx[2].getId, stx)] ++ ringsIn scope seen stx[0]
+  else if stx.isIdent then
+    -- `p.m` is the method `m` of `p`.
+    let x := stx.getId.getRoot
+    match scope.get? x with
+    | some t => if seen.contains x then #[] else ringsIn scope (seen.push x) t
+    | none => #[]
+  else stx.getArgs.flatMap (ringsIn scope seen)
+
+/-- The identifiers of a term, except the variables `v` of its rings `R[v]`. -/
+partial def looseIdentifiers (stx : Syntax) : Array Name :=
+  if stx.getKind == ``casRing then looseIdentifiers stx[0]
+  else if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
+
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
@@ -355,10 +403,14 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| $x ∈ $y) =>
       let Y ← eval scope y
       if let some (po, X) ← powerSetOf? Y then return ← member po X (← eval scope x none (some X)) Y
-      let .object _ _ (some (super, _)) := Y
+      let .object y _ (some (super, _)) := Y
         | throwStratum .invalid m!"`∈` is membership in a named set"
       match ← toElement (← eval scope x none (some Y)) Y with
-      | .element _ (.object _ _ (some (sub, _))) =>
+      | .element _ (.object a _ (some (sub, _))) =>
+          -- The same family: the same set, at the same parameters.
+          if sub.id == super.id then
+            if ← withTransparency .all <| isDefEq a y then return ← decided
+            throwStratum .invalid m!"`{shown x}` is an element of another {sub.name}"
           if includes state sub.id super.id then return ← decided
           throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
       | _ => throwStratum .invalid m!"`∈` relates an element and a named set"
@@ -384,9 +436,16 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| 𝒫($x)) => powerSetOf (← asObject (← eval scope x))
   | `(cas_term| $a → $b) => return .homSet (← asObject (← eval scope a)) (← asObject (← eval scope b))
   | `(cas_term| $t:ident ↦ $e) =>
-      let some (.homSet X Y) := ambient?
-        | throwStratum .invalid m!"`{t.getId} ↦ …` needs its set of maps: `in X → Y`"
-      lambda scope t.getId e X Y
+      match ambient? with
+      | some (.homSet X Y) => lambda scope t.getId e X Y
+      | some P@(.object ..) =>
+          -- `t ↦ e` in `R[x]`: the element `e` with `t` the generator.
+          let g ← generatorOf P
+          withReader (fun ctx => { ctx with bound := (t.getId, g) :: ctx.bound }) do
+            toElement (← eval scope e none (some P)) P
+      | _ => throwStratum .invalid m!"`{t.getId} ↦ …` needs its set of maps (`in X → Y`) or its \
+          polynomials (`in R[x]`)"
+  | `(cas_term| √$x) => applyNamed state "sqrt" #[← eval scope x]
   | `(cas_term| {$xs,*}) => setLiteral scope xs.getElems ambient?
   | `(cas_term| {$t:ident ∈ $X | $p}) => comprehension scope t.getId (← asObject (← eval scope X)) p
   | `(cas_term| {$e | $t:ident ∈ $X}) => imageOf scope e t.getId (← asObject (← eval scope X))
@@ -395,13 +454,19 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| $x · $y) => operate scope "·" #[x, y] ambient?
   | `(cas_term| -$x) => operate scope "-" #[x] ambient?
   | `(cas_term| $x - $y) =>
+      -- For named sets `Y ⊆ X`: the complement of `Y` in `X`.
+      if (← try some <$> namedObject scope x catch _ => pure none).isSome then
+        return ← complementOf (← eval scope x) (← eval scope y)
       -- `x - y` is `x + -y`.
       let (elements, X) ← operands scope #[x, y] ambient?
       applyOperation "+" #[elements[0]!, ← applyOperation "-" #[elements[1]!] X] X
   | `(cas_term| ℵ₀) => return .literal `«ℵ₀»
   | `(cas_term| $x:ident) =>
       if let some v := (← read).bound.lookup x.getId then return v
-      if let some t := scope.get? x.getId then return ← eval scope t category? ambient?
+      if let some t := scope.get? x.getId then
+        let rings ← ringBindings scope t
+        return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
+          eval scope t category? ambient?
       let name := x.getId.toString
       if state.objects.any (·.name == name) then object state name #[] category?
       else if state.morphisms.any (·.name == name) then named scope name #[] category?
@@ -457,6 +522,10 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| $a × $b) => product scope false a b category?
   | `(cas_term| $a ⊔ $b) => product scope true a b category?
   | _ =>
+      if stx.getKind == ``casRing then
+        return ← object state "Poly" #[← asObject (← eval scope stx[0])] none
+      if stx.getKind == ``casMap then
+        return ← applyNamed state "map" #[← eval scope stx[1]] (some (← eval scope stx[3]))
       -- `2n`: a numeral times a variable.
       if stx.getKind == ``casScaled then
         return ← operate scope "·"
@@ -588,33 +657,141 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
 parameters. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry) :
     M Value := do
-  let mut found : Array (ObjectEntry × Array Nat) := #[]
+  let mut found : Array (ObjectEntry × Array Expr) := #[]
   for entry in state.objects.filter (·.category == category.id) do
     let declaration ← mkConstWithFreshMVarLevels entry.declaration
-    let (args, _, _) ← forallMetaTelescopeReducing (← inferType declaration)
-    let numerals? ← (withoutModifyingState do
+    let (args, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+    let params? ← (withoutModifyingState do
       unless ← withReducible (isDefEq (mkAppN declaration args) x) do return none
-      let values ← args.mapM fun a => do (Meta.evalNat (← instantiateMVars a)).run
-      return values.mapM id : MetaM _)
-    if let some numerals := numerals? then found := found.push (entry, numerals)
-  let #[(entry, numerals)] := found
+      let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+      return some (← explicit.mapM instantiateMVars) : MetaM _)
+    if let some params := params? then
+      if params.all (!·.hasMVar) then found := found.push (entry, params)
+  let #[(entry, params)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
-  object state entry.name (numerals.map .nat) (some category)
+  -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
+  let values ← params.mapM fun p => do
+    if let some n ← (Meta.evalNat p).run then return Value.nat n
+    let some sets := state.categories.find? (·.id == CategoryId.sets)
+      | throwStratum .invalid m!"no registered category of sets"
+    recognize state p sets
+  object state entry.name values (some category)
 
-/-- The registered morphism named `name` without parameters, applied to elements. -/
-partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value) :
-    M Value := do
+/-- The registered morphism family named `name`, applied to elements (see `applyFamily`). -/
+partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value)
+    (target? : Option Value := none) : M Value := do
   let some entry := state.morphisms.find? (·.name == name)
     | throwStratum .invalid m!"no registered function of elements is named {name}"
-  let declaration ← mkConstWithFreshMVarLevels entry.declaration
-  let semantic ← instantiateMVars declaration
-  let type ← inferType semantic
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
-  let .some (_, target) := match type.getAppFn.constName?, type.getAppArgs with
-      | some ``Quiver.Hom, #[_, _, x, y] => some (x, y)
-      | _, _ => none
-    | throwStratum .invalid m!"{name} is not a morphism"
-  applyTo (← quoteExpr semantic) elements (← recognize state target category)
+  applyFamily entry.declaration category elements target?
+
+/-- The family of morphisms `declaration` of `category` applied to elements. Its parameters are
+unified from the sets of the operands and from `target?`, the set it is to land in (`deg` on
+`ℤ[x]` is `deg ℤ`); a numeral operand is an element of the set the family then takes there. -/
+partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
+    (elements : Array Value) (target? : Option Value := none) : M Value := do
+  let state ← registryState
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+  let some (source, target) := homEnds? type
+    | throwStratum .invalid m!"{declaration} is not a family of morphisms"
+  let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+  let semantic := (← read).mode == .semantic
+  unless semantic || explicit.isEmpty do
+    throwStratum .noImplementation m!"no registered realization threads the parameters of \
+      {declaration}"
+  let sources ← match (← whnfR source).getAppFn.constName?, (← whnfR source).getAppArgs with
+    | some ``Prod, #[x, y] => pure #[x, y]
+    | _, _ => pure #[source]
+  unless sources.size == elements.size do
+    throwStratum .invalid m!"{declaration} takes {sources.size} operands"
+  if semantic then
+    if let some (.object t ..) := target? then
+      unless ← isDefEq target t do
+        throwStratum .invalid m!"{declaration} does not land in {t}"
+    for (set, v) in sources.zip elements do
+      if let .element _ (.object a ..) := v then
+        unless ← isDefEq set a do
+          throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
+  let elements ← (sources.zip elements).mapM fun (set, v) => do
+    if let .element .. := v then return v
+    let set ← instantiateMVars set
+    if set.hasMVar then
+      throwStratum .invalid m!"the set of an operand of {declaration} is not determined"
+    toElement v (← recognize state set category)
+  let params ← explicit.mapM fun a => do
+    let a ← instantiateMVars a
+    if a.hasMVar then
+      throwStratum .invalid m!"the parameters of {declaration} are not determined by its operands"
+    quoteExpr a
+  let family ← `($(mkCIdent declaration) $params*)
+  let target ← match target? with
+    | some T => pure T
+    | none => recognize state (← instantiateMVars target) category
+  applyTo family elements target
+
+/-- The generator of `R[x]` (its registered distinguished element), at the current stage. -/
+partial def generatorOf (P : Value) : M Value := do
+  let .object p category (some (entry, params)) := P
+    | throwStratum .invalid m!"only a named set has a generator"
+  let some g := entry.generator | throwStratum .invalid m!"{entry.name} has no generator"
+  let .object one _ _ ← oneObject | unreachable!
+  let hom ← homIn (← `($(mkCIdent g) $(← paramTerms params)*)) one p category
+  match (← read).stage with
+  | none => return .element hom P
+  | some S => return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp
+      #[← terminalAt S, hom]) P
+
+/-- The variables of the polynomial rings `R[v]` of `stx` (and of the bindings it uses) that `stx`
+uses, bound to their generators. A variable of two different rings is ambiguous. -/
+partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value)) := do
+  let rings := ringsIn scope #[] stx
+  let loose := looseIdentifiers stx
+  let ctx ← read
+  let mut bindings : List (Name × Value) := []
+  let mut done : Array Name := #[]
+  for (v, _) in rings do
+    if done.contains v || !loose.contains v || scope.contains v || (ctx.bound.lookup v).isSome then
+      continue
+    done := done.push v
+    let written := (rings.filter (·.1 == v)).map (shown ·.2)
+    unless written.all (· == written[0]!) do
+      throwStratum .invalid m!"{v} is the variable of several rings: {written.toList}"
+    let some (_, ring) := rings.find? (·.1 == v) | unreachable!
+    bindings := (v, ← generatorOf (← eval scope ring)) :: bindings
+  return bindings
+
+/-- `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the image of the registered
+inclusion `Y ↪ X`, `univ \ ι(Y)` with `univ` the transpose of `X → 1 → Ω`. -/
+partial def complementOf (X Y : Value) : M Value := do
+  let state ← registryState
+  let .object _ category (some (super, _)) := X
+    | throwStratum .invalid m!"a complement is of named sets"
+  let .object _ _ (some (sub, _)) := Y | throwStratum .invalid m!"a complement is of named sets"
+  let some chain := inclusionChain state sub.id super.id
+    | throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization computes complements"
+  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let handleOf (id : ObjectId) : M Expr := do
+    let some entry := state.objects.find? (·.id == id) | unreachable!
+    let .object h .. ← object state entry.name #[] none | unreachable!
+    return h
+  let mut ι ← identityAt Y
+  for e in chain do
+    let h ← homIn (mkCIdent e.declaration) (← handleOf e.sub) (← handleOf e.super) category
+    ι ← mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, h]
+  let image ← imageOfMap ι Y X
+  let P ← powerSetOf X
+  let .object p _ _ := P | unreachable!
+  let .object one _ _ ← oneObject | unreachable!
+  let some omega := state.objects.find? (·.id == po.omega) | unreachable!
+  let .object ω .. ← object state omega.name #[] none | unreachable!
+  let truth ← homIn (mkCIdent po.truth) one ω category
+  let everything ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt X, truth]
+  let univ ← homIn (← `($(mkCIdent po.transpose) $(← paramTerms #[X])* $(← quoteExpr everything)))
+    one p category
+  applyOperation "\\" #[.element univ P, image] P
 
 /-- The registered object a term names and its numeral parameters, without realizing it. -/
 partial def namedObject (scope : Scope) (stx : Syntax) : M (ObjectEntry × Array Nat) := do
@@ -887,6 +1064,18 @@ partial def lambda (scope : Scope) (t : Name) (e : Syntax) (X Y : Value) : M Val
 
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
+  -- An element of a set with a registered application (a polynomial `p(a)`): that application at
+  -- `p` and `a`; a numeral `a` is an element of the set of coefficients, the set's parameter.
+  if let .element _ (.object _ category (some (entry, params))) := f then
+    let some application := entry.application
+      | throwStratum .invalid m!"the elements of {entry.name} are not applied"
+    let #[arg] := args | throwStratum .invalid m!"an element of {entry.name} takes one argument"
+    let v ← match ← eval scope arg with
+      | v@(.element ..) => pure v
+      | v => match params.find? (· matches .object ..) with
+        | some R => toElement v R
+        | none => throwStratum .invalid m!"`{shown arg}` is not an element"
+    return ← applyFamily application category #[f, v]
   let .morphism h _ _ _ (some (X, Y)) := f
     | throwStratum .invalid m!"only a map `X → Y` is applied"
   let #[arg] := args | throwStratum .invalid m!"a map `X → Y` takes one argument"
@@ -1033,11 +1222,23 @@ through realizations, it is decided. -/
 def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
   let state ← registryState
   let semantic := (← read).mode == .semantic
-  let right ← eval scope r
-  let ambient := match right with
-    | .element _ X => some X
-    | _ => none
-  let left ← eval scope l none ambient
+  -- The side that determines the set is read first: a set literal is a subset of the other side's
+  -- set; otherwise the right side's set is the left's.
+  let setLiteral := match r with
+    | `(cas_term| {$_,*}) => true
+    | _ => false
+  let (left, right) ← if setLiteral then do
+      let left ← eval scope l
+      let ambient := match left with
+        | .element _ X => some X
+        | _ => none
+      pure (left, ← eval scope r none ambient)
+    else do
+      let right ← eval scope r
+      let ambient := match right with
+        | .element _ X => some X
+        | _ => none
+      pure (← eval scope l none ambient, right)
   -- Elements are compared as morphisms `1 → X`; a numeral side is an element of `X`.
   let (left, right) ← match left, right with
     | .element _ X, _ => pure (left, ← toElement right X)
@@ -1090,10 +1291,6 @@ partial def binders (stx : Syntax) : Array Name :=
     | _ => #[]
   own ++ stx.getArgs.flatMap binders
 
-/-- The identifiers of a term. -/
-partial def identifiers (stx : Syntax) : Array Name :=
-  if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap identifiers
-
 /-- Whether a term is the variable `v`. -/
 def isVariable (v : Name) (t : Syntax) : Bool :=
   match t with
@@ -1116,8 +1313,11 @@ domain of the maps it is applied to (`h(-t) = h(t)` for all `t`): the statement 
 out of that domain. -/
 def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M α := do
   let state ← registryState
+  -- The variables of its polynomial rings are their generators.
+  let rings ← ringBindings scope stx
+  withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
   let bound := binders stx
-  let keywords := [`true, `false, `unknown]
+  let keywords := [`true, `false, `unknown, `«ℵ₀»]
   let ctx ← read
   -- A free variable is an atomic name that nothing binds and the catalogue does not name.
   let named (n : Name) : Bool :=
@@ -1125,7 +1325,7 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
     s == "id" || state.objects.any (·.name == s) || state.morphisms.any (·.name == s) ||
       state.categories.any (·.name == s) || state.methods.any (·.name == s) ||
       state.properties.any (·.name == s) || state.limits.any (·.shape == s)
-  let free := (identifiers stx).filter fun n =>
+  let free := (looseIdentifiers stx).filter fun n =>
     n.isAtomic && !bound.contains n && !scope.contains n && (ctx.bound.lookup n).isNone &&
       !keywords.contains n && !named n
   let free := free.foldl (fun acc n => if acc.contains n then acc else acc.push n) #[]
@@ -1144,7 +1344,8 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
 def statement (scope : Scope) (stx : Syntax) : M Outcome := do
   let semantic := (← read).mode == .semantic
   if let some (_, t) ← letBinding? stx then
-    discard <| eval scope t
+    let rings ← ringBindings scope t
+    discard <| withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
     return .holds
   withFreeVariables scope stx do
   match stx with
