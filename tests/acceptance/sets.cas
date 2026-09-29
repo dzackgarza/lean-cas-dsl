@@ -32,3 +32,19 @@ let A := Fin(2) × ℤ/3
 
 test sets.card.square "Mathlib Fintype.card_prod: |A × A| = |A|², |A| = 6":
   assert |A × A| = 36
+
+test sets.card.fin2_sqcup_fin3 "Mathlib Fintype.card_sum: |Fin 2 ⊔ Fin 3| = 5":
+  assert |Fin(2) ⊔ Fin(3)| = 5
+
+test sets.finite.fin2_sqcup_fin3 "Mathlib Finite.instSum: a coproduct of finite sets is finite":
+  assert (Fin(2) ⊔ Fin(3)).is_finite()
+
+test sets.eq.rev_rev "Mathlib Fin.rev_rev: reversing Fin n twice is the identity":
+  assert rev(3) ∘ rev(3) = id(Fin(3))
+
+let f := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : Fin(3) → Fin(2)
+
+let g := {0 ↦ 1, 1 ↦ 0} : Fin(2) → Fin(2)
+
+test sets.limit.pullback.card "Mathlib Types.pullbackLimitCone: {(x, y) | f x = g y} = {(0,1), (1,0), (2,0)}":
+  assert |pullback(f, g)| = 3

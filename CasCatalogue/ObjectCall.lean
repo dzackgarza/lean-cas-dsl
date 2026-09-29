@@ -77,7 +77,8 @@ def elabHomCall (f source target : Term) (category : String) : TermElabM Expr :=
   let expected ← mkAppM ``Quiver.Hom #[← mkAppM ``Prefunctor.obj
       #[← mkAppM ``CategoryTheory.Functor.toPrefunctor #[denotation], a],
     ← mkAppM ``Prefunctor.obj #[← mkAppM ``CategoryTheory.Functor.toPrefunctor #[denotation], b]]
-  let map ← elabTermEnsuringType f expected
+  -- Typed as `d a ⟶ d b`, whatever defeq type `f` was elaborated at, so that `a`, `b` are found.
+  let map ← mkExpectedTypeHint (← elabTermEnsuringType f expected) expected
   synthesizeSyntheticMVarsNoPostponing
   instantiateMVars (← mkAppM ``CategoryTheory.Functor.FullyFaithful.preimage #[hd, map])
 

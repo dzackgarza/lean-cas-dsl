@@ -58,6 +58,9 @@ inductive RegistryEntry
   | object (e : ObjectEntry)
   | presentation (e : PresentationEntry)
   | literal (e : LiteralEntry)
+  | elementLiteral (e : ElementLiteralEntry)
+  | graphLiteral (e : GraphLiteralEntry)
+  | morphism (e : MorphismEntry)
   | observation (e : ObservationEntry)
   deriving Repr
 
@@ -87,6 +90,9 @@ def RegistryEntry.stableId : RegistryEntry → String
   | .object e => e.id.raw
   | .presentation e => e.id.raw
   | .literal e => e.id.raw
+  | .elementLiteral e => e.id.raw
+  | .graphLiteral e => e.id.raw
+  | .morphism e => e.id.raw
   | .observation e => e.id.raw
 
 /-- Lean declarations that must resolve before this row can be persisted. -/
@@ -118,6 +124,9 @@ def RegistryEntry.declarations : RegistryEntry → Array Name
   | .object e => #[e.declaration]
   | .presentation e => #[e.presentation]
   | .literal e => #[e.type, e.denotation]
+  | .elementLiteral e => #[e.denotation]
+  | .graphLiteral e => #[e.denotation]
+  | .morphism e => #[e.declaration]
   | .observation e => #[e.observe]
 
 
@@ -138,6 +147,9 @@ def RegistryEntry.ofSemantic : SemanticEntry → RegistryEntry
   | .adjunction e => .adjunction e
   | .object e => .object e
   | .literal e => .literal e
+  | .elementLiteral e => .elementLiteral e
+  | .graphLiteral e => .graphLiteral e
+  | .morphism e => .morphism e
 
 /-- The semantic row a registry row is, if it is one. -/
 def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
@@ -156,6 +168,9 @@ def RegistryEntry.toSemantic? : RegistryEntry → Option SemanticEntry
   | .adjunction e => some (.adjunction e)
   | .object e => some (.object e)
   | .literal e => some (.literal e)
+  | .elementLiteral e => some (.elementLiteral e)
+  | .graphLiteral e => some (.graphLiteral e)
+  | .morphism e => some (.morphism e)
   | _ => none
 
 /-- The realization rows. -/

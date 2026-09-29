@@ -26,6 +26,7 @@
     "obj.finite.fin2_times_z3": "fd0c378a7185f577f9a3c8d72f61e4a1edf60266a8f7056edba0ee863141b8ad",
     "obj.finite.integers": "50854cfb5ca7acb7c351046a4884fb56b1060a4a5f6dbc7ed9b6909492aa8b89",
     "obj.limit.sets.pullback.card": "6a6886ac318e595a71dc954d4d2466ae386d4ff2a11a877d3b5e9350c29948a9",
+    "sets.card.fin2_sqcup_fin3": "60be5a4d9d33c9b38fef037b4b3619d32aac486c27f28b0fb89e068e71d8e4fd",
     "sets.card.fin2_times_z3": "497e04336197e3bb975c151d7067065434fe77e84dbe975f2dbf7e7dbc665547",
     "sets.card.integers": "2fbad067d3643174e88706509bb49ba70dc6cc3082063d0fc89e27b36ff42ea7",
     "sets.card.naturals": "782bbeec26a8d8a75a8c277b66c174c7b79f4d162564f056f1102d9bfdec288a",
@@ -33,10 +34,13 @@
     "sets.card.z4_cubed": "44596ba16f0783f501472ceb7b47a2176c88e8ed882d39de38c1fdfe459c77c7",
     "sets.card.z5_empty_power": "2db4096e2a1c6a2c04658f1138084d59ef82c2acecdbf85736afef62621daac6",
     "sets.card.z7": "133bc63d00d31361de2e94e2d0ab7ec0e6f7a118865eb852e0ff1080704f3560",
+    "sets.eq.rev_rev": "32e75a20e73845ec0fa03653f4cee428e0558d4ea992ac485641fd2496b43773",
+    "sets.finite.fin2_sqcup_fin3": "eb3865f68dda2d0cb55c4420a0752b681d15b9225a9afdd6bdb022eca1c9abdd",
     "sets.finite.fin2_times_z3": "732edffbc0ee46104bf1b4db58e73f1d3cd1c62f1ab7c876e5f96456a5f5b0f9",
     "sets.finite.integers": "9e5f140cd431d8f242febb4c260e868ecb2ab7bebd9c0c1a8393b995abac35f9",
-    "sets.implemented.card_fin": "7e6a2a8c5a2f9ddc648a298cdb7ce90ac52bd0569ce7531327cf34bf2db7dd2d"
+    "sets.implemented.card_fin": "7e6a2a8c5a2f9ddc648a298cdb7ce90ac52bd0569ce7531327cf34bf2db7dd2d",
+    "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681"
   },
   "corrections": [],
-  "lean_categories": "390edd9741829b9de8b00c55cd9baae655253610"
+  "lean_categories": "ae0f4c6669290c8acac3bf6849502077361e269e"
 }
