@@ -18,7 +18,10 @@ local checkout, and this work must be readable wherever the repository is.
 > `lc-*` from the external review are specimens under step 4: a failure identifies a missing
 > generic rule, and is never repaired by forwarding, a domain-specific kernel case, a weakened
 > assertion, or an exemption. The custodian session (`custodian/containment` branch) holds step 7's
-> acceptance boundary. The orchestrator does not accept its own work.
+> acceptance boundary. The orchestrator does not accept its own work. Custodian sessions:
+> `session_01GTQeWD4KCqYCeVd4SygciY` (active); `session_01YSV4KoC3rsqZJcugaUrwbG` (stalled on a
+> permission prompt before doing any work). The orchestrator reads `custodian/containment` and
+> obeys what it states. It never writes there.
 
 ## Rules for executing this plan
 
