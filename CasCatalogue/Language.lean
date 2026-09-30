@@ -659,6 +659,43 @@ def compositionLemmas : List String :=
    "CategoryTheory.ConcreteCategory.id_apply", "CategoryTheory.types_comp_apply",
    "CategoryTheory.types_id_apply"]
 
+/-- The heads whose unfolding is the categorical and representational plumbing the kernel builds
+values with (composites, identities, `ofHom`, limit presentations and their mediators, the
+catalogue's definitions, function application of maps), as opposed to the mathematics a value is
+made of (`Polynomial.X`, `Matrix.det`, `Real.exp`, a ring's operations). -/
+def plumbingRoots : List Name :=
+  [`CasCatalogue, `LeanCategories, `CategoryTheory, `TypeCat, `DFunLike, `FunLike, `Function,
+   `id, `Prod.fst, `Prod.snd, `Prod.map, `inferInstance, `inferInstanceAs]
+
+/-- A value with its plumbing unfolded (`plumbingRoots`), its mathematics kept: `!![1, 2; 3, 4]`
+for a matrix assembled from rows of tuples through product mediators, `X ^ 3 - 2 X + 1` for a
+polynomial assembled by the ring operations of `ℚ[x]`. Definitionally the value it was given
+(every step is an unfolding or a reduction); the caller checks that. -/
+partial def plumbingValue (e : Expr) : MetaM Expr := do
+  let e ← whnfCore e
+  match e with
+  | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← plumbingValue body)
+  | .app .. | .const .. =>
+      let f := e.getAppFn
+      if let .const c _ := f then
+        if plumbingRoots.any (·.isPrefixOf c) then
+          if let some e' ← unfoldDefinition? e then return ← plumbingValue e'
+          if let some e' ← unfoldProjInst? e then return ← plumbingValue e'
+      let args ← e.getAppArgs.mapM fun a => do
+        if (← isProp (← inferType a)) || (← isType a) then pure a else plumbingValue a
+      let e' := mkAppN f args
+      -- A projection may now meet its constructor.
+      let r ← whnfCore e'
+      if r != e' then plumbingValue r else pure e'
+  | _ => pure e
+
+/-- `plumbingValue v`, checked to be `v`: what an obligation is stated of must be the value. -/
+def normalizedValue (v : Expr) : MetaM Expr := do
+  let v' ← plumbingValue v
+  unless ← withTransparency .default (isDefEq v' v) do
+    throwError "the kernel's normal form of {v} is not the value itself"
+  return v'
+
 /-- The function a map of sets built by the kernel is (definitionally): composites are composed
 functions, identities the identity, `ofHom f` is `f`, and a definition of the catalogue is unfolded
 to its value. Anything else is left as the map's action `ConcreteCategory.hom h`. It is what an
@@ -722,6 +759,9 @@ def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
     | .ok stx => pure stx
     | .error message => throwError "the obligation tactic does not parse: {message}"
   -- A failed tactic must not be recovered into `sorry`: evidence with a hole is no evidence.
+  -- A failed attempt leaves no message behind: its failure is reported once, as invalidity.
+  let messages := (← getThe Core.State).messages
+  let restore : TermElabM Unit := modifyThe Core.State fun st => { st with messages }
   let proof? ← withoutErrToSorry <| Term.withoutErrToSorry do
     try
       -- Only the proof's own pending problems are solved here, not the enclosing reading's.
@@ -730,13 +770,21 @@ def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
       pure (Except.ok (← instantiateMVars proof) : Except String Expr)
     -- not a reading fallback: evidence not established is rethrown as invalidity below
     catch e => pure (Except.error (← e.toMessageData.toString))
+  let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
   match proof? with
   | .error message =>
+      restore
       throwStratum .invalid m!"{what}: {p} is not established (no proof is found: \
         {message.take 300})"
   | .ok proof =>
-      if proof.hasSorry || proof.hasSyntheticSorry then
-        throwStratum .invalid m!"{what}: {p} is not established (its proof has a hole)"
+      if proof.hasSorry || proof.hasSyntheticSorry || logged then
+        let errors := (← getThe Core.State).messages.toList.filter (·.severity == .error)
+        let detail ← match errors.getLast? with
+          | some msg => msg.data.toString
+          | none => pure ""
+        restore
+        throwStratum .invalid m!"{what}: {p} is not established (its proof has a hole: \
+          {detail.take 300})"
       if proof.hasMVar then
         throwStratum .invalid m!"{what}: {p} is not established (its proof is not closed: {proof})"
       return proof
@@ -2057,6 +2105,8 @@ partial def admit (D : Value) (v : Value) : M Value := do
     | throwStratum .invalid m!"the admission of {entry.name} takes no value"
   let x ← elabTermEnsuringType carrier (← instantiateMVars (← inferType args[xi]!))
   synthesizeSyntheticMVarsNoPostponing
+  -- The value itself, its plumbing unfolded: what its evidence is about.
+  let x ← normalizedValue (← instantiateMVars x)
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
   synthesizeInstances args infos
