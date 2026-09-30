@@ -47,6 +47,34 @@ If mathematics is missing, the work goes upstream to step 2. Until the formaliza
 the CAS has no such notion. Nothing downstream may coin a local substitute and promise to
 reconcile it later.
 
+## Authors: one role per agent
+
+Blindness is a property of *who writes*, not a discipline one writer keeps. An agent holding two
+layers in context is blind to neither, so the layers have distinct authors (owner direction,
+2026-09-30):
+
+| Role | Writes | Never writes, and never reads to decide its own work |
+| --- | --- | --- |
+| **Orchestrator** (the steering session) | Policies, gates, compliance checks, this contract, the plan; the kernel (`CasCatalogue`, the language) and the leaf contract (`CasContract`); delegation of the rows below | Mathematics in `lean-categories`; acceptance assertions; leaves |
+| **Formalization agent** (a subagent) | `lean-categories`: definitions, catalogue rows, their citations | Anything downstream. It receives the mathematical requirement and its sources, never the kernel, the language, a test or a leaf |
+| **Acceptance agent** (a subagent) | Acceptance assertions in `tests/acceptance/`, and any correction of one | Kernel, contract, leaves. It reads the released mathematics and the language's surface, never an implementation |
+| **Leaf agent** (a subagent) | Leaves, in `lean-cas-dsl-leaves` or elsewhere | Mathematics, contract, kernel, tests. It reads the released contract and catalogue only |
+
+* No agent authors in two rows. The orchestrator gives each subagent row to a separate subagent
+  with only that row's inputs.
+* Information flows down the workflow only. A downstream need (the kernel cannot elaborate a row,
+  a leaf cannot meet the contract, a test fails) goes upstream as a written request to that row's
+  author stating the mathematics wanted. It is never an edit made from downstream, and it never
+  shapes the upstream answer: the formalization and the tests are never informed by the
+  implementation.
+* Relaxing the leaf contract, weakening a row, or re-admitting a test to fit an implementation is
+  almost never the mathematical solution. Each needs a mathematical justification from the upstream
+  author, recorded with the change.
+* Work authored across these barriers is not accepted as any row's output, however it reads. That
+  row's author reviews it before anything builds on it.
+
+Until the owed gates in "What must be impossible" exist, these rules hold by instruction only.
+
 ## Contracts between silos
 
 | Boundary | Payload | The consumer may | The consumer must never |
@@ -143,6 +171,12 @@ node that owes one.
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md; its realizations live in `research/leaves`, whose modules are leaves under the same boundary (`isLeafModule`) | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
+| One agent authors in two rows of "Authors: one role per agent" | Nothing | `gov-authorship-gate` |
+| The implementing agent, or the orchestrator, re-admits a test | Nothing: `--correct` accepts any author | `gov-readmission-gate` |
+| `lean-categories` accepts an operation with an optional or partial codomain (`Option`, `Part`, `WithBot`/`WithTop` or `⊥` as "undefined", a partial-map classifier) or relies on a total convention off the domain (LC-14) | Nothing: the registry validator checks shapes only | `gov-registry-gates` |
+| `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | Nothing | `gov-registry-gates` |
+| The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | Nothing | `gov-kernel-lc14` |
+| `lean-cas-dsl` depends on or contains a leaf | Nothing: the lakefile requires `cas_leaves`, and a `CasLeaves/` directory is present | `gov-no-leaves-here` |
 
 ## Packages
 

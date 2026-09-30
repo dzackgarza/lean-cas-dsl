@@ -1,3 +1,18 @@
+# Roles (read before anything else)
+
+You are either the **orchestrator** or a subagent with exactly one role
+([specs/architecture.md](specs/architecture.md), "Authors: one role per agent"):
+- The orchestrator owns policies, gates, compliance, this repository's kernel and language, and
+  the leaf contract. It delegates the rest.
+- The formalization subagent writes `lean-categories` only.
+- The acceptance subagent writes `tests/acceptance/` only.
+- The leaf subagent writes leaves only.
+
+No agent writes in two roles. Information flows formalization → tests → implementation, never
+back. An owner correction is committed into its owning document, or a gate, in the turn it is
+given (CONTRIBUTING, "A correction is encoded where it will be read"). Open governance nodes
+(`gov-*` in [the plan](specs/computational-core-plan.md)) precede all other work.
+
 # Architecture contract (read first)
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
@@ -47,9 +62,11 @@ mechanical, external, long-tail work.
 - Never write or extend a leaf to make a test pass, and never chase a realization of a specific
   operation as progress.
 - The leaves live in `lean-cas-dsl-leaves` and the leaf contract in `lean-cas-dsl-leaf-contracts`
-  (`specs/architecture.md`, "Packages"). This repository depends on both; neither depends on it.
-  Its leaves are litmus probes: change one only when that exposes a deficiency of the kernel, the
-  contract or `lean-categories`, and name that deficiency in the commit.
+  (`specs/architecture.md`, "Packages"). Leaves, including probes, belong to the leaf repository
+  and are written by the leaf subagent. That this repository still requires `cas_leaves` and has a
+  `CasLeaves/` directory is a defect (`gov-no-leaves-here`), not a licence. The orchestrator never
+  writes, ports or polishes a leaf. A probe's finding reaches the kernel, the contract or
+  `lean-categories` as a request.
 - A leaf never sees the tests. It depends only on the leaf contract (`CasContract.Leaf`) and the
   catalogue, and the harness runs the suite over installed leaves (`just harness`).
 - The contract is the kernel's: change it together with the kernel, release it, re-pin it in the

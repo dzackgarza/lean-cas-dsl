@@ -33,6 +33,34 @@ bind the kernel, the language and every leaf. Their consequences here:
   there is none, it is not a numeral of that object (LC-15).
 - A leaf presents the catalogue's object; it never shapes it. A contract rule that would need
   the catalogue to change to suit a leaf's representation is itself a defect.
+- An operation exists only where its structure exists: `⁻¹` on units and automorphisms, never on
+  endomorphisms or a bare monoid (LC-16). The language never attempts an operation on a value
+  not established to lie in its domain.
+
+## Authors are separated by layer
+
+[architecture.md](specs/architecture.md), "Authors: one role per agent":
+- The orchestrator owns policies, gates, compliance, the kernel and the leaf contract.
+- Formalization (`lean-categories`), acceptance assertions and leaves each have a separate
+  subagent author.
+- No agent writes in two layers.
+- The implementation never informs the formalization or the tests.
+- Findings go upstream as requests, never as edits.
+
+The leaves are not part of this repository; the dependency that remains is a defect
+(`gov-no-leaves-here`).
+
+## A correction is encoded where it will be read, before anything else
+
+A chat ends, and agreement stated in it is lost with it. When the owner corrects the work or
+states a rule, the correction is written in the same turn into the document that owns it:
+- this file, `lean-categories`' CONTRIBUTING, architecture.md, the plan, or an AGENTS.md;
+- where possible, into a gate that fails the build.
+
+Saying "understood", or tracking the correction in a session task list, is not compliance. Both
+are ephemeral. Work continues only after the correction is committed. The owner's questions
+count as corrections. For example, "why is an inverse defined on an arbitrary matrix?" means that
+it must not be.
 
 ## Writing a leaf
 
