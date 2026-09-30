@@ -4,31 +4,35 @@
 Review mode runs in `.github/workflows/custodian-review.yml` on `pull_request_target`. The code is
 the base branch's (main's), the pull request's head is only read as data, and it never runs.
 
-    review.py --base <main checkout> --head <PR head checkout> --leaves <leaves at the head's pin>
+    review.py --base <main checkout> --head <PR head checkout>
               --trusted-fpr <root fingerprint> --signing-key <review SSH private key>
               --out <dir> --rejections <rejection log checkout> [--pr N --head-sha SHA]
 
 Outcomes (exit 0 only for PASS):
   PASS        the head satisfies the seal in force (the root seal, or the chain's last verdict).
   FAIL hard   a ratchet or structural violation (banned construct, leaf in the DSL, leaf
-              violation, semantic rows downstream, dev link, a rewritten root or chain). No review
-              can accept it.
+              violation, semantic rows downstream, a package that is missing, linked, or not at
+              its manifest revision, a rewritten root or chain). No review can accept it.
   ESCALATE    the change touches what judges changes: the custodian's files, CI, the owner's text,
               existing acceptance assertions or the ledger. An escalation verdict is required,
               signed with the escalation key after a human-plus-agent review (--escalate below).
-  REVIEWED    sealed files or pins changed. The independent reviewer (a single model call with
-              the fixed prompt custodian/review/prompt.md, the owner's text and the diff, never the
-              orchestrator's argument) approves or rejects. An approval is a signed verdict,
-              written to <out>/verdicts/ and posted on the pull request; the head must commit it to
-              pass. A rejection is signed, appended to the rejection log, and is final for that
-              exact change: the same change against the same seal is never reviewed again.
+  REVIEWED    other sealed files changed: the kernel, or an upstream rule file
+              (the catalogue of lean_categories, the leaf contract). The independent reviewer (a
+              single model call with the fixed prompt custodian/review/prompt.md, the owner's text
+              and the diff, never the orchestrator's argument) approves or rejects. An approval is
+              a signed verdict, written to <out>/verdicts/ and posted on the pull request; the head
+              must commit it to pass. A rejection is signed, appended to the rejection log, and is
+              final for that exact change: the same change against the same seal is never reviewed
+              again.
 
 Escalation mode (the owner's machine, with an agent reviewing alongside):
 
-    review.py --escalate --head . --leaves <leaves> --trusted-fpr <root fingerprint>
+    review.py --escalate --head . --trusted-fpr <root fingerprint>
               --signing-key <the owner's SSH private key, e.g. ~/.ssh/id_ed25519>
 
-Every signature is an SSH signature (`ssh-keygen -Y sign`, namespace `lean-cas-custodian`).
+Both checkouts carry their dependency chain in `.lake/packages` at their manifest revisions
+(`scripts/ci_chain.py <checkout>`). Every signature is an SSH signature (`ssh-keygen -Y sign`,
+namespace `lean-cas-custodian`).
 """
 
 from __future__ import annotations
@@ -41,15 +45,13 @@ import json
 import re
 import subprocess
 import sys
-import tempfile
 from fnmatch import fnmatch
 from pathlib import Path
 
 MODEL = "claude-opus-5-5"
 DIFF_LIMIT = 600_000  # characters; a larger change must be split
-REVIEWED_PINS = ("lean_categories", "cas_leaf_contracts")
-# Changes to these judge changes: escalation only.
-# Only the kernel (CasCatalogue, CasDsl) and the two semantic pins are reviewed by the agent.
+# Changes to these judge changes: escalation only. Every other sealed file (the kernel, the
+# upstream rule files) is reviewed by the agent.
 ESCALATE = ["custodian/*", ".github/*", "specs/owner/*", "tests/acceptance/*", "CasAcceptance*",
             "CasGates/*", "CasTools/*", "lakefile.lean", "lean-toolchain", "justfile", "scripts/*"]
 SCHEMA = {
@@ -99,8 +101,6 @@ def classify(problems: list[str]) -> tuple[list[str], list[str], list[str]]:
         m = re.match(r"(sealed file changed|sealed file removed|new file inside the sealed boundary): (.+)$", p)
         if m:
             (escalate if any(fnmatch(m.group(2), e) for e in ESCALATE) else review).append(p)
-        elif p.startswith("sealed pin moved: ") and p.split()[3] in REVIEWED_PINS:
-            review.append(p)
         elif p.startswith(("sealed ledger", "sealed assertion")):
             escalate.append(p)
         else:
@@ -119,33 +119,18 @@ def next_verdict(V, root_path: Path, chain, kind: str, signer: str, seal: dict,
             "seal": seal, "review": review}
 
 
-def tightened(V, head: Path, leaves: Path, tip: dict) -> dict:
+def tightened(V, head: Path, tip: dict) -> dict:
     """The head's seal, with every baseline intersected with the tip's: a review never grows one."""
-    seal = V.build_seal(head, leaves, tip["boundary"], tip["append_only"], tip["verifier_sha256"],
+    seal = V.build_seal(head, tip["boundary"], tip["append_only"], tip["verifier_sha256"],
                         "review verdict")
     for k in ("banned_baseline", "leaf_baseline", "outside_baseline"):
         seal[k] = sorted(set(seal[k]) & set(tip[k]))
     return seal
 
 
-def pin_diff(head: Path, name: str, old: str, new: str) -> str:
-    manifest = json.loads((head / "lake-manifest.json").read_text())
-    url = next(p["url"] for p in manifest["packages"] if p["name"] == name)
-    with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(["git", "clone", "--quiet", "--filter=blob:none", url, tmp], check=True)
-        return subprocess.run(["git", "-C", tmp, "diff", old, new], check=True,
-                              capture_output=True, text=True).stdout
-
-
-def change_text(base: Path, head: Path, review: list[str], V, tip: dict) -> str:
+def change_text(base: Path, head: Path, review: list[str]) -> str:
     parts = []
     for p in review:
-        if p.startswith("sealed pin moved: "):
-            name = p.split()[3]
-            new = V.manifest_pins(head)[name]
-            parts.append(f"=== upstream diff of {name}: {tip['pins'][name]} -> {new}\n"
-                         + pin_diff(head, name, tip["pins"][name], new))
-            continue
         f = p.split(": ", 1)[1]
         a = (base / f).read_text(errors="replace").splitlines(True) if (base / f).is_file() else []
         b = (head / f).read_text(errors="replace").splitlines(True) if (head / f).is_file() else []
@@ -201,7 +186,7 @@ def review_mode(a) -> int:
             x.read_bytes() != y.read_bytes() for (x, _), (y, _) in zip(base_chain, chain)):
         return finish(1, "FAIL (hard)", ["the verdict chain of main was rewritten or truncated"])
     tip = V.tip_seal(root, chain)
-    problems = V.check(head, tip, a.leaves.resolve())
+    problems = V.check(head, tip)
     if not problems:
         return finish(0, "PASS", [f"the head satisfies the seal in force ({len(chain)} verdicts)"])
     hard, escalate, review = classify(problems)
@@ -212,12 +197,12 @@ def review_mode(a) -> int:
             "these change what judges changes: an escalation verdict is required "
             "(custodian/CONTAINMENT.md, \"Escalation\")"])
     boundary = V.current_boundary(head, tip)
-    key = sha(json.dumps({"tip": chain_head(V, root_path, chain),
-                          "files": boundary, "pins": V.manifest_pins(head)}, sort_keys=True).encode())
+    key = sha(json.dumps({"tip": chain_head(V, root_path, chain), "files": boundary},
+                         sort_keys=True).encode())
     if a.rejections and (a.rejections / f"{key}.json").exists():
         return finish(1, "REJECTED (final)", [f"this exact change was already rejected ({key[:16]}); "
                                               "a rejection is never re-reviewed"])
-    change = change_text(base, head, review, V, tip)
+    change = change_text(base, head, review)
     here = base / "custodian"
     prompt = here / "review" / "prompt.md"
     owner = "\n\n".join((base / p).read_text() for p in
@@ -238,7 +223,7 @@ def review_mode(a) -> int:
               for c in (result or {}).get("criteria", [])]
     if approved:
         v = next_verdict(V, root_path, chain, "review", public_fpr(a.signing_key),
-                         tightened(V, head, a.leaves.resolve(), tip), record)
+                         tightened(V, head, tip), record)
         d = out / "verdicts"
         d.mkdir(exist_ok=True)
         path = d / f"{v['seq']:06d}.json"
@@ -266,12 +251,12 @@ def escalate_mode(a) -> int:
     root = json.loads(root_path.read_text())
     chain = V.load_chain(head, root_path, root)
     tip = V.tip_seal(root, chain)
-    hard, _, _ = classify(V.check(head, tip, a.leaves.resolve()))
+    hard, _, _ = classify(V.check(head, tip))
     if hard:
         print("refused: hard violations cannot be escalated:\n  " + "\n  ".join(hard))
         return 1
     spec = json.loads((head / "custodian" / "boundary.json").read_text())
-    seal = V.build_seal(head, a.leaves.resolve(), spec["boundary"], spec["append_only"],
+    seal = V.build_seal(head, spec["boundary"], spec["append_only"],
                         V.sha((head / "custodian" / "verify.py").read_bytes()), a.note)
     v = next_verdict(V, root_path, chain, "escalation", public_fpr(a.signing_key), seal,
                      {"note": a.note})
@@ -287,7 +272,6 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--base", type=Path)
     ap.add_argument("--head", type=Path, required=True)
-    ap.add_argument("--leaves", type=Path, required=True)
     ap.add_argument("--trusted-fpr", required=True)
     ap.add_argument("--out", type=Path)
     ap.add_argument("--rejections", type=Path)

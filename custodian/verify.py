@@ -13,12 +13,18 @@ public keys at https://github.com/dzackgarza.keys. Bootstrap before trusting thi
 
 Then:
 
+    python3 scripts/ci_chain.py                          # the chain into .lake/packages
     python3 custodian/verify.py --trusted-fpr SHA256:<fingerprint> \
-        [--repo .] [--leaves <checkout of lean-cas-dsl-leaves>] [--key <root.pub>] [--seal <json>]
+        [--repo .] [--key <root.pub>] [--seal <json>]
 
-Exit 0 iff every check passes. Any change to a sealed path, a sealed pin, or a new banned construct
-is reported and fails. Nothing here has an exemption mechanism: the only way to change what is
-checked is a new seal signed by a key the caller chooses to trust.
+The boundary covers files of this repository and the rule files of the upstream packages
+(`.lake/packages/<package>/...`): the catalogue of `lean_categories` (its admission rules) and the
+leaf contract. Revisions are not sealed; the content of every sealed file is. Each package is a
+git checkout, not a link to a working tree, at the revision `lake-manifest.json` records.
+
+Exit 0 iff every check passes. Any change to a sealed file or a new banned construct is reported and
+fails. Nothing here has an exemption mechanism: the only way to change what is checked is a new
+seal signed by a key the caller chooses to trust.
 """
 
 from __future__ import annotations
@@ -35,11 +41,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# Pins whose revision may move without a new seal: leaves are ordinary downstream work.
-FREE_PINS = {"cas_leaves"}
-# The require line of a free pin in lakefile.lean is normalized before hashing.
-FREE_REQUIRE = re.compile(
-    r'(require cas_leaves from git\s*\n\s*"[^"]+"\s*@\s*)"[0-9a-f]{40}"')
+# The dependency checkouts: `lake` and `scripts/ci_chain.py` put each package here.
+PACKAGES = ".lake/packages"
+# The development chain, each required from git at `main` by lakefile.lean.
+CHAIN = ("lean_categories", "cas_leaf_contracts", "cas_leaves")
+LEAVES = f"{PACKAGES}/cas_leaves"
 
 # Constructs that make a result undefined, unchecked or unsound, or that let code rewrite how other
 # code (an assertion, a contract command) is elaborated.
@@ -94,12 +100,6 @@ def tracked(repo: Path) -> list[str]:
 
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def normalized(path: str, data: bytes) -> bytes:
-    if path == "lakefile.lean":
-        return FREE_REQUIRE.sub(r'\1"<free>"', data.decode()).encode()
-    return data
 
 
 def strip_comments(text: str) -> str:
@@ -164,18 +164,25 @@ def scan_leaves(leaves: Path) -> list[str]:
     return sorted(found)
 
 
-def manifest_pins(repo: Path) -> dict[str, str]:
-    m = json.loads((repo / "lake-manifest.json").read_text())
-    return {p["name"]: p.get("rev", "") for p in m["packages"]}
+def manifest_revs(repo: Path) -> dict[str, str]:
+    return {p["name"]: p.get("rev", "")
+            for p in json.loads((repo / "lake-manifest.json").read_text())["packages"]}
 
 
 def in_boundary(path: str, seal: dict) -> bool:
     return any(fnmatch(path, p) for p in seal["boundary"])
 
 
+def upstream_files(repo: Path, seal: dict) -> list[str]:
+    """The tracked files of every package the boundary names, as `.lake/packages/<package>/<file>`."""
+    names = {p.split("/")[2] for p in seal["boundary"] if p.startswith(PACKAGES + "/")}
+    return [f"{PACKAGES}/{n}/{f}" for n in sorted(names) if (repo / PACKAGES / n / ".git").exists()
+            for f in tracked(repo / PACKAGES / n)]
+
+
 def current_boundary(repo: Path, seal: dict) -> dict[str, str]:
-    return {f: sha(normalized(f, (repo / f).read_bytes())) for f in tracked(repo)
-            if in_boundary(f, seal) and (repo / f).is_file() and f != LEDGER}
+    files = [f for f in tracked(repo) + upstream_files(repo, seal) if (repo / f).is_file()]
+    return {f: sha((repo / f).read_bytes()) for f in files if in_boundary(f, seal) and f != LEDGER}
 
 
 def outside_hits(repo: Path, seal: dict) -> list[str]:
@@ -186,14 +193,32 @@ def outside_hits(repo: Path, seal: dict) -> list[str]:
     return sorted(found)
 
 
-def build_seal(repo: Path, leaves: Path | None, boundary: list[str], append_only: list[str],
-               verifier_sha: str, note: str) -> dict:
+def package_problems(repo: Path) -> list[str]:
+    """Each package is a checkout at its manifest revision, never a link to a working tree
+    (`pin_dev.py` linked development trees into `.lake/packages`). The chain must be present: an
+    absent package would leave its sealed files and its leaves unchecked."""
+    problems = []
+    for name, rev in sorted(manifest_revs(repo).items()):
+        pkg = repo / PACKAGES / name
+        if pkg.is_symlink():
+            problems.append(f"{PACKAGES}/{name} is a link to a working tree, not a checkout")
+        elif (pkg / ".git").exists():
+            head = git(pkg, "rev-parse", "HEAD").strip()
+            dirty = git(pkg, "status", "--porcelain", "--untracked-files=no").strip()
+            if head != rev or dirty:
+                problems.append(f"{PACKAGES}/{name} is not the manifest revision {rev[:12]}")
+        elif name in CHAIN:
+            problems.append(f"{PACKAGES}/{name} is not checked out (scripts/ci_chain.py)")
+    return problems
+
+
+def build_seal(repo: Path, boundary: list[str], append_only: list[str], verifier_sha: str,
+               note: str) -> dict:
     seal = {"format": 1, "boundary": boundary, "append_only": append_only}
     seal["files"] = current_boundary(repo, seal)
-    seal["pins"] = {k: v for k, v in manifest_pins(repo).items() if k not in FREE_PINS}
     lean = [f for f in tracked(repo) if f.endswith(".lean")]
     seal["banned_baseline"] = occurrences(repo, lean, BANNED_EVERYWHERE)
-    seal["leaf_baseline"] = scan_leaves(leaves) if leaves else []
+    seal["leaf_baseline"] = scan_leaves(repo / LEAVES)
     seal["outside_baseline"] = outside_hits(repo, seal)
     seal["ledger"] = json.loads((repo / LEDGER).read_text())
     seal["sealed_commit"] = git(repo, "rev-parse", "HEAD").strip()
@@ -202,8 +227,8 @@ def build_seal(repo: Path, leaves: Path | None, boundary: list[str], append_only
     return seal
 
 
-def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
-    problems = []
+def check(repo: Path, seal: dict) -> list[str]:
+    problems = package_problems(repo)
     now = current_boundary(repo, seal)
     for f, h in sorted(seal["files"].items()):
         if f not in now:
@@ -231,22 +256,6 @@ def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
             print(f"note: unsealed assertion (not accepted until a new seal): {ident}")
     for hit in sorted(set(outside_hits(repo, seal)) - set(seal["outside_baseline"])):
         problems.append(f"outside the boundary: {hit}")
-    pins = manifest_pins(repo)
-    for name, rev in sorted(seal["pins"].items()):
-        if pins.get(name) != rev:
-            problems.append(f"sealed pin moved: {name} {rev[:12]} -> {str(pins.get(name))[:12]}")
-    for name in sorted(set(pins) - set(seal["pins"]) - FREE_PINS):
-        problems.append(f"new unsealed dependency: {name}")
-    # Development links: a local package checkout must be the pinned revision.
-    for name, rev in sorted(pins.items()):
-        pkg = repo / ".lake" / "packages" / name
-        if pkg.is_symlink():
-            problems.append(f".lake/packages/{name} is a link to a working tree, not the pin")
-        elif (pkg / ".git").exists():
-            head = git(pkg, "rev-parse", "HEAD").strip()
-            dirty = git(pkg, "status", "--porcelain", "--untracked-files=no").strip()
-            if head != rev or dirty:
-                problems.append(f".lake/packages/{name} is not the pinned revision {rev[:12]}")
     # No leaf in lean-cas-dsl.
     for f in tracked(repo):
         if f.startswith("CasLeaves/"):
@@ -258,15 +267,10 @@ def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
     lean = [f for f in tracked(repo) if f.endswith(".lean")]
     for hit in sorted(set(occurrences(repo, lean, BANNED_EVERYWHERE)) - set(seal["banned_baseline"])):
         problems.append(f"banned construct: {hit}")
-    if leaves is not None:
-        rev = pins.get("cas_leaves")
-        head = git(leaves, "rev-parse", "HEAD").strip()
-        if head != rev or git(leaves, "status", "--porcelain", "--untracked-files=no").strip():
-            problems.append(f"--leaves checkout is {head[:12]}, not the pinned {str(rev)[:12]}")
-        for hit in sorted(set(scan_leaves(leaves)) - set(seal["leaf_baseline"])):
+    # The leaves: package_problems reports a missing or linked checkout.
+    if (repo / LEAVES / ".git").exists() and not (repo / LEAVES).is_symlink():
+        for hit in sorted(set(scan_leaves(repo / LEAVES)) - set(seal["leaf_baseline"])):
             problems.append(f"leaf violation: {hit}")
-    else:
-        print("note: --leaves not given; the leaves were not checked")
     return problems
 
 
@@ -333,7 +337,6 @@ def main() -> int:
     ap.add_argument("--seal", type=Path, default=HERE / "seal.json")
     ap.add_argument("--key", type=Path, default=HERE / "root.pub")
     ap.add_argument("--trusted-fpr", help="SHA256 fingerprint of the owner's SSH key, from outside the repo")
-    ap.add_argument("--leaves", type=Path)
     ap.add_argument("--make-seal", action="store_true",
                     help="write an unsigned seal of the current state to --seal (for the signer)")
     ap.add_argument("--note", default="")
@@ -348,7 +351,7 @@ def main() -> int:
         # The boundary is custodian/boundary.json, itself a sealed file.
         spec = json.loads((repo / "custodian" / "boundary.json").read_text())
         boundary, append_only = spec["boundary"], spec["append_only"]
-        seal = build_seal(repo, args.leaves, boundary, append_only, verifier_sha, args.note)
+        seal = build_seal(repo, boundary, append_only, verifier_sha, args.note)
         for field, paths in (("reviewer_keys", args.reviewer_key),
                              ("escalation_keys", args.escalation_key)):
             seal[field] = {key_fpr(p.read_text()): p.read_text() for p in paths}
@@ -363,13 +366,12 @@ def main() -> int:
     seal = tip_seal(root, chain)
     if verifier_sha not in {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}:
         raise SystemExit("this verifier is not a sealed verifier")
-    problems = check(repo, seal, args.leaves.resolve() if args.leaves else None)
+    problems = check(repo, seal)
     if problems:
         print("CONTAINMENT VIOLATED (custodian seal):")
         print("\n".join("  " + p for p in problems))
         return 1
-    print(f"seal holds: {len(seal['files'])} sealed files, {len(seal['pins'])} sealed pins, "
-          f"{len(chain)} verdicts after the root")
+    print(f"seal holds: {len(seal['files'])} sealed files, {len(chain)} verdicts after the root")
     return 0
 
 

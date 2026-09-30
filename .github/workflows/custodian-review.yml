@@ -8,8 +8,8 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
 permissions:
-  contents: write        # the rejection log branch only
-  pull-requests: write   # the verdict comment
+  contents: write # the rejection log branch only
+  pull-requests: write # the verdict comment
 concurrency:
   group: custodian-review-${{ github.event.pull_request.number }}
   cancel-in-progress: false
@@ -32,11 +32,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: head
           persist-credentials: false
-      - name: Check out the leaves at the head's pin, and the rejection log
+      - name: Check out each side's chain at its manifest revisions, and the rejection log
         run: |
-          rev=$(python3 -c "import json;print([p['rev'] for p in json.load(open('head/lake-manifest.json'))['packages'] if p['name']=='cas_leaves'][0])")
-          git clone --quiet https://github.com/dzackgarza/lean-cas-dsl-leaves leaves
-          git -C leaves checkout --quiet "$rev"
+          python3 base/scripts/ci_chain.py base
+          python3 base/scripts/ci_chain.py head
           if git clone --quiet --branch custodian/rejections \
               "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" rejections; then :
           else
@@ -59,7 +58,7 @@ jobs:
           key="$RUNNER_TEMP/review_key"
           install -m 600 /dev/null "$key"
           printf '%s\n' "$CUSTODIAN_REVIEW_KEY" > "$key"
-          python3 base/custodian/review/review.py --base base --head head --leaves leaves \
+          python3 base/custodian/review/review.py --base base --head head \
             --trusted-fpr "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI" --signing-key "$key" \
             --out out --rejections rejections \
             --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }}
