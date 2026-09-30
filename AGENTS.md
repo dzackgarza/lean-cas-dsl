@@ -94,6 +94,11 @@ Consequences:
 
 # The custodian's seal binds this repository (read before anything else)
 
+**Escalations are suspended until the programme reaches its baseline.** The owner drives every
+change directly and merges it. Until the baseline, a change a pull request needs is made in that
+pull request, sealed files included. No escalation or custodian verdict is requested or waited on.
+The rules below describe the loop that applies once the baseline is reached.
+
 `custodian/` on `main` holds the seal and its chain of signed verdicts (`custodian/CONTAINMENT.md`,
 "The acceptance loop"). The root and escalation key is the owner's SSH key. The review key exists
 only as a secret of the `custodian-review` environment. The orchestrator holds neither.
