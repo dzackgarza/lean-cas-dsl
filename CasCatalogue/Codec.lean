@@ -117,8 +117,23 @@ partial def encode (e : Expr) : MetaM (Except String Json) := do
     return .ok (if args.size == 1 then args[0]! else Json.arr args)
   return .ok (Json.mkObj [("ctor", label c), ("args", Json.arr args)])
 
-/-- Decode `j` as a closed value of the type `type`. -/
+mutual
+
+/-- Decode `j` as a closed value of the type `type`. The value is read at the type asked for:
+when that type unfolds to the inductive type driving the decoding (`Multiset ℤ` to a quotient,
+`ZMod 3` to `Fin 3`), the value carries the asked type as its expected-type hint, so that what
+is later decided or synthesized about it (`Multiset.Nodup`, decidable equality) is stated at that
+type. -/
 partial def decode (type : Expr) (j : Json) : MetaM (Except String Expr) := do
+  let asked ← instantiateMVars type
+  match ← decodeAt asked j with
+  | .ok value =>
+      if (← whnf asked) == asked then return .ok value
+      else return .ok (← mkExpectedTypeHint value asked)
+  | .error message => return .error message
+
+/-- Decode `j` at `type`, driven by the inductive type `type` unfolds to. -/
+partial def decodeAt (type : Expr) (j : Json) : MetaM (Except String Expr) := do
   let type ← whnf (← instantiateMVars type)
   if type.isConstOf ``Nat then
     return match j.getNat? with
@@ -197,5 +212,7 @@ partial def decode (type : Expr) (j : Json) : MetaM (Except String Expr) := do
     | .ok v => value := mkApp value v
     | .error m => return .error m
   return .ok value
+
+end
 
 end CasCatalogue.Codec

@@ -183,13 +183,13 @@ run_cmd liftTermElabM do
   let state ← registryState
   let some form := state.subsetLiterals.find? (·.id.raw == "lit.sets.finite_subsets")
     | throwError "no registered subset-literal form"
-  let finsetInt ← Term.elabTerm (← `($(mkCIdent form.type) Int)) none
+  let finsetInt ← Term.elabTermAndSynthesize (← `($(mkCIdent form.type) Int)) none
   let .ok decoded ← Codec.decode finsetInt (Json.arr #[1, 2, 3])
     | throwError "[1, 2, 3] is not decoded as a finite subset of ℤ"
-  let literal ← Term.elabTerm (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
+  let literal ← Term.elabTermAndSynthesize (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
   unless (← Realize.decideProp (← Meta.mkEq decoded literal)) == some true do
     throwError "the decoded {decoded} is not the literal {literal}"
-  unless (← Realize.decideProp (← Meta.mkEq decoded (← Term.elabTerm (← `(({1, 2} : Finset Int))) none)))
+  unless (← Realize.decideProp (← Meta.mkEq decoded (← Term.elabTermAndSynthesize (← `(({1, 2} : Finset Int))) none)))
       == some false do
     throwError "the decoded {decoded} is not distinguished from another literal"
   let .error _ ← Codec.decode finsetInt (Json.arr #[1, 1])
