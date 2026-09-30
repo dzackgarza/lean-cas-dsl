@@ -645,11 +645,52 @@ def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
       | _ => #[]
   return found
 
+/-- The identity of a set in the category `Sets` (`Cat.of Type`) is the identity function: the
+statement identifies `Sets`' own identity, which `Type`'s lemmas cannot match through the `Cat.of`
+bundling, so that obligations about maps built from it reduce to their functions. -/
+theorem setsIdentity (X : LeanCategories.Foundation.Mathlib.Sets.{0}) :
+    CategoryTheory.CategoryStruct.id X =
+      (TypeCat.ofHom (fun x : (X : Type) => x) : X ⟶ X) := rfl
+
 /-- How a composite of maps of sets is applied, for obligations about maps built by composition. -/
 def compositionLemmas : List String :=
-  ["id", "id_eq", "TypeCat.ofHom_apply", "CategoryTheory.ConcreteCategory.comp_apply",
+  ["id", "id_eq", "CasCatalogue.Language.setsIdentity", "TypeCat.ofHom_apply",
+   "TypeCat.hom_ofHom", "TypeCat.Fun.coe_mk", "CategoryTheory.ConcreteCategory.comp_apply",
    "CategoryTheory.ConcreteCategory.id_apply", "CategoryTheory.types_comp_apply",
    "CategoryTheory.types_id_apply"]
+
+/-- The function a map of sets built by the kernel is (definitionally): composites are composed
+functions, identities the identity, `ofHom f` is `f`, and a definition of the catalogue is unfolded
+to its value. Anything else is left as the map's action `ConcreteCategory.hom h`. It is what an
+obligation about a map (continuity, smoothness) is stated of, so that the obligation is about
+`Real.sin` rather than about the categorical term it was assembled as. -/
+partial def functionOf (h : Expr) : TermElabM Expr := do
+  let h ← instantiateMVars h
+  match h.getAppFn.constName?, h.getAppArgs with
+  | some ``id, #[_, e] => functionOf e
+  | some ``CategoryTheory.CategoryStruct.comp, #[_, _, _, _, _, f, g] =>
+      let F ← functionOf f
+      let G ← functionOf g
+      let some (domain, _) := (← inferFunctionType F) | actionOf h
+      withLocalDeclD `x domain fun x => do
+        mkLambdaFVars #[x] (← whnfCore (mkApp G (← whnfCore (mkApp F x))))
+  | some ``CategoryTheory.CategoryStruct.id, #[_, _, X] =>
+      withLocalDeclD `x (← whnf X) fun x => mkLambdaFVars #[x] x
+  | some ``TypeCat.ofHom, #[_, _, f] => pure f
+  | some name, _ =>
+      if name.getRoot == `CasCatalogue then
+        if let some unfolded ← unfoldDefinition? h then return ← functionOf unfolded
+      actionOf h
+  | none, _ => actionOf h
+where
+  actionOf (h : Expr) : TermElabM Expr := do
+    let e ← elabTermAndSynthesize
+      (← `(fun x => CategoryTheory.ConcreteCategory.hom (C := Type) $(← exprToSyntax h) x)) none
+    instantiateMVars e
+  inferFunctionType (F : Expr) : TermElabM (Option (Expr × Expr)) := do
+    let type ← whnf (← inferType F)
+    let .forallE _ domain codomain _ := type | return none
+    return some (domain, codomain)
 
 /-- The evidence of the proposition `p`, established when a statement is read (LC-14): decided, or
 proved by simplification through the catalogue's definitions (a numeral is nonzero, a matrix has a
@@ -674,8 +715,9 @@ def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
         simp [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three]; done)
     | (refine (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr ?_);
         norm_num [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three])
-    | (simp only [{lemmas}]; fun_prop)
-    | (simp [{lemmas}]; fun_prop)"
+    | fun_prop
+    | ((try simp only [{lemmas}]); fun_prop)
+    | ((try simp [{lemmas}]); fun_prop)"
   let tactic ← match Parser.runParserCategory (← getEnv) `tactic source with
     | .ok stx => pure stx
     | .error message => throwError "the obligation tactic does not parse: {message}"
@@ -2000,7 +2042,9 @@ partial def admit (D : Value) (v : Value) : M Value := do
           throwStratum .invalid m!"a variable is not established to lie in {entry.name}: the \
             evidence of an admission is of a value"
         `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
-    | .morphism f .. => `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr f))
+    | .morphism f .. =>
+        -- The function the map is, so that its evidence is about that function.
+        quoteExpr (← functionOf f)
     | _ => throwStratum .invalid m!"only an element or a map is admitted into {entry.name}"
   let one ← semanticObject (← oneObject)
   let c ← mkConstWithFreshMVarLevels admission
