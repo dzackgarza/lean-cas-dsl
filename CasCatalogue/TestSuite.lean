@@ -19,13 +19,17 @@ statement admitted permanently (`scripts/check_acceptance_permanent.py`), whose 
 from `source`; or a bare `let`. The file's `let`s scope over the items after them.
 
 Each statement is decided by `CasCatalogue.Realize.run`: Lean discharge first, then the realized
-reading through the registrations of the installed leaves' manifest (`leaves.json` at the root of
-the leaves package; `#cas_tests "dir" manifest "path"` names another). The registrations not
-admitted are reported. Each test's outcome is reported. A statement that holds, a gap (no
-registration, an ambiguous one) and an unavailable backend are recorded; a wrong answer, a
-malformed answer and an invalid statement fail the build. The report of gaps is the list of
-implementations the suite derives. A leaf never imports the suite. `#cas_tests "dir"
-reporting "out.json"` also writes every result as JSON (`cas-harness` runs it over given leaves).
+reading through the registrations of the installed leaves' manifest (`leaves.json` of the leaves
+package, found by `CasCatalogue.Realize.leavesManifest`; `#cas_tests "dir" manifest "path"` names
+another). The registrations not admitted are reported. Each test's outcome is reported. A
+statement that holds, a gap (no registration, an ambiguous one) and an unavailable backend are
+recorded; a wrong answer, a malformed answer and an invalid statement fail the build. The report
+of gaps is the list of implementations the suite derives. A leaf never sees the suite.
+`#cas_tests "dir" reporting "out.json"` also writes every result as JSON (`cas-harness` runs it
+over a given manifest).
+
+`#cas "statement"` runs one statement of the language the same way (a notebook cell): its outcome
+is reported, and a wrong answer, a malformed answer or an invalid statement is an error.
 -/
 
 open Lean Elab Command Term
@@ -152,5 +156,24 @@ syntax (name := casTestsCommand)
   unless failures.isEmpty do
     throwError "the suite fails:\n{"\n".intercalate (failures.toList.map fun r =>
       s!"  {r.file}: {r.id}: {r.kind}: {r.detail}")}"
+
+syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
+
+@[command_elab casStatementCommand] meta def elabCasStatement : CommandElab := fun stx => do
+  let some text := stx[1].isStrLit? | throwUnsupportedSyntax
+  let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
+  let harness ← loadHarness manifest?
+  let outcome ← try
+      (do return Except.ok (← runStatement harness {} text).1)
+      -- not a reading fallback: an invalid statement is reported as such, by its message
+      catch e => do return Except.error (← e.toMessageData.toString)
+    finally (harness.stop : IO Unit)
+  match outcome with
+  | .error message => throwError "invalid: {message}"
+  | .ok .holds => logInfo m!"holds"
+  | .ok (.gap reason) => logInfo m!"gap: {reason}"
+  | .ok (.unavailable reason) => logInfo m!"unavailable: {reason}"
+  | .ok (.wrong message) => throwError "wrong: {message}"
+  | .ok (.malformed reason) => throwError "malformed: {reason}"
 
 end CasCatalogue.Language

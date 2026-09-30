@@ -12,30 +12,17 @@ import all CasCatalogue.CellCall
 import all CasCatalogue.CellSyntax
 import all CasCatalogue.Codec
 import all CasCatalogue.Language
-import all CasCatalogue.LimitCall
-import all CasCatalogue.LimitCallSyntax
-import all CasCatalogue.Memo
-import all CasCatalogue.ObjectCall
-import all CasCatalogue.ObjectCallSyntax
 import all CasCatalogue.Realize
 import all CasCatalogue.Resolve
 import all CasCatalogue.ResolveSyntax
 import all CasCatalogue.Semantic
 import all CasCatalogue.TestSuite
 import all CasCatalogue.Trace
-import all CasContract.Action
-import all CasContract.Adapter
-import all CasContract.Decide
+import all CasContract
 import all CasContract.Failure
-import all CasContract.Id
-import all CasContract.Leaf
-import all CasContract.Limits
 import all CasContract.Port
-import all CasContract.Refine
 import all CasContract.Registration
-import all CasContract.Registry.Entry
 import all CasContract.Registry.Extension
-import all CasContract.Trust
 public meta import Lean
 
 /-!
@@ -57,7 +44,10 @@ catalogue registers. Mathematics is `lean-categories`', formalized there by its 
    a `by` block), or the tactic category itself (tactic source parsed from a string);
 3. **runs code it did not write**: a use of `restrictedConstants` (running a tactic procedure,
    evaluating a constant) or of Lean's tactic machinery anywhere but `evidenceRunner`, which runs
-   only the evidence a domain registers with its admission in `lean-categories` (LC-18).
+   only the evidence a domain registers with its admission in `lean-categories` (LC-18);
+4. **evaluates a term**: a use of `evaluationConstants`. Nothing in the kernel decides anything by
+   evaluation: a decision is the kernel's proof by `decide`, checked by Lean's kernel
+   (`CasCatalogue.Realize`), and a leaf's answer is decoded in a declared form, never run.
 
 Every module file under `CasCatalogue/` and the contract's `CasContract/` must be imported here,
 so that a new kernel module cannot escape the check.
@@ -96,15 +86,13 @@ meta def restrictedConstants : List Name :=
   [``Lean.Elab.Term.runTactic, ``Lean.Environment.evalConst, ``Lean.Environment.evalConstCheck,
    ``Lean.evalConst, ``Lean.evalConstCheck, ``Lean.Elab.Term.evalTerm]
 
-/-- Evaluating a closed term: only the realized reading's evaluators may, on the composite of
-registered realizations they run (computation, not proof). An addition here changes the sealed
-boundary. -/
+/-- Evaluating a closed term: no kernel declaration may (`evaluators` is empty). A decision is a
+kernel-checked proof by `decide`; a leaf's answer is decoded, never evaluated. An addition to
+`evaluators` changes the sealed boundary. -/
 meta def evaluationConstants : List Name := [``Lean.Meta.evalExpr, ``Lean.Meta.evalExpr']
 
-/-- The realized reading's evaluators. -/
-meta def evaluators : List Name :=
-  [`CasCatalogue.Language.evalAnswerUnsafe, `CasCatalogue.Language.evalBoolUnsafe,
-   `CasCatalogue.Acceptance.evalBackendOutcomeUnsafe]
+/-- The declarations allowed to evaluate a term: none. -/
+meta def evaluators : List Name := []
 
 /-- The one declaration that runs registered evidence (with its auxiliary declarations). -/
 meta def evidenceRunner : Name := `CasCatalogue.Language.establish
@@ -172,8 +160,8 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
     let some cm := moduleOf c | continue
     if evaluationConstants.contains c then
       unless evaluators.contains d do
-        found := found.push s!"{d} ({m}) evaluates a term with {c}: only the realized reading's \
-          evaluators ({evaluators}) run computations"
+        found := found.push s!"{d} ({m}) evaluates a term with {c}: nothing in the kernel decides \
+          by evaluation (a decision is a kernel-checked proof, a leaf's answer is decoded)"
       continue
     if restrictedConstants.contains c || tacticModules.any (·.isPrefixOf cm) then
       -- The runner itself, or a compiler-generated auxiliary of it (`establish.unsafe_1`).
@@ -196,10 +184,9 @@ meta def violations (env : Environment) : IO (Array String) := do
   let mut found : Array String := #[]
   -- Every kernel module is checked.
   let imported := env.header.moduleNames
-  for (dir, root, skip) in [("CasCatalogue", `CasCatalogue, ([] : List Name)),
-      (".lake/packages/cas_leaf_contracts/CasContract", `CasContract, [`CasContract.Probes])] do
+  for (dir, root) in [("CasCatalogue", `CasCatalogue),
+      (".lake/packages/cas_leaf_contracts/CasContract", `CasContract)] do
     for m in ← moduleFiles dir root do
-      if skip.any (·.isPrefixOf m) then continue
       unless imported.contains m do
         found := found.push s!"{m} is a kernel module not imported by CasGates.KernelPurity"
   for (d, info) in env.constants.map₁.toList do

@@ -5,15 +5,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Resolve
-public import CasContract.Leaf
 
 @[expose] public section
 
 /-!
 # Composing registered cells (`cell%`, CC-CALC)
 
-`cell% c at (x) in "cat.id"` elaborates a composite `c` of registered cells and evaluates its
-component at the handle `x`. The grammar of `c`:
+`cell% c at (x) in "cat.id"` elaborates a composite `c` of registered cells and takes its component
+at the object `x` of the registered category `cat.id`. The grammar of `c`:
 
 * `"cell.id"`: a registered cell; `c⁻¹`: the inverse of a registered invertible cell;
 * `c ≫ d`: vertical composition (`c`'s target composite must be `d`'s source composite);
@@ -22,10 +21,10 @@ component at the handle `x`. The grammar of `c`:
 
 Every operation is Mathlib's (`≫`, `Functor.whiskerLeft`, `Functor.whiskerRight`,
 `NatTrans.hcomp`, `Iso.inv`), applied to the registered declarations, so the composite is a
-checked Mathlib natural transformation between the composites of registered functors. The
-endpoints are realized by composing the registered actions from the realization of `x`, and the
-component is that of the realized cell (`realizedCell`: the preimage through the fully faithful
-realization of the target), in executable form with its kernel-checked equation.
+checked Mathlib natural transformation between the composites of registered functors, and its
+component at `x` is a morphism of the catalogue's mathematics (`NatTrans.app`). Nothing here is
+computed: what a cell does to data is a statement of the language, decided by
+`CasCatalogue.Realize`.
 -/
 
 open Lean Meta Elab Term Command
@@ -109,33 +108,15 @@ partial def elabCellTerm (state : RegistryState) : Syntax → MetaM CellTerm
       return { nat, inv? := none, left := s.left ++ t.left, right := s.right ++ t.right }
   | _ => throwUnsupportedSyntax
 
-/-- The registered actions along `steps`, composed after the identity action on `denotation`. -/
-def composeSteps (state : RegistryState) (denotation : Expr) (steps : Array EdgeRef) :
-    MetaM Expr := do
-  let mut acc ← mkAppHere ``RealizedAction.id #[denotation]
-  for step in steps do
-    acc ← composeAction state acc step
-  return acc
-
-/-- Elaborate `cell% c at (x) in "cat.id"`. -/
+/-- Elaborate `cell% c at (x) in "cat.id"`: the component of the composite cell at the object `x`
+of the registered category, elaborated as an object of it. -/
 def elabCellCall (cell : Syntax) (receiver : Term) (category : String) : TermElabM Expr := do
   let state ← registryState
   let some categoryEntry := state.categories.find? (·.id.raw == category)
-    | throwError "no registered category {category}"
+    | throwStratum .invalid m!"no registered category {category}"
   let t ← elabCellTerm state cell
-  let (denotation, x) ← receiverRealization state categoryEntry.id receiver
-  let aL ← composeSteps state denotation t.left
-  let aR ← composeSteps state denotation t.right
-  let target := (← whnfR (← inferType aL)).getAppArgs[10]!
-  let mut witnesses : Array Expr := #[]
-  for realizer in state.realizers do
-    let some witness := realizer.fullyFaithful | continue
-    let d ← mkConstWithFreshMVarLevels realizer.denotation
-    if ← withoutModifyingState (withTransparency .all (isDefEq d target)) then
-      witnesses := witnesses.push (← mkConstWithFreshMVarLevels witness)
-  let #[hD] := witnesses
-    | throwError "no registered fully faithful realization of the cell's target"
-  let realized ← mkAppHere ``realizedCell #[hD, aL, aR, t.nat]
-  certifiedExecutable (← mkAppHere ``CategoryTheory.NatTrans.app #[realized, x])
+  let x ← elabTermEnsuringType receiver (← categoryCarrierInstance categoryEntry)
+  synthesizeSyntheticMVarsNoPostponing
+  instantiateMVars (← mkAppM ``CategoryTheory.NatTrans.app #[t.nat, ← instantiateMVars x])
 
 end CasCatalogue

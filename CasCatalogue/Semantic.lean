@@ -5,9 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Resolve
-public import CasCatalogue.LimitCall
 public import CasCatalogue.Trace
 public import Mathlib.CategoryTheory.Limits.Creates
+public import Mathlib.CategoryTheory.Limits.Shapes.Pullback.HasPullback
+public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
+public import Mathlib.CategoryTheory.Limits.Shapes.Equalizers
 
 @[expose] public section
 
@@ -15,9 +17,10 @@ public import Mathlib.CategoryTheory.Limits.Creates
 # The semantic reading of the language (`specs/architecture.md`, "The one-way workflow")
 
 What a statement means is decided from `lean-categories`' catalogue alone, before and without any
-realization: each construct elaborates to its mathematics, and a statement that does not is
-invalid, whichever leaves are installed. Only then is it decided through realizations (the
-realized reading), where a missing realization is a gap.
+leaf: each construct elaborates to its mathematics, and a statement that does not is invalid,
+whichever leaves are installed. Only then is it decided (`CasCatalogue.Realize`): in Lean where
+Lean decides it, else by evaluating the same term through the admitted registrations, where a
+missing registration is a gap.
 
 * A named object is its declaration at its parameters.
 * A morphism `f : a ⟶ b` is `f` elaborated at `a ⟶ b` in the category.
@@ -36,12 +39,37 @@ namespace CasCatalogue
 
 universe v u v' u' w w'
 
+/-- A limit cone of `G`, transported to a diagram `F ≅ G` (`IsLimit.postcomposeInvEquiv`). -/
+def limitConeOfIso {J : Type w} [Category.{w'} J] {C : Type u} [Category.{v} C] {F G : J ⥤ C}
+    (α : F ≅ G) (L : LimitCone G) : LimitCone F :=
+  ⟨(Cone.postcompose α.inv).obj L.cone, (IsLimit.postcomposeInvEquiv α L.cone).symm L.isLimit⟩
+
+/-- A colimit cocone of `G`, transported to a diagram `F ≅ G` (`IsColimit.precomposeHomEquiv`). -/
+def colimitCoconeOfIso {J : Type w} [Category.{w'} J] {C : Type u} [Category.{v} C] {F G : J ⥤ C}
+    (α : F ≅ G) (L : ColimitCocone G) : ColimitCocone F :=
+  ⟨(Cocone.precompose α.hom).obj L.cocone,
+    (IsColimit.precomposeHomEquiv α L.cocone).symm L.isColimit⟩
+
 /-- A limit cone of `K`, lifted from one of `K ⋙ U` along a functor creating limits of its shape
 (Mathlib `liftLimit`, `liftedLimitIsLimit`). -/
 noncomputable def liftedLimitCone {C : Type u} [Category.{v} C] {E : Type u'} [Category.{v'} E]
     {J : Type w} [Category.{w'} J] (U : C ⥤ E) [CreatesLimitsOfShape J U] {K : J ⥤ C}
     (L : LimitCone (K ⋙ U)) : LimitCone K :=
   ⟨liftLimit L.isLimit, liftedLimitIsLimit L.isLimit⟩
+
+/-- Mathlib's identification of a diagram of a standard shape with its standard form. -/
+def standardFormIso : String → Option Name
+  | "pullback" => some ``CategoryTheory.Limits.diagramIsoCospan
+  | "product" | "coproduct" => some ``CategoryTheory.Limits.diagramIsoPair
+  | "kernel" | "cokernel" | "equalizer" | "coequalizer" =>
+      some ``CategoryTheory.Limits.diagramIsoParallelPair
+  | _ => none
+
+/-- A declaration applied to fresh metavariables for all its arguments. -/
+def instantiateFresh (declaration : Name) : MetaM Expr := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+  return mkAppN constant args
 
 namespace Semantic
 
@@ -87,7 +115,7 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
   let some row := state.limits.find? (·.id == resolution.limit) | unreachable!
   let family ← instantiateFresh row.declaration
   let familyDiagram := (← whnfR (← inferType family)).appArg!
-  -- The presentation at the diagram `F`, identified with its standard form (as in `LimitCall`).
+  -- The presentation at the diagram `F`, identified with its standard form.
   let presentationAt (F : Expr) : TermElabM Expr := do
     let some isoName := standardFormIso shape
       | throwStratum .invalid m!"the shape {shape} has no standard form"

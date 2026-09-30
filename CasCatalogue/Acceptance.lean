@@ -5,7 +5,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasContract.Failure
-public import CasContract.Port
 public import Lean.Elab.Command
 
 public section
@@ -14,23 +13,18 @@ public section
 # Permanent acceptance assertions (`specs/architecture.md`, "Acceptance")
 
 An assertion is a proposition in the mathematical language with the provenance of its expected
-value:
-
-* `#accept "id" from "source" : P := proof` states `P` about semantic values (`value%`,
-  `ask%`, `eq%`), and the proof checks it. It is admitted as the theorem
-  `CasAcceptance.Permanent.«id»`. If `P` cannot be elaborated because no realization computes a
-  call in it (`NoImplementation`, or an ambiguous realization), the assertion is recorded as an
-  implementation gap and the build continues. `#accept "id" from "source" realized : …` also
-  asserts that an implementation exists, so a gap fails it.
-* `#accept_backend "id" from "source" : (call) agrees value` runs `call`, a backend realization of
-  type `RegistryState → IO (Except Backend.PortError τ)`, and asserts that its answer equals
-  `value`: the result of a realization whose denotation another assertion proves. An unavailable
-  backend is recorded, a malformed answer fails, and a different answer fails as a wrong answer.
+value. The suite's assertions are statements of the language in `tests/acceptance/*.cas`
+(`CasCatalogue.TestSuite`), decided by Lean or through the admitted registrations
+(`CasCatalogue.Realize`). Beside them, `#accept "id" from "source" : P := proof` states a
+proposition `P` of the catalogue's mathematics and its proof, admitted as the theorem
+`CasAcceptance.Permanent.«id»`. Nothing a leaf supplies enters either: an `#accept` is proved
+in Lean about semantic values, and a statement compares a leaf's decoded answer with the
+expected value and believes nothing else about it.
 
 The proposition, the value and the provenance are permanent: `scripts/check_acceptance_permanent.py`
-refuses to modify or delete an admitted assertion (the text of an `#accept` up to its `:=`, or the
-whole `#accept_backend`). The proof after `:=` is how the assertion is checked, and may change.
-`#acceptance_gaps` lists the assertions no realization computes yet.
+refuses to modify or delete an admitted assertion (the text of an `#accept` up to its `:=`). The
+proof after `:=` is how the assertion is checked, and may change. `#acceptance_gaps` lists the
+assertions that are not established here.
 -/
 
 open Lean Elab Command Term Meta
@@ -40,7 +34,7 @@ namespace CasCatalogue.Acceptance
 /-- How an admitted assertion stands in this build. -/
 inductive Status
   | holds
-  /-- No realization computes it: the failure, `NoImplementation` or an ambiguous realization. -/
+  /-- Its proposition cannot be formed here (a computation failure, by stratum). -/
   | gap (reason : String)
   /-- Its backend is not available here. -/
   | unavailable (reason : String)
@@ -69,27 +63,6 @@ def recordAdmission (record : Record) : CommandElabM Unit := do
   if (records (← getEnv)).any (·.id == record.id) then
     throwError "the acceptance assertion {record.id} is already admitted"
   modifyEnv (acceptanceExt.addEntry · record)
-
-/-- The outcome of running a backend realization against a value. -/
-inductive BackendOutcome
-  | agrees
-  | disagrees (got expected : String)
-  | portError (error : Backend.PortError)
-  deriving Inhabited
-
-def backendOutcome {τ : Type} [BEq τ] [Repr τ]
-    (call : RegistryState → IO (Except Backend.PortError τ)) (value : τ) (state : RegistryState) :
-    IO BackendOutcome := do
-  match ← call state with
-  | .ok got => return if got == value then .agrees else .disagrees (reprStr got) (reprStr value)
-  | .error e => return .portError e
-
-unsafe def evalBackendOutcomeUnsafe (e : Expr) : TermElabM (RegistryState → IO BackendOutcome) := do
-  evalExpr (RegistryState → IO BackendOutcome)
-    (← mkArrow (mkConst ``RegistryState) (mkApp (mkConst ``IO) (mkConst ``BackendOutcome))) e
-
-@[implemented_by evalBackendOutcomeUnsafe]
-opaque evalBackendOutcome (e : Expr) : TermElabM (RegistryState → IO BackendOutcome)
 
 /-- The name of the theorem admitting the assertion `id`. -/
 def theoremName (id : String) : Name := `CasAcceptance.Permanent ++ Name.mkSimple id

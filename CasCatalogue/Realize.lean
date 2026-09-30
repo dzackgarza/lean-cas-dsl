@@ -117,13 +117,25 @@ def Harness.ofManifest (root : System.FilePath) (manifest : Manifest) : CoreM Ha
   return { admitted := admission.admitted, rejected := admission.rejected
            backends := manifest.backends, root, connections := ← IO.mkRef {} }
 
-/-- The harness of the manifest at `path`, or of the leaves package's manifest
-(`leaves.json` at the root of `cas_leaves`, `Manifest`). No manifest is no leaf. A manifest that
-does not read is reported and admits nothing. -/
+/-- Where the installed leaves' manifest is, when no path is given: the environment variable
+`CAS_LEAVES`, naming the leaves package's directory (a checkout of `lean-cas-dsl-leaves`) or its
+`leaves.json` itself; else `.lake/packages/cas_leaves`, where a checkout of the leaves conventionally
+lives. The leaves are not a Lake dependency: they ship no Lean, and the kernel imports nothing from
+them (`specs/leaf-registration.md`). -/
+def leavesManifest : IO System.FilePath := do
+  match ← IO.getEnv "CAS_LEAVES" with
+  | some leaves =>
+      let leaves : System.FilePath := leaves
+      return if leaves.extension == some "json" then leaves else leaves / manifestFile
+  | none => return (".lake" / "packages" / "cas_leaves" : System.FilePath) / manifestFile
+
+/-- The harness of the manifest at `path`, or of the installed leaves' manifest
+(`leavesManifest`). No manifest is no leaf. A manifest that does not read is reported and admits
+nothing. -/
 def Harness.load (path? : Option System.FilePath := none) : CoreM Harness := do
   let path ← match path? with
     | some path => pure path
-    | none => do pure ((← Backend.packageDir "cas_leaves") / manifestFile)
+    | none => leavesManifest
   unless ← path.pathExists do return ← Harness.empty
   match ← Manifest.read path with
   | .error message =>
@@ -321,7 +333,7 @@ def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Sco
     | some (x, t) => scope.insert x t
     | none => scope
   let trace ← (Trace.new : IO _)
-  let claim ← try (Language.claim scope stx).run { mode := .semantic, trace := some trace }
+  let claim ← try (Language.claim scope stx).run { trace := some trace }
     -- not a reading fallback: it rethrows the semantic failure as invalidity
     catch e => throwError "not a valid statement: {e.toMessageData}"
   if (← letBinding? stx).isSome then return (.holds, scope')
