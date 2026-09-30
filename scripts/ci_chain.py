@@ -24,8 +24,9 @@ def main() -> None:
         if entry["name"] not in CHAIN:
             continue
         target = packages / entry["name"]
-        subprocess.run(["git", "clone", "--quiet", entry["url"], str(target)], check=True)
-        subprocess.run(["git", "-C", str(target), "checkout", "--quiet", entry["rev"]], check=True)
+        subprocess.run(["git", "clone", "--quiet", "--", entry["url"], str(target)], check=True)
+        subprocess.run(["git", "-C", str(target), "checkout", "--quiet", "--end-of-options",
+                        entry["rev"]], check=True)
 
 
 if __name__ == "__main__":
