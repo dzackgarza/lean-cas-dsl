@@ -1,0 +1,22 @@
+-- Polynomials in several variables (SPEC.md, "Ellipses"): R[x_0, ..., x_9] by an ellipsis of
+-- indexed variables, and the Krull dimension of a ring. Each test is admitted once and never
+-- changed.
+
+let R := ℂ[x_0, x_1, ..., x_9]
+
+test several_variables.dimension "SPEC.md: dim ℂ[x₀, …, x₉] = 10 (the Krull dimension of a polynomial ring in n variables over a field is n)":
+  assert R.dimension() is 10
+
+test several_variables.variable "The ellipsis runs through x_2, …, x_8: x_3 is a variable of R":
+  assert x_3 ∈ R
+
+test several_variables.last_variable "x_9 is a variable of R":
+  assert x_9 ∈ R
+
+let p := x · y² + 1 in ℚ[x, y]
+
+test several_variables.total_degree "The total degree of x y² + 1 is 1 + 2 = 3":
+  assert p.total_degree() = 3
+
+test several_variables.plane "dim ℚ[x, y] = 2":
+  assert ℚ[x, y].dimension() = 2

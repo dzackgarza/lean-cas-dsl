@@ -54,7 +54,10 @@ Terms:
 * `d(p)`, `dx` (`d(x)` for a variable `x`), `d/dx`, `∫ ω`: the registered differential, derivative
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
-* `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `a = b` within a term: the registered equality predicate `X × X → Ω`; `a is b` is `a = b`;
+* `R[x, y]`, `R[x_0, x_1, ..., x_9]`: `MvPoly(n, R)`, whose variables are its indexed generators;
+  `X.m()` of an object `X` without such a method is its registered invariant `m : 1 → T`
+  (`R.dimension()`);
 * `[t^n]f`: the registered coefficient; `∑_{n ∈ X} e` of power series is the registered formal
   (`t`-adic) sum, over a named set or a subset; `x^n` for `n ∈ ℕ` an element: the registered power;
   a statement's bound generator read inside a map is carried to its stage;
@@ -166,6 +169,15 @@ syntax:max "{" cas_term " | " ident " ∈ " cas_term "}" : cas_term
 syntax:max "(" cas_term ")" noWs "(" cas_term,* ")" : cas_term
 /-- The polynomials `R[x]` over `R` in the variable `x`: `Poly(R)`, whose generator `x` names. -/
 syntax:max (name := casRing) cas_term:max noWs "[" ident "]" : cas_term
+/-- A variable of a polynomial ring in several variables, or `...` between two indexed ones. -/
+declare_syntax_cat cas_var
+syntax ident : cas_var
+syntax "..." : cas_var
+/-- `R[x, y]`, `R[x_0, x_1, ..., x_9]`: the polynomials over `R` in these variables, `MvPoly(n, R)`;
+`...` runs through the indices between its neighbours. -/
+syntax:max (name := casMvRing) cas_term:max noWs "[" ident "," sepBy1(cas_var, ",") "]" : cas_term
+/-- `a is b`: `a = b`. -/
+syntax:45 (name := casIs) cas_term:46 " is " cas_term:46 : cas_term
 /-- `√x`: `sqrt(x)`. -/
 syntax:max "√" noWs cas_term:max : cas_term
 /-- `map p to S[x]`: the registered `map` landing in `S[x]`. (`map` is a keyword of the language:
@@ -379,12 +391,43 @@ def homEnds? (type : Expr) : Option (Expr × Expr) :=
   | some ``Quiver.Hom, #[_, _, x, y] => some (x, y)
   | _, _ => none
 
+/-- `x_7` as `x_` and `7`. -/
+def indexed? (n : Name) : Option (String × Nat) :=
+  let chars := n.toString.toList
+  let digits := (chars.reverse.takeWhile Char.isDigit).reverse
+  if digits.isEmpty || digits.length == chars.length then none
+  else some (String.ofList (chars.take (chars.length - digits.length)), String.toNat! (String.ofList digits))
+
+/-- The variables `x, y` or `x_0, x_1, ..., x_9` of `R[…]`: `...` runs through the indices between
+its neighbours, which share their prefix. -/
+def mvVariables (stx : Syntax) : Except String (Array Name) := do
+  let items := #[stx[2]] ++ stx[4].getSepArgs.map fun v => if v[0].isIdent then v[0] else v[0]
+  let mut names : Array Name := #[]
+  let mut i := 0
+  while i < items.size do
+    let item := items[i]!
+    if item.isIdent then
+      names := names.push item.getId
+      i := i + 1
+    else
+      let (some a, some b) := (names.back?, items[i + 1]?) | throw "`...` stands between variables"
+      let (some (p, j), some (q, k)) := (indexed? a, indexed? b.getId)
+        | throw "`...` stands between indexed variables `x_i, ..., x_k`"
+      unless p == q && j < k do throw "`...` runs up between variables of one prefix"
+      for m in [j + 1:k] do names := names.push (.mkSimple s!"{p}{m}")
+      i := i + 1
+  return names
+
 /-- The polynomial rings `R[v]` a term writes, with those of the `let` bindings it uses: each with
 its variable. -/
-partial def ringsIn (scope : Scope) (seen : Array Name) (stx : Syntax) : Array (Name × Syntax) :=
+partial def ringsIn (scope : Scope) (seen : Array Name) (stx : Syntax) :
+    Array (Name × Syntax × Option Nat) :=
   if stx.getKind == ``casRing || stx.getKind == ``casSeries then
-    #[((if stx.getKind == ``casSeries then stx[3] else stx[2]).getId, stx)] ++
+    #[((if stx.getKind == ``casSeries then stx[3] else stx[2]).getId, stx, none)] ++
       ringsIn scope seen stx[0]
+  else if stx.getKind == ``casMvRing then
+    let names := (mvVariables stx).toOption.getD #[]
+    names.mapIdx (fun i v => (v, stx, some i)) ++ ringsIn scope seen stx[0]
   else if stx.isIdent then
     -- `p.m` is the method `m` of `p`.
     let x := stx.getId.getRoot
@@ -395,7 +438,8 @@ partial def ringsIn (scope : Scope) (seen : Array Name) (stx : Syntax) : Array (
 
 /-- The identifiers of a term, except the variables `v` of its rings `R[v]`. -/
 partial def looseIdentifiers (stx : Syntax) : Array Name :=
-  if stx.getKind == ``casRing || stx.getKind == ``casSeries then looseIdentifiers stx[0]
+  if stx.getKind == ``casRing || stx.getKind == ``casSeries || stx.getKind == ``casMvRing then
+    looseIdentifiers stx[0]
   else if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
 /-- `N₂₃` as `N` and `23`. -/
@@ -656,6 +700,14 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
     let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
     return ← bigOperator scope name stx[2].getId stx[4] stx[6]
   if let some v ← evalNotation scope stx then return v
+  if stx.getKind == ``casMvRing then
+    let names ← match mvVariables stx with
+      | .ok names => pure names
+      | .error message => throwStratum .invalid m!"{message}"
+    return ← object state "MvPoly" #[.nat names.size, ← asObject (← eval scope stx[0])] none
+  if stx.getKind == ``casIs then
+    let (elements, _) ← operands scope #[stx[0], stx[2]] ambient?
+    return ← applyNamed state "=" elements
   if stx.getKind == ``casSeries then
     return ← object state "PowerSeries" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casCallWith then
@@ -786,6 +838,11 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
     if name == "image" then return ← imageOfMap h X Y
   let .object handle category _ := receiver
     | throwStratum .invalid m!"`{name}` is called on an object or an element"
+  -- An invariant of the object (`R.dimension()`): a registered family of elements `1 → T`
+  -- indexed by the object.
+  if !state.methods.any (·.name == name) && !state.properties.any (·.name == name) then
+    if let some entry := state.morphisms.find? (·.name == name) then
+      return ← invariantOf entry handle
   let isProperty := state.properties.any (·.name == name) && !state.methods.any (·.name == name)
   if (← read).mode == .semantic then
     if isProperty then return .answer (← Semantic.property name handle category)
@@ -1048,12 +1105,19 @@ partial def applicationOf? (f : Value) :
   return none
 
 /-- The generator of `R[x]` (its registered distinguished element), at the current stage. -/
-partial def generatorOf (P : Value) : M Value := do
+partial def generatorOf (P : Value) (index : Option Nat := none) : M Value := do
   let .object p category (some (entry, params)) := P
     | throwStratum .invalid m!"only a named set has a generator"
   let some g := entry.generator | throwStratum .invalid m!"{entry.name} has no generator"
   let .object one _ _ ← oneObject | unreachable!
-  let hom ← homIn (← `($(mkCIdent g) $(← paramTerms params)*)) one p category
+  -- An indexed generator `xᵢ`, `i` below the numeral parameter.
+  let indexTerm ← match index, params.findSome? (fun | .nat n => some n | _ => none) with
+    | none, _ => pure #[]
+    | some i, some n =>
+        unless i < n do throwStratum .invalid m!"the variable {i} of {n} variables"
+        pure #[← `((⟨$(Syntax.mkNumLit (toString i)), by decide⟩ : Fin $(Syntax.mkNumLit (toString n))))]
+    | some _, none => throwStratum .invalid m!"{entry.name} has no indexed variables"
+  let hom ← homIn (← `($(mkCIdent g) $(← paramTerms params)* $indexTerm*)) one p category
   match (← read).stage with
   | none => return .element hom P
   | some S => return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp
@@ -1068,7 +1132,7 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
   let ctx ← read
   let mut bindings : List (Name × Value) := []
   let mut done : Array Name := #[]
-  for (v, _) in rings do
+  for (v, _, _) in rings do
     let used := loose.contains v || loose.any (differentialOf? · == some v)
     if done.contains v || !used || scope.contains v || (ctx.bound.lookup v).isSome then
       continue
@@ -1076,11 +1140,11 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     -- The rings the statement writes itself come before those of the bindings it uses.
     let own := (ringsIn {} #[] stx).filter (·.1 == v)
     let candidates := if own.isEmpty then rings.filter (·.1 == v) else own
-    let written := candidates.map (shown ·.2)
+    let written := candidates.map (shown ·.2.1)
     unless written.all (· == written[0]!) do
       throwStratum .invalid m!"{v} is the variable of several rings: {written.toList}"
-    let some (_, ring) := candidates[0]? | unreachable!
-    bindings := (v, ← generatorOf (← eval scope ring)) :: bindings
+    let some (_, ring, index) := candidates[0]? | unreachable!
+    bindings := (v, ← generatorOf (← eval scope ring) index) :: bindings
   return bindings
 
 /-- How the elements of the set `Y` are elements of the set `X`: `some none` if they are the same
@@ -1091,7 +1155,8 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   let (.object y _ yOrigin, .object x category xOrigin) := (Y, X) | return none
   if y == x || (← isDefEq y x) then return some none
   if let some (entry, params) := xOrigin then
-    if let (some constants, some P@(Value.object p ..)) := (entry.constants, params[0]?) then
+    if let (some constants, some P@(Value.object p ..)) :=
+        (entry.constants, params.find? (· matches .object ..)) then
       -- Into its parameter `P` (itself, or along a coercion), then its constants `P ↪ X`.
       if let some into ← coercionMap Y P then
         if (← read).mode == .realized then
@@ -1187,6 +1252,21 @@ partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Opt
     tuple scope row rowAmbient
   let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
   applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
+
+/-- The invariant `entry : ∀ A, 1 ⟶ T` of the object `A` (its handle): an element of `T`. -/
+partial def invariantOf (entry : MorphismEntry) (A : Expr) : M Value := do
+  let state ← registryState
+  if (← read).mode == .realized then
+    throwStratum .noImplementation m!"no registered realization computes {entry.name}"
+  let some category := state.categories.find? (·.id == entry.category) | unreachable!
+  let family ← instantiateMVars (← elabTermAndSynthesize
+    (← `($(mkCIdent entry.declaration) $(← quoteExpr A))) none)
+  let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
+    | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
+  let T ← recognize state target category
+  let .object t .. := T | unreachable!
+  let .object one _ _ ← oneObject | unreachable!
+  return .element (← staged (← homIn (← quoteExpr family) one t category)) T
 
 /-- `t.m(a, …)`: the registered family `m` at `t` (a map is its parameter, an element its first
 operand), applied to the operands `a, …`. -/
@@ -1476,7 +1556,8 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       -- A set without numerals of its own but with constants from its parameter (`Y⊥`): the
       -- numeral of the parameter.
       if let .object _ _ (some (entry, params)) := X then
-        if let (some _, some P@(Value.object ..)) := (entry.constants, params[0]?) then
+        if let (some _, some P@(Value.object ..)) :=
+            (entry.constants, params.find? (· matches .object ..)) then
           unless (← registryState).elementLiterals.any (·.object == entry.id) do
             return ← coerceTo (← toElement v P) X
       let one ← oneObject
@@ -2024,6 +2105,7 @@ def statement (scope : Scope) (stx : Syntax) : M Outcome := do
       | _ => discard <| eval scope (← `(cas_term| $t in $X)); return .holds
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← assertEqual scope l r
+      if p.raw.getKind == ``casIs then return ← assertEqual scope p.raw[0] p.raw[2]
       let answer ← asAnswer (← eval scope p)
       if semantic then return .holds
       let e ← mkAppM ``BEq.beq #[answer, toExpr (some true)]

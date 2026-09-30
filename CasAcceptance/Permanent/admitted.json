@@ -161,11 +161,16 @@
     "sets.finite.integers": "9e5f140cd431d8f242febb4c260e868ecb2ab7bebd9c0c1a8393b995abac35f9",
     "sets.implemented.card_fin": "7e6a2a8c5a2f9ddc648a298cdb7ce90ac52bd0569ce7531327cf34bf2db7dd2d",
     "sets.limit.pullback.card": "bc42fb58c043106340932a27e25214044d971e04f1e65764a023c73237b16681",
+    "several_variables.dimension": "1a36595ff39e6087520d906b4442e966c5ebaf4b10009f43fd007fa51c6eec53",
+    "several_variables.last_variable": "db1429b058e5c0e7ee527385c92be7266380eb666153adeda201b4257290eee7",
+    "several_variables.plane": "1624887201668342f3f4ebccca6f81f0a068cfc52c5958094740287746bf4d80",
+    "several_variables.total_degree": "022064315386a81e1c81b05c06e7f11162396e1518eb266e77fd97bdd55ff612",
+    "several_variables.variable": "4a8cfb50c73de6d32a3f180e8bfc0f7e6df752494d07f6d1ef43f7d326ae45d3",
     "subspaces.dim": "18888643b9106b30317e63055de11614a5c44beab8cd863a75d11671d16f1e4c",
     "subspaces.kernel": "e2b5a0d0fc7f6f15cd7d5c8b28a868857999c6e5876c7f50c11bbb766b9ba067",
     "subspaces.member": "96057ef3c5640000fa8e1346898361220e2c098462e82ff197844ce3cfff78cc",
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "fa10a86516abeef73cd671afd5adb7aaef332249"
+  "lean_categories": "efc02e86b09867161a47dc14557236813293ee39"
 }
