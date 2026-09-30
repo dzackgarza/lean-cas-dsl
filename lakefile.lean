@@ -26,7 +26,7 @@ require lean_categories from git
 /- The leaf contract: the kernel's interface for computational leaves, published on its own so
 that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
 require cas_leaf_contracts from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "6588a86ca5d0ade8ffdabf5f7f95640d426d18f4"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "42e7cd22e78ce3e3f3b524d4c82715526a11a259"
 
 /- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
 `lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/

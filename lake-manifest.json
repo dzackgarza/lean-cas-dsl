@@ -31,10 +31,10 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "6588a86ca5d0ade8ffdabf5f7f95640d426d18f4",
+   "rev": "42e7cd22e78ce3e3f3b524d4c82715526a11a259",
    "name": "cas_leaf_contracts",
    "manifestFile": "lake-manifest.json",
-   "inputRev": "6588a86ca5d0ade8ffdabf5f7f95640d426d18f4",
+   "inputRev": "42e7cd22e78ce3e3f3b524d4c82715526a11a259",
    "inherited": false,
    "configFile": "lakefile.lean"
   },
