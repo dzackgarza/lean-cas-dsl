@@ -92,6 +92,15 @@ meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit :
   let valid ← try (do discard <| runStatement harness {} text; pure true) catch _ => pure false
   if valid then throwError "`{text}` is not invalid"
 
+/-- Run `text` after the `let`s `lets`, and require that it is invalid. -/
+meta def expectInInvalid (harness : Harness) (lets : List String) (text : String) :
+    CommandElabM Unit := do
+  let mut scope : Language.Scope := {}
+  for binding in lets do
+    scope := (← runStatement harness scope binding).2
+  let valid ← try (do discard <| runStatement harness scope text; pure true) catch _ => pure false
+  if valid then throwError "`{text}` is not invalid"
+
 /-- The harness of the probe manifest `name`, with what it rejects. -/
 meta def harnessOf (name : String) : CommandElabM Harness :=
   liftCoreM (Harness.load (some (strata / name)))
@@ -158,11 +167,7 @@ run_cmd withHarness "registration_subsets.json" fun harness => do
   expectIn harness A "holds" "assert A = {1, 2, 3}"
   expectIn harness A "holds" "assert A = {3, 1, 2, 2}"
   expectIn (← (Harness.empty : IO Harness)) A "holds" "assert A = {1, 2, 3}"
-  let invalid ← try (do discard <| (do
-      let mut scope : Language.Scope := {}
-      for binding in A do scope := (← runStatement harness scope binding).2
-      runStatement harness scope "assert A = {1, 2}"); pure false) catch _ => pure true
-  unless invalid do throwError "`assert A = {1, 2}` is not refuted"
+  expectInInvalid harness A "assert A = {1, 2}"
   -- `|A|` is the cardinality of the extent of the literal: the registration on the subset form
   -- receives the elements `[1, 2, 3]`.
   expectIn harness A "holds" "assert |A| = 3"
@@ -178,13 +183,13 @@ run_cmd liftTermElabM do
   let state ← registryState
   let some form := state.subsetLiterals.find? (·.id.raw == "lit.sets.finite_subsets")
     | throwError "no registered subset-literal form"
-  let finsetInt ← elabTerm (← `($(mkCIdent form.type) Int)) none
+  let finsetInt ← Term.elabTerm (← `($(mkCIdent form.type) Int)) none
   let .ok decoded ← Codec.decode finsetInt (Json.arr #[1, 2, 3])
     | throwError "[1, 2, 3] is not decoded as a finite subset of ℤ"
-  let literal ← elabTerm (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
-  unless (← Realize.decideProp (← mkEq decoded literal)) == some true do
+  let literal ← Term.elabTerm (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
+  unless (← Realize.decideProp (← Meta.mkEq decoded literal)) == some true do
     throwError "the decoded {decoded} is not the literal {literal}"
-  unless (← Realize.decideProp (← mkEq decoded (← elabTerm (← `(({1, 2} : Finset Int))) none)))
+  unless (← Realize.decideProp (← Meta.mkEq decoded (← Term.elabTerm (← `(({1, 2} : Finset Int))) none)))
       == some false do
     throwError "the decoded {decoded} is not distinguished from another literal"
   let .error _ ← Codec.decode finsetInt (Json.arr #[1, 1])

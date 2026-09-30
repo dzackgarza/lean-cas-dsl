@@ -2285,7 +2285,7 @@ partial def subsetLiteral (scope : Scope) (form : SubsetLiteralEntry) (xs : Arra
       | throwStratum .invalid m!"`{shown x}` is not an element of {← semanticObject X}"
     `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
   let literal ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
-    else `(({$elements,*} : $(← quoteExpr literalType)))
+    else `(({$elements:term,*} : $(← quoteExpr literalType)))
   let literal ← instantiateMVars (← elabTermEnsuringType literal literalType)
   synthesizeSyntheticMVarsNoPostponing
   unless ← isDefEq literalMVar literal do

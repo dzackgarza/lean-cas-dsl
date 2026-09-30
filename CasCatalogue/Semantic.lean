@@ -131,8 +131,11 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
   let some row := state.limits.find? (·.id == resolution.limit) | unreachable!
   let family ← instantiateFresh row.declaration
   let familyDiagram := (← whnfR (← inferType family)).appArg!
-  -- The presentation at the diagram `F`, identified with its standard form.
+  -- The presentation at the diagram `F`: the family at `F`'s data when `F` is in the standard
+  -- form (`pair X Y`, `cospan f g`), else the family at `F`'s standard form, identified with `F`
+  -- by Mathlib's isomorphism.
   let presentationAt (F : Expr) : TermElabM Expr := do
+    if ← withReducible <| isDefEq familyDiagram F then return ← instantiateMVars family
     let some isoName := standardFormIso shape
       | throwStratum .invalid m!"the shape {shape} has no standard form"
     let α ← mkAppM isoName #[F]
