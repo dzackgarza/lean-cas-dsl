@@ -30,9 +30,29 @@ inductive type `T`, derived from `T`'s definition. It has no per-type code, whet
 kernel or from a leaf:
 - a natural number or an integer is a JSON number;
 - a list is an array;
-- a constructor application is `{"ctor": name, "args": […]}`.
+- a constructor application is `{"ctor": name, "args": […]}`;
+- a record (one constructor, no indices) is the array of its data fields, or the field itself
+  when it has one: a point of `Fin n` is its number, a pair is `[x, y]`, and a map of finite sets
+  is its graph `[[0,0],[1,1],[2,1]]`;
+- a quotient is sent as a representative: a `Finset` is the list of its elements;
+- a proof field is never on the wire. On decoding, the kernel establishes it by decision, or it
+  rejects the value.
 
-Decoding is total: an answer is a closed value of `T` or it is rejected as malformed.
+Decoding is total: an answer is a closed value of `T`, read at the type the kernel asked for, or
+it is rejected as malformed.
+
+**Diagrams and universal answers.** The input form of a limit or colimit is the diagrams of its
+category, and its form id is the category's id (`cat.sets`). A diagram is sent as the standard
+diagram's name with its explicit arguments in their forms, e.g.
+`{"ctor": "cospan", "args": [f, g]}`. The answer is the complete universal datum,
+`{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
+standard cone constructor of the shape:
+- the apex is a named object or a literal of the category;
+- each leg is a graph literal;
+- the commutation conditions are decided by the kernel.
+
+A missing leg, a leg that is not a map, or a commutation that does not hold makes the answer
+malformed (CC-DECODE).
 
 ## A registration is data
 
@@ -69,15 +89,20 @@ A statement's semantic reading elaborates it from the catalogue alone
 operations and literal denotations. The realized reading evaluates that same term; there is no
 second traversal of the statement. It evaluates bottom-up:
 1. **Literals.** A subterm `denote t` of a registered literal form is the value `t` of that form,
-   encoded by the kernel.
-2. **Operations.** For an operation applied to evaluated arguments, the kernel picks the admitted
+   encoded by the kernel. The extent of a finite-subset literal is the literal itself.
+2. **Transport.** Before a registration is selected, the receiver of a method or property is sent
+   along the route the semantic reading resolved, as far as the catalogue's refinement rows relate
+   it to a base object at the same parameters. For example, `Fin(3) in FiniteSets` goes to
+   `Fin(3)` in `Sets`. Only catalogue rows move an object. A registration on a form the catalogue
+   sends elsewhere along the operation's route could never be selected, so it is not admitted.
+3. **Operations.** For an operation applied to evaluated arguments, the kernel picks the admitted
    registration of that operation for the arguments' form, sends the encoded input, and decodes
    the answer in the operation's result form. The outcomes:
    - no admitted registration: a gap;
    - two admitted registrations for the same operation and form: a gap, reported as ambiguous;
    - a backend that cannot start: unavailable;
    - a rejected answer: malformed.
-3. **Composites.** The decoded value is the input of the next operation along the resolved route.
+4. **Composites.** The decoded value is the input of the next operation along the resolved route.
    Universal constructions come back as their complete data (apex and legs, kernel and inclusion)
    in the result form, and a decode missing a defining arrow is malformed (CC-DECODE).
 
