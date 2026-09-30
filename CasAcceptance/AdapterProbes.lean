@@ -16,16 +16,13 @@ public meta import CasLeaves.Algebra.RingTables
 @[expose] public section
 
 /-!
-# Acceptance for `cc-adapter` (CC-ADAPTER, CC-DECODE)
+# Kernel decoding (CC-DECODE)
 
-* A backend leaf registers its permitted contributions with `register_leaf`; each of the ten
-  forbidden contributions of spec §5 is rejected with a diagnostic naming the rule, and a contract
-  containing one registers nothing. A permitted contribution that does not typecheck against the
-  semantic universe (a realizer of an unregistered category) is rejected too.
-* A backend's kernel of `sign : S₃ → ℤ/2` decodes into the semantic subgroup `A₃ ↪ S₃`, equal to
-  the Lean-native kernel; kernels of the trivial and identity maps round-trip likewise. A result
-  without its inclusion, a result that misses kernel elements, and a result for another operation
-  are rejected.
+A backend's kernel of `sign : S₃ → ℤ/2` decodes into the semantic subgroup `A₃ ↪ S₃`, equal to the
+Lean-native kernel; kernels of the trivial and identity maps round-trip likewise. A result without
+its inclusion, a result that misses kernel elements, and a result for another operation are
+rejected. (The refusals of `register_leaf` are tested with the contract, in
+`CasContract.Probes.LeafBoundary`; no leaf is registered in this repository.)
 -/
 
 open Lean Meta Elab Term Command
@@ -33,13 +30,6 @@ open CasCatalogue.Algebra.Actions CasCatalogue.Algebra.Subgroups CasCatalogue.Al
 open CasCatalogue.PropsProbes
 
 namespace CasCatalogue.AdapterProbes
-
-/- A backend leaf realizing rings, by its own name for the table denotation. -/
-register_leaf
-  { backend := "probe-sage"
-    contributions := [.realizer
-      { id := ⟨"rz.probe.sage_rings"⟩, category := ⟨"cat.rings"⟩, backend := "probe-sage"
-        denotation := `CasCatalogue.Algebra.RingTables.ringTableDenotation }] }
 
 /-- `ℤ/2`. -/
 abbrev z2 : GroupTable :=
@@ -96,80 +86,5 @@ def misnamed : Option BackendResult :=
 #guard (rejection sign (withoutInclusion sign)).map (mentions "defining arrow") == some true
 #guard (rejection sign tooSmall).map (mentions "misses kernel") == some true
 #guard (rejection sign misnamed).map (mentions "not lim.groups.kernel") == some true
-
-run_cmd liftTermElabM do
-  let expectRule (contribution : LeafContribution) (rule : String) : MetaM Unit := do
-    let contract : LeafContract := { backend := "probe-sage", contributions := [contribution] }
-    try
-      discard <| contract.check
-      throwError "a forbidden contribution was accepted: {rule}"
-    catch err =>
-      let message ← err.toMessageData.toString
-      unless (message.splitOn rule).length > 1 do
-        throwError "the rejection does not name the rule '{rule}': {message}"
-  let state ← registryState
-  let some groups := state.categories.find? (·.id.raw == "cat.groups")
-    | throwError "cat.groups is not registered"
-  expectRule (.category { groups with id := ⟨"cat.probe.sage_group_class"⟩ })
-    "cannot invent a public category"
-  let order : MethodEntry :=
-    { id := ⟨"meth.probe.order"⟩, name := "order", owner := groups.expression,
-      functor := FunctorId.groupsMonoid, shape := .object }
-  expectRule (.method order)
-    "cannot attach a method"
-  let isAbelian : PropertyEntry :=
-    { id := ⟨"prop.probe.is_abelian"⟩, name := "IsAbelian",
-      classifier := ClassifierId.magmasCommutative }
-  expectRule (.property isAbelian)
-    "cannot attach a method"
-  let abelian : ClassifierEntry :=
-    { id := ⟨"clf.probe.abelian"⟩, declaration := `x, host := groups.expression,
-      realization := `x }
-  expectRule (.subcategory abelian)
-    "cannot declare a superclass or subcategory relation"
-  let some groupsMonoid := state.functor? FunctorId.groupsMonoid
-    | throwError "fun.groups.monoid is not registered"
-  expectRule (.forgetfulRoute { groupsMonoid with id := ⟨"fun.probe.groups_to_sets"⟩ })
-    "cannot create an implicit forgetful route"
-  let some comparison := state.cells.find? (·.invertible)
-    | throwError "no comparison is registered"
-  expectRule (.identification comparison)
-    "cannot decide that two presentations are the same"
-  expectRule (.coercion groups.expression Foundation.Sets) "cannot add public coercions"
-  expectRule (.refineObject `CasCatalogue.PropsProbes.z3 ClassifierId.magmasCommutative)
-    "cannot refine an object's semantic type after construction"
-  expectRule (.resultClass "SageKernelSubgroup") "cannot expose backend-specific result classes"
-  let some lift := state.lifts[0]? | throwError "no lift is registered"
-  expectRule (.genericSemantics lift) "cannot define generic subgroup, kernel or image"
-  -- A permitted contribution must still typecheck against the semantic universe.
-  let orphanRealizer : RealizerEntry :=
-    { id := ⟨"rz.probe.orphan"⟩, category := ⟨"cat.probe.unregistered"⟩,
-      backend := "probe-sage",
-      denotation := `CasCatalogue.Algebra.RingTables.ringTableDenotation }
-  let orphan : LeafContract :=
-    { backend := "probe-sage", contributions := [.realizer orphanRealizer] }
-  if (← try discard orphan.check; pure true catch _ => pure false) then
-    throwError "a realizer of an unregistered category was accepted"
-  -- A contract with one forbidden contribution registers nothing.
-  let before := (← registryState).realizers.size
-  let mixedRealizer : RealizerEntry :=
-    { id := ⟨"rz.probe.mixed"⟩, category := ⟨"cat.rings"⟩, backend := "probe-sage",
-      denotation := `CasCatalogue.Algebra.RingTables.ringTableDenotation }
-  let mixed : LeafContract :=
-    { backend := "probe-sage", contributions := [.realizer mixedRealizer, .resultClass "SageRing"] }
-  try registerLeaf mixed catch _ => pure ()
-  unless (← registryState).realizers.size == before do
-    throwError "a rejected contract registered part of itself"
-  -- The permitted leaf above is registered.
-  unless (← registryState).realizers.any (·.id.raw == "rz.probe.sage_rings") do
-    throwError "the permitted leaf contribution was not registered"
-
-/- The command itself fails to elaborate on a forbidden contribution, naming the rule. -/
-/--
-error: leaf probe-sage: §5: a backend leaf cannot expose backend-specific result classes
-(SageKernelSubgroup); results decode into the operation's semantic result type
--/
-#guard_msgs (whitespace := lax) in
-register_leaf { backend := "probe-sage", contributions := [.resultClass "SageKernelSubgroup"] }
 
 end CasCatalogue.AdapterProbes

@@ -27,8 +27,9 @@ preimage through the fully faithful realization of sets).
   `η ◫ η : v ↦ [[v]]`;
 * the inverse cell composes to the identity: `ρ ≫ ρ⁻¹` on data, and as a theorem about realized
   cells (`realizedCell_comp`, `realizedCell_id`);
-* composing cells whose endpoints do not match is rejected; a backend leaf cannot register a
-  cell; a cell whose declaration is not between its registered composites is rejected.
+* composing cells whose endpoints do not match is rejected; a cell whose declaration is not
+  between its registered composites is rejected (that a leaf cannot register a cell is the
+  contract's, tested with it).
 -/
 
 open CategoryTheory Lean Meta Elab Term Command
@@ -80,17 +81,6 @@ run_cmd liftTermElabM do
   unless ← rejects (← `(cell% "cell.sets.list.unit"⁻¹ at (.intPow 2) in "cat.sets"))
       "not registered invertible" do
     throwError "a non-invertible cell was inverted"
-  let leafCell : LeafContract :=
-    { backend := "probe", contributions := [.naturalTransformation
-        { id := ⟨"cell.probe.leaf"⟩, source := Foundation.Sets, target := Foundation.Sets
-          left := #[], right := #[.functor FunctorId.setsList]
-          declaration := `LeanCategories.Foundation.listUnit }] }
-  try
-    registerLeaf leafCell
-    throwError "a leaf registered a cell"
-  catch e =>
-    unless ((← e.toMessageData.toString).splitOn "natural transformation").length > 1 do
-      throw e
   -- `η` is not a cell `L ⟶ L`.
   try
     withoutModifyingEnv <| validateRegistryEntryDeclaration (.cell

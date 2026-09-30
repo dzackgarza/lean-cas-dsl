@@ -5,9 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasAcceptance.Standard
+public import CasLeaves.Algebra.RelabeledRings
 public import CasCatalogue.CellCall
 public import CasCatalogue.ResolveSyntax
 public meta import CasAcceptance.Standard
+public meta import CasLeaves.Algebra.RelabeledRings
 public meta import CasCatalogue.CellCall
 public meta import CasCatalogue.ResolveSyntax
 
@@ -16,8 +18,8 @@ public meta import CasCatalogue.ResolveSyntax
 /-!
 # Acceptance for `cc-cohere-exec` (CC-COHERE)
 
-The ring diamond, with a backend that presents a ring's additive group with its elements relabeled
-(`Fin.rev`): the realized additive port is the Lean-native one followed by the relabeling, and its
+The ring diamond, over the relabeled-rings leaf (`CasLeaves.Algebra.RelabeledRings`, in the leaf
+repository), which presents a ring's additive group with its elements relabeled (`Fin.rev`): the realized additive port is the Lean-native one followed by the relabeling, and its
 square is the relabeling isomorphism. So the two routes from rings to sets, identified by the
 registered comparison `cmp.rings.carrier` (the identity natural isomorphism between their
 composites), give different presentations of the underlying set: element `e` of the ring is `e`
@@ -35,103 +37,14 @@ open CategoryTheory Lean Meta Elab Term Command
 open CasCatalogue.Algebra.Actions CasCatalogue.Algebra.RingTables CasCatalogue.Foundation.Actions
 open CasCatalogue.Foundation.Cardinality
 
-namespace CasCatalogue.CohereExecProbes
-
-/-! ### The backend's presentation of additive groups -/
-
-/-- The additive-group table with its elements relabeled by `Fin.rev`. -/
-def relabel (t : AddGroupTable) : AddGroupTable where
-  size := t.size
-  add x y := (t.add x.rev y.rev).rev
-  zero := t.zero.rev
-  neg x := (t.neg x.rev).rev
-  add_assoc a b c := by simp [t.add_assoc]
-  zero_add a := by simp [t.zero_add]
-  neg_add_cancel a := by simp [t.neg_add_cancel]
-
-/-- The relabeling, as an additive isomorphism onto the original table's group. -/
-def relabelEquiv (t : AddGroupTable) : (relabel t).Carrier ≃+ t.Carrier where
-  toFun := Fin.rev
-  invFun := Fin.rev
-  left_inv := Fin.rev_rev
-  right_inv := Fin.rev_rev
-  map_add' x y := by
-    change (t.add x.rev y.rev).rev.rev = t.add x.rev y.rev
-    exact Fin.rev_rev _
-
-/-- Relabeling, on additive-group tables. -/
-def relabelFunctor : AddGroupTables ⥤ AddGroupTables where
-  obj := relabel
-  map {t s} f := InducedCategory.homMk (AddGrpCat.ofHom
-    ((relabelEquiv s).symm.toAddMonoidHom.comp (f.hom.hom.comp (relabelEquiv t).toAddMonoidHom)))
-  map_id t := by
-    apply InducedCategory.hom_ext; apply AddGrpCat.hom_ext; ext x
-    exact Fin.rev_rev x
-  map_comp f g := by
-    apply InducedCategory.hom_ext; apply AddGrpCat.hom_ext; ext x
-    change ((g.hom.hom (f.hom.hom x.rev)).rev) = ((g.hom.hom (f.hom.hom x.rev).rev.rev).rev)
-    exact congrArg (fun y => (g.hom.hom y).rev) (Fin.rev_rev _).symm
-
-/-- The relabeled presentation denotes the same group, up to the relabeling. -/
-noncomputable def relabelIso : relabelFunctor ⋙ additiveGroupDenotation ≅ additiveGroupDenotation :=
-  NatIso.ofComponents (fun t => (relabelEquiv t).toAddGrpIso) fun {t s} f => by
-    apply AddGrpCat.ext
-    intro x
-    change (f.hom.hom x.rev).rev.rev = f.hom.hom x.rev
-    exact Fin.rev_rev _
-
-/-! ### The backend's rings -/
-
-/-- A backend's ring: a ring table, reported by the backend. -/
-structure BackendRing where
-  table : RingTable
-
-abbrev BackendRings : Type :=
-  InducedCategory RingCat.{0} fun b : BackendRing => RingCat.of b.table.Carrier
-
-def backendDenotation : BackendRings ⥤ LeanCategories.Algebra.Rings.{0} := inducedFunctor _
-
-/-- The multiplicative port, as the Lean-native tables have it. -/
-def backendToMonoid :
-    RealizedAction (Algebra.Ports.ringsMultiplicative.{0}).toFunctor backendDenotation
-      monoidDenotation :=
-  RealizedAction.induced _ (fun b => b.table.toMonoidTable) fun _ => rfl
-
-/-- The additive port, reported with relabeled elements: the Lean-native additive group followed
-by the relabeling, with the pasted square. -/
-noncomputable def backendToAdditiveGroup :
-    RealizedAction (Algebra.Ports.ringsAdditive.{0}).toFunctor backendDenotation
-      additiveGroupDenotation :=
-  let native : RealizedAction (Algebra.Ports.ringsAdditive.{0}).toFunctor backendDenotation
-      additiveGroupDenotation :=
-    RealizedAction.induced _ (fun b => b.table.toAddGroupTable) fun b =>
-      ringToAdditiveGroup_obj b.table
-  ⟨native.action ⋙ relabelFunctor,
-    ⟨Functor.associator _ _ _ ≪≫ Functor.isoWhiskerLeft native.action relabelIso ≪≫
-      native.square.iso⟩⟩
-
-end CasCatalogue.CohereExecProbes
-
 namespace CasCatalogue
 
-register_leaf
-  { backend := "probe-backend"
-    contributions := [
-  .realizer
-  { id := ⟨"rz.rings.probe_backend"⟩, category := ⟨"cat.rings"⟩, backend := "probe-backend"
-    denotation := `CasCatalogue.CohereExecProbes.backendDenotation },
-  .action
-  { id := ⟨"act.rings.multiplicative_monoid.probe_backend"⟩
-    edge := .functor FunctorId.ringsMultiplicative
-    realization := `CasCatalogue.CohereExecProbes.backendToMonoid },
-  .action
-  { id := ⟨"act.rings.additive_group.probe_backend"⟩, edge := .functor FunctorId.ringsAdditive
-    realization := `CasCatalogue.CohereExecProbes.backendToAdditiveGroup }] }
+open CasCatalogue.Algebra.RelabeledRings
 
 namespace CohereExecProbes
 
-/-- `𝔽₉ = 𝔽₃[x]/(x² + 1)`, reported by the backend. -/
-def f9 : BackendRing := ⟨f9a⟩
+/-- `𝔽₉ = 𝔽₃[x]/(x² + 1)`, presented by the relabeled-rings leaf. -/
+def f9 : RelabeledRing := ⟨f9a⟩
 
 /- The comparison applied to data is not the identity: element `e` along the multiplicative route
 is `rev e` along the additive one. -/
