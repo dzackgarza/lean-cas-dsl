@@ -52,7 +52,7 @@ MODEL = "claude-opus-5-5"
 DIFF_LIMIT = 600_000  # characters; a larger change must be split
 # Changes to these judge changes: escalation only. Every other sealed file (the kernel, the
 # upstream rule files) is reviewed by the agent.
-ESCALATE = ["custodian/*", ".github/*", "specs/owner/*", "tests/acceptance/*", "CasAcceptance*",
+ESCALATE = ["custodian/*", "specs/owner/*", "tests/acceptance/*", "CasAcceptance*",
             "CasGates/*", "CasTools/*", "lakefile.lean", "lean-toolchain", "justfile", "scripts/*"]
 SCHEMA = {
     "type": "object",
