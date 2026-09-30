@@ -280,6 +280,52 @@ def verify_signature(seal_path: Path, sig: Path, key: Path, trusted: str) -> Non
         raise SystemExit(f"INVALID SIGNATURE on {seal_path}: {r.stdout}{r.stderr}")
 
 
+VERDICTS = "custodian/verdicts"
+
+
+def pem_fpr(pem: str) -> str:
+    der = subprocess.run(["openssl", "pkey", "-pubin", "-outform", "DER"], input=pem.encode(),
+                         check=True, capture_output=True).stdout
+    return sha(der)
+
+
+def signature_ok(data: Path, sig: Path, pem: str) -> bool:
+    with tempfile.NamedTemporaryFile("w", suffix=".pem") as k:
+        k.write(pem); k.flush()
+        return subprocess.run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", k.name,
+                               "-rawin", "-in", str(data), "-sigfile", str(sig)],
+                              capture_output=True).returncode == 0
+
+
+def load_chain(repo: Path, root_path: Path, root: dict) -> list[tuple[Path, dict]]:
+    """The verdict chain under custodian/verdicts: [(file, verdict)], seq 1.., each signed by a key
+    the root seal names for its kind, each naming the sha256 of its predecessor's bytes (the root
+    seal's for seq 1). Raises SystemExit on any break: a broken chain accepts nothing."""
+    keys = {"review": root.get("reviewer_keys", {}), "escalation": root.get("escalation_keys", {})}
+    files = sorted((repo / VERDICTS).glob("*.json")) if (repo / VERDICTS).is_dir() else []
+    chain, prev = [], sha(root_path.read_bytes())
+    for i, f in enumerate(files, start=1):
+        if f.name != f"{i:06d}.json":
+            raise SystemExit(f"BROKEN CHAIN: expected {i:06d}.json, found {f.name}")
+        v = json.loads(f.read_text())
+        pem = keys.get(v.get("kind"), {}).get(v.get("signer"))
+        if pem is None or pem_fpr(pem) != v["signer"]:
+            raise SystemExit(f"BROKEN CHAIN: {f.name} is signed by a key the root seal does not name "
+                             f"for kind {v.get('kind')!r}")
+        if not signature_ok(f, Path(str(f) + ".sig"), pem):
+            raise SystemExit(f"BROKEN CHAIN: invalid signature on {f.name}")
+        if v.get("seq") != i or v.get("prev") != prev:
+            raise SystemExit(f"BROKEN CHAIN: {f.name} does not extend its predecessor")
+        chain.append((f, v))
+        prev = sha(f.read_bytes())
+    return chain
+
+
+def tip_seal(root: dict, chain: list[tuple[Path, dict]]) -> dict:
+    """The seal in force: the last verdict's, else the root's. Keys come only from the root."""
+    return chain[-1][1]["seal"] if chain else root
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--repo", type=Path, default=HERE.parent)
@@ -290,14 +336,21 @@ def main() -> int:
     ap.add_argument("--make-seal", action="store_true",
                     help="write an unsigned seal of the current state to --seal (for the signer)")
     ap.add_argument("--note", default="")
+    ap.add_argument("--reviewer-key", type=Path, action="append", default=[],
+                    help="--make-seal: a public key (PEM) whose verdicts of kind review extend the chain")
+    ap.add_argument("--escalation-key", type=Path, action="append", default=[],
+                    help="--make-seal: a public key (PEM) whose verdicts of kind escalation extend it")
     args = ap.parse_args()
     repo = args.repo.resolve()
     verifier_sha = sha(Path(__file__).read_bytes())
     if args.make_seal:
-        old = json.loads(args.seal.read_text()) if args.seal.exists() else {}
-        boundary = old.get("boundary") or json.loads((HERE / "boundary.json").read_text())["boundary"]
-        append_only = old.get("append_only") or json.loads((HERE / "boundary.json").read_text())["append_only"]
+        # The boundary is custodian/boundary.json, itself a sealed file.
+        spec = json.loads((repo / "custodian" / "boundary.json").read_text())
+        boundary, append_only = spec["boundary"], spec["append_only"]
         seal = build_seal(repo, args.leaves, boundary, append_only, verifier_sha, args.note)
+        for field, paths in (("reviewer_keys", args.reviewer_key),
+                             ("escalation_keys", args.escalation_key)):
+            seal[field] = {pem_fpr(p.read_text()): p.read_text() for p in paths}
         args.seal.write_text(json.dumps(seal, indent=1, sort_keys=True) + "\n")
         print(f"wrote {args.seal}; sign it: openssl pkeyutl -sign -inkey <key> -rawin "
               f"-in {args.seal} -out {args.seal}.sig")
@@ -305,15 +358,18 @@ def main() -> int:
     if not args.trusted_fpr:
         raise SystemExit("--trusted-fpr is required: the fingerprint comes from outside the repo")
     verify_signature(args.seal, Path(str(args.seal) + ".sig"), args.key, args.trusted_fpr)
-    seal = json.loads(args.seal.read_text())
-    if seal["verifier_sha256"] != verifier_sha:
-        raise SystemExit("this verifier is not the sealed verifier")
+    root = json.loads(args.seal.read_text())
+    chain = load_chain(repo, args.seal, root)
+    seal = tip_seal(root, chain)
+    if verifier_sha not in {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}:
+        raise SystemExit("this verifier is not a sealed verifier")
     problems = check(repo, seal, args.leaves.resolve() if args.leaves else None)
     if problems:
         print("CONTAINMENT VIOLATED (custodian seal):")
         print("\n".join("  " + p for p in problems))
         return 1
-    print(f"seal holds: {len(seal['files'])} sealed files, {len(seal['pins'])} sealed pins")
+    print(f"seal holds: {len(seal['files'])} sealed files, {len(seal['pins'])} sealed pins, "
+          f"{len(chain)} verdicts after the root")
     return 0
 
 

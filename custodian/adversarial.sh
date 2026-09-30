@@ -36,3 +36,6 @@ run leaf-imports-tests 1 "sed -i '1i import CasAcceptance.Standard' $S/l/CasLeav
 run leaf-semantic-module 1 "mkdir -p $S/l/LeanCategories; echo x > $S/l/LeanCategories/X.lean; git -C $S/l add -A; git -C $S/l -c user.name=x -c user.email=x@x commit -qm x; h=\$(git -C $S/l rev-parse HEAD); sed -i \"s/c4cff1645158aa138c5f828b47de43e8b051a44e/\$h/g\" lakefile.lean lake-manifest.json"
 run leaf-unpinned 1 "echo >> $S/l/README.md; git -C $S/l -c user.name=x -c user.email=x@x commit -qam x"
 run dev-link 1 "mkdir -p .lake/packages; ln -s /home/user/lean-categories .lake/packages/lean_categories"
+run intent-edit 1 "echo x >> custodian/owner-intent.md"
+run adversarial-edit 1 "echo '# x' >> custodian/adversarial.sh"
+run boundary-shrink 1 "python3 -c \"import json;p='custodian/boundary.json';d=json.load(open(p));d['boundary'].remove('CasGates/*');open(p,'w').write(json.dumps(d))\""

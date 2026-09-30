@@ -23,7 +23,11 @@
   "custodian/boundary.json",
   "custodian/custodian.pub.pem",
   "custodian/verify.py",
-  "custodian/adversarial.sh"
+  "custodian/adversarial.sh",
+  "custodian/owner-intent.md",
+  "custodian/review/*",
+  "custodian/justfile",
+  "custodian/SETUP.md"
  ],
  "append_only": [
   "tests/acceptance/*.cas",

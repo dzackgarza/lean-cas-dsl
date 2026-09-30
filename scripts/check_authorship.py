@@ -43,7 +43,8 @@ ADMITTED = "CasAcceptance/Permanent/admitted.json"
 # (repository, role) -> path patterns; the first matching role wins.
 LAYERS: dict[str, list[tuple[str, list[str]]]] = {
     "lean-cas-dsl": [
-        ("custodian", ["custodian/*", ".github/workflows/custodian.yml"]),
+        ("custodian", ["custodian/*", ".github/workflows/custodian.yml",
+                       ".github/workflows/custodian-review.yml"]),
         ("acceptance", ["tests/acceptance/*", "CasAcceptance/Permanent/*.lean"]),
         ("leaf", ["CasLeaves/*"]),
         ("orchestrator", ["*"]),

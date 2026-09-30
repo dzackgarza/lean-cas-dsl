@@ -68,37 +68,87 @@ A failing example can turn green on a verifying head only through what stays fre
 `cas_leaves` pin, judged by the sealed contract, kernel and suite; and files outside the boundary,
 which cannot define syntax.
 
+## The acceptance loop (closed, agent-driven)
+
+The seal in force is the root seal, extended by a chain of signed verdicts in
+`custodian/verdicts/NNNNNN.json`. Each verdict names the sha256 of its predecessor and carries the
+next seal. The root seal names the only keys that may extend the chain:
+
+- **review key** (fingerprint `bcd85dd2c758b032057211636734a2407fe275d32ef2e76df9d8c60cae80dd79`),
+  held only in the `custodian-review` GitHub environment;
+- **escalation key** (fingerprint `77bbd8a24c41b333f496cf5c638456f4a85908916202b1e62d48a62ad1bb9508`),
+  held only by the owner.
+
+A change reaches `main` only through a pull request, and `.github/workflows/custodian-review.yml`
+judges each one. That workflow runs on `pull_request_target`, so its code is `main`'s, and it only
+reads the pull request's head. It gives one of five outcomes:
+
+| Outcome | When | What happens |
+| --- | --- | --- |
+| PASS | the head satisfies the seal in force | mergeable (once the other checks pass) |
+| FAIL (hard) | a ratchet or structural violation, a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
+| ESCALATE | the change touches what judges changes: `custodian/`, CI, the owner's text, existing acceptance assertions, the ledger, gates, harness, build definition | an escalation verdict is required |
+| APPROVED | only the kernel (`CasCatalogue`, `CasDsl`) or the `lean_categories` / `cas_leaf_contracts` pins changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
+| REJECTED | the reviewer rejected, refused, or could not review (too large: split it) | signed and appended to the `custodian/rejections` log; the same change against the same seal is never reviewed again |
+
+The reviewer is a single model call. It gets the fixed prompt `custodian/review/prompt.md`, the
+owner's text, these rules and the diff (plus the upstream diff for a moved pin). It never gets the
+orchestrator's description or argument. It approves only if every criterion holds, and a review
+never grows a ratchet's baseline.
+
+Escalation is the human-plus-agent review: the owner and an agent review the change together, then
+the owner signs:
+
+```
+just -f custodian/justfile escalate <leaves checkout> <escalation key> "<what is accepted and why>"
+```
+
+This commits a verdict of kind `escalation` to the head.
+
+`custodian/review/test_review.py` exercises the loop with the model stubbed. The
+`custodian/rejections` branch and the verdict chain are append-only by construction; deleting
+either only makes heads fail.
+
 ## What the orchestrator must do
 
-0. Merge `custodian/containment` into every branch it works on. A branch without the sealed
-   `custodian/` files fails verification.
-1. Run the verifier on every head it calls accepted, delivered or done. A head that does not verify
-   under the owner's fingerprint is not accepted, whatever any plan, trailer or document says.
-   "Delivered" markers in the plan carry no acceptance.
-2. Put every change to the boundary on a branch named `proposal/<name>`. Such a branch fails
-   verification by construction, and that is correct: it is a proposal. Only a new seal signed by a
-   key the owner trusts accepts it. The orchestrator never signs a seal, never asks a subagent it
-   spawned to sign one, and never presents a seal signed by any other key as accepted.
-3. When an obligation looks inconsistent or unsolvable under the sealed boundary, say so in a
-   `proposal/` branch that names the obligation. Do not weaken it.
-4. Never write under `custodian/`, on any branch.
+1. Merge `custodian/containment` into every branch it works on, and change `main` only through
+   pull requests.
+2. Treat a head as accepted only if `just -f custodian/justfile verify <leaves>` passes under the
+   owner's fingerprint. "Delivered" markers, trailers and documents carry no acceptance.
+3. Never write a verdict. Commit exactly the verdict the review posted, unchanged. Never ask a
+   subagent to review in the reviewer's place, and never resubmit a rejected change unchanged.
+4. When an obligation looks inconsistent or unsolvable, say so in a pull request that names it. Do
+   not weaken it. That pull request escalates by construction.
+5. Never write under `custodian/`, except to commit a verdict the review posted.
 
-`custodian/adversarial.sh` applies each intervention in the table to a copy and checks the verdict.
-`.github/workflows/custodian.yml` runs the verifier in CI. That is feedback only: a pushed commit
-can edit the workflow. The anchor is the owner's own run.
+## One-time setup (owner, in the GitHub UI)
 
-## How a seal is renewed (owner, or a custodian the owner names)
+1. Merge `custodian/containment` into `main`.
+2. Create the environment `custodian-review` (Settings → Environments). Restrict deployment
+   branches to `main`. Add two secrets: `ANTHROPIC_API_KEY`, and `CUSTODIAN_REVIEW_KEY` (the
+   review private key, delivered to the owner by the custodian session).
+3. Add a ruleset for `main`: require a pull request, and require the status checks
+   `Custodian review`, `Custodian seal / seal` and the `Gates` jobs, with GitHub Actions as their
+   source. Block force pushes and deletions. Leave the bypass list empty.
+4. Add a ruleset for `custodian/rejections`: block force pushes and deletions, with an empty bypass
+   list.
+5. Keep the escalation private key off every repository and every agent session.
 
-```
-python3 custodian/verify.py --make-seal --leaves <leaves checkout> --seal custodian/seal.json \
-    --note "<what is accepted and why>"
-git diff custodian/seal.json      # review every changed hash: each one is a change to the judges
-openssl pkeyutl -sign -inkey <private key> -rawin -in custodian/seal.json -out custodian/seal.json.sig
-```
-
-Then verify with the new key's fingerprint, held outside the repositories.
+`custodian/adversarial.sh` applies each intervention in the table above to a copy and checks the
+verdict. `.github/workflows/custodian.yml` runs the verifier on every push. That is feedback only,
+because a pushed commit can edit the workflow. The anchor is a verification under the owner's
+fingerprint.
 
 ## Limits (not closed by this seal; see `custodian/FINDINGS.md`)
+
+- The reviewer is a model. It can approve a bad kernel change. What bounds the damage: only the
+  kernel and the two semantic pins are reviewable, every ratchet still applies, every approval is
+  signed and attributable, and a rejection is final. The live workflow and the real model call were
+  not run in the custodian session (no API key, no GitHub settings access). Only the stubbed loop
+  was tested.
+- The loop rests on the one-time setup above. Without the `main` ruleset and the environment's
+  branch restriction, the orchestrator can merge without review, or run another branch's workflow
+  with the review key.
 
 - Author identity. `Agent-Role`/`Agent-Id` trailers, `AGENT_ROLE=acceptance` and module-root checks
   are self-declared. The seal does not rely on them. The formalization → tests → implementation

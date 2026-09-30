@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""Custodian review: extend the verdict chain of custodian/verify.py, or refuse to.
+
+Review mode runs in `.github/workflows/custodian-review.yml` on `pull_request_target`. The code is
+the base branch's (main's), the pull request's head is only read as data, and it never runs.
+
+    review.py --base <main checkout> --head <PR head checkout> --leaves <leaves at the head's pin>
+              --trusted-fpr <root fingerprint> --out <dir> --rejections <rejection log checkout>
+              [--pr N --head-sha SHA]
+
+Outcomes (exit 0 only for PASS):
+  PASS        the head satisfies the seal in force (the root seal, or the chain's last verdict).
+  FAIL hard   a ratchet or structural violation (banned construct, leaf in the DSL, leaf
+              violation, semantic rows downstream, dev link, a rewritten root or chain). No review
+              can accept it.
+  ESCALATE    the change touches what judges changes: the custodian's files, CI, the owner's text,
+              existing acceptance assertions or the ledger. An escalation verdict is required,
+              signed with the escalation key after a human-plus-agent review (--escalate below).
+  REVIEWED    sealed files or pins changed. The independent reviewer (a single model call with
+              the fixed prompt custodian/review/prompt.md, the owner's text and the diff, never the
+              orchestrator's argument) approves or rejects. An approval is a signed verdict,
+              written to <out>/verdicts/ and posted on the pull request; the head must commit it to
+              pass. A rejection is signed, appended to the rejection log, and is final for that
+              exact change: the same change against the same seal is never reviewed again.
+
+Escalation mode (the owner's machine, with an agent reviewing alongside):
+
+    review.py --escalate --head . --leaves <leaves> --trusted-fpr <root fingerprint>
+              --signing-key <escalation private key>
+"""
+
+from __future__ import annotations
+
+import argparse
+import difflib
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from fnmatch import fnmatch
+from pathlib import Path
+
+MODEL = "claude-opus-5-5"
+DIFF_LIMIT = 600_000  # characters; a larger change must be split
+REVIEWED_PINS = ("lean_categories", "cas_leaf_contracts")
+# Changes to these judge changes: escalation only.
+# Only the kernel (CasCatalogue, CasDsl) and the two semantic pins are reviewed by the agent.
+ESCALATE = ["custodian/*", ".github/*", "specs/owner/*", "tests/acceptance/*", "CasAcceptance*",
+            "CasGates/*", "CasTools/*", "lakefile.lean", "lean-toolchain", "justfile", "scripts/*"]
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "verdict": {"type": "string", "enum": ["approve", "reject"]},
+        "criteria": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"criterion": {"type": "string"}, "holds": {"type": "boolean"},
+                           "evidence": {"type": "string"}},
+            "required": ["criterion", "holds", "evidence"], "additionalProperties": False}},
+        "summary": {"type": "string"},
+    },
+    "required": ["verdict", "criteria", "summary"],
+    "additionalProperties": False,
+}
+CRITERIA = 6  # the number of criteria in prompt.md
+
+
+def sha(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
+
+
+def load_verify(path: Path):
+    spec = importlib.util.spec_from_file_location("custodian_verify", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def sign(data: Path, private_pem: str) -> None:
+    with tempfile.NamedTemporaryFile("w", suffix=".pem") as k:
+        os.chmod(k.name, 0o600)
+        k.write(private_pem); k.flush()
+        subprocess.run(["openssl", "pkeyutl", "-sign", "-inkey", k.name, "-rawin", "-in", str(data),
+                        "-out", str(data) + ".sig"], check=True)
+
+
+def public_fpr(V, private_pem: str) -> str:
+    pub = subprocess.run(["openssl", "pkey", "-pubout"], input=private_pem.encode(),
+                         check=True, capture_output=True).stdout.decode()
+    return V.pem_fpr(pub)
+
+
+def classify(problems: list[str]) -> tuple[list[str], list[str], list[str]]:
+    hard, escalate, review = [], [], []
+    for p in problems:
+        m = re.match(r"(sealed file changed|sealed file removed|new file inside the sealed boundary): (.+)$", p)
+        if m:
+            (escalate if any(fnmatch(m.group(2), e) for e in ESCALATE) else review).append(p)
+        elif p.startswith("sealed pin moved: ") and p.split()[3] in REVIEWED_PINS:
+            review.append(p)
+        elif p.startswith(("sealed ledger", "sealed assertion")):
+            escalate.append(p)
+        else:
+            hard.append(p)
+    return hard, escalate, review
+
+
+def chain_head(V, root_path: Path, chain) -> str:
+    return V.sha(chain[-1][0].read_bytes()) if chain else V.sha(root_path.read_bytes())
+
+
+def next_verdict(V, root_path: Path, chain, kind: str, signer: str, seal: dict,
+                 review: dict) -> dict:
+    prev = chain_head(V, root_path, chain)
+    return {"format": 1, "seq": len(chain) + 1, "prev": prev, "kind": kind, "signer": signer,
+            "seal": seal, "review": review}
+
+
+def tightened(V, head: Path, leaves: Path, tip: dict) -> dict:
+    """The head's seal, with every baseline intersected with the tip's: a review never grows one."""
+    seal = V.build_seal(head, leaves, tip["boundary"], tip["append_only"], tip["verifier_sha256"],
+                        "review verdict")
+    for k in ("banned_baseline", "leaf_baseline", "outside_baseline"):
+        seal[k] = sorted(set(seal[k]) & set(tip[k]))
+    return seal
+
+
+def pin_diff(head: Path, name: str, old: str, new: str) -> str:
+    manifest = json.loads((head / "lake-manifest.json").read_text())
+    url = next(p["url"] for p in manifest["packages"] if p["name"] == name)
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(["git", "clone", "--quiet", "--filter=blob:none", url, tmp], check=True)
+        return subprocess.run(["git", "-C", tmp, "diff", old, new], check=True,
+                              capture_output=True, text=True).stdout
+
+
+def change_text(base: Path, head: Path, review: list[str], V, tip: dict) -> str:
+    parts = []
+    for p in review:
+        if p.startswith("sealed pin moved: "):
+            name = p.split()[3]
+            new = V.manifest_pins(head)[name]
+            parts.append(f"=== upstream diff of {name}: {tip['pins'][name]} -> {new}\n"
+                         + pin_diff(head, name, tip["pins"][name], new))
+            continue
+        f = p.split(": ", 1)[1]
+        a = (base / f).read_text(errors="replace").splitlines(True) if (base / f).is_file() else []
+        b = (head / f).read_text(errors="replace").splitlines(True) if (head / f).is_file() else []
+        parts.append("".join(difflib.unified_diff(a, b, f"a/{f}", f"b/{f}")))
+    return "\n".join(parts)
+
+
+def call_reviewer(prompt: str, owner: str, change: str) -> tuple[dict | None, str]:
+    import anthropic
+    client = anthropic.Anthropic()
+    # No refusal fallback: a decline is a rejection, never a silent switch to another reviewer.
+    with client.messages.stream(
+        model=MODEL, max_tokens=32000, system=prompt,
+        output_config={"effort": "high", "format": {"type": "json_schema", "schema": SCHEMA}},
+        messages=[{"role": "user", "content": [
+            {"type": "text", "text": "<owner_requirement>\n" + owner + "\n</owner_requirement>"},
+            {"type": "text", "text": "<untrusted_change>\n" + change + "\n</untrusted_change>"}]}],
+    ) as stream:
+        msg = stream.get_final_message()
+    if msg.stop_reason != "end_turn":
+        return None, f"reviewer stopped with {msg.stop_reason}"
+    text = next((b.text for b in msg.content if b.type == "text"), "")
+    try:
+        out = json.loads(text)
+    except json.JSONDecodeError:
+        return None, "reviewer output is not JSON"
+    return out, msg.model
+
+
+def review_mode(a) -> int:
+    base, head, out = a.base.resolve(), a.head.resolve(), a.out.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    V = load_verify(base / "custodian" / "verify.py")
+    root_path = base / "custodian" / "seal.json"
+    V.verify_signature(root_path, Path(str(root_path) + ".sig"), base / "custodian" / "custodian.pub.pem",
+                       a.trusted_fpr)
+    root = json.loads(root_path.read_text())
+    comment = []
+
+    def finish(code: int, title: str, lines: list[str]) -> int:
+        body = [f"### Custodian review: {title}", ""] + [f"- {l}" for l in lines] + comment
+        (out / "comment.md").write_text("\n".join(body) + "\n")
+        print("\n".join(body))
+        return code
+
+    for f in ("seal.json", "seal.json.sig"):
+        if (head / "custodian" / f).read_bytes() != (base / "custodian" / f).read_bytes():
+            return finish(1, "FAIL (hard)", [f"the root seal custodian/{f} was changed"])
+    try:
+        base_chain = V.load_chain(base, root_path, root)
+        chain = V.load_chain(head, root_path, root)
+    except SystemExit as e:
+        return finish(1, "FAIL (hard)", [str(e)])
+    if len(chain) < len(base_chain) or any(
+            x.read_bytes() != y.read_bytes() for (x, _), (y, _) in zip(base_chain, chain)):
+        return finish(1, "FAIL (hard)", ["the verdict chain of main was rewritten or truncated"])
+    tip = V.tip_seal(root, chain)
+    problems = V.check(head, tip, a.leaves.resolve())
+    if not problems:
+        return finish(0, "PASS", [f"the head satisfies the seal in force ({len(chain)} verdicts)"])
+    hard, escalate, review = classify(problems)
+    if hard:
+        return finish(1, "FAIL (hard)", hard + ["no review can accept these"])
+    if escalate:
+        return finish(1, "ESCALATE", escalate + [
+            "these change what judges changes: an escalation verdict is required "
+            "(custodian/CONTAINMENT.md, \"Escalation\")"])
+    boundary = V.current_boundary(head, tip)
+    key = sha(json.dumps({"tip": chain_head(V, root_path, chain),
+                          "files": boundary, "pins": V.manifest_pins(head)}, sort_keys=True).encode())
+    if a.rejections and (a.rejections / f"{key}.json").exists():
+        return finish(1, "REJECTED (final)", [f"this exact change was already rejected ({key[:16]}); "
+                                              "a rejection is never re-reviewed"])
+    change = change_text(base, head, review, V, tip)
+    here = base / "custodian"
+    prompt = (here / "review" / "prompt.md").read_text()
+    owner = "\n\n".join((base / p).read_text() for p in
+                        ("specs/owner/convergence-process.md", "custodian/owner-intent.md",
+                         "custodian/CONTAINMENT.md"))
+    record = {"model": MODEL, "prompt_sha256": sha(prompt.encode()), "change_sha256": sha(change.encode()),
+              "change_key": key, "pr": a.pr, "head_sha": a.head_sha, "problems": review}
+    if len(change) > DIFF_LIMIT:
+        result, why = None, f"the change is {len(change)} characters; split it (limit {DIFF_LIMIT})"
+    else:
+        result, why = call_reviewer(prompt, owner, change)
+    approved = (result is not None and result["verdict"] == "approve"
+                and len(result["criteria"]) >= CRITERIA and all(c["holds"] for c in result["criteria"]))
+    record["result"] = result
+    record["served_by"] = why if result is not None else None
+    private = os.environ["CUSTODIAN_REVIEW_KEY"]
+    signer = public_fpr(V, private)
+    lines = review + ([result["summary"]] if result else [why])
+    lines += [f"{'holds' if c['holds'] else 'FAILS'}: {c['criterion']} -- {c['evidence']}"
+              for c in (result or {}).get("criteria", [])]
+    if approved:
+        v = next_verdict(V, root_path, chain, "review", signer, tightened(V, head, a.leaves.resolve(), tip),
+                         record)
+        d = out / "verdicts"
+        d.mkdir(exist_ok=True)
+        path = d / f"{v['seq']:06d}.json"
+        path.write_text(json.dumps(v, indent=1, sort_keys=True) + "\n")
+        sign(path, private)
+        comment.extend(["", f"Commit `custodian/verdicts/{path.name}` and `{path.name}.sig` from this "
+                        "run's `custodian-verdict` artifact (also below) to the head, unchanged.", "",
+                        "```json", path.read_text(), "```", "", "Signature (base64):", "```",
+                        subprocess.run(["base64", "-w0", str(path) + ".sig"], capture_output=True,
+                                       text=True).stdout, "```"])
+        return finish(1, "APPROVED (commit the verdict to pass)", lines)
+    if a.rejections:
+        rec = a.rejections / f"{key}.json"
+        rec.write_text(json.dumps({"key": key, "signer": signer, "record": record}, indent=1,
+                                  sort_keys=True) + "\n")
+        sign(rec, private)
+    return finish(1, "REJECTED (final for this change)", lines)
+
+
+def escalate_mode(a) -> int:
+    head = a.head.resolve()
+    V = load_verify(head / "custodian" / "verify.py")
+    root_path = head / "custodian" / "seal.json"
+    V.verify_signature(root_path, Path(str(root_path) + ".sig"), head / "custodian" / "custodian.pub.pem",
+                       a.trusted_fpr)
+    root = json.loads(root_path.read_text())
+    chain = V.load_chain(head, root_path, root)
+    tip = V.tip_seal(root, chain)
+    hard, _, _ = classify(V.check(head, tip, a.leaves.resolve()))
+    if hard:
+        print("refused: hard violations cannot be escalated:\n  " + "\n  ".join(hard))
+        return 1
+    private = a.signing_key.read_text()
+    spec = json.loads((head / "custodian" / "boundary.json").read_text())
+    seal = V.build_seal(head, a.leaves.resolve(), spec["boundary"], spec["append_only"],
+                        V.sha((head / "custodian" / "verify.py").read_bytes()), a.note)
+    v = next_verdict(V, root_path, chain, "escalation", public_fpr(V, private), seal,
+                     {"note": a.note})
+    path = head / V.VERDICTS / f"{v['seq']:06d}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(v, indent=1, sort_keys=True) + "\n")
+    sign(path, private)
+    print(f"wrote {path} and its signature; commit both to the head")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument("--base", type=Path)
+    ap.add_argument("--head", type=Path, required=True)
+    ap.add_argument("--leaves", type=Path, required=True)
+    ap.add_argument("--trusted-fpr", required=True)
+    ap.add_argument("--out", type=Path)
+    ap.add_argument("--rejections", type=Path)
+    ap.add_argument("--pr")
+    ap.add_argument("--head-sha")
+    ap.add_argument("--escalate", action="store_true")
+    ap.add_argument("--signing-key", type=Path)
+    ap.add_argument("--note", default="")
+    a = ap.parse_args()
+    return escalate_mode(a) if a.escalate else review_mode(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
