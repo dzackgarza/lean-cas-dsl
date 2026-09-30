@@ -25,8 +25,14 @@ a finite set of integers as a list, a cardinal as a natural number or `ℵ₀`, 
 morphism of finite sets as its graph. Which forms exist, and what they denote, is mathematics. A
 leaf never declares a form.
 
-The kernel owns each form's wire encoding (`ToJson`/`FromJson` on `T`, derived or written in the
-kernel). Decoding is total: an answer is a value of `T` or it is rejected as malformed.
+The kernel owns each form's wire encoding, and it is generic: a structural codec over the
+inductive type `T`, derived from `T`'s definition. It has no per-type code, whether from the
+kernel or from a leaf:
+- a natural number or an integer is a JSON number;
+- a list is an array;
+- a constructor application is `{"ctor": name, "args": […]}`.
+
+Decoding is total: an answer is a closed value of `T` or it is rejected as malformed.
 
 ## A registration is data
 
@@ -59,9 +65,11 @@ operation id and `args` is the encoded input.
 ## The realized reading
 
 A statement's semantic reading elaborates it from the catalogue alone
-([architecture.md](architecture.md), "Acceptance"). Its realized reading evaluates the resolved
-term bottom-up:
-1. **Literals.** A literal is encoded by the kernel in its form.
+([architecture.md](architecture.md), "Acceptance"), into a Lean term built from catalogue
+operations and literal denotations. The realized reading evaluates that same term; there is no
+second traversal of the statement. It evaluates bottom-up:
+1. **Literals.** A subterm `denote t` of a registered literal form is the value `t` of that form,
+   encoded by the kernel.
 2. **Operations.** For an operation applied to evaluated arguments, the kernel picks the admitted
    registration of that operation for the arguments' form, sends the encoded input, and decodes
    the answer in the operation's result form. The outcomes:
