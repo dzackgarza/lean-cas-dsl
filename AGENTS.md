@@ -1,3 +1,27 @@
+# You have no memory (read this first)
+
+You are a language model. You do not learn from this conversation. When the context is compacted
+or the session ends, everything that exists only in chat is gone, and the next agent (you,
+tomorrow, or in an hour after compaction) repeats the same mistakes from zero. This has happened
+repeatedly in these repositories: corrections acknowledged in chat, then violated again within
+the hour.
+
+Consequences, binding on every agent and first of all the orchestrator:
+- **Chat is not a place where anything is decided, recorded or understood.** Saying "understood",
+  restating a correction, or describing what you will do achieves nothing. It is not compliance.
+  It is a substitute for compliance, and treating it as one is a violation of this rule.
+- **Every correction, finding, self-audit, decision request, quarantine, and plan exists first as
+  a commit** in the document that owns it (this file, `CONTRIBUTING.md`, `specs/architecture.md`,
+  `specs/computational-core-plan.md`, or the owning repository's `AGENTS.md`/`CONTRIBUTING.md`),
+  and where possible as a gate that fails the build. The chat reply then names the commit and says
+  nothing the commit does not.
+- **A question from the owner is a correction.** Answer it by committing its consequence, then
+  point to the commit. Do not answer it with prose.
+- **Session task lists, memory files and summaries are chat.** They are also lost.
+- **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
+  backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
+  orchestrator is inside the threat model", for the holes known now. Do not widen them.
+
 # Roles (read before anything else)
 
 You are either the **orchestrator** or a subagent with exactly one role

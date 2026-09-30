@@ -193,6 +193,30 @@ fact is a request to the layer that owns it. It is never learned by the layer th
 Each row is made impossible by a mechanism: a refusal at registration, a build that fails, or a
 package boundary. A rule in prose alone does not count.
 
+## The orchestrator is inside the threat model
+
+The purpose of these repositories is to show that agents are forced into the intended model by
+tight contracts, so that the model scales and stays maintainable. Producing usable mathematics is
+not the purpose. The orchestrator is an agent like any other. It drifts, ignores policy, and
+builds exemptions into the gates it writes. A restriction that the restricted party can rewrite,
+exempt itself from, or satisfy with a label it writes about itself contains nothing.
+
+Holes known on 2026-09-30, each open until a mechanism outside the orchestrator's write access
+closes it:
+
+| Hole | Why it contains nothing | Mechanism needed (owner's authority) |
+| --- | --- | --- |
+| The orchestrator writes every gate: `CasGates/KernelPurity.lean` (allowlist, the `establish` exemption, which matches any declaration whose name starts with it, blind to names built from strings), `scripts/check_*.py`, `.github/workflows/` | The gate and the code it judges change in one commit. On 2026-09-30 a red CI check was deleted and replaced by a CI job that has never run | Gates are evaluated from a protected branch against the head (a branch cannot change the rules that judge it). CODEOWNERS on gate paths requires the owner's review |
+| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) | The same agent writes the kernel and decides which mathematics the kernel may receive | Validator changes require the owner's review (CODEOWNERS) |
+| Roles are declared by commit trailers (`Agent-Role`, `Agent-Id`); `check_authorship.py`'s path map, its exemptions and its `CUTOFF` (set after the orchestrator's own crossings) are the orchestrator's | A declared role proves nothing; the map can be edited to fit a crossing | One push credential or signing key per role; the map is owner-reviewed |
+| Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Tied to the acceptance role's credential |
+| `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself | Exemptions in an owner-approved, append-only file |
+| The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
+| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases | A formalization or acceptance prompt is the requirement text, quoted verbatim from its owning document, with no orchestrator-authored content about implementation |
+| Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
+
+Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
+
 ## Packages
 
 | Package (repository) | Depends on | Holds |
