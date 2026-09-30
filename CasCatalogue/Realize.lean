@@ -219,8 +219,6 @@ def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
       let some proof ← Decide.decisionProof t
         | return .error s!"the answer does not satisfy {t}, or the kernel does not decide it"
       discard <| isDefEq m proof
-    else if (← whnf t).isSort then
-      return .error s!"{declaration} takes a type: it is not a family the codec decodes"
     else
       let j :: rest := remaining
         | return .error s!"the answer has {args.size} values, and {Codec.label declaration} \

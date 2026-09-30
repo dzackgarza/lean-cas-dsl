@@ -75,7 +75,7 @@ meta def expect (harness : Harness) (kind : String) (text : String) : CommandEla
 /-- Run `text` after the `let`s `lets`, and require its outcome's kind. -/
 meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text : String) :
     CommandElabM Unit := do
-  let mut scope : Scope := {}
+  let mut scope : Language.Scope := {}
   for binding in lets do
     scope := (← runStatement harness scope binding).2
   let (outcome, _) ← runStatement harness scope text
