@@ -163,11 +163,11 @@ syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
   let some text := stx[1].isStrLit? | throwUnsupportedSyntax
   let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
   let harness ← loadHarness manifest?
-  let outcome ← try
-      (do return Except.ok (← runStatement harness {} text).1)
-      -- not a reading fallback: an invalid statement is reported as such, by its message
-      catch e => do return Except.error (← e.toMessageData.toString)
-    finally (harness.stop : IO Unit)
+  let attempt : CommandElabM (Except String Outcome) := do
+    try return .ok (← runStatement harness {} text).1
+    -- not a reading fallback: an invalid statement is reported as such, by its message
+    catch e => return .error (← e.toMessageData.toString)
+  let outcome ← try attempt finally (harness.stop : IO Unit)
   match outcome with
   | .error message => throwError "invalid: {message}"
   | .ok .holds => logInfo m!"holds"
