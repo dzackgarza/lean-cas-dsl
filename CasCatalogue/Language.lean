@@ -2193,6 +2193,7 @@ def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
     | some (x, t) => scope.insert x t
     | none => scope
   try discard <| (statement scope stx).run { mode := .semantic }
+  -- not a reading fallback: it rethrows the semantic failure as invalidity
   catch e => throwError "not a valid statement: {e.toMessageData}"
   let classify (e : Exception) : TermElabM Outcome := do
     match Exception.stratum? e with
@@ -2201,6 +2202,7 @@ def run (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
     | some .unavailable => return .unavailable (← e.toMessageData.toString)
     | some .malformed => return .malformed (← e.toMessageData.toString)
     | _ => throw e
+  -- not a reading fallback: a realized failure is recorded as its stratum; a semantic one is rethrown
   let outcome ← try (statement scope stx).run { mode := .realized } catch e => classify e
   if (← letBinding? stx).isSome then return (.holds, scope')
   return (outcome, scope')

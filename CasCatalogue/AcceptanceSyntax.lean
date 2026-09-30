@@ -45,6 +45,7 @@ meta def checkAccept (stx : Syntax) (admit : Bool) : CommandElabM Status := do
         addDecl <| .thmDecl
           { name := theoremName id, levelParams := [], type, value := proof }
       pure Status.holds
+    -- not a reading fallback: a computational failure is recorded as its stratum (gap), anything else rethrown
     catch e =>
       match Exception.stratum? e with
       | some .noImplementation | some .ambiguousRealization =>
@@ -121,6 +122,7 @@ was written in. A wrong or malformed answer fails; the statuses are reported. -/
                                            openDecls := record.openDecls }) do
         if record.command.getKind == ``acceptCommand then checkAccept record.command false
         else checkAcceptBackend record.command
+    -- not a reading fallback: it rethrows, naming the failing assertion
     let status ← try rerun catch e =>
       throwError "acceptance {record.id} ({record.source}) fails here: {e.toMessageData}"
     if status matches .holds then holding := holding.push record.id

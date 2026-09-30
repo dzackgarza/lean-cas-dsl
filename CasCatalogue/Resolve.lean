@@ -394,6 +394,7 @@ def composeAction (state : RegistryState) (acc : Expr) (edge : EdgeRef) : MetaM 
     let saved ← saveState
     try composed := composed.push (← instantiateMVars
         (← mkAppHere ``RealizedAction.comp #[acc, action]))
+    -- not a reading fallback: realization selection: every composable candidate action is collected, exactly one is required
     catch _ => saved.restore
   match composed.toList with
   | [result] => pure result
@@ -508,6 +509,7 @@ def receiverRealization (state : RegistryState) (category : CategoryId) (receive
     try
       discard <| attempt realizer
       accepting := accepting.push realizer
+    -- not a reading fallback: realization selection: every realizer accepting the receiver is collected, exactly one is required
     catch _ => pure ()
     saved.restore
   match accepting with
@@ -576,6 +578,7 @@ def realizedCall (state : RegistryState) (resolution : Resolution) (denotation h
       let action ← methodActionFor state resolution.method (← targetDenotation routeAction)
       some <$> realizedObj action (← methodInput resolution.method
         (← mkAppM ``RealizedAction.obj #[routeAction, handle]))
+    -- not a reading fallback: whether a registered action realizes the method; its absence is a realization gap, not a reading
     catch _ => pure none
   return (image, value?)
 
@@ -764,6 +767,7 @@ def elabPropertyQuery (name : String) (receiver : Term) (category : String)
   for decider in deciders do
     let procedure ← mkConstWithFreshMVarLevels decider.realization
     try decisions := decisions.push (← executable (← mkAppM ``Decider.decide #[procedure, image]))
+    -- not a reading fallback: realization selection: every applicable decider is collected, exactly one is required
     catch _ => pure ()
   match decisions.toList with
   | [decision] => return .letE `route (← inferType composite) composite decision (nondep := true)
@@ -792,6 +796,7 @@ def elabEqualityQuery (f g : Term) (category : String) : TermElabM Expr := do
     try
       let decision ← executable (← mkAppM ``HomEquality.decide #[procedure, f, g])
       decisions := decisions.push decision
+    -- not a reading fallback: realization selection: every applicable equality decider is collected, exactly one is required
     catch _ => pure ()
   match decisions.toList with
   | [decision] => return decision
@@ -824,6 +829,7 @@ def propertyClassifierInto (state : RegistryState) (source target : NamedCategor
   let candidates := state.classifiers.filter (·.host.syntacticEq source.expression)
   let mut matching : Array ClassifierEntry := #[]
   for entry in candidates do
+    -- not a reading fallback: classifier selection: every matching classifier is collected, exactly one is required
     if ← withoutModifyingState (try discard (attempt entry); pure true catch _ => pure false) then
       matching := matching.push entry
   match matching.toList with
@@ -852,6 +858,7 @@ def elabRefine (receiver : Term) (source target : String) : TermElabM Expr := do
     try
       let decision ← mkAppM ``Decider.decide #[procedure, x]
       decisions := decisions.push decision
+    -- not a reading fallback: realization selection: every applicable decider is collected, exactly one is required
     catch _ => pure ()
   let [decision] := decisions.toList
     | throwStratum .noImplementation
@@ -905,6 +912,7 @@ def RegistryState.coverage (state : RegistryState) (resolution : Resolution)
       withLocalDeclD `x handles fun x =>
         discard <| realizedMethodCall state resolution denotation x
     return .actions
+  -- not a reading fallback: a computational failure is recorded as its stratum (gap), anything else rethrown
   catch e =>
     match Exception.stratum? e with
     | some .noImplementation | some .ambiguousRealization =>

@@ -24,6 +24,8 @@ default:
 build:
     @python3 scripts/check_authorship.py --self-test
     @python3 scripts/check_authorship.py
+    @python3 scripts/check_kernel_totality.py --self-test
+    @python3 scripts/check_kernel_totality.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
     @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness

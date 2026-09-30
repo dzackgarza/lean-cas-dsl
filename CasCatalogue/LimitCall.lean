@@ -104,6 +104,7 @@ def elabLimitCall (colimit : Bool) (shape : String) (diagram : Term) (category :
   for row in rows do
     let saved ← saveState
     try discard <| attempt row; accepting := accepting.push row
+    -- not a reading fallback: realization selection: every applicable limit realization is collected, exactly one is required
     catch e => trace[Meta.debug] "{row.id.raw}: {e.toMessageData}"
     saved.restore
   let row ← match accepting with
