@@ -1,5 +1,7 @@
 {
   "assertions": {
+    "algebras.polynomials": "f674629b93cdb43052899af95bad199722688119b54cbc485397b6acbee166b0",
+    "algebras.polynomials_several": "c79635ef0f3098f49036d7158f25436740a8d91cf2ed26a3dae437738dc17d7d",
     "calculus.integral_sine": "2371b04b81bbed6ea4254a89e0b9109f8db36205384b0ff81b0bc705257c9fee",
     "calculus.integral_square": "15ae63d1987103fb745b5ea3ffb8c155e907af55e2db36f232b4638fe0ea3096",
     "calculus.limit_infinity": "7ce5736968c1c1c0a324dc2fa4ffbebacb1ed66bf09b670bad441679f35901cb",
@@ -141,6 +143,8 @@
     "polynomials.no_rational_roots": "ac0cc67857c9e293565d22d1624cbd842937128b8bb47e9ee66274ab428ab330",
     "polynomials.root": "93ccca02e274db1162cb411ae119d3f46343b303cd541a9a9a5ec970648bcdcb",
     "polynomials.variable": "1172e830532c6515788d151e107d074a967c37a9649d5927a5e8702af4e00137",
+    "schemes.affine_line": "389f7ec7fbac024eb6cfdc2ccdddef1035dfbc64e3f53f0dde3a994fdd5fae03",
+    "schemes.affine_space": "2f2fb94bea62381b8b0b7f28fb2d34908d3181f547132e815048823570a8e533",
     "series.coefficient_four": "ebe4d9d0e65bf51224f5756cc965ffa44f2662156f28a53cf5e2904bacfe5940",
     "series.coefficient_three": "f9998e6ab5c7dc58fa18a4b431ad5cc1a728f320d95780690efba67ae2ad75ab",
     "series.coefficient_two": "05affdbf01b7b4e5e61411654e35101005256a6ab371de5b7db244581d2ba2e9",
@@ -172,5 +176,5 @@
     "subspaces.not_member": "9b576567517d3032038b6ed6a416f690145a62c9e5d7c1be8c45f4c9c6d97499"
   },
   "corrections": [],
-  "lean_categories": "efc02e86b09867161a47dc14557236813293ee39"
+  "lean_categories": "3a84ea38274c683f0c632ccd1c2f0617d5d45fec"
 }

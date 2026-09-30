@@ -54,7 +54,10 @@ Terms:
 * `d(p)`, `dx` (`d(x)` for a variable `x`), `d/dx`, `∫ ω`: the registered differential, derivative
   and primitives; juxtaposition `a b` is the product in a set both are in, else the registered
   action `•` (`(6x + 1) dx`);
-* `a = b` within a term: the registered equality predicate `X × X → Ω`; `a is b` is `a = b`;
+* `a = b` within a term: the registered equality predicate `X × X → Ω`;
+* `t in C/Y` for a registered category family `C/` or `C` over an object (`Algebras/ℂ`,
+  `Schemes/ℚ`): `t`, or its registered refinement, in that family at the object its set parameter
+  `Y` determines; `Spec A` is the registered `Spec N` at `A = N(…)`; `a is b` is `a = b`;
 * `R[x, y]`, `R[x_0, x_1, ..., x_9]`: `MvPoly(n, R)`, whose variables are its indexed generators;
   `X.m()` of an object `X` without such a method is its registered invariant `m : 1 → T`
   (`R.dimension()`);
@@ -176,6 +179,8 @@ syntax "..." : cas_var
 /-- `R[x, y]`, `R[x_0, x_1, ..., x_9]`: the polynomials over `R` in these variables, `MvPoly(n, R)`;
 `...` runs through the indices between its neighbours. -/
 syntax:max (name := casMvRing) cas_term:max noWs "[" ident "," sepBy1(cas_var, ",") "]" : cas_term
+/-- `Spec A`: the registered object `Spec N` of the algebra `A = N(…)`. -/
+syntax:max (name := casSpec) "Spec " cas_term:max : cas_term
 /-- `a is b`: `a = b`. -/
 syntax:45 (name := casIs) cas_term:46 " is " cas_term:46 : cas_term
 /-- `√x`: `sqrt(x)`. -/
@@ -390,6 +395,16 @@ def homEnds? (type : Expr) : Option (Expr × Expr) :=
   match type.getAppFn.constName?, type.getAppArgs with
   | some ``Quiver.Hom, #[_, _, x, y] => some (x, y)
   | _, _ => none
+
+/-- `C/Y` for a registered category family `C` over an object `Y` (`Algebras/ℂ`). -/
+def categoryOver? (state : RegistryState) (stx : Syntax) : Option (NamedCategoryEntry × Syntax) :=
+  match stx with
+  | `(cas_term| $C:ident / $Y) =>
+      -- The family named `C/` (`Schemes/`, beside the category `Schemes`), else `C`.
+      let name := C.getId.toString
+      (state.categories.find? (·.name == name ++ "/") <|>
+        state.categories.find? (·.name == name)).map (·, Y.raw)
+  | _ => none
 
 /-- `x_7` as `x_` and `7`. -/
 def indexed? (n : Name) : Option (String × Nat) :=
@@ -705,6 +720,10 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
       | .ok names => pure names
       | .error message => throwStratum .invalid m!"{message}"
     return ← object state "MvPoly" #[.nat names.size, ← asObject (← eval scope stx[0])] none
+  if stx.getKind == ``casSpec then
+    let .object _ _ (some (entry, params)) ← eval scope stx[1]
+      | throwStratum .invalid m!"`Spec` is of a named ring"
+    return ← object state s!"Spec {entry.name}" params none
   if stx.getKind == ``casIs then
     let (elements, _) ← operands scope #[stx[0], stx[2]] ambient?
     return ← applyNamed state "=" elements
@@ -751,6 +770,7 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
   if let `(cas_term| $name:ident) := c then
     if state.categories.any (·.name == name.getId.toString) then
       return ← eval scope t (some (← categoryNamed state name.getId.toString)) ambient?
+  if let some (C, Y) := categoryOver? state c then return ← inCategoryOver scope t C Y
   -- `t in X` for a set `X`: `t` with its numerals in `X`.
   let X ← eval scope c
   match X with
@@ -1252,6 +1272,36 @@ partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Opt
     tuple scope row rowAmbient
   let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
   applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
+
+/-- `t in C/Y`: the named object `t` as its registered refinement into the category family `C`,
+at the object of `C`'s base whose underlying set is `Y` (`ℂ[x] in Algebras/ℂ`: `ℂ[x]` under `ℂ`).
+The judgement is the catalogue's: realizations are not consulted. -/
+partial def inCategoryOver (scope : Scope) (t : Syntax) (C : NamedCategoryEntry) (Y : Syntax) :
+    M Value := do
+  let state ← registryState
+  let .object _ _ (some (base, params)) ← eval scope t
+    | throwStratum .invalid m!"`{shown t}` is not a named object"
+  -- An object of `C` already (`Spec ℚ[x]`), or its refinement there (`ℚ[x]` as an algebra).
+  let some refined := if base.category == C.id then some base else state.objects.find? fun o =>
+      o.category == C.id && (o.refines.map (·.base == base.id)).getD false
+    | throwStratum .invalid m!"{base.name} has no registered refinement in {C.name}"
+  if (← read).mode == .realized then return .object (mkConst ``Unit) C (some (refined, params))
+  let object ← Semantic.object refined (← paramTerms params)
+  -- The object of the base over which it lies: the family's parameter, read off its type.
+  let family ← mkConstWithFreshMVarLevels C.declaration
+  let (args, _, _) ← forallMetaTelescopeReducing (← inferType family)
+  let some _ := args[0]?
+    | throwStratum .invalid m!"{C.name} is not a category family over an object"
+  let carrierType ← mkAppM ``CategoryTheory.Bundled.α #[mkAppN family args]
+  unless ← withTransparency .all <| isDefEq (← inferType object) carrierType do
+    throwStratum .invalid m!"{refined.name} is not an object of {C.name}"
+  -- Over `Y`: the family's parameter is determined by the object's set parameter, which is `Y`.
+  let .object y .. ← eval scope Y | throwStratum .invalid m!"`{shown Y}` is not a named set"
+  let some (.object k ..) := params.find? (· matches .object ..)
+    | throwStratum .invalid m!"{refined.name} has no set it is over"
+  unless ← withTransparency .all <| isDefEq k y do
+    throwStratum .invalid m!"{refined.name} is not over {shown Y} in {C.name}"
+  return .object object C (some (refined, params))
 
 /-- The invariant `entry : ∀ A, 1 ⟶ T` of the object `A` (its handle): an element of `T`. -/
 partial def invariantOf (entry : MorphismEntry) (A : Expr) : M Value := do
@@ -2095,6 +2145,11 @@ def statement (scope : Scope) (stx : Syntax) : M Outcome := do
   match stx with
   | `(cas_stmt| assert implemented $t:cas_term) => discard <| eval scope t; return .holds
   | `(cas_stmt| assert $t in $X) =>
+      -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
+      -- It is the catalogue's judgement: read semantically, and not realized.
+      if let some (C, Y) := categoryOver? (← registryState) X then
+        if semantic then discard <| inCategoryOver scope t C Y
+        return .holds
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
       | .object x .. =>

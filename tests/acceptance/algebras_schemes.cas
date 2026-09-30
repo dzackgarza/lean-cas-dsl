@@ -1,0 +1,17 @@
+-- Algebras and schemes over a ring (SPEC.md, "Ellipses": `R in Algebras/ℂ`; "Differentials":
+-- `Spec ℚ[x] in Schemes/ℚ`): objects of the coslice K ↓ CommRing and of the slice Sch/Spec K.
+-- These are the catalogue's judgements. Each test is admitted once and never changed.
+
+let R := ℂ[x_0, x_1, ..., x_9]
+
+test algebras.polynomials_several "SPEC.md: ℂ[x₀, …, x₉] is a ℂ-algebra, by its constants ℂ → ℂ[x₀, …, x₉]":
+  assert R in Algebras/ℂ
+
+test algebras.polynomials "ℚ[x] is a ℚ-algebra, by its constants ℚ → ℚ[x]":
+  assert ℚ[x] in Algebras/ℚ
+
+test schemes.affine_line "SPEC.md: Spec ℚ[x] (the affine line) is a scheme over Spec ℚ, by Spec of ℚ → ℚ[x]":
+  assert Spec ℚ[x] in Schemes/ℚ
+
+test schemes.affine_space "Spec ℂ[x₀, …, x₉] is a scheme over Spec ℂ":
+  assert Spec R in Schemes/ℂ
