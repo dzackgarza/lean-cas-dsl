@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end test of the review loop, with the model call replaced by a stub.
 
-    test_review.py <scratch dir> <lean-cas-dsl checkout> <leaves clone at the pin>
-                   <review SSH private key> <escalation SSH private key> <root fingerprint>
+    test_review.py <scratch dir> <lean-cas-dsl checkout> <review SSH private key>
+                   <escalation SSH private key> <root fingerprint>
+
+The checkout carries its dependency chain in `.lake/packages` at the manifest revisions
+(`scripts/ci_chain.py`).
 
 Each case builds a base (main) and a head (a pull request), runs review.py as the workflow does,
 and checks the outcome. Any three SSH keys work: a scratch root seal that names the review and
@@ -16,7 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-scratch, src, leaves, review_key, esc_key, fpr = map(str, sys.argv[1:7])
+scratch, src, review_key, esc_key, fpr = map(str, sys.argv[1:6])
 S, SRC = Path(scratch), Path(src)
 spec = importlib.util.spec_from_file_location("review", SRC / "custodian/review/review.py")
 R = importlib.util.module_from_spec(spec)
@@ -41,6 +44,20 @@ def commit(d):
     git(d, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x", "--allow-empty")
 
 
+def move_upstream(package, path, line):
+    """Commit `line` appended to `path` in the head's checkout of `package`, and record the new
+    revision in the head's manifest, as an upstream commit on main and `lake update` do."""
+    pkg = S / "head" / ".lake" / "packages" / package
+    (pkg / path).parent.mkdir(parents=True, exist_ok=True)
+    with open(pkg / path, "a") as f:
+        f.write(line)
+    commit(pkg)
+    manifest = json.loads((S / "head" / "lake-manifest.json").read_text())
+    next(p for p in manifest["packages"] if p["name"] == package)["rev"] = git(pkg, "rev-parse", "HEAD").strip()
+    (S / "head" / "lake-manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    commit(S / "head")
+
+
 def fresh():
     for n in ("base", "head", "out", "rej"):
         shutil.rmtree(S / n, ignore_errors=True)
@@ -56,7 +73,7 @@ class A:
 
 def run(reviewer=None, key=review_key):
     a = A()
-    a.base, a.head, a.leaves, a.out, a.rejections = S / "base", S / "head", Path(leaves), S / "out", S / "rej"
+    a.base, a.head, a.out, a.rejections = S / "base", S / "head", S / "out", S / "rej"
     a.trusted_fpr, a.pr, a.head_sha, a.signing_key = fpr, "1", "0" * 40, Path(key)
     if reviewer:
         R.call_reviewer = reviewer
@@ -95,8 +112,8 @@ adopt_verdict()
 calls.clear()
 expect("head carrying the verdict passes", run(stub("approve")), "PASS")
 results.append(not calls)
-v = subprocess.run([sys.executable, str(S / "head/custodian/verify.py"), "--trusted-fpr", fpr,
-                    "--leaves", leaves], cwd=S / "head", capture_output=True, text=True)
+v = subprocess.run([sys.executable, str(S / "head/custodian/verify.py"), "--trusted-fpr", fpr],
+                   cwd=S / "head", capture_output=True, text=True)
 results.append(v.returncode == 0 and "1 verdicts" in v.stdout)
 print("OK  " if results[-1] else "FAIL", "offline verifier accepts the extended chain ::", v.stdout.strip())
 
@@ -131,7 +148,7 @@ calls.clear()
 expect("gate change escalates, never reviewed", run(stub("approve")), "ESCALATE")
 results.append(not calls)
 e = subprocess.run([sys.executable, str(S / "head/custodian/review/review.py"), "--escalate", "--head",
-                    str(S / "head"), "--leaves", leaves, "--trusted-fpr", fpr, "--signing-key", esc_key,
+                    str(S / "head"), "--trusted-fpr", fpr, "--signing-key", esc_key,
                     "--note", "test"], capture_output=True, text=True)
 commit(S / "head")
 expect("escalation verdict then passes", run(), "PASS")
@@ -161,6 +178,20 @@ commit(S / "base")
 shutil.rmtree(S / "head" / "custodian" / "verdicts", ignore_errors=True)
 commit(S / "head")
 expect("a head that truncates main's chain", run(), "FAIL (hard)")
+
+fresh()
+move_upstream("lean_categories", "README.md", "\nupstream moves on\n")
+calls.clear()
+expect("an upstream commit outside the rule files passes", run(stub("reject")), "PASS")
+results.append(not calls)
+
+fresh()
+move_upstream("lean_categories", "LeanCategories/Catalogue.lean", "\n-- a catalogue change\n")
+expect("an upstream rule change, reviewer rejects", run(stub("reject")), "REJECTED")
+
+fresh()
+move_upstream("cas_leaf_contracts", "CasContract.lean", "\n-- a contract change\n")
+expect("a leaf-contract change, reviewer approves", run(stub("approve")), "APPROVED")
 
 fresh()
 (S / "head" / "custodian" / "seal.json").write_text("{}")

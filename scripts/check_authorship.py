@@ -12,8 +12,7 @@ packages `lean_categories`, `cas_leaf_contracts`, `cas_leaves` it links), must:
 
 A commit with neither trailer is a person's and is not checked. The owner's commits are theirs to
 make. Admitting or correcting acceptance assertions (`CasAcceptance/Permanent/admitted.json`'s
-`assertions` and `corrections`) is the acceptance role's. Recording the `lean_categories` pin there
-is anyone's.
+`assertions` and `corrections`) is the acceptance role's.
 
     check_authorship.py            check the chain; exit 1 with every violation
     check_authorship.py --self-test
@@ -32,9 +31,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Commits from here on are checked: after the owner's correction of 2026-09-30 separating authors
-# and the documents recording it.
-CUTOFF = "2026-09-30T09:55:00+00:00"
+# Commits from here on are checked. The baseline is the owner's escalation that moved the chain to
+# main (PR #43); the history before it is the baseline, not judged.
+CUTOFF = "2026-09-30T18:20:40+00:00"
 # `custodian`: only paths inside the custodian seal (custodian/CONTAINMENT.md), so declaring the role
 # grants no write the seal does not refuse.
 ROLES = ("orchestrator", "formalization", "acceptance", "leaf", "custodian")

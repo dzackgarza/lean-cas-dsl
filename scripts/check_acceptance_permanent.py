@@ -9,18 +9,16 @@ with whitespace collapsed. Its hash is recorded in `CasAcceptance/Permanent/admi
 
     check_acceptance_permanent.py           fail if an admitted assertion changed or disappeared,
                                             or an assertion is not admitted
-    check_acceptance_permanent.py --admit   admit new assertions and record the current pin;
-                                            never changes an admitted one
+    check_acceptance_permanent.py --admit   admit new assertions; never changes an admitted one
     check_acceptance_permanent.py --correct "reason"
                                             re-admit changed assertions after an upstream
-                                            correction to the mathematics: only when the pinned
-                                            lean-categories revision differs from the one the
-                                            manifest records, and recorded with the reason
+                                            correction to the mathematics, recorded with the
+                                            reason, which names the upstream commit
 
 Admitting or correcting an assertion is the acceptance author's alone (specs/architecture.md,
-"Authors: one role per agent"): `--correct`, and `--admit` when it admits a new assertion, run
-only with `AGENT_ROLE=acceptance`. Recording a re-pin with `--admit` is anyone's. The commit that
-carries the manifest change is checked by `scripts/check_authorship.py`.
+"Authors: one role per agent"): `--correct` and `--admit` run only with `AGENT_ROLE=acceptance`.
+A change to an admitted assertion or to the corrections also changes the sealed ledger, which only
+an escalation accepts (custodian/CONTAINMENT.md).
 """
 
 import hashlib
@@ -36,14 +34,6 @@ MANIFEST = DIR / "admitted.json"
 START = re.compile(r'^#accept(_backend)? "([^"]+)"')
 SUITE = ROOT / "tests" / "acceptance"
 TEST = re.compile(r'^test (\S+) "')
-
-
-def pin() -> str:
-    manifest = json.loads((ROOT / "lake-manifest.json").read_text())
-    for package in manifest["packages"]:
-        if package["name"] == "lean_categories":
-            return package["rev"]
-    raise SystemExit("lake-manifest.json pins no lean_categories")
 
 
 def assertions() -> dict[str, str]:
@@ -94,7 +84,7 @@ def main() -> int:
     args = sys.argv[1:]
     current = assertions()
     manifest = (json.loads(MANIFEST.read_text()) if MANIFEST.exists()
-                else {"lean_categories": pin(), "assertions": {}, "corrections": []})
+                else {"assertions": {}, "corrections": []})
     admitted: dict[str, str] = manifest["assertions"]
     missing = sorted(set(admitted) - set(current))
     changed = sorted(i for i in admitted if i in current and current[i] != admitted[i])
@@ -111,16 +101,11 @@ def main() -> int:
         acceptance_author("--correct")
         if len(args) != 2 or not args[1].strip():
             raise SystemExit("--correct needs the upstream correction it records")
-        if pin() == manifest["lean_categories"]:
-            raise SystemExit("an admitted assertion changes only with an upstream correction: "
-                             "lean-categories is still pinned at the admitted revision")
         for i in changed:
             admitted[i] = current[i]
-        manifest["corrections"].append({"lean_categories": pin(), "reason": args[1],
-                                        "changed": changed, "removed": missing})
+        manifest["corrections"].append({"reason": args[1], "changed": changed, "removed": missing})
         for i in missing:
             del admitted[i]
-        manifest["lean_categories"] = pin()
         MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         return 0
 
@@ -134,15 +119,11 @@ def main() -> int:
             return 1
         for i in new:
             admitted[i] = current[i]
-        manifest["lean_categories"] = pin()
         MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         return 0
     if args:
         raise SystemExit(__doc__)
     problems += [f"assertion {i} is not admitted (run with --admit)" for i in new]
-    if pin() != manifest["lean_categories"] and not changed and not missing:
-        problems.append("lean-categories was re-pinned: record the pin with --admit, in the "
-                        "re-pinning commit")
     if problems:
         print("permanent acceptance assertions are append-only:", file=sys.stderr)
         print("\n".join("  " + p for p in problems), file=sys.stderr)

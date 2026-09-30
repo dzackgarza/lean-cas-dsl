@@ -33,7 +33,7 @@ open LeanCategories CasCatalogue
 open Tools
 
 /-- Reload the compiled registry extension; this is the exporter data source. -/
-def loadRegisteredManifestData : IO CasCatalogue.RegistryManifest := do
+def readRegistryManifest : IO CasCatalogue.RegistryManifest := do
   let appDir ← IO.appDir
   let buildOleanRoot := appDir.parent.get! / "lib" / "lean"
   let workspaceRoot := appDir.parent.get!.parent.get!.parent.get!
@@ -50,7 +50,7 @@ def loadRegisteredManifestData : IO CasCatalogue.RegistryManifest := do
   pure result.1
 
 def loadRegisteredManifest : IO Json := do
-  return toJson (← loadRegisteredManifestData)
+  return toJson (← readRegistryManifest)
 
 /-- Validate Lean-authored registry JSON. -/
 def validate (expected : CasCatalogue.RegistryManifest) (j : Json) : Except String Unit := do
@@ -63,7 +63,7 @@ def validate (expected : CasCatalogue.RegistryManifest) (j : Json) : Except Stri
   pure ()
 
 def run : IO UInt32 := do
-  let expected ← loadRegisteredManifestData
+  let expected ← readRegistryManifest
   let manifest := toJson expected
   match Json.parse manifest.compress with
   | .error e =>

@@ -455,7 +455,7 @@ where
 
 /-- The handle a method's functor receives: the image itself, or, for an iso-invariant method (a
 functor on the core), the same object as an object of the core of its realization. -/
-def methodInput (method : MethodEntry) (image : Expr) : MetaM Expr :=
+def methodArgument (method : MethodEntry) (image : Expr) : MetaM Expr :=
   match method.shape with
   | .isoInvariant => mkAppM ``CategoryTheory.Core.mk #[image]
   | _ => pure image
@@ -564,7 +564,7 @@ def realizedMethodCall (state : RegistryState) (resolution : Resolution) (denota
     | some routeAction => targetDenotation routeAction
     | none => pure denotation
   let methodAction ← methodActionFor state resolution.method imageDenotation
-  let value ← mkAppM ``RealizedAction.obj #[methodAction, ← methodInput resolution.method image]
+  let value ← mkAppM ``RealizedAction.obj #[methodAction, ← methodArgument resolution.method image]
   return (routeAction?, image, value)
 
 /-- The executable image `U(x)` of a handle `x` of the realizer `denotation` along a resolved
@@ -576,7 +576,7 @@ def realizedCall (state : RegistryState) (resolution : Resolution) (denotation h
   let image ← realizedObj routeAction handle
   let value? ← try
       let action ← methodActionFor state resolution.method (← targetDenotation routeAction)
-      some <$> realizedObj action (← methodInput resolution.method
+      some <$> realizedObj action (← methodArgument resolution.method
         (← mkAppM ``RealizedAction.obj #[routeAction, handle]))
     -- not a reading fallback: whether a registered action realizes the method; its absence is a realization gap, not a reading
     catch _ => pure none

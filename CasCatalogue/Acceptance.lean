@@ -65,7 +65,7 @@ private initialize acceptanceExt : SimplePersistentEnvExtension Record (Array Re
 /-- The assertions admitted in the imported modules and this one. -/
 def records (env : Environment) : Array Record := acceptanceExt.getState env
 
-def addRecord (record : Record) : CommandElabM Unit := do
+def recordAdmission (record : Record) : CommandElabM Unit := do
   if (records (← getEnv)).any (·.id == record.id) then
     throwError "the acceptance assertion {record.id} is already admitted"
   modifyEnv (acceptanceExt.addEntry · record)
@@ -74,7 +74,7 @@ def addRecord (record : Record) : CommandElabM Unit := do
 inductive BackendOutcome
   | agrees
   | disagrees (got expected : String)
-  | failed (error : Backend.PortError)
+  | portError (error : Backend.PortError)
   deriving Inhabited
 
 def backendOutcome {τ : Type} [BEq τ] [Repr τ]
@@ -82,7 +82,7 @@ def backendOutcome {τ : Type} [BEq τ] [Repr τ]
     IO BackendOutcome := do
   match ← call state with
   | .ok got => return if got == value then .agrees else .disagrees (reprStr got) (reprStr value)
-  | .error e => return .failed e
+  | .error e => return .portError e
 
 unsafe def evalBackendOutcomeUnsafe (e : Expr) : TermElabM (RegistryState → IO BackendOutcome) := do
   evalExpr (RegistryState → IO BackendOutcome)

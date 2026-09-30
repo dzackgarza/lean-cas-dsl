@@ -11,8 +11,6 @@
   "CasDsl/*",
   "scripts/check_*.py",
   "scripts/ci_chain.py",
-  "scripts/repin.sh",
-  "scripts/pin_dev.py",
   ".github/*",
   "justfile",
   "lakefile.lean",
@@ -27,7 +25,11 @@
   "custodian/owner-intent.md",
   "custodian/review/*",
   "custodian/justfile",
-  "custodian/SETUP.md"
+  "custodian/SETUP.md",
+  ".lake/packages/lean_categories/LeanCategories/Catalogue.lean",
+  ".lake/packages/lean_categories/LeanCategories/Catalogue/*",
+  ".lake/packages/cas_leaf_contracts/CasContract.lean",
+  ".lake/packages/cas_leaf_contracts/CasContract/*"
  ],
  "append_only": [
   "tests/acceptance/*.cas",

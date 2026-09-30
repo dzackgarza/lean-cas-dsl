@@ -78,12 +78,9 @@ sync-kernel:
     @cp .lake/packages/nbdsl-worker/jupyterlab_nbdsl/install.json \
         ~/.local/share/jupyter/labextensions/jupyterlab_nbdsl/install.json
 
-# The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
-# commit gate and must stay fast.
-# The worker's oleans are toolchain-bound, so this repo and the kernel repo
-# must pin the same Lean (release.toml there is the source of truth). The
-# diff below fails the gate loudly on drift, naming both pins.
-# Run the QC preflight: compile Lean and the Python adapter, then the Lean laws.
+# Lean compilation runs in CI only (.github/workflows/gates.yml): the commit
+# and push tiers are static scans.
+# Build everything, then run the audits and the Lean laws.
 test: build
     @lake exe cas-axiom-audit
     @lake exe cas-registry-export > /dev/null
@@ -99,8 +96,11 @@ _test-full:
 # Run the full QC gate: the preflight, then the demo notebook through the live kernel.
 test-ci: test _test-full
 
+# Scan staged Lean source; the permanent assertions stay append-only.
 [private]
-test-commit: test
+test-commit:
+    @just -f ~/ai-review-ci/justfiles/lean.just -d . test-commit
+    @python3 scripts/check_acceptance_permanent.py
 
 # Re-execute the committed notebook against the live casdsl kernel:
 # outputs stay genuine kernel output (a23ee30 standard). The demo is a
@@ -119,5 +119,9 @@ _notebook-reexec:
         git commit -m "chore: notebook session metadata"
     fi
 
+# Static Lean scans before push; no compilation.
 [private]
-test-push: test
+test-push:
+    @just -f ~/ai-review-ci/justfiles/lean.just -d . test-push
+    @python3 scripts/check_acceptance_permanent.py
+    @python3 -m py_compile CasAcceptance/Strata/hostile_cardinality.py

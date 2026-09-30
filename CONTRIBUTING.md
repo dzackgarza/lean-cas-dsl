@@ -7,7 +7,7 @@ This file says where each kind of contribution goes.
 
 | You need | It goes to |
 | --- | --- |
-| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`: formalize it there (or open the request), release, and re-pin here. Never coin it here, in a leaf, or in `research`. |
+| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`: formalize it there (or open the request), merge it to `main`, and `lake update` here. Never coin it here, in a leaf, or in `research`. |
 | Something that computes a registered operation on some presentation | A leaf, in `lean-cas-dsl-leaves` (`CasLeaves/`) or another package written against the leaf contract |
 | A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
 | Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
@@ -15,7 +15,7 @@ This file says where each kind of contribution goes.
 
 The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
 `LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
-`lean-categories`; this repository reads the registry at the pinned revision.
+`lean-categories`; this repository reads the registry at `main`.
 
 ## Mathematics is never inverted into implementation
 
@@ -137,8 +137,8 @@ computes yet is recorded as a gap (`#acceptance_gaps`), not a failure.
   anything, and record that provenance.
 - Never read a leaf, a handle's internals or a backend to decide what to assert.
 - An admitted assertion is permanent. If an implementation disagrees, the implementation is wrong.
-  Only an upstream correction to the mathematics changes an assertion, in the commit that re-pins
-  it.
+  Only an upstream correction to the mathematics changes an assertion, in the commit that updates
+  to it.
 
 ## Gate
 

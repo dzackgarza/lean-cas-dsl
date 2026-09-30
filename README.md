@@ -34,7 +34,7 @@ In short:
 | --- | --- |
 | `lean-categories` | All mathematics: categories, functors, classifiers, operations, coherences |
 | catalogue (`LeanCategories.Catalogue`, in `lean-categories`) | The semantic registry: the symbolic calculus, the registered categories, functors, classifiers, methods, cells, limits and adjunctions, each checked against its mathematics |
-| kernel (`CasCatalogue`) | Deterministic interpretation of the pinned mathematics: denotation, availability, propagation, resolution, ambiguity, refinement, the language, the harness. |
+| kernel (`CasCatalogue`) | Deterministic interpretation of the upstream mathematics: denotation, availability, propagation, resolution, ambiguity, refinement, the language, the harness. |
 | leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`) | Kernel-owned, published separately: the realization registry and its validation, realized actions, decisions and limits, the leaf API and the port protocol. Depends on `lean-categories` only. |
 | leaves (`CasLeaves`, repository `lean-cas-dsl-leaves`) | Realizations of registered operations on presentations, and the backend programs behind them. They contribute zero mathematics, and depend on the contract and `lean-categories` only, never on this repository or its tests. |
 | acceptance (`CasAcceptance`) | Black-box assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
@@ -44,7 +44,7 @@ Semantic availability and computability are separate. An operation that applies 
 realization is a `NoImplementation` gap, and never a missing method. The requirements are in
 [`specs/computational-core.md`](specs/computational-core.md), and the execution order is in
 [`specs/computational-core-plan.md`](specs/computational-core-plan.md). The semantic registry
-is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at the pin and writes
+is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at `main` and writes
 no semantic row.
 
 ## Layout

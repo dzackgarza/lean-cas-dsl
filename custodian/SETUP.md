@@ -48,10 +48,11 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN --env custodian-review --repo dzackgarza/l
 sign the seal with the owner's key, and commit both files:
 
 ```
-python3 custodian/verify.py --make-seal --leaves <leaves checkout at the pin> \
+python3 scripts/ci_chain.py
+python3 custodian/verify.py --make-seal \
     --reviewer-key "$SCRATCH/review_key.pub" --escalation-key custodian/root.pub --note "<note>"
 ssh-keygen -Y sign -f ~/.ssh/id_ed25519 -n lean-cas-custodian custodian/seal.json
-just -f custodian/justfile verify <leaves checkout at the pin>
+just -f custodian/justfile verify
 ```
 
 ## 4. Rulesets

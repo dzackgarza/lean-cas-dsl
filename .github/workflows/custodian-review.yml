@@ -8,8 +8,8 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
 permissions:
-  contents: write        # the rejection log branch only
-  pull-requests: write   # the verdict comment
+  contents: write # the rejection log branch only
+  pull-requests: write # the verdict comment
 concurrency:
   group: custodian-review-${{ github.event.pull_request.number }}
   cancel-in-progress: false
@@ -20,36 +20,33 @@ jobs:
     environment: custodian-review
     steps:
       - name: Check out main (the trusted code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
           path: base
           persist-credentials: false
       - name: Check out the pull request's head (data only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           path: head
           persist-credentials: false
-      - name: Check out the leaves at the head's pin, and the rejection log
+      - name: Check out each side's chain at its manifest revisions, and the rejection log
         run: |
-          rev=$(python3 -c "import json;print([p['rev'] for p in json.load(open('head/lake-manifest.json'))['packages'] if p['name']=='cas_leaves'][0])")
-          git clone --quiet https://github.com/dzackgarza/lean-cas-dsl-leaves leaves
-          git -C leaves checkout --quiet "$rev"
+          python3 base/scripts/ci_chain.py base
+          python3 base/scripts/ci_chain.py head
           if git clone --quiet --branch custodian/rejections \
               "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" rejections; then :
           else
             git init --quiet rejections && git -C rejections checkout --quiet --orphan custodian/rejections
             git -C rejections remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
           fi
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
       - name: Install Claude Code (the reviewer)
-        run: |
-          curl -fsSL https://claude.ai/install.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: bun add --global @anthropic-ai/claude-code@2.1.285
       - name: Review
         id: review
         env:
@@ -59,7 +56,7 @@ jobs:
           key="$RUNNER_TEMP/review_key"
           install -m 600 /dev/null "$key"
           printf '%s\n' "$CUSTODIAN_REVIEW_KEY" > "$key"
-          python3 base/custodian/review/review.py --base base --head head --leaves leaves \
+          python3 base/custodian/review/review.py --base base --head head \
             --trusted-fpr "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI" --signing-key "$key" \
             --out out --rejections rejections \
             --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }}
@@ -75,14 +72,14 @@ jobs:
           fi
       - name: Upload the verdict
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: custodian-verdict
           path: out/verdicts
           if-no-files-found: ignore
       - name: Post the outcome
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const fs = require('fs');

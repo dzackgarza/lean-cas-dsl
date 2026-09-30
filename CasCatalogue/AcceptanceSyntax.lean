@@ -70,7 +70,7 @@ meta def checkAcceptBackend (stx : Syntax) : CommandElabM Status := do
     | .disagrees got expected =>
         throwError "wrong answer to acceptance {id}: the realization answered {got}, the \
           assertion is {expected} ({source})"
-    | .failed e =>
+    | .portError e =>
         match e.stratum with
         | .unavailable => pure (.unavailable e.render)
         | s => throwStratum s m!"acceptance {id}: {e.render}"
@@ -86,7 +86,7 @@ meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
   let status ← checkAccept stx (admit := true)
   let record ← recordOf stx status
   let id := record.id
-  addRecord record
+  recordAdmission record
   match status with
   | .holds => pure ()
   | .gap reason => logInfo m!"acceptance gap {id}: {reason}"
@@ -95,7 +95,7 @@ meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
 @[command_elab acceptBackendCommand] meta def elabAcceptBackend : CommandElab := fun stx => do
   let status ← checkAcceptBackend stx
   let record ← recordOf stx status
-  addRecord record
+  recordAdmission record
   if let .unavailable reason := status then
     logInfo m!"acceptance {record.id} not exercised: {reason}"
 
