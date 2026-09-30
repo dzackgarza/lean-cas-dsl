@@ -78,24 +78,71 @@ def RegistryState.operation? (state : RegistryState) (id : String) : Option Oper
   (state.operations.find? (·.id.raw == id) |>.map .operation) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map .morphism)
 
-/-- Whether `operation` applies to the values of `form`. -/
-def RegistryState.accepts (state : RegistryState) (operation : Operation) (form : Form) : Bool :=
+/-- The named object the catalogue sends `entry` to along the structural route `route`, with the
+route left to walk (CC-TRANSPORT): while `entry` refines a base along a route that begins the
+remaining route (`ObjectRefinement`: `route.obj (entry params) ≅ base params`), it is that base at
+the same parameters, that far along. An object no refinement row sends further stays where it is,
+with the rest of the route. Only the catalogue's rows move an object; nothing else does. -/
+def RegistryState.transport (state : RegistryState) (entry : ObjectEntry)
+    (route : Array EdgeRef) : ObjectEntry × Array EdgeRef :=
+  -- A chain of refinements visits each object at most once: the objects bound its length.
+  go entry route (state.objects.size + 1)
+where
+  go (entry : ObjectEntry) (route : Array EdgeRef) : Nat → ObjectEntry × Array EdgeRef
+    | 0 => (entry, route)
+    | fuel + 1 =>
+      match entry.refines with
+      | some refinement =>
+          if !refinement.route.isEmpty &&
+              route.extract 0 refinement.route.size == refinement.route then
+            match state.objects.find? (·.id == refinement.base) with
+            | some base => go base (route.extract refinement.route.size route.size) fuel
+            | none => (entry, route)
+          else (entry, route)
+      | none => (entry, route)
+
+/-- Why `operation` does not apply to the values of `form`, or `none` when it does. A method or a
+property applies to a form when the form's category resolves it by a structural route, and the
+catalogue does not send the form elsewhere along that route: an object refining another one
+along the route is computed as that one (`transport`), so a registration on it would never be
+selected, and is not admitted. -/
+def RegistryState.rejects (state : RegistryState) (operation : Operation) (form : Form) :
+    Option String :=
+  let movedAlong (route : Array EdgeRef) : Option String :=
+    match form with
+    | .object entry =>
+        let (target, _) := state.transport entry route
+        if target.id == entry.id then none
+        else some s!"the catalogue computes {operation.id} of {entry.id.raw} on {target.id.raw}, \
+          along its refinement; register it on {target.id.raw}"
+    | _ => none
+  let notResolved := some s!"{operation.id} does not apply to the values of {form.id}"
   match operation with
   | .method entry =>
       match state.categories.find? (·.id == form.category) with
       | some category =>
-          (state.resolveMethod category.expression entry.name #[]).toOption.any
-            (·.method.id == entry.id)
-      | none => false
+          match state.resolveMethod category.expression entry.name #[] with
+          | .ok resolution =>
+              if resolution.method.id == entry.id then movedAlong resolution.route.refs
+              else notResolved
+          | .error _ => notResolved
+      | none => notResolved
   | .property entry =>
       match state.categories.find? (·.id == form.category) with
       | some category =>
-          (state.resolveProperty category.expression entry.name #[]).toOption.any
-            (·.property.id == entry.id)
-      | none => false
-  | .limit entry => entry.category == form.category
-  | .operation entry => entry.category == form.category
-  | .morphism entry => entry.category == form.category
+          match state.resolveProperty category.expression entry.name #[] with
+          | .ok resolution =>
+              if resolution.property.id == entry.id then movedAlong resolution.route.refs
+              else notResolved
+          | .error _ => notResolved
+      | none => notResolved
+  | .limit entry => if entry.category == form.category then none else notResolved
+  | .operation entry => if entry.category == form.category then none else notResolved
+  | .morphism entry => if entry.category == form.category then none else notResolved
+
+/-- Whether `operation` applies to the values of `form`. -/
+def RegistryState.accepts (state : RegistryState) (operation : Operation) (form : Form) : Bool :=
+  (state.rejects operation form).isNone
 
 /-- An admitted registration, with the rows it resolved to. -/
 structure Admitted where
@@ -119,9 +166,8 @@ def RegistryState.admit (state : RegistryState) (manifest : Manifest) : Admissio
         operation"
     | _, none => rejected := rejected.push s!"{describe}: {r.input} is not a registered form"
     | some operation, some form =>
-        if !state.accepts operation form then
-          rejected := rejected.push s!"{describe}: {r.operation} does not apply to the values \
-            of {r.input}"
+        if let some reason := state.rejects operation form then
+          rejected := rejected.push s!"{describe}: {reason}"
         else if !manifest.backends.any (·.name == r.backend) then
           rejected := rejected.push s!"{describe}: the backend {r.backend} is not declared in \
             the manifest"

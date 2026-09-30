@@ -84,19 +84,15 @@ def decideProp (p : Expr) : MetaM (Option Bool) := do
   if ← kernelDecides (mkNot p) then return some false
   return none
 
-/-- The values the realized reading passes to and from a port: a closed value of a registered
-literal form, or a registered named object at its parameters, each with its wire encoding. -/
-inductive Wire
-  | literal (form : LiteralEntry) (value : Expr) (json : Json)
-  | object (entry : ObjectEntry) (json : Json)
+/-- A value the realized reading passes to or from a port: a closed value of a registered form (a
+literal of a literal form, a registered named object at its parameters), as the term the semantic
+reading elaborated and as its wire encoding. -/
+structure Wire where
+  form : Form
+  value : Expr
+  json : Json
 
-def Wire.formId : Wire → String
-  | .literal form .. => form.id.raw
-  | .object entry _ => entry.id.raw
-
-def Wire.json : Wire → Json
-  | .literal _ _ json => json
-  | .object _ json => json
+def Wire.formId (w : Wire) : String := w.form.id
 
 /-- The admitted registrations of a run, their backend programs, and the live connections. -/
 structure Harness where
@@ -220,6 +216,28 @@ def resultForm (state : RegistryState) (category : CategoryId) (what : MessageDa
         literal form: nothing decodes it"
   return (form, ← mkConstWithFreshMVarLevels form.type)
 
+/-- The registered named object `entry` at the parameters `params` (closed terms), elaborated and
+recorded in `trace` as the semantic reading records one. -/
+def objectAt (trace : Trace) (entry : ObjectEntry) (params : Array Expr) : TermElabM Expr := do
+  Semantic.object entry (← params.mapM exprToSyntax) (some trace)
+
+/-- Send the value `w`, the receiver of an operation, along the structural route `route` the
+semantic reading resolved (CC-TRANSPORT): the value of `M(U(x))` is computed on `U(x)`, and
+`U(x)` is what the catalogue's rows say it is. A named object refining another along a route that
+begins `route` is that other object at the same parameters (`RegistryState.transport`); it is
+elaborated and recorded like any named object. A value no row sends further is sent as it is.
+Nothing but the catalogue's rows moves a value. -/
+def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermElabM Wire := do
+  let state ← registryState
+  let .object entry := w.form | return w
+  let (target, _) := state.transport entry route
+  if target.id == entry.id then return w
+  let some (.object _ params) ← (trace.node? w.value : IO _) | return w
+  let value ← objectAt trace target params
+  let args := (w.json.getObjVal? "args").toOption.getD (Json.arr #[])
+  return { form := .object target, value
+           json := Json.mkObj [("ctor", target.id.raw), ("args", args)] }
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
@@ -237,9 +255,11 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         match ← Codec.nat? p with
         | some n => pure (toJson n)
         | none => return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
-      return .object entry (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)])
-  | .method id _ receiver =>
+      return { form := .object entry, value := e
+               json := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)] }
+  | .method id route receiver =>
       let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
+      let input ← transport trace input route
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
         | throwStratum .invalid m!"{id.raw} has no registered functor"
@@ -247,7 +267,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | throwStratum .invalid m!"the result category of {id.raw} is not registered"
       let (form, type) ← resultForm state target.id m!"the result of {id.raw}"
       let (value, json) ← call h id.raw input type
-      return .literal form value json
+      return { form := .literal form, value, json }
   | .property id _ _ =>
       throwStratum .invalid m!"the decision {id.raw} is not a value"
   | .limit id _ =>
@@ -255,14 +275,16 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         realized reading sends no diagrams over the port"
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
-admitted registration of its property on the form of its receiver. -/
+admitted registration of its property on the form of its receiver, sent along the resolved
+route. -/
 def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
     TermElabM (Expr × Json) := do
   let p ← instantiateMVars p
-  let some (.property id _ receiver) ← (trace.node? p : IO _)
+  let some (.property id route receiver) ← (trace.node? p : IO _)
     | throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
         property of a value the realized reading evaluates"
   let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
+  let input ← transport trace input route
   call h id.raw input (mkApp (mkConst ``Option [0]) (mkConst ``Bool))
 
 /-- Whether two closed values of a type with decidable equality are equal: the kernel accepts
@@ -308,14 +330,15 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       else discard <| realize h trace "the value" value
       return .holds
   | .literal X _ form L _ left right =>
-      let .literal form' value json ← realize h trace left X
+      let w ← realize h trace left X
+      let .literal form' := w.form
         | throwStratum .noImplementation m!"{left} is not computed as a value of the literal \
             form {form.id.raw}"
       unless form'.id == form.id do
         throwStratum .invalid m!"{left} is computed in the form {form'.id.raw}, and compared in \
           {form.id.raw}"
-      return if ← evaluatedEq value L then .holds
-        else .wrong s!"{left} is not {right}: the registration answered {json.compress}"
+      return if ← evaluatedEq w.value L then .holds
+        else .wrong s!"{left} is not {right}: the registration answered {w.json.compress}"
   | .homs _ _ category _ left right =>
       throwStratum .noImplementation m!"{left} = {right} is not decided by Lean, and the \
         morphisms of {category.name} have no registered literal form to compute in"

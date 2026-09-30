@@ -20,7 +20,7 @@ def finite(m):
 
 def correct(value):
     ctor, args = value["ctor"], value["args"]
-    if ctor in ("obj.sets.fin", "obj.finite_sets.fin"):
+    if ctor == "obj.sets.fin":
         return finite(args[0])
     if ctor == "obj.sets.integers_mod_power":
         n, k = int(args[0]), int(args[1])

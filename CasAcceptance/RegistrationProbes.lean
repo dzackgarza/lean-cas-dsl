@@ -25,10 +25,14 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   by Lean and invalid. What Lean does not decide and no registration computes is a gap:
   cardinalities.
 * **A registration computes, through the port.** Registrations of `meth.cardinality` on the
-  forms `obj.sets.fin`, `obj.finite_sets.fin` and `obj.sets.integers_mod_power` make
-  `|Fin(3)| = 3`, `|Fin(3) in FiniteSets| = 3`, `|(ℤ/4)^3| = 64` and `|(ℤ/0)^2| = ℵ₀`
-  hold. A field a registration does not have is ignored. An object with no registration (`ℤ`)
-  stays a gap.
+  forms `obj.sets.fin` and `obj.sets.integers_mod_power` make `|Fin(3)| = 3`, `|(ℤ/4)^3| = 64`
+  and `|(ℤ/0)^2| = ℵ₀` hold. A field a registration does not have is ignored. An object with no
+  registration (`ℤ`) stays a gap.
+* **The kernel walks the catalogue's route (CC-TRANSPORT).** `|Fin(3) in FiniteSets| = 3` holds
+  through the registration on `obj.sets.fin` alone: the catalogue's refinement row sends
+  `Fin(3)` in `FiniteSets` along the forgetful functor to `Fin(3)` in `Sets`, where the
+  cardinality is computed. A registration on `obj.finite_sets.fin` itself is not admitted: it
+  could never be selected.
 * **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
   constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
   unchanged.
@@ -91,11 +95,14 @@ run_cmd do
 -- A registration computes cardinalities through the port.
 run_cmd withHarness "registration_correct.json" fun harness => do
   unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
-  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  unless harness.admitted.size == 2 do throwError "admitted {harness.admitted.size} registrations"
   for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
       "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀", "assert |(ℤ/5)^0| = 1",
-      "assert implemented |Fin(3)|"] do
+      "assert implemented |Fin(3)|", "assert implemented |Fin(3) in FiniteSets|"] do
     expect harness "holds" text
+  -- The transported receiver is the base at the same parameters: `Fin(4)` in `FiniteSets` is
+  -- not `Fin(3)`.
+  expect harness "wrong" "assert |Fin(4) in FiniteSets| = 3"
   -- Lean still decides what it decides; what has no registration is still a gap.
   expect harness "holds" "assert ℤ ⊆ ℚ"
   expect harness "gap" "assert |ℤ| = ℵ₀"
@@ -106,7 +113,7 @@ run_cmd withHarness "registration_correct.json" fun harness => do
 -- The same registrations answering the constant `7`: the affected assertions are wrong, and
 -- nothing else changes.
 run_cmd withHarness "registration_wrong.json" fun harness => do
-  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  unless harness.admitted.size == 2 do throwError "admitted {harness.admitted.size} registrations"
   for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
       "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀"] do
     expect harness "wrong" text
@@ -125,14 +132,16 @@ run_cmd withHarness "registration_unavailable.json" fun harness => do
   expect harness "unavailable" "assert |Fin(3)| = 3"
 
 -- Registrations that name nothing of the catalogue, or a form the operation does not apply to,
--- or an undeclared backend, are not admitted.
+-- or an undeclared backend, or a form the catalogue sends elsewhere along the operation's route,
+-- are not admitted.
 run_cmd withHarness "registration_rejected.json" fun harness => do
   unless harness.admitted.isEmpty do throwError "a registration was admitted"
-  unless harness.rejected.size == 4 do throwError "rejected: {harness.rejected}"
+  unless harness.rejected.size == 5 do throwError "rejected: {harness.rejected}"
   for (reason, rejected) in [("is not a catalogue operation", harness.rejected[0]!),
       ("is not a registered form", harness.rejected[1]!),
       ("does not apply to the values of lit.cardinals", harness.rejected[2]!),
-      ("is not declared in the manifest", harness.rejected[3]!)] do
+      ("is not declared in the manifest", harness.rejected[3]!),
+      ("register it on obj.sets.fin", harness.rejected[4]!)] do
     unless (rejected.splitOn reason).length > 1 do
       throwError "{rejected} is not rejected because it {reason}"
   expect harness "gap" "assert |Fin(3)| = 3"
