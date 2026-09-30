@@ -629,13 +629,17 @@ what an obligation about the term unfolds to. -/
 def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
   let env ← getEnv
   let mut found : Array Name := #[]
+  let mut seen : Array Name := #[]
   let mut frontier := e.getUsedConstants
   for _ in [0:64] do
     let next := frontier.filter fun n =>
-      n.getRoot == `CasCatalogue && !found.contains n &&
+      n.getRoot == `CasCatalogue && !seen.contains n &&
         (env.find? n matches some (.defnInfo _))
     if next.isEmpty then break
-    found := found ++ next
+    seen := seen ++ next
+    -- Abbreviations are unfolded by instance search already; unfolding them in `simp` would
+    -- strand the instances stated at them (`asRing R`).
+    found := found ++ (← next.filterM fun n => return (← getReducibilityStatus n) != .reducible)
     frontier := next.flatMap fun n => match env.find? n with
       | some (.defnInfo d) => d.value.getUsedConstants
       | _ => #[]
@@ -643,32 +647,57 @@ def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
 
 /-- How a composite of maps of sets is applied, for obligations about maps built by composition. -/
 def compositionLemmas : List String :=
-  ["CategoryTheory.ConcreteCategory.comp_apply", "CategoryTheory.ConcreteCategory.id_apply",
-   "CategoryTheory.types_comp_apply", "CategoryTheory.types_id_apply"]
+  ["id", "id_eq", "TypeCat.ofHom_apply", "CategoryTheory.ConcreteCategory.comp_apply",
+   "CategoryTheory.ConcreteCategory.id_apply", "CategoryTheory.types_comp_apply",
+   "CategoryTheory.types_id_apply"]
 
 /-- The evidence of the proposition `p`, established when a statement is read (LC-14): decided, or
 proved by simplification through the catalogue's definitions (a numeral is nonzero, a matrix has a
 unit determinant, a map built from continuous ones is continuous). A statement whose obligation is
 not established is invalid: without the evidence, the value is not in the domain it is used in. -/
 def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
+  let p ← instantiateMVars p
+  if p.hasMVar then
+    throwStratum .invalid m!"{what}: the proposition {p} is not determined"
   let unfold := (← catalogueDefinitions p).toList.map toString
-  let lemmas := ", ".intercalate (["isUnit_iff_ne_zero", "Matrix.isUnit_iff_isUnit_det"] ++ unfold)
+  let lemmas := ", ".intercalate (compositionLemmas ++ unfold)
+  -- A unit of a field (or of `Matₙ(K)` through its determinant) is a nonzero element: the
+  -- reduction is applied by unification (`refine`), so it matches whatever monoid structure the
+  -- domain's admission states `IsUnit` at.
   let source := s!"first
     | decide
     | (simp [{lemmas}]; done)
     | (norm_num [{lemmas}]; done)
-    | (simp only [{", ".intercalate (unfold ++ compositionLemmas)}]; fun_prop)
-    | (simp [{", ".intercalate (unfold ++ compositionLemmas)}]; fun_prop)"
+    | (refine isUnit_iff_ne_zero.mpr ?_; simp [{lemmas}]; done)
+    | (refine isUnit_iff_ne_zero.mpr ?_; norm_num [{lemmas}]; done)
+    | (refine (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr ?_);
+        simp [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three]; done)
+    | (refine (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr ?_);
+        norm_num [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three])
+    | (simp only [{lemmas}]; fun_prop)
+    | (simp [{lemmas}]; fun_prop)"
   let tactic ← match Parser.runParserCategory (← getEnv) `tactic source with
     | .ok stx => pure stx
     | .error message => throwError "the obligation tactic does not parse: {message}"
-  try
-    let proof ← elabTermEnsuringType (← `(by $(⟨tactic⟩):tactic)) p
-    synthesizeSyntheticMVarsNoPostponing
-    instantiateMVars proof
-  -- not a reading fallback: evidence not established is rethrown as invalidity
-  catch _ =>
-    throwStratum .invalid m!"{what}: {p} is not established"
+  -- A failed tactic must not be recovered into `sorry`: evidence with a hole is no evidence.
+  let proof? ← withoutErrToSorry <| Term.withoutErrToSorry do
+    try
+      -- Only the proof's own pending problems are solved here, not the enclosing reading's.
+      let proof ← Term.withSynthesize (postpone := .no) <|
+        elabTermEnsuringType (← `(by $(⟨tactic⟩):tactic)) p
+      pure (Except.ok (← instantiateMVars proof) : Except String Expr)
+    -- not a reading fallback: evidence not established is rethrown as invalidity below
+    catch e => pure (Except.error (← e.toMessageData.toString))
+  match proof? with
+  | .error message =>
+      throwStratum .invalid m!"{what}: {p} is not established (no proof is found: \
+        {message.take 300})"
+  | .ok proof =>
+      if proof.hasSorry || proof.hasSyntheticSorry then
+        throwStratum .invalid m!"{what}: {p} is not established (its proof has a hole)"
+      if proof.hasMVar then
+        throwStratum .invalid m!"{what}: {p} is not established (its proof is not closed: {proof})"
+      return proof
 
 /-- The morphism `a → b` of the registered graph literal of their category with the graph `pairs`
 of numerals, each an element of the set `a` or `b` is (its registered numeral, `numeralIn`). -/
@@ -1986,6 +2015,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   synthesizeSyntheticMVarsNoPostponing
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
+  synthesizeInstances args infos
   for i in props do
     let obligation ← instantiateMVars (← inferType args[i]!)
     unless ← isDefEq args[i]! (← establish obligation m!"not an element of {entry.name}") do
