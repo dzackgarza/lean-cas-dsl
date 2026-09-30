@@ -180,7 +180,8 @@
   "custodian/adversarial.sh",
   "custodian/owner-intent.md",
   "custodian/review/*",
-  "custodian/justfile"
+  "custodian/justfile",
+  "custodian/SETUP.md"
  ],
  "escalation_keys": {
   "77bbd8a24c41b333f496cf5c638456f4a85908916202b1e62d48a62ad1bb9508": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAxOkizcNLkUC1Zu2VB+xrGRqwb6l0QgyKLHn6xKngHKM=\n-----END PUBLIC KEY-----\n"
@@ -252,8 +253,9 @@
   "CasTools/HarnessMain.lean": "bb48ba615212cae1a13d01fe3eee7270bc5ee0caef60c790f2a9d119fcecaaaa",
   "custodian/CONTAINMENT.md": "2cd4998174c6c0ba54dc54b9a2ca387ebf302492ea20997ac05109066d80a288",
   "custodian/FINDINGS.md": "ec86df2a75f3bc492933dab8650e31b6ac393d04c85ab9b8b313c01b60271506",
+  "custodian/SETUP.md": "8579c27a515e05cd8587d00f17e191f937ef1c73352995139479c62b91b81aee",
   "custodian/adversarial.sh": "05b3bcd5350fb183c946feccfe2e1109e976cce1f6050b2fda90728e9fa103d7",
-  "custodian/boundary.json": "590e6a7794c8ce338e447b0d8c3cdb2bef27d70f0457f6e90b82fcb9a547fee0",
+  "custodian/boundary.json": "1539680ed9cf707ca4abe06019843015ac20fa44a546ce03ed0cb20245f126f4",
   "custodian/custodian.pub.pem": "0257631873d44afdc698507f4af8b3b624551424eaeed6f287dd23a73cad1805",
   "custodian/justfile": "6ad1f3cb7d331b51d62a749f3a922c484b16195f25fecbd83617125406143e59",
   "custodian/owner-intent.md": "d1f41027bf425d963634e6f1fb61964772ce9ca8a4d0fe435fb13fe5e97b0305",
@@ -519,6 +521,6 @@
  "reviewer_keys": {
   "bcd85dd2c758b032057211636734a2407fe275d32ef2e76df9d8c60cae80dd79": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAOsX8as2wusUK5txFK3qL+dNonGj8zcjZjupiGdPwM84=\n-----END PUBLIC KEY-----\n"
  },
- "sealed_commit": "b9e873d2cb087a09a7f7cc830f24f805f01f8c4e",
+ "sealed_commit": "9439449ff48ee08ff4e75fa72a3a97c8ec9c4f04",
  "verifier_sha256": "b35d707bc3345a554a8eea05c82ccf7546660ad061d377a2afbb057e96d0f8cb"
 }

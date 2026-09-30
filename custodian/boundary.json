@@ -26,7 +26,8 @@
   "custodian/adversarial.sh",
   "custodian/owner-intent.md",
   "custodian/review/*",
-  "custodian/justfile"
+  "custodian/justfile",
+  "custodian/SETUP.md"
  ],
  "append_only": [
   "tests/acceptance/*.cas",
