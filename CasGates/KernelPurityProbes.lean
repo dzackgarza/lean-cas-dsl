@@ -39,8 +39,8 @@ def runsTactic (g : MVarId) (t : Lean.Elab.Tactic.TacticM Unit) : TermElabM (Lis
   Lean.Elab.Tactic.run g t
 /-- A constant evaluated outside the evidence runner. -/
 unsafe def evaluates (n : Name) : MetaM Nat := evalConst Nat n
-/-- A term evaluated outside the realized reading's evaluators. -/
-unsafe def evaluatesTerm (e : Expr) : MetaM Nat := evalExpr Nat (mkConst ``Nat) e
+/-- A term evaluator named outside the realized reading's evaluators. -/
+def evaluatesTerm : Name := ``Lean.Meta.evalExpr
 /-- Categorical plumbing: accepted. -/
 def plumbing : Name := ``CategoryTheory.CategoryStruct.comp
 
