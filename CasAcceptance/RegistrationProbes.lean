@@ -20,10 +20,10 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
 
 * **Lean decides, with no manifest at all.** The catalogue's judgements (`ℤ ⊆ ℚ`, `3 ∈ ℤ/5`)
   hold with no leaf installed: their propositions are proved by decision, checked by the kernel.
-  What Lean does not decide and no registration computes is a gap: cardinalities, and the
-  element and morphism equalities of `ℤ`, `ℤ/5` and `Fin(3)`, whose `Decidable` instance
-  (equality of morphisms of a concrete category, on their functions) is mathematics the
-  catalogue does not yet supply. No statement of the language is refutable until it does.
+  So do the element and morphism equalities of `ℤ`, `ℤ/5` and `Fin(3)`, by the catalogue's
+  decidable equality of morphisms of a concrete category. A false one (`2 + 3 = 6`) is refuted
+  by Lean and invalid. What Lean does not decide and no registration computes is a gap:
+  cardinalities.
 * **A registration computes, through the port.** Registrations of `meth.cardinality` on the
   forms `obj.sets.fin`, `obj.finite_sets.fin` and `obj.sets.integers_mod_power` make
   `|Fin(3)| = 3`, `|Fin(3) in FiniteSets| = 3`, `|(ℤ/4)^3| = 64` and `|(ℤ/0)^2| = ℵ₀`
@@ -61,6 +61,11 @@ meta def expect (harness : Harness) (kind : String) (text : String) : CommandEla
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 
+/-- Run `text` and require that it is invalid: its reading fails, or Lean refutes it. -/
+meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit := do
+  let valid ← try (do discard <| runStatement harness {} text; pure true) catch _ => pure false
+  if valid then throwError "`{text}` is not invalid"
+
 /-- The harness of the probe manifest `name`, with what it rejects. -/
 meta def harnessOf (name : String) : CommandElabM Harness :=
   liftCoreM (Harness.load (some (strata / name)))
@@ -72,11 +77,15 @@ meta def withHarness (name : String) (k : Harness → CommandElabM Unit) : Comma
 -- Lean decides, with no manifest at all; what it does not decide, and nothing computes, is a gap.
 run_cmd do
   let harness ← (Harness.empty : IO Harness)
-  for text in ["assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert ℕ ⊆ ℂ", "assert 3 ∈ ℤ/5", "assert -3 ∈ ℤ"] do
-    expect harness "holds" text
-  for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
-      "assert implemented |Fin(3)|", "assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5",
+  for text in ["assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert ℕ ⊆ ℂ", "assert 3 ∈ ℤ/5", "assert -3 ∈ ℤ",
+      "assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5", "assert 2 · 3 = 1 in ℤ/5",
       "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert gcd(84, 30) = 6"] do
+    expect harness "holds" text
+  -- False mathematics that Lean decides is refuted: the statement is invalid, whatever is
+  -- installed.
+  expectInvalid harness "assert 2 + 3 = 6"
+  for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
+      "assert implemented |Fin(3)|"] do
     expect harness "gap" text
 
 -- A registration computes cardinalities through the port.
@@ -90,7 +99,7 @@ run_cmd withHarness "registration_correct.json" fun harness => do
   -- Lean still decides what it decides; what has no registration is still a gap.
   expect harness "holds" "assert ℤ ⊆ ℚ"
   expect harness "gap" "assert |ℤ| = ℵ₀"
-  expect harness "gap" "assert 2 + 3 = 5"
+  expect harness "holds" "assert 2 + 3 = 5"
   -- A well-typed wrong answer is not a gap: the assertion is wrong.
   expect harness "wrong" "assert |Fin(3)| = 4"
 
@@ -104,7 +113,7 @@ run_cmd withHarness "registration_wrong.json" fun harness => do
   expect harness "holds" "assert |Fin(7)| = 7"
   expect harness "holds" "assert ℤ ⊆ ℚ"
   expect harness "gap" "assert |ℤ| = ℵ₀"
-  expect harness "gap" "assert 2 + 3 = 5"
+  expect harness "holds" "assert 2 + 3 = 5"
 
 -- An answer that is not a value of the result form is malformed.
 run_cmd withHarness "registration_malformed.json" fun harness => do
