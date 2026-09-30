@@ -36,6 +36,16 @@ bind the kernel, the language and every leaf. Their consequences here:
 - An operation exists only where its structure exists: `⁻¹` on units and automorphisms, never on
   endomorphisms or a bare monoid (LC-16). The language never attempts an operation on a value
   not established to lie in its domain.
+- How a value comes to lie in a domain `D ↪ B` (derived from LC-14 and LC-15; the kernel's
+  reading rule):
+  - a numeral needed in `D` is formed there: the numeral of `B`, with the proposition that it lies
+    in `D` (`2 ∈ ℚˣ`) decided when the statement is read. A false one (`2 ∈ ℤˣ`) makes the
+    statement invalid;
+  - any other value is in `D` only when the statement forms it there, `x in D`, with its evidence
+    established when the statement is read. The kernel never admits a value into `D` implicitly
+    because an operation needs it there, and never tries another reading when one fails;
+  - a variable (a generic element at a stage) is never in `D` by admission: `t ↦ 1/t` is a map
+    only on a domain of units.
 
 ## Authors are separated by layer
 
