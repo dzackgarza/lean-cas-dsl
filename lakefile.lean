@@ -26,12 +26,12 @@ require lean_categories from git
 /- The leaf contract: the kernel's interface for computational leaves, published on its own so
 that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
 require cas_leaf_contracts from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "6c3dcb5dcc612d521352cf832faa047bb6b87a79"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "6762331f521d1e64edf1e3997b8c0b72277b09e5"
 
 /- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
 `lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/
 require cas_leaves from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "c4649bd83f0908b6ab6ada7b25add985ec2b3817"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "e99d34418f068297b388f7251fe3c3ba03cd748e"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/

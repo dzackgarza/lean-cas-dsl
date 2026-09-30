@@ -4,7 +4,9 @@
 The DSL consumes the leaves: it requires the leaf packages, and its permanent mathematical tests
 and notebooks run here over whatever leaves are installed, passing or reporting gaps as leaves are
 done. A leaf is written only in the leaf repository, in its own subtree, against the contract. So
-this repository must contain no leaf code: no `register_leaf`, no tracked file under `CasLeaves/`.
+this repository must contain no leaf code: no `register_leaf` (or its functions), no tracked file
+under `CasLeaves/`. The contract refuses the registration itself from any module of this
+repository's roots; this gate reports it without a build.
 A "probe" that registers a minimal leaf here is a leaf shipped in the DSL.
 
     check_no_leaves.py              check this repository
@@ -20,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-REGISTER = re.compile(r"^\s*register_leaf\b", re.MULTILINE)
+REGISTER = re.compile(r"(^\s*register_leaf\b)|\b(registerLeaf|addLeafRegistryEntryChecked)\b", re.MULTILINE)
 
 
 def tracked(root: Path) -> list[str]:
@@ -37,7 +39,7 @@ def violations(root: Path) -> list[str]:
             text = (root / f).read_text()
             for m in REGISTER.finditer(text):
                 line = text.count("\n", 0, m.start()) + 1
-                out.append(f"{f}:{line}: registers a leaf (`register_leaf`) in lean-cas-dsl")
+                out.append(f"{f}:{line}: registers a leaf in lean-cas-dsl")
     return out
 
 

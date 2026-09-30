@@ -36,6 +36,13 @@ def head(package: str) -> str:
              if l[3:] not in ("lakefile.lean", "lake-manifest.json")]
     if dirty:
         raise SystemExit(f"{package} ({path}) has uncommitted changes: commit them first")
+    # Lake checks out the pinned revision inside a linked checkout, detaching it; a commit made
+    # there then lands on no branch. Pin only from a checkout on its branch.
+    branch = subprocess.run(["git", "-C", str(path), "symbolic-ref", "-q", "--short", "HEAD"],
+                            capture_output=True, text=True).stdout.strip()
+    if not branch:
+        raise SystemExit(f"{package} ({path}) is detached (a build checked out its pin): "
+                         f"`git -C {path} checkout <branch>` first")
     return subprocess.run(["git", "-C", str(path), "rev-parse", "HEAD"],
                           capture_output=True, text=True, check=True).stdout.strip()
 
