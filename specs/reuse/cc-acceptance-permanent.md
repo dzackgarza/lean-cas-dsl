@@ -10,8 +10,9 @@ This node authors no mathematics. Its assertions state facts whose proofs or cit
 
 ## Owner
 - Lean's `#guard`, and `decide` or `rfl` for Lean-checked equations.
-- The kernel's public surfaces (`method%`, `ask%`, `eq%`, `run%`) and the leaves' registered
-  backend calls, for the value under test.
+- The language's public surfaces, which run whatever computations are installed, for the value
+  under test; an assertion names no leaf, backend or handle, and is never established from a
+  leaf's definitions.
 - The expected values' mathematical owners:
   - A₂ discriminant group: Conway–Sloane, *SPLAG* ch. 4 §6.1 (`A_n^*/A_n ≅ ℤ/(n+1)`).
   - `card((ℤ/n)^k) = n^k`: Mathlib `ZMod.card` and `Fintype.card_fun`.

@@ -12,6 +12,6 @@
 - The runner `CasCatalogue.TestSuite` (`runFile`), which the harness calls unchanged.
 
 ## New code, and why no dependency supplies it
-An executable that imports the catalogue, the language and a given set of leaf modules (each
-depending only on the intake contract), runs every file of `tests/acceptance/`, and writes the
+An executable that loads the catalogue, the language and a given set of installed leaves (each
+written against the intake contract only), runs every file of `tests/acceptance/`, and writes the
 outcome of each test and the derived gaps. Leaves never import it or the suite.

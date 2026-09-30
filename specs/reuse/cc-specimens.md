@@ -25,5 +25,5 @@ Direct checks in Mathlib: `LinearAlgebra/BilinearForm` (`LinearMap.BilinForm`,
   research repository's own subgroup notion, which the contract rejects.
 
 ## New code, and why no dependency supplies it
-Only specimen leaf contracts (realizers, actions, deciders) and the deficiency records; any missing
+Only specimen leaves (registrations of opaque computations) and the deficiency records; any missing
 mathematics found becomes a node, not specimen code.

@@ -9,11 +9,10 @@ No mathematics is authored. The realization it adds realizes a registered forget
 already in `lean-categories`.
 
 ## Owner
-- Lake for the external package and its pinned dependency on `lean-cas-dsl`.
-- The kernel's `register_leaf`, `#accept` and gap report.
-- Lean's persistent environment extensions for rerunning admitted assertions in another package.
+- Lake for the external leaf package, which depends on the leaf contract only.
+- The contract's `register_leaf`, and the harness's gap report.
 
 ## New code, and why no dependency supplies it
-- `#acceptance_rerun`: re-elaborates every admitted assertion in the current environment, so an
-  external package with more realizations runs the same, unchanged assertions (workflow step 8).
-- The external leaf itself (in `research`).
+- The intake contract: which modules are leaves (`isLeafModule`) and what they may import. The
+  suite is run only by `lean-cas-dsl`'s harness over installed leaves (workflow step 8); a leaf
+  package never runs it.

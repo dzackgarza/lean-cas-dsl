@@ -26,7 +26,7 @@ way.
 \]
 
 \[
-\boxed{\text{Sage, GAP, Julia, OSCAR, FLINT, … are realization engines behind typed Lean adapters.}}
+\boxed{\text{Sage, GAP, Julia, OSCAR, FLINT, … are opaque engines behind typed contracts owned in Lean; a leaf ships no Lean.}}
 \]
 
 Consequence: a backend leaf can be architecturally wrong — invent its own notion of
@@ -102,7 +102,7 @@ third disappears, and the last two become a hard, typed boundary.
 | Semantic collision check (same public name, unrelated owners) | `resolution.md` "Semantic collisions" | registry duplicate/ambiguity errors at elaboration (CC-RESOLVE) |
 | Diamond handling by declaration order plus executable comparisons | `resolution.md` "Diamond diagnostics" | explicit `NatTransExpr` comparisons; ambiguity is an error (CC-COHERE) |
 | Universal constructions with retained apex, legs, mediator | `functor.md` "Diagram shapes and universal constructions" | Mathlib/project constructions returning complete universal data (CC-UNIV) |
-| Engine lowering and native reconstruction | `leaves.md` "Computation-engine boundary" | still required, through typed adapters (CC-REALIZE, CC-DECODE) |
+| Engine lowering and native reconstruction | `leaves.md` "Computation-engine boundary" | still required: a leaf computes on a declared input form, and the kernel reads its answer into the declared result form (CC-ADAPTER, CC-DECODE) |
 
 What is retained from `sage-categories` is its *requirements*: explicit object and
 morphism actions, retained defining maps, comparison cells instead of priorities,
@@ -475,7 +475,7 @@ A backend result crosses back as
 BackendResult { operation_id, encoded_result }
 ```
 
-and the adapter decodes it into the operation's **expected semantic result type**. For
+and the kernel decodes it into the operation's **expected semantic result type**, or rejects it as malformed. For
 \(\ker:\operatorname{Arr}(\mathbf{Grp})\to\operatorname{Mono}(\mathbf{Grp})\subseteq\operatorname{Arr}(\mathbf{Grp})\),
 \(f\mapsto(\ker f\hookrightarrow\operatorname{dom}f)\), the backend cannot answer
 "here is my `KernelSubgroup` class"; it supplies enough data to reconstruct
@@ -489,7 +489,7 @@ small corpus (#53 §14 E).
 
 ### CC-ROUTE — Capabilities register against semantic operations, never backend methods
 
-A backend says "I implement semantic operation \(m\) on realizations satisfying \(P\)",
+A backend says "I implement semantic operation \(m\) on input forms satisfying \(P\)",
 keyed by a `FunctorId` or normalized `FunctorExpr` (#53 §10 `BackendRealizationEntry`). It
 never says "I have a method called `.kernel()`". The backend's method inventory is discovery
 input only. Several backend functions may realize one operation; one backend function may
@@ -546,8 +546,8 @@ decide whether to accept a declaration.
 
 ## 5. The leaf contract
 
-A leaf holds zero semantic authority (`INTENT.md`; [architecture.md](architecture.md), "A leaf
-holds zero semantic authority"). It contributes only an implementation of an already-declared
+A leaf holds zero semantic authority, and nothing from it is trusted (`INTENT.md`;
+[architecture.md](architecture.md), "The evidence model: nothing from a leaf is trusted"). It contributes only an implementation of an already-declared
 operation on an already-declared input form (CC-ADAPTER). It never contributes, by any route:
 - a category, a method, a property, a subcategory or placement, a forgetful route or coercion;
 - a natural transformation or an identification of two values;

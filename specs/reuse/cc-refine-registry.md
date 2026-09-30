@@ -10,7 +10,8 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 ## Owner
 - A property classifier's total is Mathlib's `P.FullSubcategory` with forgetful functor `P.ι`; its
   strict fibre (`Functor.Fiber`) over `X` is `{Y // Y.obj = X}`, inhabited iff `P X`.
-- Re-typing is `CasCatalogue.refine` (`cc-refine`); deciders are registered `Decider`s.
+- Re-typing is `CasCatalogue.refine` (`cc-refine`), on a proof of the property; a leaf's
+  computation of the property is an answer, never a proof.
 
 ## New code, and why no dependency supplies it
 The generic `Holds ↔ P` lemma for full-subcategory classifiers, the registry link from a classifier
