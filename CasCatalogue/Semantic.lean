@@ -109,7 +109,7 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry) :
   let image ← if resolution.route.steps.isEmpty then pure X else do
     objOf (← state.routeFunctor (resolution.route.steps.map (·.ref))) X
   let F ← registeredFunctorInstance functor
-  let input ← methodInput resolution.method image
+  let input ← methodArgument resolution.method image
   return (← objOf F input, target)
 
 /-- The proposition that the property `name` holds of the object `X` of `category`. -/
