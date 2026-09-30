@@ -583,7 +583,7 @@ corrects the earlier text of this section.
   this repository reads it at the pin and writes none (`cc-sem-upstream`, `cc-sem-derive`).
 
 This follows #53 §7 ("no second semantic method registry"). The name-level graph
-(`CatDecl`/`FunctorDecl`) was deleted in `cc-dsl-migration`. All foundational mathematics lives in
+(`CatDecl`/`FunctorDecl`) was deleted (lean-cas-dsl `90608e6`, `a191b61`). All foundational mathematics lives in
 `lean-categories`. The kernel owns the Lean of its own mechanics and no mathematics. Leaves own
 no Lean at all.
 
