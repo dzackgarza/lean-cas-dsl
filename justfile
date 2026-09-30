@@ -1,10 +1,11 @@
 # lean-cas-dsl — categorically organized CAS in Lean, an nbdsl DSL plugin.
 #
 # One Lake package (library CasDsl + prelude CasDsl.Notebook) over the
-# nbdsl-worker core. The leaves (`lean-cas-dsl-leaves`, package cas_leaves) and
-# their backend programs are a dependency, written against the leaf contract
-# (`lean-cas-dsl-leaf-contracts`). Lake owns compilation; language-level QC
-# delegates to the global gates.
+# nbdsl-worker core. The leaves (`lean-cas-dsl-leaves`) are not a Lake
+# dependency: a leaf is a manifest `leaves.json` of registrations and the
+# programs it names, found through `CAS_LEAVES` (or `.lake/packages/cas_leaves`),
+# written against the leaf contract (`lean-cas-dsl-leaf-contracts`). Lake owns
+# compilation; language-level QC delegates to the global gates.
 #
 # Not adopted: lean-axiom-audit — it requires a target-private
 # _lean-axiom-audit budget recipe, and this package has no audited axiom
@@ -17,8 +18,8 @@ set dotenv-load := true
 default:
     @just --list
 
-# Build the core, the leaves and the notebook package, and run their probes: the acceptance
-# probes (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests).
+# Build the core and the notebook package, and run their probes: the acceptance probes and the
+# suite (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests).
 # Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py), and
 # authors are separated by layer across the chain (scripts/check_authorship.py).
 build:
@@ -30,23 +31,21 @@ build:
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
-    @lake build CasCatalogue CasGates CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+    @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
-# Run the acceptance suite over the given leaf modules (default: all of this repository's
-# leaves); writes every result to .tmp/harness.json. Gaps are the report, not failures.
-harness *leaves="CasLeaves":
-    @lake build cas-harness {{leaves}}
+# Run the acceptance suite over a leaves manifest (default: the installed leaves', through
+# `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are
+# the report, not failures.
+harness *manifest="":
+    @lake build cas-harness
     @mkdir -p .tmp
-    @lake exe cas-harness --report .tmp/harness.json {{leaves}}
+    @lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
 
-# One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec
+# One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
+# (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.
 setup:
     @lake exe cache get
     @uv venv .venv
-    # The GAP kernels leaf's engine (cas_leaves: CasLeaves/Algebra/GapKernels/gap_kernels.py).
-    @uv pip install -p .venv/bin/python passagemath-gap
-    # The Sage cardinality leaf's engine (cas_leaves: CasLeaves/Modules/SageCardinality/sage_cardinality.py).
-    @uv pip install -p .venv/bin/python passagemath-modules
     @uv pip install -p .venv/bin/python nbclient \
         'nbdsl-kernel[test] @ git+https://github.com/dzackgarza/lean-jupyter-kernel@main#subdirectory=nbdsl_kernel'
     @.venv/bin/python -m nbdsl_kernel.install --project "$PWD" \
@@ -86,7 +85,7 @@ test: build
     @lake exe cas-registry-export > /dev/null
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
-    @python3 -m py_compile CasAcceptance/Strata/hostile_cardinality.py
+    @python3 -m py_compile CasAcceptance/Strata/probe_registration.py
 
 # Drives the installed casdsl kernelspec (`just setup` first) through the demo notebook.
 [private]
@@ -124,4 +123,4 @@ _notebook-reexec:
 test-push:
     @just -f ~/ai-review-ci/justfiles/lean.just -d . test-push
     @python3 scripts/check_acceptance_permanent.py
-    @python3 -m py_compile CasAcceptance/Strata/hostile_cardinality.py
+    @python3 -m py_compile CasAcceptance/Strata/probe_registration.py

@@ -12,59 +12,47 @@ public meta import CasCatalogue.CellCall
 @[expose] public section
 
 /-!
-# Acceptance for `cc-cells` (CC-CALC, CC-ACTION)
+# Acceptance for `cc-cells` (CC-CALC)
 
 Registered cells of the list monad on sets (`Semantics/Foundation/Lists.lean`): the unit
 `η : 𝟭 ⟶ L`, the multiplication `μ : L ⋙ L ⟶ L` and the invertible reversal `ρ : L ≅ L`. They are
-composed with Mathlib's operations and run on `ℤ²` (presented as `.intPow 2`), a set that is not
-enumerated: each component is a rule on `List ℤ²`, computed through the realized cell (the
-preimage through the fully faithful realization of sets).
+composed with Mathlib's operations, and each composite's component at a set is a morphism of the
+catalogue's mathematics (`cell%`), typed by Lean:
 
-* one registered cell changes the datum: `ρ [v, w] = [w, v]`;
-* two registered cells composed vertically: `(η ▷ L) ≫ μ` is the identity on data (the monad's
-  unit law), and its first factor is `[v, w] ↦ [[v], [w]]`;
-* whiskering on the other side, `L ◁ η : [v, w] ↦ [[v, w]]`, and horizontal composition,
-  `η ◫ η : v ↦ [[v]]`;
-* the inverse cell composes to the identity: `ρ ≫ ρ⁻¹` on data, and as a theorem about realized
-  cells (`realizedCell_comp`, `realizedCell_id`);
-* composing cells whose endpoints do not match is rejected; a cell whose declaration is not
-  between its registered composites is rejected (that a leaf cannot register a cell is the
-  contract's, tested with it).
+* vertical composition, whiskering on either side and horizontal composition elaborate, between
+  the composites of registered functors they are declared between;
+* the inverse cell composes to the identity: `ρ ≫ ρ⁻¹` at `ℤ` is `𝟙 (L ℤ)`, a theorem about the
+  registered isomorphism;
+* composing cells whose endpoints do not match is rejected; inverting a cell not registered
+  invertible is rejected; a cell whose declaration is not between its registered composites is
+  rejected by the registry.
+
+What a cell does to data (`ρ [v, w] = [w, v]`) is a statement of the language, decided through
+the admitted registrations; no leaf supplies a cell, an action or a square.
 -/
 
 open CategoryTheory Lean Meta Elab Term Command
-open CasCatalogue.Foundation.Actions CasCatalogue.Foundation.ListActions
+open CasCatalogue.Foundation.Objects
 
 namespace CasCatalogue.CellProbes
 
-def v : Fin 2 → ℤ := ![1, 2]
-def w : Fin 2 → ℤ := ![3, -4]
-def u : Fin 2 → ℤ := ![0, 7]
-
-/-- The elements of `ℤ²`, lists of them, and lists of lists. -/
-abbrev Z2 := Fin 2 → ℤ
-
-#guard (show List Z2 from (cell% "cell.sets.list.reverse"
-  at (.intPow 2) in "cat.sets").hom [v, w]) == [w, v]
-
-#guard (show List Z2 from (cell% ("cell.sets.list.unit" ▷ "fun.sets.list") ≫ "cell.sets.list.join"
-  at (.intPow 2) in "cat.sets").hom [v, w, u]) == [v, w, u]
-#guard (show List (List Z2) from (cell% "cell.sets.list.unit" ▷ "fun.sets.list"
-  at (.intPow 2) in "cat.sets").hom [v, w]) == [[v], [w]]
-#guard (show List (List Z2) from (cell% "fun.sets.list" ◁ "cell.sets.list.unit"
-  at (.intPow 2) in "cat.sets").hom [v, w]) == [[v, w]]
-#guard (show List (List Z2) from (cell% "cell.sets.list.unit" ◫ "cell.sets.list.unit"
-  at (.intPow 2) in "cat.sets").hom v) == [[v]]
-
-#guard (show List Z2 from (cell% "cell.sets.list.reverse" ≫ "cell.sets.list.reverse"⁻¹
-  at (.intPow 2) in "cat.sets").hom [v, w, u]) == [v, w, u]
-
-/-- The realized reversal and its inverse compose to the identity of the realized list functor. -/
+/-- The reversal followed by its inverse is the identity at `ℤ`. -/
 theorem reverse_comp_inverse :
-    realizedCell setDenotationFullyFaithful listAction listAction
-        (Foundation.Lists.listReverseCell.hom ≫ Foundation.Lists.listReverseCell.inv) =
-      𝟙 listAction.action := by
-  rw [Iso.hom_inv_id, realizedCell_id]
+    (cell% "cell.sets.list.reverse" ≫ "cell.sets.list.reverse"⁻¹ at (integers) in "cat.sets") =
+      𝟙 _ := by
+  simp
+
+/-- The composites elaborate as morphisms between the composites of registered functors. -/
+run_cmd liftTermElabM do
+  for term in [← `(cell% ("cell.sets.list.unit" ▷ "fun.sets.list") ≫ "cell.sets.list.join"
+      at (integers) in "cat.sets"),
+      ← `(cell% "fun.sets.list" ◁ "cell.sets.list.unit" at (integers) in "cat.sets"),
+      ← `(cell% "cell.sets.list.unit" ◫ "cell.sets.list.unit" at (integers) in "cat.sets"),
+      ← `(cell% "cell.sets.list.reverse"⁻¹ at (naturals) in "cat.sets")] do
+    let e ← withoutErrToSorry (elabTerm term none)
+    synthesizeSyntheticMVarsNoPostponing
+    let type ← whnfR (← inferType (← instantiateMVars e))
+    unless type.isAppOf ``Quiver.Hom do throwError "{term} is not a morphism: {type}"
 
 /-- Whether elaborating `stx` fails with a message containing `fragment`. -/
 def rejects (stx : Term) (fragment : String) : TermElabM Bool := do
@@ -76,11 +64,14 @@ def rejects (stx : Term) (fragment : String) : TermElabM Bool := do
 
 run_cmd liftTermElabM do
   unless ← rejects (← `(cell% "cell.sets.list.join" ≫ "cell.sets.list.unit"
-      at (.intPow 2) in "cat.sets")) "vertical composition" do
+      at (integers) in "cat.sets")) "vertical composition" do
     throwError "a composite with mismatched endpoints was accepted"
-  unless ← rejects (← `(cell% "cell.sets.list.unit"⁻¹ at (.intPow 2) in "cat.sets"))
+  unless ← rejects (← `(cell% "cell.sets.list.unit"⁻¹ at (integers) in "cat.sets"))
       "not registered invertible" do
     throwError "a non-invertible cell was inverted"
+  unless ← rejects (← `(cell% "cell.sets.list.reverse" at (integers) in "cat.no_such_category"))
+      "no registered category" do
+    throwError "a cell at an object of an unregistered category was accepted"
   -- `η` is not a cell `L ⟶ L`.
   try
     withoutModifyingEnv <| validateRegistryEntryDeclaration (.cell

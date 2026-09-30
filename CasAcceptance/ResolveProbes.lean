@@ -5,15 +5,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.ResolveSyntax
-public import LeanCategories.Catalogue.Semantics.Algebra.Ports
-public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
-public import CasLeaves.Foundation.Cardinality
-public import CasAcceptance.LatticeActionProbes
+public import CasCatalogue.Semantic
+public import LeanCategories.Catalogue.Semantics
 public meta import CasCatalogue.ResolveSyntax
-public meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
-public meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
-public meta import CasLeaves.Foundation.Cardinality
-public meta import CasAcceptance.LatticeActionProbes
+public meta import CasCatalogue.Semantic
+public meta import LeanCategories.Catalogue.Semantics
 
 @[expose] public section
 
@@ -24,8 +20,9 @@ public meta import CasAcceptance.LatticeActionProbes
   `BilinModule → Mod_R → ∫ᶜ Mod → Sets` followed by the one registered cardinality on
   `Core(Sets)`; a lattice's to the four-step composite. No category below `Sets` declares a
   cardinality.
-* The elaborated term is ordinary Lean: a `let` of the checked composite `FunctorExpr` around the
-  composed `RealizedAction` applied to the receiver, with no string-keyed dispatch.
+* The semantic reading of a method call is the method's functor applied after the route's
+  composite functor (`Semantic.method`): a term of the catalogue's mathematics, recorded as the
+  method after its route, with no string-keyed dispatch and no leaf in it.
 * The ring diamond: `Ring` reaches `Magma`, and hence `Sets`, along the multiplicative and the
   additive port, and the two routes are distinct. This module deliberately does not import the
   comparison row (`lean-categories` `LeanCategories/Catalogue/Semantics/Algebra/PortComparison.lean`): without it, `cardinality` on rings is
@@ -34,7 +31,6 @@ public meta import CasAcceptance.LatticeActionProbes
 -/
 
 open Lean Meta Elab Term Command
-open CasCatalogue.Lattices.Valued.ActionProbes CasCatalogue.Foundation.Cardinality
 
 namespace CasCatalogue.ResolveProbes
 
@@ -42,17 +38,6 @@ namespace CasCatalogue.ResolveProbes
 #resolve cardinality in "cat.bilin_module"
 #resolve cardinality in "cat.lattice"
 #resolve cardinality in "cat.rings" via "fun.rings.multiplicative_monoid"
-
-/- Execution receives `U(x)`: the value is computed by the composed actions. -/
-#guard method% cardinality (a2.form) in "cat.bilin_module" == ⟨CardinalHandle.aleph0⟩
-#guard method% cardinality (a2) in "cat.lattice" == ⟨CardinalHandle.aleph0⟩
-#guard method% cardinality (e8) in "cat.lattice" == ⟨CardinalHandle.aleph0⟩
-/-- The zero lattice: `ℤ⁰` has one element. -/
-def zeroLattice : Lattices.Valued.Actions.LatticeGramHandle := ⟨⟨0, !![]⟩, by decide⟩
-#guard method% cardinality (zeroLattice) in "cat.lattice" == ⟨CardinalHandle.finite 1⟩
-
-/-- The value of a method call on the zero-rank Gram form, as elaborated. -/
-def zeroFormCardinality := method% cardinality (zeroLattice.form) in "cat.bilin_module"
 
 run_cmd liftTermElabM do
   let state ← registryState
@@ -111,16 +96,30 @@ run_cmd liftTermElabM do
   unless (state.structuralEdges.filter fun e =>
       e.functor?.any (· == FunctorId.latticeBaseChange)).isEmpty do
     throwError "base change is an inheritance edge"
-  -- The elaborated term is the composite applied, not a string-keyed call.
-  let term ← `(method% cardinality (zeroLattice.form) in "cat.bilin_module")
-  let e ← instantiateMVars (← elabTerm term none)
-  unless e.isLet do throwError "the elaborated term does not bind the composite"
-  let composite := e.letValue!
-  unless composite.isAppOf ``FunctorExpr.comp do
-    throwError "the bound composite is not a FunctorExpr composition"
-  if (e.find? fun sub => sub == .lit (.strVal "cardinality")).isSome then
-    throwError "the elaborated term contains a string-keyed method call"
-  unless (e.letBody!.find? (·.isConstOf ``RealizedAction.comp)).isSome do
-    throwError "the value is not computed by composed actions"
+  -- The semantic reading of a call: the method's functor after the route's composite, recorded
+  -- as the method after its route; no string-keyed dispatch, and no leaf.
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "cat.sets is not registered"
+  let some fin := state.objects.find? (·.id.raw == "obj.sets.fin")
+    | throwError "obj.sets.fin is not registered"
+  let trace ← (Trace.new : IO _)
+  let three ← Semantic.object fin #[Syntax.mkNumLit "3"] (some trace)
+  let (value, target) ← Semantic.method "cardinality" three sets (some trace)
+  unless target.id == CategoryId.cardinals do
+    throwError "the cardinality of a set is not in the cardinals"
+  unless (value.find? (·.isConstOf ``Prefunctor.obj)).isSome do
+    throwError "the value is not the method's functor applied"
+  if (value.find? fun sub => sub == .lit (.strVal "cardinality")).isSome then
+    throwError "the semantic value contains a string-keyed method call"
+  let some (.method id route receiver) ← (trace.node? value : IO _)
+    | throwError "the call is not recorded as the method after its route"
+  unless id.raw == "meth.cardinality" && route.isEmpty && receiver == three do
+    throwError "recorded as {id.raw} after {route.size} steps"
+  -- An unknown method, and a method whose owner no route reaches, are invalid.
+  for name in ["frobnicate", "annihilator"] do
+    let stratum ← try discard <| Semantic.method name three sets; pure none
+      catch e => pure (Exception.stratum? e)
+    unless stratum == some .invalid do
+      throwError "`{name}` on a set fails as {repr stratum}, not as invalid"
 
 end CasCatalogue.ResolveProbes

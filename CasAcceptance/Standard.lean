@@ -1,11 +1,19 @@
 module
 
 public import LeanCategories.Catalogue.Semantics
-public import CasLeaves
+public import CasContract.Registry.Extension
 public meta import LeanCategories.Catalogue.Semantics
-public meta import CasLeaves
+public meta import CasContract.Registry.Extension
 
 @[expose] public section
+
+/-!
+# The standard catalogue's stable ids
+
+The rows the exported registry manifest (`checkedRegistryManifest`) must carry: exactly the
+semantic rows `lean-categories` registers. No row of a leaf exists: a leaf is a manifest of
+registrations, imported by nothing (`specs/leaf-registration.md`).
+-/
 
 namespace CasCatalogue.Catalogue.Standard
 open LeanCategories
@@ -208,33 +216,6 @@ def expectedConstructorIds : Array ConstructorId := #[
   ConstructorId.arrow, ConstructorId.core, ConstructorId.slice, ConstructorId.coslice,
   ConstructorId.elements, ConstructorId.subobjects, ConstructorId.functorCategory]
 
-/-- Stable functor-action rows owned by the standard catalogue (CC-ACTION). -/
-def expectedActionIds : Array ActionId := #[
-  ⟨"act.lattice.forget_form.int_gram"⟩,
-  ⟨"act.bilin_module.forget.int_gram"⟩,
-  ⟨"act.modules.fibre_inclusion.int_free"⟩,
-  ⟨"act.modules.underlying.int_free"⟩,
-  ⟨"act.sets.cardinality.presented"⟩,
-  ⟨"act.groups.monoid.table"⟩,
-  ⟨"act.monoids.semigroup.table"⟩,
-  ⟨"act.semigroups.magma.table"⟩,
-  ⟨"act.magmas.set.table"⟩,
-  ⟨"act.rings.multiplicative_monoid.table"⟩,
-  ⟨"act.rings.additive_group.table"⟩,
-  ⟨"act.additive_groups.to_groups.table"⟩,
-  ⟨"act.subobjects_groups.domain.table"⟩,
-  ⟨"act.subobjects_groups.inclusion.table"⟩,
-  ⟨"act.modules.rank.int_free"⟩,
-  ⟨"act.modules.fibre_inclusion.cyclic_int"⟩,
-  ⟨"act.modules.underlying.cyclic_int"⟩,
-  ⟨"act.modules.fibre_inclusion.zmod_free"⟩,
-  ⟨"act.modules.underlying.zmod_free"⟩,
-  ⟨"act.sets.whole_subset.presented"⟩,
-  ⟨"act.subobjects_sets.domain.presented"⟩, ⟨"act.sets.list.presented"⟩,
-  ⟨"act.sets.pair_diagonal.presented"⟩, ⟨"act.sets.pair_limit.presented"⟩,
-  ⟨"act.finite_sets.forget.refined"⟩, ⟨"act.bilin_module.forget.form"⟩,
-  ⟨"act.lattice.forget_form.form_refined"⟩]
-
 /-- Stable method-presentation rows owned by the standard catalogue (#53 §7). -/
 def expectedMethodIds : Array MethodId :=
   #[⟨"meth.cardinality"⟩, ⟨"meth.inclusion"⟩, ⟨"meth.kernel"⟩, ⟨"meth.rank"⟩,
@@ -245,49 +226,17 @@ def expectedMethodIds : Array MethodId :=
     ⟨"meth.arrow_im"⟩,
     ⟨"meth.subobject_dim"⟩]
 
-/-- Stable realizer rows owned by the standard catalogue (CC-SEP). -/
-def expectedRealizerIds : Array RealizerId := #[
-  ⟨"rz.sets.presented"⟩, ⟨"rz.core_sets.presented"⟩, ⟨"rz.cardinals.handles"⟩,
-  ⟨"rz.modules.int_free"⟩, ⟨"rz.modules_total.int_free"⟩, ⟨"rz.bilin_module.int_gram"⟩,
-  ⟨"rz.lattice.int_gram"⟩, ⟨"rz.core_modules.int_free"⟩, ⟨"rz.magmas.table"⟩,
-  ⟨"rz.semigroups.table"⟩, ⟨"rz.monoids.table"⟩, ⟨"rz.groups.table"⟩,
-  ⟨"rz.additive_groups.table"⟩,
-  ⟨"rz.subobjects_groups.table"⟩, ⟨"rz.arrows_groups.table"⟩, ⟨"rz.rings.table"⟩,
-  ⟨"rz.modules.cyclic_int"⟩, ⟨"rz.modules_total.cyclic_int"⟩, ⟨"rz.modules.zmod_free"⟩,
-  ⟨"rz.modules_total.zmod_free"⟩, ⟨"rz.subobjects_sets.presented"⟩,
-  ⟨"rz.sets.pair_diagrams.presented"⟩, ⟨"rz.finite_sets.presented"⟩,
-  ⟨"rz.finite_sets.refined"⟩, ⟨"rz.bilin_module.form"⟩, ⟨"rz.lattice.form_refined"⟩,
-  ⟨"rz.bil_wform.presented"⟩]
-
-/-- Stable fused-implementation rows owned by the standard catalogue (CC-ROUTE). -/
-def expectedImplementationIds : Array ImplementationId := #[
-  ⟨"impl.bilin_module.cardinality.fused"⟩, ⟨"impl.bilin_module.cardinality.certified"⟩]
-
 /-- Stable cell rows owned by the standard catalogue (CC-CALC). -/
 def expectedCellIds : Array NaturalTransformationId := #[
   NaturalTransformationId.listUnit, NaturalTransformationId.listJoin,
   NaturalTransformationId.listReverse, ⟨"cmp.rings.carrier"⟩]
 
-/-- Stable limit presentations and their realizations (CC-UNIV). -/
+/-- Stable limit presentations (CC-UNIV). -/
 def expectedLimitIds : Array LimitId := #[⟨"lim.sets.pullback"⟩, ⟨"lim.groups.kernel"⟩,
   ⟨"colim.sets.coproduct"⟩, ⟨"colim.bil_w_form.cokernel"⟩]
-def expectedLimitRealizationIds : Array LimitRealizationId :=
-  #[⟨"limr.sets.pullback.finite"⟩, ⟨"limr.groups.kernel.table"⟩,
-    ⟨"limr.finite_sets.pullback.returned"⟩, ⟨"colimr.sets.coproduct.finite"⟩,
-    ⟨"colimr.bil_w_form.cokernel.presented"⟩]
-
-/-- Stable backend operation rows (CC-ADAPTER). -/
-def expectedBackendOperationIds : Array BackendOperationId :=
-  #[⟨"bop.gap.groups.kernel"⟩, ⟨"bop.sage.modules.cardinality"⟩]
-
-/-- Stable equality rows (CC-DECIDE). -/
-def expectedEqualityIds : Array EqualityId := #[⟨"eq.sets.presented"⟩]
 
 /-- Stable adjunction rows (CC-CALC). -/
 def expectedAdjunctionIds : Array AdjunctionId := #[AdjunctionId.setsPairDiagonalLimit]
-
-/-- Stable registered isomorphisms owned by the standard catalogue (CC-CARRIER). -/
-def expectedHandleIsoIds : Array HandleIsoId := #[⟨"iso.f9.x_to_y_plus_2"⟩]
 
 /-- Stable lift rows owned by the standard catalogue (CC-LIFT). -/
 def expectedLiftIds : Array LiftId :=
@@ -296,11 +245,6 @@ def expectedLiftIds : Array LiftId :=
 /-- Stable property-presentation rows owned by the standard catalogue (CC-PROP). -/
 def expectedPropertyIds : Array PropertyId :=
   #[⟨"prop.is_commutative"⟩, ⟨"prop.is_abelian"⟩, ⟨"prop.is_finite"⟩, ⟨"prop.is_lattice"⟩]
-
-/-- Stable decision-procedure rows owned by the standard catalogue (CC-DECIDE). -/
-def expectedDeciderIds : Array DeciderId :=
-  #[⟨"dec.magmas.commutative.table"⟩, ⟨"dec.sets.finite.presented"⟩,
-    ⟨"dec.bilin_module.lattice.form"⟩]
 
 /-- Stable opaque-category rows owned by the standard catalogue. -/
 def expectedOpaqueCategoryIds : Array CategoryId := #[
@@ -328,7 +272,7 @@ def validateStableIdSet (kind : String) (actual expected : Array String) :
 def rawIds {α : Type} (ids : Array α) (raw : α → String) : Array String :=
   ids.map raw
 
-/-- Validate every retained row kind emitted by the standard registry manifest. -/
+/-- Validate every row kind emitted by the standard registry manifest. -/
 def validateStandardManifest (manifest : RegistryManifest) : Except String Unit := do
   validateStableIdSet "categories" (manifest.categories.map (·.id))
     (rawIds expectedCategoryIds (·.raw))
@@ -342,30 +286,14 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
     (rawIds expectedConstructorIds (·.raw))
   validateStableIdSet "fibrations" (manifest.fibrations.map (·.id))
     (rawIds expectedFibrationIds (·.raw))
-  validateStableIdSet "actions" (manifest.actions.map (·.id))
-    (rawIds expectedActionIds (·.raw))
   validateStableIdSet "methods" (manifest.methods.map (·.id))
     (rawIds expectedMethodIds (·.raw))
   validateStableIdSet "properties" (manifest.properties.map (·.id))
     (rawIds expectedPropertyIds (·.raw))
-  validateStableIdSet "deciders" (manifest.deciders.map (·.id))
-    (rawIds expectedDeciderIds (·.raw))
   validateStableIdSet "lifts" (manifest.lifts.map (·.id))
     (rawIds expectedLiftIds (·.raw))
-  validateStableIdSet "realizers" (manifest.realizers.map (·.id))
-    (rawIds expectedRealizerIds (·.raw))
-  validateStableIdSet "implementations" (manifest.implementations.map (·.id))
-    (rawIds expectedImplementationIds (·.raw))
-  validateStableIdSet "isomorphisms" (manifest.handleIsos.map (·.id))
-    (rawIds expectedHandleIsoIds (·.raw))
   validateStableIdSet "cells" (manifest.cells.map (·.id)) (rawIds expectedCellIds (·.raw))
   validateStableIdSet "limits" (manifest.limits.map (·.id)) (rawIds expectedLimitIds (·.raw))
-  validateStableIdSet "limit realizations" (manifest.limitRealizations.map (·.id))
-    (rawIds expectedLimitRealizationIds (·.raw))
-  validateStableIdSet "backend operations" (manifest.backendOperations.map (·.id))
-    (rawIds expectedBackendOperationIds (·.raw))
-  validateStableIdSet "equalities" (manifest.equalities.map (·.id))
-    (rawIds expectedEqualityIds (·.raw))
   validateStableIdSet "adjunctions" (manifest.adjunctions.map (·.id))
     (rawIds expectedAdjunctionIds (·.raw))
   validateStableIdSet "opaque categories" (manifest.opaqueCategories.map (·.id))

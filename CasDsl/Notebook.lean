@@ -8,5 +8,6 @@ public import CasDsl
 
 /-!
 The prelude: the module the `casdsl` kernelspec imports (lean-jupyter-kernel `docs/plugins.md`).
-It is the whole standard universe; a notebook sees exactly what the core and the leaves register.
+It is the whole catalogue with the language; a notebook sees exactly what the core reads from
+`lean-categories`, and computes through whatever leaves' manifest is installed.
 -/

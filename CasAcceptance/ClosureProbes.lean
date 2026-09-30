@@ -6,10 +6,8 @@ module
 
 public import CasAcceptance.Standard
 public import CasCatalogue.ResolveSyntax
-public import CasAcceptance.LatticeActionProbes
 public meta import CasAcceptance.Standard
 public meta import CasCatalogue.ResolveSyntax
-public meta import CasAcceptance.LatticeActionProbes
 
 @[expose] public section
 
@@ -27,21 +25,18 @@ Its generated surface (`#methods`) then contains:
   lift (CC-LIFT) rather than a module kernel posing as a torsion-free one. The mathematics that
   would supply it — torsion-freeness passes to submodules — is to be stated as a lift upstream.
 
-The surface is computed from the registry at query time; no per-leaf method list exists. The same
-mechanism gives lattices `rank`, computed through the composed actions.
+The surface is computed from the registry at query time; no per-leaf method list exists, and no
+leaf can change it: a leaf is a manifest of registrations against these operations. The same
+mechanism gives lattices `rank`, through their four-step route to modules.
 -/
 
 open CategoryTheory Lean Meta Elab Term Command
-open LeanCategories CasCatalogue.Lattices.Valued.ActionProbes CasCatalogue.Foundation.Cardinality
+open LeanCategories
 
 namespace CasCatalogue.ClosureProbes
 
 #methods "cat.torsion_free_modules"
 #methods "cat.lattice"
-
-/- Lattices inherit `rank`, computed through the composed actions: `rank A₂ = 2`, `rank E₈ = 8`. -/
-#guard method% rank (a2) in "cat.lattice" == ⟨CardinalHandle.finite 2⟩
-#guard method% rank (e8) in "cat.lattice" == ⟨CardinalHandle.finite 8⟩
 
 run_cmd liftTermElabM do
   let state ← registryState
@@ -59,5 +54,14 @@ run_cmd liftTermElabM do
   -- Nothing was declared for the leaf: no method, property, action or lift mentions it.
   if state.methods.any (·.owner.syntacticEq leaf.expression) then
     throwError "a method is declared on the leaf"
+  -- Lattices inherit `rank` along their route to modules.
+  let some lattice := state.categories.find? (·.id.raw == "cat.lattice")
+    | throwError "cat.lattice is not registered"
+  match state.resolveMethod lattice.expression "rank" with
+  | .ok r =>
+      unless r.method.id.raw == "meth.rank" &&
+          r.route.functorIds[0]? == some FunctorId.latticeFormForget do
+        throwError "unexpected: {state.renderResolution r}"
+  | .error e => throwError e.render state
 
 end CasCatalogue.ClosureProbes
