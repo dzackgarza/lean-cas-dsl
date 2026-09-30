@@ -22,7 +22,7 @@ local checkout, and this work must be readable wherever the repository is.
 > `session_01GTQeWD4KCqYCeVd4SygciY` and `session_01YSV4KoC3rsqZJcugaUrwbG`, both running since
 > the owner approved their prompts (2026-09-30 12:56 UTC), `custodian/containment`. The orchestrator interrupted `session_01YSV4KoC3rsqZJcugaUrwbG` at
 > 13:00 UTC, at the owner's instruction: two custodians on one branch are two authorities. Its
-> prompt lacked the convergence process. `session_01GTQeWD4KCqYCeVd4SygciY` is the custodian. The orchestrator reads `custodian/containment` and
+> prompt lacked the convergence process. `session_01GTQeWD4KCqYCeVd4SygciY` is the custodian. Its seal (`custodian/`, merged at `e3cf7a8`) fixes the boundary at `0ba53dab`. Open under it: `proposal/sealed-kernel-pin-mismatch` (the sealed kernel needs `ObjectEntry.evidence`, which the sealed `lean_categories` pin lacks). The orchestrator reads `custodian/containment` and
 > obeys what it states. It never writes there.
 
 ## Rules for executing this plan
