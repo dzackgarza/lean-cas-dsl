@@ -19,7 +19,7 @@ run assertion-edit 1 "f=\$(ls tests/acceptance/*.cas|head -1); sed -i '0,/test /
 run ledger-rewrite 1 "python3 -c \"import json;p='CasAcceptance/Permanent/admitted.json';d=json.load(open(p));k=sorted(d['assertions'])[0];d['assertions'][k]='0'*64;open(p,'w').write(json.dumps(d))\""
 run ledger-correction 1 "python3 -c \"import json;p='CasAcceptance/Permanent/admitted.json';d=json.load(open(p));d['corrections'].append({'reason':'x'});open(p,'w').write(json.dumps(d))\""
 run ledger-append 0 "python3 -c \"import json;p='CasAcceptance/Permanent/admitted.json';d=json.load(open(p));d['assertions']['new-one']='1'*64;open(p,'w').write(json.dumps(d))\""
-run repin-lean-categories 1 "sed -i 's/c06aeedc8ebc16c787481a5c15a86526341a4b4e/6b2750c9de7d0a4a28fc3cc278021fe8400e2437/g' lake-manifest.json"
+run repin-lean-categories 1 "python3 -c \"import json;p='lake-manifest.json';d=json.load(open(p));[q.update(rev='a'*40) for q in d['packages'] if q['name']=='lean_categories'];open(p,'w').write(json.dumps(d))\""
 run repin-contract-lakefile 1 "sed -i 's/6588a86ca5d0ade8ffdabf5f7f95640d426d18f4/9fd3c17612ddf1bdb75ff510cc0f5ffb1d5a9e88/' lakefile.lean"
 run repin-leaves 0 "sed -i 's/c4cff1645158aa138c5f828b47de43e8b051a44e/6c553afd27a92b26e334c6ce4e2045960b58ae02/g' lakefile.lean lake-manifest.json; git -C $S/l checkout -q 6c553afd27a92b26e334c6ce4e2045960b58ae02"
 run new-acceptance-test 0 "echo 'test zz-new \"src\": 1 = 1' > tests/acceptance/zz.cas; git add tests/acceptance/zz.cas"
@@ -39,3 +39,4 @@ run dev-link 1 "mkdir -p .lake/packages; ln -s /home/user/lean-categories .lake/
 run intent-edit 1 "echo x >> custodian/owner-intent.md"
 run adversarial-edit 1 "echo '# x' >> custodian/adversarial.sh"
 run boundary-shrink 1 "python3 -c \"import json;p='custodian/boundary.json';d=json.load(open(p));d['boundary'].remove('CasGates/*');open(p,'w').write(json.dumps(d))\""
+run lakefile-disagrees-with-manifest 1 "sed -i 's/c4cff1645158aa138c5f828b47de43e8b051a44e/6c553afd27a92b26e334c6ce4e2045960b58ae02/' lakefile.lean"

@@ -37,9 +37,12 @@ HERE = Path(__file__).resolve().parent
 
 # Pins whose revision may move without a new seal: leaves are ordinary downstream work.
 FREE_PINS = {"cas_leaves"}
-# The require line of a free pin in lakefile.lean is normalized before hashing.
-FREE_REQUIRE = re.compile(
-    r'(require cas_leaves from git\s*\n\s*"[^"]+"\s*@\s*)"[0-9a-f]{40}"')
+# The revisions in these `require` lines of lakefile.lean are normalized before hashing. They are
+# checked instead against lake-manifest.json, whose sealed pins (all but cas_leaves) are judged as
+# pins: a moved lean_categories or cas_leaf_contracts pin goes to review, not to escalation.
+PINNED_REQUIRES = ("cas_leaves", "lean_categories", "cas_leaf_contracts")
+REQUIRE_REV = re.compile(
+    r'(require (\w+) from git\s*\n\s*"[^"]+"\s*@\s*)"([0-9a-f]{40})"')
 
 # Constructs that make a result undefined, unchecked or unsound, or that let code rewrite how other
 # code (an assertion, a contract command) is elaborated.
@@ -98,7 +101,8 @@ def sha(data: bytes) -> str:
 
 def normalized(path: str, data: bytes) -> bytes:
     if path == "lakefile.lean":
-        return FREE_REQUIRE.sub(r'\1"<free>"', data.decode()).encode()
+        return REQUIRE_REV.sub(lambda m: m.group(1) + '"<pinned>"' if m.group(2) in PINNED_REQUIRES
+                               else m.group(0), data.decode()).encode()
     return data
 
 
@@ -222,6 +226,8 @@ def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
         for key in sorted(set(seal["ledger"]) | set(ledger)):
             if key == "assertions":
                 continue
+            if key == "lean_categories" and ledger.get(key) == manifest_pins(repo).get(key):
+                continue  # the ledger records the pin; the pin itself is judged as a pin
             if ledger.get(key) != seal["ledger"].get(key):
                 problems.append(f"sealed ledger field changed: {LEDGER} {key}")
         for ident, h in sorted(seal["ledger"]["assertions"].items()):
@@ -232,6 +238,11 @@ def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
     for hit in sorted(set(outside_hits(repo, seal)) - set(seal["outside_baseline"])):
         problems.append(f"outside the boundary: {hit}")
     pins = manifest_pins(repo)
+    lake = (repo / "lakefile.lean").read_text() if (repo / "lakefile.lean").exists() else ""
+    for m in REQUIRE_REV.finditer(lake):
+        if m.group(2) in PINNED_REQUIRES and pins.get(m.group(2)) != m.group(3):
+            problems.append(f"lakefile.lean requires {m.group(2)} at {m.group(3)[:12]}, but "
+                            f"lake-manifest.json pins {str(pins.get(m.group(2)))[:12]}")
     for name, rev in sorted(seal["pins"].items()):
         if pins.get(name) != rev:
             problems.append(f"sealed pin moved: {name} {rev[:12]} -> {str(pins.get(name))[:12]}")

@@ -167,5 +167,19 @@ fresh()
 commit(S / "head")
 expect("a head that replaces the root seal", run(), "FAIL (hard)")
 
+fresh()
+old = json.loads((S / "head" / "lake-manifest.json").read_text())
+old = next(p["rev"] for p in old["packages"] if p["name"] == "lean_categories")
+new = "6b2750c9de7d0a4a28fc3cc278021fe8400e2437"
+for f in ("lake-manifest.json", "lakefile.lean"):
+    (S / "head" / f).write_text((S / "head" / f).read_text().replace(old, new))
+led = S / "head" / "CasAcceptance/Permanent/admitted.json"
+d = json.loads(led.read_text()); d["lean_categories"] = new
+led.write_text(json.dumps(d, indent=2, sort_keys=True) + "\n")
+commit(S / "head")
+calls.clear()
+expect("a complete lean_categories re-pin is reviewed, not escalated", run(stub("approve")), "APPROVED")
+results.append(len(calls) == 1 and "upstream diff of lean_categories" in calls[0])
+
 print(f"{sum(results)}/{len(results)} checks hold")
 sys.exit(0 if all(results) else 1)
