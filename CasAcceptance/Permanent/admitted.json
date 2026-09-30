@@ -200,6 +200,5 @@
       "reason": "Upstream correction lean-categories c06aeed/bd31fe3 (LC-14, LC-16): operations are total on their domains, so roots and factors are defined on R[x] \u2216 0, the companion matrix on Monic(n, K), the Taylor expansion on C^\u221e, inverses on the units M\u02e3 (Mat\u2082(\u211a)\u02e3 = GL\u2082(\u211a)), and \u2211/\u220f on finite subsets \ud835\udcab_fin(X); lim has no registered domain. The same facts are restated with each value formed in its domain by `x in D`: the Taylor expansions of exp and sin are taken of (f in C^\u221e) and (g in C^\u221e); the factors and roots of p, q and their images in \u2102[x] are taken of the polynomial formed in R[x] \u2216 0; the companion matrix is that of (r in Monic(3, \u211a)); M is formed in Mat\u2082(\u211a)\u02e3; the Vieta sum and product range over the finite set of roots of r over \u2102, ((map r to \u2102[x]) in \u2102[x] \u2216 0).roots() \u2208 \ud835\udcab_fin(\u2102), since {a \u2208 \u2102 | r(a) = 0} is not established finite. No expected value changed. The two limit assertions are kept unchanged (not expressible: no domain of convergent maps).",
       "removed": []
     }
-  ],
-  "lean_categories": "646f4a770421872593c796a5af1c2aafc52cbb17"
+  ]
 }

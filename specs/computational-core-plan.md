@@ -247,7 +247,7 @@ A wrong answer is acceptance's to detect. Failures are thrown by `throwStratum`,
 - `#accept_backend "id" from "source" : (call) agrees value` runs a backend realization and requires its answer to equal a value whose denotation another assertion proves. An unavailable backend is recorded. A malformed answer or a different answer fails.
 - `#acceptance_gaps` lists the assertions no realization computes here.
 
-`value% name (x) in "cat"` is the semantic value of a call: the denotation of its result, an object of the method's codomain. Propositions about it name no realization. `scripts/check_acceptance_permanent.py`, run by `just build`, keeps `CasAcceptance/Permanent/admitted.json`. It fails when an admitted assertion (its text up to `:=`, whitespace collapsed) changes or disappears, or when an assertion is not admitted. `--admit` admits only new assertions. `--correct "reason"` re-admits changed assertions only when the pinned `lean-categories` revision differs from the recorded one, and records the reason. The proof after `:=` may change.
+`value% name (x) in "cat"` is the semantic value of a call: the denotation of its result, an object of the method's codomain. Propositions about it name no realization. `scripts/check_acceptance_permanent.py`, run by `just build`, keeps `CasAcceptance/Permanent/admitted.json`. It fails when an admitted assertion (its text up to `:=`, whitespace collapsed) changes or disappears, or when an assertion is not admitted. `--admit` admits only new assertions. `--correct "reason"` re-admits changed assertions and records the reason, which names the upstream commit; only the acceptance author runs it, and the change to the sealed ledger needs an escalation. The proof after `:=` may change.
 
 `CasAcceptance/Permanent/Cardinality.lean` states eleven assertions, each citing its source:
 - `|Fin 2 × ℤ/3| = 6`, `|(ℤ/4)^3| = 64`, `|(ℤ/7)^1| = 7`, `|(ℤ/5)^0| = 1` and `|ℤ| = ℵ₀`, all proved;
@@ -258,7 +258,7 @@ A wrong answer is acceptance's to detect. Failures are thrown by `throwStratum`,
 
 **Checked:**
 - gate green;
-- changing `64` to `65` fails the script, and `--correct` is refused at the admitted pin;
+- changing `64` to `65` fails the script, and `--correct` is refused outside the acceptance role;
 - a proof-only change passes;
 - a false `#accept` fails its proof;
 - a disagreeing `#accept_backend` fails as a wrong answer;

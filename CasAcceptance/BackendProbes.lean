@@ -77,13 +77,13 @@ run_cmd liftTermElabM do
         Backend.stop c
   -- A leaf declaring a backend operation that is not a registered semantic operation (an
   -- isotropic-subgroup operation on generic groups) is rejected at its contract.
-  let isotropic : LeafContract :=
+  let isotropic : Leaf :=
     { backend := "gap", contributions := [.backendOperation
         { id := ⟨"bop.probe.isotropic"⟩, backend := "gap", operation := "op.groups.isotropic"
           decoder := `CasCatalogue.Algebra.KernelDecode.decodeKernel }] }
   if (← try discard isotropic.check; pure true catch _ => pure false) then
     throwError "an operation that is not registered was declared for a backend"
-  let notADecoder : LeafContract :=
+  let notADecoder : Leaf :=
     { backend := "gap", contributions := [.backendOperation
         { id := ⟨"bop.probe.not_a_decoder"⟩, backend := "gap", operation := "lim.groups.kernel"
           decoder := `CasCatalogue.Algebra.GapKernels.encodeHom }] }

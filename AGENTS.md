@@ -2,14 +2,14 @@
 
 `custodian/CONTAINMENT.md` (branch `custodian/containment`, custodian session
 `session_01GTQeWD4KCqYCeVd4SygciY`) seals the acceptance boundary: the kernel, the gates, the
-build, the acceptance meaning, the pins and the owner's text. It is signed with a key the
+build, the acceptance meaning, the upstream rule files and the owner's text. It is signed with a key the
 orchestrator never held. The orchestrator must:
 - merge `custodian/containment` into every branch it works on;
-- run `python3 custodian/verify.py --trusted-fpr <owner's fingerprint> --leaves <cas_leaves pin
-  checkout>` on every head it calls accepted, delivered or done. A head that does not verify is not
+- run `python3 scripts/ci_chain.py` and then `python3 custodian/verify.py --trusted-fpr <owner's
+  fingerprint>` on every head it calls accepted, delivered or done. A head that does not verify is not
   accepted, whatever the plan says;
-- build against real checkouts at the pins in `.lake/packages`, never links to sibling working
-  trees (`scripts/pin_dev.py` produces exactly what the seal refuses);
+- build against real checkouts at the manifest revisions in `.lake/packages`, never links to
+  sibling working trees;
 - put every boundary change on a `proposal/<name>` branch, and never sign, request or present a
   seal;
 - report an obligation that is inconsistent under the seal on a `proposal/` branch, and never
@@ -60,7 +60,7 @@ given (CONTRIBUTING, "A correction is encoded where it will be read"). Open gove
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
-- this repository derives the language from `lean-categories`' pinned release and owns no ontology;
+- this repository derives the language from `lean-categories`' `main` and owns no ontology;
 - leaves only realize operations that are already formal;
 - `research` owns no ontology.
 
@@ -68,7 +68,7 @@ Every plan node and edit conforms to it. In practice it forbids the following.
 
 * **Missing mathematics goes upstream.** If you need a category, functor, classifier, operation
   or coherence that is not formal, stop. Formalize it in `lean-categories`, or open the request
-  there. Then release, re-pin, and continue here.
+  there. Then merge it to `main`, `lake update` here, and continue.
   - Never coin it in this repository: a leaf, a probe, the notebook or the kernel.
   - The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`). `normalized_registry`
     refuses every module outside it, and `SemanticProjectionProbes` checks that every semantic row
@@ -85,7 +85,7 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   - Never edit an admitted assertion because an implementation changed. Add new assertions
     instead.
   - Only an upstream correction to the mathematics changes an assertion, in the commit that
-    re-pins it.
+    updates to it.
 * **Failures stay stratified.** The five kinds are:
   1. semantically invalid;
   2. `NoImplementation`;
@@ -112,9 +112,8 @@ mechanical, external, long-tail work.
   `register_leaf` here). The orchestrator never writes, ports or polishes a leaf.
 - A leaf never sees the tests. It depends only on the leaf contract (`CasContract.Leaf`) and the
   catalogue, and the harness runs the suite over installed leaves (`just harness`).
-- The contract is the kernel's: change it together with the kernel, release it, re-pin it in the
-  leaves and here. Development builds link `.lake/packages/{cas_leaf_contracts,cas_leaves}` to the
-  working trees, as for `lean_categories`.
+- The contract is the kernel's: change it together with the kernel, merge it to `main`, and
+  `lake update` the leaves and this repository.
 
 # Search before authoring (gate-enforced)
 

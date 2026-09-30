@@ -34,3 +34,29 @@ jobs:
           build-args: CasGates
           test: false
           lint: false
+  build:
+    name: Build and audit (just test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check out the chain at the manifest revisions
+        run: python3 scripts/ci_chain.py
+      - name: Clone QC infrastructure
+        run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git "$HOME/ai-review-ci"
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Lean and restore the Mathlib cache
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: "false"
+          build: "false"
+          test: "false"
+          lint: "false"
+          use-mathlib-cache: "true"
+      - uses: extractions/setup-just@v4
+      - name: Build and audit
+        run: just test

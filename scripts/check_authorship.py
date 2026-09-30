@@ -12,8 +12,7 @@ packages `lean_categories`, `cas_leaf_contracts`, `cas_leaves` it links), must:
 
 A commit with neither trailer is a person's and is not checked. The owner's commits are theirs to
 make. Admitting or correcting acceptance assertions (`CasAcceptance/Permanent/admitted.json`'s
-`assertions` and `corrections`) is the acceptance role's. Recording the `lean_categories` pin there
-is anyone's.
+`assertions` and `corrections`) is the acceptance role's.
 
     check_authorship.py            check the chain; exit 1 with every violation
     check_authorship.py --self-test
