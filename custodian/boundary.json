@@ -1,0 +1,32 @@
+{
+ "boundary": [
+  "CasCatalogue.lean",
+  "CasCatalogue/*",
+  "CasGates/*",
+  "CasAcceptance.lean",
+  "CasAcceptance/*",
+  "tests/acceptance/*",
+  "CasTools/*",
+  "CasDsl.lean",
+  "CasDsl/*",
+  "scripts/check_*.py",
+  "scripts/ci_chain.py",
+  "scripts/repin.sh",
+  "scripts/pin_dev.py",
+  ".github/*",
+  "justfile",
+  "lakefile.lean",
+  "lean-toolchain",
+  "specs/owner/*",
+  "custodian/CONTAINMENT.md",
+  "custodian/FINDINGS.md",
+  "custodian/boundary.json",
+  "custodian/custodian.pub.pem",
+  "custodian/verify.py",
+  "custodian/adversarial.sh"
+ ],
+ "append_only": [
+  "tests/acceptance/*.cas",
+  "CasAcceptance/Permanent/*.lean"
+ ]
+}
