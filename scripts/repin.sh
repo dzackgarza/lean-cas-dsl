@@ -10,6 +10,7 @@ commit() {
     git -C "$dir" add lakefile.lean lake-manifest.json
     git -C "$dir" commit -q -m "Pin the development chain
 
+Agent-Role: orchestrator
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01SKJ21csPEAnJmemqQztSVD"
     git -C "$dir" push -q origin HEAD 2>&1 | grep -v "negotiation\|acknowledg" || true
