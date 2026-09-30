@@ -42,7 +42,7 @@ theorem reverse_comp_inverse :
       𝟙 _ := by
   simp
 
-/-- The composites elaborate as morphisms between the composites of registered functors. -/
+/- The composites elaborate as morphisms between the composites of registered functors. -/
 run_cmd liftTermElabM do
   for term in [← `(cell% ("cell.sets.list.unit" ▷ "fun.sets.list") ≫ "cell.sets.list.join"
       at (integers) in "cat.sets"),

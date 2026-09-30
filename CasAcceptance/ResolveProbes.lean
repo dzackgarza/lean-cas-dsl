@@ -6,10 +6,16 @@ module
 
 public import CasCatalogue.ResolveSyntax
 public import CasCatalogue.Semantic
-public import LeanCategories.Catalogue.Semantics
+public import LeanCategories.Catalogue.Semantics.Algebra.Ports
+public import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+public import LeanCategories.Catalogue.Semantics.Foundation.Objects
+public import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueRegistration
 public meta import CasCatalogue.ResolveSyntax
 public meta import CasCatalogue.Semantic
-public meta import LeanCategories.Catalogue.Semantics
+public meta import LeanCategories.Catalogue.Semantics.Algebra.Ports
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Cardinality
+public meta import LeanCategories.Catalogue.Semantics.Foundation.Objects
+public meta import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueRegistration
 
 @[expose] public section
 

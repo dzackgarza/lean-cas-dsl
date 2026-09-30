@@ -5,9 +5,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasAcceptance.Standard
-public import CasCatalogue.ResolveSyntax
+public import CasCatalogue.Semantic
 public meta import CasAcceptance.Standard
-public meta import CasCatalogue.ResolveSyntax
+public meta import CasCatalogue.Semantic
 
 @[expose] public section
 

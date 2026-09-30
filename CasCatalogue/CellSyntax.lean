@@ -117,6 +117,10 @@ def elabCellCall (cell : Syntax) (receiver : Term) (category : String) : TermEla
   let t ← elabCellTerm state cell
   let x ← elabTermEnsuringType receiver (← categoryCarrierInstance categoryEntry)
   synthesizeSyntheticMVarsNoPostponing
-  instantiateMVars (← mkAppM ``CategoryTheory.NatTrans.app #[t.nat, ← instantiateMVars x])
+  -- Elaborated at the current depth, so that the cell's universe levels are assigned by `x`'s
+  -- category (as `Semantic.objOf`).
+  let component ← elabTermAndSynthesize (← `(CategoryTheory.NatTrans.app
+    $(← exprToSyntax t.nat) $(← exprToSyntax (← instantiateMVars x)))) none
+  instantiateMVars component
 
 end CasCatalogue
