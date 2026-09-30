@@ -52,23 +52,27 @@ open Language
 def decideBudget : Nat := 20000
 
 /-- Whether Lean's kernel accepts the proof of `p` by decision, `of_decide_eq_true (Eq.refl
-true) : p` (`mkDecideProof`), within `decideBudget`: the proof is added as an auxiliary theorem
-and discarded. `false` when `p` has no `Decidable` instance, or the kernel does not accept the
-proof within the budget (a classical instance, a decision that reduces to `false`, a
-computation beyond the budget). `Decidable` instances are the catalogue's and Mathlib's; the
-kernel runs no proof search. -/
+true) : p` (`mkDecideProof`), within `decideBudget`. The proof is type-checked synchronously by
+the kernel (`Environment.addDeclCore`, bounded by `decideBudget`) into a copy of the environment
+that is discarded. `Lean.addDecl` is not used: under `Elab.async` it checks theorems in a
+background task and returns before the kernel has judged the proof, so its return says nothing.
+`false` when `p` has no `Decidable` instance, or the kernel does not accept the proof within the
+budget (a classical instance, a decision that reduces to `false`, a computation beyond the
+budget). `Decidable` instances are the catalogue's and Mathlib's; the kernel runs no proof
+search. -/
 def kernelDecides (p : Expr) : MetaM Bool := do
   let attempt : MetaM Bool := do
     let proof ← mkDecideProof p
-    withoutModifyingEnv do
-      addDecl <| .thmDecl { name := `CasCatalogue.Realize.decided, levelParams := [], type := p
-                            value := proof }
-      return true
+    let decl := Declaration.thmDecl
+      { name := `CasCatalogue.Realize.decided, levelParams := [], type := p, value := proof }
+    match (← getEnv).addDeclCore (USize.ofNat (decideBudget * 1000))
+        (USize.ofNat maxRecDepth.defValue) decl none with
+    | .ok _ => return true
+    | .error _ => return false
   withCurrHeartbeats <|
     withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
-      -- not a reading fallback: a proposition without a `Decidable` instance, or whose proof the
-      -- kernel does not accept within its budget, is not decided by Lean; the claim is then
-      -- realized, unchanged
+      -- not a reading fallback: a proposition without a `Decidable` instance is not decided by
+      -- Lean; the claim is then realized, unchanged
       tryCatchRuntimeEx attempt fun _ => pure false
 
 /-- The proposition `p` decided in Lean: `some true` when the kernel accepts its proof by
@@ -160,9 +164,12 @@ def Harness.connection (h : Harness) (name : String) :
 
 /-- Stop every started backend. -/
 def Harness.stop (h : Harness) : IO Unit := do
-  for (_, connection) in (← h.connections.get).toList do
-    if let .ok c := connection then Backend.stop c
+  let connections ← h.connections.get
   h.connections.set {}
+  -- A backend is killed, not asked to exit: nothing it does is waited on or believed, and
+  -- closing its input cannot be relied on while other references to the handle are alive.
+  for (_, connection) in connections.toList do
+    if let .ok c := connection then Backend.abort c.child
 
 /-- Call the admitted registration of `operation` on the value `input`, and decode the answer as
 a value of `resultType`. -/
