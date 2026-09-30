@@ -18,10 +18,12 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
 (`CasAcceptance/Strata/registration_*.json`) naming a probe backend program
 (`probe_registration.py`, test scaffolding, not a leaf):
 
-* **Lean decides, with no manifest at all.** Element and morphism equalities of `ℤ`, `ℤ/5`,
-  `Fin(3)` and the catalogue's inclusions hold with no leaf installed, and a refuted one
-  (`2 + 3 = 6`) is invalid, never sent to a leaf. What Lean does not decide and no registration
-  computes is a gap.
+* **Lean decides, with no manifest at all.** The catalogue's judgements (`ℤ ⊆ ℚ`, `3 ∈ ℤ/5`)
+  hold with no leaf installed: their propositions are proved by decision, checked by the kernel.
+  What Lean does not decide and no registration computes is a gap: cardinalities, and the
+  element and morphism equalities of `ℤ`, `ℤ/5` and `Fin(3)`, whose `Decidable` instance
+  (equality of morphisms of a concrete category, on their functions) is mathematics the
+  catalogue does not yet supply. No statement of the language is refutable until it does.
 * **A registration computes, through the port.** Registrations of `meth.cardinality` on the
   forms `obj.sets.fin`, `obj.finite_sets.fin` and `obj.sets.integers_mod_power` make
   `|Fin(3)| = 3`, `|Fin(3) in FiniteSets| = 3`, `|(ℤ/4)^3| = 64` and `|(ℤ/0)^2| = ℵ₀`
@@ -43,10 +45,10 @@ namespace CasCatalogue.RegistrationProbes
 open Language Realize
 
 /-- The probe manifests' directory. -/
-def strata : System.FilePath := "CasAcceptance" / "Strata"
+meta def strata : System.FilePath := "CasAcceptance" / "Strata"
 
 /-- An outcome's kind, as the suite reports it. -/
-def kindOf : Outcome → String
+meta def kindOf : Outcome → String
   | .holds => "holds"
   | .gap _ => "gap"
   | .unavailable _ => "unavailable"
@@ -67,24 +69,17 @@ meta def withHarness (name : String) (k : Harness → CommandElabM Unit) : Comma
   let harness ← harnessOf name
   try k harness finally (harness.stop : IO Unit)
 
-/-- Lean decides, with no manifest at all. -/
+-- Lean decides, with no manifest at all; what it does not decide, and nothing computes, is a gap.
 run_cmd do
   let harness ← (Harness.empty : IO Harness)
-  for text in ["assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5", "assert -2 = 3 in ℤ/5",
-      "assert 3 · (4 + 5) = 6 in ℤ/7", "assert gcd(84, 30) = 6",
-      "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert rev(3, 0) = 2 in Fin(3)",
-      "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert 3 ∈ ℤ/5"] do
+  for text in ["assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert ℕ ⊆ ℂ", "assert 3 ∈ ℤ/5", "assert -3 ∈ ℤ"] do
     expect harness "holds" text
-  -- A refuted statement is false mathematics: invalid, and no leaf is asked.
-  let refuted ← try discard <| runStatement harness {} "assert 2 + 3 = 6"; pure false
-    catch e => pure ((← e.toMessageData.toString).splitOn "refuted").length > 1
-  unless refuted do throwError "`2 + 3 = 6` is not reported as refuted"
-  -- What Lean does not decide is a gap: nothing is registered.
   for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
-      "assert implemented |Fin(3)|"] do
+      "assert implemented |Fin(3)|", "assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5",
+      "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert gcd(84, 30) = 6"] do
     expect harness "gap" text
 
-/-- A registration computes cardinalities through the port. -/
+-- A registration computes cardinalities through the port.
 run_cmd withHarness "registration_correct.json" fun harness => do
   unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
   unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
@@ -93,34 +88,35 @@ run_cmd withHarness "registration_correct.json" fun harness => do
       "assert implemented |Fin(3)|"] do
     expect harness "holds" text
   -- Lean still decides what it decides; what has no registration is still a gap.
-  expect harness "holds" "assert 2 + 3 = 5"
+  expect harness "holds" "assert ℤ ⊆ ℚ"
   expect harness "gap" "assert |ℤ| = ℵ₀"
+  expect harness "gap" "assert 2 + 3 = 5"
   -- A well-typed wrong answer is not a gap: the assertion is wrong.
   expect harness "wrong" "assert |Fin(3)| = 4"
 
-/-- The same registrations answering the constant `7`: the affected assertions are wrong, and
-nothing else changes. -/
+-- The same registrations answering the constant `7`: the affected assertions are wrong, and
+-- nothing else changes.
 run_cmd withHarness "registration_wrong.json" fun harness => do
   unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
   for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
       "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀"] do
     expect harness "wrong" text
   expect harness "holds" "assert |Fin(7)| = 7"
-  expect harness "holds" "assert 2 + 3 = 5"
-  expect harness "holds" "assert rev(3) ∘ rev(3) = id(Fin(3))"
+  expect harness "holds" "assert ℤ ⊆ ℚ"
   expect harness "gap" "assert |ℤ| = ℵ₀"
+  expect harness "gap" "assert 2 + 3 = 5"
 
-/-- An answer that is not a value of the result form is malformed. -/
+-- An answer that is not a value of the result form is malformed.
 run_cmd withHarness "registration_malformed.json" fun harness => do
   expect harness "malformed" "assert |Fin(3)| = 3"
-  expect harness "holds" "assert 2 + 3 = 5"
+  expect harness "holds" "assert ℤ ⊆ ℚ"
 
-/-- A backend that cannot start is unavailable. -/
+-- A backend that cannot start is unavailable.
 run_cmd withHarness "registration_unavailable.json" fun harness => do
   expect harness "unavailable" "assert |Fin(3)| = 3"
 
-/-- Registrations that name nothing of the catalogue, or a form the operation does not apply to,
-or an undeclared backend, are not admitted. -/
+-- Registrations that name nothing of the catalogue, or a form the operation does not apply to,
+-- or an undeclared backend, are not admitted.
 run_cmd withHarness "registration_rejected.json" fun harness => do
   unless harness.admitted.isEmpty do throwError "a registration was admitted"
   unless harness.rejected.size == 4 do throwError "rejected: {harness.rejected}"

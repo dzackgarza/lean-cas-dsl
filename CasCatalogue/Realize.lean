@@ -8,7 +8,6 @@ public import CasCatalogue.Language
 public import CasCatalogue.Admission
 public import CasCatalogue.Codec
 public import CasContract.Port
-public import Mathlib.CategoryTheory.ConcreteCategory.Basic
 
 @[expose] public section
 
@@ -18,10 +17,12 @@ public import Mathlib.CategoryTheory.ConcreteCategory.Basic
 A statement's semantic reading elaborates it into its claim (`Language.Claim`): a proposition of
 the catalogue's mathematics, and the term it is about. This module decides the claim:
 
-1. **Lean discharge first.** The proposition is decided in Lean, generically: `decide` by
-   evaluation within a fixed heartbeat budget (`decideProp`; the `decideObligation` pattern, on
-   `Decidable` instances alone, running no tactic). If Lean proves it, the statement holds and no
-   leaf is consulted. If Lean refutes it, the statement is false mathematics and is invalid.
+1. **Lean discharge first.** The proposition is decided in Lean, generically (`decideProp`): the
+   proof `of_decide_eq_true (Eq.refl true) : p` is formed (Lean's `mkDecideProof`, on
+   `Decidable` instances alone, running no tactic) and checked by Lean's kernel, within a fixed
+   heartbeat budget; refutation is the same proof of `¬p`. If Lean proves it, the statement
+   holds as proved and no leaf is consulted. If Lean refutes it, the statement is false
+   mathematics and is invalid. Nothing is decided by evaluation outside the kernel.
 2. **Otherwise, realize.** The same term is evaluated bottom-up through the operations the
    semantic reading recorded (`CasCatalogue.Trace`): a named object at its parameters is its
    form, encoded by the kernel; an operation applied to a value of a form selects the admitted
@@ -30,55 +31,54 @@ the catalogue's mathematics, and the term it is about. This module decides the c
    literal form of its result category. No registration is a gap; two are a gap reported as
    ambiguous; a backend that cannot start is unavailable; a rejected answer is malformed.
 3. **Comparison.** `assert X = L` holds when the decoded value equals `L`, by the decidable
-   equality of the form's type, evaluated here. A decision is compared as a three-valued answer.
-   Nothing a leaf returned is used as evidence of anything but its own answer.
+   equality of the form's type, checked by the kernel the same way. A decision is compared as a
+   three-valued answer. Nothing a leaf returned is used as evidence of anything but its own
+   answer.
 
-The one decidability the kernel supplies itself is `decidableConcreteHomEq`: two morphisms of a
-concrete category are equal iff their functions are, so their equality is decidable whenever
-the function space's is (a finite domain with decidable equality on the codomain). It is what
-makes the elements of a set, morphisms `1 → X`, compare in Lean.
+The kernel supplies no `Decidable` instance of its own: which propositions Lean decides is the
+catalogue's and Mathlib's. (Equality of morphisms of a concrete category, decided on their
+functions, is mathematics; it belongs to `lean-categories`.)
 -/
 
-open Lean Meta Elab Term CategoryTheory
+open Lean Meta Elab Term
 
 namespace CasCatalogue
-
-/-- Equality of morphisms of a concrete category, decided on their functions
-(`ConcreteCategory.coe_ext`). -/
-instance decidableConcreteHomEq {C : Type _} [Category C] {FC : C → C → Type _}
-    {CC : C → Type _} [∀ X Y, FunLike (FC X Y) (CC X) (CC Y)] [ConcreteCategory C FC]
-    {X Y : C} (f g : X ⟶ Y) [DecidableEq (CC X → CC Y)] : Decidable (f = g) :=
-  decidable_of_iff (⇑(ConcreteCategory.hom f) = ⇑(ConcreteCategory.hom g))
-    ⟨ConcreteCategory.coe_ext, fun h => h ▸ rfl⟩
 
 namespace Realize
 
 open Language
 
-/-- The heartbeat budget of one decision by evaluation (in the units of `maxHeartbeats`). -/
+/-- The heartbeat budget of one decision by the kernel (in the units of `maxHeartbeats`). -/
 def decideBudget : Nat := 20000
 
-/-- The proposition `p` decided by evaluation, within `decideBudget`: `some true` when
-`decide p` evaluates to `true`, `some false` when to `false`, `none` when `p` has no `Decidable`
-instance, or its decision does not evaluate within the budget (a classical instance, a
-computation beyond it). `Decidable` instances are the catalogue's and Mathlib's; the kernel runs
-no proof search. -/
+/-- Whether Lean's kernel accepts the proof of `p` by decision, `of_decide_eq_true (Eq.refl
+true) : p` (`mkDecideProof`), within `decideBudget`: the proof is added as an auxiliary theorem
+and discarded. `false` when `p` has no `Decidable` instance, or the kernel does not accept the
+proof within the budget (a classical instance, a decision that reduces to `false`, a
+computation beyond the budget). `Decidable` instances are the catalogue's and Mathlib's; the
+kernel runs no proof search. -/
+def kernelDecides (p : Expr) : MetaM Bool := do
+  let attempt : MetaM Bool := do
+    let proof ← mkDecideProof p
+    withoutModifyingEnv do
+      addDecl <| .thmDecl { name := `CasCatalogue.Realize.decided, levelParams := [], type := p
+                            value := proof }
+      return true
+  withCurrHeartbeats <|
+    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
+      -- not a reading fallback: a proposition without a `Decidable` instance, or whose proof the
+      -- kernel does not accept within its budget, is not decided by Lean; the claim is then
+      -- realized, unchanged
+      tryCatchRuntimeEx attempt fun _ => pure false
+
+/-- The proposition `p` decided in Lean: `some true` when the kernel accepts its proof by
+decision, `some false` when it accepts the proof of `¬p`, `none` otherwise. -/
 def decideProp (p : Expr) : MetaM (Option Bool) := do
   let p ← instantiateMVars p
-  if p.hasMVar then return none
-  let attempt : MetaM (Option Expr) := do
-    let decision ← mkDecide p
-    some <$> (withTransparency .all <| whnf decision)
-  let outcome ← withCurrHeartbeats <|
-    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
-      -- not a reading fallback: a proposition without a `Decidable` instance, or whose decision
-      -- exceeds its budget, is not decided by Lean; the claim is then realized, unchanged
-      tryCatchRuntimeEx attempt fun _ => pure none
-  return match outcome with
-    | some r => if r.isConstOf ``Bool.true then some true
-        else if r.isConstOf ``Bool.false then some false
-        else none
-    | none => none
+  if p.hasMVar || p.hasLevelMVar then return none
+  if ← kernelDecides p then return some true
+  if ← kernelDecides (mkNot p) then return some false
+  return none
 
 /-- The values the realized reading passes to and from a port: a closed value of a registered
 literal form, or a registered named object at its parameters, each with its wire encoding. -/
@@ -201,24 +201,26 @@ def resultForm (state : RegistryState) (category : CategoryId) (what : MessageDa
         literal form: nothing decodes it"
   return (form, ← mkConstWithFreshMVarLevels form.type)
 
-/-- Evaluate the recorded term `e` to a value of a form, through the admitted registrations. -/
-partial def realize (h : Harness) (trace : Trace) (e : Expr) : TermElabM Wire := do
+/-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
+admitted registrations. -/
+partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
+    TermElabM Wire := do
   let state ← registryState
   let e ← instantiateMVars e
   let some node ← (trace.node? e : IO _)
-    | throwStratum .noImplementation m!"nothing computes {e}: it is not formed by a catalogue \
-        operation the realized reading evaluates (a literal form or a named object, a method or \
-        a property of one)"
+    | throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
+        catalogue operation the realized reading evaluates (a named object at its parameters, \
+        a method of one)"
   match node with
   | .object id params =>
       let some entry := state.objects.find? (·.id == id) | unreachable!
       let args ← params.mapM fun p => do
         match ← Codec.nat? p with
         | some n => pure (toJson n)
-        | none => return (← realize h trace p).json
+        | none => return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
       return .object entry (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)])
   | .method id _ receiver =>
-      let input ← realize h trace receiver
+      let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
         | throwStratum .invalid m!"{id.raw} has no registered functor"
@@ -235,22 +237,23 @@ partial def realize (h : Harness) (trace : Trace) (e : Expr) : TermElabM Wire :=
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver. -/
-def realizeDecision (h : Harness) (trace : Trace) (p : Expr) : TermElabM (Expr × Json) := do
+def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
+    TermElabM (Expr × Json) := do
   let p ← instantiateMVars p
   let some (.property id _ receiver) ← (trace.node? p : IO _)
-    | throwStratum .noImplementation m!"nothing decides {p}: it is not a registered property of \
-        a value the realized reading evaluates"
-  let input ← realize h trace receiver
+    | throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
+        property of a value the realized reading evaluates"
+  let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
   call h id.raw input (mkApp (mkConst ``Option [0]) (mkConst ``Bool))
 
-/-- Whether two closed values of a type with decidable equality are equal, by evaluation. The
-literal forms are registered with decidable equality; a decision is an `Option Bool`. -/
+/-- Whether two closed values of a type with decidable equality are equal: the kernel accepts
+the proof by decision of `a = b`, or of `a ≠ b`. The literal forms are registered with decidable
+equality; a decision is an `Option Bool`. -/
 def evaluatedEq (a b : Expr) : MetaM Bool := do
-  let decision ← withTransparency .all <| whnf (← mkDecide (← mkEq a b))
-  if decision.isConstOf ``Bool.true then return true
-  if decision.isConstOf ``Bool.false then return false
-  throwError "the equality of {a} and {b} does not evaluate: the form's decidable equality is \
-    not executable"
+  match ← decideProp (← mkEq a b) with
+  | some equal => return equal
+  | none => throwError "the equality of {a} and {b} is not decided by the kernel: the form's \
+      decidable equality does not compute"
 
 /-- Discharge `claim` in Lean, generically: holds when its proposition is decided true; invalid,
 as false mathematics, when it is decided false; `none` when Lean does not decide it. -/
@@ -282,11 +285,11 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
   | .settled outcome => return outcome
   | .implemented value =>
       -- A decision is realized as one; anything else as a value.
-      if ← isProp value then discard <| realizeDecision h trace value
-      else discard <| realize h trace value
+      if ← isProp value then discard <| realizeDecision h trace "the decision" value
+      else discard <| realize h trace "the value" value
       return .holds
   | .literal X _ form L _ left right =>
-      let .literal form' value json ← realize h trace X
+      let .literal form' value json ← realize h trace left X
         | throwStratum .noImplementation m!"{left} is not computed as a value of the literal \
             form {form.id.raw}"
       unless form'.id == form.id do
@@ -298,7 +301,7 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       throwStratum .noImplementation m!"{left} = {right} is not decided by Lean, and the \
         morphisms of {category.name} have no registered literal form to compute in"
   | .decision prop expected shown =>
-      let (answer, json) ← realizeDecision h trace prop
+      let (answer, json) ← realizeDecision h trace shown prop
       return if ← evaluatedEq answer (toExpr expected) then .holds
         else .wrong s!"{shown} is not the answer: the registration answered {json.compress}"
 
