@@ -14,6 +14,14 @@ with whitespace collapsed. Its hash is recorded in `CasAcceptance/Permanent/admi
                                             re-admit changed assertions after an upstream
                                             correction to the mathematics, recorded with the
                                             reason, which names the upstream commit
+    check_acceptance_permanent.py --retire "reason" ID=REPLACEMENT[,REPLACEMENT...] ...
+                                            retire deleted assertions that were established
+                                            from an implementation's definitions (the evidence
+                                            model, specs/architecture.md), each naming the
+                                            admitted suite assertions that restate its
+                                            proposition without naming any implementation;
+                                            the replacements are admitted (--admit) before the
+                                            retired assertion is deleted
 
 Admitting or correcting an assertion is the acceptance author's alone (specs/architecture.md,
 "Authors: one role per agent"): `--correct` and `--admit` run only with `AGENT_ROLE=acceptance`.
@@ -80,6 +88,18 @@ def assertions() -> dict[str, str]:
     return found
 
 
+def suite_ids() -> set[str]:
+    """The ids of the assertions of the DSL suite, `tests/acceptance/*.cas`."""
+    ids: set[str] = set()
+    for path in sorted(SUITE.glob("*.cas")):
+        for item in re.split(r"\n\s*\n", path.read_text()):
+            lines = [l for l in item.splitlines() if l.strip() and not l.lstrip().startswith("--")]
+            m = TEST.match(" ".join(" ".join(lines).split())) if lines else None
+            if m:
+                ids.add(m.group(1))
+    return ids
+
+
 def main() -> int:
     args = sys.argv[1:]
     current = assertions()
@@ -106,6 +126,34 @@ def main() -> int:
         manifest["corrections"].append({"reason": args[1], "changed": changed, "removed": missing})
         for i in missing:
             del admitted[i]
+        MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        return 0
+
+    if args[:1] == ["--retire"]:
+        acceptance_author("--retire")
+        if len(args) < 3 or not args[1].strip():
+            raise SystemExit("--retire needs a reason and at least one ID=REPLACEMENT,...")
+        suite = suite_ids()
+        retired: dict[str, list[str]] = {}
+        for spec in args[2:]:
+            ident, _, repl = spec.partition("=")
+            replacements = [r for r in repl.split(",") if r]
+            if ident not in missing:
+                raise SystemExit(f"{ident} is not an admitted assertion that was deleted: only a "
+                                 "deleted assertion is retired")
+            if not replacements:
+                raise SystemExit(f"{ident} names no replacement")
+            for r in replacements:
+                if r not in suite or r not in admitted or admitted[r] != current.get(r):
+                    raise SystemExit(f"the replacement {r} of {ident} is not an admitted "
+                                     "assertion of the suite (tests/acceptance)")
+            retired[ident] = replacements
+        if changed or set(missing) - set(retired):
+            raise SystemExit("--retire retires deleted assertions only, all of them named: "
+                             f"changed {changed}, unnamed {sorted(set(missing) - set(retired))}")
+        for i in retired:
+            del admitted[i]
+        manifest["corrections"].append({"reason": args[1], "retired": retired})
         MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         return 0
 
