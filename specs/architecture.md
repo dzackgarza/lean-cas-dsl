@@ -248,6 +248,15 @@ closes it:
 | The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Requirement documents, gate definitions and protection settings change only with the owner's acceptance; the mechanisms are judged by which discretion they remove, not by their existence |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
 
+**What the orchestrator can physically do** (probed 2026-09-30 from the orchestrator's session):
+it can push to any branch of any of the four repositories, `main` included, through the session's
+git proxy. The proxy refuses ref deletion, but nothing refuses creation or fast-forward. It can merge
+pull requests through the GitHub API. No working branch is protected. The probe left
+`probe-orchestrator-push-scope` on `lean-cas-dsl`, which the orchestrator cannot delete. So no
+containment may rest on the orchestrator lacking write access. It must rest on something the
+orchestrator cannot produce: a judgment by an independent agent, bound to content the orchestrator
+cannot alter without detection.
+
 Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
 
 ## Packages
