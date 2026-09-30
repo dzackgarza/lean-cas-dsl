@@ -6,18 +6,15 @@ and every computation is done by an ordinary backend (Sage, GAP, or anything els
 realization contract. It runs as a Jupyter kernel through
 [lean-jupyter-kernel](https://github.com/dzackgarza/lean-jupyter-kernel).
 
-```lean
-def A : SetHandles := SetHandle.prod (.finite 2) (.zmod 3)
-#eval method% cardinality (A) in "cat.sets"
--- resolved: cat.sets ; meth.cardinality = fun.sets.cardinality on the core
--- { as := CardinalHandle.finite 6 }
-#resolve cardinality in "cat.finite_sets"
--- cat.finite_sets --forget[clf.sets.finite]--> cat.sets ;
---   meth.cardinality = fun.sets.cardinality on the core
+```text
+test sets.card.z4_cubed "Mathlib Fintype.card_fun, ZMod.card: |(ℤ/n)^k| = n^k":
+  assert |(ℤ/4)^3| = 64
 ```
 
-`cardinality` is declared once, as a functor on sets. Finite sets receive it along their
-forgetful functor, and nothing else is written.
+`cardinality` is declared once, as a functor on sets, in `lean-categories`. Everything that
+reaches sets along a structural functor receives it, and nothing else is written. The assertion
+above is permanent and names no leaf: whatever computation is installed for cardinality is run,
+and its answer either meets the assertion or does not.
 
 ## Architecture
 
@@ -35,9 +32,9 @@ In short:
 | `lean-categories` | All mathematics: categories, functors, classifiers, operations, coherences |
 | catalogue (`LeanCategories.Catalogue`, in `lean-categories`) | The semantic registry: the symbolic calculus, the registered categories, functors, classifiers, methods, cells, limits and adjunctions, each checked against its mathematics |
 | kernel (`CasCatalogue`) | Deterministic interpretation of the upstream mathematics: denotation, availability, propagation, resolution, ambiguity, refinement, the language, the harness. |
-| leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`) | Kernel-owned, published separately: the realization registry and its validation, realized actions, decisions and limits, the leaf API and the port protocol. Depends on `lean-categories` only. |
-| leaves (`CasLeaves`, repository `lean-cas-dsl-leaves`) | Realizations of registered operations on presentations, and the backend programs behind them. They contribute zero mathematics, and depend on the contract and `lean-categories` only, never on this repository or its tests. |
-| acceptance (`CasAcceptance`) | Black-box assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
+| leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`) | Kernel-owned, published separately: the declared type of each registered operation's computation (operation id, input form, result form), the registration of leaf implementations against it, and the port protocol. Depends on `lean-categories` only. |
+| leaves (`lean-cas-dsl-leaves`, or any other package) | Opaque computations, each registered against an operation's declared type (operation id, input form, implementation), in any language. A leaf ships no mathematics and no Lean, and nothing it says is believed; it never sees this repository's tests. |
+| acceptance (`tests/acceptance/`) | The only correctness evidence: permanent, leaf-blind assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
 | notebook (`CasDsl`) | Surface syntax only |
 
 Semantic availability and computability are separate. An operation that applies but has no

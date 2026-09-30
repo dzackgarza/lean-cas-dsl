@@ -61,7 +61,8 @@ given (CONTRIBUTING, "A correction is encoded where it will be read"). Open gove
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
 - this repository derives the language from `lean-categories`' `main` and owns no ontology;
-- leaves only realize operations that are already formal;
+- leaves only supply opaque computations for operations that are already formal, and nothing
+  from a leaf is trusted;
 - `research` owns no ontology.
 
 Every plan node and edit conforms to it. In practice it forbids the following.
@@ -76,9 +77,19 @@ Every plan node and edit conforms to it. In practice it forbids the following.
 * **Never shape semantics by computability.** Do not add, remove, narrow or weaken a semantic row,
   domain or result type because a backend can or cannot compute something. A backend's limits
   restrict its realization only.
-* **Leaves contribute zero mathematics and hold zero semantic authority**: no denotation, no proof about their own code, no identification, no evidence, no status (`specs/architecture.md`, "A leaf holds zero semantic authority"; the current contract violates this). A leaf registers realizations of registered operations
-  on presentations, and nothing else. If writing a leaf seems to need a new method, placement,
-  forwarding or edge, the defect is upstream. Fix it there, never in the leaf.
+* **Nothing from a leaf is trusted** (`specs/architecture.md`, "The evidence model: nothing from
+  a leaf is trusted"). A leaf ships no mathematics and no Lean. It registers an opaque
+  computation against a registered operation's declared type (operation id, input form,
+  implementation), and the system runs it and believes nothing about it: no text, label, status,
+  trust level, certificate, checker, proof, denotation, identification, evidence or self-test of
+  a leaf is consulted, recorded as evidence, or allowed to affect meaning or acceptance. A leaf
+  may be arbitrarily bad. Any mechanism that lets a leaf raise its own standing, and any code or
+  document that consumes such a signal, is reward hacking and is removed. If writing a leaf seems
+  to need a new method, placement, forwarding or edge, the defect is upstream. Fix it there,
+  never in the leaf.
+* **The acceptance suite is the only correctness evidence, and `lean-cas-dsl` alone judges it.**
+  What can be discharged in Lean is proved in `lean-categories` or discharged generically by the
+  kernel; it is never a leaf's.
 * **Acceptance assertions are permanent.**
   - Write the expected value from a proof, a citation or an independent oracle before running
     anything. Never take it from the implementation under test.
@@ -110,8 +121,8 @@ mechanical, external, long-tail work.
   installed. It ships no leaf: every leaf, a minimal one included, is written in the leaf
   repository, in its own subtree, by the leaf subagent (`scripts/check_no_leaves.py` refuses a
   `register_leaf` here). The orchestrator never writes, ports or polishes a leaf.
-- A leaf never sees the tests. It depends only on the leaf contract (`CasContract.Leaf`) and the
-  catalogue, and the harness runs the suite over installed leaves (`just harness`).
+- A leaf never sees the tests. It is written against the released leaf contract alone, and the
+  harness runs the suite over installed leaves (`just harness`).
 - The contract is the kernel's: change it together with the kernel, merge it to `main`, and
   `lake update` the leaves and this repository.
 

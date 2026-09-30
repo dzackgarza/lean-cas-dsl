@@ -8,7 +8,7 @@ This file says where each kind of contribution goes.
 | You need | It goes to |
 | --- | --- |
 | A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`: formalize it there (or open the request), merge it to `main`, and `lake update` here. Never coin it here, in a leaf, or in `research`. |
-| Something that computes a registered operation on some presentation | A leaf, in `lean-cas-dsl-leaves` (`CasLeaves/`) or another package written against the leaf contract |
+| A computation of a registered operation on one of its declared input forms | A leaf, in `lean-cas-dsl-leaves` or another package written against the leaf contract |
 | A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
 | Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
 | The realization registry, the leaf API or the port | The leaf contract (`lean-cas-dsl-leaf-contracts`, `CasContract/`), with the kernel change that needs it |
@@ -31,8 +31,9 @@ bind the kernel, the language and every leaf. Their consequences here:
   (a divisor retried in another set, a numeral read where no numeral exists) (LC-14).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
-- A leaf presents the catalogue's object; it never shapes it. A contract rule that would need
-  the catalogue to change to suit a leaf's representation is itself a defect.
+- A leaf computes on an input form that `lean-categories` and the kernel define for the
+  catalogue's object; it never shapes the object or says what its values mean. A contract rule
+  that would need the catalogue to change to suit a leaf's representation is itself a defect.
 - An operation exists only where its structure exists: `⁻¹` on units and automorphisms, never on
   endomorphisms or a bare monoid (LC-16). The language never attempts an operation on a value
   not established to lie in its domain.
@@ -82,40 +83,40 @@ it must not be.
 
 ## Writing a leaf
 
-A leaf is a Lean module ending in a single `register_leaf` contract, under `CasLeaves/` in
-`lean-cas-dsl-leaves` or in another package under its own root, depending on the leaf contract and
-`lean-categories` only. Its backend program, in any language, sits next to it. `lean-cas-dsl`'s harness (`cas-harness`, `just harness`) runs the permanent suite over the
-installed leaves and reports each gap; a leaf package never imports or runs the suite.
+A leaf holds zero semantic authority, and nothing from it is trusted in any form
+(`INTENT.md`; `specs/architecture.md`, "The evidence model: nothing from a leaf is trusted"). It
+ships no mathematics and no Lean. It is a registration:
+- the operation id, of a semantic operation or composite of operations registered in
+  `lean-categories`;
+- the input form it accepts, one of the typed request forms that `lean-categories` and the kernel
+  define for that operation;
+- an opaque implementation, in any language, returning a value of the operation's declared
+  result form.
 
-A leaf holds zero semantic authority (`INTENT.md`; `specs/architecture.md`, "A leaf holds zero
-semantic authority"). It ships no mathematics and decides nothing about meaning. What it registers
-is:
-- the semantic operation, or composite of operations, it computes, named by its `lean-categories`
-  identity;
-- the input it accepts, one of the typed request forms that `lean-categories` and the kernel define
-  for that operation;
-- an opaque implementation, in any language, that returns a value of the operation's declared
-  result type.
+The system runs that implementation and believes nothing about it. A leaf states nothing else:
+no denotation of its values, no proof, certificate or checker about its own code, no
+identification of two values, no evidence for a property or an equality, and no status or trust
+level. Anything of that kind it writes is ignored. A leaf may be arbitrarily bad; the worst leaf
+imaginable can make its own answers fail the suite and nothing else. It may keep whatever
+internal tests it wants; they are evidence of nothing. Whether its answers are right is decided
+only by the permanent acceptance assertions below, run by `lean-cas-dsl`'s harness
+(`cas-harness`, `just harness`) over the installed leaves; a leaf package never imports or runs
+the suite.
 
-A leaf states nothing else. It provides no denotation of its values, no proof or certificate about
-its own code, no identification of two values, no evidence for a property, and no status or trust
-level for its answers. Whether its answers are right is decided only by the permanent acceptance
-assertions below. A leaf may keep whatever internal tests it wants; they are evidence of nothing
-outside it. It never adds a category, method, property, placement, forgetful route, coercion or
-natural transformation. If it seems to need one, or needs to forward an inherited method, the
-defect is upstream: fix it there.
+A leaf never adds a category, method, property, placement, forgetful route, coercion or natural
+transformation. If it seems to need one, or needs to forward an inherited method, the defect is
+upstream: fix it there. Anything that can be discharged in Lean is never a leaf's: either
+`lean-categories` proves it, or the kernel discharges it generically.
 
-The current contract (`CasContract/Adapter.lean`) does not yet have this form. It lets a leaf author
-denotation functors, proofs, isomorphisms, evidence and statuses. Replacing it is plan node
-`gov-leaf-authority`. Until the replacement lands, never write a new leaf against those forms, and
-never extend them.
+Never write a leaf against, or extend, a contract form that carries a functor, a proof, an
+isomorphism, evidence or a status.
 
 **Backends.** A backend is a child process speaking the port protocol (`CasContract/Port.lean`;
-reference implementation `python/cas_port.py` of the contract, put on the adapter's `PYTHONPATH`). Its announced capabilities must be registered
-operation ids declared by `backendOperation` rows, or `connect` refuses it. Its answers are
-untrusted JSON, decoded into the operation's semantic result type or rejected. A backend's
-restrictions restrict its realization, never the operation's domain. Model: the Sage cardinality
-leaf, `CasLeaves/Modules/SageCardinality.lean` with its `sage_cardinality.py`.
+reference implementation `python/cas_port.py` of the contract, put on the adapter's
+`PYTHONPATH`). Its announced capabilities must be registered operation ids, or `connect` refuses
+it. Its answers are untrusted JSON, read by the kernel into the operation's declared result form
+or rejected as malformed. A backend's restrictions restrict its computation, never the
+operation's domain.
 
 ## Acceptance assertions
 
@@ -131,11 +132,12 @@ test finite_sets.card_power_set "SPEC.md: |𝒫(A)| = 2^|A| = 2^3 (Mathlib Finty
 (`tests/acceptance/finite_sets.cas`)
 
 It never mentions a leaf, a handle, a backend or a representation, and its truth is never
-established from an implementation's definitions. A realization is compared against it.
+established from an implementation's definitions. The acceptance suite is the whole body of
+correctness evidence: an installed computation's answer is compared against it.
 
-After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`. The text up to
-`:=` is then permanent, while the proof after it may change. An assertion that no realization
-computes yet is recorded as a gap (`#acceptance_gaps`), not a failure.
+After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`; the assertion is
+then permanent. An assertion that no installed computation answers yet is recorded as a gap
+(`#acceptance_gaps`), not a failure.
 
 - State the proposition in the mathematical language, through the public surfaces.
 - Write its expected value from a proof, a cited source or an independent oracle before you run
