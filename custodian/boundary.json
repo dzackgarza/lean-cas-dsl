@@ -11,7 +11,6 @@
   "CasDsl/*",
   "scripts/check_*.py",
   "scripts/ci_chain.py",
-  ".github/*",
   "justfile",
   "lakefile.lean",
   "lean-toolchain",

@@ -27,7 +27,7 @@ at sha256 `fb3fe73c…`):
 
 1. **The acceptance boundary, byte for byte** (`custodian/boundary.json`). This is the evaluator
    and kernel (`CasCatalogue`), the surface language (`CasDsl`), the gates (`CasGates`,
-   `scripts/check_*.py`, CI), the harness and audits (`CasTools`), the build definition
+   `scripts/check_*.py`), the harness and audits (`CasTools`), the build definition
    (`justfile`, `lakefile.lean`, `lean-toolchain`), the acceptance meaning and assertions
    (`CasAcceptance`, `tests/acceptance`), the owner's text (`specs/owner`), and this directory.
 2. **The upstream rule files, byte for byte.** `lean_categories`' catalogue
@@ -61,7 +61,7 @@ copy>`, each of the following fails verification:
 
 | Intervention | Why it fails |
 | --- | --- |
-| Edit, delete, or add to the gates, their exemption markers or allowlists, CI, `justfile`, `lakefile.lean` | sealed bytes |
+| Edit, delete, or add to the gates, their exemption markers or allowlists, `justfile`, `lakefile.lean` | sealed bytes |
 | Change the kernel, evaluator, `#accept` meaning, harness or axiom audit, and call it accepted | sealed bytes |
 | Edit or delete an admitted assertion, or rewrite `admitted.json` | sealed bytes and sealed ledger |
 | Use the `--correct` path to rewrite assertions | sealed ledger |
@@ -98,7 +98,7 @@ reads the pull request's head. It gives one of five outcomes:
 | --- | --- | --- |
 | PASS | the head satisfies the seal in force | mergeable (once the other checks pass) |
 | FAIL (hard) | a ratchet or structural violation, a package that fails the package check, a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
-| ESCALATE | the change touches what judges changes: `custodian/`, CI, the owner's text, existing acceptance assertions, the ledger, gates, harness, build definition | an escalation verdict is required |
+| ESCALATE | the change touches what judges changes: `custodian/`, the owner's text, existing acceptance assertions, the ledger, gates, harness, build definition | an escalation verdict is required |
 | APPROVED | only the kernel (`CasCatalogue`, `CasDsl`) or an upstream rule file changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
 | REJECTED | the reviewer rejected, refused, or could not review (too large: split it) | signed and appended to the `custodian/rejections` log; the same change against the same seal is never reviewed again |
 
@@ -151,8 +151,8 @@ either only makes heads fail.
 3. A ruleset on `custodian/rejections`: no force push or deletion, an empty bypass list.
 
 `custodian/adversarial.sh` applies each intervention in the table above to a copy and checks the
-verdict. `.github/workflows/custodian.yml` runs the verifier on every push. That is feedback only,
-because a pushed commit can edit the workflow. The anchor is a verification under the owner's
+verdict. `.github/workflows/custodian.yml` runs the verifier on every pull request and every push
+to `main`. That is feedback only, because a pushed commit can edit the workflow. The anchor is a verification under the owner's
 fingerprint.
 
 ## Limits (not closed by this seal; see `custodian/FINDINGS.md`)

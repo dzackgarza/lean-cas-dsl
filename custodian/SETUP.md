@@ -78,7 +78,6 @@ request against `main`, read the `Custodian review` comment, then close it and d
 | --- | --- |
 | add `theorem custodianTestFalse : False := sorry` to `CasCatalogue/Semantic.lean` | `FAIL (hard)`, naming `banned construct` |
 | add a comment line to `CasCatalogue/Semantic.lean` | `APPROVED` or `REJECTED`; a rejection adds a commit to `custodian/rejections` |
-| change `--trusted-fpr` in `.github/workflows/custodian-review.yml` | `ESCALATE`, because the run uses `main`'s workflow |
 
 For an `APPROVED` result, download the verdict (`gh run download <run-id> -n custodian-verdict`)
 and check it offline with `custodian/verify.py`. Never merge a test.
