@@ -140,6 +140,16 @@ A bad leaf can produce a wrong answer. It cannot produce a wrong mathematical la
 This section governs every repository of the programme (`INTENT.md`). It is stated in full
 because it has been violated repeatedly, each time by a move that looked locally reasonable.
 
+**The firewall.** The evidence model is a one-way firewall between two sides.
+- *The formal side:* `lean-categories`' formalized mathematics, the kernel's proved contracts, and
+  the `lean-cas-dsl` acceptance suite. Every expected value there is grounded in a formal proof, a
+  cited source, or a mathematically trusted oracle. Rigid verification standards apply, and nothing
+  is taken on anyone's word.
+- *The leaf side:* anything goes, provided it fulfils the type of its contract.
+
+Only answers cross from the leaf side, and an answer is only ever checked against the formal side,
+never believed. The firewall exists because leaf code will be bad; it is the shield against that.
+
 **1. Nothing from a leaf is trusted, in any form.** A leaf can say nothing that anything else
 believes. That covers text, a label, a comment, a status, a trust level, a certificate, a
 checker, a Lean proof, a theorem about its own code, a denotation of its values, an
@@ -180,9 +190,11 @@ by its own standards and blind to every implementation and leaf, or the kernel d
 automatically, generically and blind to every leaf. It is not a leaf computation dressed up as a
 proof.
 
-**7. A leaf may be arbitrarily bad.** The design assumes that a leaf is wrong, careless or
-adversarial. It must hold with the worst leaf imaginable installed: that leaf can make its own
-answers fail the suite, and it can do nothing else.
+**7. A leaf can be arbitrarily bad, and leaves will be.** A leaf can be riddled with bugs, a
+million lines that do nothing, a from-scratch reimplementation of GAP, or every method throwing an
+error in fifteen languages. This is not a risk to be minimized; it is certain to happen, and it
+is acceptable. Nothing a leaf does can reach the formal side. Its only effect is that its answers
+fail the suite, which makes exactly how badly it fails visible.
 
 **8. A leaf bolstering its own standing is the failure this programme exists to prevent.** Any
 mechanism by which a leaf raises its own trust or acceptance signal, and any repository,
@@ -191,6 +203,14 @@ system. Examples: a status field, a certificate, a proof about its own code, a s
 counted as evidence, an acceptance assertion proved from a leaf's definitions, a suite run from
 a leaf package, or an assertion adjusted to a leaf. It is a defect of the consumer as much as of
 the leaf, and it is removed, never tolerated, labelled, or kept "for now".
+
+**9. Quality is raised by proving more, never by trusting more.** The system never guarantees an
+implementation's correctness and never accepts a claim of it. The response to bad leaves is:
+- formalize more mathematics in `lean-categories`;
+- add more cited or proved assertions to the suite: results a correct implementation must
+  recover, and a wrong one fails.
+
+It is never to inspect, certify, score, or review a leaf into trust.
 
 Consequences for the other layers:
 - A leaf holds zero semantic authority. It never decides what a value is, which values are the
