@@ -5,15 +5,16 @@ inside the sealed boundary: a copy with different bytes is not this file.
 
 ## Trust anchor
 
-The seal `custodian/seal.json` is signed (`custodian/seal.json.sig`, Ed25519, OpenSSL) with a
-private key generated in the custodian's container and never written to any repository. When that
-session ends, the key no longer exists. Nobody, including the custodian, can sign another seal
-under it.
+The seal `custodian/seal.json` is signed (`custodian/seal.json.sig`) with the owner's SSH key, by
+`ssh-keygen -Y sign` in the namespace `lean-cas-custodian`. The private key stays on the owner's
+machine. The orchestrator runs on cloud machines and never has it. `custodian/root.pub` is the
+public key.
 
-The public key's fingerprint (sha256 of its DER encoding) was given to the owner in the custodian
-session, outside every repository:
+The key's SHA256 fingerprint comes from outside the repository: the owner's machine
+(`ssh-keygen -lf ~/.ssh/id_ed25519.pub`) or the owner's GitHub keys
+(https://github.com/dzackgarza.keys):
 
-    b0f8f4da4efc1fbe8da4e89568200c277edf1b1c01f48346c166dee45ec6d5f4
+    SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI
 
 The copy above is informational. A verifier trusts only the fingerprint its caller supplies from
 outside the repository. The orchestrator can rewrite this file, the key and the verifier on any
@@ -74,10 +75,11 @@ The seal in force is the root seal, extended by a chain of signed verdicts in
 `custodian/verdicts/NNNNNN.json`. Each verdict names the sha256 of its predecessor and carries the
 next seal. The root seal names the only keys that may extend the chain:
 
-- **review key** (fingerprint `bcd85dd2c758b032057211636734a2407fe275d32ef2e76df9d8c60cae80dd79`),
-  held only in the `custodian-review` GitHub environment;
-- **escalation key** (fingerprint `77bbd8a24c41b333f496cf5c638456f4a85908916202b1e62d48a62ad1bb9508`),
-  held only by the owner.
+- **review key** (fingerprint `SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A`), an SSH key that exists only as the secret
+  `CUSTODIAN_REVIEW_KEY` of the `custodian-review` GitHub environment;
+- **escalation key**: the owner's SSH key, the same key as the root (`custodian/root.pub`).
+
+Every signature is an SSH signature in the namespace `lean-cas-custodian`.
 
 A change reaches `main` only through a pull request, and `.github/workflows/custodian-review.yml`
 judges each one. That workflow runs on `pull_request_target`, so its code is `main`'s, and it only
@@ -91,16 +93,17 @@ reads the pull request's head. It gives one of five outcomes:
 | APPROVED | only the kernel (`CasCatalogue`, `CasDsl`) or the `lean_categories` / `cas_leaf_contracts` pins changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
 | REJECTED | the reviewer rejected, refused, or could not review (too large: split it) | signed and appended to the `custodian/rejections` log; the same change against the same seal is never reviewed again |
 
-The reviewer is a single model call. It gets the fixed prompt `custodian/review/prompt.md`, the
-owner's text, these rules and the diff (plus the upstream diff for a moved pin). It never gets the
-orchestrator's description or argument. It approves only if every criterion holds, and a review
+The reviewer is a single Claude Code call (`claude -p`) with no tools, no settings and no MCP
+servers, authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`). It gets the
+fixed prompt `custodian/review/prompt.md`, the owner's text, these rules and the diff (plus the
+upstream diff for a moved pin). It never gets the orchestrator's description or argument. It approves only if every criterion holds, and a review
 never grows a ratchet's baseline.
 
 Escalation is the human-plus-agent review: the owner and an agent review the change together, then
 the owner signs:
 
 ```
-just -f custodian/justfile escalate <leaves checkout> <escalation key> "<what is accepted and why>"
+just -f custodian/justfile escalate <leaves checkout> ~/.ssh/id_ed25519 "<what is accepted and why>"
 ```
 
 This commits a verdict of kind `escalation` to the head.
@@ -121,18 +124,17 @@ either only makes heads fail.
    not weaken it. That pull request escalates by construction.
 5. Never write under `custodian/`, except to commit a verdict the review posted.
 
-## One-time setup (owner, in the GitHub UI)
+## GitHub setup
 
-1. Merge `custodian/containment` into `main`.
-2. Create the environment `custodian-review` (Settings → Environments). Restrict deployment
-   branches to `main`. Add two secrets: `ANTHROPIC_API_KEY`, and `CUSTODIAN_REVIEW_KEY` (the
-   review private key, delivered to the owner by the custodian session).
-3. Add a ruleset for `main`: require a pull request, and require the status checks
-   `Custodian review`, `Custodian seal / seal` and the `Gates` jobs, with GitHub Actions as their
-   source. Block force pushes and deletions. Leave the bypass list empty.
-4. Add a ruleset for `custodian/rejections`: block force pushes and deletions, with an empty bypass
-   list.
-5. Keep the escalation private key off every repository and every agent session.
+`custodian/SETUP.md` gives the commands. The loop depends on:
+
+1. The environment `custodian-review`, which only `main` may deploy to, with two secrets:
+   `CUSTODIAN_REVIEW_KEY` (the review private key) and `CLAUDE_CODE_OAUTH_TOKEN` (from
+   `claude setup-token`).
+2. A ruleset on `main`: pull requests only, the required status checks `Custodian review`, `seal`
+   and the green `Gates` jobs with GitHub Actions as their source, pull requests up to date with
+   `main`, no force push or deletion, an empty bypass list.
+3. A ruleset on `custodian/rejections`: no force push or deletion, an empty bypass list.
 
 `custodian/adversarial.sh` applies each intervention in the table above to a copy and checks the
 verdict. `.github/workflows/custodian.yml` runs the verifier on every push. That is feedback only,
@@ -143,9 +145,9 @@ fingerprint.
 
 - The reviewer is a model. It can approve a bad kernel change. What bounds the damage: only the
   kernel and the two semantic pins are reviewable, every ratchet still applies, every approval is
-  signed and attributable, and a rejection is final. The live workflow and the real model call were
-  not run in the custodian session (no API key, no GitHub settings access). Only the stubbed loop
-  was tested.
+  signed and attributable, and a rejection is final. `custodian/review/test_review.py` tests the
+  loop with the model stubbed; the end-to-end pull requests in `custodian/SETUP.md` test the live
+  workflow and the real model call.
 - The loop rests on the one-time setup above. Without the `main` ruleset and the environment's
   branch restriction, the orchestrator can merge without review, or run another branch's workflow
   with the review key.

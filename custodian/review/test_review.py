@@ -2,15 +2,15 @@
 """End-to-end test of the review loop, with the model call replaced by a stub.
 
     test_review.py <scratch dir> <lean-cas-dsl checkout> <leaves clone at the pin>
-                   <reviewer private key> <escalation private key> <root fingerprint>
+                   <review SSH private key> <escalation SSH private key> <root fingerprint>
 
 Each case builds a base (main) and a head (a pull request), runs review.py as the workflow does,
-and checks the outcome. It needs the two private keys, so it is run by whoever holds them.
+and checks the outcome. Any three SSH keys work: a scratch root seal that names the review and
+escalation keys, signed by the root key, makes a complete test setup.
 """
 
 import importlib.util
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -21,7 +21,6 @@ S, SRC = Path(scratch), Path(src)
 spec = importlib.util.spec_from_file_location("review", SRC / "custodian/review/review.py")
 R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
-os.environ["CUSTODIAN_REVIEW_KEY"] = Path(review_key).read_text()
 calls = []
 
 
@@ -34,7 +33,7 @@ def stub(verdict, holds=True):
 
 
 def git(d, *a):
-    return subprocess.run(["git", "-C", str(d), *a], check=True, capture_output=True, text=True).stdout
+    return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(d), *a], check=True, capture_output=True, text=True).stdout
 
 
 def commit(d):
@@ -55,10 +54,10 @@ class A:
     pass
 
 
-def run(reviewer=None):
+def run(reviewer=None, key=review_key):
     a = A()
     a.base, a.head, a.leaves, a.out, a.rejections = S / "base", S / "head", Path(leaves), S / "out", S / "rej"
-    a.trusted_fpr, a.pr, a.head_sha = fpr, "1", "0" * 40
+    a.trusted_fpr, a.pr, a.head_sha, a.signing_key = fpr, "1", "0" * 40, Path(key)
     if reviewer:
         R.call_reviewer = reviewer
     shutil.rmtree(S / "out", ignore_errors=True)
@@ -141,10 +140,10 @@ fresh()
 with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- forged\n")
 commit(S / "head")
-os.environ["CUSTODIAN_REVIEW_KEY"] = subprocess.run(
-    ["openssl", "genpkey", "-algorithm", "ed25519"], capture_output=True, text=True).stdout
-run(stub("approve"))  # a verdict signed by a key the root does not name
-os.environ["CUSTODIAN_REVIEW_KEY"] = Path(review_key).read_text()
+forged = S / "forged_key"
+forged.unlink(missing_ok=True)
+subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(forged)], check=True)
+run(stub("approve"), key=forged)  # a verdict signed by a key the root does not name
 adopt_verdict()
 expect("verdict signed by an unnamed key", run(stub("approve")), "FAIL (hard)")
 

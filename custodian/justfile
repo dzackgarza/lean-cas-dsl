@@ -1,6 +1,7 @@
 # The custodian's recipes. Run from the repository root: just -f custodian/justfile <recipe>
-# The root fingerprint is the owner's copy; the value here is informational (custodian/CONTAINMENT.md).
-root := "b0f8f4da4efc1fbe8da4e89568200c277edf1b1c01f48346c166dee45ec6d5f4"
+# The root fingerprint is the SHA256 fingerprint of the owner's SSH key; the value here is
+# informational (custodian/CONTAINMENT.md).
+root := "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI"
 set working-directory := ".."
 
 # Verify this checkout against the root seal and its verdict chain.

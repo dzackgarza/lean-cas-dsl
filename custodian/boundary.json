@@ -21,7 +21,7 @@
   "custodian/CONTAINMENT.md",
   "custodian/FINDINGS.md",
   "custodian/boundary.json",
-  "custodian/custodian.pub.pem",
+  "custodian/root.pub",
   "custodian/verify.py",
   "custodian/adversarial.sh",
   "custodian/owner-intent.md",

@@ -80,8 +80,9 @@ EXACT: dict[str, dict[str, str]] = {
 
 
 def git(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True,
-                          text=True).stdout
+    # Hooks off: the self-test commits in scratch repositories, where global hooks do not apply.
+    return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(repo), *args],
+                          check=True, capture_output=True, text=True).stdout
 
 
 def role_of(repo: str, path: str) -> str:

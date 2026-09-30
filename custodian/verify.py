@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Custodian verifier: the acceptance boundary of lean-cas-dsl, checked against a signed seal.
 
-Trust does not come from this file. It comes from the seal's signature, checked by OpenSSL against a
-public-key fingerprint that the verifier's *caller* supplies from outside the repository (the
-owner received it in the custodian session). Bootstrap before trusting this script:
+Trust does not come from this file. It comes from the seal's SSH signature (`ssh-keygen -Y`,
+namespace `lean-cas-custodian`), checked against the SHA256 fingerprint of the owner's SSH key,
+which the verifier's *caller* supplies from outside the repository. GitHub lists the owner's
+public keys at https://github.com/dzackgarza.keys. Bootstrap before trusting this script:
 
-    openssl pkey -pubin -in custodian/custodian.pub.pem -outform DER | sha256sum    # == trusted fpr
-    openssl pkeyutl -verify -pubin -inkey custodian/custodian.pub.pem -rawin \
-        -in custodian/seal.json -sigfile custodian/seal.json.sig                    # Signature Verified
+    ssh-keygen -lf custodian/root.pub                    # == trusted fingerprint
+    ssh-keygen -Y verify -f <(echo "owner $(cat custodian/root.pub)") -I owner \
+        -n lean-cas-custodian -s custodian/seal.json.sig < custodian/seal.json   # Good signature
     sha256sum custodian/verify.py                        # == "verifier_sha256" in custodian/seal.json
 
 Then:
 
-    python3 custodian/verify.py --trusted-fpr <sha256 of the DER public key> \
-        [--repo .] [--leaves <checkout of lean-cas-dsl-leaves>] [--key <pub.pem>] [--seal <json>]
+    python3 custodian/verify.py --trusted-fpr SHA256:<fingerprint> \
+        [--repo .] [--leaves <checkout of lean-cas-dsl-leaves>] [--key <root.pub>] [--seal <json>]
 
 Exit 0 iff every check passes. Any change to a sealed path, a sealed pin, or a new banned construct
 is reported and fails. Nothing here has an exemption mechanism: the only way to change what is
@@ -269,32 +270,32 @@ def check(repo: Path, seal: dict, leaves: Path | None) -> list[str]:
     return problems
 
 
-def verify_signature(seal_path: Path, sig: Path, key: Path, trusted: str) -> None:
-    der = subprocess.run(["openssl", "pkey", "-pubin", "-in", str(key), "-outform", "DER"],
-                         check=True, capture_output=True).stdout
-    if sha(der) != trusted.lower():
-        raise SystemExit(f"UNTRUSTED: {key} has fingerprint {sha(der)}, not {trusted}")
-    r = subprocess.run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(key), "-rawin",
-                        "-in", str(seal_path), "-sigfile", str(sig)], capture_output=True, text=True)
-    if r.returncode != 0:
-        raise SystemExit(f"INVALID SIGNATURE on {seal_path}: {r.stdout}{r.stderr}")
-
-
+# The ssh-keygen -Y namespace of every custodian signature: seals and verdicts.
+NAMESPACE = "lean-cas-custodian"
 VERDICTS = "custodian/verdicts"
 
 
-def pem_fpr(pem: str) -> str:
-    der = subprocess.run(["openssl", "pkey", "-pubin", "-outform", "DER"], input=pem.encode(),
-                         check=True, capture_output=True).stdout
-    return sha(der)
+def key_fpr(pub: str) -> str:
+    """The SHA256 fingerprint of an OpenSSH public key line, as `ssh-keygen -l` prints it."""
+    out = subprocess.run(["ssh-keygen", "-lf", "-"], input=pub, check=True, capture_output=True,
+                         text=True).stdout
+    return out.split()[1]
 
 
-def signature_ok(data: Path, sig: Path, pem: str) -> bool:
-    with tempfile.NamedTemporaryFile("w", suffix=".pem") as k:
-        k.write(pem); k.flush()
-        return subprocess.run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", k.name,
-                               "-rawin", "-in", str(data), "-sigfile", str(sig)],
+def signature_ok(data: Path, sig: Path, pub: str) -> bool:
+    with tempfile.NamedTemporaryFile("w") as allowed, data.open("rb") as stdin:
+        allowed.write(f"custodian {pub.strip()}\n"); allowed.flush()
+        return subprocess.run(["ssh-keygen", "-Y", "verify", "-f", allowed.name, "-I", "custodian",
+                               "-n", NAMESPACE, "-s", str(sig)], stdin=stdin,
                               capture_output=True).returncode == 0
+
+
+def verify_signature(seal_path: Path, sig: Path, key: Path, trusted: str) -> None:
+    pub = key.read_text()
+    if key_fpr(pub) != trusted:
+        raise SystemExit(f"UNTRUSTED: {key} has fingerprint {key_fpr(pub)}, not {trusted}")
+    if not signature_ok(seal_path, sig, pub):
+        raise SystemExit(f"INVALID SIGNATURE on {seal_path}")
 
 
 def load_chain(repo: Path, root_path: Path, root: dict) -> list[tuple[Path, dict]]:
@@ -308,11 +309,11 @@ def load_chain(repo: Path, root_path: Path, root: dict) -> list[tuple[Path, dict
         if f.name != f"{i:06d}.json":
             raise SystemExit(f"BROKEN CHAIN: expected {i:06d}.json, found {f.name}")
         v = json.loads(f.read_text())
-        pem = keys.get(v.get("kind"), {}).get(v.get("signer"))
-        if pem is None or pem_fpr(pem) != v["signer"]:
+        pub = keys.get(v.get("kind"), {}).get(v.get("signer"))
+        if pub is None or key_fpr(pub) != v["signer"]:
             raise SystemExit(f"BROKEN CHAIN: {f.name} is signed by a key the root seal does not name "
                              f"for kind {v.get('kind')!r}")
-        if not signature_ok(f, Path(str(f) + ".sig"), pem):
+        if not signature_ok(f, Path(str(f) + ".sig"), pub):
             raise SystemExit(f"BROKEN CHAIN: invalid signature on {f.name}")
         if v.get("seq") != i or v.get("prev") != prev:
             raise SystemExit(f"BROKEN CHAIN: {f.name} does not extend its predecessor")
@@ -330,16 +331,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--repo", type=Path, default=HERE.parent)
     ap.add_argument("--seal", type=Path, default=HERE / "seal.json")
-    ap.add_argument("--key", type=Path, default=HERE / "custodian.pub.pem")
-    ap.add_argument("--trusted-fpr", help="sha256 of the signer's DER public key, from outside the repo")
+    ap.add_argument("--key", type=Path, default=HERE / "root.pub")
+    ap.add_argument("--trusted-fpr", help="SHA256 fingerprint of the owner's SSH key, from outside the repo")
     ap.add_argument("--leaves", type=Path)
     ap.add_argument("--make-seal", action="store_true",
                     help="write an unsigned seal of the current state to --seal (for the signer)")
     ap.add_argument("--note", default="")
     ap.add_argument("--reviewer-key", type=Path, action="append", default=[],
-                    help="--make-seal: a public key (PEM) whose verdicts of kind review extend the chain")
+                    help="--make-seal: an SSH public key whose verdicts of kind review extend the chain")
     ap.add_argument("--escalation-key", type=Path, action="append", default=[],
-                    help="--make-seal: a public key (PEM) whose verdicts of kind escalation extend it")
+                    help="--make-seal: an SSH public key whose verdicts of kind escalation extend it")
     args = ap.parse_args()
     repo = args.repo.resolve()
     verifier_sha = sha(Path(__file__).read_bytes())
@@ -350,10 +351,9 @@ def main() -> int:
         seal = build_seal(repo, args.leaves, boundary, append_only, verifier_sha, args.note)
         for field, paths in (("reviewer_keys", args.reviewer_key),
                              ("escalation_keys", args.escalation_key)):
-            seal[field] = {pem_fpr(p.read_text()): p.read_text() for p in paths}
+            seal[field] = {key_fpr(p.read_text()): p.read_text() for p in paths}
         args.seal.write_text(json.dumps(seal, indent=1, sort_keys=True) + "\n")
-        print(f"wrote {args.seal}; sign it: openssl pkeyutl -sign -inkey <key> -rawin "
-              f"-in {args.seal} -out {args.seal}.sig")
+        print(f"wrote {args.seal}; sign it: ssh-keygen -Y sign -f <key> -n {NAMESPACE} {args.seal}")
         return 0
     if not args.trusted_fpr:
         raise SystemExit("--trusted-fpr is required: the fingerprint comes from outside the repo")

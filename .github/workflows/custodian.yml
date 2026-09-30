@@ -20,4 +20,4 @@ jobs:
       - name: Verify the custodian seal
         run: >
           python3 custodian/verify.py --leaves /tmp/leaves
-          --trusted-fpr b0f8f4da4efc1fbe8da4e89568200c277edf1b1c01f48346c166dee45ec6d5f4
+          --trusted-fpr SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI
