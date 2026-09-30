@@ -175,11 +175,20 @@
   "custodian/CONTAINMENT.md",
   "custodian/FINDINGS.md",
   "custodian/boundary.json",
-  "custodian/custodian.pub.pem",
-  "custodian/verify.py"
+  "custodian/root.pub",
+  "custodian/verify.py",
+  "custodian/adversarial.sh",
+  "custodian/owner-intent.md",
+  "custodian/review/*",
+  "custodian/justfile",
+  "custodian/SETUP.md"
  ],
+ "escalation_keys": {
+  "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMufO77hW4SvgXoSRyWxW7FwJa5Blw/yc2gNvYg1K8r0 dzack@bahamut-2024-05-03\n"
+ },
  "files": {
-  ".github/workflows/custodian.yml": "83cfa8158edea5245fb3e1bbefb1d1ada4e3f79f9c37baca5220f0d0f785a593",
+  ".github/workflows/custodian-review.yml": "c35ecfa6b2aeba548a5ce8c6c7b625d4b0f63a08f355d1a53b019d4426fc66cf",
+  ".github/workflows/custodian.yml": "346dd87712ea89a1385e3db2860cc2e136207514528298da6bf605e070803b89",
   ".github/workflows/gates.yml": "bdaf356688f06463b0a6f1846d7110dbea664a522ebd70cc57b2d89db66dd7a5",
   "CasAcceptance.lean": "ba8b39022e5a802b9f37565e57a5f47fdd976b0bd84dd997dc0b5cd69c6e0c2a",
   "CasAcceptance/AdapterProbes.lean": "2e961956bb48e33844a9c8f5caa25d2d59047f2cc0b7cf771b0c40e177d5d743",
@@ -242,16 +251,23 @@
   "CasTools/ExportMain.lean": "3ec302b68c666738e914a21b8b7483eed488ed6aaca9ecaaeff8245d37ca18e0",
   "CasTools/Harness.lean": "d3a150d5bfe8938b52ceb9d4a6787ecc3be8cdc2d5e12c6a352765f1b0896a4b",
   "CasTools/HarnessMain.lean": "bb48ba615212cae1a13d01fe3eee7270bc5ee0caef60c790f2a9d119fcecaaaa",
-  "custodian/CONTAINMENT.md": "5fbead2fcddedbc94e9f4c84b9eee0e1208b9388328ec35a7122174b4ed6cd08",
+  "custodian/CONTAINMENT.md": "8de7bc5d3e1d70557c74efc90cb3a8da24a4588e1991013120fc7783bbae2b92",
   "custodian/FINDINGS.md": "ec86df2a75f3bc492933dab8650e31b6ac393d04c85ab9b8b313c01b60271506",
-  "custodian/boundary.json": "06a60e5995aa870ea9fda47b91ee7f6c7a4184ebdf011f29d6e216001a3945f9",
-  "custodian/custodian.pub.pem": "0257631873d44afdc698507f4af8b3b624551424eaeed6f287dd23a73cad1805",
-  "custodian/verify.py": "2d66eb1f99296ff2f2fde8c765538e8ce746d246149375e807fdbc143c79e47e",
+  "custodian/SETUP.md": "758952c57356161205847ecb66c940cb26c594e49244a3a02b0d6dee1f741d06",
+  "custodian/adversarial.sh": "e07b83ce34f9afeac8b07a1f404c4a8235f2f9224d3075a7730de44e8180d127",
+  "custodian/boundary.json": "775c0d92cb1bc7f1f03662c535bb48df3a37a9df9de2a6ee42f8a126185724ca",
+  "custodian/justfile": "7ced470adbbf016a12dc78efcb5f620b0ae2100b01deb1d66d184edd1317c1a7",
+  "custodian/owner-intent.md": "d1f41027bf425d963634e6f1fb61964772ce9ca8a4d0fe435fb13fe5e97b0305",
+  "custodian/review/prompt.md": "aba9873a726348331f632358b9ccad105b10e7c43dd3b74a893eb0a101213a6a",
+  "custodian/review/review.py": "2e947740316fb225c9fa62c92807b106f3ca58c71beafc17b65a30f12e0aac92",
+  "custodian/review/test_review.py": "6cec354e273146dc2ea4fb1f7c88ffef6ec25812a4919920dac9c5fdc003559e",
+  "custodian/root.pub": "eab93a6afa15394de8dd9fcde8a10e649f559a6251415a30b93f35997beeac71",
+  "custodian/verify.py": "ea91ef9522f34990b5588bab826971efeb5471a4c869eac6f27af4c629f7a40c",
   "justfile": "75820e3b172fcdf8bfc7cf725fc4c88fccb66b286d4a5b9c2638b0f5eff4b12c",
   "lakefile.lean": "444ea304c74e6b1ce1bf47ae34e7af114223e1b7ff686f43ad2e311404995dc4",
   "lean-toolchain": "302cd63c54178885b89e669f33b38f12f4dd7ae7e5cac537b3203e3768d8fb2b",
   "scripts/check_acceptance_permanent.py": "326cd1d690610a40bc75cd91ca56244421f27fae965473b9bf2f8ae72639d976",
-  "scripts/check_authorship.py": "3f1125f60ee73aeb04c5109f5dfd46f583230ccf248d7f0e874023f3771617dc",
+  "scripts/check_authorship.py": "91bc7b02c16ca88020cae7dcf000d8d52db873eaa62370f680911f31f9ff2dab",
   "scripts/check_kernel_totality.py": "2d3ee01bb242ba0648b700d0057bb0d1948f9d9dbdb55c7c4b2dda7b6cd2a397",
   "scripts/check_no_leaves.py": "4480f0ef6f5df8861378efc2d3d0fbe5d5f97993a428498afba5f64aa2d99edc",
   "scripts/check_reuse_records.py": "413a3f6c8c0f2b2a754adaab645b5baa69e5f6ea5accaad88c711053ea7a85b0",
@@ -484,7 +500,7 @@
   ],
   "lean_categories": "c06aeedc8ebc16c787481a5c15a86526341a4b4e"
  },
- "note": "Custodian baseline at lean-cas-dsl 0ba53dab: integrity of the acceptance boundary, not provenance of what it contains.",
+ "note": "Custodian root at lean-cas-dsl 153980b: integrity of the acceptance boundary, not provenance. SSH keys: the review key (custodian-review environment) and the owner's key (escalation).",
  "outside_baseline": [],
  "pins": {
   "BrauerGroup": "54a54e35abf4c69fdef952100df57a8ec2bc1ea9",
@@ -502,6 +518,9 @@
   "proofwidgets": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957",
   "\u00abnbdsl-worker\u00bb": "4c6c2a77abcc717513a65ca35723ed428647e1bd"
  },
- "sealed_commit": "0ba53dab355fc7578bd406be0e14a9c22d8116c5",
- "verifier_sha256": "2d66eb1f99296ff2f2fde8c765538e8ce746d246149375e807fdbc143c79e47e"
+ "reviewer_keys": {
+  "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAYevMYZXo5d/qebqepSGUQwrZMpQTYw36lUK4AcTEMf custodian-review\n"
+ },
+ "sealed_commit": "153980bffa4fddba47bba800a9ed12608ab2495a",
+ "verifier_sha256": "ea91ef9522f34990b5588bab826971efeb5471a4c869eac6f27af4c629f7a40c"
 }

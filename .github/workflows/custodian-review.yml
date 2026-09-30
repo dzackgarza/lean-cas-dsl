@@ -1,0 +1,93 @@
+# The custodian's acceptance boundary for changes to main (custodian/CONTAINMENT.md).
+# pull_request_target runs THIS file as it is on main, never the pull request's copy, and the
+# pull request's head is only read as data. Its secrets live in the `custodian-review` environment,
+# which only main may deploy to, so no other branch's workflow can read them.
+name: Custodian review
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: write        # the rejection log branch only
+  pull-requests: write   # the verdict comment
+concurrency:
+  group: custodian-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  review:
+    name: Custodian review
+    runs-on: ubuntu-latest
+    environment: custodian-review
+    steps:
+      - name: Check out main (the trusted code)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - name: Check out the pull request's head (data only)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+      - name: Check out the leaves at the head's pin, and the rejection log
+        run: |
+          rev=$(python3 -c "import json;print([p['rev'] for p in json.load(open('head/lake-manifest.json'))['packages'] if p['name']=='cas_leaves'][0])")
+          git clone --quiet https://github.com/dzackgarza/lean-cas-dsl-leaves leaves
+          git -C leaves checkout --quiet "$rev"
+          if git clone --quiet --branch custodian/rejections \
+              "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" rejections; then :
+          else
+            git init --quiet rejections && git -C rejections checkout --quiet --orphan custodian/rejections
+            git -C rejections remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Claude Code (the reviewer)
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Review
+        id: review
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CUSTODIAN_REVIEW_KEY: ${{ secrets.CUSTODIAN_REVIEW_KEY }}
+        run: |
+          key="$RUNNER_TEMP/review_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$CUSTODIAN_REVIEW_KEY" > "$key"
+          python3 base/custodian/review/review.py --base base --head head --leaves leaves \
+            --trusted-fpr "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI" --signing-key "$key" \
+            --out out --rejections rejections \
+            --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }}
+      - name: Append to the rejection log
+        if: always()
+        run: |
+          cd rejections
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git -c user.name=custodian-review -c user.email=custodian-review@users.noreply.github.com \
+              commit --quiet -m "Rejection: PR #${{ github.event.pull_request.number }} at ${{ github.event.pull_request.head.sha }}"
+            git push --quiet origin HEAD:custodian/rejections
+          fi
+      - name: Upload the verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custodian-verdict
+          path: out/verdicts
+          if-no-files-found: ignore
+      - name: Post the outcome
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('out/comment.md')) return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: fs.readFileSync('out/comment.md', 'utf8') + '\n---\n_Custodian review (pull_request_target on main)_\n'});
