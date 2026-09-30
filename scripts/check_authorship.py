@@ -35,12 +35,15 @@ ROOT = Path(__file__).resolve().parent.parent
 # Commits from here on are checked: after the owner's correction of 2026-09-30 separating authors
 # and the documents recording it.
 CUTOFF = "2026-09-30T09:55:00+00:00"
-ROLES = ("orchestrator", "formalization", "acceptance", "leaf")
+# `custodian`: only paths inside the custodian seal (custodian/CONTAINMENT.md), so declaring the role
+# grants no write the seal does not refuse.
+ROLES = ("orchestrator", "formalization", "acceptance", "leaf", "custodian")
 ADMITTED = "CasAcceptance/Permanent/admitted.json"
 
 # (repository, role) -> path patterns; the first matching role wins.
 LAYERS: dict[str, list[tuple[str, list[str]]]] = {
     "lean-cas-dsl": [
+        ("custodian", ["custodian/*", ".github/workflows/custodian.yml"]),
         ("acceptance", ["tests/acceptance/*", "CasAcceptance/Permanent/*.lean"]),
         ("leaf", ["CasLeaves/*"]),
         ("orchestrator", ["*"]),
@@ -58,7 +61,8 @@ LAYERS: dict[str, list[tuple[str, list[str]]]] = {
 }
 # Anyone's: aggregating import lists and the findings log.
 NEUTRAL: dict[str, list[str]] = {
-    "lean-cas-dsl": [],
+    # This gate is inside the custodian seal: whoever writes it, a change fails the seal.
+    "lean-cas-dsl": ["scripts/check_authorship.py"],
     "lean_categories": ["LeanCategories.lean", "LeanCategories/Catalogue.lean", "COMPLAINTS.md"],
     "cas_leaf_contracts": [],
     "cas_leaves": [],

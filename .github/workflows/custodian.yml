@@ -1,0 +1,23 @@
+# Feedback only. The trust anchor is the owner's fingerprint, supplied outside the repository;
+# a green run of a workflow the pushed commit can edit is not acceptance (custodian/CONTAINMENT.md).
+name: Custodian seal
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the leaves at their pin
+        run: |
+          rev=$(python3 -c "import json;print([p['rev'] for p in json.load(open('lake-manifest.json'))['packages'] if p['name']=='cas_leaves'][0])")
+          git clone --quiet https://github.com/dzackgarza/lean-cas-dsl-leaves /tmp/leaves
+          git -C /tmp/leaves checkout --quiet "$rev"
+      - name: Verify the custodian seal
+        run: >
+          python3 custodian/verify.py --leaves /tmp/leaves
+          --trusted-fpr b0f8f4da4efc1fbe8da4e89568200c277edf1b1c01f48346c166dee45ec6d5f4
