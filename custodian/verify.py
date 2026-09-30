@@ -294,9 +294,9 @@ def main() -> int:
     repo = args.repo.resolve()
     verifier_sha = sha(Path(__file__).read_bytes())
     if args.make_seal:
-        old = json.loads(args.seal.read_text()) if args.seal.exists() else {}
-        boundary = old.get("boundary") or json.loads((HERE / "boundary.json").read_text())["boundary"]
-        append_only = old.get("append_only") or json.loads((HERE / "boundary.json").read_text())["append_only"]
+        # The boundary is custodian/boundary.json, itself a sealed file.
+        spec = json.loads((repo / "custodian" / "boundary.json").read_text())
+        boundary, append_only = spec["boundary"], spec["append_only"]
         seal = build_seal(repo, args.leaves, boundary, append_only, verifier_sha, args.note)
         args.seal.write_text(json.dumps(seal, indent=1, sort_keys=True) + "\n")
         print(f"wrote {args.seal}; sign it: openssl pkeyutl -sign -inkey <key> -rawin "

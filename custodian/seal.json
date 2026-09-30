@@ -176,7 +176,9 @@
   "custodian/FINDINGS.md",
   "custodian/boundary.json",
   "custodian/custodian.pub.pem",
-  "custodian/verify.py"
+  "custodian/verify.py",
+  "custodian/adversarial.sh",
+  "custodian/owner-intent.md"
  ],
  "files": {
   ".github/workflows/custodian.yml": "83cfa8158edea5245fb3e1bbefb1d1ada4e3f79f9c37baca5220f0d0f785a593",
@@ -244,9 +246,11 @@
   "CasTools/HarnessMain.lean": "bb48ba615212cae1a13d01fe3eee7270bc5ee0caef60c790f2a9d119fcecaaaa",
   "custodian/CONTAINMENT.md": "5fbead2fcddedbc94e9f4c84b9eee0e1208b9388328ec35a7122174b4ed6cd08",
   "custodian/FINDINGS.md": "ec86df2a75f3bc492933dab8650e31b6ac393d04c85ab9b8b313c01b60271506",
+  "custodian/adversarial.sh": "05b3bcd5350fb183c946feccfe2e1109e976cce1f6050b2fda90728e9fa103d7",
   "custodian/boundary.json": "8df4d582869ea53c1b014e6dc55c780e0c3f7658a2c7a80bcd24fdd47181dc3b",
   "custodian/custodian.pub.pem": "0257631873d44afdc698507f4af8b3b624551424eaeed6f287dd23a73cad1805",
-  "custodian/verify.py": "2d66eb1f99296ff2f2fde8c765538e8ce746d246149375e807fdbc143c79e47e",
+  "custodian/owner-intent.md": "d1f41027bf425d963634e6f1fb61964772ce9ca8a4d0fe435fb13fe5e97b0305",
+  "custodian/verify.py": "e7cfa05b2cd75d8e6afd347e77852934d30716fad82f7052a49bc6ac2042c1b7",
   "justfile": "75820e3b172fcdf8bfc7cf725fc4c88fccb66b286d4a5b9c2638b0f5eff4b12c",
   "lakefile.lean": "444ea304c74e6b1ce1bf47ae34e7af114223e1b7ff686f43ad2e311404995dc4",
   "lean-toolchain": "302cd63c54178885b89e669f33b38f12f4dd7ae7e5cac537b3203e3768d8fb2b",
@@ -484,7 +488,7 @@
   ],
   "lean_categories": "c06aeedc8ebc16c787481a5c15a86526341a4b4e"
  },
- "note": "Custodian baseline at lean-cas-dsl 0ba53dab: integrity of the acceptance boundary, not provenance of what it contains. Adds the owner's intent document (redacted).",
+ "note": "Custodian baseline at lean-cas-dsl 0ba53dab: integrity of the acceptance boundary, not provenance of what it contains. Includes the owner's intent document (redacted).",
  "outside_baseline": [],
  "pins": {
   "BrauerGroup": "54a54e35abf4c69fdef952100df57a8ec2bc1ea9",
@@ -502,6 +506,6 @@
   "proofwidgets": "4be2e3d5087eeb272cf5a8853b8f9dd025ef5957",
   "\u00abnbdsl-worker\u00bb": "4c6c2a77abcc717513a65ca35723ed428647e1bd"
  },
- "sealed_commit": "fa4109ba0d4e680a1e90ce7ea42365992a36bba8",
- "verifier_sha256": "2d66eb1f99296ff2f2fde8c765538e8ce746d246149375e807fdbc143c79e47e"
+ "sealed_commit": "42bf9ed874a373b7ac48df47540d28d1536aec99",
+ "verifier_sha256": "e7cfa05b2cd75d8e6afd347e77852934d30716fad82f7052a49bc6ac2042c1b7"
 }
