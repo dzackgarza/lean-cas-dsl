@@ -75,6 +75,9 @@ EXACT: dict[str, dict[str, str]] = {
         # The totality gate's probes (plan node gov-registry-gates).
         "LeanCategories/Catalogue/Semantics/TotalityProbes.lean": "orchestrator",
     },
+    # The axiom audit is a gate; it lives under CasLeaves/ only because the custodian refuses Lean
+    # modules elsewhere in the leaves package.
+    "cas_leaves": {"CasLeaves/AxiomAudit.lean": "orchestrator"},
 }
 
 
