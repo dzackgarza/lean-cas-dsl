@@ -25,10 +25,10 @@ bind the kernel, the language and every leaf. Their consequences here:
 - The language and the kernel never supply structure that the catalogue did not give an
   object: no element, unit, `0` or operation is attached to a set because a Lean instance
   happens to exist on its carrier (LC-13).
-- Nothing evaluates to an empty, default or `none` value where the mathematics is undefined,
-  and no fallback reinterprets a term to make it defined (a divisor retried in another set, a
-  numeral read where no numeral exists). Undefinedness is a proposition, or the statement is
-  invalid (LC-14).
+- Every operation is total on its domain object, and there are no partial maps: an argument not
+  known to lie in the domain makes the statement invalid when it is read, never a gap, value or
+  failure found when it is computed. No fallback reinterprets a term to make it land in a domain
+  (a divisor retried in another set, a numeral read where no numeral exists) (LC-14).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
 - A leaf presents the catalogue's object; it never shapes it. A contract rule that would need
