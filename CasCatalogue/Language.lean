@@ -613,6 +613,17 @@ def numeralIn (state : RegistryState) (k : Nat) (one x : Expr)
     return some value
   return none
 
+/-- The instance arguments of a family, synthesized once its operands have determined their
+types (the `Monoid M` of division at `M = ℚ`). -/
+def synthesizeInstances (args : Array Expr) (infos : Array BinderInfo) : TermElabM Unit := do
+  for (a, i) in args.zip infos do
+    unless i.isInstImplicit do continue
+    unless (← instantiateMVars a).isMVar do continue
+    let type ← instantiateMVars (← inferType a)
+    if type.hasMVar then continue
+    if let some inst ← synthInstance? type then
+      discard <| isDefEq a inst
+
 /-- The definitions of the catalogue a term is built from, with those their values are built from:
 what an obligation about the term unfolds to. -/
 def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
@@ -630,6 +641,11 @@ def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
       | _ => #[]
   return found
 
+/-- How a composite of maps of sets is applied, for obligations about maps built by composition. -/
+def compositionLemmas : List String :=
+  ["CategoryTheory.ConcreteCategory.comp_apply", "CategoryTheory.ConcreteCategory.id_apply",
+   "CategoryTheory.types_comp_apply", "CategoryTheory.types_id_apply"]
+
 /-- The evidence of the proposition `p`, established when a statement is read (LC-14): decided, or
 proved by simplification through the catalogue's definitions (a numeral is nonzero, a matrix has a
 unit determinant, a map built from continuous ones is continuous). A statement whose obligation is
@@ -641,7 +657,8 @@ def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
     | decide
     | (simp [{lemmas}]; done)
     | (norm_num [{lemmas}]; done)
-    | (simp only [{", ".intercalate unfold}]; fun_prop)"
+    | (simp only [{", ".intercalate (unfold ++ compositionLemmas)}]; fun_prop)
+    | (simp [{", ".intercalate (unfold ++ compositionLemmas)}]; fun_prop)"
   let tactic ← match Parser.runParserCategory (← getEnv) `tactic source with
     | .ok stx => pure stx
     | .error message => throwError "the obligation tactic does not parse: {message}"
@@ -1273,12 +1290,14 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     if (← coercionMap A S).isNone then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
     coerceTo v S
+  synthesizeInstances args infos
   let elements ← (sources.zip elements).mapM fun (set, v) => do
     if let .element .. := v then return v
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"the set of an operand of {declaration} is not determined"
     toElement v (← recognize state set category)
+  synthesizeInstances args infos
   let params ← explicit.mapM fun a => do
     let a ← instantiateMVars a
     if a.hasMVar then
@@ -1653,11 +1672,35 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   | _, _, _, _ => throwStratum .invalid m!"`a b`: no registered product, action or application \
       takes these operands"
 
+/-- The element `declaration params : 1 ⟶ X` of a family of elements, its parameters unified from
+`X` (the zero of `Kⁿ` from `K` and `n`). -/
+partial def zeroElement (declaration : Name) (X : Value) : M Expr := do
+  let .object x category _ := X | throwStratum .invalid m!"an element is of a named set"
+  let c ← mkConstWithFreshMVarLevels declaration
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType c)
+  let some (_, target) := homEnds? type | throwStratum .invalid m!"{declaration} is not an element"
+  unless ← isDefEq target (← semanticObject X) do
+    throwStratum .invalid m!"{declaration} does not land in this set"
+  synthesizeInstances args infos
+  let value ← instantiateMVars (mkAppN c args)
+  if value.hasMVar then throwStratum .invalid m!"{declaration} is not determined by its set"
+  let .object one .. ← oneObject | unreachable!
+  homIn (← quoteExpr value) one x category
+
+/-- Whether the family of elements `declaration : ∀ params, 1 ⟶ Y` lands in the set `X`. -/
+partial def familyLandsIn (declaration : Name) (X : Value) : M Bool := do
+  let c ← mkConstWithFreshMVarLevels declaration
+  let (_, _, type) ← forallMetaTelescopeReducing (← inferType c)
+  let some (_, target) := homEnds? type | return false
+  let x ← semanticObject X
+  let check : TermElabM Bool := withoutModifyingState (isDefEq target x)
+  check
+
 /-- Whether the family `declaration` takes the elements `elements` (their sets, or sets included in
 them along a domain's inclusion, unify with its operands), decided without applying it. -/
 partial def familyTakes (declaration : Name) (elements : Array Value) : M Bool := do
   let c ← mkConstWithFreshMVarLevels declaration
-  let (_, _, type) ← forallMetaTelescopeReducing (← inferType c)
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType c)
   let some (source, _) := homEnds? type | return false
   let sources ← match (← whnfR source).getAppFn.constName?, (← whnfR source).getAppArgs with
     | some ``Prod, #[x, y] => pure #[x, y]
@@ -1672,6 +1715,14 @@ partial def familyTakes (declaration : Name) (elements : Array Value) : M Bool :
       if ← isDefEq set a then continue
       let some b := b? | return false
       unless ← isDefEq set b do return false
+    -- Its instance arguments exist at these sets (an algebra structure for an evaluation).
+    for (a, i) in args.zip infos do
+      unless i.isInstImplicit do continue
+      if (← instantiateMVars a).isMVar then
+        let type ← instantiateMVars (← inferType a)
+        if type.hasMVar then continue
+        let some inst ← synthInstance? type | return false
+        unless ← isDefEq a inst do return false
     return true
   check
 
@@ -1869,9 +1920,25 @@ partial def toElement (v : Value) (X : Value) : M Value := do
           let .object oneHandle .. ← oneObject | unreachable!
           return .element (← staged (← homIn (← quoteExpr numeral) oneHandle x category)) X
       | none =>
+          -- `0` of a set with a registered zero element (`0 ∈ Kⁿ`, the unit of its addition): that
+          -- element, by name.
+          if k == 0 then
+            if let some zero := state.morphisms.find? fun m =>
+                m.name == "0" && m.category == category.id then
+              if (← familyLandsIn zero.declaration X) then
+                let hom ← zeroElement zero.declaration X
+                return .element (← staged hom) X
+          -- A set of constants from its parameter `P` without numerals of its own: the image of
+          -- the numeral of `P`.
           if let (some _, some P@(Value.object ..)) :=
               (entry.constants, params.find? (· matches .object ..)) then
             return ← coerceTo (← toElement v P) X
+          -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the
+          -- numeral of `ℕ` along that monomorphism.
+          if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
+            if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
+              let N ← object state "ℕ" #[] none
+              return ← coerceTo (← toElement v N) X
           throwStratum .invalid m!"no registered numeral lands in {entry.name}"
   | _ => return v
 
@@ -2200,6 +2267,13 @@ partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Va
         match ← commonSet? sets, sets[0]? with
         | some X, _ | none, some X => powerSetOf X
         | none, none => powerSetOf (← object (← registryState) "ℤ" #[] none)
+  -- In a domain of subsets (`𝒫_fin(X) ↪ 𝒫(X)`): a set literal is a subset, in `𝒫(X)`, which the
+  -- domain's elements are compared in along its inclusion.
+  let P ← match ← powerOf? P, ← inclusionOut? P with
+    | none, some (_, b) =>
+        let .object _ category _ := P | unreachable!
+        recognize (← registryState) b category
+    | _, _ => pure P
   let some (po, X) ← powerOf? P
     | throwStratum .invalid m!"a set literal is a subset: `in 𝒫(X)`"
   let .object p category _ := P | unreachable!
