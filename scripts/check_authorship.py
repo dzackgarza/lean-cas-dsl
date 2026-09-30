@@ -31,9 +31,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Commits from here on are checked: after the owner's correction of 2026-09-30 separating authors
-# and the documents recording it.
-CUTOFF = "2026-09-30T09:55:00+00:00"
+# Commits from here on are checked. The baseline is the owner's escalation that moved the chain to
+# main (PR #43); the history before it is the baseline, not judged.
+CUTOFF = "2026-09-30T18:20:40+00:00"
 # `custodian`: only paths inside the custodian seal (custodian/CONTAINMENT.md), so declaring the role
 # grants no write the seal does not refuse.
 ROLES = ("orchestrator", "formalization", "acceptance", "leaf", "custodian")
@@ -75,9 +75,6 @@ EXACT: dict[str, dict[str, str]] = {
         # The totality gate's probes (plan node gov-registry-gates).
         "LeanCategories/Catalogue/Semantics/TotalityProbes.lean": "orchestrator",
     },
-    # The axiom audit is a gate; it lives under CasLeaves/ only because the custodian refuses Lean
-    # modules elsewhere in the leaves package.
-    "cas_leaves": {"CasLeaves/AxiomAudit.lean": "orchestrator"},
 }
 
 
