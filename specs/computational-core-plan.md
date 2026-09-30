@@ -223,6 +223,23 @@ allowed to affect meaning or acceptance. The acceptance suite is the only eviden
 - `lean-cas-dsl` `CasAcceptance/Permanent/Cardinality.lean`, `Constructed.lean`, `Limits.lean`: assertions proved by `simp [cardinalDenotation, CardinalHandle.denote]`, unfolding a leaf's definitions, with inputs built from leaf handle constructors (`SetHandle.prod`, `zmodPow`).
 - `lean-cas-dsl-leaves` `CasLeaves/**/*.lean`: every leaf is a Lean module defining handle categories, denotation functors, actions, deciders and proofs; each must become a registration that ships no Lean, with its program beside it.
 
+**Findings from the first registration leaves** (`lean-cas-dsl-leaves` `leaf/registrations`,
+`eea5eea`), each routed to its owner:
+- Kernel: a registration is looked up by the exact input object id, so a refinement
+  (`obj.rings.integers`, `obj.finite_sets.fin`) reaches no registration of its underlying set.
+  Routing an operation to a registration along the catalogue's refinement and inclusion maps is
+  the kernel's (CC-TRANSPORT, CC-RESOLVE). A leaf never re-registers each refinement.
+- Kernel: the realized reading sends no diagrams over the port, so no limit (`lim.sets.product`,
+  `lim.sets.pullback`, `lim.groups.kernel`) and no arrow operation (`meth.kernel`, `meth.arrow_ker`)
+  is computable. It needs input forms for diagrams and arrows (CC-UNIV, CC-DECODE).
+- `lean-categories`: forms missing for arrows, subgroups (`op.groups.orthogonal_subgroup`), finite
+  subsets of a power object, numerals as operation inputs, and uncountable cardinals in
+  `lit.cardinals`. Cardinality of `ℝ` has no value in the result form.
+- Contract: a backend's command cannot name an interpreter from the environment
+  (`CAS_SAGE_PYTHON`), so each program locates its own engine.
+- Build: `lean-cas-dsl` no longer requires `cas_leaves` as a Lean package once the leaves ship no
+  Lean. It locates `leaves.json` without Lake.
+
 ## DAG
 
 `Needs` lists immediate prerequisites. A node marked **Open** has acceptance under the evidence
