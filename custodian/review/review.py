@@ -219,8 +219,9 @@ def review_mode(a) -> int:
     record["result"] = result
     record["served_by"] = why if result is not None else None
     lines = review + ([result["summary"]] if result else [why])
-    lines += [f"{'holds' if c['holds'] else 'FAILS'}: {c['criterion']} -- {c['evidence']}"
-              for c in (result or {}).get("criteria", [])]
+    if result is not None:
+        lines += [f"{'holds' if c['holds'] else 'FAILS'}: {c['criterion']} -- {c['evidence']}"
+                  for c in result["criteria"]]
     if approved:
         v = next_verdict(V, root_path, chain, "review", public_fpr(a.signing_key),
                          tightened(V, head, tip), record)

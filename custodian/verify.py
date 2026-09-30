@@ -165,7 +165,7 @@ def scan_leaves(leaves: Path) -> list[str]:
 
 
 def manifest_revs(repo: Path) -> dict[str, str]:
-    return {p["name"]: p.get("rev", "")
+    return {p["name"]: p["rev"]
             for p in json.loads((repo / "lake-manifest.json").read_text())["packages"]}
 
 
@@ -250,9 +250,9 @@ def check(repo: Path, seal: dict) -> list[str]:
             if ledger.get(key) != seal["ledger"].get(key):
                 problems.append(f"sealed ledger field changed: {LEDGER} {key}")
         for ident, h in sorted(seal["ledger"]["assertions"].items()):
-            if ledger.get("assertions", {}).get(ident) != h:
+            if ledger["assertions"].get(ident) != h:
                 problems.append(f"sealed assertion changed or removed in the ledger: {ident}")
-        for ident in sorted(set(ledger.get("assertions", {})) - set(seal["ledger"]["assertions"])):
+        for ident in sorted(set(ledger["assertions"]) - set(seal["ledger"]["assertions"])):
             print(f"note: unsealed assertion (not accepted until a new seal): {ident}")
     for hit in sorted(set(outside_hits(repo, seal)) - set(seal["outside_baseline"])):
         problems.append(f"outside the boundary: {hit}")
@@ -306,14 +306,14 @@ def load_chain(repo: Path, root_path: Path, root: dict) -> list[tuple[Path, dict
     """The verdict chain under custodian/verdicts: [(file, verdict)], seq 1.., each signed by a key
     the root seal names for its kind, each naming the sha256 of its predecessor's bytes (the root
     seal's for seq 1). Raises SystemExit on any break: a broken chain accepts nothing."""
-    keys = {"review": root.get("reviewer_keys", {}), "escalation": root.get("escalation_keys", {})}
+    keys = {"review": root["reviewer_keys"], "escalation": root["escalation_keys"]}
     files = sorted((repo / VERDICTS).glob("*.json")) if (repo / VERDICTS).is_dir() else []
     chain, prev = [], sha(root_path.read_bytes())
     for i, f in enumerate(files, start=1):
         if f.name != f"{i:06d}.json":
             raise SystemExit(f"BROKEN CHAIN: expected {i:06d}.json, found {f.name}")
         v = json.loads(f.read_text())
-        pub = keys.get(v.get("kind"), {}).get(v.get("signer"))
+        pub = keys[v["kind"]].get(v.get("signer")) if v.get("kind") in keys else None
         if pub is None or key_fpr(pub) != v["signer"]:
             raise SystemExit(f"BROKEN CHAIN: {f.name} is signed by a key the root seal does not name "
                              f"for kind {v.get('kind')!r}")
