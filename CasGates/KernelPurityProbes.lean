@@ -7,6 +7,7 @@ module
 public import CasGates.KernelPurity
 public meta import CasGates.KernelPurity
 public import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+public import Mathlib.CategoryTheory.Category.Basic
 public meta import Lean
 
 /-!
@@ -38,6 +39,8 @@ def runsTactic (g : MVarId) (t : Lean.Elab.Tactic.TacticM Unit) : TermElabM (Lis
   Lean.Elab.Tactic.run g t
 /-- A constant evaluated outside the evidence runner. -/
 unsafe def evaluates (n : Name) : MetaM Nat := evalConst Nat n
+/-- A term evaluator named outside the realized reading's evaluators. -/
+def evaluatesTerm : Name := ``Lean.Meta.evalExpr
 /-- Categorical plumbing: accepted. -/
 def plumbing : Name := ``CategoryTheory.CategoryStruct.comp
 
@@ -54,7 +57,8 @@ run_cmd do
       (``CasGates.KernelPurityProbes.byBlock, "writes tactic syntax"),
       (``CasGates.KernelPurityProbes.tacticSource, "writes tactic syntax"),
       (``CasGates.KernelPurityProbes.runsTactic, "runs a proof procedure"),
-      (``CasGates.KernelPurityProbes.evaluates, "runs a proof procedure")] do
+      (``CasGates.KernelPurityProbes.evaluates, "runs a proof procedure"),
+      (``CasGates.KernelPurityProbes.evaluatesTerm, "evaluates a term")] do
     let found := check d
     unless found.any (fun v => (v.splitOn fragment).length > 1) do
       throwError "the kernel-purity gate accepts {d} ({fragment} expected): {found}"

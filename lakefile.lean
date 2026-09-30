@@ -21,7 +21,7 @@ require mathlib from git
 package owns the CAS machinery over it (resolution and propagation, the language, the permanent
 tests, the harness, the notebook). -/
 require lean_categories from git
-  "https://github.com/dzackgarza/lean-categories" @ "c06aeedc8ebc16c787481a5c15a86526341a4b4e"
+  "https://github.com/dzackgarza/lean-categories" @ "646f4a770421872593c796a5af1c2aafc52cbb17"
 
 /- The leaf contract: the kernel's interface for computational leaves, published on its own so
 that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
@@ -58,7 +58,7 @@ contract refers to mathematics or runs proof search of its own (`specs/architect
 be impossible"). A default target, so that no build of the kernel skips it. -/
 @[default_target]
 lean_lib CasGates where
-  globs := #[.andSubmodules `CasGates]
+  globs := #[.submodules `CasGates]
 
 /-- The permanent acceptance suite, in the language (`CasCatalogue.TestSuite`). -/
 input_dir acceptanceSuite where
