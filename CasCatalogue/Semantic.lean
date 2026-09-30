@@ -128,3 +128,5 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry) : TermEl
 end Semantic
 
 end CasCatalogue
+
+-- The semantic layer ends here.
