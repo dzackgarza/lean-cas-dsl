@@ -1,0 +1,17 @@
+# The custodian's recipes. Run from the repository root: just -f custodian/justfile <recipe>
+# The root fingerprint is the owner's copy; the value here is informational (custodian/CONTAINMENT.md).
+root := "b0f8f4da4efc1fbe8da4e89568200c277edf1b1c01f48346c166dee45ec6d5f4"
+set working-directory := ".."
+
+# Verify this checkout against the root seal and its verdict chain.
+verify leaves fpr=root:
+    python3 custodian/verify.py --trusted-fpr {{fpr}} --leaves {{leaves}}
+
+# Sign an escalation verdict for this checkout, after a human-plus-agent review of the change.
+escalate leaves key note fpr=root:
+    python3 custodian/review/review.py --escalate --head . --leaves {{leaves}} \
+        --trusted-fpr {{fpr}} --signing-key {{key}} --note "{{note}}"
+
+# Run every intervention against the seal and check each verdict.
+adversarial scratch leaves_clone fpr=root:
+    bash custodian/adversarial.sh {{scratch}} {{fpr}} "$PWD" {{leaves_clone}}

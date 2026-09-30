@@ -24,7 +24,9 @@
   "custodian/custodian.pub.pem",
   "custodian/verify.py",
   "custodian/adversarial.sh",
-  "custodian/owner-intent.md"
+  "custodian/owner-intent.md",
+  "custodian/review/*",
+  "custodian/justfile"
  ],
  "append_only": [
   "tests/acceptance/*.cas",
