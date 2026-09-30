@@ -20,10 +20,9 @@ local checkout, and this work must be readable wherever the repository is.
 > assertion, or an exemption. The custodian session (`custodian/containment` branch) holds step 7's
 > acceptance boundary. The orchestrator does not accept its own work. Custodian sessions:
 > `session_01GTQeWD4KCqYCeVd4SygciY` and `session_01YSV4KoC3rsqZJcugaUrwbG`, both running since
-> the owner approved their prompts (2026-09-30 12:56 UTC), both writing `custodian/containment`.
-> The first was given the convergence process in its prompt; the second has all four repositories
-> attached. Two custodians on one branch are two authorities; the orchestrator does not choose
-> between them. The orchestrator reads `custodian/containment` and
+> the owner approved their prompts (2026-09-30 12:56 UTC), `custodian/containment`. The orchestrator interrupted `session_01YSV4KoC3rsqZJcugaUrwbG` at
+> 13:00 UTC, at the owner's instruction: two custodians on one branch are two authorities. Its
+> prompt lacked the convergence process. `session_01GTQeWD4KCqYCeVd4SygciY` is the custodian. The orchestrator reads `custodian/containment` and
 > obeys what it states. It never writes there.
 
 ## Rules for executing this plan
