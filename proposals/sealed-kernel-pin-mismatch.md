@@ -34,3 +34,30 @@ The cause is the orchestrator's: it banked kernel code that needed an unpinned u
 
 The orchestrator's reading is that only 1 is consistent with the owner's text. Whether 1 is
 accepted is not the orchestrator's decision.
+
+## Resolution 1, built (2026-09-30)
+
+On this branch: `lean_categories` is re-pinned to `646f4a7`, and
+`lake build CasCatalogue CasGates` completes (3635 jobs) in a checkout whose `.lake/packages` are
+real checkouts at the pins. The build exposed defects in the sealed purity gate
+`CasGates/KernelPurity.lean`. It had never been built before the seal. They are repaired here, and
+each repair changes the boundary:
+- it did not compile (a `String` API mismatch);
+- the library glob asked for a root module `CasGates` that does not exist;
+- the gate's functions were private to their module, so its probes could not call it;
+- a missing contract directory made coverage pass vacuously (custodian finding A4). It is now an
+  error;
+- the `establish.*` prefix exempted every declaration under that name (A4). The exemption is now
+  exactly `establish` and its compiler-generated auxiliaries (`establish.unsafe_1`,
+  `establish.unsafe_impl_2`);
+- `evalExpr` was banned everywhere, which would have refused the three realized-reading evaluators
+  (`evalAnswerUnsafe`, `evalBoolUnsafe`, `Acceptance.evalBackendOutcomeUnsafe`). They run the
+  composite of registered realizations: computation, not proof. `evalExpr` is now allowed in exactly
+  those three, by name. `evalConst` and the tactic machinery are allowed only in `establish`. A new
+  probe refuses `evalExpr` elsewhere.
+
+With these, the gate passes on the kernel, and every probe is refused as the gate intends.
+
+Not done here: `CasAcceptance`, `CasDsl`, and the acceptance suite have not been built at this pin.
+Every admission now has no evidence, so the statements that needed one are invalid, which is the
+honest state until evidence rows are accepted.

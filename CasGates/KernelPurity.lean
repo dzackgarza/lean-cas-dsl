@@ -63,6 +63,8 @@ The one proof the kernel forms itself is `decide` by evaluation (`decideObligati
 
 open Lean
 
+public section
+
 namespace CasGates.KernelPurity
 
 /-- The module roots of the kernel and of the leaf contract. -/
@@ -83,12 +85,21 @@ meta def allowedModules : List Name :=
 /-- Lean's tactic machinery: proof search is the domain's (LC-18), run only by `evidenceRunner`. -/
 meta def tacticModules : List Name := [`Lean.Elab.Tactic, `Lean.Meta.Tactic]
 
-/-- Running a tactic procedure or evaluating a constant: only `evidenceRunner` may, on the
-registered evidence of a domain. -/
+/-- Running a tactic procedure or evaluating a constant by name: only `evidenceRunner` may, on
+the registered evidence of a domain. -/
 meta def restrictedConstants : List Name :=
   [``Lean.Elab.Term.runTactic, ``Lean.Environment.evalConst, ``Lean.Environment.evalConstCheck,
-   ``Lean.evalConst, ``Lean.evalConstCheck, ``Lean.Meta.evalExpr, ``Lean.Meta.evalExpr',
-   ``Lean.Elab.Term.evalTerm]
+   ``Lean.evalConst, ``Lean.evalConstCheck, ``Lean.Elab.Term.evalTerm]
+
+/-- Evaluating a closed term: only the realized reading's evaluators may, on the composite of
+registered realizations they run (computation, not proof). An addition here changes the sealed
+boundary. -/
+meta def evaluationConstants : List Name := [``Lean.Meta.evalExpr, ``Lean.Meta.evalExpr']
+
+/-- The realized reading's evaluators. -/
+meta def evaluators : List Name :=
+  [`CasCatalogue.Language.evalAnswerUnsafe, `CasCatalogue.Language.evalBoolUnsafe,
+   `CasCatalogue.Acceptance.evalBackendOutcomeUnsafe]
 
 /-- The one declaration that runs registered evidence (with its auxiliary declarations). -/
 meta def evidenceRunner : Name := `CasCatalogue.Language.establish
@@ -131,12 +142,13 @@ meta partial def nameLiterals (e : Expr) (acc : Array Name := #[]) : Array Name 
 
 /-- The module files under the directory `dir` of the module root `root`, as module names. -/
 meta def moduleFiles (dir : System.FilePath) (root : Name) : IO (Array Name) := do
-  unless ← dir.isDir do return #[]
+  unless ← dir.isDir do
+    throw <| IO.userError s!"{dir} is absent: the kernel modules under it cannot be checked"
   let files ← dir.walkDir
   return files.filterMap fun f =>
     if f.extension != some "lean" then none else
-    let rel := (f.toString.drop (dir.toString.length + 1)).toString
-    let parts := (rel.dropRight 5).toString.splitOn "/"
+    let rel := String.ofList (f.toString.toList.drop (dir.toString.length + 1))
+    let parts := (String.ofList (rel.toList.dropLast.dropLast.dropLast.dropLast.dropLast)).splitOn "/"
     some (parts.foldl (·.str ·) root)
 
 /-- The violations of the declaration `d` (with `info`) of the kernel module `m`. -/
@@ -153,8 +165,16 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
   let mut found : Array String := #[]
   for c in used ++ literals.filter env.contains do
     let some cm := moduleOf c | continue
+    if evaluationConstants.contains c then
+      unless evaluators.contains d do
+        found := found.push s!"{d} ({m}) evaluates a term with {c}: only the realized reading's \
+          evaluators ({evaluators}) run computations"
+      continue
     if restrictedConstants.contains c || tacticModules.any (·.isPrefixOf cm) then
-      unless evidenceRunner.isPrefixOf d do
+      -- The runner itself, or a compiler-generated auxiliary of it (`establish.unsafe_1`).
+      unless d == evidenceRunner || (d.getPrefix == evidenceRunner &&
+          (match d with
+            | .str _ s => s.startsWith "_" || s.startsWith "unsafe_" | _ => false)) do
         found := found.push s!"{d} ({m}) uses {c} of {cm}: only {evidenceRunner} runs a proof \
           procedure, and only a domain's registered evidence"
       continue
@@ -192,3 +212,5 @@ run_cmd do
       MessageData.joinSep (found.toList.map (m!"  {·}")) "\n"
 
 end CasGates.KernelPurity
+
+end

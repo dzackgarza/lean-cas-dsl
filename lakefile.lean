@@ -58,7 +58,7 @@ contract refers to mathematics or runs proof search of its own (`specs/architect
 be impossible"). A default target, so that no build of the kernel skips it. -/
 @[default_target]
 lean_lib CasGates where
-  globs := #[.andSubmodules `CasGates]
+  globs := #[.submodules `CasGates]
 
 /-- The permanent acceptance suite, in the language (`CasCatalogue.TestSuite`). -/
 input_dir acceptanceSuite where
