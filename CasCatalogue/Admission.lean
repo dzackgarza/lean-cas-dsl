@@ -19,13 +19,16 @@ backend by its name in the manifest. The kernel admits it only when all three re
   property (`prop.is_finite`), a registered limit (`lim.sets.product`), an element operation
   (`op.boolean_algebras.union`) or a morphism family (`mor.*`).
 * **Forms** are what the kernel encodes with its structural codec, by id: a registered literal
-  form (`lit.cardinals`, the values of its type) or a registered named object at its explicit
-  parameters (`obj.sets.fin`, `obj.sets.integers_mod_power`). Which forms exist is the
-  catalogue's; a leaf declares none.
+  form (`lit.cardinals`, the values of its type), a registered graph-literal form
+  (`graph.sets`, the morphisms of its category by their graphs), a registered named object at
+  its explicit parameters (`obj.sets.fin`, `obj.sets.integers_mod_power`), or the diagrams of a
+  registered category (`cat.sets`: a diagram of a registered shape, in the forms of its objects
+  and arrows). Which forms exist is the catalogue's; a leaf declares none.
 * A form is **accepted** by an operation when the operation applies to its values: a method or a
   property when the form's category resolves it by a structural route (the same resolution the
-  semantic reading performs), a limit, element operation or morphism family when it is registered
-  in the form's category.
+  semantic reading performs) and the catalogue does not send the form elsewhere along that route
+  (CC-TRANSPORT), a limit when the form is the diagrams of its category, an element operation or
+  morphism family when it is registered in the form's category.
 
 Everything else in a manifest is ignored. A registration that is not admitted is reported with
 its reason, and carries no meaning.
@@ -35,25 +38,35 @@ open Lean
 
 namespace CasCatalogue
 
-/-- A form the kernel encodes: values of a registered literal type, or a registered named object
-at its parameters. -/
+/-- A form the kernel encodes: values of a registered literal type, morphisms of a registered
+category given by their graphs, a registered named object at its parameters, or the diagrams of a
+registered category (the input of its registered limits), encoded in the forms of their objects
+and arrows. -/
 inductive Form
   | literal (entry : LiteralEntry)
+  | graph (entry : GraphLiteralEntry)
   | object (entry : ObjectEntry)
+  | diagrams (entry : NamedCategoryEntry)
 
+/-- The form's id: a literal, graph-literal or object row's; for diagrams, their category's. -/
 def Form.id : Form → String
   | .literal entry => entry.id.raw
+  | .graph entry => entry.id.raw
   | .object entry => entry.id.raw
+  | .diagrams entry => entry.id.raw
 
 def Form.category : Form → CategoryId
   | .literal entry => entry.category
+  | .graph entry => entry.category
   | .object entry => entry.category
+  | .diagrams entry => entry.id
 
 /-- The form `id` names. -/
 def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
-  match state.literals.find? (·.id.raw == id) with
-  | some entry => some (.literal entry)
-  | none => (state.objects.find? (·.id.raw == id)).map .object
+  (state.literals.find? (·.id.raw == id) |>.map .literal) <|>
+  (state.graphLiterals.find? (·.id.raw == id) |>.map .graph) <|>
+  (state.objects.find? (·.id.raw == id) |>.map .object) <|>
+  (state.categories.find? (·.id.raw == id) |>.map .diagrams)
 
 /-- A catalogue operation a registration may compute. -/
 inductive Operation
@@ -136,7 +149,12 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
               else notResolved
           | .error _ => notResolved
       | none => notResolved
-  | .limit entry => if entry.category == form.category then none else notResolved
+  | .limit entry =>
+      -- The input of a limit is a diagram of its category.
+      match form with
+      | .diagrams category => if entry.category == category.id then none else notResolved
+      | _ => some s!"the input of {entry.id.raw} is a diagram of {entry.category.raw}, in the \
+          forms of its objects and arrows; register it on {entry.category.raw}"
   | .operation entry => if entry.category == form.category then none else notResolved
   | .morphism entry => if entry.category == form.category then none else notResolved
 

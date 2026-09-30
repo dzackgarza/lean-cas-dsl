@@ -11,6 +11,7 @@ import all CasCatalogue.Admission
 import all CasCatalogue.CellCall
 import all CasCatalogue.CellSyntax
 import all CasCatalogue.Codec
+import all CasCatalogue.Decide
 import all CasCatalogue.Language
 import all CasCatalogue.Realize
 import all CasCatalogue.Resolve

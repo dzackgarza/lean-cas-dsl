@@ -25,11 +25,18 @@ the catalogue's mathematics, and the term it is about. This module decides the c
    mathematics and is invalid. Nothing is decided by evaluation outside the kernel.
 2. **Otherwise, realize.** The same term is evaluated bottom-up through the operations the
    semantic reading recorded (`CasCatalogue.Trace`): a named object at its parameters is its
-   form, encoded by the kernel; an operation applied to a value of a form selects the admitted
-   registration of that operation on that form (`CasCatalogue.Admission`), sends the encoded
-   input over the port, and decodes the answer in the operation's result form: the registered
-   literal form of its result category. No registration is a gap; two are a gap reported as
-   ambiguous; a backend that cannot start is unavailable; a rejected answer is malformed.
+   form, encoded by the kernel; a literal (a morphism by its graph) is its form; the receiver of
+   a method or property is sent along the route the semantic reading resolved, as far as the
+   catalogue's refinement rows take it (CC-TRANSPORT, `transport`); an operation applied to a
+   value of a form selects the admitted registration of that operation on that form
+   (`CasCatalogue.Admission`), sends the encoded input over the port, and decodes the answer in
+   the operation's result form: the registered literal form of its result category. A registered
+   limit is an operation on its diagram, sent in the forms of its objects and arrows; its answer
+   is the cone of its shape, apex and legs, from which the kernel reconstructs the cone as
+   Mathlib's standard constructor of the shape, deciding the commutation the legs must satisfy
+   (CC-UNIV, CC-DECODE); an answer missing a leg, or whose legs do not commute, is malformed. No
+   registration is a gap; two are a gap reported as ambiguous; a backend that cannot start is
+   unavailable; a rejected answer is malformed.
 3. **Comparison.** `assert X = L` holds when the decoded value equals `L`, by the decidable
    equality of the form's type, checked by the kernel the same way. A decision is compared as a
    three-valued answer. Nothing a leaf returned is used as evidence of anything but its own
@@ -48,49 +55,18 @@ namespace Realize
 
 open Language
 
-/-- The heartbeat budget of one decision by the kernel (in the units of `maxHeartbeats`). -/
-def decideBudget : Nat := 20000
-
-/-- Whether Lean's kernel accepts the proof of `p` by decision, `of_decide_eq_true (Eq.refl
-true) : p` (`mkDecideProof`), within `decideBudget`. The proof is type-checked synchronously by
-the kernel (`Environment.addDeclCore`, bounded by `decideBudget`) into a copy of the environment
-that is discarded. `Lean.addDecl` is not used: under `Elab.async` it checks theorems in a
-background task and returns before the kernel has judged the proof, so its return says nothing.
-`false` when `p` has no `Decidable` instance, or the kernel does not accept the proof within the
-budget (a classical instance, a decision that reduces to `false`, a computation beyond the
-budget). `Decidable` instances are the catalogue's and Mathlib's; the kernel runs no proof
-search. -/
-def kernelDecides (p : Expr) : MetaM Bool := do
-  let attempt : MetaM Bool := do
-    let proof ← mkDecideProof p
-    let decl := Declaration.thmDecl
-      { name := `CasCatalogue.Realize.decided, levelParams := [], type := p, value := proof }
-    match (← getEnv).addDeclCore (USize.ofNat (decideBudget * 1000))
-        (USize.ofNat maxRecDepth.defValue) decl none with
-    | .ok _ => return true
-    | .error _ => return false
-  withCurrHeartbeats <|
-    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
-      -- not a reading fallback: a proposition without a `Decidable` instance is not decided by
-      -- Lean; the claim is then realized, unchanged
-      tryCatchRuntimeEx attempt fun _ => pure false
-
-/-- The proposition `p` decided in Lean: `some true` when the kernel accepts its proof by
-decision, `some false` when it accepts the proof of `¬p`, `none` otherwise. -/
-def decideProp (p : Expr) : MetaM (Option Bool) := do
-  let p ← instantiateMVars p
-  if p.hasMVar || p.hasLevelMVar then return none
-  if ← kernelDecides p then return some true
-  if ← kernelDecides (mkNot p) then return some false
-  return none
+export Decide (decideBudget kernelDecides decideProp)
 
 /-- A value the realized reading passes to or from a port: a closed value of a registered form (a
-literal of a literal form, a registered named object at its parameters), as the term the semantic
-reading elaborated and as its wire encoding. -/
+literal of a literal form, a morphism by its graph, a registered named object at its parameters,
+a diagram), as the term the semantic reading elaborated and as its wire encoding. -/
 structure Wire where
   form : Form
   value : Expr
   json : Json
+  /-- For the apex of a limit computed by a registration: the cone (cocone) reconstructed from
+  the answer, whose legs a later operation reads (CC-DECODE). -/
+  universal : Option Expr := none
 
 def Wire.formId (w : Wire) : String := w.form.id
 
@@ -179,10 +155,9 @@ def Harness.stop (h : Harness) : IO Unit := do
   for (_, connection) in connections.toList do
     if let .ok c := connection then Backend.abort c.child
 
-/-- Call the admitted registration of `operation` on the value `input`, and decode the answer as
-a value of `resultType`. -/
-def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
-    TermElabM (Expr × Json) := do
+/-- Send the value `input` to the admitted registration of `operation` on its form, and read the
+answer: untrusted JSON, with the backend that gave it. -/
+def send (h : Harness) (operation : String) (input : Wire) : TermElabM (Json × String) := do
   let registrations := h.admitted.filter fun a =>
     a.registration.operation == operation && a.registration.input == input.formId
   let registration ← match registrations with
@@ -197,14 +172,69 @@ def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
   let connection ← match ← (h.connection registration.backend : IO _) with
     | .ok c => pure c
     | .error e => throwStratum .unavailable m!"{e.render}"
-  let answer ← match ← (Backend.call connection operation input.json : IO _) with
-    | .ok answer => pure answer
-    | .error e => throwStratum e.stratum m!"{e.render}"
+  match ← (Backend.call connection operation input.json : IO _) with
+  | .ok answer => return (answer, registration.backend)
+  | .error e => throwStratum e.stratum m!"{e.render}"
+
+/-- The answer `answer` of `backend` to `operation` is not a value of the operation's result
+form. -/
+def malformed (backend operation : String) (answer : Json) (message : String) : TermElabM α :=
+  throwStratum .malformed m!"the answer of {backend} to {operation} is not a value of its \
+    result form: {message} (the answer was {answer.compress})"
+
+/-- Call the admitted registration of `operation` on the value `input`, and decode the answer as
+a value of `resultType`. -/
+def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
+    TermElabM (Expr × Json) := do
+  let (answer, backend) ← send h operation input
   match ← Codec.decode resultType answer with
   | .ok value => return (value, answer)
-  | .error message =>
-      throwStratum .malformed m!"the answer of {registration.backend} to {operation} is not a \
-        value of its result form: {message} (the answer was {answer.compress})"
+  | .error message => malformed backend operation answer message
+
+/-- The value of the registered family `declaration` (the denotation of a literal form, the
+standard cone constructor of a shape) at the answer `args`, as a value of `expected`. The
+family's arguments are taken in order: one the expected type determines is what it determines;
+an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`), and
+one it does not decide rejects the answer; every other argument is the next value of `args`,
+decoded by `decodeArg` at its type. The decoded arguments are returned with their forms, when
+they are values of a registered form. Too few or too many values reject the answer. -/
+def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
+    (decodeArg : Expr → Json → TermElabM (Except String (Expr × Option Form))) :
+    TermElabM (Except String (Expr × Array (Expr × Option Form))) := do
+  let c ← mkConstWithFreshMVarLevels declaration
+  let (mvars, infos, type) ← forallMetaTelescopeReducing (← inferType c)
+  unless ← isDefEq type expected do
+    return .error s!"{declaration} does not form a value of {expected}"
+  let mut remaining := args.toList
+  let mut decoded : Array (Expr × Option Form) := #[]
+  for (m, info) in mvars.zip infos do
+    unless (← instantiateMVars m).isMVar do continue
+    let t ← instantiateMVars (← inferType m)
+    if info.isInstImplicit then
+      match ← trySynthInstance t with
+      | .some inst => discard <| isDefEq m inst
+      | _ => return .error s!"no instance of {t} is found"
+    else if ← isProp t then
+      if t.hasMVar then return .error s!"the condition {t} is not determined by the answer"
+      let some proof ← Decide.decisionProof t
+        | return .error s!"the answer does not satisfy {t}, or the kernel does not decide it"
+      discard <| isDefEq m proof
+    else if (← whnf t).isSort then
+      return .error s!"{declaration} takes a type: it is not a family the codec decodes"
+    else
+      let j :: rest := remaining
+        | return .error s!"the answer has {args.size} values, and {Codec.label declaration} \
+            takes more (its next is a {t})"
+      remaining := rest
+      match ← decodeArg t j with
+      | .error message => return .error message
+      | .ok (v, form) =>
+          unless ← isDefEq m v do return .error s!"{j.compress} is not a {t}"
+          decoded := decoded.push (v, form)
+  unless remaining.isEmpty do
+    return .error s!"the answer has {args.size} values, and {Codec.label declaration} takes \
+      {args.size - remaining.length}"
+  return .ok (← instantiateMVars (mkAppN c mvars), decoded)
 
 /-- The registered literal form of the category `category`: the result form of an operation
 landing there. -/
@@ -238,6 +268,59 @@ def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermElabM Wir
   return { form := .object target, value
            json := Json.mkObj [("ctor", target.id.raw), ("args", args)] }
 
+/-- Decode `j` as a registered named object at its parameters, `{"ctor": <object id>, "args":
+[<numerals, or objects>]}`, elaborated and recorded in `trace`. -/
+partial def decodeObject (trace : Trace) (j : Json) :
+    TermElabM (Except String (ObjectEntry × Expr)) := do
+  let state ← registryState
+  let .ok id := j.getObjValAs? String "ctor" | return .error s!"{j.compress} is not a named object"
+  let some entry := state.objects.find? (·.id.raw == id)
+    | return .error s!"{id} is not a registered object"
+  let .ok args := (j.getObjVal? "args").bind (·.getArr?)
+    | return .error s!"{j.compress} has no `args` array"
+  let mut params : Array Expr := #[]
+  for arg in args do
+    match arg.getNat? with
+    | .ok n => params := params.push (mkNatLit n)
+    | .error _ =>
+        match ← decodeObject trace arg with
+        | .ok (_, value) => params := params.push value
+        | .error message => return .error s!"a parameter of {id} is not decoded: {message}"
+  -- not a reading fallback: an object that does not elaborate at these parameters is rejected
+  try return .ok (entry, ← objectAt trace entry params)
+  catch e => return .error s!"{id} at {params} is not an object: {← e.toMessageData.toString}"
+
+/-- Decode `j` as a value of `type` in the category `category` (CC-DECODE): a morphism `a ⟶ b`
+of the category by its graph, in its registered graph-literal form; a registered named object of
+the category at its parameters; a literal of the category's registered literal form, denoted;
+or, for any other type, a value of the structural codec. -/
+partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : Expr) (j : Json) :
+    TermElabM (Except String (Expr × Option Form)) := do
+  let state ← registryState
+  let type ← instantiateMVars type
+  if (← whnfR type).isAppOf ``Quiver.Hom then
+    let some form := state.graphLiterals.find? (·.category == category.id)
+      | return .error s!"a morphism of {category.name} has no registered graph-literal form"
+    return ← match ← decodeFamily form.denotation type #[j] fun t j' => do
+        return (← Codec.decode t j').map (·, none) with
+      | .ok (hom, _) => pure (.ok (hom, some (.graph form)))
+      | .error message => pure (.error s!"{j.compress} is not the graph of a morphism \
+          {type}: {message}")
+  if (j.getObjValAs? String "ctor").toOption.any fun id => state.objects.any (·.id.raw == id) then
+    match ← decodeObject trace j with
+    | .error message => return .error message
+    | .ok (entry, value) =>
+        unless ← isDefEq (← inferType value) type do
+          return .error s!"{entry.id.raw} is not an object of the expected type {type}"
+        return .ok (value, some (.object entry))
+  if let some form := state.literals.find? (·.category == category.id) then
+    if let .ok literal ← Codec.decode (← mkConstWithFreshMVarLevels form.type) j then
+      let value ← mkAppM form.denotation #[literal]
+      unless ← isDefEq (← inferType value) type do
+        return .error s!"{j.compress} is a literal of {form.id.raw}, not a {type}"
+      return .ok (value, some (.literal form))
+  return (← Codec.decode type j).map (·, none)
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
@@ -257,6 +340,57 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | none => return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
       return { form := .object entry, value := e
                json := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)] }
+  | .literal id literal =>
+      let some form := state.form? id.raw
+        | throwStratum .invalid m!"{id.raw} is not a registered literal form"
+      match ← Codec.encode literal with
+      | .ok json => return { form, value := e, json }
+      | .error message =>
+          throwStratum .noImplementation m!"{what} is not sent: the literal {literal} of \
+            {id.raw} is not encoded ({message})"
+  | .limit id D lift? =>
+      let some row := state.limits.find? (·.id == id) | unreachable!
+      let some category := state.categories.find? (·.id == row.category)
+        | throwStratum .invalid m!"the category of {id.raw} is not registered"
+      if let some lift := lift? then
+        throwStratum .noImplementation m!"no registration computes {what}: its diagram is \
+          returned along the lift {lift.raw}, and the realized reading does not send a diagram \
+          along a lift"
+      -- The diagram's data: the explicit arguments of its standard form, in their forms.
+      let D ← instantiateMVars D
+      let .const standard _ := D.getAppFn
+        | throwStratum .noImplementation m!"nothing computes {what}: its diagram is not in a \
+            standard form"
+      let infos ← forallTelescopeReducing (← getConstInfo standard).type fun xs _ =>
+        xs.mapM (·.fvarId!.getBinderInfo)
+      let data := (D.getAppArgs.zip infos).filterMap fun (a, i) =>
+        if i.isExplicit then some a else none
+      let wires ← data.mapM fun a => realize h trace s!"the diagram of {id.raw} in {what}" a
+      let input : Wire :=
+        { form := .diagrams category, value := D
+          json := Json.mkObj [("ctor", Codec.label standard),
+                              ("args", Json.arr (wires.map (·.json)))] }
+      let (answer, backend) ← send h id.raw input
+      -- The answer is the cone (cocone) of the shape, as the data of Mathlib's standard
+      -- constructor: its apex, then its legs; the commutation it needs is decided by the kernel.
+      let some constructor := standardCone row.shape row.colimit
+        | throwStratum .invalid m!"the shape {row.shape} has no standard cone"
+      let kind := if row.colimit then "cocone" else "cone"
+      let shape := s!"a {kind} is \{\"ctor\": \"{kind}\", \"args\": [<apex>, <legs>…]}"
+      let .ok name := answer.getObjValAs? String "ctor" | malformed backend id.raw answer shape
+      unless name == kind do malformed backend id.raw answer shape
+      let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
+        | malformed backend id.raw answer shape
+      let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
+        else ``CategoryTheory.Limits.Cone) #[D]
+      let (cone, decoded) ← match ← decodeFamily constructor expected args
+          (decodeValue trace category) with
+        | .ok result => pure result
+        | .error message => malformed backend id.raw answer message
+      let some (apex, some form) := decoded[0]?
+        | malformed backend id.raw answer s!"the apex is not a value of a registered form of \
+            {category.name}"
+      return { form, value := apex, json := args[0]!, universal := some cone }
   | .method id route receiver =>
       let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let input ← transport trace input route
@@ -270,9 +404,6 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       return { form := .literal form, value, json }
   | .property id _ _ =>
       throwStratum .invalid m!"the decision {id.raw} is not a value"
-  | .limit id _ =>
-      throwStratum .noImplementation m!"no registration computes the limit {id.raw}: the \
-        realized reading sends no diagrams over the port"
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver, sent along the resolved

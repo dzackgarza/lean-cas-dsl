@@ -750,6 +750,8 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
     discard <| isDefEq h proof
   let semantic ← quoteExpr (← instantiateMVars (mkAppN literal conditions))
   let hom ← homIn semantic a b category
+  -- The morphism is the literal of its graph: the realized reading sends the graph.
+  Trace.record (← read).trace hom (.literal form.id (← instantiateMVars literal.appArg!))
   return .morphism hom a b category none
 
 mutual

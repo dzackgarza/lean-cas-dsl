@@ -27,12 +27,16 @@ namespace CasCatalogue
 inductive Node
   /-- The registered object `id` at its explicit parameters (numerals, or other values). -/
   | object (id : ObjectId) (params : Array Expr)
+  /-- The denotation of the literal `literal` of the registered literal form `form` (a morphism
+  of its graph, a finite subset of its elements). -/
+  | literal (form : LiteralId) (literal : Expr)
   /-- The method `id`, applied to `receiver` after the structural route `route`. -/
   | method (id : MethodId) (route : Array EdgeRef) (receiver : Expr)
   /-- The property `id`, decided of `receiver` after the structural route `route`. -/
   | property (id : PropertyId) (route : Array EdgeRef) (receiver : Expr)
-  /-- The registered limit `id` at the diagram `diagram`. -/
-  | limit (id : LimitId) (diagram : Expr)
+  /-- The registered limit `id` at the diagram `diagram`, returned along the registered creation
+  lift `lift` when it is computed in another category. -/
+  | limit (id : LimitId) (diagram : Expr) (lift : Option LiftId)
 
 /-- The records of one statement's semantic reading. -/
 abbrev Trace := IO.Ref (Std.HashMap Expr Node)

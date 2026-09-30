@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import Lean
+public import CasCatalogue.Decide
 
 @[expose] public section
 
@@ -16,12 +16,20 @@ from the type's definition in the environment. It has no per-type code:
 
 * a natural number or an integer is a JSON number;
 * a list is a JSON array;
+* a record (an inductive type with one constructor and no indices: a pair, `Fin n`, a subtype)
+  is the JSON array of its data fields, and is the field itself when it has exactly one (a
+  point of `Fin n` is its number, a pair is `[x, y]`);
 * any other constructor application is `{"ctor": <constructor name>, "args": [<fields>]}`, the
-  constructor spelled by its short name within its type (`finite`, `aleph0`).
+  constructor spelled by its short name within its type (`finite`, `aleph0`), with its data
+  fields.
+
+A proof field is never on the wire (`k < n` of a point of `Fin n`). Decoding establishes it by
+the kernel's decision (`CasCatalogue.Decide`), from the data fields before it, or rejects the
+value: what a leaf sends is data, and whether it satisfies the form's conditions is decided here.
 
 Decoding is total: JSON becomes a closed value of the expected type, driven by that type's
 inductive definition, or it is rejected with the reason. A type the codec does not handle (a
-quotient, a field that is a proof or a type) is rejected by name; nothing special-cases it.
+quotient, a field that is a type) is rejected by name; nothing special-cases it.
 -/
 
 open Lean Meta
@@ -36,6 +44,15 @@ def label (ctor : Name) : String :=
 
 /-- The natural number a closed term is. -/
 def nat? (e : Expr) : MetaM (Option Nat) := (evalNat e).run
+
+/-- Whether `info` is a record: one constructor and no indices. -/
+def isRecord (info : InductiveVal) : Bool := info.ctors.length == 1 && info.numIndices == 0
+
+/-- The number of data (non-proof) fields of the constructor `ctor`. -/
+def dataFieldCount (ctor : ConstructorVal) : MetaM Nat :=
+  forallTelescopeReducing ctor.type fun xs _ => do
+    let fields := xs.extract ctor.numParams (ctor.numParams + ctor.numFields)
+    fields.foldlM (init := 0) fun n x => return if ← isProp (← inferType x) then n else n + 1
 
 /-- Encode the closed value `e`. -/
 partial def encode (e : Expr) : MetaM (Except String Json) := do
@@ -75,18 +92,21 @@ partial def encode (e : Expr) : MetaM (Except String Json) := do
     | return .error s!"{e} is not a constructor application"
   let some (.ctorInfo ctor) := (← getEnv).find? c
     | return .error s!"{e} is not a constructor application ({c} is not a constructor)"
+  let some (.inductInfo info) := (← getEnv).find? ctor.induct
+    | return .error s!"{ctor.induct} is not an inductive type the codec handles"
   let fields := e.getAppArgs.extract ctor.numParams (ctor.numParams + ctor.numFields)
   let mut args : Array Json := #[]
   for field in fields do
-    if ← isProof field then
-      return .error s!"the constructor {c} has a proof field: it is not a data type the codec \
-        encodes"
+    -- A proof field is not on the wire: decoding decides it.
+    if ← isProof field then continue
     if ← isType field then
       return .error s!"the constructor {c} has a type field: it is not a data type the codec \
         encodes"
     match ← encode field with
     | .ok j => args := args.push j
     | .error m => return .error m
+  if isRecord info then
+    return .ok (if args.size == 1 then args[0]! else Json.arr args)
   return .ok (Json.mkObj [("ctor", label c), ("args", Json.arr args)])
 
 /-- Decode `j` as a closed value of the type `type`. -/
@@ -117,29 +137,49 @@ partial def decode (type : Expr) (j : Json) : MetaM (Except String Expr) := do
     | return .error s!"{type} is not an inductive type the codec handles"
   let some (.inductInfo info) := (← getEnv).find? typeName
     | return .error s!"{typeName} is not an inductive type the codec handles"
-  let .ok name := j.getObjValAs? String "ctor"
-    | return .error s!"{j.compress} is not a constructor application of {typeName} \
-        (no `ctor` field)"
-  let .ok args := (j.getObjVal? "args").bind (·.getArr?)
-    | return .error s!"{j.compress} is not a constructor application of {typeName} \
-        (no `args` array)"
-  let some ctor := info.ctors.find? fun c => label c == name || c.toString == name
-    | return .error s!"{typeName} has no constructor {name} (its constructors are \
-        {info.ctors.map label})"
-  let ctorInfo ← getConstInfoCtor ctor
-  unless args.size == ctorInfo.numFields do
-    return .error s!"the constructor {name} of {typeName} takes {ctorInfo.numFields} fields, \
-      not {args.size}"
-  let mut value := mkAppN (mkConst ctor levels) (type.getAppArgs.extract 0 info.numParams)
-  for arg in args do
+  -- The constructor and its data fields' encodings: a record's from the array (or the single
+  -- field itself), any other type's from `{"ctor", "args"}`.
+  let (ctor, args) ← if isRecord info then do
+      let ctor ← getConstInfoCtor info.ctors[0]!
+      let count ← dataFieldCount ctor
+      if count == 1 then pure (ctor, #[j])
+      else match j.getArr? with
+        | .ok args => pure (ctor, args)
+        | .error _ => return .error s!"{j.compress} is not a {typeName}: its {count} fields are \
+            an array"
+    else do
+      let .ok name := j.getObjValAs? String "ctor"
+        | return .error s!"{j.compress} is not a constructor application of {typeName} \
+            (no `ctor` field)"
+      let .ok args := (j.getObjVal? "args").bind (·.getArr?)
+        | return .error s!"{j.compress} is not a constructor application of {typeName} \
+            (no `args` array)"
+      let some ctor := info.ctors.find? fun c => label c == name || c.toString == name
+        | return .error s!"{typeName} has no constructor {name} (its constructors are \
+            {info.ctors.map label})"
+      pure (← getConstInfoCtor ctor, args)
+  let count ← dataFieldCount ctor
+  unless args.size == count do
+    return .error s!"the constructor {label ctor.name} of {typeName} takes {count} values, not \
+      {args.size}"
+  let mut value := mkAppN (mkConst ctor.name levels) (type.getAppArgs.extract 0 info.numParams)
+  let mut remaining := args.toList
+  for _ in [0:ctor.numFields] do
     let .forallE _ fieldType _ _ ← whnf (← inferType value)
-      | return .error s!"the constructor {name} of {typeName} has fewer fields than {args.size}"
+      | return .error s!"the constructor {label ctor.name} of {typeName} has fewer fields than \
+          {args.size}"
     if ← isProp fieldType then
-      return .error s!"a field of the constructor {name} of {typeName} is a proposition: it is \
-        not a data type the codec decodes"
+      -- The condition the data must satisfy, decided by the kernel.
+      let some proof ← Decide.decisionProof fieldType
+        | return .error s!"{j.compress} is not a {typeName}: the kernel does not decide \
+            {fieldType}"
+      value := mkApp value proof
+      continue
     if (← whnf fieldType).isSort then
-      return .error s!"a field of the constructor {name} of {typeName} is a type: it is not a \
-        data type the codec decodes"
+      return .error s!"a field of the constructor {label ctor.name} of {typeName} is a type: it \
+        is not a data type the codec decodes"
+    let arg :: rest := remaining | unreachable!
+    remaining := rest
     match ← decode fieldType arg with
     | .ok v => value := mkApp value v
     | .error m => return .error m

@@ -10,6 +10,7 @@ public import Mathlib.CategoryTheory.Limits.Creates
 public import Mathlib.CategoryTheory.Limits.Shapes.Pullback.HasPullback
 public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
 public import Mathlib.CategoryTheory.Limits.Shapes.Equalizers
+public import Mathlib.CategoryTheory.Limits.Shapes.Kernels
 
 @[expose] public section
 
@@ -64,6 +65,21 @@ def standardFormIso : String → Option Name
   | "kernel" | "cokernel" | "equalizer" | "coequalizer" =>
       some ``CategoryTheory.Limits.diagramIsoParallelPair
   | _ => none
+
+/-- Mathlib's constructor of the cones (cocones) of a standard shape from their data: the apex
+and the legs, with the commutation the legs must satisfy. A cone computed by a registration is
+decoded in this form (`CasCatalogue.Realize`, CC-DECODE). -/
+def standardCone (shape : String) (colimit : Bool) : Option Name :=
+  match shape, colimit with
+  | "product", false => some ``CategoryTheory.Limits.BinaryFan.mk
+  | "coproduct", true => some ``CategoryTheory.Limits.BinaryCofan.mk
+  | "pullback", false => some ``CategoryTheory.Limits.PullbackCone.mk
+  | "pushout", true => some ``CategoryTheory.Limits.PushoutCocone.mk
+  | "equalizer", false => some ``CategoryTheory.Limits.Fork.ofι
+  | "coequalizer", true => some ``CategoryTheory.Limits.Cofork.ofπ
+  | "kernel", false => some ``CategoryTheory.Limits.KernelFork.ofι
+  | "cokernel", true => some ``CategoryTheory.Limits.CokernelCofork.ofπ
+  | _, _ => none
 
 /-- A declaration applied to fresh metavariables for all its arguments. -/
 def instantiateFresh (declaration : Name) : MetaM Expr := do
@@ -136,7 +152,7 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
         let lifted ← elabTermAndSynthesize (← `(@CasCatalogue.liftedLimitCone _ _ _ _ _ _
           $(← exprToSyntax U) $(← exprToSyntax evidence) _ $(← exprToSyntax L))) none
         instantiateMVars lifted
-  Trace.record trace? presentation (.limit row.id D)
+  Trace.record trace? presentation (.limit row.id D resolution.lift)
   return presentation
 
 /-- The value of the method `name` on the object `X` of `category`, and the category it is in. -/

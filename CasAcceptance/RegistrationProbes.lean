@@ -33,6 +33,13 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   `Fin(3)` in `FiniteSets` along the forgetful functor to `Fin(3)` in `Sets`, where the
   cardinality is computed. A registration on `obj.finite_sets.fin` itself is not admitted: it
   could never be selected.
+* **A registered limit is an operation on its diagram (CC-UNIV, CC-DECODE).** Registrations of
+  `lim.sets.product` and `lim.sets.pullback` on the diagrams of `Sets` (`cat.sets`) receive the
+  diagram in its standard form, objects as named objects and arrows as graphs, and answer the
+  cone: apex and legs. `|Fin(2) × ℤ/3| = 6` holds through the product's apex `Fin(6)` and the
+  cardinality registered on `obj.sets.fin`; `|pullback(f, g)| = 3` through a pullback cone whose
+  commutation the kernel decides. A cone missing a leg is malformed; a cone with the wrong apex
+  makes the assertion wrong. A limit registered on an object form is not admitted.
 * **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
   constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
   unchanged.
@@ -62,6 +69,16 @@ meta def kindOf : Outcome → String
 /-- Run `text` and require its outcome's kind. -/
 meta def expect (harness : Harness) (kind : String) (text : String) : CommandElabM Unit := do
   let (outcome, _) ← runStatement harness {} text
+  unless kindOf outcome == kind do
+    throwError "`{text}` is {repr outcome}, not {kind}"
+
+/-- Run `text` after the `let`s `lets`, and require its outcome's kind. -/
+meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text : String) :
+    CommandElabM Unit := do
+  let mut scope : Scope := {}
+  for binding in lets do
+    scope := (← runStatement harness scope binding).2
+  let (outcome, _) ← runStatement harness scope text
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 
@@ -110,6 +127,32 @@ run_cmd withHarness "registration_correct.json" fun harness => do
   -- A well-typed wrong answer is not a gap: the assertion is wrong.
   expect harness "wrong" "assert |Fin(3)| = 4"
 
+-- A registered limit is computed as an operation on its diagram, and its answer is the cone.
+run_cmd withHarness "registration_limits.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  expect harness "holds" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert implemented Fin(2) × ℤ/3"
+  expect harness "wrong" "assert |Fin(2) × ℤ/3| = 5"
+  -- A pullback of graphs: the apex, its legs, and their commutation decided by the kernel.
+  let maps := ["let f := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : Fin(3) → Fin(2)",
+               "let g := {0 ↦ 1, 1 ↦ 0} : Fin(2) → Fin(2)"]
+  expectIn harness maps "holds" "assert |pullback(f, g)| = 3"
+  expectIn harness maps "wrong" "assert |pullback(f, g)| = 2"
+  -- A shape with no registration is still a gap; Lean still decides what it decides.
+  expect harness "gap" "assert |Fin(2) ⊔ Fin(3)| = 5"
+  expect harness "holds" "assert 2 + 3 = 5"
+
+-- A cone missing a leg is not a value of the result form.
+run_cmd withHarness "registration_limit_missing_leg.json" fun harness => do
+  expect harness "malformed" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert |Fin(3)| = 3"
+
+-- A well-formed cone with the wrong apex makes the assertion wrong.
+run_cmd withHarness "registration_limit_wrong_apex.json" fun harness => do
+  expect harness "wrong" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert |Fin(2) × ℤ/3| = 7"
+
 -- The same registrations answering the constant `7`: the affected assertions are wrong, and
 -- nothing else changes.
 run_cmd withHarness "registration_wrong.json" fun harness => do
@@ -136,12 +179,13 @@ run_cmd withHarness "registration_unavailable.json" fun harness => do
 -- are not admitted.
 run_cmd withHarness "registration_rejected.json" fun harness => do
   unless harness.admitted.isEmpty do throwError "a registration was admitted"
-  unless harness.rejected.size == 5 do throwError "rejected: {harness.rejected}"
+  unless harness.rejected.size == 6 do throwError "rejected: {harness.rejected}"
   for (reason, rejected) in [("is not a catalogue operation", harness.rejected[0]!),
       ("is not a registered form", harness.rejected[1]!),
       ("does not apply to the values of lit.cardinals", harness.rejected[2]!),
       ("is not declared in the manifest", harness.rejected[3]!),
-      ("register it on obj.sets.fin", harness.rejected[4]!)] do
+      ("register it on obj.sets.fin", harness.rejected[4]!),
+      ("register it on cat.sets", harness.rejected[5]!)] do
     unless (rejected.splitOn reason).length > 1 do
       throwError "{rejected} is not rejected because it {reason}"
   expect harness "gap" "assert |Fin(3)| = 3"

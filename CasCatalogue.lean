@@ -10,6 +10,7 @@ public import CasCatalogue.Admission
 public import CasCatalogue.CellCall
 public import CasCatalogue.CellSyntax
 public import CasCatalogue.Codec
+public import CasCatalogue.Decide
 public import LeanCategories.Catalogue
 public import CasContract.Failure
 public import CasCatalogue.Language
