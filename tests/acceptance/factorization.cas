@@ -17,7 +17,7 @@ test factorization.multiplicity_seven "7 does not divide 360: exponent 0":
 let p(x) := x³ - 2x + 1 in ℤ[x]
 
 test factorization.over_complexes "SPEC.md: over ℂ, x³ - 2x + 1 = (x - 1)(x - (-1 + √5)/2)(x - (-1 - √5)/2), the roots of x² + x - 1 being (-1 ± √5)/2":
-  assert (map p to ℂ[x]).factors() = {x - 1, x - (-1 + √5)/2, x - (-1 - √5)/2}
+  assert ((map p to ℂ[x]) in ℂ[x] ∖ 0).factors() = {x - 1, x - (-1 + √5)/2, x - (-1 - √5)/2}
 
 test factorization.approximation "SPEC.md: √2 = 1.4142135623… to within 10⁻¹⁰ (√2 = 1.41421356237…)":
   assert |√2 - 1.4142135623| < 0.0000000001

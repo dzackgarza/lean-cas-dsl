@@ -18,7 +18,7 @@ test polynomials.root "SPEC.md: p(1) = 1 - 2 + 1 = 0":
   assert p(1) = 0
 
 test polynomials.factors "SPEC.md: x³ - 2x + 1 = (x - 1)(x² + x - 1) over ℤ, both factors irreducible (x² + x - 1 has discriminant 5, not a square)":
-  assert p.factors() = {x - 1, x² + x - 1}
+  assert (p in ℤ[x] ∖ 0).factors() = {x - 1, x² + x - 1}
 
 test polynomials.degree_over_rationals "deg is unchanged along the injective ℤ → ℚ: deg(x³ - 2x + 1) = 3 in ℚ[x]":
   assert (map p to ℚ[x]).deg() = 3
@@ -30,7 +30,7 @@ test polynomials.at_minus_sqrt2 "SPEC.md: q(-√2) = (-√2)² - 2 = 0":
   assert q(-√2) = 0
 
 test polynomials.no_rational_roots "x² - 2 has no root in ℚ, since √2 is irrational":
-  assert q.roots() = {}
+  assert (q in ℚ[x] ∖ 0).roots() = {}
 
 test polynomials.irrational_roots "SPEC.md: the roots of x² - 2 (in ℂ, along ℚ → ℂ) are ±√2, not rational":
-  assert (map q to ℂ[x]).roots() ⊆ ℂ - ℚ
+  assert ((map q to ℂ[x]) in ℂ[x] ∖ 0).roots() ⊆ ℂ - ℚ

@@ -13,12 +13,12 @@ test composed.root_one "SPEC.md: r(1) = 1 - 2 + 1 = 0":
   assert 1 ∈ roots
 
 test composed.root_sum "SPEC.md: the sum of the roots of a monic cubic x³ + a x² + b x + c is -a = 0 (Vieta)":
-  assert ∑_{a ∈ roots} a = 0
+  assert ∑_{a ∈ ((map r to ℂ[x]) in ℂ[x] ∖ 0).roots()} a = 0
 
 test composed.root_product "SPEC.md: the product of the roots of a monic cubic x³ + a x² + b x + c is -c = -1 (Vieta)":
-  assert ∏_{a ∈ roots} a = -1
+  assert ∏_{a ∈ ((map r to ℂ[x]) in ℂ[x] ∖ 0).roots()} a = -1
 
-let C := companion_matrix(3, r)
+let C := (r in Monic(3, ℚ)).companion_matrix()
 
 test composed.charpoly "SPEC.md: the characteristic polynomial of the companion matrix of a monic r is r":
   assert C.charpoly() = r

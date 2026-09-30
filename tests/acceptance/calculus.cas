@@ -16,14 +16,14 @@ test calculus.integral_sine "SPEC.md: ∫₀^π sin(t) dt = [-cos t]₀^π = 2":
 
 let f := t ↦ exp(t) in ℝ → ℝ
 
-let Tf := f.taylor_expansion(0)
+let Tf := (f in C^∞).taylor_expansion(0)
 
 test calculus.taylor_exp "SPEC.md: the Taylor expansion of e^t at 0 is defined (e^t is smooth), an element of ℝ[[t]]":
   assert Tf ∈ ℝ[[t]]
 
 let g := t ↦ sin(t) in ℝ → ℝ
 
-let Tg := g.taylor_expansion(0)
+let Tg := (g in C^∞).taylor_expansion(0)
 
 test calculus.taylor_sin "SPEC.md: the Taylor expansion of sin t at 0 is defined (sin is smooth), an element of ℝ[[t]]":
   assert Tg ∈ ℝ[[t]]

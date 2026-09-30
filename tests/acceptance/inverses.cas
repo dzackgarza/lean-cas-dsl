@@ -4,7 +4,7 @@
 
 let M := [1, 2;
           3, 4]
- in Mat₂(ℚ)
+ in Mat₂(ℚ)ˣ
 
 let v := (1, 2) in ℚ²
 
