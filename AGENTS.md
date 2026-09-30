@@ -1,3 +1,21 @@
+# The custodian's seal binds this repository (read before anything else)
+
+`custodian/CONTAINMENT.md` (branch `custodian/containment`, custodian session
+`session_01GTQeWD4KCqYCeVd4SygciY`) seals the acceptance boundary: the kernel, the gates, the
+build, the acceptance meaning, the pins and the owner's text. It is signed with a key the
+orchestrator never held. The orchestrator must:
+- merge `custodian/containment` into every branch it works on;
+- run `python3 custodian/verify.py --trusted-fpr <owner's fingerprint> --leaves <cas_leaves pin
+  checkout>` on every head it calls accepted, delivered or done. A head that does not verify is not
+  accepted, whatever the plan says;
+- build against real checkouts at the pins in `.lake/packages`, never links to sibling working
+  trees (`scripts/pin_dev.py` produces exactly what the seal refuses);
+- put every boundary change on a `proposal/<name>` branch, and never sign, request or present a
+  seal;
+- report an obligation that is inconsistent under the seal on a `proposal/` branch, and never
+  weaken it;
+- never write under `custodian/`.
+
 # You have no memory (read this first)
 
 You are a language model. You do not learn from this conversation. When the context is compacted
