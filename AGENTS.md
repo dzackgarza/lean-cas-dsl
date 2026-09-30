@@ -94,21 +94,23 @@ Consequences:
 
 # The custodian's seal binds this repository (read before anything else)
 
-`custodian/CONTAINMENT.md` (branch `custodian/containment`, custodian session
-`session_01GTQeWD4KCqYCeVd4SygciY`) seals the acceptance boundary: the kernel, the gates, the
-build, the acceptance meaning, the upstream rule files and the owner's text. It is signed with a key the
-orchestrator never held. The orchestrator must:
-- merge `custodian/containment` into every branch it works on;
-- run `python3 scripts/ci_chain.py` and then `python3 custodian/verify.py --trusted-fpr <owner's
-  fingerprint>` on every head it calls accepted, delivered or done. A head that does not verify is not
-  accepted, whatever the plan says;
-- build against real checkouts at the manifest revisions in `.lake/packages`, never links to
-  sibling working trees;
-- put every boundary change on a `proposal/<name>` branch, and never sign, request or present a
-  seal;
-- report an obligation that is inconsistent under the seal on a `proposal/` branch, and never
-  weaken it;
-- never write under `custodian/`.
+`custodian/` on `main` holds the seal and its chain of signed verdicts (`custodian/CONTAINMENT.md`,
+"The acceptance loop"). The root and escalation key is the owner's SSH key. The review key exists
+only as a secret of the `custodian-review` environment. The orchestrator holds neither.
+- **`main` changes only through pull requests.** The `Custodian review` workflow judges every
+  pull-request commit: PASS, FAIL, ESCALATE, APPROVED or REJECTED.
+- **Acceptance is verification, nothing else.** A head is accepted, delivered or done only if
+  `python3 scripts/ci_chain.py` and then `python3 custodian/verify.py --trusted-fpr <fingerprint>`
+  pass on it. The fingerprint comes from outside the repository (the owner's GitHub keys). Plan
+  markers, trailers and documents carry no acceptance.
+- **Verdicts.** On APPROVED, commit the posted verdict unchanged. On ESCALATE, the change waits
+  for the owner's signed escalation verdict. Never write, alter or forge a verdict, and never ask a
+  subagent to review in the reviewer's place. A REJECTED change is never resubmitted unchanged.
+- **Obligations are never weakened.** One that looks inconsistent or unsolvable is named in a pull
+  request, which escalates by construction.
+- **Real checkouts.** Build and verify against the checkouts `scripts/ci_chain.py` makes at the
+  manifest revisions in `.lake/packages`, never links to sibling working trees.
+- **Never write under `custodian/`,** except to commit a verdict the review posted.
 
 # You have no memory (read this first)
 
