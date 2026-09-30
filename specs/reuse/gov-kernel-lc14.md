@@ -11,4 +11,4 @@
 - Mathlib's tactics and lemmas; the catalogue's numeral, inclusion and admission rows.
 
 ## New code
-The kernel's reading rules (which the catalogue does not own) and a line-level gate over `catch`.
+The kernel's reading rules (which the catalogue does not own) and a line-level gate over `catch`. The evidence tactics listed under Queries were removed from the kernel by `gov-evidence-upstream`: evidence is registered with each domain.

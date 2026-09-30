@@ -36,11 +36,14 @@ bind the kernel, the language and every leaf. Their consequences here:
 - An operation exists only where its structure exists: `⁻¹` on units and automorphisms, never on
   endomorphisms or a bare monoid (LC-16). The language never attempts an operation on a value
   not established to lie in its domain.
-- The kernel carries no mathematics, and no proof automation about mathematics. That a value
-  lies in a domain (a unit, a monic polynomial, a smooth map), and how that is established, is
-  the domain's: formalized with the domain in `lean-categories` and registered with its
-  admission. The kernel runs what the catalogue registers; it never imports mathematics or names
-  a lemma or a domain tactic (`scripts/check_kernel_no_mathematics.py`; `gov-evidence-upstream`).
+- The kernel carries no mathematics, and no proof automation about mathematics: it is purely
+  categorical and completely general. That a value lies in a domain (a unit, a monic polynomial,
+  a smooth map), and how that is established, is the domain's: formalized with the domain in
+  `lean-categories`, and registered as the `evidence` of its admission (LC-18). The kernel runs
+  that evidence and nothing else. It cannot do otherwise: the default build target
+  `CasGates.KernelPurity` fails on any reference to mathematics, any tactic syntax, and any proof
+  procedure run outside `establish`. If a statement fails because evidence is missing or too
+  weak, the fix is a formalization request, never kernel code.
 - How a value comes to lie in a domain `D ↪ B` (derived from LC-14 and LC-15; the kernel's
   reading rule):
   - a numeral needed in `D` is formed there: the numeral of `B`, with the proposition that it lies

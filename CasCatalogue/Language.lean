@@ -566,6 +566,16 @@ def setOf (state : RegistryState) (entry : ObjectEntry) : TermElabM ObjectEntry 
     entry := base
   throwStratum .invalid m!"the refinements of {entry.name} do not reach a set"
 
+/-- The proof of the decidable proposition `p` by evaluating its decision: `decide p` reduces to
+`true`. The one proof the kernel forms itself; it names no mathematics (`p` is a registered
+row's side condition, such as `k < n` for the point `k` of `Fin n`), and a `p` whose decision does
+not evaluate to `true` is not established. -/
+def decideObligation (p : Expr) : MetaM (Option Expr) := do
+  let decision ← mkDecide p
+  unless (← withAtLeastTransparency .default <| whnf decision).isConstOf ``Bool.true do
+    return none
+  some <$> mkDecideProof p
+
 /-- The registered numeral `k` of the set `x` (a semantic object of sets), `1 ⟶ x`: the image of `k`
 under the map out of the initial object of a category refining `x` (`ℕ → S` of a semiring, `ℤ → R`
 of a ring), or the point `k` of `Fin n` (LC-15). `refinements` are the objects refining `x`, at its
@@ -598,13 +608,8 @@ def numeralIn (state : RegistryState) (k : Nat) (one x : Expr)
     let _ ← isDefEq type expected
     for i in explicit.filter (· > ki) do
       let obligation ← instantiateMVars (← inferType args[i]!)
-      let proof ← try
-          let proof ← elabTermEnsuringType (← `(by decide)) obligation
-          synthesizeSyntheticMVarsNoPostponing
-          instantiateMVars proof
-        -- not a reading fallback: a failed obligation of a numeral is rethrown as invalidity
-        catch _ =>
-          throwStratum .invalid m!"{k} is not a numeral of {x}: {obligation} does not hold"
+      let some proof ← decideObligation obligation
+        | throwStratum .invalid m!"{k} is not a numeral of {x}: {obligation} does not hold"
       unless ← isDefEq args[i]! proof do
         throwStratum .invalid m!"{k} is not a numeral of {x}"
     let value ← instantiateMVars (mkAppN c args)
@@ -623,41 +628,6 @@ def synthesizeInstances (args : Array Expr) (infos : Array BinderInfo) : TermEla
     if type.hasMVar then continue
     if let some inst ← synthInstance? type then
       discard <| isDefEq a inst
-
-/-- The definitions of the catalogue a term is built from, with those their values are built from:
-what an obligation about the term unfolds to. -/
-def catalogueDefinitions (e : Expr) : TermElabM (Array Name) := do
-  let env ← getEnv
-  let mut found : Array Name := #[]
-  let mut seen : Array Name := #[]
-  let mut frontier := e.getUsedConstants
-  for _ in [0:64] do
-    let next := frontier.filter fun n =>
-      n.getRoot == `CasCatalogue && !seen.contains n &&
-        (env.find? n matches some (.defnInfo _))
-    if next.isEmpty then break
-    seen := seen ++ next
-    -- Abbreviations are unfolded by instance search already; unfolding them in `simp` would
-    -- strand the instances stated at them (`asRing R`).
-    found := found ++ (← next.filterM fun n => return (← getReducibilityStatus n) != .reducible)
-    frontier := next.flatMap fun n => match env.find? n with
-      | some (.defnInfo d) => d.value.getUsedConstants
-      | _ => #[]
-  return found
-
-/-- The identity of a set in the category `Sets` (`Cat.of Type`) is the identity function: the
-statement identifies `Sets`' own identity, which `Type`'s lemmas cannot match through the `Cat.of`
-bundling, so that obligations about maps built from it reduce to their functions. -/
-theorem setsIdentity (X : LeanCategories.Foundation.Mathlib.Sets.{0}) :
-    CategoryTheory.CategoryStruct.id X =
-      (TypeCat.ofHom (fun x : (X : Type) => x) : X ⟶ X) := rfl
-
-/-- How a composite of maps of sets is applied, for obligations about maps built by composition. -/
-def compositionLemmas : List String :=
-  ["id", "id_eq", "CasCatalogue.Language.setsIdentity", "TypeCat.ofHom_apply",
-   "TypeCat.hom_ofHom", "TypeCat.Fun.coe_mk", "CategoryTheory.ConcreteCategory.comp_apply",
-   "CategoryTheory.ConcreteCategory.id_apply", "CategoryTheory.types_comp_apply",
-   "CategoryTheory.types_id_apply"]
 
 /-- The heads whose unfolding is the categorical and representational plumbing the kernel builds
 values with (composites, identities, `ofHom`, limit presentations and their mediators, the
@@ -729,62 +699,46 @@ where
     let .forallE _ domain codomain _ := type | return none
     return some (domain, codomain)
 
-/-- The evidence of the proposition `p`, established when a statement is read (LC-14): decided, or
-proved by simplification through the catalogue's definitions (a numeral is nonzero, a matrix has a
-unit determinant, a map built from continuous ones is continuous). A statement whose obligation is
-not established is invalid: without the evidence, the value is not in the domain it is used in. -/
-def establish (p : Expr) (what : MessageData) : TermElabM Expr := do
+/-- The evidence of the proposition `p` (a hypothesis of the admission of a domain), established
+when a statement is read (LC-14) by the domain's registered evidence and by nothing else: a `meta`
+proof procedure `TacticM Unit` of `lean-categories`, registered with the domain's admission
+(LC-18). The kernel names no lemma and no tactic, and runs no proof search of its own
+(`specs/architecture.md`, "What must be impossible"; `CasGates.KernelPurity`). A statement whose
+obligation is not established is invalid: without the evidence, the value is not in the domain it
+is used in. -/
+def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr := do
   let p ← instantiateMVars p
   if p.hasMVar then
     throwStratum .invalid m!"{what}: the proposition {p} is not determined"
-  let unfold := (← catalogueDefinitions p).toList.map toString
-  let lemmas := ", ".intercalate (compositionLemmas ++ unfold)
-  -- A unit of a field (or of `Matₙ(K)` through its determinant) is a nonzero element: the
-  -- reduction is applied by unification (`refine`), so it matches whatever monoid structure the
-  -- domain's admission states `IsUnit` at.
-  let source := s!"first
-    | decide
-    | (simp [{lemmas}]; done)
-    | (norm_num [{lemmas}]; done)
-    | (refine isUnit_iff_ne_zero.mpr ?_; simp [{lemmas}]; done)
-    | (refine isUnit_iff_ne_zero.mpr ?_; norm_num [{lemmas}]; done)
-    | (refine (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr ?_);
-        simp [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three]; done)
-    | (refine (Matrix.isUnit_iff_isUnit_det _).mpr (isUnit_iff_ne_zero.mpr ?_);
-        norm_num [{lemmas}, Matrix.det_fin_two, Matrix.det_fin_three])
-    | fun_prop
-    | ((try simp only [{lemmas}]); fun_prop)
-    | ((try simp [{lemmas}]); fun_prop)"
-  let tactic ← match Parser.runParserCategory (← getEnv) `tactic source with
-    | .ok stx => pure stx
-    | .error message => throwError "the obligation tactic does not parse: {message}"
-  -- A failed tactic must not be recovered into `sorry`: evidence with a hole is no evidence.
+  let procedure ← unsafe evalConst (Lean.Elab.Tactic.TacticM Unit) evidence
+  -- A failed procedure must not be recovered into `sorry`: evidence with a hole is no evidence.
   -- A failed attempt leaves no message behind: its failure is reported once, as invalidity.
   let messages := (← getThe Core.State).messages
   let restore : TermElabM Unit := modifyThe Core.State fun st => { st with messages }
-  let proof? ← withoutErrToSorry <| Term.withoutErrToSorry do
+  let goal ← mkFreshExprMVar p .syntheticOpaque
+  let outcome ← withoutErrToSorry <| Term.withoutErrToSorry do
     try
-      -- Only the proof's own pending problems are solved here, not the enclosing reading's.
-      let proof ← Term.withSynthesize (postpone := .no) <|
-        elabTermEnsuringType (← `(by $(⟨tactic⟩):tactic)) p
-      pure (Except.ok (← instantiateMVars proof) : Except String Expr)
+      let remaining ← Term.withSynthesize (postpone := .no) <|
+        Lean.Elab.Tactic.run goal.mvarId! procedure
+      pure (Except.ok remaining : Except String (List MVarId))
     -- not a reading fallback: evidence not established is rethrown as invalidity below
     catch e => pure (Except.error (← e.toMessageData.toString))
   let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
-  match proof? with
+  match outcome with
   | .error message =>
       restore
-      throwStratum .invalid m!"{what}: {p} is not established (no proof is found: \
-        {message.take 300})"
-  | .ok proof =>
-      if proof.hasSorry || proof.hasSyntheticSorry || logged then
+      throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
+        ({message.take 300})"
+  | .ok remaining =>
+      let proof ← instantiateMVars goal
+      if !remaining.isEmpty || proof.hasSorry || proof.hasSyntheticSorry || logged then
         let errors := (← getThe Core.State).messages.toList.filter (·.severity == .error)
         let detail ← match errors.getLast? with
           | some msg => msg.data.toString
           | none => pure ""
         restore
-        throwStratum .invalid m!"{what}: {p} is not established (its proof has a hole: \
-          {detail.take 300})"
+        throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
+          (its proof has a hole: {detail.take 300})"
       if proof.hasMVar then
         throwStratum .invalid m!"{what}: {p} is not established (its proof is not closed: {proof})"
       return proof
@@ -817,8 +771,16 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
     `(($(← element source sourceParams x), $(← element target targetParams y)))
   let X ← `($(mkCIdent source.declaration) $(← paramTerms sourceParams)*)
   let Y ← `($(mkCIdent target.declaration) $(← paramTerms targetParams)*)
-  let semantic ← `($(mkCIdent form.denotation) (X := $X) (Y := $Y) [$entries,*] (by decide)
-    (by decide))
+  -- The literal's side conditions (a graph of a function on the listed points) are decided.
+  let literal ← instantiateMVars (← elabTermAndSynthesize
+    (← `($(mkCIdent form.denotation) (X := $X) (Y := $Y) [$entries,*])) none)
+  let (conditions, _, _) ← forallMetaTelescope (← inferType literal)
+  for h in conditions do
+    let condition ← instantiateMVars (← inferType h)
+    let some proof ← decideObligation condition
+      | throwStratum .invalid m!"the graph does not define a map: {condition} does not hold"
+    discard <| isDefEq h proof
+  let semantic ← quoteExpr (← instantiateMVars (mkAppN literal conditions))
   let hom ← homIn semantic a b category
   return .morphism hom a b category none
 
@@ -832,7 +794,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| $n:num) => return .nat n.getNat
   | `(cas_term| $d:scientific) =>
       let (mantissa, _, exponent) := d.getScientific
-      divide (.nat mantissa) (.nat (10 ^ exponent)) (← numeralSet stx ambient?)
+      divide (.nat mantissa) (.nat (Nat.pow 10 exponent)) (← numeralSet stx ambient?)
   | `(cas_term| ($t)) => eval scope t category? ambient?
   | `(cas_term| $t in $c) => evalIn scope t c category? ambient?
   | `(cas_term| $x ⊆ $y) =>
@@ -1449,7 +1411,9 @@ partial def generatorOf (P : Value) (index : Option Nat := none) : M Value := do
     | none, _ => pure #[]
     | some i, some n =>
         unless i < n do throwStratum .invalid m!"the variable {i} of {n} variables"
-        pure #[← `((⟨$(Syntax.mkNumLit (toString i)), by decide⟩ : Fin $(Syntax.mkNumLit (toString n))))]
+        let some below ← decideObligation (← mkAppM ``LT.lt #[mkNatLit i, mkNatLit n])
+          | throwStratum .invalid m!"the variable {i} of {n} variables"
+        pure #[← quoteExpr (mkApp3 (mkConst ``Fin.mk) (mkNatLit n) (mkNatLit i) below)]
     | some _, none => throwStratum .invalid m!"{entry.name} has no indexed variables"
   let hom ← homIn (← `($(mkCIdent g) $(← paramTerms params)* $indexTerm*)) one p category
   match (← read).stage with
@@ -2081,6 +2045,9 @@ partial def admit (D : Value) (v : Value) : M Value := do
     | throwStratum .invalid m!"a domain is a named set"
   let some admission := entry.admission
     | throwStratum .invalid m!"{entry.name} registers no admission"
+  let some evidence := entry.evidence
+    | throwStratum .invalid m!"{entry.name} registers no evidence for its admission: nothing is \
+        admitted into it (LC-18)"
   if (← read).mode == .realized then
     throwStratum .noImplementation m!"the evidence of an element of {entry.name} is established \
       in the semantic reading; no registered realization threads it"
@@ -2112,7 +2079,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   synthesizeInstances args infos
   for i in props do
     let obligation ← instantiateMVars (← inferType args[i]!)
-    unless ← isDefEq args[i]! (← establish obligation m!"not an element of {entry.name}") do
+    unless ← isDefEq args[i]! (← establish evidence obligation m!"not an element of {entry.name}") do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
   let admitted ← instantiateMVars (mkAppN c args)
   let .object oneHandle .. ← oneObject | unreachable!

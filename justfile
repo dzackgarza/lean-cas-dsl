@@ -26,13 +26,11 @@ build:
     @python3 scripts/check_authorship.py
     @python3 scripts/check_kernel_totality.py --self-test
     @python3 scripts/check_kernel_totality.py
-    @python3 scripts/check_kernel_no_mathematics.py --self-test
-    @python3 scripts/check_kernel_no_mathematics.py
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
-    @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+    @lake build CasCatalogue CasGates CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
 
 # Run the acceptance suite over the given leaf modules (default: all of this repository's
 # leaves); writes every result to .tmp/harness.json. Gaps are the report, not failures.

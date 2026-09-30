@@ -19,9 +19,18 @@ jobs:
         run: python3 scripts/check_authorship.py --self-test && python3 scripts/check_authorship.py
       - name: The kernel never makes a term defined by catching its failure
         run: python3 scripts/check_kernel_totality.py --self-test && python3 scripts/check_kernel_totality.py
-      - name: The kernel carries no mathematics
-        run: python3 scripts/check_kernel_no_mathematics.py --self-test && python3 scripts/check_kernel_no_mathematics.py
       - name: No leaves in lean-cas-dsl
         run: python3 scripts/check_no_leaves.py --self-test && python3 scripts/check_no_leaves.py
       - name: Permanent acceptance assertions
         run: python3 scripts/check_acceptance_permanent.py
+  kernel-purity:
+    name: The kernel carries no mathematics (CasGates, a Lean build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          build-args: CasGates
+          test: false
+          lint: false

@@ -53,6 +53,13 @@ lean_lib CasCatalogue where
     ⟨`weak.linter.style.header, false⟩,
     ⟨`maxSynthPendingDepth, (3 : Nat)⟩]
 
+/-- The kernel-purity gate (`CasGates.KernelPurity`): the build fails when the kernel or the leaf
+contract refers to mathematics or runs proof search of its own (`specs/architecture.md`, "What must
+be impossible"). A default target, so that no build of the kernel skips it. -/
+@[default_target]
+lean_lib CasGates where
+  globs := #[.andSubmodules `CasGates]
+
 /-- The permanent acceptance suite, in the language (`CasCatalogue.TestSuite`). -/
 input_dir acceptanceSuite where
   path := "tests/acceptance"
