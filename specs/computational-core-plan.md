@@ -158,6 +158,21 @@ orchestrator are marked **Orchestrator**. The others are delegated.
 | `gov-leaf-tests-out` | **Orchestrator (specifies), leaf subagent (moves).** Tests of a leaf's internals live with the leaf, in the leaf repository: `AdapterProbes`' decoder round-trips (`KernelDecode`), `BackendProbes`' GAP and Sage adapters called directly, and any probe that calls a leaf's functions rather than the language or the kernel. `lean-cas-dsl` consumes leaves only through the kernel and the language, and its tests never inspect a leaf (architecture.md, "Acceptance"). **Acceptance:** no module of `lean-cas-dsl` refers to a leaf's declarations except to form a handle the kernel resolves. | `gov-no-leaves-here` |
 | `gov-leaf-rewrite` | **Leaf subagent.** The probe leaves are rewritten, not ported, in `lean-cas-dsl-leaves` against the released contract, blind to the tests. Its findings go upstream as requests. | `gov-no-leaves-here`, `gov-quarantine` |
 
+## Direction after the external review of 2026-09-30: the constructions, not more separation
+
+An independent audit (DSL `3b5ca68`, `lean-categories` `c06aeed`, contract `6588a86`, leaves
+`c4cff16`) traced declarations through projection, contract validation, realization and
+acceptance. It found that package separation and gates alone do not show convergence. The
+generic constructions below do, and they come before any further governance work. Each finding
+was checked against source before it was recorded here.
+
+| Node | Owner, finding, acceptance | Needs |
+| --- | --- | --- |
+| `core-presentation-dependent` | **Orchestrator (contract). Delivered 2026-09-30, build pending.** A presentation `Σ h : H, d.obj h ≅ X` was validated on the isomorphism's target only: a handle denoting `∅` returned beside `ℕ ≅ ℕ` passed. `validatePresentation` now requires the whole dependent type, and the probe in `CasContract/Probes/LeafBoundary.lean` refuses that counterexample and accepts the connected presentation. **Acceptance:** the contract builds with the probe; the leaves' presentations still validate. | — |
+| `core-return-lifts` | **Orchestrator (kernel).** A method with `returnsToSource` (the kernel of a bilinear module: `Bil → Mod`, with the restriction of the form registered as a subobject lift) resolves with the lift recorded (`Resolution.lifts`). `Semantic.method`, `realizedMethodCall` and `Language.call` then ignore it and return the functor's target, so the formed subobject is never reconstructed. The value must be the registered lift of the image back to the source category, with the source category as the result. **Acceptance:** `ker` of a bilinear module is an object of `Bil` whose form is the restriction, read semantically, and realized where actions exist. A specimen with a nondegenerate form whose restriction is degenerate distinguishes the lifted result from the bare module. | — |
+| `core-admission-realized` | **Orchestrator (kernel, contract).** `Language.admit` throws `noImplementation` in realized mode unconditionally, and `run` re-reads the statement realized. No leaf can reach an admitted value. A generic mechanism must carry the admitted element, with its evidence, into the realization: the realized value of `x` in `B`, formed in `D` along the registered inclusion's realization. **Acceptance:** `(3 in ℚˣ)⁻¹ = 1/3` holds realized over the installed leaves. `2 in ℤˣ` stays invalid in both readings. | `gov-evidence-upstream` |
+| `lc-units-structure` | **Formalization subagent (request).** Units are `units M : Sets` for a bare `[Monoid M]`, with `⁻¹` and `/` registered as named morphisms of Sets. Moving the formula upstream fixed its ownership, but the structure is still not represented. `Mˣ` is the units functor `Mon → Grp` (right adjoint to the inclusion). Inversion is the group structure, reached through registered structural maps, so every construction landing in groups inherits it without another registration. **Acceptance:** `⁻¹` on `Mˣ` resolves through `Grp`, and a second group-valued construction gets `⁻¹` with no row of its own. | — |
+
 ## DAG
 
 `Needs` lists immediate prerequisites.
