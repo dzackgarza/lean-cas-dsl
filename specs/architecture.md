@@ -74,7 +74,9 @@ layers in context is blind to neither, so the layers have distinct authors (owne
   row's author reviews it before anything builds on it.
 
 Every agent commit carries `Agent-Role: <role>` and, for a subagent, `Agent-Id: <id>` trailers;
-`scripts/check_authorship.py` refuses a commit or an author that crosses roles.
+`scripts/check_authorship.py` refuses a commit or an author that crosses roles. The gates run on
+every push (`.github/workflows/gates.yml`, over the chain checked out at its pins) as well as in
+`just build`; `lean-categories`' totality gate runs in its own build.
 
 ## Contracts between silos
 
