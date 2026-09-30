@@ -1,20 +1,28 @@
-# The custodian's seal binds this repository (read before anything else)
+# The seal binds this repository (read before anything else)
 
-`custodian/CONTAINMENT.md` (branch `custodian/containment`, custodian session
-`session_01GTQeWD4KCqYCeVd4SygciY`) seals the acceptance boundary: the kernel, the gates, the
-build, the acceptance meaning, the upstream rule files and the owner's text. It is signed with a key the
-orchestrator never held. The orchestrator must:
-- merge `custodian/containment` into every branch it works on;
-- run `python3 scripts/ci_chain.py` and then `python3 custodian/verify.py --trusted-fpr <owner's
-  fingerprint>` on every head it calls accepted, delivered or done. A head that does not verify is not
-  accepted, whatever the plan says;
-- build against real checkouts at the manifest revisions in `.lake/packages`, never links to
+`custodian/CONTAINMENT.md` seals the acceptance boundary: the kernel, the gates, the build, the
+acceptance meaning, the upstream rule files and the owner's text. The seal is a root signed with the
+owner's key, which the orchestrator never holds, extended by a chain of signed verdicts in
+`custodian/verdicts/`. `main` is the accepted line; each baseline is an owner-signed verdict on it.
+The orchestrator:
+- starts every branch from `main`, and changes `main` only through pull requests. It never merges
+  `custodian/containment`: that branch is the custodian's old working branch, behind `main`, and it
+  carries a verifier that no verdict seals;
+- treats a head as accepted only when `python3 scripts/ci_chain.py` and then
+  `python3 custodian/verify.py --trusted-fpr <owner's fingerprint>` pass on it. The fingerprint
+  comes from the owner, outside the repository. The copy in `custodian/justfile` is informational.
+  A head that does not verify is not accepted, whatever a plan, trailer or document says;
+- builds against real checkouts at the manifest revisions in `.lake/packages`, never links to
   sibling working trees;
-- put every boundary change on a `proposal/<name>` branch, and never sign, request or present a
-  seal;
-- report an obligation that is inconsistent under the seal on a `proposal/` branch, and never
-  weaken it;
-- never write under `custodian/`.
+- never writes a verdict and never writes under `custodian/`. The one exception is committing,
+  unchanged, a verdict the custodian review posted on its pull request. It never asks a subagent to
+  review in the reviewer's place, and never resubmits a rejected change unchanged;
+- when an obligation looks inconsistent or unsolvable, opens a pull request that names it, and
+  never weakens the obligation. That pull request escalates to the owner by construction.
+
+The work itself is set by `specs/owner/convergence-process.md` (the owner's text), which controls
+`specs/computational-core-plan.md`. Feature expansion is frozen. A specimen is admitted only when it
+distinguishes two architectural designs.
 
 # You have no memory (read this first)
 
