@@ -1,0 +1,135 @@
+/-
+Copyright (c) 2026 Dzack Garza. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+module
+
+public import CasAcceptance.Standard
+public import CasCatalogue.TestSuite
+public meta import CasAcceptance.Standard
+public meta import CasCatalogue.TestSuite
+
+@[expose] public section
+
+/-!
+# Acceptance for `gov-leaf-authority` (`specs/leaf-registration.md`)
+
+Statements of the suite's kind are run through `CasCatalogue.Realize.run` over probe manifests
+(`CasAcceptance/Strata/registration_*.json`) naming a probe backend program
+(`probe_registration.py`, test scaffolding, not a leaf):
+
+* **Lean decides, with no manifest at all.** Element and morphism equalities of `ℤ`, `ℤ/5`,
+  `Fin(3)` and the catalogue's inclusions hold with no leaf installed, and a refuted one
+  (`2 + 3 = 6`) is invalid, never sent to a leaf. What Lean does not decide and no registration
+  computes is a gap.
+* **A registration computes, through the port.** Registrations of `meth.cardinality` on the
+  forms `obj.sets.fin`, `obj.finite_sets.fin` and `obj.sets.integers_mod_power` make
+  `|Fin(3)| = 3`, `|Fin(3) in FiniteSets| = 3`, `|(ℤ/4)^3| = 64` and `|(ℤ/0)^2| = ℵ₀`
+  hold. A field a registration does not have is ignored. An object with no registration (`ℤ`)
+  stays a gap.
+* **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
+  constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
+  unchanged.
+* **An answer outside the result form is `malformed`.**
+* **A backend that cannot start is `unavailable`.**
+* **A registration naming a non-catalogue operation, an unregistered form, a form the operation
+  does not apply to, or an undeclared backend is not admitted**, and is reported with its reason.
+-/
+
+open Lean Elab Command
+
+namespace CasCatalogue.RegistrationProbes
+
+open Language Realize
+
+/-- The probe manifests' directory. -/
+def strata : System.FilePath := "CasAcceptance" / "Strata"
+
+/-- An outcome's kind, as the suite reports it. -/
+def kindOf : Outcome → String
+  | .holds => "holds"
+  | .gap _ => "gap"
+  | .unavailable _ => "unavailable"
+  | .wrong _ => "wrong"
+  | .malformed _ => "malformed"
+
+/-- Run `text` and require its outcome's kind. -/
+meta def expect (harness : Harness) (kind : String) (text : String) : CommandElabM Unit := do
+  let (outcome, _) ← runStatement harness {} text
+  unless kindOf outcome == kind do
+    throwError "`{text}` is {repr outcome}, not {kind}"
+
+/-- The harness of the probe manifest `name`, with what it rejects. -/
+meta def harnessOf (name : String) : CommandElabM Harness :=
+  liftCoreM (Harness.load (some (strata / name)))
+
+meta def withHarness (name : String) (k : Harness → CommandElabM Unit) : CommandElabM Unit := do
+  let harness ← harnessOf name
+  try k harness finally (harness.stop : IO Unit)
+
+/-- Lean decides, with no manifest at all. -/
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  for text in ["assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5", "assert -2 = 3 in ℤ/5",
+      "assert 3 · (4 + 5) = 6 in ℤ/7", "assert gcd(84, 30) = 6",
+      "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert rev(3, 0) = 2 in Fin(3)",
+      "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert 3 ∈ ℤ/5"] do
+    expect harness "holds" text
+  -- A refuted statement is false mathematics: invalid, and no leaf is asked.
+  let refuted ← try discard <| runStatement harness {} "assert 2 + 3 = 6"; pure false
+    catch e => pure ((← e.toMessageData.toString).splitOn "refuted").length > 1
+  unless refuted do throwError "`2 + 3 = 6` is not reported as refuted"
+  -- What Lean does not decide is a gap: nothing is registered.
+  for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
+      "assert implemented |Fin(3)|"] do
+    expect harness "gap" text
+
+/-- A registration computes cardinalities through the port. -/
+run_cmd withHarness "registration_correct.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
+      "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀", "assert |(ℤ/5)^0| = 1",
+      "assert implemented |Fin(3)|"] do
+    expect harness "holds" text
+  -- Lean still decides what it decides; what has no registration is still a gap.
+  expect harness "holds" "assert 2 + 3 = 5"
+  expect harness "gap" "assert |ℤ| = ℵ₀"
+  -- A well-typed wrong answer is not a gap: the assertion is wrong.
+  expect harness "wrong" "assert |Fin(3)| = 4"
+
+/-- The same registrations answering the constant `7`: the affected assertions are wrong, and
+nothing else changes. -/
+run_cmd withHarness "registration_wrong.json" fun harness => do
+  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
+      "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀"] do
+    expect harness "wrong" text
+  expect harness "holds" "assert |Fin(7)| = 7"
+  expect harness "holds" "assert 2 + 3 = 5"
+  expect harness "holds" "assert rev(3) ∘ rev(3) = id(Fin(3))"
+  expect harness "gap" "assert |ℤ| = ℵ₀"
+
+/-- An answer that is not a value of the result form is malformed. -/
+run_cmd withHarness "registration_malformed.json" fun harness => do
+  expect harness "malformed" "assert |Fin(3)| = 3"
+  expect harness "holds" "assert 2 + 3 = 5"
+
+/-- A backend that cannot start is unavailable. -/
+run_cmd withHarness "registration_unavailable.json" fun harness => do
+  expect harness "unavailable" "assert |Fin(3)| = 3"
+
+/-- Registrations that name nothing of the catalogue, or a form the operation does not apply to,
+or an undeclared backend, are not admitted. -/
+run_cmd withHarness "registration_rejected.json" fun harness => do
+  unless harness.admitted.isEmpty do throwError "a registration was admitted"
+  unless harness.rejected.size == 4 do throwError "rejected: {harness.rejected}"
+  for (reason, rejected) in [("is not a catalogue operation", harness.rejected[0]!),
+      ("is not a registered form", harness.rejected[1]!),
+      ("does not apply to the values of lit.cardinals", harness.rejected[2]!),
+      ("is not declared in the manifest", harness.rejected[3]!)] do
+    unless (rejected.splitOn reason).length > 1 do
+      throwError "{rejected} is not rejected because it {reason}"
+  expect harness "gap" "assert |Fin(3)| = 3"
+
+end CasCatalogue.RegistrationProbes

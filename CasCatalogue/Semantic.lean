@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Resolve
 public import CasCatalogue.LimitCall
+public import CasCatalogue.Trace
 public import Mathlib.CategoryTheory.Limits.Creates
 
 @[expose] public section
@@ -24,6 +25,9 @@ realized reading), where a missing realization is a gap.
   registered creation lift when it is computed in another category (`liftedLimitCone`).
 * A method call is the method's functor after the structural route it resolves along.
 * A property query is `Classifier.Holds` of the classifier after its route.
+
+Each construction records, in the trace it is given (`CasCatalogue.Trace`), the catalogue
+operation that formed its value, so that the realized reading evaluates the same term.
 -/
 
 open Lean Meta Elab Term CategoryTheory CategoryTheory.Limits
@@ -49,10 +53,19 @@ def objOf (F X : Expr) : TermElabM Expr := do
     none
   instantiateMVars value
 
-/-- The registered object `entry` at the parameters `params`. -/
-def object (entry : ObjectEntry) (params : Array Term) : TermElabM Expr := do
+/-- The registered object `entry` at the parameters `params`. Recorded with its explicit
+parameters (the declaration's explicit arguments). -/
+def object (entry : ObjectEntry) (params : Array Term) (trace? : Option Trace := none) :
+    TermElabM Expr := do
   let value ← elabTermAndSynthesize (← `($(mkCIdent entry.declaration) $params*)) none
-  instantiateMVars value
+  let value ← instantiateMVars value
+  if value.getAppFn.constName? == some entry.declaration then
+    let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
+      xs.mapM (·.fvarId!.getBinderInfo)
+    let explicit := (value.getAppArgs.zip infos).filterMap fun (a, i) =>
+      if i.isExplicit then some a else none
+    Trace.record trace? value (.object entry.id explicit)
+  return value
 
 /-- The morphism `f : a ⟶ b`. -/
 def hom (f : Term) (a b : Expr) : TermElabM Expr := do
@@ -63,7 +76,8 @@ def hom (f : Term) (a b : Expr) : TermElabM Expr := do
 
 /-- The registered limit (colimit) of `shape` at the diagram `D` of the category `category`: its
 presentation, returned along the registered creation lift when it is computed elsewhere. -/
-def limit (colimit : Bool) (shape : String) (D : Expr) (category : String) : TermElabM Expr := do
+def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
+    (trace? : Option Trace := none) : TermElabM Expr := do
   let state ← registryState
   let some entry := state.categories.find? (·.id.raw == category)
     | throwStratum .invalid m!"no registered category {category}"
@@ -83,21 +97,23 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String) : Ter
       throwStratum .invalid m!"the registered {shape} {row.id.raw} does not apply to this diagram"
     instantiateMVars (← mkAppM (if colimit then ``colimitCoconeOfIso else ``limitConeOfIso)
       #[α, family])
-  match resolution.lift.bind fun id => state.lifts.find? (·.id == id) with
-  | none => presentationAt D
-  | some lift =>
-      if colimit then
-        throwStratum .invalid m!"a colimit returned along a lift is not registered"
-      let U ← state.edgeFunctor lift.edge
-      let L ← presentationAt (← withTransparency .all <| mkFunctorComp D U)
-      let evidence ← instantiateFresh lift.evidence
-      let lifted ← elabTermAndSynthesize (← `(@CasCatalogue.liftedLimitCone _ _ _ _ _ _
-        $(← exprToSyntax U) $(← exprToSyntax evidence) _ $(← exprToSyntax L))) none
-      instantiateMVars lifted
+  let presentation ← match resolution.lift.bind fun id => state.lifts.find? (·.id == id) with
+    | none => presentationAt D
+    | some lift => do
+        if colimit then
+          throwStratum .invalid m!"a colimit returned along a lift is not registered"
+        let U ← state.edgeFunctor lift.edge
+        let L ← presentationAt (← withTransparency .all <| mkFunctorComp D U)
+        let evidence ← instantiateFresh lift.evidence
+        let lifted ← elabTermAndSynthesize (← `(@CasCatalogue.liftedLimitCone _ _ _ _ _ _
+          $(← exprToSyntax U) $(← exprToSyntax evidence) _ $(← exprToSyntax L))) none
+        instantiateMVars lifted
+  Trace.record trace? presentation (.limit row.id D)
+  return presentation
 
 /-- The value of the method `name` on the object `X` of `category`, and the category it is in. -/
-def method (name : String) (X : Expr) (category : NamedCategoryEntry) :
-    TermElabM (Expr × NamedCategoryEntry) := do
+def method (name : String) (X : Expr) (category : NamedCategoryEntry)
+    (trace? : Option Trace := none) : TermElabM (Expr × NamedCategoryEntry) := do
   let state ← registryState
   let resolution ← match state.resolveMethod category.expression name #[] with
     | .ok resolution => pure resolution
@@ -110,10 +126,13 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry) :
     objOf (← state.routeFunctor (resolution.route.steps.map (·.ref))) X
   let F ← registeredFunctorInstance functor
   let input ← methodArgument resolution.method image
-  return (← objOf F input, target)
+  let value ← objOf F input
+  Trace.record trace? value (.method resolution.method.id resolution.route.refs X)
+  return (value, target)
 
 /-- The proposition that the property `name` holds of the object `X` of `category`. -/
-def property (name : String) (X : Expr) (category : NamedCategoryEntry) : TermElabM Expr := do
+def property (name : String) (X : Expr) (category : NamedCategoryEntry)
+    (trace? : Option Trace := none) : TermElabM Expr := do
   let state ← registryState
   let resolution ← match state.resolveProperty category.expression name #[] with
     | .ok resolution => pure resolution
@@ -123,7 +142,9 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry) : TermEl
   let classifier ← classifierInstance resolution.classifier
   let holds ← elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
     $(← exprToSyntax classifier) $(← exprToSyntax image))) none
-  instantiateMVars holds
+  let holds ← instantiateMVars holds
+  Trace.record trace? holds (.property resolution.property.id resolution.route.refs X)
+  return holds
 
 end Semantic
 

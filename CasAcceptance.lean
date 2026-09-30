@@ -27,6 +27,7 @@ public import CasAcceptance.Permanent.Limits
 public import CasAcceptance.PropsProbes
 public import CasAcceptance.RealizeProbes
 public import CasAcceptance.RefineProbes
+public import CasAcceptance.RegistrationProbes
 public import CasAcceptance.SemanticProjectionProbes
 public import CasAcceptance.SpecimenProbes
 public import CasAcceptance.ResolveProbes

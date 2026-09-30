@@ -95,9 +95,10 @@ Terms:
 
 Statements:
 * `let x := X`;
-* `assert X = L`: the value of `X` is the literal `L` of its category's literal form, compared by
-  the result realizer's registered observation, which carries the proof that the handle denotes
-  the observed literal;
+* `assert X = L`: the value of `X` is the literal `L` of its category's literal form: the
+  proposition `X = denote L`, decided in Lean, or else the value computed by the admitted
+  registration and decoded in the form, compared with `L` by the form's decidable equality
+  (`CasCatalogue.Realize`);
 * `X ⊆ Y` for named sets: decided by the registered inclusions alone (a chain of registered
   monomorphisms `X ↪ … ↪ Y`, or `X = Y`); no realization is consulted;
 * `x ∈ Y`: `x`, with its numerals in `Y`, is an element of `Y` or of a set registered in `Y`;
@@ -107,11 +108,14 @@ Statements:
 * `assert P`, `assert P = true | false | unknown`: the decision of a property;
 * `assert implemented X`: a realization computes `X`.
 
-Each statement is read twice. Its semantic reading (`CasCatalogue.Semantic`) elaborates it from
-the catalogue alone, whatever leaves are installed; failing that, it is not a valid statement.
-Its realized reading then decides it through realizations: it holds, it is wrong, its computation
-is a gap (`NoImplementation` or an ambiguous realization), its backend is unavailable, or its
-answer is malformed. `CasCatalogue.TestSuite` runs files of statements.
+Each statement is read once, semantically (`CasCatalogue.Semantic`): it elaborates from the
+catalogue alone, whatever leaves are installed, into its claim (`Claim`); failing that, it is not
+a valid statement. The claim is then discharged in Lean where Lean decides it, and otherwise
+realized by evaluating the same term through the admitted registrations
+(`CasCatalogue.Realize`): it holds, it is wrong, its computation is a gap (no registration, or an
+ambiguous one), its backend is unavailable, or its answer is malformed. `CasCatalogue.TestSuite`
+runs files of statements. (`Mode.realized`, the reading through leaf-supplied realizations, is
+retained but no longer used by the suite.)
 -/
 
 open Lean Meta Elab Term
@@ -294,6 +298,9 @@ structure Ctx where
   /-- Variables bound to values: `t` in `t ↦ e` and `{t ∈ X | P}` (the generic element of the
   stage), and a statement's free variables. -/
   bound : List (Name × Value) := []
+  /-- Where the semantic reading records the operations that form its values
+  (`CasCatalogue.Trace`), for the realized reading to evaluate the same term. -/
+  trace : Option Trace := none
   deriving Inhabited
 
 /-- The language's evaluation monad: elaboration in a reading. -/
@@ -312,7 +319,7 @@ def limitIn (colimit : Bool) (shape : String) (D : Term) (category : NamedCatego
   match (← read).mode with
   | .semantic =>
       let diagram ← instantiateMVars (← elabTermAndSynthesize D none)
-      Semantic.limit colimit shape diagram category.id.raw
+      Semantic.limit colimit shape diagram category.id.raw (← read).trace
   | .realized => elabLimitCall colimit shape D category.id.raw
 
 /-- The apex of a limit cone or colimit cocone. -/
@@ -1149,7 +1156,7 @@ partial def object (state : RegistryState) (name : String) (args : Array Value)
     | throwStratum .invalid m!"the object {name} has an unregistered category"
   let params ← paramTerms args
   let handle ← match (← read).mode with
-    | .semantic => Semantic.object entry params
+    | .semantic => Semantic.object entry params (← read).trace
     | .realized => elabObjectCall entry.id.raw params category.id.raw none
   return .object handle category (some (entry, args))
 
@@ -1178,8 +1185,8 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
       return ← invariantOf entry handle
   let isProperty := state.properties.any (·.name == name) && !state.methods.any (·.name == name)
   if (← read).mode == .semantic then
-    if isProperty then return .answer (← Semantic.property name handle category)
-    let (value, target) ← Semantic.method name handle category
+    if isProperty then return .answer (← Semantic.property name handle category (← read).trace)
+    let (value, target) ← Semantic.method name handle category (← read).trace
     return .object value target none
   let receiver ← quoteExpr handle
   if isProperty then
@@ -1227,7 +1234,9 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
         | some (.object _ c _) | some (.morphism _ _ _ c _) => pure c
         | _ => throwStratum .invalid m!"a {name} is of objects or morphisms"
       let presentation ← limitIn limit.colimit name (← standardDiagram name values) category
-      return .object (← apexOf limit.colimit presentation) category none
+      let apex ← apexOf limit.colimit presentation
+      Trace.alias (← read).trace presentation apex
+      return .object apex category none
   | true, true, none => throwStratum .invalid m!"nothing registered is named {name}"
   | _, _, _ => throwStratum .invalid m!"several kinds of registered rows are named {name}"
 
@@ -2220,7 +2229,7 @@ partial def cardinality (X : Value) : M Value := do
   let .object handle category _ := X | throwStratum .invalid m!"`|·|` of a set"
   let state ← registryState
   if (← read).mode == .semantic then
-    let (value, target) ← Semantic.method "cardinality" handle category
+    let (value, target) ← Semantic.method "cardinality" handle category (← read).trace
     return .object value target none
   let value ← elabMethodCall "cardinality" (← quoteExpr handle) category.id.raw #[]
   let some resolution := (state.resolveMethod category.expression "cardinality").toOption
@@ -2394,7 +2403,9 @@ partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
   let diagram ← `(CategoryTheory.Limits.pair $(← quoteExpr x) $(← quoteExpr y))
   let shape := if colimit then "coproduct" else "product"
   let presentation ← limitIn colimit shape diagram category
-  return .object (← apexOf colimit presentation) category none
+  let apex ← apexOf colimit presentation
+  Trace.alias (← read).trace presentation apex
+  return .object apex category none
 
 end
 
@@ -2442,27 +2453,34 @@ def observes (state : RegistryState) (handle : Expr) (category : NamedCategoryEn
   let expected ← literalExpr form.type literal
   evalBool (← executable (← mkDecide (← mkEq observed expected)))
 
+/-- The comparison of the value `X` of `category` with the literal `literal`, read semantically:
+the category's registered literal form, the literal as a value `L` of the form's type, and the
+proposition `X = denote L`. -/
+def literalClaim (state : RegistryState) (X : Expr) (category : NamedCategoryEntry)
+    (literal : Value) : TermElabM (LiteralEntry × Expr × Expr) := do
+  let some form := state.literals.find? (·.category == category.id)
+    | throwStratum .invalid m!"{category.name} has no registered literal form"
+  let L ← literalExpr form.type literal
+  let denoted ← mkAppM form.denotation #[L]
+  unless ← withTransparency .all <| isDefEq (← inferType X) (← inferType denoted) do
+    throwStratum .invalid m!"a value of {category.name} is compared with a literal of another type"
+  return (form, L, ← mkEq X denoted)
+
 /-- The proposition that the value `X` of `category` is the literal `literal`, read semantically:
 `X = denote literal` for the category's registered literal form. -/
 def literalProp (state : RegistryState) (X : Expr) (category : NamedCategoryEntry)
-    (literal : Value) : TermElabM Expr := do
-  let some form := state.literals.find? (·.category == category.id)
-    | throwStratum .invalid m!"{category.name} has no registered literal form"
-  let denoted ← mkAppM form.denotation #[← literalExpr form.type literal]
-  unless ← withTransparency .all <| isDefEq (← inferType X) (← inferType denoted) do
-    throwStratum .invalid m!"a value of {category.name} is compared with a literal of another type"
-  mkEq X denoted
+    (literal : Value) : TermElabM Expr :=
+  return (← literalClaim state X category literal).2.2
 
 /-- Whether a decision decides `true` (realized), after `executable`. -/
 def decidesTrue (decision : Expr) : TermElabM Bool := do
   evalBool (← executable (← mkAppM ``BEq.beq #[← mkAppM ``Decision.answer #[decision],
     toExpr (some true)]))
 
-/-- The comparison `l = r`: semantically, the proposition it states is formed (and must be);
-through realizations, it is decided. -/
-def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
-  let state ← registryState
-  let semantic := (← read).mode == .semantic
+/-- The two sides of a comparison `l = r`, read and brought to the same set: elements as morphisms
+`1 → X`, a numeral side as an element of the other's set, a named set compared with a subset as
+its image there, elements of two included sets in the larger. -/
+def comparands (scope : Scope) (l r : Syntax) : M (Value × Value) := do
   -- The side that determines the set is read first: a set literal is a subset of the other side's
   -- set; otherwise the right side's set is the left's.
   let setLiteral := match r with
@@ -2497,12 +2515,19 @@ def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
     | .element _ P, .object .. => pure (left, ← asSubset right P)
     | _, _ => pure (left, right)
   -- Elements of two sets, one included in the other, are compared in the larger.
-  let (left, right) ← match left, right with
-    | .element _ X, .element _ Y =>
-        if (← coercionMap Y X).isSome then pure (left, ← coerceTo right X)
-        else if (← coercionMap X Y).isSome then pure (← coerceTo left Y, right)
-        else pure (left, right)
-    | _, _ => pure (left, right)
+  match left, right with
+  | .element _ X, .element _ Y =>
+      if (← coercionMap Y X).isSome then pure (left, ← coerceTo right X)
+      else if (← coercionMap X Y).isSome then pure (← coerceTo left Y, right)
+      else pure (left, right)
+  | _, _ => pure (left, right)
+
+/-- The comparison `l = r`: semantically, the proposition it states is formed (and must be);
+through realizations, it is decided. -/
+def assertEqual (scope : Scope) (l r : Syntax) : M Outcome := do
+  let state ← registryState
+  let semantic := (← read).mode == .semantic
+  let (left, right) ← comparands scope l r
   let wrong := Outcome.wrong s!"{shown l} is not {shown r}"
   match left, right with
   | .element f (.object _ category _), .element g _
@@ -2638,6 +2663,83 @@ def statement (scope : Scope) (stx : Syntax) : M Outcome := do
       if semantic then return .holds
       let e ← mkAppM ``BEq.beq #[answer, toExpr (some true)]
       return if ← evalBool (← executable e) then .holds else .wrong s!"{shown p} is not true"
+  | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
+
+/-- What a statement claims, as its semantic reading forms it: the proposition to discharge in
+Lean, and what to compute and compare when Lean does not decide it (`CasCatalogue.Realize`). -/
+inductive Claim
+  /-- Decided by the semantic reading itself: a `let`, a judgement of the catalogue (`X in C/Y`,
+  `x ∈ X` of a named set). -/
+  | settled (outcome : Outcome)
+  /-- `assert implemented X`: a registration computes the value `X`. -/
+  | implemented (value : Expr)
+  /-- `assert X = L` for a value `X` of `category` and the literal `L` of its registered literal
+  form `form`: the proposition `prop` is `X = denote L`. -/
+  | literal (X : Expr) (category : NamedCategoryEntry) (form : LiteralEntry) (L : Expr)
+      (prop : Expr) (left right : String)
+  /-- `assert f = g` for elements or morphisms of `category`: the proposition `prop` is `f = g`. -/
+  | homs (f g : Expr) (category : NamedCategoryEntry) (prop : Expr) (left right : String)
+  /-- `assert P`, `assert P = true | false | unknown`: the proposition `prop` and the expected
+  decision (`none` for `unknown`). -/
+  | decision (prop : Expr) (expected : Option Bool) (shown : String)
+
+/-- The claim of the comparison `l = r`. -/
+def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
+  let state ← registryState
+  let (left, right) ← comparands scope l r
+  match left, right with
+  | .element f (.object _ category _), .element g _
+  | .morphism f _ _ category _, .morphism g _ _ _ _ =>
+      unless ← withTransparency .all <| isDefEq (← inferType f) (← inferType g) do
+        throwStratum .invalid m!"`{shown l}` and `{shown r}` are not in the same set"
+      return .homs f g category (← mkEq f g) (shown l) (shown r)
+  | .element .., _ => throwStratum .invalid m!"an element is compared with an element"
+  | .morphism .., _ => throwStratum .invalid m!"a morphism is compared with a morphism"
+  | .object X category _, _ =>
+      let (form, L, prop) ← literalClaim state X category right
+      return .literal X category form L prop (shown l) (shown r)
+  | .answer answer, _ =>
+      let expected ← match right with
+        | .literal `true => pure (some true)
+        | .literal `false => pure (some false)
+        | .literal `unknown => pure none
+        | _ => throwStratum .invalid m!"a decision is `true`, `false` or `unknown`"
+      return .decision answer expected s!"{shown l} = {shown r}"
+  | _, _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
+
+/-- The claim of a statement, read semantically (`Mode.semantic`): what it states, from the
+catalogue alone. Its failure is the statement's invalidity. -/
+def claim (scope : Scope) (stx : Syntax) : M Claim := do
+  if let some (_, t) ← letBinding? stx then
+    let rings ← ringBindings scope t
+    discard <| withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
+    return .settled .holds
+  withFreeVariables scope stx do
+  match stx with
+  | `(cas_stmt| assert implemented $t:cas_term) =>
+      match ← eval scope t with
+      | .object handle .. => return .implemented handle
+      | .element hom _ | .morphism hom .. => return .implemented hom
+      | .answer answer => return .implemented answer
+      | _ => throwStratum .invalid m!"`{shown t}` is not a value"
+  | `(cas_stmt| assert $t in $X) =>
+      -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
+      -- It is the catalogue's judgement.
+      if let some (C, Y) := categoryOver? (← registryState) X then
+        discard <| inCategoryOver scope t C Y
+        return .settled .holds
+      -- A typing judgement: `t` is an element of the set `X`.
+      match ← eval scope X with
+      | .object x .. =>
+          let .element _ (.object y ..) ← eval scope t
+            | throwStratum .invalid m!"`{shown t}` is not an element"
+          if x == y || (← withTransparency .all <| isDefEq x y) then return .settled .holds
+          return .settled (.wrong s!"{shown t} is not an element of {shown X}")
+      | _ => discard <| eval scope (← `(cas_term| $t in $X)); return .settled .holds
+  | `(cas_stmt| assert $p) =>
+      if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
+      if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
+      return .decision (← asAnswer (← eval scope p)) (some true) (shown p)
   | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
 
 /-- Run a statement, within the `let` bindings `scope`: first its semantic reading, whose failure
