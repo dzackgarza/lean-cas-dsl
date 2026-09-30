@@ -156,26 +156,8 @@ compute a case adjusts its denotation, its proof or its identification instead. 
 then passes against the leaf's own definitions, and the containment is gone. This is the `research`
 mechanism again.
 
-**Recorded defect (2026-09-30, open).** The current leaf contract and these documents grant leaves
-semantic authority in every one of those forms:
-- `realizer`: the leaf writes the denotation functor, which decides what its handles mean;
-- `action`: a `RealizedAction` with the leaf's proof that it commutes with that denotation;
-- `presentation`, `observation`: the leaf's isomorphism or equality proof identifying a handle with
-  a value;
-- `isomorphism`: the leaf proves two handles isomorphic, and elements are transported along it;
-- `decider`, `equality`: the leaf's evidence for a decided property or equality;
-- `implementation`: `TrustedImplementation`/`CertifiedImplementation`, a checker with a soundness
-  theorem, and a status (the `Trust` type, CC-TRUST in `specs/computational-core.md`);
-- `run% … proved` labels the kernel reduction of leaf code a "kernel theorem";
-- every leaf in `lean-cas-dsl-leaves` is a Lean module defining handle categories, functors and
-  proofs.
-
-These documents endorse it too: the table "What must be impossible" below cites the denotation
-functor as a safeguard (rows "A leaf declares its object to be a group" and "A backend object
-becomes the public value"). `CONTRIBUTING.md` lists these forms as a leaf's permitted
-contributions, and its model acceptance assertion is proved by unfolding a leaf's denotation. Each
-of these passages is wrong, and none may be followed as precedent. The repair is a replacement of
-the leaf contract (`gov-leaf-authority` in the plan), not an edit to it.
+The current contract does not yet have this form. The gap is recorded in plan node
+`gov-leaf-authority`.
 
 ## Acceptance
 
@@ -201,7 +183,7 @@ node that owes one.
 | State | Mechanism now | Owed by |
 | --- | --- | --- |
 | A leaf creates a category | `register_leaf` rejects the `category` contribution; a `CasLeaves` module's imports are restricted (`addLeafRegistryEntryChecked`) | — |
-| A leaf declares its object to be a group | `subcategory` and `refineObject` are rejected. A realizer names its category only through a denotation functor, which must typecheck into that category's declaration. **Defect: the denotation functor is itself leaf-authored meaning ("A leaf holds zero semantic authority").** | — |
+| A leaf declares its object to be a group | `subcategory` and `refineObject` are rejected. The category of a value is decided upstream (the operation's typed request and result, `lean-categories` and the kernel), never by the leaf. Not yet so: today a leaf authors a denotation functor | `gov-leaf-authority` |
 | A leaf says which operations an object has | `method` and `property` are rejected. Availability is computed from semantic rows and routes. | — |
 | A leaf coins subgroup, kernel, cardinality or basis | `genericSemantics`, `naturalTransformation` and `identification` are rejected | — |
 | A leaf forwards an inherited method | No method rows are available to a leaf. An implementation must realize a registered composite, and validation checks its square. | — |
@@ -209,7 +191,7 @@ node that owes one.
 | A leaf inserts a placement or inheritance edge | `forgetfulRoute` and `coercion` are rejected | — |
 | Installing or removing a leaf adds or removes methods | `#methods` reads semantic rows only. `StrataProbes` finds the surfaces identical with and without every leaf, while `#gaps` differs. | — |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port. `connect` refuses any capability that is not declared on a registered operation. | — |
-| A backend object becomes the public value | Answers are decoded into the operation's semantic result type. Values are handles of registered realizers, and they mean their denotations. **Defect: a value's meaning is then leaf-defined ("A leaf holds zero semantic authority").** | — |
+| A backend object becomes the public value | Answers are decoded into the operation's semantic result type, whose meaning is `lean-categories`'. Not yet so: today values are handles whose meaning a leaf's denotation defines | `gov-leaf-authority` |
 | An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
 | A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
 | A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it. A leaf module may import only `CasContract.Leaf`, the catalogue, Mathlib and its own root (`leafImportAllowed`, at `register_leaf`); `cas-harness` imports the leaves beside the runner and checks the intake contract before running anything. | — |

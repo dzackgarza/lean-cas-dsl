@@ -87,33 +87,28 @@ A leaf is a Lean module ending in a single `register_leaf` contract, under `CasL
 `lean-categories` only. Its backend program, in any language, sits next to it. `lean-cas-dsl`'s harness (`cas-harness`, `just harness`) runs the permanent suite over the
 installed leaves and reports each gap; a leaf package never imports or runs the suite.
 
-> **Defect, do not follow as precedent.** Several forms in this table give a leaf semantic
-> authority: a denotation, a proof about its own code, an identification, evidence, a trust status.
-> A leaf holds none (`specs/architecture.md`, "A leaf holds zero semantic authority"). The
-> contract is to be replaced (`gov-leaf-authority`). Until then, never extend any of these forms
-> and never cite them as the model.
+A leaf holds zero semantic authority (`INTENT.md`; `specs/architecture.md`, "A leaf holds zero
+semantic authority"). It ships no mathematics and decides nothing about meaning. What it registers
+is:
+- the semantic operation, or composite of operations, it computes, named by its `lean-categories`
+  identity;
+- the input it accepts, one of the typed request forms that `lean-categories` and the kernel define
+  for that operation;
+- an opaque implementation, in any language, that returns a value of the operation's declared
+  result type.
 
-**What a leaf may contribute** (`CasContract/Adapter.lean`):
+A leaf states nothing else. It provides no denotation of its values, no proof or certificate about
+its own code, no identification of two values, no evidence for a property, and no status or trust
+level for its answers. Whether its answers are right is decided only by the permanent acceptance
+assertions below. A leaf may keep whatever internal tests it wants; they are evidence of nothing
+outside it. It never adds a category, method, property, placement, forgetful route, coercion or
+natural transformation. If it seems to need one, or needs to forward an inherited method, the
+defect is upstream: fix it there.
 
-| Contribution | What it says |
-| --- | --- |
-| `realizer` | These handles realize a registered category, through a denotation functor that must typecheck into that category |
-| `action` | This realizes a registered functor's action on these handles; the square is checked |
-| `implementation` | This realizes a registered method's composite, typed `TrustedImplementation` or `CertifiedImplementation` over that composite |
-| `decider` | This decides a registered property on these handles, three-valued |
-| `isomorphism` | Two handles are isomorphic, as an isomorphism in the handle category |
-| `limitRealization` | This presents the apex of a registered limit or colimit on these handles |
-| `equality` | This decides equality of morphisms of a registered category on these handles |
-| `backendOperation` | Backend `b` answers registered operation `o`, with a decoder into `o`'s semantic result type |
-| `presentation` | These handles present the values of a registered object (`obj%`), each with its identification |
-
-Everything else is rejected at `register_leaf`, naming the rule it breaks: categories, methods,
-properties, subcategories, forgetful routes, identifications, coercions, refinements of objects,
-result classes, generic semantics and natural transformations. A leaf module may import only
-`CasContract.Leaf`, `CasLeaves.*`, modules of its own package, Mathlib and `lean-categories`.
-
-If a leaf seems to need one of the rejected contributions, or needs to forward an inherited
-method, the defect is upstream. Fix it there.
+The current contract (`CasContract/Adapter.lean`) does not yet have this form. It lets a leaf author
+denotation functors, proofs, isomorphisms, evidence and statuses. Replacing it is plan node
+`gov-leaf-authority`. Until the replacement lands, never write a new leaf against those forms, and
+never extend them.
 
 **Backends.** A backend is a child process speaking the port protocol (`CasContract/Port.lean`;
 reference implementation `python/cas_port.py` of the contract, put on the adapter's `PYTHONPATH`). Its announced capabilities must be registered
@@ -124,19 +119,19 @@ leaf, `CasLeaves/Modules/SageCardinality.lean` with its `sage_cardinality.py`.
 
 ## Acceptance assertions
 
-Permanent assertions live in `CasAcceptance/Permanent/`:
+A permanent assertion is a proposition in the mathematical language, in `tests/acceptance/*.cas`,
+with the source of its expected value:
 
-```lean
-#accept "card.z4_cubed" from "Mathlib Fintype.card_fun, ZMod.card: |(ℤ/n)^k| = n^k" :
-  (value% cardinality (z4Cubed) in "cat.sets").as = 64 := by
-  simp [cardinalDenotation, CardinalHandle.denote]; rfl
-#accept_backend "card.sage.z4_cubed" from "agreement with card.z4_cubed" :
-  (sageCardinalityOf 4 3) agrees (method% cardinality (z4Cubed) in "cat.sets").as
 ```
+let A := {1, 2, 3} in 𝒫(ℤ)
 
-> **Defect in this example.** Its proof unfolds a leaf's own definitions (`cardinalDenotation`,
-> `CardinalHandle.denote`). An assertion must not be established from the implementation under
-> test. Its expected value comes from mathematics, and the realization is compared against it.
+test finite_sets.card_power_set "SPEC.md: |𝒫(A)| = 2^|A| = 2^3 (Mathlib Fintype.card_set)":
+  assert |𝒫(A)| = 8
+```
+(`tests/acceptance/finite_sets.cas`)
+
+It never mentions a leaf, a handle, a backend or a representation, and its truth is never
+established from an implementation's definitions. A realization is compared against it.
 
 After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`. The text up to
 `:=` is then permanent, while the proof after it may change. An assertion that no realization

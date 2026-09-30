@@ -201,7 +201,20 @@ statuses (`specs/architecture.md`, "A leaf holds zero semantic authority", recor
 contract is replaced. The typed request and result, and what a presented value denotes, are owned
 upstream (`lean-categories` and the kernel). A leaf registers the pair (semantic operation or
 composite, supported input type) together with an opaque implementation, and supplies no Lean
-mathematics. CC-TRUST is withdrawn. **Acceptance:** no leaf-facing form carries a functor, a proof,
+mathematics. CC-TRUST is withdrawn. The current contract grants leaves semantic authority in these forms, each to be removed:
+- `realizer`: the leaf's denotation functor decides what its handles mean;
+- `action`: a `RealizedAction` with the leaf's proof that it commutes with that denotation;
+- `presentation`, `observation`: the leaf's isomorphism or equality proof identifying a handle with
+  a value;
+- `isomorphism`: the leaf proves two handles isomorphic, and elements are transported along it;
+- `decider`, `equality`: the leaf's evidence for a decided property or equality;
+- `implementation`: `TrustedImplementation`/`CertifiedImplementation`, a checker with a soundness
+  theorem, and the `Trust` status;
+- `run% … proved`: the kernel reduction of leaf code, labelled a "kernel theorem";
+- every leaf in `lean-cas-dsl-leaves` is a Lean module defining handle categories, functors and
+  proofs;
+- `CasAcceptance/Permanent` assertions proved by unfolding a leaf's definitions.
+**Acceptance:** no leaf-facing form carries a functor, a proof,
 evidence or a status. Every leaf is rewritten against the new contract by the leaf agent. The
 acceptance suite is the only evidence, and no assertion is established from a leaf's definitions.
 
