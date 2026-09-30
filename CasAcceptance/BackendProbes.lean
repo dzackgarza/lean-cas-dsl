@@ -12,7 +12,7 @@ public meta import CasLeaves.Modules.SageCardinality
 @[expose] public section
 
 /-!
-# Acceptance for `cc-backends` (CC-ADAPTER, CC-DECODE, CC-TRUST)
+# Acceptance for `cc-backends` (CC-ADAPTER, CC-DECODE)
 
 Where GAP is installed (`CAS_GAP_PYTHON`, default `.venv/bin/python` with `passagemath-gap`):
 

@@ -603,9 +603,10 @@ def elabMethodCall (name : String) (receiver : Term) (category : String)
   let value ← certifiedExecutable value
   return .letE `route (← inferType composite) composite value (nondep := true)
 
-/-- Elaborate `value% name (receiver) in "cat.id" via …`: the semantic value of the call, the
-denotation of its realized result, an object of the method's codomain. A proposition about it
-names no realization: the realization computed it, and its denotation is what is asserted. -/
+/-- Elaborate `value% name (receiver) in "cat.id" via …`: the realized result of the call read
+through the realizer's denotation, an object of the method's codomain. That denotation is the
+leaf's, so nothing about it is evidence: an acceptance assertion is never established from it
+(`specs/architecture.md`, "The evidence model"). -/
 def elabValueCall (name : String) (receiver : Term) (category : String)
     (through : Array String) : TermElabM Expr := do
   let state ← registryState
@@ -664,9 +665,10 @@ def checkRealizer (state : RegistryState) (category : CategoryId) (action : Expr
       m!"no registered realizer of {category.raw} realizes this receiver (CC-SEP)"
 
 /-- Elaborate `run% name (x) in "cat.id"` (optionally `using "impl.id"`): the value of `x.name`
-with its epistemic status and provenance (CC-TRUST). Without `using`, the value is computed by the
-composed Lean-native actions; with it, by the named fused implementation of the same semantic
-composite (CC-ROUTE). -/
+with its provenance. Without `using`, the value is computed by the composed actions; with it, by
+the named fused implementation of the same semantic composite (CC-ROUTE). The status attached to
+the value, including a kernel reduction of leaf code, has no standing: nothing from a leaf is
+trusted (`specs/architecture.md`, "The evidence model"). -/
 def elabRun (name : String) (receiver : Term) (category : String) (implementation : Option String)
     (proved : Bool := false) : TermElabM Expr := do
   let state ← registryState

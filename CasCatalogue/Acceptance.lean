@@ -29,7 +29,8 @@ value:
 
 The proposition, the value and the provenance are permanent: `scripts/check_acceptance_permanent.py`
 refuses to modify or delete an admitted assertion (the text of an `#accept` up to its `:=`, or the
-whole `#accept_backend`). The proof after `:=` is how the assertion is checked, and may change.
+whole `#accept_backend`). The proof after `:=` is how the assertion is checked, and may change; it
+proves the mathematics and is never established from a leaf's definitions.
 `#acceptance_gaps` lists the assertions no realization computes yet.
 -/
 

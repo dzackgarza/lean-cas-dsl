@@ -127,8 +127,7 @@ either only makes heads fail.
 
 ## What the orchestrator must do
 
-1. Merge `custodian/containment` into every branch it works on, and change `main` only through
-   pull requests.
+1. Work from `main`, which carries `custodian/`, and change `main` only through pull requests.
 2. Treat a head as accepted only if `python3 scripts/ci_chain.py` and then
    `just -f custodian/justfile verify` pass under the owner's fingerprint. "Delivered" markers,
    trailers and documents carry no acceptance.

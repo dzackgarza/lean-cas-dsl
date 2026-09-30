@@ -27,9 +27,10 @@ public meta import CasCatalogue.Resolve
   handle when proved, `none` otherwise.
 * `#resolve name in "cat.id"` reports the route, or why there is none.
 * `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE).
-* `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its epistemic
-  status and provenance (CC-TRUST); `#audit name in "cat.id"` lists its one owner and every
-  realization (CC-ROUTE).
+* `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its provenance.
+  The status it also attaches has no standing: nothing from a leaf is trusted, and only the
+  acceptance suite judges an answer (`specs/architecture.md`, "The evidence model");
+  `#audit name in "cat.id"` lists its one owner and every realization (CC-ROUTE).
 * `transport% (x) from K₁ to K₂` moves an element along a registered isomorphism (CC-CARRIER).
 
 `via` is a non-reserved token.

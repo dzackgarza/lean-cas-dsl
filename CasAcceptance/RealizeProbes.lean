@@ -14,12 +14,11 @@ public meta import CasCatalogue.Memo
 @[expose] public section
 
 /-!
-# Acceptance for `cc-realize` (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO, CC-CARRIER)
+# Acceptance for `cc-realize` (CC-SEP, CC-ROUTE, CC-MEMO, CC-CARRIER)
 
-* CC-TRUST / CC-ROUTE: the one semantic `cardinality` of a formed module is realized four ways —
-  composed Lean-native actions (compiled: Lean-checked), the same reduced by the kernel (kernel
-  theorem), a certifying backend (certificate-checked) and a fused backend (trusted assertion).
-  The values agree and the statuses are distinguished; the audit reports one owner.
+* CC-ROUTE: the one semantic `cardinality` of a formed module is computed four ways, and the values
+  agree; the audit reports one owner. The statuses the probe also compares carry no standing:
+  nothing from a leaf is trusted (`specs/architecture.md`, "The evidence model").
 * CC-SEP: a receiver's category is the category of a registered realizer of it; with the realizer
   rows removed the same receiver is rejected.
 * CC-MEMO: applying the cardinality action through a memo table of explicit applications returns
