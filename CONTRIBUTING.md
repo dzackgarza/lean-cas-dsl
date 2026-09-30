@@ -111,6 +111,20 @@ upstream: fix it there. Anything that can be discharged in Lean is never a leaf'
 Never write a leaf against, or extend, a contract form that carries a functor, a proof, an
 isomorphism, evidence or a status.
 
+**A leaf is glue over existing backends** ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is
+glue over existing backends", following `sage-categories`' `specs/leaves.md`, "Computation-engine
+boundary"):
+- it wires a registered operation to a mature engine (GAP, Sage, Singular, Macaulay2, Julia, SymPy,
+  research code): declared input form, then engine input, then the engine's routine, then the
+  engine result, then the declared result form;
+- it hand-rolls no algorithm, and names the engine and routine it calls;
+- it carries no kernel machinery (dispatch, placement, propagation, composition, refinement,
+  caching); a leaf that needs any has found a kernel or contract gap, reported upstream;
+- engine values stay private: only a value of the declared result form crosses the port.
+
+This is writing guidance, checked by a separate engineering review. Following it earns no trust:
+correctness is judged only by the suite, and the firewall holds even for a leaf that ignores it.
+
 **Backends.** A backend is a child process speaking the port protocol (`CasContract/Port.lean`;
 reference implementation `python/cas_port.py` of the contract, put on the adapter's
 `PYTHONPATH`). Its announced capabilities must be registered operation ids, or `connect` refuses

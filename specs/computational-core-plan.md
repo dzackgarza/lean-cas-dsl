@@ -199,7 +199,9 @@ trusted"). A leaf registers an opaque computation against a registered operation
 the operation id, the input form (one of the forms `lean-categories` and the kernel declare for that
 operation, with what it denotes), and an implementation in any language returning a value of the
 declared result form. The kernel reads each answer into that form or rejects it as malformed. A leaf
-ships no mathematics and no Lean. Nothing a leaf supplies is consulted, recorded as evidence, or
+ships no mathematics and no Lean. It is meant to be glue over a mature engine
+([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue over existing backends"), which a separate
+engineering review checks and which earns no trust. Nothing a leaf supplies is consulted, recorded as evidence, or
 allowed to affect meaning or acceptance. The acceptance suite is the only evidence, run only from
 `lean-cas-dsl`.
 

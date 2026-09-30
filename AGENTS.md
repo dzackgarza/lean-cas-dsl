@@ -83,7 +83,10 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   implementation), and the system runs it and believes nothing about it: no text, label, status,
   trust level, certificate, checker, proof, denotation, identification, evidence or self-test of
   a leaf is consulted, recorded as evidence, or allowed to affect meaning or acceptance. A leaf
-  may be arbitrarily bad. Any mechanism that lets a leaf raise its own standing, and any code or
+  may be arbitrarily bad. A leaf is meant to be glue over an existing engine, hand-rolling no
+  algorithm and carrying no kernel machinery ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is
+  glue over existing backends"); that is writing guidance for an engineering review, and following
+  it earns no trust. Any mechanism that lets a leaf raise its own standing, and any code or
   document that consumes such a signal, is reward hacking and is removed. If writing a leaf seems
   to need a new method, placement, forwarding or edge, the defect is upstream. Fix it there,
   never in the leaf.

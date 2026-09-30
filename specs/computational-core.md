@@ -557,7 +557,11 @@ operation on an already-declared input form (CC-ADAPTER). It never contributes, 
   leaf author does not do as part of writing a leaf.
 
 That leaves the backend free to be messy internally. Its answers may be wrong; acceptance finds
-that out.
+that out. A leaf is meant to be glue over a mature engine: declared input form, engine input, the
+engine's routine, engine result, declared result form, with no hand-rolled algorithm, no kernel
+machinery and engine values kept private ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue
+over existing backends"). That is writing guidance for an engineering review, and following it
+earns no trust.
 
 ---
 
