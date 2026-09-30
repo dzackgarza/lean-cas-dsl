@@ -16,6 +16,9 @@ from the type's definition in the environment. It has no per-type code:
 
 * a natural number or an integer is a JSON number;
 * a list is a JSON array;
+* a quotient `Quot r` is a representative: the encoding of a value of the carrier, and decodes
+  as the class of the value read (a `Multiset` is a list; a `Finset` is a list, its `nodup`
+  decided);
 * a record (an inductive type with one constructor and no indices: a pair, `Fin n`, a subtype)
   is the JSON array of its data fields, and is the field itself when it has exactly one (a
   point of `Fin n` is its number, a pair is `[x, y]`);
@@ -87,6 +90,11 @@ partial def encode (e : Expr) : MetaM (Except String Json) := do
           rest ← whnf xs
       | _, _ => return .error s!"the list {rest} is not a closed literal"
     return .ok (Json.arr items)
+  if type.isAppOf ``Quot then
+    let e ← whnf e
+    match e.getAppFn.constName?, e.getAppArgs with
+    | some ``Quot.mk, #[_, _, a] => return ← encode a
+    | _, _ => return .error s!"the class {e} is not a closed literal"
   let e ← whnf e
   let .const c _ := e.getAppFn
     | return .error s!"{e} is not a constructor application"
@@ -133,6 +141,11 @@ partial def decode (type : Expr) (j : Json) : MetaM (Except String Expr) := do
     let mut list ← mkAppOptM ``List.nil #[some element]
     for v in decoded.reverse do list ← mkAppM ``List.cons #[v, list]
     return .ok list
+  if type.isAppOf ``Quot then
+    let #[carrier, relation] := type.getAppArgs
+      | return .error s!"{type} is not a quotient the codec handles"
+    let .const _ levels := type.getAppFn | unreachable!
+    return (← decode carrier j).map fun a => mkAppN (mkConst ``Quot.mk levels) #[carrier, relation, a]
   let .const typeName levels := type.getAppFn
     | return .error s!"{type} is not an inductive type the codec handles"
   let some (.inductInfo info) := (← getEnv).find? typeName

@@ -2,8 +2,9 @@
 test scaffolding, not a leaf: it exists to show what the kernel does with a registration's
 answers. It serves, on the kernel's structural encoding,
 
-* `meth.cardinality` on a named object (`{"ctor": <object id>, "args": [<parameters>]}`), as a
-  value of `lit.cardinals` (`{"ctor": "finite", "args": [m]}` or `{"ctor": "aleph0", "args": []}`);
+* `meth.cardinality` on a named object (`{"ctor": <object id>, "args": [<parameters>]}`) or on
+  a finite subset by its elements (`[1, 2, 3]`), as a value of `lit.cardinals`
+  (`{"ctor": "finite", "args": [m]}` or `{"ctor": "aleph0", "args": []}`);
 * `lim.sets.product` and `lim.sets.pullback` on a diagram of `Sets` in its standard form
   (`{"ctor": "pair", "args": [X, Y]}`, `{"ctor": "cospan", "args": [f, g]}`, an object a named
   object and a morphism its graph, a list of pairs of points), as the cone `{"ctor": "cone",
@@ -42,6 +43,8 @@ def points(named):
 
 
 def cardinality(value):
+    if isinstance(value, list):  # a finite subset, by its elements
+        return finite(len(set(map(str, value))))
     ctor, args = value["ctor"], value["args"]
     if ctor == "obj.sets.fin":
         return finite(args[0])

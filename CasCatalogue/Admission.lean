@@ -20,10 +20,12 @@ backend by its name in the manifest. The kernel admits it only when all three re
   (`op.boolean_algebras.union`) or a morphism family (`mor.*`).
 * **Forms** are what the kernel encodes with its structural codec, by id: a registered literal
   form (`lit.cardinals`, the values of its type), a registered graph-literal form
-  (`graph.sets`, the morphisms of its category by their graphs), a registered named object at
-  its explicit parameters (`obj.sets.fin`, `obj.sets.integers_mod_power`), or the diagrams of a
-  registered category (`cat.sets`: a diagram of a registered shape, in the forms of its objects
-  and arrows). Which forms exist is the catalogue's; a leaf declares none.
+  (`graph.sets`, the morphisms of its category by their graphs), a registered subset-literal
+  form (`lit.sets.finite_subsets`, the finite subsets of a power object's sets by their
+  elements), a registered named object at its explicit parameters (`obj.sets.fin`,
+  `obj.sets.integers_mod_power`), or the diagrams of a registered category (`cat.sets`: a
+  diagram of a registered shape, in the forms of its objects and arrows). Which forms exist is
+  the catalogue's; a leaf declares none.
 * A form is **accepted** by an operation when the operation applies to its values: a method or a
   property when the form's category resolves it by a structural route (the same resolution the
   semantic reading performs) and the catalogue does not send the form elsewhere along that route
@@ -45,26 +47,41 @@ and arrows. -/
 inductive Form
   | literal (entry : LiteralEntry)
   | graph (entry : GraphLiteralEntry)
+  /-- The finite subsets of a power object's sets, as literals of its registered subset-literal
+  form; `category` is the power object's. -/
+  | subset (entry : SubsetLiteralEntry) (category : CategoryId)
   | object (entry : ObjectEntry)
   | diagrams (entry : NamedCategoryEntry)
 
-/-- The form's id: a literal, graph-literal or object row's; for diagrams, their category's. -/
+/-- The form's id: a literal, graph-literal, subset-literal or object row's; for diagrams, their
+category's. -/
 def Form.id : Form → String
   | .literal entry => entry.id.raw
   | .graph entry => entry.id.raw
+  | .subset entry _ => entry.id.raw
   | .object entry => entry.id.raw
   | .diagrams entry => entry.id.raw
 
 def Form.category : Form → CategoryId
   | .literal entry => entry.category
   | .graph entry => entry.category
+  | .subset _ category => category
   | .object entry => entry.category
   | .diagrams entry => entry.id
+
+/-- The category of the power object `id`: that of its family `𝒫`. -/
+def RegistryState.powerObjectCategory? (state : RegistryState) (id : PowerObjectId) :
+    Option CategoryId := do
+  let power ← state.powerObjects.find? (·.id == id)
+  let object ← state.objects.find? (·.id == power.object)
+  pure object.category
 
 /-- The form `id` names. -/
 def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
   (state.literals.find? (·.id.raw == id) |>.map .literal) <|>
   (state.graphLiterals.find? (·.id.raw == id) |>.map .graph) <|>
+  (state.subsetLiterals.find? (·.id.raw == id) |>.bind fun entry =>
+    (state.powerObjectCategory? entry.powerObject).map (.subset entry ·)) <|>
   (state.objects.find? (·.id.raw == id) |>.map .object) <|>
   (state.categories.find? (·.id.raw == id) |>.map .diagrams)
 

@@ -1,0 +1,8 @@
+{
+  "backends": [
+    {"name": "probe", "command": "python3", "args": ["probe_registration.py", "--answer=correct"]}
+  ],
+  "registrations": [
+    {"operation": "meth.cardinality", "input": "lit.sets.finite_subsets", "backend": "probe"}
+  ]
+}

@@ -2132,7 +2132,11 @@ partial def asObject (v : Value) : M Value := do
         (← `($(mkCIdent po.extent) $(← paramTerms #[X])* $(← quoteExpr hom))) none
       let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
         | throwStratum .invalid m!"no registered category of sets"
-      return .object (← instantiateMVars extent) sets none
+      let extent ← instantiateMVars extent
+      -- The extent of a subset formed as a literal is realized as that literal: a method of
+      -- sets on it is the method of the extent, by the power object's `extent`.
+      Trace.alias (← read).trace hom extent
+      return .object extent sets none
   | _ => throwStratum .invalid m!"a set is expected"
 
 /-- `|X|`, the cardinality of a set. -/
@@ -2252,7 +2256,47 @@ partial def comprehension (scope : Scope) (t : Name) (X : Value) (p : Syntax) : 
     one pHandle category
   return .element (← staged subset) P
 
-/-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the union of singletons. -/
+/-- `{x₁, …, xₙ}` as a literal of the registered subset-literal form `form` of the power object
+of `X`, when the form applies to `X` (its instances synthesize: decidable equality of `X`'s
+elements); `none` where it does not (`ℝ`). The literal is `{x₁, …, xₙ}` written in Lean's own
+notation at the form's type (`Insert`, `Singleton`, `EmptyCollection`), each `xᵢ` the element of
+`X` it is, and the value is the form's denotation of it: the element of `𝒫(X)`. It is recorded as
+that literal, which the realized reading sends as its elements. -/
+partial def subsetLiteral (scope : Scope) (form : SubsetLiteralEntry) (xs : Array Syntax)
+    (X P : Value) : M (Option Value) := do
+  let .object p _ _ := P | unreachable!
+  let one ← semanticObject (← oneObject)
+  let expected ← mkAppM ``Quiver.Hom #[one, p]
+  let denotation ← mkConstWithFreshMVarLevels form.denotation
+  let (mvars, infos, type) ← forallMetaTelescopeReducing (← inferType denotation)
+  unless ← isDefEq type expected do
+    throwStratum .invalid m!"the literal form {form.id.raw} does not land in {p}"
+  for (m, info) in mvars.zip infos do
+    if info.isInstImplicit && (← instantiateMVars m).isMVar then
+      match ← trySynthInstance (← instantiateMVars (← inferType m)) with
+      | .some inst => discard <| isDefEq m inst
+      | _ => return none
+  let some literalMVar ← mvars.findM? fun m => do
+      return (← instantiateMVars m).isMVar && (← instantiateMVars (← inferType m)).isAppOf form.type
+    | throwStratum .invalid m!"the literal form {form.id.raw} takes no literal of {form.type}"
+  let literalType ← instantiateMVars (← inferType literalMVar)
+  let elements ← xs.mapM fun x => do
+    let .element h _ ← coerceTo (← eval scope x none (some X)) X
+      | throwStratum .invalid m!"`{shown x}` is not an element of {← semanticObject X}"
+    `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
+  let literal ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
+    else `(({$elements,*} : $(← quoteExpr literalType)))
+  let literal ← instantiateMVars (← elabTermEnsuringType literal literalType)
+  synthesizeSyntheticMVarsNoPostponing
+  unless ← isDefEq literalMVar literal do
+    throwStratum .invalid m!"`{shown (mkNullNode xs)}` is not a literal of {form.id.raw}"
+  let hom ← instantiateMVars (mkAppN denotation mvars)
+  Trace.record (← read).trace hom (.literal form.id literal)
+  return some (.element (← staged hom) P)
+
+/-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the literal of the power
+object's registered subset-literal form where it applies (`subsetLiteral`), else the union of
+singletons. -/
 partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
   -- Without an enclosing `𝒫(X)`: the set its elements are in, else `ℤ`.
   let P ← match ambient? with
@@ -2272,6 +2316,9 @@ partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Va
   let some (po, X) ← powerOf? P
     | throwStratum .invalid m!"a set literal is a subset: `in 𝒫(X)`"
   let .object p category _ := P | unreachable!
+  -- The registered subset-literal form of the power object, where it applies to `X`.
+  if let some form := (← registryState).subsetLiterals.find? (·.powerObject == po.id) then
+    if let some literal ← subsetLiteral scope form xs X P then return literal
   let singletonOf (x : Syntax) : M Value := do
     let element ← coerceTo (← eval scope x none (some X)) X
     applyTo (← `($(mkCIdent po.singleton) $(← paramTerms #[X])*)) #[element] P

@@ -40,6 +40,11 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   cardinality registered on `obj.sets.fin`; `|pullback(f, g)| = 3` through a pullback cone whose
   commutation the kernel decides. A cone missing a leg is malformed; a cone with the wrong apex
   makes the assertion wrong. A limit registered on an object form is not admitted.
+* **A finite subset is a literal (`lit.sets.finite_subsets`).** `{1, 2, 3} in 𝒫(ℤ)` is the
+  denotation of the literal `{1, 2, 3} : Finset ℤ`; Lean decides equality of literals with no
+  leaf, and refutes `A = {1, 2}`. A registration of `meth.cardinality` on the subset form
+  receives the elements, `[1, 2, 3]`: `|A| = 3` holds through it. What no realized operation
+  forms (`A ∪ B`) is a gap.
 * **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
   constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
   unchanged.
@@ -142,6 +147,50 @@ run_cmd withHarness "registration_limits.json" fun harness => do
   -- A shape with no registration is still a gap; Lean still decides what it decides.
   expect harness "gap" "assert |Fin(2) ⊔ Fin(3)| = 5"
   expect harness "holds" "assert 2 + 3 = 5"
+
+-- A finite subset is a literal of the power object's registered subset-literal form
+-- (`lit.sets.finite_subsets`): compared in Lean on the literals, and sent as its elements.
+run_cmd withHarness "registration_subsets.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  let A := ["let A := {1, 2, 3} in 𝒫(ℤ)"]
+  -- Lean decides equality of literals, with no leaf: a reordered, repeated list is the same
+  -- literal; a different one is refuted.
+  expectIn harness A "holds" "assert A = {1, 2, 3}"
+  expectIn harness A "holds" "assert A = {3, 1, 2, 2}"
+  expectIn (← (Harness.empty : IO Harness)) A "holds" "assert A = {1, 2, 3}"
+  let invalid ← try (do discard <| (do
+      let mut scope : Language.Scope := {}
+      for binding in A do scope := (← runStatement harness scope binding).2
+      runStatement harness scope "assert A = {1, 2}"); pure false) catch _ => pure true
+  unless invalid do throwError "`assert A = {1, 2}` is not refuted"
+  -- `|A|` is the cardinality of the extent of the literal: the registration on the subset form
+  -- receives the elements `[1, 2, 3]`.
+  expectIn harness A "holds" "assert |A| = 3"
+  expectIn harness A "wrong" "assert |A| = 4"
+  expectIn harness ["let B := {1, 2, 2} in 𝒫(ℤ)"] "holds" "assert |B| = 2"
+  -- What no operation of the realized reading forms is a gap, named.
+  expectIn harness (A ++ ["let B := {3, 4, 5} in 𝒫(ℤ)"]) "gap" "assert A ∪ B = {1, 2, 3, 4, 5}"
+
+-- The codec reads a finite subset from its elements, deciding that they do not repeat, and the
+-- value read is the literal (an adapter-level exercise of the quotient rule; the public
+-- consumer is the subset probe above).
+run_cmd liftTermElabM do
+  let state ← registryState
+  let some form := state.subsetLiterals.find? (·.id.raw == "lit.sets.finite_subsets")
+    | throwError "no registered subset-literal form"
+  let finsetInt ← elabTerm (← `($(mkCIdent form.type) Int)) none
+  let .ok decoded ← Codec.decode finsetInt (Json.arr #[1, 2, 3])
+    | throwError "[1, 2, 3] is not decoded as a finite subset of ℤ"
+  let literal ← elabTerm (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
+  unless (← Realize.decideProp (← mkEq decoded literal)) == some true do
+    throwError "the decoded {decoded} is not the literal {literal}"
+  unless (← Realize.decideProp (← mkEq decoded (← elabTerm (← `(({1, 2} : Finset Int))) none)))
+      == some false do
+    throwError "the decoded {decoded} is not distinguished from another literal"
+  let .error _ ← Codec.decode finsetInt (Json.arr #[1, 1])
+    | throwError "[1, 1] is decoded as a finite subset although its elements repeat"
+  let .ok encoded ← Codec.encode literal | throwError "the literal {literal} is not encoded"
+  unless encoded == Json.arr #[1, 2, 3] do throwError "encoded as {encoded.compress}"
 
 -- A cone missing a leg is not a value of the result form.
 run_cmd withHarness "registration_limit_missing_leg.json" fun harness => do

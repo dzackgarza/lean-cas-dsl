@@ -31,7 +31,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "69f11f9ecd4972bf45c6ab3b1cda1082b6a4488d",
+   "rev": "f953a0158c6feb9b7a0b10254be65196fb691d6e",
    "name": "cas_leaf_contracts",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",

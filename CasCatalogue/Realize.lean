@@ -468,9 +468,16 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
           {form.id.raw}"
       return if ← evaluatedEq w.value L then .holds
         else .wrong s!"{left} is not {right}: the registration answered {w.json.compress}"
-  | .homs _ _ category _ left right =>
-      throwStratum .noImplementation m!"{left} = {right} is not decided by Lean, and the \
-        morphisms of {category.name} have no registered literal form to compute in"
+  | .homs f g _ _ left right =>
+      -- Both sides computed as values of one form, and compared there.
+      let a ← realize h trace left f
+      let b ← realize h trace right g
+      unless a.formId == b.formId do
+        throwStratum .invalid m!"{left} is computed in the form {a.formId}, and {right} in \
+          {b.formId}"
+      return if ← evaluatedEq a.value b.value then .holds
+        else .wrong s!"{left} is not {right}: computed as {a.json.compress} and \
+          {b.json.compress}"
   | .decision prop expected shown =>
       let (answer, json) ← realizeDecision h trace shown prop
       return if ← evaluatedEq answer (toExpr expected) then .holds
