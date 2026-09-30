@@ -60,7 +60,7 @@ jobs:
           install -m 600 /dev/null "$key"
           printf '%s\n' "$CUSTODIAN_REVIEW_KEY" > "$key"
           python3 base/custodian/review/review.py --base base --head head --leaves leaves \
-            --trusted-fpr "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI" --signing-key "$key" \
+            --trusted-fpr "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" --signing-key "$key" \
             --out out --rejections rejections \
             --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }}
       - name: Append to the rejection log
