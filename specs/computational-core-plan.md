@@ -193,6 +193,18 @@ was checked against source before it was recorded here.
 | `core-admission-realized` | **Orchestrator (kernel, contract).** `Language.admit` throws `noImplementation` in realized mode unconditionally, and `run` re-reads the statement realized. No leaf can reach an admitted value. A generic mechanism must carry the admitted element, with its evidence, into the realization: the realized value of `x` in `B`, formed in `D` along the registered inclusion's realization. **Acceptance:** `(3 in ℚˣ)⁻¹ = 1/3` holds realized over the installed leaves. `2 in ℤˣ` stays invalid in both readings. | `gov-evidence-upstream` |
 | `lc-units-structure` | **Formalization subagent (request).** Units are `units M : Sets` for a bare `[Monoid M]`, with `⁻¹` and `/` registered as named morphisms of Sets. Moving the formula upstream fixed its ownership, but the structure is still not represented. `Mˣ` is the units functor `Mon → Grp` (right adjoint to the inclusion). Inversion is the group structure, reached through registered structural maps, so every construction landing in groups inherits it without another registration. **Acceptance:** `⁻¹` on `Mˣ` resolves through `Grp`, and a second group-valued construction gets `⁻¹` with no row of its own. | — |
 
+## `gov-leaf-authority` (2026-09-30, owner correction)
+
+**Orchestrator (contract, kernel), leaf agent (leaves).** The leaf contract grants leaves semantic
+authority: denotation functors, proofs of their own actions, identifications, evidence, trust
+statuses (`specs/architecture.md`, "A leaf holds zero semantic authority", recorded defect). The
+contract is replaced. The typed request and result, and what a presented value denotes, are owned
+upstream (`lean-categories` and the kernel). A leaf registers the pair (semantic operation or
+composite, supported input type) together with an opaque implementation, and supplies no Lean
+mathematics. CC-TRUST is withdrawn. **Acceptance:** no leaf-facing form carries a functor, a proof,
+evidence or a status. Every leaf is rewritten against the new contract by the leaf agent. The
+acceptance suite is the only evidence, and no assertion is established from a leaf's definitions.
+
 ## DAG
 
 `Needs` lists immediate prerequisites.

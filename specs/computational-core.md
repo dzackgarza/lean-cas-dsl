@@ -539,6 +539,10 @@ and the new category inherits `cardinality`, `rank`, `kernel` with no further de
 
 ### CC-TRUST — Epistemic status is attached, never conflated
 
+> **Withdrawn (2026-09-30).** A CAS proves nothing. Evidence about a computation is the permanent
+> acceptance suite alone, and a leaf holds no semantic authority (`specs/architecture.md`). The
+> requirement below is kept only as the record of the error; do not implement it.
+
 Each result records whether it is a kernel theorem, a Lean-checked reflected computation,
 a certificate-checked backend answer, or a trusted backend assertion (#53 §10 "Trusted
 backends", FOUNDATIONS Remark 46.5), with backend and version provenance.

@@ -87,6 +87,12 @@ A leaf is a Lean module ending in a single `register_leaf` contract, under `CasL
 `lean-categories` only. Its backend program, in any language, sits next to it. `lean-cas-dsl`'s harness (`cas-harness`, `just harness`) runs the permanent suite over the
 installed leaves and reports each gap; a leaf package never imports or runs the suite.
 
+> **Defect, do not follow as precedent.** Several forms in this table give a leaf semantic
+> authority: a denotation, a proof about its own code, an identification, evidence, a trust status.
+> A leaf holds none (`specs/architecture.md`, "A leaf holds zero semantic authority"). The
+> contract is to be replaced (`gov-leaf-authority`). Until then, never extend any of these forms
+> and never cite them as the model.
+
 **What a leaf may contribute** (`CasContract/Adapter.lean`):
 
 | Contribution | What it says |
@@ -127,6 +133,10 @@ Permanent assertions live in `CasAcceptance/Permanent/`:
 #accept_backend "card.sage.z4_cubed" from "agreement with card.z4_cubed" :
   (sageCardinalityOf 4 3) agrees (method% cardinality (z4Cubed) in "cat.sets").as
 ```
+
+> **Defect in this example.** Its proof unfolds a leaf's own definitions (`cardinalDenotation`,
+> `CardinalHandle.denote`). An assertion must not be established from the implementation under
+> test. Its expected value comes from mathematics, and the realization is compared against it.
 
 After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`. The text up to
 `:=` is then permanent, while the proof after it may change. An assertion that no realization

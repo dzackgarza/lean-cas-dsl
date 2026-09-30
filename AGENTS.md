@@ -76,7 +76,7 @@ Every plan node and edit conforms to it. In practice it forbids the following.
 * **Never shape semantics by computability.** Do not add, remove, narrow or weaken a semantic row,
   domain or result type because a backend can or cannot compute something. A backend's limits
   restrict its realization only.
-* **Leaves contribute zero mathematics.** A leaf registers realizations of registered operations
+* **Leaves contribute zero mathematics and hold zero semantic authority**: no denotation, no proof about their own code, no identification, no evidence, no status (`specs/architecture.md`, "A leaf holds zero semantic authority"; the current contract violates this). A leaf registers realizations of registered operations
   on presentations, and nothing else. If writing a leaf seems to need a new method, placement,
   forwarding or edge, the defect is upstream. Fix it there, never in the leaf.
 * **Acceptance assertions are permanent.**
