@@ -9,6 +9,17 @@ Upstream issues: [#53](https://github.com/dzackgarza/lean-categories/issues/53),
 This plan is tracked in the repository deliberately: `.agents/plans/` resolves only in a
 local checkout, and this work must be readable wherever the repository is.
 
+
+> **Controlling process (2026-09-30).** [`specs/owner/convergence-process.md`](owner/convergence-process.md)
+> is the owner's text, verbatim, and it governs this plan. Feature expansion is frozen: no new
+> mathematical coverage, production leaves, notebook features or passing examples, except a
+> specimen that distinguishes two architectural designs. Every node below is subordinate to
+> steps 1–7 of that file. A node that expands coverage is suspended. The nodes `core-*` and
+> `lc-*` from the external review are specimens under step 4: a failure identifies a missing
+> generic rule, and is never repaired by forwarding, a domain-specific kernel case, a weakened
+> assertion, or an exemption. The custodian session (`custodian/containment` branch) holds step 7's
+> acceptance boundary. The orchestrator does not accept its own work.
+
 ## Rules for executing this plan
 
 - **Step 0 is mathematics.** Every node begins by stating, in FOUNDATIONS with a citation or
