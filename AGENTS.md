@@ -8,7 +8,8 @@ You are either the **orchestrator** or a subagent with exactly one role
 - The acceptance subagent writes `tests/acceptance/` only.
 - The leaf subagent writes leaves only.
 
-No agent writes in two roles. Information flows formalization → tests → implementation, never
+Every agent commit ends with an `Agent-Role: <role>` trailer (and `Agent-Id: <id>` for a subagent);
+`just build` refuses crossings (`scripts/check_authorship.py`). No agent writes in two roles. Information flows formalization → tests → implementation, never
 back. An owner correction is committed into its owning document, or a gate, in the turn it is
 given (CONTRIBUTING, "A correction is encoded where it will be read"). Open governance nodes
 (`gov-*` in [the plan](specs/computational-core-plan.md)) precede all other work.

@@ -16,9 +16,15 @@ with whitespace collapsed. Its hash is recorded in `CasAcceptance/Permanent/admi
                                             correction to the mathematics: only when the pinned
                                             lean-categories revision differs from the one the
                                             manifest records, and recorded with the reason
+
+Admitting or correcting an assertion is the acceptance author's alone (specs/architecture.md,
+"Authors: one role per agent"): `--correct`, and `--admit` when it admits a new assertion, run
+only with `AGENT_ROLE=acceptance`. Recording a re-pin with `--admit` is anyone's. The commit that
+carries the manifest change is checked by `scripts/check_authorship.py`.
 """
 
 import hashlib
+import os
 import json
 import re
 import sys
@@ -94,7 +100,15 @@ def main() -> int:
     changed = sorted(i for i in admitted if i in current and current[i] != admitted[i])
     new = sorted(set(current) - set(admitted))
 
+    def acceptance_author(action: str) -> None:
+        if os.environ.get("AGENT_ROLE") != "acceptance":
+            raise SystemExit(f"{action} is the acceptance author's (AGENT_ROLE=acceptance); an "
+                             "implementation or orchestrator agent never admits or corrects the "
+                             "tests that measure its work (specs/architecture.md, \"Authors: one "
+                             "role per agent\")")
+
     if args[:1] == ["--correct"]:
+        acceptance_author("--correct")
         if len(args) != 2 or not args[1].strip():
             raise SystemExit("--correct needs the upstream correction it records")
         if pin() == manifest["lean_categories"]:
@@ -113,6 +127,8 @@ def main() -> int:
     problems = [f"admitted assertion {i} was deleted" for i in missing]
     problems += [f"admitted assertion {i} was modified" for i in changed]
     if args == ["--admit"]:
+        if new:
+            acceptance_author(f"admitting {', '.join(new)}")
         if problems:
             print("\n".join(problems), file=sys.stderr)
             return 1

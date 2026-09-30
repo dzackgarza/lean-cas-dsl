@@ -73,7 +73,8 @@ layers in context is blind to neither, so the layers have distinct authors (owne
 * Work authored across these barriers is not accepted as any row's output, however it reads. That
   row's author reviews it before anything builds on it.
 
-Until the owed gates in "What must be impossible" exist, these rules hold by instruction only.
+Every agent commit carries `Agent-Role: <role>` and, for a subagent, `Agent-Id: <id>` trailers;
+`scripts/check_authorship.py` refuses a commit or an author that crosses roles.
 
 ## Contracts between silos
 
@@ -171,10 +172,10 @@ node that owes one.
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md; its realizations live in `research/leaves`, whose modules are leaves under the same boundary (`isLeafModule`) | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
-| One agent authors in two rows of "Authors: one role per agent" | Nothing | `gov-authorship-gate` |
-| The implementing agent, or the orchestrator, re-admits a test | Nothing: `--correct` accepts any author | `gov-readmission-gate` |
-| `lean-categories` accepts an operation with an optional or partial codomain (`Option`, `Part`, `WithBot`/`WithTop` or `⊥` as "undefined", a partial-map classifier) or relies on a total convention off the domain (LC-14) | Nothing: the registry validator checks shapes only | `gov-registry-gates` |
-| `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | Nothing | `gov-registry-gates` |
+| One agent authors in two rows of "Authors: one role per agent" | `scripts/check_authorship.py` (in `just build`), over this repository and the linked `lean_categories`, `cas_leaf_contracts`, `cas_leaves`: every agent commit declares `Agent-Role:`, touches only that role's paths, and its author (`Agent-Id:`, else `Claude-Session:`) writes in one role only; `--self-test` reproduces the refused patterns. Trailers are declarations, not proof: the gate catches drift, and a forged trailer is a policy violation | — |
+| The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance`; `check_authorship.py` assigns a change to `admitted.json`'s assertions or corrections to the acceptance role | — |
+| `lean-categories` accepts an operation with an optional or partial codomain, or relies on a total convention off the domain (LC-14) | The totality gate (`LeanCategories/Catalogue/Registry/Totality.lean`, run by `normalized_registry`) refuses a row built, through any definition of `lean-categories`, from `Option`, `Part`, `PFun`, `Ring.inverse`, `Matrix.nonsing_inv`, `Matrix.inv`; `TotalityProbes` refuses the pre-`bd31fe3` encodings. It does not see a convention hidden inside Mathlib definitions | — |
+| `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
 | The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | Nothing | `gov-kernel-lc14` |
 | `lean-cas-dsl` depends on or contains a leaf | Nothing: the lakefile requires `cas_leaves`, and a `CasLeaves/` directory is present | `gov-no-leaves-here` |
 

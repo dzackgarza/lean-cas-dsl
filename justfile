@@ -19,8 +19,11 @@ default:
 
 # Build the core, the leaves and the notebook package, and run their probes: the acceptance
 # probes (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests).
-# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
+# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py), and
+# authors are separated by layer across the chain (scripts/check_authorship.py).
 build:
+    @python3 scripts/check_authorship.py --self-test
+    @python3 scripts/check_authorship.py
     @python3 scripts/check_reuse_records.py
     @python3 scripts/check_acceptance_permanent.py
     @lake build CasCatalogue CasLeaves CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
