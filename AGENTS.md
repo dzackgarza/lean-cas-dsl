@@ -63,11 +63,11 @@ mechanical, external, long-tail work.
 - Never write or extend a leaf to make a test pass, and never chase a realization of a specific
   operation as progress.
 - The leaves live in `lean-cas-dsl-leaves` and the leaf contract in `lean-cas-dsl-leaf-contracts`
-  (`specs/architecture.md`, "Packages"). Leaves, including probes, belong to the leaf repository
-  and are written by the leaf subagent. That this repository still requires `cas_leaves` and has a
-  `CasLeaves/` directory is a defect (`gov-no-leaves-here`), not a licence. The orchestrator never
-  writes, ports or polishes a leaf. A probe's finding reaches the kernel, the contract or
-  `lean-categories` as a request.
+  (`specs/architecture.md`, "Packages"). This repository consumes the leaves: it requires the
+  leaf packages, and the permanent tests and notebooks run here over whatever leaves are
+  installed. It ships no leaf: every leaf, a minimal one included, is written in the leaf
+  repository, in its own subtree, by the leaf subagent (`scripts/check_no_leaves.py` refuses a
+  `register_leaf` here). The orchestrator never writes, ports or polishes a leaf.
 - A leaf never sees the tests. It depends only on the leaf contract (`CasContract.Leaf`) and the
   catalogue, and the harness runs the suite over installed leaves (`just harness`).
 - The contract is the kernel's: change it together with the kernel, release it, re-pin it in the
