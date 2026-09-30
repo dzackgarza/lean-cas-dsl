@@ -201,6 +201,37 @@ not the purpose. The orchestrator is an agent like any other. It drifts, ignores
 builds exemptions into the gates it writes. A restriction that the restricted party can rewrite,
 exempt itself from, or satisfy with a label it writes about itself contains nothing.
 
+**The failure being designed against** (`research` `00e2a44`: 402 surface-test commits against
+about sixteen lines of architecture). A locally convenient repair acquires semantic authority. It
+creates new interactions, and later agents must repair those. Each repair becomes the premise of
+the next: a placement changed to obtain an interface, absent data reconstructed, a forwarding
+layer added, tests adjusted to the result. More policy then produces new forms of literal
+compliance. Executable coverage and green CI measure that process; they do not measure progress
+against it.
+
+**The unit of progress** is a class of harmful interventions that an agent can no longer express
+through its interface. Missing mathematics is compatible with success at this stage. A large
+passing demonstration built through exceptions is not. A leaf returning a wrong cardinal is an
+allowed computational failure. A leaf that makes an object lose its group operations, or that
+obliges descendants to forward a future method, is a failure of containment. The two never
+carry comparable weight in a review.
+
+**Two boundaries**, assessed separately:
+1. *Extension.* With the mathematics and the kernel fixed, no leaf change reaches beyond
+   computation. An unfamiliar, badly written leaf adds no semantic choice and no repair
+   obligation anywhere else. New generic mathematics propagates to old applicable objects without
+   reopening old leaves.
+2. *Substrate.* The orchestrator cannot quietly change what counts as mathematics, a valid
+   contract, an independent test, or an accepted result. It can make a failed example succeed only
+   by satisfying the existing contract, never by negotiating the contract.
+
+Moving authority from leaves into the kernel helps only if the second boundary holds. Otherwise
+the kernel accumulates special cases under the same local pressures that leaves did. The target
+is a small, independently accepted mathematical and interpretive substrate with narrow extension
+interfaces that do not expose the mechanisms of global semantics. The target is not a growing
+list of prohibited spellings and exception detectors. Changes to the substrate remain possible;
+their author cannot also accept them.
+
 Holes known on 2026-09-30, each open until a mechanism outside the orchestrator's write access
 closes it:
 
@@ -213,6 +244,8 @@ closes it:
 | `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself | Exemptions in an owner-approved, append-only file |
 | The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
 | The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases | A formalization or acceptance prompt is the requirement text, quoted verbatim from its owning document, with no orchestrator-authored content about implementation |
+| Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the assertion's accepted interpretation (its elaborated proposition), fixed at admission. A change of interpretation is a transition accepted by someone other than its author (`gov-meaning-permanence`) |
+| The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Requirement documents, gate definitions and protection settings change only with the owner's acceptance; the mechanisms are judged by which discretion they remove, not by their existence |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
 
 Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
