@@ -17,6 +17,23 @@ The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows un
 `LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
 `lean-categories`; this repository reads the registry at the pinned revision.
 
+## Mathematics is never inverted into implementation
+
+`lean-categories`' policies [LC-13, LC-14 and LC-15](https://github.com/dzackgarza/lean-categories/blob/main/CONTRIBUTING.md#lc-13--structure-belongs-to-the-category-never-to-a-typeclass-on-a-carrier)
+bind the kernel, the language and every leaf. Their consequences here:
+
+- The language and the kernel never supply structure that the catalogue did not give an
+  object: no element, unit, `0` or operation is attached to a set because a Lean instance
+  happens to exist on its carrier (LC-13).
+- Nothing evaluates to an empty, default or `none` value where the mathematics is undefined,
+  and no fallback reinterprets a term to make it defined (a divisor retried in another set, a
+  numeral read where no numeral exists). Undefinedness is a proposition, or the statement is
+  invalid (LC-14).
+- A numeral is the image of the map out of the initial object of its object's category; where
+  there is none, it is not a numeral of that object (LC-15).
+- A leaf presents the catalogue's object; it never shapes it. A contract rule that would need
+  the catalogue to change to suit a leaf's representation is itself a defect.
+
 ## Writing a leaf
 
 A leaf is a Lean module ending in a single `register_leaf` contract, under `CasLeaves/` in
