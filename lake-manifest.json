@@ -56,7 +56,7 @@
    "subDir": "worker",
    "scope": "",
    "rev": "4c6c2a77abcc717513a65ca35723ed428647e1bd",
-   "name": "«nbdsl-worker»",
+   "name": "\u00abnbdsl-worker\u00bb",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
@@ -183,7 +183,7 @@
    "configFile": "lakefile.toml"
   }
  ],
- "name": "«cas-dsl»",
+ "name": "\u00abcas-dsl\u00bb",
  "lakeDir": ".lake",
  "fixedToolchain": false
 }
