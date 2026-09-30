@@ -43,10 +43,10 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "19e046d71bb1ae5d6de84ab53be56b4f36eab208",
+   "rev": "b818e4cc992f507a035b7770530fb266ea7b38d3",
    "name": "cas_leaves",
    "manifestFile": "lake-manifest.json",
-   "inputRev": "19e046d71bb1ae5d6de84ab53be56b4f36eab208",
+   "inputRev": "b818e4cc992f507a035b7770530fb266ea7b38d3",
    "inherited": false,
    "configFile": "lakefile.lean"
   },

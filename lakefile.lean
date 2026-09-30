@@ -31,7 +31,7 @@ require cas_leaf_contracts from git
 /- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
 `lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/
 require cas_leaves from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "19e046d71bb1ae5d6de84ab53be56b4f36eab208"
+  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "b818e4cc992f507a035b7770530fb266ea7b38d3"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/

@@ -334,12 +334,32 @@ def quoteExpr (e : Expr) : TermElabM Term := exprToSyntax e
 /-- A term as written. -/
 def shown (stx : Syntax) : String := (stx.reprint.getD (toString stx)).trimAscii.toString
 
-/-- The parameters of an object family, as terms: numerals, objects and elements. -/
-def paramTerms (values : Array Value) : TermElabM (Array Term) :=
+mutual
+
+/-- The parameters of a family, as terms of its mathematics: numerals, and the semantic objects of
+sets (`semanticObject`), whichever reading. -/
+partial def paramTerms (values : Array Value) : M (Array Term) :=
   values.mapM fun
     | .nat n => pure (Syntax.mkNumLit (toString n) : Term)
-    | .object handle .. | .element handle .. => exprToSyntax handle
+    | v@(.object ..) => do exprToSyntax (← semanticObject v)
+    | .element handle _ => do
+        unless (← read).mode == .semantic do
+          throwStratum .noImplementation m!"elements as parameters are not threaded through \
+            realizations"
+        exprToSyntax handle
     | _ => throwStratum .invalid m!"a parameter is a numeral, an object or an element"
+
+/-- The object of the catalogue a set value is: its handle, read semantically; read through
+realizations, where the handle is a presentation, its declaration at its parameters. -/
+partial def semanticObject (v : Value) : M Expr := do
+  let .object handle _ origin := v | throwStratum .invalid m!"a set is expected"
+  if (← read).mode == .semantic then return handle
+  let some (entry, params) := origin
+    | throwStratum .noImplementation m!"a realized set that is not a named object has no \
+        declaration to read its parameters from"
+  Semantic.object entry (← paramTerms params)
+
+end
 
 /-- The numerals among `values`, as terms. -/
 def numeralTerms (name : String) (values : Array Value) : TermElabM (Array Term) :=
@@ -501,7 +521,7 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
     throwStratum .invalid m!"a graph from {category.name} to {category'.name}"
   let some form := state.graphLiterals.find? (·.category == category.id)
     | throwStratum .invalid m!"{category.name} has no registered graph literals"
-  let element (object : ObjectEntry) (params : Array Value) (k : Nat) : TermElabM Term := do
+  let element (object : ObjectEntry) (params : Array Value) (k : Nat) : M Term := do
     let some literal := state.elementLiterals.find? (·.object == object.id)
       | throwStratum .invalid m!"{object.name} has no registered element literals"
     let params ← paramTerms params
@@ -1022,10 +1042,6 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   let some (source, target) := homEnds? type
     | throwStratum .invalid m!"{declaration} is not a family of morphisms"
   let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
-  let semantic := (← read).mode == .semantic
-  unless semantic || explicit.isEmpty do
-    throwStratum .noImplementation m!"no registered realization threads the parameters of \
-      {declaration}"
   let sources ← match (← whnfR source).getAppFn.constName?, (← whnfR source).getAppArgs with
     | some ``Prod, #[x, y] => pure #[x, y]
     | _, _ => pure #[source]
@@ -1047,14 +1063,16 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   for (a, f) in mapParams.zip maps do
     unless ← isDefEq a f do
       throwStratum .invalid m!"{declaration} does not apply to this map"
-  if semantic then
-    if let some (.object t ..) := target? then
-      unless ← isDefEq target t do
-        throwStratum .invalid m!"{declaration} does not land in {t}"
+  -- Its parameters are unified with the sets' objects (semantic, whichever reading).
+  if let some T@(.object ..) := target? then
+    let t ← semanticObject T
+    unless ← isDefEq target t do
+      throwStratum .invalid m!"{declaration} does not land in {t}"
   -- An operand in a set included in a fixed source is carried there.
   let elements ← (sources.zip elements).mapM fun (set, v) => do
-    let .element _ (.object a ..) := v | return v
-    if !semantic || (← isDefEq set a) then return v
+    let .element _ A@(.object ..) := v | return v
+    let a ← semanticObject A
+    if ← isDefEq set a then return v
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
