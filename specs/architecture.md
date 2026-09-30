@@ -129,35 +129,85 @@ Constructor applications and family parameters are typed mathematical data, neve
 * The kernel is the **language-mechanics** trust boundary: it consumes the formal structure and
   performs propagation and resolution correctly. It owns no subject mathematics, so it can be
   audited in isolation.
-* Leaves and backends are the **computational** trust boundary: ordinary CAS code. Their
-  correctness is not proved. Mature engines keep it plausible, and permanent acceptance checks it
-  empirically.
+* Leaves and backends are ordinary, untrusted CAS code. Nothing about them is believed, whatever
+  engine they wrap; whether their answers are correct is measured only by the permanent
+  acceptance suite (next section).
 
 A bad leaf can produce a wrong answer. It cannot produce a wrong mathematical language.
 
-## A leaf holds zero semantic authority
+## The evidence model: nothing from a leaf is trusted
 
-A leaf decides nothing about meaning. It does not decide what its values are (a denotation), whether
-its answers are right (a proof, a certificate, a status), which values are the same (an
-isomorphism or identification), or what holds of them (a decider's evidence). The meaning of a typed
-request and of its result is `lean-categories`' and the kernel's. A leaf is registration plus an
-opaque computation from the declared input type to the declared output type, in any language, and
-it ships no mathematics (Intent discussion, 2026-09-29: "A new leaf doesn't mean shipping in new Lean
-code at all. The CAS nor the leaves maintain any real mathematical knowledge"). Whether a leaf
-computes correctly is decided in exactly one place: the permanent acceptance assertions, whose
-expected values come from formal proof, a cited example or an independent oracle. A CAS proves
-nothing. A Lean-checked computation is a theorem, so it lives in `lean-categories`, where its
-existence can be audited at any time.
+This section governs every repository of the programme (`INTENT.md`). It is stated in full
+because it has been violated repeatedly, each time by a move that looked locally reasonable.
 
-Why it must be zero and not small: the guarantee "a bad leaf can produce a wrong answer, not a wrong
-language" holds only if nothing a leaf writes is consulted to decide meaning. Every channel of leaf
-authority is a place where a locally convenient repair becomes a semantic fact. A leaf that cannot
-compute a case adjusts its denotation, its proof or its identification instead. The acceptance suite
-then passes against the leaf's own definitions, and the containment is gone. This is the `research`
-mechanism again.
+**1. Nothing from a leaf is trusted, in any form.** A leaf can say nothing that anything else
+believes. That covers text, a label, a comment, a status, a trust level, a certificate, a
+checker, a Lean proof, a theorem about its own code, a denotation of its values, an
+identification of two values, evidence for a decision, its own tests and their results, and
+any other claim. None of it is consulted, recorded as evidence, or allowed to affect meaning or
+acceptance.
 
-The current contract does not yet have this form. The gap is recorded in plan node
-`gov-leaf-authority`.
+**2. A leaf may provide any computation that meets the type.** For a registered operation, a leaf
+supplies a computation from the declared input form to the declared result form. It may be any
+computation whatsoever: a mature engine, a heuristic, a lookup table, a random number, a wrong
+answer. The system has no choice but to run it, and it believes nothing about it.
+
+**3. How correct a leaf thinks it is, is the leaf's own business.** A leaf may test itself however
+it likes and hold whatever opinion of its own correctness it likes. That opinion carries no
+weight anywhere in the system.
+
+**4. The whole body of evidence is the `lean-cas-dsl` acceptance suite.** Correctness evidence
+exists in exactly one place: the permanent acceptance assertions of `lean-cas-dsl`. They
+are:
+- propositions in the mathematical language that are true;
+- each with an expected value that can be verified and cited independently: a formal proof, a
+  cited known result, or an independent oracle;
+- written once, and never changed because of an implementation or a leaf's claim;
+- blind to leaves: an assertion never names, inspects or imports a leaf, a handle, a backend or
+  a representation, and is never established from an implementation's definitions.
+
+The only change an assertion ever receives is a correction to the mathematics itself, made
+upstream.
+
+**5. `lean-cas-dsl` is the sole authority on how correct an implementation is.** An
+implementation's standing is whether its answers meet the suite, a suite it is always blind to.
+Nothing a leaf does can change, weaken, satisfy, bypass or influence that judgment, except by
+answering correctly.
+
+**6. What can be discharged in Lean is never a leaf's.** A computation that can be carried out
+entirely in Lean is absorbed into the formalization surface. Either `lean-categories` proves it,
+by its own standards and blind to every implementation and leaf, or the kernel discharges it
+automatically, generically and blind to every leaf. It is not a leaf computation dressed up as a
+proof.
+
+**7. A leaf may be arbitrarily bad.** The design assumes that a leaf is wrong, careless or
+adversarial. It must hold with the worst leaf imaginable installed: that leaf can make its own
+answers fail the suite, and it can do nothing else.
+
+**8. A leaf bolstering its own standing is the failure this programme exists to prevent.** Any
+mechanism by which a leaf raises its own trust or acceptance signal, and any repository,
+kernel, test, tool or document that consumes such a signal, is reward hacking re-entering the
+system. Examples: a status field, a certificate, a proof about its own code, a self-test
+counted as evidence, an acceptance assertion proved from a leaf's definitions, a suite run from
+a leaf package, or an assertion adjusted to a leaf. It is a defect of the consumer as much as of
+the leaf, and it is removed, never tolerated, labelled, or kept "for now".
+
+Consequences for the other layers:
+- A leaf holds zero semantic authority. It never decides what a value is, which values are the
+  same, what holds of them, or which operations an object has. The meaning of a typed request
+  and result is `lean-categories`' and the kernel's. A leaf is a registration (operation, input
+  form, opaque implementation) and ships no mathematics and no Lean (`INTENT.md`: a new leaf does
+  not ship Lean code at all).
+- The kernel and the language never read anything a leaf wrote in order to decide meaning,
+  types, available operations or acceptance. Replacing every leaf changes none of them, only
+  which computations run and whether their answers meet the suite.
+- The suite never depends on a leaf. It does not import a leaf, construct inputs with a leaf's
+  types, call a leaf's function by name, or rely on a leaf's definitions for its truth.
+- The workflow runs one way: formalization, then assertions, then implementations. A leaf's
+  failure or difficulty never changes the mathematics, the kernel's rules or an assertion.
+
+The current code violates this in the contract, the leaves and the acceptance suite. Removing
+each violation is plan node `gov-leaf-authority`.
 
 ## Acceptance
 
