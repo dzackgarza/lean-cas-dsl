@@ -196,5 +196,3 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
 end Semantic
 
 end CasCatalogue
-
--- main moves on with an approved verdict
