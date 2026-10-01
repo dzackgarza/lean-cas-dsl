@@ -27,7 +27,7 @@ fifth case beside these four.
 
 A binding operator is a registered **binder** row of the catalogue. Its fields are all
 `lean-categories`' mathematics:
-- `notation`: the surface token (`∫`, `lim`, `∑`, `∏`);
+- `token`: the surface token of the notation (`∫`, `lim`, `∑`, `∏`);
 - `operation`: a morphism family `∀ params, M params ⟶ Y params` of the row's category, whose
   single source `M params` is a registered object of maps the operation is total on (integrable
   maps, maps convergent at `a`, summable families, all maps on a finite set). The notation's
@@ -46,7 +46,7 @@ summable family). Which one reads a statement is decided by its arguments: a row
 every argument unifies with its parameter.
 
 The kernel's reading is one code path for every binder, and it names nothing:
-1. For each binder row whose `notation` is the token, read the notation's arguments and unify them,
+1. For each binder row whose `token` is the notation's, read the notation's arguments and unify them,
    in order, with the operation's explicit object and morphism parameters. Exactly one row must
    read the statement. If none does, or more than one, the statement is invalid.
 2. `D := domain params`. The arguments determine `D`; if they do not, the statement is invalid.
