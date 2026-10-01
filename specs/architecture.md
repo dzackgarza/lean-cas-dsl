@@ -122,6 +122,8 @@ Constructor applications and family parameters are typed mathematical data, neve
   3. the realization is unavailable or crashed;
   4. the realization returned malformed output;
   5. the realization returned a well-typed wrong answer, which acceptance detects.
+  Two more are kept distinct from these (Policy 6): an unresolved semantic ambiguity, and an internal
+  interpreter error or resource exhaustion, which is never evidence that an expression is invalid.
 
 ## Trust boundaries
 
@@ -345,7 +347,7 @@ closes it:
 | Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Tied to the acceptance role's credential |
 | `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself. On 2026-10-01 the orchestrator marked two of its own catches to pass the gate, one of which collapsed every failure of a division into "invalid" (rejected by the custodian review of #58) | Exemptions in an owner-approved, append-only file |
 | The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
-| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (`gov-quarantine-binders`) | A formalization or acceptance prompt is the requirement text, quoted verbatim from its owning document, with no orchestrator-authored content about implementation |
+| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (`gov-quarantine-binders`) | The kernel worker holds no upstream write credential and no tool to commission upstream authors; upstream requirements come from the protected requirement revision (Policy 2; the plan, "Authority configuration") |
 | Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the assertion's accepted interpretation (its elaborated proposition), fixed at admission. A change of interpretation is a transition accepted by someone other than its author (`gov-meaning-permanence`) |
 | The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Requirement documents, gate definitions and protection settings change only with the owner's acceptance; the mechanisms are judged by which discretion they remove, not by their existence |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
@@ -360,6 +362,41 @@ orchestrator cannot produce: a judgment by an independent agent, bound to conten
 cannot alter without detection.
 
 Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
+
+## B0 policies
+
+These replace weaker or conflicting procedures (owner directive, 2026-10-01; the plan, "B0").
+
+1. **Fixed obligations, implementation freedom.** The orchestrator may change implementation
+   strategy, combine related work, replace a defective mechanism and reorganize its development
+   commits. It may not alter a mathematical obligation, the positive capability floor, an accepted
+   question or an exit criterion. A requirement change needs a decision of the authority that owns
+   the requirement; a reviewer's preference is not one.
+2. **No downstream authorship of upstream mathematics.** A kernel worker consumes an accepted
+   release. It does not write `lean-categories`, including its registry schemas, validators,
+   mathematical probes or admission rules, and does not commission upstream work with
+   kernel-generated goals, acceptance failures, desired row arrangements or instructions for making
+   an existing tactic succeed. A suspected upstream defect is reported, and assessed independently
+   from the original requirement and sources, never by accommodating the downstream term. A fresh
+   reviewer may see existing code: it first fixes the specification from independent sources, then
+   assesses the code against it; correct work is reused.
+3. **Repair the generating mechanism.** A specimen failure is first classified (typed application,
+   identity, admission, structural composition, coherence, presentation transport, result
+   reconstruction, execution); the owning generic mechanism is repaired with every case it
+   generates, and not widened into unrelated cleanup.
+4. **One coherent integration unit.** A complete architectural change may span repositories and
+   reviews; it is integrated as one compatible revision tuple, not one pull request per file, issue
+   or upstream commit. Upstream and downstream reviews stay separate; the consumer tests the
+   finished combination.
+5. **Gates protect obligations, not appearances.** A required gate protects an explicit obligation
+   or observed failure mechanism, judges code, data flow, types or execution rather than a label,
+   cannot be changed and self-accepted by the candidate's author, and costs only at its boundary.
+   A gate failing these is removed or replaced, never by another classifier of compliance prose.
+6. **Program failure is not mathematical invalidity.** A semantically invalid or inapplicable
+   expression, an unresolved semantic ambiguity, a valid request without implementation, an
+   unavailable or failed backend, malformed output, a wrong answer, and an internal interpreter
+   error or resource exhaustion are distinct outcomes. A timeout, failed invariant or unexpected
+   exception is never evidence that an expression is invalid.
 
 ## Packages
 

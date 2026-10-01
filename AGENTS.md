@@ -154,18 +154,17 @@ You are either the **orchestrator** or a subagent with exactly one role
 Every agent commit ends with an `Agent-Role: <role>` trailer (and `Agent-Id: <id>` for a subagent);
 `just build` refuses crossings (`scripts/check_authorship.py`). No agent writes in two roles. Information flows formalization → tests → implementation, never
 back. An owner correction is committed into its owning document, or a gate, in the turn it is
-given (CONTRIBUTING, "A correction is encoded where it will be read"). Open governance nodes
-(`gov-*` in [the plan](specs/computational-core-plan.md)) precede all other work.
+given (CONTRIBUTING, "A correction is encoded where it will be read"). Work is selected from
+the B0 acceptance table of [the plan](specs/computational-core-plan.md); a `gov-*` node precedes
+other work only where a B0 row names it.
 
-**A subagent's prompt is its row's requirement and nothing else.** A formalization prompt is the
-mathematical requirement, quoted from the document that owns it, with its sources. It never
-carries a kernel goal, a failing statement, suite output, a term the kernel forms, a choice of
-rows, or a way to state something so that the kernel accepts it. A kernel that cannot read a row
-is the kernel's finding, recorded in the plan; it is never sent upstream as a target. The
-orchestrator writes nothing in `lean-categories`, including `LeanCategories/Catalogue/Registry/*`,
-whatever `check_authorship.py` permits: an admission rule decides which mathematics exists. This
-failed on 2026-09-30 (`gov-quarantine-evidence`) and again on 2026-10-01
-(`gov-quarantine-binders`).
+**No downstream authorship of upstream mathematics (architecture.md, "B0 policies", Policy 2).**
+A kernel worker consumes an accepted mathematical release. It writes nothing in `lean-categories`,
+its registry schemas, validators, probes and admission rules included, and it commissions no
+upstream work with kernel-generated goals, acceptance failures, desired row arrangements or
+instructions for making a tactic succeed. Upstream work starts from an independently approved
+mathematical requirement and its sources. This is enforced by the session's credentials and tools
+(the plan, "Authority configuration"), not by a prompt convention.
 
 # Architecture contract (read first)
 
@@ -218,8 +217,9 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   4. malformed output;
   5. wrong answer.
 
-  Never collapse one kind into another. Never turn a gap into a fallback, a default or a nearby
-  answer.
+  An unresolved ambiguity and an internal interpreter error are distinct from all five
+  (architecture.md, Policy 6): a timeout or exception is never `invalid`. Never collapse one kind
+  into another. Never turn a gap into a fallback, a default or a nearby answer.
 
 # Where the work is (read second)
 

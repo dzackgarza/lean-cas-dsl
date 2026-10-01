@@ -23,6 +23,188 @@ local checkout, and this work must be readable wherever the repository is.
 > `ObjectEntry.evidence`, which the sealed `lean_categories` pin lacks). The orchestrator does not
 > accept its own work. It reads `custodian/`, obeys what it states, and never writes there.
 
+## B0: the extensible computational baseline (owner directive, 2026-10-01)
+
+**This section controls the plan.** It replaces the open-ended improvement process with one bounded
+construction programme. Where an older section, node or rule below conflicts with it, this section
+wins and the older text is superseded. The owner's convergence process
+([`owner/convergence-process.md`](owner/convergence-process.md)) still governs; B0 is its fixed
+positive target. No new requirements repository, policy hierarchy, reviewer service, certificate
+system or progress ledger is introduced: this table, Git history, review discussion and generated
+test results are the whole record.
+
+### Definition
+
+B0 is complete only when all of the following hold at one compatible revision tuple
+(`lean_categories`, `cas_leaf_contracts`, kernel, specimen leaves):
+
+1. **The mathematical interface is upstream and complete** for every extension mechanism B0 claims:
+   definitions, operations, constructors, classifiers, structural maps, comparison cells, admission
+   conditions and presentation meanings are `lean-categories`'. A leaf contributes none of them.
+2. **The kernel derives the interface generically.** A newly formalized object receives every
+   existing applicable operation without forwarding; a newly formalized generic operation reaches
+   existing applicable objects without editing them. Parameters, selected structures, actual
+   structural routes, defining maps and prescribed result lifts are retained.
+3. **The computational path is usable.** The required computational assertions below execute
+   through real registered backends, return the declared result forms, and meet their independent
+   assertions. A Lean proof of an assertion does not discharge a requirement that a registered
+   implementation execute it.
+4. **The acceptance boundary is independent.** Neither the implementation author nor the
+   orchestrator can change the mathematical question, its expected answer, its required
+   implementation status or the rules judging the change, and then accept the change.
+5. **Independent extensions succeed after the kernel is fixed** (exit trials below), with the
+   kernel and old leaves unchanged except where a failed trial exposed a genuine deficiency that was
+   repaired before the trial was restarted.
+
+**The orchestrator cannot reduce this table, move a row beyond B0, or redefine a row's acceptance.**
+A change to a row needs a decision of the authority that owns the requirement.
+
+### Acceptance table
+
+Each row reuses existing identifiers. "Positive" and "negative" are the observations that close it;
+"argument" is the compositional justification needed where examples are insufficient. A row closes
+only when its full acceptance holds at the integration tuple.
+
+| Row | Capability and contract | Owner, prerequisites | Positive / negative observations | Argument |
+| --- | --- | --- | --- | --- |
+| `b0-integration` (stage A) | One buildable candidate tuple; the registry reader is the kernel's (`CasCatalogue.Registry`, `RegistryEntry := SemanticEntry`), the contract holds registration, port and failure only (contract `ee14cce`); compilation is separate from acceptance execution | kernel; #59 | the kernel, gates, probes and tools compile at the tuple; the acceptance run reports per-assertion outcomes even when assertions fail / the contract mirrors no row kind; no semantic write path downstream (`SemanticProjectionProbes`) | — |
+| `cc-failure-strata` (Policy 6) | One outcome model with the seven outcomes of Policy 6, through `TestSuite`, `Realize`, the harness and the probes | kernel | an interpreter exception or timeout is an internal error, never `invalid`; each outcome produced by a probe / no `catch` turns a runtime failure into a semantic verdict (`TestSuite.runFile` today records runtime exceptions as `invalid`) | the outcome type is total over the pipeline's stages |
+| `b0-typed-application` (stage B; CC-CALC, CC-SEP) | Arguments are checked against the declared dependent signature with parameters and obligations retained; unresolved metavariables are never admitted data | kernel | every admitted assertion's operands elaborate at the declared types / an argument outside the declared type is `invalid` when read | the application rule is the generic one (`applyFamily`), stated once |
+| `b0-selected-structure` (stage B; CC-CARRIER, CC-SEP) | Objects sharing a carrier with different chosen data stay distinct; identity is never recovered by which transparent alias unifies first | kernel; upstream objects | two forms on one module, and `Maps`/`Vec` on one carrier, resolve to distinct objects / a carrier match alone never selects an object | recognition by declaration identity and parameters, not by reducible unfolding |
+| `core-admission-realized` (stage B; LC-18) | The upstream admission map and its declared obligations are applied as stated; never reshaped to fit a kernel tactic | kernel; upstream evidence | `(3 in ℚˣ)⁻¹ = 1/3`, `2 ∈ ℤˣ` refused (as delivered) / a statement whose evidence is absent is `invalid`, never a kernel-written proof | — |
+| `b0-domain-preservation` (stage B; LC-14) | The admitted domain and the actual maps are retained, never replaced by an incidental internal representation (a stage's presentation, a carrier type) | kernel | an admitted map is stated at the admission's domain / no evidence goal mentions the kernel's plumbing | — |
+| `b0-binders` (stage B; #46, [binders.md](binders.md)) | Binding notation read through admitted binder rows, by one generic path; no notation-specific kernel case | kernel; upstream binder schema and rows after the independent assessment below | `calculus.limit_sinc`, `calculus.limit_infinity`, `calculus.integral_square`, `calculus.integral_sine`, `series.*`, `composed.root_sum`, `composed.root_product` valid / `Language.lean` contains no binder case for a particular operation | one reading rule for every binder row |
+| `cc-resolve`, `cc-closure` (stage C; CC-TRANSPORT, CC-RESOLVE, CC-CLOSURE) | Operation propagation over actual registered structure: the selected functor and its action, parameters and base objects | kernel | lattices get `cardinality` and `rank` (`rank(A₂) = 2`) through their formal structure / no lattice-specific row or forwarding exists | availability is closure under composition of registered structural functors |
+| `cc-cohere`, `cc-cohere-exec` (stage C; CC-COHERE) | Competing routes stay distinct; unresolved ambiguity is reported; an admitted comparison is used explicitly | kernel | ring `cardinality` resolves only through `cmp.rings.carrier` / without it, ambiguity naming both routes; installation order never decides | identification only by registered invertible cells |
+| `cc-fib` (stage C; CC-FIB) | Parameter and base transport along the registered fibration, with the prescribed reindexing | kernel; upstream fibrations | restriction along `ℤ → ℤ/4` resolves as reindexing / parameters are never copied because endpoints share names | reindexing is the fibration's cartesian structure |
+| `cc-realize` transport (stage C; CC-CARRIER) | Nonidentity presentation change transports along the accepted comparison | kernel | `𝔽₃[x]/(x²+1)` and `𝔽₃[y]/(y²+y+2)` stay distinct and `x ↦ y + 2` transports / equality never decided true, backend `==` never consulted | — |
+| `cc-lift`, `core-return-lifts`, `lc-lift-subobject` (stage C/D; CC-LIFT, CC-UNIV) | A construction returns the complete structured result with its defining maps and prescribed lift | kernel; upstream `lc-lift-subobject` | `ker` of a formed-module map is an object of `Bil` with the restricted form / never the bare module; a missing lift computation is a named gap | lifts compose along a route |
+| `cc-refine`, `cc-props` (stage C; CC-PROP, CC-DECIDE) | A refined object keeps its defining data and obtains the justified interface; a computed property never re-types an object | kernel | `Fin 2 × ℤ/3` re-typed into finite sets on a proof; `ℤ/3` abelian, `S₃` not / a leaf's answer never places an object | re-typing only on a proof (`P.FullSubcategory`) |
+| `lc-units-structure`, `cc-universal` (stage C; CC-UNIV) | Group-valued constructions (`Aut`, subgroups, stabilizers, units) expose group and subgroup interfaces by construction | upstream, then kernel | `⁻¹` on `Mˣ` through `Grp`; a second group-valued construction gets `⁻¹` with no row; `A₃ ↪ S₃` has cardinality 3 with its inclusion / no bespoke method inventory | interfaces follow from the construction's category |
+| `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` (stage D; CC-ACTION, CC-ADAPTER, CC-DECODE, CC-ROUTE) | Execution of a fixed semantic request: composite requests, diagrams and arrows over the port, decoded against the fixed result form; realization selection after the semantic judgment | kernel, contract; specimen leaves | the required computational assertions below execute / a result missing a defining map is `malformed`; a fused computation never selects a different composite | the semantic reader imports no leaf state (gate A) |
+| `cc-observations` (stage D) | A computed value compared with a literal by evaluation in the declared literal form | kernel | `|(ℤ/4)^3| = 64` against `64` / no leaf-facing observation or proof | — |
+| `gov-meaning-permanence` (gate B) | The admitted semantic question of each assertion is retained and compared under a candidate | kernel (mechanism); acceptance author (initial interpretations) | an unchanged assertion whose elaborated question changes fails; a genuine transition needs independent acceptance / no comparison by text, booleans or provability alone | — |
+| `b0-authority` (bootstrap) | The kernel worker cannot write or accept upstream semantics, protected acceptance or its judging rules through its available tools | owner (configuration) | see "Authority configuration" below | — |
+| `b0-trials` (stage E) | The exit trials below, each succeeding with the kernel and old leaves frozen | independent contributors | see "Exit trials" | per mechanism, the argument of its row above |
+
+**Required computational assertions (frozen IDs).** These must execute through a registered
+implementation at the tuple and meet their assertions: `sets.card.z4_cubed`, `sets.card.z7`,
+`sets.card.z5_empty_power`, `sets.card.fin2_times_z3`, `sets.card.integers`,
+`sets.finite.integers`, `sets.finite.fin2_times_z3`, `sets.implemented.card_fin`,
+`sets.card.fin2_sqcup_fin3`, `sets.eq.rev_rev`, `sets.limit.pullback.card`,
+`finite_sets.limit.pullback.card`, `lattices.discriminant.a1`, `lattices.discriminant.a2`,
+`lattices.discriminant.a3`. The plan's existing positive computational examples that have no suite
+assertion yet (`rank(A₂) = 2`, `rank(E₈) = 8`, the kernels of `sign : S₃ → ℤ/2`, the trivial map and
+`id_{S₃}`, `ℤ/3` abelian and `S₃` not, formed-module cardinality, the `𝔽₉` transport) are owed as
+suite assertions by the acceptance author and are required once admitted. **Every admitted
+assertion** (148, `CasAcceptance/Permanent/admitted.json`) must be semantically valid at the tuple:
+"invalid because the kernel cannot interpret it" is a defect, never a final status. `NoImplementation`
+is acceptable only for an assertion this paragraph does not require.
+
+**Outside B0, with their existing dispositions:** notebook reconstruction (`cc-notebook`, deferred by
+the owner 2026-09-29); new mathematical coverage, production leaves and notebook features (frozen by
+the convergence process).
+
+### Exit trials
+
+Run after the kernel is fixed, by contributors who choose the concrete extension themselves; the
+orchestrator supplies no pre-shaped definition or expected output. A trial that needs an edit to the
+frozen kernel or an old leaf has failed; the deficiency is repaired, the candidate re-frozen, and the
+trial repeated.
+
+| Mechanism | Required observation |
+| --- | --- |
+| New structured object | Existing applicable operations appear through its formal structure; two structures on one carrier stay distinct |
+| New generic operation | Existing applicable objects acquire it after the upstream release; no old object or leaf is edited |
+| Generic group-valued construction | `Aut`/subgroup/stabilizer expose group and subgroup interfaces by construction |
+| Classifier/refinement | The refined object keeps its data and gains the justified interface; a backend property result never changes placement |
+| Competing structural routes | Distinct routes stay distinct; ambiguity is reported; an admitted comparison is used explicitly |
+| Parameter/base transport | Prescribed reindexing and selected maps are retained |
+| Nonidentity presentation change | Transport goes through the accepted nonidentity comparison, never equality or backend `==` |
+| Structured result lifting | The complete structured result with its defining maps; a missing lift computation is a named gap |
+| Generic application/admission/binder | A new instance is read without notation-specific kernel cases or implementation-shaped upstream evidence |
+| Leaf replacement | Missing, wrong, malformed or unavailable implementations change computational outcomes only; checked with no leaves and with deliberately wrong leaves |
+
+### Gates
+
+Three families, as modifications of the existing compiler, checks and harness:
+- **A, build and boundary integrity.** The release checks under Lean; the kernel and contract
+  compile at the tuple; leaves contribute no Lean or semantic registration; the semantic reading
+  imports no leaf state; protected rules are evaluated from their accepted revision, and candidate
+  code runs without credentials that can alter them; a failing required check cannot be omitted.
+- **B, question permanence** (`gov-meaning-permanence`).
+- **C, B0 acceptance**: the required assertions and trials, compared per assertion identity and
+  outcome, never by file counts; the broader corpus is reported with its remaining gaps.
+
+A gate is kept only if it protects an explicit obligation or observed failure mechanism, judges
+actual code, data flow, types or execution rather than a label, cannot be changed and self-accepted
+by the candidate's author, and costs only at its boundary (Policy 5). Under that test:
+- the banned-construct ratchet's ban on `partial def` in kernel code does not protect a
+  mathematical obligation, and is corrected through the protected rule-change path (the seal is the
+  owner's); the actual obligation is that a pure algorithm required to terminate on valid input
+  does, and that effectful failure is reported as an implementation failure;
+- the `check_kernel_totality.py` exemption marker is a self-applied label and is replaced by the
+  outcome model of `cc-failure-strata`;
+- `check_authorship.py`'s trailers are self-declared; authority comes from configuration (below),
+  and the trailer check is not a B0 gate.
+
+### Authority configuration (`b0-authority`)
+
+The essential restrictions are on writing, commissioning, approving and replacing authoritative
+inputs, using existing GitHub controls:
+- the kernel worker's session holds no write credential for `lean-categories` and no tool to
+  commission its authors; upstream requirements come from the protected requirement revision;
+- protected branches require the applicable independent review, dismiss stale approvals, and allow
+  no bypass by worker credentials; the acceptance statements, accepted interpretations, evaluator
+  rules, owner requirements and the protection configuration are protected paths;
+- `lean-categories`' registry schemas and validators are upstream mathematical authority;
+- until a separate reviewer identity exists, the owner accepts trusted-boundary changes.
+
+Recorded here once when the worker can no longer modify or accept upstream semantics, protected
+acceptance or its judging rules through its tools. Ordinary kernel work does not wait on any other
+governance node: the `gov-*` nodes below are prerequisites only where a B0 row names them.
+
+### Disposition of outstanding work
+
+- **DSL #59, contract #5:** finish the registry-reader relocation as one integration change
+  (`b0-integration`). The moved `partial def`s are not a mathematical defect; their status follows
+  the corrected ratchet. Sound termination proofs for the manifest encoders are restored with it.
+- **DSL #58** (closed): source of candidate generic changes (the binder reader, the recognition of
+  element parameters, the domain reduction, instance synthesis before operand transport, the
+  admission domain). Each is recovered under its stage-B row after its upstream contract is
+  assessed; the catch that collapsed failure strata is not recovered; the whole branch is never
+  cherry-picked, and its suite counts are not evidence.
+- **`lean-categories` #72–#74 and `staging/binder-math`:** one independent upstream assessment of the
+  binder mathematics, schema and admission rule: first derive the required signatures,
+  parameters, obligations and constructions from the binder requirement and its sources; then
+  inspect the existing definitions and proofs against that; then keep correct work, repair
+  incorrect work upstream, and produce one accepted revision. The kernel stays pinned to its
+  accepted revision until then. The six-stage pin sequence is retired; its source history is kept.
+- **`gov-quarantine-evidence`:** resolved by the same assessment procedure, not as a standing label.
+- **`lean-categories` #75** (closed): stays closed.
+- Branches and worktrees are retired only after this consolidation, and only after checking they
+  hold no unique work.
+
+### Work selection and failure routing
+
+Each session starts from the accepted revisions and one B0 row. The exact defect is identified
+(rule, owning location, required behaviour), the whole generic repair is made with the cases the
+same rule generates, validated at the owning scale, committed as coherent source work, and reviewed
+once the obligation is met. A row closes only on its full acceptance.
+
+| Failure | Action |
+| --- | --- |
+| The kernel cannot consume valid released mathematics | Repair the kernel's generic interpretation; never send a desired term shape upstream |
+| Suspected defect in released mathematics | Independent assessment from the original requirement and sources; the consumer stays pinned until a correction is accepted |
+| A required backend computation is missing | Registration and glue against an existing engine; never narrow the operation |
+| Backend output lacks a defining map | Repair the implementation or the generic codec against the declared result form |
+| A gate rejects behaviour no obligation forbids | Correct the gate once through the protected rule-change path |
+| A review lacks a supported finding | Ask for the violated obligation and its evidence |
+| A prerequisite is external | Advance another B0 row, or report the exact blocking dependency |
+
+Progress is reported as B0 obligations completed, the source and execution evidence for each, and
+the obligations remaining; never as activity counts.
+
 ## Rules for executing this plan
 
 - **The evidence model governs every node** ([architecture.md](architecture.md), "The evidence
@@ -183,8 +365,6 @@ was checked against source before it was recorded here.
 | Node | Owner, finding, acceptance | Needs |
 | --- | --- | --- |
 | `gov-quarantine-evidence` | **Owner decision.** `lean-categories` `011d0be`, `a6222c2`, `82bd8ad`, `01b2f89` (membership evidence for the seven admissions) were written by a formalization subagent whose prompt carried the kernel's goal shapes and the orchestrator's test cases: information from implementation to formalization. They are unpinned and nothing builds on them. **Acceptance:** the owner keeps them, has a fresh formalization agent review them from the requirement alone, or reverts them. | — |
-| `gov-quarantine-binders` | **Owner decision.** The binder work for #46 (`specs/binders.md`) was done against the one-way workflow, and none of it is accepted as any row's output. (1) The orchestrator wrote `lean-categories` admission rules itself: the binder row schema and `validateBinder` (`10da7a2`, `d737e20`, `756a939`, with probes containing its own definitions) and a relaxation of `validateInclusion` (`8a9aa2f`, reverted in `a2e3fbe` after the custodian review of #58 rejected it). (2) The formalization subagent `formalization-binders-1` wrote the binder mathematics (`lean-categories` #73: `a5a36ad` … `79f73e6`; `f2b43c6`; the staging chain `18b1620` … `414645b`, `f5f02e7`) from prompts that carried kernel goal shapes, suite failures and the orchestrator's mathematical choices (which rows to drop, how to state an obligation so the kernel's `rfl` check closes it, goals copied from failing statements to be made provable): the failure `gov-quarantine-evidence` records, repeated. (3) The work was selected while `gov-quarantine-evidence`, `gov-orchestrator-containment` and `gov-meaning-permanence` were open, which precede all other work. All of it is merged into `lean-categories` `main` (#72, #73, #74) and pinned by no `lean-cas-dsl` `main`; the kernel branch built on it (#58) is closed, and #59 (the registry reader moved from the leaf contract into the kernel) is open, refused by the seal's ratchet only for the six `partial def`s it moves (`gov-ratchet-scope`). **Acceptance:** the owner keeps, has a fresh formalization agent review from the requirement alone, or reverts each of (1) and (2); nothing pins or builds on them before that. | — |
-| `gov-ratchet-scope` | **Owner (authority: the seal and `custodian/`).** The seal's banned-construct ratchet forbids a new `partial def` anywhere in `lean-cas-dsl`, and `custodian/FINDINGS.md` item 13 counts the kernel's `partial def`s as undefined-result paths. LC-14 forbids partial *mathematical* maps (an operation off its domain, `Matₙ(R)` inversion, a total convention off a domain); a `partial def` in kernel code (the elaborator's mutual recursion, the registry manifest's JSON codecs) is unproved termination of a program, not a partial map, and gives no term a meaning. The ratchet as scoped blocks moving code (#59) and pushes toward engineering substitutes (a fuel bound with failure on exhaustion, proposed 2026-10-01 and withdrawn). The same question applies to `unreachable!` and `panic!` in kernel code. **Acceptance:** the owner decides the ratchet's scope; the LC-14 obligation stays on semantics. | — |
 | `gov-orchestrator-containment` | **Owner (authority), orchestrator (proposal).** Close the holes in `specs/architecture.md`, "The orchestrator is inside the threat model". **Acceptance:** for each row, the discretion it names is removed, not relocated, and nothing the orchestrator writes can reinstate it. Progress is counted in classes of intervention made inexpressible (architecture.md, "The unit of progress"), never in commits, checks or passing examples. | — |
 | `gov-meaning-permanence` | **Owner (acceptance of the mechanism), orchestrator (proposal).** A permanent assertion is protected as a question, not as text: at admission, its elaborated proposition under the semantic reading is recorded, and a later kernel, parser or pin under which the same text elaborates to a different proposition fails. A change of interpretation is a transition that someone other than its author accepts. **Acceptance:** a kernel change that alters what an unchanged assertion denotes fails the build, and no orchestrator-writable exemption lets it pass. | `gov-orchestrator-containment` |
 | `gov-leaf-authority` | **Orchestrator (contract, kernel), leaf agent (leaves), acceptance agent (suite).** Design: [leaf-registration.md](leaf-registration.md). Every leaf-facing form is exactly a registration (operation id, input form, opaque implementation); nothing in the contract, the kernel, the tools or the suite consumes a leaf's denotation, proof, identification, evidence, status or self-test. The code gaps are listed in the section below, one per line. **Acceptance:** each listed gap is closed at its file; no leaf-facing form carries a functor, a proof, evidence or a status; every leaf is rewritten against the new contract (`gov-leaf-rewrite`); no acceptance assertion is established from a leaf's definitions, and the suite is run only from `lean-cas-dsl`. | `gov-roles` |
@@ -308,9 +488,8 @@ model that the delivered code does not meet; its code gap is listed under `gov-l
 
 ## Order
 
-Open, in this order: the `gov-*` nodes above; `gov-leaf-authority`, which the nodes marked
-**Open** wait on (its section lists their code gaps); then the `core-*` and `lc-*` specimens of the
-external review.
+B0 stages A to E, in that order, by the rows of the B0 acceptance table. The nodes below are
+detail for the rows that cite them; none is a prerequisite unless a B0 row names it.
 
 ## What is explicitly not in this plan
 
