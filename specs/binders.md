@@ -42,18 +42,23 @@ A binding operator is a registered **binder** row of the catalogue. Its fields a
   and registered evidence (LC-18): continuity, convergence at `a`, summability. An object of all
   maps has an admission with no hypothesis.
 
-A notation may have several binder rows (`∑` over a finite subset, and over a set of indices of a
-summable family). Which one reads a statement is decided by its arguments: a row reads it only if
-every argument unifies with its parameter.
+A notation may have several binder rows (`∑` over a finite subset, over the indices of a summable
+family in `ℝ`, in `R[[t]]`). Which one reads a statement is decided by its arguments and by the set
+its body lands in: a row reads it only if every argument unifies with its parameter and the
+operation's target unifies with the codomain of `t ↦ e`. Rows are never told apart by whether an
+instance happens to be found.
 
 The kernel's reading is one code path for every binder, and it names nothing:
-1. For each binder row whose `token` is the notation's, read the notation's arguments and unify them,
-   in order, with the operation's last explicit object and morphism parameters. Exactly one row must
-   read the statement. If none does, or more than one, the statement is invalid.
-2. `D := domain params`. The arguments determine `D`; if they do not, the statement is invalid.
-3. Read the body at a stage in `D`: `t` is a generic element of `D`. An operation that needs `t` in
-   a subdomain reaches it only along a registered inclusion (`ℝ ∖ {0} ↪ ℝˣ`), never by admission,
-   because a variable is never admitted.
+1. For each binder row whose `token` is the notation's, read the notation's arguments and unify
+   them, in order, with the operation's last explicit object and morphism parameters; then
+   `D := domain params`, the body at a stage in `D`, and the operation's target unified with the
+   body's codomain. Exactly one row must read the statement. If none does, or more than one, the
+   statement is invalid; when exactly one row takes the arguments, its failure to read the body is
+   the one reported.
+2. The arguments determine `D`; if they do not, the statement is invalid.
+3. The body is read at a stage in `D`: `t` is a generic element of `D`. An operation that needs `t`
+   in a subdomain reaches it only along a registered inclusion (`ℝ ∖ {0} ↪ ℝˣ`), never by
+   admission, because a variable is never admitted.
 4. Form the map `t ↦ e : D → Y'`, admit it into the operation's source `M` through `M`'s admission
    and registered evidence, and apply `operation` (the generic application of a registered family,
    as for any named morphism). If the evidence is not established, the statement is invalid.
