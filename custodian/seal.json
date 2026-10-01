@@ -338,7 +338,7 @@
   "custodian/review/prompt.md": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
   "custodian/review/review.py": "946a95e3223d43f657fa3faf78283506e7843e6dd63b12a852ad52e956c75301",
   "custodian/review/test_review.py": "97b7b4df180f1a4a035201b3d3bef7cb4d85e7c3a18074c13bbcd2d429ff7403",
-  "custodian/root.pub": "eab93a6afa15394de8dd9fcde8a10e649f559a6251415a30b93f35997beeac71",
+  "custodian/root.pub": "f4f71e2df92e64fe094950f1ba9f802c67f0d0acdff7acedd718021926298ffb",
   "custodian/verify.py": "cc0e6c70f4f078ed55ea8ec309aa0e65c2e1a501b7e9868b3abdff691e83e5f4",
   "justfile": "f66bec64172b12fd3908dffb918f662aaf6045d1af1a9c0385e266c86b9b4c5e",
   "lakefile.lean": "71406a5f237b3b0e8043bb22afe425b164e20c2912f2c2dda9d3d6bf75bf9e3f",
@@ -636,6 +636,6 @@
  "reviewer_keys": {
   "SHA256:bfp89HkETJWr2i5ODRUKfVxQ9SusQ4zKmPN8nwxqsyo": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8I2OkvASKq0Skj2qCIZt9O9NbA3ZwCaXvYbuAVvbxJ review\n"
  },
- "sealed_commit": "de506af5e215b5c4239a530b32fc947b88db792b",
+ "sealed_commit": "9819df7903d4338ec46f2764089d6f31ac68d367",
  "verifier_sha256": "cc0e6c70f4f078ed55ea8ec309aa0e65c2e1a501b7e9868b3abdff691e83e5f4"
 }
