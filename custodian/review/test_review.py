@@ -302,7 +302,9 @@ results.append(len(calls) == 1)
 fresh("construction")
 (S / "head" / "custodian" / "seal.json").write_text("{}")
 commit(S / "head")
-expect("construction: the seal is construction material", run(stub("approve")), "NO BLOCKING FINDING")
+calls.clear()
+expect("construction: the seal is construction material, not applied", run(stub("approve")), "PASS")
+results.append(not calls)
 
 fresh("construction")
 with open(S / "head" / KERNEL, "a") as f:

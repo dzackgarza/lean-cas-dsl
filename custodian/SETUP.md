@@ -57,9 +57,25 @@ just -f custodian/justfile verify
 
 ## 4. Rulesets
 
-`main`: pull requests only; required checks `Custodian review`, `seal` and every `Gates` job that
-is green on `main`, each with `integration_id` 15368 (GitHub Actions); pull requests up to date
-with `main`; no force push or deletion; an empty bypass list.
+**During B0 construction** (`custodian/phase.json` is `construction`), `main` is the integration
+source branch, not an accepted baseline release: no force push or deletion, an empty bypass list,
+and no pull-request requirement and no required checks, so ordinary fast-forward integration
+proceeds. The checks still run on every push and pull request as engineering validation. To apply
+it, remove the `pull_request` and `required_status_checks` rules from the `main` ruleset and keep
+`non_fast_forward` and `deletion`:
+
+```
+id=$(gh api repos/dzackgarza/lean-cas-dsl/rulesets --jq '.[] | select(.target=="branch") | .id' | head -1)
+gh api repos/dzackgarza/lean-cas-dsl/rulesets/$id \
+  | jq '{name, target, enforcement, conditions, bypass_actors,
+         rules: [.rules[] | select(.type=="non_fast_forward" or .type=="deletion")]}' > construction.json
+gh api -X PUT repos/dzackgarza/lean-cas-dsl/rulesets/$id --input construction.json
+gh api repos/dzackgarza/lean-cas-dsl/rules/branches/main --jq '.[].type'   # deletion, non_fast_forward
+```
+
+**After B0 acceptance** (steady phase): pull requests only; required checks `Custodian review`,
+`seal` and every `Gates` job that is green on `main`, each with `integration_id` 15368 (GitHub
+Actions); pull requests up to date with `main`; no force push or deletion; an empty bypass list.
 
 ```
 gh api -X POST repos/dzackgarza/lean-cas-dsl/rulesets --input main-ruleset.json

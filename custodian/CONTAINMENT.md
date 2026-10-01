@@ -3,6 +3,23 @@
 Written by the custodian session `session_01GTQeWD4KCqYCeVd4SygciY` on 2026-09-30. This file is
 inside the sealed boundary: a copy with different bytes is not this file.
 
+## Operating phase
+
+The phase is `custodian/phase.json` on `main`, read by the review from the base only: a candidate
+cannot select it. It is `construction` until B0 is accepted (specs/architecture.md, "Operating
+phase: B0 construction"). In construction:
+- the seal, its verdict chain and the rejection log are construction material, not applied, and
+  the orchestrator replaces this controller like any other part of B0;
+- the fixed obligations still fail every change: the ratchets, no leaf in the DSL, the leaf rules,
+  no semantic rows downstream, packages at their manifest revisions, and the admitted assertions
+  (`verify.py --construction` checks exactly these);
+- every other change to the boundary gets an independent technical review, which reports findings
+  and signs nothing.
+
+The phase becomes `steady` only after B0 is accepted at one revision tuple and the completed
+workflow has shown both its required rejections and ordinary development. The rest of this file
+describes the steady phase, except where it says otherwise.
+
 ## Trust anchor
 
 The seal `custodian/seal.json` is signed (`custodian/seal.json.sig`) with the owner's SSH key, by
@@ -97,21 +114,35 @@ reads the pull request's head. It gives one of five outcomes:
 | Outcome | When | What happens |
 | --- | --- | --- |
 | PASS | the head satisfies the seal in force | mergeable (once the other checks pass) |
-| FAIL (hard) | a ratchet or structural violation, a package that fails the package check, a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
-| APPROVED | sealed files changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
-| REJECTED | the reviewer rejected, refused, or could not review (too large: split it) | signed and appended to the `custodian/rejections` log; the same change against the same seal is never reviewed again |
-| ESCALATE | the reviewer found evidence that the change works against the threat model, and named it | the owner decides: an escalation verdict, or no merge |
+| FAIL (hard) | a fixed obligation is violated (a ratchet, a leaf rule, semantic rows downstream, a package check, an admitted assertion); in steady phase also a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
+| APPROVED (steady) / NO BLOCKING FINDING (construction) | boundary files changed, and the review found no blocking finding | steady: the signed verdict is posted; committing it unchanged makes the head PASS. Construction: the check passes; nothing is signed |
+| REJECTED (defect) (steady) / CHANGES NEEDED (construction) | the review demonstrated a defect: requirement, code path, correction | repair it; the revision is reviewed again. Steady: signed into the `custodian/rejections` log |
+| EVIDENCE NEEDED | a fact or argument is not established | supply it and re-run; not a rejection, nothing recorded |
+| REQUIREMENT DECISION NEEDED | the change would alter a requirement, completion standard or reserved authority | the owner decides that choice (steady: an escalation verdict) |
+| REVIEW NOT COMPLETED | the reviewer call failed, timed out or returned nothing usable | re-run it; no outcome was produced and nothing is recorded |
 
-The reviewer decides every sealed change, wherever it is: the kernel, an upstream rule file, a
+### Reconsideration
+
+The identical change against the same seal is not reviewed again merely to obtain another answer.
+It is reviewed again when it carries a substantive revision, or a pull-request comment beginning
+`Custodian reconsideration:` that names new evidence, corrected context or an error in a finding,
+followed by a re-run of the review job; the reviewer then sees the earlier findings and the
+request, as untrusted claims to verify. Each reconsideration text reopens a rejection once. The
+discussion stays in the pull request.
+
+The reviewer decides every boundary change, wherever it is: the kernel, an upstream rule file, a
 gate, a probe, an acceptance file or `custodian/` itself. A path is never evidence of a violation.
-Escalation is for a known violation, never for a change that only might be one.
+The owner is involved only for a change of requirement, completion standard or reserved
+authority. A change that preserves the governing obligations may remove, narrow, replace or
+relocate the control implementing them (specs/architecture.md, Policy 5).
 
-The reviewer is a single Claude Code call (`claude -p`) with no tools, no settings and no MCP
-servers, authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`). It gets the
-fixed prompt `custodian/review/prompt.md`, the owner's text, these rules and the diff of every
-changed sealed file, upstream rule files included. It never gets the orchestrator's description
-or argument. It approves only if every criterion holds, and a review never grows a ratchet's
-baseline.
+The reviewer is a Claude Code call (`claude -p`) with no tools, no settings and no MCP servers,
+authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one per batch of a large
+change. It gets the prompt `custodian/review/prompt.md` and, read from the base: the owner's texts
+(`specs/owner/`, `custodian/owner-intent.md`), these rules, the B0 policies and the B0 section of
+the plan. It gets each changed boundary file's diff and full text, upstream rule files included,
+and the unchanged helpers they name. It gets the pull request's description as the author's
+explanation: a claim to verify, never authority. A review never grows a ratchet's baseline.
 
 Escalation is the human-plus-agent review: the owner and an agent review the change together, then
 the owner signs:
@@ -136,10 +167,13 @@ either only makes heads fail.
    `just -f custodian/justfile verify` pass under the owner's fingerprint. "Delivered" markers,
    trailers and documents carry no acceptance.
 3. Never write a verdict. Commit exactly the verdict the review posted, unchanged. Never ask a
-   subagent to review in the reviewer's place, and never resubmit a rejected change unchanged.
-4. When an obligation looks inconsistent or unsolvable, say so in a pull request that names it. Do
-   not weaken it. The reviewer decides it like any other change.
-5. Never write under `custodian/`, except to commit a verdict the review posted.
+   subagent to review in the reviewer's place, and never resubmit a rejected change unchanged
+   without a reconsideration.
+4. A control that blocks required work is repaired like any defect: replaced by one that enforces
+   the actual obligation, through review. A requirement change goes to the owner.
+5. The controller (`custodian/`) is repaired through the same review as any other boundary change.
+   During construction the orchestrator writes it; it never writes a verdict or selects the phase
+   of the review that judges its own change (the phase is read from `main`).
 
 ## GitHub setup
 
@@ -162,7 +196,8 @@ fingerprint.
 
 - The reviewer is a model. It can approve a bad kernel change. What bounds the damage: only the
   kernel and the upstream rule files are reviewable, every ratchet still applies,
-  every approval is signed and attributable, and a rejection is final. `custodian/review/test_review.py` tests the
+  every steady-phase approval is signed and attributable, and an identical change is not reviewed
+  again without a reconsideration. `custodian/review/test_review.py` tests the
   loop with the model stubbed; the end-to-end pull requests in `custodian/SETUP.md` test the live
   workflow and the real model call.
 - The loop rests on the one-time setup above. Without the `main` ruleset and the environment's
