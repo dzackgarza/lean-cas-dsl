@@ -72,8 +72,10 @@ run_cmd liftTermElabM do
     throwError "the returned pullback is not a limit cone"
   unless (cone.find? (·.isConstOf ``CasCatalogue.liftedLimitCone)).isSome do
     throwError "the pullback of finite sets is not returned along the lift"
-  let some (.limit id _) ← (trace.node? cone : IO _)
+  let some (.limit id _ lift) ← (trace.node? cone : IO _)
     | throwError "the pullback is not recorded as a registered limit"
   unless id.raw == "lim.sets.pullback" do throwError "recorded as {id.raw}"
+  unless lift.map (·.raw) == some LiftId.finiteSetsPullbacks.raw do
+    throwError "the pullback of finite sets is recorded along {lift.map (·.raw)}"
 
 end CasCatalogue.LiftLimitProbes

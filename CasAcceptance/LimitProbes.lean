@@ -51,9 +51,10 @@ run_cmd liftTermElabM do
     throwError "the pullback is not a limit cone"
   unless (cone.find? (·.isConstOf ``CasCatalogue.limitConeOfIso)).isSome do
     throwError "the pullback is not the registered presentation identified with the diagram"
-  let some (.limit id _) ← (trace.node? cone : IO _)
+  let some (.limit id _ lift) ← (trace.node? cone : IO _)
     | throwError "the pullback is not recorded as a registered limit"
   unless id.raw == "lim.sets.pullback" do throwError "recorded as {id.raw}"
+  if let some lift := lift then throwError "the pullback in sets is recorded along {lift.raw}"
   -- No equalizer is registered in sets, nor returned to it along a lift: invalid.
   let stratum ← try
       discard <| Semantic.limit false "equalizer"
