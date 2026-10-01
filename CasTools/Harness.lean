@@ -18,7 +18,7 @@ with `#cas_tests`, through the registrations of the manifest `FILE` (by default 
 leaves', `CasCatalogue.Realize.leavesManifest`). The leaves see neither the suite nor the harness:
 a leaf is a manifest and the programs it names, imported by nothing (`specs/leaf-registration.md`).
 It prints each file's report, writes every result as JSON to the report file, and exits nonzero if
-a test is wrong, malformed or invalid. Gaps are its output: the implementations the suite derives.
+a test fails (`Outcome.fails`). Gaps are its output: the implementations the suite derives.
 -/
 
 open Lean Elab
