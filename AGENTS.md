@@ -163,6 +163,8 @@ Consequences, binding on every agent and first of all the orchestrator:
   pull request, review or signature is used only where it performs a needed decision or validation
   (Policy 1).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
+- **Chat carries only what needs the owner's action or decision.** Process narration (what was
+  done, found, pending) goes to [`JOURNAL.md`](JOURNAL.md), committed; a chat reply points to it.
 - **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
   backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
   orchestrator is inside the threat model", for the holes known now. Do not widen them.
