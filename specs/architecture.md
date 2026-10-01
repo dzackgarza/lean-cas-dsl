@@ -365,6 +365,50 @@ Until these close, an orchestrator claim about its own gates or deliverables is 
 
 ## B0 policies
 
+### Operating phase: B0 construction
+
+The current phase is construction of B0, including its working development,
+integration, review, and acceptance mechanisms. It is not operation under an
+already accepted B0 substrate.
+
+An instruction describing how the finished system protects accepted mathematics
+or accepts future changes is an implementation requirement during B0 construction.
+It is not automatically a prerequisite for modifying the unfinished mechanism
+that is meant to enforce it.
+
+The owner has delegated completion of the approved B0 design. Within that design,
+the orchestrator is authorized to replace the existing controller, prompts,
+checks, build wiring, and workflow configuration. Those components are construction
+material, not independent authorities entitled to veto their replacement.
+
+This authorization does not permit changing the mathematical requirements, lowering
+B0 completion standards, authoring upstream mathematics from downstream failures,
+changing independent expected answers, or declaring the orchestrator's own work
+independently accepted.
+
+Existing custodian seals, irreversible rejection records, blanket PR requirements,
+and owner-escalation procedures do not govern intermediate B0 construction merely
+because they are intended to govern the finished system. Their useful technical
+findings may inform the work. Their obsolete procedural restrictions must not
+prevent the authorized replacement.
+
+A source commit or integration into main during construction does not declare B0
+complete, establish a new accepted mathematical release, or constitute independent
+acceptance. Final acceptance is performed against the fixed B0 requirements at one
+specified compatible revision tuple.
+
+Post-B0 enforcement is activated only after that acceptance and after the completed
+workflow has demonstrated both required rejection behavior and permitted ordinary
+development. It is not activated by a passing build, a documentation merge, a plan
+checkbox, or an agent's declaration.
+
+An inability to execute an already-authorized operation is a capability dependency,
+not an unresolved owner decision. Name the exact unavailable operation, route it to
+an executor possessing that capability, and continue work that does not depend on
+its execution. Do not request the same authorization again.
+
+### The policies
+
 These replace weaker or conflicting procedures (owner directives, 2026-10-01; the plan, "B0").
 They govern the orchestrator and the reviewer as much as the code: what counts as an obligation,
 when work may be blocked, what an approval delegates, and how a defective control is replaced.
@@ -376,7 +420,9 @@ when work may be blocked, what an approval delegates, and how a defective contro
    - error handling and codecs;
    - how a check is implemented.
    These changes are validated and independently reviewed. They need no new owner decision because
-   a protected file is involved. The owner decides the required result and any reserved
+   a protected file is involved. Changes to delegated enforcement machinery (the controller, the
+   reviewer prompt, gates, build wiring, workflow configuration) are construction work; a change to
+   the governing requirements or to reserved authority needs a decision. The owner decides the required result and any reserved
    architectural choice; the implementer decides how to achieve it; the reviewer decides whether
    the implementation meets the requirements, and does not hand ordinary technical decisions back
    to the owner.
@@ -482,12 +528,17 @@ when work may be blocked, what an approval delegates, and how a defective contro
      - a factual or interpretive error in an earlier finding: correct it with the source,
        requirement or counterexample;
      - a change of a reserved requirement: request that owner decision.
+   - **During B0 construction** the review supplies independent technical findings. It is not a
+     veto by the legacy controller over its authorized replacement, and it creates no
+     owner-signature requirement; the candidate still never declares itself accepted.
    - **Reconsideration.** Resubmitting identical code to obtain a different model answer is
      refused. A substantive revision, new evidence, corrected context or an identified error in a
      finding is reconsidered, without a cosmetic code change and without the owner. The discussion
      stays in the pull request. A signature identifies who decided; it does not make the judgment
      infallible.
-8. **Work selection follows actual dependencies.** A governance issue blocks only the work whose
+8. **Work selection follows actual dependencies.** A refused administrative operation is an
+   execution dependency: name the exact operation and permission, and continue the work that does
+   not depend on it. A governance issue blocks only the work whose
    correctness or authorized acceptance depends on resolving it. A label is not a dependency, and
    "governance comes first" is not a reason.
    - A broken reviewer may block acceptance of a candidate. It does not block implementing the

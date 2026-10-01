@@ -6,7 +6,14 @@ name: Custodian review
 on:
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
+    # A descriptive edit outside the boundary is not reviewed (CONTRIBUTING, "Documentation and
+    # construction work"); the owner's texts and custodian/ are.
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "specs/owner/**"
+      - "custodian/**"
 permissions:
   contents: write # the rejection log branch only
   pull-requests: write # the verdict comment
@@ -47,6 +54,17 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
       - name: Install Claude Code (the reviewer)
         run: bun add --global @anthropic-ai/claude-code@2.1.285
+      - name: The author's explanation and any reconsideration request (untrusted data)
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const fs = require('fs');
+            fs.writeFileSync('explanation.md', context.payload.pull_request.body || '');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number});
+            const asks = comments.filter(c => (c.body || '').startsWith('Custodian reconsideration:'));
+            fs.writeFileSync('reconsideration.md', asks.length ? asks[asks.length - 1].body : '');
       - name: Review
         id: review
         env:
@@ -59,7 +77,8 @@ jobs:
           python3 base/custodian/review/review.py --base base --head head \
             --trusted-fpr "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI" --signing-key "$key" \
             --out out --rejections rejections \
-            --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }}
+            --pr ${{ github.event.pull_request.number }} --head-sha ${{ github.event.pull_request.head.sha }} \
+            --explanation explanation.md --reconsideration reconsideration.md
       - name: Append to the rejection log
         if: always()
         run: |
@@ -87,4 +106,4 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: fs.readFileSync('out/comment.md', 'utf8') + '\n---\n_Custodian review (pull_request_target on main)_\n'});
+              body: fs.readFileSync('out/comment.md', 'utf8') + '\n---\n_Custodian review (pull_request_target on main). A finding you can show to be wrong: comment `Custodian reconsideration:` with the evidence, then re-run this job._\n'});

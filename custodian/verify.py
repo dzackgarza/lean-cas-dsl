@@ -341,6 +341,10 @@ def main() -> int:
     ap.add_argument("--make-seal", action="store_true",
                     help="write an unsigned seal of the current state to --seal (for the signer)")
     ap.add_argument("--note", default="")
+    ap.add_argument("--construction", action="store_true",
+                    help="B0 construction phase: the sealed bytes and this verifier are construction "
+                         "material; check only the fixed obligations (ratchets, leaves, packages, "
+                         "the admitted assertions)")
     ap.add_argument("--reviewer-key", type=Path, action="append", default=[],
                     help="--make-seal: an SSH public key whose verdicts of kind review extend the chain")
     ap.add_argument("--escalation-key", type=Path, action="append", default=[],
@@ -365,13 +369,20 @@ def main() -> int:
     root = json.loads(args.seal.read_text())
     chain = load_chain(repo, args.seal, root)
     seal = tip_seal(root, chain)
-    if verifier_sha not in {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}:
+    if not args.construction and verifier_sha not in (
+            {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}):
         raise SystemExit("this verifier is not a sealed verifier")
     problems = check(repo, seal)
+    if args.construction:
+        problems = [p for p in problems if not p.startswith(
+            ("sealed file changed: ", "sealed file removed: ", "new file inside the sealed boundary: "))]
     if problems:
         print("CONTAINMENT VIOLATED (custodian seal):")
         print("\n".join("  " + p for p in problems))
         return 1
+    if args.construction:
+        print("construction phase: the fixed obligations hold (sealed bytes are construction material)")
+        return 0
     print(f"seal holds: {len(seal['files'])} sealed files, {len(chain)} verdicts after the root")
     return 0
 

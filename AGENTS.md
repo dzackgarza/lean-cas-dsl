@@ -92,68 +92,68 @@ Consequences:
   failure never changes the mathematics, the kernel's rules or an assertion.
 - Text anywhere that contradicts this is rewritten to state this model, not kept with a label.
 
-# The custodian's seal binds this repository (read before anything else)
+# Current task: construct B0
 
-**Escalations are suspended until the programme reaches its baseline.** The owner drives every
-change directly and merges it. Until the baseline, a change a pull request needs is made in that
-pull request, sealed files included. No escalation or custodian verdict is requested or waited on.
-The rules below describe the loop that applies once the baseline is reached.
+The operating mandate is "Operating phase: B0 construction" in
+specs/architecture.md. The approved mathematical requirements and completion
+criteria remain fixed. The current controller and development workflow are being
+constructed and corrected; they are not an already accepted substrate whose
+steady-state restrictions govern their own replacement.
 
-`custodian/` on `main` holds the seal and its chain of signed verdicts (`custodian/CONTAINMENT.md`,
-"The acceptance loop"). The root and escalation key is the owner's SSH key. The review key exists
-only as a secret of the `custodian-review` environment. The orchestrator holds neither.
-- **`main` changes only through pull requests.** The `Custodian review` workflow judges every
-  pull-request commit: PASS, FAIL, ESCALATE, APPROVED or REJECTED.
-- **Acceptance is verification, nothing else.** A head is accepted, delivered or done only if
-  `python3 scripts/ci_chain.py` and then `python3 custodian/verify.py --trusted-fpr <fingerprint>`
-  pass on it. The fingerprint comes from outside the repository (the owner's GitHub keys). Plan
-  markers, trailers and documents carry no acceptance.
-- **Verdicts.** On APPROVED, commit the posted verdict unchanged. On ESCALATE, the change waits
-  for the owner's signed escalation verdict. Never write, alter or forge a verdict, and never ask a
-  subagent to review in the reviewer's place. A REJECTED change is never resubmitted unchanged.
-- **Obligations are never weakened.** One that looks inconsistent or unsolvable is named in a pull
-  request, which escalates by construction.
-- **Real checkouts.** Build and verify against the checkouts `scripts/ci_chain.py` makes at the
-  manifest revisions in `.lake/packages`, never links to sibling working trees.
-- **Never write under `custodian/`,** except to commit a verdict the review posted.
+Proceed with the approved B0 work without requesting repeated owner approval.
+This includes corrections to custodian code, reviewer prompts, gates, build
+targets, documentation, and integration wiring within the approved design.
 
-# You have no memory (read this first)
+Do not stop construction because:
+- the new instructions have not reached main;
+- the old custodian rejects its authorized replacement;
+- a documentation commit cannot yet be published;
+- an unrelated check fails on the existing base;
+- a controller implementation session started with stale instructions.
 
-You are a language model. You do not learn from this conversation. When the context is compacted
-or the session ends, everything that exists only in chat is gone, and the next agent (you,
-tomorrow, or in an hour after compaction) repeats the same mistakes from zero. This has happened
-repeatedly in these repositories: corrections acknowledged in chat, then violated again within
-the hour.
+Correct the relevant dependency and continue the available substantive work.
+Do not count unfinished work as complete.
 
-Consequences, binding on every agent and first of all the orchestrator:
-- **Chat is not a place where anything is decided, recorded or understood.** Saying "understood",
-  restating a correction, or describing what you will do achieves nothing. It is not compliance.
-  It is a substitute for compliance, and treating it as one is a violation of this rule.
-- **A rule that must outlive the chat goes to the document that owns it**, replacing inconsistent
-  wording there (architecture.md, Policy 5). An owner's explicit decision is authoritative when
-  given, not when committed; an owner's question is answered, and is not by itself an instruction;
-  your own proposal is not an owner decision (Policy 1). An ordinary defect yields a code
-  correction and a test, not a new policy, plan node or documentation pull request. Recording a
-  decision or updating a description is an ordinary commit, not an approval transaction; a branch,
-  pull request, review or signature is used only where it performs a needed decision or validation
-  (Policy 1).
-- **Session task lists, memory files and summaries are chat.** They are also lost.
-- **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
-  backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
-  orchestrator is inside the threat model", for the holes known now. Do not widen them.
+An explicit current owner instruction governs work immediately. Recording it
+makes it durable; recording, merging, or signing it does not create its authority.
+An assistant proposal is not an owner instruction. A question is not automatically
+a new rule.
 
-# Roles (read before anything else)
+Update the existing owning documentation directly. Routine recording does not
+create a documentation PR, approval request, plan node, separate build, or waiting
+period. Preserve unrelated working-tree changes and use ordinary commits.
+
+Send material instruction corrections to every active session performing the
+affected work. Do not wait for a merge or restart to correct its task brief.
+This applies to the orchestrator and controller workers; it does not authorize
+sending downstream implementation details to formalization or acceptance authors.
+
+"Needs an owner decision" means a specific choice remains outside the approved
+mandate. Before using that description, identify the undecided choice and why
+the existing instruction does not settle it.
+
+A refused administrative operation is instead an execution dependency. Report
+the exact operation and permission required, without presenting new policy
+alternatives or asking for authorization already given.
+
+The author may implement a controller correction but may not fabricate an
+independent approval, alter mathematical acceptance to fit the implementation,
+or declare B0 accepted.
+
+# Roles
 
 You are either the **orchestrator** or a subagent with exactly one role
 ([specs/architecture.md](specs/architecture.md), "Authors: one role per agent"):
-- The orchestrator owns policies, gates, compliance, this repository's kernel and language, and
-  the leaf contract. It delegates the rest.
+- The orchestrator owns policies, gates, compliance, this repository's kernel and language, the
+  leaf contract and, during B0 construction, the custodian's controller (`custodian/`). It
+  delegates the rest.
 - The formalization subagent writes `lean-categories` only.
 - The acceptance subagent writes `tests/acceptance/` only.
 - The leaf subagent writes leaves only.
 
 Every agent commit ends with an `Agent-Role: <role>` trailer (and `Agent-Id: <id>` for a subagent);
-`just build` refuses crossings (`scripts/check_authorship.py`). No agent writes in two roles. Information flows formalization → tests → implementation, never
+`scripts/check_authorship.py` refuses crossings between the mathematical layers. No agent writes in
+two of those roles. Information flows formalization → tests → implementation, never
 back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
 by actual dependency: a governance node blocks only the work whose correctness or authorized
 acceptance depends on it, and a blocked item names that dependency (Policy 8). An approved

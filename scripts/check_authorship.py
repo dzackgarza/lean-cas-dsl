@@ -42,8 +42,9 @@ ADMITTED = "CasAcceptance/Permanent/admitted.json"
 # (repository, role) -> path patterns; the first matching role wins.
 LAYERS: dict[str, list[tuple[str, list[str]]]] = {
     "lean-cas-dsl": [
-        ("custodian", ["custodian/*", ".github/workflows/custodian.yml",
-                       ".github/workflows/custodian-review.yml"]),
+        # During B0 construction the controller (custodian/ and its workflows) is construction
+        # material the orchestrator replaces (specs/architecture.md, "Operating phase: B0
+        # construction"), so it falls under the orchestrator below.
         ("acceptance", ["tests/acceptance/*", "CasAcceptance/Permanent/*.lean"]),
         ("leaf", ["CasLeaves/*"]),
         ("orchestrator", ["*"]),

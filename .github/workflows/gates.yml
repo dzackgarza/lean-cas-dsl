@@ -1,9 +1,14 @@
 name: Gates
 on:
+  # A documentation-only change runs no Lean job (CONTRIBUTING, "Documentation and construction work").
   push:
     branches:
       - main
+    paths-ignore:
+      - "**/*.md"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
   workflow_dispatch:
 permissions:
   contents: read

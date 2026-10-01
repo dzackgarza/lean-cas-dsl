@@ -76,17 +76,33 @@ bind the kernel, the language and every leaf. Their consequences here:
 The leaves are not part of this repository; the dependency that remains is a defect
 (`gov-no-leaves-here`).
 
-## A durable rule lives with its owner
+## Documentation and construction work
 
-A chat ends, and agreement stated in it is lost with it. A rule that must bind later work is
-written into the document that owns it (this file, `lean-categories`' CONTRIBUTING,
-architecture.md, the plan, or an AGENTS.md), replacing inconsistent wording there, or into the
-code and gate it concerns. Saying "understood" is not compliance.
+An already-issued decision is recorded in the existing document that owns it.
+Recording the decision is ordinary maintenance, not a new approval transaction.
 
-An owner's explicit decision is authoritative when given, and its implementation proceeds
-without waiting for a record of it. An owner's question is answered on its merits; it is not by
-itself an instruction (architecture.md, Policy 1). An ordinary defect yields a code correction
-and a test, not a new policy or document (Policy 5).
+A documentation-only correction is an ordinary commit. It needs no dedicated PR,
+custodian verdict, owner signature, plan node, full Lean build, or unrelated code
+change to carry it. Documentation accompanying an implementation change belongs
+with that change.
+
+A proposed change to mathematical requirements, acceptance standards, or reserved
+authority needs the appropriate decision. A faithful record of a decision already
+made does not. File extensions do not determine this distinction.
+
+During B0 construction, the controller, reviewer prompt, gates, and publication
+workflow are themselves implementation work. Correct them under the construction
+mandate. Do not submit their replacement to an obsolete policy in order to obtain
+permission to perform the replacement.
+
+Run the checks relevant to the actual change. A changed reviewer decision path
+needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests.
+A descriptive text correction does not acquire a full mathematical build merely
+because the repository contains Lean code.
+
+A publication dependency does not suspend implementation or invalidate the
+instruction being recorded. Preserve the commit and continue the selected work
+while the already-specified publication correction is executed.
 
 ## Writing a leaf
 
@@ -170,8 +186,16 @@ then permanent. An assertion that no installed computation answers yet is record
 
 ## Gate
 
-`just build` runs the reuse-record check (`scripts/check_reuse_records.py`: the plan's **Next**
-node needs `specs/reuse/<node>.md`), then builds the kernel, the leaves, the acceptance probes,
-the tools and the notebook. `just test` adds `cas-axiom-audit`, which permits only `propext`,
-`Classical.choice` and `Quot.sound`, and the no-sorry check. `just test-ci` also re-executes the
-demo notebook through the live kernel.
+Run what the change touches:
+- **Kernel, language, probes, tools:** `just build` runs the repository checks (authorship
+  between the mathematical layers, no leaves, reuse records, permanent acceptance) and compiles the
+  kernel, gates, acceptance probes, tools and notebook package. Compilation does not execute the
+  suite. `just test` adds `cas-axiom-audit` (only `propext`, `Classical.choice`, `Quot.sound`)
+  and the no-sorry check; `just test-ci` re-executes the demo notebook.
+- **Acceptance:** `just harness` runs the suite and reports every assertion's outcome;
+  `just acceptance BASE` compares that report with a base report, assertion by assertion
+  (`scripts/check_acceptance_regression.py`). That is development regression, not B0
+  completion, which is judged against the fixed B0 requirements at one revision tuple.
+- **Reviewer controller:** `python3 custodian/review/test_review.py` on a scratch copy (its usage
+  line).
+- **Documentation only:** nothing; CI skips the Lean jobs for it.

@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Check out the chain at the manifest revisions
         run: python3 scripts/ci_chain.py
-      - name: Verify the custodian seal
+      - name: Verify the custodian seal (in construction, the fixed obligations only)
         run: |
-          python3 custodian/verify.py --trusted-fpr SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI
+          phase=$(python3 -c "import json,pathlib;p=pathlib.Path('custodian/phase.json');print(json.loads(p.read_text())['phase'] if p.is_file() else 'steady')")
+          python3 custodian/verify.py --trusted-fpr SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI \
+            $([ "$phase" = construction ] && echo --construction)

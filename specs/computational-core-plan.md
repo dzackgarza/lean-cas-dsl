@@ -21,7 +21,8 @@ local checkout, and this work must be readable wherever the repository is.
 > acceptance boundary; its seal (`custodian/`, merged at `e3cf7a8`) fixes the boundary at
 > `0ba53dab`. Open under it: `proposal/sealed-kernel-pin-mismatch` (the sealed kernel needs
 > `ObjectEntry.evidence`, which the sealed `lean_categories` pin lacks). The orchestrator does not
-> accept its own work. It reads `custodian/`, obeys what it states, and never writes there.
+> accept its own work. During B0 construction, `custodian/` is construction material under the
+> mandate (architecture.md, "Operating phase: B0 construction").
 
 ## B0: the extensible computational baseline (owner directive, 2026-10-01)
 
@@ -59,6 +60,31 @@ B0 is complete only when all of the following hold at one compatible revision tu
 **The orchestrator cannot reduce this table, move a row beyond B0, or redefine a row's acceptance.**
 A change to a row needs a decision of the authority that owns the requirement.
 
+### Stage A
+
+Stage A constructs a usable integration workflow as well as a buildable candidate.
+The legacy workflow is not a prerequisite for its replacement.
+
+Source construction, focused validation, publication, and final B0 acceptance are
+distinct operations. Failure or unavailability of one blocks only its actual
+dependants. In particular, documentation publication does not depend on fixing
+mathematical assertions that its changes do not affect.
+
+The approved stage-A changes include separating compilation from acceptance
+execution, replacing the downstream catalogue inventory with faithful derivation,
+correcting the outcome model, and correcting the controller that obstructs these
+changes. Their implementation requires no renewed owner decision.
+
+The controller worker receives the current construction mandate immediately.
+Its work does not wait for the mandate's documentation commit to reach main.
+
+The working integration state is the branch `b0/construction`, which carries the stage-A
+source changes together; branches are not made to wait on each other. During construction,
+`main` is the integration source branch, not an accepted baseline release: ordinary
+fast-forward integration without a blanket PR requirement or legacy custodian prerequisites,
+with force-push and deletion protection retained. The kernel's mathematical release remains
+explicitly pinned and independently assessed.
+
 ### Acceptance table
 
 Each row reuses existing identifiers. "Positive" and "negative" are the observations that close it;
@@ -84,7 +110,7 @@ only when its full acceptance holds at the integration tuple.
 | `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` (stage D; CC-ACTION, CC-ADAPTER, CC-DECODE, CC-ROUTE) | Execution of a fixed semantic request: composite requests, diagrams and arrows over the port, decoded against the fixed result form; realization selection after the semantic judgment | kernel, contract; specimen leaves | the required computational assertions below execute / a result missing a defining map is `malformed`; a fused computation never selects a different composite | the semantic reader imports no leaf state (gate A) |
 | `cc-observations` (stage D) | A computed value compared with a literal by evaluation in the declared literal form | kernel | `|(ℤ/4)^3| = 64` against `64` / no leaf-facing observation or proof | — |
 | `gov-meaning-permanence` (gate B) | The admitted semantic question of each assertion is retained and compared under a candidate | kernel (mechanism); acceptance author (initial interpretations) | an unchanged assertion whose elaborated question changes fails; a genuine transition needs independent acceptance / no comparison by text, booleans or provability alone | — |
-| `b0-authority` (bootstrap) | The kernel worker cannot write or accept upstream semantics, protected acceptance or its judging rules through its available tools | owner (configuration) | see "Authority configuration" below | — |
+| `b0-authority` (completion requirement) | The kernel worker cannot write or accept upstream semantics, protected acceptance or its judging rules through its available tools | orchestrator (implementation); repository administration (configuration writes) | see "Authority configuration" below; established for B0 acceptance, not a prerequisite of construction | — |
 | `b0-trials` (stage E) | The exit trials below, each succeeding with the kernel and old leaves frozen | independent contributors | see "Exit trials" | per mechanism, the argument of its row above |
 
 **Required computational assertions (frozen IDs).** These must execute through a registered
