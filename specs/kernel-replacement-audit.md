@@ -27,7 +27,7 @@ By node:
 | `core-selected-transport` | mostly EXISTS; missing point functors, level shift, image categories, general result lifting |
 | `core-inheritance-coherence` | mostly EXISTS; comparisons are provenance only (never applied to data), no formal/executable split, no invertible cell calculus, no centrally derived comparisons |
 | `core-properties-refinement` | about half; missing same-object refinement, `assume`, classifier intersection and sibling containment, reindexing identities |
-| `core-static-and-boundaries` | about half; missing import-level boundaries, generated checks for trusted actions |
+| `core-static-and-boundaries` | about half; missing import-level boundaries; leaves still ship Lean |
 | `core-functor-cell-calculus` | syntax only; natural transformations not registered or exercised; no inverses, `Op`, `Mor` tower, functor-property categories |
 | `core-indexed-calculus` | mathematics exists (fibrations, fibres, reindexing); registry has only discrete-parameter families; adjunctions, equivalences, Yoneda unregistered |
 | `core-universal-calculus` | essentially GAP: no diagrams, cones, limits, mediators, adjunctions, Kan extensions in the registry; only subobject inclusion/meet |
@@ -59,7 +59,7 @@ By node:
 
 | obligation | sage-categories locator | Lean status | Lean locator / missing capability |
 |---|---|---|---|
-| Functor = object action + morphism action; composite `G*F` | functor.md "Functors as morphisms of `Cat`", "Functor actions are concrete constructors" | EXISTS | `Action.lean:RealizedAction`, `Realizes.comp`; `Syntax.lean:FunctorExpr.comp`; probes `ResolveProbes`, `LiftProbes` |
+| Functor = object action + morphism action; composite `G*F` | functor.md "Functors as morphisms of `Cat`", "Functor actions are concrete constructors" | EXISTS (semantics) | `Syntax.lean:FunctorExpr.comp`, the functors' actions in `lean-categories`; probes `ResolveProbes`, `LiftProbes`. Executing a step on presented data is a leaf computation against the step's declared type, believed by nothing |
 | Identity functor | same | EXISTS | `FunctorExpr.identity` |
 | `Fun(C,D)` as a category, evaluation, composition functors | "Functor-category calculus" | PARTIAL | `Constructors.lean:functorCategory` (only `endofunctorsSets` registered); no `ev(i)`, `Fun.composition`, `Fun.evaluation` |
 | Natural transformations: vertical, horizontal composition, whiskering | "Functors as morphisms of Cat", "Functor-category calculus" | PARTIAL | `NatTransExpr.{identity,atomic,vcomp,hcomp}`, `Interpretation.lean:evalNatTrans`; no registry row kind, no consumer |
@@ -124,7 +124,7 @@ By node:
 | Intersections as retained pullbacks | "Property containment" | PARTIAL | no classifier intersection |
 | Inverse images `F⁻¹(P)` with both projections | "Inverse images"; functor.md "Inverse-image subcategories" | EXISTS | `CategoricalPullback.lean:Classifier.reindex` |
 | Identities `F⁻¹(C)=D`, `i⁻¹(P)=P`, associativity | functor.md "Inverse-image subcategories" | GAP | `ReindexIdIso`/`ReindexCompIso` have no instances |
-| Same-object refinement on a positive answer, preserving identity, data, images | "Same-object refinement" | GAP | a proved `Decision` never yields an object of the refinement |
+| Same-object refinement on a positive answer, preserving identity, data, images | "Same-object refinement" | GAP | a proof of the property (in `lean-categories`, or discharged by the kernel) never yields an object of the refinement; a leaf's answer never places an object |
 | `assume(p)`/`retract(p)`, ambient hypotheses | undecidable-properties.md "Assumptions" | GAP | — |
 | Morphism properties from `Mor(C)` (Mono/Epi/Iso/Aut) | functor.md "The Mor(n, C) tower" | PARTIAL | `isMonoArrow`, `Subobjects(C)` only |
 | Fixed-endpoint functor properties; endpoint mismatch rejected | functor.md "Functor property subcategories" | PARTIAL | endpoint typing holds; property categories missing |
@@ -229,9 +229,9 @@ Caveat from the audit: Mathlib declaration names in PARTIAL (Mathlib) rows were 
 | Constructor parameters, Hom endpoints, functor variance survive statically | functor.md (static projection) | EXISTS | `FunctorExpr : CategoryExpr → CategoryExpr → Type`, `Interpretation.evalFunctor`; `ResolveProbes`, `ActionProbes` |
 | Refinement identities and selected structures | same | EXISTS | `CategoryExpr.refine`, `RefinementRealization`; `PropsProbes` |
 | Generated surface matches runtime | TODO `core-static-and-boundaries` | EXISTS | `RegistryState.closure`; `ClosureProbes` |
-| Leaves cannot reach compiler/retention/native internals | same | PARTIAL | `Adapter.lean` forbidden contributions (`AdapterProbes`), `ExportBoundaryProbe`; no import-level restriction on what a leaf module may import |
+| Leaves cannot reach compiler/retention/native internals | same | PARTIAL | `Adapter.lean` forbidden contributions (`AdapterProbes`), `ExportBoundaryProbe`. A leaf ships no Lean and reaches nothing but its registration; today leaves are Lean modules |
 | Module classification, protected modules, indirect-import contracts | same | GAP | — |
-| Checks derived from declarations (category, functor, transport, universal, reconstruction) | same | PARTIAL | laws as proof fields, `Action.Realizes`, `CertifiedImplementation`; trusted actions carry no proof and get no generated test |
+| Checks derived from declarations (category, functor, transport, universal, reconstruction) | same | PARTIAL | laws as proof fields in `lean-categories`; a computation is checked only by the permanent acceptance suite, never by a proof or certificate a leaf supplies |
 | Diagnostics without string dispatch | same | PARTIAL | typed errors, but ids are strings (`"cat.x"`) |
 
 ### kernel-cat-complete
@@ -287,9 +287,9 @@ node (named). *Leaf drift*: leaf features or leaf mathematics, not kernel replac
 | commit | content | class | core finding / owner |
 |---|---|---|---|
 | `b5d49e6` | plan row and spec §6 for `cc-dsl-migration` | core (ledger) | — |
-| `6947b8c` | ring diamond in the notebook; table realizers carry homomorphisms; ring-port table actions; `#explain_route` names comparisons | probe finding | realizers admitting only identity morphisms cannot carry functor actions (CC-ACTION / `cc-realize`); the resolver picks the first route of a comparison class and never applies the comparison (`core-inheritance-coherence`, audit finding 4) |
-| `a65656e` | `(ZZ/p)[x]/(f)` presentations, `QuadraticAlgebra` tables, `x ↦ y+2` isomorphism, object equality refused naming isomorphisms | leaf drift, one probe finding | equality of objects is not decidable from presentations; isomorphisms are registered data (CC-CARRIER); the notebook's equality is not category-owned (`core-properties-refinement`, "Equality") |
-| `f067d66` | Gram-matrix encoders for `BilinModules(ZZ)` / `Lattices(ZZ)` | leaf drift (out of scope: a finite-free realization detail placed in the notebook layer, presenting a bilinear module as a matrix), one probe finding | leaf codecs are hard-coded in `CasDsl/Semantic.lean:encode` instead of being contributed by the leaf's adapter (CC-ADAPTER / CC-DECODE) |
+| `6947b8c` | ring diamond in the notebook; table realizers carry homomorphisms; ring-port table actions; `#explain_route` names comparisons | probe finding | functor steps on presented data had no execution path of their own (CC-ACTION); the resolver picks the first route of a comparison class and never applies the comparison (`core-inheritance-coherence`, audit finding 4) |
+| `a65656e` | `(ZZ/p)[x]/(f)` presentations, `QuadraticAlgebra` tables, `x ↦ y+2` isomorphism, object equality refused naming isomorphisms | leaf drift, one probe finding | equality of objects is not decidable from presentations; an isomorphism between presentations is mathematics of the catalogue, never a leaf's assertion (CC-CARRIER); the notebook's equality is not category-owned (`core-properties-refinement`, "Equality") |
+| `f067d66` | Gram-matrix encoders for `BilinModules(ZZ)` / `Lattices(ZZ)` | leaf drift (out of scope: a finite-free realization detail placed in the notebook layer, presenting a bilinear module as a matrix), one probe finding | presentation forms are hard-coded in `CasDsl/Semantic.lean:encode` instead of being declared upstream with the operation, and read by the kernel (CC-SEP / CC-DECODE) |
 | `d26df90`, `7446650` | function-equality rules in `Native.valueEq` | leaf drift, one probe finding | equality is decided by a DSL-local heuristic instead of a category-owned three-valued decider (`core-properties-refinement`, "Equality"; CC-DECIDE); the first version answered `false` for equal maps |
 | `6095dc7` | residue-class elements of presented rings and `map … to` along the isomorphism | leaf drift | hand-rolled polynomial reduction in `Eval.lean` (`reduceMonic`) |
 | `08c70f2` | refuse functions with no canonical map to the target | leaf drift | — |

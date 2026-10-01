@@ -15,11 +15,11 @@ No formalization supplies a Lean bridge to Sage or GAP.
 - The process boundary is the repository's framed port (`CasDsl/Port.lean`: length-prefixed JSON
   frames, request ids, a ready frame with capabilities) and `backends/sage_adapter.py`.
 - Engines: Sage and GAP themselves (GAP through Sage's `libgap`, or `passagemath` wheels where
-  Sage is not installed); their results are untrusted and decoded into semantic result types.
-- Decoded results are Lean terms checked by the kernel (`decide`) or by a registered checker
-  (`CertifiedImplementation`), as for the Lean-native leaves.
+  Sage is not installed); their answers are untrusted and read by the kernel into the declared
+  result form, or rejected as malformed.
+- Nothing checks or certifies an answer except the permanent acceptance suite.
 
 ## New code, and why no dependency supplies it
-Adapter operations keyed by registered semantic operations, decoders from wire values into
-semantic result types (a subgroup with its inclusion, a kernel with its arrow), and the hostile
-leaf probe.
+Port capabilities keyed by registered semantic operations, the kernel's reading of wire values
+into declared result forms (a subgroup with its inclusion, a kernel with its arrow), and the
+hostile backend probe.

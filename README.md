@@ -18,8 +18,10 @@ against a catalogue operation, whose answers are decoded and compared, never bel
 --   meth.cardinality = fun.sets.cardinality on the core
 ```
 
-`cardinality` is declared once, as a functor on sets. Finite sets receive it along their
-forgetful functor, and nothing else is written.
+`cardinality` is declared once, as a functor on sets, in `lean-categories`. Everything that
+reaches sets along a structural functor receives it, and nothing else is written. The assertion
+above is permanent and names no leaf: whatever computation is installed for cardinality is run,
+and its answer either meets the assertion or does not.
 
 ## Architecture
 
@@ -38,8 +40,8 @@ In short:
 | catalogue (`LeanCategories.Catalogue`, in `lean-categories`) | The semantic registry: the symbolic calculus, the registered categories, functors, classifiers, methods, cells, limits and adjunctions, each checked against its mathematics |
 | kernel (`CasCatalogue`) | Deterministic interpretation of the upstream mathematics: resolution, ambiguity, the semantic reading of statements, their discharge in Lean and their realization through registrations (encoding, decoding, comparison), the language, the harness. |
 | leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`) | Kernel-owned, published separately: the shape of a leaf's manifest, the port protocol, the failure strata, and the kernel's reading of the semantic registry. Depends on `lean-categories` only. |
-| leaves (repository `lean-cas-dsl-leaves`) | A manifest `leaves.json` of registrations (operation id, input form, backend) and the programs it names. They ship no Lean and contribute zero mathematics; nothing they say is believed, and this repository imports nothing from them: the suite finds their manifest by path (`CAS_LEAVES`). |
-| acceptance (`CasAcceptance`) | Black-box assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
+| leaves (`lean-cas-dsl-leaves`, or any other package) | Opaque computations, each registered against an operation's declared type (operation id, input form, implementation): glue from the declared input form to a mature engine's routine and back ([leaf guidance](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md)). A leaf ships no mathematics and no Lean, and nothing it says is believed; it never sees this repository's tests. |
+| acceptance (`tests/acceptance/`) | The only correctness evidence: permanent, leaf-blind assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
 | notebook (`CasDsl`) | Surface syntax only |
 
 Semantic availability and computability are separate. An operation that applies but has no
