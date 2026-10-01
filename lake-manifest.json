@@ -31,7 +31,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "276d4877a02f17e8e5bdbaa2b9de312fa50c6b4a",
+   "rev": "47f17075b90b6cb062957efec1ac4b7dfeb9c0fc",
    "name": "cas_leaf_contracts",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
@@ -44,7 +44,7 @@
    "subDir": "worker",
    "scope": "",
    "rev": "4c6c2a77abcc717513a65ca35723ed428647e1bd",
-   "name": "\u00abnbdsl-worker\u00bb",
+   "name": "«nbdsl-worker»",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
@@ -171,7 +171,7 @@
    "configFile": "lakefile.toml"
   }
  ],
- "name": "\u00abcas-dsl\u00bb",
+ "name": "«cas-dsl»",
  "lakeDir": ".lake",
  "fixedToolchain": false
 }
