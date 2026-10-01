@@ -2021,7 +2021,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   let explicit := (List.range args.size).toArray.filter (infos[·]!.isExplicit)
   -- The element: the first explicit binder the target does not depend on (the parameters of the
   -- domain occur in it). What follows it is its hypotheses.
-  let some xi := explicit.find? fun i => !type.hasAnyMVar (· == args[i]!.mvarId!)
+  let some xi := explicit.find? fun i => (type.findMVar? (· == args[i]!.mvarId!)).isNone
     | throwStratum .invalid m!"the admission of {entry.name} takes no value"
   let hypotheses := explicit.filter (xi < ·)
   let x ← elabTermEnsuringType carrier (← instantiateMVars (← inferType args[xi]!))
