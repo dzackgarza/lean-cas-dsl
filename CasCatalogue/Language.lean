@@ -832,7 +832,8 @@ def fitBinder (R : BinderReading) (category : NamedCategoryEntry) (row : BinderE
     (arguments : Array Syntax) (e : Syntax) : M (Array Expr × Expr × Value) := do
   let (args, infos, points, source, target) ← bindBinder R category row arguments
   let domain ← mkConstWithFreshMVarLevels row.domain
-  let D ← instantiateMVars (mkAppN domain args)
+  -- The domain as its definition states it: `N`, not a family at parameters the body determines.
+  let D ← instantiateMVars (← whnfR (← instantiateMVars (mkAppN domain args)))
   if D.hasMVar then
     throwStratum .invalid m!"the arguments of `{row.token}` do not determine the set {t} ranges \
       over"
@@ -1401,11 +1402,14 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       if params.all (!·.hasMVar) then found := found.push (entry, params)
   let #[(entry, params)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
-  -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
+  -- Its parameters: numerals, sets (`𝒫(ℤ[x])`), or elements of sets (the point `a` of
+  -- `ℝ ∖ {a}`), recognized in turn.
   let values ← params.mapM fun p => do
     if let some n ← (Meta.evalNat p).run then return Value.nat n
     let some sets := state.categories.find? (·.id == CategoryId.sets)
       | throwStratum .invalid m!"no registered category of sets"
+    if let some (_, b) := homEnds? (← whnfR (← inferType p)) then
+      return .element p (← recognize state (← instantiateMVars b) sets)
     recognize state p sets
   object state entry.name values (some category)
 
