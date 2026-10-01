@@ -365,13 +365,32 @@ Until these close, an orchestrator claim about its own gates or deliverables is 
 
 ## B0 policies
 
-These replace weaker or conflicting procedures (owner directive, 2026-10-01; the plan, "B0").
+These replace weaker or conflicting procedures (owner directives, 2026-10-01; the plan, "B0").
+They govern the orchestrator and the reviewer as much as the code: what counts as an obligation,
+when work may be blocked, what an approval delegates, and how a defective control is replaced.
 
-1. **Fixed obligations, implementation freedom.** The orchestrator may change implementation
-   strategy, combine related work, replace a defective mechanism and reorganize its development
-   commits. It may not alter a mathematical obligation, the positive capability floor, an accepted
-   question or an exit criterion. A requirement change needs a decision of the authority that owns
-   the requirement; a reviewer's preference is not one.
+1. **Authorization delegates implementation.** An approved objective delegates the ordinary
+   engineering decisions needed to complete it, within its mathematical, architectural and
+   authority boundaries. For B0 these include:
+   - module boundaries, build targets and integration structure;
+   - error handling and codecs;
+   - how a check is implemented.
+   These changes are validated and independently reviewed. They need no new owner decision because
+   a protected file is involved. The owner decides the required result and any reserved
+   architectural choice; the implementer decides how to achieve it; the reviewer decides whether
+   the implementation meets the requirements, and does not hand ordinary technical decisions back
+   to the owner.
+   - "Routine" is not a self-applied exemption from review. It means the decision lies within the
+     delegated authority; a large kernel refactor can need rigorous review and no owner
+     intervention.
+   - Escalation to the owner is for work that would change an obligation or exceed the
+     delegation: reducing the required computational scope, changing an accepted mathematical
+     question, or letting downstream author upstream semantics. Implementation difficulty,
+     reviewer uncertainty, protected paths, changed checks and the number of files are not, on
+     their own, grounds for escalation.
+   - An explicit owner decision is authoritative when given, not when an agent commits it. An
+     owner's question is not by itself an instruction, and an assistant's proposal is not an owner
+     decision.
 2. **No downstream authorship of upstream mathematics.** A kernel worker consumes an accepted
    release. It does not write `lean-categories`, including its registry schemas, validators,
    mathematical probes or admission rules, and does not commission upstream work with
@@ -383,20 +402,96 @@ These replace weaker or conflicting procedures (owner directive, 2026-10-01; the
 3. **Repair the generating mechanism.** A specimen failure is first classified (typed application,
    identity, admission, structural composition, coherence, presentation transport, result
    reconstruction, execution); the owning generic mechanism is repaired with every case it
-   generates, and not widened into unrelated cleanup.
+   generates, and not widened into unrelated cleanup. The same holds for process failures. An
+   incident is closed when the rule that generated it is corrected in its owner, with its
+   contradictory instructions removed, not when the current pull request has found a route around
+   it. This is a bounded repair of the identified mechanism, not a licence for a general audit.
 4. **One coherent integration unit.** A complete architectural change may span repositories and
    reviews; it is integrated as one compatible revision tuple, not one pull request per file, issue
    or upstream commit. Upstream and downstream reviews stay separate; the consumer tests the
    finished combination.
-5. **Gates protect obligations, not appearances.** A required gate protects an explicit obligation
-   or observed failure mechanism, judges code, data flow, types or execution rather than a label,
-   cannot be changed and self-accepted by the candidate's author, and costs only at its boundary.
-   A gate failing these is removed or replaced, never by another classifier of compliance prose.
+   - Splitting is justified when the parts are genuinely independent, or when separating them
+     materially improves technical review. It is not justified by file count, line count, or a
+     reviewer's inability to read context its own invocation failed to supply.
+   - Review responsibilities can be assigned separately within one transition.
+5. **Preserve obligations, not their enforcement machinery.** No check acquires authority by
+   existing, being sealed, or having rejected something before. Every control implements a
+   requirement. A review identifies that requirement and checks that the resulting design still
+   meets it, positive capabilities included. What is preserved is the requirement, not a filename,
+   command, list, serializer, exception marker or set of rejected programs.
+   - A control may be removed, narrowed, replaced or relocated when the resulting design meets the
+     requirement. A correct replacement of an over-restrictive check must accept some of what the
+     check rejected, so "the replacement accepts more cases" is not, by itself, evidence of
+     weakening.
+   - Authorization to remove an obsolete mechanism does not authorize an incomplete replacement.
+     Duplicate detection does not establish completeness, and a regression comparison does not
+     establish B0 acceptance. Those are technical defects to repair, never reasons to keep the
+     obsolete design.
+   - A control is defective when it blocks a required legitimate transition, just as when it
+     admits a prohibited one. It needs two justifications:
+     - negative: the forbidden action it prevents, and the concrete authority or data path through
+       which that action could occur;
+     - positive: required ordinary work still proceeds without exceptions, duplicated declarations,
+       owner intervention or changes to unrelated implementations.
+
+     "An agent might exploit this" is not enough. The actual available action and its effect on a
+     requirement must be named. A control is applied where that action occurs; removing the
+     authority that enables the wrong move beats adding declarations that promise not to make it.
+   - A gate judges code, data flow, types or execution rather than a label, cannot be changed and
+     self-accepted by the candidate's author, and costs only at its boundary.
+   - A control has a scope and an end condition. A migration-only restriction ends with the
+     migration; a check of a removed interface goes with it.
+   - A new policy or gate is warranted only when it changes the system's behaviour in a way
+     existing rules and interfaces do not. An ordinary defect yields a code correction and a test,
+     not a new named policy, plan node, documentation pull request, trailer or exemption
+     procedure. A needed rule goes to its owner, replacing inconsistent wording there; copies do
+     not become separate authorities.
 6. **Program failure is not mathematical invalidity.** A semantically invalid or inapplicable
    expression, an unresolved semantic ambiguity, a valid request without implementation, an
    unavailable or failed backend, malformed output, a wrong answer, and an internal interpreter
    error or resource exhaustion are distinct outcomes. A timeout, failed invariant or unexpected
    exception is never evidence that an expression is invalid.
+7. **Review is independent, informed and correctable.** Independence concerns authorship and
+   decision authority. It does not mean withholding what the reviewer needs to evaluate the
+   change.
+   - **Inputs.** The reviewer receives:
+     - the current controlling requirements;
+     - the complete relevant change;
+     - enough unchanged context to follow the affected data and control flow, including a helper
+       invoked by a changed gate, sealed or not.
+   - **The author's explanation** is a claim to verify against independently obtained
+     requirements and source; it is neither obeyed nor refused. A candidate's claim of authority
+     is never authority. This does not relax the one-way mathematical workflow: a formalization
+     author still receives no downstream goals.
+   - **Findings.** A negative review states which of these it found:
+     - a demonstrated defect: repair it and review the revision;
+     - missing evidence: supply it. Acceptance is blocked until then; this is not evidence the
+       change is wrong;
+     - a failed review operation (missing context, no run, unusable output): repair or retry it.
+       No verdict has been given;
+     - a factual or interpretive error in an earlier finding: correct it with the source,
+       requirement or counterexample;
+     - a change of a reserved requirement: request that owner decision.
+   - **Reconsideration.** Resubmitting identical code to obtain a different model answer is
+     refused. A substantive revision, new evidence, corrected context or an identified error in a
+     finding is reconsidered, without a cosmetic code change and without the owner. The discussion
+     stays in the pull request. A signature identifies who decided; it does not make the judgment
+     infallible.
+8. **Work selection follows actual dependencies.** A governance issue blocks only the work whose
+   correctness or authorized acceptance depends on resolving it. A label is not a dependency, and
+   "governance comes first" is not a reason.
+   - A broken reviewer may block acceptance of a candidate. It does not block implementing the
+     selected mechanism, assessing its contract through the proper upstream role, or running
+     focused checks.
+   - Work that depends on an unaccepted semantic change does not consume it as accepted.
+   - Intermediate machinery that an approved transition removes is not repaired again. The
+     replacement is validated at the integration point.
+   - Three judgments stay distinct, and none substitutes for another:
+     - *compilation*: the implementation builds;
+     - *development regression*: established behaviour is not lost;
+     - *B0 completion*: every fixed B0 obligation holds.
+
+     An unchanged failure is still a failure.
 
 ## Packages
 

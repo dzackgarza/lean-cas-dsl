@@ -129,13 +129,11 @@ Consequences, binding on every agent and first of all the orchestrator:
 - **Chat is not a place where anything is decided, recorded or understood.** Saying "understood",
   restating a correction, or describing what you will do achieves nothing. It is not compliance.
   It is a substitute for compliance, and treating it as one is a violation of this rule.
-- **Every correction, finding, self-audit, decision request, quarantine, and plan exists first as
-  a commit** in the document that owns it (this file, `CONTRIBUTING.md`, `specs/architecture.md`,
-  `specs/computational-core-plan.md`, or the owning repository's `AGENTS.md`/`CONTRIBUTING.md`),
-  and where possible as a gate that fails the build. The chat reply then names the commit and says
-  nothing the commit does not.
-- **A question from the owner is a correction.** Answer it by committing its consequence, then
-  point to the commit. Do not answer it with prose.
+- **A rule that must outlive the chat goes to the document that owns it**, replacing inconsistent
+  wording there (architecture.md, Policy 5). An owner's explicit decision is authoritative when
+  given, not when committed; an owner's question is answered, and is not by itself an instruction;
+  your own proposal is not an owner decision (Policy 1). An ordinary defect yields a code
+  correction and a test, not a new policy, plan node or documentation pull request.
 - **Session task lists, memory files and summaries are chat.** They are also lost.
 - **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
   backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
@@ -153,10 +151,11 @@ You are either the **orchestrator** or a subagent with exactly one role
 
 Every agent commit ends with an `Agent-Role: <role>` trailer (and `Agent-Id: <id>` for a subagent);
 `just build` refuses crossings (`scripts/check_authorship.py`). No agent writes in two roles. Information flows formalization → tests → implementation, never
-back. An owner correction is committed into its owning document, or a gate, in the turn it is
-given (CONTRIBUTING, "A correction is encoded where it will be read"). Work is selected from
-the B0 acceptance table of [the plan](specs/computational-core-plan.md); a `gov-*` node precedes
-other work only where a B0 row names it.
+back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
+by actual dependency: a governance node blocks only the work whose correctness or authorized
+acceptance depends on it, and a blocked item names that dependency (Policy 8). An approved
+objective delegates its implementation; owner escalation is for a change of requirement or
+authority only (Policy 1). Review is independent, informed and correctable (Policy 7).
 
 **No downstream authorship of upstream mathematics (architecture.md, "B0 policies", Policy 2).**
 A kernel worker consumes an accepted mathematical release. It writes nothing in `lean-categories`,

@@ -140,8 +140,8 @@ A gate is kept only if it protects an explicit obligation or observed failure me
 actual code, data flow, types or execution rather than a label, cannot be changed and self-accepted
 by the candidate's author, and costs only at its boundary (Policy 5). Under that test:
 - the banned-construct ratchet's ban on `partial def` in kernel code does not protect a
-  mathematical obligation, and is corrected through the protected rule-change path (the seal is the
-  owner's); the actual obligation is that a pure algorithm required to terminate on valid input
+  mathematical obligation, and is corrected as an ordinary independently reviewed change (Policies
+  1, 5, 7); the actual obligation is that a pure algorithm required to terminate on valid input
   does, and that effectful failure is reported as an implementation failure;
 - the `check_kernel_totality.py` exemption marker is a self-applied label and is replaced by the
   outcome model of `cc-failure-strata`;
@@ -158,11 +158,13 @@ inputs, using existing GitHub controls:
   no bypass by worker credentials; the acceptance statements, accepted interpretations, evaluator
   rules, owner requirements and the protection configuration are protected paths;
 - `lean-categories`' registry schemas and validators are upstream mathematical authority;
-- until a separate reviewer identity exists, the owner accepts trusted-boundary changes.
+- the custodian's review decides trusted-boundary changes against these requirements (Policy 7);
+  the owner decides only a change of requirement, completion standard or authority (Policy 1).
 
 Recorded here once when the worker can no longer modify or accept upstream semantics, protected
 acceptance or its judging rules through its tools. Ordinary kernel work does not wait on any other
-governance node: the `gov-*` nodes below are prerequisites only where a B0 row names them.
+governance node: a `gov-*` node blocks only the work whose correctness or authorized acceptance
+depends on it (Policy 8).
 
 ### Disposition of outstanding work
 
@@ -198,7 +200,7 @@ once the obligation is met. A row closes only on its full acceptance.
 | Suspected defect in released mathematics | Independent assessment from the original requirement and sources; the consumer stays pinned until a correction is accepted |
 | A required backend computation is missing | Registration and glue against an existing engine; never narrow the operation |
 | Backend output lacks a defining map | Repair the implementation or the generic codec against the declared result form |
-| A gate rejects behaviour no obligation forbids | Correct the gate once through the protected rule-change path |
+| A gate rejects behaviour no obligation forbids | Replace the gate with one that enforces the actual obligation, through independent review (Policies 5, 7) |
 | A review lacks a supported finding | Ask for the violated obligation and its evidence |
 | A prerequisite is external | Advance another B0 row, or report the exact blocking dependency |
 

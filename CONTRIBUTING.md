@@ -35,7 +35,7 @@ bind the kernel, the language and every leaf. Their consequences here:
   partial map. What LC-14 forbids in the kernel is semantic: reading a term outside its
   operation's domain, a fallback reading, a default for something that does not exist. The
   seal's ratchet on new `partial def` anywhere in this repository, and `custodian/FINDINGS.md`
-  item 13, conflate the two; the ratchet is corrected through the protected rule-change path (the plan, B0, "Gates").
+  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change (the plan, B0, "Gates"; architecture.md, Policies 5 and 7).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
 - A leaf computes on an input form that `lean-categories` and the kernel define for the
@@ -76,17 +76,17 @@ bind the kernel, the language and every leaf. Their consequences here:
 The leaves are not part of this repository; the dependency that remains is a defect
 (`gov-no-leaves-here`).
 
-## A correction is encoded where it will be read, before anything else
+## A durable rule lives with its owner
 
-A chat ends, and agreement stated in it is lost with it. When the owner corrects the work or
-states a rule, the correction is written in the same turn into the document that owns it:
-- this file, `lean-categories`' CONTRIBUTING, architecture.md, the plan, or an AGENTS.md;
-- where possible, into a gate that fails the build.
+A chat ends, and agreement stated in it is lost with it. A rule that must bind later work is
+written into the document that owns it (this file, `lean-categories`' CONTRIBUTING,
+architecture.md, the plan, or an AGENTS.md), replacing inconsistent wording there, or into the
+code and gate it concerns. Saying "understood" is not compliance.
 
-Saying "understood", or tracking the correction in a session task list, is not compliance. Both
-are ephemeral. Work continues only after the correction is committed. The owner's questions
-count as corrections. For example, "why is an inverse defined on an arbitrary matrix?" means that
-it must not be.
+An owner's explicit decision is authoritative when given, and its implementation proceeds
+without waiting for a record of it. An owner's question is answered on its merits; it is not by
+itself an instruction (architecture.md, Policy 1). An ordinary defect yields a code correction
+and a test, not a new policy or document (Policy 5).
 
 ## Writing a leaf
 
