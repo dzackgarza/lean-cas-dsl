@@ -796,13 +796,15 @@ def binderSlots (args : Array Expr) (infos : Array BinderInfo) (k : Nat) :
   return if slots.size < k then none else some (slots.extract (slots.size - k) slots.size)
 
 /-- The binder row's operation with its notation's arguments as its last object and morphism
-parameters: its parameters, the points among the arguments (in order), and its source. Each
-argument is read in the set its parameter is a point of, when that set is already determined. -/
+parameters: its parameters and their binder infos, the points among the arguments (in order), its
+source and its target.
+Each argument is read in the set its parameter is a point of, when that set is already determined. -/
 def bindBinder (R : BinderReading) (category : NamedCategoryEntry) (row : BinderEntry)
-    (arguments : Array Syntax) : M (Array Expr × Array BinderInfo × Array Expr × Expr) := do
+    (arguments : Array Syntax) :
+    M (Array Expr × Array BinderInfo × Array Expr × Expr × Expr) := do
   let constant ← mkConstWithFreshMVarLevels row.operation
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
-  let some (source, _) := homEnds? (← whnfR type)
+  let some (source, target) := homEnds? (← whnfR type)
     | throwStratum .invalid m!"{row.operation} is not a family of morphisms"
   let some slots ← binderSlots args infos arguments.size
     | throwStratum .invalid m!"`{row.token}` takes fewer arguments"
@@ -819,35 +821,51 @@ def bindBinder (R : BinderReading) (category : NamedCategoryEntry) (row : Binder
       throwStratum .invalid m!"`{row.token}` ({row.id.raw}) does not take this argument"
     if type.isAppOf ``Quiver.Hom then points := points.push value
   synthesizeInstances args infos
-  return (args, infos, points, ← instantiateMVars source)
+  return (args, infos, points, source, target)
+
+/-- The binder row read at the notation's arguments and body: its operation's parameters and
+points, its source, and the map `t ↦ e` on its domain, whose codomain is the operation's target.
+A row reads a statement only if all of these hold: which row applies is decided by the arguments
+and by the set the body lands in, never by anything else. -/
+def fitBinder (R : BinderReading) (category : NamedCategoryEntry) (row : BinderEntry) (t : Name)
+    (arguments : Array Syntax) (e : Syntax) : M (Array Expr × Expr × Value) := do
+  let (args, infos, points, source, target) ← bindBinder R category row arguments
+  let domain ← mkConstWithFreshMVarLevels row.domain
+  let D ← instantiateMVars (mkAppN domain args)
+  if D.hasMVar then
+    throwStratum .invalid m!"the arguments of `{row.token}` do not determine the set {t} ranges \
+      over"
+  let f ← R.body t (← R.recognize D category) e
+  let .morphism _ _ y _ _ := f | throwStratum .invalid m!"the body of `{row.token}` is not a map"
+  unless ← isDefEq target y do
+    throwStratum .invalid m!"`{row.token}` ({row.id.raw}) does not land in the set of `{shown e}`"
+  synthesizeInstances args infos
+  return (points, ← instantiateMVars source, f)
 
 /-- A binding operator `token_{…} e` (`specs/binders.md`): the one registered binder row with this
-token whose operation takes the notation's arguments, applied to the map `t ↦ e` on its domain,
+token that reads the notation's arguments and body, applied to the map `t ↦ e` on its domain,
 admitted into the operation's source. The kernel knows no binder: which sets, maps and operations
 these are is the catalogue's. -/
 def readBinder (R : BinderReading) (token : String) (t : Name) (arguments : Array Syntax)
     (e : Syntax) : M Value := do
   let state ← registryState
-  let rows := state.binders.filter (·.token == token)
   let ctx ← read
-  let readers ← rows.filterM fun row => do
-    let some category := state.categories.find? (·.id == row.category) | pure false
-    (withoutModifyingState do
-      try discard <| (bindBinder R category row arguments).run ctx; pure true
-      catch _ => pure false : TermElabM Bool)
-  let #[row] := readers
-    | throwStratum .invalid (if readers.isEmpty then
-        m!"no registered binder `{token}` takes these arguments"
-      else m!"several registered binders `{token}` take these arguments: \
-        {readers.map (·.id.raw)}")
-  let some category := state.categories.find? (·.id == row.category)
-    | throwStratum .invalid m!"the binder {row.id.raw} has an unregistered category"
-  let (args, _, points, source) ← bindBinder R category row arguments
-  let domain ← mkConstWithFreshMVarLevels row.domain
-  let D ← instantiateMVars (mkAppN domain args)
-  if D.hasMVar then
-    throwStratum .invalid m!"the arguments of `{token}` do not determine the set {t} ranges over"
-  let f ← R.body t (← R.recognize D category) e
+  let rows := (state.binders.filter (·.token == token)).filterMap fun row =>
+    (state.categories.find? (·.id == row.category)).map (row, ·)
+  let succeeds (x : M Unit) : M Bool := (withoutModifyingState do
+    try discard <| x.run ctx; pure true catch _ => pure false : TermElabM Bool)
+  let taking ← rows.filterM fun (row, c) => succeeds do discard <| bindBinder R c row arguments
+  let readers ← taking.filterM fun (row, c) => succeeds do
+    discard <| fitBinder R c row t arguments e
+  let (row, category) ← match readers, taking with
+    | #[r], _ => pure r
+    -- One row takes the arguments: its reading of the body is the failure to report.
+    | #[], #[r] => pure r
+    | #[], _ => throwStratum .invalid m!"no registered binder `{token}` reads `{shown e}` at these \
+        arguments"
+    | _, _ => throwStratum .invalid m!"several registered binders `{token}` read this: \
+        {readers.map (·.1.id.raw)}"
+  let (points, source, f) ← fitBinder R category row t arguments e
   let some entry := state.objects.find? fun o =>
       o.category == row.category && source.getAppFn.constName? == some o.declaration
     | throwStratum .invalid m!"the source of {row.operation} is not a registered object"
