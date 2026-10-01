@@ -184,7 +184,7 @@
   ".lake/packages/cas_leaf_contracts/CasContract/*"
  ],
  "escalation_keys": {
-  "SHA256:IO3YM5setrWvSESXaXEr+7CB1YR8BOjKTP2SzTLFZbI": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMufO77hW4SvgXoSRyWxW7FwJa5Blw/yc2gNvYg1K8r0 dzack@bahamut-2024-05-03\n"
+  "SHA256:RyZOxKMP/nQwD1HBKxdO3rtmFzW5xSnUBR6ehOfw1C4": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0lu/0UDn7yCY5+IJ7dyTSQGiPXs304KtvDGGxpWVV9 esc\n"
  },
  "files": {
   ".lake/packages/cas_leaf_contracts/CasContract.lean": "b4923855a7334df7d04af67343e9907a6f7952bef65214143d87d30943661a7d",
@@ -328,16 +328,16 @@
   "CasTools/ExportMain.lean": "3ec302b68c666738e914a21b8b7483eed488ed6aaca9ecaaeff8245d37ca18e0",
   "CasTools/Harness.lean": "bc3d052da03ff739629c866169994b299da814ca4c8841679bb55d00cd41beda",
   "CasTools/HarnessMain.lean": "bb48ba615212cae1a13d01fe3eee7270bc5ee0caef60c790f2a9d119fcecaaaa",
-  "custodian/CONTAINMENT.md": "fc1d335a0f0be1579eb8e4a24baa7d364e1f4623c6e088bf4a033a2802ccd145",
+  "custodian/CONTAINMENT.md": "d22a2c210909e0c4db230bb52250c5600ef107ac03bb441b5bc85afc7aaed80c",
   "custodian/FINDINGS.md": "ec86df2a75f3bc492933dab8650e31b6ac393d04c85ab9b8b313c01b60271506",
   "custodian/SETUP.md": "08fd15fddd6c1637e5e232523b9fb90f6919ae6e20946718e492232914547838",
   "custodian/adversarial.sh": "ce2f5f1f4c9c6b52dab2905d0df8da1e7cf4b888069bf2234c0cedceb8ecf071",
   "custodian/boundary.json": "e95a822757a3c30744368773e53827962961710f80211fbaf0aa9d4ebae65927",
   "custodian/justfile": "9320c7a8e735f9ed248b14c0afe67a63482b7d6f71403774f6534344671d0102",
   "custodian/owner-intent.md": "d1f41027bf425d963634e6f1fb61964772ce9ca8a4d0fe435fb13fe5e97b0305",
-  "custodian/review/prompt.md": "1cfdce4a3c9aedf5319a8723ebcee9ebb08cac179abff2d482f94f901120b1ba",
-  "custodian/review/review.py": "f7c1df09721d3e2a0a300975024717e90399dfd78d06368f402f8bef57cb328e",
-  "custodian/review/test_review.py": "befff4f3ce5f20c840b25d42cf073b95d8662c94950fc95ae19a7a67e8dc1e73",
+  "custodian/review/prompt.md": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
+  "custodian/review/review.py": "946a95e3223d43f657fa3faf78283506e7843e6dd63b12a852ad52e956c75301",
+  "custodian/review/test_review.py": "97b7b4df180f1a4a035201b3d3bef7cb4d85e7c3a18074c13bbcd2d429ff7403",
   "custodian/root.pub": "eab93a6afa15394de8dd9fcde8a10e649f559a6251415a30b93f35997beeac71",
   "custodian/verify.py": "cc0e6c70f4f078ed55ea8ec309aa0e65c2e1a501b7e9868b3abdff691e83e5f4",
   "justfile": "f66bec64172b12fd3908dffb918f662aaf6045d1af1a9c0385e266c86b9b4c5e",
@@ -631,11 +631,11 @@
    }
   ]
  },
- "note": "Baseline at lean-cas-dsl PR #53 (kernel and leaf registration) and #52 (evidence-model prose), set by the owner before any threat model applies. SSH keys: the review key (custodian-review environment) and the owner's key (escalation).",
+ "note": "scratch",
  "outside_baseline": [],
  "reviewer_keys": {
-  "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAYevMYZXo5d/qebqepSGUQwrZMpQTYw36lUK4AcTEMf custodian-review\n\n"
+  "SHA256:bfp89HkETJWr2i5ODRUKfVxQ9SusQ4zKmPN8nwxqsyo": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC8I2OkvASKq0Skj2qCIZt9O9NbA3ZwCaXvYbuAVvbxJ review\n"
  },
- "sealed_commit": "096397466d0893a870c6181a93be83374f0dc9b7",
+ "sealed_commit": "de506af5e215b5c4239a530b32fc947b88db792b",
  "verifier_sha256": "cc0e6c70f4f078ed55ea8ec309aa0e65c2e1a501b7e9868b3abdff691e83e5f4"
 }
