@@ -48,8 +48,9 @@ def label (ctor : Name) : String :=
 /-- The natural number a closed term is. -/
 def nat? (e : Expr) : MetaM (Option Nat) := (evalNat e).run
 
-/-- Whether `info` is a record: one constructor and no indices. -/
-def isRecord (info : InductiveVal) : Bool := info.ctors.length == 1 && info.numIndices == 0
+/-- Whether `info` has one constructor and no indices: its values go on the wire without a
+constructor label. -/
+def isUnlabelled (info : InductiveVal) : Bool := info.ctors.length == 1 && info.numIndices == 0
 
 /-- The number of data (non-proof) fields of the constructor `ctor`. -/
 def dataFieldCount (ctor : ConstructorVal) : MetaM Nat :=
@@ -113,7 +114,7 @@ partial def encode (e : Expr) : MetaM (Except String Json) := do
     match ← encode field with
     | .ok j => args := args.push j
     | .error m => return .error m
-  if isRecord info then
+  if isUnlabelled info then
     return .ok (if args.size == 1 then args[0]! else Json.arr args)
   return .ok (Json.mkObj [("ctor", label c), ("args", Json.arr args)])
 
@@ -167,7 +168,7 @@ partial def decodeAt (type : Expr) (j : Json) : MetaM (Except String Expr) := do
     | return .error s!"{typeName} is not an inductive type the codec handles"
   -- The constructor and its data fields' encodings: a record's from the array (or the single
   -- field itself), any other type's from `{"ctor", "args"}`.
-  let (ctor, args) ← if isRecord info then do
+  let (ctor, args) ← if isUnlabelled info then do
       let ctor ← getConstInfoCtor info.ctors[0]!
       let count ← dataFieldCount ctor
       if count == 1 then pure (ctor, #[j])
