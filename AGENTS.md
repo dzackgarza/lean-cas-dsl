@@ -140,6 +140,33 @@ The author may implement a controller correction but may not fabricate an
 independent approval, alter mathematical acceptance to fit the implementation,
 or declare B0 accepted.
 
+# You have no memory (read this first)
+
+You are a language model. You do not learn from this conversation. When the context is compacted
+or the session ends, everything that exists only in chat is gone, and the next agent (you,
+tomorrow, or in an hour after compaction) repeats the same mistakes from zero. This has happened
+repeatedly in these repositories: corrections acknowledged in chat, then violated again within
+the hour.
+
+Consequences, binding on every agent and first of all the orchestrator:
+- **Chat is not a place where anything is recorded or understood.** An owner's decision given
+  there governs at once, and is still written into its owning document so the next agent has it.
+  Saying "understood", restating a correction, or describing what you will do achieves nothing.
+  It is not compliance.
+  It is a substitute for compliance, and treating it as one is a violation of this rule.
+- **A rule that must outlive the chat goes to the document that owns it**, replacing inconsistent
+  wording there (architecture.md, Policy 5). An owner's explicit decision is authoritative when
+  given, not when committed; an owner's question is answered, and is not by itself an instruction;
+  your own proposal is not an owner decision (Policy 1). An ordinary defect yields a code
+  correction and a test, not a new policy, plan node or documentation pull request. Recording a
+  decision or updating a description is an ordinary commit, not an approval transaction; a branch,
+  pull request, review or signature is used only where it performs a needed decision or validation
+  (Policy 1).
+- **Session task lists, memory files and summaries are chat.** They are also lost.
+- **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
+  backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
+  orchestrator is inside the threat model", for the holes known now. Do not widen them.
+
 # Roles
 
 You are either the **orchestrator** or a subagent with exactly one role
