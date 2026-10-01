@@ -289,8 +289,8 @@ partial def decodeObject (trace : Trace) (j : Json) :
         match ← decodeObject trace arg with
         | .ok (_, value) => params := params.push value
         | .error message => return .error s!"a parameter of {id} is not decoded: {message}"
-  -- not a reading fallback: an object that does not elaborate at these parameters is rejected
   try return .ok (entry, ← objectAt trace entry params)
+  -- not a reading fallback: an object that does not elaborate at these parameters is rejected
   catch e => return .error s!"{id} at {params} is not an object: {← e.toMessageData.toString}"
 
 /-- Decode `j` as a value of `type` in the category `category` (CC-DECODE): a morphism `a ⟶ b`

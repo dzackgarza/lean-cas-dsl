@@ -685,8 +685,8 @@ def runProcedure (procedure : Name) (goal : MVarId) :
       let remaining ← Term.withSynthesize (postpone := .no) <|
         Lean.Elab.Tactic.run goal procedure
       pure (Except.ok remaining : Except String (List MVarId))
-    -- not a reading fallback: a failed procedure is returned as its failure, which the caller
-    -- reports
+    -- A failed procedure is returned as its failure, which the caller reports.
+    -- not a reading fallback: the failure is returned, never retried
     catch e => pure (Except.error (← e.toMessageData.toString))
   let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
   match outcome with
