@@ -31,7 +31,8 @@ A binding operator is a registered **binder** row of the catalogue. Its fields a
 - `operation`: a morphism family `∀ params, M params ⟶ Y params` of the row's category, whose
   single source `M params` is a registered object of maps the operation is total on (integrable
   maps, maps convergent at `a`, summable families, all maps on a finite set). The notation's
-  arguments are the family's explicit parameters that are objects or morphisms, in order: a point
+  `k` arguments are the family's last `k` explicit parameters that are objects or morphisms, in
+  order (type parameters such as the ring `R` come before them): a point
   `a : 1 ⟶ X` (the bounds of `∫`, the point of `lim`, a finite subset `A : 1 ⟶ 𝒫_fin(X)`) or an
   object (the index set `ℕ` of an infinite sum);
 - `domain`: `∀ params, D params`, with the operation's parameters, the object the bound variable
@@ -47,7 +48,7 @@ every argument unifies with its parameter.
 
 The kernel's reading is one code path for every binder, and it names nothing:
 1. For each binder row whose `token` is the notation's, read the notation's arguments and unify them,
-   in order, with the operation's explicit object and morphism parameters. Exactly one row must
+   in order, with the operation's last explicit object and morphism parameters. Exactly one row must
    read the statement. If none does, or more than one, the statement is invalid.
 2. `D := domain params`. The arguments determine `D`; if they do not, the statement is invalid.
 3. Read the body at a stage in `D`: `t` is a generic element of `D`. An operation that needs `t` in
