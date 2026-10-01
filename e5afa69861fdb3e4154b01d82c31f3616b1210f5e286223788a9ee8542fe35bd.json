@@ -1,0 +1,77 @@
+{
+ "key": "e5afa69861fdb3e4154b01d82c31f3616b1210f5e286223788a9ee8542fe35bd",
+ "record": {
+  "change_key": "e5afa69861fdb3e4154b01d82c31f3616b1210f5e286223788a9ee8542fe35bd",
+  "change_sha256": "2e45366d7407958d1f7b85563904014987aef0cfb74ee41193f23fb6328c85d9",
+  "head_sha": "728185f84bbda52ebe19dc1fc23844684cc0477a",
+  "model": "claude-opus-5-5",
+  "pr": "59",
+  "problems": [
+   "sealed file changed: .lake/packages/cas_leaf_contracts/CasContract.lean",
+   "sealed file changed: .lake/packages/cas_leaf_contracts/CasContract/Failure.lean",
+   "sealed file removed: .lake/packages/cas_leaf_contracts/CasContract/Registry/Extension.lean",
+   "sealed file changed: CasAcceptance.lean",
+   "sealed file changed: CasAcceptance/FibrationRegistryProbes.lean",
+   "sealed file changed: CasAcceptance/RegistrationProbes.lean",
+   "sealed file changed: CasAcceptance/Standard.lean",
+   "sealed file removed: CasAcceptance/Suite.lean",
+   "sealed file changed: CasCatalogue.lean",
+   "sealed file changed: CasCatalogue/Language.lean",
+   "sealed file changed: CasCatalogue/Realize.lean",
+   "sealed file changed: CasCatalogue/Resolve.lean",
+   "sealed file changed: CasCatalogue/TestSuite.lean",
+   "sealed file changed: CasGates/KernelPurity.lean",
+   "sealed file changed: CasTools/ExportFull.lean",
+   "sealed file changed: CasTools/ExportJson.lean",
+   "sealed file changed: CasTools/Harness.lean",
+   "sealed file changed: justfile",
+   "sealed file changed: lakefile.lean",
+   "new file inside the sealed boundary: CasCatalogue/Registry.lean",
+   "new file inside the sealed boundary: scripts/check_acceptance_regression.py"
+  ],
+  "prompt_sha256": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
+  "result": {
+   "criteria": [
+    {
+     "criterion": "The obligation is unchanged",
+     "evidence": "(1) CasAcceptance/Suite.lean (`#cas_tests \"tests/acceptance\"`) is deleted; CasAcceptance.lean drops `public import CasAcceptance.Suite`; lakefile.lean removes `input_dir acceptanceSuite` and `needs := #[acceptanceSuite]`. The build no longer fails on a wrong, malformed or invalid result. The new `justfile` `acceptance base` recipe ignores the harness exit (`-@lake exe cas-harness`) and defers to scripts/check_acceptance_regression.py, which says 'A failing assertion that changes kind is reported, and fails nothing', so assertions that already fail in a caller-supplied base are tolerated. (2) CasAcceptance/Standard.lean deletes every expected*Ids list, validateStableIdSet and the missing-registration example. They are replaced by duplicate-id and export-matches-state checks that cannot detect a lost upstream row. (3) CasTools/ExportFull.lean `validate` removes the fromJson? round-trip and the check that it matches the typed form; FromJson derivations are dropped in CasCatalogue/Registry.lean.",
+     "holds": false
+    },
+    {
+     "criterion": "The kernel stays purely categorical and general",
+     "evidence": "No domain-specific case is added. Language.lean only retags existing throws to `.semanticAmbiguity`. Realize.run's `tryCatchRuntimeEx` maps exceptions without a failure kind to `Outcome.internal`, which `Outcome.fails` counts as a failure, not an answer.",
+     "holds": true
+    },
+    {
+     "criterion": "Semantics are independent of realizations",
+     "evidence": "No leaf, backend or installation state is read during semantic interpretation.",
+     "holds": true
+    },
+    {
+     "criterion": "The mathematics is owned upstream",
+     "evidence": "The leaf contract loses CasContract/Registry/Extension.lean (the kernel registry) and gains only a failure kind. No category, row or proof is coined, and no sorry, axiom or partial is added (partial defs are removed).",
+     "holds": true
+    },
+    {
+     "criterion": "Nothing from a leaf is trusted",
+     "evidence": "No new use of anything a leaf supplies about itself.",
+     "holds": true
+    },
+    {
+     "criterion": "Failures stay stratified",
+     "evidence": "Failure.lean adds `semanticAmbiguity` as a separate kind. Outcome keeps wrong, gap, unavailable, malformed and invalid distinct and adds ambiguous and internal. noImplementation and ambiguousRealization were already both mapped to gap before this change.",
+     "holds": true
+    },
+    {
+     "criterion": "The change is reviewable",
+     "evidence": "One change bundles: the registry moved from the leaf contract to CasCatalogue/Registry.lean (521 lines, rewritten termination proofs); a new failure kind; retagged kernel throws; a redesigned Outcome and Realize.run; rewrites of TestSuite and #cas; lakefile and justfile changes; a new gate script; a rewrite of Standard.lean. It must be split.",
+     "holds": false
+    }
+   ],
+   "summary": "Reject. The change takes the acceptance suite out of the build (Suite.lean deleted, lakefile `needs := #[acceptanceSuite]` removed). Its replacement, `just acceptance`, ignores the harness exit and only compares against a caller-supplied base, tolerating assertions that already fail. It also deletes the expected-row assertions in CasAcceptance/Standard.lean and the typed round-trip check in ExportFull.validate. All of these weaken obligations. The change is also too large and mixed to review (registry move, new failure kind, Outcome/Realize refactor, build and gate changes): split it. Not escalated, because each weakening is disclosed in the change's own comments and the change does not address the reviewer.",
+   "verdict": "reject"
+  },
+  "served_by": "claude-opus-5-5"
+ },
+ "signer": "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A"
+}
