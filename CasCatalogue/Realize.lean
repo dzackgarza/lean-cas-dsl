@@ -543,30 +543,21 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       return if ← evaluatedEq answer (toExpr expected) then .holds
         else .wrong s!"{shown} is not the answer: the registration answered {json.compress}"
 
-/-- Run a statement, within the `let` bindings `scope`: its semantic reading forms its claim
-(failing that, it is invalid whatever leaves are installed); Lean discharges the claim where it
-can; otherwise it is realized through the harness. A `let` binds its term either way; its
-realized failure surfaces where it is used. -/
+/-- Run a statement, within the `let` bindings `scope`: its semantic reading forms its claim; Lean
+discharges the claim where it can; otherwise it is realized through the harness. A `let` binds its
+term when its reading succeeds; its realized failure surfaces where it is used.
+
+Every failure is an outcome (`Outcome.ofException`), whatever stage throws it: a stratum is
+reported as itself, and an exception without one, exhausted heartbeats included, as an internal
+error. Nothing is caught to be reinterpreted, and a failed statement leaves `scope` unchanged. -/
 def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
-  let scope' := match ← letBinding? stx with
-    | some (x, t) => scope.insert x t
-    | none => scope
-  let trace ← (Trace.new : IO _)
-  let claim ← try (Language.claim scope stx).run { trace := some trace }
-    -- not a reading fallback: it rethrows the semantic failure as invalidity
-    catch e => throwError "not a valid statement: {e.toMessageData}"
-  if (← letBinding? stx).isSome then return (.holds, scope')
-  if let some outcome ← discharge claim then return (outcome, scope')
-  let classify (e : Exception) : TermElabM Outcome := do
-    match Exception.stratum? e with
-    | some .noImplementation | some .ambiguousRealization =>
-        return .gap (← e.toMessageData.toString)
-    | some .unavailable => return .unavailable (← e.toMessageData.toString)
-    | some .malformed => return .malformed (← e.toMessageData.toString)
-    | _ => throw e
-  -- not a reading fallback: a realized failure is recorded as its stratum; the rest is rethrown
-  let outcome ← try realizeClaim h trace claim catch e => classify e
-  return (outcome, scope')
+  let attempt : TermElabM (Outcome × Scope) := do
+    let trace ← (Trace.new : IO _)
+    let claim ← (Language.claim scope stx).run { trace := some trace }
+    if let some (x, t) ← letBinding? stx then return (.holds, scope.insert x t)
+    if let some outcome ← discharge claim then return (outcome, scope)
+    return (← realizeClaim h trace claim, scope)
+  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope)
 
 end Realize
 

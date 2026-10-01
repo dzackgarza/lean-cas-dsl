@@ -59,18 +59,11 @@ be impossible"). A default target, so that no build of the kernel skips it. -/
 lean_lib CasGates where
   globs := #[.submodules `CasGates]
 
-/-- The permanent acceptance suite, in the language (`CasCatalogue.TestSuite`). -/
-input_dir acceptanceSuite where
-  path := "tests/acceptance"
-  text := true
-  filter := .extension "cas"
-
-/-- Acceptance probes of the core over the catalogue; building the library runs them, and
-`CasAcceptance.Suite` runs the suite (rebuilt when a test changes) through the installed leaves'
-manifest. -/
+/-- Acceptance probes of the core over the catalogue; building the library runs them. The
+permanent suite (`tests/acceptance`) is not compiled: `cas-harness` executes it, and
+`scripts/check_acceptance_regression.py` judges a head against its base assertion by assertion. -/
 lean_lib CasAcceptance where
   globs := #[.andSubmodules `CasAcceptance]
-  needs := #[acceptanceSuite]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,

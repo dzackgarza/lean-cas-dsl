@@ -23,13 +23,14 @@ reading through the registrations of the installed leaves' manifest (`leaves.jso
 package, found by `CasCatalogue.Realize.leavesManifest`; `#cas_tests "dir" manifest "path"` names
 another). The registrations not admitted are reported. Each test's outcome is reported. A
 statement that holds, a gap (no registration, an ambiguous one) and an unavailable backend are
-recorded; a wrong answer, a malformed answer and an invalid statement fail the build. The report
+recorded; every other outcome (`Outcome.fails`: a wrong or malformed answer, an invalid or
+ambiguous statement, an internal error) fails the build. The report
 of gaps is the list of implementations the suite derives. A leaf never sees the suite.
 `#cas_tests "dir" reporting "out.json"` also writes every result as JSON (`cas-harness` runs it
 over a given manifest).
 
 `#cas "statement"` runs one statement of the language the same way (a notebook cell): its outcome
-is reported, and a wrong answer, a malformed answer or an invalid statement is an error.
+is reported, and an outcome that fails the suite is an error.
 -/
 
 open Lean Elab Command Term
@@ -58,19 +59,18 @@ meta section
 structure TestResult where
   file : String
   id : String
-  /-- `holds`, `gap`, `unavailable`, `wrong`, `malformed` or `invalid`. -/
+  /-- The outcome's kind (`Outcome.kind`). -/
   kind : String
   detail : String := ""
+  /-- Whether the outcome fails the suite (`Outcome.fails`). -/
+  fails : Bool := false
   deriving ToJson, FromJson, Inhabited
-
-/-- Whether a result fails the suite: a wrong or malformed answer, or an invalid statement. -/
-def TestResult.fails (r : TestResult) : Bool :=
-  r.kind == "wrong" || r.kind == "malformed" || r.kind == "invalid"
 
 end
 
-/-- Runs the file `path` of the suite through `harness`: the outcome of each test. An invalid
-`let` is reported as an invalid statement of the file. -/
+/-- Runs the file `path` of the suite through `harness`: the outcome of each test. A `let` or
+statement that does not hold is reported as a statement of the file, with its outcome. Each test
+has its own heartbeat budget; exhausting it is that test's internal error, not the run's. -/
 meta def runFile (harness : Harness) (path : System.FilePath) :
     CommandElabM (Array TestResult) := do
   let path := path.toString
@@ -86,24 +86,12 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
       | `(cas_item| $s:cas_stmt) => (none, s.raw)
       | _ => (none, parsed)
     let id := id?.getD s!"(statement) {item}"
-    let attempt ← liftTermElabM <| withoutErrToSorry <|
-      -- Each test has its own heartbeat budget; a timeout fails that test, not the run.
-      tryCatchRuntimeEx
-        (do return Except.ok (← withCurrHeartbeats (Realize.run harness scope statement)))
-        fun e => do return Except.error (← e.toMessageData.toString)
-    match attempt with
-    | .error message =>
-        results := results.push { file := path, id, kind := "invalid", detail := message }
-    | .ok (outcome, scope') =>
-        scope := scope'
-        if id?.isNone then continue
-        let (kind, detail) := match outcome with
-          | .holds => ("holds", "")
-          | .gap reason => ("gap", reason)
-          | .unavailable reason => ("unavailable", reason)
-          | .wrong message => ("wrong", message)
-          | .malformed reason => ("malformed", reason)
-        results := results.push { file := path, id, kind, detail }
+    let (outcome, scope') ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+      Realize.run harness scope statement
+    scope := scope'
+    if id?.isNone && outcome matches .holds then continue
+    results := results.push
+      { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails }
   return results
 
 /-- The report of a file's results. -/
@@ -163,17 +151,8 @@ syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
   let some text := stx[1].isStrLit? | throwUnsupportedSyntax
   let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
   let harness ← loadHarness manifest?
-  let attempt : CommandElabM (Except String Outcome) := do
-    try return .ok (← runStatement harness {} text).1
-    -- not a reading fallback: an invalid statement is reported as such, by its message
-    catch e => return .error (← e.toMessageData.toString)
-  let outcome ← try attempt finally (harness.stop : IO Unit)
-  match outcome with
-  | .error message => throwError "invalid: {message}"
-  | .ok .holds => logInfo m!"holds"
-  | .ok (.gap reason) => logInfo m!"gap: {reason}"
-  | .ok (.unavailable reason) => logInfo m!"unavailable: {reason}"
-  | .ok (.wrong message) => throwError "wrong: {message}"
-  | .ok (.malformed reason) => throwError "malformed: {reason}"
+  let (outcome, _) ← try runStatement harness {} text finally (harness.stop : IO Unit)
+  let shown := if outcome matches .holds then outcome.kind else s!"{outcome.kind}: {outcome.detail}"
+  if outcome.fails then throwError shown else logInfo shown
 
 end CasCatalogue.Language

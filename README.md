@@ -74,5 +74,6 @@ Requires [elan](https://github.com/leanprover/elan), `uv` and `just`.
 just setup    # Mathlib cache, venv, casdsl kernelspec
 just build    # the gate: the static checks, then the kernel, acceptance, tools and notebook
 just test-ci  # the gate, then the demo notebook through the live kernel
-CAS_LEAVES=path/to/lean-cas-dsl-leaves lake build CasAcceptance.Suite   # the suite over a leaf
+just harness path/to/leaves.json   # the suite over a leaves manifest, to .tmp/harness.json
+just acceptance base.json          # the suite here, compared with a base run assertion by assertion
 ```

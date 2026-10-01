@@ -75,12 +75,7 @@ open Language Realize
 meta def strata : System.FilePath := "CasAcceptance" / "Strata"
 
 /-- An outcome's kind, as the suite reports it. -/
-meta def kindOf : Outcome → String
-  | .holds => "holds"
-  | .gap _ => "gap"
-  | .unavailable _ => "unavailable"
-  | .wrong _ => "wrong"
-  | .malformed _ => "malformed"
+meta def kindOf (outcome : Outcome) : String := outcome.kind
 
 /-- Run `text` and require its outcome's kind. -/
 meta def expect (harness : Harness) (kind : String) (text : String) : CommandElabM Unit := do
@@ -98,19 +93,15 @@ meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 
-/-- Run `text` and require that it is invalid: its reading fails, or Lean refutes it. -/
-meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit := do
-  let valid ← try (do discard <| runStatement harness {} text; pure true) catch _ => pure false
-  if valid then throwError "`{text}` is not invalid"
+/-- Run `text` and require that it is invalid: its reading fails with that stratum, or Lean
+refutes it. An internal error or an ambiguity is not invalidity. -/
+meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit :=
+  expect harness "invalid" text
 
 /-- Run `text` after the `let`s `lets`, and require that it is invalid. -/
 meta def expectInInvalid (harness : Harness) (lets : List String) (text : String) :
-    CommandElabM Unit := do
-  let mut scope : Language.Scope := {}
-  for binding in lets do
-    scope := (← runStatement harness scope binding).2
-  let valid ← try (do discard <| runStatement harness scope text; pure true) catch _ => pure false
-  if valid then throwError "`{text}` is not invalid"
+    CommandElabM Unit :=
+  expectIn harness lets "invalid" text
 
 /-- The harness of the probe manifest `name`, with what it rejects. -/
 meta def harnessOf (name : String) : CommandElabM Harness :=

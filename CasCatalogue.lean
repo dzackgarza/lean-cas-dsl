@@ -17,7 +17,7 @@ public import CasCatalogue.Language
 public import CasContract.Port
 public import CasCatalogue.Realize
 public import CasContract.Registration
-public import CasContract.Registry.Extension
+public import CasCatalogue.Registry
 public import CasCatalogue.Resolve
 public import CasCatalogue.ResolveSyntax
 public import CasCatalogue.Semantic

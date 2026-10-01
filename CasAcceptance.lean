@@ -19,4 +19,3 @@ public import CasAcceptance.RegistrationProbes
 public import CasAcceptance.SemanticProjectionProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard
-public import CasAcceptance.Suite

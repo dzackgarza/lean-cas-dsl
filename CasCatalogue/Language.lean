@@ -332,7 +332,7 @@ def objectNamed (state : RegistryState) (name : String) (category? : Option Name
   | #[object] => return object
   | #[] => throwStratum .invalid m!"no registered object is named {name}{match category? with
       | some c => m!" in {c.name}" | none => m!""}"
-  | _ => throwStratum .invalid m!"several registered objects are named {name}: state its \
+  | _ => throwStratum .semanticAmbiguity m!"several registered objects are named {name}: state its \
       category (`in C`)"
 
 /-- A term for an elaborated expression. -/
@@ -1184,7 +1184,7 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
   | false, true, none => object state name (← args.mapM (eval scope · none)) category?
   | true, false, none =>
       let #[entry] := morphisms
-        | throwStratum .invalid m!"several registered morphisms are named {name}: state their \
+        | throwStratum .semanticAmbiguity m!"several registered morphisms are named {name}: state their \
             category (`in C`)"
       morphism state entry args scope
   | true, true, some limit =>
@@ -1197,7 +1197,7 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
       Trace.alias (← read).trace presentation apex
       return .object apex category none
   | true, true, none => throwStratum .invalid m!"nothing registered is named {name}"
-  | _, _, _ => throwStratum .invalid m!"several kinds of registered rows are named {name}"
+  | _, _, _ => throwStratum .semanticAmbiguity m!"several kinds of registered rows are named {name}"
 
 /-- The registered morphism family `entry` at `args`: its leading arguments are its numeral
 parameters, and the rest are elements it is applied to (`gcd(84, 30)`, `rev(3, 0)`). Unapplied, it
@@ -1408,7 +1408,7 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     let candidates := if own.isEmpty then rings.filter (·.1 == v) else own
     let written := candidates.map (shown ·.2.1)
     unless written.all (· == written[0]!) do
-      throwStratum .invalid m!"{v} is the variable of several rings: {written.toList}"
+      throwStratum .semanticAmbiguity m!"{v} is the variable of several rings: {written.toList}"
     let some (_, ring, index) := candidates[0]? | unreachable!
     bindings := (v, ← generatorOf (← eval scope ring) index) :: bindings
   return bindings
@@ -2058,7 +2058,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
     | #[c] => pure c
     | #[] => throwStratum .invalid m!"no registered refinement of {base.name} has an operation \
         `{name}` of arity {elements.size}"
-    | _ => throwStratum .invalid m!"several refinements of {base.name} have an operation `{name}`"
+    | _ => throwStratum .semanticAmbiguity m!"several refinements of {base.name} have an operation `{name}`"
   let params ← paramTerms params
   let numerals ← numeralTerms operation.name extra
   let semantic ← `($(mkCIdent operation.declaration) ($(mkCIdent refined.declaration) $params*)
@@ -2376,14 +2376,55 @@ partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
 
 end
 
-/-- The outcome of a statement. -/
+/-- The outcome of a statement: it holds, or it fails in exactly one of the kinds that are never
+collapsed (`specs/architecture.md`, "Failure is stratified"; Policy 6). `invalid` and `ambiguous`
+are semantic; `gap` (no admitted registration, or several), `unavailable` and `malformed` are
+computational; `wrong` is a well-typed answer the statement refutes; `internal` is an exception
+without a stratum: an error of the interpreter or exhausted resources, which says nothing about the
+statement's mathematics. -/
 inductive Outcome
   | holds
   | wrong (message : String)
   | gap (reason : String)
   | unavailable (reason : String)
   | malformed (reason : String)
+  | invalid (reason : String)
+  | ambiguous (reason : String)
+  | internal (reason : String)
   deriving Inhabited, Repr
+
+/-- The kind of an outcome, as the suite reports it. -/
+def Outcome.kind : Outcome → String
+  | .holds => "holds"
+  | .wrong _ => "wrong"
+  | .gap _ => "gap"
+  | .unavailable _ => "unavailable"
+  | .malformed _ => "malformed"
+  | .invalid _ => "invalid"
+  | .ambiguous _ => "ambiguous"
+  | .internal _ => "internal"
+
+/-- The detail of an outcome. -/
+def Outcome.detail : Outcome → String
+  | .holds => ""
+  | .wrong m | .gap m | .unavailable m | .malformed m | .invalid m | .ambiguous m
+  | .internal m => m
+
+/-- Whether an outcome fails the suite: everything but a statement that holds, a gap and an
+unavailable backend. -/
+def Outcome.fails (o : Outcome) : Bool :=
+  !(o matches .holds | .gap _ | .unavailable _)
+
+/-- The outcome of the failure `e`: its stratum, or, without one, an internal error. -/
+def Outcome.ofException (e : Exception) : TermElabM Outcome := do
+  let message ← e.toMessageData.toString
+  return match Exception.stratum? e with
+    | some .invalid => .invalid message
+    | some .semanticAmbiguity => .ambiguous message
+    | some .noImplementation | some .ambiguousRealization => .gap message
+    | some .unavailable => .unavailable message
+    | some .malformed => .malformed message
+    | none => .internal message
 
 /-- `lit` as a value of the literal type `type`. -/
 def literalExpr (type : Name) : Value → TermElabM Expr

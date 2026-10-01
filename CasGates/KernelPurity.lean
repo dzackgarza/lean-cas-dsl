@@ -23,7 +23,7 @@ import all CasContract
 import all CasContract.Failure
 import all CasContract.Port
 import all CasContract.Registration
-import all CasContract.Registry.Extension
+import all CasCatalogue.Registry
 public meta import Lean
 
 /-!
