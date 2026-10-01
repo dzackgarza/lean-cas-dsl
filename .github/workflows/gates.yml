@@ -92,6 +92,9 @@ jobs:
       - name: Run the suite at the base and at the head
         run: |
           for side in base head; do
+            # The harness exits nonzero when an assertion fails; the report decides, and a run
+            # that did not complete writes none, which fails the comparison.
+            rm -f "$GITHUB_WORKSPACE/$side.json"
             (cd "$side" && lake exe cache get && lake build cas-harness \
               && { lake exe cas-harness --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done

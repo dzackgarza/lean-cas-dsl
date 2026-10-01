@@ -464,12 +464,56 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)
 
-/-- Return the manifest produced from the checked persistent registry state. -/
+/-- The ids of `kind` that the manifest exports are exactly the ids the registry state registers:
+none missing, none extra, none substituted, and each named by one row. The registry state, which
+`lean-categories` alone writes, is the reference; no downstream list of its rows is kept. -/
+def validateProjection (kind : String) (registered exported : Array String) :
+    Except String Unit := do
+  let repeated := exported.foldl (init := #[]) fun out id =>
+    if (exported.filter (· == id)).size > 1 && !out.contains id then out.push id else out
+  unless repeated.isEmpty do
+    throw s!"exported {kind}: stable ids name several rows: {repeated}"
+  let missing := registered.filter (!exported.contains ·)
+  let extra := exported.filter (!registered.contains ·)
+  unless missing.isEmpty && extra.isEmpty do
+    throw s!"exported {kind} are not the registered ones: missing {missing}, not registered {extra}"
+
+/-- The manifest is a faithful projection of `state`: every row kind exports exactly the rows the
+state registers (`validateProjection`). -/
+def validateManifestProjection (state : RegistryState) (manifest : RegistryManifest) :
+    Except String Unit := do
+  validateProjection "categories" (state.categories.map (·.id.raw)) (manifest.categories.map (·.id))
+  validateProjection "category families" (state.categoryFamilies.map (·.id.raw))
+    (manifest.categoryFamilies.map (·.id))
+  validateProjection "classifiers" (state.classifiers.map (·.id.raw)) (manifest.classifiers.map (·.id))
+  validateProjection "functors" (state.functors.map (·.id.raw)) (manifest.functors.map (·.id))
+  validateProjection "constructors" (state.constructors.map (·.id.raw))
+    (manifest.constructors.map (·.id))
+  validateProjection "fibrations" (state.fibrations.map (·.id.raw)) (manifest.fibrations.map (·.id))
+  validateProjection "methods" (state.methods.map (·.id.raw)) (manifest.methods.map (·.id))
+  validateProjection "properties" (state.properties.map (·.id.raw)) (manifest.properties.map (·.id))
+  validateProjection "lifts" (state.lifts.map (·.id.raw)) (manifest.lifts.map (·.id))
+  validateProjection "cells" (state.cells.map (·.id.raw)) (manifest.cells.map (·.id))
+  validateProjection "limits" (state.limits.map (·.id.raw)) (manifest.limits.map (·.id))
+  validateProjection "adjunctions" (state.adjunctions.map (·.id.raw)) (manifest.adjunctions.map (·.id))
+  validateProjection "objects" (state.objects.map (·.id.raw)) (manifest.objects.map (·.id))
+  validateProjection "opaque categories" (state.opaqueCategories.map (·.id.raw))
+    (manifest.opaqueCategories.map (·.id))
+  validateProjection "opaque ports"
+    (state.opaqueCategories.flatMap fun c => c.ports.map (·.id.raw))
+    (manifest.opaqueCategories.flatMap fun c => c.ports.map (·.id))
+
+/-- Return the manifest produced from the checked persistent registry state, checked to be a
+faithful projection of it. -/
 def checkedRegistryManifestDTO : CoreM RegistryManifest := do
   let state ← registryState
   match validatePersistedSemanticState state.toSemanticState with
   | .error message => throwError message
-  | .ok () => pure (registryManifest state)
+  | .ok () =>
+    let manifest := registryManifest state
+    match validateManifestProjection state manifest with
+    | .error message => throwError message
+    | .ok () => pure manifest
 
 def checkedRegistryManifest : CoreM Json := do
   return toJson (← checkedRegistryManifestDTO)

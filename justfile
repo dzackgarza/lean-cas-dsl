@@ -44,10 +44,14 @@ harness *manifest="":
 
 # Run the suite here and compare it with the base run `base` (a report of `cas-harness`),
 # assertion by assertion (`scripts/compare_acceptance.py`): an assertion of the base that is
-# missing here, or that the base did not fail and fails here, fails the comparison.
+# missing here, one that the base did not fail and fails here, and a new one that fails here,
+# each fail the comparison. The harness exits nonzero whenever an assertion fails, so its exit
+# does not decide; its report does, and a run that did not complete writes none (the stale
+# report is removed first).
 acceptance base:
     @lake build cas-harness
     @mkdir -p .tmp
+    @rm -f .tmp/harness.json
     -@lake exe cas-harness --report .tmp/harness.json
     @python3 scripts/compare_acceptance.py {{ base }} .tmp/harness.json
 
