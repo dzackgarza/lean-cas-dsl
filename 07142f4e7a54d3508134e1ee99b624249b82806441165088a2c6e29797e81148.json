@@ -1,0 +1,63 @@
+{
+ "key": "07142f4e7a54d3508134e1ee99b624249b82806441165088a2c6e29797e81148",
+ "record": {
+  "change_key": "07142f4e7a54d3508134e1ee99b624249b82806441165088a2c6e29797e81148",
+  "change_sha256": "5fc2b7ed4ab299f71888d5018071582550351709b90104dbb3c217a3f4fb78b5",
+  "head_sha": "5038b9ce48989daebe278e3d8128f6834ea93414",
+  "model": "claude-opus-5-5",
+  "pr": "60",
+  "problems": [
+   "sealed file changed: custodian/CONTAINMENT.md",
+   "sealed file changed: custodian/FINDINGS.md",
+   "sealed file changed: custodian/adversarial.sh",
+   "sealed file changed: custodian/review/test_review.py",
+   "sealed file changed: custodian/verify.py",
+   "sealed file changed: justfile",
+   "sealed file removed: scripts/check_kernel_totality.py"
+  ],
+  "prompt_sha256": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
+  "result": {
+   "criteria": [
+    {
+     "criterion": "The obligation is unchanged",
+     "evidence": "verify.py deletes `\"partial\": r\"\\bpartial\\s+def\\b\",`, removing `partial def` from the banned-construct ratchet everywhere, leaves included: an uncapped exemption. justfile deletes the two `check_kernel_totality.py` lines (self-test and run), and scripts/check_kernel_totality.py is deleted, so the LC-14 gate is gone and nothing stricter replaces it. adversarial.sh (`gate-exemption` -> `gate-edit`) and test_review.py (target -> check_no_leaves.py) stop testing the removed gate. CONTAINMENT.md lines 48 and 73 drop `partial def`/`partial` from the sealed ratchet list and the intervention table, which is a write under custodian/ (barred by containment rule 5). The new FINDINGS #3 claims cc-failure-strata now carries the obligation, but no check in the diff establishes that.",
+     "holds": false
+    },
+    {
+     "criterion": "The kernel stays purely categorical and general, with no fallback",
+     "evidence": "With the totality gate removed, a kernel `catch` that rereads a failed term is no longer detected. With `partial def` allowed, new evaluator paths can be non-total. The new FINDINGS #13 redefines `partial def` as opaque implementation recursion to put it outside the ban; that redefinition comes from the change itself, not from the owner.",
+     "holds": false
+    },
+    {
+     "criterion": "Semantics are independent of realizations",
+     "evidence": "No diff line touches semantic reading, leaf state or route selection.",
+     "holds": true
+    },
+    {
+     "criterion": "The mathematics is owned upstream",
+     "evidence": "The owner's rules for the lean_categories catalogue forbid partial functions. Lifting the `partial def` ban in the shared ratchet (it also covers .lake/packages/cas_leaves) weakens an admission rule.",
+     "holds": false
+    },
+    {
+     "criterion": "Nothing from a leaf is trusted",
+     "evidence": "No change makes any check consume data a leaf supplies about itself. The ratchet relaxation applies to leaves but does not make their output trusted.",
+     "holds": true
+    },
+    {
+     "criterion": "Failures stay stratified",
+     "evidence": "LC-14 kept a semantically invalid term from being turned into an answer under another interpretation. The gate is deleted, and the cited outcome model (cc-failure-strata) is relied on without any check in the diff.",
+     "holds": false
+    },
+    {
+     "criterion": "The change is reviewable",
+     "evidence": "The diff is small and every line was checked.",
+     "holds": true
+    }
+   ],
+   "summary": "Rejected. The change removes two obligations: the kernel totality (LC-14) gate (two justfile lines and the deleted scripts/check_kernel_totality.py), and the `partial def` ratchet (the verify.py regex line, plus CONTAINMENT.md lines 48 and 73). It also stops adversarial.sh and test_review.py from testing the removed gate, and rewrites FINDINGS #3 and #13 to justify both by citing \"B0 Policy 5\", which is not owner text. It fails four criteria: the obligation is unchanged, kernel purity and no fallback, upstream ownership (a weakened ban on partial functions), and failure stratification. The change is overt and does not address the reviewer, so it is rejected rather than escalated. To change these obligations, the orchestrator must open a pull request that names them as inconsistent and leaves the gate and ratchet in place until the owner accepts the change.",
+   "verdict": "reject"
+  },
+  "served_by": "claude-opus-5-5"
+ },
+ "signer": "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A"
+}
