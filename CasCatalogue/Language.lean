@@ -1480,6 +1480,9 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let t ← semanticObject T
     unless ← isDefEq target t do
       throwStratum .invalid m!"{declaration} does not land in {t}"
+  -- Instances the target has determined (`Monoid ℝ` once `M = ℝ`), so that an operand's set is
+  -- known before it is carried there.
+  synthesizeInstances args infos
   -- An operand of a set included in the source is carried there (`Mˣ ↪ M`, `ℕ ⊆ ℤ`). Anything else
   -- is not in the family's domain: an operand is never admitted into a domain because the family
   -- needs it there (it is formed there, `x in D`).
@@ -1931,7 +1934,7 @@ partial def divide (a b : Value) (ambient? : Option Value := none) : M Value := 
   if let .element _ Y := b then
     if (← unitsOf? Y).isNone then
       try return ← applyNamed state "/" #[a', b] (some K)
-      catch _ => throwStratum .invalid unitMessage
+      catch ex => throwStratum .invalid m!"{unitMessage} ({ex.toMessageData})"
   applyNamed state "/" #[a', b] (some K)
 
 /-- `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the image of the registered
