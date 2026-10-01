@@ -12,7 +12,7 @@ CC-ROUTE ([computational-core.md](computational-core.md)).
 | Formal | operations, their input and result forms, what each form denotes | `lean-categories` (formalization author) |
 | Formal | resolution, encoding, decoding, comparison, Lean discharge | the kernel (`lean-cas-dsl`) |
 | Formal | the acceptance suite | `lean-cas-dsl` (acceptance author) |
-| Leaf | registrations and backend programs | `lean-cas-dsl-leaves` (leaf author) |
+| Leaf | registrations and backend programs | a leaf package, e.g. `lean-cas-dsl-leaves` (leaf author) |
 
 Only data crosses the firewall. Going out, it is the encoding of an input; coming back, it is JSON
 that the kernel decodes or rejects. No Lean crosses it, in either direction.
@@ -56,7 +56,7 @@ malformed (CC-DECODE).
 
 ## A registration is data
 
-A leaf is a manifest, `leaves.json` at the root of `lean-cas-dsl-leaves`, plus the programs it
+A leaf package is a manifest, `leaves.json` at the root of the package, plus the programs it
 names:
 
 ```json
@@ -76,7 +76,9 @@ A registration has no other field. The kernel admits a registration only when:
 - its backend is named in the manifest.
 
 Otherwise the registration is not admitted, and the harness reports it. A leaf ships no Lean, and
-the kernel imports nothing from the leaves' package.
+the kernel imports nothing from any leaf package. The kernel reads the manifest of the leaf
+package named by `CAS_LEAVES` (its directory or its `leaves.json`) at run time; any package with
+a conforming manifest is a leaf package.
 
 The port protocol is unchanged: length-prefixed JSON frames, a `ready` announcement, and requests
 `{request_id, op, args}` with replies `{request_id, status, value}`. `op` is the registration's
@@ -147,7 +149,7 @@ These go, in the code and in every document that describes them:
 
 ## Acceptance of the replacement
 
-- The leaves' package contains no `.lean` file, and nothing in `lean-cas-dsl` imports it.
+- A leaf package contains no `.lean` file, and nothing in `lean-cas-dsl` imports one.
 - The contract's registration type has exactly the three fields above.
 - A deliberately wrong leaf answer, for example cardinality always `7`, turns the affected
   assertions `wrong` and changes nothing else: no meaning, no type, no available operation, and no

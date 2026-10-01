@@ -250,26 +250,31 @@ together with the release that corrects it.
 
 ## What must be impossible
 
-The leaf API must make these unrepresentable. The table records the present mechanism, or the plan
-node that owes one.
+The leaf API must make these unrepresentable. The table records the mechanism, or the plan node
+that owes one. The leaf-facing mechanisms are those of `gov-leaf-authority`
+([leaf-registration.md](leaf-registration.md)), delivered on `kernel/leaf-registration`
+([#53](https://github.com/dzackgarza/lean-cas-dsl/pull/53),
+[contract #3](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/3)): a leaf is a
+manifest whose registration (`CasContract.Registration`) has exactly three fields, an operation, an
+input form and a backend. Nothing else in a manifest carries meaning.
 
 | State | Mechanism now | Owed by |
 | --- | --- | --- |
-| A leaf creates a category | `register_leaf` rejects the `category` contribution | — |
-| A leaf declares its object to be a group | `subcategory` and `refineObject` are rejected. The category and meaning of a value are decided upstream (the operation's typed request and result, `lean-categories` and the kernel), never by the leaf: no leaf-facing form carries a denotation | `gov-leaf-authority` |
-| A leaf says which operations an object has | `method` and `property` are rejected. Availability is computed from semantic rows and routes. | — |
-| A leaf coins subgroup, kernel, cardinality or basis | `genericSemantics`, `naturalTransformation` and `identification` are rejected | — |
-| A leaf forwards an inherited method | No method rows are available to a leaf. A leaf registers only against a registered operation or composite, with that operation's declared type; it supplies no proof that its computation agrees with anything | `gov-leaf-authority` (leaf-supplied squares) |
-| A leaf narrows a domain or changes a result type | Rows cannot restate a domain. An implementation's type is the operation's declared type, fixed upstream | — |
-| A leaf inserts a placement or inheritance edge | `forgetfulRoute` and `coercion` are rejected | — |
-| Installing or removing a leaf adds or removes methods | `#methods` reads semantic rows only. `StrataProbes` finds the surfaces identical with and without every leaf, while `#gaps` differs. | — |
-| A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port. `connect` refuses any capability that is not declared on a registered operation. | — |
+| A leaf creates a category | Unrepresentable: a registration has no field for one | `gov-leaf-authority` |
+| A leaf declares its object to be a group | Unrepresentable. The category and meaning of a value are decided upstream (the operation's declared forms, `lean-categories` and the kernel); no leaf-facing form carries a denotation | `gov-leaf-authority` |
+| A leaf says which operations an object has | Unrepresentable. Availability is computed from semantic rows and routes; a registration only names an operation the catalogue already has, and the kernel admits it against the catalogue (`CasCatalogue.Admission`) | `gov-leaf-authority` |
+| A leaf coins subgroup, kernel, cardinality or basis | Unrepresentable: a registration names a catalogue operation or is not admitted | `gov-leaf-authority` |
+| A leaf forwards an inherited method | Unrepresentable. A leaf registers only against a registered operation, on a declared input form; the kernel routes along the catalogue's maps itself, and a registration on a form the catalogue sends elsewhere is not admitted. A leaf supplies no proof that its computation agrees with anything | `gov-leaf-authority` |
+| A leaf narrows a domain or changes a result type | Unrepresentable. The input and result forms are the operation's, fixed upstream; the kernel decodes every answer in the result form or rejects it as malformed | `gov-leaf-authority` |
+| A leaf inserts a placement or inheritance edge | Unrepresentable: a registration has no field for one | `gov-leaf-authority` |
+| Installing or removing a leaf adds or removes methods | Methods are read from semantic rows only. A manifest changes only which statements are computed: the suite over no leaf and over any manifest elaborates the same statements, and only gaps differ (`RegistrationProbes`) | `gov-leaf-authority` |
+| A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port; only a value of a declared form crosses it, decoded by the kernel | `gov-leaf-authority` |
 | A backend object becomes the public value | Answers are read by the kernel into the operation's declared result form, whose meaning is `lean-categories`'; a leaf never defines what a value means | `gov-leaf-authority` |
 | An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
 | A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
 | A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it; `cas-harness` installs the leaves beside the runner and checks the intake contract before running anything. The suite is run only from `lean-cas-dsl` | — |
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
-| A research notebook coins missing mathematics | `research` AGENTS.md; its computations live in `research/leaves`, as leaves under the same contract (`isLeafModule`) | — |
+| A research notebook coins missing mathematics | `research` AGENTS.md: missing mathematics is requested from `lean-categories`; research computations are leaves under the same contract, registrations with no Lean | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
 | One agent authors in two rows of "Authors: one role per agent" | `scripts/check_authorship.py` (in `just build`), over this repository and the linked `lean_categories`, `cas_leaf_contracts`, `cas_leaves`: every agent commit declares `Agent-Role:`, touches only that role's paths, and its author (`Agent-Id:`, else `Claude-Session:`) writes in one role only; `--self-test` reproduces the refused patterns. Trailers are declarations, not proof: the gate catches drift, and a forged trailer is a policy violation | — |
 | The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance`; `check_authorship.py` assigns a change to `admitted.json`'s assertions or corrections to the acceptance role | — |
@@ -277,7 +282,7 @@ node that owes one.
 | `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
 | The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | `scripts/check_kernel_totality.py` (in `just build`) refuses every `catch` in `CasCatalogue/` not marked, with its reason, as not a reading fallback; it names file and line. Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
 | The kernel teaches itself mathematics: refers to it, or proves membership in a domain itself (unit criteria, monicity, smoothness lemmas, `simp`/`norm_num`/`fun_prop` batteries, lemma names in strings) | Structurally impossible. (1) A domain's membership is established only by the `evidence` registered with its admission in `lean-categories` (LC-18; the registry refuses evidence that is not a `meta` `TacticM Unit` of `lean-categories`). (2) The kernel's `establish` runs that evidence and nothing else; the only proof the kernel forms itself is `decide` by evaluation. (3) `CasGates.KernelPurity`, a default Lean build target (`just build`, CI job `kernel-purity`), reads every declaration of `CasCatalogue.*` and `CasContract.*` and refuses: any constant or name literal from outside Lean's core, Mathlib's category theory and its logic, and `lean-categories`' categorical foundation and registry schema; any tactic syntax (quoted, `by`, or the `tactic` category parsed from a string); running a tactic procedure or evaluating a constant anywhere but `establish`; a kernel module it does not import. `KernelPurityProbes` shows each form refused. Only purely categorical, completely general machinery passes | — |
-| A leaf is written in `lean-cas-dsl` (or in the contract, the core or `lean-categories`) | Impossible: `register_leaf` (`addLeafRegistryEntryChecked`, contract `6762331`) refuses a row from any module rooted in `CasContract`, `CasCatalogue`, `CasAcceptance`, `CasDsl`, `CasDslTests`, `CasTools` or `LeanCategories`; a leaf registers only from a leaf package. `scripts/check_no_leaves.py` reports the same without a build. The DSL consuming the leaf packages is its purpose | — (four probes still attempting it fail to build: `gov-no-leaves-here`) |
+| A leaf is written in `lean-cas-dsl` (or in the contract, the core or `lean-categories`) | A leaf is a manifest and programs in a leaf package, read at run time (`CAS_LEAVES`); `lean-cas-dsl` requires no leaf package and imports nothing from one. `scripts/check_no_leaves.py` refuses `import CasLeaves` and `require cas_leaves`. Probe backends under `CasAcceptance/Strata` are test scaffolding for the kernel's probes, not leaves | `gov-leaf-authority` |
 
 ### The pattern behind every row: a lower layer absorbs an upper layer's knowledge
 
@@ -361,9 +366,9 @@ Until these close, an orchestrator claim about its own gates or deliverables is 
 | Package (repository) | Depends on | Holds |
 | --- | --- | --- |
 | `lean_categories` (`lean-categories`) | Mathlib | all mathematics and the catalogue |
-| `cas_leaf_contracts` (`lean-cas-dsl-leaf-contracts`) | `lean_categories` | the leaf contract: the declared type of each registered operation's computation, the registration of leaf computations against it, the port protocol and its Python reference implementation, `register_leaf` |
-| `cas_leaves` (`lean-cas-dsl-leaves`) | the two above | the leaves and their backend programs |
-| `cas-dsl` (`lean-cas-dsl`) | all three | the kernel's resolution, calls and language, the permanent suite, the harness, the notebook |
+| `cas_leaf_contracts` (`lean-cas-dsl-leaf-contracts`) | `lean_categories` | the leaf contract: the registration (operation, input form, backend), the manifest reader, the port protocol and its Python reference implementation |
+| `lean-cas-dsl-leaves`, or any leaf package | nothing Lean | a manifest `leaves.json` at the package root and its backend programs; no Lean |
+| `cas-dsl` (`lean-cas-dsl`) | `lean_categories`, `cas_leaf_contracts` | the kernel's resolution, admission, realized reading and language, the permanent suite, the harness, the notebook; it reads a leaf package's manifest at run time |
 
 The leaf contract is the kernel's, not `lean-categories'`: it is about what is computable and how
 it is executed, of which `lean-categories` owns nothing and which its audit never reads. It is
