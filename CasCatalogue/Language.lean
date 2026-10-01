@@ -1371,9 +1371,10 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       | _, _ => pure #[source]
     unless sources.size == applied.size do
       throwStratum .invalid m!"{entry.name} is applied to {sources.size} elements"
+    -- An operand of a set included in the source is carried there (`ℝ ∖ {a} ↪ ℝ`).
     let elements ← (sources.zip applied).mapM fun (set, arg) => do
       let X ← recognize state set category
-      toElement (← eval scope arg none (some X)) X
+      coerceTo (← eval scope arg none (some X)) X
     return ← applyTo (← quoteExpr semantic) elements targetValue
   let .object b _ _ := targetValue
     | throwStratum .invalid m!"the target of {entry.name} is not an object"
