@@ -1,9 +1,9 @@
 module
 
 public import LeanCategories.Catalogue.Semantics
-public import CasContract.Registry.Extension
+public import CasCatalogue.Registry
 public meta import LeanCategories.Catalogue.Semantics
-public meta import CasContract.Registry.Extension
+public meta import CasCatalogue.Registry
 
 @[expose] public section
 

@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import CasContract.Registry.Extension
+public import CasCatalogue.Registry
 public import CasContract.Failure
 
 @[expose] public section
