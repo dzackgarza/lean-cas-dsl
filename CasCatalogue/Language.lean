@@ -791,8 +791,9 @@ def binderSlots (args : Array Expr) (infos : Array BinderInfo) (k : Nat) :
     MetaM (Option (Array Expr)) := do
   let slots ← (args.zip infos).filterMapM fun (a, i) => do
     unless i.isExplicit do return none
-    let type ← whnf (← inferType a)
-    return if type.isSort || type.isAppOf ``Quiver.Hom then some a else none
+    let type ← inferType a
+    if (← whnfR type).isAppOf ``Quiver.Hom then return some a
+    return if (← whnf type).isSort then some a else none
   return if slots.size < k then none else some (slots.extract (slots.size - k) slots.size)
 
 /-- The binder row's operation with its notation's arguments as its last object and morphism
@@ -810,7 +811,7 @@ def bindBinder (R : BinderReading) (category : NamedCategoryEntry) (row : Binder
     | throwStratum .invalid m!"`{row.token}` takes fewer arguments"
   let mut points := #[]
   for (slot, x) in slots.zip arguments do
-    let type ← whnf (← instantiateMVars (← inferType slot))
+    let type ← whnfR (← instantiateMVars (← inferType slot))
     let set? := (homEnds? type).bind fun (_, b) => if b.hasMVar then none else some b
     let v ← R.argument x (← set?.mapM (R.recognize · category))
     let value ← match v with
@@ -852,17 +853,27 @@ def readBinder (R : BinderReading) (token : String) (t : Name) (arguments : Arra
   let ctx ← read
   let rows := (state.binders.filter (·.token == token)).filterMap fun row =>
     (state.categories.find? (·.id == row.category)).map (row, ·)
-  let succeeds (x : M Unit) : M Bool := (withoutModifyingState do
-    try discard <| x.run ctx; pure true catch _ => pure false : TermElabM Bool)
-  let taking ← rows.filterM fun (row, c) => succeeds do discard <| bindBinder R c row arguments
-  let readers ← taking.filterM fun (row, c) => succeeds do
-    discard <| fitBinder R c row t arguments e
+  let attempt (x : M Unit) : M (Option MessageData) := (withoutModifyingState do
+    try discard <| x.run ctx; pure none catch ex => pure (some ex.toMessageData) :
+      TermElabM (Option MessageData))
+  let mut taking := #[]
+  let mut readers := #[]
+  let mut refusals : Array MessageData := #[]
+  for (row, c) in rows do
+    if let some why ← attempt (discard <| bindBinder R c row arguments) then
+      refusals := refusals.push m!"{row.id.raw}: {why}"
+      continue
+    taking := taking.push (row, c)
+    if let some why ← attempt (discard <| fitBinder R c row t arguments e) then
+      refusals := refusals.push m!"{row.id.raw}: {why}"
+      continue
+    readers := readers.push (row, c)
   let (row, category) ← match readers, taking with
     | #[r], _ => pure r
     -- One row takes the arguments: its reading of the body is the failure to report.
     | #[], #[r] => pure r
     | #[], _ => throwStratum .invalid m!"no registered binder `{token}` reads `{shown e}` at these \
-        arguments"
+        arguments ({MessageData.joinSep refusals.toList "; "})"
     | _, _ => throwStratum .invalid m!"several registered binders `{token}` read this: \
         {readers.map (·.1.id.raw)}"
   let (points, source, f) ← fitBinder R category row t arguments e
