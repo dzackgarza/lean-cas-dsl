@@ -29,9 +29,11 @@ and they are the orchestrator's record.
    - Its authority is `AGENT_ROLE=acceptance`, an environment variable anyone sets.
    - A missing `admitted.json` is recreated empty.
    - The ledger is plain JSON, editable by hand.
-3. `scripts/check_kernel_totality.py` exempts any `catch` next to the comment
-   `-- not a reading fallback:`, so the author certifies its own exemption. It only sees the token
-   `catch`, not `<|>`, `tryCatch`, `orElse` or `getD`.
+3. `scripts/check_kernel_totality.py` exempted any `catch` next to the comment
+   `-- not a reading fallback:`, so the author certified its own exemption, and it saw only the token
+   `catch`. It is withdrawn (B0 Policy 5). The obligation it named, that no failure is reread into
+   another meaning, is carried by the one outcome model (`cc-failure-strata`: every failure is
+   reported as its stratum, an untagged one as an internal error) and by the acceptance comparison.
 4. `CasGates/KernelPurity.lean`
    - `evidenceRunner.isPrefixOf d` exempts every declaration named `CasCatalogue.Language.establish.*`.
    - `CasContract.Probes` is skipped.
@@ -71,9 +73,12 @@ and they are the orchestrator's record.
 
 ## D. The kernel (sealed at the baseline, recorded as debt)
 
-13. `CasCatalogue/Language.lean` has 43 `unreachable!`, and the sealed files have 89 `partial def`
-    in all (the full list is `banned_baseline` in the seal). These are undefined-result paths in the evaluator. The ratchet
-    forbids new ones. Removing them is a kernel proposal.
+13. `CasCatalogue/Language.lean` has 43 `unreachable!` (the full list is `banned_baseline` in the
+    seal). The ratchet forbids new ones. Removing them is a kernel proposal. A `partial def` is not
+    on this list: it is implementation recursion that Lean keeps opaque, not a mathematical
+    operation given a value outside its domain (B0 Policy 5), so the ratchet no longer bans it. Where
+    a pure algorithm must terminate on valid input, that is shown for the algorithm; an effectful
+    failure is reported as an implementation failure, never as a mathematical one.
 14. `CasAcceptance/Standard.lean:380` proves an acceptance probe with `native_decide`, which trusts
     the compiler rather than the kernel.
 15. `lakefile.lean` requires `nbdsl-worker` at `main`, a floating ref. The seal fixes the manifest

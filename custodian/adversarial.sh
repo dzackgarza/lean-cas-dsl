@@ -27,7 +27,7 @@ run() { # name expect(0/1) setup...
 }
 L=.lake/packages/cas_leaves
 run baseline 0 true
-run gate-exemption 1 "sed -i 's/not a reading fallback/fallback ok/' scripts/check_kernel_totality.py"
+run gate-edit 1 "echo '# relax' >> scripts/check_no_leaves.py"
 run kernel-edit 1 "echo '-- x' >> CasCatalogue/Semantic.lean"
 run assertion-edit 1 "f=\$(ls tests/acceptance/*.cas|head -1); sed -i '0,/test /s/test /test  /' \$f; echo >> \$f"
 run ledger-rewrite 1 "python3 -c \"import json;p='CasAcceptance/Permanent/admitted.json';d=json.load(open(p));k=sorted(d['assertions'])[0];d['assertions'][k]='0'*64;open(p,'w').write(json.dumps(d))\""

@@ -141,13 +141,13 @@ expect("banned construct: hard, never reviewed", run(stub("approve")), "FAIL (ha
 results.append(not calls)
 
 fresh()
-with open(S / "head" / "scripts/check_kernel_totality.py", "a") as f:
+with open(S / "head" / "scripts/check_no_leaves.py", "a") as f:
     f.write("\n# relax\n")
 commit(S / "head")
 expect("gate change, reviewer approves", run(stub("approve")), "APPROVED")
 
 fresh()
-with open(S / "head" / "scripts/check_kernel_totality.py", "a") as f:
+with open(S / "head" / "scripts/check_no_leaves.py", "a") as f:
     f.write("\n# relax\n")
 commit(S / "head")
 calls.clear()

@@ -19,8 +19,6 @@ jobs:
         run: python3 scripts/ci_chain.py
       - name: Authors are separated by layer
         run: python3 scripts/check_authorship.py --self-test && python3 scripts/check_authorship.py
-      - name: The kernel never makes a term defined by catching its failure
-        run: python3 scripts/check_kernel_totality.py --self-test && python3 scripts/check_kernel_totality.py
       - name: No leaves in lean-cas-dsl
         run: python3 scripts/check_no_leaves.py --self-test && python3 scripts/check_no_leaves.py
       - name: Permanent acceptance assertions

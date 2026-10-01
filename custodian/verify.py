@@ -53,7 +53,6 @@ BANNED_EVERYWHERE = {
     "sorry": r"\bsorry\b",
     "admit": r"(?<!def )(?<!\()\badmit\b(?!\s*[\w(←:])",
     "axiom": r"^\s*(?:@\[[^\]]*\]\s*)?(?:private\s+|protected\s+)?axiom\s",
-    "partial": r"\bpartial\s+def\b",
     "unsafe": r"\bunsafe\b",
     "implemented_by": r"\bimplemented_by\b",
     "extern": r"@\[\s*extern\b",

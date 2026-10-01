@@ -25,8 +25,6 @@ default:
 build:
     @python3 scripts/check_authorship.py --self-test
     @python3 scripts/check_authorship.py
-    @python3 scripts/check_kernel_totality.py --self-test
-    @python3 scripts/check_kernel_totality.py
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py

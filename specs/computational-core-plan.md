@@ -139,12 +139,11 @@ Three families, as modifications of the existing compiler, checks and harness:
 A gate is kept only if it protects an explicit obligation or observed failure mechanism, judges
 actual code, data flow, types or execution rather than a label, cannot be changed and self-accepted
 by the candidate's author, and costs only at its boundary (Policy 5). Under that test:
-- the banned-construct ratchet's ban on `partial def` in kernel code does not protect a
-  mathematical obligation, and is corrected through the protected rule-change path (the seal is the
-  owner's); the actual obligation is that a pure algorithm required to terminate on valid input
+- the banned-construct ratchet's ban on `partial def` does not protect a mathematical obligation,
+  and is withdrawn (`custodian/verify.py`, through the protected rule-change path); the actual obligation is that a pure algorithm required to terminate on valid input
   does, and that effectful failure is reported as an implementation failure;
-- the `check_kernel_totality.py` exemption marker is a self-applied label and is replaced by the
-  outcome model of `cc-failure-strata`;
+- `check_kernel_totality.py` judged a self-applied label; it is withdrawn, and its obligation is
+  carried by the outcome model of `cc-failure-strata`;
 - `check_authorship.py`'s trailers are self-declared; authority comes from configuration (below),
   and the trailer check is not a B0 gate.
 

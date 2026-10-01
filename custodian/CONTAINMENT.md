@@ -45,7 +45,7 @@ at sha256 `fb3fe73c…`):
 4. **The admission ledger** `CasAcceptance/Permanent/admitted.json`. It may only grow: sealed
    assertion hashes and `corrections` never change.
 5. **Ratchets that only tighten**, each with a baseline in the seal:
-   - no new `sorry`, `admit`, `axiom`, `partial def`, `unsafe`, `implemented_by`, `extern`,
+   - no new `sorry`, `admit`, `axiom`, `unsafe`, `implemented_by`, `extern`,
      `panic!`, `unreachable!`, `native_decide` or `ofReduceBool` anywhere in lean-cas-dsl;
    - outside the boundary, no syntax, elaborator, macro, `initialize` or global attribute, and no
      semantic registration or `LeanCategories/` module;
@@ -70,7 +70,7 @@ copy>`, each of the following fails verification:
 | Ship a leaf or a probe leaf in lean-cas-dsl | leaf check |
 | Write semantic rows downstream (`LeanCategories.*` module, `normalized_registry`) | outside-boundary check |
 | Redefine `#accept` or any syntax from a leaf, or from an unsealed file here | syntax ratchet |
-| Make an example pass with `sorry`, an axiom, `native_decide`, `implemented_by`, or `partial` | banned-construct ratchet |
+| Make an example pass with `sorry`, an axiom, `native_decide` or `implemented_by` | banned-construct ratchet |
 | Let a leaf see the tests or the kernel | leaf import and read checks |
 | Edit the owner's text | sealed bytes |
 
