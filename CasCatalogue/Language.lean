@@ -881,6 +881,7 @@ def readBinder (R : BinderReading) (token : String) (t : Name) (arguments : Arra
   let rows := (state.binders.filter (·.token == token)).filterMap fun row =>
     (state.categories.find? (·.id == row.category)).map (row, ·)
   let attempt (x : M Unit) : M (Option MessageData) := (withoutModifyingState do
+    -- not a reading fallback: every row is tried, exactly one must read, the others' refusals reported
     try discard <| x.run ctx; pure none catch ex => pure (some ex.toMessageData) :
       TermElabM (Option MessageData))
   let mut taking := #[]
@@ -1934,6 +1935,7 @@ partial def divide (a b : Value) (ambient? : Option Value := none) : M Value := 
   if let .element _ Y := b then
     if (← unitsOf? Y).isNone then
       try return ← applyNamed state "/" #[a', b] (some K)
+      -- not a reading fallback: the refusal is rethrown as invalid, with its reason
       catch ex => throwStratum .invalid m!"{unitMessage} ({ex.toMessageData})"
   applyNamed state "/" #[a', b] (some K)
 
