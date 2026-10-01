@@ -28,26 +28,34 @@ fifth case beside these four.
 A binding operator is a registered **binder** row of the catalogue. Its fields are all
 `lean-categories`' mathematics:
 - `notation`: the surface token (`∫`, `lim`, `∑`, `∏`);
-- `operation`: a family of morphisms `∀ params, M params × P params ⟶ Y params`. Here
-  `M ↪ Hom(D, Y')` is the registered object of maps the operation is total on (integrable maps,
-  maps convergent at `a`, maps on a finite set), and `P` holds the remaining arguments (bounds, the
-  point `a`, the index set);
-- `binderDomain`: `∀ params, D params`, the object the bound variable ranges over. For
-  `lim_{t → a}` this is the punctured domain `D ∖ {a}`: `sin(t)/t` is a map there, and it is not a
-  map on `ℝ`, because `t` is not a unit of `ℝ`;
-- `M` is an ordinary object row with its admission and registered evidence (LC-18): continuity,
-  convergence at `a`, finiteness.
+- `operation`: a morphism family `∀ params, M params ⟶ Y params` of the row's category, whose
+  single source `M params` is a registered object of maps the operation is total on (integrable
+  maps, maps convergent at `a`, summable families, all maps on a finite set). The notation's
+  arguments are the family's explicit parameters that are objects or morphisms, in order: a point
+  `a : 1 ⟶ X` (the bounds of `∫`, the point of `lim`, a finite subset `A : 1 ⟶ 𝒫_fin(X)`) or an
+  object (the index set `ℕ` of an infinite sum);
+- `domain`: `∀ params, D params`, with the operation's parameters, the object the bound variable
+  ranges over. It may depend on the arguments: for `lim_{t → a}` it is the punctured domain
+  `ℝ ∖ {a}`, because `sin(t)/t` is a map there and is not a map on `ℝ` (`t` is not a unit of `ℝ`);
+- `M` is an ordinary object row: a subobject of the maps `D params → Y params`, with its admission
+  and registered evidence (LC-18): continuity, convergence at `a`, summability. An object of all
+  maps has an admission with no hypothesis.
+
+A notation may have several binder rows (`∑` over a finite subset, and over a set of indices of a
+summable family). Which one reads a statement is decided by its arguments: a row reads it only if
+every argument unifies with its parameter.
 
 The kernel's reading is one code path for every binder, and it names nothing:
-1. Find the unique binder row whose `notation` is the token. If there is none, or more than one, the
-   statement is invalid.
-2. Read `P` (the point, the bounds, the index set) from the notation's arguments, in the row's
-   declared order. This determines `params`.
-3. Read the body at a stage in `binderDomain params`: `t` is a generic element of `D`. An operation
-   that needs `t` in a subdomain reaches it only along a registered inclusion (`ℝ ∖ {0} ↪ ℝˣ`),
-   never by admission, because a variable is never admitted.
-4. Form the map `t ↦ e : D → Y'`, admit it into `M` through `M`'s admission and registered
-   evidence, and apply `operation`. If the evidence is not established, the statement is invalid.
+1. For each binder row whose `notation` is the token, read the notation's arguments and unify them,
+   in order, with the operation's explicit object and morphism parameters. Exactly one row must
+   read the statement. If none does, or more than one, the statement is invalid.
+2. `D := domain params`. The arguments determine `D`; if they do not, the statement is invalid.
+3. Read the body at a stage in `D`: `t` is a generic element of `D`. An operation that needs `t` in
+   a subdomain reaches it only along a registered inclusion (`ℝ ∖ {0} ↪ ℝˣ`), never by admission,
+   because a variable is never admitted.
+4. Form the map `t ↦ e : D → Y'`, admit it into the operation's source `M` through `M`'s admission
+   and registered evidence, and apply `operation` (the generic application of a registered family,
+   as for any named morphism). If the evidence is not established, the statement is invalid.
 
 `∫`, `∑`, `∏` and the formal series become binder rows read by this path, and their kernel cases are
 deleted. That is the test that the rule is general: one path, four mathematically different
@@ -55,8 +63,10 @@ operators, and a fifth (`lim`) that needs no kernel code of its own.
 
 ## Work, by owner
 
-1. The binder row's schema and its registration checks. `operation` must take `M × P`, `M` must be
-   a subobject of maps out of `binderDomain`, and the row must be total in the LC-14 sense. This
+1. The binder row's schema and its registration checks: `operation` is a family of the row's
+   category with a single source, `domain` takes exactly the operation's parameters and lands in
+   the category's objects, the source is a registered object row with an admission and evidence,
+   and the row is total in the LC-14 sense. This
    is `lean-categories` registry code, which the seal covers.
 2. Binder rows, with their domains and evidence, for `∫`, `∑`, `∏`, the formal series and `lim`.
    For `lim` this includes the point `∞` (the limit at the top of `ℝ`), the punctured domain, its
