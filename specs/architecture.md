@@ -391,6 +391,16 @@ when work may be blocked, what an approval delegates, and how a defective contro
    - An explicit owner decision is authoritative when given, not when an agent commits it. An
      owner's question is not by itself an instruction, and an assistant's proposal is not an owner
      decision.
+   - Ordinary maintenance proceeds directly within the delegated authority. Process (a branch, a
+     pull request, a review, a verdict, a signature, a plan node, a full build) is justified only by
+     a substantive decision or technical validation it performs, never by the fact that a file
+     changed. Recording a decision already given, correcting a stale description, updating status
+     or removing a superseded rule is an ordinary commit to the owning text: no dedicated pull
+     request, verdict, plan node or build, and it does not wait for unrelated code work to carry
+     it. Documentation that describes an implementation change goes with that change. What a text
+     change needs is decided by its effect, not its file type: a proposal to change a mathematical
+     requirement, an acceptance standard or an authority needs that decision, and transcribing an
+     instruction never inserts a new requirement.
 2. **No downstream authorship of upstream mathematics.** A kernel worker consumes an accepted
    release. It does not write `lean-categories`, including its registry schemas, validators,
    mathematical probes or admission rules, and does not commission upstream work with

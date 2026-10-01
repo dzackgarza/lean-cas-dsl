@@ -133,7 +133,10 @@ Consequences, binding on every agent and first of all the orchestrator:
   wording there (architecture.md, Policy 5). An owner's explicit decision is authoritative when
   given, not when committed; an owner's question is answered, and is not by itself an instruction;
   your own proposal is not an owner decision (Policy 1). An ordinary defect yields a code
-  correction and a test, not a new policy, plan node or documentation pull request.
+  correction and a test, not a new policy, plan node or documentation pull request. Recording a
+  decision or updating a description is an ordinary commit, not an approval transaction; a branch,
+  pull request, review or signature is used only where it performs a needed decision or validation
+  (Policy 1).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
 - **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
   backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
