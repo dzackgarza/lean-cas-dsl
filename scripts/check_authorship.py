@@ -31,9 +31,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# Commits from here on are checked. The baseline is the owner's escalation that moved the chain to
-# main (PR #43); the history before it is the baseline, not judged.
-CUTOFF = "2026-09-30T18:20:40+00:00"
+# Commits from here on are checked. The baseline is the owner's re-seal at the kernel PR #53
+# (leaf registration); the history before it is the baseline, not judged.
+CUTOFF = "2026-10-01T07:11:37+00:00"
 # `custodian`: only paths inside the custodian seal (custodian/CONTAINMENT.md), so declaring the role
 # grants no write the seal does not refuse.
 ROLES = ("orchestrator", "formalization", "acceptance", "leaf", "custodian")
