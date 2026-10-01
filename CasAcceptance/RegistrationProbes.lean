@@ -24,6 +24,12 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   decidable equality of morphisms of a concrete category. A false one (`2 + 3 = 6`) is refuted
   by Lean and invalid. What Lean does not decide and no registration computes is a gap:
   cardinalities.
+* **An admitted element is part of the term, with its evidence.** `3 in ℚˣ` is the unit
+  `(3, ⅟3)`: its registered evidence (`Units.invertibleEvidence`, run through the kernel's one
+  sanctioned runner) builds the data `Invertible 3` when the statement is read, and the admission
+  takes it. So `(3 in ℚˣ)⁻¹ = 1/3`, `1/(3 in ℚˣ) = 1/3` and `(2 in (ℤ/5)ˣ)⁻¹ = 3` are decided by
+  Lean with no manifest, `(3 in ℚˣ)⁻¹ = 1/2` is refuted, and `2 in ℤˣ` is invalid: its evidence
+  fails, so `2` is not in `ℤˣ`.
 * **A registration computes, through the port.** Registrations of `meth.cardinality` on the
   forms `obj.sets.fin` and `obj.sets.integers_mod_power` make `|Fin(3)| = 3`, `|(ℤ/4)^3| = 64`
   and `|(ℤ/0)^2| = ℵ₀` hold. A field a registration does not have is ignored. An object with no
@@ -127,6 +133,18 @@ run_cmd do
   for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
       "assert implemented |Fin(3)|"] do
     expect harness "gap" text
+
+-- An element admitted into a domain is part of the term, with the data its registered evidence
+-- built (`3 in ℚˣ` is the pair `(3, ⅟3)`, the catalogue's `Invertible 3` established when the
+-- statement is read): Lean decides equations about its inverse, with no manifest at all, and
+-- refutes false ones. An element whose evidence fails (`2 ∈ ℤˣ`) is not in the domain: invalid.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  for text in ["assert (3 in ℚˣ)⁻¹ = 1/3", "assert 1/(3 in ℚˣ) = 1/3",
+      "assert (2 in (ℤ/5)ˣ)⁻¹ = 3"] do
+    expect harness "holds" text
+  expectInvalid harness "assert (3 in ℚˣ)⁻¹ = 1/2"
+  expectInvalid harness "assert 2 in ℤˣ"
 
 -- A registration computes cardinalities through the port.
 run_cmd withHarness "registration_correct.json" fun harness => do

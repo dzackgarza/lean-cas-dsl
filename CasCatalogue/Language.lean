@@ -703,29 +703,32 @@ def runProcedure (procedure : Name) (goal : MVarId) :
         return .error s!"its proof has a hole: {detail}"
       return .ok remaining
 
-/-- The evidence of the proposition `p` (a hypothesis of the admission of a domain), established
-when a statement is read (LC-14) by the domain's registered evidence and by nothing else: a `meta`
-proof procedure `TacticM Unit` of `lean-categories`, registered with the domain's admission
-(LC-18), run through `runProcedure`. A statement whose obligation is not established is invalid:
-without the evidence, the value is not in the domain it is used in. -/
+/-- The evidence of the hypothesis `p` of the admission of a domain (a proposition, `IsUnit x`,
+`Continuous f`, or data with at most one value, `Invertible x`, the inverse an admitted unit
+keeps), established when a statement is read (LC-14) by the domain's registered evidence and by
+nothing else: a `meta` proof procedure `TacticM Unit` of `lean-categories`, registered with the
+domain's admission (LC-18), run through `runProcedure` on the goal `p`. The result is the closed
+term the procedure built, a proof or the data, which the admission takes directly. A statement
+whose obligation is not established is invalid: without the evidence, the value is not in the
+domain it is used in. -/
 def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr := do
   let p ← instantiateMVars p
   if p.hasMVar then
-    throwStratum .invalid m!"{what}: the proposition {p} is not determined"
+    throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
   let goal ← mkFreshExprMVar p .syntheticOpaque
   match ← runProcedure evidence goal.mvarId! with
   | .error message =>
       throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
         ({message.take 300})"
   | .ok remaining =>
-      let proof ← instantiateMVars goal
+      let term ← instantiateMVars goal
       -- Evidence with a hole is no evidence.
-      if !remaining.isEmpty || proof.hasSorry || proof.hasSyntheticSorry then
+      if !remaining.isEmpty || term.hasSorry || term.hasSyntheticSorry then
         throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
-          (its proof has a hole)"
-      if proof.hasMVar then
-        throwStratum .invalid m!"{what}: {p} is not established (its proof is not closed: {proof})"
-      return proof
+          (its term has a hole)"
+      if term.hasMVar then
+        throwStratum .invalid m!"{what}: {p} is not established (its term is not closed: {term})"
+      return term
 
 /-- The morphism `a → b` of the registered graph literal of their category with the graph `pairs`
 of numerals, each an element of the set `a` or `b` is (its registered numeral, `numeralIn`). -/
@@ -1986,8 +1989,12 @@ partial def inclusionOut? (D : Value) : M (Option (Expr × Expr)) := do
 
 /-- The element (or map) `v` admitted into the domain `D` by its registered admission
 `∀ params (x : B) (h : P x), 1 ⟶ D params`, the evidence `P x` established when the statement is
-read (LC-14): `2 ∈ ℚˣ`, `M ∈ GLₙ(K)`, `p` monic of degree `n`, `f` continuous. An element at a stage
-(a variable) has no such evidence: `t ↦ 1/t` on `ℝ` is not a map, whatever `t` is. -/
+read (LC-14): `2 ∈ ℚˣ`, `M ∈ GLₙ(K)`, `p` monic of degree `n`, `f` continuous. The element is the
+first explicit binder the admission's target does not depend on, and its hypotheses are the
+explicit binders after it, each a proposition or data with at most one value (the registry's
+rule): the evidence builds a proof, or the data (`Invertible x`, the inverse of a unit), and the
+admission takes the term it built. An element at a stage (a variable) has no such evidence:
+`t ↦ 1/t` on `ℝ` is not a map, whatever `t` is. -/
 partial def admit (D : Value) (v : Value) : M Value := do
   let .object d category (some (entry, _)) := D
     | throwStratum .invalid m!"a domain is a named set"
@@ -2012,9 +2019,11 @@ partial def admit (D : Value) (v : Value) : M Value := do
   unless ← isDefEq type (← mkAppM ``Quiver.Hom #[one, ← semanticObject D]) do
     throwStratum .invalid m!"the admission of {entry.name} does not land in it"
   let explicit := (List.range args.size).toArray.filter (infos[·]!.isExplicit)
-  let props ← explicit.filterM fun i => return (← inferType (← inferType args[i]!)).isProp
-  let some xi := explicit.reverse.find? (fun i => props.all (i < ·))
+  -- The element: the first explicit binder the target does not depend on (the parameters of the
+  -- domain occur in it). What follows it is its hypotheses.
+  let some xi := explicit.find? fun i => !type.hasAnyMVar (· == args[i]!.mvarId!)
     | throwStratum .invalid m!"the admission of {entry.name} takes no value"
+  let hypotheses := explicit.filter (xi < ·)
   let x ← elabTermEnsuringType carrier (← instantiateMVars (← inferType args[xi]!))
   synthesizeSyntheticMVarsNoPostponing
   -- The value itself, its plumbing unfolded: what its evidence is about.
@@ -2022,7 +2031,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
   synthesizeInstances args infos
-  for i in props do
+  for i in hypotheses do
     let obligation ← instantiateMVars (← inferType args[i]!)
     unless ← isDefEq args[i]! (← establish evidence obligation m!"not an element of {entry.name}") do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
