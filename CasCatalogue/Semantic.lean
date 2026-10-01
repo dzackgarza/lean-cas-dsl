@@ -196,3 +196,5 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
 end Semantic
 
 end CasCatalogue
+
+-- approved in words, one criterion fails
