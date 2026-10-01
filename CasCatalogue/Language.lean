@@ -773,6 +773,32 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
   Trace.record (← read).trace hom (.literal form.id (← instantiateMVars literal.appArg!))
   return .morphism hom a b category none
 
+/-- A proposition about closed terms, established by deciding it, or as an equation whose sides are
+definitionally equal (`a = 0` at the point `0`): the proof the kernel checks, or nothing. -/
+def establishObligation (p : Expr) : MetaM (Option Expr) := do
+  if let some proof ← decideObligation p then return some proof
+  if let some (_, lhs, rhs) := p.eq? then
+    if ← isDefEq lhs rhs then return some (← mkEqRefl lhs)
+  return none
+
+/-- The registered inclusion `e` out of the set `y` (a semantic object): its morphism `y ⟶ b` and
+`b`, when its source is `y` at parameters that determine it and its obligations (`a = 0`) hold. -/
+def inclusionFrom? (e : InclusionEntry) (y : Expr) : TermElabM (Option (Expr × Expr)) := do
+  let c ← mkConstWithFreshMVarLevels e.declaration
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType c)
+  let some (x, b) := homEnds? (← whnfR type) | return none
+  unless ← isDefEq x y do return none
+  for (a, i) in args.zip infos do
+    unless i.isExplicit && (← instantiateMVars a).isMVar do continue
+    let p ← instantiateMVars (← inferType a)
+    unless ← isProp p do continue
+    let some proof ← establishObligation p | return none
+    unless ← isDefEq a proof do return none
+  synthesizeInstances args infos
+  let ι ← instantiateMVars (mkAppN c args)
+  if ι.hasMVar then return none
+  return some (ι, ← instantiateMVars b)
+
 /-- What reading a binding operator needs from the evaluation of the language, which is recursive:
 an argument read in its set (when the set is determined), the body at a stage of the domain as the
 map `t ↦ e`, the admission of a map into a registered object, the generic application of a
@@ -1563,6 +1589,17 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   if let (some (sub, #[]), some (super, #[])) := (yOrigin, xOrigin) then
     if let some chain := inclusionChain state sub.id super.id then
       return some (some (← inclusionMap chain Y))
+  -- A registered inclusion out of `Y` at its parameters (`ℝ ∖ {0} ↪ ℝˣ`), then into `X`.
+  if let some (sub, _) := yOrigin then
+    for e in state.inclusions.filter (·.sub == sub.id) do
+      let some (ι, b) ← inclusionFrom? e y | continue
+      let B ← recognize state b category
+      let .object bHandle .. := B | continue
+      let ι ← homIn (← quoteExpr ι) y bHandle category
+      if let some into ← coercionMap B X then
+        return some (some (← match into with
+          | some ι' => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, ι']
+          | none => pure ι))
   -- A domain's inclusion `Y ↪ B` (`Mˣ ↪ M`), then `B` into `X`.
   if let some (ι, b) ← inclusionOut? Y then
     let B ← recognize state b category
@@ -1886,11 +1923,16 @@ partial def divide (a b : Value) (ambient? : Option Value := none) : M Value := 
     | some K, _, _ | none, .element _ K, _ => pure K
     | none, _, .element _ Y => pure ((← unitsOf? Y).getD Y)
     | none, _, _ => object state "ℤ" #[] none
+  -- A divisor is a unit: an element of the units, or carried there along a registered inclusion
+  -- (`ℝ ∖ {0} ↪ ℝˣ`). Anything else is not in the domain of `/`.
+  let unitMessage := m!"a divisor is a unit: form it in the units (`x in Kˣ`), where its \
+    evidence is established; an element not known to be a unit is not in the domain of `/`"
+  let a' ← toElement (← coerceTo a K) K
   if let .element _ Y := b then
     if (← unitsOf? Y).isNone then
-      throwStratum .invalid m!"a divisor is a unit: form it in the units (`x in Kˣ`), where its \
-        evidence is established; an element not known to be a unit is not in the domain of `/`"
-  applyNamed state "/" #[← toElement (← coerceTo a K) K, b] (some K)
+      try return ← applyNamed state "/" #[a', b] (some K)
+      catch _ => throwStratum .invalid unitMessage
+  applyNamed state "/" #[a', b] (some K)
 
 /-- `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the image of the registered
 inclusion `Y ↪ X`, `univ \ ι(Y)` with `univ` the transpose of `X → 1 → Ω`. -/
