@@ -62,3 +62,38 @@ jobs:
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
       - name: Build and audit
         run: just test
+  acceptance:
+    name: Acceptance, per assertion against the base
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Check out the head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: head
+      - name: Check out the base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: base
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Check out each side's chain at its manifest revisions
+        run: |
+          python3 head/scripts/ci_chain.py head
+          python3 head/scripts/ci_chain.py base
+      - name: Install Lean
+        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
+        with:
+          lake-package-directory: head
+          auto-config: "false"
+          build: "false"
+          test: "false"
+          lint: "false"
+          use-mathlib-cache: "false"
+      - name: Run the suite at the base and at the head
+        run: |
+          for side in base head; do
+            (cd "$side" && lake exe cache get && lake build cas-harness \
+              && { lake exe cas-harness --report "$GITHUB_WORKSPACE/$side.json" || true; })
+          done
+      - name: Compare, assertion by assertion
+        run: python3 head/scripts/compare_acceptance.py base.json head.json

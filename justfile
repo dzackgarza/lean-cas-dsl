@@ -18,8 +18,9 @@ set dotenv-load := true
 default:
     @just --list
 
-# Build the core and the notebook package, and run their probes: the acceptance probes and the
-# suite (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests).
+# Build the core and the notebook package, and run their probes: the acceptance probes
+# (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests). The suite is
+# executed by `just harness` and `just acceptance`, not compiled.
 # Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py), and
 # authors are separated by layer across the chain (scripts/check_authorship.py).
 build:
@@ -40,6 +41,15 @@ harness *manifest="":
     @lake build cas-harness
     @mkdir -p .tmp
     @lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
+
+# Run the suite here and compare it with the base run `base` (a report of `cas-harness`),
+# assertion by assertion (`scripts/compare_acceptance.py`): an assertion of the base that is
+# missing here, or that the base did not fail and fails here, fails the comparison.
+acceptance base:
+    @lake build cas-harness
+    @mkdir -p .tmp
+    -@lake exe cas-harness --report .tmp/harness.json
+    @python3 scripts/compare_acceptance.py {{ base }} .tmp/harness.json
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
 # (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.
