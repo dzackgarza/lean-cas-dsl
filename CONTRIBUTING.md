@@ -29,13 +29,13 @@ bind the kernel, the language and every leaf. Their consequences here:
   known to lie in the domain makes the statement invalid when it is read, never a gap, value or
   failure found when it is computed. No fallback reinterprets a term to make it land in a domain
   (a divisor retried in another set, a numeral read where no numeral exists) (LC-14).
-- Kernel code is total in the same sense, and the banned-construct ratchet stands for that
-  invariant, not for the word `partial`. A recursion is made total by proving it terminates
-  (structural recursion, or a well-founded measure that decreases). Bounding it by fuel and
-  failing when the fuel runs out is a partial map in another encoding: the failure says nothing
-  about the input, and a bound argued to be sufficient makes it an `unreachable!` under another
-  name. A decoder may fail only on input that is malformed. Proposed by the orchestrator on
-  2026-10-01 to clear the ratchet, and withdrawn.
+- LC-14 is about mathematics: an operation, a domain, a value. It is not about the kernel's own
+  program structure. A `partial def` in the elaborator, a parser or an encoder says that a piece
+  of code is not proved to terminate; it gives no term a meaning off a domain, so it is not a
+  partial map. What LC-14 forbids in the kernel is semantic: reading a term outside its
+  operation's domain, a fallback reading, a default for something that does not exist. The
+  seal's ratchet on new `partial def` anywhere in this repository, and `custodian/FINDINGS.md`
+  item 13, conflate the two (`gov-ratchet-scope`).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
 - A leaf computes on an input form that `lean-categories` and the kernel define for the
