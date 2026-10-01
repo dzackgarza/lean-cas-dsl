@@ -17,12 +17,17 @@ public import CasContract.Port
 A statement's semantic reading elaborates it into its claim (`Language.Claim`): a proposition of
 the catalogue's mathematics, and the term it is about. This module decides the claim:
 
-1. **Lean discharge first.** The proposition is decided in Lean, generically (`decideProp`): the
-   proof `of_decide_eq_true (Eq.refl true) : p` is formed (Lean's `mkDecideProof`, on
-   `Decidable` instances alone, running no tactic) and checked by Lean's kernel, within a fixed
-   heartbeat budget; refutation is the same proof of `¬p`. If Lean proves it, the statement
-   holds as proved and no leaf is consulted. If Lean refutes it, the statement is false
-   mathematics and is invalid. Nothing is decided by evaluation outside the kernel.
+1. **Lean discharge first.** The proposition is decided in Lean, generically
+   (`decideEvaluated`): the registered evaluations of the literal forms whose denotations occur
+   in it (a literal row's `evaluation`, a `meta` procedure of `lean-categories`, run through the
+   one sanctioned runner `Language.runProcedure`, LC-18) rewrite the images of literals under the
+   catalogue's operations to literals, and the goal that remains is proved by
+   `of_decide_eq_true (Eq.refl true)` (Lean's `mkDecideProof`, on `Decidable` instances alone,
+   running no tactic of the kernel's); the proof so formed is checked by Lean's kernel,
+   synchronously, within a fixed heartbeat budget; refutation is the same proof of `¬p`. If Lean
+   proves it, the statement holds as proved and no leaf is consulted. If Lean refutes it, the
+   statement is false mathematics and is invalid. Nothing is decided by evaluation outside the
+   kernel.
 2. **Otherwise, realize.** The same term is evaluated bottom-up through the operations the
    semantic reading recorded (`CasCatalogue.Trace`): a named object at its parameters is its
    form, encoded by the kernel; a literal (a morphism by its graph) is its form; the receiver of
@@ -425,8 +430,63 @@ def evaluatedEq (a b : Expr) : MetaM Bool := do
   | none => throwError "the equality of {a} and {b} is not decided by the kernel: the form's \
       decidable equality does not compute"
 
-/-- Discharge `claim` in Lean, generically: holds when its proposition is decided true; invalid,
-as false mathematics, when it is decided false; `none` when Lean does not decide it. -/
+/-- The registered evaluations that apply to the proposition `p`: the `evaluation` of each
+registered literal form (a literal row's, a subset-literal row's) whose denotation occurs in `p`.
+Each is a `meta` procedure of `lean-categories`, validated there with its row, which rewrites the
+images of literals of its form under the catalogue's operations to literals, by the theorems of
+its domain, and never closes a goal. -/
+def evaluationsOf (state : RegistryState) (p : Expr) : Array Name :=
+  let occurs (denotation : Name) : Bool := (p.find? (·.isConstOf denotation)).isSome
+  (state.literals.filterMap fun form => if occurs form.denotation then form.evaluation else none)
+    ++ (state.subsetLiterals.filterMap fun form =>
+      if occurs form.denotation then form.evaluation else none)
+
+/-- Whether Lean's kernel accepts a proof of the closed proposition `p` by the registered
+evaluations `evaluations` and decision: the goal `p` is given to each evaluation in turn, through
+the one sanctioned runner (`Language.runProcedure`, LC-18), and the goal that remains is proved
+by `of_decide_eq_true (Eq.refl true)` (`mkDecideProof`, on `Decidable` instances alone); the
+proof so formed is checked by Lean's kernel, synchronously, within `decideBudget`
+(`kernelAccepts`). With no evaluation, it is the proof by decision alone. `false` when an
+evaluation fails or leaves several goals, when the remainder has no `Decidable` instance, or when
+the kernel does not accept the proof within the budget. -/
+def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := do
+  let attempt : TermElabM Bool := do
+    let goal ← mkFreshExprMVar p .syntheticOpaque
+    let mut remaining := [goal.mvarId!]
+    for evaluation in evaluations do
+      let [current] := remaining | return false
+      match ← Language.runProcedure evaluation current with
+      | .ok goals => remaining := goals
+      -- not a reading fallback: an evaluation that fails decides nothing, and the claim is then
+      -- realized, unchanged
+      | .error _ => return false
+    match remaining with
+    | [] => pure ()
+    | [residue] => residue.withContext do residue.assign (← mkDecideProof (← residue.getType))
+    | _ => return false
+    let proof ← instantiateMVars goal
+    if proof.hasMVar || proof.hasLevelMVar || proof.hasSorry then return false
+    kernelAccepts p proof
+  withCurrHeartbeats <|
+    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := decideBudget * 1000 }) <|
+      -- not a reading fallback: a proposition the evaluations and decision do not settle is not
+      -- decided by Lean; the claim is then realized, unchanged
+      tryCatchRuntimeEx attempt fun _ => pure false
+
+/-- The proposition `p` decided in Lean, generically: `some true` when the kernel accepts its
+proof by the registered evaluations that apply to it (`evaluationsOf`) and decision
+(`evaluatedDecides`), `some false` when it accepts one of `¬p`, `none` otherwise. -/
+def decideEvaluated (p : Expr) : TermElabM (Option Bool) := do
+  let p ← instantiateMVars p
+  if p.hasMVar || p.hasLevelMVar then return none
+  let evaluations := evaluationsOf (← registryState) p
+  if ← evaluatedDecides evaluations p then return some true
+  if ← evaluatedDecides evaluations (mkNot p) then return some false
+  return none
+
+/-- Discharge `claim` in Lean, generically (`decideEvaluated`): holds when its proposition is
+decided true; invalid, as false mathematics, when it is decided false; `none` when Lean does not
+decide it. -/
 def discharge (claim : Claim) : TermElabM (Option Outcome) := do
   let refuted (what : String) : TermElabM (Option Outcome) :=
     throwStratum .invalid m!"{what} is refuted: Lean decides it false"
@@ -434,18 +494,18 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
   | .settled outcome => return some outcome
   | .implemented _ => return none
   | .literal _ _ _ _ prop left right =>
-      match ← decideProp prop with
+      match ← decideEvaluated prop with
       | some true => return some .holds
       | some false => refuted s!"{left} = {right}"
       | none => return none
   | .homs _ _ _ prop left right =>
-      match ← decideProp prop with
+      match ← decideEvaluated prop with
       | some true => return some .holds
       | some false => refuted s!"{left} = {right}"
       | none => return none
   | .decision prop expected shown =>
       let some expected := expected | return none
-      match ← decideProp prop with
+      match ← decideEvaluated prop with
       | some decided => if decided == expected then return some .holds else refuted shown
       | none => return none
 

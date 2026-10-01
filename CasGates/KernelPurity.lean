@@ -45,7 +45,8 @@ catalogue registers. Mathematics is `lean-categories`', formalized there by its 
    a `by` block), or the tactic category itself (tactic source parsed from a string);
 3. **runs code it did not write**: a use of `restrictedConstants` (running a tactic procedure,
    evaluating a constant) or of Lean's tactic machinery anywhere but `evidenceRunner`, which runs
-   only the evidence a domain registers with its admission in `lean-categories` (LC-18);
+   only the proof procedures `lean-categories` registers and validates: a domain's evidence with
+   its admission (LC-18), a literal form's evaluation with the form;
 4. **evaluates a term**: a use of `evaluationConstants`. Nothing in the kernel decides anything by
    evaluation: a decision is the kernel's proof by `decide`, checked by Lean's kernel
    (`CasCatalogue.Realize`), and a leaf's answer is decoded in a declared form, never run.
@@ -82,7 +83,7 @@ meta def allowedModules : List Name :=
 meta def tacticModules : List Name := [`Lean.Elab.Tactic, `Lean.Meta.Tactic]
 
 /-- Running a tactic procedure or evaluating a constant by name: only `evidenceRunner` may, on
-the registered evidence of a domain. -/
+the proof procedures `lean-categories` registers. -/
 meta def restrictedConstants : List Name :=
   [``Lean.Elab.Term.runTactic, ``Lean.Environment.evalConst, ``Lean.Environment.evalConstCheck,
    ``Lean.evalConst, ``Lean.evalConstCheck, ``Lean.Elab.Term.evalTerm]
@@ -95,8 +96,9 @@ meta def evaluationConstants : List Name := [``Lean.Meta.evalExpr, ``Lean.Meta.e
 /-- The declarations allowed to evaluate a term: none. -/
 meta def evaluators : List Name := []
 
-/-- The one declaration that runs registered evidence (with its auxiliary declarations). -/
-meta def evidenceRunner : Name := `CasCatalogue.Language.establish
+/-- The one declaration that runs a registered proof procedure (with its auxiliary
+declarations): a domain's evidence, a literal form's evaluation. -/
+meta def evidenceRunner : Name := `CasCatalogue.Language.runProcedure
 
 /-- Tactic blocks as terms, and the tactic category, which the kernel may not name. -/
 meta def tacticSyntax : List Name :=
@@ -165,7 +167,7 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
           by evaluation (a decision is a kernel-checked proof, a leaf's answer is decoded)"
       continue
     if restrictedConstants.contains c || tacticModules.any (·.isPrefixOf cm) then
-      -- The runner itself, or a compiler-generated auxiliary of it (`establish.unsafe_1`).
+      -- The runner itself, or a compiler-generated auxiliary of it (`runProcedure.unsafe_1`).
       unless d == evidenceRunner || (d.getPrefix == evidenceRunner &&
           (match d with
             | .str _ s => s.startsWith "_" || s.startsWith "unsafe_" | _ => false)) do

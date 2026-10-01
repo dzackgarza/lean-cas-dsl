@@ -42,9 +42,14 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   makes the assertion wrong. A limit registered on an object form is not admitted.
 * **A finite subset is a literal (`lit.sets.finite_subsets`).** `{1, 2, 3} in 𝒫(ℤ)` is the
   denotation of the literal `{1, 2, 3} : Finset ℤ`; Lean decides equality of literals with no
-  leaf, and refutes `A = {1, 2}`. A registration of `meth.cardinality` on the subset form
-  receives the elements, `[1, 2, 3]`: `|A| = 3` holds through it. What no realized operation
-  forms (`A ∪ B`) is a gap.
+  leaf, and refutes `A = {1, 2}`. The images of literals under the catalogue's operations are
+  decided by Lean too, with no leaf: the form's registered evaluation (its row's `evaluation`, a
+  procedure of `lean-categories` run through the kernel's one sanctioned runner) rewrites
+  `A ∪ B`, `A ∩ B` and `|A|` to literals, and `decide` settles the equation of literals that
+  remains, checked by the kernel. So `A ∪ B = {1, 2, 3, 4, 5}`, `A ∩ B = {3}` and `|A| = 3` hold
+  with no manifest, and `A ∪ B = {1, 2, 3, 4}` and `|A| = 4` are refuted. A registration of
+  `meth.cardinality` on the subset form is admitted and never asked: through one answering the
+  constant `7`, `|A| = 3` still holds and `|A| = 4` is still refuted.
 * **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
   constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
   unchanged.
@@ -158,23 +163,37 @@ run_cmd withHarness "registration_limits.json" fun harness => do
   expect harness "holds" "assert 2 + 3 = 5"
 
 -- A finite subset is a literal of the power object's registered subset-literal form
--- (`lit.sets.finite_subsets`): compared in Lean on the literals, and sent as its elements.
-run_cmd withHarness "registration_subsets.json" fun harness => do
-  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+-- (`lit.sets.finite_subsets`): compared in Lean on the literals, with no manifest at all.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
   let A := ["let A := {1, 2, 3} in 𝒫(ℤ)"]
-  -- Lean decides equality of literals, with no leaf: a reordered, repeated list is the same
-  -- literal; a different one is refuted.
+  let AB := A ++ ["let B := {3, 4, 5} in 𝒫(ℤ)"]
+  -- Lean decides equality of literals: a reordered, repeated list is the same literal; a
+  -- different one is refuted.
   expectIn harness A "holds" "assert A = {1, 2, 3}"
   expectIn harness A "holds" "assert A = {3, 1, 2, 2}"
-  expectIn (← (Harness.empty : IO Harness)) A "holds" "assert A = {1, 2, 3}"
   expectInInvalid harness A "assert A = {1, 2}"
-  -- `|A|` is the cardinality of the extent of the literal: the registration on the subset form
-  -- receives the elements `[1, 2, 3]`.
-  expectIn harness A "holds" "assert |A| = 3"
-  expectIn harness A "wrong" "assert |A| = 4"
+  -- The images of literals under `∪`, `∩` and the cardinality are decided by Lean: the form's
+  -- registered evaluation rewrites them to literals, and `decide` settles the equation of
+  -- literals that remains, checked by the kernel.
+  for text in ["assert A ∪ B = {1, 2, 3, 4, 5}", "assert A ∩ B = {3}", "assert |A| = 3"] do
+    expectIn harness AB "holds" text
   expectIn harness ["let B := {1, 2, 2} in 𝒫(ℤ)"] "holds" "assert |B| = 2"
-  -- What no operation of the realized reading forms is a gap, named.
-  expectIn harness (A ++ ["let B := {3, 4, 5} in 𝒫(ℤ)"]) "gap" "assert A ∪ B = {1, 2, 3, 4, 5}"
+  -- False mathematics about them is refuted: invalid, whatever is installed.
+  expectInInvalid harness AB "assert A ∪ B = {1, 2, 3, 4}"
+  expectInInvalid harness A "assert |A| = 4"
+
+-- A registration of `meth.cardinality` on the subset form is admitted, and never asked: Lean
+-- discharges what it decides before any leaf is consulted (`specs/leaf-registration.md`, "What
+-- Lean discharges"). Through one answering the constant `7`, the outcomes are the same.
+run_cmd withHarness "registration_subsets_seven.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 1 do throwError "admitted {harness.admitted.size} registrations"
+  let AB := ["let A := {1, 2, 3} in 𝒫(ℤ)", "let B := {3, 4, 5} in 𝒫(ℤ)"]
+  for text in ["assert |A| = 3", "assert A ∪ B = {1, 2, 3, 4, 5}"] do
+    expectIn harness AB "holds" text
+  expectInInvalid harness AB "assert |A| = 4"
+  expectInInvalid harness AB "assert |A| = 7"
 
 -- The codec reads a finite subset from its elements, deciding that they do not repeat, and the
 -- value read is the literal (an adapter-level exercise of the quotient rule; the public

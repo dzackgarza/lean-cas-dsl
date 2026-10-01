@@ -667,46 +667,62 @@ where
     let .forallE _ domain codomain _ := type | return none
     return some (domain, codomain)
 
-/-- The evidence of the proposition `p` (a hypothesis of the admission of a domain), established
-when a statement is read (LC-14) by the domain's registered evidence and by nothing else: a `meta`
-proof procedure `TacticM Unit` of `lean-categories`, registered with the domain's admission
-(LC-18). The kernel names no lemma and no tactic, and runs no proof search of its own
-(`specs/architecture.md`, "What must be impossible"; `CasGates.KernelPurity`). A statement whose
-obligation is not established is invalid: without the evidence, the value is not in the domain it
-is used in. -/
-def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr := do
-  let p ← instantiateMVars p
-  if p.hasMVar then
-    throwStratum .invalid m!"{what}: the proposition {p} is not determined"
-  let procedure ← unsafe evalConst (Lean.Elab.Tactic.TacticM Unit) evidence
-  -- A failed procedure must not be recovered into `sorry`: evidence with a hole is no evidence.
-  -- A failed attempt leaves no message behind: its failure is reported once, as invalidity.
+/-- The one place the kernel runs a proof procedure it did not write (`CasGates.KernelPurity`,
+`evidenceRunner`): `procedure`, a `meta` procedure `TacticM Unit` of `lean-categories` registered
+there and validated there, a domain's evidence registered with its admission (LC-18) or a literal
+form's evaluation registered with the form, run on the goal `goal`. The result is the goals it
+leaves, or, when it fails or logs an error, why. The kernel names no lemma and no tactic, and runs
+no proof search of its own (`specs/architecture.md`, "What must be impossible"). A failed
+procedure is not recovered into `sorry`, and its attempt leaves no message behind: its failure is
+reported once, by the caller. -/
+def runProcedure (procedure : Name) (goal : MVarId) :
+    TermElabM (Except String (List MVarId)) := do
+  let procedure ← unsafe evalConst (Lean.Elab.Tactic.TacticM Unit) procedure
   let messages := (← getThe Core.State).messages
   let restore : TermElabM Unit := modifyThe Core.State fun st => { st with messages }
-  let goal ← mkFreshExprMVar p .syntheticOpaque
   let outcome ← withoutErrToSorry <| Term.withoutErrToSorry do
     try
       let remaining ← Term.withSynthesize (postpone := .no) <|
-        Lean.Elab.Tactic.run goal.mvarId! procedure
+        Lean.Elab.Tactic.run goal procedure
       pure (Except.ok remaining : Except String (List MVarId))
-    -- not a reading fallback: evidence not established is rethrown as invalidity below
+    -- not a reading fallback: a failed procedure is returned as its failure, which the caller
+    -- reports
     catch e => pure (Except.error (← e.toMessageData.toString))
   let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
   match outcome with
   | .error message =>
       restore
-      throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
-        ({message.take 300})"
+      return .error message
   | .ok remaining =>
-      let proof ← instantiateMVars goal
-      if !remaining.isEmpty || proof.hasSorry || proof.hasSyntheticSorry || logged then
+      if logged then
         let errors := (← getThe Core.State).messages.toList.filter (·.severity == .error)
         let detail ← match errors.getLast? with
           | some msg => msg.data.toString
           | none => pure ""
         restore
+        return .error s!"its proof has a hole: {detail}"
+      return .ok remaining
+
+/-- The evidence of the proposition `p` (a hypothesis of the admission of a domain), established
+when a statement is read (LC-14) by the domain's registered evidence and by nothing else: a `meta`
+proof procedure `TacticM Unit` of `lean-categories`, registered with the domain's admission
+(LC-18), run through `runProcedure`. A statement whose obligation is not established is invalid:
+without the evidence, the value is not in the domain it is used in. -/
+def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr := do
+  let p ← instantiateMVars p
+  if p.hasMVar then
+    throwStratum .invalid m!"{what}: the proposition {p} is not determined"
+  let goal ← mkFreshExprMVar p .syntheticOpaque
+  match ← runProcedure evidence goal.mvarId! with
+  | .error message =>
+      throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
+        ({message.take 300})"
+  | .ok remaining =>
+      let proof ← instantiateMVars goal
+      -- Evidence with a hole is no evidence.
+      if !remaining.isEmpty || proof.hasSorry || proof.hasSyntheticSorry then
         throwStratum .invalid m!"{what}: {p} is not established by the evidence {evidence} \
-          (its proof has a hole: {detail.take 300})"
+          (its proof has a hole)"
       if proof.hasMVar then
         throwStratum .invalid m!"{what}: {p} is not established (its proof is not closed: {proof})"
       return proof
