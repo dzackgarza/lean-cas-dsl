@@ -52,14 +52,12 @@ def readRegistryManifest : IO CasCatalogue.RegistryManifest := do
 def loadRegisteredManifest : IO Json := do
   return toJson (← readRegistryManifest)
 
-/-- Validate Lean-authored registry JSON. -/
+/-- Validate Lean-authored registry JSON: `j`, parsed back from the emitted text, is exactly the
+checked registry state's JSON. -/
 def validate (expected : CasCatalogue.RegistryManifest) (j : Json) : Except String Unit := do
   CasCatalogue.Catalogue.Standard.validateStandardManifest expected
-  let actual ← fromJson? j
-  unless actual == expected do
+  unless j == toJson expected do
     throw "exported registry manifest does not match the checked registry state"
-  unless toJson actual == j do
-    throw "exported registry manifest does not round-trip through its typed DTO"
   pure ()
 
 def run : IO UInt32 := do

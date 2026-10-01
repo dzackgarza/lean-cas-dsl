@@ -113,19 +113,6 @@ private def registryManifestParameterExprJson : RegistryManifestParameterExpr �
 instance : ToJson RegistryManifestParameterExpr where
   toJson := registryManifestParameterExprJson
 
-private partial def registryManifestParameterExprOfJson : Json → Except String RegistryManifestParameterExpr :=
-  fun j => do
-    let tag ← j.getObjValAs? String "tag"
-    match tag with
-    | "variable" => .variable <$> j.getObjValAs? String "id"
-    | "apply" => .apply <$> j.getObjValAs? String "operation" <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "argument")
-    | "apply2" => .apply2 <$> j.getObjValAs? String "operation" <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "left") <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "right")
-    | "apply3" => .apply3 <$> j.getObjValAs? String "operation" <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "first") <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "second") <*> registryManifestParameterExprOfJson (← j.getObjValAs? Json "third")
-    | _ => throw s!"unknown parameter expression tag: {tag}"
-
-instance : FromJson RegistryManifestParameterExpr where
-  fromJson? := registryManifestParameterExprOfJson
-
 mutual
 
 inductive RegistryManifestConstructorArg
@@ -146,7 +133,7 @@ end
 
 deriving instance BEq, Repr for RegistryManifestConstructorArg, RegistryManifestCategoryExpr
 
-private partial def registryManifestCategoryExprJson : RegistryManifestCategoryExpr → Json
+private def registryManifestCategoryExprJson : RegistryManifestCategoryExpr → Json
   | .atom id => registryObject [("tag", "atom"), ("id", id)]
   | .familyApp family args => registryObject [
       ("tag", "familyApp"), ("family", family), ("args", toJson args)]
@@ -159,46 +146,21 @@ private partial def registryManifestCategoryExprJson : RegistryManifestCategoryE
   | .familyTotal family => registryObject [("tag", "familyTotal"), ("family", family)]
   | .construct constructor args => registryObject [
       ("tag", "construct"), ("constructor", constructor),
-      ("args", Json.arr (args.map fun
-        | .category category => registryObject [
-            ("tag", "category"), ("category", registryManifestCategoryExprJson category)]
-        | .object id => registryObject [("tag", "object"), ("id", id)]
-        | .functor id => registryObject [("tag", "functor"), ("id", id)]))]
+      ("args", Json.arr (args.attach.map fun
+        | ⟨.category category, h⟩ =>
+            have := Array.sizeOf_lt_of_mem h
+            have := RegistryManifestConstructorArg.category.sizeOf_spec category
+            registryObject [
+              ("tag", "category"), ("category", registryManifestCategoryExprJson category)]
+        | ⟨.object id, _⟩ => registryObject [("tag", "object"), ("id", id)]
+        | ⟨.functor id, _⟩ => registryObject [("tag", "functor"), ("id", id)]))]
+termination_by e => sizeOf e
+decreasing_by all_goals simp_wf; all_goals omega
 
 instance : ToJson RegistryManifestCategoryExpr where
   toJson := registryManifestCategoryExprJson
 
 instance : Inhabited RegistryManifestCategoryExpr := ⟨.atom ""⟩
-
-/-- Decode a constructor argument, given the category-expression decoder. -/
-private def constructorArgOfJson
-    (category : Json → Except String RegistryManifestCategoryExpr) (arg : Json) :
-    Except String RegistryManifestConstructorArg := do
-  match ← arg.getObjValAs? String "tag" with
-  | "category" => .category <$> category (← arg.getObjValAs? Json "category")
-  | "object" => .object <$> arg.getObjValAs? String "id"
-  | "functor" => .functor <$> arg.getObjValAs? String "id"
-  | tag => throw s!"unknown constructor argument tag: {tag}"
-
-private partial def registryManifestCategoryExprOfJson : Json → Except String RegistryManifestCategoryExpr :=
-  fun j => do
-    let tag ← j.getObjValAs? String "tag"
-    match tag with
-    | "atom" => .atom <$> j.getObjValAs? String "id"
-    | "familyApp" => .familyApp <$> j.getObjValAs? String "family" <*> j.getObjValAs? _ "args"
-    | "classifierTotal" => .classifierTotal <$> j.getObjValAs? String "classifier"
-    | "refine" => .refine <$> registryManifestCategoryExprOfJson (← j.getObjValAs? Json "base") <*> j.getObjValAs? String "classifier"
-    | "opaque" => .opaque <$> j.getObjValAs? String "id"
-    | "familyTotal" => .familyTotal <$> j.getObjValAs? String "family"
-    | "construct" => do
-        let constructor ← j.getObjValAs? String "constructor"
-        let args ← j.getObjValAs? (Array Json) "args"
-        let args ← args.mapM (constructorArgOfJson registryManifestCategoryExprOfJson)
-        pure (.construct constructor args)
-    | _ => throw s!"unknown category expression tag: {tag}"
-
-instance : FromJson RegistryManifestCategoryExpr where
-  fromJson? := registryManifestCategoryExprOfJson
 
 inductive RegistryManifestFunctorExpr
   | identity (category : RegistryManifestCategoryExpr)
@@ -212,7 +174,7 @@ inductive RegistryManifestFunctorExpr
   | constructMap (constructor : String) (functor : RegistryManifestFunctorExpr)
   deriving BEq, Repr
 
-private partial def registryManifestFunctorExprJson : RegistryManifestFunctorExpr → Json
+private def registryManifestFunctorExprJson : RegistryManifestFunctorExpr → Json
   | .identity category => registryObject [("tag", "identity"), ("category", toJson category)]
   | .atomic id => registryObject [("tag", "atomic"), ("id", id)]
   | .classifierForget classifier host => registryObject [
@@ -233,28 +195,6 @@ private partial def registryManifestFunctorExprJson : RegistryManifestFunctorExp
 instance : ToJson RegistryManifestFunctorExpr where
   toJson := registryManifestFunctorExprJson
 
-private partial def registryManifestFunctorExprOfJson : Json → Except String RegistryManifestFunctorExpr
-  | j => do
-    let tag ← j.getObjValAs? String "tag"
-    match tag with
-    | "identity" => .identity <$> j.getObjValAs? _ "category"
-    | "atomic" => .atomic <$> j.getObjValAs? String "id"
-    | "classifierForget" =>
-        .classifierForget <$> j.getObjValAs? String "classifier" <*> j.getObjValAs? _ "host"
-    | "opaquePort" => .opaquePort <$> j.getObjValAs? String "id"
-    | "familyFibreInclusion" =>
-        .familyFibreInclusion <$> j.getObjValAs? String "family" <*> j.getObjValAs? _ "args"
-    | "familyReindex" =>
-        .familyReindex <$> j.getObjValAs? String "family" <*> j.getObjValAs? String "morphism"
-          <*> j.getObjValAs? _ "source" <*> j.getObjValAs? _ "target"
-    | "comp" => .comp <$> (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "left")) <*>
-        (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "right"))
-    | "constructMap" => .constructMap <$> j.getObjValAs? String "constructor" <*>
-        (registryManifestFunctorExprOfJson (← j.getObjValAs? _ "functor"))
-    | _ => throw s!"unknown functor expression tag: {tag}"
-
-instance : FromJson RegistryManifestFunctorExpr where
-  fromJson? := registryManifestFunctorExprOfJson
 
 structure RegistryManifestCategory where
   id : String
@@ -262,7 +202,7 @@ structure RegistryManifestCategory where
   realization : String
   refinementRealization : String
   expression : RegistryManifestCategoryExpr
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestFamily where
   id : String
@@ -271,14 +211,14 @@ structure RegistryManifestFamily where
   transport : String
   parameters : Array RegistryManifestParameter
   variance : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestClassifier where
   id : String
   host : RegistryManifestCategoryExpr
   declaration : String
   realization : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestFunctor where
   id : String
@@ -288,7 +228,7 @@ structure RegistryManifestFunctor where
   realization : String
   expression : RegistryManifestFunctorExpr
   structural : Bool
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestPort where
   id : String
@@ -297,7 +237,7 @@ structure RegistryManifestPort where
   declaration : String
   realization : String
   provenance : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestOpaque where
   id : String
@@ -305,20 +245,20 @@ structure RegistryManifestOpaque where
   realization : String
   reason : String
   ports : Array RegistryManifestPort
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestFibration where
   id : String
   projection : String
   variance : String
   evidence : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestConstructor where
   id : String
   signature : Array String
   semantics : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestMethod where
   id : String
@@ -327,7 +267,7 @@ structure RegistryManifestMethod where
   functor : String
   shape : String
   returnsToSource : Bool
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestCell where
   id : String
@@ -337,7 +277,7 @@ structure RegistryManifestCell where
   right : Array String
   declaration : String
   invertible : Bool
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestLimit where
   id : String
@@ -345,34 +285,34 @@ structure RegistryManifestLimit where
   shape : String
   declaration : String
   colimit : Bool
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestObject where
   id : String
   category : String
   declaration : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestAdjunction where
   id : String
   left : String
   right : String
   declaration : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestProperty where
   id : String
   name : String
   classifier : String
   receiver : Option RegistryManifestCategoryExpr
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 structure RegistryManifestLift where
   id : String
   edge : String
   evidence : String
   kind : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 /-- The exported registry: the semantic rows of the catalogue. No row of a leaf exists to export. -/
 structure RegistryManifest where
@@ -392,7 +332,7 @@ structure RegistryManifest where
   adjunctions : Array RegistryManifestAdjunction
   objects : Array RegistryManifestObject
   source : String
-  deriving BEq, Repr, ToJson, FromJson
+  deriving BEq, Repr, ToJson
 
 private def registryManifestParameterExpr : ParameterExpr → RegistryManifestParameterExpr
   | .variable id => .variable id.raw
@@ -403,17 +343,22 @@ private def registryManifestParameterExpr : ParameterExpr → RegistryManifestPa
       .apply3 operation.raw (registryManifestParameterExpr first)
         (registryManifestParameterExpr second) (registryManifestParameterExpr third)
 
-private partial def registryManifestCategoryExpr : CategoryExpr → RegistryManifestCategoryExpr
+private def registryManifestCategoryExpr : CategoryExpr → RegistryManifestCategoryExpr
   | .atom id => .atom id.raw
   | .familyApp family args => .familyApp family.raw (args.map registryManifestParameterExpr)
   | .classifierTotal classifier => .classifierTotal classifier.raw
   | .refine base classifier => .refine (registryManifestCategoryExpr base) classifier.raw
   | .opaque id => .opaque id.raw
   | .familyTotal family => .familyTotal family.raw
-  | .construct constructor args => .construct constructor.raw (args.map fun
-      | .category category => .category (registryManifestCategoryExpr category)
-      | .object id => .object id.raw
-      | .functor id => .functor id.raw)
+  | .construct constructor args => .construct constructor.raw (args.attach.map fun
+      | ⟨.category category, h⟩ =>
+          have := Array.sizeOf_lt_of_mem h
+          have := ConstructorArg.category.sizeOf_spec category
+          .category (registryManifestCategoryExpr category)
+      | ⟨.object id, _⟩ => .object id.raw
+      | ⟨.functor id, _⟩ => .functor id.raw)
+termination_by e => sizeOf e
+decreasing_by all_goals simp_wf; all_goals omega
 
 private def registryManifestFunctorExpr {source target : CategoryExpr} :
     FunctorExpr source target → RegistryManifestFunctorExpr
