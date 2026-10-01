@@ -4,6 +4,24 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
+
+Branch `b0/typed-application`. Suite at main `3c8eaec`: 148 assertions; 52 hold, 85 gaps,
+8 invalid, 3 internal. Classified:
+- `composed.charpoly/det/trace` internal: `C.det()` applied `det` to the set `C` (continuous maps)
+  where `n : ℕ` stands; `isDefEq` assigns without checking types, elaboration then crashes. Kernel
+  (b0-typed-application). Repaired in `1ae53ea`: applyFamily and invariantOf admit an application
+  only at its declared dependent signature; probe in RegistrationProbes. (These three still fail:
+  `let C` is invalid, below.)
+- 6 invalid "not an element of Poly∖0 / Monic": upstream. The kernel forms the numeral `k` of `R`
+  by the numeral row as stated (`Int.castRingHom (asRing R) k`, NamedRings.lean:84); the evidence
+  of `obj.sets.nonzero_polynomials` and of `Monicₙ` does not establish its property for polynomials
+  with those coefficients (EvidenceTests.lean covers only literal coefficients). Same pattern as the
+  recorded ℤ/5 `Units` evidence finding. Owner: lean-categories, independent assessment (Policy 2);
+  the kernel does not reshape the numeral or write evidence.
+- `calculus.limit_sinc`, `calculus.limit_infinity` invalid: no registered domain of maps convergent
+  at a point. Upstream; b0-binders (independent assessment of the binder work).
+
 ## 2026-10-01 (orchestrator, session_01SKJ21csPEAnJmemqQztSVD)
 
 State: integration branch `b0/construction` (head after this commit) carries #59 (stage A
