@@ -54,8 +54,9 @@ run_cmd liftTermElabM do
   let cocone ← Semantic.limit true "coproduct" diagram "cat.sets" (some trace)
   unless (← whnfR (← inferType cocone)).isAppOf ``CategoryTheory.Limits.ColimitCocone do
     throwError "the coproduct is not a colimit cocone"
-  let some (.limit id _) ← (trace.node? cocone : IO _)
+  let some (.limit id _ lift) ← (trace.node? cocone : IO _)
     | throwError "the coproduct is not recorded as a registered colimit"
   unless id.raw == "colim.sets.coproduct" do throwError "recorded as {id.raw}"
+  if let some lift := lift then throwError "the coproduct in sets is recorded along {lift.raw}"
 
 end CasCatalogue.ColimitProbes

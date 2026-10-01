@@ -18,9 +18,10 @@ public meta import CasCatalogue.Semantic
 * The registered presentations are the catalogue's: `lim.sets.pullback` is Mathlib's explicit
   pullback of sets and `lim.groups.kernel` its kernel of groups, each a family of `LimitCone`s in
   its category.
-* The semantic reading forms a pullback in sets as the registered presentation at the diagram,
-  identified with the standard form (`limitConeOfIso`, `diagramIsoCospan`): a `LimitCone` of the
-  diagram, whose apex, legs and mediator are Mathlib's; its cardinality (`3` for the pullback of
+* The semantic reading forms a pullback in sets as the registered presentation at the diagram:
+  at a diagram in standard form (`cospan f g`), the registered family at its data, with no
+  identification (`limitConeOfIso`); a `LimitCone` of the diagram, whose apex, legs and mediator
+  are Mathlib's; its cardinality (`3` for the pullback of
   `[0, 1, 1]` and `[1, 0]`) is a statement of the language, decided through the admitted
   registrations.
 * The pushout in `Setsᵒᵖ` is the opposite of the pullback (`PullbackCone.isLimitEquivIsColimitOp`):
@@ -49,11 +50,14 @@ run_cmd liftTermElabM do
   let cone ← Semantic.limit false "pullback" diagram "cat.sets" (some trace)
   unless (← whnfR (← inferType cone)).isAppOf ``CategoryTheory.Limits.LimitCone do
     throwError "the pullback is not a limit cone"
-  unless (cone.find? (·.isConstOf ``CasCatalogue.limitConeOfIso)).isSome do
-    throwError "the pullback is not the registered presentation identified with the diagram"
-  let some (.limit id _) ← (trace.node? cone : IO _)
+  unless (cone.find? (·.isConstOf `CasCatalogue.Limits.Registration.setsPullback)).isSome do
+    throwError "the pullback is not the registered presentation"
+  if (cone.find? (·.isConstOf ``CasCatalogue.limitConeOfIso)).isSome then
+    throwError "the pullback at a diagram in standard form is identified through an isomorphism"
+  let some (.limit id _ lift) ← (trace.node? cone : IO _)
     | throwError "the pullback is not recorded as a registered limit"
   unless id.raw == "lim.sets.pullback" do throwError "recorded as {id.raw}"
+  if let some lift := lift then throwError "the pullback in sets is recorded along {lift.raw}"
   -- No equalizer is registered in sets, nor returned to it along a lift: invalid.
   let stratum ← try
       discard <| Semantic.limit false "equalizer"
