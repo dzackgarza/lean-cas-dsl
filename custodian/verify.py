@@ -218,7 +218,9 @@ def build_seal(repo: Path, boundary: list[str], append_only: list[str], verifier
     seal["files"] = current_boundary(repo, seal)
     lean = [f for f in tracked(repo) if f.endswith(".lean")]
     seal["banned_baseline"] = occurrences(repo, lean, BANNED_EVERYWHERE)
-    seal["leaf_baseline"] = scan_leaves(repo / LEAVES)
+    # As in `check`: the leaves are scanned only where the chain checks them out.
+    leaves = (repo / LEAVES / ".git").exists() and not (repo / LEAVES).is_symlink()
+    seal["leaf_baseline"] = scan_leaves(repo / LEAVES) if leaves else []
     seal["outside_baseline"] = outside_hits(repo, seal)
     seal["ledger"] = json.loads((repo / LEDGER).read_text())
     seal["sealed_commit"] = git(repo, "rev-parse", "HEAD").strip()
