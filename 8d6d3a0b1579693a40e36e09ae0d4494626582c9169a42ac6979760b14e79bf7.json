@@ -1,0 +1,77 @@
+{
+ "key": "8d6d3a0b1579693a40e36e09ae0d4494626582c9169a42ac6979760b14e79bf7",
+ "record": {
+  "change_key": "8d6d3a0b1579693a40e36e09ae0d4494626582c9169a42ac6979760b14e79bf7",
+  "change_sha256": "b8c1c54fcb39087e16c46cadadb5802e05e7bb053efc9c8359450360bde15205",
+  "head_sha": "da209f58b1f7292664c0448ae9a22a628dc1e6a8",
+  "model": "claude-opus-5-5",
+  "pr": "59",
+  "problems": [
+   "sealed file changed: .lake/packages/cas_leaf_contracts/CasContract.lean",
+   "sealed file changed: .lake/packages/cas_leaf_contracts/CasContract/Failure.lean",
+   "sealed file removed: .lake/packages/cas_leaf_contracts/CasContract/Registry/Extension.lean",
+   "sealed file changed: CasAcceptance.lean",
+   "sealed file changed: CasAcceptance/FibrationRegistryProbes.lean",
+   "sealed file changed: CasAcceptance/RegistrationProbes.lean",
+   "sealed file changed: CasAcceptance/Standard.lean",
+   "sealed file removed: CasAcceptance/Suite.lean",
+   "sealed file changed: CasCatalogue.lean",
+   "sealed file changed: CasCatalogue/Language.lean",
+   "sealed file changed: CasCatalogue/Realize.lean",
+   "sealed file changed: CasCatalogue/Resolve.lean",
+   "sealed file changed: CasCatalogue/TestSuite.lean",
+   "sealed file changed: CasGates/KernelPurity.lean",
+   "sealed file changed: CasTools/ExportFull.lean",
+   "sealed file changed: CasTools/ExportJson.lean",
+   "sealed file changed: CasTools/Harness.lean",
+   "sealed file changed: justfile",
+   "sealed file changed: lakefile.lean",
+   "new file inside the sealed boundary: CasCatalogue/Registry.lean",
+   "new file inside the sealed boundary: scripts/check_acceptance_regression.py"
+  ],
+  "prompt_sha256": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
+  "result": {
+   "criteria": [
+    {
+     "criterion": "The obligation is unchanged (no gate, acceptance assertion or check removed, weakened, narrowed or made vacuous)",
+     "evidence": "(1) `CasAcceptance/Suite.lean` is deleted (`#cas_tests \"tests/acceptance\"`), its import is dropped from `CasAcceptance.lean`, and `lakefile.lean` drops `input_dir acceptanceSuite` and `needs := #[acceptanceSuite]`. Before this change, building ran the permanent suite, and a wrong, malformed or invalid result failed the build. Now the build does not run it. (2) It is replaced by `just acceptance base`. That recipe deliberately ignores the harness's exit code (`-@lake exe cas-harness`) and judges the head only against a base report the caller supplies (`scripts/check_acceptance_regression.py`). Under that script, an assertion failing at the base may keep failing: \"A failing assertion that changes kind is reported, and fails nothing\". So the absolute obligation becomes a relative one. (3) `CasAcceptance/Standard.lean` deletes every pinned expected stable-ID list (`expectedCategoryIds` \u2026 `expectedOpaquePortIds`), `exactStableIdSet`/`validateStableIdSet`, and the probe \"A missing registration must fail the standard contract\". The replacement, `validateStableIds`, only rejects duplicates, so losing a row such as `FunctorId.setsCardinality` no longer fails the standard contract. The new `validateManifestProjection`/`validateSameRows` compare the export with whatever the registry currently contains. That is not the fixed expected set it replaces. (4) `ExportFull.validate` drops the typed `fromJson?` round-trip check: the `FromJson` instances are removed from the registry DTOs.",
+     "holds": false
+    },
+    {
+     "criterion": "The kernel stays purely categorical and general",
+     "evidence": "The changes in `CasCatalogue/Language.lean` only re-tag existing ambiguity throws as `.semanticAmbiguity`. `Realize.run` turns every exception into an outcome that fails (`invalid`, `ambiguous` or `internal`), never an answer. No domain-specific case is added.",
+     "holds": true
+    },
+    {
+     "criterion": "Semantics are independent of realizations",
+     "evidence": "No semantic path reads leaf, backend or installation state. The registry move (`CasCatalogue/Registry.lean`) reads only `semanticState`.",
+     "holds": true
+    },
+    {
+     "criterion": "The mathematics is owned upstream; the leaf contract stays a registration only",
+     "evidence": "Taking `CasContract/Registry/Extension.lean` out of the leaf contract removes registry machinery from the leaf-facing package. The new `Stratum.semanticAmbiguity` is a failure tag, not authority given to a leaf. No category, row, placement or proof is coined.",
+     "holds": true
+    },
+    {
+     "criterion": "Nothing from a leaf is trusted",
+     "evidence": "No new path consumes anything a leaf says about itself.",
+     "holds": true
+    },
+    {
+     "criterion": "Failures stay stratified",
+     "evidence": "Ambiguity is split out of `invalid`, and untagged exceptions become `internal` instead of `invalid`. Nothing is merged. The existing mapping of `noImplementation`/`ambiguousRealization` to `gap` is unchanged.",
+     "holds": true
+    },
+    {
+     "criterion": "The change is reviewable",
+     "evidence": "One diff deletes a 599-line leaf-contract file and adds a 545-line kernel file that differs from it (partial defs rewritten as well-founded recursion, `FromJson` removed, new projection validators). It also changes the failure taxonomy in the contract and the kernel, rewrites `Realize.run` exception handling and the `TestSuite` reporting, replaces the Standard manifest acceptance, removes the build-time suite, and adds a new gate script and justfile recipe. These are independent concerns and must be split.",
+     "holds": false
+    }
+   ],
+   "summary": "I reject this change for two reasons. First, it weakens acceptance obligations. It stops the build from running the permanent suite: `CasAcceptance/Suite.lean` is deleted and the `needs := #[acceptanceSuite]` dependency is dropped from `lakefile.lean`. The replacement, `just acceptance base`, ignores the harness's exit code (`-@lake exe cas-harness`) and only compares against a base report the caller supplies, so an assertion that already fails may go on failing. It also replaces the exact expected stable-ID sets in `CasAcceptance/Standard.lean`, together with their missing-registration probe, with a duplicates-only check, so losing a registered row no longer fails. Second, the change is too large and mixes too many concerns to review line by line. It must be split. The registry move out of the leaf contract, the `semanticAmbiguity` / `internal` failure strata, the outcome-reporting refactor, and any change to how the suite is enforced each need their own pull request, and that last one must not loosen what currently fails.",
+   "verdict": "reject"
+  },
+  "served_by": "claude-opus-5-5"
+ },
+ "signer": "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A"
+}
