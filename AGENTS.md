@@ -157,6 +157,16 @@ back. An owner correction is committed into its owning document, or a gate, in t
 given (CONTRIBUTING, "A correction is encoded where it will be read"). Open governance nodes
 (`gov-*` in [the plan](specs/computational-core-plan.md)) precede all other work.
 
+**A subagent's prompt is its row's requirement and nothing else.** A formalization prompt is the
+mathematical requirement, quoted from the document that owns it, with its sources. It never
+carries a kernel goal, a failing statement, suite output, a term the kernel forms, a choice of
+rows, or a way to state something so that the kernel accepts it. A kernel that cannot read a row
+is the kernel's finding, recorded in the plan; it is never sent upstream as a target. The
+orchestrator writes nothing in `lean-categories`, including `LeanCategories/Catalogue/Registry/*`,
+whatever `check_authorship.py` permits: an admission rule decides which mathematics exists. This
+failed on 2026-09-30 (`gov-quarantine-evidence`) and again on 2026-10-01
+(`gov-quarantine-binders`).
+
 # Architecture contract (read first)
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
