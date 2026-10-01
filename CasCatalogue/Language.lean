@@ -605,6 +605,18 @@ def plumbingRoots : List Name :=
   [`CasCatalogue, `LeanCategories, `CategoryTheory, `TypeCat, `DFunLike, `FunLike, `Function,
    `id, `Prod.fst, `Prod.snd, `Prod.map, `inferInstance, `inferInstanceAs]
 
+/-- Whether `e`, headed by a plumbing root, is plumbing to unfold. A coercion of a map to a
+function (`DFunLike.coe F x`) is the kernel's plumbing only when `F` is a morphism the kernel
+built (its type is a categorical hom); a ring homomorphism applied to a value (`Int.castRingHom R
+2`, the numeral row's image) is mathematics, kept so that evidence is stated of it rather than of
+`RingHom.toFun` (b0-domain-preservation). -/
+def plumbingApplication (e : Expr) : MetaM Bool := do
+  unless e.isAppOf ``DFunLike.coe do return true
+  let some F := e.getAppArgs[4]? | return true
+  let type ← whnfR (← inferType F)
+  return type.isAppOf ``Quiver.Hom || (type.getAppFn.constName?.map
+    (fun c => [`CategoryTheory, `TypeCat].any (·.isPrefixOf c))).getD false
+
 /-- A value with its plumbing unfolded (`plumbingRoots`), its mathematics kept: `!![1, 2; 3, 4]`
 for a matrix assembled from rows of tuples through product mediators, `X ^ 3 - 2 X + 1` for a
 polynomial assembled by the ring operations of `ℚ[x]`. Definitionally the value it was given
@@ -616,7 +628,7 @@ partial def plumbingValue (e : Expr) : MetaM Expr := do
   | .app .. | .const .. =>
       let f := e.getAppFn
       if let .const c _ := f then
-        if plumbingRoots.any (·.isPrefixOf c) then
+        if plumbingRoots.any (·.isPrefixOf c) && (← plumbingApplication e) then
           if let some e' ← unfoldDefinition? e then return ← plumbingValue e'
           if let some e' ← unfoldProjInst? e then return ← plumbingValue e'
       let args ← e.getAppArgs.mapM fun a => do
