@@ -8,16 +8,6 @@
     "calculus.limit_sinc": "6f01a4fe0a6ae1b1cb99b3b33597f88ad5ae700feaf8375e005067b7c6918d17",
     "calculus.taylor_exp": "0c2997bf3c82a414c03517b40c774d5aff60f59b40c81515d87def8076aa7ea9",
     "calculus.taylor_sin": "5690b04111137881e82afc1b003cbf9fdcd522df7903effdab9bfa0ad3197dee",
-    "card.fin2_times_z3": "b7be53fd20826e6bb8ece54db7e666a72e306455e2f1872d18a1be4873158f72",
-    "card.finite_sets.three": "c1b06813e9432c712e220e21b6177ff554f7d67b484da6cc12f05857e513b74f",
-    "card.integers": "2dfa449f6862fa76882e6d130da61e8e23c283b1af340bc7521bd4ebe9426514",
-    "card.sage.z4_cubed": "c366ae0c4cd2ce880e2b7b8bf49d40587cddd07821661ae1df1c1ee98053269a",
-    "card.sage.z5_empty_power": "5e044604e29dfd8a8f4ba25046996caf6128914b79767238c0701f8ed2e444ff",
-    "card.z4_cubed": "ee701ae336dd924293881d16a986ad58bfc8c7566a7d815a5f08b53843ed2967",
-    "card.z5_empty_power": "bab3b17d71974042a5533a345ad00238f7cd7be7ac5f8378b37517b7fab14b4f",
-    "card.z7": "1fa2fb0e94295ab86010ccb209269c40b1bf4e1ed4ca807a04a544a444ece92e",
-    "colimit.bil_wform.a2_discriminant.card": "b00452df0298d96caec728ed25fbf4cc4b73e2e62d1490db59e028656feeb23e",
-    "colimit.sets.coproduct.card": "99dec517a838ac4a80f8cb254b261ef35811f98829de3926485ef8f41025fffb",
     "composed.charpoly": "7c8f8115f4ad1ffd2ee4e66fe4d69dfc62f114a2c17194801a2bec830e8a66a9",
     "composed.composition": "15755f4b6b1f86fe48de085c8f60339495d5840bbf3d411da3e4273962f6bf02",
     "composed.det": "ccb0f6ab978138157b37d46c4a0be36132b4d42bed61154e03c94962336f54ed",
@@ -48,15 +38,12 @@
     "ellipses.odd_square": "236773a1257aad46b7572451eacf9cf72645bc0ac90e4272a0dde098dc45ec5c",
     "ellipses.prime": "97533571ebb11899d85815e993130677cba50235f77750c9f8d6b06040be8677",
     "ellipses.squares_even": "0e9bed2aaed3e1e960507cd05b700695f516b6244c69a0a414e7deb0748524aa",
-    "eq.rev_rev": "1023103c0bcfabef16b9fab2a2d0b28dfc1c90c81f1182c24bc8fa034a4a1891",
     "factorization.approximation": "80f60b97dd33a0a6fa334f32119c5d8a08d515e2f35293a678e2716ff3c63dce",
     "factorization.multiplicity_seven": "e769e9fa0fc9e130293aff5e149dfeb9f19a645974a84747743386973cab2ff3",
     "factorization.multiplicity_three": "09a39cda1825876b875894f7ea49996c45d756cf574b9b2f06120516199bdf84",
     "factorization.multiplicity_two": "1bdd1aaf8d94bfe6d5e0f8489786957fcc418b5d16a259289cac3cd7c8236976",
     "factorization.over_complexes": "7d3ed07cdb0c1ef5780fa821173c1864a7ee9a33b0b3a7b928e7cb6b5c5cc170",
     "factorization.prime_factors": "2bbbe9e689e0b81e45d972d6a1a61993b30ec6435ddf360bf853f75298f5164a",
-    "finite.fin2_times_z3": "27e1b80f55784cb84b1f4f27667ee7434d8f497c1b98dd43d81b1edbb27b2ad7",
-    "finite.integers": "b775544d2dc2e2e458c8f9d28c19c3f021632982ed8a0f25d0d24058c602e550",
     "finite_sets.card": "673beb6aa8a93ab96dd9a966447f658668f669c052d08cd6780db7fa11dfcc4a",
     "finite_sets.card.three": "1f8177098149f099c9eefcb3cd331876a39d46f47520cc3f9111d6f4a606da64",
     "finite_sets.card_power_set": "cc90be4599273349888df26c0e7b77e99e843c607b789dd078e71ff30b0e42e4",
@@ -94,8 +81,6 @@
     "lattices.discriminant.a1": "5589b3f331394e0adf56211450b776a75a73fd6b1053bd553a6ffaba879897ee",
     "lattices.discriminant.a2": "ce47144917f35e70637e267bc9662fb5cedaea41682960ae36bf6369e8866419",
     "lattices.discriminant.a3": "8f83e2ce5fb0b820c2bfc6a01e0ff4ae372207db540d23da95a26238e7b50ecf",
-    "limit.finite_sets.pullback.card": "cffabc842afe209e0c4ef9a29b8f4057abec1255e1812a69acc1ddbd0ba7cf28",
-    "limit.sets.pullback.card": "68c8fbc14fcdff698e209017f0f61277b326adff2cf72610f5f726d8682cc79c",
     "matrices.application": "becabb4d30e596228b5fd407e0c2d0dda61778501a5cb0e090c3fe11a61e6808",
     "matrices.charpoly": "5b1be5fd48e9c7340820eefea4df0e4b0bfd0ea53cf53ff8df7bae0b7de452ed",
     "matrices.det": "eec4c35532225d59c2691637e12b4f8fb23946fe1b595ad061f76a0deae1df7f",
@@ -122,17 +107,6 @@
     "numbers.zmod5.sum": "b4d8787b0268fe0bfa9dec9ccf725827d3d4db3d47a383b6fd10a036d095c881",
     "numbers.zmod7.distributive": "edcef3d652f79e4a8668d6c8849bb1538929d82fcdf94ebdfae483a4211fb9f7",
     "numbers.zmod7.value": "3fa8831e60cc4f57699cea64afe7eddde7e3cea832f7019246a74e3188abf5f4",
-    "obj.card.fin2_times_z3": "04f3a502a5777f935ce49d364c32e89bd22842f062c8ed4d3e75f1914a76b6f2",
-    "obj.card.integers": "99bff20693fb68fe9bb0b83cbe3ae006a0d40660548a4aa4c3133425c8bff3ac",
-    "obj.card.sage.z4_cubed": "367f55c010f6e53907ea890a3a45af05dfa18e898117be75ed3469d3371055f4",
-    "obj.card.z4_cubed": "d44a0d9eeca691dfb14bec1557f88f2a645dacbd17ef7c9f291b3d7f0e15cb49",
-    "obj.card.z5_empty_power": "41c9a102c62608f8757493126fa3548e060ed7638f2769160cfebe88bf5b26ce",
-    "obj.card.z7": "e6ce485956c5b61e30c6a1c38b4041a560e2add12f0f0c41b1dda09668b6c16a",
-    "obj.colimit.sets.coproduct.card": "28df1f9825d59996473d8fe2a8764f6e523c40af6781b7e3e5911e08b87e0ff0",
-    "obj.eq.rev_rev": "884bbda47ed8be3f5ffc45529abc2968188ff4dfa2a789dd9626a7f000aa917c",
-    "obj.finite.fin2_times_z3": "fd0c378a7185f577f9a3c8d72f61e4a1edf60266a8f7056edba0ee863141b8ad",
-    "obj.finite.integers": "50854cfb5ca7acb7c351046a4884fb56b1060a4a5f6dbc7ed9b6909492aa8b89",
-    "obj.limit.sets.pullback.card": "6a6886ac318e595a71dc954d4d2466ae386d4ff2a11a877d3b5e9350c29948a9",
     "polynomials.at_minus_sqrt2": "a2b0ba4bc7481f096ced657e25791f503db40dad78f5d7781a91dd7a0c1cceb5",
     "polynomials.at_sqrt2": "b9c52c356bd5c6d47f2d2a91fe3c4ca4bbc27b311b44d0a58b9a9b10c63ed485",
     "polynomials.degree": "99cea80245ecb6f6599e48c5fa954c30abec95621167ca979d627655cd6b1a79",
@@ -199,6 +173,89 @@
       "lean_categories": "c06aeedc8ebc16c787481a5c15a86526341a4b4e",
       "reason": "Upstream correction lean-categories c06aeed/bd31fe3 (LC-14, LC-16): operations are total on their domains, so roots and factors are defined on R[x] \u2216 0, the companion matrix on Monic(n, K), the Taylor expansion on C^\u221e, inverses on the units M\u02e3 (Mat\u2082(\u211a)\u02e3 = GL\u2082(\u211a)), and \u2211/\u220f on finite subsets \ud835\udcab_fin(X); lim has no registered domain. The same facts are restated with each value formed in its domain by `x in D`: the Taylor expansions of exp and sin are taken of (f in C^\u221e) and (g in C^\u221e); the factors and roots of p, q and their images in \u2102[x] are taken of the polynomial formed in R[x] \u2216 0; the companion matrix is that of (r in Monic(3, \u211a)); M is formed in Mat\u2082(\u211a)\u02e3; the Vieta sum and product range over the finite set of roots of r over \u2102, ((map r to \u2102[x]) in \u2102[x] \u2216 0).roots() \u2208 \ud835\udcab_fin(\u2102), since {a \u2208 \u2102 | r(a) = 0} is not established finite. No expected value changed. The two limit assertions are kept unchanged (not expressible: no domain of convergent maps).",
       "removed": []
+    },
+    {
+      "reason": "established from a leaf's definitions, violating the evidence model; restated leaf-blind",
+      "retired": {
+        "card.fin2_times_z3": [
+          "sets.card.fin2_times_z3"
+        ],
+        "card.finite_sets.three": [
+          "finite_sets.card.three"
+        ],
+        "card.integers": [
+          "sets.card.integers"
+        ],
+        "card.sage.z4_cubed": [
+          "sets.card.z4_cubed"
+        ],
+        "card.sage.z5_empty_power": [
+          "sets.card.z5_empty_power"
+        ],
+        "card.z4_cubed": [
+          "sets.card.z4_cubed"
+        ],
+        "card.z5_empty_power": [
+          "sets.card.z5_empty_power"
+        ],
+        "card.z7": [
+          "sets.card.z7"
+        ],
+        "colimit.bil_wform.a2_discriminant.card": [
+          "lattices.discriminant.a2"
+        ],
+        "colimit.sets.coproduct.card": [
+          "sets.card.fin2_sqcup_fin3"
+        ],
+        "eq.rev_rev": [
+          "sets.eq.rev_rev"
+        ],
+        "finite.fin2_times_z3": [
+          "sets.finite.fin2_times_z3"
+        ],
+        "finite.integers": [
+          "sets.finite.integers"
+        ],
+        "limit.finite_sets.pullback.card": [
+          "finite_sets.limit.pullback.card"
+        ],
+        "limit.sets.pullback.card": [
+          "sets.limit.pullback.card"
+        ],
+        "obj.card.fin2_times_z3": [
+          "sets.card.fin2_times_z3"
+        ],
+        "obj.card.integers": [
+          "sets.card.integers"
+        ],
+        "obj.card.sage.z4_cubed": [
+          "sets.card.z4_cubed"
+        ],
+        "obj.card.z4_cubed": [
+          "sets.card.z4_cubed"
+        ],
+        "obj.card.z5_empty_power": [
+          "sets.card.z5_empty_power"
+        ],
+        "obj.card.z7": [
+          "sets.card.z7"
+        ],
+        "obj.colimit.sets.coproduct.card": [
+          "sets.card.fin2_sqcup_fin3"
+        ],
+        "obj.eq.rev_rev": [
+          "sets.eq.rev_rev"
+        ],
+        "obj.finite.fin2_times_z3": [
+          "sets.finite.fin2_times_z3"
+        ],
+        "obj.finite.integers": [
+          "sets.finite.integers"
+        ],
+        "obj.limit.sets.pullback.card": [
+          "sets.limit.pullback.card"
+        ]
+      }
     }
   ]
 }

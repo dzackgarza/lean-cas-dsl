@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""`lean-cas-dsl` ships no leaf (plan node gov-no-leaves-here).
+"""`lean-cas-dsl` ships no leaf, and imports none (plan nodes gov-no-leaves-here,
+gov-leaf-authority; specs/leaf-registration.md).
 
-The DSL consumes the leaves: it requires the leaf packages, and its permanent mathematical tests
-and notebooks run here over whatever leaves are installed, passing or reporting gaps as leaves are
-done. A leaf is written only in the leaf repository, in its own subtree, against the contract. So
-this repository must contain no leaf code: no `register_leaf` (or its functions), no tracked file
-under `CasLeaves/`. The contract refuses the registration itself from any module of this
-repository's roots; this gate reports it without a build.
-A "probe" that registers a minimal leaf here is a leaf shipped in the DSL.
+A leaf is a manifest of registrations (`leaves.json`) and the programs it names, in the leaf
+repository; it ships no Lean, and the kernel imports nothing from it. The suite runs here over
+whatever manifest is installed, found by path (`CAS_LEAVES`), never by a Lake dependency. So this
+repository must contain no leaf and reach no leaf's code: no tracked file under `CasLeaves/`, no
+`register_leaf` or its former functions (a leaf registration has no meaning here or anywhere), no
+`import CasLeaves…` in any Lean module, and no `require cas_leaves` in `lakefile.lean`.
+A "probe" that registers or imports a leaf here is a leaf shipped in the DSL.
 
     check_no_leaves.py              check this repository
     check_no_leaves.py --self-test  the gate refuses each case on a synthetic tree
@@ -23,6 +24,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTER = re.compile(r"(^\s*register_leaf\b)|\b(registerLeaf|addLeafRegistryEntryChecked)\b", re.MULTILINE)
+IMPORT = re.compile(r"^\s*(?:public\s+)?(?:meta\s+)?import\s+(?:all\s+)?CasLeaves\b", re.MULTILINE)
+REQUIRE = re.compile(r"^\s*require\s+cas_leaves\b", re.MULTILINE)
 
 
 def tracked(root: Path) -> list[str]:
@@ -40,6 +43,14 @@ def violations(root: Path) -> list[str]:
             for m in REGISTER.finditer(text):
                 line = text.count("\n", 0, m.start()) + 1
                 out.append(f"{f}:{line}: registers a leaf in lean-cas-dsl")
+            for m in IMPORT.finditer(text):
+                line = text.count("\n", 0, m.start()) + 1
+                out.append(f"{f}:{line}: imports a leaf's Lean; a leaf ships none")
+            if f == "lakefile.lean":
+                for m in REQUIRE.finditer(text):
+                    line = text.count("\n", 0, m.start()) + 1
+                    out.append(f"{f}:{line}: requires the leaves as a Lake dependency; the "
+                               "kernel imports nothing from a leaf")
     return out
 
 
@@ -52,11 +63,12 @@ def self_test() -> int:
         (root / "CasLeaves" / "X.lean").write_text("")
         (root / "A.lean").write_text("import CasContract.Leaf\nregister_leaf { backend := \"x\" }\n")
         (root / "B.lean").write_text("public import CasLeaves.Foo\n")
+        (root / "C.lean").write_text("import CasContract.Registration\n")
         subprocess.run(["git", "-C", tmp, "add", "."], check=True)
         found = violations(root)
-        # Requiring and importing the leaf packages is the DSL consuming them: allowed.
-        if len(found) != 2 or not any("CasLeaves/X.lean" in f for f in found) or \
-                not any(f.startswith("A.lean:2:") for f in found):
+        expected = ("CasLeaves/X.lean", "A.lean:2:", "B.lean:1:", "lakefile.lean:1:")
+        if len(found) != 4 or not all(any(e in f for f in found) for e in expected) or \
+                any("C.lean" in f for f in found):
             print(f"check_no_leaves self-test failed: {found}", file=sys.stderr)
             return 1
     return 0
@@ -69,8 +81,8 @@ def main() -> int:
         raise SystemExit(__doc__)
     found = violations(ROOT)
     if found:
-        print("lean-cas-dsl ships no leaf; leaves are written in the leaf repository "
-              "(gov-no-leaves-here):", file=sys.stderr)
+        print("lean-cas-dsl ships no leaf and imports none; leaves are manifests in the leaf "
+              "repository (gov-no-leaves-here, specs/leaf-registration.md):", file=sys.stderr)
         print("\n".join("  " + f for f in found), file=sys.stderr)
         return 1
     return 0

@@ -1,0 +1,293 @@
+/-
+Copyright (c) 2026 Dzack Garza. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
+module
+
+public import CasAcceptance.Standard
+public import CasCatalogue.TestSuite
+public meta import CasAcceptance.Standard
+public meta import CasCatalogue.TestSuite
+
+@[expose] public section
+
+/-!
+# Acceptance for `gov-leaf-authority` (`specs/leaf-registration.md`)
+
+Statements of the suite's kind are run through `CasCatalogue.Realize.run` over probe manifests
+(`CasAcceptance/Strata/registration_*.json`) naming a probe backend program
+(`probe_registration.py`, test scaffolding, not a leaf):
+
+* **Lean decides, with no manifest at all.** The catalogue's judgements (`ℤ ⊆ ℚ`, `3 ∈ ℤ/5`)
+  hold with no leaf installed: their propositions are proved by decision, checked by the kernel.
+  So do the element and morphism equalities of `ℤ`, `ℤ/5` and `Fin(3)`, by the catalogue's
+  decidable equality of morphisms of a concrete category. A false one (`2 + 3 = 6`) is refuted
+  by Lean and invalid. What Lean does not decide and no registration computes is a gap:
+  cardinalities.
+* **An admitted element is part of the term, with its evidence.** `3 in ℚˣ` is the unit
+  `(3, ⅟3)`: its registered evidence (`Units.invertibleEvidence`, run through the kernel's one
+  sanctioned runner) builds the data `Invertible 3` when the statement is read, and the admission
+  takes it. So `(3 in ℚˣ)⁻¹ = 1/3`, `1/(3 in ℚˣ) = 1/3` and `(2 in (ℤ/5)ˣ)⁻¹ = 3` are decided by
+  Lean with no manifest, `(3 in ℚˣ)⁻¹ = 1/2` is refuted, and `2 in ℤˣ` is invalid: its evidence
+  fails, so `2` is not in `ℤˣ`.
+* **A registration computes, through the port.** Registrations of `meth.cardinality` on the
+  forms `obj.sets.fin` and `obj.sets.integers_mod_power` make `|Fin(3)| = 3`, `|(ℤ/4)^3| = 64`
+  and `|(ℤ/0)^2| = ℵ₀` hold. A field a registration does not have is ignored. An object with no
+  registration (`ℤ`) stays a gap.
+* **The kernel walks the catalogue's route (CC-TRANSPORT).** `|Fin(3) in FiniteSets| = 3` holds
+  through the registration on `obj.sets.fin` alone: the catalogue's refinement row sends
+  `Fin(3)` in `FiniteSets` along the forgetful functor to `Fin(3)` in `Sets`, where the
+  cardinality is computed. A registration on `obj.finite_sets.fin` itself is not admitted: it
+  could never be selected.
+* **A registered limit is an operation on its diagram (CC-UNIV, CC-DECODE).** Registrations of
+  `lim.sets.product` and `lim.sets.pullback` on the diagrams of `Sets` (`cat.sets`) receive the
+  diagram in its standard form, objects as named objects and arrows as graphs, and answer the
+  cone: apex and legs. `|Fin(2) × ℤ/3| = 6` holds through the product's apex `Fin(6)` and the
+  cardinality registered on `obj.sets.fin`; `|pullback(f, g)| = 3` through a pullback cone whose
+  commutation the kernel decides. A cone missing a leg is malformed; a cone with the wrong apex
+  makes the assertion wrong. A limit registered on an object form is not admitted.
+* **A finite subset is a literal (`lit.sets.finite_subsets`).** `{1, 2, 3} in 𝒫(ℤ)` is the
+  denotation of the literal `{1, 2, 3} : Finset ℤ`; Lean decides equality of literals with no
+  leaf, and refutes `A = {1, 2}`. The images of literals under the catalogue's operations are
+  decided by Lean too, with no leaf: the form's registered evaluation (its row's `evaluation`, a
+  procedure of `lean-categories` run through the kernel's one sanctioned runner) rewrites
+  `A ∪ B`, `A ∩ B` and `|A|` to literals, and `decide` settles the equation of literals that
+  remains, checked by the kernel. So `A ∪ B = {1, 2, 3, 4, 5}`, `A ∩ B = {3}` and `|A| = 3` hold
+  with no manifest, and `A ∪ B = {1, 2, 3, 4}` and `|A| = 4` are refuted. A registration of
+  `meth.cardinality` on the subset form is admitted and never asked: through one answering the
+  constant `7`, `|A| = 3` still holds and `|A| = 4` is still refuted.
+* **A wrong answer is `wrong`, and changes nothing else.** The same registrations answering the
+  constant `7` turn those assertions wrong; the statements Lean decides, and the gaps, are
+  unchanged.
+* **An answer outside the result form is `malformed`.**
+* **A backend that cannot start is `unavailable`.**
+* **A registration naming a non-catalogue operation, an unregistered form, a form the operation
+  does not apply to, or an undeclared backend is not admitted**, and is reported with its reason.
+-/
+
+open Lean Elab Command
+
+namespace CasCatalogue.RegistrationProbes
+
+open Language Realize
+
+/-- The probe manifests' directory. -/
+meta def strata : System.FilePath := "CasAcceptance" / "Strata"
+
+/-- An outcome's kind, as the suite reports it. -/
+meta def kindOf : Outcome → String
+  | .holds => "holds"
+  | .gap _ => "gap"
+  | .unavailable _ => "unavailable"
+  | .wrong _ => "wrong"
+  | .malformed _ => "malformed"
+
+/-- Run `text` and require its outcome's kind. -/
+meta def expect (harness : Harness) (kind : String) (text : String) : CommandElabM Unit := do
+  let (outcome, _) ← runStatement harness {} text
+  unless kindOf outcome == kind do
+    throwError "`{text}` is {repr outcome}, not {kind}"
+
+/-- Run `text` after the `let`s `lets`, and require its outcome's kind. -/
+meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text : String) :
+    CommandElabM Unit := do
+  let mut scope : Language.Scope := {}
+  for binding in lets do
+    scope := (← runStatement harness scope binding).2
+  let (outcome, _) ← runStatement harness scope text
+  unless kindOf outcome == kind do
+    throwError "`{text}` is {repr outcome}, not {kind}"
+
+/-- Run `text` and require that it is invalid: its reading fails, or Lean refutes it. -/
+meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit := do
+  let valid ← try (do discard <| runStatement harness {} text; pure true) catch _ => pure false
+  if valid then throwError "`{text}` is not invalid"
+
+/-- Run `text` after the `let`s `lets`, and require that it is invalid. -/
+meta def expectInInvalid (harness : Harness) (lets : List String) (text : String) :
+    CommandElabM Unit := do
+  let mut scope : Language.Scope := {}
+  for binding in lets do
+    scope := (← runStatement harness scope binding).2
+  let valid ← try (do discard <| runStatement harness scope text; pure true) catch _ => pure false
+  if valid then throwError "`{text}` is not invalid"
+
+/-- The harness of the probe manifest `name`, with what it rejects. -/
+meta def harnessOf (name : String) : CommandElabM Harness :=
+  liftCoreM (Harness.load (some (strata / name)))
+
+meta def withHarness (name : String) (k : Harness → CommandElabM Unit) : CommandElabM Unit := do
+  let harness ← harnessOf name
+  try k harness finally (harness.stop : IO Unit)
+
+-- Lean decides, with no manifest at all; what it does not decide, and nothing computes, is a gap.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  for text in ["assert ℤ ⊆ ℚ and ℚ ⊆ ℝ", "assert ℕ ⊆ ℂ", "assert 3 ∈ ℤ/5", "assert -3 ∈ ℤ",
+      "assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5", "assert 2 · 3 = 1 in ℤ/5",
+      "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert gcd(84, 30) = 6"] do
+    expect harness "holds" text
+  -- False mathematics that Lean decides is refuted: the statement is invalid, whatever is
+  -- installed.
+  expectInvalid harness "assert 2 + 3 = 6"
+  for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
+      "assert implemented |Fin(3)|"] do
+    expect harness "gap" text
+
+-- An element admitted into a domain is part of the term, with the data its registered evidence
+-- built (`3 in ℚˣ` is the pair `(3, ⅟3)`, the catalogue's `Invertible 3` established when the
+-- statement is read): Lean decides equations about its inverse, with no manifest at all, and
+-- refutes false ones. An element whose evidence fails (`2 ∈ ℤˣ`) is not in the domain: invalid.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  for text in ["assert (3 in ℚˣ)⁻¹ = 1/3", "assert 1/(3 in ℚˣ) = 1/3"] do
+    expect harness "holds" text
+  expectInvalid harness "assert (3 in ℚˣ)⁻¹ = 1/2"
+  expectInvalid harness "assert 2 in ℤˣ"
+  expectInvalid harness "assert 2 ∈ ℤˣ"
+
+-- The same in `ℤ/5`: `2⁻¹ = 3`. Red at `lean-categories` dcd7778: `Units.invertibleEvidence` does
+-- not establish `Invertible` of the catalogue's registered numeral of `ℤ/n` (the point
+-- `⟨2, ⋯⟩ : Fin (4 + 1)` as an element of `integersMod 5`), although `decide` proves `IsUnit` of
+-- it. Owner: `lean-categories`, the evidence of `obj.sets.units` on the numerals of
+-- `obj.sets.integers_mod`. The assertion is kept as written.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  expect harness "holds" "assert (2 in (ℤ/5)ˣ)⁻¹ = 3"
+
+-- A registration computes cardinalities through the port.
+run_cmd withHarness "registration_correct.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 2 do throwError "admitted {harness.admitted.size} registrations"
+  for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
+      "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀", "assert |(ℤ/5)^0| = 1",
+      "assert implemented |Fin(3)|", "assert implemented |Fin(3) in FiniteSets|"] do
+    expect harness "holds" text
+  -- The transported receiver is the base at the same parameters: `Fin(4)` in `FiniteSets` is
+  -- not `Fin(3)`.
+  expect harness "wrong" "assert |Fin(4) in FiniteSets| = 3"
+  -- Lean still decides what it decides; what has no registration is still a gap.
+  expect harness "holds" "assert ℤ ⊆ ℚ"
+  expect harness "gap" "assert |ℤ| = ℵ₀"
+  expect harness "holds" "assert 2 + 3 = 5"
+  -- A well-typed wrong answer is not a gap: the assertion is wrong.
+  expect harness "wrong" "assert |Fin(3)| = 4"
+
+-- A registered limit is computed as an operation on its diagram, and its answer is the cone.
+run_cmd withHarness "registration_limits.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 3 do throwError "admitted {harness.admitted.size} registrations"
+  expect harness "holds" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert implemented Fin(2) × ℤ/3"
+  expect harness "wrong" "assert |Fin(2) × ℤ/3| = 5"
+  -- A pullback of graphs: the apex, its legs, and their commutation decided by the kernel.
+  let maps := ["let f := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : Fin(3) → Fin(2)",
+               "let g := {0 ↦ 1, 1 ↦ 0} : Fin(2) → Fin(2)"]
+  expectIn harness maps "holds" "assert |pullback(f, g)| = 3"
+  expectIn harness maps "wrong" "assert |pullback(f, g)| = 2"
+  -- A shape with no registration is still a gap; Lean still decides what it decides.
+  expect harness "gap" "assert |Fin(2) ⊔ Fin(3)| = 5"
+  expect harness "holds" "assert 2 + 3 = 5"
+
+-- A finite subset is a literal of the power object's registered subset-literal form
+-- (`lit.sets.finite_subsets`): compared in Lean on the literals, with no manifest at all.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  let A := ["let A := {1, 2, 3} in 𝒫(ℤ)"]
+  let AB := A ++ ["let B := {3, 4, 5} in 𝒫(ℤ)"]
+  -- Lean decides equality of literals: a reordered, repeated list is the same literal; a
+  -- different one is refuted.
+  expectIn harness A "holds" "assert A = {1, 2, 3}"
+  expectIn harness A "holds" "assert A = {3, 1, 2, 2}"
+  expectInInvalid harness A "assert A = {1, 2}"
+  -- The images of literals under `∪`, `∩` and the cardinality are decided by Lean: the form's
+  -- registered evaluation rewrites them to literals, and `decide` settles the equation of
+  -- literals that remains, checked by the kernel.
+  for text in ["assert A ∪ B = {1, 2, 3, 4, 5}", "assert A ∩ B = {3}", "assert |A| = 3"] do
+    expectIn harness AB "holds" text
+  expectIn harness ["let B := {1, 2, 2} in 𝒫(ℤ)"] "holds" "assert |B| = 2"
+  -- False mathematics about them is refuted: invalid, whatever is installed.
+  expectInInvalid harness AB "assert A ∪ B = {1, 2, 3, 4}"
+  expectInInvalid harness A "assert |A| = 4"
+
+-- A registration of `meth.cardinality` on the subset form is admitted, and never asked: Lean
+-- discharges what it decides before any leaf is consulted (`specs/leaf-registration.md`, "What
+-- Lean discharges"). Through one answering the constant `7`, the outcomes are the same.
+run_cmd withHarness "registration_subsets_seven.json" fun harness => do
+  unless harness.rejected.isEmpty do throwError "rejected: {harness.rejected}"
+  unless harness.admitted.size == 1 do throwError "admitted {harness.admitted.size} registrations"
+  let AB := ["let A := {1, 2, 3} in 𝒫(ℤ)", "let B := {3, 4, 5} in 𝒫(ℤ)"]
+  for text in ["assert |A| = 3", "assert A ∪ B = {1, 2, 3, 4, 5}"] do
+    expectIn harness AB "holds" text
+  expectInInvalid harness AB "assert |A| = 4"
+  expectInInvalid harness AB "assert |A| = 7"
+
+-- The codec reads a finite subset from its elements, deciding that they do not repeat, and the
+-- value read is the literal (an adapter-level exercise of the quotient rule; the public
+-- consumer is the subset probe above).
+run_cmd liftTermElabM do
+  let state ← registryState
+  let some form := state.subsetLiterals.find? (·.id.raw == "lit.sets.finite_subsets")
+    | throwError "no registered subset-literal form"
+  let finsetInt ← Term.elabTermAndSynthesize (← `($(mkCIdent form.type) Int)) none
+  let .ok decoded ← Codec.decode finsetInt (Json.arr #[1, 2, 3])
+    | throwError "[1, 2, 3] is not decoded as a finite subset of ℤ"
+  let literal ← Term.elabTermAndSynthesize (← `(({1, 2, 3} : $(mkCIdent form.type) Int))) none
+  unless (← Realize.decideProp (← Meta.mkEq decoded literal)) == some true do
+    throwError "the decoded {decoded} is not the literal {literal}"
+  unless (← Realize.decideProp (← Meta.mkEq decoded (← Term.elabTermAndSynthesize (← `(({1, 2} : Finset Int))) none)))
+      == some false do
+    throwError "the decoded {decoded} is not distinguished from another literal"
+  let .error _ ← Codec.decode finsetInt (Json.arr #[1, 1])
+    | throwError "[1, 1] is decoded as a finite subset although its elements repeat"
+  let .ok encoded ← Codec.encode literal | throwError "the literal {literal} is not encoded"
+  unless encoded == Json.arr #[1, 2, 3] do throwError "encoded as {encoded.compress}"
+
+-- A cone missing a leg is not a value of the result form.
+run_cmd withHarness "registration_limit_missing_leg.json" fun harness => do
+  expect harness "malformed" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert |Fin(3)| = 3"
+
+-- A well-formed cone with the wrong apex makes the assertion wrong.
+run_cmd withHarness "registration_limit_wrong_apex.json" fun harness => do
+  expect harness "wrong" "assert |Fin(2) × ℤ/3| = 6"
+  expect harness "holds" "assert |Fin(2) × ℤ/3| = 7"
+
+-- The same registrations answering the constant `7`: the affected assertions are wrong, and
+-- nothing else changes.
+run_cmd withHarness "registration_wrong.json" fun harness => do
+  unless harness.admitted.size == 2 do throwError "admitted {harness.admitted.size} registrations"
+  for text in ["assert |Fin(3)| = 3", "assert |Fin(3) in FiniteSets| = 3",
+      "assert |(ℤ/4)^3| = 64", "assert |(ℤ/0)^2| = ℵ₀"] do
+    expect harness "wrong" text
+  expect harness "holds" "assert |Fin(7)| = 7"
+  expect harness "holds" "assert ℤ ⊆ ℚ"
+  expect harness "gap" "assert |ℤ| = ℵ₀"
+  expect harness "holds" "assert 2 + 3 = 5"
+
+-- An answer that is not a value of the result form is malformed.
+run_cmd withHarness "registration_malformed.json" fun harness => do
+  expect harness "malformed" "assert |Fin(3)| = 3"
+  expect harness "holds" "assert ℤ ⊆ ℚ"
+
+-- A backend that cannot start is unavailable.
+run_cmd withHarness "registration_unavailable.json" fun harness => do
+  expect harness "unavailable" "assert |Fin(3)| = 3"
+
+-- Registrations that name nothing of the catalogue, or a form the operation does not apply to,
+-- or an undeclared backend, or a form the catalogue sends elsewhere along the operation's route,
+-- are not admitted.
+run_cmd withHarness "registration_rejected.json" fun harness => do
+  unless harness.admitted.isEmpty do throwError "a registration was admitted"
+  unless harness.rejected.size == 6 do throwError "rejected: {harness.rejected}"
+  for (reason, rejected) in [("is not a catalogue operation", harness.rejected[0]!),
+      ("is not a registered form", harness.rejected[1]!),
+      ("does not apply to the values of lit.cardinals", harness.rejected[2]!),
+      ("is not declared in the manifest", harness.rejected[3]!),
+      ("register it on obj.sets.fin", harness.rejected[4]!),
+      ("register it on cat.sets", harness.rejected[5]!)] do
+    unless (rejected.splitOn reason).length > 1 do
+      throwError "{rejected} is not rejected because it {reason}"
+  expect harness "gap" "assert |Fin(3)| = 3"
+
+end CasCatalogue.RegistrationProbes

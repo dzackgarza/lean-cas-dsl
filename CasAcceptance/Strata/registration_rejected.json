@@ -1,0 +1,13 @@
+{
+  "backends": [
+    {"name": "probe", "command": "python3", "args": ["probe_registration.py"]}
+  ],
+  "registrations": [
+    {"operation": "meth.frobnicate", "input": "obj.sets.fin", "backend": "probe"},
+    {"operation": "meth.cardinality", "input": "obj.sets.no_such_object", "backend": "probe"},
+    {"operation": "meth.cardinality", "input": "lit.cardinals", "backend": "probe"},
+    {"operation": "meth.cardinality", "input": "obj.sets.fin", "backend": "ghost"},
+    {"operation": "meth.cardinality", "input": "obj.finite_sets.fin", "backend": "probe"},
+    {"operation": "lim.sets.product", "input": "obj.sets.fin", "backend": "probe"}
+  ]
+}

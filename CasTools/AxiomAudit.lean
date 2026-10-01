@@ -5,7 +5,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue
-public import CasLeaves
 public import CasAcceptance
 public import Lean.Util.CollectAxioms
 
@@ -14,9 +13,9 @@ public import Lean.Util.CollectAxioms
 /-!
 # Kernel-axiom audit
 
-Checks every declaration of the core, the leaves and the probes against the standard Lean axiom budget.
-This is a kernel-assumption audit only; it does not establish that a Lean statement has
-the intended mathematical meaning.
+Checks every declaration of the core and the probes against the standard Lean axiom budget. This
+is a kernel-assumption audit only; it does not establish that a Lean statement has the intended
+mathematical meaning. A leaf has no Lean declaration to audit.
 -/
 
 open Lean Elab Command
@@ -31,7 +30,7 @@ def permitted : Array Name := #[
 def audit : CommandElabM Unit := do
   let env ← getEnv
   let names := env.constants.toList.map Prod.fst |>.filter fun name =>
-    [`CasCatalogue, `CasLeaves, `CasAcceptance].any (·.isPrefixOf name)
+    [`CasCatalogue, `CasAcceptance].any (·.isPrefixOf name)
   let mut violations : Array (Name × Array Name) := #[]
   for name in names do
     let assumptions ← collectAxioms name
