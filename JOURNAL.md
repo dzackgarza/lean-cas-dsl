@@ -6,7 +6,16 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
-Branch `b0/typed-application`. Suite at main `3c8eaec`: 148 assertions; 52 hold, 85 gaps,
+Branch `b0/typed-application`, integrated into main. Delivered, each with a probe and a suite run
+compared per assertion with main (no regression):
+- `1ae53ea` b0-typed-application: applications admitted only at the declared signature
+  (applyFamily, invariantOf); composed.charpoly/det/trace internal → invalid.
+- `fa0a426` b0-selected-structure: recognition by declaration identity; (ℤ/n)^k and Vec(ℤ/n, k)
+  distinct (registry audit: the only reducibly equal pair); SelectedStructureProbes.
+- `ea432e4` b0-domain-preservation: ring-hom coercions kept, kernel homs only unfolded; the
+  Poly∖0/Monic evidence goals no longer contain `RingHom.toFun`.
+Remaining stage B: core-admission-realized holds by its existing probes; b0-binders waits on the
+upstream assessment. The 6 Poly∖0/Monic failures and lim ×2 are upstream (below). Suite at main `3c8eaec`: 148 assertions; 52 hold, 85 gaps,
 8 invalid, 3 internal. Classified:
 - `composed.charpoly/det/trace` internal: `C.det()` applied `det` to the set `C` (continuous maps)
   where `n : ℕ` stands; `isDefEq` assigns without checking types, elaboration then crashes. Kernel
