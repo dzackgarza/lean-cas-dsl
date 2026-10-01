@@ -11,10 +11,11 @@ side must own so that a badly written backend cannot deform the public mathemati
 The execution order is in [computational-core-plan.md](computational-core-plan.md); the
 mathematical denotations remain in [FOUNDATIONS.md Part IX](https://github.com/dzackgarza/lean-categories/blob/main/FOUNDATIONS.md#part-ix-mathematical-semantics-of-the-computational-language).
 
-**Reference implementation.** `dzackgarza/sage-categories` implements most of the
-required semantics in Python and is the requirements source for this work. Its
-implementation is *not* to be reproduced. Section 3 maps each of its responsibilities to
-its replacement here; section 9 records what that repository discovered the hard way.
+**Grounding.** [`INTENT.md`](../INTENT.md) governs this document. `dzackgarza/sage-categories`
+is a record of lessons, not a requirements source. Its implementation is not reproduced, and
+neither is its leaf model, in which leaves declare functors and categories. Section 3 maps its
+responsibilities to their replacements here; section 9 records what it discovered the hard
+way.
 
 ---
 
@@ -25,7 +26,7 @@ its replacement here; section 9 records what that repository discovered the hard
 \]
 
 \[
-\boxed{\text{Sage, GAP, Julia, OSCAR, FLINT, … are realization engines behind typed Lean adapters.}}
+\boxed{\text{Sage, GAP, Julia, OSCAR, FLINT, … are opaque engines behind typed contracts owned in Lean; a leaf ships no Lean.}}
 \]
 
 Consequence: a backend leaf can be architecturally wrong — invent its own notion of
@@ -33,9 +34,9 @@ subgroup, put isotropic operations on generic groups, expose a second `Aut`, for
 inclusion, short-circuit lattices directly to sets — and none of it reaches the user.
 
 **Scope of the guarantee.** "Backend mistakes do not matter" covers *ontology, placement
-and wiring* mistakes only. A backend that returns a false group order with no certificate
-or checker still produces a false answer. That residual trust is recorded per call
-(requirement CC-TRUST), never hidden.
+and wiring* mistakes only. A backend that returns a false group order still produces a false
+answer. A CAS proves nothing. The permanent acceptance suite is the only evidence about a
+computation, and no result carries a proof, certificate or trust status.
 
 The target stack:
 
@@ -44,12 +45,12 @@ mathematician-facing Sage-like DSL                       (lean-cas-dsl surface)
         │  elaboration
         ▼
 one coherent semantic category/functor calculus in Lean  (lean-categories)
-        │  typed realization / operation contracts        (per-leaf Lean adapter)
+        │  typed request and result forms, owned upstream (leaves register, ship no Lean)
         ▼
 arbitrarily messy Sage / GAP / Julia / OSCAR code         (backends)
 ```
 
-The upper three layers protect the user from the bottom one.
+The upper layers protect the user from the bottom one.
 
 ---
 
@@ -93,7 +94,7 @@ third disappears, and the last two become a hard, typed boundary.
 | Dynamic role-class construction | kernel compiler | unnecessary |
 | Initializer threading along the implementation DAG | `resolution.md` | unnecessary |
 | Target-state grafting (`F.on_object` feeds \(\mathcal D\)'s initializer on the source value) | `functor.md` "Functor actions are concrete constructors", D13 | explicit \(F(X)\) term (CC-TRANSPORT) |
-| Runtime placement / refinement after construction | `property-refinement.md` | semantic typing plus evidence (CC-PROP) |
+| Runtime placement / refinement after construction | `property-refinement.md` | semantic typing by the catalogue's theorems (CC-PROP) |
 | Construction provenance recovery (`_object_inputs`, `_objects_by_datum`) | `resolution.md` "Construction retention" | the typed term already *is* the construction |
 | Selected structure-functor inheritance | `functor.md` | elaborator composes `FunctorExpr` (CC-RESOLVE) |
 | `FunctorImageCache` | kernel | explicit-application memo table (CC-MEMO) |
@@ -101,7 +102,7 @@ third disappears, and the last two become a hard, typed boundary.
 | Semantic collision check (same public name, unrelated owners) | `resolution.md` "Semantic collisions" | registry duplicate/ambiguity errors at elaboration (CC-RESOLVE) |
 | Diamond handling by declaration order plus executable comparisons | `resolution.md` "Diamond diagnostics" | explicit `NatTransExpr` comparisons; ambiguity is an error (CC-COHERE) |
 | Universal constructions with retained apex, legs, mediator | `functor.md` "Diagram shapes and universal constructions" | Mathlib/project constructions returning complete universal data (CC-UNIV) |
-| Engine lowering and native reconstruction | `leaves.md` "Computation-engine boundary" | still required, through typed adapters (CC-REALIZE, CC-DECODE) |
+| Engine lowering and native reconstruction | `leaves.md` "Computation-engine boundary" | still required: a leaf computes on a declared input form, and the kernel reads its answer into the declared result form (CC-ADAPTER, CC-DECODE) |
 
 What is retained from `sage-categories` is its *requirements*: explicit object and
 morphism actions, retained defining maps, comparison cells instead of priorities,
@@ -233,27 +234,21 @@ edge; and `cardinality` of a \(\mathbb Z/4\)-module and of the same group viewed
 
 ### CC-ACTION — A functor is its two actions
 
-An object map is an actual typed Lean function on realizations, and a morphism map is an
-actual function on morphism realizations, together with a denotation into the Mathlib
-functor it realizes. The `lean-cas-dsl` enum
+A functor of the catalogue is its object action and its morphism action, both mathematics in
+`lean-categories`, never an enum tag. The `lean-cas-dsl` enum
 
 ```lean
 inductive ObjMap | cyclicToFiniteSet
 ```
 
-is retired as a mechanism. Instead of
-
-```text
-UnderlyingSet  source := Modules  target := Sets  objMap := cyclicToFiniteSet
-```
-
-the registry holds \(U:\operatorname{Mod}_R\to\mathbf{Set}\) whose object and morphism
-actions are checked terms.
+is retired as a mechanism. Executing a functor on presented data is one more registered
+operation: a leaf may realize it on a declared input form, and the kernel composes realized
+steps along the resolved route. The kernel never takes a leaf's word for what a step means.
 
 **Acceptance.** \(\operatorname{Lattices}\to\operatorname{FormedModules}\to\operatorname{Modules}\to\mathbf{Set}\)
-is formed by ordinary composition; no lattice-to-set edge is registered; the composite's
-object action on a concrete lattice returns the same set as applying the three actions in
-turn.
+is formed by ordinary composition in the catalogue; no lattice-to-set edge is registered; the
+kernel's resolution of `cardinality` on a lattice is that composite, whichever leaves are
+installed.
 
 ### CC-TRANSPORT — Data transport is the central resolver operation
 
@@ -294,9 +289,10 @@ reindexing along \(\varphi\)) are not edges either: they need data the receiver 
 existing test corpus except those that the old rule resolved by priority; each such case is
 listed and either receives a declared comparison or becomes a reported ambiguity.
 
-### CC-IMMEDIATE — A leaf declares only its immediate structural images
+### CC-IMMEDIATE — A formalization declares only its immediate structural images
 
-A leaf says what its immediate underlying objects *are* and nothing further:
+A new category is formalized in `lean-categories`, and its formalization states what its
+immediate underlying objects *are*, and nothing further:
 
 ```text
 category Lattices            -- total category, fibred over its base (CC-FIB)
@@ -306,35 +302,36 @@ structure functor  underlyingFormedModule : Lattices ⟶ FormedModules
   (a functor over the common base: it commutes with the two projections)
 ```
 
-It cannot declare `Lattices → Sets`, `Lattices.cardinality`, `Lattices.kernel` or
-`Lattices.subgroup` because those are useful. They are derived by composition.
+It does not declare `Lattices → Sets`, `Lattices.cardinality`, `Lattices.kernel` or
+`Lattices.subgroup` because those are useful. They are derived by composition. No leaf declares
+any of it.
 
 **Acceptance.** Registering a functor whose target is reachable from its source through
 already-registered structural functors, with no new mathematical content, is rejected
 with a diagnostic naming the existing composite. Registering a method on a category below
 the method's lowest generating level is rejected (#53 §5).
 
-### CC-SEP — Semantic object, realization, evidence, implementation are four things
+### CC-SEP — Semantic object, presentation form, fact, implementation are four things
 
 A backend object conflates (1) what mathematical object it is, (2) how the backend
-represents it, (3) which facts are known about it, (4) which algorithms work on it. Lean
-keeps them apart:
+represents it, (3) which facts are known about it, (4) which algorithms work on it. The
+system keeps them apart, and gives the leaf only (4):
 
-```lean
-SemanticObject                      -- a point of a registered CategoryExpr
-Realization backend X               -- a backend handle realizing X, with codec
-PropertyEvidence X P                -- proof, certificate, decision, or trusted assertion
-Implementation backend op X         -- an executable route for a semantic operation
+```text
+SemanticObject      -- a point of a registered category (lean-categories)
+PresentationForm X  -- a typed request/result form and what it denotes (lean-categories)
+Fact X P            -- a theorem of lean-categories; nothing else is a fact
+Implementation op   -- a leaf's opaque computation from a declared input form to the
+                       operation's declared result form
 ```
 
-A backend object is never the authority for category membership. A Sage finite-field
-parent returned by a computation is decoded and *associated* with a semantic object
-\(K:\mathbf{Field}\) together with its selected structural images.
+A computed answer, including a computed decision, is not a fact: its only evidence is the
+permanent acceptance suite. A backend object is never the authority for category membership,
+and no leaf supplies a denotation, a proof, an identification or evidence.
 
 **Acceptance.** No code path assigns a category to a value by inspecting its backend
-representation. (`lean-cas-dsl`'s `profileFrom rules o`, which derives membership by
-matching the presentation `Obj`, is the counterexample this acceptance excludes; a
-presentation pattern may select a *realization*, never a category.)
+representation, and no leaf-supplied datum decides a value's meaning. (`lean-cas-dsl`'s
+`profileFrom rules o` is the counterexample this acceptance excludes.)
 
 ### CC-CARRIER — A property does not supply a carrier
 
@@ -348,14 +345,15 @@ carrier.
 - \(\mathbb F_{p^n}\) presented as \(\mathbb F_p[x]/(f)\): \(U\) returns the residue classes
   of that presentation.
 - Two presentations of isomorphic fields give different concrete carriers. A comparison
-  between them is additional mathematical data (a registered isomorphism), never a silent
-  identification by backend identity.
+  between them is additional mathematics, formalized in `lean-categories`: never a silent
+  identification by backend identity, and never an isomorphism a leaf asserts.
 
 **Acceptance.** Two realizations of a finite field from different defining polynomials (e.g.
 \(\mathbb F_9=\mathbb F_3[x]/(x^2+1)=\mathbb F_3[y]/(y^2+y+2)\); over \(\mathbb F_2\) the only
 monic irreducible quadratic is \(x^2+x+1\), so \(\mathbb F_4\) has a single one — corrected
 2026-09-28) yield distinct semantic objects; `ask (K₁ = K₂)` is not decided `true`; a registered
-isomorphism between them transports elements, and its absence is reported as absence.
+isomorphism of the catalogue between them transports elements, and its absence is reported as
+absence.
 
 ### CC-MEMO — Memoization of explicit functor applications only
 
@@ -402,26 +400,26 @@ the one part not copied.
 ambiguity error naming both; adding the comparison makes the call resolve and the result
 carries the comparison in its provenance.
 
-### CC-PROP — Properties live in Lean; backends only decide them
+### CC-PROP — Properties live in Lean; backends only compute them
 
 `Finite`, `Commutative`, `Free`, `PID`, `Nondegenerate`, … are semantic classifiers owned at
-their correct level. A backend may supply evidence, a decision procedure, a certificate or
-a trusted assertion for a named object. It cannot redefine what the property means, and
-it cannot place an object in a property category by attaching a runtime label.
+their correct level in `lean-categories`. A backend may compute whether a presented object has a
+property. Its answer is a computation, evidenced only by acceptance. It cannot redefine what
+the property means, supply evidence, or place an object in a property category.
 
 This extends `lean-cas-dsl`'s existing distinction
 *semantic availability ≠ implementation availability* from methods to all properties.
 
-**Acceptance.** A backend decision procedure for `IsAbelian` registers against the
-classifier (commutativity of the multiplicative port, #53 §12); registering a backend
-"abelian group" category is rejected.
+**Acceptance.** A backend computation of `IsAbelian` registers against the classifier
+(commutativity of the multiplicative port, #53 §12); a backend "abelian group" category is not
+expressible.
 
 ### CC-DECIDE — Three-valued decisions, and a wrong `false` is the worst error
 
-A decision returns *true with evidence*, *false with evidence*, or *undecided*. Undecided is
-absence of a decision procedure, not a third truth value (FOUNDATIONS Def. 46.4). A backend
-that cannot decide must return undecided; it must never collapse a conjunction of
-undecided components to `false`.
+A computed decision is *true*, *false*, or *undecided*. Undecided is absence of a decision
+procedure, not a third truth value (FOUNDATIONS Def. 46.4). A backend that cannot decide must
+return undecided; it must never collapse a conjunction of undecided components to `false`.
+A decision is a computation like any other: it carries no evidence, and acceptance judges it.
 
 `sage-categories` exhibits exactly this failure: at `39be374` its limit-category morphism
 equality returns `False` for two equal homomorphisms \(\mathbb Z/2\to\mathbb Z/4/\langle 2g\rangle\)
@@ -429,8 +427,8 @@ whose every component comparison is undecided (recorded in that repository's
 `COMPLAINTS.md`, "Limit-category morphism equality decides False for equal abelian
 homomorphisms").
 
-**Acceptance.** Every decision adapter distinguishes the three outcomes in its type; a
-test with pointwise-equal but differently constructed morphisms never decides `false`.
+**Acceptance.** The decision result type distinguishes the three outcomes; an acceptance
+assertion with pointwise-equal but differently constructed morphisms is never answered `false`.
 
 ### CC-UNIV — Generic constructions are owned above the backends, with complete data
 
@@ -446,35 +444,28 @@ universal factorization. A realization that supplies the apex but not the defini
 invalid.
 
 **Acceptance.** Given a hostile backend class realizing a subgroup
-\(H\le O(L)\), the adapter registers it as a realization of the semantic subgroup; the user's
+\(H\le O(L)\), its answer is decoded into the semantic subgroup; the user's
 `H` supports every generic subgroup operation with no forwarding wrappers; `H.inclusion`
 is the semantic inclusion, and a decode that omits the inclusion fails.
 
-### CC-ADAPTER — Every leaf has a Lean-side contract module
+### CC-ADAPTER — A leaf is a registration, not a module of mathematics
 
-Arbitrary Python/Julia/GAP modules do not register into the semantic runtime. Each leaf has
-a small Lean module whose one registration command is `register_leaf`
-(`CasCatalogue/Adapter.lean`):
+A leaf ships no Lean. It is a registration of:
+- the operation, or composite of operations, it computes, named by its `lean-categories`
+  identity;
+- the input form it accepts, one of the presentation forms declared upstream for that
+  operation;
+- an opaque implementation, in any language, speaking the port protocol, whose answer is
+  decoded into the operation's declared result form.
 
-```lean
-register_leaf
-  { backend := "sage"
-    contributions := [
-      .realizer { id := ⟨"rz.orthogonal_groups.sage"⟩, category := ⟨"cat.orthogonal_groups"⟩, … },
-      .action { id := ⟨"act.orthogonal_groups.underlying_group.sage"⟩, edge := …, … },
-      .implementation { … spinor norm … }, .decider { … }, .isomorphism { … } ] }
-```
+The registration has no field for anything else. So a leaf cannot express a category, method,
+property, placement, forgetful route, coercion, natural transformation, denotation, proof,
+identification, evidence or status: those moves are unrepresentable, not rejected. Python
+cannot create a semantic method by exporting a function; Julia cannot create a category; GAP
+cannot claim that a group-specific operation belongs to all groups.
 
-The permitted contributions are realizers, functor actions, implementations, deciders and
-registered isomorphisms; codecs live in the realizer's denotation and the decoders producing its
-handles. Each is validated by the registry and must typecheck against the semantic universe.
-The forbidden contributions of §5 are constructors of the same contribution type, so an attempt
-is expressible, and `register_leaf` rejects the whole contract naming the rule. Python cannot create a semantic method by
-exporting a function; Julia cannot create a category; GAP cannot claim that a
-group-specific operation belongs to all groups.
-
-**Acceptance.** Each forbidden contribution in §5 has a negative test that fails to
-elaborate with a diagnostic naming the rule.
+**Acceptance.** The registration type has exactly the three fields above, and replacing every
+installed leaf changes no meaning, type or available operation of the language.
 
 ### CC-DECODE — Reconstruct across the boundary; never trust backend object shape
 
@@ -484,7 +475,7 @@ A backend result crosses back as
 BackendResult { operation_id, encoded_result }
 ```
 
-and the adapter decodes it into the operation's **expected semantic result type**. For
+and the kernel decodes it into the operation's **expected semantic result type**, or rejects it as malformed. For
 \(\ker:\operatorname{Arr}(\mathbf{Grp})\to\operatorname{Mono}(\mathbf{Grp})\subseteq\operatorname{Arr}(\mathbf{Grp})\),
 \(f\mapsto(\ker f\hookrightarrow\operatorname{dom}f)\), the backend cannot answer
 "here is my `KernelSubgroup` class"; it supplies enough data to reconstruct
@@ -498,7 +489,7 @@ small corpus (#53 §14 E).
 
 ### CC-ROUTE — Capabilities register against semantic operations, never backend methods
 
-A backend says "I implement semantic operation \(m\) on realizations satisfying \(P\)",
+A backend says "I implement semantic operation \(m\) on input forms satisfying \(P\)",
 keyed by a `FunctorId` or normalized `FunctorExpr` (#53 §10 `BackendRealizationEntry`). It
 never says "I have a method called `.kernel()`". The backend's method inventory is discovery
 input only. Several backend functions may realize one operation; one backend function may
@@ -534,17 +525,9 @@ notation derive from that one closure.
 Guarantee: *every subgroup has everything expected of subgroups; a specialized subgroup
 has more.*
 
-**Acceptance.** Adding a leaf with one structural functor to modules regenerates its closure
-and the new category inherits `cardinality`, `rank`, `kernel` with no further declaration.
-
-### CC-TRUST — Epistemic status is attached, never conflated
-
-Each result records whether it is a kernel theorem, a Lean-checked reflected computation,
-a certificate-checked backend answer, or a trusted backend assertion (#53 §10 "Trusted
-backends", FOUNDATIONS Remark 46.5), with backend and version provenance.
-
-**Acceptance.** The notebook display distinguishes the four statuses for the same
-semantic operation run through different realizations.
+**Acceptance.** Formalizing, in `lean-categories`, a new category with one structural functor to
+modules regenerates the closure, and the new category inherits `cardinality`, `rank` and `kernel`
+with no further declaration and no leaf change.
 
 ### CC-LAWS — A construction claims its laws; computing them is a test
 
@@ -563,53 +546,26 @@ decide whether to accept a declaration.
 
 ## 5. The leaf contract
 
-A leaf may contribute only:
+A leaf holds zero semantic authority, and nothing from it is trusted (`INTENT.md`;
+[architecture.md](architecture.md), "The evidence model: nothing from a leaf is trusted"). It contributes only an implementation of an already-declared
+operation on an already-declared input form (CC-ADAPTER). It never contributes, by any route:
+- a category, a method, a property, a subcategory or placement, a forgetful route or coercion;
+- a natural transformation or an identification of two values;
+- a denotation of its values, a proof or certificate about its own code, evidence for a
+  decision, or a trust status for its answers;
+- mathematics of any kind. New mathematics is formalization work in `lean-categories`, which a
+  leaf author does not do as part of writing a leaf.
 
-1. realizations of already-declared semantic objects and categories;
-2. implementations of already-declared semantic functors, including actual object and
-   morphism data;
-3. implementations of already-declared semantic operations and predicates;
-4. backend codecs and conversions;
-5. new semantic declarations **only** through a separate `lean-categories` change, never
-   from the backend package.
-
-A backend leaf cannot:
-
-- invent a public category because its library has a class;
-- attach a method to a mathematical object;
-- declare a superclass or subcategory relation;
-- create an implicit forgetful route;
-- decide that two presentations are the same;
-- add public coercions;
-- refine an object's semantic type after construction;
-- expose backend-specific result classes;
-- define generic subgroup, kernel or image semantics.
-
-That leaves the backend free to be messy internally.
+That leaves the backend free to be messy internally. Its answers may be wrong; acceptance finds
+that out. A leaf is meant to be glue over a mature engine: declared input form, engine input, the
+engine's routine, engine result, declared result form, with no hand-rolled algorithm, no kernel
+machinery and engine values kept private ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue
+over existing backends"). That is writing guidance for an engineering review, and following it
+earns no trust.
 
 ---
 
-## 6. Where `lean-cas-dsl` stands (at `a191b61`)
-
-The table records what `ddcf982` had and what became of it in `cc-dsl-migration`.
-
-| At `ddcf982` | Now |
-|---|---|
-| `Resolution.concreteReceiver`: execution sees \(F(X)\), not \(X\) | **kept, generalized**: `Eval.realizationOf` runs the registered actions along the whole route, or hands the image to a backend route (CC-TRANSPORT) |
-| `MethodDecl` (semantic) vs `Route` (computability) separation | **kept**; a fused route is keyed by the composite it realizes (`Route.realizes`, CC-ROUTE) |
-| Mathlib anchors: `CatDecl.telescope`/`anchor`, `MethodDecl.anchor`, `Denote`/`Verify` | **kept** as `MethodDecl.anchor` and `TypingRule.classes` (synthesized at registration; `verifyTyping` at the call) |
-| Structured gaps (`notApplicable`, `ambiguous`, `functorTargetMismatch`) | **kept** as registry resolution errors and `CapabilityGap` naming the resolved route; `functorTargetMismatch` is unrepresentable (typed functor rows) |
-| `ObjMap` enum, one constructor per map | **retired** (CC-ACTION) |
-| `Obj` presentations whose categories come from `profileFrom` pattern rules | **changed**: a value is a point of a registered category — by ascription, else by the most specific `TypingRule` at construction; presentations select realizations only (CC-SEP) |
-| The transported image's category re-derived from its presentation | **changed**: \(F(X):\mathcal D\) by construction |
-| `parentClosure`: shortest chain kept, diamonds collapsed | **removed** with `CatDecl`/`FunctorDecl`/`ProfileRule`/`resolveCore` (CC-RESOLVE, CC-COHERE) |
-| Transport consulted only when inheritance fails ("NEVER A PREEMPTION") | **removed** (CC-UNIFORM); the one corpus case it decided (`size` on `Modules` and `Sets`) is a reported ambiguity |
-| Parameters "ride along unchanged" on parent edges | **changed**: fibres of stated fibrations, reindexing as change of base (CC-FIB) |
-| "ONE HOP", "NO RESULT LIFTING" ceilings | **removed** (CC-TRANSPORT); result lifting is CC-LIFT's |
-
----
-
-## 7. Division of ownership between the two Lean repositories
+## 6. Division of ownership between the two Lean repositories
 
 [architecture.md](architecture.md) owns this division; the owner's direction of 2026-09-29
 corrects the earlier text of this section.
@@ -621,7 +577,7 @@ corrects the earlier text of this section.
   It holds no resolver, realization or backend code.
 - `lean-cas-dsl` (this repository) derives the language from the pinned release (its catalogue):
   - the resolver and closure (CC-RESOLVE, CC-CLOSURE, CC-UNIFORM, CC-COHERE, CC-PROP);
-  - the realization and implementation registry (CC-SEP, CC-ROUTE, CC-TRUST, CC-MEMO);
+  - the registry of leaf registrations (CC-SEP, CC-ROUTE, CC-MEMO);
   - the leaf API and the port protocol (CC-ADAPTER, CC-DECODE);
   - the surface syntax and elaborator;
   - the permanent acceptance suite.
@@ -631,43 +587,39 @@ corrects the earlier text of this section.
   this repository reads it at the pin and writes none (`cc-sem-upstream`, `cc-sem-derive`).
 
 This follows #53 §7 ("no second semantic method registry"). The name-level graph
-(`CatDecl`/`FunctorDecl`) was deleted in `cc-dsl-migration`. Decision of 2026-09-28 (user): all
-foundational mathematics lives in `lean-categories`, and every other repository owns only the Lean
-its interfaces need and imports the rest.
+(`CatDecl`/`FunctorDecl`) was deleted (lean-cas-dsl `90608e6`, `a191b61`). All foundational mathematics lives in
+`lean-categories`. The kernel owns the Lean of its own mechanics and no mathematics. Leaves own
+no Lean at all.
 
 ---
 
-## 8. The executable-versus-typed tension
+## 7. The executable-versus-typed tension
 
 A semantic object must be both *typed* (a point of a registered category, with Mathlib
-meaning) and *executable* (its structural images computable). Mathlib's `ModuleCat ℤ`
-objects carry meaning but no computation; `lean-cas-dsl`'s `Obj` values compute but carry no
-type. The resolution adopted here:
+meaning) and *executable* (its structural images computable). The resolution:
 
-- the semantic layer is `CategoryExpr`/`FunctorExpr` with Mathlib denotations (existing);
-- a realization of a category `C` is a category of handles `R` with a denotation functor
-  `d : R ⥤ C`; each registered functor `F` carries a functor on handles `a_F` and a
-  2-commutative square `a_F ⋙ d_D ≅ d_C ⋙ F` (Mathlib `CatCommSq`), and composites are pasted
-  squares (CC-ACTION); for trusted backends the square may be a trusted assertion recorded under
-  CC-TRUST;
-- a semantic point is a pair (category expression, realization) whose realization's
-  denotation lies in that category; evaluation of a composite applies the handle functors in
-  turn, and the result's denotation is isomorphic, through the pasted square, to the composite
-  functor applied to the original's.
+- the semantics is `CategoryExpr`/`FunctorExpr` with Mathlib denotations, in `lean-categories`;
+- each operation has declared presentation forms for its input and result, and what each form
+  denotes. That is mathematics, in `lean-categories`;
+- a leaf implements an operation from an input form to its result form, as an opaque
+  computation. The kernel composes realized steps along the resolved route and decodes the
+  answer into the declared result form;
+- nothing proves that a realized answer is right. The permanent acceptance suite compares it
+  with values known from formal proof, citation or an independent oracle.
 
-This keeps #53 §6.1's goal — elaboration emits an ordinary Lean term — while letting
-execution run on realizations. When a Lean-native realization exists the two coincide.
+This keeps #53 §6.1's goal (elaboration emits an ordinary Lean term for the meaning) while
+execution runs through untrusted leaves.
 
 ---
 
-## 9. Nuances recorded from `sage-categories`
+## 8. Nuances recorded from `sage-categories`
 
 Each is a requirement discovered by failure there; ignore them and the Lean system will
 rediscover them.
 
-1. **A functor that computes nothing is not a functor.** Leaves wrote identity-shaped actions
-   to satisfy a declaration (`POL-LEAF-070`). Every registered action must construct target
-   data.
+1. **A functor that computes nothing is not a functor.** In `sage-categories`, leaves wrote
+   identity-shaped actions to satisfy a declaration (`POL-LEAF-070`). A realization of a
+   functor's action must compute target data.
 2. **An accessor is not a functor.** `POL-LEAF-078`: a method returning the underlying
    object is a second, unverified spelling of the structure functor.
 3. **One fact, one spelling.** `POL-LEAF-079`: two declarations of one fact drift.
@@ -695,21 +647,16 @@ rediscover them.
 
 ---
 
-## 10. Open questions (do not reopen the governing decisions)
+## 9. Open questions (do not reopen the governing decisions)
 
-1. Does a realization carry its denotation proof, or is the denotation a separate trusted
-   record for backend realizations? (Affects CC-ACTION acceptance for Sage-only functors.)
-2. Is the memo table (CC-MEMO) per notebook session or per elaboration?
-3. How does `FunctorExpr` represent a fibration's reindexing \(\varphi^{*}\) and fibre
+1. Is the memo table (CC-MEMO) per notebook session or per elaboration?
+2. How does `FunctorExpr` represent a fibration's reindexing \(\varphi^{*}\) and fibre
    inclusions \(\iota_R\): as constructors derived from a registered fibration entry, or as
    `atomic` functors whose registration must cite that fibration? Either way the
    fibration, not the pair of `familyApp` endpoints, is the owner.
-4. Where does the negative-test corpus for §5 live: `lean-categories` (semantic
-   rejections) or `lean-cas-dsl` (backend rejections), or split by rule?
-5. #53 §16's ten questions remain open and are inherited unchanged.
-6. (Recorded 2026-09-28 by `cc-closure`.) CC-CLOSURE's acceptance says a new leaf with one
-   structural functor into modules inherits `kernel` with no further declaration, while CC-LIFT
-   says a kernel returning to the source side needs a registered lift. Both cannot hold for a leaf
-   whose property is not known to pass to submodules. The implementation keeps CC-LIFT: the
-   leaf's surface lists `kernel` with the missing lift. Open: whether a property classifier may
-   register "closed under subobjects" once and have its lift derived.
+3. #53 §16's ten questions remain open and are inherited unchanged.
+4. CC-CLOSURE says a new category formalized with one structural functor into modules inherits
+   `kernel`, while CC-LIFT says a kernel returning to the source side needs a lift in the
+   catalogue. Both hold only if the category's formalization states that its property is closed
+   under subobjects. Open: whether a classifier states "closed under subobjects" once and the
+   lift is derived from it.

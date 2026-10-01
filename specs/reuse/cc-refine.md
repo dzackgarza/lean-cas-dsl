@@ -23,6 +23,7 @@ Direct checks in Mathlib: `ObjectProperty/FullSubcategory.lean` (`FullSubcategor
   outcome); equality of morphisms is Lean's `=`.
 
 ## New code, and why no dependency supplies it
-The registry-level re-typing of a realized object after a registered decider proves membership,
+The registry-level re-typing of an object after a proof of membership (in `lean-categories`, or
+discharged by the kernel; never a leaf's answer),
 the registered containment/intersection rows naming `ιOfLE`/`⊓`, and the category-owned equality
 decision returning a three-valued result.

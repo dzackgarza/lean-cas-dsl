@@ -20,12 +20,12 @@ Direct checks in Mathlib: `Limits/HasLimits.lean` (`constLimAdj : const J ⊣ li
   inverse); `Δ ⊣ lim` is `constLimAdj`; free–forgetful adjunctions are Mathlib's.
 - `Adjunctions(F, G)`, `Equivalences(C, D)` as categories: Mathlib `Equivalence` has a category
   structure; adjunctions between fixed functors are a set (subsingleton up to iso).
-- Realized transposes over fully faithful realizations are preimages of `homEquiv`
-  (as `realizedCell`, `realizedLimitCone`).
+- Transposes on presented values, over fully faithful denotations of the declared presentation
+  forms, are preimages of `homEquiv` (as `realizedCell`, `realizedLimitCone`).
 
 ## New code, and why no dependency supplies it
 - `LeanCategories.Foundation.constSectionsAdj : Δ ⊣ sections` (Mathlib `Types.sectionOfCone`,
   `Adjunction.mkOfHomEquiv`): Mathlib's `constLimAdj` factors through `lim`, which chooses its
   limits, so its transposes do not reduce; no Mathlib adjunction has `sectionsFunctor` as right adjoint.
 The `adjunction` registry row (a Mathlib `Adjunction` between registered functors), its
-validation, and the realized transpose on handles.
+validation, and the transpose on presented values.

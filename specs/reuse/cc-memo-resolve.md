@@ -13,10 +13,10 @@ optimization, not mathematics.
 
 ## Owner
 - The table is Lean core's `Std.HashMap` in an `IO.Ref` (`CasCatalogue/Memo.lean`, CC-MEMO), keyed by
-  the explicit application (action, handle).
-- Values are the realized actions' images; semantics are unchanged (`memoApply none` computes the
+  the explicit application (operation step, input value).
+- Values are the computed images; semantics are unchanged (`memoApply none` computes the
   same value).
 
 ## New code, and why no dependency supplies it
-Routing the resolver's realized calls (the images of handles along registered actions) through the
+Routing the resolver's calls (the images of input values along registered computations) through the
 existing memo table, and the probe comparing memoized and unmemoized runs.

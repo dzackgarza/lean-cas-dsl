@@ -26,6 +26,6 @@ Direct checks in Mathlib: `Limits/Types/Pullbacks.lean` (`Types.pullbackLimitCon
   is `IsLimit.lift`.
 
 ## New code, and why no dependency supplies it
-Registry rows naming limit presentations of registered diagrams, their realization on handles
-(apex handle, leg handles, mediator on handles as a preimage through a fully faithful
-realization), and the elaborator. The universal property is Mathlib's.
+Registry rows naming limit presentations of registered diagrams, their reading on presented
+values (apex, legs, mediator as a preimage through the fully faithful denotation of the
+presentation form declared upstream), and the elaborator. The universal property is Mathlib's.
