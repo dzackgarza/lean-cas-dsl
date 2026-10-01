@@ -503,6 +503,30 @@ def validateManifestProjection (state : RegistryState) (manifest : RegistryManif
     (state.opaqueCategories.flatMap fun c => c.ports.map (·.id.raw))
     (manifest.opaqueCategories.flatMap fun c => c.ports.map (·.id))
 
+/-- The stable ids of each row kind of `manifest`, opaque ports included. -/
+def manifestRowIds (manifest : RegistryManifest) : Array (String × Array String) :=
+  #[("categories", manifest.categories.map (·.id)),
+    ("category families", manifest.categoryFamilies.map (·.id)),
+    ("classifiers", manifest.classifiers.map (·.id)),
+    ("functors", manifest.functors.map (·.id)),
+    ("constructors", manifest.constructors.map (·.id)),
+    ("fibrations", manifest.fibrations.map (·.id)),
+    ("methods", manifest.methods.map (·.id)),
+    ("properties", manifest.properties.map (·.id)),
+    ("lifts", manifest.lifts.map (·.id)),
+    ("cells", manifest.cells.map (·.id)),
+    ("limits", manifest.limits.map (·.id)),
+    ("adjunctions", manifest.adjunctions.map (·.id)),
+    ("objects", manifest.objects.map (·.id)),
+    ("opaque categories", manifest.opaqueCategories.map (·.id)),
+    ("opaque ports", manifest.opaqueCategories.flatMap fun c => c.ports.map (·.id))]
+
+/-- `read` has exactly the rows of `reference`, kind by kind (`validateProjection`): a row that
+`lean-categories` registers and the reader does not see is lost, and fails. -/
+def validateSameRows (reference read : RegistryManifest) : Except String Unit :=
+  (manifestRowIds reference).zip (manifestRowIds read) |>.forM fun ((kind, registered), (_, seen)) =>
+    validateProjection kind registered seen
+
 /-- Return the manifest produced from the checked persistent registry state, checked to be a
 faithful projection of it. -/
 def checkedRegistryManifestDTO : CoreM RegistryManifest := do

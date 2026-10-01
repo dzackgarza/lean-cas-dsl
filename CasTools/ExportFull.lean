@@ -6,6 +6,8 @@ module
 
 public import CasTools.ExportJson
 public import CasAcceptance.Standard
+public import CasCatalogue.TestSuite
+public import LeanCategories.Catalogue
 public import Lean.Data.Json
 public import Lean.CoreM
 
@@ -32,8 +34,8 @@ open LeanCategories
 open LeanCategories CasCatalogue
 open Tools
 
-/-- Reload the compiled registry extension; this is the exporter data source. -/
-def readRegistryManifest : IO CasCatalogue.RegistryManifest := do
+/-- The checked registry manifest of a fresh environment importing `modules`. -/
+def manifestOf (modules : Array Lean.Name) : IO CasCatalogue.RegistryManifest := do
   let appDir ← IO.appDir
   let buildOleanRoot := appDir.parent.get! / "lib" / "lean"
   let workspaceRoot := appDir.parent.get!.parent.get!.parent.get!
@@ -42,12 +44,20 @@ def readRegistryManifest : IO CasCatalogue.RegistryManifest := do
     pure (entry.path / ".lake" / "build" / "lib" / "lean")
   Lean.initSearchPath (← Lean.findSysroot) (buildOleanRoot :: packageOleanRoots)
   unsafe Lean.enableInitializersExecution
-  let env ← Lean.importModules
-    #[{ module := `CasAcceptance.Standard }] {}
-    (loadExts := true)
+  let env ← Lean.importModules (modules.map fun module => { module }) {} (loadExts := true)
   let result ← Lean.Core.CoreM.toIO CasCatalogue.checkedRegistryManifestDTO
     { fileName := "", options := {}, fileMap := default } { env }
   pure result.1
+
+/-- The registry the kernel reads: the environment the harness runs the suite in
+(`CasCatalogue.TestSuite`), with the standard contract. This is the exporter data source. -/
+def readRegistryManifest : IO CasCatalogue.RegistryManifest :=
+  manifestOf #[`CasAcceptance.Standard, `CasCatalogue.TestSuite]
+
+/-- The registry `lean-categories` declares: its catalogue root `LeanCategories.Catalogue`, read
+in an environment of its own. -/
+def upstreamRegistryManifest : IO CasCatalogue.RegistryManifest :=
+  manifestOf #[`LeanCategories.Catalogue, `CasCatalogue.Registry]
 
 def loadRegisteredManifest : IO Json := do
   return toJson (← readRegistryManifest)
@@ -62,6 +72,10 @@ def validate (expected : CasCatalogue.RegistryManifest) (j : Json) : Except Stri
 
 def run : IO UInt32 := do
   let expected ← readRegistryManifest
+  -- No row that `lean-categories` registers is lost on the way to the kernel.
+  if let .error e := CasCatalogue.validateSameRows (← upstreamRegistryManifest) expected then
+    IO.eprintln s!"the kernel does not read the registry lean-categories declares: {e}"
+    return 1
   let manifest := toJson expected
   match Json.parse manifest.compress with
   | .error e =>
