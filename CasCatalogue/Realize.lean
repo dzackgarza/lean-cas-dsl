@@ -60,7 +60,7 @@ namespace Realize
 
 open Language
 
-export Decide (decideBudget kernelDecides decideProp)
+export Decide (decideBudget kernelAccepts kernelDecides decideProp)
 
 /-- A value the realized reading passes to or from a port: a closed value of a registered form (a
 literal of a literal form, a morphism by its graph, a registered named object at its parameters,
