@@ -302,12 +302,12 @@
   "CasAcceptance/Strata/registration_wrong.json": "9a55c45bd4c1afdeaa4c14ddd5a5ef1cd5ab600bc8b9b244fad16d5a528d37c0",
   "CasAcceptance/Suite.lean": "9f1ad4814d56c8334730f8e3f0009c31a37ef4f10f6f19d7aa7750cefb73847c",
   "CasCatalogue.lean": "8ae2395b9b464f7f2a4f9aad993e08c312f5d6bc5c9c8d46d125862555447d81",
-  "CasCatalogue/Acceptance.lean": "3b3e174377626ff531e5d0c5a5fe205f150664c4156a00b027966f3f01864e3c",
+  "CasCatalogue/Acceptance.lean": "0ea9432a98d45d51f3eb1c2b5a621f428e6bff70938d747d549c102c8bfcc78c",
   "CasCatalogue/AcceptanceSyntax.lean": "57d04c27a01172a34d5642e3a29d3ceb48c038dd89ac8f467ff335c2e18e56b7",
   "CasCatalogue/Admission.lean": "25b62a84caef0a1d040696d0807dadcf263f6fd340bd13cd9ae12d2378cc1324",
   "CasCatalogue/CellCall.lean": "007c619811849b231160dd5d1bf9734823d0f02d9da672c1022f0b00652cb53b",
   "CasCatalogue/CellSyntax.lean": "f6deaff81d5cc63c14299c76d25b98d7315d8bf37f86d2cc841442c46932a19e",
-  "CasCatalogue/Codec.lean": "67bfca2143f406648d7f2d143202de647562da3cc1d0196e842b8484c5a7a17e",
+  "CasCatalogue/Codec.lean": "6bb373d6c90ed0bf182813d9a221ad42e61337558a30f2a228dc6cdb357c2656",
   "CasCatalogue/Decide.lean": "6a90dc544760e384f544a1dee88698f9d90a0e09e0e2a8e19d73f52884fe3b54",
   "CasCatalogue/Language.lean": "9dc39757ad86c56cbe18e8f05a3ff4beb77082d816f565b322616e2d2bdf97fc",
   "CasCatalogue/Realize.lean": "fb1920ad8f559a405eba769082467a2d7fe0dce5431701fb30019ac88e7c4a33",
@@ -328,14 +328,14 @@
   "CasTools/ExportMain.lean": "3ec302b68c666738e914a21b8b7483eed488ed6aaca9ecaaeff8245d37ca18e0",
   "CasTools/Harness.lean": "bc3d052da03ff739629c866169994b299da814ca4c8841679bb55d00cd41beda",
   "CasTools/HarnessMain.lean": "bb48ba615212cae1a13d01fe3eee7270bc5ee0caef60c790f2a9d119fcecaaaa",
-  "custodian/CONTAINMENT.md": "d04e1e791bb6bf5d48915b2def1b47b055ef52752e1d741f132bedbb70d035dc",
+  "custodian/CONTAINMENT.md": "fc1d335a0f0be1579eb8e4a24baa7d364e1f4623c6e088bf4a033a2802ccd145",
   "custodian/FINDINGS.md": "ec86df2a75f3bc492933dab8650e31b6ac393d04c85ab9b8b313c01b60271506",
   "custodian/SETUP.md": "08fd15fddd6c1637e5e232523b9fb90f6919ae6e20946718e492232914547838",
   "custodian/adversarial.sh": "ce2f5f1f4c9c6b52dab2905d0df8da1e7cf4b888069bf2234c0cedceb8ecf071",
   "custodian/boundary.json": "e95a822757a3c30744368773e53827962961710f80211fbaf0aa9d4ebae65927",
   "custodian/justfile": "9320c7a8e735f9ed248b14c0afe67a63482b7d6f71403774f6534344671d0102",
   "custodian/owner-intent.md": "d1f41027bf425d963634e6f1fb61964772ce9ca8a4d0fe435fb13fe5e97b0305",
-  "custodian/review/prompt.md": "209740f76b748136343a89adab1ec925b4c100f2ced32a3eb96639c584513106",
+  "custodian/review/prompt.md": "1cfdce4a3c9aedf5319a8723ebcee9ebb08cac179abff2d482f94f901120b1ba",
   "custodian/review/review.py": "f7c1df09721d3e2a0a300975024717e90399dfd78d06368f402f8bef57cb328e",
   "custodian/review/test_review.py": "befff4f3ce5f20c840b25d42cf073b95d8662c94950fc95ae19a7a67e8dc1e73",
   "custodian/root.pub": "eab93a6afa15394de8dd9fcde8a10e649f559a6251415a30b93f35997beeac71",
@@ -631,11 +631,11 @@
    }
   ]
  },
- "note": "Baseline at lean-cas-dsl PR #53 (kernel and leaf registration), set by the owner before any threat model applies. SSH keys: the review key (custodian-review environment) and the owner's key (escalation).",
+ "note": "Baseline at lean-cas-dsl PR #53 (kernel and leaf registration) and #52 (evidence-model prose), set by the owner before any threat model applies. SSH keys: the review key (custodian-review environment) and the owner's key (escalation).",
  "outside_baseline": [],
  "reviewer_keys": {
   "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAYevMYZXo5d/qebqepSGUQwrZMpQTYw36lUK4AcTEMf custodian-review\n\n"
  },
- "sealed_commit": "d0db089e9fb12c9ceacddf384756c271b709e506",
+ "sealed_commit": "096397466d0893a870c6181a93be83374f0dc9b7",
  "verifier_sha256": "cc0e6c70f4f078ed55ea8ec309aa0e65c2e1a501b7e9868b3abdff691e83e5f4"
 }
