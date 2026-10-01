@@ -462,7 +462,7 @@ def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := d
       | .error _ => return false
     match remaining with
     | [] => pure ()
-    | [residue] => residue.withContext do residue.assign (← mkDecideProof (← residue.getType))
+    | [residue] => residue.withContext do residue.assign (← mkDecideProof (← residue.getDecl).type)
     | _ => return false
     let proof ← instantiateMVars goal
     if proof.hasMVar || proof.hasLevelMVar || proof.hasSorry then return false
