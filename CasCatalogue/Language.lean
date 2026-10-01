@@ -1352,6 +1352,11 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     if a.hasMVar then
       throwStratum .invalid m!"the parameters of {declaration} are not determined by its operands"
     quoteExpr a
+  -- Unification can assign a parameter a term of another type (`isDefEq` does not check the
+  -- types of its assignments). The application is admitted only at its declared dependent
+  -- signature: every argument has its declared type (b0-typed-application).
+  unless ← isTypeCorrect (← instantiateMVars (mkAppN constant args)) do
+    throwStratum .invalid m!"an argument of {declaration} is outside its declared type"
   let family ← `($(mkCIdent declaration) $params*)
   let target ← match target? with
     | some T => pure T
@@ -1556,13 +1561,32 @@ partial def inCategoryOver (scope : Scope) (t : Syntax) (C : NamedCategoryEntry)
 partial def invariantOf (entry : MorphismEntry) (A : Expr) : M Value := do
   let state ← registryState
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
+  -- The application is admitted only at the declared dependent signature (b0-typed-application):
+  -- the family's first explicit parameter takes `A` at its declared type, its other parameters are
+  -- determined, and it is a family of points `1 ⟶ T`.
+  let constant ← mkConstWithFreshMVarLevels entry.declaration
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+  let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+  let some parameter := explicit[0]?
+    | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
+  unless ← isDefEq (← inferType parameter) (← inferType A) <&&> isDefEq parameter A do
+    throwStratum .invalid m!"{entry.name} does not take {A} at its declared type"
+  synthesizeInstances args infos
+  unless ← isTypeCorrect (← instantiateMVars (mkAppN constant args)) do
+    throwStratum .invalid m!"an argument of {entry.name} is outside its declared type"
+  if (← explicit.mapM instantiateMVars).any (·.hasMVar) then
+    throwStratum .invalid m!"the parameters of {entry.name} are not determined by {A}"
+  let .object one _ _ ← oneObject | unreachable!
+  let some (source, _) := homEnds? (← instantiateMVars type)
+    | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
+  unless ← isDefEq source one do
+    throwStratum .invalid m!"{entry.name} is not an invariant of objects: it is not a family of points"
   let family ← instantiateMVars (← elabTermAndSynthesize
     (← `($(mkCIdent entry.declaration) $(← quoteExpr A))) none)
   let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let T ← recognize state target category
   let .object t .. := T | unreachable!
-  let .object one _ _ ← oneObject | unreachable!
   return .element (← staged (← homIn (← quoteExpr family) one t category)) T
 
 /-- `t.m(a, …)`: the registered family `m` at `t` (a map is its parameter, an element its first

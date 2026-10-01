@@ -125,6 +125,14 @@ run_cmd do
       "assert implemented |Fin(3)|"] do
     expect harness "gap" text
 
+-- An application is admitted only at the family's declared dependent signature
+-- (b0-typed-application): `det` takes a matrix, so the set `C` of continuous maps given where its
+-- size `n : ℕ` stands is invalid when read, never an interpreter error.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  expectInvalid harness "assert C.det() = 0"
+  expectInvalid harness "assert C.trace() = 0"
+
 -- An element admitted into a domain is part of the term, with the data its registered evidence
 -- built (`3 in ℚˣ` is the pair `(3, ⅟3)`, the catalogue's `Invertible 3` established when the
 -- statement is read): Lean decides equations about its inverse, with no manifest at all, and
