@@ -77,12 +77,12 @@ Terms:
   fraction or decimal: the initial field of characteristic `0`) or `ℤ` (the initial ring);
 * `{a₀, a₁, …, ...}`: the arithmetic progression `{a₀ + d k | k ∈ ℕ}` its numerals begin; `kℕ`:
   `{k n | n ∈ ℕ}`; a named set compared with a subset is its image there (`{0, 1, 2, ...} = ℕ`);
-* `∫_{a}^{b} e dt`: the registered integral `C(ℝ) × ℝ² → ℝ` at `t ↦ e`, which the notation forms in
-  `C(ℝ)` (its continuity established when read); `f.m(a, …)`: a family with the map `f` as its
-  parameter, or at an element of its domain (`(f in C^∞).taylor_expansion(0)`); `R[[t]]`;
-  `lim` is not a term: no domain of convergent maps is registered;
-* `∑_{t ∈ A} e`, `∏_{t ∈ A} e` over a finite subset `A ∈ 𝒫_fin(X)`; `∑_{n ∈ ℕ} c · t^n` in
-  `R[[t]]` is the series with coefficients `n ↦ c`;
+* binding operators, `∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`, `∏_{t ∈ A} e`: the one
+  registered binder row of the token whose operation takes the notation's arguments, applied to
+  the map `t ↦ e` on the row's domain, admitted into the operation's source (`readBinder`,
+  `specs/binders.md`); `∞` is the registered element of that name;
+* `f.m(a, …)`: a family with the map `f` as its parameter, or at an element of its domain
+  (`(f in C^∞).taylor_expansion(0)`); `R[[t]]`;
 * `Xⁿ` (`ℚ²`) for a set `X`: `Vec(X, n)`; `(x₁, …, xₙ)`: the tuple by the registered `()` and
   `cons`; `[a, b; c, d]`: the matrix with these rows (`rows`); `N₂(…)` is `N(2, …)` (`Mat₂(ℚ)`);
   `M v`, `M * v`, `M(v)`: the registered application of `M`'s set;
@@ -773,6 +773,87 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
   Trace.record (← read).trace hom (.literal form.id (← instantiateMVars literal.appArg!))
   return .morphism hom a b category none
 
+/-- What reading a binding operator needs from the evaluation of the language, which is recursive:
+an argument read in its set (when the set is determined), the body at a stage of the domain as the
+map `t ↦ e`, the admission of a map into a registered object, the generic application of a
+registered family (`applyFamily`, the points given as its morphism parameters), and the named set
+an object is. -/
+structure BinderReading where
+  argument : Syntax → Option Value → M Value
+  body : Name → Value → Syntax → M Value
+  admit : Value → Value → M Value
+  apply : Name → NamedCategoryEntry → Array Value → Array Expr → M Value
+  recognize : Expr → NamedCategoryEntry → M Value
+
+/-- The last `k` explicit parameters of a telescope that are objects or morphisms: the parameters
+a binder's notation supplies (`specs/binders.md`). -/
+def binderSlots (args : Array Expr) (infos : Array BinderInfo) (k : Nat) :
+    MetaM (Option (Array Expr)) := do
+  let slots ← (args.zip infos).filterMapM fun (a, i) => do
+    unless i.isExplicit do return none
+    let type ← whnf (← inferType a)
+    return if type.isSort || type.isAppOf ``Quiver.Hom then some a else none
+  return if slots.size < k then none else some (slots.extract (slots.size - k) slots.size)
+
+/-- The binder row's operation with its notation's arguments as its last object and morphism
+parameters: its parameters, the points among the arguments (in order), and its source. Each
+argument is read in the set its parameter is a point of, when that set is already determined. -/
+def bindBinder (R : BinderReading) (category : NamedCategoryEntry) (row : BinderEntry)
+    (arguments : Array Syntax) : M (Array Expr × Array BinderInfo × Array Expr × Expr) := do
+  let constant ← mkConstWithFreshMVarLevels row.operation
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+  let some (source, _) := homEnds? (← whnfR type)
+    | throwStratum .invalid m!"{row.operation} is not a family of morphisms"
+  let some slots ← binderSlots args infos arguments.size
+    | throwStratum .invalid m!"`{row.token}` takes fewer arguments"
+  let mut points := #[]
+  for (slot, x) in slots.zip arguments do
+    let type ← whnf (← instantiateMVars (← inferType slot))
+    let set? := (homEnds? type).bind fun (_, b) => if b.hasMVar then none else some b
+    let v ← R.argument x (← set?.mapM (R.recognize · category))
+    let value ← match v with
+      | .object handle .. => pure handle
+      | .element hom _ => pure hom
+      | _ => throwStratum .invalid m!"`{row.token}` takes an object or an element there"
+    unless ← isDefEq slot value do
+      throwStratum .invalid m!"`{row.token}` ({row.id.raw}) does not take this argument"
+    if type.isAppOf ``Quiver.Hom then points := points.push value
+  synthesizeInstances args infos
+  return (args, infos, points, ← instantiateMVars source)
+
+/-- A binding operator `token_{…} e` (`specs/binders.md`): the one registered binder row with this
+token whose operation takes the notation's arguments, applied to the map `t ↦ e` on its domain,
+admitted into the operation's source. The kernel knows no binder: which sets, maps and operations
+these are is the catalogue's. -/
+def readBinder (R : BinderReading) (token : String) (t : Name) (arguments : Array Syntax)
+    (e : Syntax) : M Value := do
+  let state ← registryState
+  let rows := state.binders.filter (·.token == token)
+  let ctx ← read
+  let readers ← rows.filterM fun row => do
+    let some category := state.categories.find? (·.id == row.category) | pure false
+    (withoutModifyingState do
+      try discard <| (bindBinder R category row arguments).run ctx; pure true
+      catch _ => pure false : TermElabM Bool)
+  let #[row] := readers
+    | throwStratum .invalid (if readers.isEmpty then
+        m!"no registered binder `{token}` takes these arguments"
+      else m!"several registered binders `{token}` take these arguments: \
+        {readers.map (·.id.raw)}")
+  let some category := state.categories.find? (·.id == row.category)
+    | throwStratum .invalid m!"the binder {row.id.raw} has an unregistered category"
+  let (args, _, points, source) ← bindBinder R category row arguments
+  let domain ← mkConstWithFreshMVarLevels row.domain
+  let D ← instantiateMVars (mkAppN domain args)
+  if D.hasMVar then
+    throwStratum .invalid m!"the arguments of `{token}` do not determine the set {t} ranges over"
+  let f ← R.body t (← R.recognize D category) e
+  let some entry := state.objects.find? fun o =>
+      o.category == row.category && source.getAppFn.constName? == some o.declaration
+    | throwStratum .invalid m!"the source of {row.operation} is not a registered object"
+  let admitted ← R.admit (.object source category (some (entry, #[]))) f
+  R.apply row.operation category #[admitted] points
+
 mutual
 
 /-- The value of a term, in the category `category?` of an enclosing `in C`. -/
@@ -966,9 +1047,23 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
 partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry)
     (ambient? : Option Value) : M Value := do
   let state ← registryState
+  let binding : BinderReading :=
+    { argument := fun x S? => match S? with
+        | none => eval scope x
+        | some S => do toElement (← coerceTo (← eval scope x none (some S)) S) S
+      body := fun t D e => do
+        let .element body Y ← atStage scope t D e none
+          | throwStratum .invalid m!"the body `{shown e}` is an element of a set"
+        let (.object x category _, .object y _ _) := (D, Y)
+          | throwStratum .invalid m!"the body `{shown e}` is an element of a named set"
+        return .morphism body x y category (some (D, Y))
+      admit := admit
+      apply := fun name category elements points => applyFamily name category elements (maps := points)
+      recognize := recognize state }
   if stx.getKind == ``casBig then
-    let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
-    return ← bigOperator scope name stx[2].getId stx[4] stx[6] ambient?
+    let some token := (stx[0].find? (·.isAtom)).map (·.getAtomVal)
+      | throwStratum .invalid m!"a big operator has a token"
+    return ← readBinder binding token stx[2].getId #[stx[4]] stx[6]
   if let some v ← evalNotation scope stx then return v
   if stx.getKind == ``casMvRing then
     let names ← match mvVariables stx with
@@ -987,11 +1082,13 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
   if stx.getKind == ``casCallWith then
     return ← callWith scope stx[0] stx[2].getId.toString stx[4].getSepArgs
   if stx.getKind == ``casLimit then
-    -- `lim` is total on the maps convergent at the point, a domain whose evidence (convergence)
-    -- is not established when a statement is read; the catalogue registers no such domain.
-    throwStratum .invalid m!"`lim`: no registered domain of maps convergent at a point"
+    return ← readBinder binding "lim" stx[1].getId #[stx[3]] stx[5]
   if stx.getKind == ``casDefinite then
-    return ← definite scope stx[1] stx[3] stx[5] stx[6].getId
+    let some t := differentialOf? stx[6].getId
+      | throwStratum .invalid m!"`∫_…^… e {stx[6].getId}`: {stx[6].getId} is not `dt`"
+    return ← readBinder binding "∫" t #[stx[1], stx[3]] stx[5]
+  if stx.getKind == ``casInfinity then
+    return ← named scope "∞" #[] none
   if stx.getKind == ``casIntegral then
     return ← applyNamed state "∫" #[← eval scope stx[1]]
   if stx.getKind == ``casActed then
@@ -1605,19 +1702,6 @@ partial def pairOf (x y : Value) : M Value := do
   return .element (← mkExpectedTypeHint lift (← mkAppM ``Quiver.Hom #[one, apex]))
     (.object apex category none)
 
-/-- `∫_{a}^{b} e dt`: the registered integral `C(ℝ) × ℝ² → ℝ` at `(t ↦ e, (a, b))`, the map
-admitted into `C(ℝ)` (its continuity established when the statement is read). -/
-partial def definite (scope : Scope) (a b e : Syntax) (dt : Name) : M Value := do
-  let state ← registryState
-  let some t := differentialOf? dt | throwStratum .invalid m!"`∫_…^… e {dt}`: {dt} is not `dt`"
-  let some entry := state.morphisms.find? (·.name == "∫ₐᵇ")
-    | throwStratum .invalid m!"no registered definite integral"
-  let some category := state.categories.find? (·.id == entry.category) | unreachable!
-  let R ← object state "ℝ" #[] none
-  let integrand ← admit (← object state "C" #[] none) (← lambda scope t e R R)
-  let bounds ← #[a, b].mapM fun x => do toElement (← coerceTo (← eval scope x none (some R)) R) R
-  applyFamily entry.declaration category #[integrand, ← pairOf bounds[0]! bounds[1]!]
-
 /-- `{a₀, a₁, …, ...}`: the image of `k ↦ a₀ + d k` on `ℕ`, `d = a₁ - a₀`. -/
 partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
   let numerals ← xs.mapM fun x => do
@@ -1633,53 +1717,6 @@ partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
   let (a, d) := (Syntax.mkNumLit (toString a), Syntax.mkNumLit (toString d))
   let e ← `(cas_term| $a:num + $d:num · $k:ident)
   imageOf scope e `«progression index» (← object (← registryState) "ℕ" #[] none)
-
-/-- `∑_{t ∈ A} e` (`name` is `∑` or `∏`) over a finite subset `A ∈ 𝒫_fin(X)`: the registered family
-`𝒫_fin(X) → Y` at the map `t ↦ e : X → Y`, applied to `A`. A subset not established to be finite is
-not in its domain. In `R[[s]]`, `∑_{n ∈ ℕ} c · s^n` is the series with coefficients `n ↦ c`
-(`Σ tⁿ`, `ofCoefficients`), not a sum. -/
-partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax)
-    (ambient? : Option Value) : M Value := do
-  let state ← registryState
-  if let some series ← formalSeries? scope name t A e ambient? then return series
-  let subset ← eval scope A
-  let .element A' P@(.object p category (some (finite, #[X]))) := subset
-    | throwStratum .invalid m!"`{name}_\{{t} ∈ …}` ranges over a finite subset (in 𝒫_fin(X))"
-  unless finite.name == "𝒫_fin" do
-    throwStratum .invalid m!"`{name}_\{{t} ∈ {shown A}}`: {shown A} is not established to be \
-      finite (an element of 𝒫_fin, not of {finite.name})"
-  let .element f Y ← atStage scope t X e none
-    | throwStratum .invalid m!"`{shown e}` is an element"
-  let some entry := state.morphisms.find? (·.name == name)
-    | throwStratum .invalid m!"no registered {name}"
-  let .object y .. := Y | unreachable!
-  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y])*
-    $(← quoteExpr f))) p y category
-  return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[A', family]) Y
-
-/-- `∑_{n ∈ ℕ} c · s^n` in `R[[s]]`, `s` the variable of `R[[s]]`: the series with the coefficients
-`n ↦ c : ℕ → R` (the registered `Σ tⁿ`). `none` for any other big operator. -/
-partial def formalSeries? (scope : Scope) (name : String) (n : Name) (A e : Syntax)
-    (ambient? : Option Value) : M (Option Value) := do
-  let state ← registryState
-  let some S@(.object s category (some (series, #[R]))) := ambient? | return none
-  let some entry := state.morphisms.find? (·.name == "Σ tⁿ") | return none
-  unless name == "∑" && series.generator.isSome do return none
-  let `(cas_term| $c · $v:ident ^ $k:ident) := e | return none
-  unless k.getId == n do return none
-  let some (.element _ (.object _ _ (some (vSet, _)))) := (← read).bound.lookup v.getId
-    | return none
-  unless vSet.id == series.id do return none
-  let N ← eval scope A
-  let .object _ _ (some (naturals, #[])) := N | return none
-  unless naturals.name == "ℕ" do return none
-  let .element c _ ← withReader (fun ctx => { ctx with stage := some N }) do
-      coerceTo (← atStage scope n N c (some R)) R
-    | throwStratum .invalid m!"`{shown c}` is a coefficient in {shown A}"
-  let .object one .. ← oneObject | unreachable!
-  let hom ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[R])* $(← quoteExpr c)))
-    one s category
-  return some (.element (← staged hom) S)
 
 /-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
 action `•` of `a` on `b` (`(6x + 1) dx`), else the registered application of `a` (`M v`). -/
