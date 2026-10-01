@@ -7,7 +7,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "9b18f2877dddd8e0d03e7b0c908c7856e81eb95a",
+   "rev": "7947c5e7aa0947e1668400f7e60fee70d5004ae9",
    "name": "lean_categories",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",

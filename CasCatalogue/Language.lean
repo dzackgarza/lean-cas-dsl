@@ -2144,6 +2144,11 @@ partial def admit (D : Value) (v : Value) : M Value := do
   synthesizeSyntheticMVarsNoPostponing
   -- The value itself, its plumbing unfolded: what its evidence is about.
   let x ← normalizedValue (← instantiateMVars x)
+  -- A map is stated at the admission's own domain (`ℝ ∖ {0}`), not at the presentation of the
+  -- stage it was formed at: its evidence is about a function out of that domain.
+  let x ← match x, ← whnfR (← instantiateMVars (← inferType args[xi]!)) with
+    | .lam n _ body bi, .forallE _ domain _ _ => pure (Expr.lam n domain body bi)
+    | x, _ => pure x
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
   synthesizeInstances args infos
