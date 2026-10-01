@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare two runs of the acceptance suite, assertion by assertion (B0 gate family C).
 
-    compare_acceptance.py BASE.json HEAD.json
+    check_acceptance_regression.py BASE.json HEAD.json
 
 Each file is the report `cas-harness --report` writes: one result per test, with its file, id and
 outcome kind. The comparison is by assertion identity, never by counts. The head fails when:

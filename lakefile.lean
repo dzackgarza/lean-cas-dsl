@@ -61,7 +61,7 @@ lean_lib CasGates where
 
 /-- Acceptance probes of the core over the catalogue; building the library runs them. The
 permanent suite (`tests/acceptance`) is not compiled: `cas-harness` executes it, and
-`scripts/compare_acceptance.py` judges a head against its base assertion by assertion. -/
+`scripts/check_acceptance_regression.py` judges a head against its base assertion by assertion. -/
 lean_lib CasAcceptance where
   globs := #[.andSubmodules `CasAcceptance]
   leanOptions := #[

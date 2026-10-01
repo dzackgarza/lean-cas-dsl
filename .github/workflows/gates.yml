@@ -99,4 +99,4 @@ jobs:
               && { lake exe cas-harness --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done
       - name: Compare, assertion by assertion
-        run: python3 head/scripts/compare_acceptance.py base.json head.json
+        run: python3 head/scripts/check_acceptance_regression.py base.json head.json
