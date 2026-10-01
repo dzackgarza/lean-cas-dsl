@@ -77,7 +77,7 @@ request against `main`, read the `Custodian review` comment, then close it and d
 | Pull request | Expected comment |
 | --- | --- |
 | add `theorem custodianTestFalse : False := sorry` to `CasCatalogue/Semantic.lean` | `FAIL (hard)`, naming `banned construct` |
-| add a comment line to `CasCatalogue/Semantic.lean` | `APPROVED` or `REJECTED`; a rejection adds a commit to `custodian/rejections` |
+| add a comment line to `CasCatalogue/Semantic.lean` | `APPROVED`, `REJECTED (defect)`, `NEEDS EVIDENCE` or `REVIEW FAILED`; a rejection or a needs-evidence outcome adds a commit to `custodian/rejections`, a failed review adds none |
 
 For an `APPROVED` result, download the verdict (`gh run download <run-id> -n custodian-verdict`)
 and check it offline with `custodian/verify.py`. Never merge a test.
