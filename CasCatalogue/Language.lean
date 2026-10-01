@@ -1264,7 +1264,13 @@ parameters. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry) :
     M Value := do
   let mut found : Array (ObjectEntry × Array Expr) := #[]
-  for entry in state.objects.filter (·.category == category.id) do
+  -- Identity by declaration (b0-selected-structure): an expression that is a registered object's
+  -- declaration applied to its parameters is that object, never another object whose carrier it
+  -- also unfolds to (`(ℤ/n)^k` and `Vec` share `Fin k → ℤ/n`). Only an expression that is no
+  -- object's declaration is matched by unfolding, and then only a unique match is an object.
+  let head := (← instantiateMVars x).getAppFn.constName?
+  let declared := state.objects.filter fun e => e.category == category.id && some e.declaration == head
+  for entry in (if declared.isEmpty then state.objects.filter (·.category == category.id) else declared) do
     let declaration ← mkConstWithFreshMVarLevels entry.declaration
     let (args, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
     let params? ← (withoutModifyingState do
