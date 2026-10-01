@@ -1,0 +1,71 @@
+{
+ "key": "f4a3168773f75c269ca3157145aebab7c744b443a64664dc585000e8f7bfa0c5",
+ "record": {
+  "change_key": "f4a3168773f75c269ca3157145aebab7c744b443a64664dc585000e8f7bfa0c5",
+  "change_sha256": "59d7cb9c01f868c6e8ceb470056d6673359b6a5104a4028a040bbb47a4d406ba",
+  "head_sha": "605514a86a91cc0eca1d597c5e792e75c6a78218",
+  "model": "claude-opus-5-5",
+  "pr": "58",
+  "problems": [
+   "sealed file changed: .lake/packages/cas_leaf_contracts/CasContract/Registry/Extension.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Registry/Entry.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Registry/Semantic.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Algebra/Calculus.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Algebra/FiniteSums.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Algebra/Units.lean",
+   "sealed file changed: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/FiniteSubsetLiteralTests.lean",
+   "sealed file changed: CasCatalogue/Language.lean",
+   "new file inside the sealed boundary: .lake/packages/lean_categories/LeanCategories/Catalogue/Registry/BinderProbes.lean",
+   "new file inside the sealed boundary: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Algebra/RealLimits.lean",
+   "new file inside the sealed boundary: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Algebra/Series.lean",
+   "new file inside the sealed boundary: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/BinderTests.lean",
+   "new file inside the sealed boundary: .lake/packages/lean_categories/LeanCategories/Catalogue/Semantics/Foundation/Maps.lean"
+  ],
+  "prompt_sha256": "7ad5c238552bb6eba5c0d6c6cb139e278cf1cf8db4dc1e2874598bab0929cdf1",
+  "result": {
+   "criteria": [
+    {
+     "criterion": "The obligation is unchanged",
+     "evidence": "Registry/Semantic.lean validateInclusion: `isDefEq x (mkAppN subDecl args)` / `isDefEq y (mkAppN superDecl args)` replaced by fresh `subArgs`/`superArgs` from separate forallMetaTelescopeReducing calls. The inclusion no longer has to relate sub and super at its own parameters, and the error text drops 'at its parameters'. The InclusionEntry doc adds obligations 'decided where the inclusion is used', which moves the check out of admission.",
+     "holds": false
+    },
+    {
+     "criterion": "The kernel stays purely categorical and general",
+     "evidence": "Domain-specific `definite`, `bigOperator`, `formalSeries?` are removed in favour of a generic `readBinder` over catalogue rows. Not credited, because the change is bundled with the failures below.",
+     "holds": true
+    },
+    {
+     "criterion": "Semantics are independent of realizations",
+     "evidence": "readBinder, inclusionFrom? and coerceTo read only registryState and Meta terms; no leaf, backend or installation state is read in the hunks shown.",
+     "holds": true
+    },
+    {
+     "criterion": "The mathematics is owned upstream",
+     "evidence": "The catalogue change brings in its new rows (puncturedUnits, finCastLE probe) by weakening the validateInclusion admission rule. The leaf contract Extension.lean adds `| binder (e : BinderEntry)` to RegistryEntry with toSemantic/ofSemantic cases, giving the leaf-facing contract a new semantic row kind.",
+     "holds": false
+    },
+    {
+     "criterion": "Nothing from a leaf is trusted",
+     "evidence": "Through the leaf-contract RegistryEntry.binder to SemanticEntry.binder conversion, a leaf-supplied registry row can now become a semantic binder row (token, operation, domain) that the kernel's readBinder consumes.",
+     "holds": false
+    },
+    {
+     "criterion": "Failures stay stratified",
+     "evidence": "Language.lean division: `try return \u2190 applyNamed state \"/\" #[a', b] (some K) catch ex => throwStratum .invalid ...` rethrows every exception from applyNamed as semantically invalid, whatever its original kind. The 'not a reading fallback' comment is self-declared.",
+     "holds": false
+    },
+    {
+     "criterion": "The change is reviewable",
+     "evidence": "About 1,500+ lines mixing the leaf contract, admission rules (validateInclusion, new validateBinder), a new row kind, four new or changed mathematics files with custom evidence tactics, a kernel rewrite, and edits to existing catalogue tests (run_evaluation syntax removed, all uses rewritten). It must be split.",
+     "holds": false
+    }
+   ],
+   "summary": "Rejected. (1) validateInclusion in Registry/Semantic.lean is weakened: sub and super are checked at independent fresh metavariables (subArgs, superArgs) instead of the declaration's own parameters, and obligations are deferred to use sites. This is an admission rule loosened to let puncturedUnits in. (2) The leaf contract (CasContract/Registry/Extension.lean) gains a `binder` semantic row via RegistryEntry and toSemantic/ofSemantic. (3) The kernel's division path catches every exception from applyNamed and rethrows it as `.invalid`, which collapses failure kinds. (4) The change is far too large and mixed to review: split it into the generic kernel binder reading alone, the validateBinder proposal alone, and each mathematics file separately under unweakened rules. Drop the leaf-contract addition and the validateInclusion relaxation.",
+   "verdict": "reject"
+  },
+  "served_by": "claude-opus-5-5"
+ },
+ "signer": "SHA256:c5KRoTxWaBGLmRjZIJZlyzjO3Y4L8hap0TXK6SnjB8A"
+}
