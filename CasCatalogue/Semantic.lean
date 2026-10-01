@@ -196,5 +196,3 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
 end Semantic
 
 end CasCatalogue
-
-theorem t : False := sorry
