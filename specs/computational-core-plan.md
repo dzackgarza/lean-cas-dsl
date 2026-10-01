@@ -205,23 +205,36 @@ engineering review checks and which earns no trust. Nothing a leaf supplies is c
 allowed to affect meaning or acceptance. The acceptance suite is the only evidence, run only from
 `lean-cas-dsl`.
 
-**Code gaps**, one per line (repository `lean-cas-dsl-leaf-contracts` unless named):
-- `CasContract/Adapter.lean` (`LeafContribution`): the permitted kinds `realizer`, `action`, `implementation`, `decider`, `isomorphism`, `limitRealization`, `equality`, `backendOperation`, `presentation`, `observation` carry functors, proofs, identifications, evidence or statuses; the registration must be exactly (operation id, input form, implementation), and the forbidden kinds must be unrepresentable rather than rejected.
-- `CasContract/Registry/Entry.lean` (`RealizerEntry`): the leaf's denotation functor decides what its handles mean and which category they lie in.
-- `CasContract/Action.lean` (`RealizedAction`) and `CasContract/Registry/Entry.lean` (`FunctorActionEntry`): the leaf's `CatCommSq` proof that its action commutes with its own denotation.
-- `CasContract/Registry/Entry.lean` (`PresentationEntry`, `ObservationEntry`): the leaf's isomorphism or equality proof identifying a handle with a value or a literal.
-- `CasContract/Registry/Entry.lean` (`HandleIsoEntry`): the leaf proves two handles isomorphic, and elements are transported along it.
-- `CasContract/Decide.lean` (`Decision` with proofs, `Decider`, `HomEquality`) and `CasContract/Registry/Entry.lean` (`DeciderEntry`, `EqualityEntry`): the leaf's evidence for a decided property or equality.
-- `CasContract/Refine.lean` (`refine`): an object is re-typed into a refinement on a leaf decider's `Decision`.
-- `CasContract/Trust.lean` (`Trust`, `Result` status, `TrustedImplementation`, `CertifiedImplementation` with checker and soundness theorem) and `ImplementationEntry.trust` in `CasContract/Registry/Entry.lean`: a status or certificate for a leaf's answer.
-- `CasContract/Limits.lean` and `CasContract/Registry/Entry.lean` (`LimitRealizationEntry`): the leaf's apex handle with the identification of its denotation, and the `legs` proof of lifted cones.
-- `CasContract/Registry/Entry.lean` (`BackendOperationEntry.decoder`): the leaf supplies the decoder that reads its own answer.
-- `CasContract/Registry/Extension.lean`: registration validates leaf rows by consuming their proofs (squares, presentations, identifications) instead of fixing the declared type.
-- `lean-cas-dsl` `CasCatalogue/Resolve.lean` (`elabRun`, `certifiedExecutable`): `run% … proved` reduces leaf code in the kernel and returns it as `Result.ofKernel`, a "kernel theorem"; `run%` attaches `Trust` statuses.
-- `lean-cas-dsl` `CasCatalogue/Resolve.lean` (`receiverRealization`, `realizedMethodCall`), `CasCatalogue/Semantic.lean`, `CasCatalogue/Language.lean`, `CasCatalogue/ObjectCall.lean`, `CasCatalogue/LimitCall.lean`: calls select and compose leaf realizers, actions, presentations, observations, deciders and equalities by their denotations and proofs.
-- `lean-cas-dsl` `CasCatalogue/Acceptance.lean`: `value%` is the leaf's denotation of a result; `#accept_backend` compares a backend with "a value whose denotation another assertion proves".
-- `lean-cas-dsl` `CasAcceptance/Permanent/Cardinality.lean`, `Constructed.lean`, `Limits.lean`: assertions proved by `simp [cardinalDenotation, CardinalHandle.denote]`, unfolding a leaf's definitions, with inputs built from leaf handle constructors (`SetHandle.prod`, `zmodPow`).
-- `lean-cas-dsl-leaves` `CasLeaves/**/*.lean`: every leaf is a Lean module defining handle categories, denotation functors, actions, deciders and proofs; each must become a registration that ships no Lean, with its program beside it.
+**Delivered on branches, awaiting the owner's review and merge:**
+- `lean-cas-dsl` `kernel/leaf-registration` ([#53](https://github.com/dzackgarza/lean-cas-dsl/pull/53),
+  `3444877`):
+  - a leaf is a manifest of registrations, admitted against the catalogue;
+  - the generic structural codec;
+  - the realized reading over the semantic term, with transport along the catalogue's refinement
+    rows, morphisms as graph literals, and limits as diagram in and cone out;
+  - Lean discharge first, through `decide` and the catalogue's registered evaluations, each proof
+    checked synchronously by Lean's kernel;
+  - every leaf-supplied realizer, action, decider, isomorphism, presentation, observation,
+    decoder, trust status, `register_leaf` and `run%` removed;
+  - the 26 assertions established from leaf definitions retired against admitted leaf-blind
+    statements.
+- `lean-cas-dsl-leaf-contracts` `kernel/leaf-registration`
+  ([#3](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/3)): a registration has
+  exactly three fields (operation, input form, backend), and the realization machinery is
+  deleted.
+- `lean-cas-dsl-leaves` `leaf/registrations`: `leaves.json` and Python glue over Sage and GAP.
+  No Lean.
+- `lean-categories` [#67](https://github.com/dzackgarza/lean-categories/pull/67),
+  [#68](https://github.com/dzackgarza/lean-categories/pull/68) and
+  [#69](https://github.com/dzackgarza/lean-categories/pull/69): decidable equality of
+  concrete-category morphisms, the finite-subset literal form, and registered evaluation of
+  literal forms.
+
+**Evidence at `3444877`:**
+- `RegistrationProbes` and `KernelPurity` pass.
+- The suite's failures are exactly the 12 invalid statements of #46.
+- Every file is at or above the earlier baseline except `sets`, whose holds came from leaf Lean.
+  It is 3 of 18 with no leaf, and 11 of 18 over the real leaves.
 
 **Findings from the first registration leaves** (`lean-cas-dsl-leaves` `leaf/registrations`,
 `eea5eea`), each routed to its owner:
