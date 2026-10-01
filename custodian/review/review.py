@@ -13,17 +13,15 @@ Outcomes (exit 0 only for PASS):
   FAIL hard   a ratchet or structural violation (banned construct, leaf in the DSL, leaf
               violation, semantic rows downstream, a package that is missing, linked, or not at
               its manifest revision, a rewritten root or chain). No review can accept it.
-  ESCALATE    the change touches what judges changes: the custodian's files, CI, the owner's text,
-              existing acceptance assertions or the ledger. An escalation verdict is required,
-              signed with the escalation key after a human-plus-agent review (--escalate below).
-  REVIEWED    other sealed files changed: the kernel, or an upstream rule file
-              (the catalogue of lean_categories, the leaf contract). The independent reviewer (a
-              single model call with the fixed prompt custodian/review/prompt.md, the owner's text
-              and the diff, never the orchestrator's argument) approves or rejects. An approval is
-              a signed verdict, written to <out>/verdicts/ and posted on the pull request; the head
-              must commit it to pass. A rejection is signed, appended to the rejection log, and is
-              final for that exact change: the same change against the same seal is never reviewed
-              again.
+  REVIEWED    any other sealed file changed. The independent reviewer (a single model call with
+              the fixed prompt custodian/review/prompt.md, the owner's text and the diff, never the
+              orchestrator's argument) approves, rejects or escalates. An approval is a signed
+              verdict, written to <out>/verdicts/ and posted on the pull request; the head must
+              commit it to pass. A rejection is signed, appended to the rejection log, and is final
+              for that exact change: the same change against the same seal is never reviewed again.
+  ESCALATE    the reviewer found evidence that the change works against the threat model. The
+              owner decides: an escalation verdict, signed with the escalation key after a
+              human-plus-agent review (--escalate below), or no merge.
 
 Escalation mode (the owner's machine, with an agent reviewing alongside):
 
@@ -45,19 +43,14 @@ import json
 import re
 import subprocess
 import sys
-from fnmatch import fnmatch
 from pathlib import Path
 
 MODEL = "claude-opus-5-5"
 DIFF_LIMIT = 600_000  # characters; a larger change must be split
-# Changes to these judge changes: escalation only. Every other sealed file (the kernel, the
-# upstream rule files) is reviewed by the agent.
-ESCALATE = ["custodian/*", "specs/owner/*", "tests/acceptance/*", "CasAcceptance*",
-            "CasGates/*", "CasTools/*", "lakefile.lean", "lean-toolchain", "justfile", "scripts/*"]
 SCHEMA = {
     "type": "object",
     "properties": {
-        "verdict": {"type": "string", "enum": ["approve", "reject"]},
+        "verdict": {"type": "string", "enum": ["approve", "reject", "escalate"]},
         "criteria": {"type": "array", "items": {
             "type": "object",
             "properties": {"criterion": {"type": "string"}, "holds": {"type": "boolean"},
@@ -95,17 +88,13 @@ def public_fpr(key: Path) -> str:
                           text=True).stdout.split()[1]
 
 
-def classify(problems: list[str]) -> tuple[list[str], list[str], list[str]]:
-    hard, escalate, review = [], [], []
+def classify(problems: list[str]) -> tuple[list[str], list[str]]:
+    """Hard violations, and the sealed changes the reviewer decides."""
+    hard, review = [], []
     for p in problems:
-        m = re.match(r"(sealed file changed|sealed file removed|new file inside the sealed boundary): (.+)$", p)
-        if m:
-            (escalate if any(fnmatch(m.group(2), e) for e in ESCALATE) else review).append(p)
-        elif p.startswith(("sealed ledger", "sealed assertion")):
-            escalate.append(p)
-        else:
-            hard.append(p)
-    return hard, escalate, review
+        changed = re.match(r"(sealed file changed|sealed file removed|new file inside the sealed boundary): ", p)
+        (review if changed or p.startswith(("sealed ledger", "sealed assertion")) else hard).append(p)
+    return hard, review
 
 
 def chain_head(V, root_path: Path, chain) -> str:
@@ -128,10 +117,11 @@ def tightened(V, head: Path, tip: dict) -> dict:
     return seal
 
 
-def change_text(base: Path, head: Path, review: list[str]) -> str:
+def change_text(V, base: Path, head: Path, review: list[str]) -> str:
     parts = []
-    for p in review:
-        f = p.split(": ", 1)[1]
+    files = {V.LEDGER if p.startswith(("sealed ledger", "sealed assertion")) else p.split(": ", 1)[1]
+             for p in review}
+    for f in sorted(files):
         a = (base / f).read_text(errors="replace").splitlines(True) if (base / f).is_file() else []
         b = (head / f).read_text(errors="replace").splitlines(True) if (head / f).is_file() else []
         parts.append("".join(difflib.unified_diff(a, b, f"a/{f}", f"b/{f}")))
@@ -189,20 +179,16 @@ def review_mode(a) -> int:
     problems = V.check(head, tip)
     if not problems:
         return finish(0, "PASS", [f"the head satisfies the seal in force ({len(chain)} verdicts)"])
-    hard, escalate, review = classify(problems)
+    hard, review = classify(problems)
     if hard:
         return finish(1, "FAIL (hard)", hard + ["no review can accept these"])
-    if escalate:
-        return finish(1, "ESCALATE", escalate + [
-            "these change what judges changes: an escalation verdict is required "
-            "(custodian/CONTAINMENT.md, \"Escalation\")"])
     boundary = V.current_boundary(head, tip)
     key = sha(json.dumps({"tip": chain_head(V, root_path, chain), "files": boundary},
                          sort_keys=True).encode())
     if a.rejections and (a.rejections / f"{key}.json").exists():
         return finish(1, "REJECTED (final)", [f"this exact change was already rejected ({key[:16]}); "
                                               "a rejection is never re-reviewed"])
-    change = change_text(base, head, review)
+    change = change_text(V, base, head, review)
     here = base / "custodian"
     prompt = here / "review" / "prompt.md"
     owner = "\n\n".join((base / p).read_text() for p in
@@ -235,6 +221,10 @@ def review_mode(a) -> int:
                         "```json", path.read_text(), "```", "", "Signature:", "```",
                         Path(str(path) + ".sig").read_text(), "```"])
         return finish(1, "APPROVED (commit the verdict to pass)", lines)
+    if result is not None and result["verdict"] == "escalate":
+        return finish(1, "ESCALATE", lines + [
+            "the reviewer found evidence that this change works against the threat model: the "
+            "owner decides (custodian/CONTAINMENT.md, \"Escalation\")"])
     if a.rejections:
         rec = a.rejections / f"{key}.json"
         rec.write_text(json.dumps({"key": key, "signer": public_fpr(a.signing_key), "record": record},
@@ -252,7 +242,7 @@ def escalate_mode(a) -> int:
     root = json.loads(root_path.read_text())
     chain = V.load_chain(head, root_path, root)
     tip = V.tip_seal(root, chain)
-    hard, _, _ = classify(V.check(head, tip))
+    hard, _ = classify(V.check(head, tip))
     if hard:
         print("refused: hard violations cannot be escalated:\n  " + "\n  ".join(hard))
         return 1
