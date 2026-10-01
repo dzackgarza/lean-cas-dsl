@@ -14,6 +14,6 @@
   `realizedColimitCocone`.
 
 ## New code, and why no dependency supplies it
-- The surface elaborator resolving a diagram of handles to the registered limit or colimit, with
-  its lift, and returning the realized cone and its apex's semantic value.
+- The surface elaborator resolving a diagram of presented values to the registered limit or
+  colimit, with its lift, and returning the cone and its apex's semantic value.
 - Its stratified failures.

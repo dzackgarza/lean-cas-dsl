@@ -98,9 +98,13 @@ reads the pull request's head. It gives one of five outcomes:
 | --- | --- | --- |
 | PASS | the head satisfies the seal in force | mergeable (once the other checks pass) |
 | FAIL (hard) | a ratchet or structural violation, a package that fails the package check, a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
-| ESCALATE | the change touches what judges changes: `custodian/`, the owner's text, existing acceptance assertions, the ledger, gates, harness, build definition | an escalation verdict is required |
-| APPROVED | only the kernel (`CasCatalogue`, `CasDsl`) or an upstream rule file changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
+| APPROVED | sealed files changed, and the reviewer approved | the signed verdict is posted on the pull request; committing it unchanged makes the head PASS |
 | REJECTED | the reviewer rejected, refused, or could not review (too large: split it) | signed and appended to the `custodian/rejections` log; the same change against the same seal is never reviewed again |
+| ESCALATE | the reviewer found evidence that the change works against the threat model, and named it | the owner decides: an escalation verdict, or no merge |
+
+The reviewer decides every sealed change, wherever it is: the kernel, an upstream rule file, a
+gate, a probe, an acceptance file or `custodian/` itself. A path is never evidence of a violation.
+Escalation is for a known violation, never for a change that only might be one.
 
 The reviewer is a single Claude Code call (`claude -p`) with no tools, no settings and no MCP
 servers, authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`). It gets the
@@ -127,15 +131,14 @@ either only makes heads fail.
 
 ## What the orchestrator must do
 
-1. Merge `custodian/containment` into every branch it works on, and change `main` only through
-   pull requests.
+1. Work from `main`, which carries `custodian/`, and change `main` only through pull requests.
 2. Treat a head as accepted only if `python3 scripts/ci_chain.py` and then
    `just -f custodian/justfile verify` pass under the owner's fingerprint. "Delivered" markers,
    trailers and documents carry no acceptance.
 3. Never write a verdict. Commit exactly the verdict the review posted, unchanged. Never ask a
    subagent to review in the reviewer's place, and never resubmit a rejected change unchanged.
 4. When an obligation looks inconsistent or unsolvable, say so in a pull request that names it. Do
-   not weaken it. That pull request escalates by construction.
+   not weaken it. The reviewer decides it like any other change.
 5. Never write under `custodian/`, except to commit a verdict the review posted.
 
 ## GitHub setup

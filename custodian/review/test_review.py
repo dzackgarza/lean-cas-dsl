@@ -144,9 +144,18 @@ fresh()
 with open(S / "head" / "scripts/check_kernel_totality.py", "a") as f:
     f.write("\n# relax\n")
 commit(S / "head")
+expect("gate change, reviewer approves", run(stub("approve")), "APPROVED")
+
+fresh()
+with open(S / "head" / "scripts/check_kernel_totality.py", "a") as f:
+    f.write("\n# relax\n")
+commit(S / "head")
 calls.clear()
-expect("gate change escalates, never reviewed", run(stub("approve")), "ESCALATE")
-results.append(not calls)
+expect("reviewer escalates on evidence", run(stub("escalate")), "ESCALATE")
+results.append(len(calls) == 1)
+calls.clear()
+expect("an escalation is never a final rejection", run(stub("approve")), "APPROVED")
+results.append(len(calls) == 1)
 e = subprocess.run([sys.executable, str(S / "head/custodian/review/review.py"), "--escalate", "--head",
                     str(S / "head"), "--trusted-fpr", fpr, "--signing-key", esc_key,
                     "--note", "test"], capture_output=True, text=True)

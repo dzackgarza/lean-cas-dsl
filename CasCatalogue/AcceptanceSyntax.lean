@@ -7,7 +7,6 @@ module
 public import CasCatalogue.Acceptance
 public meta import CasCatalogue.Acceptance
 public meta import CasContract.Failure
-public meta import CasContract.Port
 
 public section
 
@@ -21,9 +20,6 @@ open Acceptance
 
 syntax (name := acceptCommand)
   "#accept " str " from " str (&" realized")? " : " term " := " term : command
-
-syntax (name := acceptBackendCommand)
-  "#accept_backend " str " from " str " : " "(" term ")" &" agrees " term : command
 
 syntax (name := acceptanceGapsCommand) "#acceptance_gaps" : command
 
@@ -54,27 +50,6 @@ meta def checkAccept (stx : Syntax) (admit : Bool) : CommandElabM Status := do
       | some .unavailable => pure (.unavailable (← e.toMessageData.toString))
       | _ => throw e
 
-/-- Check an `#accept_backend` command. -/
-meta def checkAcceptBackend (stx : Syntax) : CommandElabM Status := do
-  let some id := stx[1].isStrLit? | throwUnsupportedSyntax
-  let some source := stx[3].isStrLit? | throwUnsupportedSyntax
-  liftTermElabM do
-    let call ← withoutErrToSorry <| elabTerm stx[6] none
-    synthesizeSyntheticMVarsNoPostponing
-    let value ← withoutErrToSorry <| elabTerm stx[9] none
-    synthesizeSyntheticMVarsNoPostponing
-    let outcome ← mkAppM ``backendOutcome #[← instantiateMVars call, ← instantiateMVars value]
-    let run ← evalBackendOutcome outcome
-    match ← (run (← registryState) : IO BackendOutcome) with
-    | .agrees => pure Status.holds
-    | .disagrees got expected =>
-        throwError "wrong answer to acceptance {id}: the realization answered {got}, the \
-          assertion is {expected} ({source})"
-    | .portError e =>
-        match e.stratum with
-        | .unavailable => pure (.unavailable e.render)
-        | s => throwStratum s m!"acceptance {id}: {e.render}"
-
 /-- The record of an assertion elaborated here. -/
 meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
   let some id := stx[1].isStrLit? | throwUnsupportedSyntax
@@ -92,18 +67,11 @@ meta def recordOf (stx : Syntax) (status : Status) : CommandElabM Record := do
   | .gap reason => logInfo m!"acceptance gap {id}: {reason}"
   | .unavailable reason => logInfo m!"acceptance {id} not exercised: {reason}"
 
-@[command_elab acceptBackendCommand] meta def elabAcceptBackend : CommandElab := fun stx => do
-  let status ← checkAcceptBackend stx
-  let record ← recordOf stx status
-  recordAdmission record
-  if let .unavailable reason := status then
-    logInfo m!"acceptance {record.id} not exercised: {reason}"
-
 /-- `#acceptance_rerun`, optionally `expecting "id"…`: the listed assertions must hold here. -/
 syntax (name := acceptanceRerunCommand) "#acceptance_rerun" (&" expecting" (ppSpace str)+)? : command
 
 /-- Rerun every admitted assertion of the imported modules here, in the namespace and `open`s it
-was written in. A wrong or malformed answer fails; the statuses are reported. -/
+was written in. A failure is reported against the assertion; the statuses are reported. -/
 @[command_elab acceptanceRerunCommand] meta def elabAcceptanceRerun : CommandElab := fun stx => do
   let expected : Array String := if stx[1].isNone then #[]
     else stx[1][1].getArgs.filterMap (·.isStrLit?)
@@ -120,8 +88,7 @@ was written in. A wrong or malformed answer fails; the statuses are reported. -/
       for ns in namespaces do activateScoped ns
       withScope (fun scope => { scope with currNamespace := record.namespace
                                            openDecls := record.openDecls }) do
-        if record.command.getKind == ``acceptCommand then checkAccept record.command false
-        else checkAcceptBackend record.command
+        checkAccept record.command false
     -- not a reading fallback: it rethrows, naming the failing assertion
     let status ← try rerun catch e =>
       throwError "acceptance {record.id} ({record.source}) fails here: {e.toMessageData}"
@@ -143,6 +110,6 @@ was written in. A wrong or malformed answer fails; the statuses are reported. -/
     | .gap reason => some s!"  {r.id} ({r.source}): {reason}"
     | .unavailable reason => some s!"  {r.id} ({r.source}): not exercised: {reason}"
     | .holds => none
-  logInfo m!"acceptance assertions no realization computes here:\n{"\n".intercalate lines}"
+  logInfo m!"acceptance assertions not established here:\n{"\n".intercalate lines}"
 
 end CasCatalogue

@@ -23,15 +23,14 @@ tests, the harness, the notebook). -/
 require lean_categories from git
   "https://github.com/dzackgarza/lean-categories" @ "main"
 
-/- The leaf contract: the kernel's interface for computational leaves, published on its own so
-that a leaf depends on nothing else of the kernel (`lean-cas-dsl-leaf-contracts`). -/
+/- The leaf contract: the shape of a leaf's manifest, the port protocol and the failure strata,
+published on its own so that a leaf depends on nothing of the kernel
+(`lean-cas-dsl-leaf-contracts`). The leaves themselves (`lean-cas-dsl-leaves`) are not a Lake
+dependency: a leaf ships no Lean, and the kernel imports nothing from it
+(`specs/leaf-registration.md`). The suite finds their manifest `leaves.json` through
+`CAS_LEAVES` (`CasCatalogue.Realize.Harness.load`). -/
 require cas_leaf_contracts from git
   "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts" @ "main"
-
-/- The computational leaves (`lean-cas-dsl-leaves`), which depend on the contract and
-`lean-categories` only; this package runs its permanent suite over them (`cas-harness`). -/
-require cas_leaves from git
-  "https://github.com/dzackgarza/lean-cas-dsl-leaves" @ "main"
 
 /- The notebook package: the prelude `CasDsl.Notebook` over the core and the standard universe.
 Syntax only: it declares nothing and registers nothing (`CasDslTests.Boundary`). -/
@@ -66,8 +65,9 @@ input_dir acceptanceSuite where
   text := true
   filter := .extension "cas"
 
-/-- Acceptance probes of the core over the standard universe (semantics and leaves); building
-the library runs them, and `CasAcceptance.Suite` runs the suite (rebuilt when a test changes). -/
+/-- Acceptance probes of the core over the catalogue; building the library runs them, and
+`CasAcceptance.Suite` runs the suite (rebuilt when a test changes) through the installed leaves'
+manifest. -/
 lean_lib CasAcceptance where
   globs := #[.andSubmodules `CasAcceptance]
   needs := #[acceptanceSuite]
@@ -86,13 +86,13 @@ lean_exe «cas-registry-export» where
   root := `CasTools.ExportMain
   supportInterpreter := true
 
-/-- Run the acceptance suite over given leaf modules (`CasTools.Harness`). -/
+/-- Run the acceptance suite over a leaves manifest (`CasTools.Harness`). -/
 lean_exe «cas-harness» where
   root := `CasTools.HarnessMain
   supportInterpreter := true
 
-/-- Kernel-axiom audit of the core, the leaves and the probes; the audit runs while
-`CasTools.AxiomAudit` elaborates. -/
+/-- Kernel-axiom audit of the core and the probes; the audit runs while `CasTools.AxiomAudit`
+elaborates. -/
 lean_exe «cas-axiom-audit» where
   root := `CasTools.AxiomAuditMain
   supportInterpreter := true

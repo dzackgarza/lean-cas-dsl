@@ -19,33 +19,20 @@ notebook elaborates here, with its expected value.
 namespace CasDslTests.Cells
 
 
-open CategoryTheory CasCatalogue CasCatalogue.Foundation.Actions CasCatalogue.Foundation.Cardinality
+open CategoryTheory CasCatalogue
 
-def A : SetHandles := SetHandle.prod (.finite 2) (.zmod 3)
-def Z : SetHandles := SetHandle.zmod 0
-def F3 : SetHandles := SetHandle.finite 3
-def revRev : F3 ⟶ F3 := InducedCategory.homMk (TypeCat.ofHom fun i : Fin 3 => i.rev.rev)
+#cas "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ"
 
-#eval method% cardinality (A) in "cat.sets"
+#cas "assert 2 + 3 = 0 in ℤ/5"
 
-#guard method% cardinality (A) in "cat.sets" == ⟨CardinalHandle.finite 6⟩
+#cas "assert rev(3) ∘ rev(3) = id(Fin(3))"
 
-#eval (ask% is_finite (Z) in "cat.sets").answer
-
-#guard (ask% is_finite (Z) in "cat.sets").answer == some false
-
-#eval (refine% (A) in "cat.sets" to "cat.finite_sets").isSome
-
-#guard (refine% (A) in "cat.sets" to "cat.finite_sets").isSome
-
-#eval (eq% (revRev) (𝟙 F3) in "cat.sets").answer
-
-#guard (eq% (revRev) (𝟙 F3) in "cat.sets").answer == some true
-
-#eval (show List (Fin 3) from (cell% "cell.sets.list.reverse" at (F3) in "cat.sets").hom ([0, 1, 2] : List (Fin 3)))
-
-#guard (show List (Fin 3) from (cell% "cell.sets.list.reverse" at (F3) in "cat.sets").hom ([0, 1, 2] : List (Fin 3))) == [2, 1, 0]
+#cas "assert |Fin(3)| = 3"
 
 #resolve cardinality in "cat.finite_sets"
+
+#methods "cat.finite_sets"
+
+example : (cell% "cell.sets.list.reverse" ≫ "cell.sets.list.reverse"⁻¹ at (CasCatalogue.Foundation.Objects.integers) in "cat.sets") = 𝟙 _ := by simp
 
 end CasDslTests.Cells

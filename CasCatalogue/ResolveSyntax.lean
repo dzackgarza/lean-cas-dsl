@@ -12,135 +12,39 @@ public meta import CasCatalogue.Resolve
 /-!
 # Surface syntax for method resolution
 
-* `method% name (x) in "cat.id"` elaborates `x.name` for `x` in the registered category
-  `cat.id` (`CasCatalogue.elabMethodCall`); `via "fun.id"` requires the route to pass through a
-  registered functor, selecting a port.
-* `ask% name (x) in "cat.id"` decides the property `name` of `x` (CC-PROP): a `Decision` from the
-  classifier's registered decision procedure, applied to the image of `x` along the route.
-* `eq% (f) (g) in "cat.id"` decides the category's equality of two morphism handles (CC-DECIDE):
-  a `Decision` from the registered equality procedure of their realization; never `false` for
-  equal morphisms.
-* `memo% (table) name (x) in "cat.id"` is `method% name (x) in "cat.id"` through the memo table
-  `table` (CC-MEMO): an `IO` action, the same value with `none`.
-* `refine% (x) in "cat.id" to "cat.id'"` re-types `x` into the refinement of its category by a
-  registered property, after the property's registered decision (CC-PROP): `some` of the same
-  handle when proved, `none` otherwise.
-* `#resolve name in "cat.id"` reports the route, or why there is none.
-* `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE).
-* `run% name (x) in "cat.id"` (optionally `using "impl.id"`) is `x.name` with its epistemic
-  status and provenance (CC-TRUST); `#audit name in "cat.id"` lists its one owner and every
-  realization (CC-ROUTE).
-* `transport% (x) from K₁ to K₂` moves an element along a registered isomorphism (CC-CARRIER).
+* `#resolve name in "cat.id"` reports the route of `x.name` for `x` in the registered category
+  `cat.id` (`CasCatalogue.reportResolution`), or why there is none; `via "fun.id"` requires the
+  route to pass through a registered functor, selecting a port.
+* `#methods "cat.id"` reports the generated operation surface of a category (CC-CLOSURE), and
+  `closure_report% "cat.id"` is the same report as a string literal.
 
-`via` is a non-reserved token.
+`via` is a non-reserved token. What a call is worth is not a Lean term of these surfaces: a
+statement of the language (`CasCatalogue.Language`) is read semantically and then decided
+(`CasCatalogue.Realize`).
 -/
 
 open Lean Elab Term Command
 
 namespace CasCatalogue
 
-syntax (name := methodCall) "method% " ident " (" term ") " "in " str (&" via " str)* : term
-
-/-- `value% name (x) in "cat.id"`: the semantic value of `method% name (x) in "cat.id"`, the
-denotation of its result (`elabValueCall`). -/
-syntax (name := valueCall) "value% " ident " (" term ") " "in " str (&" via " str)* : term
-
-syntax (name := propertyQuery) "ask% " ident " (" term ") " "in " str (&" via " str)* : term
-
-syntax (name := equalityQuery) "eq% " "(" term ") " "(" term ") " "in " str : term
-
-syntax (name := memoCall) "memo% " "(" term ") " ident " (" term ") " "in " str (&" via " str)* :
-  term
-
-syntax (name := refineCall) "refine% " "(" term ") " "in " str &" to " str : term
-
 syntax (name := methodsCommand) "#methods " str : command
 
-/-- `#gaps "cat.id"`: the implementation gaps of a category (`gapsReport`). -/
-syntax (name := gapsCommand) "#gaps " str : command
-
-/-- `closure_report% "cat.id"` and `gaps_report% "cat.id"`: the two reports as string literals, so
-that surfaces elaborated in different import sets can be compared. -/
+/-- `closure_report% "cat.id"`: the operation surface as a string literal. -/
 syntax (name := closureReportTerm) "closure_report% " str : term
-syntax (name := gapsReportTerm) "gaps_report% " str : term
-
-syntax (name := runCall) "run% " ident " (" term ") " "in " str (&" using " str)? (&" proved")? :
-  term
-
-syntax (name := auditCommand) "#audit " ident " in " str : command
-
-syntax (name := transportCall) "transport% " "(" term ")" &" from " ident &" to " ident : term
 
 syntax (name := resolveCommand) "#resolve " ident " in " str (&" via " str)* : command
-
-/-- `exec% e`: the executable form of `e` (`executable`), for evaluating realized actions whose
-denotations are noncomputable. -/
-syntax (name := execTerm) "exec% " term:max : term
 
 /-- The strings of a trailing `(&" via " str)*` group. -/
 meta def viaStrings (group : Syntax) : Array String :=
   group.getArgs.filterMap fun through => through[1].isStrLit?
 
-@[term_elab methodCall] meta def elabMethodCallSyntax : TermElab := fun stx _ => do
-  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
-  elabMethodCall stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
-
-@[term_elab valueCall] meta def elabValueCallSyntax : TermElab := fun stx _ => do
-  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
-  elabValueCall stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
-
-@[term_elab propertyQuery] meta def elabPropertyQuerySyntax : TermElab := fun stx _ => do
-  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
-  elabPropertyQuery stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category (viaStrings stx[7])
-
-@[term_elab equalityQuery] meta def elabEqualityQuerySyntax : TermElab := fun stx _ => do
-  let some category := stx[8].isStrLit? | throwUnsupportedSyntax
-  elabEqualityQuery ⟨stx[2]⟩ ⟨stx[5]⟩ category
-
-@[term_elab memoCall] meta def elabMemoCallSyntax : TermElab := fun stx _ => do
-  let some category := stx[9].isStrLit? | throwUnsupportedSyntax
-  elabMemoCall ⟨stx[2]⟩ stx[4].getId.eraseMacroScopes.toString ⟨stx[6]⟩ category
-    (viaStrings stx[10])
-
-@[term_elab refineCall] meta def elabRefineSyntax : TermElab := fun stx _ => do
-  let some source := stx[5].isStrLit? | throwUnsupportedSyntax
-  let some target := stx[7].isStrLit? | throwUnsupportedSyntax
-  elabRefine ⟨stx[2]⟩ source target
-
-@[term_elab runCall] meta def elabRunSyntax : TermElab := fun stx _ => do
-  let some category := stx[6].isStrLit? | throwUnsupportedSyntax
-  let implementation := if stx[7].getNumArgs > 0 then stx[7][1].isStrLit? else none
-  elabRun stx[1].getId.eraseMacroScopes.toString ⟨stx[3]⟩ category implementation
-    (stx[8].getNumArgs > 0)
-
-@[command_elab auditCommand] meta def elabAuditCommand : CommandElab := fun stx => do
-  let some category := stx[3].isStrLit? | throwUnsupportedSyntax
-  liftTermElabM <| reportAudit stx[1].getId.eraseMacroScopes.toString category
-
-@[term_elab transportCall] meta def elabTransportSyntax : TermElab := fun stx _ =>
-  elabTransport ⟨stx[2]⟩ ⟨stx[5]⟩ ⟨stx[7]⟩
-
-@[term_elab execTerm] meta def elabExecTerm : TermElab := fun stx expected? => do
-  let e ← elabTerm stx[1] expected?
-  synthesizeSyntheticMVarsNoPostponing
-  let e ← instantiateMVars e
-  Meta.mkExpectedTypeHint (← executable e) (← executableType (← Meta.inferType e))
-
 @[command_elab methodsCommand] meta def elabMethodsCommand : CommandElab := fun stx => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax
   liftTermElabM <| reportClosure category
 
-@[command_elab gapsCommand] meta def elabGapsCommand : CommandElab := fun stx => do
-  let some category := stx[1].isStrLit? | throwUnsupportedSyntax
-  liftTermElabM <| do logInfo (← gapsReport category)
-
 @[term_elab closureReportTerm] meta def elabClosureReportTerm : TermElab := fun stx _ => do
   let some category := stx[1].isStrLit? | throwUnsupportedSyntax
   return toExpr (← closureReport category)
-
-@[term_elab gapsReportTerm] meta def elabGapsReportTerm : TermElab := fun stx _ => do
-  let some category := stx[1].isStrLit? | throwUnsupportedSyntax
-  return toExpr (← gapsReport category)
 
 @[command_elab resolveCommand] meta def elabResolveCommand : CommandElab := fun stx => do
   let some category := stx[3].isStrLit? | throwUnsupportedSyntax

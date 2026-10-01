@@ -25,5 +25,5 @@ Direct checks in Mathlib: `CategoryTheory/Limits/Creates.lean` (`CreatesLimit`, 
 
 ## New code, and why no dependency supplies it
 A registry row naming the creation datum between registered functors and categories, its
-validation, and the realized lift on handles (the preimage of Mathlib's lifted cone), as for
+validation, and the lift on presented values (the preimage of Mathlib's lifted cone), as for
 `realizedLimitCone`.

@@ -11,8 +11,8 @@ mathematics.
 ## Owner
 - The registered constructors (`ConstructorEntry`, `cc-constructors`) and their Mathlib
   denotations.
-- The kernel's realizer selection (`receiverRealization`), as for receivers.
+- The kernel's selection of the registered computation for a receiver's input form.
 
 ## New code, and why no dependency supplies it
-- A surface that builds an input by a registered constructor and selects the realizer presenting
-  it, so that assertions and notebooks name no leaf handle constructor.
+- A surface that builds an input by a registered constructor in its declared input form, so that
+  assertions and notebooks name no leaf handle constructor.
