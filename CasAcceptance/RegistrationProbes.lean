@@ -140,11 +140,20 @@ run_cmd do
 -- refutes false ones. An element whose evidence fails (`2 ∈ ℤˣ`) is not in the domain: invalid.
 run_cmd do
   let harness ← (Harness.empty : IO Harness)
-  for text in ["assert (3 in ℚˣ)⁻¹ = 1/3", "assert 1/(3 in ℚˣ) = 1/3",
-      "assert (2 in (ℤ/5)ˣ)⁻¹ = 3"] do
+  for text in ["assert (3 in ℚˣ)⁻¹ = 1/3", "assert 1/(3 in ℚˣ) = 1/3"] do
     expect harness "holds" text
   expectInvalid harness "assert (3 in ℚˣ)⁻¹ = 1/2"
   expectInvalid harness "assert 2 in ℤˣ"
+  expectInvalid harness "assert 2 ∈ ℤˣ"
+
+-- The same in `ℤ/5`: `2⁻¹ = 3`. Red at `lean-categories` dcd7778: `Units.invertibleEvidence` does
+-- not establish `Invertible` of the catalogue's registered numeral of `ℤ/n` (the point
+-- `⟨2, ⋯⟩ : Fin (4 + 1)` as an element of `integersMod 5`), although `decide` proves `IsUnit` of
+-- it. Owner: `lean-categories`, the evidence of `obj.sets.units` on the numerals of
+-- `obj.sets.integers_mod`. The assertion is kept as written.
+run_cmd do
+  let harness ← (Harness.empty : IO Harness)
+  expect harness "holds" "assert (2 in (ℤ/5)ˣ)⁻¹ = 3"
 
 -- A registration computes cardinalities through the port.
 run_cmd withHarness "registration_correct.json" fun harness => do
