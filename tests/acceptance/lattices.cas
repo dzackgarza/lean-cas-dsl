@@ -9,3 +9,18 @@ test lattices.discriminant.a2 "Conway–Sloane, SPLAG ch. 4 §6.1: A_n^♯/A_n �
 
 test lattices.discriminant.a3 "Conway–Sloane, SPLAG ch. 4 §6.1: A_n^♯/A_n ≅ ℤ/(n+1)":
   assert |cokernel(to_dual(3))| = 4
+
+test lattices.rank.a1 "Bourbaki, Lie Groups ch. VI, Plate I: the n simple roots of A_n are a ℤ-basis, rank A_n = n":
+  assert A(1).rank() = 1
+
+test lattices.rank.a2 "Bourbaki, Lie Groups ch. VI, Plate I: the n simple roots of A_n are a ℤ-basis, rank A_n = n":
+  assert A(2).rank() = 2
+
+test lattices.rank.a3 "Bourbaki, Lie Groups ch. VI, Plate I: the n simple roots of A_n are a ℤ-basis, rank A_n = n":
+  assert A(3).rank() = 3
+
+test lattices.card.a2 "A_2 ≅ ℤ² as a group (Bourbaki VI, Plate I); |ℤ²| = ℵ₀ (Mathlib Cardinal.mk_int, Cardinal.power_nat_eq)":
+  assert |A(2)| = ℵ₀
+
+test lattices.card.a0 "A_0 is spanned by no simple roots, so it is the zero lattice {0} (Mathlib Pi.uniqueOfIsEmpty on Fin 0 → ℤ)":
+  assert |A(0)| = 1

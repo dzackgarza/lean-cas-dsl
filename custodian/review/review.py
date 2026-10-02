@@ -117,7 +117,12 @@ def classify(problems: list[str], construction: bool = False) -> tuple[list[str]
 def phase(base: Path) -> str:
     """The operating phase, from the base only; a candidate cannot select it."""
     f = base / "custodian" / "phase.json"
-    return json.loads(f.read_text()).get("phase", "steady") if f.is_file() else "steady"
+    if not f.is_file():
+        return "steady"
+    value = json.loads(f.read_text())["phase"]
+    if value not in ("construction", "steady"):
+        raise SystemExit(f"custodian/phase.json: unknown phase {value!r}")
+    return value
 
 
 def section(text: str, heading: str) -> str:
@@ -171,7 +176,7 @@ def tightened(V, head: Path, tip: dict) -> dict:
 
 def changed_files(V, review: list[str]) -> list[str]:
     return sorted({V.LEDGER if p.startswith(("sealed ledger", "sealed assertion")) else p.split(": ", 1)[1]
-                   for p in review})
+                   for p in review})  # "changed against main: f" splits to f as well
 
 
 def review_batches(base: Path, head: Path, files: list[str]) -> list[str]:
@@ -230,7 +235,7 @@ def call_reviewer(prompt: Path, requirements: str, change: str,
         return None, f"reviewer output is not JSON: {r.stdout[:500]}"
     if out.get("is_error") or out.get("subtype") != "success" or "structured_output" not in out:
         return None, f"reviewer stopped: {out.get('subtype')}: {str(out.get('result'))[:500]}"
-    return out["structured_output"], ",".join(out.get("modelUsage", {}))
+    return out["structured_output"], ",".join(out["modelUsage"]) if "modelUsage" in out else "unreported"
 
 
 def combine(results: list[dict]) -> dict:
@@ -300,6 +305,15 @@ def review_mode(a) -> int:
     hard, changes = classify(problems, construction)
     if hard:
         return finish(1, "FAIL (hard)", hard + ["these violate fixed obligations; no review accepts them"])
+    if construction:
+        # The seal is not applied in construction, so the change under review is the pull request's
+        # own: the boundary files that differ between main and the head, the admission ledger
+        # included, never everything that differs from the seal.
+        boundary_files = set(V.current_boundary(head, tip)) | set(V.current_boundary(base, tip)) | {V.LEDGER}
+        def differs(f: str) -> bool:
+            a, b = base / f, head / f
+            return a.is_file() != b.is_file() or (a.is_file() and a.read_bytes() != b.read_bytes())
+        changes = [f"changed against main: {f}" for f in sorted(boundary_files) if differs(f)]
     if not changes:
         return finish(0, "PASS", ["no change to review"])
     boundary = V.current_boundary(head, tip)
@@ -311,7 +325,8 @@ def review_mode(a) -> int:
     prior = (a.rejections / f"{key}.json") if a.rejections else None
     if not construction and prior and prior.exists():
         rejected = json.loads(prior.read_text())
-        seen = rejected.get("reconsidered", [])
+        # A record written before reconsideration existed has no reconsiderations yet.
+        seen = rejected["reconsidered"] if "reconsidered" in rejected else []
         if not reconsideration or sha(reconsideration.encode()) in seen:
             return finish(1, "REJECTED (identical change)", [
                 f"this exact change was rejected ({key[:16]}); it is reviewed again with a substantive "
@@ -359,7 +374,8 @@ def review_mode(a) -> int:
         return finish(1, "APPROVED (commit the verdict to pass)", lines)
     if a.rejections:
         rec = a.rejections / f"{key}.json"
-        seen = json.loads(rec.read_text()).get("reconsidered", []) if rec.exists() else []
+        earlier = json.loads(rec.read_text()) if rec.exists() else {}
+        seen = earlier["reconsidered"] if "reconsidered" in earlier else []
         if reconsideration:
             seen.append(sha(reconsideration.encode()))
         rec.write_text(json.dumps({"key": key, "signer": public_fpr(a.signing_key), "record": record,
