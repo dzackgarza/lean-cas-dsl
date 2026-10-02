@@ -64,6 +64,10 @@ structure TestResult where
   detail : String := ""
   /-- Whether the outcome fails the suite (`Outcome.fails`). -/
   fails : Bool := false
+  /-- The semantic question the statement asks (`Realize.claimQuestion`); empty when it was not read. -/
+  question : String := ""
+  /-- The proposition the question fingerprints, as the acceptance author reads it. -/
+  proposition : String := ""
   deriving ToJson, FromJson, Inhabited
 
 end
@@ -86,12 +90,13 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
       | `(cas_item| $s:cas_stmt) => (none, s.raw)
       | _ => (none, parsed)
     let id := id?.getD s!"(statement) {item}"
-    let (outcome, scope') ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
-      Realize.run harness scope statement
+    let (outcome, scope', question) ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+      Realize.runAsking harness scope statement
     scope := scope'
     if id?.isNone && outcome matches .holds then continue
     results := results.push
-      { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails }
+      { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
+        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "" }
   return results
 
 /-- The report of a file's results. -/

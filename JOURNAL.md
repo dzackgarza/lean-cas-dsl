@@ -4,6 +4,22 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-02 (orchestrator)
+
+- Dispatches corrected against architecture.md "Authors" (a dispatch carries role, boundary and a
+  pointer to or quotation of the owner's requirement; no content). Earlier briefs that carried
+  assertions/expected values, kernel goal terms, row designs, or a kernel-repo read for the leaf
+  author were stopped and replaced. Live: acceptance session_01Q9YWsNTV1zVddKmp7MRsbw,
+  formalization session_01DPvLuRKBcdBVf1shacNovT, leaf session_014DrMxP5s6WX9xcYZRUrjyW.
+  SendMessage cannot reach cloud sessions from this session; a brief is corrected by replacement.
+- gov-meaning-permanence: `c5aa80e` on `b0/meaning-permanence` (claimQuestion fingerprint per
+  statement in the report; check_question_permanence.py; gate wired). Stable across two
+  runs: 137 of 149 assertions carry a question (the 11 without are the invalid ones, unread);
+  suite vs main: no regression. `4f01a88` adds the readable proposition (--show);
+  `7512bd3` fingerprints the terms a settled judgement is about (stable, no regression). Integrated
+  into main. Recording dispatched: acceptance session_01HaXGBsWn4kWiAHP3TFzayQ. Formalization
+  session_01L7hVsUoY69WmjyYJydyQxN (group-valued constructions) dispatched.
+
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
 Branch `b0/typed-application`, integrated into main. Delivered, each with a probe and a suite run

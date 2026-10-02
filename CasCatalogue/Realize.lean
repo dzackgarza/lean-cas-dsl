@@ -491,7 +491,7 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
   let refuted (what : String) : TermElabM (Option Outcome) :=
     throwStratum .invalid m!"{what} is refuted: Lean decides it false"
   match claim with
-  | .settled outcome => return some outcome
+  | .settled outcome _ => return some outcome
   | .implemented _ => return none
   | .literal _ _ _ _ prop left right =>
       match ← decideEvaluated prop with
@@ -512,7 +512,7 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
 /-- Decide `claim` through the admitted registrations. -/
 def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outcome := do
   match claim with
-  | .settled outcome => return outcome
+  | .settled outcome _ => return outcome
   | .implemented value =>
       -- A decision is realized as one; anything else as a value.
       if ← isProp value then discard <| realizeDecision h trace "the decision" value
@@ -543,6 +543,27 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       return if ← evaluatedEq answer (toExpr expected) then .holds
         else .wrong s!"{shown} is not the answer: the registration answered {json.compress}"
 
+/-- The semantic question a claim asks, as a fingerprint of its elaborated proposition (and, for a
+decision, the expected answer): what an admitted assertion means under this kernel, parser and
+pin, compared across candidates by `scripts/check_question_permanence.py` (gov-meaning-permanence).
+It is never the statement's text, its outcome, or whether it is provable. -/
+def claimQuestion : Claim → TermElabM (String × String)
+  | .settled outcome about => do
+      let about ← about.mapM instantiateMVars
+      let shown ← about.mapM fun e => return toString (← ppExpr e)
+      return (s!"settled:{outcome.kind}:{(hash about).toNat}",
+        s!"settled ({outcome.kind}) of: {", ".intercalate shown.toList}")
+  | .implemented value => fingerprint "implemented" value
+  | .literal _ _ _ _ prop .. => fingerprint "literal" prop
+  | .homs _ _ _ prop .. => fingerprint "homs" prop
+  | .decision prop expected _ => fingerprint s!"decision:{expected}" prop
+where
+  /-- The fingerprint, and the proposition as the acceptance author reads it to confirm the
+  interpretation it records. -/
+  fingerprint (kind : String) (e : Expr) : TermElabM (String × String) := do
+    let e ← instantiateMVars e
+    return (s!"{kind}:{(hash e).toNat}", s!"{kind}: {← ppExpr e}")
+
 /-- Run a statement, within the `let` bindings `scope`: its semantic reading forms its claim; Lean
 discharges the claim where it can; otherwise it is realized through the harness. A `let` binds its
 term when its reading succeeds; its realized failure surfaces where it is used.
@@ -550,14 +571,24 @@ term when its reading succeeds; its realized failure surfaces where it is used.
 Every failure is an outcome (`Outcome.ofException`), whatever stage throws it: a stratum is
 reported as itself, and an exception without one, exhausted heartbeats included, as an internal
 error. Nothing is caught to be reinterpreted, and a failed statement leaves `scope` unchanged. -/
-def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
-  let attempt : TermElabM (Outcome × Scope) := do
+def runAsking (h : Harness) (scope : Scope) (stx : Syntax) :
+    TermElabM (Outcome × Scope × Option (String × String)) := do
+  -- The question is kept once read, whichever later stage fails (a gap is thrown while realizing).
+  let asked ← IO.mkRef (none : Option (String × String))
+  let attempt : TermElabM (Outcome × Scope × Option (String × String)) := do
     let trace ← (Trace.new : IO _)
     let claim ← (Language.claim scope stx).run { trace := some trace }
-    if let some (x, t) ← letBinding? stx then return (.holds, scope.insert x t)
-    if let some outcome ← discharge claim then return (outcome, scope)
-    return (← realizeClaim h trace claim, scope)
-  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope)
+    let question ← claimQuestion claim
+    asked.set (some question)
+    if let some (x, t) ← letBinding? stx then return (.holds, scope.insert x t, some question)
+    if let some outcome ← discharge claim then return (outcome, scope, some question)
+    return (← realizeClaim h trace claim, scope, some question)
+  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope, ← asked.get)
+
+/-- `runAsking` without the question. -/
+def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
+  let (outcome, scope, _) ← runAsking h scope stx
+  return (outcome, scope)
 
 end Realize
 

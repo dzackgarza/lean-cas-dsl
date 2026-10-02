@@ -171,7 +171,7 @@ def tightened(V, head: Path, tip: dict) -> dict:
 
 def changed_files(V, review: list[str]) -> list[str]:
     return sorted({V.LEDGER if p.startswith(("sealed ledger", "sealed assertion")) else p.split(": ", 1)[1]
-                   for p in review})
+                   for p in review})  # "changed against main: f" splits to f as well
 
 
 def review_batches(base: Path, head: Path, files: list[str]) -> list[str]:
@@ -300,6 +300,15 @@ def review_mode(a) -> int:
     hard, changes = classify(problems, construction)
     if hard:
         return finish(1, "FAIL (hard)", hard + ["these violate fixed obligations; no review accepts them"])
+    if construction:
+        # The seal is not applied in construction, so the change under review is the pull request's
+        # own: the boundary files that differ between main and the head, the admission ledger
+        # included, never everything that differs from the seal.
+        boundary_files = set(V.current_boundary(head, tip)) | set(V.current_boundary(base, tip)) | {V.LEDGER}
+        def differs(f: str) -> bool:
+            a, b = base / f, head / f
+            return a.is_file() != b.is_file() or (a.is_file() and a.read_bytes() != b.read_bytes())
+        changes = [f"changed against main: {f}" for f in sorted(boundary_files) if differs(f)]
     if not changes:
         return finish(0, "PASS", ["no change to review"])
     boundary = V.current_boundary(head, tip)

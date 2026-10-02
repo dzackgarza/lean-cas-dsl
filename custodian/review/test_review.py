@@ -325,6 +325,24 @@ else:
     results.append(False)
     print("FAIL could not find an admitted assertion to remove")
 
+fresh("construction")
+with open(S / "base" / KERNEL, "a") as f:
+    f.write("\n-- main has moved past the seal\n")
+commit(S / "base")
+shutil.rmtree(S / "head")
+shutil.copytree(S / "base", S / "head", symlinks=True)
+calls.clear()
+expect("construction: a head equal to main has nothing to review", run(stub("reject")), "PASS")
+results.append(not calls)
+with open(S / "head" / "tests/acceptance/sets.cas", "a") as f:
+    f.write("\n-- an acceptance change\n")
+commit(S / "head")
+calls.clear()
+run(stub("approve"))
+reviewed = calls[0][0] if calls else ""
+results.append("tests/acceptance/sets.cas" in reviewed and KERNEL not in reviewed.split("Changed files:")[1].split("\n")[0])
+print("OK  " if results[-1] else "FAIL", "construction: only the pull request's own delta is reviewed")
+
 fresh("steady")
 (S / "head" / "custodian" / "phase.json").write_text(json.dumps({"phase": "construction"}) + "\n")
 with open(S / "head" / KERNEL, "a") as f:

@@ -113,6 +113,33 @@ only when its full acceptance holds at the integration tuple.
 | `b0-authority` (completion requirement) | The kernel worker cannot write or accept upstream semantics, protected acceptance or its judging rules through its available tools | orchestrator (implementation); repository administration (configuration writes) | see "Authority configuration" below; established for B0 acceptance, not a prerequisite of construction | — |
 | `b0-trials` (stage E) | The exit trials below, each succeeding with the kernel and old leaves frozen | independent contributors | see "Exit trials" | per mechanism, the argument of its row above |
 
+### Status of the rows (2026-10-02)
+
+Met means the row's positive and negative observations hold at `main` with the named evidence; a
+row is not B0-complete until the whole tuple is accepted (Definition).
+
+| Row | State | Evidence or blocking dependency |
+| --- | --- | --- |
+| `b0-integration` | met | main `3c8eaec`: build compiles without executing the suite; `cas-harness` reports per assertion; `check_acceptance_regression.py` |
+| `cc-failure-strata` | met | `fc791e0`; `Outcome.ofException`; interpreter errors are `internal` (composed.* moved internal → invalid once typed application landed) |
+| `b0-typed-application` | met (kernel) | `1ae53ea`; RegistrationProbes. 8 admitted assertions still invalid: upstream evidence and `lim` domain, below |
+| `b0-selected-structure` | met | `fa0a426`; SelectedStructureProbes |
+| `core-admission-realized` | met | RegistrationProbes (`(3 in ℚˣ)⁻¹ = 1/3`; `2 ∈ ℤˣ` refused) |
+| `b0-domain-preservation` | met | `ea432e4`; evidence goals carry no `RingHom.toFun` |
+| `b0-binders` | blocked | the independent upstream assessment of the binder work |
+| `cc-resolve`, `cc-closure` | met (resolution) | ClosureProbes; the value assertions (`rank(A₂) = 2`, …) are owed by the acceptance author |
+| `cc-cohere`, `cc-cohere-exec` | met | CohereProbes, ResolveProbes |
+| `cc-fib` | met | FibrationRegistryProbes |
+| `cc-realize` transport | blocked | upstream: presentations and their isomorphisms (formalization dispatched) |
+| `cc-lift`, `core-return-lifts`, `lc-lift-subobject` | met | LiftProbes, LiftLimitProbes |
+| `cc-refine`, `cc-props` | met | PropsProbes, RegistrationProbes |
+| `lc-units-structure`, `cc-universal` | blocked | upstream: group-valued constructions (formalization dispatched) |
+| `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` | met (kernel); open (execution) | kernel probes over `CasAcceptance/Strata`; real registrations for the required assertions dispatched to the leaf author; Sage/GAP absent on the construction host |
+| `cc-observations` | met | RegistrationProbes (`|(ℤ/4)^3| = 64` holds through a registration, wrong answers are `wrong`) |
+| `gov-meaning-permanence` | mechanism built | `c09e06d`: a question per read assertion (137/149), stable across runs; `check_question_permanence.py` in the Gates acceptance job; the initial record is the acceptance author's |
+| `b0-authority` | open | completion requirement |
+| `b0-trials` | not started | stage E, after the kernel is fixed |
+
 **Required computational assertions (frozen IDs).** These must execute through a registered
 implementation at the tuple and meet their assertions: `sets.card.z4_cubed`, `sets.card.z7`,
 `sets.card.z5_empty_power`, `sets.card.fin2_times_z3`, `sets.card.integers`,
