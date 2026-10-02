@@ -66,6 +66,8 @@ structure TestResult where
   fails : Bool := false
   /-- The semantic question the statement asks (`Realize.claimQuestion`); empty when it was not read. -/
   question : String := ""
+  /-- The proposition the question fingerprints, as the acceptance author reads it. -/
+  proposition : String := ""
   deriving ToJson, FromJson, Inhabited
 
 end
@@ -94,7 +96,7 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
     if id?.isNone && outcome matches .holds then continue
     results := results.push
       { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
-        question := question.getD "" }
+        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "" }
   return results
 
 /-- The report of a file's results. -/

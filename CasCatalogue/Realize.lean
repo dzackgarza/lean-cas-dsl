@@ -547,16 +547,18 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
 decision, the expected answer): what an admitted assertion means under this kernel, parser and
 pin, compared across candidates by `scripts/check_question_permanence.py` (gov-meaning-permanence).
 It is never the statement's text, its outcome, or whether it is provable. -/
-def claimQuestion : Claim → TermElabM String
-  | .settled outcome => return s!"settled:{outcome.kind}"
+def claimQuestion : Claim → TermElabM (String × String)
+  | .settled outcome => return (s!"settled:{outcome.kind}", s!"settled by the reading: {outcome.kind}")
   | .implemented value => fingerprint "implemented" value
   | .literal _ _ _ _ prop .. => fingerprint "literal" prop
   | .homs _ _ _ prop .. => fingerprint "homs" prop
   | .decision prop expected _ => fingerprint s!"decision:{expected}" prop
 where
-  fingerprint (kind : String) (e : Expr) : TermElabM String := do
+  /-- The fingerprint, and the proposition as the acceptance author reads it to confirm the
+  interpretation it records. -/
+  fingerprint (kind : String) (e : Expr) : TermElabM (String × String) := do
     let e ← instantiateMVars e
-    return s!"{kind}:{(hash e).toNat}"
+    return (s!"{kind}:{(hash e).toNat}", s!"{kind}: {← ppExpr e}")
 
 /-- Run a statement, within the `let` bindings `scope`: its semantic reading forms its claim; Lean
 discharges the claim where it can; otherwise it is realized through the harness. A `let` binds its
@@ -566,10 +568,10 @@ Every failure is an outcome (`Outcome.ofException`), whatever stage throws it: a
 reported as itself, and an exception without one, exhausted heartbeats included, as an internal
 error. Nothing is caught to be reinterpreted, and a failed statement leaves `scope` unchanged. -/
 def runAsking (h : Harness) (scope : Scope) (stx : Syntax) :
-    TermElabM (Outcome × Scope × Option String) := do
+    TermElabM (Outcome × Scope × Option (String × String)) := do
   -- The question is kept once read, whichever later stage fails (a gap is thrown while realizing).
-  let asked ← IO.mkRef (none : Option String)
-  let attempt : TermElabM (Outcome × Scope × Option String) := do
+  let asked ← IO.mkRef (none : Option (String × String))
+  let attempt : TermElabM (Outcome × Scope × Option (String × String)) := do
     let trace ← (Trace.new : IO _)
     let claim ← (Language.claim scope stx).run { trace := some trace }
     let question ← claimQuestion claim

@@ -5,6 +5,8 @@
                                                    differs from the one recorded at admission
     check_question_permanence.py --record REPORT   record the question of every admitted assertion
                                                    that has none recorded; never changes a recorded one
+    check_question_permanence.py --show REPORT     print each unrecorded assertion's proposition, as
+                                                   the acceptance author reads it before recording
 
 REPORT is the JSON report of `cas-harness --report`: per statement, its outcome and its `question`,
 the fingerprint of the proposition the semantic reading elaborates (`Realize.claimQuestion`). The
@@ -35,6 +37,12 @@ def questions(report: Path) -> dict[str, str]:
 
 def main() -> int:
     args = sys.argv[1:]
+    if args[:1] == ["--show"] and len(args) == 2:
+        recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
+        for r in json.loads(Path(args[1]).read_text()):
+            if r.get("question") and r["id"] not in recorded and not r["id"].startswith("(statement)"):
+                print(f"{r['id']}: {r.get('proposition', '')}")
+        return 0
     record = args[:1] == ["--record"]
     if record:
         args = args[1:]
