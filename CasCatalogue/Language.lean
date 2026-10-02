@@ -546,6 +546,15 @@ def binding? (stx : Syntax) : Option Binding := do
              body := stx[5] }
   none
 
+/-- A binder row's operation `∀ params, M params ⟶ Y params`, applied to fresh metavariables
+`args` (`binderInfos` their binder infos), with its source `M` and target `Y` at them. -/
+structure RowApplication where
+  constant : Expr
+  args : Array Expr
+  binderInfos : Array BinderInfo
+  source : Expr
+  target : Expr
+
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
@@ -1682,12 +1691,11 @@ partial def pairOf (x y : Value) : M Value := do
 notation (`specs/binders.md`, "The rule", step 1): a fresh application of the operation whose last
 `arguments.size` explicit parameters are unified, in order, with the arguments, each an object, a
 point `1 ⟶ X` (a numeral is its registered element of `X`; an element of a set included in `X` is
-carried there), or a morphism. The result is the operation, its arguments, their binder infos and
-its source and target, or `none` when an argument does not unify with its parameter. Unification
+carried there), or a morphism; `none` when an argument does not unify with its parameter. Unification
 assigns metavariables of the current state: a caller that only asks whether the row reads the
 arguments asks it without modifying the state. -/
 partial def readArguments (row : BinderEntry) (arguments : Array Value) :
-    M (Option (Expr × Array Expr × Array BinderInfo × Expr × Expr)) := do
+    M (Option RowApplication) := do
   let state ← registryState
   let some category := state.categories.find? (·.id == row.category)
     | throwStratum .invalid m!"the binder {row.id.raw} names an unregistered category"
@@ -1721,7 +1729,7 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
           | _ => pure false
       | _ => pure false
     unless unifies do return none
-  return some (constant, args, infos, source, target)
+  return some { constant, args, binderInfos := infos, source, target }
 
 /-- A binding notation `b` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`), read by the binder
 rows `rows` written with its token (`specs/binders.md`, "The rule"). One path reads every binder;
@@ -1750,21 +1758,23 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
       takes these arguments"
   -- The domain each row determines, and its codomain when the arguments determine it.
   let readings ← taking.mapM fun row => tentatively do
-    let some (_, args, _, _, target) ← readArguments row arguments | unreachable!
-    let some category := state.categories.find? (·.id == row.category) | unreachable!
+    let some application ← readArguments row arguments
+      | throwError "the binder {row.id.raw} no longer takes the arguments it took"
+    let some category := state.categories.find? (·.id == row.category)
+      | throwError "the binder {row.id.raw} names an unregistered category"
     let domain ← mkConstWithFreshMVarLevels row.domain
-    let D ← recognize state (← instantiateMVars (mkAppN domain args)) category
-    let target ← instantiateMVars target
+    let D ← recognize state (← instantiateMVars (mkAppN domain application.args)) category
+    let target ← instantiateMVars application.target
     let Y ← if target.hasMVar then pure none else some <$> recognize state target category
     return (D, Y)
-  let some (D, _) := readings[0]? | unreachable!
+  let some (D, Y₀?) := readings[0]? | throwError "no binder row took the arguments"
   let d ← semanticObject D
   let oneDomain ← readings.allM fun (D', _) => do isDefEq d (← semanticObject D')
   unless oneDomain do
     throwStratum .invalid m!"several binder rows read {written}, over different domains: \
       {taking.toList.map (·.id.raw)}"
   -- The body's codomain: the operation's, when every row determines the same one.
-  let codomain? ← match readings[0]!.2 with
+  let codomain? ← match Y₀? with
     | some Y => do
         let y ← semanticObject Y
         let same ← readings.allM fun
@@ -1778,7 +1788,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
   let body ← match ← atStage scope b.bound D b.body bodyAmbient?, codomain? with
     -- In the codomain the arguments determine, an element of a set included in it is carried
     -- there (`t ∈ ℝ ∖ {a} ↪ ℝ`).
-    | v@(.element ..), some Y => withReader (fun ctx => { ctx with stage := some D }) (coerceTo v Y)
+    | v@(.element ..), some Y => coerceTo v Y
     | v@(.nat _), none => match ← numeralSet b.body none with
       | some X => toElement v X
       | none => pure v
@@ -1787,8 +1797,9 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
     | throwStratum .invalid m!"the body `{shown b.body}` of {written} is not an element of a set"
   -- The row whose operation lands in the set of the body.
   let readers ← taking.filterM fun row => tentatively do
-    let some (_, _, _, _, target) ← readArguments row arguments | unreachable!
-    isDefEq target y'
+    let some application ← readArguments row arguments
+      | throwError "the binder {row.id.raw} no longer takes the arguments it took"
+    isDefEq application.target y'
   let #[row] := readers
     | if readers.isEmpty then
         throwStratum .invalid m!"no binder row reads {written}: none of \
@@ -1796,8 +1807,10 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
       else
         throwStratum .invalid m!"several binder rows read {written}: \
           {readers.toList.map (·.id.raw)}"
-  let some (constant, args, infos, source, target) ← readArguments row arguments | unreachable!
-  unless ← isDefEq target y' do unreachable!
+  let some { constant, args, binderInfos := infos, source, target } ← readArguments row arguments
+    | throwError "the binder {row.id.raw} no longer takes the arguments it took"
+  unless ← isDefEq target y' do
+    throwError "the binder {row.id.raw} no longer lands in the set of the body"
   synthesizeInstances args infos
   let operation ← instantiateMVars (mkAppN constant args)
   if operation.hasMVar then
