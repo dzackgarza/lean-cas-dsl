@@ -6,6 +6,14 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-02 (orchestrator)
 
+- 11:30. lean-cas-dsl main at `72fc3ba`: settled ∈/⊆ judgements fingerprint their terms (`cd355d8`);
+  the question gate compares against the base's record and treats it as append-only (custodian
+  finding on #62). The #62 shared fingerprints are identical propositions (one fact asserted
+  twice), not operand loss. Acceptance recorder woken to re-read and post evidence on #62.
+- lean-categories: #78 and #80 have independent reviews requesting changes; their authors were
+  woken. The #77/#79 reviewer had posted nothing; woken to post. leaves#3 merged
+  (power-set cardinality). Contract `41c08c6` states the wire encoding the leaf had to infer.
+  Open: limit rows carry no forms; the kernel builds (co)limits from the registered cone.
 - Dispatches corrected against architecture.md "Authors" (a dispatch carries role, boundary and a
   pointer to or quotation of the owner's requirement; no content). Earlier briefs that carried
   assertions/expected values, kernel goal terms, row designs, or a kernel-repo read for the leaf
