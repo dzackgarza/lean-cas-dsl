@@ -491,7 +491,7 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
   let refuted (what : String) : TermElabM (Option Outcome) :=
     throwStratum .invalid m!"{what} is refuted: Lean decides it false"
   match claim with
-  | .settled outcome => return some outcome
+  | .settled outcome _ => return some outcome
   | .implemented _ => return none
   | .literal _ _ _ _ prop left right =>
       match ← decideEvaluated prop with
@@ -512,7 +512,7 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
 /-- Decide `claim` through the admitted registrations. -/
 def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outcome := do
   match claim with
-  | .settled outcome => return outcome
+  | .settled outcome _ => return outcome
   | .implemented value =>
       -- A decision is realized as one; anything else as a value.
       if ← isProp value then discard <| realizeDecision h trace "the decision" value
@@ -548,7 +548,11 @@ decision, the expected answer): what an admitted assertion means under this kern
 pin, compared across candidates by `scripts/check_question_permanence.py` (gov-meaning-permanence).
 It is never the statement's text, its outcome, or whether it is provable. -/
 def claimQuestion : Claim → TermElabM (String × String)
-  | .settled outcome => return (s!"settled:{outcome.kind}", s!"settled by the reading: {outcome.kind}")
+  | .settled outcome about => do
+      let about ← about.mapM instantiateMVars
+      let shown ← about.mapM fun e => return toString (← ppExpr e)
+      return (s!"settled:{outcome.kind}:{(hash about).toNat}",
+        s!"settled ({outcome.kind}) of: {", ".intercalate shown.toList}")
   | .implemented value => fingerprint "implemented" value
   | .literal _ _ _ _ prop .. => fingerprint "literal" prop
   | .homs _ _ _ prop .. => fingerprint "homs" prop

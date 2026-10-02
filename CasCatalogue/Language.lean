@@ -2619,7 +2619,7 @@ Lean, and what to compute and compare when Lean does not decide it (`CasCatalogu
 inductive Claim
   /-- Decided by the semantic reading itself: a `let`, a judgement of the catalogue (`X in C/Y`,
   `x ∈ X` of a named set). -/
-  | settled (outcome : Outcome)
+  | settled (outcome : Outcome) (about : Array Expr := #[])
   /-- `assert implemented X`: a registration computes the value `X`. -/
   | implemented (value : Expr)
   /-- `assert X = L` for a value `X` of `category` and the literal `L` of its registered literal
@@ -2656,13 +2656,24 @@ def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
       return .decision answer expected s!"{shown l} = {shown r}"
   | _, _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
 
+/-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
+about it. -/
+def Value.terms : Value → Array Expr
+  | .nat n => #[mkNatLit n]
+  | .literal name => #[mkStrLit name.toString]
+  | .object handle _ _ => #[handle]
+  | .morphism hom _ _ _ _ => #[hom]
+  | .homSet s t => s.terms ++ t.terms
+  | .element hom set => #[hom] ++ set.terms
+  | .answer a => #[a]
+
 /-- The claim of a statement, read semantically: what it states, from the catalogue alone. Its
 failure is the statement's invalidity. -/
 def claim (scope : Scope) (stx : Syntax) : M Claim := do
   if let some (_, t) ← letBinding? stx then
     let rings ← ringBindings scope t
-    discard <| withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
-    return .settled .holds
+    let v ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
+    return .settled .holds v.terms
   withFreeVariables scope stx do
   match stx with
   | `(cas_stmt| assert implemented $t:cas_term) =>
@@ -2675,16 +2686,16 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
       -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
       -- It is the catalogue's judgement.
       if let some (C, Y) := categoryOver? (← registryState) X then
-        discard <| inCategoryOver scope t C Y
-        return .settled .holds
+        return .settled .holds (← inCategoryOver scope t C Y).terms
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
       | .object x .. =>
-          let .element _ (.object y ..) ← eval scope t
+          let v@(.element _ (.object y ..)) ← eval scope t
             | throwStratum .invalid m!"`{shown t}` is not an element"
-          if x == y || (← withTransparency .all <| isDefEq x y) then return .settled .holds
-          return .settled (.wrong s!"{shown t} is not an element of {shown X}")
-      | _ => discard <| eval scope (← `(cas_term| $t in $X)); return .settled .holds
+          if x == y || (← withTransparency .all <| isDefEq x y) then
+            return .settled .holds (#[x] ++ v.terms)
+          return .settled (.wrong s!"{shown t} is not an element of {shown X}") (#[x] ++ v.terms)
+      | _ => return .settled .holds (← eval scope (← `(cas_term| $t in $X))).terms
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
       if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
