@@ -30,6 +30,12 @@ binder path (`CasCatalogue.Language.bind`), with no manifest installed:
   token `∑`; a table of this probe, registered nowhere), `∑_{a ∈ A} a` for the finite set `A` of
   the complex roots of `x³ - 2x + 1` is read by both rows, and is ambiguous. Over the registered
   rows of `∑` alone it is read.
+* **A row that refuses an argument does not read it; the others still may.** Over the rows of `lim`
+  and a row of this probe whose point is a point of `Fin 2` (registered nowhere), the numeral `5`
+  is no numeral of `Fin 2` (`5 < 2` does not hold): that row does not take it, and
+  `lim_{t → 5} t` is read by `bind.sets.limit`.
+* **The separator is the notation's.** `∑_{n → ℕ} n` and `lim_{t ∈ 0} t` are no terms of the
+  language: a sum ranges over a set (`∈`), a limit is taken at a point (`→`).
 -/
 
 open Lean Elab Command Meta
@@ -124,5 +130,37 @@ run_cmd do
   unless kind == "ambiguous" && mentions detail "several binder rows read" &&
       mentions detail "bind.sets.finite_sum" && mentions detail "bind.sets.finite_product" do
     throwError "`{text}` over the sum and the product is {kind}: {detail}, not ambiguous for two rows"
+
+/-- A family of this probe, registered nowhere: its point is a point of `Fin 2`, so it refuses
+the numerals that are no numerals of `Fin 2`. -/
+noncomputable def pointOfFinTwo {b : CasCatalogue.Foundation.Objects.fin 1 ⟶
+    CasCatalogue.Algebra.NumberSystems.reals}
+    (_ : CasCatalogue.Foundation.Objects.fin 1 ⟶ CasCatalogue.Foundation.Objects.fin 2) :
+    CasCatalogue.Algebra.RealLimits.convergentMaps b ⟶ CasCatalogue.Algebra.NumberSystems.reals :=
+  CasCatalogue.Algebra.RealLimits.limit b
+
+-- A row that refuses an argument does not read it, and the other rows of its token still may:
+-- `5` is no numeral of `Fin 2`, and `lim_{t → 5} t` is read by the limit at a real point.
+run_cmd do
+  let state ← liftCoreM registryState
+  let registered := state.binders.filter (·.token == "lim")
+  let some limit := registered.find? (·.id.raw == "bind.sets.limit")
+    | throwError "no row bind.sets.limit"
+  let refusing := { limit with id := ⟨"bind.probe.fin_two"⟩,
+                               operation := ``CasCatalogue.BinderProbes.pointOfFinTwo }
+  let text := "lim_{t → 5} t"
+  for rows in [registered, registered.push refusing, #[refusing] ++ registered] do
+    let (kind, detail) ← readingBy {} rows text
+    unless kind == "read" do
+      throwError "`{text}` over {rows.toList.map (·.id.raw)} is {kind}: {detail}, not read"
+  let (kind, detail) ← readingBy {} #[refusing] text
+  unless kind == "invalid" && mentions detail "no binder row reads" do
+    throwError "`{text}` over the refusing row alone is {kind}: {detail}, not invalid"
+
+-- The separator is the notation's: a sum over a set is written with `∈`, a limit with `→`.
+run_cmd do
+  for text in ["∑_{n → ℕ} n", "∏_{n → ℕ} n", "lim_{t ∈ 0} t"] do
+    if let .ok _ := Parser.runParserCategory (← getEnv) `cas_term text then
+      throwError "`{text}` is read as a term of the language"
 
 end CasCatalogue.BinderProbes

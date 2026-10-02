@@ -208,11 +208,14 @@ syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
 syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
 /-- A matrix `[a, b; c, d]`, by its rows. -/
 syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
-/-- A binding notation `T_{t ∈ A} e`, `T_{t → a} e` (`∑_{a ∈ A} e`, `∏_{a ∈ A} e`, `lim_{t → a} e`):
-it binds `t` in `e` and is read by the binder rows written with its token `T`, with the one
-argument `A` (`Binding`, `bind`). -/
-syntax:60 (name := casBinder) ("∑_{" <|> "∏_{" <|> "lim_{") ident (" ∈ " <|> " → ") cas_term "} "
-  cas_term:60 : cas_term
+/-- A binding notation over a set, `T_{t ∈ A} e` (`∑_{a ∈ A} e`, `∏_{a ∈ A} e`): it binds `t` in
+`e` and is read by the binder rows written with its token `T`, with the one argument `A`
+(`Binding`, `bind`). Its separator is `∈`: `∑_{t → A} e` is no term. -/
+syntax:60 (name := casBinder) ("∑_{" <|> "∏_{") ident " ∈ " cas_term "} " cas_term:60 : cas_term
+/-- A binding notation at a point, `lim_{t → a} e`: it binds `t` in `e` and is read by the binder
+rows written with its token, with the one argument `a`. Its separator is `→`: `lim_{t ∈ a} e` is
+no term. -/
+syntax:60 (name := casBinderAt) "lim_{" ident " → " cas_term "} " cas_term:60 : cas_term
 /-- A binding notation with two arguments, `∫_{a}^{b} e dt`: it binds `t` (written `dt`) in `e`
 and is read by the binder rows written with its token, with the arguments `a`, `b`. -/
 syntax:60 (name := casBinderBounds) "∫_{" cas_term "}^{" cas_term "} " cas_term:71 ident : cas_term
@@ -537,7 +540,7 @@ the subscript `_{` (`lim` of `lim_{`). `none` for any other term. -/
 def binding? (stx : Syntax) : Option Binding := do
   let head ← stx[0].find? (·.isAtom)
   let token := head.getAtomVal.replace "_{" ""
-  if stx.getKind == ``casBinder then
+  if stx.getKind == ``casBinder || stx.getKind == ``casBinderAt then
     return { token, bound := stx[1].getId, names := #[stx[1].getId], arguments := #[stx[3]],
              body := stx[5] }
   if stx.getKind == ``casBinderBounds then
@@ -763,7 +766,10 @@ term the procedure built, a proof or the data, which the admission takes directl
 whose obligation is not established is invalid: without the evidence, the value is not in the
 domain it is used in. -/
 def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr := do
-  let p ← instantiateMVars p
+  -- The hypothesis at the domain's values: the kernel's type hints (`id (e : T)`, from elaborating
+  -- a value at its expected type) are not part of it.
+  let p ← Meta.transform (← instantiateMVars p) (post := fun e =>
+    pure (if e.isAppOfArity ``id 2 then .visit e.appArg! else .continue))
   if p.hasMVar then
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
   let goal ← mkFreshExprMVar p .syntheticOpaque
@@ -1702,6 +1708,12 @@ assigns metavariables of the current state: a caller that only asks whether the 
 arguments asks it without modifying the state. -/
 partial def readArguments (row : BinderEntry) (arguments : Array Value) :
     M (Option RowApplication) := do
+  -- An argument this row's parameter refuses (no numeral of its set lands there, the evidence of
+  -- its domain is not established): an `invalid` reading of the argument at this row, so this row
+  -- does not take it. Any other failure keeps its stratum.
+  let refused (k : M Bool) : M Bool := do
+    try k catch e =>
+      if Exception.stratum? e == some .invalid then pure false else throw e
   let state ← registryState
   let some category := state.categories.find? (·.id == row.category)
     | throwStratum .invalid m!"the binder {row.id.raw} names an unregistered category"
@@ -1726,7 +1738,7 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
           let x ← instantiateMVars x
           if x.hasMVar then pure false else
           -- A parameter set that is no unique registered object: this row does not read them.
-          if (← recognized? state x category).isNone then pure false else
+          if (← recognized? state x category).isNone then pure false else refused do
           match ← coercionMap X (← recognize state x category) with
           | some (some ι) => isDefEq p (← mkAppM ``CategoryTheory.CategoryStruct.comp #[h, ι])
           | _ => pure false
@@ -1736,7 +1748,7 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
           let x ← instantiateMVars x
           if x.hasMVar then pure false else
           -- A parameter set that is no unique registered object: this row does not read them.
-          if (← recognized? state x category).isNone then pure false else
+          if (← recognized? state x category).isNone then pure false else refused do
           match ← numeralElement? k (← recognize state x category) with
           | some (.element h _) => isDefEq p h
           | _ => pure false
