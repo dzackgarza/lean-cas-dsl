@@ -155,36 +155,42 @@ Consequences, binding on every agent and first of all the orchestrator:
   It is not compliance.
   It is a substitute for compliance, and treating it as one is a violation of this rule.
 - **A rule that must outlive the chat goes to the document that owns it**, replacing inconsistent
-  wording there (architecture.md, Policy 5). An owner's explicit decision is authoritative when
+  wording there (architecture.md, policy 2). An owner's explicit decision is authoritative when
   given, not when committed; an owner's question is answered, and is not by itself an instruction;
-  your own proposal is not an owner decision (Policy 1). An ordinary defect yields a code
+  your own proposal is not an owner decision (policy 2). An ordinary defect yields a code
   correction and a test, not a new policy, plan node or documentation pull request. Recording a
   decision or updating a description is an ordinary commit, not an approval transaction; a branch,
   pull request, review or signature is used only where it performs a needed decision or validation
-  (Policy 1).
+  (policy 2).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
-- **The orchestrator dispatches every role's work itself; it does not author that work.** A
-  dispatch carries the role, its boundary, and a pointer to the governing requirement as the
-  owner wrote it (the plan's B0 row, `specs/owner/`, SPEC.md). It never carries content: no
-  assertion, expected value or source for the acceptance author; no row design, schema, evidence
-  strategy, test term, kernel goal or failing term for the formalization author (Policy 2); for a
-  leaf, only the registered operations and input forms. A suspected upstream defect is reported
-  in one sentence naming the admission and the class of values, for independent assessment from
-  the requirement and sources. Work is never stopped to wait for the owner to route it.
-  Every brief states the session's output channel: its chat is read by no one, so everything it
-  reports (results, findings, questions, blockers) goes in its pull request's description, a
-  GitHub review or a PR comment; a question it cannot settle is posted there and it continues
-  with what does not depend on it. The orchestrator reads those, never the session's chat.
-  The brief also authorizes the posting itself ("post your result on the PR; do not wait for a
-  go-ahead"): a session that holds its output for approval waits forever, because a Routine
-  message does not count as its user's approval.
-  To message a dispatched cloud session (a correction, a review to address, a nudge), create a
-  Routine bound to it (`create_trigger` with `persistent_session_id` = that session, the message as
-  its prompt, no schedule) and `fire_trigger` it: the message arrives as a user turn and wakes the
-  session. One Routine per message: fire it once, then disable it (`update_trigger`,
-  `enabled: false`; deleting it deletes the sessions it started). Firing a Routine a second time
-  starts a fresh, unrelated session instead of messaging the bound one. Never correct a brief by
-  replacing the session; message it.
+- **The worker directive (owner replacement, 2026-10-02; architecture.md, "The policies").**
+  - The assigned obligation and accepted input revisions are supplied by the controller from the
+    governing plan. They are not reconstructed from a session summary, a recent failure, or the
+    worker's previous claims.
+  - Complete the assigned generic mechanism against its full acceptance. Source checkpoints
+    preserve work; they do not complete the assignment or authorize selection of an easier
+    successor.
+  - Use only the role's supplied inputs and operations. An unavailable authority operation is not
+    obtained by another connector, credential, public fetch, shared context, or message to another
+    author.
+  - The worker does not draft another role's instructions. The launcher supplies that role with
+    its independently assigned requirement and permitted inputs. Downstream goals, expected
+    answers, row designs, and implementation-shaped reformulations are not dispatch payloads.
+  - Submit source and findings through the assigned repository and review channel. Do not create
+    new policies, plan rows, progress ledgers, exemption procedures, or review transactions to
+    process an ordinary defect.
+  - An unavailable operation blocks only consumers of its missing input. Continue the assigned
+    substantive work that remains executable; the controller selects another existing obligation
+    only when the actual dependency requires it.
+  - Record explicit owner decisions in their existing owning documents without changing unrelated
+    instructions. Do not treat a question, an assistant proposal, or publication of a document as
+    a new grant of authority.
+  - Completion, accepted releases, and independent approval are outputs of the protected
+    acceptance operations. They are not fields the worker may set.
+
+  The persistence requirements above stand: chat acknowledgments and session summaries do not
+  preserve corrections. The new controller consumes durable authoritative state so that rereading
+  it is not the only defense against recurrence.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
@@ -209,11 +215,11 @@ No agent writes in two of those roles. That separation is held by what each auth
 (`b0-authority`), not by a label it declares about itself. Information flows formalization → tests → implementation, never
 back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
 by actual dependency: a governance node blocks only the work whose correctness or authorized
-acceptance depends on it, and a blocked item names that dependency (Policy 8). An approved
+acceptance depends on it, and a blocked item names that dependency (policy 5). An approved
 objective delegates its implementation; owner escalation is for a change of requirement or
-authority only (Policy 1). Review is independent, informed and correctable (Policy 7).
+authority only (policy 2). Review is independent, informed and correctable (policy 6).
 
-**No downstream authorship of upstream mathematics (architecture.md, "B0 policies", Policy 2).**
+**No downstream authorship of upstream mathematics (architecture.md, "B0 policies", policy 1).**
 A kernel worker consumes an accepted mathematical release. It writes nothing in `lean-categories`,
 its registry schemas, validators, probes and admission rules included, and it commissions no
 upstream work with kernel-generated goals, acceptance failures, desired row arrangements or
@@ -273,7 +279,7 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   5. wrong answer.
 
   An unresolved ambiguity and an internal interpreter error are distinct from all five
-  (architecture.md, Policy 6): a timeout or exception is never `invalid`. Never collapse one kind
+  (architecture.md, policy 3): a timeout or exception is never `invalid`. Never collapse one kind
   into another. Never turn a gap into a fallback, a default or a nearby answer.
 
 # Where the work is (read second)

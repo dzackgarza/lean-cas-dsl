@@ -31,7 +31,7 @@ and they are the orchestrator's record.
    - The ledger is plain JSON, editable by hand.
 3. `scripts/check_kernel_totality.py` exempted any `catch` next to the comment
    `-- not a reading fallback:`, so the author certified its own exemption, and it saw only the token
-   `catch`. It is withdrawn (B0 Policy 5). The obligation it named, that no failure is reread into
+   `catch`. It is withdrawn (B0 policy 2). The obligation it named, that no failure is reread into
    another meaning, is carried by the one outcome model (`cc-failure-strata`: every failure is
    reported as its stratum, an untagged one as an internal error) and by the acceptance comparison.
 4. `CasGates/KernelPurity.lean`
@@ -76,7 +76,7 @@ and they are the orchestrator's record.
 13. `CasCatalogue/Language.lean` has 43 `unreachable!` (the full list is `banned_baseline` in the
     seal). The ratchet forbids new ones. Removing them is a kernel proposal. A `partial def` is not
     on this list: it is implementation recursion that Lean keeps opaque, not a mathematical
-    operation given a value outside its domain (B0 Policy 5), so the ratchet no longer bans it. Where
+    operation given a value outside its domain (B0 policy 2), so the ratchet no longer bans it. Where
     a pure algorithm must terminate on valid input, that is shown for the algorithm; an effectful
     failure is reported as an implementation failure, never as a mathematical one.
 14. `CasAcceptance/Standard.lean:380` proves an acceptance probe with `native_decide`, which trusts

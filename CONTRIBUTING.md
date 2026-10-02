@@ -35,7 +35,7 @@ bind the kernel, the language and every leaf. Their consequences here:
   partial map. What LC-14 forbids in the kernel is semantic: reading a term outside its
   operation's domain, a fallback reading, a default for something that does not exist. The
   seal's ratchet on new `partial def` anywhere in this repository, and `custodian/FINDINGS.md`
-  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change (the plan, B0, "Gates"; architecture.md, Policies 5 and 7).
+  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change (the plan, B0, "Gates"; architecture.md, policies 2 and 6).
 - A numeral is the image of the map out of the initial object of its object's category; where
   there is none, it is not a numeral of that object (LC-15).
 - A leaf computes on an input form that `lean-categories` and the kernel define for the

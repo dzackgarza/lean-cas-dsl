@@ -2419,7 +2419,7 @@ partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
 end
 
 /-- The outcome of a statement: it holds, or it fails in exactly one of the kinds that are never
-collapsed (`specs/architecture.md`, "Failure is stratified"; Policy 6). `invalid` and `ambiguous`
+collapsed (`specs/architecture.md`, "Failure is stratified"; policy 3). `invalid` and `ambiguous`
 are semantic; `gap` (no admitted registration, or several), `unavailable` and `malformed` are
 computational; `wrong` is a well-typed answer the statement refutes; `internal` is an exception
 without a stratum: an error of the interpreter or exhausted resources, which says nothing about the

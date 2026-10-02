@@ -123,7 +123,7 @@ Constructor applications and family parameters are typed mathematical data, neve
   3. the realization is unavailable or crashed;
   4. the realization returned malformed output;
   5. the realization returned a well-typed wrong answer, which acceptance detects.
-  Two more are kept distinct from these (Policy 6): an unresolved semantic ambiguity, and an internal
+  Two more are kept distinct from these (policy 3): an unresolved semantic ambiguity, and an internal
   interpreter error or resource exhaustion, which is never evidence that an expression is invalid.
 
 ## Trust boundaries
@@ -283,7 +283,7 @@ input form and a backend. Nothing else in a manifest carries meaning.
 | The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance` | — |
 | `lean-categories` accepts an operation with an optional or partial codomain, or relies on a total convention off the domain (LC-14) | The totality gate (`LeanCategories/Catalogue/Registry/Totality.lean`, run by `normalized_registry`) refuses a row built, through any definition of `lean-categories`, from `Option`, `Part`, `PFun`, `Ring.inverse`, `Matrix.nonsing_inv`, `Matrix.inv`; `TotalityProbes` refuses the pre-`bd31fe3` encodings. It does not see a convention hidden inside Mathlib definitions | — |
 | `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
-| The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | The one outcome model (`cc-failure-strata`): `Realize.run` reports every failure as its stratum, and an untagged one as an internal error, so no caught failure becomes a reading. The label-based `check_kernel_totality.py` is withdrawn (Policy 5). Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
+| The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | The one outcome model (`cc-failure-strata`): `Realize.run` reports every failure as its stratum, and an untagged one as an internal error, so no caught failure becomes a reading. The label-based `check_kernel_totality.py` is withdrawn (policy 2). Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
 | The kernel teaches itself mathematics: refers to it, or proves membership in a domain itself (unit criteria, monicity, smoothness lemmas, `simp`/`norm_num`/`fun_prop` batteries, lemma names in strings) | Structurally impossible. (1) A domain's membership is established only by the `evidence` registered with its admission in `lean-categories` (LC-18; the registry refuses evidence that is not a `meta` `TacticM Unit` of `lean-categories`). (2) The kernel's `establish` runs that evidence and nothing else; the only proof the kernel forms itself is `decide` by evaluation. (3) `CasGates.KernelPurity`, a default Lean build target (`just build`, CI job `kernel-purity`), reads every declaration of `CasCatalogue.*` and `CasContract.*` and refuses: any constant or name literal from outside Lean's core, Mathlib's category theory and its logic, and `lean-categories`' categorical foundation and registry schema; any tactic syntax (quoted, `by`, or the `tactic` category parsed from a string); running a tactic procedure or evaluating a constant anywhere but `establish`; a kernel module it does not import. `KernelPurityProbes` shows each form refused. Only purely categorical, completely general machinery passes | — |
 | A leaf is written in `lean-cas-dsl` (or in the contract, the core or `lean-categories`) | A leaf is a manifest and programs in a leaf package, read at run time (`CAS_LEAVES`); `lean-cas-dsl` requires no leaf package and imports nothing from one. `scripts/check_no_leaves.py` refuses `import CasLeaves` and `require cas_leaves`. Probe backends under `CasAcceptance/Strata` are test scaffolding for the kernel's probes, not leaves | `gov-leaf-authority` |
 
@@ -343,12 +343,12 @@ closes it:
 | Hole | Why it contains nothing | Mechanism needed (owner's authority) |
 | --- | --- | --- |
 | The orchestrator writes every gate: `CasGates/KernelPurity.lean` (allowlist, the `establish` exemption, which matches any declaration whose name starts with it, blind to names built from strings), `scripts/check_*.py`, `.github/workflows/` | The gate and the code it judges change in one commit. On 2026-09-30 a red CI check was deleted and replaced by a CI job that has never run | Gates are evaluated from a protected branch against the head (a branch cannot change the rules that judge it). CODEOWNERS on gate paths requires the owner's review |
-| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (Policy 2) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted (the plan, B0, "Disposition of outstanding work") | Validator changes require the owner's review (CODEOWNERS) |
+| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (policy 1) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted (the plan, B0, "Disposition of outstanding work") | Validator changes require the owner's review (CODEOWNERS) |
 | Roles are not enforced: the trailer gate is retired, and a declared role proves nothing | Any author can write any layer it has a credential for | One push credential or signing key per role (`b0-authority`) |
 | Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Tied to the acceptance role's credential |
-| `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself. On 2026-10-01 the orchestrator marked two of its own catches to pass the gate, one of which collapsed every failure of a division into "invalid" (rejected by the custodian review of #58) | Withdrawn (Policy 5); the obligation is carried by the outcome model (`cc-failure-strata`) |
+| `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself. On 2026-10-01 the orchestrator marked two of its own catches to pass the gate, one of which collapsed every failure of a division into "invalid" (rejected by the custodian review of #58) | Withdrawn (policy 2); the obligation is carried by the outcome model (`cc-failure-strata`) |
 | The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
-| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (the plan, B0, "Disposition of outstanding work") | The kernel worker holds no upstream write credential and no tool to commission upstream authors; upstream requirements come from the protected requirement revision (Policy 2; the plan, "Authority configuration") |
+| The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (the plan, B0, "Disposition of outstanding work") | The kernel worker holds no upstream write credential and no tool to commission upstream authors; upstream requirements come from the protected requirement revision (policy 1; the plan, "Authority configuration") |
 | Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the assertion's accepted interpretation (its elaborated proposition), fixed at admission. A change of interpretation is a transition accepted by someone other than its author (`gov-meaning-permanence`) |
 | The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Requirement documents, gate definitions and protection settings change only with the owner's acceptance; the mechanisms are judged by which discretion they remove, not by their existence |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
@@ -410,150 +410,296 @@ its execution. Do not request the same authorization again.
 
 ### The policies
 
-These replace weaker or conflicting procedures (owner directives, 2026-10-01; the plan, "B0").
-They govern the orchestrator and the reviewer as much as the code: what counts as an obligation,
-when work may be blocked, what an approval delegates, and how a defective control is replaced.
+Owner replacement text, 2026-10-02, for the earlier Policies 1–8. It states what workers can
+submit, what they can read or modify, what the controller can schedule, and which transitions can
+establish acceptance. It is the specification of the constrained construction, not a claim that
+these mechanisms are already implemented; their implementation is the plan's construction
+directives A–D. Earlier citations map as follows: policy 2 → 2 and the worker directive (AGENTS.md);
+Policy 2 → 1; Policies 3, 4, 8 → 5; Policy 5 → 2; Policy 6 → 3; Policy 7 → 6.
 
-1. **Authorization delegates implementation.** An approved objective delegates the ordinary
-   engineering decisions needed to complete it, within its mathematical, architectural and
-   authority boundaries. For B0 these include:
-   - module boundaries, build targets and integration structure;
-   - error handling and codecs;
-   - how a check is implemented.
-   These changes are validated and independently reviewed. They need no new owner decision because
-   a protected file is involved. Changes to delegated enforcement machinery (the controller, the
-   reviewer prompt, gates, build wiring, workflow configuration) are construction work; a change to
-   the governing requirements or to reserved authority needs a decision. The owner decides the required result and any reserved
-   architectural choice; the implementer decides how to achieve it; the reviewer decides whether
-   the implementation meets the requirements, and does not hand ordinary technical decisions back
-   to the owner.
-   - "Routine" is not a self-applied exemption from review. It means the decision lies within the
-     delegated authority; a large kernel refactor can need rigorous review and no owner
-     intervention.
-   - Escalation to the owner is for work that would change an obligation or exceed the
-     delegation: reducing the required computational scope, changing an accepted mathematical
-     question, or letting downstream author upstream semantics. Implementation difficulty,
-     reviewer uncertainty, protected paths, changed checks and the number of files are not, on
-     their own, grounds for escalation.
-   - An explicit owner decision is authoritative when given, not when an agent commits it. An
-     owner's question is not by itself an instruction, and an assistant's proposal is not an owner
-     decision.
-   - Ordinary maintenance proceeds directly within the delegated authority. Process (a branch, a
-     pull request, a review, a verdict, a signature, a plan node, a full build) is justified only by
-     a substantive decision or technical validation it performs, never by the fact that a file
-     changed. Recording a decision already given, correcting a stale description, updating status
-     or removing a superseded rule is an ordinary commit to the owning text: no dedicated pull
-     request, verdict, plan node or build, and it does not wait for unrelated code work to carry
-     it. Documentation that describes an implementation change goes with that change. What a text
-     change needs is decided by its effect, not its file type: a proposal to change a mathematical
-     requirement, an acceptance standard or an authority needs that decision, and transcribing an
-     instruction never inserts a new requirement.
-2. **No downstream authorship of upstream mathematics.** A kernel worker consumes an accepted
-   release. It does not write `lean-categories`, including its registry schemas, validators,
-   mathematical probes or admission rules, and does not commission upstream work with
-   kernel-generated goals, acceptance failures, desired row arrangements or instructions for making
-   an existing tactic succeed. A suspected upstream defect is reported, and assessed independently
-   from the original requirement and sources, never by accommodating the downstream term. A fresh
-   reviewer may see existing code: it first fixes the specification from independent sources, then
-   assesses the code against it; correct work is reused.
-3. **Repair the generating mechanism.** A specimen failure is first classified (typed application,
-   identity, admission, structural composition, coherence, presentation transport, result
-   reconstruction, execution); the owning generic mechanism is repaired with every case it
-   generates, and not widened into unrelated cleanup. The same holds for process failures. An
-   incident is closed when the rule that generated it is corrected in its owner, with its
-   contradictory instructions removed, not when the current pull request has found a route around
-   it. This is a bounded repair of the identified mechanism, not a licence for a general audit.
-4. **One coherent integration unit.** A complete architectural change may span repositories and
-   reviews; it is integrated as one compatible revision tuple, not one pull request per file, issue
-   or upstream commit. Upstream and downstream reviews stay separate; the consumer tests the
-   finished combination.
-   - Splitting is justified when the parts are genuinely independent, or when separating them
-     materially improves technical review. It is not justified by file count, line count, or a
-     reviewer's inability to read context its own invocation failed to supply.
-   - Review responsibilities can be assigned separately within one transition.
-5. **Preserve obligations, not their enforcement machinery.** No check acquires authority by
-   existing, being sealed, or having rejected something before. Every control implements a
-   requirement. A review identifies that requirement and checks that the resulting design still
-   meets it, positive capabilities included. What is preserved is the requirement, not a filename,
-   command, list, serializer, exception marker or set of rejected programs.
-   - A control may be removed, narrowed, replaced or relocated when the resulting design meets the
-     requirement. A correct replacement of an over-restrictive check must accept some of what the
-     check rejected, so "the replacement accepts more cases" is not, by itself, evidence of
-     weakening.
-   - Authorization to remove an obsolete mechanism does not authorize an incomplete replacement.
-     Duplicate detection does not establish completeness, and a regression comparison does not
-     establish B0 acceptance. Those are technical defects to repair, never reasons to keep the
-     obsolete design.
-   - A control is defective when it blocks a required legitimate transition, just as when it
-     admits a prohibited one. It needs two justifications:
-     - negative: the forbidden action it prevents, and the concrete authority or data path through
-       which that action could occur;
-     - positive: required ordinary work still proceeds without exceptions, duplicated declarations,
-       owner intervention or changes to unrelated implementations.
+#### 1. Authority is attached to operations, not to agents' descriptions of themselves
 
-     "An agent might exploit this" is not enough. The actual available action and its effect on a
-     requirement must be named. A control is applied where that action occurs; removing the
-     authority that enables the wrong move beats adding declarations that promise not to make it.
-   - A gate judges code, data flow, types or execution rather than a label, cannot be changed and
-     self-accepted by the candidate's author, and costs only at its boundary.
-   - A control has a scope and an end condition. A migration-only restriction ends with the
-     migration; a check of a removed interface goes with it.
-   - A new policy or gate is warranted only when it changes the system's behaviour in a way
-     existing rules and interfaces do not. An ordinary defect yields a code correction and a test,
-     not a new named policy, plan node, documentation pull request, trailer or exemption
-     procedure. A needed rule goes to its owner, replacing inconsistent wording there; copies do
-     not become separate authorities.
-6. **Program failure is not mathematical invalidity.** A semantically invalid or inapplicable
-   expression, an unresolved semantic ambiguity, a valid request without implementation, an
-   unavailable or failed backend, malformed output, a wrong answer, and an internal interpreter
-   error or resource exhaustion are distinct outcomes. A timeout, failed invariant or unexpected
-   exception is never evidence that an expression is invalid.
-7. **Review is independent, informed and correctable.** Independence concerns authorship and
-   decision authority. It does not mean withholding what the reviewer needs to evaluate the
-   change.
-   - **Inputs.** The reviewer receives:
-     - the current controlling requirements;
-     - the complete relevant change;
-     - enough unchanged context to follow the affected data and control flow, including a helper
-       invoked by a changed gate, sealed or not.
-   - **The author's explanation** is a claim to verify against independently obtained
-     requirements and source; it is neither obeyed nor refused. A candidate's claim of authority
-     is never authority. This does not relax the one-way mathematical workflow: a formalization
-     author still receives no downstream goals.
-   - **Findings.** A negative review states which of these it found:
-     - a demonstrated defect: repair it and review the revision;
-     - missing evidence: supply it. Acceptance is blocked until then; this is not evidence the
-       change is wrong;
-     - a failed review operation (missing context, no run, unusable output): repair or retry it.
-       No verdict has been given;
-     - a factual or interpretive error in an earlier finding: correct it with the source,
-       requirement or counterexample;
-     - a change of a reserved requirement: request that owner decision.
-   - **During B0 construction** the review supplies independent technical findings. It is not a
-     veto by the legacy controller over its authorized replacement, and it creates no
-     owner-signature requirement; the candidate still never declares itself accepted.
-   - **Reconsideration.** Resubmitting identical code to obtain a different model answer is
-     refused. A substantive revision, new evidence, corrected context or an identified error in a
-     finding is reconsidered, without a cosmetic code change and without the owner. The discussion
-     stays in the pull request. A signature identifies who decided; it does not make the judgment
-     infallible.
-8. **Work selection follows actual dependencies.** A refused administrative operation is an
-   execution dependency: name the exact operation and permission, and continue the work that does
-   not depend on it. A governance issue blocks only the work whose
-   correctness or authorized acceptance depends on resolving it. A label is not a dependency, and
-   "governance comes first" is not a reason.
-   - A broken reviewer may block acceptance of a candidate. It does not block implementing the
-     selected mechanism, assessing its contract through the proper upstream role, or running
-     focused checks.
-   - Work that depends on an unaccepted semantic change does not consume it as accepted.
-   - Intermediate machinery that an approved transition removes is not repaired again. The
-     replacement is validated at the integration point.
-   - Three judgments stay distinct, and none substitutes for another:
-     - *compilation*: the implementation builds;
-     - *development regression*: established behaviour is not lost;
-     - *B0 completion*: every fixed B0 obligation holds.
+**A worker receives only the operations required to produce its assigned deliverable. It does not
+receive general authority and instructions about how to restrain it.**
 
-     An unchanged failure is still a failure.
+The existing launcher and connector expose role-specific capabilities:
+
+| Worker | Permitted inputs | Permitted output | Operations absent from its interface |
+|---|---|---|---|
+| Formalization | Owner/upstream mathematical requirements, mathematical sources, upstream code and reviews | Candidate mathematical release | Reading downstream implementation diagnostics; receiving kernel-authored briefs; changing computational requirements |
+| Acceptance | Accepted mathematics, approved language specification, independently obtained mathematical sources | Assertions and their accepted mathematical interpretations | Reading implementation internals; obtaining expected answers from a candidate run; changing assertions to accommodate a candidate |
+| Kernel/contract | Accepted mathematics, approved requirements, kernel and contract source, applicable independent findings | Candidate generic interpreter and computational contract | Writing upstream mathematics; commissioning or briefing upstream authors; changing authoritative acceptance |
+| Leaf | Released computational contract, permitted registration forms, backend documentation and implementation resources | Registrations and opaque computations | Reading the acceptance corpus or expected answers; changing semantics, the contract, or authoritative test results |
+
+An operation being absent means that it cannot be performed through another connector, terminal
+credential, public-network request, shared directory, session message, or inherited context.
+Repository write permissions alone do not establish blindness. A worker that can fetch a public
+downstream repository still has a downstream read channel.
+
+The launcher therefore supplies a fresh role-specific context and mediates its tools and network
+access. Cross-role conversation histories, shared memory retrieval, summaries, task comments, and
+unrestricted credentials are not included. Asking a previously exposed session to disregard what
+it has read does not establish independence.
+
+**Dispatch contains references, not authored instructions about the deliverable.** Its variable
+fields identify the independently assigned requirement, accepted input revisions, destination, and
+permitted output channel. The launcher obtains their contents directly from their authorities. It
+has no field for a kernel goal, expected answer, preferred row arrangement, evidence strategy,
+suggested mathematical repair, or rewritten "mathematical requirement."
+
+Upstream assignments and priorities come from the upstream requirement queue. A kernel worker
+cannot select an upstream task, change its priority, replace its brief, or restart its author with
+different instructions. Otherwise even an apparently harmless requirement selector remains a
+steering channel.
+
+The B0 mathematical work is already authorized by the fixed requirements. Removing downstream
+commissioning must not create a new requirement that the owner manually redispatch every existing
+obligation. The launcher schedules those obligations from the existing plan.
+
+**Required removal:** delete the permission to turn a downstream failure into an upstream brief by
+restating it "as mathematics." Retain downstream diagnostics for downstream investigation. Any
+actual change to the mathematical requirement enters through the mathematical authority, not
+through a sanitized implementation request.
+
+This closes the mechanism that permitted the orchestrator to prescribe obligations and send exact
+failing terms while a different agent nominally authored the mathematics.
+
+#### 2. Construction authority cannot alter the authority judging construction
+
+**Working source and authoritative inputs are separate objects.**
+
+Workers may propose changes to the kernel, controller, evaluator, workflow, or documentation within
+the approved B0 mandate. A proposed change does not replace the requirement revision, acceptance
+corpus, evaluator revision, or accepted semantic release used to judge it.
+
+The existing protected references and runner provide this separation:
+- A construction checkout contains candidate code and proposed document changes.
+- Authoritative requirements, accepted interpretations, and evaluating rules are loaded from
+  independently accepted revisions.
+- Only the independent acceptance operation can advance an authoritative reference.
+
+Candidate code runs without credentials capable of advancing those references. A candidate
+controller is exercised against an isolated test environment, not installed with production
+authority merely because its own tests passed. Its author cannot make it the active controller.
+
+There is no "ordinary change" switch that a worker can set to bypass this separation. Conversely,
+there is no blanket "protected file changed" condition that turns an already-authorized
+implementation decision into an owner decision.
+
+**B0 construction remains authorized.** The legacy controller is not the authority on whether its
+replacement may be written or integrated as construction source. Its rejection cannot block source
+work that does not consume an accepted result from it. Independent assessment of the replacement
+uses the approved B0 requirements, including the requirement that legitimate construction proceed.
+
+The accepted control configuration must demonstrate both directions: unauthorized changes to
+mathematics or acceptance cannot take effect, and authorized ordinary development proceeds without
+exemptions, repeated owner approval, or a dedicated documentation transaction.
+
+A source commit may record an owner instruction immediately. Publication of that commit is not
+what gives the instruction authority. A worker-written proposal remains a proposal.
+
+**Required removal:** no commit trailer, environment variable, comment, exception table, or
+candidate-authored status can grant authority. The current plan already retires the trailer gate;
+the replacement must remove the general self-asserted-authority channel, including re-admission
+controlled by `AGENT_ROLE`, rather than introduce another label.
+
+#### 3. Preserve the question by construction; do not reconstruct it from its answer
+
+**A mathematical question is constructed before evaluation and remains the same object throughout
+interpretation, realization, and comparison.**
+
+The interpretation interface produces the complete typed question against the accepted
+mathematical release. Its representation retains the formal operation, operands, parameters,
+selected structures, structural routes, comparisons, and logical structure relevant to the
+assertion. It uses upstream declaration identities and typed terms, not a second mathematical
+ontology.
+
+Evaluation consumes that question. It does not produce a replacement question.
+
+Consequently:
+- A decision returning `True` cannot replace the proposition it decided.
+- Recording operands without their relation or logical structure is insufficient.
+- A question record cannot be recovered afterwards by searching syntax for a few recognized
+  predicates.
+- The computation cannot execute one request while reporting another as its protected question.
+
+Normalization used for comparison must preserve this distinction. Equality of truth values,
+provability of both propositions, or logical equivalence of two true propositions does not
+establish identity of the question being tested. A change of accepted interpretation requires
+independent assessment; it is not silently absorbed by regenerating the baseline with the
+candidate reader.
+
+The accepted record binds the question to its mathematical dependency revision. Keeping a
+declaration name while changing its definition is not automatically preservation of meaning. A
+dependency update requires the applicable interpretation comparison or independently accepted
+transition.
+
+The acceptance author establishes the initial interpretation from the mathematics and language
+specification. Candidate output may be inspected as a claim to check; it is not promoted into the
+expected interpretation because it is stable across runs.
+
+**No admitted assertion disappears because interpretation failed.** The fixed assertion inventory is
+an input to execution, not a list reconstructed from whichever assertions the candidate
+successfully reads. Every required identity receives a result, including interpretation and
+infrastructure failures.
+
+Failure types also follow the stage that produces them. Semantic rejection belongs to reading;
+backend failure belongs to execution; malformed output belongs to decoding; comparison may report a
+wrong answer. An unexpected interpreter exception cannot be converted into semantic invalidity by
+attaching a label. Runtime code does not possess a constructor for an authoritative
+mathematical-invalidity judgment.
+
+This replaces both manifestations of the same defect: reducing the question to `True`, and
+treating a program failure as a judgment about mathematics.
+
+#### 4. Completion is an independently derived result, not writable project state
+
+**There is no worker operation "mark this B0 row complete."**
+
+The existing acceptance table remains the complete definition of the required work. A row's
+accepted status is derived from its full obligations at a specified compatible revision tuple. A
+worker can submit a candidate and evidence; it cannot substitute a weaker predicate for the row's
+acceptance.
+
+Compilation, regression preservation, required computation, compositional justification, and
+independent extension trials remain distinct observations. None implies another merely because they
+concern the same code.
+
+In particular, the following cannot establish completion:
+- a negative probe demonstrating that unsupported execution is refused;
+- preservation of an existing failure;
+- semantic resolution without required execution;
+- execution using scaffolding where the requirement specifies a registered backend;
+- a source change that has not been consumed by the tested tuple.
+
+The plan may display those observations, but they cannot be promoted into "met," "met in the
+kernel," or another completion state that releases dependent obligations.
+
+For a required structured construction, successful execution must produce the declared result,
+including its defining maps and prescribed lifted structure. A code path that refuses before
+sending the required request establishes a missing implementation path. It does not establish that
+the kernel portion of the required execution is complete.
+
+The runner establishes execution facts from the actual invocation and response path. A worker's
+log, a backend's self-test, a manually supplied "executed" field, or a candidate's claim that it
+used a registration is not independent evidence.
+
+**Acceptance belongs to a tuple, not to unrelated successful revisions.** Mathematical, contract,
+kernel, leaf, and evaluating revisions are fixed together for the observation. Updating a
+dependency invalidates the affected observations until they have been re-established for the new
+combination. It does not erase unrelated evidence, and it does not permit combining incompatible
+successes.
+
+The plan's status section becomes a view of these existing results and independent decisions, not
+another editable ledger.
+
+This implements the existing requirement that every row close only on its full acceptance at the
+integration tuple. It does not reduce B0 to the assertions currently easy to execute.
+
+#### 5. Work selection and validation follow actual input dependencies
+
+**A worker cannot manufacture its next task from the most convenient failure, check, or writable
+file.**
+
+The existing plan supplies the objectives, their actual dependencies, and their priority. The
+controller selects an available obligation from that plan and retains it across continuations.
+Source checkpoints do not release the assignment. Neither commit count nor a green local check
+selects the successor.
+
+An assignment covers the complete generic mechanism needed to satisfy its obligation. It is not
+divided automatically by file, example, issue, upstream commit, or available test. A coherent
+change may satisfy several existing rows and span several repository revisions.
+
+The controller distinguishes operations rather than applying one global status to all work: source
+editing, focused validation, integration, independent review, and accepted release each consume
+different inputs.
+
+A blocker is therefore a missing input or capability of a particular operation. There is no
+authoritative free-text `blocked` flag that disables unrelated operations.
+
+Examples of the required behavior:
+- An unavailable reviewer prevents a review decision, not source editing.
+- A missing publication credential prevents that publication, not implementation.
+- A missing backend executable prevents the corresponding execution job; it routes that job to an
+  environment containing the engine.
+- An unaccepted semantic dependency cannot be represented as accepted, but does not prevent
+  independent work against the current accepted release.
+- A documentation commit awaiting publication is not an input to already-authorized source
+  construction.
+
+**Migration restrictions are attached to the transition that needs them.** A temporary suspension of
+broad execution is neither a permanent repository rule nor a remembered instruction. Its
+applicability follows the active transition and its unresolved inputs. Once those inputs are
+satisfied, the required validation becomes runnable without another owner instruction.
+
+Conversely, while a replacement interface is deliberately incomplete, the controller does not
+create tasks to make every transient consumer pass against the interface being removed. It
+schedules validation at the coherent integration point specified by the transition.
+
+This eliminates both sides of the research failure: repairing temporary architectures to satisfy
+tests, and continuing a source-only prohibition after its condition had ended.
+
+The controller author cannot add new objectives, change priorities, or enlarge the acceptance
+denominator through a work-selection patch. Such a patch implements the fixed plan; it does not
+author a new plan.
+
+#### 6. Review consumes one complete snapshot and produces an actionable, revisable judgment
+
+**Review inputs are assembled from revision identities, not independently supplied file lists and
+diffs.**
+
+A review request identifies the controlling requirements, base tuple, candidate tuple, and
+obligations under assessment. The runner derives the relevant changes from those same identities.
+The reviewer can retrieve unchanged source needed to follow the affected mechanism.
+
+There is no operation that combines a seal-relative file list with main-relative patches. Missing
+or unreadable inputs produce a failed review operation, not a rejection of the candidate.
+
+The existing review mechanism distinguishes a demonstrated defect, missing evidence, an execution
+failure, an erroneous earlier finding, and a proposed change to a reserved requirement. A finding
+identifies the governing obligation and supporting source, argument, or counterexample.
+
+A reviewer cannot create a new prerequisite merely by including it in prose. A requirement change
+remains a proposal to the authority that owns it. A technical defect remains repairable without
+asking the owner to reconfirm the original objective.
+
+Identical review requests are not repeatedly resubmitted to obtain a different model answer. A
+substantive source revision, new evidence, restored missing context, or a supported correction to
+a finding permits reconsideration in the same review discussion. Cosmetic edits do not manufacture
+a new review basis.
+
+**The controller can neither accept its own replacement nor make itself irreplaceable.** Its
+acceptance depends on the fixed positive and negative requirements, not preservation of its
+previous decisions.
+
+No additional reviewer service, verdict hierarchy, exception registry, or approval transaction is
+introduced. These are corrections to the existing review request and result interfaces.
+
+### What these policies must make impossible
+
+The required guarantee concerns the actual transition system, not compliance with the prose.
+
+A downstream worker cannot steer an upstream author because it possesses neither that author's
+input channel nor the assignment operation. A candidate cannot redefine its acceptance because
+authoritative inputs are not taken from its checkout. A `True` answer cannot become the protected
+question because evaluation never constructs questions. A missing reviewer cannot stop source
+construction because source construction does not consume a review result. A narrow probe cannot
+close a broader obligation because completion consumes the full fixed acceptance. A temporary
+restriction cannot persist indefinitely because its applicability is derived from the transition
+that owns it.
+
+These are inspectable properties of interfaces and data flow. If every authorized transition
+preserves them, they remain true after any sequence of authorized transitions, by induction on that
+sequence. A surviving alternate credential, legacy endpoint, editable authoritative input, or
+self-acceptance operation breaks that argument and must be removed.
+
+This does not replace intelligent assessment of the small trusted kernel and controller. The
+owner's specification explicitly retains that assessment. It removes the repeatedly exploited
+discretion from routine work, so the assessment is no longer surrounded by an indefinitely
+expanding system of local repairs and administrative exceptions.
+
+**The implementation task is to remove the authority-bearing operations that generate the
+failures—not to add another mechanism that asks whether an agent has promised not to use them.**
 
 ## Packages
 
