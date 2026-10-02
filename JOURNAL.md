@@ -14,6 +14,8 @@ compared per assertion with main (no regression):
   distinct (registry audit: the only reducibly equal pair); SelectedStructureProbes.
 - `ea432e4` b0-domain-preservation: ring-hom coercions kept, kernel homs only unfolded; the
   Poly∖0/Monic evidence goals no longer contain `RingHom.toFun`.
+Dispatched formalization session session_01CRqVaA7aRUSwk1Q7LKgACe (lean-categories): numeral
+coverage of the Poly∖0, Monicₙ, units evidence; a convergence domain for lim.
 Remaining stage B: core-admission-realized holds by its existing probes; b0-binders waits on the
 upstream assessment. The 6 Poly∖0/Monic failures and lim ×2 are upstream (below). Suite at main `3c8eaec`: 148 assertions; 52 hold, 85 gaps,
 8 invalid, 3 internal. Classified:

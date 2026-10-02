@@ -163,6 +163,10 @@ Consequences, binding on every agent and first of all the orchestrator:
   pull request, review or signature is used only where it performs a needed decision or validation
   (Policy 1).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
+- **The orchestrator dispatches every role's work itself**, formalization authors included: an
+  upstream finding is sent to a formalization session with an independent requirement (its
+  sources and the catalogue's own definitions, never a kernel goal or failing term, Policy 2),
+  not handed to the owner. Work is never stopped to wait for the owner to route it.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
