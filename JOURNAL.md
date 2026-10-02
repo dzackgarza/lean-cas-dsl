@@ -24,8 +24,12 @@ per working session; terse. Not an authority: rules live in their owning documen
   needed". `811d72c`: construction reviews the PR's delta against main, ledger included
   (test_review 52/52). `fa442c4`: semgrep POLICY.RUNTIME_DEFAULT findings in review.py and the
   acceptance scripts repaired. PR #61 branch updated to main for re-review; subscribed.
+- PR #61 (acceptance: lattices rank/cardinality, 5 assertions) re-reviewed: custodian review PASS
+  after the delta fix, all CI green; merged (`9bce2c4`). Its author reports E₈ rank, S₃ kernels,
+  abelianness and the 𝔽₉ transport inexpressible until upstream has the objects (dispatched).
 - Formalization PR lean-categories#76 open (units, nonzero/monic evidence); leaf session unblocked
-  (owner approved add_repo).
+  (owner approved add_repo). Independent formalization review of #76 dispatched:
+  session_01J5TvBCNLNiuNXLHf2DyhdQ; the kernel stays pinned until it is accepted.
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
