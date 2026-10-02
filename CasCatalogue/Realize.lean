@@ -369,8 +369,12 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let data := (D.getAppArgs.zip infos).filterMap fun (a, i) =>
         if i.isExplicit then some a else none
       let wires ← data.mapM fun a => realize h trace s!"the diagram of {id.raw} in {what}" a
+      -- The diagram sent is the standard form at the realized values of its data (the apex of an
+      -- earlier realized limit is its leaf's object, not the catalogue's presentation of it), its
+      -- implicit arguments determined by them; its cone is decoded at that diagram.
+      let sent ← mkAppM standard (wires.map (·.value))
       let input : Wire :=
-        { form := .diagrams category, value := D
+        { form := .diagrams category, value := sent
           json := Json.mkObj [("ctor", Codec.label standard),
                               ("args", Json.arr (wires.map (·.json)))] }
       let (answer, backend) ← send h id.raw input
@@ -385,7 +389,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
         | malformed backend id.raw answer shape
       let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
-        else ``CategoryTheory.Limits.Cone) #[D]
+        else ``CategoryTheory.Limits.Cone) #[sent]
       let (cone, decoded) ← match ← decodeFamily constructor expected args
           (decodeValue trace category) with
         | .ok result => pure result
