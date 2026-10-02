@@ -14,7 +14,7 @@ The seal (`CONTAINMENT.md`) makes each of these moot as a route to acceptance, b
 files, the kernel and the pins can no longer change without a new seal. The holes are still there,
 and they are the orchestrator's record.
 
-1. `scripts/check_authorship.py`
+1. `scripts/check_authorship.py` (retired 2026-10-02; the findings below are why)
    - Identity is self-declared.
    - A commit with neither `Agent-Id` nor `Claude-Session` is "a person's" and is not checked
      (`commits()`, `if agent is None: continue`). Omitting the trailer bypasses the gate.

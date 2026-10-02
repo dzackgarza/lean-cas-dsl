@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check out the development chain of a lean-cas-dsl checkout: `lean_categories`,
 `cas_leaf_contracts` and `cas_leaves`, each at the revision its `lake-manifest.json` records, with
-its full history, under `.lake/packages/` (where `custodian/verify.py` and
-`scripts/check_authorship.py` read them, and where `lake` builds them).
+its full history, under `.lake/packages/` (where `custodian/verify.py` reads them,
+and where `lake` builds them).
 
     ci_chain.py [checkout]        default: the checkout this script is in
 """

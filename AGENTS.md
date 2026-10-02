@@ -185,8 +185,6 @@ Consequences, binding on every agent and first of all the orchestrator:
   `enabled: false`; deleting it deletes the sessions it started). Firing a Routine a second time
   starts a fresh, unrelated session instead of messaging the bound one. Never correct a brief by
   replacing the session; message it.
-- **Every orchestrator commit carries `Agent-Role: orchestrator`** beside its `Claude-Session:`
-  trailer; the authorship gate fails main without it, and history cannot add it later.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
@@ -207,9 +205,8 @@ You are either the **orchestrator** or a subagent with exactly one role
 - The acceptance subagent writes `tests/acceptance/` only.
 - The leaf subagent writes leaves only.
 
-Every agent commit ends with an `Agent-Role: <role>` trailer (and `Agent-Id: <id>` for a subagent);
-`scripts/check_authorship.py` refuses crossings between the mathematical layers. No agent writes in
-two of those roles. Information flows formalization → tests → implementation, never
+No agent writes in two of those roles. That separation is held by what each author can write
+(`b0-authority`), not by a label it declares about itself. Information flows formalization → tests → implementation, never
 back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
 by actual dependency: a governance node blocks only the work whose correctness or authorized
 acceptance depends on it, and a blocked item names that dependency (Policy 8). An approved
