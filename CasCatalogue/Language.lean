@@ -2675,12 +2675,12 @@ def Value.terms : Value → Array Expr
   | .element hom set => #[hom] ++ set.terms
   | .answer a => #[a]
 
-/-- The terms of every membership `x ∈ y` and containment `x ⊆ y` in `stx`: what a settled
-judgement relates. -/
+/-- The terms of every membership `x ∈ y` and containment `x ⊆ y` in `stx`, each led by its
+relation: what a settled judgement relates, and how. -/
 partial def judgedTerms (scope : Scope) (stx : Syntax) : M (Array Expr) := do
   let here ← match stx with
-    | `(cas_term| $x ∈ $y) | `(cas_term| $x ⊆ $y) =>
-        pure ((← eval scope x).terms ++ (← eval scope y).terms)
+    | `(cas_term| $x ∈ $y) => pure (#[mkStrLit "∈"] ++ (← eval scope x).terms ++ (← eval scope y).terms)
+    | `(cas_term| $x ⊆ $y) => pure (#[mkStrLit "⊆"] ++ (← eval scope x).terms ++ (← eval scope y).terms)
     | _ => pure #[]
   if !here.isEmpty then return here
   stx.getArgs.foldlM (init := #[]) fun acc arg => return acc ++ (← judgedTerms scope arg)
@@ -2704,16 +2704,21 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
       -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
       -- It is the catalogue's judgement.
       if let some (C, Y) := categoryOver? (← registryState) X then
-        return .settled .holds (← inCategoryOver scope t C Y).terms
+        let v ← inCategoryOver scope t C Y
+        let base ← eval scope Y
+        return .settled .holds (#[mkStrLit s!"in {C.id.raw} over"] ++ v.terms ++ base.terms)
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
       | .object x .. =>
           let v@(.element _ (.object y ..)) ← eval scope t
             | throwStratum .invalid m!"`{shown t}` is not an element"
           if x == y || (← withTransparency .all <| isDefEq x y) then
-            return .settled .holds (#[x] ++ v.terms)
-          return .settled (.wrong s!"{shown t} is not an element of {shown X}") (#[x] ++ v.terms)
-      | _ => return .settled .holds (← eval scope (← `(cas_term| $t in $X))).terms
+            return .settled .holds (#[mkStrLit "∈", x] ++ v.terms)
+          let about := #[mkStrLit "∈", x] ++ v.terms
+          return .settled (.wrong s!"{shown t} is not an element of {shown X}") about
+      | _ =>
+          let v ← eval scope (← `(cas_term| $t in $X))
+          return .settled .holds (#[mkStrLit "in"] ++ v.terms)
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
       if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
