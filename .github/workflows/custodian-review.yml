@@ -59,7 +59,12 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            fs.writeFileSync('explanation.md', context.payload.pull_request.body || '');
+            // The description as it is now: a re-run replays the original event, whose payload
+            // carries the description at that moment, not the author's later correction.
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number});
+            fs.writeFileSync('explanation.md', pr.body || '');
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.payload.pull_request.number});
