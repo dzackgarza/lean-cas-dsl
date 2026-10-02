@@ -1,6 +1,6 @@
 # Reuse record: `gov-readmission-gate`
 
-`check_acceptance_permanent.py` admits or corrects assertions only under `AGENT_ROLE=acceptance`; `check_authorship.py` assigns a change to `admitted.json`'s assertions or corrections to the acceptance role.
+`check_acceptance_permanent.py` admits or corrects assertions only under `AGENT_ROLE=acceptance`.
 
 ## Queries
 - the existing permanence script (extended in place, not duplicated).

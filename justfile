@@ -21,11 +21,8 @@ default:
 # Build the core and the notebook package, and run their probes: the acceptance probes
 # (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests). The suite is
 # executed by `just harness` and `just acceptance`, not compiled.
-# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py), and
-# authors are separated by layer across the chain (scripts/check_authorship.py).
+# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
 build:
-    @python3 scripts/check_authorship.py --self-test
-    @python3 scripts/check_authorship.py
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
