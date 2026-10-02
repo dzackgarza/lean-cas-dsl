@@ -18,6 +18,12 @@ per working session; terse. Not an authority: rules live in their owning documen
     main's `CasAcceptance/Permanent/questions.json` (both clean at `fa80460`). Run these first.
     Expected: `finite_sets.limit.pullback.card` holds over the real leaves. Read the newest
     custodian comment on #64 before changing anything.
+    Custodian on `5fd3f92` (14:47), to repair next: (1) the lifted return pairs the apex above
+    with the downstairs cone in `universal`; lift the legs along `U` (checked to map to the decoded
+    cone) or return `universal := none`, and check `U.obj value ≡ apex`; (2) remaining runtime
+    `.invalid` throws in `realize`/`realizeClaim` (catalogue inconsistency → internal error,
+    realized form mismatch → noImplementation); (3) establish that `Decide.decideProp` returns
+    `none` only on genuine non-decision, not on heartbeat exhaustion; (4) supply the run results.
   - `b0/binders`, lean-cas-dsl#63 (draft), head `f805933`, worktree `.tmp/wt-binders` (its
     `.lake/build` symlinks to `/dev/shm/wt-binders-build`; rebuild if gone). Kernel findings all
     repaired (row-local refusal, reducible row matching, per-token separator, evidence goals at the
