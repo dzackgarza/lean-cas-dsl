@@ -61,8 +61,7 @@ Terms:
 * `R[x, y]`, `R[x_0, x_1, ..., x_9]`: `MvPoly(n, R)`, whose variables are its indexed generators;
   `X.m()` of an object `X` without such a method is its registered invariant `m : 1 → T`
   (`R.dimension()`);
-* `[t^n]f`: the registered coefficient; `∑_{n ∈ X} e` of power series is the registered formal
-  (`t`-adic) sum, over a named set or a subset; `x^n` for `n ∈ ℕ` an element: the registered power;
+* `[t^n]f`: the registered coefficient; `x^n` for `n ∈ ℕ` an element: the registered power;
   a statement's bound generator read inside a map is carried to its stage;
 * a decimal `1.4142` is the fraction `14142/10⁴`; a numeral receives families (`(360).m()`);
 * `M⁻¹`: the inverse of the group `Mˣ`, of an element formed there (`M in Mat₂(ℚ)ˣ`); `x⁻¹` of an
@@ -77,12 +76,12 @@ Terms:
   fraction or decimal: the initial field of characteristic `0`) or `ℤ` (the initial ring);
 * `{a₀, a₁, …, ...}`: the arithmetic progression `{a₀ + d k | k ∈ ℕ}` its numerals begin; `kℕ`:
   `{k n | n ∈ ℕ}`; a named set compared with a subset is its image there (`{0, 1, 2, ...} = ℕ`);
-* `∫_{a}^{b} e dt`: the registered integral `C(ℝ) × ℝ² → ℝ` at `t ↦ e`, which the notation forms in
-  `C(ℝ)` (its continuity established when read); `f.m(a, …)`: a family with the map `f` as its
-  parameter, or at an element of its domain (`(f in C^∞).taylor_expansion(0)`); `R[[t]]`;
-  `lim` is not a term: no domain of convergent maps is registered;
-* `∑_{t ∈ A} e`, `∏_{t ∈ A} e` over a finite subset `A ∈ 𝒫_fin(X)`; `∑_{n ∈ ℕ} c · t^n` in
-  `R[[t]]` is the series with coefficients `n ↦ c`;
+* binding notations `∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`, `∏_{t ∈ A} e`: read by the
+  catalogue's binder rows of their token, by one rule (`bind`, `specs/binders.md`): the rows whose
+  operation takes the arguments, `t` the generic element of the row's domain, the map `t ↦ e`
+  admitted into the operation's source with its evidence established when read, and the operation
+  applied to it; `f.m(a, …)`: a family with the map `f` as its parameter, or at an element of its
+  domain (`(f in C^∞).taylor_expansion(0)`); `R[[t]]`;
 * `Xⁿ` (`ℚ²`) for a set `X`: `Vec(X, n)`; `(x₁, …, xₙ)`: the tuple by the registered `()` and
   `cons`; `[a, b; c, d]`: the matrix with these rows (`rows`); `N₂(…)` is `N(2, …)` (`Mat₂(ℚ)`);
   `M v`, `M * v`, `M(v)`: the registered application of `M`'s set;
@@ -209,14 +208,16 @@ syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
 syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
 /-- A matrix `[a, b; c, d]`, by its rows. -/
 syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
-/-- `∑_{a ∈ A} e`, `∏_{a ∈ A} e`: over a finite subset `A`. -/
-syntax:60 (name := casBig) ("∑" <|> "∏") "_{" ident " ∈ " cas_term "} " cas_term:60 : cas_term
-/-- `lim_{t → a} e`, `lim_{t → ∞} e`. -/
-syntax:60 (name := casLimit) "lim_{" ident " → " cas_term "} " cas_term:60 : cas_term
-/-- `∞`, the end of `ℝ` a limit may be taken at. -/
+/-- A binding notation `T_{t ∈ A} e`, `T_{t → a} e` (`∑_{a ∈ A} e`, `∏_{a ∈ A} e`, `lim_{t → a} e`):
+it binds `t` in `e` and is read by the binder rows written with its token `T`, with the one
+argument `A` (`Binding`, `bind`). -/
+syntax:60 (name := casBinder) ("∑_{" <|> "∏_{" <|> "lim_{") ident (" ∈ " <|> " → ") cas_term "} "
+  cas_term:60 : cas_term
+/-- A binding notation with two arguments, `∫_{a}^{b} e dt`: it binds `t` (written `dt`) in `e`
+and is read by the binder rows written with its token, with the arguments `a`, `b`. -/
+syntax:60 (name := casBinderBounds) "∫_{" cas_term "}^{" cas_term "} " cas_term:71 ident : cas_term
+/-- `∞`: the registered element of that name. -/
 syntax:max (name := casInfinity) "∞" : cas_term
-/-- `∫_{a}^{b} e dt`: the definite integral of `t ↦ e`. -/
-syntax:60 (name := casDefinite) "∫_{" cas_term "}^{" cas_term "} " cas_term:71 ident : cas_term
 /-- The formal power series `R[[t]]` over `R` in the variable `t`. -/
 syntax:max (name := casSeries) cas_term:max noWs "[" noWs "[" ident "]" noWs "]" : cas_term
 /-- `M⁻¹`, and `M⁻¹(v)` applied. -/
@@ -295,6 +296,12 @@ structure Ctx where
 
 /-- The language's evaluation monad: elaboration in a reading. -/
 abbrev M := ReaderT Ctx TermElabM
+
+/-- `k`, its unifications and elaborations undone after it: a question asked of the state, never a
+reading committed to. -/
+def tentatively {α : Type} (k : M α) : M α := do
+  let saved ← (saveState : TermElabM Term.SavedState)
+  try k finally (restoreState saved : TermElabM Unit)
 
 /-- The morphism `f : a ⟶ b` of `category`, elaborated there. -/
 def homIn (f : Term) (a b : Expr) (_category : NamedCategoryEntry) : M Expr :=
@@ -515,6 +522,29 @@ def differentialOf? (n : Name) : Option Name :=
   | .str .anonymous s =>
       if s.startsWith "d" && s.length > 1 then some (.mkSimple (String.ofList (s.toList.drop 1))) else none
   | _ => none
+
+/-- A binding notation as written (`specs/binders.md`): its token, the variable it binds, the names
+written for it (`t`, and `dt` in `∫_{a}^{b} e dt`), its arguments in order, and its body. -/
+structure Binding where
+  token : String
+  bound : Name
+  names : Array Name
+  arguments : Array Syntax
+  body : Syntax
+
+/-- The binding notation `stx` is, read off its syntax alone: its token is its head atom without
+the subscript `_{` (`lim` of `lim_{`). `none` for any other term. -/
+def binding? (stx : Syntax) : Option Binding := do
+  let head ← stx[0].find? (·.isAtom)
+  let token := head.getAtomVal.replace "_{" ""
+  if stx.getKind == ``casBinder then
+    return { token, bound := stx[1].getId, names := #[stx[1].getId], arguments := #[stx[3]],
+             body := stx[5] }
+  if stx.getKind == ``casBinderBounds then
+    let t ← differentialOf? stx[6].getId
+    return { token, bound := t, names := #[t, stx[6].getId], arguments := #[stx[1], stx[3]],
+             body := stx[5] }
+  none
 
 /-- A three-valued decision as a value. -/
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
@@ -978,9 +1008,8 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
 partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry)
     (ambient? : Option Value) : M Value := do
   let state ← registryState
-  if stx.getKind == ``casBig then
-    let name := (stx[0].find? (·.isAtom)).map (·.getAtomVal) |>.getD "∑"
-    return ← bigOperator scope name stx[2].getId stx[4] stx[6] ambient?
+  if let some b := binding? stx then
+    return ← bind scope (state.binders.filter (·.token == b.token)) b ambient?
   if let some v ← evalNotation scope stx then return v
   if stx.getKind == ``casMvRing then
     let names ← match mvVariables stx with
@@ -998,12 +1027,10 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
     return ← object state "PowerSeries" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casCallWith then
     return ← callWith scope stx[0] stx[2].getId.toString stx[4].getSepArgs
-  if stx.getKind == ``casLimit then
-    -- `lim` is total on the maps convergent at the point, a domain whose evidence (convergence)
-    -- is not established when a statement is read; the catalogue registers no such domain.
-    throwStratum .invalid m!"`lim`: no registered domain of maps convergent at a point"
-  if stx.getKind == ``casDefinite then
-    return ← definite scope stx[1] stx[3] stx[5] stx[6].getId
+  -- `∞`: the registered row its notation names.
+  if stx.getKind == ``casInfinity then
+    let some atom := stx.find? (·.isAtom) | unreachable!
+    return ← named scope atom.getAtomVal #[] category?
   if stx.getKind == ``casIntegral then
     return ← applyNamed state "∫" #[← eval scope stx[1]]
   if stx.getKind == ``casActed then
@@ -1256,9 +1283,10 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       | _, _ => pure #[source]
     unless sources.size == applied.size do
       throwStratum .invalid m!"{entry.name} is applied to {sources.size} elements"
+    -- An operand of a set included in the source (`ℝ ∖ {a} ↪ ℝ`) is carried there.
     let elements ← (sources.zip applied).mapM fun (set, arg) => do
       let X ← recognize state set category
-      toElement (← eval scope arg none (some X)) X
+      coerceTo (← eval scope arg none (some X)) X
     return ← applyTo (← quoteExpr semantic) elements targetValue
   let .object b _ _ := targetValue
     | throwStratum .invalid m!"the target of {entry.name} is not an object"
@@ -1293,11 +1321,14 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       if params.all (!·.hasMVar) then found := found.push (entry, params)
   let #[(entry, params)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
-  -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
+  -- Its parameters: numerals, points (`ℝ ∖ {a}` at the point `a`), or sets (`𝒫(ℤ[x])`), recognized
+  -- in turn.
   let values ← params.mapM fun p => do
     if let some n ← (Meta.evalNat p).run then return Value.nat n
     let some sets := state.categories.find? (·.id == CategoryId.sets)
       | throwStratum .invalid m!"no registered category of sets"
+    if let some (_, X) := homEnds? (← instantiateMVars (← inferType p)) then
+      return Value.element p (← recognize state X sets)
     recognize state p sets
   object state entry.name values (some category)
 
@@ -1647,18 +1678,143 @@ partial def pairOf (x y : Value) : M Value := do
   return .element (← mkExpectedTypeHint lift (← mkAppM ``Quiver.Hom #[one, apex]))
     (.object apex category none)
 
-/-- `∫_{a}^{b} e dt`: the registered integral `C(ℝ) × ℝ² → ℝ` at `(t ↦ e, (a, b))`, the map
-admitted into `C(ℝ)` (its continuity established when the statement is read). -/
-partial def definite (scope : Scope) (a b e : Syntax) (dt : Name) : M Value := do
+/-- The binder row `row`'s operation `∀ params, M params ⟶ Y params` at the arguments of a
+notation (`specs/binders.md`, "The rule", step 1): a fresh application of the operation whose last
+`arguments.size` explicit parameters are unified, in order, with the arguments, each an object, a
+point `1 ⟶ X` (a numeral is its registered element of `X`; an element of a set included in `X` is
+carried there), or a morphism. The result is the operation, its arguments, their binder infos and
+its source and target, or `none` when an argument does not unify with its parameter. Unification
+assigns metavariables of the current state: a caller that only asks whether the row reads the
+arguments asks it without modifying the state. -/
+partial def readArguments (row : BinderEntry) (arguments : Array Value) :
+    M (Option (Expr × Array Expr × Array BinderInfo × Expr × Expr)) := do
   let state ← registryState
-  let some t := differentialOf? dt | throwStratum .invalid m!"`∫_…^… e {dt}`: {dt} is not `dt`"
-  let some entry := state.morphisms.find? (·.name == "∫ₐᵇ")
-    | throwStratum .invalid m!"no registered definite integral"
-  let some category := state.categories.find? (·.id == entry.category) | unreachable!
-  let R ← object state "ℝ" #[] none
-  let integrand ← admit (← object state "C" #[] none) (← lambda scope t e R R)
-  let bounds ← #[a, b].mapM fun x => do toElement (← coerceTo (← eval scope x none (some R)) R) R
-  applyFamily entry.declaration category #[integrand, ← pairOf bounds[0]! bounds[1]!]
+  let some category := state.categories.find? (·.id == row.category)
+    | throwStratum .invalid m!"the binder {row.id.raw} names an unregistered category"
+  let constant ← mkConstWithFreshMVarLevels row.operation
+  let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+  let some (source, target) := homEnds? type
+    | throwStratum .invalid m!"the operation of the binder {row.id.raw} is not a family of morphisms"
+  let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+  unless arguments.size ≤ explicit.size do return none
+  let parameters := explicit.extract (explicit.size - arguments.size) explicit.size
+  for (p, v) in parameters.zip arguments do
+    let pType ← instantiateMVars (← inferType p)
+    let unifies ← match v with
+      | .object h .. | .morphism h .. => pure ((← isDefEq pType (← inferType h)) && (← isDefEq p h))
+      | .element h X =>
+          if ← isDefEq pType (← inferType h) then isDefEq p h else
+          -- An element of a set included in the parameter's set is carried there.
+          let some (_, x) := homEnds? pType | pure false
+          let x ← instantiateMVars x
+          if x.hasMVar then pure false else
+          match ← coercionMap X (← recognize state x category) with
+          | some (some ι) => isDefEq p (← mkAppM ``CategoryTheory.CategoryStruct.comp #[h, ι])
+          | _ => pure false
+      | .nat k =>
+          -- A numeral is the registered element `k` of the parameter's set, where one lands.
+          let some (_, x) := homEnds? pType | pure false
+          let x ← instantiateMVars x
+          if x.hasMVar then pure false else
+          match ← numeralElement? k (← recognize state x category) with
+          | some (.element h _) => isDefEq p h
+          | _ => pure false
+      | _ => pure false
+    unless unifies do return none
+  return some (constant, args, infos, source, target)
+
+/-- A binding notation `b` (`∫_{a}^{b} e dt`, `lim_{t → a} e`, `∑_{t ∈ A} e`), read by the binder
+rows `rows` written with its token (`specs/binders.md`, "The rule"). One path reads every binder;
+it names no operation, object or token, and every domain, operation and piece of evidence is a
+row's:
+1. The rows whose operation takes the notation's arguments (`readArguments`) read it.
+2. The bound variable ranges over `D`, the row's `domain` at the operation's parameters, which the
+   arguments determine: a registered object.
+3. The body is read at the stage `D`, `t` its generic element, in the operation's codomain when
+   the arguments determine it: a map `t ↦ e : D → Y'`.
+4. Of the rows that take the arguments, the one whose operation lands in `Y'` reads the statement
+   (a row's codomain is the codomain of the maps its source admits, `∑_{n ∈ ℕ}` in `ℝ`, `ℂ` or
+   `R[[t]]`). The map is admitted into the operation's source `M` by `M`'s registered admission
+   and evidence, and the operation is applied to it.
+A statement no row reads, or several rows read, is invalid; so is one whose map is not
+established to lie in `M`. -/
+partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambient? : Option Value) :
+    M Value := do
+  let state ← registryState
+  let written := m!"`{b.token}` at {b.arguments.toList.map shown}"
+  let arguments ← b.arguments.mapM (eval scope ·)
+  let taking ← rows.filterM fun row => tentatively do
+    return (← readArguments row arguments).isSome
+  if taking.isEmpty then
+    throwStratum .invalid m!"no binder row reads {written}: no registered binder of `{b.token}` \
+      takes these arguments"
+  -- The domain each row determines, and its codomain when the arguments determine it.
+  let readings ← taking.mapM fun row => tentatively do
+    let some (_, args, _, _, target) ← readArguments row arguments | unreachable!
+    let some category := state.categories.find? (·.id == row.category) | unreachable!
+    let domain ← mkConstWithFreshMVarLevels row.domain
+    let D ← recognize state (← instantiateMVars (mkAppN domain args)) category
+    let target ← instantiateMVars target
+    let Y ← if target.hasMVar then pure none else some <$> recognize state target category
+    return (D, Y)
+  let some (D, _) := readings[0]? | unreachable!
+  let d ← semanticObject D
+  let oneDomain ← readings.allM fun (D', _) => do isDefEq d (← semanticObject D')
+  unless oneDomain do
+    throwStratum .invalid m!"several binder rows read {written}, over different domains: \
+      {taking.toList.map (·.id.raw)}"
+  -- The body's codomain: the operation's, when every row determines the same one.
+  let codomain? ← match readings[0]!.2 with
+    | some Y => do
+        let y ← semanticObject Y
+        let same ← readings.allM fun
+          | (_, some Y') => do isDefEq y (← semanticObject Y')
+          | (_, none) => pure false
+        pure (if same then some Y else none)
+    | none => pure none
+  let bodyAmbient? := match codomain? with
+    | some Y => some Y
+    | none => ambient?
+  let body ← match ← atStage scope b.bound D b.body bodyAmbient?, codomain? with
+    -- In the codomain the arguments determine, an element of a set included in it is carried
+    -- there (`t ∈ ℝ ∖ {a} ↪ ℝ`).
+    | v@(.element ..), some Y => withReader (fun ctx => { ctx with stage := some D }) (coerceTo v Y)
+    | v@(.nat _), none => match ← numeralSet b.body none with
+      | some X => toElement v X
+      | none => pure v
+    | v, _ => pure v
+  let .element f Y'@(.object y' category _) := body
+    | throwStratum .invalid m!"the body `{shown b.body}` of {written} is not an element of a set"
+  -- The row whose operation lands in the set of the body.
+  let readers ← taking.filterM fun row => tentatively do
+    let some (_, _, _, _, target) ← readArguments row arguments | unreachable!
+    isDefEq target y'
+  let #[row] := readers
+    | if readers.isEmpty then
+        throwStratum .invalid m!"no binder row reads {written}: none of \
+          {taking.toList.map (·.id.raw)} takes maps into {y'}"
+      else
+        throwStratum .invalid m!"several binder rows read {written}: \
+          {readers.toList.map (·.id.raw)}"
+  let some (constant, args, infos, source, target) ← readArguments row arguments | unreachable!
+  unless ← isDefEq target y' do unreachable!
+  synthesizeInstances args infos
+  let operation ← instantiateMVars (mkAppN constant args)
+  if operation.hasMVar then
+    throwStratum .invalid m!"the parameters of {row.operation} are not determined by {written}"
+  unless ← isTypeCorrect operation do
+    throwStratum .invalid m!"an argument of {row.operation} is outside its declared type"
+  -- The source `M`, a registered object: the map is admitted there, by its admission and evidence.
+  let m ← instantiateMVars source
+  let objects := state.objects.filter fun o =>
+    o.category == row.category && some o.declaration == m.getAppFn.constName?
+  let #[entry] := objects
+    | throwStratum .invalid m!"the source {m} of {row.operation} is not a unique registered object"
+  let bodyMap := Value.morphism f d y' category (some (D, Y'))
+  let admitted ← admitInto entry m category bodyMap
+  let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+  let params ← explicit.mapM fun a => do quoteExpr (← instantiateMVars a)
+  applyTo (← `($(mkCIdent row.operation) $params*)) #[.element admitted (.object m category none)] Y'
 
 /-- `{a₀, a₁, …, ...}`: the image of `k ↦ a₀ + d k` on `ℕ`, `d = a₁ - a₀`. -/
 partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
@@ -1675,53 +1831,6 @@ partial def progression (scope : Scope) (xs : Array Syntax) : M Value := do
   let (a, d) := (Syntax.mkNumLit (toString a), Syntax.mkNumLit (toString d))
   let e ← `(cas_term| $a:num + $d:num · $k:ident)
   imageOf scope e `«progression index» (← object (← registryState) "ℕ" #[] none)
-
-/-- `∑_{t ∈ A} e` (`name` is `∑` or `∏`) over a finite subset `A ∈ 𝒫_fin(X)`: the registered family
-`𝒫_fin(X) → Y` at the map `t ↦ e : X → Y`, applied to `A`. A subset not established to be finite is
-not in its domain. In `R[[s]]`, `∑_{n ∈ ℕ} c · s^n` is the series with coefficients `n ↦ c`
-(`Σ tⁿ`, `ofCoefficients`), not a sum. -/
-partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax)
-    (ambient? : Option Value) : M Value := do
-  let state ← registryState
-  if let some series ← formalSeries? scope name t A e ambient? then return series
-  let subset ← eval scope A
-  let .element A' P@(.object p category (some (finite, #[X]))) := subset
-    | throwStratum .invalid m!"`{name}_\{{t} ∈ …}` ranges over a finite subset (in 𝒫_fin(X))"
-  unless finite.name == "𝒫_fin" do
-    throwStratum .invalid m!"`{name}_\{{t} ∈ {shown A}}`: {shown A} is not established to be \
-      finite (an element of 𝒫_fin, not of {finite.name})"
-  let .element f Y ← atStage scope t X e none
-    | throwStratum .invalid m!"`{shown e}` is an element"
-  let some entry := state.morphisms.find? (·.name == name)
-    | throwStratum .invalid m!"no registered {name}"
-  let .object y .. := Y | unreachable!
-  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y])*
-    $(← quoteExpr f))) p y category
-  return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[A', family]) Y
-
-/-- `∑_{n ∈ ℕ} c · s^n` in `R[[s]]`, `s` the variable of `R[[s]]`: the series with the coefficients
-`n ↦ c : ℕ → R` (the registered `Σ tⁿ`). `none` for any other big operator. -/
-partial def formalSeries? (scope : Scope) (name : String) (n : Name) (A e : Syntax)
-    (ambient? : Option Value) : M (Option Value) := do
-  let state ← registryState
-  let some S@(.object s category (some (series, #[R]))) := ambient? | return none
-  let some entry := state.morphisms.find? (·.name == "Σ tⁿ") | return none
-  unless name == "∑" && series.generator.isSome do return none
-  let `(cas_term| $c · $v:ident ^ $k:ident) := e | return none
-  unless k.getId == n do return none
-  let some (.element _ (.object _ _ (some (vSet, _)))) := (← read).bound.lookup v.getId
-    | return none
-  unless vSet.id == series.id do return none
-  let N ← eval scope A
-  let .object _ _ (some (naturals, #[])) := N | return none
-  unless naturals.name == "ℕ" do return none
-  let .element c _ ← withReader (fun ctx => { ctx with stage := some N }) do
-      coerceTo (← atStage scope n N c (some R)) R
-    | throwStratum .invalid m!"`{shown c}` is a coefficient in {shown A}"
-  let .object one .. ← oneObject | unreachable!
-  let hom ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[R])* $(← quoteExpr c)))
-    one s category
-  return some (.element (← staged hom) S)
 
 /-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
 action `•` of `a` on `b` (`(6x + 1) dx`), else the registered application of `a` (`M v`). -/
@@ -1976,47 +2085,54 @@ partial def toElement (v : Value) (X : Value) : M Value := do
   match v with
   | .element .. => return v
   | .nat k =>
-      let state ← registryState
-      let .object x category (some (entry, params)) := X
-        | throwStratum .invalid m!"a numeral is an element of a named set"
-      unless category.id == CategoryId.sets do
-        -- An object with more structure (a finite set): the function `1 → X` with value `k`.
-        let .morphism hom _ _ _ _ ← graphOf (← oneObject) X #[(0, k)] | unreachable!
-        return .element (← staged hom) X
-      if entry.admission.isSome then
-        let some (_, b) ← inclusionOut? X
-          | throwStratum .invalid m!"{entry.name} has an admission and no inclusion"
-        let B ← recognize state b category
-        return ← admit X (← toElement v B)
-      let one ← semanticObject (← oneObject)
-      let refinements ← (state.objects.filter (·.refines.any (·.base == entry.id))).mapM fun o =>
-        return (o.category, ← Semantic.object o (← paramTerms params))
-      match ← numeralIn state k one (← semanticObject X) refinements with
-      | some numeral =>
-          let .object oneHandle .. ← oneObject | unreachable!
-          return .element (← staged (← homIn (← quoteExpr numeral) oneHandle x category)) X
+      match ← numeralElement? k X with
+      | some element => return element
       | none =>
-          -- `0` of a set with a registered zero element (`0 ∈ Kⁿ`, the unit of its addition): that
-          -- element, by name.
-          if k == 0 then
-            if let some zero := state.morphisms.find? fun m =>
-                m.name == "0" && m.category == category.id then
-              if (← familyLandsIn zero.declaration X) then
-                let hom ← zeroElement zero.declaration X
-                return .element (← staged hom) X
-          -- A set of constants from its parameter `P` without numerals of its own: the image of
-          -- the numeral of `P`.
-          if let (some _, some P@(Value.object ..)) :=
-              (entry.constants, params.find? (· matches .object ..)) then
-            return ← coerceTo (← toElement v P) X
-          -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the
-          -- numeral of `ℕ` along that monomorphism.
-          if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
-            if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
-              let N ← object state "ℕ" #[] none
-              return ← coerceTo (← toElement v N) X
+          let .object _ _ (some (entry, _)) := X | unreachable!
           throwStratum .invalid m!"no registered numeral lands in {entry.name}"
   | _ => return v
+
+/-- The element the numeral `k` names in the named set `X` (`toElement`), or `none` when no
+registered numeral lands in `X`. -/
+partial def numeralElement? (k : Nat) (X : Value) : M (Option Value) := do
+  let state ← registryState
+  let .object x category (some (entry, params)) := X
+    | throwStratum .invalid m!"a numeral is an element of a named set"
+  unless category.id == CategoryId.sets do
+    -- An object with more structure (a finite set): the function `1 → X` with value `k`.
+    let .morphism hom _ _ _ _ ← graphOf (← oneObject) X #[(0, k)] | unreachable!
+    return some (.element (← staged hom) X)
+  if entry.admission.isSome then
+    let some (_, b) ← inclusionOut? X
+      | throwStratum .invalid m!"{entry.name} has an admission and no inclusion"
+    let B ← recognize state b category
+    return some (← admit X (← toElement (.nat k) B))
+  let one ← semanticObject (← oneObject)
+  let refinements ← (state.objects.filter (·.refines.any (·.base == entry.id))).mapM fun o =>
+    return (o.category, ← Semantic.object o (← paramTerms params))
+  if let some numeral ← numeralIn state k one (← semanticObject X) refinements then
+    let .object oneHandle .. ← oneObject | unreachable!
+    return some (.element (← staged (← homIn (← quoteExpr numeral) oneHandle x category)) X)
+  -- `0` of a set with a registered zero element (`0 ∈ Kⁿ`, the unit of its addition): that
+  -- element, by name.
+  if k == 0 then
+    if let some zero := state.morphisms.find? fun m =>
+        m.name == "0" && m.category == category.id then
+      if (← familyLandsIn zero.declaration X) then
+        let hom ← zeroElement zero.declaration X
+        return some (.element (← staged hom) X)
+  -- A set of constants from its parameter `P` without numerals of its own: the image of the
+  -- numeral of `P`.
+  if let (some _, some P@(Value.object ..)) :=
+      (entry.constants, params.find? (· matches .object ..)) then
+    return some (← coerceTo (← toElement (.nat k) P) X)
+  -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the numeral of
+  -- `ℕ` along that monomorphism.
+  if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
+    if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
+      let N ← object state "ℕ" #[] none
+      return some (← coerceTo (← toElement (.nat k) N) X)
+  return none
 
 /-- The registered inclusion `D ↪ B` out of the named set `D` (`Mˣ ↪ M`, `𝒫_fin(X) ↪ 𝒫(X)`), read
 semantically, and `B`. -/
@@ -2040,6 +2156,12 @@ admission takes the term it built. An element at a stage (a variable) has no suc
 partial def admit (D : Value) (v : Value) : M Value := do
   let .object d category (some (entry, _)) := D
     | throwStratum .invalid m!"a domain is a named set"
+  return .element (← admitInto entry d category v) D
+
+/-- `v` admitted into the object `d` of `category`, a value of the object row `entry`, by its
+registered admission and evidence (`admit`): the element `1 ⟶ d`. -/
+partial def admitInto (entry : ObjectEntry) (d : Expr) (category : NamedCategoryEntry) (v : Value) :
+    M Expr := do
   let some admission := entry.admission
     | throwStratum .invalid m!"{entry.name} registers no admission"
   let some evidence := entry.evidence
@@ -2058,7 +2180,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
   let one ← semanticObject (← oneObject)
   let c ← mkConstWithFreshMVarLevels admission
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType c)
-  unless ← isDefEq type (← mkAppM ``Quiver.Hom #[one, ← semanticObject D]) do
+  unless ← isDefEq type (← mkAppM ``Quiver.Hom #[one, d]) do
     throwStratum .invalid m!"the admission of {entry.name} does not land in it"
   let explicit := (List.range args.size).toArray.filter (infos[·]!.isExplicit)
   -- The element: the first explicit binder the target does not depend on (the parameters of the
@@ -2079,7 +2201,7 @@ partial def admit (D : Value) (v : Value) : M Value := do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
   let admitted ← instantiateMVars (mkAppN c args)
   let .object oneHandle .. ← oneObject | unreachable!
-  return .element (← homIn (← quoteExpr admitted) oneHandle d category) D
+  homIn (← quoteExpr admitted) oneHandle d category
 
 /-- The registered operation `name` on elements of the set `X`: the operation of the category of
 `X`'s unique refinement that has one of that name, at that refinement. Its morphism
@@ -2548,18 +2670,16 @@ def letBinding? (stx : Syntax) : TermElabM (Option (Name × Syntax)) := do
       | _ => return some (f.getId, ← `(cas_term| $t:ident ↦ $e))
   | _ => return none
 
-/-- The variables a term binds (`t` in `t ↦ e`, `{t ∈ X | P}`, `{e | t ∈ X}`, `∑_{t ∈ A} e`). -/
+/-- The variables a term binds (`t` in `t ↦ e`, `{t ∈ X | P}`, `{e | t ∈ X}`, and in a binding
+notation, `∑_{t ∈ A} e`). -/
 partial def binders (stx : Syntax) : Array Name :=
   let own : Array Name := match stx with
     | `(cas_term| $t:ident ↦ $_) => #[t.getId]
     | `(cas_term| {$t:ident ∈ $_ | $_}) => #[t.getId]
     | `(cas_term| {$_ | $t:ident ∈ $_}) => #[t.getId]
-    | _ =>
-      if stx.getKind == ``casBig then #[stx[2].getId]
-      else if stx.getKind == ``casLimit then #[stx[1].getId]
-      else if stx.getKind == ``casDefinite then
-        #[stx[6].getId] ++ (differentialOf? stx[6].getId).toArray
-      else #[]
+    | _ => match binding? stx with
+      | some b => b.names
+      | none => #[]
   own ++ stx.getArgs.flatMap binders
 
 /-- Whether a term is the variable `v`. -/

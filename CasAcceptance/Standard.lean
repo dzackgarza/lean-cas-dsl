@@ -47,6 +47,7 @@ def validateStandardManifest (manifest : RegistryManifest) : Except String Unit 
   validateStableIds "cells" (manifest.cells.map (·.id))
   validateStableIds "limits" (manifest.limits.map (·.id))
   validateStableIds "adjunctions" (manifest.adjunctions.map (·.id))
+  validateStableIds "binders" (manifest.binders.map (·.id))
   validateStableIds "opaque categories" (manifest.opaqueCategories.map (·.id))
   validateStableIds "opaque ports"
     (manifest.opaqueCategories.flatMap (fun category => category.ports.map (·.id)))
