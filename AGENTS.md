@@ -175,6 +175,9 @@ Consequences, binding on every agent and first of all the orchestrator:
   reports (results, findings, questions, blockers) goes in its pull request's description, a
   GitHub review or a PR comment; a question it cannot settle is posted there and it continues
   with what does not depend on it. The orchestrator reads those, never the session's chat.
+  The brief also authorizes the posting itself ("post your result on the PR; do not wait for a
+  go-ahead"): a session that holds its output for approval waits forever, because a Routine
+  message does not count as its user's approval.
   To message a dispatched cloud session (a correction, a review to address, a nudge), create a
   Routine bound to it (`create_trigger` with `persistent_session_id` = that session, the message as
   its prompt, no schedule) and `fire_trigger` it: the message arrives as a user turn and wakes the
