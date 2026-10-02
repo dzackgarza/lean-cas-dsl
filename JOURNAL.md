@@ -19,6 +19,13 @@ per working session; terse. Not an authority: rules live in their owning documen
   `7512bd3` fingerprints the terms a settled judgement is about (stable, no regression). Integrated
   into main. Recording dispatched: acceptance session_01HaXGBsWn4kWiAHP3TFzayQ. Formalization
   session_01L7hVsUoY69WmjyYJydyQxN (group-valued constructions) dispatched.
+- Controller defect found on acceptance PR #61: in construction the reviewer was given the
+  seal-relative file list but main-relative diffs (33 files, none shown) and answered "evidence
+  needed". `811d72c`: construction reviews the PR's delta against main, ledger included
+  (test_review 52/52). `fa442c4`: semgrep POLICY.RUNTIME_DEFAULT findings in review.py and the
+  acceptance scripts repaired. PR #61 branch updated to main for re-review; subscribed.
+- Formalization PR lean-categories#76 open (units, nonzero/monic evidence); leaf session unblocked
+  (owner approved add_repo).
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
