@@ -1,6 +1,6 @@
 -- Candidate assertions for the fixed B0 formed-module cardinality obligation.
 -- Submitted for independent review; this file does not admit its own assertions.
--- Mathematical input: lean_categories 5b96a8a4211376bd4996c8f063ff63574057984b,
+-- Independently assessed mathematical input: accepted lean_categories b249ca2,
 -- LeanCategories.Lattices.Integral.dual and the registered A_dual object.
 -- Cardinality is that of the carrier, rather than the form's value module.
 
