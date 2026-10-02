@@ -2679,7 +2679,13 @@ def Value.terms : Value → Array Expr
 relation: what a settled judgement relates, and how. -/
 partial def judgedTerms (scope : Scope) (stx : Syntax) : M (Array Expr) := do
   let here ← match stx with
-    | `(cas_term| $x ∈ $y) => pure (#[mkStrLit "∈"] ++ (← eval scope x).terms ++ (← eval scope y).terms)
+    | `(cas_term| $x ∈ $y) =>
+        -- The element as the judgement reads it: a numeral is the element of `y` it names.
+        let Y ← eval scope y
+        let v ← match ← eval scope x with
+          | v@(.nat _) => toElement v Y
+          | v => pure v
+        pure (#[mkStrLit "∈"] ++ v.terms ++ Y.terms)
     | `(cas_term| $x ⊆ $y) => pure (#[mkStrLit "⊆"] ++ (← eval scope x).terms ++ (← eval scope y).terms)
     | _ => pure #[]
   if !here.isEmpty then return here
