@@ -2719,8 +2719,8 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
           let v@(.element _ (.object y ..)) ← eval scope t
             | throwStratum .invalid m!"`{shown t}` is not an element"
           if x == y || (← withTransparency .all <| isDefEq x y) then
-            return .settled .holds (#[mkStrLit "∈", x] ++ v.terms)
-          let about := #[mkStrLit "∈", x] ++ v.terms
+            return .settled .holds (#[mkStrLit "∈"] ++ v.terms ++ #[x])
+          let about := #[mkStrLit "∈"] ++ v.terms ++ #[x]
           return .settled (.wrong s!"{shown t} is not an element of {shown X}") about
       | _ =>
           let v ← eval scope (← `(cas_term| $t in $X))
