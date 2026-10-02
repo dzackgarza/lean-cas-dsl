@@ -228,7 +228,7 @@ fresh()
 commit(S / "head")
 expect("a head that replaces the root seal", run(), "FAIL (hard)")
 
-# The decision paths of the corrected controller (specs/architecture.md, Policy 7).
+# The decision paths of the corrected controller (specs/architecture.md, policy 6).
 fresh()
 with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- reviewed during an outage\n")

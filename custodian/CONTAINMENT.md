@@ -134,7 +134,7 @@ The reviewer decides every boundary change, wherever it is: the kernel, an upstr
 gate, a probe, an acceptance file or `custodian/` itself. A path is never evidence of a violation.
 The owner is involved only for a change of requirement, completion standard or reserved
 authority. A change that preserves the governing obligations may remove, narrow, replace or
-relocate the control implementing them (specs/architecture.md, Policy 5).
+relocate the control implementing them (specs/architecture.md, policy 2).
 
 The reviewer is a Claude Code call (`claude -p`) with no tools, no settings and no MCP servers,
 authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one per batch of a large
