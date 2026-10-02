@@ -13,7 +13,7 @@ from its value module; their original expected answers remain unchanged.
 
 | Assertion identity | Complete mathematical question |
 | --- | --- |
-| `b0.lattices.rank.e8` | The Z-module rank of the selected `e8Lattice` object of `IntegralLatticeCat Z`, reached through its actual integral-lattice module functor, equals 8. Its selected form and integral base ring remain attached to the operand. |
+| `b0.lattices.rank.e8` | The Z-module rank of the selected `e8Lattice` object of `IntegralLatticeCat Z`, reached through its actual integral-lattice module functor, equals 8. This is its negative-definite simple-root Gram form on `Fin(8) → Z`; this form and integral base ring remain attached to the operand. |
 | `b0.groups.abelian.cyclic3` | Commutativity holds for the selected group `cyclic(3)=GrpCat.of(Multiplicative(ZMod 3))`. Its group operation is residue addition, displayed multiplicatively. This is a property proposition on that group; it does not refine or retype its carrier. |
 | `b0.groups.abelian.symmetric3` | Commutativity of the selected group `symmetric(3)=GrpCat.of(Perm(Fin 3))`, with permutation composition, has Boolean value false. This is not a property of an unspecified operation on its carrier. |
 | `b0.groups.kernel.sign.card` | The group kernel of the actual parity map `sign(3):symmetric(3) → cyclic(2)` has carrier cardinality 3, retaining its kernel inclusion into `symmetric(3)` and the kernel cone. The sign value +1 corresponds to group identity in the cyclic target, that is additive residue 0. |
@@ -22,6 +22,7 @@ from its value module; their original expected answers remain unchanged.
 | `b0.groups.alternating3.card` | The subgroup object `alternating(3)`, the alternating subgroup of the chosen `symmetric(3)`, has carrier cardinality 3 through its structural domain-to-group-to-set route. The defining monomorphism is the element inclusion into `symmetric(3)`. |
 | `formed_modules.card.dual_a0` | The carrier cardinality of the selected `rootADual(0)` object of `BilWFormCat Z`, with value module Q and its restricted rational form, equals 1. Cardinality of its value module Q is not the requested observation. |
 | `formed_modules.card.dual_a2` | The carrier cardinality of the selected `rootADual(2)` object of `BilWFormCat Z`, with value module Q and its restricted rational form, equals aleph_0. Its actual formed carrier and structural carrier route remain attached to the question. |
+| `b0.presentations.f9.generator_transport` | Application of the accepted `quadraticComparison` from the selected `first=F3[X]/(X²+1)` presentation to the distinct `second=F3[Y]/(Y²+Y+2)` presentation sends the source distinguished root to the sum of the target distinguished root and target-ring numeral 2. Each occurrence of `x` is resolved in its own named presentation; the spelling of a generator does not identify the two objects or their roots. |
 
 Kernel inclusions are retained universal data. Their defining equation in groups
 is that composing the inclusion with the specified map yields the trivial
@@ -38,7 +39,10 @@ transparent carrier equality, establish this selection.
 
 Nonidentity F₉ transport retains the separately named `first` and `second`
 quotient presentations and `quadraticComparison`; its independently established
-expected image is the target generator plus its constant 2. The approved
-language spelling of generator selection and explicit comparison application
-is a remaining source input for its executable assertion. The mathematical
-question and expected answer are already fixed in the prior proposal.
+expected image is the target generator plus its constant 2. The assertion uses
+the SPEC's existing contextual `in` and `map ... to ...` forms. The source
+generator is explicitly scoped by `in F9x`; the target generator and numeral
+are scoped by `in F9y`. The unique admitted presentation comparison for these
+named endpoints supplies the actual map; no equality of presentations is
+asserted. Reading this generic notation must retain that comparison, not
+silently substitute an identity, a backend equality or a coefficient-only map.

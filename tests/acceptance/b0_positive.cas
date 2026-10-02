@@ -30,3 +30,6 @@ test b0.groups.kernel.identity.card "Dummit–Foote ch. 3 section 1: the kernel 
 
 test b0.groups.alternating3.card "Dummit–Foote ch. 1 section 3; A_3 consists of the identity and the two 3-cycles, with its defining inclusion A_3 into S_3":
   assert |Alt(3)| = 3
+
+test b0.presentations.f9.generator_transport "Polynomial quotient universal property: the chosen comparison sends the source root x to target root y+2, since (y+2)^2+1=y^2+y+2=0 in F_3[y]/(y^2+y+2); its inverse sends y to x+1":
+  assert (map (x in F9x) to F9y) = x + 2 in F9y
