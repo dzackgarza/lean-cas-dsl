@@ -178,7 +178,12 @@ Consequences, binding on every agent and first of all the orchestrator:
   To message a dispatched cloud session (a correction, a review to address, a nudge), create a
   Routine bound to it (`create_trigger` with `persistent_session_id` = that session, the message as
   its prompt, no schedule) and `fire_trigger` it: the message arrives as a user turn and wakes the
-  session. Never correct a brief by replacing the session; message it.
+  session. One Routine per message: fire it once, then disable it (`update_trigger`,
+  `enabled: false`; deleting it deletes the sessions it started). Firing a Routine a second time
+  starts a fresh, unrelated session instead of messaging the bound one. Never correct a brief by
+  replacing the session; message it.
+- **Every orchestrator commit carries `Agent-Role: orchestrator`** beside its `Claude-Session:`
+  trailer; the authorship gate fails main without it, and history cannot add it later.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
