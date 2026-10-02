@@ -25,10 +25,10 @@ binder path (`CasCatalogue.Language.bind`), with no manifest installed:
 * **A statement no row reads is invalid.** `∑_{t ∈ {1, 2}} t`: `{1, 2}` is a subset in `𝒫(ℤ)`, not
   established to be finite, and no row of `∑` takes it. `∑_{n ∈ ℕ} n`: the rows of `∑` over an
   index set take `ℕ`, and none of them lands in `ℕ`, the set of the body.
-* **A statement two rows read is invalid.** Over a table in which `∑` writes both the sum and the
+* **A statement two rows read is a semantic ambiguity.** Over a table in which `∑` writes both the sum and the
   product over a finite subset (`bind.sets.finite_sum`, and `bind.sets.finite_product` given the
   token `∑`; a table of this probe, registered nowhere), `∑_{a ∈ A} a` for the finite set `A` of
-  the complex roots of `x³ - 2x + 1` is read by both rows, and is invalid. Over the registered
+  the complex roots of `x³ - 2x + 1` is read by both rows, and is ambiguous. Over the registered
   rows of `∑` alone it is read.
 -/
 
@@ -107,7 +107,7 @@ run_cmd do
     unless outcome.kind == "invalid" && mentions outcome.detail "no binder row reads" do
       throwError "`{text}` is {repr outcome}, not invalid for want of a reading row"
 
--- A statement two rows read is invalid: over a table in which `∑` writes the sum and the product
+-- A statement two rows read is a semantic ambiguity (its own stratum, not invalid): over a table in which `∑` writes the sum and the product
 -- over a finite subset, `∑_{a ∈ A} a` is read by both. Over the registered rows of `∑` it is read.
 run_cmd do
   let harness ← (Harness.empty : IO Harness)
@@ -121,8 +121,8 @@ run_cmd do
   let some product := state.binders.find? (·.id.raw == "bind.sets.finite_product")
     | throwError "no row bind.sets.finite_product"
   let (kind, detail) ← readingBy scope (registered.push { product with token := "∑" }) text
-  unless kind == "invalid" && mentions detail "several binder rows read" &&
+  unless kind == "ambiguous" && mentions detail "several binder rows read" &&
       mentions detail "bind.sets.finite_sum" && mentions detail "bind.sets.finite_product" do
-    throwError "`{text}` over the sum and the product is {kind}: {detail}, not invalid for two rows"
+    throwError "`{text}` over the sum and the product is {kind}: {detail}, not ambiguous for two rows"
 
 end CasCatalogue.BinderProbes

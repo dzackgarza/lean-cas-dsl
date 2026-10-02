@@ -1743,8 +1743,9 @@ row's:
    (a row's codomain is the codomain of the maps its source admits, `∑_{n ∈ ℕ}` in `ℝ`, `ℂ` or
    `R[[t]]`). The map is admitted into the operation's source `M` by `M`'s registered admission
    and evidence, and the operation is applied to it.
-A statement no row reads, or several rows read, is invalid; so is one whose map is not
-established to lie in `M`. -/
+A statement no row reads is invalid, and one several rows read is a semantic ambiguity (its own
+stratum, never merged into invalidity); a statement whose map is not established to lie in `M` is
+invalid. -/
 partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambient? : Option Value) :
     M Value := do
   let state ← registryState
@@ -1770,7 +1771,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
   let d ← semanticObject D
   let oneDomain ← readings.allM fun (D', _) => do isDefEq d (← semanticObject D')
   unless oneDomain do
-    throwStratum .invalid m!"several binder rows read {written}, over different domains: \
+    throwStratum .semanticAmbiguity m!"several binder rows read {written}, over different domains: \
       {taking.toList.map (·.id.raw)}"
   -- The body's codomain: the operation's, when every row determines the same one.
   let codomain? ← match Y₀? with
@@ -1804,7 +1805,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
         throwStratum .invalid m!"no binder row reads {written}: none of \
           {taking.toList.map (·.id.raw)} takes maps into {y'}"
       else
-        throwStratum .invalid m!"several binder rows read {written}: \
+        throwStratum .semanticAmbiguity m!"several binder rows read {written}: \
           {readers.toList.map (·.id.raw)}"
   let some { constant, args, binderInfos := infos, source, target } ← readArguments row arguments
     | throwError "the binder {row.id.raw} no longer takes the arguments it took"
