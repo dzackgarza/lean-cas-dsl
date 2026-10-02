@@ -310,6 +310,24 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
       | .error message => pure (.error s!"{j.compress} is not the graph of a morphism \
           {type}: {message}")
   if (j.getObjValAs? String "ctor").toOption.any fun id => state.objects.any (·.id.raw == id) then
+    -- An object named in another category is read through the unique registered object of this
+    -- category that refines it (`Fin(n)` of `Sets` as `Fin(n)` in `FiniteSets`), at the same
+    -- parameters; the refinement row's identification is what relates the two.
+    let j ← match j.getObjValAs? String "ctor" with
+      | .ok id =>
+          match state.objects.find? (·.id.raw == id) with
+          | some named =>
+              if named.category == category.id then pure j else
+              match state.objects.filter (fun o => o.category == category.id &&
+                  o.refines.any (·.base == named.id)) with
+              | #[above] =>
+                  let .ok args := j.getObjVal? "args"
+                    | return .error s!"{j.compress} has no `args` array"
+                  pure (Json.mkObj [("ctor", above.id.raw), ("args", args)])
+              | _ => return .error s!"{id} is not an object of {category.name}, and no unique \
+                  registered object of {category.name} refines it"
+          | none => pure j
+      | .error _ => pure j
     match ← decodeObject trace j with
     | .error message => return .error message
     | .ok (entry, value) =>
@@ -353,12 +371,8 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
             {id.raw} is not encoded ({message})"
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
-      let some category := state.categories.find? (·.id == row.category)
+      let some rowCategory := state.categories.find? (·.id == row.category)
         | throwStratum .invalid m!"the category of {id.raw} is not registered"
-      if let some lift := lift? then
-        throwStratum .noImplementation m!"no registration computes {what}: its diagram is \
-          returned along the lift {lift.raw}, and the realized reading does not send a diagram \
-          along a lift"
       -- The diagram's data: the explicit arguments of its standard form, in their forms.
       let D ← instantiateMVars D
       let .const standard _ := D.getAppFn
@@ -369,12 +383,29 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let data := (D.getAppArgs.zip infos).filterMap fun (a, i) =>
         if i.isExplicit then some a else none
       let wires ← data.mapM fun a => realize h trace s!"the diagram of {id.raw} in {what}" a
+      -- The category the diagram is in: the row's, or, for a limit returned along a creation lift,
+      -- the category above, read off the forms of its realized data. The registration of the row's
+      -- category computes it, and its answer is decoded and checked in the diagram's category
+      -- (an object named below is read through the registered object that refines it above).
+      let category ← match lift? with
+        | none => pure rowCategory
+        | some lift =>
+            let ids := wires.foldl (fun acc w => if acc.contains w.form.category then acc
+              else acc.push w.form.category) (#[] : Array CategoryId)
+            let some c := ids[0]? | throwStratum .noImplementation m!"nothing computes {what}: \
+                its diagram has no data"
+            unless ids.size == 1 do
+              throwStratum .invalid m!"the diagram of {id.raw}, returned along {lift.raw}, has \
+                data in several categories"
+            let some entry := state.categories.find? (·.id == c)
+              | throwStratum .invalid m!"the category {c.raw} is not registered"
+            pure entry
       -- The diagram sent is the standard form at the realized values of its data (the apex of an
       -- earlier realized limit is its leaf's object, not the catalogue's presentation of it), its
       -- implicit arguments determined by them; its cone is decoded at that diagram.
       let sent ← mkAppM standard (wires.map (·.value))
       let input : Wire :=
-        { form := .diagrams category, value := sent
+        { form := .diagrams rowCategory, value := sent
           json := Json.mkObj [("ctor", Codec.label standard),
                               ("args", Json.arr (wires.map (·.json)))] }
       let (answer, backend) ← send h id.raw input
