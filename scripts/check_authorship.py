@@ -37,6 +37,18 @@ CUTOFF = "2026-10-01T07:11:37+00:00"
 # `custodian`: only paths inside the custodian seal (custodian/CONTAINMENT.md), so declaring the role
 # grants no write the seal does not refuse.
 ROLES = ("orchestrator", "formalization", "acceptance", "leaf", "custodian")
+# Commits pushed to a protected branch without their `Agent-Role:` trailer, which history can no
+# longer carry: the role each declared after the fact. Every entry is a change of this gate, which
+# is inside the custodian seal, so it is reviewed; the role is checked against the paths like any
+# trailer, and an entry never exempts a commit from the other rules.
+ATTRIBUTED: dict[str, str] = {
+    "9372a145b5f353ae07b24e5f92a6e4590c6e3955": "orchestrator",
+    "72fc3ba498fdbae367e3246c59138b7f054523eb": "orchestrator",
+    "2f11e36392e7e90b4605f49835680a9d19cdf378": "orchestrator",
+    "70ab538b4f9afdb7bf7d30baf67670443395b2f2": "orchestrator",
+    "41c08c610109aeb15150fb4e0ef1484b6e43c1ce": "orchestrator",
+    "e292368d5ebbebc90833e0c0f78261d1436231d9": "orchestrator",
+}
 ADMITTED = "CasAcceptance/Permanent/admitted.json"
 
 # (repository, role) -> path patterns; the first matching role wins.
@@ -46,7 +58,8 @@ LAYERS: dict[str, list[tuple[str, list[str]]]] = {
         # material the orchestrator replaces (specs/architecture.md, "Operating phase: B0
         # construction"), so it falls under the orchestrator below.
         ("acceptance", ["tests/acceptance/*", "CasAcceptance/Permanent/*.lean",
-                        "CasAcceptance/Permanent/questions.json"]),
+                        "CasAcceptance/Permanent/questions.json",
+                        "CasAcceptance/Permanent/question_readings.json"]),
         ("leaf", ["CasLeaves/*"]),
         ("orchestrator", ["*"]),
     ],
@@ -140,7 +153,8 @@ def commits(name: str, repo: Path) -> list[dict]:
             if role != "neutral":
                 roles.add(role)
         out.append({"repo": name, "sha": sha[:9], "agent": agent,
-                    "declared": trailer(message, "Agent-Role"), "roles": roles,
+                    "declared": trailer(message, "Agent-Role") or (ATTRIBUTED[sha] if sha in ATTRIBUTED else None),
+                    "roles": roles,
                     "subject": message.splitlines()[0] if message else ""})
     return out
 
