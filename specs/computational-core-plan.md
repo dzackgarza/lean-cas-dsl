@@ -136,7 +136,7 @@ row is not B0-complete until the whole tuple is accepted (Definition).
 | `lc-units-structure`, `cc-universal` | blocked | upstream: group-valued constructions (formalization dispatched) |
 | `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` | met (kernel); open (execution) | kernel probes over `CasAcceptance/Strata`; real registrations for the required assertions dispatched to the leaf author; Sage/GAP absent on the construction host |
 | `cc-observations` | met | RegistrationProbes (`|(ℤ/4)^3| = 64` holds through a registration, wrong answers are `wrong`) |
-| `gov-meaning-permanence` | mechanism built | `b0/meaning-permanence`; initial questions recorded by the acceptance author |
+| `gov-meaning-permanence` | mechanism built | `c09e06d`: a question per read assertion (137/149), stable across runs; `check_question_permanence.py` in the Gates acceptance job; the initial record is the acceptance author's |
 | `b0-authority` | open | completion requirement |
 | `b0-trials` | not started | stage E, after the kernel is fixed |
 

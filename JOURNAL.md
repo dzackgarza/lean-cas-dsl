@@ -13,8 +13,9 @@ per working session; terse. Not an authority: rules live in their owning documen
   formalization session_01DPvLuRKBcdBVf1shacNovT, leaf session_014DrMxP5s6WX9xcYZRUrjyW.
   SendMessage cannot reach cloud sessions from this session; a brief is corrected by replacement.
 - gov-meaning-permanence: `c5aa80e` on `b0/meaning-permanence` (claimQuestion fingerprint per
-  statement in the report; check_question_permanence.py; gate wired). Pending: stability of the
-  fingerprint across two runs; then the acceptance author records the initial questions.
+  statement in the report; check_question_permanence.py; gate wired). Stable across two
+  runs: 137 of 149 assertions carry a question (the 11 without are the invalid ones, unread);
+  suite vs main: no regression. Next: the acceptance author records the initial questions.
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
