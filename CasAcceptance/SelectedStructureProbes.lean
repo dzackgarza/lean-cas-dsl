@@ -22,7 +22,7 @@ meta def recognizedName (c : Name) (xs : Array Expr) : TermElabM String := do
   let state ← registryState
   let some sets := state.categories.find? (·.id == CategoryId.sets) | throwError "no sets"
   match ← (recognize state (← mkAppOptM c (xs.map some)) sets).run {} with
-  | .object _ _ (some (entry, _)) => pure entry.name
+  | .object _ _ (some (entry, _)) _ => pure entry.name
   | _ => throwError "{c} is not recognized as a named object"
 
 run_elab do
