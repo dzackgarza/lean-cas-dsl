@@ -21,9 +21,14 @@ cardinality is its finite cardinal image. A subset equality is extensional in it
 specified ambient set. A map equality retains its domain, codomain and composite
 order. Unbound variables in map identities are universally quantified.
 
-The structural path is part of a question when needed for propagation: lattices
-forget to their actual formed modules, then modules, then carrier sets; module rank
-uses the declared base ring. Ring carrier observations use the admitted comparison
+The structural path is part of a question when needed for propagation. The named
+A(n), A_dual(n) and to_dual(n) are exactly the accepted `BilWFormCat Z` objects
+and morphism from `Integral.lean`, not an implicit retyping into a differently
+parameterized lattice category. Their carrier route is the actual `bilWFormCarrier`
+functor to Z-modules, followed by the module carrier functor to sets. A(n)'s value
+module is Z, while A_dual(n)'s is Q; the inclusion retains the corresponding
+Z-linear map on values. Module rank uses the declared base ring.
+Ring carrier observations use the admitted comparison
 of structural carrier routes, rather than whichever route happens to be installed
 first. A construction retains its domain, codomain, defining arrows and prescribed
 lift. Formed-module kernels therefore retain the restricted form; an equality of
