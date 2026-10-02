@@ -2704,8 +2704,9 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
       -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
       -- It is the catalogue's judgement.
       if let some (C, Y) := categoryOver? (← registryState) X then
-        return .settled .holds (#[mkStrLit s!"in {C.id.raw} over"] ++
-          (← inCategoryOver scope t C Y).terms ++ (← eval scope Y).terms)
+        let v ← inCategoryOver scope t C Y
+        let base ← eval scope Y
+        return .settled .holds (#[mkStrLit s!"in {C.id.raw} over"] ++ v.terms ++ base.terms)
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
       | .object x .. =>
@@ -2713,10 +2714,11 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
             | throwStratum .invalid m!"`{shown t}` is not an element"
           if x == y || (← withTransparency .all <| isDefEq x y) then
             return .settled .holds (#[mkStrLit "∈", x] ++ v.terms)
-          return .settled (.wrong s!"{shown t} is not an element of {shown X}")
-            (#[mkStrLit "∈", x] ++ v.terms)
-      | _ => return .settled .holds
-          (#[mkStrLit "in"] ++ (← eval scope (← `(cas_term| $t in $X))).terms)
+          let about := #[mkStrLit "∈", x] ++ v.terms
+          return .settled (.wrong s!"{shown t} is not an element of {shown X}") about
+      | _ =>
+          let v ← eval scope (← `(cas_term| $t in $X))
+          return .settled .holds (#[mkStrLit "in"] ++ v.terms)
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
       if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
