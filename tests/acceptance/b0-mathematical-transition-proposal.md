@@ -107,3 +107,24 @@ and maps. Actual candidate typed-question claims still require comparison to
 these questions at the tested tuple. No candidate reading or computation has
 been inspected or promoted into an expected interpretation here, and no
 protected semantic dependency transition has been performed by this proposal.
+
+## Subsequent reviewed punctured-domain exposure
+
+The independently reviewed public mathematical input
+`b76ec3d60d83a5568d0661ae1d5279e7ab5a4bc9` adds a dependent inclusion row
+`incl.sets.punctured_units` citing the existing `puncturedUnits` map and its
+monomorphism theorem. Its mathematical declaration retains the point parameter,
+the obligation that this point equals zero, and the selected real multiplicative
+monoid. The previous reviewed input
+`6ba577c9db2c54e2c573140fa2e273a5b91d693b` had exposed the same map as a named
+morphism. The map's mathematical definition is unchanged by this delta.
+
+For the original sinc question, the bound variable ranges over the punctured
+line at zero, so this exact conditional inclusion supplies its unit-valued
+denominator. This does not authorize an inclusion of the punctured line at an
+arbitrary point into real units: when the point is nonzero, zero belongs to that
+punctured line and cannot map to a unit by the underlying inclusion. The original
+filter, function and expected limit remain those in the preauthored reading.
+This source comparison establishes no candidate execution or protected
+admission; the separately recorded current-question assessment concerns the
+earlier report identified by its checksum.
