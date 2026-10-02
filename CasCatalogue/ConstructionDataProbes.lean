@@ -57,20 +57,27 @@ run_cmd liftTermElabM do
     return .ok value
   let index ← elabTermAndSynthesize
     (← `(CategoryTheory.Discrete.mk CategoryTheory.Limits.WalkingPair.left)) none
-  let legRead := fun (type : Expr) (j : Json) => do
-    if j == toJson "left" then
-      unless ← isDefEq (← inferType index) type do return .error "wrong index type"
-      return .ok index
-    readDiagram type j
+  let .ok indexJson ← Codec.encode index | throwError "diagram index did not encode"
   let transformation ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
   let leg ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index]
   let some (.ok decodedLeg) ← ConstructionData.decode (← inferType leg)
-      (wire "limitLeg" #[toJson row.id.raw, toJson "diagram", toJson "left"]) legRead
+      (wire "limitLeg" #[toJson row.id.raw, toJson "diagram", indexJson]) readDiagram
     | throwError "canonical infinite product leg failed"
   unless ← isDefEq decodedLeg leg do throwError "canonical leg changed its defining data"
   let some (.error _) ← ConstructionData.decode (← inferType leg)
-      (wire "limitLeg" #[toJson row.id.raw, toJson "other", toJson "left"]) legRead
+      (wire "limitLeg" #[toJson row.id.raw, toJson "other", indexJson]) readDiagram
     | throwError "canonical leg accepted a different diagram at the requested endpoints"
+  let some (.error _) ← ConstructionData.decode (← inferType leg)
+      (wire "limitLeg" #[toJson row.id.raw, toJson "diagram", toJson (0 : Nat)]) readDiagram
+    | throwError "a diagram enum accepted a natural number as its structural encoding"
+  -- Shape objects use the same declared-type codec as other data. Its `zero` label is an
+  -- enum constructor here, independent of the categorical zero-arrow descriptor.
+  for index in #[← elabTermAndSynthesize (← `(CategoryTheory.Limits.WalkingParallelPair.zero)) none,
+      ← elabTermAndSynthesize (← `(CategoryTheory.Limits.WalkingParallelPair.one)) none] do
+    let .ok encoded ← Codec.encode index | throwError "parallel-pair index did not encode"
+    let .ok decoded ← Codec.decode (← inferType index) encoded
+      | throwError "parallel-pair index did not decode at its declared type"
+    unless ← isDefEq index decoded do throwError "parallel-pair index codec changed its value"
   let some (.ok value) ← ConstructionData.decode (← inferType apex)
       (wire "limitApex" #[toJson row.id.raw, toJson "diagram"]) readDiagram
     | throwError "canonical infinite product apex failed"

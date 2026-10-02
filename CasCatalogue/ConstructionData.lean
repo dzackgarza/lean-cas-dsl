@@ -3,6 +3,7 @@ module
 
 public import CasCatalogue.Semantic
 public import CasCatalogue.Decide
+public import CasCatalogue.Codec
 
 @[expose] public section
 
@@ -55,7 +56,7 @@ def decode (expected : Expr) (json : Json)
         unless diagramType.isAppOf ``CategoryTheory.Functor do
           return .error "the defining leg has no diagram index"
         let indexType := diagramType.getAppArgs[0]!
-        let .ok index ← decodeArg indexType args[2]!
+        let .ok index ← Codec.decode indexType args[2]!
           | return .error "the defining leg has an invalid diagram index"
         mkAppM ``CategoryTheory.NatTrans.app #[transformation, index]
     else do
