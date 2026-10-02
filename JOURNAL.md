@@ -12,8 +12,13 @@ per working session; terse. Not an authority: rules live in their owning documen
   twice), not operand loss. Acceptance recorder woken to re-read and post evidence on #62.
 - lean-categories: #78 and #80 have independent reviews requesting changes; their authors were
   woken. The #77/#79 reviewer had posted nothing; woken to post. leaves#3 merged
-  (power-set cardinality). Contract `41c08c6` states the wire encoding the leaf had to infer.
-  Open: limit rows carry no forms; the kernel builds (co)limits from the registered cone.
+  (power-set cardinality). Contract `41c08c6`, `e292368` state the wire encoding the leaf had to
+  infer, diagrams and cones included: a limit row is registered on the diagrams of its category
+  (`cat.sets`) and answers its cone, which the kernel rebuilds and checks (Realize, `.limit`;
+  probes `registration_limits.json`). The leaf's "limits are not registrable" was the missing
+  contract text. Leaf author messaged to register product, pullback, coproduct; formalization
+  session_01RMwnyaFqMTvbk9S1jkbaut assesses the reported form defect independently (the
+  cokernel's diagram arrow `L → L♯` has no form, by the kernel's gap text).
 - Dispatches corrected against architecture.md "Authors" (a dispatch carries role, boundary and a
   pointer to or quotation of the owner's requirement; no content). Earlier briefs that carried
   assertions/expected values, kernel goal terms, row designs, or a kernel-repo read for the leaf
