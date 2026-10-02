@@ -1,14 +1,14 @@
 {
  "algebras.polynomials": {
   "file": "tests/acceptance/algebras_schemes.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Algebra.Algebras.polyAlgebra CasCatalogue.Algebra.NamedRings.rationals",
-  "question": "settled:holds:6603962473730672054",
+  "proposition": "settled (holds) of: \"in cat.algebras over\", CasCatalogue.Algebra.Algebras.polyAlgebra CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NamedRings.rationals",
+  "question": "settled:holds:4514799956754400655",
   "statement": "assert ℚ[x] in Algebras/ℚ"
  },
  "algebras.polynomials_several": {
   "file": "tests/acceptance/algebras_schemes.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Algebra.Algebras.mvAlgebra 10 CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:16717249568606929889",
+  "proposition": "settled (holds) of: \"in cat.algebras over\", CasCatalogue.Algebra.Algebras.mvAlgebra 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:7204340718879553727",
   "statement": "assert R in Algebras/ℂ"
  },
  "calculus.integral_sine": {
@@ -25,14 +25,14 @@
  },
  "calculus.taylor_exp": {
   "file": "tests/acceptance/calculus.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.Calculus.smoothMaps\n              CasCatalogue.Algebra.NumberSystems.reals).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk (id (CasCatalogue.Algebra.Calculus.admitSmooth (fun x => Real.exp x) ⋯))\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 0)))))\n    (id CasCatalogue.Algebra.Calculus.taylor)), CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals",
-  "question": "settled:holds:12422273669080802112",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.Calculus.smoothMaps\n              CasCatalogue.Algebra.NumberSystems.reals).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk (id (CasCatalogue.Algebra.Calculus.admitSmooth (fun x => Real.exp x) ⋯))\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 0)))))\n    (id CasCatalogue.Algebra.Calculus.taylor)), CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals",
+  "question": "settled:holds:5221037524126715477",
   "statement": "assert Tf ∈ ℝ[[t]]"
  },
  "calculus.taylor_sin": {
   "file": "tests/acceptance/calculus.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.Calculus.smoothMaps\n              CasCatalogue.Algebra.NumberSystems.reals).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk (id (CasCatalogue.Algebra.Calculus.admitSmooth (fun x => Real.sin x) ⋯))\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 0)))))\n    (id CasCatalogue.Algebra.Calculus.taylor)), CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals",
-  "question": "settled:holds:16824180985612250957",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.Calculus.smoothMaps\n              CasCatalogue.Algebra.NumberSystems.reals).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk (id (CasCatalogue.Algebra.Calculus.admitSmooth (fun x => Real.sin x) ⋯))\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 0)))))\n    (id CasCatalogue.Algebra.Calculus.taylor)), CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.Calculus.powerSeries CasCatalogue.Algebra.NumberSystems.reals",
+  "question": "settled:holds:3215186084237026456",
   "statement": "assert Tg ∈ ℝ[[t]]"
  },
  "composed.composition": {
@@ -91,8 +91,8 @@
  },
  "comprehension.image_typed": {
   "file": "tests/acceptance/finite_sets.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.naturals, id\n  (CasCatalogue.Foundation.PowerSets.image CasCatalogue.Foundation.Objects.naturals\n    CasCatalogue.Foundation.Objects.naturals\n    (id\n      (CategoryTheory.CategoryStruct.comp\n        (id\n          ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Foundation.Objects.naturals\n                  CasCatalogue.Foundation.Objects.naturals).isLimit.lift\n            (CategoryTheory.Limits.BinaryFan.mk\n              (CategoryTheory.CategoryStruct.comp\n                (id (CasCatalogue.Foundation.PowerSets.terminal CasCatalogue.Foundation.Objects.naturals))\n                (id (CasCatalogue.Algebra.Semirings.semiringNumeral CasCatalogue.Algebra.Semirings.semiringNaturals 2)))\n              (id (CategoryTheory.CategoryStruct.id CasCatalogue.Foundation.Objects.naturals)))))\n        (id (CasCatalogue.Algebra.Semirings.mul CasCatalogue.Algebra.Semirings.semiringNaturals))))), CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.naturals",
-  "question": "settled:holds:1744738113571020533",
+  "proposition": "settled (holds) of: \"∈\", CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.naturals, id\n  (CasCatalogue.Foundation.PowerSets.image CasCatalogue.Foundation.Objects.naturals\n    CasCatalogue.Foundation.Objects.naturals\n    (id\n      (CategoryTheory.CategoryStruct.comp\n        (id\n          ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Foundation.Objects.naturals\n                  CasCatalogue.Foundation.Objects.naturals).isLimit.lift\n            (CategoryTheory.Limits.BinaryFan.mk\n              (CategoryTheory.CategoryStruct.comp\n                (id (CasCatalogue.Foundation.PowerSets.terminal CasCatalogue.Foundation.Objects.naturals))\n                (id (CasCatalogue.Algebra.Semirings.semiringNumeral CasCatalogue.Algebra.Semirings.semiringNaturals 2)))\n              (id (CategoryTheory.CategoryStruct.id CasCatalogue.Foundation.Objects.naturals)))))\n        (id (CasCatalogue.Algebra.Semirings.mul CasCatalogue.Algebra.Semirings.semiringNaturals))))), CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.naturals",
+  "question": "settled:holds:4559889174094196448",
   "statement": "assert E in 𝒫(ℕ)"
  },
  "comprehension.odd_not_member": {
@@ -103,8 +103,8 @@
  },
  "comprehension.typed": {
   "file": "tests/acceptance/finite_sets.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.integers, id\n  (CasCatalogue.Foundation.PowerSets.transpose CasCatalogue.Foundation.Objects.integers\n    (id\n      (CategoryTheory.CategoryStruct.comp\n        (id\n          ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Foundation.Objects.integers\n                  CasCatalogue.Foundation.Objects.integers).isLimit.lift\n            (CategoryTheory.Limits.BinaryFan.mk\n              (id\n                (CategoryTheory.CategoryStruct.comp\n                  (id (CategoryTheory.CategoryStruct.id CasCatalogue.Foundation.Objects.integers))\n                  (id (CasCatalogue.Algebra.NamedRings.pow CasCatalogue.Algebra.NamedRings.ringIntegers 2))))\n              (CategoryTheory.CategoryStruct.comp\n                (id (CasCatalogue.Foundation.PowerSets.terminal CasCatalogue.Foundation.Objects.integers))\n                (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringIntegers 20))))))\n        (id (CasCatalogue.Foundation.PowerSets.le CasCatalogue.Foundation.PowerSets.orderIntegers))))), CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.integers",
-  "question": "settled:holds:2581992713175414669",
+  "proposition": "settled (holds) of: \"∈\", CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.integers, id\n  (CasCatalogue.Foundation.PowerSets.transpose CasCatalogue.Foundation.Objects.integers\n    (id\n      (CategoryTheory.CategoryStruct.comp\n        (id\n          ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Foundation.Objects.integers\n                  CasCatalogue.Foundation.Objects.integers).isLimit.lift\n            (CategoryTheory.Limits.BinaryFan.mk\n              (id\n                (CategoryTheory.CategoryStruct.comp\n                  (id (CategoryTheory.CategoryStruct.id CasCatalogue.Foundation.Objects.integers))\n                  (id (CasCatalogue.Algebra.NamedRings.pow CasCatalogue.Algebra.NamedRings.ringIntegers 2))))\n              (CategoryTheory.CategoryStruct.comp\n                (id (CasCatalogue.Foundation.PowerSets.terminal CasCatalogue.Foundation.Objects.integers))\n                (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringIntegers 20))))))\n        (id (CasCatalogue.Foundation.PowerSets.le CasCatalogue.Foundation.PowerSets.orderIntegers))))), CasCatalogue.Foundation.PowerSets.powerSet CasCatalogue.Foundation.Objects.integers",
+  "question": "settled:holds:16708275905116508136",
   "statement": "assert S in 𝒫(ℤ)"
  },
  "differentials.at_two": {
@@ -133,8 +133,8 @@
  },
  "differentials.member": {
   "file": "tests/acceptance/differentials.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id\n            (CategoryTheory.CategoryStruct.comp\n              (id\n                ((CasCatalogue.Limits.Registration.setsProduct\n                        (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)\n                        (CasCatalogue.Algebra.Polynomials.polynomials\n                          CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n                  (CategoryTheory.Limits.BinaryFan.mk\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id\n                          ((CasCatalogue.Limits.Registration.setsProduct\n                                  (CasCatalogue.Algebra.Polynomials.polynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)\n                                  (CasCatalogue.Algebra.Polynomials.polynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n                            (CategoryTheory.Limits.BinaryFan.mk\n                              (id\n                                (CasCatalogue.Algebra.NamedRings.ringNumeral\n                                  (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)\n                                  3))\n                              (id\n                                (CategoryTheory.CategoryStruct.comp\n                                  (id\n                                    (CasCatalogue.Algebra.Polynomials.generator\n                                      CasCatalogue.Algebra.NamedRings.rationals))\n                                  (id\n                                    (CasCatalogue.Algebra.NamedRings.pow\n                                      (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                        CasCatalogue.Algebra.NamedRings.rationals)\n                                      2)))))))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.mul\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                              CasCatalogue.Algebra.NamedRings.rationals)))))\n                    (id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Algebra.NamedRings.rationals)))))\n              (id\n                (CasCatalogue.Algebra.NamedRings.add\n                  (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals)))))\n          (id\n            (CasCatalogue.Algebra.NamedRings.ringNumeral\n              (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals) 1)))))\n    (id\n      (CasCatalogue.Algebra.NamedRings.add\n        (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals)))), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals",
-  "question": "settled:holds:8923673601747279670",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id\n            (CategoryTheory.CategoryStruct.comp\n              (id\n                ((CasCatalogue.Limits.Registration.setsProduct\n                        (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals)\n                        (CasCatalogue.Algebra.Polynomials.polynomials\n                          CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n                  (CategoryTheory.Limits.BinaryFan.mk\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id\n                          ((CasCatalogue.Limits.Registration.setsProduct\n                                  (CasCatalogue.Algebra.Polynomials.polynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)\n                                  (CasCatalogue.Algebra.Polynomials.polynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n                            (CategoryTheory.Limits.BinaryFan.mk\n                              (id\n                                (CasCatalogue.Algebra.NamedRings.ringNumeral\n                                  (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                    CasCatalogue.Algebra.NamedRings.rationals)\n                                  3))\n                              (id\n                                (CategoryTheory.CategoryStruct.comp\n                                  (id\n                                    (CasCatalogue.Algebra.Polynomials.generator\n                                      CasCatalogue.Algebra.NamedRings.rationals))\n                                  (id\n                                    (CasCatalogue.Algebra.NamedRings.pow\n                                      (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                        CasCatalogue.Algebra.NamedRings.rationals)\n                                      2)))))))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.mul\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                              CasCatalogue.Algebra.NamedRings.rationals)))))\n                    (id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Algebra.NamedRings.rationals)))))\n              (id\n                (CasCatalogue.Algebra.NamedRings.add\n                  (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals)))))\n          (id\n            (CasCatalogue.Algebra.NamedRings.ringNumeral\n              (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals) 1)))))\n    (id\n      (CasCatalogue.Algebra.NamedRings.add\n        (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Algebra.NamedRings.rationals)))), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Algebra.NamedRings.rationals",
+  "question": "settled:holds:14805508141552940179",
   "statement": "assert f ∈ ℚ[x]"
  },
  "ellipses.even_square": {
@@ -313,8 +313,8 @@
  },
  "fractions.member": {
   "file": "tests/acceptance/fractions.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.NamedRings.rationals\n              (CasCatalogue.Algebra.Units.units CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringRationals 7))\n          (id\n            (CasCatalogue.Algebra.Units.admit CasCatalogue.Algebra.NamedRings.rationals\n              ((Int.castRingHom ↑(CasCatalogue.Algebra.NamedRings.asRing CasCatalogue.Algebra.NamedRings.ringRationals))\n                ↑3)\n              (invertibleOfNonzero ⋯))))))\n    (id (CasCatalogue.Algebra.Units.divide CasCatalogue.Algebra.NamedRings.rationals))), CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NamedRings.rationals",
-  "question": "settled:holds:8127797594967095009",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct CasCatalogue.Algebra.NamedRings.rationals\n              (CasCatalogue.Algebra.Units.units CasCatalogue.Algebra.NamedRings.rationals)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringRationals 7))\n          (id\n            (CasCatalogue.Algebra.Units.admit CasCatalogue.Algebra.NamedRings.rationals\n              ((Int.castRingHom ↑(CasCatalogue.Algebra.NamedRings.asRing CasCatalogue.Algebra.NamedRings.ringRationals))\n                ↑3)\n              (invertibleOfNonzero ⋯))))))\n    (id (CasCatalogue.Algebra.Units.divide CasCatalogue.Algebra.NamedRings.rationals))), CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NamedRings.rationals",
+  "question": "settled:holds:17068888336861334164",
   "statement": "assert 7/3 ∈ ℚ"
  },
  "fractions.modulus": {
@@ -325,8 +325,8 @@
  },
  "fractions.sqrt_member": {
   "file": "tests/acceptance/fractions.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 2))\n    (id CasCatalogue.Algebra.NumberSystems.sqrt)), CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.NumberSystems.reals",
-  "question": "settled:holds:18281901995538744434",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NumberSystems.ringReals 2))\n    (id CasCatalogue.Algebra.NumberSystems.sqrt)), CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.NumberSystems.reals",
+  "question": "settled:holds:9359042944351966559",
   "statement": "assert √2 ∈ ℝ"
  },
  "functions.at_three": {
@@ -547,14 +547,14 @@
  },
  "numbers.containments": {
   "file": "tests/acceptance/numbers.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:16584479982212981389",
+  "proposition": "settled (holds) of: \"⊆\", CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.NamedRings.rationals, \"⊆\", CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NumberSystems.reals, \"⊆\", CasCatalogue.Algebra.NumberSystems.reals, CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:1374870083095111707",
   "statement": "assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ"
  },
  "numbers.containments.transitive": {
   "file": "tests/acceptance/numbers.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Foundation.Objects.naturals, CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:2302125841448850054",
+  "proposition": "settled (holds) of: \"⊆\", CasCatalogue.Foundation.Objects.naturals, CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:10934092307773361588",
   "statement": "assert ℕ ⊆ ℂ"
  },
  "numbers.gcd": {
@@ -571,14 +571,14 @@
  },
  "numbers.membership.negative": {
   "file": "tests/acceptance/numbers.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringIntegers 3))\n    (id (CasCatalogue.Algebra.NamedRings.neg CasCatalogue.Algebra.NamedRings.ringIntegers))), CasCatalogue.Foundation.Objects.integers, CasCatalogue.Foundation.Objects.integers",
-  "question": "settled:holds:7427949034371295168",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id (CasCatalogue.Algebra.NamedRings.ringNumeral CasCatalogue.Algebra.NamedRings.ringIntegers 3))\n    (id (CasCatalogue.Algebra.NamedRings.neg CasCatalogue.Algebra.NamedRings.ringIntegers))), CasCatalogue.Foundation.Objects.integers, CasCatalogue.Foundation.Objects.integers",
+  "question": "settled:holds:10083500613395416277",
   "statement": "assert -3 ∈ ℤ"
  },
  "numbers.membership.zmod": {
   "file": "tests/acceptance/numbers.cas",
-  "proposition": "settled (holds) of: 3, CasCatalogue.Foundation.Objects.integersMod 5",
-  "question": "settled:holds:13457292272361448410",
+  "proposition": "settled (holds) of: \"∈\", 3, CasCatalogue.Foundation.Objects.integersMod 5",
+  "question": "settled:holds:16515083774365915491",
   "statement": "assert 3 ∈ ℤ/5"
  },
  "numbers.rationals.sum": {
@@ -649,8 +649,8 @@
  },
  "polynomials.member": {
   "file": "tests/acceptance/polynomials.cas",
-  "proposition": "settled (holds) of: id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id\n            (CategoryTheory.CategoryStruct.comp\n              (id\n                ((CasCatalogue.Limits.Registration.setsProduct\n                        (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)\n                        (CasCatalogue.Algebra.Polynomials.polynomials\n                          CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n                  (CategoryTheory.Limits.BinaryFan.mk\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Foundation.Objects.integers))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.pow\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)\n                            3))))\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id\n                          (CategoryTheory.CategoryStruct.comp\n                            (id\n                              ((CasCatalogue.Limits.Registration.setsProduct\n                                      (CasCatalogue.Algebra.Polynomials.polynomials\n                                        CasCatalogue.Foundation.Objects.integers)\n                                      (CasCatalogue.Algebra.Polynomials.polynomials\n                                        CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n                                (CategoryTheory.Limits.BinaryFan.mk\n                                  (id\n                                    (CasCatalogue.Algebra.NamedRings.ringNumeral\n                                      (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                        CasCatalogue.Foundation.Objects.integers)\n                                      2))\n                                  (id\n                                    (CasCatalogue.Algebra.Polynomials.generator\n                                      CasCatalogue.Foundation.Objects.integers)))))\n                            (id\n                              (CasCatalogue.Algebra.NamedRings.mul\n                                (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                  CasCatalogue.Foundation.Objects.integers)))))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.neg\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                              CasCatalogue.Foundation.Objects.integers))))))))\n              (id\n                (CasCatalogue.Algebra.NamedRings.add\n                  (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)))))\n          (id\n            (CasCatalogue.Algebra.NamedRings.ringNumeral\n              (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers) 1)))))\n    (id\n      (CasCatalogue.Algebra.NamedRings.add\n        (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)))), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers",
-  "question": "settled:holds:16522310909127107683",
+  "proposition": "settled (holds) of: \"∈\", id\n  (CategoryTheory.CategoryStruct.comp\n    (id\n      ((CasCatalogue.Limits.Registration.setsProduct\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)\n              (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n        (CategoryTheory.Limits.BinaryFan.mk\n          (id\n            (CategoryTheory.CategoryStruct.comp\n              (id\n                ((CasCatalogue.Limits.Registration.setsProduct\n                        (CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers)\n                        (CasCatalogue.Algebra.Polynomials.polynomials\n                          CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n                  (CategoryTheory.Limits.BinaryFan.mk\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Foundation.Objects.integers))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.pow\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)\n                            3))))\n                    (id\n                      (CategoryTheory.CategoryStruct.comp\n                        (id\n                          (CategoryTheory.CategoryStruct.comp\n                            (id\n                              ((CasCatalogue.Limits.Registration.setsProduct\n                                      (CasCatalogue.Algebra.Polynomials.polynomials\n                                        CasCatalogue.Foundation.Objects.integers)\n                                      (CasCatalogue.Algebra.Polynomials.polynomials\n                                        CasCatalogue.Foundation.Objects.integers)).isLimit.lift\n                                (CategoryTheory.Limits.BinaryFan.mk\n                                  (id\n                                    (CasCatalogue.Algebra.NamedRings.ringNumeral\n                                      (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                        CasCatalogue.Foundation.Objects.integers)\n                                      2))\n                                  (id\n                                    (CasCatalogue.Algebra.Polynomials.generator\n                                      CasCatalogue.Foundation.Objects.integers)))))\n                            (id\n                              (CasCatalogue.Algebra.NamedRings.mul\n                                (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                                  CasCatalogue.Foundation.Objects.integers)))))\n                        (id\n                          (CasCatalogue.Algebra.NamedRings.neg\n                            (CasCatalogue.Algebra.Polynomials.ringPolynomials\n                              CasCatalogue.Foundation.Objects.integers))))))))\n              (id\n                (CasCatalogue.Algebra.NamedRings.add\n                  (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)))))\n          (id\n            (CasCatalogue.Algebra.NamedRings.ringNumeral\n              (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers) 1)))))\n    (id\n      (CasCatalogue.Algebra.NamedRings.add\n        (CasCatalogue.Algebra.Polynomials.ringPolynomials CasCatalogue.Foundation.Objects.integers)))), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers",
+  "question": "settled:holds:1527977698585315878",
   "statement": "assert p ∈ ℤ[x]"
  },
  "polynomials.root": {
@@ -661,20 +661,20 @@
  },
  "polynomials.variable": {
   "file": "tests/acceptance/polynomials.cas",
-  "proposition": "settled (holds) of: id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Foundation.Objects.integers), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers",
-  "question": "settled:holds:13261991156079576969",
+  "proposition": "settled (holds) of: \"∈\", id (CasCatalogue.Algebra.Polynomials.generator CasCatalogue.Foundation.Objects.integers), CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers, CasCatalogue.Algebra.Polynomials.polynomials CasCatalogue.Foundation.Objects.integers",
+  "question": "settled:holds:10150333119087701164",
   "statement": "assert x ∈ ℤ[x]"
  },
  "schemes.affine_line": {
   "file": "tests/acceptance/algebras_schemes.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Algebra.Schemes.specPolynomials CasCatalogue.Algebra.NamedRings.rationals",
-  "question": "settled:holds:14449524246625141516",
+  "proposition": "settled (holds) of: \"in cat.schemes_over over\", CasCatalogue.Algebra.Schemes.specPolynomials CasCatalogue.Algebra.NamedRings.rationals, CasCatalogue.Algebra.NamedRings.rationals",
+  "question": "settled:holds:17561514467977172327",
   "statement": "assert Spec ℚ[x] in Schemes/ℚ"
  },
  "schemes.affine_space": {
   "file": "tests/acceptance/algebras_schemes.cas",
-  "proposition": "settled (holds) of: CasCatalogue.Algebra.Schemes.specMvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:11811985529991697351",
+  "proposition": "settled (holds) of: \"in cat.schemes_over over\", CasCatalogue.Algebra.Schemes.specMvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:3182370328709490147",
   "statement": "assert Spec R in Schemes/ℂ"
  },
  "series.coefficient_four": {
@@ -805,8 +805,8 @@
  },
  "several_variables.last_variable": {
   "file": "tests/acceptance/several_variables.cas",
-  "proposition": "settled (holds) of: id (CasCatalogue.Algebra.MvPolynomials.var 10 CasCatalogue.Algebra.NumberSystems.complexes ⟨9, ⋯⟩), CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:13904676483040093590",
+  "proposition": "settled (holds) of: \"∈\", id (CasCatalogue.Algebra.MvPolynomials.var 10 CasCatalogue.Algebra.NumberSystems.complexes ⟨9, ⋯⟩), CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:17406613857331158419",
   "statement": "assert x_9 ∈ R"
  },
  "several_variables.plane": {
@@ -823,8 +823,8 @@
  },
  "several_variables.variable": {
   "file": "tests/acceptance/several_variables.cas",
-  "proposition": "settled (holds) of: id (CasCatalogue.Algebra.MvPolynomials.var 10 CasCatalogue.Algebra.NumberSystems.complexes ⟨3, ⋯⟩), CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes",
-  "question": "settled:holds:14517524643082521592",
+  "proposition": "settled (holds) of: \"∈\", id (CasCatalogue.Algebra.MvPolynomials.var 10 CasCatalogue.Algebra.NumberSystems.complexes ⟨3, ⋯⟩), CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes, CasCatalogue.Algebra.MvPolynomials.mvPolynomials 10 CasCatalogue.Algebra.NumberSystems.complexes",
+  "question": "settled:holds:15433684769948463493",
   "statement": "assert x_3 ∈ R"
  },
  "subspaces.dim": {
