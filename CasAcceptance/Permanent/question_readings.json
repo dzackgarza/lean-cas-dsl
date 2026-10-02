@@ -577,8 +577,8 @@
  },
  "numbers.membership.zmod": {
   "file": "tests/acceptance/numbers.cas",
-  "proposition": "settled (holds) of: \"∈\", 3, CasCatalogue.Foundation.Objects.integersMod 5",
-  "question": "settled:holds:16515083774365915491",
+  "proposition": "settled (holds) of: \"∈\", id (CasCatalogue.Foundation.Morphisms.finPoint (4 + 1) 3 ⋯), CasCatalogue.Foundation.Objects.integersMod 5, CasCatalogue.Foundation.Objects.integersMod 5",
+  "question": "settled:holds:9748599530772017520",
   "statement": "assert 3 ∈ ℤ/5"
  },
  "numbers.rationals.sum": {

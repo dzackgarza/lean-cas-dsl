@@ -95,7 +95,7 @@
  "numbers.gcd": "homs:4174229315",
  "numbers.integers.sum": "homs:2561436281",
  "numbers.membership.negative": "settled:holds:10083500613395416277",
- "numbers.membership.zmod": "settled:holds:16515083774365915491",
+ "numbers.membership.zmod": "settled:holds:9748599530772017520",
  "numbers.rationals.sum": "homs:3400637712",
  "numbers.zmod5.difference": "homs:2627895135",
  "numbers.zmod5.negation": "homs:3671699499",
