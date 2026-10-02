@@ -10,12 +10,23 @@
                                                    that has none recorded; never changes a recorded one
     check_question_permanence.py --show REPORT     print each unrecorded assertion's proposition, as
                                                    the acceptance author reads it before recording
+    check_question_permanence.py --transition ID REASON REPORT
+                                                   accept a genuine change of ID's question: record the
+                                                   transition from its recorded question to the one in
+                                                   REPORT, with the reading that justifies it
 
 REPORT is the JSON report of `cas-harness --report`: per statement, its outcome and its `question`,
 the fingerprint of the proposition the semantic reading elaborates (`Realize.claimQuestion`). The
 record is `CasAcceptance/Permanent/questions.json`. The comparison is against the record of the
 accepted revision (`--base`, the base checkout's file): a candidate that changes a reading and
 rewrites the matching entry in the same change fails, because the base entry is kept.
+
+A genuine change of an assertion's question (a new reading of the same statement) needs independent
+acceptance: the acceptance author reads the new proposition and records a transition
+(`--transition`, `AGENT_ROLE=acceptance`) in `CasAcceptance/Permanent/question_transitions.json`,
+from the recorded question to the new one, with the reason. The accepted question of an assertion is
+its base entry carried along its transitions; the transitions are append-only like the record, so a
+candidate cannot remove one or rewrite one, and an unrecorded change still fails.
 
 A kernel, parser or pin under which an unchanged assertion elaborates to another proposition fails
 here, whatever the outcome. The comparison is never by text, outcome or provability: an assertion
@@ -32,6 +43,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RECORD = ROOT / "CasAcceptance" / "Permanent" / "questions.json"
+TRANSITIONS = ROOT / "CasAcceptance" / "Permanent" / "question_transitions.json"
+
+
+def load(path: Path) -> dict:
+    """A JSON object file, or the empty object when the file does not exist (a record before its
+    first entry)."""
+    return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def carried(question: str, steps: list[dict]) -> str:
+    """The question reached from `question` along its recorded transitions, in order."""
+    for step in steps:
+        if step["from"] == question:
+            question = step["to"]
+    return question
 
 
 def questions(report: Path) -> dict[str, str]:
@@ -43,10 +69,32 @@ def questions(report: Path) -> dict[str, str]:
 def main() -> int:
     args = sys.argv[1:]
     if args[:1] == ["--show"] and len(args) == 2:
-        recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
+        recorded = load(RECORD)
         for r in json.loads(Path(args[1]).read_text()):
             if r["question"] and r["id"] not in recorded and not r["id"].startswith("(statement)"):
                 print(f"{r['id']}: {r['proposition']}")
+        return 0
+    if args[:1] == ["--transition"]:
+        if os.environ.get("AGENT_ROLE") != "acceptance":
+            raise SystemExit("--transition is the acceptance author's (AGENT_ROLE=acceptance)")
+        if len(args) != 4:
+            print(__doc__, file=sys.stderr)
+            return 2
+        ident, reason, report = args[1], args[2], Path(args[3])
+        head = questions(report)
+        recorded, transitions = load(RECORD), load(TRANSITIONS)
+        if ident not in recorded:
+            raise SystemExit(f"{ident} has no recorded question to change")
+        if ident not in head or not head[ident]:
+            raise SystemExit(f"{ident} has no question in {report}")
+        if head[ident] == recorded[ident]:
+            raise SystemExit(f"{ident}'s question is unchanged")
+        steps = transitions[ident] if ident in transitions else []
+        transitions[ident] = steps + [{"from": recorded[ident], "to": head[ident], "reason": reason}]
+        recorded[ident] = head[ident]
+        TRANSITIONS.write_text(json.dumps(transitions, indent=1, sort_keys=True) + "\n")
+        RECORD.write_text(json.dumps(recorded, indent=1, sort_keys=True) + "\n")
+        print(f"{ident}: transition recorded")
         return 0
     record = args[:1] == ["--record"]
     if record:
@@ -67,14 +115,23 @@ def main() -> int:
     if not report.is_file():
         raise SystemExit(f"no report at {report}: the suite did not run to completion")
     head = questions(report)
-    recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
+    recorded = load(RECORD)
     if record:
         added = {i: q for i, q in head.items() if q and i not in recorded}
         RECORD.write_text(json.dumps({**recorded, **added}, indent=1, sort_keys=True) + "\n")
         print(f"recorded {len(added)} questions; {len(recorded)} unchanged")
         return 0
     assert base_record is not None
-    accepted = json.loads(base_record.read_text()) if base_record.is_file() else {}
+    # The base's transitions sit beside its record; the head's must extend them.
+    base_transitions = load(base_record.parent / TRANSITIONS.name)
+    transitions = load(TRANSITIONS)
+    dropped = sorted(i for i, steps in base_transitions.items()
+                     if i not in transitions or transitions[i][:len(steps)] != steps)
+    for i in dropped:
+        print(f"TRANSITION REWRITTEN: {i}: the base's transitions are not kept")
+    # The accepted question: the base's entry carried along every recorded transition.
+    accepted = {i: carried(q, transitions[i] if i in transitions else [])
+                for i, q in load(base_record).items()}
     rewritten = sorted(i for i, q in accepted.items() if i not in recorded or recorded[i] != q)
     for i in rewritten:
         now = recorded[i] if i in recorded else "(removed)"
@@ -90,7 +147,7 @@ def main() -> int:
     if unrecorded:
         print(f"{len(unrecorded)} assertions have no recorded question (the acceptance author records them)")
     print(f"{len(recorded)} recorded questions; {len(changed)} changed")
-    return 1 if changed or missing or rewritten else 0
+    return 1 if changed or missing or rewritten or dropped else 0
 
 
 if __name__ == "__main__":
