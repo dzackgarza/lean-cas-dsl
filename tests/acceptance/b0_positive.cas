@@ -1,0 +1,32 @@
+-- Executable proposals for the existing fixed B0 positive obligations.
+-- Mathematical declarations: independently reviewed lean_categories
+-- 57c85852de8127b9d229878061bfb26c47998814. Expected answers were established
+-- independently in b0-required-positive-proposal.md before this release.
+-- These proposals do not alter the original 153 assertions or admit themselves.
+
+test b0.lattices.rank.e8 "Conway–Sloane, SPLAG ch. 4: D_8 is contained in E_8, which is contained in (1/2)Z^8; both bounding lattices have rank 8":
+  assert E8.rank() = 8
+
+let G := Sym(3) in Groups
+
+let C2 := ZMod(2) in Groups
+
+let C3 := ZMod(3) in Groups
+
+test b0.groups.abelian.cyclic3 "Dummit–Foote, Abstract Algebra ch. 1: the chosen cyclic additive group Z/3 is abelian by commutativity of residue addition":
+  assert C3.is_abelian()
+
+test b0.groups.abelian.symmetric3 "Dummit–Foote ch. 1 section 3: (01)(12) and (12)(01) are different 3-cycles, so S_3 is not abelian":
+  assert G.is_abelian() = false
+
+test b0.groups.kernel.sign.card "Dummit–Foote ch. 3 section 1; the parity kernel in S_3 consists of identity, (012), (021), with its defining inclusion into the selected S_3":
+  assert |kernel(sign(3))| = 3
+
+test b0.groups.kernel.trivial.card "Dummit–Foote ch. 3 section 1: the kernel of the trivial homomorphism S_3 to Z/2 is all six permutations, with its defining inclusion":
+  assert |kernel(trivial(G, C2))| = 6
+
+test b0.groups.kernel.identity.card "Dummit–Foote ch. 3 section 1: the kernel of the identity homomorphism of S_3 is the identity subgroup, with its defining inclusion":
+  assert |kernel(id(G))| = 1
+
+test b0.groups.alternating3.card "Dummit–Foote ch. 1 section 3; A_3 consists of the identity and the two 3-cycles, with its defining inclusion A_3 into S_3":
+  assert |Alt(3)| = 3
