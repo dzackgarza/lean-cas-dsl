@@ -37,7 +37,9 @@ def main() -> int:
         print(__doc__, file=sys.stderr)
         return 2
     base, head = outcomes(Path(sys.argv[1])), outcomes(Path(sys.argv[2]))
-    missing = sorted(key for key in base if key not in head)
+    # A failing statement (a `let`) is reported only while it fails: absent at the head, it holds.
+    missing = sorted(key for key in base if key not in head and not key[1].startswith("(statement)"))
+    resolved = sorted(key for key in base if key not in head and key[1].startswith("(statement)"))
     regressed = sorted((key, base[key], head[key]) for key in base
                        if key in head and base[key] not in FAILING and head[key] in FAILING)
     lost = sorted((key, base[key], head[key]) for key in base
@@ -54,6 +56,8 @@ def main() -> int:
                         ("held, now not computed", lost)):
         for (file, id_), before, after in rows:
             print(f"{title}: {file}: {id_}: {before} -> {after}")
+    for file, id_ in resolved:
+        print(f"statement now holds: {file}: {id_}")
     for file, id_ in missing:
         print(f"MISSING at the head: {file}: {id_}")
     for (file, id_), before, after in regressed:

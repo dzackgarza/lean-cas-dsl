@@ -24,6 +24,11 @@ per working session; terse. Not an authority: rules live in their owning documen
   needed". `811d72c`: construction reviews the PR's delta against main, ledger included
   (test_review 52/52). `fa442c4`: semgrep POLICY.RUNTIME_DEFAULT findings in review.py and the
   acceptance scripts repaired. PR #61 branch updated to main for re-review; subscribed.
+- lean-categories#76 independently approved and merged (`7aef31a`). Pinning the kernel there was
+  refused: upstream main also carries #72–#74 (the binder work the plan keeps out until its
+  independent assessment), and at that pin ∫ is a binder row (integral_square/sine gap → invalid).
+  Kernel stays at `5b96a8a`. Binder assessment dispatched: session_012x1AfmzWVvy15BYK1rMsTU.
+  At the trial pin the polynomial/composed failures were gone (`let C` holds).
 - PR #61 (acceptance: lattices rank/cardinality, 5 assertions) re-reviewed: custodian review PASS
   after the delta fix, all CI green; merged (`9bce2c4`). Its author reports E₈ rank, S₃ kernels,
   abelianness and the 𝔽₉ transport inexpressible until upstream has the objects (dispatched).
