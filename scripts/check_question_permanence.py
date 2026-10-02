@@ -31,7 +31,7 @@ RECORD = ROOT / "CasAcceptance" / "Permanent" / "questions.json"
 
 def questions(report: Path) -> dict[str, str]:
     results = json.loads(report.read_text())
-    return {r["id"]: r.get("question", "") for r in results
+    return {r["id"]: r["question"] for r in results
             if not r["id"].startswith("(statement)")}
 
 
@@ -40,8 +40,8 @@ def main() -> int:
     if args[:1] == ["--show"] and len(args) == 2:
         recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
         for r in json.loads(Path(args[1]).read_text()):
-            if r.get("question") and r["id"] not in recorded and not r["id"].startswith("(statement)"):
-                print(f"{r['id']}: {r.get('proposition', '')}")
+            if r["question"] and r["id"] not in recorded and not r["id"].startswith("(statement)"):
+                print(f"{r['id']}: {r['proposition']}")
         return 0
     record = args[:1] == ["--record"]
     if record:
