@@ -1038,8 +1038,7 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
     return ← callWith scope stx[0] stx[2].getId.toString stx[4].getSepArgs
   -- `∞`: the registered row its notation names.
   if stx.getKind == ``casInfinity then
-    let some atom := stx.find? (·.isAtom) | unreachable!
-    return ← named scope atom.getAtomVal #[] category?
+    return ← named scope stx[0].getAtomVal #[] category?
   if stx.getKind == ``casIntegral then
     return ← applyNamed state "∫" #[← eval scope stx[1]]
   if stx.getKind == ``casActed then
@@ -2101,8 +2100,10 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       match ← numeralElement? k X with
       | some element => return element
       | none =>
-          let .object _ _ (some (entry, _)) := X | unreachable!
-          throwStratum .invalid m!"no registered numeral lands in {entry.name}"
+          match X with
+          | .object _ _ (some (entry, _)) =>
+              throwStratum .invalid m!"no registered numeral lands in {entry.name}"
+          | _ => throwStratum .invalid m!"a numeral names an element of a named set"
   | _ => return v
 
 /-- The element the numeral `k` names in the named set `X` (`toElement`), or `none` when no
