@@ -42,7 +42,7 @@ quotient presentations and `quadraticComparison`; its independently established
 expected image is the target generator plus its constant 2. The assertion uses
 the SPEC's existing contextual `in` and `map ... to ...` forms. The source
 generator is explicitly scoped by `in F9x`; the target generator and numeral
-are scoped by `in F9y`. The unique admitted presentation comparison for these
+are scoped by `in F9y`. The unique supplied mathematical presentation comparison for these
 named endpoints supplies the actual map; no equality of presentations is
 asserted. Reading this generic notation must retain that comparison, not
 silently substitute an identity, a backend equality or a coefficient-only map.
