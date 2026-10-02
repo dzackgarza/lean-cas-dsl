@@ -22,7 +22,9 @@ from its value module; their original expected answers remain unchanged.
 | `b0.groups.alternating3.card` | The subgroup object `alternating(3)`, the alternating subgroup of the chosen `symmetric(3)`, has carrier cardinality 3 through its structural domain-to-group-to-set route. The defining monomorphism is the element inclusion into `symmetric(3)`. |
 | `formed_modules.card.dual_a0` | The carrier cardinality of the selected `rootADual(0)` object of `BilWFormCat Z`, with value module Q and its restricted rational form, equals 1. Cardinality of its value module Q is not the requested observation. |
 | `formed_modules.card.dual_a2` | The carrier cardinality of the selected `rootADual(2)` object of `BilWFormCat Z`, with value module Q and its restricted rational form, equals aleph_0. Its actual formed carrier and structural carrier route remain attached to the question. |
-| `b0.presentations.f9.generator_transport` | Application of the accepted `quadraticComparison` from the selected `first=F3[X]/(X²+1)` presentation to the distinct `second=F3[Y]/(Y²+Y+2)` presentation sends the source distinguished root to the sum of the target distinguished root and target-ring numeral 2. Each occurrence of `x` is resolved in its own named presentation; the spelling of a generator does not identify the two objects or their roots. |
+| `b0.presentations.f9.generator_transport` | Application of the supplied `quadraticComparison` from the selected `first=F3[X]/(X²+1)` presentation to the distinct `second=F3[Y]/(Y²+Y+2)` presentation sends the source distinguished root to the sum of the target distinguished root and target-ring numeral 2. Each occurrence of `x` is resolved in its own named presentation; the spelling of a generator does not identify the two objects or their roots. |
+| `b0.presentations.f9.explicit_forward` | The actual forward map of the supplied `quadraticComparison`, explicitly selected as `F9translation`, sends the distinguished source root of `F9x` to the target root of `F9y` plus target-ring numeral 2. Its direction, endpoints, selected comparison and defining generators are retained. |
+| `b0.presentations.f9.explicit_inverse` | The actual inverse map of that same selected comparison sends the distinguished target root of `F9y` to the source root of `F9x` plus source-ring numeral 1. Its direction is reversed while the comparison itself and original endpoint presentations remain fixed. |
 
 Kernel inclusions are retained universal data. Their defining equation in groups
 is that composing the inclusion with the specified map yields the trivial
@@ -46,3 +48,9 @@ are scoped by `in F9y`. The unique supplied mathematical presentation comparison
 named endpoints supplies the actual map; no equality of presentations is
 asserted. Reading this generic notation must retain that comparison, not
 silently substitute an identity, a backend equality or a coefficient-only map.
+The explicit forward and inverse observations also use the approved generic
+`generator(X)` and `map ... [back] along P` forms documented in the SPEC.
+They distinguish the actual selected comparison and its direction directly:
+the forward translation constant is 2, while the inverse translation constant
+is 1 in F3. These expected values are the previously established equations,
+not outputs obtained from the newly implemented generic notation.
