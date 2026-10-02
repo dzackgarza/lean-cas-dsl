@@ -34,6 +34,9 @@ binder path (`CasCatalogue.Language.bind`), with no manifest installed:
   and a row of this probe whose point is a point of `Fin 2` (registered nowhere), the numeral `5`
   is no numeral of `Fin 2` (`5 < 2` does not hold): that row does not take it, and
   `lim_{t → 5} t` is read by `bind.sets.limit`.
+* **Rows are told apart by declaration, not by carrier.** Two rows of this probe (registered
+  nowhere) land in `ℝ²` (`Vec(ℝ, 2)`) and in `Maps(Fin 2, ℝ)`, objects with one carrier
+  `Fin 2 → ℝ`. A body in `ℝ²` is read by the first alone: adding the second changes nothing.
 * **The separator is the notation's.** `∑_{n → ℕ} n` and `lim_{t ∈ 0} t` are no terms of the
   language: a sum ranges over a set (`∈`), a limit is taken at a point (`→`).
 -/
@@ -156,6 +159,45 @@ run_cmd do
   let (kind, detail) ← readingBy {} #[refusing] text
   unless kind == "invalid" && mentions detail "no binder row reads" do
     throwError "`{text}` over the refusing row alone is {kind}: {detail}, not invalid"
+
+/-- A family of this probe, registered nowhere: from the maps `ℝ ∖ {a} → ℝ²` to `ℝ²`. -/
+noncomputable def intoVectors (a : CasCatalogue.Foundation.Objects.fin 1 ⟶
+    CasCatalogue.Algebra.NumberSystems.reals) :
+    CasCatalogue.Foundation.Maps.maps (CasCatalogue.Algebra.RealLimits.puncturedLine a)
+        (CasCatalogue.Algebra.LinearAlgebra.vectors CasCatalogue.Algebra.NumberSystems.reals 2) ⟶
+      CasCatalogue.Algebra.LinearAlgebra.vectors CasCatalogue.Algebra.NumberSystems.reals 2 :=
+  TypeCat.ofHom fun _ _ => 0
+
+/-- A family of this probe, registered nowhere: from the maps `ℝ ∖ {a} → Maps(Fin 2, ℝ)` to
+`Maps(Fin 2, ℝ)`, whose carrier is the carrier of `ℝ²`. -/
+noncomputable def intoMaps (a : CasCatalogue.Foundation.Objects.fin 1 ⟶
+    CasCatalogue.Algebra.NumberSystems.reals) :
+    CasCatalogue.Foundation.Maps.maps (CasCatalogue.Algebra.RealLimits.puncturedLine a)
+        (CasCatalogue.Foundation.Maps.maps (CasCatalogue.Foundation.Objects.fin 2)
+          CasCatalogue.Algebra.NumberSystems.reals) ⟶
+      CasCatalogue.Foundation.Maps.maps (CasCatalogue.Foundation.Objects.fin 2)
+        CasCatalogue.Algebra.NumberSystems.reals :=
+  TypeCat.ofHom fun _ _ => 0
+
+-- Rows are told apart by declaration: a body in `ℝ²` is read by the row landing in `ℝ²`, and a row
+-- landing in `Maps(Fin 2, ℝ)`, which has the same carrier, neither reads it nor makes it ambiguous.
+run_cmd do
+  let state ← liftCoreM registryState
+  let some limit := state.binders.find? (·.id.raw == "bind.sets.limit")
+    | throwError "no row bind.sets.limit"
+  let vectors := { limit with id := ⟨"bind.probe.into_vectors"⟩,
+                              operation := ``CasCatalogue.BinderProbes.intoVectors }
+  let maps := { limit with id := ⟨"bind.probe.into_maps"⟩,
+                           operation := ``CasCatalogue.BinderProbes.intoMaps }
+  let text := "lim_{t → 0} (sin(t), sin(t))"
+  let (kind, detail) ← readingBy {} #[vectors] text
+  unless kind == "read" do
+    throwError "`{text}` over the row into ℝ² is {kind}: {detail}, not read"
+  for rows in [#[vectors, maps], #[maps, vectors]] do
+    let (kind', detail') ← readingBy {} rows text
+    unless kind' == kind && detail' == detail && !mentions detail' "into_maps" do
+      throwError "`{text}` over {rows.toList.map (·.id.raw)} is {kind'}: {detail'}, not as over \
+        the row into ℝ² alone ({kind}: {detail})"
 
 -- The separator is the notation's: a sum over a set is written with `∈`, a limit with `→`.
 run_cmd do

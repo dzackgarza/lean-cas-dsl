@@ -1795,7 +1795,9 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
     return (D, Y)
   let some (D, Y₀?) := readings[0]? | throwError "no binder row took the arguments"
   let d ← semanticObject D
-  let oneDomain ← readings.allM fun (D', _) => do isDefEq d (← semanticObject D')
+  -- Rows are compared by declaration (b0-selected-structure): at reducible transparency, never
+  -- because two objects unfold to one carrier.
+  let oneDomain ← readings.allM fun (D', _) => do withReducible (isDefEq d (← semanticObject D'))
   unless oneDomain do
     throwStratum .semanticAmbiguity m!"several binder rows read {written}, over different domains: \
       {taking.toList.map (·.id.raw)}"
@@ -1804,7 +1806,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
     | some Y => do
         let y ← semanticObject Y
         let same ← readings.allM fun
-          | (_, some Y') => do isDefEq y (← semanticObject Y')
+          | (_, some Y') => do withReducible (isDefEq y (← semanticObject Y'))
           | (_, none) => pure false
         pure (if same then some Y else none)
     | none => pure none
@@ -1825,7 +1827,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
   let readers ← taking.filterM fun row => tentatively do
     let some application ← readArguments row arguments
       | throwError "the binder {row.id.raw} no longer takes the arguments it took"
-    isDefEq application.target y'
+    withReducible (isDefEq application.target y')
   let #[row] := readers
     | if readers.isEmpty then
         throwStratum .invalid m!"no binder row reads {written}: none of \
@@ -1835,7 +1837,7 @@ partial def bind (scope : Scope) (rows : Array BinderEntry) (b : Binding) (ambie
           {readers.toList.map (·.id.raw)}"
   let some { constant, args, binderInfos := infos, source, target } ← readArguments row arguments
     | throwError "the binder {row.id.raw} no longer takes the arguments it took"
-  unless ← isDefEq target y' do
+  unless ← withReducible (isDefEq target y') do
     throwError "the binder {row.id.raw} no longer lands in the set of the body"
   synthesizeInstances args infos
   let operation ← instantiateMVars (mkAppN constant args)
