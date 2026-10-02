@@ -17,6 +17,14 @@ per working session; terse. Not an authority: rules live in their owning documen
   diagram along a creation lift; next kernel unit after b0-binders, which is in progress on
   `b0/binders`); `lattices.discriminant.a1–a3` (the cokernel's diagram arrow has no form;
   lean-categories#81 under review). #77/#79 reviewer replaced (it held its reviews for approval).
+- 13:15. With passagemath-gap: `sets.card.z4_cubed`, `z7`, `z5_empty_power` hold over GAP. Kernel
+  defect exposed by a correct leaf answer: `sets.card.square` (|A × A|, A = Fin 2 × ℤ/3) is
+  malformed because the realized reading sends the realized apex of the first product (`Fin 6`)
+  but decodes the second cone at the semantic diagram (`Fin 2 × ZMod 3`). Next kernel unit
+  (after b0-binders, same `.limit` case as the creation-lift gap): decode a cone at the realized
+  diagram and identify realized and registered presentations by the limit's uniqueness iso, never
+  by assuming them equal. `finite_sets.card_product` / `card_power_set`: the leaf takes no finite
+  subset literal (`unavailable`; leaf coverage, not a kernel matter).
 - 11:30. lean-cas-dsl main at `72fc3ba`: settled ∈/⊆ judgements fingerprint their terms (`cd355d8`);
   the question gate compares against the base's record and treats it as append-only (custodian
   finding on #62). The #62 shared fingerprints are identical propositions (one fact asserted
