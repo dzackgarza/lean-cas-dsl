@@ -163,10 +163,14 @@ Consequences, binding on every agent and first of all the orchestrator:
   pull request, review or signature is used only where it performs a needed decision or validation
   (Policy 1).
 - **Session task lists, memory files and summaries are chat.** They are also lost.
-- **The orchestrator dispatches every role's work itself**, formalization authors included: an
-  upstream finding is sent to a formalization session with an independent requirement (its
-  sources and the catalogue's own definitions, never a kernel goal or failing term, Policy 2),
-  not handed to the owner. Work is never stopped to wait for the owner to route it.
+- **The orchestrator dispatches every role's work itself; it does not author that work.** A
+  dispatch carries the role, its boundary, and a pointer to the governing requirement as the
+  owner wrote it (the plan's B0 row, `specs/owner/`, SPEC.md). It never carries content: no
+  assertion, expected value or source for the acceptance author; no row design, schema, evidence
+  strategy, test term, kernel goal or failing term for the formalization author (Policy 2); for a
+  leaf, only the registered operations and input forms. A suspected upstream defect is reported
+  in one sentence naming the admission and the class of values, for independent assessment from
+  the requirement and sources. Work is never stopped to wait for the owner to route it.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
