@@ -16,6 +16,11 @@ compared per assertion with main (no regression):
   Poly∖0/Monic evidence goals no longer contain `RingHom.toFun`.
 Dispatched formalization session session_01CRqVaA7aRUSwk1Q7LKgACe (lean-categories): numeral
 coverage of the Poly∖0, Monicₙ, units evidence; a convergence domain for lim.
+Dispatched (2026-10-02): leaf session_015SjFwE1GmKC3tr1z4cKy1u (product, coproduct, pullback,
+power-set cardinality, form cokernel registrations); acceptance session_01Vpr2K6MW75Yib2nboHBhrL
+(owed B0 assertions: rank, kernels, abelian, formed module, 𝔽₉); formalization
+session_01Sbxvjxivxec4BKxursTPkc (quotient presentations and comparison cells, for cc-realize).
+Host: no Sage or GAP installed; leaf execution is unavailable locally.
 Remaining stage B: core-admission-realized holds by its existing probes; b0-binders waits on the
 upstream assessment. The 6 Poly∖0/Monic failures and lim ×2 are upstream (below). Suite at main `3c8eaec`: 148 assertions; 52 hold, 85 gaps,
 8 invalid, 3 internal. Classified:
