@@ -6,6 +6,35 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-02 (orchestrator)
 
+- 14:50. HANDOFF (session stopped: usage limit). Durable state for the next kernel worker:
+  - `b0/lifted-limits`, lean-cas-dsl#64, head `5fd3f92`. The realized reading executes the creation
+    lift: `alongLift` sends each datum of `D` along the lift's functor `U` (objects by `transport`
+    along the lift's edge, morphisms as their graph in the lower graph-literal form, each checked
+    to be `U` applied to the datum), decodes and checks the cone in the row's category, and takes
+    the object refining the apex along exactly the lift's edge. `decodeValue` no longer searches
+    refinements; no runtime `invalid`. Probe (`RegistrationProbes`): `|pullback(f', g')|` of finite
+    sets holds at 3, wrong at 2. NOT YET RUN at `5fd3f92`: full build, `cas-harness --report`,
+    `check_acceptance_regression.py` against a main report, `check_question_permanence.py --base`
+    main's `CasAcceptance/Permanent/questions.json` (both clean at `fa80460`). Run these first.
+    Expected: `finite_sets.limit.pullback.card` holds over the real leaves. Read the newest
+    custodian comment on #64 before changing anything.
+  - `b0/binders`, lean-cas-dsl#63 (draft), head `f805933`, worktree `.tmp/wt-binders` (its
+    `.lake/build` symlinks to `/dev/shm/wt-binders-build`; rebuild if gone). Kernel findings all
+    repaired (row-local refusal, reducible row matching, per-token separator, evidence goals at the
+    domain with `id` hints stripped); the custodian's last review found no kernel defect. Validated
+    at `f805933`: no regression over the real leaves (153; only `calculus.limit_sinc` fails).
+    Blocked on (a) an independently assessed upstream binder release (pin is unassessed
+    lean-categories main, which carries `kernelSincStatement`/`collapseUnits`), (b) accepted
+    interpretations for the six re-read assertions. Do not move the pin, regenerate the question
+    record, or restore `--transition`.
+  - Recorded defect (directive B, needs the acceptance authority before landing): question
+    fingerprints (`Realize.claimQuestion`) hash evidence proofs; cleaning evidence goals changed
+    `calculus.limit_infinity` and `series.coefficient_{zero,two,three,four}` with no change of
+    meaning.
+  - Owner decisions outstanding: role isolation (private repos with one environment per role, or
+    public with unenforceable blindness); finish or archive the sessions dispatched under the old
+    procedure; scheduling the upstream repair of kernel-shaped evidence (accepted pin stays
+    `5b96a8a`); matrix `rank` (column-module rank or McCoy rank).
 - 13:05. #62 merged (initial question record, 142). Kernel fixes from its review: settled
   questions carry relation, category and the typed element, element before set (`150a124`,
   `fbd5dfd`, `998df95`); the custodian review reads the current PR description (`003103c`).
