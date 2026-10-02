@@ -11,7 +11,9 @@ per working session; terse. Not an authority: rules live in their owning documen
   assertions/expected values, kernel goal terms, row designs, or a kernel-repo read for the leaf
   author were stopped and replaced. Live: acceptance session_01Q9YWsNTV1zVddKmp7MRsbw,
   formalization session_01DPvLuRKBcdBVf1shacNovT, leaf session_014DrMxP5s6WX9xcYZRUrjyW.
-  SendMessage cannot reach cloud sessions from this session; a brief is corrected by replacement.
+  Correction: cloud sessions are messaged by a Routine bound to the session, fired
+  (AGENTS.md, dispatch rule); SendMessage reaches only listed live peers. Used 10:46 to wake the
+  #78 and #80 authors on their reviews and the #77/#79 reviewer, who had posted nothing.
 - gov-meaning-permanence: `c5aa80e` on `b0/meaning-permanence` (claimQuestion fingerprint per
   statement in the report; check_question_permanence.py; gate wired). Stable across two
   runs: 137 of 149 assertions carry a question (the 11 without are the invalid ones, unread);
