@@ -100,7 +100,7 @@ For a formed-module map f:V → V' with selected value module W and bilinear
 forms B and B', the lifted module kernel retains
 
 - the actual submodule K=ker(f), not an abstract isomorphic module;
-- its inclusion i:K ↪ V and the equation f i=0;
+- its inclusion i:K ↪ V and the equation U(f) U(i)=0 of module maps;
 - the selected base ring R and value module W;
 - the restricted form B_K(k,l)=B(i(k),i(l));
 - the lifted inclusion, whose form-preservation equation uses this B_K;
@@ -109,11 +109,18 @@ forms B and B', the lifted module kernel retains
 
 The mathematical justification of the restriction is independent of any
 computation: bilinearity of B_K follows by composing B with i in both arguments.
-For a form-preserving map h:T → V with f h=0, the unique module factorization
+For a form-preserving map h:T → V with U(f) U(h)=0, the unique module factorization
 through i preserves forms since i composed with that factorization is h.
 Thus the retained inclusion and restricted form determine the lift. This is
 the accepted `formedKernel_pairing`/`forgetMonoLift` meaning in `b249ca2`.
 The result's value module is W even when its carrier is the zero module.
+Here U is the actual forgetful functor to modules. The zero equation is in
+modules: a zero module map need not be a form-preserving morphism between
+arbitrary formed objects. This construction is the prescribed lift of a module
+kernel, not an unsupported claim that the formed category has categorical
+kernels or zero morphisms. In the fixed-W form-preserving case, B_K is zero
+because B_K(k,l)=B'(f(i(k)),f(i(l)))=B'(0,0)=0; it remains a form with
+the selected target W, and does not turn its object into a bare module.
 
 The accepted source differentiates fixed-value `BilinModuleCat R W` from
 varying-value `BilWFormCat R`. The named A/A_dual/to_dual objects use the latter;
