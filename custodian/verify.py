@@ -363,11 +363,12 @@ def main() -> int:
         args.seal.write_text(json.dumps(seal, indent=1, sort_keys=True) + "\n")
         print(f"wrote {args.seal}; sign it: ssh-keygen -Y sign -f <key> -n {NAMESPACE} {args.seal}")
         return 0
-    if not args.trusted_fpr:
+    if not args.trusted_fpr and not args.construction:
         raise SystemExit("--trusted-fpr is required: the fingerprint comes from outside the repo")
-    verify_signature(args.seal, Path(str(args.seal) + ".sig"), args.key, args.trusted_fpr)
+    if not args.construction:
+        verify_signature(args.seal, Path(str(args.seal) + ".sig"), args.key, args.trusted_fpr)
     root = json.loads(args.seal.read_text())
-    chain = load_chain(repo, args.seal, root)
+    chain = [] if args.construction else load_chain(repo, args.seal, root)
     seal = tip_seal(root, chain)
     if not args.construction and verifier_sha not in (
             {root["verifier_sha256"]} | {v["seal"]["verifier_sha256"] for _, v in chain}):

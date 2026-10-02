@@ -17,6 +17,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 scratch, src, review_key, esc_key, fpr = map(str, sys.argv[1:6])
@@ -25,6 +26,9 @@ spec = importlib.util.spec_from_file_location("review", SRC / "custodian/review/
 R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
 calls = []
+# Decision-path tests use a larger stub budget; production-budget failure is exercised below.
+PRODUCTION_BUDGET = R.BATCH_LIMIT
+R.BATCH_LIMIT = 2_000_000
 
 
 OUTCOME = {"approve": "no_blocking_finding", "reject": "defect", "escalate": "requirement_decision",
@@ -146,6 +150,10 @@ expect("kernel change, reviewer rejects", run(stub("reject")), "REJECTED")
 calls.clear()
 expect("same change again: refused, no model call", run(stub("approve")), "REJECTED (identical change)")
 results.append(not calls)
+commit(S / "head")  # an empty commit changes identity, not the reviewed source
+calls.clear()
+expect("empty commit cannot reopen rejected source", run(stub("approve")), "REJECTED (identical change)")
+results.append(not calls)
 
 fresh()
 with open(S / "head" / KERNEL, "a") as f:
@@ -195,12 +203,12 @@ adopt_verdict()
 expect("verdict signed by an unnamed key", run(stub("approve")), "FAIL (hard)")
 
 fresh()
-with open(S / "base" / KERNEL, "a") as f:
+with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- main moves on with an approved verdict\n")
-commit(S / "base")
-shutil.rmtree(S / "head")
-shutil.copytree(S / "base", S / "head", symlinks=True)
+commit(S / "head")
 code = run(stub("approve"))
+shutil.rmtree(S / "base")
+shutil.copytree(S / "head", S / "base", symlinks=True)
 for f in (S / "out" / "verdicts").iterdir():
     (S / "base" / "custodian" / "verdicts").mkdir(exist_ok=True)
     shutil.copy(f, S / "base" / "custodian" / "verdicts" / f.name)
@@ -349,6 +357,108 @@ with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- a candidate selecting its own phase\n")
 commit(S / "head")
 expect("a candidate cannot select the construction phase", run(stub("approve")), "APPROVED")
+
+fresh("construction")
+(S / "head" / "NewKernelControl.lean").write_text('import Lean\nsyntax "new_control" : command\n')
+commit(S / "head")
+expect("construction: relocated control is reviewed rather than prohibited by old boundary",
+       run(stub("approve")), "NO BLOCKING FINDING")
+
+# A legacy signature or verdict chain is not a prerequisite for constructing its replacement.
+fresh("construction")
+(S / "base" / "custodian" / "seal.json").write_text("obsolete seal")
+(S / "base" / "custodian" / "seal.json.sig").write_text("obsolete signature")
+(S / "base" / "custodian" / "verdicts").mkdir(exist_ok=True)
+(S / "base" / "custodian" / "verdicts" / "000001.json").write_text("obsolete chain")
+commit(S / "base")
+shutil.rmtree(S / "head")
+shutil.copytree(S / "base", S / "head", symlinks=True)
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- authorized replacement\n")
+commit(S / "head")
+expect("construction proceeds with obsolete signature and chain",
+       run(stub("approve")), "NO BLOCKING FINDING")
+
+fresh("construction")
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- uncommitted input\n")
+calls.clear()
+expect("missing revision context is an incomplete operation",
+       run(stub("approve")), "REVIEW NOT COMPLETED")
+results.append(not calls and not any((S / "rej").iterdir()))
+
+fresh("construction")
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- source snapshot\n")
+commit(S / "head")
+calls.clear()
+def mutate_live_input(prompt, requirements, change, explanation=""):
+    with open(S / "head" / KERNEL, "a") as f:
+        f.write("\n-- changed after snapshot\n")
+    results.append("changed after snapshot" not in change and "revision_tuple" in requirements)
+    return stub("approve")(prompt, requirements, change, explanation)
+expect("review reads the captured revision despite later working-tree edits",
+       run(mutate_live_input), "NO BLOCKING FINDING")
+
+fresh("construction")
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- oversized context\n")
+commit(S / "head")
+limit = R.BATCH_LIMIT
+R.BATCH_LIMIT = 10
+calls.clear()
+expect("oversized context is never silently truncated",
+       run(stub("approve")), "REVIEW NOT COMPLETED")
+results.append(not calls)
+R.BATCH_LIMIT = limit
+
+fresh("construction")
+(S / "base" / "specs" / "architecture.md").unlink()
+commit(S / "base")
+shutil.rmtree(S / "head")
+shutil.copytree(S / "base", S / "head", symlinks=True)
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- review requiring missing mandate\n")
+commit(S / "head")
+calls.clear()
+expect("missing governing source is an incomplete review",
+       run(stub("approve")), "REVIEW NOT COMPLETED")
+results.append(not calls and not any((S / "rej").iterdir()))
+
+# Two individually small interdependent files must reach the same stateless reviewer call.
+with tempfile.TemporaryDirectory() as d:
+    base, head = Path(d) / "base", Path(d) / "head"
+    base.mkdir(); head.mkdir()
+    (base / "producer.py").write_text("old producer\n")
+    (head / "producer.py").write_text("new producer\n")
+    (head / "consumer.py").write_text("consumer of producer\n")
+    R.BATCH_LIMIT = 10_000
+    complete = R.review_batches(base, head, ["producer.py"], ["consumer.py"])
+    results.append(len(complete) == 1 and "new producer" in complete[0]
+                   and "consumer of producer" in complete[0])
+    R.BATCH_LIMIT = max(len(complete[0]) - 1, 1)
+    try:
+        R.review_batches(base, head, ["producer.py"], ["consumer.py"])
+    except ValueError:
+        results.append(True)
+    else:
+        results.append(False)
+    prompt = Path(d) / "prompt.md"; prompt.write_text("prompt")
+    R.BATCH_LIMIT = 100
+    calls.clear()
+    result, why = R.review(prompt, "requirement" * 100, ["small source"], "")
+    results.append(result is None and not calls and "budget" in why)
+    result, why = R.review(prompt, "", ["producer", "consumer"], "")
+    results.append(result is None and not calls and "split" in why)
+R.BATCH_LIMIT = PRODUCTION_BUDGET
+fresh("construction")
+with open(S / "head" / KERNEL, "a") as f:
+    f.write("\n-- production-budget context check\n")
+commit(S / "head")
+calls.clear()
+expect("full fixture context exceeding production budget stays incomplete",
+       run(stub("approve")), "REVIEW NOT COMPLETED")
+results.append(not calls)
 
 print(f"{sum(results)}/{len(results)} checks hold")
 sys.exit(0 if all(results) else 1)

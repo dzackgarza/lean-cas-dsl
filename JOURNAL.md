@@ -4,6 +4,53 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-03 (orchestrator)
+
+- Owner guidance is authoritative; independent agents review implementing source, not these
+  instructions. Fresh role assignments and separate inputs support independent construction;
+  the previous entry's hypothetical filesystem-isolation decision is superseded by the owner.
+  `sage-categories` is reference-only. No claimed operating-system directory isolation.
+- Final coherent candidate uses upstream `b249ca2` (including reviewed `6f5167e` and `61b181d`),
+  contract `c8173f4`, leaves `3057dfd`, and the reviewed kernel source. The additional mathematical
+  publication provides canonical CommRing coefficient objects for ℤ, ZMod n, ℚ, ℝ and ℂ.
+- Independently reviewed upstream source commits `6f5167e` and `61b181d` preserve coefficient-ring
+  objects and named admission owners. Contract candidate `c8173f4` retains the released structural
+  encoding and restores distinct semantic ambiguity. Reviewed leaves candidate `3057dfd` rejects
+  malformed constructor envelopes without coercing arguments. These are source candidates,
+  not accepted mathematical releases.
+- First integrated harness run (before the reader parameter correction): all 153 admitted IDs
+  reported; 64 holds, 74 gaps, 2 unavailable, 11 reader-invalid and 2 internal. It exposed generic
+  structured-object argument/reification defects in the kernel; these were assigned to the
+  kernel author, without commissioning upstream mathematics from downstream diagnostics.
+- Kernel construction preserves complete reader questions before evaluation, exact structural DAG
+  identities, a closed execution outcome type, complete fixed-inventory infrastructure reports,
+  and whole decoded construction responses/diagrams/cones across presentation transport.
+  General nonidentity transport and independent universal-property reconstruction remain missing.
+- Custodian source uses a complete immutable review tuple/context or records review incomplete.
+  Empty commits cannot reopen a substantive rejection. Fixture tests: 70/70; positive mock calls
+  use an explicit larger input budget, while production-budget overflow remains incomplete.
+  Permanent inventory/interpretation checks are read-only; ten focused tests pass.
+- Proposed dual-lattice assertions (`a2eff9e`) were independently assessed from mathematical
+  sources. They remain unadmitted; no accepted inventory or interpretation ledger was rewritten.
+  Retained interpretations are incomplete (142 legacy records for 153 admitted assertions) and
+  contain settled legacy encodings. Independent interpretation transition is still required.
+- Final integrated source/probe/kernel-gate build passed (3698 jobs); native harness build
+  passed (7358 jobs). The full harness against the original fixed inventory reported every one
+  of 153 admitted IDs: 66 holds, 79 gaps, 5 reader-invalid, 1 semantic ambiguity, 2 unavailable;
+  no wrong, malformed or internal outcomes. 147 admitted questions were read. The separate
+  integrated report is `.tmp/b0-construction-integrated-v2.json`; run logs are in the environment's
+  `.onboarding` directory. Two proposed unadmitted assertions add two gap rows (155 total).
+- Permanent inventory gate still rejects those two proposals; question gate reports 161 defects
+  against the retained independent interpretation records. The ledgers remain byte-identical to
+  original accepted commit `bcd08de4`. No expected record was generated from candidate output.
+- Final source reviews found no additional concrete defect. B0 is not accepted. Missing inputs
+  include independently accepted interpretations, convergent/integrable map and Vec numeral
+  presentations, and a registered comparison for the competing ℂ parameter structures. Existing
+  Aut/Stab and Units schema gaps and bare coefficient-family complaints remain open upstream.
+  General nonidentity wire transport and independent universal-property reconstruction remain
+  incomplete. Protected publication and a completed live authority review are not supplied by
+  local commits; fixture production-budget overflow remains review incomplete.
+
 ## 2026-10-02 (orchestrator)
 
 - 14:50. HANDOFF (session stopped: usage limit). Durable state for the next kernel worker:

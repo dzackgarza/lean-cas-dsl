@@ -14,6 +14,9 @@ import all CasCatalogue.Codec
 import all CasCatalogue.Decide
 import all CasCatalogue.Language
 import all CasCatalogue.Realize
+import all CasCatalogue.QuestionProbes
+import all CasCatalogue.StructuredResult
+import all CasCatalogue.StructuredResultProbes
 import all CasCatalogue.Resolve
 import all CasCatalogue.ResolveSyntax
 import all CasCatalogue.Semantic
@@ -54,8 +57,10 @@ catalogue registers. Mathematics is `lean-categories`', formalized there by its 
 Every module file under `CasCatalogue/` and the contract's `CasContract/` must be imported here,
 so that a new kernel module cannot escape the check.
 
-The one proof the kernel forms itself is `decide` by evaluation (`decideObligation`, Lean's
-`mkDecideProof`): general, and about no mathematics in particular.
+The kernel forms generic kernel-checked proofs by `decide` (`decideObligation`, Lean's
+`mkDecideProof`) or reflexivity after checking that an equality's sides are definitionally equal.
+The latter also checks a constructor's proof assignment; neither introduces mathematical rows or
+accepts a proof supplied by a leaf.
 -/
 
 open Lean

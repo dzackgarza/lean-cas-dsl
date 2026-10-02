@@ -224,8 +224,10 @@ A kernel worker consumes an accepted mathematical release. It writes nothing in 
 its registry schemas, validators, probes and admission rules included, and it commissions no
 upstream work with kernel-generated goals, acceptance failures, desired row arrangements or
 instructions for making a tactic succeed. Upstream work starts from an independently approved
-mathematical requirement and its sources. This is enforced by the session's credentials and tools
-(the plan, "Authority configuration"), not by a prompt convention.
+mathematical requirement and its sources. Fresh role-specific subagents receive separate supplied inputs for this work. Do not claim that
+repository assignments enforce filesystem restrictions. Assess the actual authority operations for
+protected publication (the plan, "Authority configuration"); their absence does not block ordinary
+source construction or independent assessment.
 
 # Architecture contract (read first)
 
@@ -238,9 +240,11 @@ mathematical requirement and its sources. This is enforced by the session's cred
 
 Every plan node and edit conforms to it. In practice it forbids the following.
 
-* **Missing mathematics goes upstream.** If you need a category, functor, classifier, operation
-  or coherence that is not formal, stop. Formalize it in `lean-categories`, or open the request
-  there. Then merge it to `main`, `lake update` here, and continue.
+* **Missing mathematics remains upstream-owned.** If a required category, functor, classifier,
+  operation or coherence is not formal, record the missing accepted input for its downstream
+  consumer. The independent formalization author proceeds from the existing mathematical
+  requirements and sources, without a kernel-authored brief. Consume its accepted release at the
+  compatible tuple; continue other authorized construction whose inputs are available.
   - Never coin it in this repository: a leaf, a probe, the notebook or the kernel.
   - The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`). `normalized_registry`
     refuses every module outside it, and `SemanticProjectionProbes` checks that every semantic row

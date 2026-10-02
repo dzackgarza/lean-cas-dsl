@@ -62,11 +62,10 @@ layers in context is blind to neither, so the layers have distinct authors (owne
 
 * No agent authors in two rows. The orchestrator gives each subagent row to a separate subagent
   with only that row's inputs.
-* Information flows down the workflow only. A downstream need (the kernel cannot elaborate a row,
-  a leaf cannot meet the contract, a test fails) goes upstream as a written request to that row's
-  author stating the mathematics wanted. It is never an edit made from downstream, and it never
-  shapes the upstream answer: the formalization and the tests are never informed by the
-  implementation.
+* Information flows down the workflow only. Upstream assignments come from the governing
+  mathematical requirement queue and sources. A downstream failure remains a downstream finding;
+  it is not rewritten as a mathematical brief or sent to steer an upstream author. Existing
+  authorized mathematical obligations remain schedulable without another owner instruction.
 * Relaxing the leaf contract, weakening a row, or re-admitting a test to fit an implementation is
   almost never the mathematical solution. Each needs a mathematical justification from the upstream
   author, recorded with the change.
@@ -273,14 +272,14 @@ input form and a backend. Nothing else in a manifest carries meaning.
 | Installing or removing a leaf adds or removes methods | Methods are read from semantic rows only. A manifest changes only which statements are computed: the suite over no leaf and over any manifest elaborates the same statements, and only gaps differ (`RegistrationProbes`) | `gov-leaf-authority` |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port; only a value of a declared form crosses it, decoded by the kernel | `gov-leaf-authority` |
 | A backend object becomes the public value | Answers are read by the kernel into the operation's declared result form, whose meaning is `lean-categories`'; a leaf never defines what a value means | `gov-leaf-authority` |
-| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
-| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
+| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) checks the admitted ledger without mutation; a correction requires the independent acceptance transition | — |
+| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs the accepted upstream revision and the independently accepted interpretation/admission transition | — |
 | A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it; `cas-harness` installs the leaves beside the runner and checks the intake contract before running anything. The suite is run only from `lean-cas-dsl` | — |
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md: missing mathematics is requested from `lean-categories`; research computations are leaves under the same contract, registrations with no Lean | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
 | One agent authors in two rows of "Authors: one role per agent" | Not enforced by a self-declared label. Enforcement is `b0-authority`'s: one write credential per role and protected branches (the plan, "Authority configuration"). The trailer gate `check_authorship.py` was retired on 2026-10-02: it judged labels each author wrote about itself and generated exception tables, never separation | `b0-authority` |
-| The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance` | — |
+| The implementing agent, or the orchestrator, re-admits a test | The checker has no admission, correction or retirement operation; a caller-set role label cannot advance the ledger | — |
 | `lean-categories` accepts an operation with an optional or partial codomain, or relies on a total convention off the domain (LC-14) | The totality gate (`LeanCategories/Catalogue/Registry/Totality.lean`, run by `normalized_registry`) refuses a row built, through any definition of `lean-categories`, from `Option`, `Part`, `PFun`, `Ring.inverse`, `Matrix.nonsing_inv`, `Matrix.inv`; `TotalityProbes` refuses the pre-`bd31fe3` encodings. It does not see a convention hidden inside Mathlib definitions | — |
 | `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
 | The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | The one outcome model (`cc-failure-strata`): `Realize.run` reports every failure as its stratum, and an untagged one as an internal error, so no caught failure becomes a reading. The label-based `check_kernel_totality.py` is withdrawn (policy 2). Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
@@ -431,15 +430,18 @@ The existing launcher and connector expose role-specific capabilities:
 | Kernel/contract | Accepted mathematics, approved requirements, kernel and contract source, applicable independent findings | Candidate generic interpreter and computational contract | Writing upstream mathematics; commissioning or briefing upstream authors; changing authoritative acceptance |
 | Leaf | Released computational contract, permitted registration forms, backend documentation and implementation resources | Registrations and opaque computations | Reading the acceptance corpus or expected answers; changing semantics, the contract, or authoritative test results |
 
-An operation being absent means that it cannot be performed through another connector, terminal
-credential, public-network request, shared directory, session message, or inherited context.
-Repository write permissions alone do not establish blindness. A worker that can fetch a public
-downstream repository still has a downstream read channel.
+Use fresh role-specific subagents with separate assignments and supplied inputs. Do not inherit
+cross-role conversation histories, worker findings or candidate answers into independent authoring.
+A repository assignment and a fresh context support independent work; they do not establish an OS
+filesystem restriction. The current launcher provides the former, and construction and independent
+assessment proceed with them. Do not infer that an author bypassed its assignment merely because
+another public repository was technically accessible, or turn that hypothetical into a blocker.
 
-The launcher therefore supplies a fresh role-specific context and mediates its tools and network
-access. Cross-role conversation histories, shared memory retrieval, summaries, task comments, and
-unrestricted credentials are not included. Asking a previously exposed session to disregard what
-it has read does not establish independence.
+A claim that a particular authority-bearing operation is structurally unavailable requires evidence
+from the actual tools and credentials. Address observed downstream steering, self-admission and
+mixed-input review channels at their owning interfaces. Unsupported claims of enforced restrictions
+are not acceptance evidence; missing publication controls block protected publication, not ordinary
+source construction or assessment by fresh independent authors.
 
 **Dispatch contains references, not authored instructions about the deliverable.** Its variable
 fields identify the independently assigned requirement, accepted input revisions, destination, and

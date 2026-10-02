@@ -252,6 +252,16 @@ declare_syntax_cat cas_item
 syntax "test " ident str ": " cas_stmt : cas_item
 syntax cas_stmt : cas_item
 
+/-- The reader's unreduced question tree. Atomic judgements retain their typed operands
+and upstream declarations; logical constructors are retained before any decision. -/
+inductive Question
+  | proposition (term : Expr)
+  | judgement (relation : String) (terms : Array Expr) (route : Array Name := #[]) (declarations : Array Name := #[])
+      (types : Array Expr := #[])
+  | conjunction (left right : Question)
+  | negation (question : Question)
+  deriving Inhabited, Hashable, Repr
+
 /-- The value of a term. -/
 inductive Value
   /-- A numeral: a parameter, or a literal. -/
@@ -272,7 +282,45 @@ inductive Value
   | element (hom : Expr) (object : Value)
   /-- The decision of a property: an `Option Bool`. -/
   | answer (answer : Expr)
+  | judged (question : Question) (answer : Expr)
   deriving Inhabited
+
+/-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
+about it. -/
+def Value.terms : Value → Array Expr
+  | .nat n => #[mkNatLit n]
+  | .literal name => #[mkStrLit name.toString]
+  | .object handle _ _ => #[handle]
+  | .morphism hom source target _ _ => #[hom, source, target]
+  | .homSet s t => s.terms ++ t.terms
+  | .element hom set => #[hom] ++ set.terms
+  | .answer a | .judged _ a => #[a]
+
+/-- Formal declaration identities attached to an operand, retained separately from
+its carrier term so a selected structure cannot disappear when the carrier is shared. -/
+partial def Value.declarations : Value → Array Name
+  | .object _ category origin =>
+      #[category.declaration] ++ match origin with
+        | none => #[]
+        | some (entry, parameters) =>
+            #[entry.declaration] ++ parameters.flatMap Value.declarations ++
+              (entry.refines.map fun refinement => #[refinement.identification]).getD #[]
+  | .morphism _ _ _ category sets =>
+      #[category.declaration] ++ (sets.map fun (source, target) =>
+        source.declarations ++ target.declarations).getD #[]
+  | .element _ set => set.declarations
+  | .homSet source target => source.declarations ++ target.declarations
+  | _ => #[]
+
+/-- A judgement is formed with the operands' full terms and formal identities at reading time. -/
+def judgement (relation : String) (operands : Array Value) (route : Array Name := #[]) : Question :=
+  .judgement relation (operands.flatMap Value.terms) route (operands.flatMap Value.declarations)
+
+/-- Preserve a question already formed by the reader, or the exact typed proposition. -/
+def Value.question (value : Value) (prop : Expr) : Question :=
+  match value with
+  | .judged question _ => question
+  | _ => .proposition prop
 
 /-- The `let` bindings of a file: each name's term, evaluated where it is used, so that a use of a
 binding whose computation is a gap is itself a gap. -/
@@ -383,6 +431,106 @@ def paramTerms (values : Array Value) : M (Array Term) :=
     | v@(.object ..) => do exprToSyntax (← semanticObject v)
     | .element handle _ => exprToSyntax handle
     | _ => throwStratum .invalid m!"a parameter is a numeral, an object or an element"
+
+/-- Exact registered refinement ancestry; shared carriers confer no identity. -/
+def refinesObject (state : RegistryState) (entry : ObjectEntry) (base : ObjectId) : Bool := Id.run do
+  let mut current := entry
+  for _ in [0:state.objects.size + 1] do
+    if current.id == base then return true
+    let some refinement := current.refines | return false
+    let some parent := state.objects.find? (·.id == refinement.base) | return false
+    current := parent
+  return false
+
+/-- Isolate speculative unification and suppress speculative trace records. -/
+def parameterTrial {α : Type} (action : M α) : M α := do
+  let context ← read
+  liftM (withoutModifyingState (action.run { context with trace := none }))
+
+/-- Only declared inapplicability discards a trial; ambiguity and interpreter failures survive. -/
+def parameterCompatible (action : M Bool) : M Bool := do
+  try parameterTrial action
+  catch error =>
+    if (CasCatalogue.Exception.stratum? error) == some .invalid then pure false else throw error
+
+mutual
+/-- Read explicit parameters sequentially at the declaration's dependent binder types. -/
+partial def typedParamTerms (declaration : Name) (values : Array Value) : M (Array Term) := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
+  unless values.size ≤ explicit.size do
+    throwStratum .invalid m!"{declaration} takes {explicit.size} explicit parameters"
+  let mut terms := #[]
+  for (parameter, value) in explicit.zip values do
+    let expected ← instantiateMVars (← inferType parameter)
+    let argument ← typedParameter expected value
+    unless ← isDefEq (← inferType argument) expected <&&> isDefEq parameter argument do
+      throwStratum .invalid m!"a parameter of {declaration} is outside its declared type"
+    terms := terms.push (← quoteExpr (← instantiateMVars argument))
+  return terms
+
+/-- Preserve an already typed selection; otherwise use exact registered refinements and
+structural routes, with registered coherence or explicit ambiguity, never carrier coincidence. -/
+partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
+  let direct ← match value with
+    | .nat n => pure (mkNatLit n)
+    | .object handle .. | .element handle _ => pure handle
+    | _ => throwStratum .invalid m!"a parameter is a numeral, an object or an element"
+  if ← parameterTrial (isDefEq (← inferType direct) expected) then
+    unless ← isDefEq (← inferType direct) expected do unreachable!
+    return direct
+  let .object _ selectedCategory (some (origin, parameters)) := value
+    | throwStratum .invalid m!"a parameter has no registered object at its declared type"
+  let state ← registryState
+  -- An explicitly selected structure supplies its own outgoing routes. An unstructured named
+  -- set may acquire only structures whose registered refinement ancestry reaches that exact row.
+  let sources := if selectedCategory.id == CategoryId.sets then
+      state.objects.filter (refinesObject state · origin.id)
+    else #[origin]
+  let mut candidates : Array (ObjectEntry × Route) := #[]
+  for source in sources do
+    let some sourceCategory := state.categories.find? (·.id == source.category) | continue
+    for targetCategory in state.categories do
+      let targetTyped ← parameterCompatible do
+        let family ← instantiateFresh targetCategory.declaration
+        let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
+        isDefEq objectType expected
+      unless targetTyped do continue
+      for route in state.routes sourceCategory.expression targetCategory.expression do
+        let applicable ← parameterCompatible do
+          let sourceTerm ← Semantic.object source (← typedParamTerms source.declaration parameters)
+          let image ← if route.steps.isEmpty then pure sourceTerm else
+            Semantic.objOf (← state.routeFunctor route.refs) sourceTerm
+          isDefEq (← inferType image) expected
+        if applicable then candidates := candidates.push (source, route)
+  letI : Inhabited (ObjectEntry × Route) :=
+    ⟨(origin, { source := selectedCategory.expression, target := selectedCategory.expression, steps := #[] })⟩
+  do
+    let classes := state.classify candidates (fun c => c.1.id.raw) (·.2)
+    let selected ← match classes with
+      | #[cls] =>
+        if !cls.ambiguities.isEmpty then
+          throwStratum .semanticAmbiguity m!"several registered comparisons determine a parameter route"
+        let #[candidate] := cls.sources
+          | throwStratum .semanticAmbiguity m!"a parameter has no unique registered source route"
+        pure candidate
+      | #[] => throwStratum .invalid m!"{origin.name} has no registered structure at the parameter's type"
+      | _ => throwStratum .semanticAmbiguity m!"several registered structures determine a parameter of {origin.name}"
+    let (source, route) := selected
+    let sourceTerm ← Semantic.object source (← typedParamTerms source.declaration parameters) (← read).trace
+    let image ← if route.steps.isEmpty then pure sourceTerm else
+      Semantic.objOf (← state.routeFunctor route.refs) sourceTerm
+    unless ← isDefEq (← inferType image) expected do
+      throwStratum .invalid m!"a structural parameter is outside its declared type"
+    let image ← instantiateMVars image
+    unless route.steps.isEmpty do
+      let some target := state.categories.find? (·.expression.syntacticEq route.target)
+        | throwStratum .invalid m!"a parameter route has no registered target category"
+      Trace.record (← read).trace image
+        (.parameterTransport source.id source.category target.id route.refs sourceTerm)
+    return image
+end
 
 /-- The numerals among `values`, as terms. -/
 def numeralTerms (name : String) (values : Array Value) : TermElabM (Array Term) :=
@@ -520,7 +668,7 @@ def differentialOf? (n : Name) : Option Name :=
 def answerOf (b : Option Bool) : Value := .answer (toExpr b)
 
 /-- A fact the catalogue itself decides (a registered inclusion): `True`. No leaf is consulted. -/
-def decided : M Value := return .answer (mkConst ``True)
+def decided (question : Question) : M Value := return .judged question (mkConst ``True)
 
 /-- The object of sets a named object refines, or itself if it is one: the set whose numerals are
 its elements' names (`Fin n` of finite sets is the set `Fin n`). -/
@@ -807,7 +955,8 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       let (super, superParams) ← namedObject scope y
       unless subParams == superParams do
         throwStratum .invalid m!"`⊆` relates named sets at the same parameters"
-      if includes state sub.id super.id then return ← decided
+      if let some route := inclusionChain state sub.id super.id then
+        return ← decided (judgement "⊆" #[← eval scope x, ← eval scope y] (route.map (·.declaration)))
       throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
   | `(cas_term| $x ∈ $y) =>
       let Y ← eval scope y
@@ -823,9 +972,11 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | .element _ (.object a _ (some (sub, _))) =>
           -- The same family: the same set, at the same parameters.
           if sub.id == super.id then
-            if ← withTransparency .all <| isDefEq a y then return ← decided
+            if ← withTransparency .all <| isDefEq a y then
+              return ← decided (judgement "∈" #[x', Y])
             throwStratum .invalid m!"`{shown x}` is an element of another {sub.name}"
-          if includes state sub.id super.id then return ← decided
+          if let some route := inclusionChain state sub.id super.id then
+            return ← decided (judgement "∈" #[x', Y] (route.map (·.declaration)))
           -- `Y` included in the set `Z` of `x` (`ℕ ⊆ ℤ`, `Mˣ ↪ M`): membership in its image.
           if let .element _ Z := x' then
             let v := x'
@@ -835,9 +986,15 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
           throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
       | _ => throwStratum .invalid m!"`∈` relates an element and a named set"
   | `(cas_term| $p and $q) =>
-      return .answer (mkAnd (← asAnswer (← eval scope p)) (← asAnswer (← eval scope q)))
+      let left ← eval scope p
+      let right ← eval scope q
+      let lp ← asAnswer left
+      let rp ← asAnswer right
+      return .judged (.conjunction (left.question lp) (right.question rp)) (mkAnd lp rp)
   | `(cas_term| $x ∉ $y) =>
-      negate (← asAnswer (← eval scope (← `(cas_term| $x ∈ $y)) category? ambient?))
+      let value ← eval scope (← `(cas_term| $x ∈ $y)) category? ambient?
+      let prop ← asAnswer value
+      return .judged (.negation (value.question prop)) (mkNot prop)
   | `(cas_term| $x ∪ $y) => operate scope "∪" #[x, y] ambient?
   | `(cas_term| $x ∩ $y) => operate scope "∩" #[x, y] ambient?
   | `(cas_term| $x \ $y) => operate scope "\\" #[x, y] ambient?
@@ -1141,7 +1298,7 @@ partial def object (state : RegistryState) (name : String) (args : Array Value)
   let entry ← objectNamed state name category?
   let some category := state.categories.find? (·.id == entry.category)
     | throwStratum .invalid m!"the object {name} has an unregistered category"
-  let params ← paramTerms args
+  let params ← typedParamTerms entry.declaration args
   let handle ← Semantic.object entry params (← read).trace
   return .object handle category (some (entry, args))
 
@@ -1296,10 +1453,31 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
   -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
   let values ← params.mapM fun p => do
     if let some n ← (Meta.evalNat p).run then return Value.nat n
-    let some sets := state.categories.find? (·.id == CategoryId.sets)
-      | throwStratum .invalid m!"no registered category of sets"
-    recognize state p sets
+    let mut categories := #[]
+    for candidate in state.categories do
+      let applicable ← parameterCompatible do
+        let family ← instantiateFresh candidate.declaration
+        let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
+        isDefEq (← inferType p) objectType
+      if applicable then categories := categories.push candidate
+    let parameterCategory ← match categories with
+      | #[candidate] => pure candidate
+      | #[] => throwStratum .invalid m!"a parameter of {entry.name} has no registered category"
+      | _ => throwStratum .semanticAmbiguity m!"a parameter of {entry.name} has several registered categories"
+    recognize state p parameterCategory
   object state entry.name values (some category)
+
+/-- The named set supplied by the exact registered refinement of a structured object.
+The structured value remains the family's parameter; this view stages its elements. -/
+partial def carrierObject (value : Value) : M Value := do
+  let .object _ category (some (entry, parameters)) := value
+    | throwStratum .invalid m!"a structured coefficient object must name a registered object"
+  if category.id == CategoryId.sets then return value
+  let state ← registryState
+  let base ← setOf state entry
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwStratum .invalid m!"no registered category of sets"
+  object state base.name parameters (some sets)
 
 /-- The registered morphism family named `name`, applied to elements (see `applyFamily`). -/
 partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value)
@@ -1406,7 +1584,7 @@ partial def generatorOf (P : Value) (index : Option Nat := none) : M Value := do
           | throwStratum .invalid m!"the variable {i} of {n} variables"
         pure #[← quoteExpr (mkApp3 (mkConst ``Fin.mk) (mkNatLit n) (mkNatLit i) below)]
     | some _, none => throwStratum .invalid m!"{entry.name} has no indexed variables"
-  let hom ← homIn (← `($(mkCIdent g) $(← paramTerms params)* $indexTerm*)) one p category
+  let hom ← homIn (← `($(mkCIdent g) $(← typedParamTerms g params)* $indexTerm*)) one p category
   match (← read).stage with
   | none => return .element hom P
   | some S => return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp
@@ -1444,11 +1622,13 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   let (.object y _ yOrigin, .object x category xOrigin) := (Y, X) | return none
   if y == x || (← isDefEq y x) then return some none
   if let some (entry, params) := xOrigin then
-    if let (some constants, some P@(Value.object p ..)) :=
+    if let (some constants, some parameter@(.object ..)) :=
         (entry.constants, params.find? (· matches .object ..)) then
+      let P ← carrierObject parameter
+      let .object p .. := P | unreachable!
       -- Into its parameter `P` (itself, or along a coercion), then its constants `P ↪ X`.
       if let some into ← coercionMap Y P then
-        let ι ← homIn (← `($(mkCIdent constants) $(← paramTerms params)*)) p x category
+        let ι ← homIn (← `($(mkCIdent constants) $(← typedParamTerms constants params)*)) p x category
         return some (some (← match into with
           | some ι₀ => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι₀, ι]
           | none => pure ι))
@@ -1558,7 +1738,7 @@ partial def inCategoryOver (scope : Scope) (t : Syntax) (C : NamedCategoryEntry)
   let some refined := if base.category == C.id then some base else state.objects.find? fun o =>
       o.category == C.id && (o.refines.map (·.base == base.id)).getD false
     | throwStratum .invalid m!"{base.name} has no registered refinement in {C.name}"
-  let object ← Semantic.object refined (← paramTerms params)
+  let object ← Semantic.object refined (← typedParamTerms refined.declaration params)
   -- The object of the base over which it lies: the family's parameter, read off its type.
   let family ← mkConstWithFreshMVarLevels C.declaration
   let (args, _, _) ← forallMetaTelescopeReducing (← inferType family)
@@ -1695,7 +1875,7 @@ partial def bigOperator (scope : Scope) (name : String) (t : Name) (A e : Syntax
   let some entry := state.morphisms.find? (·.name == name)
     | throwStratum .invalid m!"no registered {name}"
   let .object y .. := Y | unreachable!
-  let family ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[X, Y])*
+  let family ← homIn (← `($(mkCIdent entry.declaration) $(← typedParamTerms entry.declaration #[X, Y])*
     $(← quoteExpr f))) p y category
   return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp #[A', family]) Y
 
@@ -1715,11 +1895,12 @@ partial def formalSeries? (scope : Scope) (name : String) (n : Name) (A e : Synt
   let N ← eval scope A
   let .object _ _ (some (naturals, #[])) := N | return none
   unless naturals.name == "ℕ" do return none
+  let coefficients ← carrierObject R
   let .element c _ ← withReader (fun ctx => { ctx with stage := some N }) do
-      coerceTo (← atStage scope n N c (some R)) R
+      coerceTo (← atStage scope n N c (some coefficients)) coefficients
     | throwStratum .invalid m!"`{shown c}` is a coefficient in {shown A}"
   let .object one .. ← oneObject | unreachable!
-  let hom ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms #[R])* $(← quoteExpr c)))
+  let hom ← homIn (← `($(mkCIdent entry.declaration) $(← typedParamTerms entry.declaration #[R])* $(← quoteExpr c)))
     one s category
   return some (.element (← staged hom) S)
 
@@ -1838,7 +2019,7 @@ partial def derivativeAt (g : Value) : M Value := do
     | throwStratum .invalid m!"`d/dv` is along a variable"
   let some entry := state.morphisms.find? (·.name == "derivative")
     | throwStratum .invalid m!"no registered derivative"
-  let h ← homIn (← `($(mkCIdent entry.declaration) $(← paramTerms params)*)) p p category
+  let h ← homIn (← `($(mkCIdent entry.declaration) $(← typedParamTerms entry.declaration params)*)) p p category
   return .morphism h p p category (some (P, P))
 
 /-- `a / b`: the registered division `M × Mˣ → M`, `(a, u) ↦ a u⁻¹`, in the enclosing set `M`,
@@ -1990,7 +2171,7 @@ partial def toElement (v : Value) (X : Value) : M Value := do
         return ← admit X (← toElement v B)
       let one ← semanticObject (← oneObject)
       let refinements ← (state.objects.filter (·.refines.any (·.base == entry.id))).mapM fun o =>
-        return (o.category, ← Semantic.object o (← paramTerms params))
+        return (o.category, ← Semantic.object o (← typedParamTerms o.declaration params))
       match ← numeralIn state k one (← semanticObject X) refinements with
       | some numeral =>
           let .object oneHandle .. ← oneObject | unreachable!
@@ -2024,7 +2205,7 @@ partial def inclusionOut? (D : Value) : M (Option (Expr × Expr)) := do
   let .object _ _ (some (entry, params)) := D | return none
   let some inclusion := entry.inclusion | return none
   let ι ← instantiateMVars (← elabTermAndSynthesize
-    (← `($(mkCIdent inclusion) $(← paramTerms params)*)) none)
+    (← `($(mkCIdent inclusion) $(← typedParamTerms inclusion params)*)) none)
   let some (_, b) := homEnds? (← instantiateMVars (← inferType ι))
     | throwStratum .invalid m!"the inclusion of {entry.name} is not a morphism"
   return some (ι, b)
@@ -2101,7 +2282,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
     | #[] => throwStratum .invalid m!"no registered refinement of {base.name} has an operation \
         `{name}` of arity {elements.size}"
     | _ => throwStratum .semanticAmbiguity m!"several refinements of {base.name} have an operation `{name}`"
-  let params ← paramTerms params
+  let params ← typedParamTerms refined.declaration params
   let numerals ← numeralTerms operation.name extra
   let semantic ← `($(mkCIdent operation.declaration) ($(mkCIdent refined.declaration) $params*)
     $numerals*)
@@ -2147,7 +2328,7 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) 
 proposition `p = ⊤`. -/
 partial def asAnswer (v : Value) : M Expr := do
   match v with
-  | .answer a => return a
+  | .answer a | .judged _ a => return a
   | .element e Ω =>
       let state ← registryState
       let some (.object ω category _) := some Ω | unreachable!
@@ -2617,9 +2798,9 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
 /-- What a statement claims, as its semantic reading forms it: the proposition to discharge in
 Lean, and what to compute and compare when Lean does not decide it (`CasCatalogue.Realize`). -/
 inductive Claim
-  /-- Decided by the semantic reading itself: a `let`, a judgement of the catalogue (`X in C/Y`,
-  `x ∈ X` of a named set). -/
-  | settled (outcome : Outcome) (about : Array Expr := #[])
+  /-- A successfully read binding, which is not an assertion or a mathematical question. -/
+  | binding
+  | judged (question : Question) (prop : Expr) (expected : Option Bool) (shown : String)
   /-- `assert implemented X`: a registration computes the value `X`. -/
   | implemented (value : Expr)
   /-- `assert X = L` for a value `X` of `category` and the literal `L` of its registered literal
@@ -2647,64 +2828,29 @@ def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
   | .object X category _, _ =>
       let (form, L, prop) ← literalClaim state X category right
       return .literal X category form L prop (shown l) (shown r)
-  | .answer answer, _ =>
+  | value@(.answer answer), _ | value@(.judged _ answer), _ =>
       let expected ← match right with
         | .literal `true => pure (some true)
         | .literal `false => pure (some false)
         | .literal `unknown => pure none
         | _ => throwStratum .invalid m!"a decision is `true`, `false` or `unknown`"
-      return .decision answer expected s!"{shown l} = {shown r}"
+      return .judged (value.question answer) answer expected s!"{shown l} = {shown r}"
   | _, _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
-
-/-- `True`, or a conjunction of `True`s: an answer the catalogue settled without a proposition. -/
-partial def isDecidedTruth (e : Expr) : MetaM Bool := do
-  let e ← instantiateMVars e
-  if e.isConstOf ``True then return true
-  if e.isAppOfArity ``And 2 then
-    return (← isDecidedTruth e.appFn!.appArg!) && (← isDecidedTruth e.appArg!)
-  return false
-
-/-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
-about it. -/
-def Value.terms : Value → Array Expr
-  | .nat n => #[mkNatLit n]
-  | .literal name => #[mkStrLit name.toString]
-  | .object handle _ _ => #[handle]
-  | .morphism hom _ _ _ _ => #[hom]
-  | .homSet s t => s.terms ++ t.terms
-  | .element hom set => #[hom] ++ set.terms
-  | .answer a => #[a]
-
-/-- The terms of every membership `x ∈ y` and containment `x ⊆ y` in `stx`, each led by its
-relation: what a settled judgement relates, and how. -/
-partial def judgedTerms (scope : Scope) (stx : Syntax) : M (Array Expr) := do
-  let here ← match stx with
-    | `(cas_term| $x ∈ $y) =>
-        -- The element as the judgement reads it: a numeral is the element of `y` it names.
-        let Y ← eval scope y
-        let v ← match ← eval scope x with
-          | v@(.nat _) => toElement v Y
-          | v => pure v
-        pure (#[mkStrLit "∈"] ++ v.terms ++ Y.terms)
-    | `(cas_term| $x ⊆ $y) => pure (#[mkStrLit "⊆"] ++ (← eval scope x).terms ++ (← eval scope y).terms)
-    | _ => pure #[]
-  if !here.isEmpty then return here
-  stx.getArgs.foldlM (init := #[]) fun acc arg => return acc ++ (← judgedTerms scope arg)
 
 /-- The claim of a statement, read semantically: what it states, from the catalogue alone. Its
 failure is the statement's invalidity. -/
 def claim (scope : Scope) (stx : Syntax) : M Claim := do
   if let some (_, t) ← letBinding? stx then
     let rings ← ringBindings scope t
-    let v ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
-    return .settled .holds v.terms
+    discard <| withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
+    return .binding
   withFreeVariables scope stx do
   match stx with
   | `(cas_stmt| assert implemented $t:cas_term) =>
       match ← eval scope t with
       | .object handle .. => return .implemented handle
       | .element hom _ | .morphism hom .. => return .implemented hom
-      | .answer answer => return .implemented answer
+      | .answer answer | .judged _ answer => return .implemented answer
       | _ => throwStratum .invalid m!"`{shown t}` is not a value"
   | `(cas_stmt| assert $t in $X) =>
       -- `X in C/Y`: the object `X` refines into the category `C` over (under) `Y`.
@@ -2712,29 +2858,24 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
       if let some (C, Y) := categoryOver? (← registryState) X then
         let v ← inCategoryOver scope t C Y
         let base ← eval scope Y
-        return .settled .holds (#[mkStrLit s!"in {C.id.raw} over"] ++ v.terms ++ base.terms)
+        return .judged (.judgement "in-over" (v.terms ++ base.terms) #[] (#[C.declaration] ++ v.declarations ++ base.declarations)) (mkConst ``True) (some true) (shown stx)
       -- A typing judgement: `t` is an element of the set `X`.
       match ← eval scope X with
       | .object x .. =>
           let v@(.element _ (.object y ..)) ← eval scope t
             | throwStratum .invalid m!"`{shown t}` is not an element"
           if x == y || (← withTransparency .all <| isDefEq x y) then
-            return .settled .holds (#[mkStrLit "∈"] ++ v.terms ++ #[x])
-          let about := #[mkStrLit "∈"] ++ v.terms ++ #[x]
-          return .settled (.wrong s!"{shown t} is not an element of {shown X}") about
+            return .judged (judgement "in" #[v, ← eval scope X]) (mkConst ``True) (some true) (shown stx)
+          return .judged (judgement "in" #[v, ← eval scope X]) (mkConst ``False) (some true) (shown stx)
       | _ =>
           let v ← eval scope (← `(cas_term| $t in $X))
-          return .settled .holds (#[mkStrLit "in"] ++ v.terms)
+          return .judged (judgement "in" #[v]) (mkConst ``True) (some true) (shown stx)
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
       if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
-      let answer ← asAnswer (← eval scope p)
-      -- A membership or containment the catalogue decides by its registered inclusions reads as
-      -- `True` (or a conjunction of them): the judgement is settled by the reading, and what it is
-      -- about is the sets and elements it relates, not the constant `True`.
-      if (← isDecidedTruth answer) then
-        return .settled .holds (← judgedTerms scope p.raw)
-      return .decision answer (some true) (shown p)
+      let value ← eval scope p
+      let answer ← asAnswer value
+      return .judged (value.question answer) answer (some true) (shown p)
   | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
 
 end CasCatalogue.Language

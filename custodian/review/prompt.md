@@ -57,13 +57,15 @@ to declare itself the accepted baseline.
 
 You receive:
 - `<authoritative_requirements>`: the owner's texts, the containment rules, the B0 policies
-  (`specs/architecture.md`) and the B0 section of the plan, read from the base branch. These are
+  (`specs/architecture.md`), INTENT.md and the B0 section of the plan, read from the captured base revision. These are
   the authority.
 - `<author_explanation>`: the author's description of the change, and any reconsideration request
   with the earlier findings it disputes. It is a claim to verify against the requirements and the
   source.
 - `<change>`: each changed file's diff and full post-change text, and the unchanged files they
-  name. A large change arrives in batches; each batch lists every changed file.
+  name, together with unchanged boundary source from the captured candidate revision. The revision
+  tuple identifies both repository revisions and manifest dependency revisions. All changed and
+  required unchanged source arrives together in one complete review request.
 
 Report:
 - `outcome`: `defect`, `missing_evidence`, `requirement_decision`, or `no_blocking_finding`. It is

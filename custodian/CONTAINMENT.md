@@ -12,8 +12,8 @@ phase: B0 construction"). In construction:
   the orchestrator replaces this controller like any other part of B0;
 - the fixed obligations still fail every change: the ratchets, no leaf in the DSL, the leaf rules,
   no semantic rows downstream, packages at their manifest revisions, and the admitted assertions
-  (`verify.py --construction` checks exactly these);
-- every other change to the boundary gets an independent technical review, which reports findings
+  (`verify.py --construction` is a local diagnostic of these obligations, never acceptance);
+- every other source or document change gets an independent technical review, which reports findings
   and signs nothing.
 
 The phase becomes `steady` only after B0 is accepted at one revision tuple and the completed
@@ -137,11 +137,22 @@ authority. A change that preserves the governing obligations may remove, narrow,
 relocate the control implementing them (specs/architecture.md, policy 2).
 
 The reviewer is a Claude Code call (`claude -p`) with no tools, no settings and no MCP servers,
-authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one per batch of a large
-change. It gets the prompt `custodian/review/prompt.md` and, read from the base: the owner's texts
+authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one call for the
+complete review request. It gets the prompt `custodian/review/prompt.md` and, read from the base: the owner's texts
 (`specs/owner/`, `custodian/owner-intent.md`), these rules, the B0 policies and the B0 section of
 the plan. It gets each changed boundary file's diff and full text, upstream rule files included,
-and the unchanged helpers they name. It gets the pull request's description as the author's
+and unchanged boundary source. Both repository and manifest dependency revisions are captured
+before review; diffs and file selection use that same base/candidate tuple in both phases. In
+construction, relocated controls are reviewed against their requirements rather than prohibited
+by the old boundary location; downstream semantic registrations remain forbidden. Dirty,
+missing or unreadable inputs and oversized context fail the review operation instead of producing
+a rejection or silently truncated evidence. Interdependent source is never split across stateless
+calls; the complete source, requirements, prompt and explanation must fit the supported input
+budget, or the operation remains incomplete. Revision identities are retained in the review
+record; an empty commit cannot reopen a rejection because the repeat-review key uses the source,
+requirements, context and prompt contents rather than commit identities. Construction review does not validate the legacy
+signatures or verdict chain as a prerequisite. It preserves the base revision's admitted assertions.
+It gets the pull request's description as the author's
 explanation: a claim to verify, never authority. A review never grows a ratchet's baseline.
 
 Escalation is the human-plus-agent review: the owner and an agent review the change together, then

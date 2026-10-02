@@ -7,6 +7,7 @@ module
 public import CasCatalogue.Language
 public import CasCatalogue.Admission
 public import CasCatalogue.Codec
+public import CasCatalogue.StructuredResult
 public import CasContract.Port
 
 @[expose] public section
@@ -26,7 +27,7 @@ the catalogue's mathematics, and the term it is about. This module decides the c
    running no tactic of the kernel's); the proof so formed is checked by Lean's kernel,
    synchronously, within a fixed heartbeat budget; refutation is the same proof of `¬p`. If Lean
    proves it, the statement holds as proved and no leaf is consulted. If Lean refutes it, the
-   statement is false mathematics and is invalid. Nothing is decided by evaluation outside the
+   assertion is refuted and reports a wrong answer. Nothing is decided by evaluation outside the
    kernel.
 2. **Otherwise, realize.** The same term is evaluated bottom-up through the operations the
    semantic reading recorded (`CasCatalogue.Trace`): a named object at its parameters is its
@@ -72,6 +73,10 @@ structure Wire where
   /-- For the apex of a limit computed by a registration: the cone (cocone) reconstructed from
   the answer, whose legs a later operation reads (CC-DECODE). -/
   universal : Option Expr := none
+  /-- Complete constructor response, including every defining map. -/
+  universalJson : Option Json := none
+  /-- The realized diagram at which the defining maps were decoded. -/
+  universalDiagram : Option Expr := none
 
 def Wire.formId (w : Wire) : String := w.form.id
 
@@ -199,8 +204,10 @@ def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
 /-- The value of the registered family `declaration` (the denotation of a literal form, the
 standard cone constructor of a shape) at the answer `args`, as a value of `expected`. The
 family's arguments are taken in order: one the expected type determines is what it determines;
-an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`), and
-one it does not decide rejects the answer; every other argument is the next value of `args`,
+an instance is synthesized; a proposition is checked by the kernel (`CasCatalogue.Decide`), by
+its `Decidable` instance or reflexivity when equality's sides are definitionally equal; a condition
+neither check proves rejects the answer. Binder annotations never run their tactics. Every other
+argument is the next value of `args`,
 decoded by `decodeArg` at its type. The decoded arguments are returned with their forms, when
 they are values of a registered form. Too few or too many values reject the answer. -/
 def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
@@ -220,10 +227,23 @@ def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
       | .some inst => discard <| isDefEq m inst
       | _ => return .error s!"no instance of {t} is found"
     else if ← isProp t then
-      if t.hasMVar then return .error s!"the condition {t} is not determined by the answer"
-      let some proof ← Decide.decisionProof t
-        | return .error s!"the answer does not satisfy {t}, or the kernel does not decide it"
-      discard <| isDefEq m proof
+      -- Binder annotations such as autoParam carry elaboration instructions, not another
+      -- mathematical condition. Decide their reduced proposition without running the tactic.
+      let condition ← whnfR t
+      if condition.hasMVar then
+        return .error s!"the condition {condition} is not determined by the answer"
+      let mut proof? ← Decide.decisionProof condition
+      -- Reflexivity needs no Decidable instance and changes no commuting equation.
+      -- The independently constructed proof is checked against the complete condition.
+      if proof?.isNone then
+        if let some (_, left, right) := condition.eq? then
+          if ← isDefEq left right then
+            let reflexive ← mkEqRefl left
+            if ← Decide.kernelAccepts condition reflexive then proof? := some reflexive
+      let some proof := proof?
+        | return .error s!"the answer does not satisfy {condition}, or the kernel does not decide it"
+      unless ← isDefEq m proof do
+        return .error s!"the checked proof does not inhabit the constructor condition {t}"
     else
       let j :: rest := remaining
         | return .error s!"the answer has {args.size} values, and {Codec.label declaration} \
@@ -268,8 +288,10 @@ def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermElabM Wir
   let some (.object _ params) ← (trace.node? w.value : IO _) | return w
   let value ← objectAt trace target params
   let args := (w.json.getObjVal? "args").toOption.getD (Json.arr #[])
-  return { form := .object target, value
-           json := Json.mkObj [("ctor", target.id.raw), ("args", args)] }
+  -- Retain the original construction and diagram through representation changes.
+  -- These fields record its source maps; they do not assert a mapped universal cone.
+  return { w with form := .object target, value := value
+                  json := Json.mkObj [("ctor", target.id.raw), ("args", args)] }
 
 /-- Decode `j` as a registered named object at its parameters, `{"ctor": <object id>, "args":
 [<numerals, or objects>]}`, elaborated and recorded in `trace`. -/
@@ -343,9 +365,20 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | none => return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
       return { form := .object entry, value := e
                json := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)] }
+  | .parameterTransport source sourceCategory targetCategory route receiver =>
+      let input ← realize h trace s!"the structural parameter of {what}" receiver
+      let .object entry := input.form
+        | throwStratum .noImplementation m!"a structural parameter has no named-object presentation"
+      unless entry.id == source && entry.category == sourceCategory do
+        throwStratum .noImplementation m!"a structural parameter has a different source presentation"
+      let output ← transport trace input route
+      unless output.form.category == targetCategory &&
+          (← withoutModifyingState (isDefEq output.value e)) do
+        throwStratum .noImplementation m!"the registered parameter route has no target presentation"
+      return { output with value := e }
   | .literal id literal =>
       let some form := state.form? id.raw
-        | throwStratum .invalid m!"{id.raw} is not a registered literal form"
+        | throwError "{id.raw} is not a registered literal form"
       match ← Codec.encode literal with
       | .ok json => return { form, value := e, json }
       | .error message =>
@@ -354,7 +387,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
       let some category := state.categories.find? (·.id == row.category)
-        | throwStratum .invalid m!"the category of {id.raw} is not registered"
+        | throwError "internal registry inconsistency: the category of {id.raw} is not registered"
       if let some lift := lift? then
         throwStratum .noImplementation m!"no registration computes {what}: its diagram is \
           returned along the lift {lift.raw}, and the realized reading does not send a diagram \
@@ -380,37 +413,31 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let (answer, backend) ← send h id.raw input
       -- The answer is the cone (cocone) of the shape, as the data of Mathlib's standard
       -- constructor: its apex, then its legs; the commutation it needs is decided by the kernel.
-      let some constructor := standardCone row.shape row.colimit
-        | throwStratum .invalid m!"the shape {row.shape} has no standard cone"
-      let kind := if row.colimit then "cocone" else "cone"
-      let shape := s!"a {kind} is \{\"ctor\": \"{kind}\", \"args\": [<apex>, <legs>…]}"
-      let .ok name := answer.getObjValAs? String "ctor" | malformed backend id.raw answer shape
-      unless name == kind do malformed backend id.raw answer shape
-      let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
-        | malformed backend id.raw answer shape
-      let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
-        else ``CategoryTheory.Limits.Cone) #[sent]
-      let (cone, decoded) ← match ← decodeFamily constructor expected args
-          (decodeValue trace category) with
+      let (result, decoded) ← match ← StructuredResult.decode row sent answer
+          (fun constructor expected args =>
+            decodeFamily constructor expected args (decodeValue trace category)) with
         | .ok result => pure result
         | .error message => malformed backend id.raw answer message
       let some (apex, some form) := decoded[0]?
         | malformed backend id.raw answer s!"the apex is not a value of a registered form of \
             {category.name}"
-      return { form, value := apex, json := args[0]!, universal := some cone }
+      let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
+        | malformed backend id.raw answer "the complete construction has no args array"
+      return { form, value := apex, json := args[0]!, universal := some result.cone
+               universalJson := some result.answer, universalDiagram := some result.diagram }
   | .method id route receiver =>
       let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let input ← transport trace input route
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
-        | throwStratum .invalid m!"{id.raw} has no registered functor"
+        | throwError "{id.raw} has no registered functor"
       let some target := state.category? functor.target
-        | throwStratum .invalid m!"the result category of {id.raw} is not registered"
+        | throwError "the result category of {id.raw} is not registered"
       let (form, type) ← resultForm state target.id m!"the result of {id.raw}"
       let (value, json) ← call h id.raw input type
       return { form := .literal form, value, json }
   | .property id _ _ =>
-      throwStratum .invalid m!"the decision {id.raw} is not a value"
+      throwError "the decision {id.raw} is not a value"
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver, sent along the resolved
@@ -488,14 +515,34 @@ def decideEvaluated (p : Expr) : TermElabM (Option Bool) := do
   if ← evaluatedDecides evaluations (mkNot p) then return some false
   return none
 
+/-- Outcomes available to computation after interpretation. An execution path cannot
+construct an authoritative semantic-invalidity or semantic-ambiguity judgement. -/
+inductive ExecutionOutcome
+  | holds
+  | wrong (message : String)
+  | gap (reason : String)
+  | unavailable (reason : String)
+  | malformed (reason : String)
+  | internal (reason : String)
+  deriving Inhabited, Repr
+
+/-- The runner bridge preserves each computational stratum when reporting it. -/
+def ExecutionOutcome.toOutcome : ExecutionOutcome → Outcome
+  | .holds => .holds
+  | .wrong reason => .wrong reason
+  | .gap reason => .gap reason
+  | .unavailable reason => .unavailable reason
+  | .malformed reason => .malformed reason
+  | .internal reason => .internal reason
+
 /-- Discharge `claim` in Lean, generically (`decideEvaluated`): holds when its proposition is
-decided true; invalid, as false mathematics, when it is decided false; `none` when Lean does not
+decided true; wrong when it is decided false; `none` when Lean does not
 decide it. -/
-def discharge (claim : Claim) : TermElabM (Option Outcome) := do
-  let refuted (what : String) : TermElabM (Option Outcome) :=
-    throwStratum .invalid m!"{what} is refuted: Lean decides it false"
+def discharge (claim : Claim) : TermElabM (Option ExecutionOutcome) := do
+  let refuted (what : String) : TermElabM (Option ExecutionOutcome) :=
+    return some (.wrong s!"{what} is refuted: Lean decides it false")
   match claim with
-  | .settled outcome _ => return some outcome
+  | .binding => return some (.internal "a binding entered execution")
   | .implemented _ => return none
   | .literal _ _ _ _ prop left right =>
       match ← decideEvaluated prop with
@@ -507,16 +554,16 @@ def discharge (claim : Claim) : TermElabM (Option Outcome) := do
       | some true => return some .holds
       | some false => refuted s!"{left} = {right}"
       | none => return none
-  | .decision prop expected shown =>
+  | .decision prop expected shown | .judged _ prop expected shown =>
       let some expected := expected | return none
       match ← decideEvaluated prop with
       | some decided => if decided == expected then return some .holds else refuted shown
       | none => return none
 
 /-- Decide `claim` through the admitted registrations. -/
-def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outcome := do
+def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM ExecutionOutcome := do
   match claim with
-  | .settled outcome _ => return outcome
+  | .binding => return .internal "a binding entered execution"
   | .implemented value =>
       -- A decision is realized as one; anything else as a value.
       if ← isProp value then discard <| realizeDecision h trace "the decision" value
@@ -528,7 +575,7 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
         | throwStratum .noImplementation m!"{left} is not computed as a value of the literal \
             form {form.id.raw}"
       unless form'.id == form.id do
-        throwStratum .invalid m!"{left} is computed in the form {form'.id.raw}, and compared in \
+        throwStratum .malformed m!"{left} is computed in the form {form'.id.raw}, and compared in \
           {form.id.raw}"
       return if ← evaluatedEq w.value L then .holds
         else .wrong s!"{left} is not {right}: the registration answered {w.json.compress}"
@@ -537,26 +584,141 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       let a ← realize h trace left f
       let b ← realize h trace right g
       unless a.formId == b.formId do
-        throwStratum .invalid m!"{left} is computed in the form {a.formId}, and {right} in \
+        throwStratum .malformed m!"{left} is computed in the form {a.formId}, and {right} in \
           {b.formId}"
       return if ← evaluatedEq a.value b.value then .holds
         else .wrong s!"{left} is not {right}: computed as {a.json.compress} and \
           {b.json.compress}"
-  | .decision prop expected shown =>
+  | .decision prop expected shown | .judged _ prop expected shown =>
       let (answer, json) ← realizeDecision h trace shown prop
       return if ← evaluatedEq answer (toExpr expected) then .holds
         else .wrong s!"{shown} is not the answer: the registration answered {json.compress}"
+
+/-- Representation-only normalization: metadata and bound-variable spelling carry no
+mathematical identity. Operations, constants, routes, parameters and logical constructors
+remain intact; there is no reduction by truth, provability or logical equivalence. -/
+partial def canonicalTerm : Expr → Expr
+  | .mdata _ term => canonicalTerm term
+  | .app fn arg => .app (canonicalTerm fn) (canonicalTerm arg)
+  | .lam _ type body info => .lam .anonymous (canonicalTerm type) (canonicalTerm body) info
+  | .forallE _ type body info => .forallE .anonymous (canonicalTerm type) (canonicalTerm body) info
+  | .letE _ type value body nondep =>
+      .letE .anonymous (canonicalTerm type) (canonicalTerm value) (canonicalTerm body) nondep
+  | .proj type index term => .proj type index (canonicalTerm term)
+  | term => term
+
+def questionTerm (term : Expr) : TermElabM Expr := do
+  let term ← instantiateMVars term
+  if term.hasMVar || term.hasLevelMVar then throwError "question contains unresolved typed terms"
+  return canonicalTerm term
+
+/-- Instantiate the complete tree without reducing its relations or logic. -/
+partial def instantiateQuestion : Question → TermElabM Question
+  | .proposition term => return .proposition (← questionTerm term)
+  | .judgement relation terms route declarations _ => do
+      let terms ← terms.mapM questionTerm
+      let types ← terms.mapM fun term => do questionTerm (← inferType term)
+      return .judgement relation terms route declarations types
+  | .conjunction left right => return .conjunction (← instantiateQuestion left) (← instantiateQuestion right)
+  | .negation question => return .negation (← instantiateQuestion question)
+
+partial def showQuestion : Question → TermElabM String
+  | .proposition term => return s!"{← ppExpr term}"
+  | .judgement relation terms route declarations _ => do
+      let terms ← terms.mapM fun term => return s!"({← ppExpr term} : {← ppExpr (← inferType term)})"
+      return s!"{relation} [{String.intercalate ", " terms.toList}] via {route.toList}; declarations {declarations.toList}"
+  | .conjunction left right => return s!"({← showQuestion left}) and ({← showQuestion right})"
+  | .negation question => return s!"not ({← showQuestion question})"
+
+/-- Exact structural serialization with shared subterms. Hash maps are only indexes:
+equality is checked on expressions or complete node encodings, never on a digest. -/
+structure TermTable where
+  terms : IO.Ref (Std.HashMap Expr Nat)
+  nodes : IO.Ref (Array Json)
+  canonicalNodes : IO.Ref (Std.HashMap String Nat)
+
+def TermTable.new : IO TermTable := do
+  return { terms := ← IO.mkRef {}, nodes := ← IO.mkRef #[], canonicalNodes := ← IO.mkRef {} }
+
+/-- Universe syntax is serialized without Lean's cached hash fields. -/
+partial def encodeLevel : Level → Json
+  | .zero => Json.arr #[toJson "zero"]
+  | .succ level => Json.arr #[toJson "succ", encodeLevel level]
+  | .max left right => Json.arr #[toJson "max", encodeLevel left, encodeLevel right]
+  | .imax left right => Json.arr #[toJson "imax", encodeLevel left, encodeLevel right]
+  | .param name => Json.arr #[toJson "param", toJson (reprStr name)]
+  | .mvar id => Json.arr #[toJson "unresolved", toJson (reprStr id)]
+
+partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat := do
+  if let some index := (← table.terms.get)[term]? then return index
+  if term.hasMVar || term.hasLevelMVar then throwError "question contains unresolved typed terms"
+  let node ← match term with
+    | .mdata _ child =>
+        let index ← table.encode child
+        table.terms.modify (·.insert term index)
+        return index
+    | .bvar index => pure (Json.arr #[toJson "bvar", toJson index])
+    | .fvar .. | .mvar .. => throwError "question contains an unclosed typed term"
+    | .sort level => pure (Json.arr #[toJson "sort", encodeLevel level])
+    | .const name levels =>
+        pure (Json.arr #[toJson "const", toJson (reprStr name), toJson (levels.map encodeLevel)])
+    | .app fn arg =>
+        pure (Json.arr #[toJson "app", toJson (← table.encode fn), toJson (← table.encode arg)])
+    | .lam _ type body info =>
+        pure (Json.arr #[toJson "lam", toJson (← table.encode type),
+          toJson (← table.encode body), toJson (reprStr info)])
+    | .forallE _ type body info =>
+        pure (Json.arr #[toJson "forall", toJson (← table.encode type),
+          toJson (← table.encode body), toJson (reprStr info)])
+    | .letE _ type value body nondep =>
+        pure (Json.arr #[toJson "let", toJson (← table.encode type),
+          toJson (← table.encode value), toJson (← table.encode body), toJson nondep])
+    | .lit literal => pure (Json.arr #[toJson "literal", toJson (reprStr literal)])
+    | .proj name index value =>
+        pure (Json.arr #[toJson "proj", toJson (reprStr name), toJson index,
+          toJson (← table.encode value)])
+  let description := node.compress
+  let index ← match (← table.canonicalNodes.get)[description]? with
+    | some index => pure index
+    | none => do
+        let index := (← table.nodes.get).size
+        table.nodes.modify (·.push node)
+        table.canonicalNodes.modify (·.insert description index)
+        pure index
+  table.terms.modify (·.insert term index)
+  return index
+
+def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
+  return (Json.mkObj [("roots", roots), ("terms", Json.arr (← table.nodes.get))]).compress
+
+partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
+  | .proposition term => return Json.arr #[toJson "proposition", toJson (← table.encode term)]
+  | .judgement relation terms route declarations types => do
+      let terms ← terms.mapM table.encode
+      let types ← types.mapM table.encode
+      return Json.arr #[toJson "judgement", toJson relation, toJson terms,
+        toJson (route.map reprStr), toJson (declarations.map reprStr), toJson types]
+  | .conjunction left right =>
+      return Json.arr #[toJson "and", ← encodeQuestion table left, ← encodeQuestion table right]
+  | .negation question => return Json.arr #[toJson "not", ← encodeQuestion table question]
+
+def termIdentity (term : Expr) : TermElabM String := do
+  let table ← TermTable.new
+  let root ← table.encode term
+  table.finish (toJson root)
 
 /-- The semantic question a claim asks, as a fingerprint of its elaborated proposition (and, for a
 decision, the expected answer): what an admitted assertion means under this kernel, parser and
 pin, compared across candidates by `scripts/check_question_permanence.py` (gov-meaning-permanence).
 It is never the statement's text, its outcome, or whether it is provable. -/
 def claimQuestion : Claim → TermElabM (String × String)
-  | .settled outcome about => do
-      let about ← about.mapM instantiateMVars
-      let shown ← about.mapM fun e => return toString (← ppExpr e)
-      return (s!"settled:{outcome.kind}:{(hash about).toNat}",
-        s!"settled ({outcome.kind}) of: {", ".intercalate shown.toList}")
+  | .binding => throwError "a binding has no assertion question"
+  | .judged question _ expected _ => do
+      let question ← instantiateQuestion question
+      let table ← TermTable.new
+      let roots ← encodeQuestion table question
+      return (s!"judged:{expected}:{← table.finish roots}",
+        s!"judged:{expected}: {← showQuestion question}")
   | .implemented value => fingerprint "implemented" value
   | .literal _ _ _ _ prop .. => fingerprint "literal" prop
   | .homs _ _ _ prop .. => fingerprint "homs" prop
@@ -565,29 +727,115 @@ where
   /-- The fingerprint, and the proposition as the acceptance author reads it to confirm the
   interpretation it records. -/
   fingerprint (kind : String) (e : Expr) : TermElabM (String × String) := do
-    let e ← instantiateMVars e
-    return (s!"{kind}:{(hash e).toNat}", s!"{kind}: {← ppExpr e}")
+    let e ← questionTerm e
+    let type ← questionTerm (← inferType e)
+    let table ← TermTable.new
+    let root ← table.encode e
+    let type ← table.encode type
+    return (s!"{kind}:{← table.finish (Json.arr #[toJson root, toJson type])}",
+      s!"{kind}: {← ppExpr e}")
 
-/-- Run a statement, within the `let` bindings `scope`: its semantic reading forms its claim; Lean
-discharges the claim where it can; otherwise it is realized through the harness. A `let` binds its
-term when its reading succeeds; its realized failure surfaces where it is used.
+/-- An interpreted request, prepared before discharge or realization. The claim and its
+operation tree travel together: evaluation consumes this request, rather than elaborating a
+second request or recovering a question from an answer. -/
+structure TypedQuestion where
+  claim : Claim
+  trace : Std.HashMap Expr Node
+  identity : String × String
+  mathematicalRevision : String
 
-Every failure is an outcome (`Outcome.ofException`), whatever stage throws it: a stratum is
-reported as itself, and an exception without one, exhausted heartbeats included, as an internal
-error. Nothing is caught to be reinterpreted, and a failed statement leaves `scope` unchanged. -/
+/-- Prepare the question against the current mathematical environment. A reader which has
+cannot produce an interpretation record until its typed terms are complete. -/
+def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
+  let trace ← (Trace.new : IO _)
+  let claim ← (Language.claim scope stx).run { trace := some trace }
+  let .ok manifest := Json.parse (← IO.FS.readFile "lake-manifest.json")
+    | throwError "cannot identify the mathematical dependency revision"
+  let .ok packages := (manifest.getObjVal? "packages").bind (·.getArr?)
+    | throwError "cannot read the mathematical dependency revision"
+  let some package := packages.find? fun package =>
+      (package.getObjValAs? String "name").toOption == some "lean_categories"
+    | throwError "no mathematical dependency revision"
+  let .ok mathematicalRevision := package.getObjValAs? String "rev"
+    | throwError "no pinned mathematical dependency revision"
+  let (identity, shown) ← claimQuestion claim
+  let nodes ← (← trace.get).toArray.mapM fun (term, node) => do
+    let term ← instantiateMVars term
+    let node : Node ← match node with
+      | .object id parameters => pure (.object id (← parameters.mapM instantiateMVars))
+      | .parameterTransport source sourceCategory targetCategory route receiver =>
+          pure (.parameterTransport source sourceCategory targetCategory route (← instantiateMVars receiver))
+      | .literal form literal => pure (.literal form (← instantiateMVars literal))
+      | .method id route receiver => pure (.method id route (← instantiateMVars receiver))
+      | .property id route receiver => pure (.property id route (← instantiateMVars receiver))
+      | .limit id diagram lift => pure (.limit id (← instantiateMVars diagram) lift)
+    return (term, node)
+  -- Sorting complete canonical term encodings makes the snapshot independent of hash-map
+  -- layout. Shared term references then keep the complete record compact.
+  let ordered ← nodes.mapM fun (term, node) => do
+    return (← termIdentity term, term, node)
+  let ordered := ordered.qsort fun a b => a.1 < b.1
+  let table ← TermTable.new
+  let operations ← ordered.mapM fun (_, term, node) => do
+    let root ← table.encode term
+    let operation ← match node with
+      | .object id parameters =>
+          pure (Json.arr #[toJson "object", toJson id.raw, toJson (← parameters.mapM table.encode)])
+      | .parameterTransport source sourceCategory targetCategory route receiver =>
+          pure (Json.arr #[toJson "parameterTransport", toJson source.raw,
+            toJson sourceCategory.raw, toJson targetCategory.raw, toJson (route.map reprStr),
+            toJson (← table.encode receiver)])
+      | .literal form literal =>
+          pure (Json.arr #[toJson "literal", toJson form.raw, toJson (← table.encode literal)])
+      | .method id route receiver =>
+          pure (Json.arr #[toJson "method", toJson id.raw, toJson (route.map reprStr),
+            toJson (← table.encode receiver)])
+      | .property id route receiver =>
+          pure (Json.arr #[toJson "property", toJson id.raw, toJson (route.map reprStr),
+            toJson (← table.encode receiver)])
+      | .limit id diagram lift =>
+          pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← table.encode diagram),
+            toJson (lift.map (·.raw))])
+    return Json.arr #[toJson root, operation]
+  let tree ← table.finish (Json.arr operations)
+  return { claim := claim
+           trace := Std.HashMap.ofArray nodes
+           mathematicalRevision := mathematicalRevision
+           identity := (s!"{mathematicalRevision}:{identity}:operations:{tree}", shown) }
+
+/-- Execute exactly the previously interpreted request. -/
+def evaluate (h : Harness) (question : TypedQuestion) : TermElabM ExecutionOutcome := do
+  if let some outcome ← discharge question.claim then return outcome
+  realizeClaim h (← IO.mkRef question.trace) question.claim
+
+/-- Runtime failures cannot assert mathematical invalidity or semantic ambiguity. Those
+judgements belong to interpretation; an unexpected semantic exception during evaluation is
+an interpreter defect. -/
+def executionFailure (e : Exception) : TermElabM ExecutionOutcome := do
+  let reason ← e.toMessageData.toString
+  return match Exception.stratum? e with
+    | some .noImplementation | some .ambiguousRealization => .gap reason
+    | some .unavailable => .unavailable reason
+    | some .malformed => .malformed reason
+    | some .invalid | some .semanticAmbiguity | none => .internal reason
+
+/-- Interpret before execution, retaining the same request through every later outcome.
+Bindings are read without being counted as assertions. Incomplete interpretations fail visibly;
+no operand list or truth value stands in for their question. -/
 def runAsking (h : Harness) (scope : Scope) (stx : Syntax) :
     TermElabM (Outcome × Scope × Option (String × String)) := do
-  -- The question is kept once read, whichever later stage fails (a gap is thrown while realizing).
-  let asked ← IO.mkRef (none : Option (String × String))
-  let attempt : TermElabM (Outcome × Scope × Option (String × String)) := do
-    let trace ← (Trace.new : IO _)
-    let claim ← (Language.claim scope stx).run { trace := some trace }
-    let question ← claimQuestion claim
-    asked.set (some question)
-    if let some (x, t) ← letBinding? stx then return (.holds, scope.insert x t, some question)
-    if let some outcome ← discharge claim then return (outcome, scope, some question)
-    return (← realizeClaim h trace claim, scope, some question)
-  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope, ← asked.get)
+  if let some (x, t) ← letBinding? stx then
+    let bind : TermElabM (Outcome × Scope × Option (String × String)) := do
+      discard <| (Language.claim scope stx).run {}
+      return (.holds, scope.insert x t, none)
+    return ← tryCatchRuntimeEx bind fun e => return (← Outcome.ofException e, scope, none)
+  let interpreted ← tryCatchRuntimeEx (Except.ok <$> interpret scope stx)
+    fun e => return .error (← Outcome.ofException e)
+  match interpreted with
+  | .error outcome => return (outcome, scope, none)
+  | .ok question =>
+      let outcome ← tryCatchRuntimeEx (evaluate h question) executionFailure
+      return (outcome.toOutcome, scope, some question.identity)
 
 /-- `runAsking` without the question. -/
 def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
