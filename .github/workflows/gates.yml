@@ -103,3 +103,5 @@ jobs:
           done
       - name: Compare, assertion by assertion
         run: python3 head/scripts/check_acceptance_regression.py base.json head.json
+      - name: Admitted assertions keep their semantic questions (gov-meaning-permanence)
+        run: python3 head/scripts/check_question_permanence.py head.json

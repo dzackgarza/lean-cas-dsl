@@ -52,6 +52,7 @@ acceptance base:
     @rm -f .tmp/harness.json
     -@lake exe cas-harness --report .tmp/harness.json
     @python3 scripts/check_acceptance_regression.py {{ base }} .tmp/harness.json
+    @python3 scripts/check_question_permanence.py .tmp/harness.json
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
 # (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.
