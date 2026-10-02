@@ -26,7 +26,7 @@ spec = importlib.util.spec_from_file_location("review", SRC / "custodian/review/
 R = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(R)
 calls = []
-# Decision-path tests use a larger stub budget; production-budget failure is exercised below.
+# Decision-path tests use a larger initial prompt budget; complete retrieval is exercised below.
 PRODUCTION_BUDGET = R.BATCH_LIMIT
 R.BATCH_LIMIT = 2_000_000
 
@@ -38,7 +38,11 @@ OUTCOME = {"approve": "no_blocking_finding", "reject": "defect", "escalate": "re
 def stub(verdict, holds=True):
     """A reviewer returning `verdict`; with holds=False it claims no blocking finding while listing
     a defect, which must count as the defect."""
-    def call(prompt, requirements, change, explanation=""):
+    def call(prompt, requirements, change, explanation="", retrieval=None):
+        if retrieval is not None:
+            requirements = (retrieval / "requirements.txt").read_text()
+            change = (retrieval / "change.txt").read_text()
+            explanation = (retrieval / "explanation.txt").read_text()
         calls.append((change, explanation))
         kind = OUTCOME[verdict]
         findings = [] if kind == "no_blocking_finding" else [
@@ -49,7 +53,7 @@ def stub(verdict, holds=True):
     return call
 
 
-def outage(prompt, requirements, change, explanation=""):
+def outage(prompt, requirements, change, explanation="", retrieval=None):
     calls.append((change, explanation))
     return None, "reviewer call failed (1): timeout"
 
@@ -392,10 +396,14 @@ with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- source snapshot\n")
 commit(S / "head")
 calls.clear()
-def mutate_live_input(prompt, requirements, change, explanation=""):
+def mutate_live_input(prompt, requirements, change, explanation="", retrieval=None):
+    if retrieval is not None:
+        requirements = (retrieval / "requirements.txt").read_text()
+        change = (retrieval / "change.txt").read_text()
+        explanation = (retrieval / "explanation.txt").read_text()
     with open(S / "head" / KERNEL, "a") as f:
         f.write("\n-- changed after snapshot\n")
-    results.append("changed after snapshot" not in change and "revision_tuple" in requirements)
+    results.append("\n-- changed after snapshot\n" not in change and "revision_tuple" in requirements)
     return stub("approve")(prompt, requirements, change, explanation)
 expect("review reads the captured revision despite later working-tree edits",
        run(mutate_live_input), "NO BLOCKING FINDING")
@@ -408,8 +416,8 @@ limit = R.BATCH_LIMIT
 R.BATCH_LIMIT = 10
 calls.clear()
 expect("oversized context is never silently truncated",
-       run(stub("approve")), "REVIEW NOT COMPLETED")
-results.append(not calls)
+       run(stub("approve")), "NO BLOCKING FINDING")
+results.append(len(calls) == 1 and "oversized context" in calls[0][0])
 R.BATCH_LIMIT = limit
 
 fresh("construction")
@@ -437,17 +445,14 @@ with tempfile.TemporaryDirectory() as d:
     results.append(len(complete) == 1 and "new producer" in complete[0]
                    and "consumer of producer" in complete[0])
     R.BATCH_LIMIT = max(len(complete[0]) - 1, 1)
-    try:
-        R.review_batches(base, head, ["producer.py"], ["consumer.py"])
-    except ValueError:
-        results.append(True)
-    else:
-        results.append(False)
+    large = R.review_batches(base, head, ["producer.py"], ["consumer.py"])
+    results.append(large == complete)
     prompt = Path(d) / "prompt.md"; prompt.write_text("prompt")
     R.BATCH_LIMIT = 100
     calls.clear()
     result, why = R.review(prompt, "requirement" * 100, ["small source"], "")
-    results.append(result is None and not calls and "budget" in why)
+    results.append(result is not None and len(calls) == 1)
+    calls.clear()
     result, why = R.review(prompt, "", ["producer", "consumer"], "")
     results.append(result is None and not calls and "split" in why)
 R.BATCH_LIMIT = PRODUCTION_BUDGET
@@ -456,9 +461,9 @@ with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- production-budget context check\n")
 commit(S / "head")
 calls.clear()
-expect("full fixture context exceeding production budget stays incomplete",
-       run(stub("approve")), "REVIEW NOT COMPLETED")
-results.append(not calls)
+expect("full fixture context exceeding production budget uses retrieval",
+       run(stub("approve")), "NO BLOCKING FINDING")
+results.append(len(calls) == 1)
 
 print(f"{sum(results)}/{len(results)} checks hold")
 sys.exit(0 if all(results) else 1)
