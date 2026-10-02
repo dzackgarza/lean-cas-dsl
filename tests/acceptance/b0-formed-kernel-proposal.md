@@ -61,3 +61,24 @@ The actual remaining surface dependency is a generic documented way to select
 this existing formed object and identity, and to state its retained inclusion
 and pairing conditions. This proposal supplies the exact mathematical question
 for that surface, rather than substituting a carrier cardinality assertion.
+
+## Subsequently supplied formed-view exposure
+
+Independently source-assessed candidate
+`d75f8cc7b3e4d7d9f385bd992743bcfd52290bb0` now exposes the actual structural
+inclusion of integral lattices into `BilinModule(R,R)` via `isLattice(R,R).ι`.
+Inspection of its public mathematical diff identifies the E8 image with the
+same existing `e8Lattice.obj` selected above, retaining its negative Gram
+pairing and W=Z. Its subsequent module forget is compared with the earlier
+direct carrier route by the actual `Iso.refl` comparison. Thus the selected
+formed-view exposure dependency described above has progressed; the existing
+mathematical choice and expected structured result are unchanged.
+
+The public fixed-value catalogue still does not name its identity, pairing
+observation or formed-kernel defining inclusion as morphism/method rows.
+Language-author confirmation of generic `kernel(f)` does not itself expose
+these absent mathematical rows. A faithful executable structured DSL question
+still needs those public mathematical interfaces and their documented generic
+application syntax. This source finding is submitted for independent interface
+assessment; it is not authority to fabricate rows or mark a count-only assertion
+as the structured positive.
