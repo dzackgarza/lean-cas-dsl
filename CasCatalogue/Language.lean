@@ -1715,9 +1715,12 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
   for (p, v) in parameters.zip arguments do
     let pType ← instantiateMVars (← inferType p)
     let unifies ← match v with
-      | .object h .. | .morphism h .. => pure ((← isDefEq pType (← inferType h)) && (← isDefEq p h))
+      -- Identity by declaration (b0-selected-structure): a row's parameter takes an argument only
+      -- at reducible transparency, never because two objects unfold to one carrier.
+      | .object h .. | .morphism h .. =>
+          pure ((← withReducible (isDefEq pType (← inferType h))) && (← withReducible (isDefEq p h)))
       | .element h X =>
-          if ← isDefEq pType (← inferType h) then isDefEq p h else
+          if ← withReducible (isDefEq pType (← inferType h)) then withReducible (isDefEq p h) else
           -- An element of a set included in the parameter's set is carried there.
           let some (_, x) := homEnds? pType | pure false
           let x ← instantiateMVars x
