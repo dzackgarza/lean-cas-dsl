@@ -2656,6 +2656,14 @@ def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
       return .decision answer expected s!"{shown l} = {shown r}"
   | _, _ => throwStratum .invalid m!"`{l}` is neither a value nor a decision"
 
+/-- `True`, or a conjunction of `True`s: an answer the catalogue settled without a proposition. -/
+partial def isDecidedTruth (e : Expr) : MetaM Bool := do
+  let e ← instantiateMVars e
+  if e.isConstOf ``True then return true
+  if e.isAppOfArity ``And 2 then
+    return (← isDecidedTruth e.appFn!.appArg!) && (← isDecidedTruth e.appArg!)
+  return false
+
 /-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
 about it. -/
 def Value.terms : Value → Array Expr
@@ -2666,6 +2674,16 @@ def Value.terms : Value → Array Expr
   | .homSet s t => s.terms ++ t.terms
   | .element hom set => #[hom] ++ set.terms
   | .answer a => #[a]
+
+/-- The terms of every membership `x ∈ y` and containment `x ⊆ y` in `stx`: what a settled
+judgement relates. -/
+partial def judgedTerms (scope : Scope) (stx : Syntax) : M (Array Expr) := do
+  let here ← match stx with
+    | `(cas_term| $x ∈ $y) | `(cas_term| $x ⊆ $y) =>
+        pure ((← eval scope x).terms ++ (← eval scope y).terms)
+    | _ => pure #[]
+  if !here.isEmpty then return here
+  stx.getArgs.foldlM (init := #[]) fun acc arg => return acc ++ (← judgedTerms scope arg)
 
 /-- The claim of a statement, read semantically: what it states, from the catalogue alone. Its
 failure is the statement's invalidity. -/
@@ -2699,7 +2717,13 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
   | `(cas_stmt| assert $p) =>
       if let `(cas_term| $l = $r) := p then return ← claimEqual scope l r
       if p.raw.getKind == ``casIs then return ← claimEqual scope p.raw[0] p.raw[2]
-      return .decision (← asAnswer (← eval scope p)) (some true) (shown p)
+      let answer ← asAnswer (← eval scope p)
+      -- A membership or containment the catalogue decides by its registered inclusions reads as
+      -- `True` (or a conjunction of them): the judgement is settled by the reading, and what it is
+      -- about is the sets and elements it relates, not the constant `True`.
+      if (← isDecidedTruth answer) then
+        return .settled .holds (← judgedTerms scope p.raw)
+      return .decision answer (some true) (shown p)
   | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
 
 end CasCatalogue.Language

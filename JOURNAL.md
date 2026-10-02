@@ -11,11 +11,32 @@ per working session; terse. Not an authority: rules live in their owning documen
   assertions/expected values, kernel goal terms, row designs, or a kernel-repo read for the leaf
   author were stopped and replaced. Live: acceptance session_01Q9YWsNTV1zVddKmp7MRsbw,
   formalization session_01DPvLuRKBcdBVf1shacNovT, leaf session_014DrMxP5s6WX9xcYZRUrjyW.
-  SendMessage cannot reach cloud sessions from this session; a brief is corrected by replacement.
+  Correction: cloud sessions are messaged by a Routine bound to the session, fired
+  (AGENTS.md, dispatch rule); SendMessage reaches only listed live peers. Used 10:46 to wake the
+  #78 and #80 authors on their reviews and the #77/#79 reviewer, who had posted nothing.
 - gov-meaning-permanence: `c5aa80e` on `b0/meaning-permanence` (claimQuestion fingerprint per
   statement in the report; check_question_permanence.py; gate wired). Stable across two
   runs: 137 of 149 assertions carry a question (the 11 without are the invalid ones, unread);
-  suite vs main: no regression. Next: the acceptance author records the initial questions.
+  suite vs main: no regression. `4f01a88` adds the readable proposition (--show);
+  `7512bd3` fingerprints the terms a settled judgement is about (stable, no regression). Integrated
+  into main. Recording dispatched: acceptance session_01HaXGBsWn4kWiAHP3TFzayQ. Formalization
+  session_01L7hVsUoY69WmjyYJydyQxN (group-valued constructions) dispatched.
+- Controller defect found on acceptance PR #61: in construction the reviewer was given the
+  seal-relative file list but main-relative diffs (33 files, none shown) and answered "evidence
+  needed". `811d72c`: construction reviews the PR's delta against main, ledger included
+  (test_review 52/52). `fa442c4`: semgrep POLICY.RUNTIME_DEFAULT findings in review.py and the
+  acceptance scripts repaired. PR #61 branch updated to main for re-review; subscribed.
+- lean-categories#76 independently approved and merged (`7aef31a`). Pinning the kernel there was
+  refused: upstream main also carries #72–#74 (the binder work the plan keeps out until its
+  independent assessment), and at that pin ∫ is a binder row (integral_square/sine gap → invalid).
+  Kernel stays at `5b96a8a`. Binder assessment dispatched: session_012x1AfmzWVvy15BYK1rMsTU.
+  At the trial pin the polynomial/composed failures were gone (`let C` holds).
+- PR #61 (acceptance: lattices rank/cardinality, 5 assertions) re-reviewed: custodian review PASS
+  after the delta fix, all CI green; merged (`9bce2c4`). Its author reports E₈ rank, S₃ kernels,
+  abelianness and the 𝔽₉ transport inexpressible until upstream has the objects (dispatched).
+- Formalization PR lean-categories#76 open (units, nonzero/monic evidence); leaf session unblocked
+  (owner approved add_repo). Independent formalization review of #76 dispatched:
+  session_01J5TvBCNLNiuNXLHf2DyhdQ; the kernel stays pinned until it is accepted.
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 

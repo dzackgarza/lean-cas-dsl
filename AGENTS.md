@@ -171,6 +171,14 @@ Consequences, binding on every agent and first of all the orchestrator:
   leaf, only the registered operations and input forms. A suspected upstream defect is reported
   in one sentence naming the admission and the class of values, for independent assessment from
   the requirement and sources. Work is never stopped to wait for the owner to route it.
+  Every brief states the session's output channel: its chat is read by no one, so everything it
+  reports (results, findings, questions, blockers) goes in its pull request's description, a
+  GitHub review or a PR comment; a question it cannot settle is posted there and it continues
+  with what does not depend on it. The orchestrator reads those, never the session's chat.
+  To message a dispatched cloud session (a correction, a review to address, a nudge), create a
+  Routine bound to it (`create_trigger` with `persistent_session_id` = that session, the message as
+  its prompt, no schedule) and `fire_trigger` it: the message arrives as a user turn and wakes the
+  session. Never correct a brief by replacing the session; message it.
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
