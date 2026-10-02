@@ -184,19 +184,14 @@ run_cmd withHarness "registration_limits.json" fun harness => do
                "let g := {0 ↦ 1, 1 ↦ 0} : Fin(2) → Fin(2)"]
   expectIn harness maps "holds" "assert |pullback(f, g)| = 3"
   expectIn harness maps "wrong" "assert |pullback(f, g)| = 2"
-  -- A pullback of finite sets, returned along the creation lift `lift.finite_sets.pullbacks`:
-  -- computed by the registration of `lim.sets.pullback` and decoded in finite sets. Its cone's
-  -- condition is an equation of morphisms of finite sets, which nothing registered decides, so
-  -- the statement is a gap for that reason, and not because the lifted pullback is not sent.
+  -- A pullback of finite sets, returned along the creation lift `lift.finite_sets.pullbacks`: the
+  -- image of its diagram under the forgetful functor is computed by the registration of
+  -- `lim.sets.pullback`, its cone decoded and checked in sets, and the pullback is the finite set
+  -- the lift prescribes above the apex. Its cardinality is then computed, true and false.
   let maps' := ["let f' := {0 ↦ 0, 1 ↦ 1, 2 ↦ 1} : (Fin(3) in FiniteSets) → (Fin(2) in FiniteSets)",
                 "let g' := {0 ↦ 1, 1 ↦ 0} : (Fin(2) in FiniteSets) → (Fin(2) in FiniteSets)"]
-  let mut scope : Language.Scope := {}
-  for binding in maps' do
-    scope := (← runStatement harness scope binding).2
-  let (lifted, _) ← runStatement harness scope "assert |pullback(f', g')| = 3"
-  unless kindOf lifted == "gap" && (lifted.detail.splitOn "is not decided").length > 1 do
-    throwError "the lifted pullback of finite sets is {repr lifted}, not a gap for want of a \
-      decision of its cone's condition"
+  expectIn harness maps' "holds" "assert |pullback(f', g')| = 3"
+  expectIn harness maps' "wrong" "assert |pullback(f', g')| = 2"
   -- A shape with no registration is still a gap; Lean still decides what it decides.
   expect harness "gap" "assert |Fin(2) ⊔ Fin(3)| = 5"
   expect harness "holds" "assert 2 + 3 = 5"
