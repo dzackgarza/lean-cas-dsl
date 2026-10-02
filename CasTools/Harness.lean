@@ -12,13 +12,19 @@ public import Lean.Elab.Frontend
 /-!
 # The harness: the suite over a leaves manifest (`specs/architecture.md`, "Acceptance")
 
-`cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE]` imports, into a fresh environment,
+`cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE]`
+imports, into a fresh environment,
 the catalogue and the language, and runs every file of the suite (`tests/acceptance` by default)
 with `#cas_tests`, through the registrations of the manifest `FILE` (by default the installed
 leaves', `CasCatalogue.Realize.leavesManifest`). The leaves see neither the suite nor the harness:
 a leaf is a manifest and the programs it names, imported by nothing (`specs/leaf-registration.md`).
 It prints each file's report, writes every result as JSON to the report file, and exits nonzero if
 a test fails (`Outcome.fails`). Gaps are its output: the implementations the suite derives.
+
+`--computation-only` evaluates the same interpreted questions through the realization path,
+without Lean proof discharge. Each result includes the actual runner dispatches made during
+that assertion, so required registered execution can be checked separately from its outcome.
+Dispatch records do not establish mathematical correctness.
 -/
 
 open Lean Elab
@@ -30,6 +36,7 @@ structure Options where
   report : Option String := none
   manifest : Option String := none
   inventory : String := "CasAcceptance/Permanent/admitted.json"
+  computationOnly : Bool := false
 
 /-- The suite command the harness elaborates. -/
 def command (o : Options) : String :=
@@ -39,7 +46,8 @@ def command (o : Options) : String :=
   let reporting := match o.report with
     | some file => s!" reporting \"{file}\""
     | none => ""
-  s!"#cas_tests \"{o.suite}\"{manifest}{reporting} inventory \"{o.inventory}\"\n"
+  let computing := if o.computationOnly then " computing" else ""
+  s!"#cas_tests \"{o.suite}\"{manifest}{reporting} inventory \"{o.inventory}\"{computing}\n"
 
 /-- Early runner failures still produce one result for each required assertion. This
 report carries no interpretation and cannot establish mathematical acceptance. -/
@@ -63,9 +71,11 @@ def main (args : List String) : IO UInt32 := do
     | "--report" :: file :: more => o := { o with report := some file }; rest := more
     | "--inventory" :: file :: more => o := { o with inventory := file }; rest := more
     | "--manifest" :: file :: more => o := { o with manifest := some file }; rest := more
+    | "--computation-only" :: more => o := { o with computationOnly := true }; rest := more
     | arg :: _ =>
         IO.eprintln s!"cas-harness: unknown argument {arg}\n\
-          usage: cas-harness [--suite DIR] [--report FILE] [--manifest FILE] [--inventory FILE]"
+          usage: cas-harness [--suite DIR] [--report FILE] [--manifest FILE] \
+          [--inventory FILE] [--computation-only]"
         return 2
     | [] => pure ()
   -- Start this invocation with no report from a previous run.

@@ -29,6 +29,9 @@ of gaps is the list of implementations the suite derives. A leaf never sees the 
 `#cas_tests "dir" reporting "out.json"` also writes every result as JSON (`cas-harness` runs it
 over a given manifest).
 
+The optional `computing` suffix skips proof discharge and records actual backend dispatches
+per assertion. Interpretation, expected values and the outcome model remain the same.
+
 `#cas "statement"` runs one statement of the language the same way (a notebook cell): its outcome
 is reported, and an outcome that fails the suite is an error.
 -/
@@ -68,6 +71,8 @@ structure TestResult where
   question : String := ""
   /-- The proposition the question fingerprints, as the acceptance author reads it. -/
   proposition : String := ""
+  /-- Actual runner dispatches during this assertion; not mathematical evidence. -/
+  dispatches : Array Json := #[]
   deriving ToJson, FromJson, Inhabited
 
 end
@@ -102,13 +107,22 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
       | `(cas_item| $s:cas_stmt) => (none, s.raw)
       | _ => (none, parsed)
     let id := id?.getD s!"(statement) {item}"
+    let dispatchStart ← match harness.dispatches with
+      | some observations => pure (← observations.get).size
+      | none => pure 0
     let (outcome, scope', question) ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
       Realize.runAsking harness scope statement
+    let dispatches ← match harness.dispatches with
+      | some observations => do
+          let calls ← observations.get
+          pure (calls.extract dispatchStart calls.size)
+      | none => pure #[]
     scope := scope'
     if id?.isNone && outcome matches .holds then continue
     results := results.push
       { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
-        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "" }
+        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "",
+        dispatches }
   return results
 
 /-- The report of a file's results. -/
@@ -176,12 +190,18 @@ meta def loadHarness (manifest? : Option System.FilePath) : CommandElabM Harness
   return harness
 
 syntax (name := casTestsCommand)
-  "#cas_tests " str (&" manifest " str)? (&" reporting " str)? (&" inventory " str)? : command
+  "#cas_tests " str (&" manifest " str)? (&" reporting " str)? (&" inventory " str)?
+  (&" computing")? : command
 
 @[command_elab casTestsCommand] meta def elabCasTests : CommandElab := fun stx => do
   let some path := stx[1].isStrLit? | throwUnsupportedSyntax
   let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
-  let harness ← loadHarness manifest?
+  let loaded ← loadHarness manifest?
+  let computationOnly := stx[5].getNumArgs > 0
+  let observations ← IO.mkRef (#[] : Array Json)
+  let harness : Harness := { loaded with
+    computationOnly := computationOnly
+    dispatches := if computationOnly then some observations else none }
   let inventory? := stx[4][1].isStrLit?.map fun s => (s : System.FilePath)
   let results ← try runSuite harness path inventory? finally (harness.stop : IO Unit)
   let files := results.foldl (fun fs r => if fs.contains r.file then fs else fs.push r.file) #[]
