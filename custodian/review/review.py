@@ -117,7 +117,12 @@ def classify(problems: list[str], construction: bool = False) -> tuple[list[str]
 def phase(base: Path) -> str:
     """The operating phase, from the base only; a candidate cannot select it."""
     f = base / "custodian" / "phase.json"
-    return json.loads(f.read_text()).get("phase", "steady") if f.is_file() else "steady"
+    if not f.is_file():
+        return "steady"
+    value = json.loads(f.read_text())["phase"]
+    if value not in ("construction", "steady"):
+        raise SystemExit(f"custodian/phase.json: unknown phase {value!r}")
+    return value
 
 
 def section(text: str, heading: str) -> str:
@@ -230,7 +235,7 @@ def call_reviewer(prompt: Path, requirements: str, change: str,
         return None, f"reviewer output is not JSON: {r.stdout[:500]}"
     if out.get("is_error") or out.get("subtype") != "success" or "structured_output" not in out:
         return None, f"reviewer stopped: {out.get('subtype')}: {str(out.get('result'))[:500]}"
-    return out["structured_output"], ",".join(out.get("modelUsage", {}))
+    return out["structured_output"], ",".join(out["modelUsage"]) if "modelUsage" in out else "unreported"
 
 
 def combine(results: list[dict]) -> dict:
@@ -320,7 +325,8 @@ def review_mode(a) -> int:
     prior = (a.rejections / f"{key}.json") if a.rejections else None
     if not construction and prior and prior.exists():
         rejected = json.loads(prior.read_text())
-        seen = rejected.get("reconsidered", [])
+        # A record written before reconsideration existed has no reconsiderations yet.
+        seen = rejected["reconsidered"] if "reconsidered" in rejected else []
         if not reconsideration or sha(reconsideration.encode()) in seen:
             return finish(1, "REJECTED (identical change)", [
                 f"this exact change was rejected ({key[:16]}); it is reviewed again with a substantive "
@@ -368,7 +374,8 @@ def review_mode(a) -> int:
         return finish(1, "APPROVED (commit the verdict to pass)", lines)
     if a.rejections:
         rec = a.rejections / f"{key}.json"
-        seen = json.loads(rec.read_text()).get("reconsidered", []) if rec.exists() else []
+        earlier = json.loads(rec.read_text()) if rec.exists() else {}
+        seen = earlier["reconsidered"] if "reconsidered" in earlier else []
         if reconsideration:
             seen.append(sha(reconsideration.encode()))
         rec.write_text(json.dumps({"key": key, "signer": public_fpr(a.signing_key), "record": record,
