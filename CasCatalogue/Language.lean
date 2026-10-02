@@ -1311,6 +1311,23 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
 parameters. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry) :
     M Value := do
+  let some (entry, params) ← recognized? state x category
+    | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
+  -- Its parameters: numerals, points (`ℝ ∖ {a}` at the point `a`), or sets (`𝒫(ℤ[x])`), recognized
+  -- in turn.
+  let values ← params.mapM fun p => do
+    if let some n ← (Meta.evalNat p).run then return Value.nat n
+    let some sets := state.categories.find? (·.id == CategoryId.sets)
+      | throwStratum .invalid m!"no registered category of sets"
+    if let some (_, X) := homEnds? (← instantiateMVars (← inferType p)) then
+      return Value.element p (← recognize state X sets)
+    recognize state p sets
+  object state entry.name values (some category)
+
+/-- The unique registered object of `category` that `x` is, with its parameters, or `none` when no
+object or several are (`recognize`). -/
+partial def recognized? (state : RegistryState) (x : Expr) (category : NamedCategoryEntry) :
+    M (Option (ObjectEntry × Array Expr)) := do
   let mut found : Array (ObjectEntry × Array Expr) := #[]
   -- Identity by declaration (b0-selected-structure): an expression that is a registered object's
   -- declaration applied to its parameters is that object, never another object whose carrier it
@@ -1327,18 +1344,8 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       return some (← explicit.mapM instantiateMVars) : MetaM _)
     if let some params := params? then
       if params.all (!·.hasMVar) then found := found.push (entry, params)
-  let #[(entry, params)] := found
-    | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
-  -- Its parameters: numerals, points (`ℝ ∖ {a}` at the point `a`), or sets (`𝒫(ℤ[x])`), recognized
-  -- in turn.
-  let values ← params.mapM fun p => do
-    if let some n ← (Meta.evalNat p).run then return Value.nat n
-    let some sets := state.categories.find? (·.id == CategoryId.sets)
-      | throwStratum .invalid m!"no registered category of sets"
-    if let some (_, X) := homEnds? (← instantiateMVars (← inferType p)) then
-      return Value.element p (← recognize state X sets)
-    recognize state p sets
-  object state entry.name values (some category)
+  let #[only] := found | return none
+  return some only
 
 /-- The registered morphism family named `name`, applied to elements (see `applyFamily`). -/
 partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value)
@@ -1715,6 +1722,8 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
           let some (_, x) := homEnds? pType | pure false
           let x ← instantiateMVars x
           if x.hasMVar then pure false else
+          -- A parameter set that is no unique registered object: this row does not read them.
+          if (← recognized? state x category).isNone then pure false else
           match ← coercionMap X (← recognize state x category) with
           | some (some ι) => isDefEq p (← mkAppM ``CategoryTheory.CategoryStruct.comp #[h, ι])
           | _ => pure false
@@ -1723,6 +1732,8 @@ partial def readArguments (row : BinderEntry) (arguments : Array Value) :
           let some (_, x) := homEnds? pType | pure false
           let x ← instantiateMVars x
           if x.hasMVar then pure false else
+          -- A parameter set that is no unique registered object: this row does not read them.
+          if (← recognized? state x category).isNone then pure false else
           match ← numeralElement? k (← recognize state x category) with
           | some (.element h _) => isDefEq p h
           | _ => pure false
