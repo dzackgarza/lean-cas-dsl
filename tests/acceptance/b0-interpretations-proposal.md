@@ -38,10 +38,15 @@ the admitted datum and obligation, selected structure, parameters, structural ma
 logical connectives, relation and result type. Logical equivalence or equal truth
 values do not suffice.
 
-The two limit questions remain the punctured/at-positive-infinity mathematical
-limits stated below. If the accepted upstream interface cannot express one, its
-interpretation operation has a missing input; it is not omitted or changed to an
-unrelated totalized function. The `implemented` question is intentionally about
+The two limit questions retain the accepted `RealLimits` domains at `b249ca2`:
+`ConvergentAt(0)` has maps from the punctured line R minus {0}, equipped with
+convergence along the comap of punctured neighborhoods of 0; the at-infinity
+domain has maps on real units, equipped with convergence along the comap of
+`atTop` through the units inclusion into R. Both admissions retain the actual
+map and its existential convergence proof. The selected finite/infinite point
+and approach filter are part of the question. A totalized real function at the
+excluded point is not substituted for either admitted domain. The `implemented`
+question is intentionally about
 execution availability while retaining a fixed semantic cardinality request.
 
 ## Mathematical justification
@@ -102,11 +107,11 @@ The oriented integral on the real interval from 0 to 1 of the continuous real fu
 
 ### `calculus.limit_infinity`
 
-The real limit as t tends to positive infinity of t ↦ 1/t exists and equals the real number 0.
+The admitted map on real units t ↦ 1/t converges along the comap of the real atTop filter through the units inclusion, and its limit at positive infinity equals real 0. Its domain is real units, not all real numbers.
 
 ### `calculus.limit_sinc`
 
-The punctured real limit at 0 of the real function t ↦ sin(t)/t exists and equals the real number 1; no value at 0 is prescribed.
+The admitted map from the punctured line R minus {0} to R, t ↦ sin(t)/t, converges along the comap of the punctured neighborhoods of 0, and its limit equals real 1. The denominator uses the admitted map from this punctured line into real units; no value at 0 is prescribed.
 
 ### `calculus.taylor_exp`
 
