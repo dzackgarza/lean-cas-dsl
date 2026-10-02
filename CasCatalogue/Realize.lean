@@ -567,14 +567,17 @@ reported as itself, and an exception without one, exhausted heartbeats included,
 error. Nothing is caught to be reinterpreted, and a failed statement leaves `scope` unchanged. -/
 def runAsking (h : Harness) (scope : Scope) (stx : Syntax) :
     TermElabM (Outcome × Scope × Option String) := do
+  -- The question is kept once read, whichever later stage fails (a gap is thrown while realizing).
+  let asked ← IO.mkRef (none : Option String)
   let attempt : TermElabM (Outcome × Scope × Option String) := do
     let trace ← (Trace.new : IO _)
     let claim ← (Language.claim scope stx).run { trace := some trace }
     let question ← claimQuestion claim
+    asked.set (some question)
     if let some (x, t) ← letBinding? stx then return (.holds, scope.insert x t, some question)
     if let some outcome ← discharge claim then return (outcome, scope, some question)
     return (← realizeClaim h trace claim, scope, some question)
-  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope, none)
+  tryCatchRuntimeEx attempt fun e => return (← Outcome.ofException e, scope, ← asked.get)
 
 /-- `runAsking` without the question. -/
 def run (h : Harness) (scope : Scope) (stx : Syntax) : TermElabM (Outcome × Scope) := do
