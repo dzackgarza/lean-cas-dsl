@@ -34,6 +34,25 @@ the inclusion or using another source group cannot satisfy the declared result
 form even when the numerical cardinality is correct. The `Alt(3)` observation
 specifically retains the subgroup inclusion interface by construction.
 
+For assessment of the fixed kernel requests, the defining arrow must be checked
+before its cardinality observation. In the sign case its image in the selected
+Sym(3) is exactly the identity and the two three-cycles. In the trivial-map case
+its image is all six permutations, and in the identity-map case its image is
+only the identity. The inclusions send each represented permutation to that
+same permutation in the chosen ambient group. Their composites with the exact
+specified maps are the constant homomorphisms at the target identity (additive
+residue zero for cyclic(2)). Injectivity alone and a matching order do not
+establish these image conditions.
+
+Equivalently, a returned representation K with inclusion i must satisfy the
+kernel universal condition for this very f: every homomorphism h:L→Sym(3)
+with f∘h trivial has a unique homomorphism u:L→K with i∘u=h. If a different
+representation of K is returned, its comparison with the expected subgroup
+must commute with the defining inclusion into Sym(3). A bare group of order
+three, six or one, or an abstract isomorphism that forgets the ambient arrow,
+does not answer the fixed request. These conditions follow from the existing
+preauthored subgroup and kernel meanings, not from candidate computation.
+
 The selected category annotation `in Groups` refers to the named group rows:
 it selects `cyclic(n)` rather than the independently chosen ring structure also
 displayed as ZMod(n). The declaration and group parameters, rather than
