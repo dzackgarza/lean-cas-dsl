@@ -15,7 +15,10 @@ per working session; terse. Not an authority: rules live in their owning documen
 - gov-meaning-permanence: `c5aa80e` on `b0/meaning-permanence` (claimQuestion fingerprint per
   statement in the report; check_question_permanence.py; gate wired). Stable across two
   runs: 137 of 149 assertions carry a question (the 11 without are the invalid ones, unread);
-  suite vs main: no regression. Next: the acceptance author records the initial questions.
+  suite vs main: no regression. `4f01a88` adds the readable proposition (--show);
+  `7512bd3` fingerprints the terms a settled judgement is about (stable, no regression). Integrated
+  into main. Recording dispatched: acceptance session_01HaXGBsWn4kWiAHP3TFzayQ. Formalization
+  session_01L7hVsUoY69WmjyYJydyQxN (group-valued constructions) dispatched.
 
 ## 2026-10-01, later (orchestrator, stage B: b0-typed-application)
 
