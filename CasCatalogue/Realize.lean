@@ -199,8 +199,8 @@ def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
 /-- The value of the registered family `declaration` (the denotation of a literal form, the
 standard cone constructor of a shape) at the answer `args`, as a value of `expected`. The
 family's arguments are taken in order: one the expected type determines is what it determines;
-an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`), and
-one it does not decide rejects the answer; every other argument is the next value of `args`,
+an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`): one refuted rejects
+the answer, and one the catalogue does not decide either way is a gap (`noImplementation`); every other argument is the next value of `args`,
 decoded by `decodeArg` at its type. The decoded arguments are returned with their forms, when
 they are values of a registered form. Too few or too many values reject the answer. -/
 def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
@@ -221,9 +221,13 @@ def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
       | _ => return .error s!"no instance of {t} is found"
     else if ← isProp t then
       if t.hasMVar then return .error s!"the condition {t} is not determined by the answer"
-      let some proof ← Decide.decisionProof t
-        | return .error s!"the answer does not satisfy {t}, or the kernel does not decide it"
-      discard <| isDefEq m proof
+      -- Refuted: the answer is malformed. Not decided either way: nothing the catalogue
+      -- registers decides the condition, which is a gap, never a verdict on the answer.
+      match ← Decide.decideProp t with
+      | some true => discard <| isDefEq m (← mkDecideProof t)
+      | some false => return .error s!"the answer does not satisfy {t}"
+      | none => throwStratum .noImplementation m!"the answer's condition {t} is not decided: \
+          the catalogue registers no decision of it"
     else
       let j :: rest := remaining
         | return .error s!"the answer has {args.size} values, and {Codec.label declaration} \
