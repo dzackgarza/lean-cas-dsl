@@ -162,6 +162,63 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       return ← declarationPorts entry.declaration formalField expectedType args
     if let some entry := state.morphisms.find? (·.id.raw == tag) then
       return ← declarationPorts entry.declaration formalField expectedType args
+    if tag == "map" then
+      let #[action, sourceData] := args
+        | return .error "map requires its selected action and source map"
+      let some selected ← retainedApplication ``CategoryTheory.Functor.map formalField
+        | return .error "the mapped callable requires its retained formal action context"
+      let infos ← forallTelescopeReducing (← getConstInfo ``CategoryTheory.Functor.map).type
+        fun fields _ => fields.mapM (·.fvarId!.getBinderInfo)
+      let explicit := (selected.getAppArgs.zip infos).filterMap fun (field, info) =>
+        if info.isExplicit then some field else none
+      let #[functor, source] := explicit
+        | return .error "the public functor-map interface has changed"
+      match ← validateAction functor action with
+      | .error message => return .error message
+      | .ok () => return ← validatePort source (← inferType source) sourceData
+    if tag == "compose" then
+      let #[firstData, secondData] := args
+        | return .error "compose requires two ordered maps"
+      let some selected ← retainedApplication ``CategoryTheory.CategoryStruct.comp formalField
+        | return .error "composition requires its independently retained component contexts"
+      let fields := selected.getAppArgs
+      let first := fields[fields.size - 2]!
+      let second := fields.back!
+      for (field, data) in #[(first, firstData), (second, secondData)] do
+        match ← validatePort field (← inferType field) data with
+        | .error message => return .error message
+        | .ok () => pure ()
+      return .ok ()
+    if tag == "identity" || tag == "zero" then
+      let #[sourceData, targetData] := args
+        | return .error "a nullary map requires its complete source and target descriptors"
+      let type := expectedType.consumeMData
+      unless type.isAppOf ``Quiver.Hom do
+        return .error "the nullary map requires its retained categorical endpoint types"
+      let fields := type.getAppArgs
+      let source := fields[fields.size - 2]!
+      let target := fields.back!
+      for (field, data) in #[(source, sourceData), (target, targetData)] do
+        match ← validatePort field (← inferType field) data with
+        | .error message => return .error message
+        | .ok () => pure ()
+      if tag == "identity" && sourceData != targetData then
+        return .error "the identity descriptor declares different computational endpoints"
+      return .ok ()
+    if tag == "objectProduct" then
+      let #[leftData, rightData] := args
+        | return .error "objectProduct requires two complete object descriptors"
+      let formal := formalField.consumeMData
+      unless formal.isAppOf ``Prod do
+        return .error "the product descriptor requires its retained formal factor contexts"
+      let fields := formal.getAppArgs
+      let left := fields[fields.size - 2]!
+      let right := fields.back!
+      for (field, data) in #[(left, leftData), (right, rightData)] do
+        match ← validatePort field (← inferType field) data with
+        | .error message => return .error message
+        | .ok () => pure ()
+      return .ok ()
     if tag == "arrow" then
       let #[source, target, map] := args | return .error "arrow requires source, target and map"
       let sourceField ← mkAppM ``CategoryTheory.Arrow.left #[formalField]
