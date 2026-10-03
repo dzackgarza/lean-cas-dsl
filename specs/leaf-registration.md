@@ -37,11 +37,13 @@ kernel or from a leaf:
   when it has one: a point of `Fin n` is its number, a pair is `[x, y]`, and a map of finite sets
   is its graph `[[0,0],[1,1],[2,1]]`;
 - a quotient is sent as a representative: a `Finset` is the list of its elements;
-- a proof field is never on the wire. On decoding, the kernel establishes it by decision, or it
-  rejects the value.
+- a proof field is never on the wire. Direct literal decoding establishes the declared data
+  type's constraints by decision, or rejects the literal. Structured computational packets
+  remain data; decoding them does not manufacture a proved mathematical construction.
 
-Decoding is total: an answer is a closed value of `T`, read at the type the kernel asked for, or
-it is rejected as malformed.
+Decoding is total: direct literals are closed values of their declared data type; structured
+answers are complete computational packets in the declared form. Ill-formed outputs are
+rejected as malformed. Formal construction proofs remain independent of both.
 
 **Diagrams and universal answers.** The input form of a limit or colimit is the diagrams of its
 category, and its form id is the category's id (`cat.sets`). A diagram is sent as the standard
