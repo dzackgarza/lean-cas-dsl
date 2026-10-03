@@ -31,6 +31,9 @@ let p := P.leg(0)
 
 let q := P.leg(1)
 
+test b0.formed.kernel.identity.card "The independently specified kernel of the selected identity on E8 is {0}; its complete restricted formed domain D retains R=Z and W=Z and has exactly one carrier element":
+  assert |D| = 1
+
 test b0.formed.kernel.identity.inclusion_zero "The kernel of the selected identity on E8 is exactly {0}; formedKernelInclusion_apply sends each element to its same ambient vector, hence every image is the selected zero of L":
   assert i(x) = 0 in L
 
