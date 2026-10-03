@@ -147,3 +147,11 @@ structure and class data may be exposed fully, while their carrier aliases use r
 projection exposure. This retains the declared carrier presentation needed by registered
 evidence rather than unfolding a type alias into an implementation datatype. The complete
 original target and returned witness are still checked by kernel conversion.
+
+A supplied closed map of sets may expose its stored function through the ordinary categorical
+map constructor. Before reducing its value, the reader protects registered comparison and
+operation declarations. It checks the complete map type and the complete map value by kernel
+conversion, then checks the entire presented evidence target against the original target.
+This presentation step supports the same registered procedure's recognition of constant
+point actions; it supplies no new theorem or chosen instance. These checks concern formal
+admission and convergence statements and consume no backend answer data.

@@ -56,6 +56,9 @@ inductive Node
       (sources : Array ParameterPresentation)
   /-- A registered named morphism at its ordered explicit declaration arguments. -/
   | namedMorphism (id : MorphismId) (params : Array Expr)
+  /-- A registered inclusion at its complete declared parameters and exact endpoints. -/
+  | namedInclusion (id : InclusionId) (category : CategoryId) (params : Array Expr)
+      (source target : Expr)
   /-- A callable published as a typed field of a registered owner. -/
   | namedCallable (address : String) (category : CategoryId) (params : Array Expr)
   /-- A formally admitted point retaining its original computational datum and endpoints. -/

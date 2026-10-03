@@ -2446,9 +2446,10 @@ partial def bindSelectedReceiver (explicit : Array Expr) (slot : Nat) (receiver 
   let .object actual category origin .. := selected | return false
   if actual.hasMVar then return false
   if category.id == CategoryId.sets then
-    -- The first object parameter may acquire a complete structure from its named
-    -- declared refinement. A later parameter cannot guess a package from a carrier.
-    if slot != 0 || origin.isNone then return false
+    -- Any object binder may use the complete package supplied by a named declared
+    -- refinement. Its dependent type constrains earlier parameters; a bare carrier
+    -- supplies no such package.
+    if origin.isNone then return false
     let expected ← instantiateMVars (← inferType parameter)
     let argument ← typedParameter expected selected
     unless !argument.hasMVar && (← isTypeCorrect argument) do return false
@@ -3173,10 +3174,11 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
 /-- The composite `Y ↪ … ↪ X` of a chain of registered inclusions out of `Y`. -/
 partial def inclusionMap (chain : Array InclusionEntry) (Y : Value)
     (target? : Option Value := none) : M Expr := do
-  let .object original _ _ _ _ := Y
+  let .object original category _ _ _ := Y
     | throwStratum .invalid m!"an inclusion starts at a selected object"
   let mut source := original
   let mut composite ← identityAt Y
+  Trace.record (← read).trace composite (.morphismIdentity category.id original)
   for (entry, i) in chain.zipIdx do
     let constant ← mkConstWithFreshMVarLevels entry.declaration
     let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
@@ -3202,8 +3204,21 @@ partial def inclusionMap (chain : Array InclusionEntry) (Y : Value)
       throwStratum .invalid m!"the registered inclusion's parameters are not determined"
     unless ← isTypeCorrect arrow do
       throwStratum .invalid m!"the registered inclusion is outside its dependent signature"
-    composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[composite, arrow]
-    source ← instantiateMVars declaredTarget
+    let target ← instantiateMVars declaredTarget
+    let parameters ← ((args.zip infos).filterMap fun (arg, info) =>
+      if info.isExplicit then some arg else none).mapM instantiateMVars
+    unless !arrow.hasLevelMVar && !source.hasMVar && !source.hasLevelMVar &&
+        !target.hasMVar && !target.hasLevelMVar do
+      throwStratum .invalid m!"the registered inclusion retains unresolved endpoints"
+    Trace.record (← read).trace arrow
+      (.namedInclusion entry.id entry.category parameters source target)
+    let previous := composite
+    composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[previous, arrow]
+    unless ← isTypeCorrect composite do
+      throwStratum .invalid m!"the inclusion composite is outside its dependent signature"
+    Trace.record (← read).trace composite
+      (.morphismComposition category.id previous arrow original source target)
+    source := target
   return composite
 
 /-- `v` as an element of `X`: a numeral's element there, or an element carried along the inclusion

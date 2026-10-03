@@ -140,6 +140,20 @@ def forwardPayload (source : Wire) (formal : Expr) (json : Json) : WirePayload :
     | .computed .. | .construction .. => .computed formal (.inline json)
     | .ordinary .. => .ordinary formal json
 
+/-- Combine actual data dependencies without losing portable computations or session ownership. -/
+def combinedPayload (formal : Expr) (json : Json) (dependencies : Array Wire) :
+    TermElabM WirePayload := do
+  let mut owner := none
+  let mut computed := false
+  for dependency in dependencies do
+    owner ← mergeOwners owner dependency.owner?
+    computed := computed || (match dependency.payload with
+      | .ordinary .. => false
+      | _ => true)
+  match owner with
+  | some (backend, session) => return .computed formal (.owned backend session json)
+  | none => return if computed then .computed formal (.inline json) else .ordinary formal json
+
 structure BackendSession where
   identity : Nat
   connection : Backend.Conn
@@ -346,13 +360,27 @@ def send (h : Harness) (operation : String) (input : Wire) : TermElabM (Json × 
     match ← (h.connection registration.backend : IO _) with
     | .ok session => pure session
     | .error e => throwStratum .unavailable m!"{e.render}"
-  if let some observations := h.dispatches then
-    observations.modify (·.push (Json.mkObj [("operation", toJson operation),
-      ("input", toJson input.formId), ("backend", toJson registration.backend),
-      ("request", input.json)]))
+  let observation := [("operation", toJson operation), ("input", toJson input.formId),
+    ("backend", toJson registration.backend), ("session", toJson connection.identity),
+    ("inputOwner", toJson input.owner?), ("request", input.json)]
+  let observedIndex : Option Nat ← match h.dispatches with
+    | none => pure none
+    | some observations =>
+      pure (some (← observations.modifyGet fun entries =>
+        (entries.size, entries.push (Json.mkObj observation))))
   match ← (Backend.call connection.connection operation input.json : IO _) with
-  | .ok answer => return (answer, registration.backend)
-  | .error e => throwStratum e.stratum m!"{e.render}"
+  | .ok answer =>
+      if let some observations := h.dispatches then
+        if let some index := observedIndex then
+          observations.modify fun entries =>
+            entries.set! index (Json.mkObj (observation ++ [("response", answer)]))
+      return (answer, registration.backend)
+  | .error e =>
+      if let some observations := h.dispatches then
+        if let some index := observedIndex then
+          observations.modify fun entries =>
+            entries.set! index (Json.mkObj (observation ++ [("failure", toJson e.render)]))
+      throwStratum e.stratum m!"{e.render}"
 
 /-- The answer `answer` of `backend` to `operation` is not a value of the operation's result
 form. -/
@@ -1792,6 +1820,18 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         let data ← receiveComputationalData h backend id.raw answer true
         return { form := .namedMorphism entry, payload := .computed e data }
       return request
+  | .namedInclusion id categoryId params source target =>
+      let some entry := state.inclusions.find? (·.id == id)
+        | throwError "the retained inclusion is not a published row"
+      unless entry.category == categoryId do
+        throwError "the retained inclusion changed its registered category"
+      unless ← withTransparency .all <| isDefEq (← inferType e)
+          (← mkAppM ``Quiver.Hom #[source, target]) do
+        throwError "the retained inclusion changed its full endpoint types"
+      let parameters ← params.mapM (parameterData trace)
+      let some category := state.categories.find? (·.id == categoryId) | unreachable!
+      return { form := .canonicalMorphism category, payload := (.ordinary e
+        (Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameters)])) }
   | .admittedPoint id categoryId params original originalCategory originalSource originalTarget =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the admitted point owner is not registered"
@@ -1933,7 +1973,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
             if wire.objectIso.isNone then hom
             else Json.mkObj [("ctor", "arrowHom"), ("args", Json.arr #[wire.json])]
         | _, _ => Json.mkObj [("ctor", "arrowHom"), ("args", Json.arr #[wire.json])]
-      return { form := .canonicalMorphism baseCategory, payload := .ordinary (e) (json) }
+      return { form := .canonicalMorphism baseCategory, payload := forwardPayload wire e json }
   | .morphismIdentity categoryId object =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
       let endpoint ← realize h trace "the identity endpoint" object
@@ -1954,7 +1994,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       unless ← withTransparency .all <| isDefEq (← inferType e)
           (← mkAppM ``Quiver.Hom #[domain, apex]) do
         throwError "the product point changed its independently fixed formal type"
-      let payload := dataPayload e (Json.arr #[first.json, second.json]) (← sharedOwner first second)
+      let payload ← combinedPayload e (Json.arr #[first.json, second.json]) #[first, second]
       return { form := .canonicalMorphism category, payload }
   | .morphismComposition categoryId first second source middle target =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
@@ -2005,7 +2045,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let value ← mkAppM ``CategoryTheory.CategoryStruct.comp #[a.value, b.value]
       let value ← StructuredResult.checkReconstruction value
       let json := Json.mkObj [("ctor", "compose"), ("args", Json.arr #[a.json, b.json])]
-      let payload := dataPayload e json (← sharedOwner a b)
+      let payload ← combinedPayload e json #[a, b]
       return { form := .canonicalMorphism category, payload }
   | .presentation id params inverse =>
       let some entry := state.presentations.find? (·.id == id) | unreachable!
@@ -2210,27 +2250,47 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let some edge := route.back?
         | throwError "an empty selected route changed its category"
       return { output with form := imageForm state edge target, payload := forwardPayload output semanticImage (← actionObjectData trace input route) }
-  | .binder id _ _ _ admitted =>
+  | .binder id params _ _ admitted =>
       let some entry := state.binders.find? (·.id == id) | unreachable!
-      let operation := (state.operations.find? (·.declaration == entry.operation)).map (·.id.raw)
-        |>.orElse (fun _ => (state.morphisms.find? (·.declaration == entry.operation)).map (·.id.raw))
-      let some operation := operation
-        | throwStratum .noImplementation m!"{id.raw}: the accepted binder operation has no released computation registration"
+      let operation := id.raw
+      let arrow ← elabTermAndSynthesize
+        (← `($(mkCIdent entry.operation) $(← params.mapM exprToSyntax)*)) none
+      let some (source, target) := Language.homEnds? (← inferType arrow)
+        | throwError "the published binder callable lost its complete map endpoints"
       let input ← realize h trace s!"the admitted map of {id.raw}" admitted
-      let (answer, backend) ← send h operation input
+      let some (domain, admittedTarget) := Language.homEnds? (← inferType input.value)
+        | throwError "the admitted binder input lost its generalized point endpoints"
+      unless ← withTransparency .all <| isDefEq admittedTarget source do
+        throwError "the admitted binder input changed the published callable source"
+      for object in #[domain, source, target] do
+        discard <| Semantic.recordNamedObject object (some trace)
+      let domainWire ← realize h trace "the binder's generalized point domain" domain
+      let sourceWire ← realize h trace "the binder's admitted input object" source
+      let targetWire ← realize h trace "the binder's selected output object" target
+      let parameters ← params.mapM (parameterData trace)
+      let invocation : Backend.PointInvocation := {
+        operation, parameters,
+        arrow := Json.mkObj [("ctor", toJson operation), ("args", Json.arr parameters)],
+        domain := domainWire.json, source := sourceWire.json, target := targetWire.json,
+        argument := input.json }
+      let request : Wire := {
+        form := input.form
+        payload := (← combinedPayload arrow invocation.encode #[input, domainWire, sourceWire, targetWire]) }
+      let (answer, backend) ← send h operation request
+      let data ← receiveComputationalData h backend operation answer
       let some category := state.categories.find? (·.id == entry.category) | unreachable!
-      match ← decodeValue trace category (← inferType e) answer with
-      | .ok (value, some form) => return { form := form, payload := .ordinary (e) (answer) }
-      | .ok (_, none) => malformed backend operation answer "the binder result has no registered presentation"
-      | .error message => malformed backend operation answer message
+      return { form := .canonicalMorphism category, payload := .computed e data }
   | .arrow category morphism source target =>
       let some entry := state.categories.find? (·.id == category)
         | throwError "the recorded arrow category is not registered"
       let source ← realize h trace s!"the source of {what}" source
       let target ← realize h trace s!"the target of {what}" target
       let morphism ← realize h trace s!"the defining map of {what}" morphism
-      return { form := .arrow entry, payload := .ordinary (e) (Json.mkObj [("ctor", "arrow"),
-          ("args", Json.arr #[source.json, target.json, morphism.json])]) }
+      let json := Json.mkObj [("ctor", "arrow"),
+        ("args", Json.arr #[source.json, target.json, morphism.json])]
+      return {
+        form := .arrow entry
+        payload := (← combinedPayload e json #[source, target, morphism]) }
   | .literal id literal =>
       let some form := state.form? id.raw
         | throwError "{id.raw} is not a registered literal form"
@@ -2302,19 +2362,18 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
             | .object _ => transport trace wire #[lift.edge]
             | .graph _ =>
               let value ← Semantic.mapOf U wire.value
-              let type ← inferType value
-              match ← decodeValue trace category type wire.json with
-              | .ok (decoded, some form) =>
-                unless ← isDefEq decoded value do
-                  throwStratum .noImplementation m!"the graph form has no accepted action along {lift.edge.label}"
-                pure { wire with form := form, payload := .ordinary (decoded) (wire.json) }
-              | .error message => throwStratum .noImplementation m!"the graph form cannot be transported along {lift.edge.label}: {message.take 800}"
-              | .ok (_, none) => throwStratum .noImplementation m!"the transported graph has no complete typed data form along {lift.edge.label}"
+              let some form := state.graphLiterals.find? (·.category == category.id)
+                | throwStratum .noImplementation "the selected graph action has no declared target data form"
+              let json := Json.mkObj [("ctor", "map"), ("args", Json.arr #[
+                ← edgeDescriptor trace lift.edge U, wire.json])]
+              pure { wire with form := .graph form, payload := forwardPayload wire value json }
             | _ => throwStratum .noImplementation m!"the diagram data has no accepted presentation along {lift.edge.label}"
           pure (← mkAppM standard (mapped.map (·.value)), mapped)
-      let input : Wire :=
-        { form := .diagrams category, payload := .ordinary (sent) (Json.mkObj [("ctor", Codec.label standard),
-                              ("args", Json.arr (wires.map (·.json)))]) }
+      let diagramJson := Json.mkObj [("ctor", Codec.label standard),
+        ("args", Json.arr (wires.map (·.json)))]
+      let input : Wire := {
+        form := .diagrams category
+        payload := (← combinedPayload sent diagramJson wires) }
       let formalLowerPresentation ← Semantic.limitPresentation row sent
       match ← StructuredResult.dataPorts row sent formalLowerPresentation with
       | .error message => throwStratum .noImplementation m!"the formal construction has no computational data schema: {message}"
@@ -2655,13 +2714,17 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
       return .holds
   | .literal X _ form L _ left right =>
       let w ← realize h trace left X
-      let .literal form' := w.form
-        | throwStratum .noImplementation m!"{left} is not computed as a value of the literal \
-            form {form.id.raw}"
-      unless form'.id == form.id do
-        throwStratum .malformed m!"{left} is computed in the form {form'.id.raw}, and compared in \
-          {form.id.raw}"
-      let literal ← match ← Codec.decode (← mkConstWithFreshMVarLevels form.type) w.json with
+      match w.form with
+      | .literal form' =>
+        unless form'.id == form.id do
+          throwStratum .malformed m!"{left} is computed in a different declared literal form"
+      | _ =>
+        unless w.form.category == form.category do
+          throwStratum .malformed m!"{left} changed the fixed literal observation category"
+      let literalType ← mkConstWithFreshMVarLevels form.type
+      unless ← ComputationalData.plainType literalType do
+        throwStratum .noImplementation "the literal observation requires a proof-free declared data representation"
+      let literal ← match ← Codec.decode literalType w.json with
         | .ok literal => pure literal
         | .error message => throwStratum .malformed m!"the realized literal no longer decodes: {message}"
       return if ← evaluatedEq literal L then .holds
@@ -2859,6 +2922,9 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           pure (.retainedRoute source target route (← applications.mapM instantiateMVars)
             (← instantiateMVars receiver))
       | .namedMorphism id params => pure (.namedMorphism id (← params.mapM instantiateMVars))
+      | .namedInclusion id category params source target =>
+          pure (.namedInclusion id category (← params.mapM instantiateMVars)
+            (← instantiateMVars source) (← instantiateMVars target))
       | .namedCallable address category params =>
           pure (.namedCallable address category (← params.mapM instantiateMVars))
       | .admittedPoint id category params original originalCategory source target =>
@@ -2956,6 +3022,10 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           pure (Json.arr #[toJson "admittedPoint", toJson id.raw, toJson category.raw,
             toJson (← params.mapM table.encode), toJson (← table.encode original),
             toJson originalCategory.raw, toJson (← table.encode source), toJson (← table.encode target)])
+      | .namedInclusion id category params source target =>
+          pure (Json.arr #[toJson "namedInclusion", toJson id.raw, toJson category.raw,
+            toJson (← params.mapM table.encode), toJson (← table.encode source),
+            toJson (← table.encode target)])
       | .namedCallable address category params =>
           pure (Json.arr #[toJson "namedCallable", toJson address, toJson category.raw,
             toJson (← params.mapM table.encode)])
