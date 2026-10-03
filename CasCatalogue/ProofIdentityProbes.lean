@@ -4,7 +4,7 @@ import CasCatalogue.Realize
 meta import CasCatalogue.Realize
 
 open Lean Meta Elab Command Term
-open CasCatalogue CasCatalogue.Realize
+open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 /- Typed serialization mechanics only; no acceptance assertion is admitted here. -/
 run_cmd liftTermElabM do
@@ -44,7 +44,7 @@ run_cmd liftTermElabM do
   unless (← termIdentity mapA) != (← termIdentity mapB) do
     throwError "selected map implementation was erased"
   let dictionaryA ← read (← `((inferInstance : Inhabited Nat)))
-  let dictionaryB ← read (← `({ default := 3 } : Inhabited Nat))
+  let dictionaryB ← read (← `(({ default := 3 } : Inhabited Nat)))
   unless (← termIdentity dictionaryA) != (← termIdentity dictionaryB) do
     throwError "selected data dictionary was erased"
   let questionA : Question := .judgement "membership" #[first] #[] #[``Nat]
