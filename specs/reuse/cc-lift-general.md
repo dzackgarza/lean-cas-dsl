@@ -1,5 +1,17 @@
 # Reuse record: `cc-lift-general`
 
+Current production boundary: backend answers do not supply reconstructed cones,
+subobjects, isomorphisms, or their laws. The older comparison helpers described
+below are formal-side tools, not obligations imposed on a computational answer.
+For complete cone packets, `validateData` uses Mathlib's existing public
+`BinaryFan.mk`, `BinaryCofan.mk`, `PullbackCone.mk`, `PushoutCocone.mk`,
+`Fork.ofι`, and `Cofork.ofπ` schemas. Their dependent slots are instantiated only
+from the independently retained formal presentation. Computational port
+validators return `Unit`, never a backend-derived Lean term or proof. Direct
+dependency source search of those constructors and `LimitCone.cone` /
+`ColimitCocone.cocone` establishes the owners; this changes protocol validation,
+not the mathematics of limits.
+
 ## Queries
 Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 
@@ -87,20 +99,34 @@ cases, with wrong endpoint, missing presentation, different diagram/ambient and 
 square rejected. `CasAcceptance.StructuredComparisonProbes` retains these engineering
 regressions. Current complete gate/native and downstream composition checks remain required.
 
-### Comparisons through the prescribed subobject lift (2026-10-03)
+### Computational packets through the prescribed subobject lift (2026-10-03)
 
-Direct source queries of the accepted `CasCatalogue.MonoLift` locate `hom`, `hom_mono`,
-`iso`, `fac`, and `universal` in the mathematical dependency. The last declaration supplies
-the cartesian universal factorization over an arbitrary prescribed base map, including
-uniqueness. `StructuredResult.liftSubobjectComparison` assembles its two directions from
-that existing evidence, actual ambient and base comparisons, and the exact defining maps.
-Both base ambient components must be the image of the supplied full ambient comparison.
-Inverse equations use the actual accepted monomorphism evidence. The final complete
-subobject-category comparison is independently kernel checked; no carrier matching supplies
-selected structure or a proof.
+The public upstream owners are `LiftEntry.computation` and
+`MonoLiftComputation.obj`, `.hom`, `.forward`, and `.backward` in the
+mathematical catalogue. The corpus query `MonoLiftComputation` returned zero
+indexed files; direct dependency source search located those actual declarations.
+The selected computation's dependent family is checked upstream against the
+selected formal lift, whose laws remain on the formal side.
 
-The isolated helper and exact durable probe body passed nonidentity apex/ambient changes,
-both inverse equations, and different chosen pairings on the same carrier; wrong endpoints,
-defining maps, ambient actions and chosen forms are rejected. Runtime replay and propagation
-remain integration obligations. Replay must bind the ordered lift identifiers to the
-independently fixed operation's prescribed route, beyond checking that the rows are registered.
+`LiftedSubobjectData` retains the independent source, base, selected route and
+formal result together with one opaque source/base packet. Its ordered component
+plans instantiate the public signatures solely from those formal inputs. They
+are pending computations, not backend answers or proved comparisons. Intermediate
+computational data do not yet exist: execution must obtain them from actual
+preceding component outputs. Copying the original downstairs packet into every
+step would not compute those intermediate objects or maps.
+
+Source/base validators return `Unit` and check representation and declared
+endpoints. They do not decode a backend into a monomorphism, lift, isomorphism,
+or universal property. Existing three-field packet framing is retained; it does
+not assert that the required component computations have run. Integration builds
+and ordinary registered execution of the required components remain necessary.
+
+`ComputationalData` supplies the shared `Unit`-returning framing validator.
+Corpus search for computational data validation found general runtime examples,
+not a CAS contract owner. Direct sources identify the published `ObjectEntry`,
+`LiteralEntry`, `GraphLiteralEntry`, and existing functor-action frames as the
+owners of the declared schemas. Dependent context comes from the formal request;
+validation never reconstructs backend objects or maps into law-bearing terms.
+Opaque callables remain computational claims at their declared types rather than
+requiring eager enumeration or proof recovery.

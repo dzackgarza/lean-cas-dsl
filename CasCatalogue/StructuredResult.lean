@@ -14,9 +14,9 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.StructuredResult
 
-/-- The complete decoded construction. The cone retains its defining maps; its diagram and
-wire answer are retained separately from the apex's presentation. -/
-structure Result where
+/-- A decoded reconstruction draft, not a production result. The cone retains its defining
+maps. It is not an authoritative construction and must not be returned as a semantic value. -/
+structure Decoded where
   diagram : Expr
   cone : Expr
   apex : Expr
@@ -31,7 +31,7 @@ The constructor decoder checks all fields, including the defining maps and their
 def decode (row : LimitEntry) (diagram : Expr) (answer : Json)
     (decodeConstructor : Name → Expr → Array Json →
       TermElabM (Except String (Expr × Array (Expr × Option Form)))) :
-    TermElabM (Except String (Result × Array (Expr × Option Form))) := do
+    TermElabM (Except String (Decoded × Array (Expr × Option Form))) := do
   let kind := if row.colimit then "cocone" else "cone"
   let .ok name := answer.getObjValAs? String "ctor"
     | return .error s!"expected a {kind} constructor"
@@ -68,9 +68,197 @@ def checkReconstruction (value : Expr) : TermElabM Expr := do
   | .ok _ => return value
   | .error _ => throwError "Lean's kernel rejected the reconstructed universal object"
 
+/-- Computational provenance is data, never a proof about the formal construction. -/
+inductive ComputationPacket where
+  | direct (answer : Json)
+  | created (liftId : String) (sourceDiagramJson : Json) (targetAnswer : Json)
+
+namespace ComputationPacket
+
+/-- The complete returned data envelope, checked at its own computational input diagram. -/
+def answer : ComputationPacket → Json
+  | .direct answer => answer
+  | .created _ _ targetAnswer => targetAnswer
+
+/-- Serialize creation context without reverse lookup or copied lower-apex parameters. -/
+def json : ComputationPacket → Json
+  | .direct answer => answer
+  | .created liftId sourceDiagramJson targetAnswer =>
+      Json.mkObj [("ctor", "createdCone"),
+        ("args", Json.arr #[toJson liftId, sourceDiagramJson, targetAnswer])]
+
+end ComputationPacket
+
+/-- One authoritative formal construction paired with its opaque computational answer.
+The formal construction is supplied independently of the backend. The answer never supplies
+universality, an isomorphism, or an identification with the formal apex. Cached projections are
+computed inside the private constructor boundary and cannot be replaced independently. -/
+structure Result where
+  private mk ::
+  colimit : Bool
+  presentation : Expr
+  diagram : Expr
+  cone : Expr
+  apex : Expr
+  diagramJson : Json
+  packet : ComputationPacket
+
+namespace Result
+
+/-- Opaque returned data, with no asserted identification with the formal apex. -/
+def answer (result : Result) : Json := result.packet.answer
+
+/-- The entire computational packet, including creation provenance when applicable. -/
+def json (result : Result) : Json := result.packet.json
+
+/-- Project the authoritative defining map; its computation remains a separate opaque packet. -/
+def leg (result : Result) (index : Expr) : TermElabM Expr := do
+  let transformation ← mkAppM (if result.colimit then ``CategoryTheory.Limits.Cocone.ι
+    else ``CategoryTheory.Limits.Cone.π) #[result.cone]
+  mkAppM ``CategoryTheory.NatTrans.app #[transformation, index]
+
+end Result
+
+/-- The accepted constructor's data-port predicate, shared by validation and projection. -/
+def isDataPort (field : Expr) (info : BinderInfo) : TermElabM Bool := do
+  unless (← instantiateMVars field).isMVar do return false
+  let type ← instantiateMVars (← inferType field)
+  if info.isInstImplicit || (!info.isExplicit && type.hasMVar) then return false
+  return !(← isProp type)
+
+/-- Prepare computational port types solely from the independent formal construction.
+This can run before dispatch; failure to expose a formal schema is not malformed backend data. -/
+def dataPorts (row : LimitEntry) (diagram formalPresentation : Expr) :
+    TermElabM (Except String (Array Expr)) := do
+  let some constructor := standardCone row.shape row.colimit
+    | return .error "the registered shape has no complete data constructor"
+  let constructor ← mkConstWithFreshMVarLevels constructor
+  let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
+  let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
+    else ``CategoryTheory.Limits.Cone) #[diagram]
+  unless ← isDefEq conclusion expected do
+    return .error "the computational fields have a different exact diagram type"
+  -- Discover the published constructor ports before binding the schema. Only the
+  -- independent formal cone supplies those bindings, including dependent endpoints.
+  let mut ports : Array Expr := #[]
+  for (field, info) in fields.zip infos do
+    if ← isDataPort field info then ports := ports.push field
+  let formalCone ← mkAppM (if row.colimit then
+    ``CategoryTheory.Limits.ColimitCocone.cocone else
+    ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation]
+  unless ← withTransparency .all <| isDefEq (mkAppN constructor fields) formalCone do
+    return .error "the formal construction does not expose the declared data-port schema"
+  let mut resolved : Array Expr := #[]
+  for field in ports do
+    let formalField ← instantiateMVars field
+    let type ← instantiateMVars (← inferType formalField)
+    if formalField.hasMVar || formalField.hasLevelMVar ||
+        type.hasMVar || type.hasLevelMVar then
+      return .error "the formal computational port has unresolved dependent parameters"
+    resolved := resolved.push formalField
+  return .ok resolved
+
+/-- Validate complete computational framing against independent formal port types.
+No backend field supplies a Lean term, construction law, or schema binding. -/
+def validateData (row : LimitEntry) (diagram formalPresentation : Expr) (answer : Json)
+    (validatePort : Expr → Expr → Json → TermElabM (Except String Unit)) :
+    TermElabM (Except String Unit) := do
+  let ports ← match ← dataPorts row diagram formalPresentation with
+    | .error message => return .error message
+    | .ok ports => pure ports
+  let kind := if row.colimit then "cocone" else "cone"
+  let .ok received := answer.getObjValAs? String "ctor"
+    | return .error s!"expected a {kind} computational envelope"
+  unless received == kind do return .error s!"expected {kind}, received {received}"
+  let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
+    | return .error "the computational construction has no args array"
+  let mut remaining := args.toList
+  for formalField in ports do
+    let type ← inferType formalField
+    let data :: rest := remaining
+      | return .error "the computational construction omitted a required data field"
+    match ← validatePort formalField type data with
+      | .error message => return .error message
+      | .ok () => pure ()
+    remaining := rest
+  unless remaining.isEmpty do
+    return .error "the computational construction supplied extra data fields"
+  return .ok ()
+
+/-- Interpret a defining-map projection using only the authoritative constructor schema.
+No backend field is supplied to this procedure, and its temporary schema expression is never
+returned as a cone, law or universal witness. Only the data-port position escapes. -/
+def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
+    TermElabM (Except String Nat) := withoutModifyingState do
+  try
+    let some constructor := standardCone row.shape row.colimit
+      | return .error "the registered shape has no defining-map data-port schema"
+    let constructor ← mkConstWithFreshMVarLevels constructor
+    let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
+    let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
+      else ``CategoryTheory.Limits.Cone) #[diagram]
+    unless ← isDefEq conclusion expected do
+      return .error "the defining-map schema has a different exact formal diagram"
+    let mut ports : Array Expr := #[]
+    for (field, info) in fields.zip infos do
+      if ← isDataPort field info then ports := ports.push field
+    let schema := mkAppN constructor fields
+    let transformation ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.ι
+      else ``CategoryTheory.Limits.Cone.π) #[schema]
+    let projection ← withTransparency .all <| whnf
+      (← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index])
+    let projection ← instantiateMVars projection
+    for port in [:ports.size] do
+      if projection == (← instantiateMVars ports[port]!) then return .ok port
+    return .error "the requested defining map is a composite, not a direct computational data port"
+  catch exception =>
+    return .error (← exception.toMessageData.toString)
+
+/-- Select an opaque defining-map field using an independently interpreted formal schema. -/
+def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr) :
+    TermElabM (Except String Json) := do
+  let port ← match ← dataPortIndex row diagram index with
+    | .error message => return .error message
+    | .ok port => pure port
+  let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
+    | return .error "the computational construction has no complete args array"
+  let some data := args[port]?
+    | return .error "the computational construction omitted the requested defining-map port"
+  return .ok data
+
+set_option backward.privateInPublic true in
+set_option backward.privateInPublic.warn false in
+/-- Establish the semantic/computational boundary once. `formalPresentation` comes from the
+formal interpretation, not the answer. `validateAnswer` checks the complete computational data
+form and endpoints; it must not prove that the answer is a limit, colimit or correct comparison.
+A well-formed wrong answer remains computational data for independent acceptance. -/
+def complete (row : LimitEntry) (diagram : Expr) (diagramJson : Json)
+    (packet : ComputationPacket)
+    (formalPresentation : Expr)
+    (validateAnswer : Json → TermElabM (Except String Unit)) :
+    TermElabM (Except String Result) := do
+  try
+    let diagram ← checkReconstruction diagram
+    let formalPresentation ← checkReconstruction formalPresentation
+    let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone
+      else ``CategoryTheory.Limits.LimitCone) #[diagram]
+    unless ← withTransparency .all <| isDefEq (← inferType formalPresentation) expected do
+      return .error "the formal construction has a different exact diagram"
+    match ← validateAnswer packet.answer with
+    | .error message => return .error message
+    | .ok () => pure ()
+    let cone ← instantiateMVars (← mkAppM (if row.colimit then
+      ``CategoryTheory.Limits.ColimitCocone.cocone else
+      ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation])
+    let apex ← instantiateMVars (← mkAppM (if row.colimit then
+      ``CategoryTheory.Limits.Cocone.pt else ``CategoryTheory.Limits.Cone.pt) #[cone])
+    return .ok ⟨row.colimit, formalPresentation, diagram, cone, apex, diagramJson, packet⟩
+  catch exception =>
+    return .error (← exception.toMessageData.toString)
+
 /-- Reconstruct universal evidence from accepted mathematics and checked map data. The wire
 contains no proof. Every inverse equation and defining-map equation is decided by the kernel. -/
-def reconstruct (row : LimitEntry) (result : Result) (presentation : Expr)
+def reconstruct (row : LimitEntry) (result : Decoded) (presentation : Expr)
     (decodeConstructor : Name → Expr → Array Json →
       TermElabM (Except String (Expr × Array (Expr × Option Form)))) :
     TermElabM (Except String Expr) := do
@@ -158,7 +346,7 @@ def reconstruct (row : LimitEntry) (result : Result) (presentation : Expr)
 
 /-- Execute a registered creation lift using independently reconstructed universal evidence. -/
 def lift (state : RegistryState) (entry : LiftEntry) (sourceDiagram : Expr)
-    (result : Result) (presentation : Expr) : TermElabM (Except String Result) := do
+    (result : Decoded) (presentation : Expr) : TermElabM (Except String Decoded) := do
   let presentation ← instantiateMVars presentation
   if presentation.hasMVar || presentation.hasLevelMVar then
     return .error s!"{entry.id.raw}: universal-property reconstruction requires closed terms"
@@ -197,10 +385,31 @@ def lift (state : RegistryState) (entry : LiftEntry) (sourceDiagram : Expr)
           some sourceDiagram, some presentation]
       let comparison ← mkConstWithFreshMVarLevels
         ``CategoryTheory.liftedLimitMapsToOriginal
-      let mapsTo ← mkAppOptM' comparison
-        #[some endpoints[0]!, some endpoints[1]!, some endpoints[2]!, some endpoints[3]!,
-          some shape[0]!, some shape[1]!, some sourceDiagram, some U, none,
-          some acceptedCone, some universal]
+      let completeCreationType ← instantiateMVars creationType
+      let creationInfo ← getConstInfo ``CategoryTheory.CreatesLimitsOfShape
+      let fieldInfo ← getConstInfo ``CategoryTheory.CreatesLimitsOfShape.CreatesLimit
+      let selectedLevels := creationInfo.levelParams.zip completeCreationType.getAppFn.constLevels!
+      let fieldLevels ← fieldInfo.levelParams.mapM fun name => do
+        let some (_, level) := selectedLevels.find? (·.1 == name)
+          | throwError "the accepted creation field has a different universe telescope"
+        pure level
+      let exactCreates := mkAppN (mkConst fieldInfo.name fieldLevels)
+        (completeCreationType.getAppArgs ++ #[creation, sourceDiagram])
+      unless ← isTypeCorrect exactCreates do
+        throwError "the exact registered creation field does not apply to the retained diagram"
+      let (arguments, _, _) ← forallMetaTelescope (← inferType comparison)
+      let fixed := #[some endpoints[0]!, some endpoints[1]!, some endpoints[2]!,
+        some endpoints[3]!, some shape[0]!, some shape[1]!, some sourceDiagram,
+        some U, some exactCreates, some acceptedCone, some universal]
+      unless arguments.size == fixed.size do
+        throwError "the accepted creation comparison has a different complete telescope"
+      for (argument, value?) in arguments.zip fixed do
+        if let some value := value? then
+          unless ← withTransparency .all <| isDefEq argument value do
+            throwError "the creation comparison has different full categories or cone data"
+      let mapsTo ← instantiateMVars (mkAppN comparison arguments)
+      if mapsTo.hasMVar || mapsTo.hasLevelMVar then
+        throwError "the accepted creation comparison has undetermined full parameters"
       return (← mkLetFVars #[creation] lifted, ← mkLetFVars #[creation] mapsTo)
   let lifted ← checkReconstruction lifted
   let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[lifted]
@@ -214,7 +423,7 @@ def lift (state : RegistryState) (entry : LiftEntry) (sourceDiagram : Expr)
 
 /-- Retain a created cone's universal evidence while moving its apex along an independently
 checked isomorphism. The original decoded answer and image comparison remain available. -/
-def extendCreated (result : Result) (iso : Expr) : TermElabM (Except String Result) := do
+def extendCreated (result : Decoded) (iso : Expr) : TermElabM (Except String Decoded) := do
   let some presentation := result.presentation
     | return .error "the created cone has no retained universal presentation"
   let presentation ← checkReconstruction presentation
@@ -251,8 +460,8 @@ def extendCreated (result : Result) (iso : Expr) : TermElabM (Except String Resu
 An alternate apex is transported back only through the actual fully faithful lift functor;
 its complete image comparison is checked before any source cone is extended. -/
 def reconstructCreatedAt (state : RegistryState) (entry : LiftEntry)
-    (sourceDiagram : Expr) (targetResult : Result) (targetPresentation sourceApex : Expr)
-    (sourceIdentification? : Option Expr := none) : TermElabM (Except String Result) := do
+    (sourceDiagram : Expr) (targetResult : Decoded) (targetPresentation sourceApex : Expr)
+    (sourceIdentification? : Option Expr := none) : TermElabM (Except String Decoded) := do
   let result ← match ← lift state entry sourceDiagram targetResult targetPresentation with
     | .ok result => pure result
     | .error message => return .error message
