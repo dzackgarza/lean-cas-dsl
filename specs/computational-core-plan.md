@@ -292,9 +292,17 @@ Recover correct existing work rather than recreating it as a sequence of artific
 Produce the accepted mathematical revision and test its finished combination with the
 corresponding kernel and contract. The six-stage binder pin sequence stays retired.
 
+The required capabilities remain fixed; the implementation means are revisable. Runtime
+reconstruction of backend `IsLimit`, `IsColimit`, isomorphism, monicity or other law-bearing
+structures is not a completion requirement. Retire tasks and helpers whose sole purpose is
+that invented certification burden. Formal identity, selected data, defining maps and operations
+remain independently authoritative; complete computational packets or callable interfaces
+supply execution data. No eager enumeration of infinite functions or retrospective named-apex
+recovery is required. This replaces the certification model without reducing B0 behavior.
+
 For the kernel, the specific unfinished work identified by the audit remains substantive
-implementation work: generic execution of prescribed result lifts, complete structured
-reconstruction, nonidentity presentation transport, parameter transport, and interpretation of the
+implementation work: generic execution of prescribed result lifts, complete computational interfaces paired with
+independent formal constructions, nonidentity presentation computation, parameter transport, and interpretation of the
 accepted binder and group-valued constructions. These are not repaired by adding special cases for
 the motivating examples.
 
@@ -340,8 +348,9 @@ capabilities. Both conditions are already part of the owner's convergence specif
   model: nothing from a leaf is trusted"). A leaf is a registration (operation id, input form,
   opaque implementation) and ships no mathematics and no Lean. No node's acceptance is
   established by anything a leaf supplies: a denotation, proof, identification, evidence, status,
-  certificate or self-test. Correctness evidence is the permanent acceptance suite alone, and what
-  Lean can discharge is proved in `lean-categories` or discharged generically by the kernel.
+  certificate or self-test. Observed computational correctness is established by the permanent acceptance suite. An
+  available checked Lean computation stays on the formal side; theoretical Lean implementability
+  does not require a verified replacement for an external CAS.
 - **Step 0 is mathematics.** Every node begins by stating, in FOUNDATIONS with a citation or
   by naming the Mathlib declaration, the exact mathematical object it implements (CC-TRUE).
   A node whose object cannot be stated precisely stops there and records why.
@@ -496,7 +505,7 @@ was checked against source before it was recorded here.
 | `gov-quarantine-evidence` | **Owner decision.** `lean-categories` `011d0be`, `a6222c2`, `82bd8ad`, `01b2f89` (membership evidence for the seven admissions) were written by a formalization subagent whose prompt carried the kernel's goal shapes and the orchestrator's test cases: information from implementation to formalization. They are unpinned and nothing builds on them. **Acceptance:** the owner keeps them, has a fresh formalization agent review them from the requirement alone, or reverts them. | — |
 | `gov-orchestrator-containment` | **Owner (authority), orchestrator (proposal).** Close the holes in `specs/architecture.md`, "The orchestrator is inside the threat model". **Acceptance:** for each row, the discretion it names is removed, not relocated, and nothing the orchestrator writes can reinstate it. Progress is counted in classes of intervention made inexpressible (architecture.md, "The unit of progress"), never in commits, checks or passing examples. | — |
 | `gov-meaning-permanence` | **Owner (acceptance of the mechanism), orchestrator (proposal).** A permanent assertion is protected as a question, not as text: at admission, its elaborated proposition under the semantic reading is recorded, and a later kernel, parser or pin under which the same text elaborates to a different proposition fails. A change of interpretation is a transition that someone other than its author accepts. **Acceptance:** a kernel change that alters what an unchanged assertion denotes fails the build, and no orchestrator-writable exemption lets it pass. | `gov-orchestrator-containment` |
-| `gov-leaf-authority` | **Orchestrator (contract, kernel), leaf agent (leaves), acceptance agent (suite).** Design: [leaf-registration.md](leaf-registration.md). Every leaf-facing form is exactly a registration (operation id, input form, opaque implementation); nothing in the contract, the kernel, the tools or the suite consumes a leaf's denotation, proof, identification, evidence, status or self-test. The code gaps are listed in the section below, one per line. **Acceptance:** each listed gap is closed at its file; no leaf-facing form carries a functor, a proof, evidence or a status; every leaf is rewritten against the new contract (`gov-leaf-rewrite`); no acceptance assertion is established from a leaf's definitions, and the suite is run only from `lean-cas-dsl`. | `gov-roles` |
+| `gov-leaf-authority` | **Orchestrator (contract, kernel), leaf agent (leaves), acceptance agent (suite).** Design: [leaf-registration.md](leaf-registration.md). Every leaf-facing form is exactly a registration (operation id, input form, opaque implementation); the contract, kernel and suite consume registrations and output data but never use leaf-supplied claims, proofs, certificates or self-tests as mathematical authority. The code gaps are listed in the section below, one per line. **Acceptance:** each listed gap is closed at its file; no leaf-facing form carries a functor, a proof, evidence or a status; every leaf is rewritten against the new contract (`gov-leaf-rewrite`); no acceptance assertion is established from a leaf's definitions, and the suite is run only from `lean-cas-dsl`. | `gov-roles` |
 | `core-presentation-dependent` | **Delivered on [#53](https://github.com/dzackgarza/lean-cas-dsl/pull/53) and [contract #3](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/pull/3), awaiting merge.** What a value denotes is the declared form's denotation, `lean-categories`'; no leaf supplies a presentation or an isomorphism. The counterexample of `CasContract/Probes/LeafBoundary.lean` is deleted with the presentation rows: it cannot be written, since a registration has no field for it. **Acceptance:** no leaf-facing form carries a presentation or an isomorphism. | `gov-leaf-authority` |
 | `core-return-lifts` | **Orchestrator (kernel).** A method with `returnsToSource` (the kernel of a bilinear module: `Bil → Mod`, with the restriction of the form registered as a subobject lift) resolves with the lift recorded (`Resolution.lifts`). `Semantic.method`, `realizedMethodCall` and `Language.call` then ignore it and return the functor's target, so the formed subobject is never reconstructed. The value must be the registered lift of the image back to the source category, with the source category as the result. **Acceptance:** `ker` of a bilinear module is an object of `Bil` whose form is the restriction, read semantically, and realized where actions exist. A specimen with a nondegenerate form whose restriction is degenerate distinguishes the lifted result from the bare module. Realized, with no registered realization of the lift, the call is a gap naming the lift; it never returns the bare module. | `lc-lift-subobject` |
 | `lc-lift-subobject` | **Formalization subagent (request).** Given `L : MonoLift U` and a subobject `i : K ↪ U(X)` (an object of `Subobjects(D)` over `U(X)`), the lifted subobject `L.hom X i : L.obj X i ↪ X`, as an object of `Subobjects(C)`, with the proof that it is mono (for instance when `U` is faithful, or as a field of `MonoLift`: the formalization author decides). For a route of several steps, lifts compose. The kernel only applies this construction. **Acceptance:** stated and proved in `lean-categories`, with `formedKernel f` as its instance at the restriction of forms. | — |
@@ -512,9 +521,9 @@ operation, with what it denotes), and an implementation in any language returnin
 declared result form. The kernel reads each answer into that form or rejects it as malformed. A leaf
 ships no mathematics and no Lean. It is meant to be glue over a mature engine
 ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue over existing backends"), which a separate
-engineering review checks and which earns no trust. Nothing a leaf supplies is consulted, recorded as evidence, or
-allowed to affect meaning or acceptance. The acceptance suite is the only evidence, run only from
-`lean-cas-dsl`.
+engineering review checks and which earns no trust. Leaf registrations and answers are consulted as computational claims and data, never as
+authority for mathematics or acceptance truth. The suite judges their observations against
+independent mathematics; it runs only from `lean-cas-dsl`.
 
 **Delivered on branches, awaiting the owner's review and merge:**
 - `lean-cas-dsl` `kernel/leaf-registration` ([#53](https://github.com/dzackgarza/lean-cas-dsl/pull/53),
