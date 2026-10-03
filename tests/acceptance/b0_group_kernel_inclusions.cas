@@ -12,6 +12,9 @@ let e := id(G)
 let Ks := kernel(s)
 let Kt := kernel(t)
 let Ke := kernel(e)
+let A := Alt(3)
+let Ad := view A along fun.subobjects_groups.domain
+let ai := A.inclusion().hom()
 
 test b0.groups.kernel.sign.defining_leg "Dummit–Foote ch. 3 section 1; kernelFork(sign(3)) uses the actual subgroup inclusion into the selected S_3, whose composite with sign is the trivial homomorphism into the selected Z/2":
   assert s ∘ Ks.leg(0) = trivial(Ks, C2)
@@ -21,3 +24,6 @@ test b0.groups.kernel.trivial.defining_leg "Dummit–Foote ch. 3 section 1; the 
 
 test b0.groups.kernel.identity.defining_leg "Dummit–Foote ch. 3 section 1; the kernel of id(S_3) is the identity subgroup with its actual inclusion into S_3; composing that inclusion with the selected identity is the trivial homomorphism from the actual kernel apex into S_3":
   assert e ∘ Ke.leg(0) = trivial(Ke, G)
+
+test b0.groups.alternating3.defining_inclusion "Dummit–Foote ch. 1 section 3 and ch. 3 section 1: the actual alternating-subgroup inclusion A_3 into the selected S_3 consists of even permutations, and its composite with sign is trivial on its complete selected domain":
+  assert s ∘ ai = trivial(Ad, C2)
