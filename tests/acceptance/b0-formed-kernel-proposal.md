@@ -82,3 +82,40 @@ still needs those public mathematical interfaces and their documented generic
 application syntax. This source finding is submitted for independent interface
 assessment; it is not authority to fabricate rows or mark a count-only assertion
 as the structured positive.
+
+## Exact remaining public DSL dependencies
+
+The public d75 metadata identifies `fun.integral_lattice.forget_form` as the
+actual integral-lattice-to-fixed-value-formed functor. However `cat.bilin_module`
+has no public category display name and requires both R and W; ordinary
+`X in <registered category>` does not currently document a way to select this
+precise dependent fibre and its functor image. In particular a carrier match
+does not define `L`.
+
+The language author proposes the generic surface
+`view E8 along fun.integral_lattice.forget_form`, with full source inference
+and the exact registered functor node. This would denote the already chosen
+L, not a new E8 object. It is a proposal pending approved documentation and
+implementation; it is not currently an executable acceptance assertion.
+Likewise a generic categorical `id(L)` must select the identity in this formed
+category. The current named `id` morphism row is group identity, so its display
+name alone does not supply the required formed identity.
+
+Once those generic forms are supported, the intended request begins with
+`let L := view E8 along fun.integral_lattice.forget_form`,
+`let f := id(L)`, `let K := kernel(f)`. This prospective prefix alone still
+does not express the full observation: the kernel must return the lifted formed
+subobject and its defining inclusion i:K→L, retaining W=Z, rather than only the
+underlying module subobject. Public fixed-W inclusion and pairing observations
+must expose the exact mathematical data so the existing equations
+`i(x)=x`, `B_K(x,y)=B_L(i(x),i(y))=0`, and `U(f)∘U(i)=0` can be stated with
+declared argument types. The existing group inclusion method cannot silently
+stand for the absent fixed-W formed inclusion interface.
+
+No `.cas` assertion is added using this presently unsupported surface. The
+preauthored Lean mathematical question has been typechecked by the separately
+assigned compiler, but that does not establish DSL expressibility or execution.
+The actual remaining mechanisms are generic registered-functor selection,
+categorical identity in the selected fibre, and the public typed observations
+of the lifted inclusion and restricted pairing. This is the same fixed positive,
+with its independently established kernel zero and retained Z-valued form.
