@@ -56,6 +56,11 @@ inductive Node
       (sources : Array ParameterPresentation)
   /-- A registered named morphism at its ordered explicit declaration arguments. -/
   | namedMorphism (id : MorphismId) (params : Array Expr)
+  /-- A callable published as a typed field of a registered owner. -/
+  | namedCallable (address : String) (category : CategoryId) (params : Array Expr)
+  /-- A formally admitted point retaining its original computational datum and endpoints. -/
+  | admittedPoint (object : ObjectId) (category : CategoryId) (params : Array Expr)
+      (original : Expr) (originalCategory : CategoryId) (originalSource originalTarget : Expr)
   /-- An accepted presentation comparison, retaining declaration arguments and orientation. -/
   | presentation (id : NaturalTransformationId) (params : Array Expr) (inverse : Bool)
   | generator (id : ObjectId) (params : Array Expr)
@@ -66,6 +71,8 @@ inductive Node
   | operationPoint (id : OperationId) (params : Array Expr)
       (comparison operation target selected : Expr)
   | elementNumeral (value : Nat) (target selected : Expr)
+  /-- The product mediator of independently fixed points at a retained formal product. -/
+  | productMediator (category : CategoryId) (presentation domain left right : Expr)
   | morphismComposition (category : CategoryId) (first second source middle target : Expr)
   | morphismIdentity (category : CategoryId) (object : Expr)
   /-- The stored map of an object of the registered arrow-category construction. -/
