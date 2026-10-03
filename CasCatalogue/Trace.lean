@@ -61,6 +61,8 @@ inductive Node
       (source target : Expr)
   /-- A callable published as a typed field of a registered owner. -/
   | namedCallable (address : String) (category : CategoryId) (params : Array Expr)
+  /-- A typed callable body in its exact generalized-element domain context. -/
+  | callableRecipe (category : CategoryId) (domain target body : Expr)
   /-- A formally admitted point retaining its original computational datum and endpoints. -/
   | admittedPoint (object : ObjectId) (category : CategoryId) (params : Array Expr)
       (original : Expr) (originalCategory : CategoryId) (originalSource originalTarget : Expr)

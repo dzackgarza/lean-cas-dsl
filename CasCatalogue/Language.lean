@@ -3630,6 +3630,7 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
     throwStratum .invalid m!"a binder parameter is outside its declared type"
   let M ← recognize state (← instantiateMVars source) category
   let (.object d .., .object y ..) := (D, Y) | unreachable!
+  let bodyMap ← callableMap category d y bodyMap
   return (operation, M, .morphism bodyMap d y category (some (D, Y)), Y)
 
 /-- One generic reading rule for every registered binder; candidate trials cannot emit traces
@@ -4447,7 +4448,30 @@ partial def power (scope : Scope) (base : Value) (k : Nat) (ambient? : Option Va
 /-- The identity `X → X`: the generic element of `X` at the stage `X`. -/
 partial def identityAt (X : Value) : M Expr := do
   let .object x category _ _ _ := X | throwStratum .invalid m!"a stage is a set"
-  homIn (← `(CategoryTheory.CategoryStruct.id _)) x x category
+  let hom ← homIn (← `(CategoryTheory.CategoryStruct.id _)) x x category
+  Trace.record (← read).trace hom (.morphismIdentity category.id x)
+  return hom
+
+/-- Retain a callable's original operation tree under a distinct typed wrapper.
+The generalized source is part of the recipe; it is never replaced by a singleton point. -/
+partial def callableMap (category : NamedCategoryEntry) (domain target body : Expr) : M Expr := do
+  let domain ← instantiateMVars domain
+  let target ← instantiateMVars target
+  let body ← instantiateMVars body
+  if #[domain, target, body].any (fun term => term.hasMVar || term.hasLevelMVar) then
+    throwStratum .invalid m!"the callable's complete domain, target or body is not determined"
+  let expected ← mkAppM ``Quiver.Hom #[domain, target]
+  unless ← withTransparency .all <| isDefEq (← inferType body) expected do
+    throwStratum .invalid m!"the callable body is outside its retained generalized domain"
+  unless ← isTypeCorrect body do
+    throwStratum .invalid m!"the callable body is outside its dependent signature"
+  -- mkExpectedTypeHint always adds a fresh `id expected body` application. Keeping the
+  -- original body as the child prevents replacing its trace by a self-referential recipe.
+  let wrapped ← mkExpectedTypeHint body expected
+  unless ← withTransparency .all <| isDefEq wrapped body do
+    throwStratum .invalid m!"the callable recipe changed its original mathematical map"
+  Trace.record (← read).trace wrapped (.callableRecipe category.id domain target body)
+  return wrapped
 
 /-- `e` read at the stage `X` with `t` its generic element: a generalized element `X → Y`. -/
 partial def atStage (scope : Scope) (t : Name) (X : Value) (e : Syntax)
@@ -4464,6 +4488,7 @@ partial def lambda (scope : Scope) (t : Name) (e : Syntax) (X Y : Value) : M Val
   let .element body Y' ← atStage scope t X e (some Y)
     | throwStratum .invalid m!"the body of `{t} ↦ …` is an element of `{shown e}`'s set"
   let (.object x category _ _ _, .object y _ _ _ _) := (X, Y') | unreachable!
+  let body ← callableMap category x y body
   return .morphism body x y category (some (X, Y'))
 
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/

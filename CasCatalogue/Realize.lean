@@ -1740,6 +1740,14 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one)"
   match node with
+  | .callableRecipe categoryId domain target body =>
+      let some category := state.categories.find? (·.id == categoryId)
+        | throwError "the callable recipe category is not registered"
+      let expected ← mkAppM ``Quiver.Hom #[domain, target]
+      unless ← withoutModifyingState (isDefEq (← inferType body) expected) do
+        throwError "the callable recipe changed its complete formal endpoints"
+      let wire ← realize h trace "the retained callable body" body
+      return { form := .canonicalMorphism category, payload := forwardPayload wire e wire.json }
   | .object id params =>
       let some entry := state.objects.find? (·.id == id) | unreachable!
       let args ← params.mapM fun p => do
@@ -1769,7 +1777,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | throwError "the structural parameter target schema is not registered"
       let some edge := route.back?
         | throwError "an empty structural route changed its selected category"
-      return { output with form := imageForm state edge target, payload := .ordinary (image) (← actionObjectData trace input route) }
+      return { output with form := imageForm state edge target, payload := forwardPayload output image (← actionObjectData trace input route) }
   | .parameterEquivalence expectedType representative sources =>
       unless ← isDefEq representative e do
         throwError "the parameter identity class has a different requested representative"
@@ -1849,7 +1857,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let selected ← realize h trace "the admitted point selected target" selected
       let json := Json.mkObj [("ctor", "admittedPoint"), ("args", Json.arr #[
         toJson id.raw, Json.arr parameters, source.json, target.json, selected.json, datum.json])]
-      let payload := dataPayload e json datum.owner?
+      let payload ← combinedPayload e json #[datum, source, target, selected]
       let some category := state.categories.find? (·.id == categoryId)
         | throwError "the admitted point category is not registered"
       return { form := .canonicalMorphism category, payload }
@@ -2023,18 +2031,10 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
           domain := domainWire.json, source := sourceWire.json, target := targetWire.json,
           argument := argument.json }
         let requestData := invocation.encode
-        let payload := match argument.owner? with
-          | none => WirePayload.ordinary e requestData
-          | some (backend, session) => .computed e (.owned backend session requestData)
+        let payload ← combinedPayload e requestData #[argument, domainWire, sourceWire, targetWire]
         let request : Wire := { form := sourceWire.form, payload }
         let (answer, backend) ← send h address request
-        let data ← match Backend.ComputationalValue.decode answer with
-          | .error message => malformed backend address answer message
-          | .ok (.inline data) => pure (ComputationData.inline data)
-          | .ok (.opaque token) =>
-              let some (.ok session) := (← h.connections.get)[backend]?
-                | throwStratum .unavailable "the returned value has no live owning session"
-              pure (.opaque backend session.identity token)
+        let data ← receiveComputationalData h backend address answer
         return { form := .canonicalMorphism category, payload := .computed e data }
       let a ← realize h trace "the first composed map" first
       let b ← realize h trace "the second composed map" second
@@ -2925,6 +2925,9 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
       | .namedInclusion id category params source target =>
           pure (.namedInclusion id category (← params.mapM instantiateMVars)
             (← instantiateMVars source) (← instantiateMVars target))
+      | .callableRecipe category domain target body =>
+          pure (.callableRecipe category (← instantiateMVars domain)
+            (← instantiateMVars target) (← instantiateMVars body))
       | .namedCallable address category params =>
           pure (.namedCallable address category (← params.mapM instantiateMVars))
       | .admittedPoint id category params original originalCategory source target =>
@@ -3026,6 +3029,10 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           pure (Json.arr #[toJson "namedInclusion", toJson id.raw, toJson category.raw,
             toJson (← params.mapM table.encode), toJson (← table.encode source),
             toJson (← table.encode target)])
+      | .callableRecipe category domain target body =>
+          pure (Json.arr #[toJson "callableRecipe", toJson category.raw,
+            toJson (← table.encode domain), toJson (← table.encode target),
+            toJson (← table.encode body)])
       | .namedCallable address category params =>
           pure (Json.arr #[toJson "namedCallable", toJson address, toJson category.raw,
             toJson (← params.mapM table.encode)])
