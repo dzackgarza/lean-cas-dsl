@@ -327,6 +327,21 @@ per working session; terse. Not an authority: rules live in their owning documen
   actual returned-data observations remain required. V63 produced the native harness, but its
   combined focused build failed the positive nonidentity graph reconstruction probe; no gate
   success is inferred from the executable. Generic nested type normalization is under repair.
+- Targeted V63 registered-execution diagnostic copied original `sets.cas` byte-identically:
+  18 records, 15 holds, three gaps, native exit 0. Required finite-set pullback is now a gap
+  with zero dispatches: graph transport along the registered finite-set forgetful functor is
+  unavailable. The former creation-universe internal error is gone, but required execution
+  remains unmet. A mistakenly selected `finite_sets.cas` diagnostic was stopped (exit 143)
+  before this corrected run; it supplies no acceptance claim. Actual runtime artifact ownership
+  was explicitly held stable throughout the corrected run, then released to the compiler owner.
+- V67 coherent Language/Realize/StructuredReconstruction build passed after recursively
+  normalizing type arguments inside retained selected dictionaries without replacing their
+  data. Valid nonidentity graph and malicious reconstruction cases pass at unchanged budgets.
+  Actual full chosen-lift value serialization and metadata-derived inherited-cardinality
+  request serialization passed. Leaf `272a850` lowers the exact registered subobject-domain
+  action and executes that request through the released public framed port; these are
+  engineering observations, not kernel acceptance or protected admission. Runtime replay
+  hookup, pairing requests, complete gates and new paired acceptance remain required.
 
 ## 2026-10-02 (orchestrator)
 
@@ -487,3 +502,9 @@ Pending:
 - #59 "Build and audit": semgrep's exception lookup for the known `pull_request_target` finding hit
   GitHub's rate limit (403); one re-run queued (run 36893318437).
 - Next construction work: stage B (`b0-typed-application`) once stage A is on `main`.
+
+2026-10-03 continuation: upstream 11da81d90b5063e58be37b44b6f60ae1d70fbd7c supplies the registered regular module of the actual selected ring. Upstream default build (3709 jobs) and All/AxiomAudit/VacuityAudit (5121 jobs) passed; independent scoped source assessment found no concrete defect. Kernel manifest and dependency HEADs retain this exact mathematical pin and contract 7a25454e195e9ab1d2e26b331d74b8dd0f09a2c5. v71b rebuilt the native harness successfully, but the focused durable replay probe still failed on constructor predicate extraction; this is not a full gate or acceptance pass. The telescope-based extraction repair is source-frozen for the next coherent probe. Read-only runtime assessment also identified missing context threading through nested source decoding and a receiver-shape restriction incompatible with the current public projection contract; these remain implementation work. All 20 original acceptance files and permanent JSON ledgers remain byte-identical to bcd08de425e95a8ae591620518cf75cfc308b53a. A fresh native-matched paired snapshot/run is being coordinated; no newer full-suite result is claimed yet.
+
+2026-10-03 v72 paired diagnostic completed. Under an explicit Execution build/copy lease, /workspace/.onboarding/runtime-v72-root passed its native build (7434 jobs), stable source/dependency checks and complete copy hashes. Both full acceptance modes exited 1. Their 192 ordered identity/question/proposition triples matched exactly; no original ID was missing or duplicated, but 46 original assertions remained uninterpreted. Normal outcomes: 59 holds, 51 gaps, 49 invalid, 20 internal, 7 malformed, 2 unavailable, 4 ambiguous. Forced execution: 28 holds, 82 gaps and the same remaining categories. Original 153 normal/forced holds were 57/26. Fourteen of the fifteen required execution assertions held with actual registered dispatches; finite_sets.limit.pullback.card remained malformed at canonical comparison bijectivity (forced report recorded one attempted dispatch). Snapshot and shared-runtime hashes remained unchanged. Report SHA256 normal 0f8260322dee72447dc8bd2222651d198b12e62e09835666fcb2e0e8ed9dba75; execution ababa9dfa37de50d79a5b1040ad32d43e4442d1bff0f5d33f9a678bc10a9a2f9. Independent question-only assessment agreed on 107 visible original meanings and recorded 46 absent meanings; this is not computation or admission success.
+
+Subsequent v74 coherent focused build passed (3724 jobs): complete durable lifted-subobject replay positives/inverse equations and malicious negatives, plus contextual projection receiver probes. Runtime callsite integration still remained outstanding at that boundary. The actual registered pairing input serialized successfully with complete chosen scalar/coefficient/formed receiver data; its public input SHA256 is 817d923d144e2379f243ff31019edc5864b9b732a105234c5b3375407e5260c5. Native leaf engineering can lower the receiver and execute its pairing matrix, but the infinite Sets-morphism result has no computed result representation in that request; returning the named formal descriptor would not establish a computation. Actual generalized-point input is the next integration requirement. These are focused engineering findings, not full acceptance or protected admission.
