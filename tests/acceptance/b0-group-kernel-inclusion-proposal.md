@@ -53,6 +53,11 @@ f composed with the extracted actual source leg with `trivial(K,H)`, where K
 is the actual registered kernel apex and H is f's selected target. Full
 homomorphism equality must retain both actual bundled endpoints. The existing
 cardinality assertions and independently fixed expected values are unchanged.
-No unsupported `.cas` expression or named-subobject replacement is introduced
-here; the generic leg-access interface remains the concrete dependency for
-executing these original structured observations.
+The subsequently documented generic `K.leg(0)` interface preserves the actual
+construction, complete diagram, typed source index and creation lift. Its
+focused reader probe has passed. `b0_group_kernel_inclusions.cas` now states
+the three independently fixed full homomorphism equations using this actual
+leg. It supplements, and does not change, the original expected orders. These
+are mathematical source proposals: focused reader evidence does not establish
+their complete reconstruction or execution, and no protected admission is
+claimed.

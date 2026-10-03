@@ -32,7 +32,11 @@ noncomputable def question : Prop :=
     (formedKernel selectedMap).pairing
       (show (formedKernel selectedMap).carrier from x)
       (show (formedKernel selectedMap).carrier from y) = (0 : ℤ)) ∧
-  (forget ℤ ℤ).map (formedKernelInclusion selectedMap) ≫
-    (forget ℤ ℤ).map selectedMap = 0
+  ((forget ℤ ℤ).map (formedKernelInclusion selectedMap) ≫
+    (forget ℤ ℤ).map selectedMap = 0) ∧
+  (∀ (T : ModuleCat ℤ) (h : T ⟶ (forget ℤ ℤ).obj selected),
+    h ≫ (forget ℤ ℤ).map selectedMap = 0 →
+    ∃! k : T ⟶ (forget ℤ ℤ).obj (formedKernel selectedMap),
+      k ≫ (forget ℤ ℤ).map (formedKernelInclusion selectedMap) = h)
 
 end B0AcceptanceFormedKernel

@@ -178,3 +178,32 @@ the actual arrow before application. These generic mechanisms are still under
 implementation/compilation; their approval is not evidence of an executable
 structured assertion. The existing zero-kernel inclusion/restriction meanings
 are unchanged, and full all-vector equations remain the positive's observation.
+
+## Full structured observation authored for execution
+
+`b0_formed_kernel.cas` now states the unchanged selected E8 identity-kernel
+question using these public interfaces. It observes the actual defining
+inclusion, its composite with the selected identity, and the restricted pairing
+on **every ordered pair** of kernel vectors. For the pairing observations it
+forms the actual carrier set through the registered formed-module forget,
+module fibre inclusion and module underlying-set functors. The product of that
+set with itself supplies its actual two defining legs. One free generalized
+element of this product therefore covers all ordered pairs; a diagonal pairing
+test would not suffice.
+
+Both pairings retain their actual selected formed receivers. Their equality
+states `B_D(u,v)=B_L(i(u),i(v))`; the separate zero equality has the unchanged
+selected value carrier Z. The inclusion equations use zero in the selected L,
+so no ambient scalar or value module is replaced to obtain a result.
+
+The independently authored Lean question also now includes the previously
+specified module universal property: for every module T and h:T→U(L) annihilated
+by U(f), there exists a unique k:T→U(D) whose composite with U(i) is h. The
+surface language currently has no quantification over arbitrary module objects
+and maps. This condition remains part of the full question and of reconstruction
+of the actual universal construction; the four executable observation proposals
+do not remove it or count a carrier cardinality as its replacement.
+
+The new sources await their actual typecheck/reader/execution assessment. No
+result or protected admission is claimed here, and original assertions and
+permanent ledgers are unchanged.
