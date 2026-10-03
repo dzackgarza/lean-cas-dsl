@@ -12,6 +12,7 @@ public import CasCatalogue.ConstructionData
 public import CasCatalogue.FunctorActionData
 public import CasCatalogue.LiftedSubobjectData
 public import CasCatalogue.ElementData
+public import CasCatalogue.QuestionIdentity
 public import Mathlib.CategoryTheory.ConcreteCategory.EpiMono
 public import CasContract.Port
 
@@ -2912,42 +2913,19 @@ partial def encodeLevel : Level → Json
   | .param name => Json.arr #[toJson "param", toJson (reprStr name)]
   | .mvar id => Json.arr #[toJson "unresolved", toJson (reprStr id)]
 
+/-- Intern complete typed node descriptions. Context-sensitive expressions are never cached
+inside the binder traversal; only their canonical node descriptions are shared. -/
+def TermTable.intern (table : TermTable) (node : Json) : TermElabM Nat := do
+  let description := node.compress
+  if let some index := (← table.canonicalNodes.get)[description]? then return index
+  let index := (← table.nodes.get).size
+  table.nodes.modify (·.push node)
+  table.canonicalNodes.modify (·.insert description index)
+  return index
+
 partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat := do
   if let some index := (← table.terms.get)[term]? then return index
-  if term.hasMVar || term.hasLevelMVar then throwError "question contains unresolved typed terms"
-  let node ← match term with
-    | .mdata _ child =>
-        let index ← table.encode child
-        table.terms.modify (·.insert term index)
-        return index
-    | .bvar index => pure (Json.arr #[toJson "bvar", toJson index])
-    | .fvar .. | .mvar .. => throwError "question contains an unclosed typed term"
-    | .sort level => pure (Json.arr #[toJson "sort", encodeLevel level])
-    | .const name levels =>
-        pure (Json.arr #[toJson "const", toJson (reprStr name), toJson (levels.map encodeLevel)])
-    | .app fn arg =>
-        pure (Json.arr #[toJson "app", toJson (← table.encode fn), toJson (← table.encode arg)])
-    | .lam _ type body info =>
-        pure (Json.arr #[toJson "lam", toJson (← table.encode type),
-          toJson (← table.encode body), toJson (reprStr info)])
-    | .forallE _ type body info =>
-        pure (Json.arr #[toJson "forall", toJson (← table.encode type),
-          toJson (← table.encode body), toJson (reprStr info)])
-    | .letE _ type value body nondep =>
-        pure (Json.arr #[toJson "let", toJson (← table.encode type),
-          toJson (← table.encode value), toJson (← table.encode body), toJson nondep])
-    | .lit literal => pure (Json.arr #[toJson "literal", toJson (reprStr literal)])
-    | .proj name index value =>
-        pure (Json.arr #[toJson "proj", toJson (reprStr name), toJson index,
-          toJson (← table.encode value)])
-  let description := node.compress
-  let index ← match (← table.canonicalNodes.get)[description]? with
-    | some index => pure index
-    | none => do
-        let index := (← table.nodes.get).size
-        table.nodes.modify (·.push node)
-        table.canonicalNodes.modify (·.insert description index)
-        pure index
+  let index ← QuestionIdentity.encode table.intern term
   table.terms.modify (·.insert term index)
   return index
 
@@ -3109,9 +3087,10 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           pure (Json.arr #[toJson "structureTransport", toJson sourceCategory.raw,
             toJson targetCategory.raw, toJson (route.map reprStr), toJson (← table.encode receiver)])
       | .parameterEquivalence expected representative sources => do
-          let sources := sources.qsort fun a b =>
-            (a.source.raw ++ reprStr a.route ++ reprStr (a.params.map canonicalTerm)) <
-              (b.source.raw ++ reprStr b.route ++ reprStr (b.params.map canonicalTerm))
+          let keyed ← sources.mapM fun source => do
+            let parameters ← source.params.mapM termIdentity
+            return (source.source.raw ++ reprStr source.route ++ reprStr parameters, source)
+          let sources := (keyed.qsort fun a b => a.1 < b.1).map (·.2)
           let data ← sources.mapM fun source => do
             return Json.arr #[toJson source.source.raw, toJson source.sourceCategory.raw,
               toJson source.targetCategory.raw, toJson (← source.params.mapM table.encode),
