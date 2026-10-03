@@ -319,3 +319,10 @@ typecheck of the source helper alone, or a probe instantiating it only at
 canonical formedKernel/formedKernelInclusion, leaves that actual-result
 acceptance connection unexecuted. This identifies precisely the implementing
 connection owed to the kernel owner without changing any expected proposition.
+
+The complete current independent Lean question source, including
+`reconstructedUniversalQuestion_of_comparison`, subsequently typechecked
+against mathematical source `11da` with exit zero and no output-artifact writes.
+This checks its full selected-module types and exact use of the public
+universal transport API. It does not establish that actual runtime D/i have
+been bound into that question; that separate execution remains owed.
