@@ -50,13 +50,14 @@ category, and its form id is the category's id (`cat.sets`). A diagram is sent a
 diagram's name with its explicit arguments in their forms, e.g.
 `{"ctor": "cospan", "args": [f, g]}`. The answer is the complete universal datum,
 `{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
-standard cone constructor of the shape:
+data fields of the standard cone constructor of the shape:
 - the apex is a named object or a literal of the category;
 - each leg is a graph literal;
-- the commutation conditions are decided by the kernel.
+- formal commutation proofs remain with the independent mathematical construction.
 
-A missing leg, a leg that is not a map, or a commutation that does not hold makes the answer
-malformed (CC-DECODE). Returned presentation maps are computational data at declared endpoints.
+A missing leg or a leg that is not a map at the declared endpoints makes the answer
+malformed (CC-DECODE). Commutation of the returned data is a correctness question for
+acceptance. Returned presentation maps are computational data at declared endpoints.
 They do not establish an isomorphism or universality. The formal construction and its universal
 property remain those of the accepted mathematics, independently of this answer.
 
