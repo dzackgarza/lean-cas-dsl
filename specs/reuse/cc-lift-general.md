@@ -35,69 +35,32 @@ Direct checks in Mathlib: `CategoryTheory/Limits/Creates.lean` (`CreatesLimit`, 
 - Cartesian lifts are Mathlib's `Functor.IsCartesian`/`IsFibered`; preservation and reflection are
   `PreservesLimit`/`ReflectsLimit`.
 
-## New code, and why no dependency supplies it
-A registry row naming the creation datum between registered functors and categories, its
-validation, and the lift on presented values (the preimage of Mathlib's lifted cone), as for
-`realizedLimitCone`.
+## Kernel assembly and current limits
 
-### Construction checkpoint (2026-10-02)
+The kernel retains an independently established formal construction and its
+computational packet. Backend answers do not establish a cone, monomorphism,
+isomorphism, or universal property in Lean. Mathlib's `Cone.extend`,
+`IsLimit.extendIso`, `Functor.preimageIso`, `Arrow.isoMk`, and
+`ObjectProperty.isoMk` are existing formal constructions; their formal-side
+availability does not impose proof recovery on returned computational data.
 
-Direct source queries: `standardCone` and `decodeFamily` in `CasCatalogue/Semantic.lean`
-and `CasCatalogue/Realize.lean`; `CreatesLimit.lifts`, `liftLimit`, and
-`LiftableCone.validLift` in Mathlib `CategoryTheory/Limits/Creates.lean`.
+`StructuredResult.dataPlan` reads the public shape constructor telescope.
+`validatePlannedData` checks complete ordered fields with `Unit` callbacks.
+The original constructor slots distinguish returned-apex and input-object roles,
+even when their formal values coincide. Computational graph completeness uses
+actual endpoint keys. Wrong but well-framed returned objects and defining maps
+remain computational claims to be tested by the unchanged mathematical assertions.
 
-`CasCatalogue/StructuredResult.lean` packages the complete decoded cone/cocone, its diagram,
-apex and original constructor response. `Realize.Wire` retains the complete response and diagram
-alongside the cone, rather than retaining only the apex wire presentation. Decoding still uses
-Mathlib's shape constructors and the existing dependent-field decoder; no new mathematical
-constructor or semantic row is introduced. The creation helper consumes the registered creation
-evidence and an independently supplied upstream presentation only when its cone is definitionally
-the decoded cone. This limited helper is not completion of generic computational lifting.
+The replacement `CasAcceptance.StructuredComparisonProbes` exercises a wrong
+`Fin 3` computational apex against an independent `Fin 2` formal presentation,
+retains distinct returned leg graphs, and rejects incomplete or out-of-range
+computational graphs. Its integrated build and execution remain pending at this
+source checkpoint. Earlier proof-reconstruction probes are not evidence for this
+replacement boundary.
 
-The remaining creation-lift input is an independent reconstruction of `IsLimit` for an arbitrary
-well-typed decoded cone. `CreatesLimit.lifts` requires that input; commutation of the legs alone
-is insufficient. The existing cone response contains apex and legs, not that input, and no leaf
-proof can supply trusted mathematical evidence. The positive execution obligation remains open.
-
-Focused validation: `lake build CasCatalogue.StructuredResult` succeeds. The combined
-`StructuredResult`/`Realize` build reaches the integration but fails in independently edited
-question-record sections of `Realize`, outside this construction's owned sections. No execution
-acceptance is established by these compilation checks.
-
-### Created-cone apex comparison (2026-10-03)
-
-Corpus queries `IsLimit.extendIso` and `Cone.extend` locate Mathlib's existing
-`CategoryTheory/Limits/IsLimit.lean` and `CategoryTheory/Limits/Cones.lean` constructions.
-`Cone.extend` retains the actual legs by composing the checked apex comparison;
-`IsLimit.extendIso` supplies its universal evidence. `StructuredResult.extendCreated` only
-assembles these declarations from the exact retained closed creation presentation and an
-independently checked isomorphism with the full expected endpoints. It introduces no cone,
-comparison or universal property of its own. Compilation and execution of this addition are
-still required.
-
-The additional corpus query `Functor.preimageIso` locates Mathlib's existing fully faithful
-isomorphism reflection in `CategoryTheory/Functor/FullyFaithful.lean`.
-`reconstructCreatedAt` checks the entire source-image comparison and retained creation-image
-comparison, then applies that declaration only with the exact functor's existing `Full` and
-`Faithful` instances. The source cone extension uses the same `extendCreated` assembly; its
-returned image comparison is updated to the current source apex. No carrier or cardinality
-comparison supplies either isomorphism.
-
-### Complete subobject comparison (2026-10-03)
-
-Direct dependency queries locate `CategoryTheory.Arrow.isoMk` in
-`CategoryTheory/Comma/Arrow.lean` and `CategoryTheory.ObjectProperty.isoMk` in
-`CategoryTheory/ObjectProperty/FullSubcategory.lean`. `subobjectComparison` assembles
-those existing constructors from the checked apex isomorphism, fixed ambient identity
-and actual inclusion square. It retains an isomorphism of the complete subobjects,
-with independently fixed expected and returned endpoints. The cone extension additionally
-supplies its actual retained cone and the original isomorphism's `IsIso` evidence explicitly;
-neither is inferred from an incidental carrier.
-
-Focused helper execution passed the nonidentity created-apex and full-subobject comparison
-cases, with wrong endpoint, missing presentation, different diagram/ambient and unrelated
-square rejected. `CasAcceptance.StructuredComparisonProbes` retains these engineering
-regressions. Current complete gate/native and downstream composition checks remain required.
+The production caller migration and actual lift-component consumption must be
+checked together. A completed result container alone does not demonstrate that
+all consumers preserve this separation or that the mathematical assertions hold.
 
 ### Computational packets through the prescribed subobject lift (2026-10-03)
 
@@ -130,3 +93,21 @@ owners of the declared schemas. Dependent context comes from the formal request;
 validation never reconstructs backend objects or maps into law-bearing terms.
 Opaque callables remain computational claims at their declared types rather than
 requiring eager enumeration or proof recovery.
+
+Port dependency provenance uses Lean's existing `forallMetaTelescopeReducing`,
+`inferType`, and expression traversal. Corpus queries for constructor binder
+dependency provenance found no CAS planner; the telescope query located existing
+Lean/Mathlib metavariable elaboration examples. `DataPlan` preserves original
+public constructor binder indices before formal unification. Equal formal
+objects therefore do not merge distinct computational roles: a returned apex
+and an input-diagram object can both formally be `Fin 2` while carrying different
+actual data. `validatePlannedData` gives the validator earlier actual fields by
+those roles. External diagram bindings stay identified separately and must be
+resolved from retained input data, never guessed from canonical formal values.
+
+External input roles are captured from the public diagram declaration's ordered
+explicit arguments before formal unification. Each original constructor binder
+retains argument/source/target positions; callers resolve those positions from
+actual input wires. This adds context provenance rather than selecting an input
+by equality with a canonical formal object. Compilation and production wiring
+of this addition are pending.
