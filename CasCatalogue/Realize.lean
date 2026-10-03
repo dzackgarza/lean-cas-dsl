@@ -254,15 +254,17 @@ structure Harness where
   /-- Trusted observations of requests actually dispatched by this kernel harness. -/
   dispatches : Option (IO.Ref (Array Json)) := none
   connections : IO.Ref (Std.HashMap String (Except Backend.PortError BackendSession))
+  /-- Actual computed results keyed by their exact closed formal terms; no dispatch is fabricated on reuse. -/
+  results : IO.Ref (Std.HashMap Expr Wire)
 
 /-- A harness with no leaf installed. -/
-def Harness.empty : IO Harness := return { connections := ← IO.mkRef {} }
+def Harness.empty : IO Harness := return { connections := ← IO.mkRef {}, results := ← IO.mkRef {} }
 
 /-- The harness of the manifest `manifest`, at the directory `root`. -/
 def Harness.ofManifest (root : System.FilePath) (manifest : Manifest) : CoreM Harness := do
   let admission := (← registryState).admit manifest
   return { admitted := admission.admitted, rejected := admission.rejected
-           backends := manifest.backends, root, connections := ← IO.mkRef {} }
+           backends := manifest.backends, root, connections := ← IO.mkRef {}, results := ← IO.mkRef {} }
 
 /-- Where the installed leaves' manifest is, when no path is given: the environment variable
 `CAS_LEAVES`, naming the leaves package's directory (a checkout of `lean-cas-dsl-leaves`) or its
@@ -330,6 +332,7 @@ def Harness.connection (h : Harness) (name : String) :
 def Harness.stop (h : Harness) : IO Unit := do
   let connections ← h.connections.get
   h.connections.set {}
+  h.results.set {}
   -- A backend is killed, not asked to exit: nothing it does is waited on or believed, and
   -- closing its input cannot be relied on while other references to the handle are alive.
   for (_, connection) in connections.toList do
@@ -1731,7 +1734,35 @@ partial def validateComputationalObject (_trace : Trace) (_category : NamedCateg
     (fixed : Expr) (json : Json) : TermElabM (Except String Unit) := do
   ComputationalData.validatePort fixed (← inferType fixed) json
 
+mutual
+
+partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array Expr) :
+    TermElabM (Array Json × Array Wire) := do
+  let mut data := #[]
+  let mut dependencies := #[]
+  for parameter in parameters do
+    if (← trace.node? parameter).isSome then
+      let wire ← realize h trace "the retained callable parameter" parameter
+      data := data.push wire.json
+      dependencies := dependencies.push wire
+    else
+      data := data.push (← parameterData trace parameter)
+  return (data, dependencies)
+
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
+    TermElabM Wire := do
+  let e ← instantiateMVars e
+  let closed := !e.hasMVar && !e.hasLevelMVar && !e.hasFVar && !e.hasLooseBVars
+  if closed then
+    if let some wire := (← h.results.get)[e]? then return wire
+  let wire ← realizeFresh h trace what e
+  if closed then
+    match wire.payload with
+    | .ordinary .. => pure ()
+    | .computed .. | .construction .. => h.results.modify (·.insert e wire)
+  return wire
+
+partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire := do
   let state ← registryState
   let e ← instantiateMVars e
@@ -2019,7 +2050,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         unless ← withTransparency .all <| isDefEq (← inferType argument.value)
             (← mkAppM ``Quiver.Hom #[source, middle]) do
           throwError "the computational argument changed its independently fixed endpoints"
-        let parameters ← params.mapM (parameterData trace)
+        let (parameters, parameterWires) ← realizedParameters h trace params
         for object in #[source, middle, target] do
           discard <| Semantic.recordNamedObject object (some trace)
         let domainWire ← realize h trace "the generalized point domain" source
@@ -2031,7 +2062,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
           domain := domainWire.json, source := sourceWire.json, target := targetWire.json,
           argument := argument.json }
         let requestData := invocation.encode
-        let payload ← combinedPayload e requestData #[argument, domainWire, sourceWire, targetWire]
+        let payload ← combinedPayload e requestData (#[argument, domainWire, sourceWire, targetWire] ++ parameterWires)
         let request : Wire := { form := sourceWire.form, payload }
         let (answer, backend) ← send h address request
         let data ← receiveComputationalData h backend address answer
@@ -2263,11 +2294,12 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       unless ← withTransparency .all <| isDefEq admittedTarget source do
         throwError "the admitted binder input changed the published callable source"
       for object in #[domain, source, target] do
-        discard <| Semantic.recordNamedObject object (some trace)
+        if (← trace.node? object).isNone then
+          discard <| Semantic.recordNamedObject object (some trace)
       let domainWire ← realize h trace "the binder's generalized point domain" domain
       let sourceWire ← realize h trace "the binder's admitted input object" source
       let targetWire ← realize h trace "the binder's selected output object" target
-      let parameters ← params.mapM (parameterData trace)
+      let (parameters, parameterWires) ← realizedParameters h trace params
       let invocation : Backend.PointInvocation := {
         operation, parameters,
         arrow := Json.mkObj [("ctor", toJson operation), ("args", Json.arr parameters)],
@@ -2275,7 +2307,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         argument := input.json }
       let request : Wire := {
         form := input.form
-        payload := (← combinedPayload arrow invocation.encode #[input, domainWire, sourceWire, targetWire]) }
+        payload := (← combinedPayload arrow invocation.encode (#[input, domainWire, sourceWire, targetWire] ++ parameterWires)) }
       let (answer, backend) ← send h operation request
       let data ← receiveComputationalData h backend operation answer
       let some category := state.categories.find? (·.id == entry.category) | unreachable!
@@ -2375,9 +2407,33 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         form := .diagrams category
         payload := (← combinedPayload sent diagramJson wires) }
       let formalLowerPresentation ← Semantic.limitPresentation row sent
-      match ← StructuredResult.dataPorts row sent formalLowerPresentation with
-      | .error message => throwStratum .noImplementation m!"the formal construction has no computational data schema: {message}"
-      | .ok _ => pure ()
+      let plan ← match ← StructuredResult.dataPlan row sent formalLowerPresentation with
+        | .error message => throwStratum .noImplementation m!"the formal construction has no computational data schema: {message}"
+        | .ok plan => pure plan
+      let inputRoles ← wires.mapM fun wire => do
+        let ends := Language.homEnds? (← inferType wire.value)
+        let endpointData ← match ends with
+          | none => pure (none, none)
+          | some (source, target) => do
+            for endpoint in #[source, target] do
+              if (← trace.node? endpoint).isNone then
+                discard <| Semantic.recordNamedObject endpoint (some trace)
+            let source ← realize h trace "the construction input map's retained source" source
+            let target ← realize h trace "the construction input map's retained target" target
+            pure (some source.json, some target.json)
+        pure (wire.json, endpointData.1, endpointData.2)
+      let resolveRole := fun role => do
+        match role with
+        | .argument position => return (← inputRoles[position]?).1
+        | .source position => (← inputRoles[position]?).2.1
+        | .target position => (← inputRoles[position]?).2.2
+      let externalDescriptor := fun binder => do
+        let binding ← plan.binders[binder]?
+        let role ← binding.inputRoles[0]?
+        let descriptor ← resolveRole role
+        if binding.inputRoles.all (fun other => resolveRole other == some descriptor) then
+          some descriptor
+        else none
       let (answer, backend) ← send h id.raw input
       let formalPresentation ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => Semantic.limitPresentation row sent
@@ -2393,8 +2449,9 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | some lift => pure (.created lift.raw sourceDiagramJson answer)
       let completed ← match ← StructuredResult.complete row formalDiagram formalDiagramJson
           packet formalPresentation (fun answer =>
-            StructuredResult.validateData row sent formalLowerPresentation answer
-              (fun formalField type json => ComputationalData.validatePort formalField type json)) with
+            StructuredResult.validatePlannedData plan answer
+              (fun port seen json => ComputationalData.validatePlannedPort plan port seen json
+                externalDescriptor ComputationalData.endpointKeys)) with
         | .ok complete => pure complete
         | .error message => malformed backend id.raw answer message
       let form ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
@@ -2474,6 +2531,8 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
         | some (backend, session) => .computed e (.owned backend session packet.data) }
   | .property id _ _ =>
       throwError "the decision {id.raw} is not a value"
+
+end
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver, sent along the resolved

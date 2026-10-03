@@ -3628,7 +3628,21 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
     throwStratum .invalid m!"the binder parameters are not determined"
   unless ← isTypeCorrect operation do
     throwStratum .invalid m!"a binder parameter is outside its declared type"
-  let M ← recognize state (← instantiateMVars source) category
+  let M ← recognize state (← instantiateMVars source) category #[D, Y]
+  let retainedSource ← semanticObject M
+  let operationSource ← instantiateMVars source
+  unless !operationSource.hasMVar && !operationSource.hasLevelMVar &&
+      (← withTransparency .all <| isDefEq (← inferType retainedSource) (← inferType operationSource)) &&
+      (← withTransparency .all <| isDefEq retainedSource operationSource) do
+    throwStratum .invalid m!"the binder's retained input object differs from its complete declared source"
+  Trace.alias (← read).trace retainedSource operationSource
+  let retainedTarget ← semanticObject Y
+  let operationTarget ← instantiateMVars target
+  unless !operationTarget.hasMVar && !operationTarget.hasLevelMVar &&
+      (← withTransparency .all <| isDefEq (← inferType retainedTarget) (← inferType operationTarget)) &&
+      (← withTransparency .all <| isDefEq retainedTarget operationTarget) do
+    throwStratum .invalid m!"the binder's retained output object differs from its complete declared target"
+  Trace.alias (← read).trace retainedTarget operationTarget
   let (.object d .., .object y ..) := (D, Y) | unreachable!
   let bodyMap ← callableMap category d y bodyMap
   return (operation, M, .morphism bodyMap d y category (some (D, Y)), Y)
