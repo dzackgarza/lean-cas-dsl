@@ -119,3 +119,48 @@ The actual remaining mechanisms are generic registered-functor selection,
 categorical identity in the selected fibre, and the public typed observations
 of the lifted inclusion and restricted pairing. This is the same fixed positive,
 with its independently established kernel zero and retained Z-valued form.
+
+## Newly assessed observation rows and remaining application mechanisms
+
+Independently source-assessed mathematical candidate
+`5a0e13d3d306c4363d163a5d02257995d13cefd0` supplies the missing public
+mathematical observations. Its 441-row metadata SHA-256 is
+`82af944fb4c1660c96bb7ff84e908a9db51f1ac95a7ece906ea00045d10306a1`.
+The category name `Bil` denotes the fixed-W family, distinct from `BilWForm`.
+`fun.subobjects_bilin_module.domain` exposes the formed domain;
+`fun.subobjects_bilin_module.inclusion` and `meth.bilin_module.inclusion`
+expose the stored full arrow with both formed endpoints. The named morphism
+`pairing(R,W,L)` has exact type L.carrier×L.carrier→W, with R a selected
+commutative ring, W its actual module and L its actual W-valued formed object.
+These rows close the earlier public mathematical exposure finding. Protected
+admission is still pending; no candidate outcome establishes this comparison.
+
+The language author confirms the generic view and categorical-identity surface
+is now approved/documented in `specs/reuse/cc-dsl-language.md`. It permits the
+following fixed mathematical request prefix:
+
+```text
+let L := view E8 along fun.integral_lattice.forget_form
+let f := id(L)
+let K := kernel(f)
+let D := view K along fun.subobjects_bilin_module.domain
+let i := K.inclusion()
+```
+
+This prefix fixes the exact request but is not the complete structured
+assertion. Independent expected observations remain those authored above.
+Language-author assessment identifies three remaining generic application
+mechanisms: pairing must recover the actual chosen ModuleCat W from L's full
+dependent type and check any explicitly supplied carrier through its genuine
+module forgetful image; a bare set Z cannot invent that module. The stored
+inclusion is an Arr(Bil) object and needs actual arrow projection/application,
+not reinterpretation as an arbitrary map between equal carriers. Finally, the
+zero element of D must be supplied by its selected module/additive structure,
+not guessed from a literal's carrier type. The universal/all-vector observation
+must then retain these exact typed data and the restricted pairing equation.
+
+Until those generic applications are supported, `pairing(Z,Z,D)` and applying
+`i` to a guessed zero are not claimed executable assertions. No cardinality-only
+substitute is added. Mathematical exposure and supported selection syntax have
+progressed while the same original structured formed-kernel positive remains
+open at the application boundary.
