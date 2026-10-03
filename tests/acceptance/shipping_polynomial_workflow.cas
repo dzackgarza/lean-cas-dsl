@@ -1,0 +1,62 @@
+-- Independently fixed connected mathematical shipment questions.
+-- Public source: LeanCategories/Catalogue/Semantics/Algebra/Polynomials.lean.
+-- New proposals only; no admission or question-seal mutation.
+
+let p(x) := x² + x - 2 in ℤ[x]
+
+let fs := (p in ℤ[x] ∖ 0).factors()
+
+-- This polynomial is computed from returned factors, not restated as input.
+let rebuilt := ∏_{f ∈ fs} f
+
+test shipping.polynomial.returned_factors "Dummit–Foote, Abstract Algebra ch. 9: x²+x-2=(x-1)(x+2); both monic linear integer polynomials are normalized irreducibles, distinct":
+  assert fs = {x - 1, x + 2}
+
+test shipping.polynomial.factor_reuse_eval "Each returned factor is an actual polynomial: evaluation at 3 gives 2 and 5, whose sum is 7; Dummit–Foote ch. 9, polynomial evaluation homomorphism":
+  assert ∑_{f ∈ fs} f(3) = 7
+
+test shipping.polynomial.factor_product "The product of the returned normalized distinct factors is (x-1)(x+2)=x²+x-2; Dummit–Foote ch. 9, unique factorization":
+  assert rebuilt = p
+
+test shipping.polynomial.rebuilt_eval "Evaluation is a ring homomorphism, so the product of the returned factors evaluates at 3 to (3-1)(3+2)=10":
+  assert rebuilt(3) = 10
+
+let q := map rebuilt to ℚ[x]
+
+test shipping.polynomial.coefficient_change "The selected inclusion Z to Q sends the returned-factor product to x²+x-2, retaining its degree 2; polynomial map preserves coefficients":
+  assert q.deg() = 2
+
+test shipping.polynomial.rebuilt_roots "Over Q, (x-1)(x+2)=0 exactly at 1 and -2, because Q is an integral domain; Polynomial.mem_roots":
+  assert (q in ℚ[x] ∖ 0).roots() = {1, -2}
+
+let C := (q in Monic(2, ℚ)).companion_matrix()
+
+test shipping.polynomial.rebuilt_companion_charpoly "Companion matrix [[0,2],[1,-1]] has det(xI-C)=x(x+1)-2=q; direct 2 by 2 determinant formula":
+  assert C.charpoly() = q
+
+test shipping.polynomial.rebuilt_companion_det "The companion matrix of the returned-factor product x²+x-2 is [[0,2],[1,-1]], with determinant -2":
+  assert C.det() = -2
+
+test shipping.polynomial.rebuilt_companion_trace "The companion matrix of the returned-factor product x²+x-2 has diagonal 0,-1, hence trace -1":
+  assert C.trace() = -1
+
+-- Full factorization additionally preserves a nontrivial unit and repetitions.
+let repeated(x) := -x² + 2x - 1 in ℤ[x]
+
+let data := (repeated in ℤ[x] ∖ 0).factorization()
+
+let repeated_rebuilt := data.product()
+
+test shipping.polynomial.factorization_unit "In Z[x], -x²+2x-1=-(x-1)²; normalized factors are the two copies of x-1 and the residual polynomial unit is -1 (Dummit–Foote ch. 9)":
+  assert data.unit() = -1 in ℤ[x]
+
+test shipping.polynomial.factorization_repeated_reuse "Full factorization reconstructs the polynomial with its unit and both factors; at 3 its value is -(3-1)²=-4; Polynomials.factorization_product":
+  assert repeated_rebuilt(3) = -4
+
+test shipping.polynomial.factorization_repeated_degree "Full factorization retains both repeated factors, so the reconstructed polynomial -(x-1)² has degree 2":
+  assert repeated_rebuilt.deg() = 2
+
+let repeated_q := map repeated_rebuilt to ℚ[x]
+
+test shipping.polynomial.factorization_repeated_roots "Changing Z coefficients to Q preserves -(x-1)²; its finite set of roots is {1}, while its factorization multiplicity is two":
+  assert (repeated_q in ℚ[x] ∖ 0).roots() = {1}
