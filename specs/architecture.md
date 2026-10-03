@@ -39,6 +39,28 @@ Conversely, a computational failure does not refute the formal mathematics or re
 
 **Fundamental invariant:** evidence is used only for the claim it actually establishes.
 
+The owner's convergence target is three concrete kinds of checks:
+
+1. Check the actual exported mathematical declarations, signatures and laws without
+   executing their implementations. The check must fail when that API stops expressing
+   the required mathematics; toy substitutes and assumed conclusions do not establish it.
+2. Interpret and compose the same correctly typed requests without any leaves, retaining
+   selected parameters, structures, maps and result types. Actual dependencies separate
+   interpretation from execution. Missing external implementations produce execution gaps,
+   while leaf installation or removal cannot change the mathematical reading or interface.
+3. Execute registered implementations through the ordinary language and compare their
+   observations with fixed independent expectations, including reuse of structured results.
+   A formal proof cannot count as the registered execution required by an assertion.
+
+These are complementary: always returning a gap fails positive execution, and a kernel
+containing its own subject-specific factorizer fails the separation. Parsing, substitution,
+formal composition, registration matching and protocol handling remain kernel work. The
+upstream theorem about factorization is never applied to a returned list by assuming that
+the backend computed that formal operation correctly. Truth observations are computational
+data, not proofs. Neither finite testing's limits nor mathematical assessment of intended
+definitions introduce a discretionary approval system or recurring certification ceremony.
+The separation, checked contracts and independent observations are the trust mechanism.
+
 ## 3. The formal API includes the computational obligation model
 
 `lean-categories` is not restricted to exporting bare definitions and expecting the kernel to discover how they should be used.
