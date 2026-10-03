@@ -371,6 +371,34 @@ capabilities. Both conditions are already part of the owner's convergence specif
   leaf is a registration like any other: nothing it states is believed, and its answers are judged
   by the suite. A defect a probe exposes is repaired in the core node that owns it.
 
+### Reality checks govern strategy, not a new approval stage
+
+The assigned outcome remains in force across commits, branches, workers, and source
+checkpoints. Its implementation strategy remains open to technical correction.
+
+Use the reality-check cadence in architecture.md. These checks use existing source
+and relevant execution observations; they produce no separate report when the work
+is on course.
+
+When the same obstacle repeatedly reappears, another helper or check is not the
+default next task. Inspect the earliest design commitment generating the obstacle,
+including a commitment introduced by this plan.
+
+Retain the required mathematical and user-facing capability. Replace an inadequate
+means of delivering it. Remove a responsibility that the project never needed.
+Do not preserve an assistant-authored implementation requirement solely because an
+earlier plan described it as fixed.
+
+Resume substantive work after recording the correction. Do not turn the correction
+into a new governance workstream.
+
+At a progress report, distinguish what actually works, what complete upstream
+construction exists, and what remains implementation work. Do not present activity
+or internal repair as an offsetting achievement when the overall strategy is failing.
+
+No new automation, signing mechanism, metric, status ledger, or compliance gate is
+required by this section.
+
 ## Current direction (2026-09-29, owner correction)
 
 **Goal.** `lean-cas-dsl` is rewritten to *be* the system specified in

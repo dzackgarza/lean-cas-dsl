@@ -278,9 +278,272 @@ Neither repeated “almost done” checkpoints nor increasingly precise descript
 **Fundamental invariant:** evaluate the system against the intended capability and extension mechanism, not against the implementation plan’s own products.
 
 
-## Failure mechanisms this model was learned from
+# Reality checks and recurring judgment failures
 
-### Invented law checking generated an escape framework
+## 1. Assume that the planner and reviewer will repeat these mistakes
+
+The failure history applies to every contributor, including the orchestrator, architect, reviewer, progress analyst, and the assistant proposing this policy.
+
+**Understanding a failure today does not establish that the same agent will recognize it tomorrow.** Quoting the history, acknowledging an error, writing a correct architectural explanation, or passing a review does not demonstrate that the underlying judgment has changed.
+
+Expect recurrence of these tendencies:
+
+- Crediting locally correct work without establishing that the project is becoming useful.
+- Treating sophisticated machinery as evidence that the underlying task is sophisticated or necessary.
+- Turning a proposed remedy into an authoritative requirement.
+- Evaluating an intervention by how much of that intervention was implemented.
+- Choosing concrete, easily continued work while the important design question remains unresolved.
+- Protecting an existing implementation detail as though it were a mathematical obligation.
+- Responding to each obstruction with another wrapper, procedure, gate, exception, or representation.
+- Changing a verdict to match criticism without obtaining the evidence that should determine it.
+
+These are failure mechanisms to look for in the **current reasoning**, not character flaws attributed only to previous workers.
+
+The standing question is:
+
+> **Am I now doing the thing that the history describes, while explaining why this instance is different?**
+
+A fluent answer is not evidence. Inspect the work, its consequences, and the premise generating it.
+
+The research history explicitly identifies selection by availability, throughput mistaken for progress, verification becoming the target, and literal compliance. It also documents how one mistaken premise generates successive exceptions, wrappers, conversions, and forwarding repairs. [INTENT.md](../INTENT.md)
+
+## 2. Begin with the intended product, not the current machinery
+
+Every progress assessment must first identify the actual task being assessed.
+
+For this stack, the product is a usable mathematical language whose interfaces and compositions follow the formal API, with computational implementations supplied through contracts. The product is not its registry, serializer, controller, proof-reconstruction machinery, documentation, or test harness considered separately.
+
+Before calling a stretch of work productive, establish:
+
+> **What can the intended user now do, through the intended interface, that they could not do before?**
+
+Then establish:
+
+> **Does the implementation provide that capability through the intended general mechanism, or through another accommodation for the specimen?**
+
+These are separate questions. A bespoke shortcut does not satisfy the architecture. An architectural helper that enables no complete required operation does not establish delivery.
+
+For upstream formalization, the corresponding deliverable can be a complete mathematical construction or API, with its actual laws and required public interface. That is assessed as upstream work. It must not be presented as an already functioning downstream computation.
+
+**Local technical merit does not cancel an unsuccessful project trajectory.** Correct code may be worth retaining while the strategy that produced it needs replacement. Report that distinction without converting it into a reassuring “some progress, some problems” verdict.
+
+The intended growth mechanism is explicit: new generic mathematics must reach existing applicable objects, and a new specialized implementation must not need to restate inherited functionality. [INTENT.md](../INTENT.md)
+
+## 3. Touch grass: compare effort with ordinary usable capability
+
+Step outside the current task vocabulary periodically.
+
+Ask:
+
+> **What are we building? How long have we been working on this obstacle? What actual mathematical capability has become usable? What keeps preventing it?**
+
+For a CAS that delegates algorithms to mature engines, elementary polynomial factorization, an ordinary definite integral, a matrix calculation, or a computation followed by another operation on its result are useful reality checks. Choose examples from the existing intended capability set; do not create another feature programme.
+
+A prolonged construction effort that still cannot deliver ordinary required computations is **serious evidence against the execution strategy**. Twelve hours is not a grace period to accumulate before asking this question. The discrepancy should have been examined much earlier.
+
+“The architecture is foundational,” “the checks pass,” “the representation is now more precise,” and “the failure is now correctly labelled” are not sufficient explanations.
+
+A legitimate prerequisite must be concrete. Identify why the required capability depends on it, what finite change completes it, and whether that dependency comes from the project’s actual model or from a recent implementation choice. “It will unlock everything” is not a dependency argument.
+
+Do not respond to a failed reality check by adding a special-case factorization or integral path merely to obtain a demonstration. The question exposes a problem with the strategy; it does not authorize abandoning the required generality.
+
+**The required result is both usable and correctly organized. Neither compensates for the absence of the other.**
+
+## 4. Use a bounded cadence, not an administrative ceremony
+
+Perform a reality check:
+
+- At the start of a resumed session and after substantial context loss.
+- Before issuing or approving a new plan, declaring completion, or reporting progress.
+- During active work, at least once per hour, and earlier when the same class of failure returns, a previously working capability breaks, or another dependency is added merely to continue the current repair.
+
+The hourly interval is a proposed working cadence, not a mathematical productivity threshold or a reason to install a timer service.
+
+The clock does not restart because work moves to another agent, branch, PR, helper, or differently named subtask. Consider the elapsed effort on the underlying obligation across those transitions.
+
+Use the existing source, execution environment, acceptance examples, and last relevant observations. This check does **not** require a full rebuild, a fresh complete suite run, a new report, a signature, a review request, or a plan node.
+
+When the existing evidence answers the question, inspect it. When it does not, obtain the smallest relevant observation through the real production path. A helper-only invocation cannot establish that the full path works.
+
+A healthy check produces no separate artifact. A finding that changes the diagnosis, implementation direction, or governing instructions is recorded once in its existing owning document.
+
+Do not build a “reality-check compliance” gate. Its purpose is to interrupt bad reasoning, not supply another target to optimize.
+
+## 5. The reality check must answer five questions
+
+Use these questions as reasoning prompts, not a mandatory form.
+
+**What is the actual obligation?**
+State the mathematical or user-facing behavior, not the current helper, PR title, failing check, or latest reviewer sentence.
+
+**What has actually changed?**
+Inspect the source and relevant behavior. Distinguish a functioning capability, a completed upstream construction, an internal repair, and merely improved reporting.
+
+**What has the effort bought relative to its duration?**
+Compare the change with the unresolved obligation. Do not substitute commits, lines, probes, build jobs, review counts, or percentages.
+
+**Why does the remaining work exist?**
+Trace it to the earliest design commitment that makes it necessary. Include obligations introduced by the current planner, not just inherited code.
+
+**What observation would show that the current strategy is wrong?**
+Seek that observation now. Do not ask only what further work could make the strategy succeed.
+
+For the recurring CAS failure, a decisive question is:
+
+> **Why does invoking a registered computation require this proof, reconstruction, approval, or representation campaign at all?**
+
+The answer may expose a missing implementation. It may instead expose a responsibility that should never have been assigned.
+
+## 6. Know what the evidence does not establish
+
+A progress assessment must not infer:
+
+| Observation | Unsupported inference |
+|---|---|
+| No recent push | No work occurred, or the worker stalled. |
+| Many commits or substantial source changes | The project is converging. |
+| A correct lemma or helper | The overall development strategy is productive. |
+| A successful build or focused probe | The intended operation works end to end. |
+| A runtime error became a named gap | A new computational capability was delivered. |
+| A no-regression comparison passes | The baseline is usable or complete. |
+| An implementation is carefully documented | Its responsibilities belong in the architecture. |
+| A reviewer approved the change | Its premises or the governing plan are correct. |
+| A historical lesson is cited | That lesson governed the present decision. |
+| A result is accurately labelled unfinished | Continuing the same strategy is justified. |
+
+When current source, local work, or execution evidence is unavailable, state precisely what cannot be determined. Do not fill the missing interval with speculation or an essay about older defects.
+
+A candidate branch counts as work even when `main` has not moved. Conversely, a published branch does not establish that its claims have been exercised.
+
+Do not change the judgment because the user sounds dissatisfied. Re-examine the evidence and the evaluation criterion. A reversal needs a stated factual or reasoning correction.
+
+The binder history illustrates the distinction: passing gates and fewer invalid assertions were reported alongside the explicit fact that no backend computed the newly readable limits. Those observations did not establish computational delivery. [the recorded binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+## 7. Recognize the recurring loops by their causal structure
+
+### The invented-prerequisite loop
+
+**Pattern:** a planner adds a requirement; implementation becomes difficult; helpers and exceptions are added to satisfy it; their completion is then called progress.
+
+**Typical language:** “Before returning this value, the kernel must reconstruct its correctness proof.”
+
+**Exit:** inspect whether the prerequisite belongs to the obligation model. Remove an invented requirement and its dependent machinery. Do not optimize its implementation merely because work has already been invested.
+
+In this conversation, runtime certification of arbitrary backend results was such an addition. A verified API does not imply a verified external implementation.
+
+### The sophistication loop
+
+**Pattern:** formal vocabulary, difficult proofs, elaborate metadata, or complex orchestration make the work appear intrinsically necessary.
+
+**Exit:** explain the required capability without those implementation names. Then justify each component by the responsibility it serves. Technical difficulty is a cost to explain, not evidence of value.
+
+### The verification loop
+
+**Pattern:** the easiest next action is another build, probe, fixture, expectation update, or check repair; the underlying operation remains unavailable.
+
+**Exit:** follow the actual production path to its blocking mechanism. Run checks to answer that technical question, not to generate favorable activity.
+
+The research history explicitly warns that tests against a temporary architecture can generate repairs to machinery that is about to disappear. It also records the opposite mistake: continuing an execution suspension after its justification ended. Neither “always test” nor “never test during construction” is an adequate rule. [INTENT.md](../INTENT.md)
+
+### The representation-repair loop
+
+**Pattern:** one consumer loses data; another field or wrapper is added; a later consumer cannot reconcile it; another conversion or lookup is added.
+
+**Exit:** determine which construction owns the data and how its complete computational interface supplies it. Repair that owner and the necessary consumers together. Do not infer structure from category membership, backend ancestry, or lower representations.
+
+Completeness does not mean eagerly proving that the backend’s answer satisfies all mathematical laws.
+
+### The authority loop
+
+**Pattern:** the agent’s own plan or gate is treated as unchangeable; implementing an already authorized correction becomes contingent on another approval, documentation merge, or signature.
+
+**Exit:** distinguish the required outcome from the chosen enforcement machinery. Correct delegated implementation decisions directly. Escalate only an actual unresolved requirement or authority decision.
+
+A unavailable credential is a capability limitation. It is not a reason to ask the user to make the same decision again.
+
+### The checkpoint loop
+
+**Pattern:** work repeatedly stops at a “reviewable candidate,” “clean source checkpoint,” or carefully documented gap; subsequent sessions begin another round of assessment rather than completing the obligation.
+
+**Exit:** preserve the checkpoint, retain the assignment, and finish the substantive dependency. Accurate status is necessary but is not the deliverable.
+
+### The policy-repair loop
+
+**Pattern:** each failure produces another policy, reviewer instruction, ledger, or controller transition. The growing process becomes the next object needing repair.
+
+**Exit:** identify the false premise or misplaced responsibility first. Change existing instructions only to preserve that correction. Do not create machinery merely to monitor whether agents are behaving wisely.
+
+The earlier transcript explicitly recognized that a proposed requirements gate would merely let the orchestrator rephrase implementation goals and optimize another review criterion. It added paperwork without removing the steering mechanism. [the recorded binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+### The self-confirming-review loop
+
+**Pattern:** the planner later reviews implementation of its own recommendations and credits the resulting components without challenging the recommendation.
+
+**Exit:** treat the intervention as a hypothesis whose consequences may refute it. Ask what work it created, what capability it delivered, and whether the project would be better off without the introduced responsibility.
+
+A different agent performing the review is not enough if it inherits the same unexamined premise.
+
+## 8. Break a loop by changing the cause, not the description
+
+When a loop is identified, suspend the **looping tactic**, not the substantive project.
+
+First, recover the exact required outcome. Do not reduce it to fit the current implementation.
+
+Next, locate the commitment generating the repeated work: a data model, ownership decision, invented proof burden, mirrored registry, approval prerequisite, or interpretation of a local task. Include the originating assistant directive where applicable.
+
+Determine whether that commitment is:
+
+- A genuine mathematical or product requirement.
+- A necessary implementation responsibility with an inadequate design.
+- An unnecessary responsibility introduced by the implementation or remediation.
+
+Then act accordingly.
+
+A genuine requirement must be completed. An inadequate implementation may be redesigned at its owner. An invented responsibility should be removed, together with consumers that exist only to accommodate it. Preserve useful work that serves the real obligation; do not preserve the architecture merely to justify sunk effort.
+
+Complete a coherent production path for the original obligation and its required interactions. Do not replace this with a mock, a narrower question, a bare-object substitute, or an exceptional route that avoids the general mechanism.
+
+Repeat the original reality check. The correction must change what works or eliminate the actual impediment—not merely rename the work, move the same check elsewhere, or produce a more cautious completion claim.
+
+There is no required new PR, policy entry, certificate, or “loop resolved” verdict. Use the ordinary source change, relevant validation, and existing durable record.
+
+## 9. Preserve the planner’s contribution to the failure
+
+The historical record must include failures introduced by planning and review, not just coding errors.
+
+For this B0 incident, retain the following account:
+
+> The assistant repeatedly described the formal/computational separation correctly, then issued directions requiring complete runtime reconstruction and independently established comparisons without resolving whether arbitrary backend results should inhabit proof-bearing formal constructions.
+>
+> The resulting implementation accumulated universal-property reconstruction, proof normalization, presentation transport, and related workflow machinery. The assistant initially credited these components as substantive progress because they were technically meaningful implementations of its own directions.
+>
+> The user’s ordinary-capability question exposed the mismatch between that activity and the intended usable CAS. The assistant then criticized machinery that its own intervention had helped make necessary.
+>
+> The originating error was not a missing warning against overengineering. It was assigning an incoherent or misplaced responsibility, making the proposed remedy authoritative, and evaluating implementation against that remedy rather than the product.
+>
+> The assistant’s later explanation of the mistake is not evidence that it will avoid repeating it. Future plans and reviews must actively test for the same causal structure.
+
+Do not rewrite this episode as “agents failed to follow the plan.” Following the plan was part of the problem.
+
+Also retain the separate factual error from the progress audit:
+
+> The assistant inferred a stall from absent published updates without inspecting unpushed work. That inference was unsupported. Missing observations do not establish inactivity.
+
+These cases teach different failures and must not be collapsed into a generic instruction to be more careful.
+
+## 10. Preserve knowledge without creating another obstacle
+
+Keep this chapter and its concrete cases in the existing architecture documentation. Keep the short warning below in always-loaded instructions. Retain the **“You have no memory”** section and its obligation to persist material corrections.
+
+Do not require a new retrospective after every task. Extend the existing causal record when a materially different failure is discovered, or when recurrence shows that an existing explanation failed to communicate its lesson.
+
+A correction should identify the mistaken premise, the work it generated, and what changed that premise. “Be more rigorous,” “follow the rules,” and “avoid thrashing” do not preserve the necessary knowledge.
+
+Review the current proposal against the history **before** turning it into a task. The historical material is evidence against plausible mistakes in the new proposal, not supporting decoration for it.
+
+# Failure mechanisms this model was learned from
+
+## Invented law checking generated an escape framework
 
 In `sage-categories`, `27b3e507` specified that an Equifier constructor must decide its defining equation before admitting a value. This converted a mathematical specification into a runtime admission burden. The later correction `96054a58` removed the `certified_structures` route and returned consumers to ordinary constructors.
 
@@ -288,7 +551,7 @@ In `sage-categories`, `27b3e507` specified that an Equifier constructor must dec
 
 **Transfer to this stack:** proofs belong to formal mathematical definitions and genuinely proof-producing mechanisms. External realization of those definitions is not automatically a runtime proof obligation.
 
-### Placement without construction generated retrospective state recovery
+## Placement without construction generated retrospective state recovery
 
 The research history records interfaces becoming available before their required data existed, and chosen structure disappearing behind category membership. Constructors and consumers then acquired machinery to recover the missing data. [INTENT.md](../INTENT.md)
 
@@ -296,7 +559,7 @@ The research history records interfaces becoming available before their required
 
 **Transfer:** a complete computational interface must carry or expose its required data. This does **not** mean proving the correctness of that data before it may be used.
 
-### Implementation-shaped mathematics defeated nominal role separation
+## Implementation-shaped mathematics defeated nominal role separation
 
 The binder episode used separate authors and apparently clean roles while the orchestrator prescribed row choices, obligation shapes, and proof goals. The gate checked authorship labels; the downstream implementation was still shaping upstream mathematics. [the binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
 
@@ -304,7 +567,7 @@ The binder episode used separate authors and apparently clean roles while the or
 
 **Transfer:** independent upstream API improvement is permitted and necessary. Rephrasing an implementation failure as a mathematical requirement does not make it independent.
 
-### Verification activity displaced the required construction
+## Verification activity displaced the required construction
 
 The research postmortem names selection by availability, throughput mistaken for progress, verification becoming the target, and literal compliance with a structural task. It explicitly says not to turn that diagnosis into detectors, hooks, or mandatory checklists.
 
@@ -312,14 +575,13 @@ The research postmortem names selection by availability, throughput mistaken for
 
 **Transfer:** a review must follow the actual operation and its consequences. A controller cannot manufacture that understanding by demanding another record.
 
-### The recent B0 intervention recreated the same cause
+## The recent B0 intervention recreated the same cause
 
 In this conversation, an assistant prescribed runtime reconstruction and independent proof obligations for computed results, then treated the resulting reconstruction and approval machinery as progress.
 
 **Lesson:** remediation proposals are themselves fallible designs. A requirement introduced by the remediation may be the source of the next repair campaign. Its presence in a plan does not justify it.
 
 **Transfer:** remove mistaken responsibilities and their dependent machinery. Do not preserve them merely to make the previous intervention appear completed.
-
 
 ---
 

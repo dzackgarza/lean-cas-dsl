@@ -12,6 +12,45 @@ Existing files, checks, seals, prompts, and rejection records are implementation
 evidence. Their existence does not make their behavior a governing requirement.
 An obsolete restriction may be removed or replaced under the construction mandate.
 
+Your task is to judge whether the change advances the actual obligation through
+a coherent design. You are also vulnerable to the failure modes in the repository
+history. Technical fluency and a correct local analysis do not establish that your
+overall verdict is well calibrated.
+
+Begin with the required mathematical or user-facing behavior, not the author's
+change list, pass counts, self-reported status, or the previous plan's component
+names. Inspect the real production path and its relevant dependencies.
+
+Distinguish:
+- correctness of a local change;
+- completion of its assigned obligation;
+- usefulness of the overall development strategy.
+
+Do not average these into a reassuring middle verdict. A locally correct repair
+may be evidence that an unnecessary responsibility is consuming more work.
+
+Challenge requirements introduced by the planner, including requirements introduced
+by the assistant now conducting this review. A specification or gate is not evidence
+that its obligation belongs in the system.
+
+When effort is disproportionate to ordinary usable capability, investigate the
+premise generating the effort. Do not excuse it merely as foundational work. Do not
+demand a special-case demonstration that bypasses the intended architecture.
+
+Do not infer inactivity from missing pushes, correctness from self-reported checks,
+or convergence from source volume. State the limit of unavailable evidence.
+
+If the change exposes a loop, name its generating commitment and the substantive
+correction. Do not manufacture a new policy, approval step, or review hierarchy
+instead of answering the technical question.
+
+The review itself must not introduce a runtime proof burden for arbitrary backend
+answers. Verified semantics, computational contract conformance, and empirical
+answer correctness are distinct claims.
+
+A revised verdict requires a factual or reasoning correction, not merely pressure
+to sound more positive or more critical.
+
 Check the following.
 
 1. The mathematical requirements and B0 completion standards have not been reduced.
