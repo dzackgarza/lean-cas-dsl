@@ -17,6 +17,28 @@ noncomputable def selected : BilinModuleCat ℤ ℤ :=
 
 noncomputable def selectedMap : selected ⟶ selected := 𝟙 selected
 
+/-- The fixed universal observation instantiated at the actual reconstructed
+formed domain and its actual defining inclusion, not substituted canonical data. -/
+noncomputable def reconstructedUniversalQuestion
+    (D : BilinModuleCat ℤ ℤ) (i : D ⟶ selected) : Prop :=
+  ∀ (T : ModuleCat ℤ) (h : T ⟶ (forget ℤ ℤ).obj selected),
+    h ≫ (forget ℤ ℤ).map selectedMap = 0 →
+    ∃! k : T ⟶ (forget ℤ ℤ).obj D,
+      k ≫ (forget ℤ ℤ).map i = h
+
+/-- Direct application of the existing public equalizer universal theorem.
+The premise must concern the actual reconstructed inclusion over the fixed map. -/
+theorem reconstructedUniversalQuestion_of_isLimit
+    (D : BilinModuleCat ℤ ℤ) (i : D ⟶ selected)
+    (condition : (forget ℤ ℤ).map i ≫ (forget ℤ ℤ).map selectedMap = 0)
+    (hs : CategoryTheory.Limits.IsLimit
+      (CategoryTheory.Limits.KernelFork.ofι ((forget ℤ ℤ).map i) condition)) :
+    reconstructedUniversalQuestion D i := by
+  intro T h annihilated
+  have equalized : h ≫ (forget ℤ ℤ).map selectedMap = h ≫ 0 := by
+    simpa using annihilated
+  simpa using CategoryTheory.Limits.Fork.IsLimit.existsUnique hs h equalized
+
 /-- The independently specified structured observation, before computation. -/
 noncomputable def question : Prop :=
   (∀ x : kernelSubmodule selectedMap, x.1 = 0) ∧

@@ -251,3 +251,45 @@ single example T/h, a carrier-equivalent zero object, or a form-preserving-map
 factorization in the wrong category does not replace the specified universal
 module proposition. This identifies a mathematical language/exposure dependency;
 it does not report a computational outcome or protected admission.
+
+## Existing public universal API for the actual reconstructed result
+
+No new mathematical predicate or quantifier notation is needed to state the
+full observation on the formal acceptance side. The public generic declarations
+are already sufficient:
+
+* `CategoryTheory.Limits.IsKernel.isoKernel` in Mathlib
+  `CategoryTheory/Limits/Shapes/Kernels.lean` takes an actual limit kernel fork
+  `s : KernelFork f`, its `IsLimit s`, an actual proposed inclusion `l : Z -> X`,
+  and an isomorphism `e : Z ≅ s.pt` satisfying `e.hom ≫ Fork.ι s = l`. It yields
+  `IsLimit (KernelFork.ofι l ...)` for that very inclusion.
+* `CategoryTheory.Limits.Fork.IsLimit.existsUnique` in Mathlib
+  `CategoryTheory/Limits/Shapes/Equalizers.lean` takes `hs : IsLimit s`,
+  `h : T -> X` and `h ≫ f = h ≫ g`. It yields
+  `∃! k : T -> s.pt, k ≫ Fork.ι s = h`.
+
+For this fixed observation, instantiate the category as `ModuleCat Z`,
+`f = U(selectedMap)`, `Z = U(actual reconstructed D)` and
+`l = U(actual reconstructed i)`. The comparison e and its defining equation
+must concern those actual returned structures over the fixed selected U(L).
+The public `MonoLift.iso` and `MonoLift.fac` specify exactly the lifted base
+identification and defining equation for the prescribed restriction lift.
+They can be composed with the checked comparison of the actual module kernel;
+canonical object or inclusion fields cannot replace the actual reconstructed
+ones. With `g = 0`, the annihilation condition supplies `h ≫ f = h ≫ 0`, so
+`Fork.IsLimit.existsUnique` states precisely the preauthored factorization.
+
+`b0_formed_kernel_question.lean` now provides
+`reconstructedUniversalQuestion(D,i)` to instantiate that unchanged universal
+observation at actual reconstructed formed data. Its helper is only an
+application of the existing public `Fork.IsLimit.existsUnique` theorem to an
+`IsLimit` premise on the actual inclusion. Such a premise must be independently
+checked formal reconstruction evidence, never a leaf-supplied proof or a
+claim about its own output. The source has not been newly typechecked while
+the designated compiler is occupied, and no execution or admission is claimed.
+
+The remaining limitation is connecting the permanent mathematical observation
+to those actual reconstructed full values and their checked universal
+comparison through the acceptance interface. Lack of textual quantifier
+notation alone is not a reason to request new upstream mathematics or abandon
+the existing formal universal API.
