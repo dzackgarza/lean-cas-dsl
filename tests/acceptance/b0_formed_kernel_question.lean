@@ -39,6 +39,19 @@ theorem reconstructedUniversalQuestion_of_isLimit
     simpa using annihilated
   simpa using CategoryTheory.Limits.Fork.IsLimit.existsUnique hs h equalized
 
+/-- Transport existing universal data to the actual reconstructed domain and
+inclusion using its checked comparison over the fixed ambient module. -/
+theorem reconstructedUniversalQuestion_of_comparison
+    (D : BilinModuleCat ℤ ℤ) (i : D ⟶ selected)
+    (s : CategoryTheory.Limits.KernelFork ((forget ℤ ℤ).map selectedMap))
+    (hs : CategoryTheory.Limits.IsLimit s)
+    (e : (forget ℤ ℤ).obj D ≅ s.pt)
+    (fac : e.hom ≫ CategoryTheory.Limits.Fork.ι s = (forget ℤ ℤ).map i) :
+    reconstructedUniversalQuestion D i := by
+  let transported := CategoryTheory.Limits.IsKernel.isoKernel
+    ((forget ℤ ℤ).map selectedMap) ((forget ℤ ℤ).map i) hs e fac
+  exact reconstructedUniversalQuestion_of_isLimit D i _ transported
+
 /-- The independently specified structured observation, before computation. -/
 noncomputable def question : Prop :=
   (∀ x : kernelSubmodule selectedMap, x.1 = 0) ∧

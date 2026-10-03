@@ -293,3 +293,29 @@ to those actual reconstructed full values and their checked universal
 comparison through the acceptance interface. Lack of textual quantifier
 notation alone is not a reason to request new upstream mathematics or abandon
 the existing formal universal API.
+
+The concrete acceptance source connection is
+`reconstructedUniversalQuestion_of_comparison(D,i,s,hs,e,fac)`. D and i are
+the actual returned formed domain and defining inclusion. The accepted module
+kernel fork s is over the fixed U(selectedMap); hs is its existing checked
+universal data. The comparison e has type `U(D) ≅ s.pt`, and fac is the exact
+equation `e.hom ≫ Fork.ι s = U(i)`. The helper transports hs with the public
+`IsKernel.isoKernel` and applies `Fork.IsLimit.existsUnique`, yielding the
+unchanged all-module factorization question at those actual returned D/i.
+
+When the reconstructed comparison is supplied as a full lifted-subobject
+isomorphism, its actual domain component gives
+`eta : D_returned ≅ D_accepted`. Its defining square must hold over the fixed
+ambient L: `eta.hom ≫ i_accepted = i_returned`. An ambient component of an
+arrow isomorphism cannot silently be discarded. Compose `U.mapIso eta` with
+the prescribed `MonoLift.iso` to obtain e; `MonoLift.fac`, the checked square,
+and functorial composition supply fac. These accepted mathematical data are
+used as transported proof, not as replacement result objects.
+
+An execution-side acceptance probe must bind the actual reconstructed full
+result's domain, inclusion and comparison into this independently authored
+source question and kernel-check the resulting closed proposition/proof. A
+typecheck of the source helper alone, or a probe instantiating it only at
+canonical formedKernel/formedKernelInclusion, leaves that actual-result
+acceptance connection unexecuted. This identifies precisely the implementing
+connection owed to the kernel owner without changing any expected proposition.
