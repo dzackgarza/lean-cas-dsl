@@ -164,3 +164,17 @@ Until those generic applications are supported, `pairing(Z,Z,D)` and applying
 substitute is added. Mathematical exposure and supported selection syntax have
 progressed while the same original structured formed-kernel positive remains
 open at the application boundary.
+
+The subsequently supplied independently assessed e03 public metadata (442 rows,
+SHA-256 `d6c0b03271fd0a51d44dbf9c4fd6c958e383e587a756f60aceea988639074b7d`)
+exposes `op.modules.zero` as the actual selected-module operation
+`zero(R : RingCat, M : ModuleCat R) : PUnit → M`. Thus the mathematical zero
+exposure is now present. Its use must retain the selected kernel's actual
+carrier module and scalar ring through the formed-module forgetful route.
+
+Language-author-approved prospective observations are `D.pairing()` with whole
+dependent inference of its actual R/W/L, and `K.inclusion().hom()` extracting
+the actual arrow before application. These generic mechanisms are still under
+implementation/compilation; their approval is not evidence of an executable
+structured assertion. The existing zero-kernel inclusion/restriction meanings
+are unchanged, and full all-vector equations remain the positive's observation.
