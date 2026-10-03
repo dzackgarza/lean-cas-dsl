@@ -110,6 +110,50 @@ requirement; retain mathematical acceptance assertions unchanged. Freeze the
 kernel and old leaves before the independent extension trials. Usability,
 generic composition, trust and growth must hold together at the shipment tuple.
 
+### Three concrete convergence checks (owner correction, 2026-10-03)
+
+The convergence target consists of three distinct checks, not a discretionary
+approval system or another trust ceremony:
+
+1. **Upstream mathematics:** check the actual exported declarations, signatures
+   and laws under their declared hypotheses. These checks must fail concretely
+   when the API no longer expresses the required mathematics. Noncomputable
+   formal constructions and their proofs do not require executing their backend
+   algorithms. Toy substitutes or assumptions of the property under test do not
+   establish this check.
+2. **Kernel interpretation and composition:** without leaves, interpret the
+   required ordinary expressions into the same correctly typed mathematical
+   requests, retaining declarations, parameters, selected structures, maps,
+   result types and compositions. Actual dependencies separate interpretation
+   from execution; changing function names is insufficient. Execution of an
+   externally implemented obligation then reports the missing implementation.
+   Installing or removing a leaf cannot change meaning or mathematical interface.
+   The kernel performs parsing, substitution, formal composition, registration
+   matching and protocol handling, not subject-specific factorization or integration.
+3. **Computational acceptance:** require registered implementations, execute
+   those same requests through the ordinary language and compare observations
+   with fixed, independently established mathematical expectations. Structured
+   results must support subsequent operations through their declared interfaces.
+   A proof may discharge a formal assertion within its scope, but cannot count
+   as registered execution. A kernel that always reports gaps fails the positive
+   execution check; a bundled kernel factorizer fails the separation check.
+
+The formal factorization theorem is mathematics; a leaf's proposed factorization
+is an implementation result. Never apply the former to the latter by assuming
+that the implementation computed the formal operation correctly. Known examples,
+upstream proofs and independently established expected answers supply references
+without a second CAS implementation inside the kernel. A well-formed wrong
+answer remains possible and fails independent comparison.
+
+Failures identify their responsible component: formal signatures/laws upstream;
+reading/composition in the kernel; missing computational signatures with their
+API owner; malformed replies at the computational boundary; wrong replies in the
+implementation. Finite acceptance does not prove universal backend correctness,
+and an inadequately specified definition still requires mathematical assessment.
+Neither limitation creates a runtime certification requirement or recurring
+approval ceremony. The separation, checked mathematical contracts and independent
+observations are the trust mechanism.
+
 ### Stage A
 
 Stage A constructs a usable integration workflow as well as a buildable candidate.
