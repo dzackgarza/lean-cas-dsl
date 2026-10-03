@@ -180,7 +180,8 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   -- to potentially equal expressions (for example both apex and diagram Fin 2).
   let rawTypes : Array Expr ← fields.mapM fun field => inferType field
   -- Capture the public diagram telescope before formal unification aliases roles.
-  let rawDiagram := conclusion.getAppArgs.back!
+  let rawConclusion ← whnfR conclusion
+  let rawDiagram := rawConclusion.getAppArgs.back!
   let mut inputRoles : Array (Array InputRole) := Array.replicate fields.size #[]
   let diagramArgs := rawDiagram.getAppArgs
   let (_, diagramInfos, _) ← forallMetaTelescopeReducing
