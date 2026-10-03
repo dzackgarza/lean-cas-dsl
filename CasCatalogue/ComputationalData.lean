@@ -313,4 +313,19 @@ def validateGraphDomain (domainKeys : Array Json) (graph : Json) : Except String
     keys := keys.push input
   return ()
 
+/-- Check finite callable completeness and range framing against keys from the
+actual declared computational endpoints. Infinite codomains retain their
+published point codec; `none` never substitutes the formal codomain's carrier. -/
+def validateGraphEndpoints (actualDomainKeys : Array Json)
+    (actualCodomainKeys : Option (Array Json)) (graph : Json) : Except String Unit := do
+  validateGraphDomain actualDomainKeys graph
+  if let some codomainKeys := actualCodomainKeys then
+    let pairs ← graph.getArr?
+    for pair in pairs do
+      let #[_, output] ← pair.getArr?
+        | throw "a computational graph entry requires input and output"
+      unless codomainKeys.contains output do
+        throw "the computational graph value is outside its declared data codomain"
+  return ()
+
 end CasCatalogue.ComputationalData
