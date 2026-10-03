@@ -19,8 +19,10 @@ that the kernel decodes or rejects. No Lean crosses it, in either direction.
 
 ## Forms are formal
 
-Every registered operation has declared input and result forms, and each form is a registered
-literal form of `lean-categories`: a data type `T` and its denotation `denote : T → …`. Examples:
+Every registered operation has a declared dependent signature. Its input and result forms are
+derived from the upstream rows and their mathematical definitions. Literal forms supply a data
+type `T` and its denotation `denote : T → …`; named objects, arrows, selected elements and
+canonical constructions retain their registered identity and complete parameters. Examples:
 a finite set of integers as a list, a cardinal as a natural number or `ℵ₀`, a matrix as rows, a
 morphism of finite sets as its graph. Which forms exist, and what they denote, is mathematics. A
 leaf never declares a form.
@@ -52,7 +54,40 @@ standard cone constructor of the shape:
 - the commutation conditions are decided by the kernel.
 
 A missing leg, a leg that is not a map, or a commutation that does not hold makes the answer
-malformed (CC-DECODE).
+malformed (CC-DECODE). A returned presentation may additionally supply hom and inverse maps;
+the kernel checks their exact endpoints, inverse equations and defining legs, and reconstructs
+universality from the registered presentation. The reply supplies no proof.
+
+A subobject reply retains its apex, fixed ambient object and defining monomorphism. For a
+requested construction, these data must identify that construction at the independently fixed
+functor and input. A canonical functor-action descriptor is checked against the complete
+requested structured value, including its inclusion. A different presentation requires a
+checked apex comparison commuting with that inclusion into the same ambient object; a shared
+category, carrier or cardinality does not supply the comparison. Prescribed lifts apply only
+after this identification, preserving the defining map and selected form. Literal answers
+remain values to compare independently, so a well-typed wrong numeral is reported as wrong.
+
+The complete wire grammar is maintained in `cas_leaf_contracts`' `CasContract/Port.lean`.
+It includes registered named morphisms, functor actions, structured arrows and subobjects,
+finite function graphs, and canonical limit apex/leg descriptors. Selected element data is a
+closed numeral/generator/arithmetic grammar at an exact independently selected object.
+Presentation applications retain their registered comparison, parameters and direction; their
+returned points never choose the endpoint by carrier equality.
+
+These encodings compose because every recursive argument is decoded at the declared dependent
+type before the enclosing constructor is applied. Proof fields are established independently;
+object identities and selected structural maps are retained in the semantic trace. A wire
+constructor cannot register an operation, change a category, or manufacture a comparison.
+Adding a new upstream object therefore uses the same recursive typed codec, while adding a
+registered comparison uses the same endpoint and inverse checks.
+
+An anonymous structural image's registration form is
+`image:<compact JSON [target-category-id, edge-descriptor]>`. The edge descriptor is
+`{"functor":"id"}`, `{"classifierForget":"id"}`, or
+`{"constructorMap":["id", inner-edge-descriptor]}`. This names the complete registered
+edge and target schema; its actual ordered declaration parameters remain in the typed value
+and wire data. A short classifier or constructor identifier resolves only when the registry
+contains exactly one matching edge and target. Competing edges require the complete image key.
 
 ## A registration is data
 
@@ -121,11 +156,19 @@ Before any leaf is called, the kernel tries to decide the statement's semantic p
 Lean, generically: `decide` within a fixed budget, and the catalogue's registered evidence
 (LC-18).
 - If Lean proves it, the statement holds as proved, and no leaf is consulted.
-- If Lean refutes it, the statement is false mathematics. It is invalid and is reported against
-  the suite, never against a leaf.
+- If Lean refutes the well-typed comparison, its outcome is `wrong`; reading validity is
+  unchanged. No leaf was consulted in that discharge.
 - Otherwise the realized reading decides it.
 
-A leaf is never asked for what Lean can discharge, and it never supplies a proof.
+The normal path avoids backend calls after successful Lean discharge. A leaf supplies values
+and never supplies a proof.
+
+Where the fixed B0 requirements additionally demand registered execution, a separate
+`cas-harness --computation-only` run evaluates the same interpreted questions without proof
+discharge. Its per-assertion dispatch records identify the actual registered requests made by
+the runner. A required computational observation needs both its independent assertion to hold
+and an actual backend request; a proof-only hold does not establish that observation. Dispatch
+records are execution observations, not mathematical evidence about an implementation.
 
 ## What is removed
 
