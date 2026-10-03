@@ -5,15 +5,25 @@
 -- This proposal changes neither the original corpus nor its admission ledgers.
 
 let G := Sym(3) in Groups
+
 let C2 := ZMod(2) in Groups
+
 let s := sign(3)
+
 let t := trivial(G, C2)
+
 let e := id(G)
+
 let Ks := kernel(s)
+
 let Kt := kernel(t)
+
 let Ke := kernel(e)
+
 let A := Alt(3)
+
 let Ad := view A along fun.subobjects_groups.domain
+
 let ai := A.inclusion().hom()
 
 test b0.groups.kernel.sign.defining_leg "Dummit–Foote ch. 3 section 1; kernelFork(sign(3)) uses the actual subgroup inclusion into the selected S_3, whose composite with sign is the trivial homomorphism into the selected Z/2":

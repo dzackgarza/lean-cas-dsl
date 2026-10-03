@@ -4,20 +4,31 @@
 -- b0-formed-kernel-proposal.md before execution. This is not self-admission.
 
 let L := view E8 along fun.integral_lattice.forget_form
+
 let f := id(L)
+
 let K := kernel(f)
+
 let D := view K along fun.subobjects_bilin_module.domain
+
 let i := K.inclusion().hom()
+
 let BD := D.pairing()
+
 let BL := L.pairing()
 
 -- The product is a product of the actual carrier sets. The selected R=Z and
 -- W=Z remain in D/BD; these forgetful images do not replace either structure.
 let M := view D along fun.bilin_module.forget
+
 let T := view M along fun.modules.fibre_inclusion
+
 let X := view T along fun.modules.underlying
+
 let P := X × X
+
 let p := P.leg(0)
+
 let q := P.leg(1)
 
 test b0.formed.kernel.identity.inclusion_zero "The kernel of the selected identity on E8 is exactly {0}; formedKernelInclusion_apply sends each element to its same ambient vector, hence every image is the selected zero of L":
