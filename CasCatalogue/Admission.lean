@@ -40,6 +40,11 @@ open Lean
 
 namespace CasCatalogue
 
+/-- A concrete port address for the already published callable field. This creates no
+semantic row: the declaration and its dependent signature remain the object's metadata. -/
+def ObjectEntry.applicationAddress (entry : ObjectEntry) : String :=
+  entry.id.raw ++ "#application"
+
 /-- A form the kernel encodes: values of a registered literal type, morphisms of a registered
 category given by their graphs, a registered named object at its parameters, or the diagrams of a
 registered category (the input of its registered limits), encoded in the forms of their objects
@@ -52,11 +57,17 @@ inductive Form
   | subset (entry : SubsetLiteralEntry) (category : CategoryId)
   | object (entry : ObjectEntry)
   | namedMorphism (entry : MorphismEntry)
+  /-- The complete request for a published object's application field. -/
+  | application (entry : ObjectEntry)
+  /-- The complete request for a published binder's operation. -/
+  | binder (entry : BinderEntry)
   /-- Canonical typed zero or identity data inside an already accepted diagram. -/
   | canonicalMorphism (entry : NamedCategoryEntry)
   | generator (entry : ObjectEntry)
   | element (entry : ObjectEntry)
   | limitApex (entry : LimitEntry)
+  /-- The formal apex of an accepted creation lift, with complete opaque construction data. -/
+  | createdApex (entry : LimitEntry) (category : CategoryId)
   /-- An actual object image of an already registered functor, at its selected target schema. -/
   | functorImage (entry : FunctorEntry) (category : CategoryId)
   /-- An object image of an accepted structural edge at its independently fixed target. -/
@@ -89,10 +100,13 @@ def Form.id : Form → String
   | .subset entry _ => entry.id.raw
   | .object entry => entry.id.raw
   | .namedMorphism entry => entry.id.raw
+  | .application entry => entry.applicationAddress
+  | .binder entry => entry.id.raw
   | .canonicalMorphism entry => entry.id.raw
   | .generator entry => entry.id.raw
   | .element entry => entry.id.raw
   | .limitApex entry => entry.id.raw
+  | .createdApex entry _ => entry.id.raw
   | .functorImage entry _ => entry.id.raw
   | .edgeImage edge category => edgeImageId edge category.id
   | .arrow entry => entry.id.raw
@@ -106,10 +120,13 @@ def Form.category : Form → CategoryId
   | .subset _ category => category
   | .object entry => entry.category
   | .namedMorphism entry => entry.category
+  | .application entry => entry.category
+  | .binder entry => entry.category
   | .canonicalMorphism entry => entry.id
   | .generator entry => entry.category
   | .element entry => entry.category
   | .limitApex entry => entry.category
+  | .createdApex _ category => category
   | .functorImage _ category => category
   | .edgeImage _ category => category.id
   | .arrow entry => entry.id
@@ -164,6 +181,9 @@ def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
     (state.powerObjectCategory? entry.powerObject).map (.subset entry ·)) <|>
   (state.objects.find? (·.id.raw == id) |>.map .object) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map .namedMorphism) <|>
+  (state.objects.find? (fun entry => entry.application.isSome &&
+      entry.applicationAddress == id) |>.map .application) <|>
+  (state.binders.find? (·.id.raw == id) |>.map .binder) <|>
   (state.limits.find? (·.id.raw == id) |>.map .limitApex) <|>
   (state.functors.find? (·.id.raw == id) |>.bind fun entry => do
     let category ← (state.categories.find? (·.expression.syntacticEq entry.target)).orElse fun _ => do
@@ -196,6 +216,8 @@ inductive Operation
   | limit (entry : LimitEntry)
   | operation (entry : OperationEntry)
   | morphism (entry : MorphismEntry)
+  | application (entry : ObjectEntry)
+  | binder (entry : BinderEntry)
   | functor (entry : FunctorEntry)
   | presentation (entry : PresentationComparisonEntry)
 
@@ -205,6 +227,8 @@ def Operation.id : Operation → String
   | .limit entry => entry.id.raw
   | .operation entry => entry.id.raw
   | .morphism entry => entry.id.raw
+  | .application entry => entry.applicationAddress
+  | .binder entry => entry.id.raw
   | .functor entry => entry.id.raw
   | .presentation entry => entry.id.raw
 
@@ -215,8 +239,22 @@ def RegistryState.operation? (state : RegistryState) (id : String) : Option Oper
   (state.limits.find? (·.id.raw == id) |>.map .limit) <|>
   (state.operations.find? (·.id.raw == id) |>.map .operation) <|>
   (state.morphisms.find? (·.id.raw == id) |>.map .morphism) <|>
+  (state.objects.find? (fun entry => entry.application.isSome &&
+      entry.applicationAddress == id) |>.map .application) <|>
+  (state.binders.find? (·.id.raw == id) |>.map .binder) <|>
   (state.functors.find? (·.id.raw == id) |>.map .functor) <|>
   (state.presentations.find? (·.id.raw == id) |>.map .presentation)
+
+/-- The actual public callable declaration and category at a concrete address. Consumers
+instantiate and check its full signature; no definition is unfolded to invent an operation. -/
+def RegistryState.callable? (state : RegistryState) (id : String) :
+    Option (Name × CategoryId) := do
+  match ← state.operation? id with
+  | .morphism entry => return (entry.declaration, entry.category)
+  | .application entry => return (← entry.application, entry.category)
+  | .binder entry => return (entry.operation, entry.category)
+  | .operation entry => return (entry.declaration, entry.category)
+  | _ => none
 
 /-- The named object the catalogue sends `entry` to along the structural route `route`, with the
 route left to walk (CC-TRANSPORT): while `entry` refines a base along a route that begins the
@@ -267,6 +305,16 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .morphism entry => if entry.id == input.id then none else
         some s!"{entry.id.raw} requires its own complete declaration input"
     | _ => some s!"{operation.id} expects an object or diagram input, not a named arrow"
+  else if let .application input := form then
+    match operation with
+    | .application entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own published application request"
+    | _ => some s!"{operation.id} is not this published application"
+  else if let .binder input := form then
+    match operation with
+    | .binder entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own published binder request"
+    | _ => some s!"{operation.id} is not this published binder"
   else if let .canonicalMorphism _ := form then
     some s!"{operation.id} expects an object or diagram input, not a canonical arrow"
   else if let .presentation _ _ := form then
@@ -312,6 +360,8 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
             forms of its objects and arrows; register it on {entry.category.raw}"
     | .operation entry => if entry.category == form.category then none else notResolved
     | .morphism entry => if entry.category == form.category then none else notResolved
+    | .application entry => if entry.category == form.category then none else notResolved
+    | .binder entry => if entry.category == form.category then none else notResolved
     | .presentation _ => notResolved
     | .functor entry =>
         match form with
@@ -348,6 +398,10 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
                 | .familyApp sourceFamily _, .familyApp targetFamily _ =>
                     if sourceFamily == targetFamily then none else notResolved
                 | _, _ => notResolved
+            | none => notResolved
+        | .createdApex _ id =>
+            match state.categories.find? (·.id == id) with
+            | some category => if category.expression.syntacticEq entry.source then none else notResolved
             | none => notResolved
         | _ => notResolved
 
