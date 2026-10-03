@@ -2,6 +2,8 @@
 module
 public import CasCatalogue.Semantic
 public import CasCatalogue.Codec
+public import CasCatalogue.StructuredResult
+public import Mathlib.CategoryTheory.FintypeCat
 
 @[expose] public section
 open Lean Meta Elab Term
@@ -268,7 +270,11 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
   -- reconstructed. The function's type comes solely from its formal interface.
   let function ← try
       pure (some (← mkAppM ``DFunLike.coe #[formalField]))
-    catch _ => pure none
+    catch _ =>
+      try
+        let concrete ← mkAppM ``CategoryTheory.ConcreteCategory.hom #[formalField]
+        pure (some (← mkAppM ``DFunLike.coe #[concrete]))
+      catch _ => pure none
   let function := function.getD formalField
   let functionType ← whnfR (← inferType function)
   if let .forallE _ domain body _ := functionType then
@@ -327,5 +333,120 @@ def validateGraphEndpoints (actualDomainKeys : Array Json)
       unless codomainKeys.contains output do
         throw "the computational graph value is outside its declared data codomain"
   return ()
+
+/-- Validate one constructor port with its original binder-role provenance.
+Endpoint representations come only from earlier actual fields or retained input
+roles. The representation callback supplies actual finite point keys; no resolved
+formal-value equality or formal carrier enumeration participates. -/
+def validatePlannedPort (plan : StructuredResult.DataPlan)
+    (port : StructuredResult.DataPort) (seen : Array Json) (data : Json)
+    (externalDescriptor : Nat → Option Json)
+    (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String Unit) := do
+  match ← validatePort port.formalField port.expectedType data with
+  | .error message => return .error message
+  | .ok () => pure ()
+  let graph := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  unless graph.getArr?.isOk do return .ok ()
+  -- Ordinary scalar/list data ports are not callable graphs.
+  if port.domainBinder.isNone && port.codomainBinder.isNone then return .ok ()
+  let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
+  let some domainBinder := port.domainBinder
+    | return .error "the callable graph has no retained computational domain role"
+  let some domainDescriptor := resolve domainBinder
+    | return .error "the callable graph has no actual computational domain descriptor"
+  let domainKeys ← match ← endpointKeys domainDescriptor with
+    | .error message => return .error message
+    | .ok (some keys) => pure keys
+    | .ok none => return .error "a finite graph requires complete actual domain keys or an opaque callable"
+  let mut codomainKeys := none
+  if let some codomainBinder := port.codomainBinder then
+    let some codomainDescriptor := resolve codomainBinder
+      | return .error "the callable graph has no actual computational codomain descriptor"
+    match ← endpointKeys codomainDescriptor with
+    | .error message => return .error message
+    | .ok keys => codomainKeys := keys
+  return validateGraphEndpoints domainKeys codomainKeys graph
+
+/-- Read the primitive finite point-codec parameter from a registered public
+object declaration. Only explicit `Fin` and its public finite-category wrapper
+are recognized; no private definition or law record is unfolded. -/
+def finiteParameter (declaration : Name) : TermElabM (Option Nat) := do
+  let .defnInfo definition ← getConstInfo declaration | return none
+  lambdaTelescope definition.value fun parameters body => do
+    let body := body.consumeMData
+    let carrier := if body.isAppOf ``FintypeCat.of then body.getAppArgs[0]!
+      else if body.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory.mk then
+        let args := body.getAppArgs
+        args[args.size - 2]!
+      else body
+    let carrier := carrier.consumeMData
+    unless carrier.isAppOf ``Fin do return none
+    let bound := carrier.appArg!
+    let mut position := 0
+    for parameter in parameters do
+      let info ← parameter.fvarId!.getBinderInfo
+      if info.isExplicit && !(← isProp (← inferType parameter)) then
+        if parameter == bound then return some position
+        position := position + 1
+    return none
+
+/-- Match the released edge identity in an independently published refinement.
+Ordered actual declaration parameters are checked by `validateAction`. -/
+partial def matchesEdge (edge : EdgeRef) (data : Json) : Bool :=
+  match edge, envelope data with
+  | .functor id, .ok (tag, _) => tag == id.raw
+  | .classifierForget id, .ok ("classifierForget", #[name, _]) =>
+      name.getStr?.toOption == some id.raw
+  | .constructMap id inner, .ok ("constructorMap", #[name, actualInner]) =>
+      name.getStr?.toOption == some id.raw && matchesEdge inner actualInner
+  | _, _ => false
+
+/-- Actual finite keys from the public primitive representation, never from the
+formal apex. `none` declines enumeration for opaque/nonprimitive representations. -/
+partial def endpointKeys (data : Json) : TermElabM (Except String (Option (Array Json))) := do
+  let .ok (tag, args) := envelope data
+    | return .error "an endpoint requires its released complete object descriptor"
+  if tag == "opaqueData" then
+    let #[token] := args | return .error "opaqueData requires one token"
+    let .ok token := token.getStr? | return .error "an opaque token must be a string"
+    if token.isEmpty then return .error "an opaque token must be nonempty"
+    return .ok none
+  if tag == "valueData" then
+    let #[actual] := args | return .error "valueData requires one data field"
+    return ← endpointKeys actual
+  if tag == "objectPresentation" then
+    let #[_, actual] := args | return .error "objectPresentation requires its action and actual data"
+    return ← endpointKeys actual
+  if tag == "objectProduct" then
+    let #[left, right] := args | return .error "objectProduct requires two actual factors"
+    let leftKeys ← endpointKeys left
+    let rightKeys ← endpointKeys right
+    match leftKeys, rightKeys with
+    | .error message, _ | _, .error message => return .error message
+    | .ok (some left), .ok (some right) =>
+      return .ok (some (left.flatMap fun x => right.map fun y => Json.arr #[x, y]))
+    | _, _ => return .ok none
+  let state ← registryState
+  if tag == "functorAction" then
+    let #[action, source] := args | return .error "functorAction requires its action and source"
+    let .ok (sourceTag, _) := envelope source | return .error "the action source has no object descriptor"
+    let some entry := state.objects.find? (·.id.raw == sourceTag) | return .ok none
+    let some refinement := entry.refines | return .ok none
+    let #[edge] := refinement.route | return .ok none
+    unless matchesEdge edge action do return .ok none
+    let some base := state.objects.find? (·.id == refinement.base) | return .error "the refinement base is not registered"
+    let some sourceParameter ← finiteParameter entry.declaration | return .ok none
+    let some targetParameter ← finiteParameter base.declaration | return .ok none
+    unless sourceParameter == targetParameter do return .ok none
+    -- Both published endpoint codecs are Fin at this same actual parameter.
+    -- No action on points or comparison map is replaced by this key-set check.
+    return ← endpointKeys source
+  let some entry := state.objects.find? (·.id.raw == tag)
+    | return .error "the endpoint object descriptor is not registered"
+  let some position ← finiteParameter entry.declaration | return .ok none
+  let some bound := args[position]? | return .error "the finite representation omitted its size"
+  let .ok bound := bound.getNat? | return .error "the finite representation size must be a natural number"
+  return .ok (some ((Array.range bound).map toJson))
 
 end CasCatalogue.ComputationalData
