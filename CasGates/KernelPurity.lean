@@ -6,6 +6,24 @@ module
 
 import all CasCatalogue
 import all CasCatalogue.Acceptance
+import all CasCatalogue.BinderReaderProbes
+import all CasCatalogue.CodecConditionProbes
+import all CasCatalogue.ConstructionData
+import all CasCatalogue.ConstructionDataProbes
+import all CasCatalogue.ConstructionLegReaderProbes
+import all CasCatalogue.ElementData
+import all CasCatalogue.ElementDataProbes
+import all CasCatalogue.EquationData
+import all CasCatalogue.EquationDataProbes
+import all CasCatalogue.FunctorActionData
+import all CasCatalogue.FunctorActionDataProbes
+import all CasCatalogue.ImageFormProbes
+import all CasCatalogue.LiftedSubobjectData
+import all CasCatalogue.LiftedSubobjectDataProbes
+import all CasCatalogue.PresentationReaderProbes
+import all CasCatalogue.SelectedCarrierProbes
+import all CasCatalogue.ParameterStructureProbes
+import all CasCatalogue.StructuredReconstructionProbes
 import all CasCatalogue.AcceptanceSyntax
 import all CasCatalogue.Admission
 import all CasCatalogue.CellCall

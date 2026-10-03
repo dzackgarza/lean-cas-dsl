@@ -63,9 +63,20 @@ requested construction, these data must identify that construction at the indepe
 functor and input. A canonical functor-action descriptor is checked against the complete
 requested structured value, including its inclusion. A different presentation requires a
 checked apex comparison commuting with that inclusion into the same ambient object; a shared
-category, carrier or cardinality does not supply the comparison. Prescribed lifts apply only
+category, carrier or cardinality does not supply the comparison. Optional `presentation` map
+data uses `hom` from the independently fixed requested apex to the returned apex and `inv`
+in reverse. Both inverse equations and both inclusion squares are checked at the full fixed
+endpoints, including when the subobjects are definitionally equal. Missing comparison data
+is a realization gap if independent reconstruction fails; incorrect data or a different
+ambient object is malformed. Prescribed lifts apply only
 after this identification, preserving the defining map and selected form. Literal answers
 remain values to compare independently, so a well-typed wrong numeral is reported as wrong.
+
+Subsequent computations retain this full comparison in an `objectPresentation` envelope:
+the complete independently reconstructed requested functor action and complete returned
+subobject response. Its checked isomorphism is between the full structured objects, with
+identity on the fixed ambient object. It is retained separately from ambient presentation
+comparisons and propagated through the actual functor actions and defining-map projections.
 
 The complete wire grammar is maintained in `cas_leaf_contracts`' `CasContract/Port.lean`.
 It includes registered named morphisms, functor actions, structured arrows and subobjects,
@@ -73,6 +84,22 @@ finite function graphs, and canonical limit apex/leg descriptors. Selected eleme
 closed numeral/generator/arithmetic grammar at an exact independently selected object.
 Presentation applications retain their registered comparison, parameters and direction; their
 returned points never choose the endpoint by carrier equality.
+
+A returned construction's defining leg retains the complete returned cone or cocone, its
+registered diagram and actual typed index. Projection uses that returned leg and the checked
+universal presentation comparison to align its endpoints; it cannot substitute the canonical
+leg merely because apex cardinalities agree. A forward point view similarly retains the full
+selected source element, registered object action, target and original generalized-point
+domain. It applies only the declared carrier identification. Nonidentity point maps keep their
+actual morphism transport and composition; no carrier is used to invent a source structure.
+
+A created-cone envelope additionally retains the registered creation lift, complete source
+diagram, complete returned target cone and realized source apex. Its source presentation is
+checked against the actual lifted cone; a checked apex isomorphism extends the defining maps
+and their universal evidence together. A nullary operation point retains the operation's full
+declaration parameters and actual registered singleton-to-terminal comparison, plus its original
+generalized domain and complete selected target. Unsupported reconstruction is a computational
+gap; a wire tag cannot supply a terminal bridge, structure or proof.
 
 These encodings compose because every recursive argument is decoded at the declared dependent
 type before the enclosing constructor is applied. Proof fields are established independently;

@@ -1,16 +1,17 @@
-# Binding operators: the generic rule `lim` is missing (convergence process, step 4)
+# Binding operators: one registered reading rule
 
 Specimen: `lim_{t → 0} sin(t)/t = 1` and `lim_{t → ∞} 1/t = 0` (`tests/acceptance/calculus.cas`;
-lean-cas-dsl#46). The kernel refuses both: "`lim`: no registered domain of maps convergent at a
-point" (`CasCatalogue/Language.lean`, `casLimit`).
+lean-cas-dsl#46). The original reader refused both: "`lim`: no registered domain of maps
+convergent at a point" (`CasCatalogue/Language.lean`, `casLimit`). This specimen identifies the
+generic reading obligation; the required acceptance remains below.
 
 ## What the specimen exposes
 
-`lim` is not missing a case. The kernel has no generic rule for any binding operator: a notation
+The defect was the absence of a generic rule for a binding operator: a notation
 that binds a variable `t`, forms a map `t ↦ e`, and applies a registered operation to that map. The
-binding operators it does read are each a domain-specific kernel case:
+binding operators the original reader accepted each had a domain-specific kernel case:
 
-| Notation | Kernel code | Mathematics the kernel supplies itself |
+| Notation | Former kernel code | Mathematics the former kernel supplied itself |
 | --- | --- | --- |
 | `∫_{a}^{b} e dt` | `definite` | the morphism named `∫ₐᵇ`; `t` ranges over the object named `ℝ`; the map is admitted into the object named `C` |
 | `∑_{t ∈ A} e`, `∏_{t ∈ A} e` | `bigOperator` | the morphisms named `∑`, `∏`; `A` must lie in the object named `𝒫_fin`, and `t` ranges over its parameter |
@@ -61,6 +62,33 @@ The kernel's reading is one code path for every binder, and it names nothing:
 `∫`, `∑`, `∏` and the formal series become binder rows read by this path, and their kernel cases are
 deleted. That is the test that the rule is general: one path, four mathematically different
 operators, and a fifth (`lim`) that needs no kernel code of its own.
+
+## Compositional reading argument
+
+`binderReading` instantiates the accepted `operation` signature and applies the notation's
+arguments at its trailing explicit parameter types. It applies `domain` to that same complete
+parameter tuple. Thus the stage of the body is the row's actual `D params`, rather than a domain
+chosen from the notation token. The body is retained as a map with that exact source and its
+actual codomain. Any remaining structure parameter is read at its declared bundled type through
+the selected object and admitted structural routes; a transparent carrier alone does not choose
+one of several structures.
+
+Candidate reading is isolated: it restores metavariable assignments and emits no trace. Only
+declared inapplicability discards a candidate; semantic ambiguity and interpreter errors survive.
+Exactly one compatible row is selected before checking its admission evidence. Failure to prove
+that evidence therefore cannot select another interpretation of the notation.
+
+Admission constructs a complete application of the source object's accepted admission declaration,
+including its exact parameters and established hypotheses. The result is passed to `applyFamily`
+with the already selected, complete `operation` application. `applyFamily` checks the dependent
+types and the whole application, so this final step cannot replace the binder's domain, parameters,
+or operation with a fresh elaboration. The binder trace retains the ordered explicit parameters,
+domain, body map, and admitted map together.
+
+This is a composition of typed applications: declared parameter reading, declared domain
+application, body formation, declared admission, and the original operation application. A missing
+registered domain map or unestablished hypothesis remains a missing premise of that composition.
+It does not authorize admitting a variable or supplying mathematics from the notation token.
 
 ## Work, by owner
 

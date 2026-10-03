@@ -81,5 +81,5 @@ run_elab do
   let rejected ← try
     discard <| Semantic.reindex source modules incompatible (some trace)
     pure false
-  catch _ => pure true
+  catch error => pure ((CasCatalogue.Exception.stratum? error) == some .invalid)
   unless rejected do throwError "reindex accepted a base map with a different source fibre"

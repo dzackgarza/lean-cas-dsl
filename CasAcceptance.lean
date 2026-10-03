@@ -18,6 +18,7 @@ public import CasAcceptance.PropsProbes
 public import CasAcceptance.RegistrationProbes
 public import CasAcceptance.ReindexExecutionProbes
 public import CasAcceptance.SelectedStructureProbes
+public import CasAcceptance.StructuredComparisonProbes
 public import CasAcceptance.SemanticProjectionProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard

@@ -24,6 +24,31 @@ run_cmd liftTermElabM do
     Json.mkObj [("ctor", toJson name), ("args", Json.arr args)]
   let edge := wire kernel.id.raw #[toJson "integer-ring"]
   let action := wire "functorAction" #[edge, toJson "source-arrow"]
+  let some port := state.functors.find? (·.id.raw == "fun.rings.multiplicative_monoid")
+    | throwError "missing accepted categorical ring-to-monoid edge"
+  let categoricalEdge ← instantiateFresh port.declaration
+  unless (← withTransparency .all <| whnf (← inferType categoricalEdge)).isAppOf
+      ``CategoryTheory.Cat.Hom do
+    throwError "categorical-edge probe no longer exercises the Cat.Hom representation"
+  let portImage ← Semantic.objOf categoricalEdge R
+  let portEdge := wire port.id.raw #[]
+  let portAction := wire "functorAction" #[portEdge, toJson "selected-ring"]
+  let readPort := fun (json : Json) => do
+    unless json == portEdge do return .error "wrong exact categorical edge"
+    return .ok (categoricalEdge, port.source, port.target)
+  let readPortSource := fun (category : CategoryExpr) (expected : Expr) (json : Json) => do
+    unless category.syntacticEq port.source && json == toJson "selected-ring" do
+      return .error "wrong complete selected ring"
+    unless ← isDefEq (← inferType R) expected do return .error "wrong categorical source"
+    return .ok R
+  let some (.ok portResult) ← FunctorActionData.decode (← inferType portImage)
+      portAction readPort readPortSource
+    | throwError "registered Cat.Hom object action failed"
+  unless ← isDefEq portResult portImage do
+    throwError "Cat.Hom object action changed its exact selected source"
+  let some (.error _) ← FunctorActionData.decode (← inferType image)
+      portAction readPort readPortSource
+    | throwError "Cat.Hom object action accepted a different target category"
   let readFunctor := fun (json : Json) => do
     unless json == edge do return .error "unregistered exact descriptor"
     return .ok (F, kernel.source, kernel.target)
@@ -61,6 +86,40 @@ run_cmd liftTermElabM do
   let some (.error _) ← FunctorActionData.decode (← inferType identity)
       (wire "subobjectInclusion" #[action]) readFunctor readSource
     | throwError "subobject inclusion accepted the wrong exact endpoints"
+  let contextualAction := fun (json : Json) => do
+    unless json == action do return .error "different independently selected action receiver"
+    return .ok (image, kernel.target)
+  let rejectSource := fun (_ : CategoryExpr) (_ : Expr) (_ : Json) =>
+    pure (.error "context-free source decoding must not replace the selected child")
+  let some (.ok contextualApex) ← FunctorActionData.decode (← inferType apex)
+      (wire "subobjectApex" #[action]) readFunctor rejectSource (some contextualAction)
+    | throwError "functorAction projection bypassed its retained child context"
+  unless ← isDefEq contextualApex apex do
+    throwError "contextual action projection changed the selected receiver"
+  -- These opaque receiver fixtures are checked by a callback bound to the independently
+  -- constructed image above; the projection helper receives no JSON-derived context.
+  for receiverTag in #["objectPresentation", "liftedSubobject"] do
+    let receiver := wire receiverTag #[action]
+    let readReceiver := fun (json : Json) => do
+      unless json == receiver do return .error "different complete child receiver"
+      return .ok (image, kernel.target)
+    for (tag, value) in #[("subobjectApex", apex), ("subobjectInclusion", inclusion)] do
+      let descriptor := wire tag #[receiver]
+      let some (.ok result) ← FunctorActionData.decode (← inferType value)
+          descriptor readFunctor readSource (some readReceiver)
+        | throwError "checked contextual subobject projection failed"
+      unless ← isDefEq result value do
+        throwError "contextual projection changed the original child data"
+      let some (.error _) ← FunctorActionData.decode (← inferType value)
+          descriptor readFunctor readSource
+        | throwError "contextual receiver decoded without independent child provenance"
+    let some (.error _) ← FunctorActionData.decode (← inferType identity)
+        (wire "subobjectInclusion" #[receiver]) readFunctor readSource (some readReceiver)
+      | throwError "contextual inclusion accepted incompatible original endpoints"
+    let wrongReceiver := wire receiverTag #[bad]
+    let some (.error _) ← FunctorActionData.decode (← inferType apex)
+        (wire "subobjectApex" #[wrongReceiver]) readFunctor readSource (some readReceiver)
+      | throwError "projection accepted a different independently selected child"
   let some (.error _) ← FunctorActionData.decode (← inferType apex)
       (wire "subobjectApex" #[edge]) readFunctor readSource
     | throwError "subobject projection accepted incomplete action data"

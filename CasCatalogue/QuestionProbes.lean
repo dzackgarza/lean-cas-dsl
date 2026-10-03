@@ -81,11 +81,11 @@ run_cmd liftTermElabM do
       entry.name == "PowerSeries" && entry.category == sets.id
     | throwError "constructor probe has no registered family"
   let selected ← (object state "ℝ" #[] (some commutative)).run {}
-  let .object coefficient _ (some (selectedEntry, _)) := selected
+  let .object coefficient _ (some (selectedEntry, _)) _ _ := selected
     | throwError "constructor probe lost its registered coefficient origin"
   let trace ← Trace.new
   let series ← (object state constructor.name #[selected] (some sets)).run { trace := some trace }
-  let .object seriesHandle _ (some (_, #[stored])) := series
+  let .object seriesHandle _ (some (_, #[stored])) _ _ := series
     | throwError "typed constructor probe lost its parameters"
   unless stored.declarations == selected.declarations do
     throwError "typed constructor erased its selected parameter category"
@@ -94,12 +94,12 @@ run_cmd liftTermElabM do
   unless ← Lean.Meta.isDefEq exactTerm coefficient do
     throwError "an already typed selected parameter was replaced"
   let recovered ← (recognize state seriesHandle sets).run {}
-  let .object _ _ (some (_, #[.object _ parameterCategory (some (parameterEntry, _))])) := recovered
+  let .object _ _ (some (_, #[.object _ parameterCategory (some (parameterEntry, _)) _ _])) _ _ := recovered
     | throwError "structured constructor parameter lost its registered origin"
   unless parameterCategory.id == commutative.id && parameterEntry.id == selectedEntry.id do
     throwError "structured constructor recognition changed the coefficient category or origin"
 
--- An explicitly selected structure supplies its own routes; competing named sources stay ambiguous.
+-- Selected routes survive; identical complete incoming structures retain both presentations.
 run_cmd liftTermElabM do
   let state ← registryState
   let sets ← categoryNamed state "Sets"
@@ -107,27 +107,42 @@ run_cmd liftTermElabM do
   let trace ← Trace.new
   let plain ← (object state "ℂ" #[] (some sets)).run { trace := some trace }
   let selected ← (object state "ℂ" #[] (some rings)).run { trace := some trace }
-  let .object _ _ (some (selectedEntry, _)) := selected
+  let .object _ _ (some (selectedEntry, _)) _ _ := selected
     | throwError "structural parameter probe lost its selected origin"
   let some sum := state.morphisms.find? (·.name == "∑")
     | throwError "structural parameter probe has no registered family"
   let domain ← (object state "Fin" #[.nat 2] (some sets)).run {}
   discard <| (typedParamTerms sum.declaration #[domain, selected]).run { trace := some trace }
   let transported := (← trace.get).toArray.any fun (_, node) => match node with
-    | .parameterTransport source sourceCategory targetCategory route _ =>
-        source == selectedEntry.id && sourceCategory == rings.id &&
-          targetCategory != rings.id && !route.isEmpty
+    | .retainedRoute sourceCategory targetCategory route applications receiver =>
+        sourceCategory == rings.id && targetCategory != rings.id && !route.isEmpty &&
+          applications.size == route.size && receiver.getAppFn.constName? == some selectedEntry.declaration
     | _ => false
   unless transported do
     throwError "structural parameter route or exact source provenance was erased"
-  let competing ← try
-    discard <| (typedParamTerms sum.declaration #[domain, plain]).run {}
-    pure false
-  catch error => pure ((CasCatalogue.Exception.stratum? error) == some .semanticAmbiguity)
-  unless competing do
-    throwError "competing registered parameter origins were merged by carrier coincidence"
+  let plainTrace ← Trace.new
+  let terms ← (typedParamTerms sum.declaration #[domain, plain]).run { trace := some plainTrace }
+  let actual ← elabTermAndSynthesize terms[1]! none
+  let some (.parameterEquivalence expected representative sources) ← plainTrace.node? actual
+    | throwError "identical complete incoming structures lost their source presentations"
+  let #[first, second] := sources
+    | throwError "incoming structure equivalence did not retain both registered origins"
+  unless first.source != second.source do
+    throwError "incoming structure equivalence did not retain both registered origins"
+  unless ← Lean.Meta.isDefEq actual representative do
+    throwError "the retained equivalent parameter is not the actual application parameter"
+  for source in sources do
+    unless !source.route.isEmpty && !source.carrierRoute.isEmpty &&
+        !source.identifications.isEmpty do
+      throwError "incoming full-structure equality erased a declared refinement route"
+    unless ← Lean.Meta.isDefEq (← Lean.Meta.inferType source.image) expected do
+      throwError "a source presentation has the wrong complete structured type"
+    let equation ← Lean.Meta.mkEq source.image representative
+    unless ← Lean.Meta.isTypeCorrect source.identity <&&>
+        Lean.Meta.isDefEq (← Lean.Meta.inferType source.identity) equation do
+      throwError "a full structured source equality is not kernel typed"
   let .object plainHandle .. := plain | unreachable!
-  let anonymous := Value.object plainHandle sets none
+  let anonymous := Value.object plainHandle sets none none none
   let rejected ← try
     discard <| (typedParamTerms sum.declaration #[domain, anonymous]).run {}
     pure false
@@ -152,3 +167,27 @@ run_cmd liftTermElabM do
     pure false
   catch error => pure (CasCatalogue.Exception.stratum? error).isNone
   unless internal do throwError "an interpreter exception became inapplicability"
+
+-- A partially applied object family is a function, never an admitted object value.
+run_cmd liftTermElabM do
+  let state ← registryState
+  let rejected ← try
+    discard <| (object state "Fin" #[] none).run {}
+    pure false
+  catch error => pure ((CasCatalogue.Exception.stratum? error) == some .invalid)
+  unless rejected do
+    throwError "an unresolved object-family parameter was admitted as object data"
+
+/- A failed declaration remains in scope; later occurrences cannot become free variables. -/
+run_cmd liftTermElabM do
+  let harness ← Harness.empty
+  let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt "let F := Fin(3,4)"
+    | throwError "failed-binding probe did not parse"
+  let (_, scope, bindingQuestion) ← runAsking harness {} binding
+  unless scope.contains `F && bindingQuestion.isNone do
+    throwError "a failed binding was dropped from the declared scope"
+  let .ok assertion := Parser.runParserCategory (← getEnv) `cas_stmt "assert |F| = 3"
+    | throwError "failed-binding use did not parse"
+  let (_, _, question) ← runAsking harness scope assertion
+  unless question.isNone do
+    throwError "a failed fixed binding became an interpreted free-variable question"
