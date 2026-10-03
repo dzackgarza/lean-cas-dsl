@@ -43,6 +43,13 @@ def envelope (json : Json) : Except String (String × Array Json) := do
   let args ← (json.getObjVal? "args").bind (·.getArr?)
   return (tag, args)
 
+/-- Find a complete retained public declaration application without unfolding it. -/
+def retainedApplication (declaration : Name) (formal : Expr) : TermElabM (Option Expr) := do
+  let arity ← forallTelescopeReducing (← getConstInfo declaration).type
+    fun fields _ => pure fields.size
+  return formal.find? fun term =>
+    term.getAppFn.constName? == some declaration && term.getAppNumArgs == arity
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -74,6 +81,46 @@ partial def declarationPorts (declaration : Name) (formal expected : Expr)
     | .error message => return .error message
     | .ok () => pure ()
   return .ok ()
+
+/-- Released named, classifier and constructor actions retain their actual
+parameters and selected inner edge from the independent formal expression. -/
+partial def validateAction (formal : Expr) (json : Json) : TermElabM (Except String Unit) := do
+  let state ← registryState
+  let .ok (tag, args) := envelope json
+    | return .error "the selected action has no complete declaration descriptor"
+  if let some entry := state.functors.find? (·.id.raw == tag) then
+    let some selected ← retainedApplication entry.declaration formal
+      | return .error "the action descriptor differs from the retained selected edge"
+    return ← declarationPorts entry.declaration selected (← inferType selected) args
+  if tag == "classifierForget" then
+    let #[id, parameters] := args
+      | return .error "classifierForget requires its registered classifier and parameters"
+    let .ok id := id.getStr? | return .error "the classifier id is not a string"
+    let .ok parameters := parameters.getArr?
+      | return .error "the classifier parameters are not an ordered array"
+    let some entry := state.classifiers.find? (·.id.raw == id)
+      | return .error "the classifier is not registered"
+    let some selected ← retainedApplication entry.declaration formal
+      | return .error "the action descriptor differs from the retained classifier"
+    return ← declarationPorts entry.declaration selected (← inferType selected) parameters
+  if tag == "constructorMap" then
+    let #[id, inner] := args
+      | return .error "constructorMap requires its registered constructor and inner edge"
+    let .ok id := id.getStr? | return .error "the constructor id is not a string"
+    let some entry := state.constructors.find? (·.id.raw == id)
+      | return .error "the action constructor is not registered"
+    let some action := entry.functorialAction
+      | return .error "the registered constructor has no published functorial action"
+    let some selected ← retainedApplication action formal
+      | return .error "the action descriptor differs from the retained constructor action"
+    let infos ← forallTelescopeReducing (← getConstInfo action).type fun fields _ =>
+      fields.mapM (·.fvarId!.getBinderInfo)
+    let explicit := (selected.getAppArgs.zip infos).filterMap fun (field, info) =>
+      if info.isExplicit then some field else none
+    let some source := explicit.back?
+      | return .error "the published constructor action has no selected inner edge"
+    return ← validateAction source inner
+  return .error "the selected action descriptor is not a released registered edge"
 
 /-- Validate a computational port without producing a semantic value or evidence.
 Opaque owners are checked by the live-session consumer, outside this framing check. -/
@@ -108,16 +155,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let fields := formal.getAppArgs
       let functor := fields[fields.size - 2]!
       let source := fields.back!
-      let .ok (edgeTag, parameters) := envelope edge
-        | return .error "the selected action has no complete declaration descriptor"
-      let some entry := state.functors.find? (·.id.raw == edgeTag)
-        | return .error "the selected action requires its released registered edge schema"
-      let arity ← forallTelescopeReducing (← getConstInfo entry.declaration).type
-        fun fields _ => pure fields.size
-      let some selected := functor.find? fun term =>
-          term.getAppFn.constName? == some entry.declaration && term.getAppNumArgs == arity
-        | return .error "the action descriptor differs from the independently retained selected edge"
-      match ← declarationPorts entry.declaration selected (← inferType selected) parameters with
+      match ← validateAction functor edge with
       | .error message => return .error message
       | .ok () => return ← validatePort source (← inferType source) receiver
     if let some entry := state.objects.find? (·.id.raw == tag) then
