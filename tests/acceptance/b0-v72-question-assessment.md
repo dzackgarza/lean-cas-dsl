@@ -8,7 +8,16 @@ candidate answers were inspected. It uses the mathematical source
 
 Normal input: `/workspace/.onboarding/b0-question-assessed-v72-normal.json`.
 SHA-256: `a46bd0f0aaea04343f72e94345a1c5f17b586cf4dc149927a67dc35de61c4bef`.
-The forced-execution companion has not yet been supplied for comparison.
+Forced-execution input:
+`/workspace/.onboarding/b0-question-assessed-v72-frozen-port-execution.json`.
+Its sanitized SHA-256 is likewise
+`a46bd0f0aaea04343f72e94345a1c5f17b586cf4dc149927a67dc35de61c4bef`.
+The complete ordered sequence of all 192 records, including every identity,
+file, question and proposition, is exactly identical between both inputs.
+This includes all 174 assertion records and all 18 uninterpreted statement
+records. All 153 original identities occur exactly once in each input.
+The mathematical findings below therefore apply to both captures, including
+their absent questions; no computational field was consulted or compared.
 
 ## Findings
 
