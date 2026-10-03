@@ -126,64 +126,170 @@ def isDataPort (field : Expr) (info : BinderInfo) : TermElabM Bool := do
   if info.isInstImplicit || (!info.isExplicit && type.hasMVar) then return false
   return !(← isProp type)
 
-/-- Prepare computational port types solely from the independent formal construction.
-This can run before dispatch; failure to expose a formal schema is not malformed backend data. -/
-def dataPorts (row : LimitEntry) (diagram formalPresentation : Expr) :
-    TermElabM (Except String (Array Expr)) := do
-  let some constructor := standardCone row.shape row.colimit
+/-- Constructor binder provenance survives even when independent formal values coincide.
+`port` addresses actual returned fields; other binders belong to the retained input context. -/
+inductive InputRole where
+  | argument (position : Nat)
+  | source (position : Nat)
+  | target (position : Nat)
+  deriving BEq, Repr
+
+structure DataBinder where
+  index : Nat
+  formalValue : Option Expr
+  port : Option Nat
+  inputRoles : Array InputRole := #[]
+
+/-- A dependent computational field, identified by its public constructor slot rather
+than by equality of resolved formal objects. Dependencies use constructor binder indices. -/
+structure DataPort where
+  index : Nat
+  constructorBinder : Nat
+  formalField : Expr
+  expectedType : Expr
+  dependencies : Array Nat
+  domainBinder : Option Nat
+  codomainBinder : Option Nat
+
+/-- One pre-dispatch formal schema for all returned fields and their dependency roles. -/
+structure DataPlan where
+  colimit : Bool
+  constructor : Name
+  binders : Array DataBinder
+  ports : Array DataPort
+
+namespace DataPlan
+
+/-- Resolve an earlier returned field by its constructor role, never its formal value. -/
+def actualData? (plan : DataPlan) (binder : Nat) (seen : Array Json) : Option Json := do
+  let binding ← plan.binders[binder]?
+  let index ← binding.port
+  seen[index]?
+
+end DataPlan
+
+/-- Prepare the complete computational dependency plan solely from the independent
+formal construction. No backend field binds a constructor metavariable. -/
+def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
+    TermElabM (Except String DataPlan) := do
+  let some constructorName := standardCone row.shape row.colimit
     | return .error "the registered shape has no complete data constructor"
-  let constructor ← mkConstWithFreshMVarLevels constructor
+  let constructor ← mkConstWithFreshMVarLevels constructorName
   let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
+  -- Save dependency identities before formal unification resolves distinct roles
+  -- to potentially equal expressions (for example both apex and diagram Fin 2).
+  let rawTypes : Array Expr ← fields.mapM fun field => inferType field
+  -- Capture the public diagram telescope before formal unification aliases roles.
+  let rawDiagram := conclusion.getAppArgs.back!
+  let mut inputRoles : Array (Array InputRole) := Array.replicate fields.size #[]
+  let diagramArgs := rawDiagram.getAppArgs
+  let (_, diagramInfos, _) ← forallMetaTelescopeReducing
+    (← inferType rawDiagram.getAppFn)
+  let mut position := 0
+  for (argument, info) in diagramArgs.zip diagramInfos do
+    if info.isExplicit then
+      if let some binder := fields.findIdx? (· == argument) then
+        inputRoles := inputRoles.modify binder (·.push (.argument position))
+      let rawType ← inferType argument
+      if rawType.isAppOf ``Quiver.Hom && rawType.getAppArgs.size >= 2 then
+        let ends := rawType.getAppArgs
+        if let some binder := fields.findIdx? (· == ends[ends.size - 2]!) then
+          inputRoles := inputRoles.modify binder (·.push (.source position))
+        if let some binder := fields.findIdx? (· == ends.back!) then
+          inputRoles := inputRoles.modify binder (·.push (.target position))
+      position := position + 1
   let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
     else ``CategoryTheory.Limits.Cone) #[diagram]
   unless ← isDefEq conclusion expected do
     return .error "the computational fields have a different exact diagram type"
-  -- Discover the published constructor ports before binding the schema. Only the
-  -- independent formal cone supplies those bindings, including dependent endpoints.
-  let mut ports : Array Expr := #[]
-  for (field, info) in fields.zip infos do
-    if ← isDataPort field info then ports := ports.push field
+  let mut portBinders : Array Nat := #[]
+  for index in [:fields.size] do
+    if ← isDataPort fields[index]! infos[index]! then
+      portBinders := portBinders.push index
   let formalCone ← mkAppM (if row.colimit then
     ``CategoryTheory.Limits.ColimitCocone.cocone else
     ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation]
   unless ← withTransparency .all <| isDefEq (mkAppN constructor fields) formalCone do
     return .error "the formal construction does not expose the declared data-port schema"
-  let mut resolved : Array Expr := #[]
-  for field in ports do
-    let formalField ← instantiateMVars field
+  let mut binders : Array DataBinder := #[]
+  for index in [:fields.size] do
+    let value ← instantiateMVars fields[index]!
+    binders := binders.push {
+      index := index
+      formalValue := if value.hasMVar || value.hasLevelMVar then none else some value
+      port := portBinders.findIdx? (· == index)
+      inputRoles := inputRoles[index]! }
+  let mut ports : Array DataPort := #[]
+  for index in [:portBinders.size] do
+    let binder := portBinders[index]!
+    let formalField ← instantiateMVars fields[binder]!
     let type ← instantiateMVars (← inferType formalField)
     if formalField.hasMVar || formalField.hasLevelMVar ||
         type.hasMVar || type.hasLevelMVar then
       return .error "the formal computational port has unresolved dependent parameters"
-    resolved := resolved.push formalField
-  return .ok resolved
+    let rawType := rawTypes[binder]!.consumeMData
+    let mut dependencies : Array Nat := #[]
+    for dependency in [:fields.size] do
+      if (rawType.find? (· == fields[dependency]!)).isSome then
+        dependencies := dependencies.push dependency
+    let ends : Option (Expr × Expr) :=
+      if rawType.isAppOf ``Quiver.Hom && rawType.getAppArgs.size >= 2 then
+        let args := rawType.getAppArgs
+        some (args[args.size - 2]!, args.back!)
+      else match rawType with
+        | .forallE _ domain codomain _ =>
+            if codomain.hasLooseBVars then none else some (domain, codomain)
+        | _ => none
+    let domainBinder := ends.bind fun (domain, _) => fields.findIdx? (· == domain)
+    let codomainBinder := ends.bind fun (_, codomain) => fields.findIdx? (· == codomain)
+    ports := ports.push {
+      index := index
+      constructorBinder := binder
+      formalField := formalField
+      expectedType := type
+      dependencies := dependencies
+      domainBinder := domainBinder
+      codomainBinder := codomainBinder }
+  return .ok { colimit := row.colimit, constructor := constructorName, binders, ports }
 
-/-- Validate complete computational framing against independent formal port types.
-No backend field supplies a Lean term, construction law, or schema binding. -/
-def validateData (row : LimitEntry) (diagram formalPresentation : Expr) (answer : Json)
-    (validatePort : Expr → Expr → Json → TermElabM (Except String Unit)) :
+/-- Prepare port values solely from the independent construction. Schema failure is
+an interpretation/protocol gap, not malformed backend data. -/
+def dataPorts (row : LimitEntry) (diagram formalPresentation : Expr) :
+    TermElabM (Except String (Array Expr)) := do
+  return (← dataPlan row diagram formalPresentation).map fun plan =>
+    plan.ports.map (·.formalField)
+
+/-- Validate a complete returned packet using a pre-dispatch plan. The callback receives
+only earlier actual fields; their identity is the constructor slot, not formal equality. -/
+def validatePlannedData (plan : DataPlan) (answer : Json)
+    (validatePort : DataPort → Array Json → Json → TermElabM (Except String Unit)) :
     TermElabM (Except String Unit) := do
-  let ports ← match ← dataPorts row diagram formalPresentation with
-    | .error message => return .error message
-    | .ok ports => pure ports
-  let kind := if row.colimit then "cocone" else "cone"
+  let kind := if plan.colimit then "cocone" else "cone"
   let .ok received := answer.getObjValAs? String "ctor"
     | return .error s!"expected a {kind} computational envelope"
   unless received == kind do return .error s!"expected {kind}, received {received}"
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
     | return .error "the computational construction has no args array"
-  let mut remaining := args.toList
-  for formalField in ports do
-    let type ← inferType formalField
-    let data :: rest := remaining
-      | return .error "the computational construction omitted a required data field"
-    match ← validatePort formalField type data with
+  unless args.size == plan.ports.size do
+    return .error "the computational construction has a different required field count"
+  let mut seen : Array Json := #[]
+  for port in plan.ports do
+    let data := args[port.index]!
+    match ← validatePort port seen data with
       | .error message => return .error message
       | .ok () => pure ()
-    remaining := rest
-  unless remaining.isEmpty do
-    return .error "the computational construction supplied extra data fields"
+    seen := seen.push data
   return .ok ()
+
+/-- Validate framing without producing a backend-derived Lean term or construction law. -/
+def validateData (row : LimitEntry) (diagram formalPresentation : Expr) (answer : Json)
+    (validatePort : Expr → Expr → Json → TermElabM (Except String Unit)) :
+    TermElabM (Except String Unit) := do
+  let plan ← match ← dataPlan row diagram formalPresentation with
+    | .error message => return .error message
+    | .ok plan => pure plan
+  validatePlannedData plan answer fun port _ data =>
+    validatePort port.formalField port.expectedType data
 
 /-- Interpret a defining-map projection using only the authoritative constructor schema.
 No backend field is supplied to this procedure, and its temporary schema expression is never
