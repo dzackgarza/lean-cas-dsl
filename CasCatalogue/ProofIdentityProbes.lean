@@ -8,8 +8,8 @@ open CasCatalogue CasCatalogue.Realize
 
 /- Typed serialization mechanics only; no acceptance assertion is admitted here. -/
 run_cmd liftTermElabM do
-  let read (syntax : Syntax) : TermElabM Expr := do
-    let term ← elabTermAndSynthesize syntax none
+  let read (stx : Syntax) : TermElabM Expr := do
+    let term ← elabTermAndSynthesize stx none
     instantiateMVars term
   let first ← read (← `(Subtype.mk (p := fun n : Nat => n = n) 3 (Eq.refl 3)))
   let second ← read (← `(Subtype.mk (p := fun n : Nat => n = n) 3 (Eq.symm (Eq.refl 3))))

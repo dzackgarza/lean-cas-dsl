@@ -44,19 +44,19 @@ partial def encode (intern : Json → TermElabM Nat) (term : Expr)
       return ← intern <| Json.arr #[toJson "app", toJson (← encode intern fn bound), toJson (← encode intern arg bound)]
   | .lam _ type body info =>
       let domain ← encode intern type bound
-      withLocalDecl .anonymous info type fun local => do
-        let body ← encode intern (body.instantiate1 local) (bound.push local.fvarId!)
+      withLocalDecl .anonymous info type fun binder => do
+        let body ← encode intern (body.instantiate1 binder) (bound.push binder.fvarId!)
         return ← intern <| Json.arr #[toJson "lam", toJson domain, toJson body, toJson (reprStr info)]
   | .forallE _ type body info =>
       let domain ← encode intern type bound
-      withLocalDecl .anonymous info type fun local => do
-        let body ← encode intern (body.instantiate1 local) (bound.push local.fvarId!)
+      withLocalDecl .anonymous info type fun binder => do
+        let body ← encode intern (body.instantiate1 binder) (bound.push binder.fvarId!)
         return ← intern <| Json.arr #[toJson "forall", toJson domain, toJson body, toJson (reprStr info)]
   | .letE _ type value body nondep =>
       let domain ← encode intern type bound
       let valueNode ← encode intern value bound
-      withLetDecl .anonymous type value fun local => do
-        let body ← encode intern (body.instantiate1 local) (bound.push local.fvarId!)
+      withLetDecl .anonymous type value fun binder => do
+        let body ← encode intern (body.instantiate1 binder) (bound.push binder.fvarId!)
         return ← intern <| Json.arr #[toJson "let", toJson domain, toJson valueNode, toJson body, toJson nondep]
   | .lit literal => return ← intern <| Json.arr #[toJson "literal", toJson (reprStr literal)]
   | .proj name index value =>
