@@ -207,3 +207,47 @@ do not remove it or count a carrier cardinality as its replacement.
 The new sources await their actual typecheck/reader/execution assessment. No
 result or protected admission is claimed here, and original assertions and
 permanent ledgers are unchanged.
+
+## Exact universal-factorization acceptance boundary
+
+The five proposed `.cas` observations (cardinality, inclusion zero, restricted
+pairing, pairing zero and defining condition) do not themselves state universal
+factorization. Their generalized-element equations range over the actual
+carrier or its product. They do not range over arbitrary selected modules and
+module maps. This distinction is mathematical, independent of any implementation
+or reported computation.
+
+For the same fixed selected L, f, formed domain D and defining inclusion i, the
+remaining proposition is exactly:
+
+```text
+For every T : ModuleCat Z and h : T -> U(L),
+  if U(f) composed with h is the zero module map,
+  there exists a unique k : T -> U(D)
+  such that U(i) composed with k equals h.
+```
+
+`b0_formed_kernel_question.lean` already states this proposition with full
+selected objects and maps. The condition is in modules, where zero maps and
+kernels are defined; it is not a demand for a zero morphism or categorical
+kernel in Bil(Z,Z). The original source requirement also retains the comparison
+between the module kernel and the formed restriction, so a factorization through
+an unrelated singleton carrier would not state this proposition.
+
+The approved language describes application of registered families, structural
+views, identities and composition, generalized carrier elements, registered
+binders and the actual defining construction legs. It does not presently
+document a way to quantify over arbitrary module objects and maps, assert unique
+existence of the corresponding factorization, or apply a public mathematical
+universality observation to this complete chosen construction. Thus no faithful
+additional `.cas` factorization assertion is authored by assuming such syntax.
+
+The precise remaining acceptance interface must express or consume this
+existing full mathematical proposition for U(D), U(i), U(L) and U(f), preserving
+the actual module category, zero-map condition and uniqueness. Any public
+mathematical observation used for it must be the already formal universal
+construction with its defining inclusion and lift comparison. A count, a
+single example T/h, a carrier-equivalent zero object, or a form-preserving-map
+factorization in the wrong category does not replace the specified universal
+module proposition. This identifies a mathematical language/exposure dependency;
+it does not report a computational outcome or protected admission.
