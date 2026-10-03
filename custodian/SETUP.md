@@ -1,99 +1,83 @@
-# Setting up the custodian acceptance loop
+# Deploying the protected custodian loop
 
-This file gives the commands that put in place the loop of `custodian/CONTAINMENT.md` for
-`dzackgarza/lean-cas-dsl`. The owner, or an agent on the owner's machine, runs them with the
-owner's GitHub credentials. The orchestrator runs on cloud machines and must never run them.
+Construction `main` remains an ordinary integration branch. The following configuration
+is reviewable source and must be independently reviewed before deployment. Deployment
+is an external authority operation, distinct from the already authorized construction.
+The operator must supply the real independent assignment and reviewer public identity;
+examples are not credentials or accepted releases. Never print or commit private keys.
 
-Three keys and one token take part:
+1. Independently assess the controller and judging source, then bootstrap its reviewed
+   immutable revision as `accepted/controller`. Bootstrap separately reviewed mathematics,
+   contract, acceptance and public metadata releases as protected accepted references in
+   their respective repositories. Do not mark a construction candidate accepted merely
+   because an engineering check passes. `deployment.example.json` identifies retained
+   construction inputs; replace its placeholders with independently admitted identities.
+2. Commit `custodian/deployment.json` on the controller release with fixed repository URLs,
+   immutable input revisions, independently supplied assignment, public reviewer key and
+   fingerprint, isolated author checkout, and the existing signed review history branch.
+   External public metadata additionally needs the immutable file, full digest and exact
+   mathematics/contract provenance. Provision that file in the protected deployment; an
+   unsigned construction export is not an accepted public release.
+3. Apply the reviewed `accepted-ruleset.json` in each applicable repository. Its `accepted/**`
+   scope requires independent PR review and the trusted `Custodian review` check, with no
+   bypass actors, deletion or force pushes. Provision independent CODEOWNERS before using
+   its code-owner requirement. Ensure the named GitHub Actions check is actually emitted
+   on the protected publication PR. Do not apply accepted-reference rules to construction
+   main or treat its existing deletion/non-fast-forward protection as admission.
+4. Configure `custodian-review` with `reviewer-environment.json`. Its custom deployment
+   policy must permit only `accepted/controller`: remove the existing `main` policy and
+   add `reviewer-branch-policy.json`. Keep `CUSTODIAN_REVIEW_KEY` and
+   `CLAUDE_CODE_OAUTH_TOKEN` only in that environment. Verify the installed public signing
+   fingerprint against independently supplied authority. Preserve owner/root/escalation
+   keys under the existing seal protocol; author launchers receive none of these keys.
+5. Dispatch `custodian-authority.yml` at `accepted/controller` for a full candidate commit.
+   The trusted workflow materializes Git objects without checking out candidate programs,
+   reviews one complete request, signs its actual judgment, and records it in the existing
+   discussion branch. Download the `custodian-independent-assessment` artifact and verify the signature.
+   A missing credential, invocation failure or blocking finding cannot advance inputs.
+6. Run `publish_assessment.py --configuration ... --request ... --decision ... --signature ...
+   --deployment-repository ...` to inspect the exact publication plan. After applicable
+   authorization, add `--publish` to open its conventional PR against `accepted/controller`.
+   Independent protected review and merge admit the configuration. Never direct-push an
+   accepted configuration or treat a subagent's technical finding as a signing credential.
+7. Launch a fresh author with `launch_author.py --configuration ...`. Confirm the tool list
+   is only its assigned MCP operations and validation, then exercise source write/read and
+   immutable submission. Run source checks and the existing 70 fixtures before deployment;
+   run genuine independently assessed acceptance with the fixed denominator separately.
 
-| Item | What it is | Where it lives |
-| --- | --- | --- |
-| root and escalation key | the owner's SSH key (`~/.ssh/id_ed25519`) | the owner's machine; public half in `custodian/root.pub` |
-| review key | an SSH key made only for the reviewer | the secret `CUSTODIAN_REVIEW_KEY` of the `custodian-review` environment; public half in the seal |
-| reviewer token | `claude setup-token` output (the owner's subscription) | the secret `CLAUDE_CODE_OAUTH_TOKEN` of the same environment |
+Read-only observations on 2026-10-02: DSL main ruleset 24252144 has deletion and
+non-fast-forward protection, empty bypass and no mandatory review/checks; upstream main
+has no applied rules; accepted refs are absent. Review environment branch policy 61535459
+currently permits main. Local GH_TOKEN is present, but local review SSH/OAuth credentials
+are absent. Remote environment secret-name listing returned HTTP 403, so remote secret
+absence is not inferred. No protection, secret, reference or publication write was made
+as part of these observations.
 
-Never print, paste, commit or log a private key or the token.
+The protected GitHub API payloads are `accepted-ruleset.json`,
+`reviewer-environment.json` and `reviewer-branch-policy.json`. Creating accepted refs,
+applying those payloads, replacing policy 61535459, provisioning the actual signing and
+inference identities and merging independently assessed releases remain deployment
+operations. These facts do not prevent completing and reviewing the local controller source.
 
-## 1. The review environment, restricted to `main`
+The reviewed protection payloads have these exact API destinations (operator substitutes
+only the independently approved repository when applying the accepted-reference rule):
 
-```
-jq -n '{deployment_branch_policy: {protected_branches: false, custom_branch_policies: true}}' > env.json
-gh api -X PUT repos/dzackgarza/lean-cas-dsl/environments/custodian-review --input env.json
-gh api -X POST repos/dzackgarza/lean-cas-dsl/environments/custodian-review/deployment-branch-policies \
-    -f name=main -f type=branch
-```
-
-## 2. The review key and the reviewer token
-
-Make the review key in a private scratch directory, store the private half as the secret, and keep
-only the public half:
-
-```
-ssh-keygen -q -t ed25519 -N '' -C custodian-review -f "$SCRATCH/review_key"
-gh secret set CUSTODIAN_REVIEW_KEY --env custodian-review --repo dzackgarza/lean-cas-dsl < "$SCRATCH/review_key"
-trash "$SCRATCH/review_key"
-```
-
-The owner makes the token and types it into the hidden prompt:
-
-```
-claude setup-token
-gh secret set CLAUDE_CODE_OAUTH_TOKEN --env custodian-review --repo dzackgarza/lean-cas-dsl
-```
-
-## 3. The root seal
-
-`custodian/root.pub` holds the owner's public key, and its fingerprint is the `root` of
-`custodian/justfile` and the `--trusted-fpr` of both custodian workflows. Seal the committed state,
-sign the seal with the owner's key, and commit both files:
-
-```
-python3 scripts/ci_chain.py
-python3 custodian/verify.py --make-seal \
-    --reviewer-key "$SCRATCH/review_key.pub" --escalation-key custodian/root.pub --note "<note>"
-ssh-keygen -Y sign -f ~/.ssh/id_ed25519 -n lean-cas-custodian custodian/seal.json
-just -f custodian/justfile verify
-```
-
-## 4. Rulesets
-
-**During B0 construction** (`custodian/phase.json` is `construction`), `main` is the integration
-source branch, not an accepted baseline release: no force push or deletion, an empty bypass list,
-and no pull-request requirement and no required checks, so ordinary fast-forward integration
-proceeds. The checks still run on every push and pull request as engineering validation. To apply
-it, remove the `pull_request` and `required_status_checks` rules from the `main` ruleset and keep
-`non_fast_forward` and `deletion`:
-
-```
-id=$(gh api repos/dzackgarza/lean-cas-dsl/rulesets --jq '.[] | select(.target=="branch") | .id' | head -1)
-gh api repos/dzackgarza/lean-cas-dsl/rulesets/$id \
-  | jq '{name, target, enforcement, conditions, bypass_actors,
-         rules: [.rules[] | select(.type=="non_fast_forward" or .type=="deletion")]}' > construction.json
-gh api -X PUT repos/dzackgarza/lean-cas-dsl/rulesets/$id --input construction.json
-gh api repos/dzackgarza/lean-cas-dsl/rules/branches/main --jq '.[].type'   # deletion, non_fast_forward
+```sh
+gh api --method POST repos/dzackgarza/lean-cas-dsl/rulesets --input custodian/accepted-ruleset.json
+gh api --method PUT repos/dzackgarza/lean-cas-dsl/environments/custodian-review --input custodian/reviewer-environment.json
+gh api --method DELETE repos/dzackgarza/lean-cas-dsl/environments/custodian-review/deployment-branch-policies/61535459
+gh api --method POST repos/dzackgarza/lean-cas-dsl/environments/custodian-review/deployment-branch-policies --input custodian/reviewer-branch-policy.json
 ```
 
-**After B0 acceptance** (steady phase): pull requests only; required checks `Custodian review`,
-`seal` and every `Gates` job that is green on `main`, each with `integration_id` 15368 (GitHub
-Actions); pull requests up to date with `main`; no force push or deletion; an empty bypass list.
+These are authority writes, not steps performed by source tests. Before applying them,
+inspect the current API response again and confirm the independently reviewed controller
+revision, CODEOWNERS and required check are provisioned. Bootstrap accepted refs only to
+those independently reviewed full revision IDs; no source author may choose its own
+accepted status. The actual secret inputs must be provisioned without values appearing
+in command output or review artifacts. Dispatch uses the protected controller revision:
 
+```sh
+gh workflow run custodian-authority.yml --ref accepted/controller -f candidate=<independently-authored-full-commit>
 ```
-gh api -X POST repos/dzackgarza/lean-cas-dsl/rulesets --input main-ruleset.json
-gh api -X POST repos/dzackgarza/lean-cas-dsl/rulesets --input rejections-ruleset.json
-gh api repos/dzackgarza/lean-cas-dsl/rules/branches/main --jq '.[].type'
-```
 
-`custodian/rejections`: no force push or deletion, an empty bypass list.
-
-## 5. End-to-end checks
-
-Each reviewed pull request makes one reviewer call on the owner's subscription. Open each pull
-request against `main`, read the `Custodian review` comment, then close it and delete its branch.
-
-| Pull request | Expected comment |
-| --- | --- |
-| add `theorem custodianTestFalse : False := sorry` to `CasCatalogue/Semantic.lean` | `FAIL (hard)`, naming `banned construct` |
-| add a comment line to `CasCatalogue/Semantic.lean` | `APPROVED` or `REJECTED`; a rejection adds a commit to `custodian/rejections` |
-
-For an `APPROVED` result, download the verdict (`gh run download <run-id> -n custodian-verdict`)
-and check it offline with `custodian/verify.py`. Never merge a test.
+The uploaded artifact is named `custodian-independent-assessment`.

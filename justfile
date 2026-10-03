@@ -43,13 +43,13 @@ harness *manifest="":
 # each fail the comparison. The harness exits nonzero whenever an assertion fails, so its exit
 # does not decide; its report does, and a run that did not complete writes none (the stale
 # report is removed first).
-acceptance base:
+acceptance base meanings="CasAcceptance/Permanent/questions.json":
     @lake build cas-harness
     @mkdir -p .tmp
     @rm -f .tmp/harness.json
     -@lake exe cas-harness --report .tmp/harness.json
     @python3 scripts/check_acceptance_regression.py {{ base }} .tmp/harness.json
-    @python3 scripts/check_question_permanence.py .tmp/harness.json
+    @python3 scripts/check_question_permanence.py --base {{ meanings }} .tmp/harness.json
 
 # One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
 # (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.

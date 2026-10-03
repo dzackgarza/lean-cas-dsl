@@ -172,8 +172,9 @@ It never mentions a leaf, a handle, a backend or a representation, and its truth
 established from an implementation's definitions. The acceptance suite is the whole body of
 correctness evidence: an installed computation's answer is compared against it.
 
-After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`; the assertion is
-then permanent. An assertion that no installed computation answers yet is recorded as a gap
+The independent acceptance author submits the assertion and proposed admission through the
+existing acceptance review channel. An accepted admission makes the assertion permanent.
+`python3 scripts/check_acceptance_permanent.py` checks the retained ledger; it never updates it. An assertion that no installed computation answers yet is recorded as a gap
 (`#acceptance_gaps`), not a failure.
 
 - State the proposition in the mathematical language, through the public surfaces.

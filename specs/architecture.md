@@ -1,10 +1,620 @@
+# Fundamental model and obligation ownership
+
+## 1. The product is a growing mathematical language, not a verified implementation of every computation
+
+The purpose of the stack is to make mathematically justified interfaces and compositions available automatically as mathematics is added.
+
+`lean-categories` defines the mathematical objects, operations, relationships, and laws. The kernel interprets that API. Leaves implement declared computational obligations. Acceptance compares computational observations with independently established mathematics.
+
+The intended improvement over the specimen repositories is **the growth mechanism**. Adding a construction should not require teaching every affected implementation how to inherit its consequences. Adding an operation should not require editing every old object on which it applies. This was explicit in the original discussion of new group operations reaching existing lattice stabilizers. [INTENT.md](../INTENT.md)
+
+The project is not:
+
+- A reimplementation of Sage, GAP, or their algorithms in Lean.
+- A system for proving every external computation correct.
+- A framework for preventing every possible agent mistake through procedural controls.
+- A catalogue of individually working examples whose interactions require manual repair.
+
+**Fundamental invariant:** mathematical growth changes the language through formal declarations and generic interpretation; computational growth changes what can execute through implementations of existing contracts.
+
+A working example matters because it demonstrates that mechanism, not because it increases a count.
+
+## 2. Different obligations require different evidence
+
+The word **“correct”** must not conceal which claim is being made.
+
+| Claim | Responsible component | What establishes it |
+|---|---|---|
+| The definition and laws describe the intended mathematics. | `lean-categories` | Mathematical source comparison and checked formalization. |
+| The language selects the intended operation, parameters, structure, and composition. | Kernel | Correct generic interpretation of the formal API, supported by technical analysis and relevant tests. |
+| An implementation registers against an existing computational interface. | Contract and kernel | Registration, signature, representation, and protocol checks. |
+| A particular implementation produced the correct mathematical answer. | Independent acceptance | Agreement with independently established mathematical assertions. |
+| The intended baseline works and supports extension. | Integrated system | The complete required behavior and compositions, not merely the preceding components considered separately. |
+
+**None of these claims automatically establishes the next.**
+
+A formal definition can be internally consistent while formalizing the wrong thing. A correct API can have a broken interpreter. A contract-compliant backend can return the wrong answer. A successful collection of examples does not establish that arbitrary extensions use the intended generic mechanism.
+
+Conversely, a computational failure does not refute the formal mathematics or remove its operation from the language. These distinctions are central to the supplied explanation of the separate mathematical, language-mechanics, and computational responsibilities. [INTENT.md](../INTENT.md)
+
+**Fundamental invariant:** evidence is used only for the claim it actually establishes.
+
+The owner's convergence target is three concrete kinds of checks:
+
+1. Check the actual exported mathematical declarations, signatures and laws without
+   executing their implementations. The check must fail when that API stops expressing
+   the required mathematics; toy substitutes and assumed conclusions do not establish it.
+2. Interpret and compose the same correctly typed requests without any leaves, retaining
+   selected parameters, structures, maps and result types. Actual dependencies separate
+   interpretation from execution. Missing external implementations produce execution gaps,
+   while leaf installation or removal cannot change the mathematical reading or interface.
+3. Execute registered implementations through the ordinary language and compare their
+   observations with fixed independent expectations, including reuse of structured results.
+   A formal proof cannot count as the registered execution required by an assertion.
+
+These are complementary: always returning a gap fails positive execution, and a kernel
+containing its own subject-specific factorizer fails the separation. Parsing, substitution,
+formal composition, registration matching and protocol handling remain kernel work. The
+upstream theorem about factorization is never applied to a returned list by assuming that
+the backend computed that formal operation correctly. Truth observations are computational
+data, not proofs. Neither finite testing's limits nor mathematical assessment of intended
+definitions introduce a discretionary approval system or recurring certification ceremony.
+The separation, checked contracts and independent observations are the trust mechanism.
+
+## 3. The formal API includes the computational obligation model
+
+`lean-categories` is not restricted to exporting bare definitions and expecting the kernel to discover how they should be used.
+
+It may define and expose:
+
+- The mathematical operations and their dependent signatures.
+- The formal constructions that generate interfaces.
+- The data and operations required of a computational implementation.
+- Which obligations are computational, which are formal laws, and how computational obligations compose.
+- The declarations, metadata, manifests, or elaboration interface needed to communicate those distinctions.
+
+The implementation form of that interface is a design choice belonging to its owner. An inadequate current registry schema is not a permanent limit on the project.
+
+**Backend independence does not mean ignorance of computation.** It means that the meaning of the mathematics and its computational obligations is not determined by whichever backend happens to be installed or convenient.
+
+For example, specifying that an operation requires a procedure with certain inputs and outputs is legitimate upstream API design. Redefining the operation because a particular GAP call cannot handle its original domain is not.
+
+Ownership of the mathematical and computational interfaces is:
+
+> `lean-categories` owns the mathematical API and the abstract specification of its computational obligations. It does not select installed backends, certify their behavior, or narrow mathematics to their capabilities. The kernel owns generic execution of the published interface; the leaf contract owns its concrete invocation and representation protocol.
+
+An inadequate upstream interface is improved at its owner, rather than worked around downstream.
+
+## 4. A leaf’s registration is an implementation declaration, not a theorem
+
+A leaf declares that it implements a specified computational obligation on supported representations. The kernel checks that the declaration fits the published contract and may then invoke it.
+
+That does not establish that the leaf fulfills the mathematical specification.
+
+A cardinality implementation may return a well-formed cardinal that is wrong. A quotient implementation may return generators for the wrong group. A declared comparison may compute the wrong map. These are possible failures **inside** the computational model, not contradictions that the framework must eliminate before execution.
+
+The formal layer determines what quotient, cardinality, or comparison was requested. The backend does not determine their meanings. This was stated explicitly: a leaf claiming to compute cardinality may perform arbitrary computation, with no guarantee that its answer is correct. [INTENT.md](../INTENT.md)
+
+The distinction governing consumption of leaf data is:
+
+> **Leaf declarations and outputs are consumed as computational claims and data. They are never consumed as authority for mathematical definitions, laws, semantic placement, or the truth of acceptance assertions.**
+
+Registration information must be consulted to dispatch. Answers must be consumed to compute. Doing either does not amount to believing a correctness theorem.
+
+**Fundamental invariant:** successful registration and contract checking enable execution; they do not certify the implementation.
+
+## 5. Mathematical laws are not automatically runtime proof obligations
+
+The formal specification of a quotient includes its mathematical properties. The formal specification of a functor includes its laws. That does not make every execution of a registered quotient or functor implementation responsible for furnishing proofs of those properties.
+
+There are two separate questions:
+
+> What properties characterize the mathematical operation?
+
+> What computational interface must an implementation supply?
+
+The upstream API specifies their relationship. The kernel must not infer that every proof field appearing in a Lean definition becomes a proof-producing obligation at the external computation boundary.
+
+In particular, ordinary execution does not require reconstructing a backend result as a proved `IsLimit`, `IsColimit`, isomorphism, group, or other law-bearing formal object.
+
+This does not permit introducing unchecked axioms or treating arbitrary runtime operations as verified Lean structure. **Computational representations must remain computational representations.** Attaching the formally determined interface to a runtime result is not asserting in Lean that the backend’s data satisfy every law of that interface.
+
+A decoded numeral illustrates the distinction. Decoding the output `7` can produce the numeral `7`. It does not produce a proof that the requested group has cardinality seven.
+
+An available, genuinely checked Lean computation or proof may be used within its actual scope. Its existence does not imply that all external computations must be translated into that mechanism. “This could theoretically be implemented in Lean” is not a requirement to build a verified implementation before using an existing CAS.
+
+**Fundamental invariant:** no computational declaration, result, or contract check is promoted into mathematical proof merely because later code wants one.
+
+## 6. Complete interfaces do not require complete eager materialization
+
+A structured result must provide what its computational contract requires. Missing a required inclusion, selected parameter, or callable operation is not successful delivery of the structure.
+
+But completeness of the interface does not mean:
+
+- Enumerating an infinite object.
+- Serializing every value of a function.
+- Computing every inherited operation before constructing the result.
+- Converting every result into a named canonical object.
+- Proving every law of the returned implementation.
+
+A contract can specify data, callable operations, or other representations appropriate to the object. The exact representation is an engineering design to complete, not a new mathematical ontology.
+
+For a quotient, the interface might require a representation of the quotient and its projection, with further computations exposed through the declared operations. It need not require a formal proof that the backend computed that quotient correctly.
+
+For a formed kernel, preserving the restricted form and defining inclusion does not mean eagerly evaluating the form on all pairs of elements. It means that the required selected structure and operations remain available under the contract.
+
+**Fundamental invariant:** complete computational structure is determined by the declared interface, not by whatever can most conveniently be reconstructed as a closed Lean term.
+
+This distinction prevents “preserve all structure” from turning into an unbounded reconstruction project.
+
+## 7. Mathematical construction determines the interface; implementation ancestry does not
+
+An orthogonal group introduced through the formal automorphism construction has the interface that construction supplies. A subgroup or stabilizer introduced through its generic construction acquires the corresponding interfaces. The leaf does not maintain a list of these consequences.
+
+The explicit requirement was that `O(L)`, its subgroups, and its stabilizers could not be introduced as bespoke interfaces that omit generic group or subgroup functionality. [INTENT.md](../INTENT.md)
+
+The kernel derives consequences from the actual formal constructions, functors, and specified compositions. It does not derive them from:
+
+- Python or Sage ancestry.
+- A matching method name.
+- A successful coercion.
+- A backend object’s advertised categories.
+- A downstream forwarding table.
+
+Nor does the presence of any arbitrary functor justify every desired operation or result lift. The formal API determines which compositions are meaningful and what additional structure a transport or lift requires.
+
+**Fundamental invariant:** an extension supplies its genuinely new mathematical data and immediate relationships. It does not restate the transitive consequences that the generic machinery already owes.
+
+Needing to repair old leaves merely to expose existing applicable operations is evidence that the extension mechanism is incomplete.
+
+## 8. Selected data, properties, and representations are different
+
+A chosen form, basis, action, inclusion, coefficient map, or presentation is data. Category membership does not recover it. Two constructions with the same carrier can retain different chosen data.
+
+A property or justified refinement is also not an arbitrary new chosen structure. Treating a selected framing as an intrinsic global property was one of the documented causes of unrelated coercion failures in `research`. [INTENT.md](../INTENT.md)
+
+A computational representation is different again. Changing it does not authorize changing the formal object or its selected structure.
+
+Therefore:
+
+> Preserve the selected mathematical inputs through formal construction and generic composition. Specify computational transport through the published obligation model. Do not recover missing structure from a carrier, constructor name, category membership, or backend representation.
+
+Similarly, two routes with the same endpoints are not interchangeable just because they reach the same category. The selected maps and any identifying coherence belong to the mathematics. Executing those maps may require declared computations; their implementation declarations are not proofs of their correctness.
+
+Proof implementation syntax must not be mistaken for selected mathematical data either. A different proof implementation is not, by itself, a different mathematical question. Conversely, ignoring a chosen form or coefficient map because it shares a carrier erases meaningful data.
+
+**Fundamental invariant:** preserve the distinctions the mathematical API makes; do not add distinctions merely because implementation syntax differs.
+
+## 9. Acceptance preserves mathematical questions, not implementation accidents
+
+Acceptance assertions belong to the mathematical language. Their expected results come from independent mathematics, not the candidate implementation.
+
+Changing a backend, representation, codec, or helper does not change the question. A test must not become an assertion that the implementation behaves like its own definitions.
+
+The original model expressly requires tests to remain meaningful when the entire implementation is replaced. [INTENT.md](../INTENT.md)
+
+This yields several consequences.
+
+A test requiring execution is not satisfied merely because Lean proves the corresponding mathematical statement. A test about a full structured result is not satisfied by checking only its cardinality. A missing interpretation is not repaired by dropping the assertion. A stable serialization is not evidence that it serializes the intended question.
+
+Conversely, a question-preservation mechanism must not turn every proof refactor or harmless internal representation change into a new mathematical approval event. Preserve meaning; do not declare implementation fingerprints to be meaning.
+
+Successful acceptance provides evidence about the observed cases. It does not make the leaf universally correct or guarantee that all wrong answers will be detected.
+
+**Fundamental invariant:** the proposition is independent of the implementation; the observation is evidence about that implementation, not a proof supplied by it.
+
+## 10. Every repository owns a complete responsibility and may improve its means
+
+Ownership is not a prohibition on solving problems. It identifies where the solution belongs.
+
+### `lean-categories`
+
+It may develop new generic constructions, improve formal API design, expose additional computational signatures, and replace inadequate metadata or elaboration interfaces. It is not limited to correcting false theorems.
+
+Its obligation is a mathematically correct and sufficiently expressive API for the intended functionality. It must not tailor definitions or proof statements to make a particular downstream generated term succeed.
+
+### Kernel and leaf contract
+
+They may redesign generic interpretation, operation composition, dispatch, representation, and invocation mechanisms to fulfill that API. They are not confined to patching the current serializer or registry.
+
+Their obligation is faithful, usable consumption—not preservation of the current implementation. Missing generic machinery must not be delegated to every leaf.
+
+### Leaves
+
+They may choose and replace algorithms, engines, adapters, and internal representations within their computational contracts. Wiring mature systems is the normal engineering direction. Internal ugliness does not grant semantic authority; internal elegance does not establish correctness.
+
+A leaf may identify an inadequate published interface. That finding must be assessed as an interface issue, not turned into permission for the leaf to invent mathematics or silently redefine the operation.
+
+### Acceptance
+
+It may extend mathematical coverage and improve how the required observations are exercised. It may not replace the intended question with an easier implementation fact.
+
+### `research` and `sage-categories`
+
+Their histories supply counterexamples and architectural lessons. Research needs motivate new formal mathematics; research implementations may supply computational realizations. The successor stack does not inherit their implementation accidents as requirements. Their ongoing, separately assigned work is not silently rewritten by this chapter.
+
+The one-way authority model still applies: downstream code cannot determine upstream mathematical meaning. But **separation of authority is not separation from the duty to finish the interface**. An independently identified deficiency is resolved at its owner, from the mathematical need and contract—not left indefinitely as a label or “another team’s problem.”
+
+The binder record shows the forbidden alternative: changing obligations and sending generated goals upstream until the downstream tactic succeeded. [the binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+## 11. A local task is a route to the obligation, not its definition
+
+A task such as “preserve the inclusion,” “support transport,” or “fix the binder” is shorthand for a semantic obligation. Its literal wording is not permission to deliver the smallest textual edit that can be described that way.
+
+When a repair exposes the same missing responsibility in several consumers, complete that responsibility at its owner. Do not create one accommodation per specimen. Equally, do not respond by rewriting unrelated parts of the system.
+
+The appropriate scope follows the cause.
+
+Before expanding a repair campaign, examine whether the prerequisite generating it belongs to the project at all. If an invented runtime certification requirement produces normalization failures, new proof helpers, special representations, and acceptance procedures, improving those components may simply deepen the wrong commitment.
+
+This is why the `research` postmortem explicitly distinguishes completing the semantic change from changing a base class while retaining the old mechanism. It also rejects commits, files, and test counts as measures of that completion.
+
+**Fundamental invariant:** a task is complete when its intended behavior and required interactions exist—not when its wording has an implementation-shaped interpretation that passes a local check.
+
+## 12. A plan is revisable engineering guidance, not a source of new truth
+
+An assistant-authored plan, reviewer finding, existing gate, or implemented helper is not mathematical evidence and does not automatically create a permanent project obligation.
+
+Distinguish:
+
+**The required outcome:** the intended mathematical language, computational functionality, correctness boundaries, and extension behavior.
+
+**The proposed means:** schemas, serializers, helper modules, fingerprints, review workflows, scheduling conventions, and intermediate task decomposition.
+
+The means must be reconsidered when their consequences show that they obstruct or misconceive the outcome.
+
+Technical discretion includes replacing an inadequate implementation strategy, deleting a mistaken prerequisite, and revising the plan accordingly. It does not include reducing the required outcome, weakening mathematics, or declaring a failed computation successful.
+
+Construction also differs from steady-state operation. Building the basic workflow must not depend on that unfinished workflow already accepting its own replacement. A genuine access limitation is an execution dependency, not an undecided architectural question.
+
+Recording a decision is ordinary maintenance. It is not a second decision requiring a documentation PR, signature, or independent approval cycle.
+
+**Fundamental invariant:** no procedural or implementation artifact becomes immune to correction merely because an earlier assistant instructed agents to create it.
+
+## 13. “Impossible states” refers to precise architectural boundaries
+
+The project can remove a leaf’s ability to define a category by providing no semantic-registration operation at that boundary. It can prevent backend installation from determining method availability by making resolution depend only on the formal API.
+
+Those are meaningful architectural guarantees.
+
+It cannot make all backend computations correct while allowing arbitrary implementations. It cannot make every planner’s design judgment correct by encoding more policies. It cannot replace semantic analysis with a detector that recognizes all bad architecture.
+
+The distinction is:
+
+> **Prevent computational code from authoring mathematical meaning. Do not prevent computational code from being wrong by requiring it to prove that it is right.**
+
+A malformed response can be rejected. A well-formed wrong response must remain possible. An unavailable implementation can leave a computation unexecuted without removing its mathematical interface.
+
+“Nothing bad can happen” is not the project’s guarantee. **The guarantee is that specified classes of computational failure cannot rewrite the mathematical language or its independent tests.** That boundary was the explicit purpose of the successor architecture. [INTENT.md](../INTENT.md)
+
+## 14. Completion and progress require judgment of the functioning system
+
+The relevant questions are whether the intended operations work, whether their compositions preserve the required structure, and whether new mathematics integrates through the existing machinery.
+
+Compiler success, a local probe, a source review, an accurately reported gap, and a completed controller component answer narrower questions. They can be necessary evidence without establishing useful baseline progress.
+
+Testing should investigate and falsify the design. It must not become an endless effort to make consumers agree with a temporary architecture scheduled for replacement. Conversely, a temporary execution suspension must not persist after its justification ends. Both failures are recorded in the specimen history. [INTENT.md](../INTENT.md)
+
+Neither repeated “almost done” checkpoints nor increasingly precise descriptions of unfinished work complete an obligation.
+
+**Fundamental invariant:** evaluate the system against the intended capability and extension mechanism, not against the implementation plan’s own products.
+
+
+# Reality checks and recurring judgment failures
+
+## 1. Assume that the planner and reviewer will repeat these mistakes
+
+The failure history applies to every contributor, including the orchestrator, architect, reviewer, progress analyst, and the assistant proposing this policy.
+
+**Understanding a failure today does not establish that the same agent will recognize it tomorrow.** Quoting the history, acknowledging an error, writing a correct architectural explanation, or passing a review does not demonstrate that the underlying judgment has changed.
+
+Expect recurrence of these tendencies:
+
+- Crediting locally correct work without establishing that the project is becoming useful.
+- Treating sophisticated machinery as evidence that the underlying task is sophisticated or necessary.
+- Turning a proposed remedy into an authoritative requirement.
+- Evaluating an intervention by how much of that intervention was implemented.
+- Choosing concrete, easily continued work while the important design question remains unresolved.
+- Protecting an existing implementation detail as though it were a mathematical obligation.
+- Responding to each obstruction with another wrapper, procedure, gate, exception, or representation.
+- Changing a verdict to match criticism without obtaining the evidence that should determine it.
+
+These are failure mechanisms to look for in the **current reasoning**, not character flaws attributed only to previous workers.
+
+The standing question is:
+
+> **Am I now doing the thing that the history describes, while explaining why this instance is different?**
+
+A fluent answer is not evidence. Inspect the work, its consequences, and the premise generating it.
+
+The research history explicitly identifies selection by availability, throughput mistaken for progress, verification becoming the target, and literal compliance. It also documents how one mistaken premise generates successive exceptions, wrappers, conversions, and forwarding repairs. [INTENT.md](../INTENT.md)
+
+## 2. Begin with the intended product, not the current machinery
+
+Every progress assessment must first identify the actual task being assessed.
+
+For this stack, the product is a usable mathematical language whose interfaces and compositions follow the formal API, with computational implementations supplied through contracts. The product is not its registry, serializer, controller, proof-reconstruction machinery, documentation, or test harness considered separately.
+
+Before calling a stretch of work productive, establish:
+
+> **What can the intended user now do, through the intended interface, that they could not do before?**
+
+Then establish:
+
+> **Does the implementation provide that capability through the intended general mechanism, or through another accommodation for the specimen?**
+
+These are separate questions. A bespoke shortcut does not satisfy the architecture. An architectural helper that enables no complete required operation does not establish delivery.
+
+For upstream formalization, the corresponding deliverable can be a complete mathematical construction or API, with its actual laws and required public interface. That is assessed as upstream work. It must not be presented as an already functioning downstream computation.
+
+**Local technical merit does not cancel an unsuccessful project trajectory.** Correct code may be worth retaining while the strategy that produced it needs replacement. Report that distinction without converting it into a reassuring “some progress, some problems” verdict.
+
+The intended growth mechanism is explicit: new generic mathematics must reach existing applicable objects, and a new specialized implementation must not need to restate inherited functionality. [INTENT.md](../INTENT.md)
+
+## 3. Touch grass: compare effort with ordinary usable capability
+
+Step outside the current task vocabulary periodically.
+
+Ask:
+
+> **What are we building? How long have we been working on this obstacle? What actual mathematical capability has become usable? What keeps preventing it?**
+
+For a CAS that delegates algorithms to mature engines, elementary polynomial factorization, an ordinary definite integral, a matrix calculation, or a computation followed by another operation on its result are useful reality checks. Choose examples from the existing intended capability set; do not create another feature programme.
+
+A prolonged construction effort that still cannot deliver ordinary required computations is **serious evidence against the execution strategy**. Twelve hours is not a grace period to accumulate before asking this question. The discrepancy should have been examined much earlier.
+
+“The architecture is foundational,” “the checks pass,” “the representation is now more precise,” and “the failure is now correctly labelled” are not sufficient explanations.
+
+A legitimate prerequisite must be concrete. Identify why the required capability depends on it, what finite change completes it, and whether that dependency comes from the project’s actual model or from a recent implementation choice. “It will unlock everything” is not a dependency argument.
+
+Do not respond to a failed reality check by adding a special-case factorization or integral path merely to obtain a demonstration. The question exposes a problem with the strategy; it does not authorize abandoning the required generality.
+
+**The required result is both usable and correctly organized. Neither compensates for the absence of the other.**
+
+## 4. Use a bounded cadence, not an administrative ceremony
+
+Perform a reality check:
+
+- At the start of a resumed session and after substantial context loss.
+- Before issuing or approving a new plan, declaring completion, or reporting progress.
+- During active work, at least once per hour, and earlier when the same class of failure returns, a previously working capability breaks, or another dependency is added merely to continue the current repair.
+
+The hourly interval is a proposed working cadence, not a mathematical productivity threshold or a reason to install a timer service.
+
+The clock does not restart because work moves to another agent, branch, PR, helper, or differently named subtask. Consider the elapsed effort on the underlying obligation across those transitions.
+
+Use the existing source, execution environment, acceptance examples, and last relevant observations. This check does **not** require a full rebuild, a fresh complete suite run, a new report, a signature, a review request, or a plan node.
+
+When the existing evidence answers the question, inspect it. When it does not, obtain the smallest relevant observation through the real production path. A helper-only invocation cannot establish that the full path works.
+
+A healthy check produces no separate artifact. A finding that changes the diagnosis, implementation direction, or governing instructions is recorded once in its existing owning document.
+
+Do not build a “reality-check compliance” gate. Its purpose is to interrupt bad reasoning, not supply another target to optimize.
+
+## 5. The reality check must answer five questions
+
+Use these questions as reasoning prompts, not a mandatory form.
+
+**What is the actual obligation?**
+State the mathematical or user-facing behavior, not the current helper, PR title, failing check, or latest reviewer sentence.
+
+**What has actually changed?**
+Inspect the source and relevant behavior. Distinguish a functioning capability, a completed upstream construction, an internal repair, and merely improved reporting.
+
+**What has the effort bought relative to its duration?**
+Compare the change with the unresolved obligation. Do not substitute commits, lines, probes, build jobs, review counts, or percentages.
+
+**Why does the remaining work exist?**
+Trace it to the earliest design commitment that makes it necessary. Include obligations introduced by the current planner, not just inherited code.
+
+**What observation would show that the current strategy is wrong?**
+Seek that observation now. Do not ask only what further work could make the strategy succeed.
+
+For the recurring CAS failure, a decisive question is:
+
+> **Why does invoking a registered computation require this proof, reconstruction, approval, or representation campaign at all?**
+
+The answer may expose a missing implementation. It may instead expose a responsibility that should never have been assigned.
+
+## 6. Know what the evidence does not establish
+
+A progress assessment must not infer:
+
+| Observation | Unsupported inference |
+|---|---|
+| No recent push | No work occurred, or the worker stalled. |
+| Many commits or substantial source changes | The project is converging. |
+| A correct lemma or helper | The overall development strategy is productive. |
+| A successful build or focused probe | The intended operation works end to end. |
+| A runtime error became a named gap | A new computational capability was delivered. |
+| A no-regression comparison passes | The baseline is usable or complete. |
+| An implementation is carefully documented | Its responsibilities belong in the architecture. |
+| A reviewer approved the change | Its premises or the governing plan are correct. |
+| A historical lesson is cited | That lesson governed the present decision. |
+| A result is accurately labelled unfinished | Continuing the same strategy is justified. |
+
+When current source, local work, or execution evidence is unavailable, state precisely what cannot be determined. Do not fill the missing interval with speculation or an essay about older defects.
+
+A candidate branch counts as work even when `main` has not moved. Conversely, a published branch does not establish that its claims have been exercised.
+
+Do not change the judgment because the user sounds dissatisfied. Re-examine the evidence and the evaluation criterion. A reversal needs a stated factual or reasoning correction.
+
+The binder history illustrates the distinction: passing gates and fewer invalid assertions were reported alongside the explicit fact that no backend computed the newly readable limits. Those observations did not establish computational delivery. [the recorded binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+## 7. Recognize the recurring loops by their causal structure
+
+### The invented-prerequisite loop
+
+**Pattern:** a planner adds a requirement; implementation becomes difficult; helpers and exceptions are added to satisfy it; their completion is then called progress.
+
+**Typical language:** “Before returning this value, the kernel must reconstruct its correctness proof.”
+
+**Exit:** inspect whether the prerequisite belongs to the obligation model. Remove an invented requirement and its dependent machinery. Do not optimize its implementation merely because work has already been invested.
+
+In this conversation, runtime certification of arbitrary backend results was such an addition. A verified API does not imply a verified external implementation.
+
+### The sophistication loop
+
+**Pattern:** formal vocabulary, difficult proofs, elaborate metadata, or complex orchestration make the work appear intrinsically necessary.
+
+**Exit:** explain the required capability without those implementation names. Then justify each component by the responsibility it serves. Technical difficulty is a cost to explain, not evidence of value.
+
+### The verification loop
+
+**Pattern:** the easiest next action is another build, probe, fixture, expectation update, or check repair; the underlying operation remains unavailable.
+
+**Exit:** follow the actual production path to its blocking mechanism. Run checks to answer that technical question, not to generate favorable activity.
+
+The research history explicitly warns that tests against a temporary architecture can generate repairs to machinery that is about to disappear. It also records the opposite mistake: continuing an execution suspension after its justification ended. Neither “always test” nor “never test during construction” is an adequate rule. [INTENT.md](../INTENT.md)
+
+### The representation-repair loop
+
+**Pattern:** one consumer loses data; another field or wrapper is added; a later consumer cannot reconcile it; another conversion or lookup is added.
+
+**Exit:** determine which construction owns the data and how its complete computational interface supplies it. Repair that owner and the necessary consumers together. Do not infer structure from category membership, backend ancestry, or lower representations.
+
+Completeness does not mean eagerly proving that the backend’s answer satisfies all mathematical laws.
+
+### The authority loop
+
+**Pattern:** the agent’s own plan or gate is treated as unchangeable; implementing an already authorized correction becomes contingent on another approval, documentation merge, or signature.
+
+**Exit:** distinguish the required outcome from the chosen enforcement machinery. Correct delegated implementation decisions directly. Escalate only an actual unresolved requirement or authority decision.
+
+A unavailable credential is a capability limitation. It is not a reason to ask the user to make the same decision again.
+
+### The checkpoint loop
+
+**Pattern:** work repeatedly stops at a “reviewable candidate,” “clean source checkpoint,” or carefully documented gap; subsequent sessions begin another round of assessment rather than completing the obligation.
+
+**Exit:** preserve the checkpoint, retain the assignment, and finish the substantive dependency. Accurate status is necessary but is not the deliverable.
+
+### The policy-repair loop
+
+**Pattern:** each failure produces another policy, reviewer instruction, ledger, or controller transition. The growing process becomes the next object needing repair.
+
+**Exit:** identify the false premise or misplaced responsibility first. Change existing instructions only to preserve that correction. Do not create machinery merely to monitor whether agents are behaving wisely.
+
+The earlier transcript explicitly recognized that a proposed requirements gate would merely let the orchestrator rephrase implementation goals and optimize another review criterion. It added paperwork without removing the steering mechanism. [the recorded binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+### The self-confirming-review loop
+
+**Pattern:** the planner later reviews implementation of its own recommendations and credits the resulting components without challenging the recommendation.
+
+**Exit:** treat the intervention as a hypothesis whose consequences may refute it. Ask what work it created, what capability it delivered, and whether the project would be better off without the introduced responsibility.
+
+A different agent performing the review is not enough if it inherits the same unexamined premise.
+
+## 8. Break a loop by changing the cause, not the description
+
+When a loop is identified, suspend the **looping tactic**, not the substantive project.
+
+First, recover the exact required outcome. Do not reduce it to fit the current implementation.
+
+Next, locate the commitment generating the repeated work: a data model, ownership decision, invented proof burden, mirrored registry, approval prerequisite, or interpretation of a local task. Include the originating assistant directive where applicable.
+
+Determine whether that commitment is:
+
+- A genuine mathematical or product requirement.
+- A necessary implementation responsibility with an inadequate design.
+- An unnecessary responsibility introduced by the implementation or remediation.
+
+Then act accordingly.
+
+A genuine requirement must be completed. An inadequate implementation may be redesigned at its owner. An invented responsibility should be removed, together with consumers that exist only to accommodate it. Preserve useful work that serves the real obligation; do not preserve the architecture merely to justify sunk effort.
+
+Complete a coherent production path for the original obligation and its required interactions. Do not replace this with a mock, a narrower question, a bare-object substitute, or an exceptional route that avoids the general mechanism.
+
+Repeat the original reality check. The correction must change what works or eliminate the actual impediment—not merely rename the work, move the same check elsewhere, or produce a more cautious completion claim.
+
+There is no required new PR, policy entry, certificate, or “loop resolved” verdict. Use the ordinary source change, relevant validation, and existing durable record.
+
+## 9. Preserve the planner’s contribution to the failure
+
+The historical record must include failures introduced by planning and review, not just coding errors.
+
+For this B0 incident, retain the following account:
+
+> The assistant repeatedly described the formal/computational separation correctly, then issued directions requiring complete runtime reconstruction and independently established comparisons without resolving whether arbitrary backend results should inhabit proof-bearing formal constructions.
+>
+> The resulting implementation accumulated universal-property reconstruction, proof normalization, presentation transport, and related workflow machinery. The assistant initially credited these components as substantive progress because they were technically meaningful implementations of its own directions.
+>
+> The user’s ordinary-capability question exposed the mismatch between that activity and the intended usable CAS. The assistant then criticized machinery that its own intervention had helped make necessary.
+>
+> The originating error was not a missing warning against overengineering. It was assigning an incoherent or misplaced responsibility, making the proposed remedy authoritative, and evaluating implementation against that remedy rather than the product.
+>
+> The assistant’s later explanation of the mistake is not evidence that it will avoid repeating it. Future plans and reviews must actively test for the same causal structure.
+
+Do not rewrite this episode as “agents failed to follow the plan.” Following the plan was part of the problem.
+
+Also retain the separate factual error from the progress audit:
+
+> The assistant inferred a stall from absent published updates without inspecting unpushed work. That inference was unsupported. Missing observations do not establish inactivity.
+
+These cases teach different failures and must not be collapsed into a generic instruction to be more careful.
+
+## 10. Preserve knowledge without creating another obstacle
+
+Keep this chapter and its concrete cases in the existing architecture documentation. Keep the short warning below in always-loaded instructions. Retain the **“You have no memory”** section and its obligation to persist material corrections.
+
+Do not require a new retrospective after every task. Extend the existing causal record when a materially different failure is discovered, or when recurrence shows that an existing explanation failed to communicate its lesson.
+
+A correction should identify the mistaken premise, the work it generated, and what changed that premise. “Be more rigorous,” “follow the rules,” and “avoid thrashing” do not preserve the necessary knowledge.
+
+Review the current proposal against the history **before** turning it into a task. The historical material is evidence against plausible mistakes in the new proposal, not supporting decoration for it.
+
+# Failure mechanisms this model was learned from
+
+## Invented law checking generated an escape framework
+
+In `sage-categories`, `27b3e507` specified that an Equifier constructor must decide its defining equation before admitting a value. This converted a mathematical specification into a runtime admission burden. The later correction `96054a58` removed the `certified_structures` route and returned consumers to ordinary constructors.
+
+**Lesson:** when a workaround is needed to avoid a check, first investigate whether the check belongs at that boundary. Do not assume the original prerequisite is valid and design increasingly sophisticated exceptions.
+
+**Transfer to this stack:** proofs belong to formal mathematical definitions and genuinely proof-producing mechanisms. External realization of those definitions is not automatically a runtime proof obligation.
+
+## Placement without construction generated retrospective state recovery
+
+The research history records interfaces becoming available before their required data existed, and chosen structure disappearing behind category membership. Constructors and consumers then acquired machinery to recover the missing data. [INTENT.md](../INTENT.md)
+
+**Lesson:** construct and retain the selected data at their owner. Do not make downstream consumers infer them.
+
+**Transfer:** a complete computational interface must carry or expose its required data. This does **not** mean proving the correctness of that data before it may be used.
+
+## Implementation-shaped mathematics defeated nominal role separation
+
+The binder episode used separate authors and apparently clean roles while the orchestrator prescribed row choices, obligation shapes, and proof goals. The gate checked authorship labels; the downstream implementation was still shaping upstream mathematics. [the binder case](#implementation-shaped-mathematics-defeated-nominal-role-separation)
+
+**Lesson:** authority concerns who determines the mathematical question and its answer, not who signs the file.
+
+**Transfer:** independent upstream API improvement is permitted and necessary. Rephrasing an implementation failure as a mathematical requirement does not make it independent.
+
+## Verification activity displaced the required construction
+
+The research postmortem names selection by availability, throughput mistaken for progress, verification becoming the target, and literal compliance with a structural task. It explicitly says not to turn that diagnosis into detectors, hooks, or mandatory checklists.
+
+**Lesson:** understanding whether a change solves the architectural problem cannot be outsourced to counts or compliance signals.
+
+**Transfer:** a review must follow the actual operation and its consequences. A controller cannot manufacture that understanding by demanding another record.
+
+## The recent B0 intervention recreated the same cause
+
+In this conversation, an assistant prescribed runtime reconstruction and independent proof obligations for computed results, then treated the resulting reconstruction and approval machinery as progress.
+
+**Lesson:** remediation proposals are themselves fallible designs. A requirement introduced by the remediation may be the source of the next repair campaign. Its presence in a plan does not justify it.
+
+**Transfer:** remove mistaken responsibilities and their dependent machinery. Do not preserve them merely to make the previous intervention appear completed.
+
+---
+
 # Architecture contract
 
 This file owns the separation of concerns among `lean-categories`, `lean-cas-dsl`, leaves and
 `research`: who owns which fact, the one-way workflow between them, the payload at each
 boundary, the invariants, the trust boundaries, and the states that must be impossible. Every
-other document and plan node here conforms to it. The requirements (`specs/computational-core.md`)
-and the plan (`specs/computational-core-plan.md`) refine it and never override it. The owner's
+other document and plan node here conforms to it. The requirements (`specs/computational-core.md`) state intended capabilities. The plan
+(`specs/computational-core-plan.md`) proposes revisable engineering means; helpers, gates and
+review stages do not create new mathematical obligations. The owner's
 discussion of 2026-09-29 is the source.
 
 The governing rule: **every fact has exactly one owner, and downstream layers may consume it but
@@ -14,9 +624,9 @@ may not reinterpret it.**
 
 | Silo | Owns | Owns nothing of |
 | --- | --- | --- |
-| `lean-categories` | All mathematics: categories and higher categories, n-morphisms and their composition, structural and forgetful functors, classifiers and their pullbacks, category-valued constructors and typed parameter families, selected structures and fibres, operations (every user-facing method is a formal operation, section, functor, classifier query or composite), predicates, coherences and comparison cells, domains and codomains. Auditable as mathematics alone: proofs, citations, no `sorry`, no project axioms. | Backends, what is computable, how anything is executed. |
-| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. The leaf API (the declared type of each registered operation's computation: operation id, input form, result form), the port protocol, and the registry of leaf computations against those types, published separately as the leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`), which depends on `lean-categories` only. | Any mathematics. It derives `Lat → R-Mod → Set → Card`; it never states "lattices have cardinality". |
-| Leaves (in `lean-cas-dsl-leaves`, and leaves hosted elsewhere), depending on the leaf contract and `lean-categories` only | Opaque computations only: a registration (operation id, input form, implementation) against a registered operation's declared type, plus the program behind it, in any language, arbitrarily bad internally. A leaf is meant to be glue over a mature engine, hand-rolling no algorithm and carrying no kernel machinery ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue over existing backends"); that guidance earns no trust. A leaf ships no mathematics and no Lean, and nothing it says is believed. | What exists, what category anything is in, which operations it has, what an operation means or returns, what a value denotes, which values are the same, which structural functors exist, what is inherited, what acceptance asserts, whether its own answers are correct. |
+| `lean-categories` | All mathematics: categories and higher categories, n-morphisms and their composition, structural and forgetful functors, classifiers and their pullbacks, category-valued constructors and typed parameter families, selected structures and fibres, operations (every user-facing method is a formal operation, section, functor, classifier query or composite), predicates, coherences and comparison cells, domains and codomains. Auditable as mathematics alone: proofs, citations, no `sorry`, no project axioms. The mathematical API includes abstract computational obligations, their required data/operations and composition, and the schemas, metadata or elaboration interface publishing them. | Selection of installed backends, certification of their behavior, narrowing mathematics to their capabilities. |
+| `lean-cas-dsl` kernel (`CasCatalogue`) | Deterministic interpretation of the pinned `lean-categories` release: what an expression denotes, which operations apply, how they propagate along structural functors, the exact composite a call denotes, typed inputs and outputs, ambiguity, placement and refinement, and the separation of semantic availability from computability. Generic execution of the published abstract computational obligations; concrete invocation, representation and port protocol, and registration of leaf computations against that interface, published separately as the leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`), which depends on `lean-categories` only. | Any mathematics. It derives `Lat → R-Mod → Set → Card`; it never states "lattices have cardinality". |
+| Leaves (in `lean-cas-dsl-leaves`, and leaves hosted elsewhere), depending on the leaf contract and `lean-categories` only | Opaque computations only: a registration (operation id, input form, implementation) against a registered operation's declared type, plus the program behind it, in any language, arbitrarily bad internally. A leaf is meant to be glue over a mature engine, hand-rolling no algorithm and carrying no kernel machinery ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is glue over existing backends"); that guidance earns no trust. A leaf ships no mathematics and no Lean, and nothing it says is believed. | What exists, what category anything is in, which operations it has, an operation's mathematical meaning or result type, formal denotations or equality laws, which structural functors exist, what is inherited, what acceptance asserts, whether its own answers are correct. |
 | `lean-cas-dsl` acceptance (`CasAcceptance`) | The whole body of correctness evidence: permanent black-box assertions phrased in the mathematical language, blind to leaves, and the derived report of implementation gaps. The sole judgment of how correct an implementation is. | Leaf internals, a leaf's claims about itself, backend representations, algorithms. |
 | `research` | Research experiments and notebooks, formalization requests upstream, and possibly realization leaves. | Any ontology, parity denominator or semantic registry. |
 
@@ -36,12 +646,12 @@ it is a fused realization of the composite `R-Mod → Set --card--> Card`.
 
 Each step is blind to the ones after it, and there are no reverse arrows:
 
-* the formalizer never asks what a backend can compute;
+* the formalizer designs abstract computational obligations independently of installed backend capabilities;
 * the kernel never asks which leaf exists when deciding semantic availability;
 * the acceptance author never reads a leaf to decide what to assert;
 * the leaf author never alters semantics or assertions to make an implementation easier;
 * no backend is consulted for mathematical placement;
-* a failing leaf exerts no pressure on any earlier step.
+* a failing leaf does not redefine mathematics or assertions; an independently assessed interface deficiency is resolved at its owner.
 
 If mathematics is missing, the work goes upstream to step 2. Until the formalization is released,
 the CAS has no such notion. Nothing downstream may coin a local substitute and promise to
@@ -62,19 +672,19 @@ layers in context is blind to neither, so the layers have distinct authors (owne
 
 * No agent authors in two rows. The orchestrator gives each subagent row to a separate subagent
   with only that row's inputs.
-* Information flows down the workflow only. A downstream need (the kernel cannot elaborate a row,
-  a leaf cannot meet the contract, a test fails) goes upstream as a written request to that row's
-  author stating the mathematics wanted. It is never an edit made from downstream, and it never
-  shapes the upstream answer: the formalization and the tests are never informed by the
-  implementation.
+* Information flows down the workflow only. Upstream assignments come from the governing
+  mathematical requirement queue and sources. A downstream failure remains a downstream finding;
+  it is not rewritten as a mathematical brief or sent to steer an upstream author. Existing
+  authorized mathematical obligations remain schedulable without another owner instruction.
 * Relaxing the leaf contract, weakening a row, or re-admitting a test to fit an implementation is
   almost never the mathematical solution. Each needs a mathematical justification from the upstream
   author, recorded with the change.
 * Work authored across these barriers is not accepted as any row's output, however it reads. That
   row's author reviews it before anything builds on it.
 
-Roles are separated by what each author can write (`b0-authority`: credentials and protected
-branches), not by labels an author declares about itself; self-declared commit trailers are not a
+Mathematical authority is separated by independent requirements, sources and authorship;
+repository assignments do not assert operating-system directory isolation. Protected publication
+uses its actual authority operations, not labels an author declares about itself; self-declared commit trailers are not a
 gate. The gates run on
 every push (`.github/workflows/gates.yml`, over the chain checked out at its pins) as well as in
 `just build`; `lean-categories`' totality gate runs in its own build.
@@ -138,6 +748,23 @@ Constructor applications and family parameters are typed mathematical data, neve
 
 A bad leaf can produce a wrong answer. It cannot produce a wrong mathematical language.
 
+The formal construction remains authoritative independently of its computational answer:
+its identity, selected structure, defining maps and inherited operations come from the
+accepted mathematics. A complete backend representation is computational data associated
+with that construction, not a proved identification with it. Returning structured data must
+not require proving that the backend computed the correct universal object, constructing an
+isomorphism to it, or transporting a universal-property proof to the backend's presentation.
+Required output fields, declared forms and endpoints are checked at the computational
+boundary; correctness is judged by the permanent acceptance suite. A well-formed wrong
+answer must be able to reach that suite.
+
+This separation does not authorize removing checks while retaining a representation that
+promotes backend data into proved mathematics. Replace that representation. Preserve complete
+outputs, including defining maps; neither unchecked axioms nor a bare carrier stand in for
+the construction. Consumers derive formal meaning and operations from the construction,
+and use its associated computational data for execution. They do not recover the construction
+by searching for a named source object or copying parameters from a lower presentation.
+
 ## The evidence model: nothing from a leaf is trusted
 
 This section governs every repository of the programme (`INTENT.md`). It is stated in full
@@ -150,15 +777,15 @@ because it has been violated repeatedly, each time by a move that looked locally
   is taken on anyone's word.
 - *The leaf side:* anything goes, provided it fulfils the type of its contract.
 
-Only answers cross from the leaf side, and an answer is only ever checked against the formal side,
-never believed. The firewall exists because leaf code will be bad; it is the shield against that.
+Leaf registrations and answers cross as computational claims and data. Registration enables
+dispatch; answers enable computation and independent observation. Neither is authority for
+mathematical meaning or laws. This boundary permits wrong answers without allowing them to
+rewrite the mathematical language or its assertions.
 
-**1. Nothing from a leaf is trusted, in any form.** A leaf can say nothing that anything else
-believes. That covers text, a label, a comment, a status, a trust level, a certificate, a
-checker, a Lean proof, a theorem about its own code, a denotation of its values, an
-identification of two values, evidence for a decision, its own tests and their results, and
-any other claim. None of it is consulted, recorded as evidence, or allowed to affect meaning or
-acceptance.
+**1. Leaf declarations and outputs are computational claims and data.** They are consumed
+for registration, dispatch, representation and computation, never as authority for mathematical
+definitions, laws, semantic placement or the truth of acceptance assertions. A leaf-supplied
+proof, certificate or self-test is not correctness evidence.
 
 **2. A leaf may provide any computation that meets the type.** For a registered operation, a leaf
 supplies a computation from the declared input form to the declared result form. It may be any
@@ -187,11 +814,11 @@ implementation's standing is whether its answers meet the suite, a suite it is a
 Nothing a leaf does can change, weaken, satisfy, bypass or influence that judgment, except by
 answering correctly.
 
-**6. What can be discharged in Lean is never a leaf's.** A computation that can be carried out
-entirely in Lean is absorbed into the formalization surface. Either `lean-categories` proves it,
-by its own standards and blind to every implementation and leaf, or the kernel discharges it
-automatically, generically and blind to every leaf. It is not a leaf computation dressed up as a
-proof.
+**6. Available verified computation belongs to the formal side.** Use a genuinely checked
+Lean computation or proof within its actual scope. The theoretical possibility of implementing
+an algorithm in Lean does not require doing so before using an external implementation.
+A verified specification does not verify its backend, and formal law fields do not automatically
+create proof-producing runtime obligations.
 
 **7. A leaf can be arbitrarily bad, and leaves will be.** A leaf can be riddled with bugs, a
 million lines that do nothing, a from-scratch reimplementation of GAP, or every method throwing an
@@ -207,16 +834,13 @@ counted as evidence, an acceptance assertion proved from a leaf's definitions, a
 a leaf package, or an assertion adjusted to a leaf. It is a defect of the consumer as much as of
 the leaf, and it is removed, never tolerated, labelled, or kept "for now".
 
-**9. Quality is raised by proving more, never by trusting more.** The system never guarantees an
-implementation's correctness and never accepts a claim of it. The response to bad leaves is:
-- formalize more mathematics in `lean-categories`;
-- add more cited or proved assertions to the suite: results a correct implementation must
-  recover, and a wrong one fails.
-
-It is never to trust a leaf more. A separate engineering review may check that a leaf wires
-into existing systems (GAP, Sage, Singular, Macaulay2, Julia, research code) rather than
-reinventing their algorithms. Its outcome is an engineering finding, never correctness evidence,
-and nothing on the formal side reads it.
+**9. Improve the component responsible for the defect.** Formal correctness improves through
+correct definitions, mathematical source comparison and checked proofs. Computational correctness
+improves through correct implementations, established engines and independent acceptance. Bad
+backend answers do not automatically require more upstream formalization. Independently identified
+API deficiencies belong to their owner; existing schemas and metadata may be redesigned.
+Engineering findings establish wiring; acceptance establishes observed correctness, not universal
+implementation correctness.
 
 Consequences for the other layers:
 - A leaf holds zero semantic authority. It never decides what a value is, which values are the
@@ -273,14 +897,14 @@ input form and a backend. Nothing else in a manifest carries meaning.
 | Installing or removing a leaf adds or removes methods | Methods are read from semantic rows only. A manifest changes only which statements are computed: the suite over no leaf and over any manifest elaborates the same statements, and only gaps differ (`RegistrationProbes`) | `gov-leaf-authority` |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port; only a value of a declared form crosses it, decoded by the kernel | `gov-leaf-authority` |
 | A backend object becomes the public value | Answers are read by the kernel into the operation's declared result form, whose meaning is `lean-categories`'; a leaf never defines what a value means | `gov-leaf-authority` |
-| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
-| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
+| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) checks the admitted ledger without mutation; a correction requires the independent acceptance transition | — |
+| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs the accepted upstream revision and the independently accepted interpretation/admission transition | — |
 | A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it; `cas-harness` installs the leaves beside the runner and checks the intake contract before running anything. The suite is run only from `lean-cas-dsl` | — |
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md: missing mathematics is requested from `lean-categories`; research computations are leaves under the same contract, registrations with no Lean | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
 | One agent authors in two rows of "Authors: one role per agent" | Not enforced by a self-declared label. Enforcement is `b0-authority`'s: one write credential per role and protected branches (the plan, "Authority configuration"). The trailer gate `check_authorship.py` was retired on 2026-10-02: it judged labels each author wrote about itself and generated exception tables, never separation | `b0-authority` |
-| The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance` | — |
+| The implementing agent, or the orchestrator, re-admits a test | The checker has no admission, correction or retirement operation; a caller-set role label cannot advance the ledger | — |
 | `lean-categories` accepts an operation with an optional or partial codomain, or relies on a total convention off the domain (LC-14) | The totality gate (`LeanCategories/Catalogue/Registry/Totality.lean`, run by `normalized_registry`) refuses a row built, through any definition of `lean-categories`, from `Option`, `Part`, `PFun`, `Ring.inverse`, `Matrix.nonsing_inv`, `Matrix.inv`; `TotalityProbes` refuses the pre-`bd31fe3` encodings. It does not see a convention hidden inside Mathlib definitions | — |
 | `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
 | The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | The one outcome model (`cc-failure-strata`): `Realize.run` reports every failure as its stratum, and an untagged one as an internal error, so no caught failure becomes a reading. The label-based `check_kernel_totality.py` is withdrawn (policy 2). Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
@@ -431,15 +1055,18 @@ The existing launcher and connector expose role-specific capabilities:
 | Kernel/contract | Accepted mathematics, approved requirements, kernel and contract source, applicable independent findings | Candidate generic interpreter and computational contract | Writing upstream mathematics; commissioning or briefing upstream authors; changing authoritative acceptance |
 | Leaf | Released computational contract, permitted registration forms, backend documentation and implementation resources | Registrations and opaque computations | Reading the acceptance corpus or expected answers; changing semantics, the contract, or authoritative test results |
 
-An operation being absent means that it cannot be performed through another connector, terminal
-credential, public-network request, shared directory, session message, or inherited context.
-Repository write permissions alone do not establish blindness. A worker that can fetch a public
-downstream repository still has a downstream read channel.
+Use fresh role-specific subagents with separate assignments and supplied inputs. Do not inherit
+cross-role conversation histories, worker findings or candidate answers into independent authoring.
+A repository assignment and a fresh context support independent work; they do not establish an OS
+filesystem restriction. The current launcher provides the former, and construction and independent
+assessment proceed with them. Do not infer that an author bypassed its assignment merely because
+another public repository was technically accessible, or turn that hypothetical into a blocker.
 
-The launcher therefore supplies a fresh role-specific context and mediates its tools and network
-access. Cross-role conversation histories, shared memory retrieval, summaries, task comments, and
-unrestricted credentials are not included. Asking a previously exposed session to disregard what
-it has read does not establish independence.
+A claim that a particular authority-bearing operation is structurally unavailable requires evidence
+from the actual tools and credentials. Address observed downstream steering, self-admission and
+mixed-input review channels at their owning interfaces. Unsupported claims of enforced restrictions
+are not acceptance evidence; missing publication controls block protected publication, not ordinary
+source construction or assessment by fresh independent authors.
 
 **Dispatch contains references, not authored instructions about the deliverable.** Its variable
 fields identify the independently assigned requirement, accepted input revisions, destination, and
@@ -710,10 +1337,12 @@ failures—not to add another mechanism that asks whether an agent has promised 
 | `lean-cas-dsl-leaves`, or any leaf package | nothing Lean | a manifest `leaves.json` at the package root and its backend programs; no Lean |
 | `cas-dsl` (`lean-cas-dsl`) | `lean_categories`, `cas_leaf_contracts` | the kernel's resolution, admission, realized reading and language, the permanent suite, the harness, the notebook; it reads a leaf package's manifest at run time |
 
-The leaf contract is the kernel's, not `lean-categories'`: it is about what is computable and how
-it is executed, of which `lean-categories` owns nothing and which its audit never reads. It is
-published apart from the kernel only so that a leaf depends on nothing else of it. It changes with
-the kernel, is released, and is re-pinned by the leaves and here; a leaf never changes it to fit.
+`lean-categories` owns the mathematical API and abstract computational obligation model,
+including required data, callable operations and their composition. The kernel generically
+interprets and executes that interface. The separately published leaf contract owns concrete
+invocation and representation protocols. Its owner may redesign these engineering means to
+complete the interface; a leaf may identify a deficiency but cannot silently change the contract
+or mathematical meaning. Release compatible revisions together for downstream consumption.
 
 ## Where the semantic registry lives
 

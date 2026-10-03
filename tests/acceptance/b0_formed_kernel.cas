@@ -1,0 +1,47 @@
+-- The fixed independently authored E8 identity-kernel question, using public
+-- chosen structures and their actual registered structural functors throughout.
+-- Its mathematical meaning was fixed in b0_formed_kernel_question.lean and
+-- b0-formed-kernel-proposal.md before execution. This is not self-admission.
+
+let L := view E8 along fun.integral_lattice.forget_form
+
+let f := id(L)
+
+let K := kernel(f)
+
+let D := view K along fun.subobjects_bilin_module.domain
+
+let i := K.inclusion().hom()
+
+let BD := D.pairing()
+
+let BL := L.pairing()
+
+-- The product is a product of the actual carrier sets. The selected R=Z and
+-- W=Z remain in D/BD; these forgetful images do not replace either structure.
+let M := view D along fun.bilin_module.forget
+
+let T := view M along fun.modules.fibre_inclusion
+
+let X := view T along fun.modules.underlying
+
+let P := X × X
+
+let p := P.leg(0)
+
+let q := P.leg(1)
+
+test b0.formed.kernel.identity.card "The independently specified kernel of the selected identity on E8 is {0}; its complete restricted formed domain D retains R=Z and W=Z and has exactly one carrier element":
+  assert |D| = 1
+
+test b0.formed.kernel.identity.inclusion_zero "The kernel of the selected identity on E8 is exactly {0}; formedKernelInclusion_apply sends each element to its same ambient vector, hence every image is the selected zero of L":
+  assert i(x) = 0 in L
+
+test b0.formed.kernel.identity.restricted_pairing "LeanCategories formedKernel_pairing: the kernel's chosen Z-valued form is the restriction B_D(u,v)=B_L(i(u),i(v)), for every ordered pair of actual kernel elements":
+  assert BD(p(z), q(z)) = BL(i(p(z)), i(q(z)))
+
+test b0.formed.kernel.identity.pairing_zero "The identity kernel has only the zero vector; bilinearity of the retained E8 Z-valued pairing gives B_L(0,0)=0 for every ordered pair in its restricted domain":
+  assert BD(p(z), q(z)) = 0 in ℤ
+
+test b0.formed.kernel.identity.defining_condition "LeanCategories formedKernelInclusion_condition: U(f) composed with the actual defining inclusion is zero, with the selected scalar ring, value module and ambient E8 object retained":
+  assert (f ∘ i)(x) = 0 in L

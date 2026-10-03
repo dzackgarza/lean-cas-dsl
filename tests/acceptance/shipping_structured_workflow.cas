@@ -1,0 +1,77 @@
+-- New independently sourced connected questions; no admitted corpus is edited.
+-- Retain the selected E8 object, then take its actual underlying Z-module.
+let L := view E8 along fun.integral_lattice.forget_form
+
+let M := view L along fun.bilin_module.forget
+
+let e := id(M)
+
+let K := e.ker()
+
+let D := K.domain()
+
+let i := K.inclusion().hom()
+
+let Q := e.coker()
+
+let N := Q.codomain()
+
+let pi := Q.projection().hom()
+
+test shipping.linear.kernel_rank "The kernel of the identity on the selected E8 underlying Z-module is its zero submodule, hence its actual domain has rank 0; Dummit–Foote ch. 10, kernels":
+  assert D.rank() = 0
+
+test shipping.linear.kernel_card "The actual domain of the identity kernel is the singleton zero module, so its inherited carrier cardinality is 1":
+  assert |D| = 1
+
+test shipping.linear.kernel_inclusion "The actual identity-kernel inclusion sends its only vector to the additive zero of the selected ambient E8 underlying module; Submodule.subtype":
+  assert i(x) = 0 in M
+
+test shipping.linear.kernel_condition "The composite of the selected identity map and its actual kernel inclusion is zero on every element of the actual kernel domain":
+  assert (e ∘ i)(x) = 0 in M
+
+test shipping.linear.cokernel_rank "The cokernel of the identity is M/range(id)=M/M=0, and the codomain of its actual quotient projection has Z-rank 0; Dummit–Foote ch. 10, quotient modules":
+  assert N.rank() = 0
+
+test shipping.linear.cokernel_card "The identity cokernel M/M has precisely one coset; the inherited cardinality of the actual selected quotient codomain is 1":
+  assert |N| = 1
+
+test shipping.linear.cokernel_projection "Every element maps to the zero coset under the actual projection M to M/range(id), retaining the selected ambient module":
+  assert pi(x) = 0 in N
+
+test shipping.linear.cokernel_condition "The actual quotient projection annihilates the image of the selected identity map: pi composed with e is zero in its actual quotient codomain":
+  assert (pi ∘ e)(x) = 0 in N
+
+let G := Sym(3) in Groups
+
+let s := sign(3)
+
+let H := kernel(s)
+
+test shipping.groups.kernel_inherited_abelian "The kernel of sign on the selected S3 is {1,(012),(021)}, cyclic of order 3, hence abelian under its actual inherited group operation; Dummit–Foote ch. 1 section 3 and ch. 3 section 1":
+  assert H.is_abelian()
+
+let a := generator(F9x)
+
+let b := map a along F9translation
+
+let c := map generator(F9y) back along F9translation
+
+test shipping.presentations.forward_reuse "The prescribed F9 comparison sends x to y+2; (y+2)²=y²+y+1=2 in F3[y]/(y²+y+2), by the polynomial quotient universal property":
+  assert b^2 = 2 in F9y
+
+test shipping.presentations.inverse_reuse "The inverse prescribed F9 comparison sends y to x+1; (x+1)²+(x+1)+2=x²+1=0 in F3[x]/(x²+1)":
+  assert c^2 + c + 2 = 0 in F9x
+
+test shipping.presentations.round_trip "The comparison and its inverse send x to y+2 and then (x+1)+2=x, fixing coefficients of F3; polynomial quotient universal property":
+  assert (map b back along F9translation) = a
+
+let f := t ↦ sin(t) in ℝ → ℝ
+
+let df := (f in C^∞).smooth_derivative()
+
+test shipping.calculus.derivative_reuse "The derivative of sin is cos as an actual smooth function, and cos(0)=1; Mathlib Real.deriv_sin, Real.cos_zero":
+  assert df(0) = 1
+
+test shipping.calculus.second_derivative_reuse "The derivative of the returned derivative cos is -sin; at zero its value is 0; Mathlib Real.deriv_cos, Real.sin_zero":
+  assert df.smooth_derivative()(0) = 0

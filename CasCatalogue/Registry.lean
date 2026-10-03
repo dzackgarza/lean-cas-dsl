@@ -311,6 +311,7 @@ structure RegistryManifestLift where
   id : String
   edge : String
   evidence : String
+  computation : Option String
   kind : String
   deriving BEq, Repr, ToJson
 
@@ -444,6 +445,7 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       receiver := e.receiver.map registryManifestCategoryExpr }
     lifts := (state.lifts.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, edge := e.edge.label, evidence := e.evidence.toString
+      computation := e.computation.map (·.toString)
       kind := match e.kind with
         | .subobjects => "subobjects"
         | .createsLimits shape => s!"creates_limits:{shape}" }

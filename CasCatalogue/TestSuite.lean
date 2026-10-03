@@ -29,6 +29,9 @@ of gaps is the list of implementations the suite derives. A leaf never sees the 
 `#cas_tests "dir" reporting "out.json"` also writes every result as JSON (`cas-harness` runs it
 over a given manifest).
 
+The optional `computing` suffix skips proof discharge and records actual backend dispatches
+per assertion. Interpretation, expected values and the outcome model remain the same.
+
 `#cas "statement"` runs one statement of the language the same way (a notebook cell): its outcome
 is reported, and an outcome that fails the suite is an error.
 -/
@@ -68,6 +71,8 @@ structure TestResult where
   question : String := ""
   /-- The proposition the question fingerprints, as the acceptance author reads it. -/
   proposition : String := ""
+  /-- Actual runner dispatches during this assertion; not mathematical evidence. -/
+  dispatches : Array Json := #[]
   deriving ToJson, FromJson, Inhabited
 
 end
@@ -84,19 +89,40 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
   for item in items text do
     let parsed ← match Parser.runParserCategory (← getEnv) `cas_item item path with
       | .ok s => pure s
-      | .error e => throwError "{path}: not an item of the language: {e}\n{item}"
+      | .error e =>
+          -- A parser failure belongs to this item. Keep its admitted identity in the report
+          -- and continue, so unread assertions cannot shrink the execution denominator.
+          let identity := if item.startsWith "test " then
+              ((item.drop 5).toString.splitOn " ").head!
+            else s!"(statement) {item}"
+          results := results.push {
+            file := path
+            id := identity
+            kind := "internal"
+            detail := s!"reader parser failure: {e}"
+            fails := true }
+          continue
     let (id?, statement) := match parsed with
       | `(cas_item| test $id:ident $_:str : $s:cas_stmt) => (some id.getId.toString, s.raw)
       | `(cas_item| $s:cas_stmt) => (none, s.raw)
       | _ => (none, parsed)
     let id := id?.getD s!"(statement) {item}"
+    let dispatchStart ← match harness.dispatches with
+      | some observations => pure (← observations.get).size
+      | none => pure 0
     let (outcome, scope', question) ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
       Realize.runAsking harness scope statement
+    let dispatches ← match harness.dispatches with
+      | some observations => do
+          let calls ← observations.get
+          pure (calls.extract dispatchStart calls.size)
+      | none => pure #[]
     scope := scope'
     if id?.isNone && outcome matches .holds then continue
     results := results.push
       { file := path, id, kind := outcome.kind, detail := outcome.detail, fails := outcome.fails,
-        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "" }
+        question := (question.map (·.1)).getD "", proposition := (question.map (·.2)).getD "",
+        dispatches }
   return results
 
 /-- The report of a file's results. -/
@@ -107,13 +133,43 @@ meta def report (file : String) (results : Array TestResult) : String :=
   s!"{file}: {passing} of {tests.size} hold\n{"\n".intercalate lines.toList}"
 
 /-- Runs `path`, a file of the suite or a directory of `.cas` files, through `harness`. -/
-meta def runSuite (harness : Harness) (path : System.FilePath) :
-    CommandElabM (Array TestResult) := do
-  unless ← path.isDir do return ← runFile harness path
-  let files := (← path.readDir).filter (·.path.extension == some "cas") |>.map (·.path)
-  let mut results := #[]
+meta def runSuite (harness : Harness) (path : System.FilePath)
+    (inventory? : Option System.FilePath := none) : CommandElabM (Array TestResult) := do
+  let mut results : Array TestResult := #[]
+  let files ← try
+      if ← path.isDir then
+        pure ((← path.readDir).filter (·.path.extension == some "cas") |>.map (·.path))
+      else pure #[path]
+    catch error =>
+      results := results.push {
+        file := path.toString
+        id := "(statement) infrastructure"
+        kind := "internal"
+        detail := ← error.toMessageData.toString
+        fails := true }
+      pure #[]
   for file in files.qsort (·.toString < ·.toString) do
-    results := results ++ (← runFile harness file)
+    try results := results ++ (← runFile harness file)
+    catch error =>
+      results := results.push {
+        file := file.toString
+        id := "(statement) infrastructure"
+        kind := "internal"
+        detail := ← error.toMessageData.toString
+        fails := true }
+  if let some inventory := inventory? then
+    let .ok document := Json.parse (← IO.FS.readFile inventory)
+      | throwError "cannot read the fixed assertion inventory {inventory}"
+    let .ok (.obj assertions) := document.getObjVal? "assertions"
+      | throwError "missing assertion inventory in {inventory}"
+    for (identity, _) in assertions.toList do
+      unless results.any (·.id == identity) do
+        results := results.push {
+          file := path.toString
+          id := identity
+          kind := "internal"
+          detail := "required assertion produced no result"
+          fails := true }
   return results
 
 /-- Runs one statement of the language, given as text, through `harness` within `scope`: its
@@ -134,13 +190,20 @@ meta def loadHarness (manifest? : Option System.FilePath) : CommandElabM Harness
   return harness
 
 syntax (name := casTestsCommand)
-  "#cas_tests " str (&" manifest " str)? (&" reporting " str)? : command
+  "#cas_tests " str (&" manifest " str)? (&" reporting " str)? (&" inventory " str)?
+  (&" computing")? : command
 
 @[command_elab casTestsCommand] meta def elabCasTests : CommandElab := fun stx => do
   let some path := stx[1].isStrLit? | throwUnsupportedSyntax
   let manifest? := stx[2][1].isStrLit?.map fun s => (s : System.FilePath)
-  let harness ← loadHarness manifest?
-  let results ← try runSuite harness path finally (harness.stop : IO Unit)
+  let loaded ← loadHarness manifest?
+  let computationOnly := stx[5].getNumArgs > 0
+  let observations ← IO.mkRef (#[] : Array Json)
+  let harness : Harness := { loaded with
+    computationOnly := computationOnly
+    dispatches := if computationOnly then some observations else none }
+  let inventory? := stx[4][1].isStrLit?.map fun s => (s : System.FilePath)
+  let results ← try runSuite harness path inventory? finally (harness.stop : IO Unit)
   let files := results.foldl (fun fs r => if fs.contains r.file then fs else fs.push r.file) #[]
   for file in files do logInfo (report file (results.filter (·.file == file)))
   if let some out := stx[3][1].isStrLit? then

@@ -1,0 +1,11 @@
+-- Candidate assertions for the fixed B0 formed-module cardinality obligation.
+-- Submitted for independent review; this file does not admit its own assertions.
+-- Independently assessed mathematical input: accepted lean_categories b249ca2,
+-- LeanCategories.Lattices.Integral.dual and the registered A_dual object.
+-- Cardinality is that of the carrier, rather than the form's value module.
+
+test formed_modules.card.dual_a0 "Conway–Sloane, Sphere Packings, Lattices and Groups, ch. 2 §2.2: L^sharp = {v in L tensor Q | (v,L) is integral}; for rank zero, Q^0 and its dual submodule each have exactly one element (Mathlib Pi.uniqueOfIsEmpty)":
+  assert |A_dual(0)| = 1
+
+test formed_modules.card.dual_a2 "Conway–Sloane, Sphere Packings, Lattices and Groups, ch. 2 §2.2: L is contained in L^sharp inside L tensor Q; Z^2 injects into A_2^sharp and A_2^sharp is a subset of Q^2, so its cardinality is aleph_0 (Mathlib Cardinal.mk_int, Data.Rat.Encodable countability and finite-product countability)":
+  assert |A_dual(2)| = ℵ₀

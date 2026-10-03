@@ -5,15 +5,22 @@ inside the sealed boundary: a copy with different bytes is not this file.
 
 ## Operating phase
 
+The owner’s three checks remain independent: mathematical signatures and laws without
+implementation execution; kernel interpretation and composition of the same typed request
+without leaves; and registered execution against fixed independent mathematics. Construct
+occurrence counts are not acceptance evidence. Ordinary computational `unsafe`, `extern`,
+`implemented_by`, `panic!`, and `unreachable!` are reviewed for their actual role rather than
+hard-rejected by the former ratchet. A live semantic bypass remains a source defect.
+
 The phase is `custodian/phase.json` on `main`, read by the review from the base only: a candidate
 cannot select it. It is `construction` until B0 is accepted (specs/architecture.md, "Operating
 phase: B0 construction"). In construction:
 - the seal, its verdict chain and the rejection log are construction material, not applied, and
   the orchestrator replaces this controller like any other part of B0;
-- the fixed obligations still fail every change: the ratchets, no leaf in the DSL, the leaf rules,
+- the fixed obligations still fail every change: proof escapes, no leaf in the DSL, the leaf rules,
   no semantic rows downstream, packages at their manifest revisions, and the admitted assertions
-  (`verify.py --construction` checks exactly these);
-- every other change to the boundary gets an independent technical review, which reports findings
+  (`verify.py --construction` is a local diagnostic of these obligations, never acceptance);
+- every other source or document change gets an independent technical review, which reports findings
   and signs nothing.
 
 The phase becomes `steady` only after B0 is accepted at one revision tuple and the completed
@@ -87,7 +94,7 @@ copy>`, each of the following fails verification:
 | Ship a leaf or a probe leaf in lean-cas-dsl | leaf check |
 | Write semantic rows downstream (`LeanCategories.*` module, `normalized_registry`) | outside-boundary check |
 | Redefine `#accept` or any syntax from a leaf, or from an unsealed file here | syntax ratchet |
-| Make an example pass with `sorry`, an axiom, `native_decide` or `implemented_by` | banned-construct ratchet |
+| Make an example pass with `sorry`, an axiom, `native_decide` | proof-escape check |
 | Let a leaf see the tests or the kernel | leaf import and read checks |
 | Edit the owner's text | sealed bytes |
 
@@ -114,7 +121,7 @@ reads the pull request's head. It gives one of five outcomes:
 | Outcome | When | What happens |
 | --- | --- | --- |
 | PASS | the head satisfies the seal in force | mergeable (once the other checks pass) |
-| FAIL (hard) | a fixed obligation is violated (a ratchet, a leaf rule, semantic rows downstream, a package check, an admitted assertion); in steady phase also a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
+| FAIL (hard) | a fixed obligation is violated (a proof escape or semantic-isolation rule, a leaf rule, semantic rows downstream, a package check, an admitted assertion); in steady phase also a replaced root seal, a rewritten or truncated chain, a verdict signed by an unnamed key | nothing can accept it |
 | APPROVED (steady) / NO BLOCKING FINDING (construction) | boundary files changed, and the review found no blocking finding | steady: the signed verdict is posted; committing it unchanged makes the head PASS. Construction: the check passes; nothing is signed |
 | REJECTED (defect) (steady) / CHANGES NEEDED (construction) | the review demonstrated a defect: requirement, code path, correction | repair it; the revision is reviewed again. Steady: signed into the `custodian/rejections` log |
 | EVIDENCE NEEDED | a fact or argument is not established | supply it and re-run; not a rejection, nothing recorded |
@@ -137,11 +144,22 @@ authority. A change that preserves the governing obligations may remove, narrow,
 relocate the control implementing them (specs/architecture.md, policy 2).
 
 The reviewer is a Claude Code call (`claude -p`) with no tools, no settings and no MCP servers,
-authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one per batch of a large
-change. It gets the prompt `custodian/review/prompt.md` and, read from the base: the owner's texts
+authenticated with the owner's subscription (`CLAUDE_CODE_OAUTH_TOKEN`), one call for the
+complete review request. It gets the prompt `custodian/review/prompt.md` and, read from the base: the owner's texts
 (`specs/owner/`, `custodian/owner-intent.md`), these rules, the B0 policies and the B0 section of
 the plan. It gets each changed boundary file's diff and full text, upstream rule files included,
-and the unchanged helpers they name. It gets the pull request's description as the author's
+and unchanged boundary source. Both repository and manifest dependency revisions are captured
+before review; diffs and file selection use that same base/candidate tuple in both phases. In
+construction, relocated controls are reviewed against their requirements rather than prohibited
+by the old boundary location; downstream semantic registrations remain forbidden. Dirty,
+missing or unreadable inputs and oversized context fail the review operation instead of producing
+a rejection or silently truncated evidence. Interdependent source is never split across stateless
+calls; the complete source, requirements, prompt and explanation must fit the supported input
+budget, or the operation remains incomplete. Revision identities are retained in the review
+record; an empty commit cannot reopen a rejection because the repeat-review key uses the source,
+requirements, context and prompt contents rather than commit identities. Construction review does not validate the legacy
+signatures or verdict chain as a prerequisite. It preserves the base revision's admitted assertions.
+It gets the pull request's description as the author's
 explanation: a claim to verify, never authority. A review never grows a ratchet's baseline.
 
 Escalation is the human-plus-agent review: the owner and an agent review the change together, then
@@ -195,7 +213,7 @@ fingerprint.
 ## Limits (not closed by this seal; see `custodian/FINDINGS.md`)
 
 - The reviewer is a model. It can approve a bad kernel change. What bounds the damage: only the
-  kernel and the upstream rule files are reviewable, every ratchet still applies,
+  kernel and the upstream rule files are reviewable, proof-escape and semantic-isolation checks still apply,
   every steady-phase approval is signed and attributable, and an identical change is not reviewed
   again without a reconsideration. `custodian/review/test_review.py` tests the
   loop with the model stubbed; the end-to-end pull requests in `custodian/SETUP.md` test the live
