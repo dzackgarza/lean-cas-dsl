@@ -54,29 +54,24 @@ standard cone constructor of the shape:
 - the commutation conditions are decided by the kernel.
 
 A missing leg, a leg that is not a map, or a commutation that does not hold makes the answer
-malformed (CC-DECODE). A returned presentation may additionally supply hom and inverse maps;
-the kernel checks their exact endpoints, inverse equations and defining legs, and reconstructs
-universality from the registered presentation. The reply supplies no proof.
+malformed (CC-DECODE). Returned presentation maps are computational data at declared endpoints.
+They do not establish an isomorphism or universality. The formal construction and its universal
+property remain those of the accepted mathematics, independently of this answer.
 
 A subobject reply retains its apex, fixed ambient object and defining monomorphism. For a
-requested construction, these data must identify that construction at the independently fixed
-functor and input. A canonical functor-action descriptor is checked against the complete
-requested structured value, including its inclusion. A different presentation requires a
-checked apex comparison commuting with that inclusion into the same ambient object; a shared
-category, carrier or cardinality does not supply the comparison. Optional `presentation` map
-data uses `hom` from the independently fixed requested apex to the returned apex and `inv`
-in reverse. Both inverse equations and both inclusion squares are checked at the full fixed
-endpoints, including when the subobjects are definitionally equal. Missing comparison data
-is a realization gap if independent reconstruction fails; incorrect data or a different
-ambient object is malformed. Prescribed lifts apply only
-after this identification, preserving the defining map and selected form. Literal answers
-remain values to compare independently, so a well-typed wrong numeral is reported as wrong.
+requested construction, the formal functor and input independently fix its meaning and selected
+structure. The answer retains all computational fields without becoming a proved identification
+with that construction. Optional `presentation` maps retain their declared directions and full
+endpoints as computational data. Inverse equations and inclusion squares are correctness
+questions for acceptance, not prerequisites for promoting the answer to a formal subobject.
+Prescribed formal lifts determine the semantic construction; computational lifting preserves
+the returned inclusion and complete representation. A well-formed wrong structured answer,
+like a well-typed wrong numeral, reaches acceptance as a wrong answer.
 
-Subsequent computations retain this full comparison in an `objectPresentation` envelope:
-the complete independently reconstructed requested functor action and complete returned
-subobject response. Its checked isomorphism is between the full structured objects, with
-identity on the fixed ambient object. It is retained separately from ambient presentation
-comparisons and propagated through the actual functor actions and defining-map projections.
+Subsequent computations retain the complete requested functor action and returned subobject
+response together. The first is fixed by the formal trace; the second is computational data.
+An `objectPresentation` envelope does not establish an isomorphism between them or determine
+available operations. Functor actions and defining-map projections preserve this separation.
 
 The complete wire grammar is maintained in `cas_leaf_contracts`' `CasContract/Port.lean`.
 It includes registered named morphisms, functor actions, structured arrows and subobjects,
@@ -86,27 +81,27 @@ Presentation applications retain their registered comparison, parameters and dir
 returned points never choose the endpoint by carrier equality.
 
 A returned construction's defining leg retains the complete returned cone or cocone, its
-registered diagram and actual typed index. Projection uses that returned leg and the checked
-universal presentation comparison to align its endpoints; it cannot substitute the canonical
-leg merely because apex cardinalities agree. A forward point view similarly retains the full
+registered diagram and actual typed index. Computational projection uses the returned leg;
+formal projection uses the authoritative construction's defining map. Neither is substituted
+for the other because apex cardinalities agree. A forward point view similarly retains the full
 selected source element, registered object action, target and original generalized-point
 domain. It applies only the declared carrier identification. Nonidentity point maps keep their
 actual morphism transport and composition; no carrier is used to invent a source structure.
 
 A created-cone envelope additionally retains the registered creation lift, complete source
-diagram, complete returned target cone and realized source apex. Its source presentation is
-checked against the actual lifted cone; a checked apex isomorphism extends the defining maps
-and their universal evidence together. A nullary operation point retains the operation's full
+diagram and complete returned target cone. Formal creation derives the source construction
+from accepted mathematics; computational data does not need a proof of the target's universal
+property and does not choose a named source object. A nullary operation point retains the operation's full
 declaration parameters and actual registered singleton-to-terminal comparison, plus its original
-generalized domain and complete selected target. Unsupported reconstruction is a computational
+generalized domain and complete selected target. Unsupported computation is a computational
 gap; a wire tag cannot supply a terminal bridge, structure or proof.
 
-These encodings compose because every recursive argument is decoded at the declared dependent
-type before the enclosing constructor is applied. Proof fields are established independently;
-object identities and selected structural maps are retained in the semantic trace. A wire
+These encodings compose with the declared dependent forms and complete output fields retained.
+Formal proof fields belong to the authoritative construction, not a proof reconstructed from
+backend data. Object identities and selected structural maps remain in the semantic trace. A wire
 constructor cannot register an operation, change a category, or manufacture a comparison.
 Adding a new upstream object therefore uses the same recursive typed codec, while adding a
-registered comparison uses the same endpoint and inverse checks.
+registered comparison uses its accepted formal maps while computational responses remain data.
 
 An anonymous structural image's registration form is
 `image:<compact JSON [target-category-id, edge-descriptor]>`. The edge descriptor is

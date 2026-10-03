@@ -137,6 +137,23 @@ Constructor applications and family parameters are typed mathematical data, neve
 
 A bad leaf can produce a wrong answer. It cannot produce a wrong mathematical language.
 
+The formal construction remains authoritative independently of its computational answer:
+its identity, selected structure, defining maps and inherited operations come from the
+accepted mathematics. A complete backend representation is computational data associated
+with that construction, not a proved identification with it. Returning structured data must
+not require proving that the backend computed the correct universal object, constructing an
+isomorphism to it, or transporting a universal-property proof to the backend's presentation.
+Required output fields, declared forms and endpoints are checked at the computational
+boundary; correctness is judged by the permanent acceptance suite. A well-formed wrong
+answer must be able to reach that suite.
+
+This separation does not authorize removing checks while retaining a representation that
+promotes backend data into proved mathematics. Replace that representation. Preserve complete
+outputs, including defining maps; neither unchecked axioms nor a bare carrier stand in for
+the construction. Consumers derive formal meaning and operations from the construction,
+and use its associated computational data for execution. They do not recover the construction
+by searching for a named source object or copying parameters from a lower presentation.
+
 ## The evidence model: nothing from a leaf is trusted
 
 This section governs every repository of the programme (`INTENT.md`). It is stated in full
