@@ -318,6 +318,21 @@ calls.clear()
 expect("construction: the seal is construction material, not applied", run(stub("approve")), "PASS")
 results.append(not calls)
 
+for computational_source in (
+        "def computationalFailure : Nat := unreachable!",
+        "unsafe def computationalForeign : Nat := 0",
+        '@[extern "computational_foreign"] unsafe opaque computationalForeignCall : Nat'):
+    fresh("construction")
+    with open(S / "head" / KERNEL, "a") as f:
+        f.write("\n" + computational_source + "\n")
+    commit(S / "head")
+    calls.clear()
+    expect("construction: computational constructs receive source review",
+           run(stub("approve")), "NO BLOCKING FINDING")
+    results.append(bool(calls))
+    expect("construction: actual source defects remain reviewable",
+           run(stub("reject")), "CHANGES NEEDED")
+
 fresh("construction")
 with open(S / "head" / KERNEL, "a") as f:
     f.write("\ntheorem t : False := sorry\n")

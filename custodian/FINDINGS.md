@@ -73,12 +73,13 @@ and they are the orchestrator's record.
 
 ## D. The kernel (sealed at the baseline, recorded as debt)
 
-13. `CasCatalogue/Language.lean` has 43 `unreachable!` (the full list is `banned_baseline` in the
-    seal). The ratchet forbids new ones. Removing them is a kernel proposal. A `partial def` is not
-    on this list: it is implementation recursion that Lean keeps opaque, not a mathematical
-    operation given a value outside its domain (B0 policy 2), so the ratchet no longer bans it. Where
-    a pure algorithm must terminate on valid input, that is shown for the algorithm; an effectful
-    failure is reported as an implementation failure, never as a mathematical one.
+13. The former construct ratchet counted `unreachable!` occurrences as mathematical defects,
+    including ordinary computational failure branches. Withdrawn 2026-10-03: `unsafe`,
+    `extern`, `implemented_by`, `panic!`, `unreachable!`, and implementation recursion are
+    assessed against their live role, not their count. Proof escapes remain prohibited.
+    A computational failure does not redefine the mathematical request; returned computational
+    data does not supply mathematical authority. Neither syntax absence nor source review
+    establishes observed answer correctness.
 14. `CasAcceptance/Standard.lean:380` proves an acceptance probe with `native_decide`, which trusts
     the compiler rather than the kernel.
 15. `lakefile.lean` requires `nbdsl-worker` at `main`, a floating ref. The seal fixes the manifest

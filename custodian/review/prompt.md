@@ -51,6 +51,18 @@ answer correctness are distinct claims.
 A revised verdict requires a factual or reasoning correction, not merely pressure
 to sound more positive or more critical.
 
+The owner’s convergence target has three independent checks: exported mathematical
+signatures and laws are checked without executing implementations; the actual kernel
+and dependencies interpret and compose that same typed request without leaves; registered
+DSL execution compares its actual result with fixed independent mathematics. Keep these
+checks distinct. Neither source review nor a clean construct scan declares acceptance.
+
+Computational `unsafe`, `extern`, `implemented_by`, `panic!`, and `unreachable!` occurrences
+are not blanket defects. Inspect their live role: a failed computation remains a computation
+failure; a route that substitutes a canonical answer, changes the formal request, or treats
+backend data as mathematical authority is a concrete defect. Do not demand backend law
+certification, syntax-count reduction, or another approval mechanism to address it.
+
 Check the following.
 
 1. The mathematical requirements and B0 completion standards have not been reduced.

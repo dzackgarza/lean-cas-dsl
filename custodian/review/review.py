@@ -13,7 +13,7 @@ The operating phase is read from the base only (`custodian/phase.json`; absent m
 never from the candidate (specs/architecture.md, "Operating phase: B0 construction").
 
 Construction phase. The seal, its verdict chain and the rejection log are construction material
-and are not applied. Violations of the fixed obligations still fail (`hard`): a banned construct,
+and are not applied. Violations of the fixed obligations still fail (`hard`): a proof escape,
 a leaf in the DSL, a leaf violation, semantic rows downstream, a package not at its manifest
 revision, and an admitted assertion changed or removed. Every other source or document change is
 reviewed for technical findings. No verdict is signed and nothing is final: a revision, new
