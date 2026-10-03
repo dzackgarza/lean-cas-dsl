@@ -60,6 +60,56 @@ B0 is complete only when all of the following hold at one compatible revision tu
 **The orchestrator cannot reduce this table, move a row beyond B0, or redefine a row's acceptance.**
 A change to a row needs a decision of the authority that owns the requirement.
 
+### Shipping workflows (owner strengthening, 2026-10-03)
+
+The current delivery target strengthens the historical B0 minimum below. All B0
+architectural, trust and independent-extension obligations remain. Merely reporting
+ordinary algebra as `NoImplementation` does not deliver the usable release.
+
+| Connected public DSL workflow | Required execution |
+| --- | --- |
+| Polynomial algebra | Construct with selected coefficient rings; factor; consume returned factors in subsequent polynomial operations; change coefficients; compute supported roots; construct a companion matrix and compute its characteristic polynomial, determinant and trace. |
+| Linear and structured algebra | Construct maps; compute kernels and cokernels; use their returned defining inclusions or projections and inherited rank/cardinality. Retain a formed module's selected form and evaluate its restriction on the computed subobject. |
+| Groups and constructions | Execute the existing group-kernel/subgroup examples, their inclusions and generic operations on their results without bespoke forwarding. |
+| Calculus and presentations | Execute the already specified elementary calculus cases and the selected nonidentity presentation comparison in both directions; consume transported results in subsequent operations. |
+
+Ship a runnable pinned combination through the existing command/session interface
+and harness. Notebook reconstruction, unrelated feature expansion and another
+controller milestone are not prerequisites. Source checkpoints do not discharge
+these workflows.
+
+The common production mechanism separates the formal request from opaque
+computational results. Before dispatch, the published upstream API fixes the
+operation, selected parameters and structures, composition and computational
+input/output obligations. Dispatch checks framing, required components,
+representation kinds and declared component relationships; it does not demand
+proofs of backend correctness. Subsequent operations use the associated returned
+computational data through the formal result API. A supplied inclusion must be
+used, rather than silently replaced by a canonical formal inclusion.
+
+Replace the ordinary result-admission proof reconstruction, dependent
+proof-producing lifts/comparisons and reverse source-presentation searches. Do
+not merely delete checks while placing backend answers in proof-bearing Lean
+objects, or retain parallel old/new production paths. Upstream formal laws remain.
+The mathematical API owner completes abstract computational signatures; the
+kernel consumes them generically; the concrete contract supplies invocation and
+representation; leaves implement those obligations with established engines;
+acceptance independently establishes questions and observes answers.
+
+First complete polynomial construction → registered factorization → returned
+factors → further polynomial computation. Then exercise the same mechanism with
+kernels, cokernels, defining maps, forms and nonidentity transport, and finish the
+specified calculus/algebra. No factor-specific kernel semantics, forwarding,
+hardcoded answers or separate domain mini-interpreters are authorized.
+
+Required boundary observations include unchanged semantic meaning when a leaf is
+removed, malformed-output rejection, a well-formed wrong answer reaching
+independent comparison, and subsequent operations actually consuming supplied
+structured components. Retire tests enforcing the mistaken runtime certification
+requirement; retain mathematical acceptance assertions unchanged. Freeze the
+kernel and old leaves before the independent extension trials. Usability,
+generic composition, trust and growth must hold together at the shipment tuple.
+
 ### Stage A
 
 Stage A constructs a usable integration workflow as well as a buildable candidate.
