@@ -51,3 +51,56 @@ Focused validation: `lake build CasCatalogue.StructuredResult` succeeds. The com
 `StructuredResult`/`Realize` build reaches the integration but fails in independently edited
 question-record sections of `Realize`, outside this construction's owned sections. No execution
 acceptance is established by these compilation checks.
+
+### Created-cone apex comparison (2026-10-03)
+
+Corpus queries `IsLimit.extendIso` and `Cone.extend` locate Mathlib's existing
+`CategoryTheory/Limits/IsLimit.lean` and `CategoryTheory/Limits/Cones.lean` constructions.
+`Cone.extend` retains the actual legs by composing the checked apex comparison;
+`IsLimit.extendIso` supplies its universal evidence. `StructuredResult.extendCreated` only
+assembles these declarations from the exact retained closed creation presentation and an
+independently checked isomorphism with the full expected endpoints. It introduces no cone,
+comparison or universal property of its own. Compilation and execution of this addition are
+still required.
+
+The additional corpus query `Functor.preimageIso` locates Mathlib's existing fully faithful
+isomorphism reflection in `CategoryTheory/Functor/FullyFaithful.lean`.
+`reconstructCreatedAt` checks the entire source-image comparison and retained creation-image
+comparison, then applies that declaration only with the exact functor's existing `Full` and
+`Faithful` instances. The source cone extension uses the same `extendCreated` assembly; its
+returned image comparison is updated to the current source apex. No carrier or cardinality
+comparison supplies either isomorphism.
+
+### Complete subobject comparison (2026-10-03)
+
+Direct dependency queries locate `CategoryTheory.Arrow.isoMk` in
+`CategoryTheory/Comma/Arrow.lean` and `CategoryTheory.ObjectProperty.isoMk` in
+`CategoryTheory/ObjectProperty/FullSubcategory.lean`. `subobjectComparison` assembles
+those existing constructors from the checked apex isomorphism, fixed ambient identity
+and actual inclusion square. It retains an isomorphism of the complete subobjects,
+with independently fixed expected and returned endpoints. The cone extension additionally
+supplies its actual retained cone and the original isomorphism's `IsIso` evidence explicitly;
+neither is inferred from an incidental carrier.
+
+Focused helper execution passed the nonidentity created-apex and full-subobject comparison
+cases, with wrong endpoint, missing presentation, different diagram/ambient and unrelated
+square rejected. `CasAcceptance.StructuredComparisonProbes` retains these engineering
+regressions. Current complete gate/native and downstream composition checks remain required.
+
+### Comparisons through the prescribed subobject lift (2026-10-03)
+
+Direct source queries of the accepted `CasCatalogue.MonoLift` locate `hom`, `hom_mono`,
+`iso`, `fac`, and `universal` in the mathematical dependency. The last declaration supplies
+the cartesian universal factorization over an arbitrary prescribed base map, including
+uniqueness. `StructuredResult.liftSubobjectComparison` assembles its two directions from
+that existing evidence, actual ambient and base comparisons, and the exact defining maps.
+Both base ambient components must be the image of the supplied full ambient comparison.
+Inverse equations use the actual accepted monomorphism evidence. The final complete
+subobject-category comparison is independently kernel checked; no carrier matching supplies
+selected structure or a proof.
+
+The isolated helper and exact durable probe body passed nonidentity apex/ambient changes,
+both inverse equations, and different chosen pairings on the same carrier; wrong endpoints,
+defining maps, ambient actions and chosen forms are rejected. Runtime replay and propagation
+remain integration obligations. Replay must bind the ordered lift identifiers to the
+independently fixed operation's prescribed route, beyond checking that the rows are registered.
