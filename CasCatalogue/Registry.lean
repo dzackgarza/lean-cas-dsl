@@ -300,6 +300,16 @@ structure RegistryManifestAdjunction where
   declaration : String
   deriving BEq, Repr, ToJson
 
+/-- A binder row (`specs/binders.md`): the notation token, and the operation and domain the
+kernel's one binder path reads it by. -/
+structure RegistryManifestBinder where
+  id : String
+  category : String
+  token : String
+  operation : String
+  domain : String
+  deriving BEq, Repr, ToJson
+
 structure RegistryManifestProperty where
   id : String
   name : String
@@ -331,6 +341,7 @@ structure RegistryManifest where
   limits : Array RegistryManifestLimit
   adjunctions : Array RegistryManifestAdjunction
   objects : Array RegistryManifestObject
+  binders : Array RegistryManifestBinder
   source : String
   deriving BEq, Repr, ToJson
 
@@ -460,6 +471,9 @@ private def registryManifest (state : RegistryState) : RegistryManifest :=
       declaration := e.declaration.toString }
     objects := (state.objects.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
       id := e.id.raw, category := e.category.raw, declaration := e.declaration.toString }
+    binders := (state.binders.qsort (fun a b => a.id.raw < b.id.raw)).map fun e => {
+      id := e.id.raw, category := e.category.raw, token := e.token,
+      operation := e.operation.toString, domain := e.domain.toString }
     source := "lean-registry" }
 
 private def registryManifestJson (state : RegistryState) : Json := toJson (registryManifest state)
@@ -497,6 +511,7 @@ def validateManifestProjection (state : RegistryState) (manifest : RegistryManif
   validateProjection "limits" (state.limits.map (·.id.raw)) (manifest.limits.map (·.id))
   validateProjection "adjunctions" (state.adjunctions.map (·.id.raw)) (manifest.adjunctions.map (·.id))
   validateProjection "objects" (state.objects.map (·.id.raw)) (manifest.objects.map (·.id))
+  validateProjection "binders" (state.binders.map (·.id.raw)) (manifest.binders.map (·.id))
   validateProjection "opaque categories" (state.opaqueCategories.map (·.id.raw))
     (manifest.opaqueCategories.map (·.id))
   validateProjection "opaque ports"
@@ -518,6 +533,7 @@ def manifestRowIds (manifest : RegistryManifest) : Array (String × Array String
     ("limits", manifest.limits.map (·.id)),
     ("adjunctions", manifest.adjunctions.map (·.id)),
     ("objects", manifest.objects.map (·.id)),
+    ("binders", manifest.binders.map (·.id)),
     ("opaque categories", manifest.opaqueCategories.map (·.id)),
     ("opaque ports", manifest.opaqueCategories.flatMap fun c => c.ports.map (·.id))]
 
