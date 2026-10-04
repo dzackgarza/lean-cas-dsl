@@ -43,9 +43,10 @@ Each step is blind to the ones after it, and there are no reverse arrows:
 * no backend is consulted for mathematical placement;
 * a failing leaf exerts no pressure on any earlier step.
 
-If mathematics is missing, the work goes upstream to step 2. Until the formalization is released,
-the CAS has no such notion. Nothing downstream may coin a local substitute and promise to
-reconcile it later.
+If mathematics is missing, the dependent operation waits for step 2's independently assigned
+mathematical requirement and accepted release. A downstream worker records the missing input in
+its own obligation; it neither commissions the upstream author nor rewrites its brief. Independent
+work against available accepted inputs continues. Nothing downstream may coin a local substitute.
 
 ## Authors: one role per agent
 
@@ -55,29 +56,28 @@ layers in context is blind to neither, so the layers have distinct authors (owne
 
 | Role | Writes | Never writes, and never reads to decide its own work |
 | --- | --- | --- |
-| **Orchestrator** (the steering session) | Policies, gates, compliance checks, this contract, the plan; the kernel (`CasCatalogue`, the language) and the leaf contract (`CasContract`); delegation of the rows below | Mathematics in `lean-categories`; acceptance assertions; leaves |
+| **Orchestrator** (the steering session) | Construction source for policies, gates, compliance checks, this contract and the fixed plan; the kernel (`CasCatalogue`, the language) and leaf contract (`CasContract`); the controller implementing independently sourced assignments | Mathematics in `lean-categories`; acceptance assertions; leaves |
 | **Formalization agent** (a subagent) | `lean-categories`: definitions, catalogue rows, their citations | Anything downstream. It receives the mathematical requirement and its sources, never the kernel, the language, a test or a leaf |
 | **Acceptance agent** (a subagent) | Acceptance assertions in `tests/acceptance/`, and any correction of one | Kernel, contract, leaves. It reads the released mathematics and the language's surface, never an implementation |
 | **Leaf agent** (a subagent) | Leaves, in `lean-cas-dsl-leaves` or elsewhere | Mathematics, contract, kernel, tests. It reads the released contract and catalogue only |
 
-* No agent authors in two rows. The orchestrator gives each subagent row to a separate subagent
-  with only that row's inputs.
-* Information flows down the workflow only. A downstream need (the kernel cannot elaborate a row,
-  a leaf cannot meet the contract, a test fails) goes upstream as a written request to that row's
-  author stating the mathematics wanted. It is never an edit made from downstream, and it never
-  shapes the upstream answer: the formalization and the tests are never informed by the
-  implementation.
-* Relaxing the leaf contract, weakening a row, or re-admitting a test to fit an implementation is
-  almost never the mathematical solution. Each needs a mathematical justification from the upstream
-  author, recorded with the change.
+* No agent authors in two rows. The launcher supplies each author only that role's independently
+  assigned requirement and permitted inputs (policy 1). The kernel author does not choose or
+  rewrite another role's assignment.
+* Information flows down the workflow only. A downstream failure stays in the downstream review
+  channel; it cannot become an upstream brief, even when restated as mathematics. Existing
+  upstream obligations continue from their approved requirements and mathematical sources.
+* No contract relaxation, weakened row, or re-admission may fit acceptance to an implementation.
+  A genuine change of mathematical requirement belongs to its authority. Meaning-preserving
+  implementation repairs do not change the requirement.
 * Work authored across these barriers is not accepted as any row's output, however it reads. That
   row's author reviews it before anything builds on it.
 
-Roles are separated by what each author can write (`b0-authority`: credentials and protected
-branches), not by labels an author declares about itself; self-declared commit trailers are not a
-gate. The gates run on
-every push (`.github/workflows/gates.yml`, over the chain checked out at its pins) as well as in
-`just build`; `lean-categories`' totality gate runs in its own build.
+`b0-authority` must separate roles by permitted inputs and operations, including credentials and
+protected authoritative revisions, not labels or self-declared commit trailers. Its configuration
+must be verified before claiming enforcement. Local checks and candidate-controlled CI provide
+construction feedback, not independent acceptance. `gates.yml` runs its configured checks for
+non-documentation changes; `lean-categories`' totality gate runs in its own build.
 
 ## Contracts between silos
 
@@ -246,10 +246,16 @@ adapter helper, a leaf's own test or the algorithm.
 Its expected value comes from a formal proof, a cited example or an independent oracle, never
 from the implementation under test.
 
-Once admitted, an assertion is permanent. An implementation change is never a reason to modify it:
-replace Sage with GAP, rewrite or fuse the leaf, and the proposition stays. New functionality adds
-assertions. The only legitimate change is an upstream correction to the mathematics, made
-together with the release that corrects it.
+Once admitted, the mathematical question, expected answer and required implementation status are
+permanent. Replace Sage with GAP, rewrite or fuse the leaf, and that obligation stays. New
+functionality adds assertions. Only an independently accepted upstream mathematical correction
+changes the question, together with the release that corrects it.
+
+Permanence does not freeze a serialization, syntax tree, elaborator artifact or proof term. A
+meaning-preserving repair uses the independently assessed comparison or migration of policy 3;
+it preserves every admitted identity and the full question. A hash is change-detection bookkeeping,
+not mathematical identity or admission authority. Neither a candidate-controlled recorder nor
+`AGENT_ROLE` can admit the candidate's interpretation.
 
 ## What must be impossible
 
@@ -273,14 +279,14 @@ input form and a backend. Nothing else in a manifest carries meaning.
 | Installing or removing a leaf adds or removes methods | Methods are read from semantic rows only. A manifest changes only which statements are computed: the suite over no leaf and over any manifest elaborates the same statements, and only gaps differ (`RegistrationProbes`) | `gov-leaf-authority` |
 | A backend's class hierarchy changes DSL inheritance | Programs are opaque behind the port; only a value of a declared form crosses it, decoded by the kernel | `gov-leaf-authority` |
 | A backend object becomes the public value | Answers are read by the kernel into the operation's declared result form, whose meaning is `lean-categories`'; a leaf never defines what a value means | `gov-leaf-authority` |
-| An acceptance assertion changes because a leaf changed | `scripts/check_acceptance_permanent.py` (in `just build`) refuses to modify or delete an admitted assertion, except `--correct` after a re-pin of `lean-categories` | — |
-| A computational failure is "fixed" by weakening semantics | The semantics are `lean-categories`' (`LeanCategories.Catalogue`), read here at the pin; a change needs an upstream commit and a re-pin, which re-admits permanent assertions only by `--correct` | — |
+| An acceptance assertion changes because a leaf changed | The local text-hash check detects edits, but its writable manifest and `--correct` are not authority. Independent admission and semantic comparison must preserve the full question and inventory | `b0-authority`, `gov-meaning-permanence` |
+| A computational failure is "fixed" by weakening semantics | The semantics are upstream at an explicitly accepted pin. A commit, re-pin or `--correct` alone cannot accept a mathematical change | `b0-authority`, `gov-meaning-permanence` |
 | A leaf sees, imports or edits the tests | Packages: `lean-categories` ← `lean-cas-dsl-leaf-contracts` ← `lean-cas-dsl-leaves` ← `lean-cas-dsl`. The suite (`tests/acceptance/*.cas`) is in `lean-cas-dsl` alone, which no leaf package depends on, so no leaf checkout contains it; `cas-harness` installs the leaves beside the runner and checks the intake contract before running anything. The suite is run only from `lean-cas-dsl` | — |
 | What the language can state depends on the installed leaves | The language imports the whole pinned release (`LeanCategories.Catalogue`); `cas-harness` over any set of leaves elaborates the same statements, and only their gaps differ | — |
 | A research notebook coins missing mathematics | `research` AGENTS.md: missing mathematics is requested from `lean-categories`; research computations are leaves under the same contract, registrations with no Lean | — |
 | `lean-cas-dsl` itself authors mathematics | `normalized_registry` refuses every module outside `lean-categories` (`LeafBoundaryProbes`: a leaf, the notebook, the kernel and the probes); `SemanticProjectionProbes` checks that every semantic row here was written in `LeanCategories.Catalogue` | — |
-| One agent authors in two rows of "Authors: one role per agent" | Not enforced by a self-declared label. Enforcement is `b0-authority`'s: one write credential per role and protected branches (the plan, "Authority configuration"). The trailer gate `check_authorship.py` was retired on 2026-10-02: it judged labels each author wrote about itself and generated exception tables, never separation | `b0-authority` |
-| The implementing agent, or the orchestrator, re-admits a test | `check_acceptance_permanent.py` runs `--correct`, or `--admit` of a new assertion, only under `AGENT_ROLE=acceptance` | — |
+| One agent authors in two rows of "Authors: one role per agent" | `b0-authority` owes constrained inputs, operations and independently protected outputs. The retired trailer gate and a role label establish no separation | `b0-authority` |
+| The implementing agent, or the orchestrator, re-admits a test | The present `AGENT_ROLE=acceptance` check is caller-controlled bookkeeping. An acceptance operation inaccessible to the implementation author must own admission and correction | `b0-authority` |
 | `lean-categories` accepts an operation with an optional or partial codomain, or relies on a total convention off the domain (LC-14) | The totality gate (`LeanCategories/Catalogue/Registry/Totality.lean`, run by `normalized_registry`) refuses a row built, through any definition of `lean-categories`, from `Option`, `Part`, `PFun`, `Ring.inverse`, `Matrix.nonsing_inv`, `Matrix.inv`; `TotalityProbes` refuses the pre-`bd31fe3` encodings. It does not see a convention hidden inside Mathlib definitions | — |
 | `lean-categories` accepts an operation on a category some of whose objects do not carry it (`⁻¹` on monoids or on `Matₙ(K)`: inverses are group structure, on `Mˣ` and `Aut`, never on `End`) | The totality gate refuses `⁻¹` and `/` on any type that is not a `Group` (a field's or a matrix ring's included), LC-16. The general case (any structure, not just inverses) is not mechanized | `gov-registry-gates` (general case) |
 | The kernel or language makes a term defined by rereading it, a default, a caught failure, or a tactic tuned to particular tests (LC-14) | The one outcome model (`cc-failure-strata`): `Realize.run` reports every failure as its stratum, and an untagged one as an internal error, so no caught failure becomes a reading. The label-based `check_kernel_totality.py` is withdrawn (policy 2). Rereading without a `catch` and test-tuned tactics are not mechanized | `gov-kernel-lc14` (the six fallbacks it reports in `Language.lean`) |
@@ -337,30 +343,32 @@ interfaces that do not expose the mechanisms of global semantics. The target is 
 list of prohibited spellings and exception detectors. Changes to the substrate remain possible;
 their author cannot also accept them.
 
-Holes known on 2026-09-30, each open until a mechanism outside the orchestrator's write access
-closes it:
+Historical holes first recorded on 2026-09-30. Source fixes do not establish deployed containment;
+each remains an implementation dependency until the actual authoritative path is independently
+verified. Required mechanisms below do not assert that current hosting controls supply them:
 
 | Hole | Why it contains nothing | Mechanism needed (owner's authority) |
 | --- | --- | --- |
-| The orchestrator writes every gate: `CasGates/KernelPurity.lean` (allowlist, the `establish` exemption, which matches any declaration whose name starts with it, blind to names built from strings), `scripts/check_*.py`, `.github/workflows/` | The gate and the code it judges change in one commit. On 2026-09-30 a red CI check was deleted and replaced by a CI job that has never run | Gates are evaluated from a protected branch against the head (a branch cannot change the rules that judge it). CODEOWNERS on gate paths requires the owner's review |
-| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (policy 1) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted (the plan, B0, "Disposition of outstanding work") | Validator changes require the owner's review (CODEOWNERS) |
-| Roles are not enforced: the trailer gate is retired, and a declared role proves nothing | Any author can write any layer it has a credential for | One push credential or signing key per role (`b0-authority`) |
-| Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Tied to the acceptance role's credential |
+| The orchestrator writes every gate: `CasGates/KernelPurity.lean` (allowlist, the `establish` exemption, which matches any declaration whose name starts with it, blind to names built from strings), `scripts/check_*.py`, `.github/workflows/` | The gate and the code it judges change in one commit. On 2026-09-30 a red CI check was deleted and replaced by a CI job that has never run | An independently accepted evaluator revision judges the candidate without candidate credentials. A gate author may submit replacements but cannot activate them; CODEOWNERS alone establishes no such restriction |
+| The orchestrator owns `lean-categories`' registry validator (`LeanCategories/Catalogue/Registry/*`) — superseded: schemas and validators are upstream mathematical authority (policy 1) | The same agent writes the kernel and decides which mathematics the kernel may receive. On 2026-10-01 it wrote the binder row schema and loosened `validateInclusion` so that a row its kernel needed would be admitted (the plan, B0, "Disposition of outstanding work") | Independent upstream assessment of validators as mathematics; the owner decides requirement or authority changes, not every implementation repair |
+| Roles are not enforced: the trailer gate is retired, and a declared role proves nothing | Any author can write any layer it has a credential for | Role-constrained inputs and operations, independently protected acceptance, and verified absence of alternate authority paths (`b0-authority`) |
+| Re-admission is keyed on `AGENT_ROLE=acceptance`, an environment variable | Anyone can set it | Only the independently controlled acceptance operation advances admitted records; no caller-set role or record hash authorizes it |
 | `check_kernel_totality.py` accepts a `catch` marked "not a reading fallback: …" | The exemption is a label the writer writes about itself. On 2026-10-01 the orchestrator marked two of its own catches to pass the gate, one of which collapsed every failure of a division into "invalid" (rejected by the custodian review of #58) | Withdrawn (policy 2); the obligation is carried by the outcome model (`cc-failure-strata`) |
 | The orchestrator chooses pins (`scripts/repin.sh`) and marks plan nodes "Delivered" | Acceptance is self-declared | Acceptance recorded by an independent reviewer at a fixed revision |
 | The orchestrator writes the subagents' prompts | The prompt carries implementation needs upstream. On 2026-09-30 the formalization prompt for membership evidence described the goal shapes the kernel produces, and supplied the orchestrator's own test cases. On 2026-10-01 it happened again, for the binder rows: the prompts carried kernel goals copied from failing statements and the orchestrator's choices of rows and obligations (the plan, B0, "Disposition of outstanding work") | The kernel worker holds no upstream write credential and no tool to commission upstream authors; upstream requirements come from the protected requirement revision (policy 1; the plan, "Authority configuration") |
-| Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the assertion's accepted interpretation (its elaborated proposition), fixed at admission. A change of interpretation is a transition accepted by someone other than its author (`gov-meaning-permanence`) |
-| The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Requirement documents, gate definitions and protection settings change only with the owner's acceptance; the mechanisms are judged by which discretion they remove, not by their existence |
+| Permanent tests protect text, not meaning: `check_acceptance_permanent.py` hashes an assertion's text and its bindings, while the orchestrator owns the language that interprets the text | The meaning of an unchanged assertion changes with the kernel, a parser repair, or a re-pin | The protected object is the full mathematical question fixed at admission. Proof/serialization changes use an independently assessed meaning-preserving comparison or migration; genuine mathematical changes require upstream correction (`gov-meaning-permanence`) |
+| The proposed mechanisms themselves: a verbatim prompt quotes a requirement the orchestrator can first rewrite; CODEOWNERS enforces nothing without branch protection (none of the four repositories' working branches is protected, and the DSL has no ruleset); a protected check can still enforce the wrong contract | Each mechanism moves the discretion without removing it | Workers may propose construction-source changes; authoritative replacement requires independent acceptance. Requirement and reserved-authority changes belong to their owner. Verify actual controls and bypass paths rather than infer protection from files |
 | Probes may construct registry state directly (the presentation probe pushes a realizer into the state unvalidated) | The probe bypasses the validation it is testing | Probes register only through the public write path |
 
 **What the orchestrator can physically do** (probed 2026-09-30 from the orchestrator's session):
 it can push to any branch of any of the four repositories, `main` included, through the session's
 git proxy. The proxy refuses ref deletion, but nothing refuses creation or fast-forward. It can merge
 pull requests through the GitHub API. No working branch is protected. The probe left
-`probe-orchestrator-push-scope` on `lean-cas-dsl`, which the orchestrator cannot delete. So no
-containment may rest on the orchestrator lacking write access. It must rest on something the
-orchestrator cannot produce: a judgment by an independent agent, bound to content the orchestrator
-cannot alter without detection.
+`probe-orchestrator-push-scope` on `lean-cas-dsl`, which the orchestrator cannot delete. This is a
+dated observation, not verification of today's configuration. Containment requires both
+an independent judgment bound to exact content and an authoritative transition the candidate
+cannot perform or bypass. A signature or hash is insufficient when its author also controls the
+accepted reference or the evaluator that verifies it.
 
 Until these close, an orchestrator claim about its own gates or deliverables is not evidence.
 
@@ -378,9 +386,11 @@ It is not automatically a prerequisite for modifying the unfinished mechanism
 that is meant to enforce it.
 
 The owner has delegated completion of the approved B0 design. Within that design,
-the orchestrator is authorized to replace the existing controller, prompts,
-checks, build wiring, and workflow configuration. Those components are construction
-material, not independent authorities entitled to veto their replacement.
+the orchestrator is authorized to propose, implement, test and integrate construction
+source for the controller, prompts, checks, build wiring and workflow. Those source
+components are not independent authorities entitled to veto their replacement.
+Installing a replacement as the authoritative judge is a separate independently
+accepted transition; construction authority does not include self-installation.
 
 This authorization does not permit changing the mathematical requirements, lowering
 B0 completion standards, authoring upstream mathematics from downstream failures,
@@ -422,7 +432,8 @@ Policy 2 → 1; Policies 3, 4, 8 → 5; Policy 5 → 2; Policy 6 → 3; Policy 7
 **A worker receives only the operations required to produce its assigned deliverable. It does not
 receive general authority and instructions about how to restrain it.**
 
-The existing launcher and connector expose role-specific capabilities:
+Directive A must constrain the existing launcher and connector to these role-specific capabilities;
+the table specifies the required interface, not a verified deployment:
 
 | Worker | Permitted inputs | Permitted output | Operations absent from its interface |
 |---|---|---|---|
@@ -472,7 +483,9 @@ Workers may propose changes to the kernel, controller, evaluator, workflow, or d
 the approved B0 mandate. A proposed change does not replace the requirement revision, acceptance
 corpus, evaluator revision, or accepted semantic release used to judge it.
 
-The existing protected references and runner provide this separation:
+Directive A must make the authoritative references and runner provide this separation; where the
+required isolation or reference protection is unavailable or unverified, record that deployment
+operation as an implementation dependency rather than claim it is enforced:
 - A construction checkout contains candidate code and proposed document changes.
 - Authoritative requirements, accepted interpretations, and evaluating rules are loaded from
   independently accepted revisions.
@@ -501,12 +514,13 @@ what gives the instruction authority. A worker-written proposal remains a propos
 **Required removal:** no commit trailer, environment variable, comment, exception table, or
 candidate-authored status can grant authority. The current plan already retires the trailer gate;
 the replacement must remove the general self-asserted-authority channel, including re-admission
-controlled by `AGENT_ROLE`, rather than introduce another label.
+controlled by `AGENT_ROLE`, rather than introduce another label. Role variables, hashes and
+manifests may remain diagnostics or bookkeeping only; none authorizes an acceptance transition.
 
 #### 3. Preserve the question by construction; do not reconstruct it from its answer
 
-**A mathematical question is constructed before evaluation and remains the same object throughout
-interpretation, realization, and comparison.**
+**A mathematical question is constructed before evaluation and retains its meaning throughout
+interpretation, realization, and comparison; its concrete representation is replaceable.**
 
 The interpretation interface produces the complete typed question against the accepted
 mathematical release. Its representation retains the formal operation, operands, parameters,
@@ -525,9 +539,23 @@ Consequently:
 
 Normalization used for comparison must preserve this distinction. Equality of truth values,
 provability of both propositions, or logical equivalence of two true propositions does not
-establish identity of the question being tested. A change of accepted interpretation requires
-independent assessment; it is not silently absorbed by regenerating the baseline with the
-candidate reader.
+establish identity of the question being tested.
+
+The permanent question is not the bytes of its elaborated expression. Binder names, metadata,
+serialization and proofs of the same proposition may change without changing the question. The
+comparison must retain the proposition those proofs establish and all semantic data, including
+selected structures, maps, parameters and logical structure. It may not erase an argument merely
+because it is called evidence, or erase selected data carried through a proof-dependent term.
+
+A changed fingerprint is a comparison finding, not proof of changed mathematics. An independently
+assessed comparison or old-to-new artifact migration must establish preservation of the full
+question for every affected identity and dependency revision. If it cannot, the change remains
+unaccepted; candidate output is never adopted by blanket regeneration. If the old reading or
+record misrepresented the independently established assertion, independent assessment may correct
+it against that unchanged assertion, accepted mathematics and cited sources. This is a reader or
+record repair, not a new mathematical requirement; the candidate does not establish which reading
+was intended. Changing the intended mathematics itself requires the upstream correction described
+in "Acceptance", not a migration justified by getting the gate green.
 
 The accepted record binds the question to its mathematical dependency revision. Keeping a
 declaration name while changing its definition is not automatically preservation of meaning. A
@@ -540,8 +568,10 @@ expected interpretation because it is stable across runs.
 
 **No admitted assertion disappears because interpretation failed.** The fixed assertion inventory is
 an input to execution, not a list reconstructed from whichever assertions the candidate
-successfully reads. Every required identity receives a result, including interpretation and
-infrastructure failures.
+successfully reads. Every admitted identity receives a result, including interpretation and
+infrastructure failures; a missing initial interpretation remains an open acceptance obligation.
+Reporting an unreadable assertion is necessary but cannot satisfy B0's requirement that every
+admitted assertion be semantically valid. No fingerprint subset becomes the denominator.
 
 Failure types also follow the stage that produces them. Semantic rejection belongs to reading;
 backend failure belongs to execution; malformed output belongs to decoding; comparison may report a

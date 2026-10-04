@@ -4,6 +4,24 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-04 (contract reconciliation)
+
+- Resolved contradictory construction/acceptance instructions in AGENTS, CONTRIBUTING,
+  architecture and the B0 plan. Construction authors may implement judges, never accept or
+  activate their own authoritative replacement; role variables and hashes confer no authority.
+- #65 is the single consolidation candidate. #63/#64 are divergent reference work whose binder
+  and complete lifted-result obligations remain to be reconciled. This supersedes the older
+  #64 decoder-repair queue below: #65 uses a different structured-result interface; the old
+  `universal := none` option is a gap, not completion.
+- Permanent mathematical questions are distinct from replaceable proof/serialization artifacts.
+  Independent assessment governs migrations and corrections of faulty readings; every admitted
+  identity remains required. Directives A/B/C allow independent source work; D consumes their
+  actual accepted inputs and the full compatible tuple.
+- Scope: documentation and branch disposition only. No code, pins, acceptance records, remote
+  branches or hosting settings changed; implementation and deployed protection are not established.
+  Focused diff/invariant checks only, no Lean build. The no-memory section and fixed B0
+  mathematical acceptance table, computational IDs and exit-trial requirements are unchanged.
+
 ## 2026-10-02 (orchestrator)
 
 - 14:50. HANDOFF (session stopped: usage limit). Durable state for the next kernel worker:

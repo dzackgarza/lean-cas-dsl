@@ -7,7 +7,7 @@ This file says where each kind of contribution goes.
 
 | You need | It goes to |
 | --- | --- |
-| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`: formalize it there (or open the request), merge it to `main`, and `lake update` here. Never coin it here, in a leaf, or in `research`. |
+| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`, through its independently assigned mathematical requirement and sources. A kernel worker records the missing accepted input, never authors or commissions the upstream repair. Consume the independently accepted release at an explicit compatible pin; never coin it downstream. |
 | A computation of a registered operation on one of its declared input forms | A leaf, in `lean-cas-dsl-leaves` or another package written against the leaf contract |
 | A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
 | Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
@@ -15,7 +15,8 @@ This file says where each kind of contribution goes.
 
 The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
 `LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
-`lean-categories`; this repository reads the registry at `main`.
+`lean-categories`; this repository reads the registry at its explicitly pinned, independently
+accepted mathematical release. Upstream `main` is not automatically that release.
 
 ## Mathematics is never inverted into implementation
 
@@ -51,7 +52,9 @@ bind the kernel, the language and every leaf. Their consequences here:
   that evidence and nothing else. It cannot do otherwise: the default build target
   `CasGates.KernelPurity` fails on any reference to mathematics, any tactic syntax, and any proof
   procedure run outside `establish`. If a statement fails because evidence is missing or too
-  weak, the fix is a formalization request, never kernel code.
+  weak, record the missing accepted input against the existing obligation. The independent
+  upstream author owns the mathematical repair; the kernel neither supplies it nor sends an
+  implementation-shaped formalization request.
 - How a value comes to lie in a domain `D ↪ B` (derived from LC-14 and LC-15; the kernel's
   reading rule):
   - a numeral needed in `D` is formed there: the numeral of `B`, with the proposition that it lies
@@ -71,7 +74,8 @@ bind the kernel, the language and every leaf. Their consequences here:
   subagent author.
 - No agent writes in two layers.
 - The implementation never informs the formalization or the tests.
-- Findings go upstream as requests, never as edits.
+- Downstream findings stay in their owning review channel. Upstream assignments come from the
+  approved mathematical requirements, never a downstream finding rewritten as a request.
 
 The leaves are not part of this repository; the dependency that remains is a defect
 (`gov-no-leaves-here`).
@@ -93,7 +97,10 @@ made does not. File extensions do not determine this distinction.
 During B0 construction, the controller, reviewer prompt, gates, and publication
 workflow are themselves implementation work. Correct them under the construction
 mandate. Do not submit their replacement to an obsolete policy in order to obtain
-permission to perform the replacement.
+permission to write or test it. Source integration does not accept or install a new
+authoritative judge: the author cannot approve its own replacement. The evaluator,
+accepted mathematics and acceptance inputs used to judge a candidate remain
+independently accepted revisions outside that candidate's control.
 
 Run the checks relevant to the actual change. A changed reviewer decision path
 needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests.
@@ -128,7 +135,8 @@ the suite.
 
 A leaf never adds a category, method, property, placement, forgetful route, coercion or natural
 transformation. If it seems to need one, or needs to forward an inherited method, the defect is
-upstream: fix it there. Anything that can be discharged in Lean is never a leaf's: either
+upstream: record that dependency, without commissioning or prescribing its repair. Anything that
+can be discharged in Lean is never a leaf's: either
 `lean-categories` proves it, or the kernel discharges it generically.
 
 Never write a leaf against, or extend, a contract form that carries a functor, a proof, an
@@ -172,23 +180,35 @@ It never mentions a leaf, a handle, a backend or a representation, and its truth
 established from an implementation's definitions. The acceptance suite is the whole body of
 correctness evidence: an installed computation's answer is compared against it.
 
-After adding one, run `python3 scripts/check_acceptance_permanent.py --admit`; the assertion is
-then permanent. An assertion that no installed computation answers yet is recorded as a gap
-(`#acceptance_gaps`), not a failure.
+The independent acceptance author submits the assertion and its mathematical interpretation
+through the acceptance channel. `python3 scripts/check_acceptance_permanent.py --admit` records
+text hashes; running it, or setting `AGENT_ROLE=acceptance`, does not confer admission authority.
+Admission depends on the independent acceptance operation specified by `b0-authority`.
+An assertion that no installed computation answers yet is a gap (`#acceptance_gaps`); it cannot
+satisfy an obligation requiring execution.
 
 - State the proposition in the mathematical language, through the public surfaces.
 - Write its expected value from a proof, a cited source or an independent oracle before you run
   anything, and record that provenance.
 - Never read a leaf, a handle's internals or a backend to decide what to assert.
 - An admitted assertion is permanent. If an implementation disagrees, the implementation is wrong.
-  Only an upstream correction to the mathematics changes an assertion, in the commit that updates
-  to it.
+  Only an independently accepted upstream correction changes its mathematics, with the release
+  that corrects it.
+- The permanent object is the full mathematical question, expected answer and execution
+  requirement, not a particular syntax, serialization or proof term. A meaning-preserving
+  artifact change uses an independently assessed comparison or migration preserving every
+  admitted identity. A changed hash alone neither proves changed mathematics nor authorizes
+  rewriting its accepted record. Equal truth values do not prove identical questions. An erroneous
+  old reading or record may be corrected independently against the unchanged assertion and its
+  mathematical sources; the candidate's behavior cannot determine the intended question.
+- Every admitted assertion remains in the report, including unreadable and unrecorded ones.
+  Neither an interpreter failure nor a missing fingerprint removes it from the denominator.
 
 ## Gate
 
 Run what the change touches:
-- **Kernel, language, probes, tools:** `just build` runs the repository checks (authorship
-  between the mathematical layers, no leaves, reuse records, permanent acceptance) and compiles the
+- **Kernel, language, probes, tools:** `just build` runs the repository checks (no leaves,
+  reuse records, permanent acceptance) and compiles the
   kernel, gates, acceptance probes, tools and notebook package. Compilation does not execute the
   suite. `just test` adds `cas-axiom-audit` (only `propext`, `Classical.choice`, `Quot.sound`)
   and the no-sorry check; `just test-ci` re-executes the demo notebook.
@@ -198,4 +218,5 @@ Run what the change touches:
   completion, which is judged against the fixed B0 requirements at one revision tuple.
 - **Reviewer controller:** `python3 custodian/review/test_review.py` on a scratch copy (its usage
   line).
-- **Documentation only:** nothing; CI skips the Lean jobs for it.
+- **Documentation only:** inspect the focused diff and its stated invariants; no Lean build.
+  CI skips the Lean jobs for documentation-only changes.

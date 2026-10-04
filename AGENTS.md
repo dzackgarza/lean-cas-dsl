@@ -136,9 +136,11 @@ A refused administrative operation is instead an execution dependency. Report
 the exact operation and permission required, without presenting new policy
 alternatives or asking for authorization already given.
 
-The author may implement a controller correction but may not fabricate an
-independent approval, alter mathematical acceptance to fit the implementation,
-or declare B0 accepted.
+The author may propose, implement and test a controller or gate correction as
+construction source. It may not accept or install its own replacement as the
+authoritative judge, fabricate independent approval, alter mathematical acceptance
+to fit the implementation, or declare B0 accepted. Source integration is not a
+change to the independently accepted evaluator or release.
 
 # You have no memory (read this first)
 
@@ -205,15 +207,16 @@ Consequences, binding on every agent and first of all the orchestrator:
 You are either the **orchestrator** or a subagent with exactly one role
 ([specs/architecture.md](specs/architecture.md), "Authors: one role per agent"):
 - The orchestrator owns policies, gates, compliance, this repository's kernel and language, the
-  leaf contract and, during B0 construction, the custodian's controller (`custodian/`). It
-  delegates the rest.
+  leaf contract and, during B0 construction, the custodian's controller (`custodian/`). The
+  launcher assigns the other roles from their independently approved requirements.
 - The formalization subagent writes `lean-categories` only.
 - The acceptance subagent writes `tests/acceptance/` only.
 - The leaf subagent writes leaves only.
 
-No agent writes in two of those roles. That separation is held by what each author can write
-(`b0-authority`), not by a label it declares about itself. Information flows formalization → tests → implementation, never
-back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
+No agent writes in two of those roles. `b0-authority` must enforce that separation through
+permitted inputs and operations, not a label an author declares about itself. Until the actual
+configuration is verified, this is an implementation obligation, not a claim of containment.
+Information flows formalization → tests → implementation, never back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
 by actual dependency: a governance node blocks only the work whose correctness or authorized
 acceptance depends on it, and a blocked item names that dependency (policy 5). An approved
 objective delegates its implementation; owner escalation is for a change of requirement or
@@ -224,23 +227,27 @@ A kernel worker consumes an accepted mathematical release. It writes nothing in 
 its registry schemas, validators, probes and admission rules included, and it commissions no
 upstream work with kernel-generated goals, acceptance failures, desired row arrangements or
 instructions for making a tactic succeed. Upstream work starts from an independently approved
-mathematical requirement and its sources. This is enforced by the session's credentials and tools
-(the plan, "Authority configuration"), not by a prompt convention.
+mathematical requirement and its sources. The session's credentials and tools must enforce this
+(the plan, "Authority configuration"); a prompt convention or role variable is not enforcement.
 
 # Architecture contract (read first)
 
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
-- this repository derives the language from `lean-categories`' `main` and owns no ontology;
+- this repository derives the language from an explicitly pinned, independently accepted
+  `lean-categories` release and owns no ontology;
 - leaves only supply opaque computations for operations that are already formal, and nothing
   from a leaf is trusted;
 - `research` owns no ontology.
 
 Every plan node and edit conforms to it. In practice it forbids the following.
 
-* **Missing mathematics goes upstream.** If you need a category, functor, classifier, operation
-  or coherence that is not formal, stop. Formalize it in `lean-categories`, or open the request
-  there. Then merge it to `main`, `lake update` here, and continue.
+* **Missing mathematics is an upstream dependency.** If a category, functor, classifier, operation
+  or coherence is missing, stop only its dependent operation and record the missing accepted
+  input in the existing obligation. The independent upstream author works from the approved
+  mathematical requirement and its sources; the kernel worker neither commissions nor briefs it.
+  Consume the independently accepted release at an explicit compatible pin, never unassessed
+  upstream `main`. Continue source work that does not require the missing input.
   - Never coin it in this repository: a leaf, a probe, the notebook or the kernel.
   - The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`). `normalized_registry`
     refuses every module outside it, and `SemanticProjectionProbes` checks that every semantic row
@@ -259,8 +266,8 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   glue over existing backends"); that is writing guidance for an engineering review, and following
   it earns no trust. Any mechanism that lets a leaf raise its own standing, and any code or
   document that consumes such a signal, is reward hacking and is removed. If writing a leaf seems
-  to need a new method, placement, forwarding or edge, the defect is upstream. Fix it there,
-  never in the leaf.
+  to need a new method, placement, forwarding or edge, record the missing semantic input.
+  Its independent upstream author owns any mathematical repair; never invent it in the leaf.
 * **The acceptance suite is the only correctness evidence, and `lean-cas-dsl` alone judges it.**
   What can be discharged in Lean is proved in `lean-categories` or discharged generically by the
   kernel; it is never a leaf's.
@@ -269,8 +276,12 @@ Every plan node and edit conforms to it. In practice it forbids the following.
     anything. Never take it from the implementation under test.
   - Never edit an admitted assertion because an implementation changed. Add new assertions
     instead.
-  - Only an upstream correction to the mathematics changes an assertion, in the commit that
-    updates to it.
+  - Only an independently accepted upstream correction changes the mathematical assertion,
+    with the release that corrects it. A meaning-preserving change of syntax, serialization or
+    proof artifact is not a new question; its comparison or migration is independently assessed
+    without changing the proposition, expected answer, required execution or assertion inventory.
+  - Hashes and role variables are bookkeeping, not admission authority. Construction workers
+    never regenerate authoritative records from their candidate's output.
 * **Failures stay stratified.** The five kinds are:
   1. semantically invalid;
   2. `NoImplementation`;
@@ -298,8 +309,9 @@ mechanical, external, long-tail work.
   `register_leaf` here). The orchestrator never writes, ports or polishes a leaf.
 - A leaf never sees the tests. It is written against the released leaf contract alone, and the
   harness runs the suite over installed leaves (`just harness`).
-- The contract is the kernel's: change it together with the kernel, merge it to `main`, and
-  `lake update` the leaves and this repository.
+- The contract is the kernel's: develop it with the kernel and integrate the compatible source.
+  Publish an independently assessed release, then explicitly pin that release in the leaves and
+  this repository. A source merge or an unconstrained `lake update` does not accept the tuple.
 
 # Search before authoring (gate-enforced)
 
