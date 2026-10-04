@@ -199,8 +199,8 @@ def call (h : Harness) (operation : String) (input : Wire) (resultType : Expr) :
 /-- The value of the registered family `declaration` (the denotation of a literal form, the
 standard cone constructor of a shape) at the answer `args`, as a value of `expected`. The
 family's arguments are taken in order: one the expected type determines is what it determines;
-an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`), and
-one it does not decide rejects the answer; every other argument is the next value of `args`,
+an instance is synthesized; a proposition is decided by the kernel (`CasCatalogue.Decide`): one refuted rejects
+the answer, and one the catalogue does not decide either way is a gap (`noImplementation`); every other argument is the next value of `args`,
 decoded by `decodeArg` at its type. The decoded arguments are returned with their forms, when
 they are values of a registered form. Too few or too many values reject the answer. -/
 def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
@@ -221,9 +221,13 @@ def decodeFamily (declaration : Name) (expected : Expr) (args : Array Json)
       | _ => return .error s!"no instance of {t} is found"
     else if ← isProp t then
       if t.hasMVar then return .error s!"the condition {t} is not determined by the answer"
-      let some proof ← Decide.decisionProof t
-        | return .error s!"the answer does not satisfy {t}, or the kernel does not decide it"
-      discard <| isDefEq m proof
+      -- Refuted: the answer is malformed. Not decided either way: nothing the catalogue
+      -- registers decides the condition, which is a gap, never a verdict on the answer.
+      match ← Decide.decideProp t with
+      | some true => discard <| isDefEq m (← mkDecideProof t)
+      | some false => return .error s!"the answer does not satisfy {t}"
+      | none => throwStratum .noImplementation m!"the answer's condition {t} is not decided: \
+          the catalogue registers no decision of it"
     else
       let j :: rest := remaining
         | return .error s!"the answer has {args.size} values, and {Codec.label declaration} \
@@ -324,6 +328,44 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
       return .ok (value, some (.literal form))
   return (← Codec.decode type j).map (·, none)
 
+mutual
+
+/-- The image of the datum `a` of a diagram, realized as `w` above, along the functor `U` of the
+creation lift `lift` into `category`: an object is the object the catalogue sends it to along the
+lift's edge (`transport`); a morphism `a : X ⟶ Y` is its graph read in `category`'s graph-literal
+form between the images of `X` and `Y`. Either image is checked to be `U` applied to the datum
+(definitionally), so that the diagram sent is `D ⋙ U`; a datum with no such image is not sent. -/
+partial def alongLift (h : Harness) (trace : Trace) (what : String) (category : NamedCategoryEntry)
+    (lift : LiftEntry) (U a : Expr) (w : Wire) : TermElabM Wire := do
+  let state ← registryState
+  let notSent (reason : MessageData) : TermElabM Wire :=
+    throwStratum .noImplementation m!"{what} is not sent along {lift.id.raw}: {reason}"
+  match w.form with
+  | .object _ =>
+      let image ← transport trace w #[lift.edge]
+      unless image.form.category == category.id do
+        return ← notSent m!"no registered object of {category.name} is the image of {a}"
+      unless ← isDefEq image.value (← Semantic.objOf U a) do
+        return ← notSent m!"{image.value} is not the image of {a}"
+      return image
+  | .graph _ =>
+      let some form := state.graphLiterals.find? (·.category == category.id)
+        | return ← notSent m!"{category.name} has no registered graph-literal form"
+      let type ← whnfR (← inferType a)
+      let #[_, _, X, Y] := type.getAppArgs
+        | return ← notSent m!"{a} is not a morphism"
+      let endpoint (e : Expr) : TermElabM Expr := do
+        let v ← realize h trace s!"an end of {a} in {what}" e
+        return (← alongLift h trace what category lift U e v).value
+      let expected ← mkAppM ``Quiver.Hom #[← endpoint X, ← endpoint Y]
+      match ← decodeValue trace category expected w.json with
+      | .ok (value, _) =>
+          unless ← isDefEq value (← mkAppM ``CategoryTheory.Functor.map #[U, a]) do
+            return ← notSent m!"the graph of {a} is not its image"
+          return { form := .graph form, value, json := w.json }
+      | .error message => notSent m!"the graph of {a} is not a graph of {category.name}: {message}"
+  | _ => notSent m!"the image of {a} is not computed"
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
@@ -353,12 +395,8 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
             {id.raw} is not encoded ({message})"
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
-      let some category := state.categories.find? (·.id == row.category)
+      let some rowCategory := state.categories.find? (·.id == row.category)
         | throwStratum .invalid m!"the category of {id.raw} is not registered"
-      if let some lift := lift? then
-        throwStratum .noImplementation m!"no registration computes {what}: its diagram is \
-          returned along the lift {lift.raw}, and the realized reading does not send a diagram \
-          along a lift"
       -- The diagram's data: the explicit arguments of its standard form, in their forms.
       let D ← instantiateMVars D
       let .const standard _ := D.getAppFn
@@ -369,12 +407,26 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let data := (D.getAppArgs.zip infos).filterMap fun (a, i) =>
         if i.isExplicit then some a else none
       let wires ← data.mapM fun a => realize h trace s!"the diagram of {id.raw} in {what}" a
+      -- A limit returned along a creation lift (`liftedLimitCone U L`, `L` a limit of `D ⋙ U`):
+      -- the diagram computed is `D ⋙ U`, each datum sent along the lift's functor `U`.
+      let lift ← lift?.mapM fun liftId => do
+        let some lift := state.lifts.find? (·.id == liftId)
+          | throwError "the lift {liftId.raw} of {id.raw} is not registered"
+        return (lift, ← state.edgeFunctor lift.edge)
+      let wires ← match lift with
+        | none => pure wires
+        | some (lift, U) => do
+            let mut images := #[]
+            for (a, w) in data.zip wires do
+              images := images.push (← alongLift h trace s!"the diagram of {id.raw} in {what}"
+                rowCategory lift U a w)
+            pure images
       -- The diagram sent is the standard form at the realized values of its data (the apex of an
       -- earlier realized limit is its leaf's object, not the catalogue's presentation of it), its
       -- implicit arguments determined by them; its cone is decoded at that diagram.
       let sent ← mkAppM standard (wires.map (·.value))
       let input : Wire :=
-        { form := .diagrams category, value := sent
+        { form := .diagrams rowCategory, value := sent
           json := Json.mkObj [("ctor", Codec.label standard),
                               ("args", Json.arr (wires.map (·.json)))] }
       let (answer, backend) ← send h id.raw input
@@ -391,13 +443,31 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
         else ``CategoryTheory.Limits.Cone) #[sent]
       let (cone, decoded) ← match ← decodeFamily constructor expected args
-          (decodeValue trace category) with
+          (decodeValue trace rowCategory) with
         | .ok result => pure result
         | .error message => malformed backend id.raw answer message
       let some (apex, some form) := decoded[0]?
         | malformed backend id.raw answer s!"the apex is not a value of a registered form of \
-            {category.name}"
-      return { form, value := apex, json := args[0]!, universal := some cone }
+            {rowCategory.name}"
+      let some (lift, _) := lift
+        | return { form, value := apex, json := args[0]!, universal := some cone }
+      -- Along the lift, the limit is the object above the computed apex that the catalogue
+      -- prescribes along the lift's edge: the object refining it along exactly that edge
+      -- (`ObjectRefinement`, with its identification `U(above) ≅ apex`), at the same parameters.
+      let .object below := form
+        | throwStratum .noImplementation m!"nothing lifts {what} along {lift.id.raw}: its apex \
+            is not a named object"
+      let above := state.objects.filter fun o => o.refines.any fun r =>
+        r.base == below.id && r.route == #[lift.edge]
+      let #[above] := above
+        | throwStratum .noImplementation m!"nothing lifts {what} along {lift.id.raw}: \
+            {above.size} registered objects refine {below.id.raw} along its edge"
+      let some (.object _ params) ← (trace.node? apex : IO _)
+        | throwError "the apex of {id.raw} is not recorded"
+      let value ← objectAt trace above params
+      let json := Json.mkObj [("ctor", above.id.raw),
+        ("args", (args[0]!.getObjVal? "args").toOption.getD (Json.arr #[]))]
+      return { form := .object above, value, json, universal := some cone }
   | .method id route receiver =>
       let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let input ← transport trace input route
@@ -411,6 +481,8 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       return { form := .literal form, value, json }
   | .property id _ _ =>
       throwStratum .invalid m!"the decision {id.raw} is not a value"
+
+end
 
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver, sent along the resolved
