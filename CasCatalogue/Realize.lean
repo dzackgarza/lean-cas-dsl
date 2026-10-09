@@ -2435,6 +2435,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           some descriptor
         else none
       let (answer, backend) ← send h id.raw input
+      let mut createdCone? : Option Expr := none
       -- A declared creation must execute the checked universal-property lift,
       -- not merely change the result's form to the source category.
       if let some liftId := lift? then
@@ -2448,6 +2449,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .ok lifted =>
           unless ← withTransparency .all <| isDefEq lifted.diagram sourceDiagram do
             throwStratum .malformed "the checked creation lift changed the source diagram"
+          createdCone? := some lifted.cone
         | .error message =>
           throwStratum .noImplementation m!"the registered creation lift cannot reconstruct its universal cone: {message}"
       let formalPresentation ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
@@ -2469,6 +2471,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                 externalDescriptor ComputationalData.endpointKeys)) with
         | .ok complete => pure complete
         | .error message => malformed backend id.raw answer message
+      if let some createdCone := createdCone? then
+        unless ← withTransparency .all <| isDefEq completed.cone createdCone do
+          throwStratum .noImplementation "the checked creation cone differs from the authoritative source presentation"
       let form ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => pure (.limitApex row)
         | some lift => do
