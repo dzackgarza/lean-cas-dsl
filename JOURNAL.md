@@ -6,6 +6,14 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Extended the question-permanence candidate check to require the admitted assertion inventory,
+  reject absent or extraneous report identities, reject duplicate identities, and refuse an absent
+  accepted or candidate question record. This closes silent success when the runner prunes rows or
+  a missing comparison reference is treated as an empty record. The incomplete initial question
+  inventory and role-variable admission authority remain unresolved under directives B and A;
+  this source patch does not establish either independent authority or B0 acceptance.
+- Focused checks: Python compilation, acceptance-permanence check, and diff whitespace check pass.
+
 - Corrected the construction-source gate to reject an absent admitted assertion inventory instead of initializing an empty one. `--correct` now refuses missing assertions instead of silently deleting them. The existing role-variable authorization remains an unresolved authority defect; this patch does not confer independent admission authority.
 - Focused check: `python scripts/check_acceptance_permanent.py` and `git diff --check` pass. No mathematical assertions, accepted revisions or evaluator authority changed.
 

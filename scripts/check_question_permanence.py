@@ -32,12 +32,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RECORD = ROOT / "CasAcceptance" / "Permanent" / "questions.json"
+INVENTORY = ROOT / "CasAcceptance" / "Permanent" / "admitted.json"
 
 
 def questions(report: Path) -> dict[str, str]:
     results = json.loads(report.read_text())
-    return {r["id"]: r["question"] for r in results
-            if not r["id"].startswith("(statement)")}
+    found: dict[str, str] = {}
+    for result in results:
+        ident = result["id"]
+        if ident.startswith("(statement)"):
+            continue
+        if ident in found:
+            raise SystemExit(f"duplicate assertion in report: {ident}")
+        found[ident] = result["question"]
+    return found
 
 
 def main() -> int:
@@ -66,7 +74,18 @@ def main() -> int:
     report = Path(args[0])
     if not report.is_file():
         raise SystemExit(f"no report at {report}: the suite did not run to completion")
+    if not INVENTORY.is_file():
+        raise SystemExit(f"missing admitted assertion inventory: {INVENTORY}")
+    inventory = set(json.loads(INVENTORY.read_text())["assertions"])
     head = questions(report)
+    omitted = sorted(inventory - set(head))
+    unexpected = sorted(set(head) - inventory)
+    for ident in omitted:
+        print(f"ADMITTED ASSERTION MISSING: {ident}")
+    for ident in unexpected:
+        print(f"UNADMITTED ASSERTION IN REPORT: {ident}")
+    if omitted or unexpected:
+        return 1
     recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
     if record:
         added = {i: q for i, q in head.items() if q and i not in recorded}
@@ -74,7 +93,11 @@ def main() -> int:
         print(f"recorded {len(added)} questions; {len(recorded)} unchanged")
         return 0
     assert base_record is not None
-    accepted = json.loads(base_record.read_text()) if base_record.is_file() else {}
+    if not base_record.is_file():
+        raise SystemExit(f"missing accepted question record: {base_record}")
+    if not RECORD.is_file():
+        raise SystemExit(f"missing candidate question record: {RECORD}")
+    accepted = json.loads(base_record.read_text())
     rewritten = sorted(i for i, q in accepted.items() if i not in recorded or recorded[i] != q)
     for i in rewritten:
         now = recorded[i] if i in recorded else "(removed)"
