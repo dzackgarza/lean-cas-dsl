@@ -6,8 +6,6 @@
                                                    of the base's record (it is append-only), or if an
                                                    admitted assertion's semantic question differs from
                                                    the one recorded for it
-    check_question_permanence.py --record REPORT   record the question of every admitted assertion
-                                                   that has none recorded; never changes a recorded one
     check_question_permanence.py --show REPORT     print each unrecorded assertion's proposition, as
                                                    the acceptance author reads it before recording
 
@@ -21,12 +19,12 @@ A kernel, parser or pin under which an unchanged assertion elaborates to another
 here, whatever the outcome. The comparison is never by text, outcome or provability: an assertion
 whose text changed is `check_acceptance_permanent.py`'s, and its new question is recorded only
 with its correction. An assertion that the reading cannot read at all (no question) is reported,
-and fails only if a question was recorded for it. Recording is the acceptance author's: `--record`
+and fails only if a question was recorded for it. Recording requires independent acceptance;
+this checker exposes no mutation command.
 runs only with `AGENT_ROLE=acceptance` (specs/architecture.md, "Authors: one role per agent").
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -56,18 +54,15 @@ def main() -> int:
             if r["question"] and r["id"] not in recorded and not r["id"].startswith("(statement)"):
                 print(f"{r['id']}: {r['proposition']}")
         return 0
-    record = args[:1] == ["--record"]
-    if record:
-        args = args[1:]
-        if os.environ.get("AGENT_ROLE") != "acceptance":
-            raise SystemExit("--record is the acceptance author's (AGENT_ROLE=acceptance)")
-    base_record: Path | None = None
-    if not record:
-        if len(args) != 3 or args[0] != "--base":
-            print(__doc__, file=sys.stderr)
-            return 2
-        base_record = Path(args[1])
-        args = args[2:]
+    # Interpretation records require independently assessed input; a caller's
+    # role environment cannot authorize new mathematical question identities.
+    if args[:1] == ["--record"]:
+        return 2
+    if len(args) != 3 or args[0] != "--base":
+        print(__doc__, file=sys.stderr)
+        return 2
+    base_record = Path(args[1])
+    args = args[2:]
     if len(args) != 1:
         print(__doc__, file=sys.stderr)
         return 2
@@ -94,16 +89,6 @@ def main() -> int:
     if not RECORD.is_file():
         raise SystemExit(f"missing candidate question record: {RECORD}")
     recorded = json.loads(RECORD.read_text())
-    if record:
-        altered = sorted(i for i, q in recorded.items() if i in head and head[i] != q)
-        absent = sorted(set(recorded) - inventory)
-        if altered or absent:
-            raise SystemExit(f"existing interpretations changed: {altered}; "
-                             f"recorded identities outside inventory: {absent}")
-        added = {i: q for i, q in head.items() if q and i not in recorded}
-        RECORD.write_text(json.dumps({**recorded, **added}, indent=1, sort_keys=True) + "\n")
-        print(f"recorded {len(added)} questions; {len(recorded)} unchanged")
-        return 0
     assert base_record is not None
     if not base_record.is_file():
         raise SystemExit(f"missing accepted question record: {base_record}")
