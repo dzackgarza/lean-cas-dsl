@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- The requested creation-lift pre-dispatch guard now also refuses colimit
+  requests and checks the complete diagram's source category against the selected
+  structural functor's registered source. Target and shape agreement alone were
+  insufficient to distinguish functors with the same lower-category target.
+  This remains source validation, not a completed registered computation.
+
 - Creation-lift dispatch now checks the selected lift's kind and shape, registered
   structural functor, and target category against the lower limit row before
   sending a backend request. Previously only the lift ID's existence was checked

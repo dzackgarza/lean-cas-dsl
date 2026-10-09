@@ -2336,10 +2336,20 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       if let some liftId := lift? then
         let some creation := state.lifts.find? (·.id == liftId)
           | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} is not registered"
+        if row.colimit then
+          throwStratum .noImplementation m!"the requested lift {liftId.raw} cannot create a colimit"
         unless creation.kind == .createsLimits row.shape do
           throwStratum .noImplementation m!"the requested lift {liftId.raw} does not create {row.shape} limits"
         let some edge := state.structuralEdge? creation.edge
           | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no registered functor"
+        let some source := state.categories.find? (·.expression.syntacticEq edge.source)
+          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no source category"
+        let diagramType ← withTransparency .all <| whnf (← inferType D)
+        let some diagramCategory := diagramType.getAppArgs[3]?
+          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no full diagram category"
+        let fullSource ← Semantic.namedCategoryFor state source.expression
+        unless ← withTransparency .all <| isDefEq diagramCategory fullSource do
+          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has a different source diagram category"
         let some target := state.category? edge.target
           | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no target category"
         unless target.id == row.category do
