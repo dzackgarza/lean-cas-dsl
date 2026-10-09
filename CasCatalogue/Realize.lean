@@ -2468,7 +2468,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .ok lifted =>
           unless ← withTransparency .all <| isDefEq lifted.diagram sourceDiagram do
             throwStratum .noImplementation "the creation lift does not reconstruct the source diagram"
-          createdPresentation? := lifted.presentation
+          let some createdPresentation := lifted.presentation
+            | throwStratum .noImplementation "the registered creation lift omitted its checked universal presentation"
+          createdPresentation? := some createdPresentation
         | .error message =>
           throwStratum .noImplementation m!"the registered creation lift cannot reconstruct its universal cone: {message}"
       if let some createdPresentation := createdPresentation? then
