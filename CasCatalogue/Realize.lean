@@ -2477,7 +2477,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         -- isomorphism, not by demanding equality of their presentations.
         let createdEvidence ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[createdPresentation]
         let formalEvidence ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[completed.presentation]
-        let comparison ← mkAppM ``CategoryTheory.Limits.IsLimit.uniqueUpToIso
+        let comparison ← mkAppM ``CategoryTheory.Limits.IsLimit.conePointUniqueUpToIso
           #[formalEvidence, createdEvidence]
         let comparison ← StructuredResult.checkReconstruction comparison
         let createdCone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[createdPresentation]
