@@ -6,6 +6,13 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- On `b0/lifted-execution`, committed `37c4836` to require the lifted upper
+  apex to map to the computed lower apex under the declared functor, and
+  `9c4c422` to stop presenting the lower cone as an upper universal structure.
+  The lower cone's legs live in the lower category; an upper cone with defining
+  maps has not been reconstructed. This is a partial source correction, not
+  satisfaction of `cc-realize`, independent approval or a registered assertion.
+
 - Current leaf-specimen coverage, measured from the separate `lean-cas-dsl-leaves`
   checkout `48a99b5`: its 22 distinct `(operation, input)` registrations contain
   **no** `finite_sets` input registration and **no** formed-lattice discriminant
