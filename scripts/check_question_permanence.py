@@ -21,7 +21,7 @@ whose text changed is `check_acceptance_permanent.py`'s, and its new question is
 with its correction. An assertion that the reading cannot read at all (no question) is reported,
 and fails only if a question was recorded for it. Recording requires independent acceptance;
 this checker exposes no mutation command.
-runs only with `AGENT_ROLE=acceptance` (specs/architecture.md, "Authors: one role per agent").
+requires independently reviewed accepted inputs; no caller-selected role grants record authority.
 """
 
 import json

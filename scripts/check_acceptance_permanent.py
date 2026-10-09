@@ -112,7 +112,7 @@ def main() -> int:
     problems += [f"admitted assertion {i} was modified" for i in changed]
     if args:
         raise SystemExit(2)
-    problems += [f"assertion {i} is not admitted (run with --admit)" for i in new]
+    problems += [f"assertion {i} is not independently admitted" for i in new]
     if problems:
         print("permanent acceptance assertions are append-only:", file=sys.stderr)
         print("\n".join("  " + p for p in problems), file=sys.stderr)
