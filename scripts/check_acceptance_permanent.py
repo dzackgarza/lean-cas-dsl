@@ -103,8 +103,9 @@ def suite_ids() -> set[str]:
 def main() -> int:
     args = sys.argv[1:]
     current = assertions()
-    manifest = (json.loads(MANIFEST.read_text()) if MANIFEST.exists()
-                else {"assertions": {}, "corrections": []})
+    if not MANIFEST.is_file():
+        raise SystemExit(f"missing authoritative acceptance inventory: {MANIFEST}")
+    manifest = json.loads(MANIFEST.read_text())
     admitted: dict[str, str] = manifest["assertions"]
     missing = sorted(set(admitted) - set(current))
     changed = sorted(i for i in admitted if i in current and current[i] != admitted[i])
@@ -121,11 +122,11 @@ def main() -> int:
         acceptance_author("--correct")
         if len(args) != 2 or not args[1].strip():
             raise SystemExit("--correct needs the upstream correction it records")
+        if missing:
+            raise SystemExit("--correct cannot delete admitted assertions: " + ", ".join(missing))
         for i in changed:
             admitted[i] = current[i]
-        manifest["corrections"].append({"reason": args[1], "changed": changed, "removed": missing})
-        for i in missing:
-            del admitted[i]
+        manifest["corrections"].append({"reason": args[1], "changed": changed})
         MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         return 0
 

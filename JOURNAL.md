@@ -4,6 +4,11 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-09 (B0 acceptance-inventory gate)
+
+- Corrected the construction-source gate to reject an absent admitted assertion inventory instead of initializing an empty one. `--correct` now refuses missing assertions instead of silently deleting them. The existing role-variable authorization remains an unresolved authority defect; this patch does not confer independent admission authority.
+- Focused check: `python scripts/check_acceptance_permanent.py` and `git diff --check` pass. No mathematical assertions, accepted revisions or evaluator authority changed.
+
 ## 2026-10-04 (contract reconciliation)
 
 - Resolved contradictory construction/acceptance instructions in AGENTS, CONTRIBUTING,
