@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- The question permanence comparison now fails when a candidate has readable admitted
+  assertions absent from the independently established question record. Previously it
+  printed the missing interpretations but returned success, allowing an unrecorded
+  semantic reinterpretation to pass. No candidate questions or authoritative records
+  were regenerated; the acceptance author must establish these interpretations.
+
 - The question-permanence comparison and initial recording now refuse an admitted
   assertion whose semantic question was not read. Merely including the assertion ID in
   the harness report is insufficient: an unread assertion cannot acquire an accepted

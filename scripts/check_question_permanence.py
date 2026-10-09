@@ -118,7 +118,7 @@ def main() -> int:
     if unrecorded:
         print(f"{len(unrecorded)} assertions have no recorded question (the acceptance author records them)")
     print(f"{len(recorded)} recorded questions; {len(changed)} changed")
-    return 1 if changed or missing or rewritten else 0
+    return 1 if changed or missing or rewritten or unrecorded else 0
 
 
 if __name__ == "__main__":
