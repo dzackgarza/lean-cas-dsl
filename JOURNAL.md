@@ -6,6 +6,11 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Hardened the `--record` operation: it no longer treats an absent record as an empty
+  authoritative baseline or reports success while existing interpretations disagree
+  with the current question. It rejects orphaned recorded IDs as well. It still cannot
+  establish independent admission authority: `AGENT_ROLE` remains caller supplied.
+
 - Corrected five realization-stage catalogue inconsistency branches in `Realize.realize`
   to throw interpreter errors rather than assert mathematical invalidity. These are
   missing registered forms/categories/functors/standard cones after the semantic reader

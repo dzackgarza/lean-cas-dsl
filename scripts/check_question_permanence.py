@@ -91,8 +91,15 @@ def main() -> int:
         for ident in unread:
             print(f"ADMITTED QUESTION NOT READ: {ident}")
         return 1
-    recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
+    if not RECORD.is_file():
+        raise SystemExit(f"missing candidate question record: {RECORD}")
+    recorded = json.loads(RECORD.read_text())
     if record:
+        altered = sorted(i for i, q in recorded.items() if i in head and head[i] != q)
+        absent = sorted(set(recorded) - inventory)
+        if altered or absent:
+            raise SystemExit(f"existing interpretations changed: {altered}; "
+                             f"recorded identities outside inventory: {absent}")
         added = {i: q for i, q in head.items() if q and i not in recorded}
         RECORD.write_text(json.dumps({**recorded, **added}, indent=1, sort_keys=True) + "\n")
         print(f"recorded {len(added)} questions; {len(recorded)} unchanged")
@@ -100,8 +107,6 @@ def main() -> int:
     assert base_record is not None
     if not base_record.is_file():
         raise SystemExit(f"missing accepted question record: {base_record}")
-    if not RECORD.is_file():
-        raise SystemExit(f"missing candidate question record: {RECORD}")
     accepted = json.loads(base_record.read_text())
     rewritten = sorted(i for i, q in accepted.items() if i not in recorded or recorded[i] != q)
     for i in rewritten:
