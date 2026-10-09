@@ -22,7 +22,7 @@ class LauncherTest(unittest.TestCase):
     def shell(self,*args): return subprocess.run(args,check=True,capture_output=True,text=True).stdout.strip()
     def commit(self):
         self.shell('git','-C',str(self.repo),'add','.')
-        self.shell('git','-C',str(self.repo),'commit','-qm','source')
+        self.shell('git','-c','core.hooksPath=/dev/null','-C',str(self.repo),'commit','-qm','source')
     def server(self,role):
         c=Controller(self.revision,dict.fromkeys(('mathematics','contract','acceptance','public_metadata'),self.revision),self.root/'unused-key','unused-fingerprint',{'b0-authority':role})
         return RoleServer(c,'b0-authority',self.repo)
@@ -42,6 +42,18 @@ class LauncherTest(unittest.TestCase):
         target.write_text('cross-role change')
         self.commit()
         candidate=self.shell('git','-C',str(self.repo),'rev-parse','HEAD')
+        with self.assertRaises(PermissionError):
+            server.call('validate_source',{'candidate':candidate})
+    def test_committed_symlink_cannot_enter_submission_or_validation(self):
+        server=self.server('kernel')
+        server.validation={'runtime':'sha256:'+'0'*64,'arguments':[]}
+        target=self.repo/'CasCatalogue'/'linked.py'
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.symlink_to('../INTENT.md')
+        self.commit()
+        candidate=self.shell('git','-C',str(self.repo),'rev-parse','HEAD')
+        with self.assertRaises(PermissionError):
+            server.call('submit_source',{'candidate':candidate})
         with self.assertRaises(PermissionError):
             server.call('validate_source',{'candidate':candidate})
     def test_leaf_receives_frozen_public_artifact_without_mathematics_or_acceptance(self):

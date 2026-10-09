@@ -105,6 +105,10 @@ class RoleServer:
             files = git(self.repository, 'diff', '--name-only', parents[0], revision.commit).decode().splitlines()
             if not files or any(not self.permitted(p) for p in files):
                 raise PermissionError('validation candidate changes another role source')
+            for path in files:
+                entry = git(self.repository, 'ls-tree', revision.commit, '--', path).decode()
+                if entry and not entry.startswith('100644 blob ') and not entry.startswith('100755 blob '):
+                    raise PermissionError('validation candidate contains nonregular source')
             return json.dumps(execute(revision,self.validation['runtime'],
                                       tuple(self.validation['arguments'])),sort_keys=True)
         if name == 'submit_source':
@@ -121,6 +125,10 @@ class RoleServer:
             files = git(self.repository, 'diff', '--name-only', parents[0], revision.commit).decode().splitlines()
             if not files or any(not self.permitted(p) for p in files):
                 raise PermissionError('submission changes another role source')
+            for path in files:
+                entry = git(self.repository, 'ls-tree', revision.commit, '--', path).decode()
+                if entry and not entry.startswith('100644 blob ') and not entry.startswith('100755 blob '):
+                    raise PermissionError('submission contains nonregular source')
             return json.dumps({'kind': 'source_submission', 'role': self.role,
                               'obligation': self.worker.assignment.obligation,
                               'candidate': revision.commit, 'source_parent': parents[0],

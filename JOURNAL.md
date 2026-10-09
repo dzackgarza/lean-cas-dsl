@@ -6,6 +6,13 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Launcher source boundary: `validate_source` and `submit_source` now reject
+  Git symlink/submodule entries masquerading as role-permitted regular files;
+  the previous path-only checks admitted these candidate trees. Added a
+  committed-symlink regression for both operations and made the isolated
+  test-repository commits independent of ambient Git hooks. Focused launcher
+  tests: 10 passed. This is source hardening, not established `b0-authority`.
+
 - Correction to the `b0/lifted-execution` disposition: it is based on the old
   `b0/lifted-limits` decoder and is **not** the designated consolidation source.
   The candidate `b0/reconcile-typed-question` at `cbe4f17` already routes
