@@ -2435,7 +2435,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           some descriptor
         else none
       let (answer, backend) ← send h id.raw input
-      let mut createdCone? : Option Expr := none
+      let mut createdPresentation? : Option Expr := none
       let formalPresentation ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => Semantic.limitPresentation row sent
         | some lift => do
@@ -2468,12 +2468,27 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .ok lifted =>
           unless ← withTransparency .all <| isDefEq lifted.diagram sourceDiagram do
             throwStratum .noImplementation "the creation lift does not reconstruct the source diagram"
-          createdCone? := some lifted.cone
+          createdPresentation? := lifted.presentation
         | .error message =>
           throwStratum .noImplementation m!"the registered creation lift cannot reconstruct its universal cone: {message}"
-      if let some createdCone := createdCone? then
-        unless ← withTransparency .all <| isDefEq completed.cone createdCone do
-          throwStratum .noImplementation "the checked creation cone differs from the authoritative source presentation"
+      if let some createdPresentation := createdPresentation? then
+        -- Universal cones over the same diagram need not have definitionally
+        -- equal apexes. Compare the entire cones through the canonical checked
+        -- isomorphism, not by demanding equality of their presentations.
+        let createdEvidence ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[createdPresentation]
+        let formalEvidence ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[completed.presentation]
+        let comparison ← mkAppM ``CategoryTheory.Limits.IsLimit.uniqueUpToIso
+          #[formalEvidence, createdEvidence]
+        let comparison ← StructuredResult.checkReconstruction comparison
+        let createdCone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[createdPresentation]
+        let createdApex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[createdCone]
+        let decoded : StructuredResult.Decoded := {
+          diagram := completed.diagram, cone := createdCone,
+          apex := createdApex, answer, presentation := some createdPresentation }
+        match ← StructuredResult.extendCreated decoded comparison with
+        | .error message =>
+            throwStratum .noImplementation m!"the creation comparison cannot transport its defining maps: {message}"
+        | .ok _ => pure ()
       let form ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => pure (.limitApex row)
         | some lift => do
