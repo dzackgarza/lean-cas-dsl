@@ -7,7 +7,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "5b96a8a4211376bd4996c8f063ff63574057984b",
+   "rev": "01b44cd379e8051fc29957c5e0300033ec2605d9",
    "name": "lean_categories",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
@@ -31,7 +31,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "5133fb81bba1fb4deb7f8e26ac9e02ccdb6a3f90",
+   "rev": "bcd47216fe593fe825b877569a35e8bf50913ee1",
    "name": "cas_leaf_contracts",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
@@ -44,7 +44,7 @@
    "subDir": "worker",
    "scope": "",
    "rev": "4c6c2a77abcc717513a65ca35723ed428647e1bd",
-   "name": "«nbdsl-worker»",
+   "name": "\u00abnbdsl-worker\u00bb",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,
@@ -171,7 +171,7 @@
    "configFile": "lakefile.toml"
   }
  ],
- "name": "«cas-dsl»",
+ "name": "\u00abcas-dsl\u00bb",
  "lakeDir": ".lake",
  "fixedToolchain": false
 }

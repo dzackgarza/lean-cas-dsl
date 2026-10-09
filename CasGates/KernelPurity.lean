@@ -6,6 +6,24 @@ module
 
 import all CasCatalogue
 import all CasCatalogue.Acceptance
+import all CasCatalogue.BinderReaderProbes
+import all CasCatalogue.CodecConditionProbes
+import all CasCatalogue.ConstructionData
+import all CasCatalogue.ConstructionDataProbes
+import all CasCatalogue.ConstructionLegReaderProbes
+import all CasCatalogue.ElementData
+import all CasCatalogue.ElementDataProbes
+import all CasCatalogue.EquationData
+import all CasCatalogue.EquationDataProbes
+import all CasCatalogue.FunctorActionData
+import all CasCatalogue.FunctorActionDataProbes
+import all CasCatalogue.ImageFormProbes
+import all CasCatalogue.LiftedSubobjectData
+import all CasCatalogue.LiftedSubobjectDataProbes
+import all CasCatalogue.PresentationReaderProbes
+import all CasCatalogue.SelectedCarrierProbes
+import all CasCatalogue.ParameterStructureProbes
+import all CasCatalogue.StructuredReconstructionProbes
 import all CasCatalogue.AcceptanceSyntax
 import all CasCatalogue.Admission
 import all CasCatalogue.CellCall
@@ -14,6 +32,9 @@ import all CasCatalogue.Codec
 import all CasCatalogue.Decide
 import all CasCatalogue.Language
 import all CasCatalogue.Realize
+import all CasCatalogue.QuestionProbes
+import all CasCatalogue.StructuredResult
+import all CasCatalogue.StructuredResultProbes
 import all CasCatalogue.Resolve
 import all CasCatalogue.ResolveSyntax
 import all CasCatalogue.Semantic
@@ -54,8 +75,10 @@ catalogue registers. Mathematics is `lean-categories`', formalized there by its 
 Every module file under `CasCatalogue/` and the contract's `CasContract/` must be imported here,
 so that a new kernel module cannot escape the check.
 
-The one proof the kernel forms itself is `decide` by evaluation (`decideObligation`, Lean's
-`mkDecideProof`): general, and about no mathematics in particular.
+The kernel forms generic kernel-checked proofs by `decide` (`decideObligation`, Lean's
+`mkDecideProof`) or reflexivity after checking that an equality's sides are definitionally equal.
+The latter also checks a constructor's proof assignment; neither introduces mathematical rows or
+accepts a proof supplied by a leaf.
 -/
 
 open Lean

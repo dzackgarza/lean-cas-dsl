@@ -19,8 +19,10 @@ that the kernel decodes or rejects. No Lean crosses it, in either direction.
 
 ## Forms are formal
 
-Every registered operation has declared input and result forms, and each form is a registered
-literal form of `lean-categories`: a data type `T` and its denotation `denote : T → …`. Examples:
+Every registered operation has a declared dependent signature. Its input and result forms are
+derived from the upstream rows and their mathematical definitions. Literal forms supply a data
+type `T` and its denotation `denote : T → …`; named objects, arrows, selected elements and
+canonical constructions retain their registered identity and complete parameters. Examples:
 a finite set of integers as a list, a cardinal as a natural number or `ℵ₀`, a matrix as rows, a
 morphism of finite sets as its graph. Which forms exist, and what they denote, is mathematics. A
 leaf never declares a form.
@@ -35,24 +37,82 @@ kernel or from a leaf:
   when it has one: a point of `Fin n` is its number, a pair is `[x, y]`, and a map of finite sets
   is its graph `[[0,0],[1,1],[2,1]]`;
 - a quotient is sent as a representative: a `Finset` is the list of its elements;
-- a proof field is never on the wire. On decoding, the kernel establishes it by decision, or it
-  rejects the value.
+- a proof field is never on the wire. Direct literal decoding establishes the declared data
+  type's constraints by decision, or rejects the literal. Structured computational packets
+  remain data; decoding them does not manufacture a proved mathematical construction.
 
-Decoding is total: an answer is a closed value of `T`, read at the type the kernel asked for, or
-it is rejected as malformed.
+Decoding is total: direct literals are closed values of their declared data type; structured
+answers are complete computational packets in the declared form. Ill-formed outputs are
+rejected as malformed. Formal construction proofs remain independent of both.
 
 **Diagrams and universal answers.** The input form of a limit or colimit is the diagrams of its
 category, and its form id is the category's id (`cat.sets`). A diagram is sent as the standard
 diagram's name with its explicit arguments in their forms, e.g.
 `{"ctor": "cospan", "args": [f, g]}`. The answer is the complete universal datum,
 `{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
-standard cone constructor of the shape:
+data fields of the standard cone constructor of the shape:
 - the apex is a named object or a literal of the category;
 - each leg is a graph literal;
-- the commutation conditions are decided by the kernel.
+- formal commutation proofs remain with the independent mathematical construction.
 
-A missing leg, a leg that is not a map, or a commutation that does not hold makes the answer
-malformed (CC-DECODE).
+A missing leg or a leg that is not a map at the declared endpoints makes the answer
+malformed (CC-DECODE). Commutation of the returned data is a correctness question for
+acceptance. Returned presentation maps are computational data at declared endpoints.
+They do not establish an isomorphism or universality. The formal construction and its universal
+property remain those of the accepted mathematics, independently of this answer.
+
+A subobject reply retains its apex, fixed ambient object and defining monomorphism. For a
+requested construction, the formal functor and input independently fix its meaning and selected
+structure. The answer retains all computational fields without becoming a proved identification
+with that construction. Optional `presentation` maps retain their declared directions and full
+endpoints as computational data. Inverse equations and inclusion squares are correctness
+questions for acceptance, not prerequisites for promoting the answer to a formal subobject.
+Prescribed formal lifts determine the semantic construction; computational lifting preserves
+the returned inclusion and complete representation. A well-formed wrong structured answer,
+like a well-typed wrong numeral, reaches acceptance as a wrong answer.
+
+Subsequent computations retain the complete requested functor action and returned subobject
+response together. The first is fixed by the formal trace; the second is computational data.
+An `objectPresentation` envelope does not establish an isomorphism between them or determine
+available operations. Functor actions and defining-map projections preserve this separation.
+
+The complete wire grammar is maintained in `cas_leaf_contracts`' `CasContract/Port.lean`.
+It includes registered named morphisms, functor actions, structured arrows and subobjects,
+finite function graphs, and canonical limit apex/leg descriptors. Selected element data is a
+closed numeral/generator/arithmetic grammar at an exact independently selected object.
+Presentation applications retain their registered comparison, parameters and direction; their
+returned points never choose the endpoint by carrier equality.
+
+A returned construction's defining leg retains the complete returned cone or cocone, its
+registered diagram and actual typed index. Computational projection uses the returned leg;
+formal projection uses the authoritative construction's defining map. Neither is substituted
+for the other because apex cardinalities agree. A forward point view similarly retains the full
+selected source element, registered object action, target and original generalized-point
+domain. It applies only the declared carrier identification. Nonidentity point maps keep their
+actual morphism transport and composition; no carrier is used to invent a source structure.
+
+A created-cone envelope additionally retains the registered creation lift, complete source
+diagram and complete returned target cone. Formal creation derives the source construction
+from accepted mathematics; computational data does not need a proof of the target's universal
+property and does not choose a named source object. A nullary operation point retains the operation's full
+declaration parameters and actual registered singleton-to-terminal comparison, plus its original
+generalized domain and complete selected target. Unsupported computation is a computational
+gap; a wire tag cannot supply a terminal bridge, structure or proof.
+
+These encodings compose with the declared dependent forms and complete output fields retained.
+Formal proof fields belong to the authoritative construction, not a proof reconstructed from
+backend data. Object identities and selected structural maps remain in the semantic trace. A wire
+constructor cannot register an operation, change a category, or manufacture a comparison.
+Adding a new upstream object therefore uses the same recursive typed codec, while adding a
+registered comparison uses its accepted formal maps while computational responses remain data.
+
+An anonymous structural image's registration form is
+`image:<compact JSON [target-category-id, edge-descriptor]>`. The edge descriptor is
+`{"functor":"id"}`, `{"classifierForget":"id"}`, or
+`{"constructorMap":["id", inner-edge-descriptor]}`. This names the complete registered
+edge and target schema; its actual ordered declaration parameters remain in the typed value
+and wire data. A short classifier or constructor identifier resolves only when the registry
+contains exactly one matching edge and target. Competing edges require the complete image key.
 
 ## A registration is data
 
@@ -121,11 +181,19 @@ Before any leaf is called, the kernel tries to decide the statement's semantic p
 Lean, generically: `decide` within a fixed budget, and the catalogue's registered evidence
 (LC-18).
 - If Lean proves it, the statement holds as proved, and no leaf is consulted.
-- If Lean refutes it, the statement is false mathematics. It is invalid and is reported against
-  the suite, never against a leaf.
+- If Lean refutes the well-typed comparison, its outcome is `wrong`; reading validity is
+  unchanged. No leaf was consulted in that discharge.
 - Otherwise the realized reading decides it.
 
-A leaf is never asked for what Lean can discharge, and it never supplies a proof.
+The normal path avoids backend calls after successful Lean discharge. A leaf supplies values
+and never supplies a proof.
+
+Where the fixed B0 requirements additionally demand registered execution, a separate
+`cas-harness --computation-only` run evaluates the same interpreted questions without proof
+discharge. Its per-assertion dispatch records identify the actual registered requests made by
+the runner. A required computational observation needs both its independent assertion to hold
+and an actual backend request; a proof-only hold does not establish that observation. Dispatch
+records are execution observations, not mathematical evidence about an implementation.
 
 ## What is removed
 

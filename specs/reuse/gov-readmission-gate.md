@@ -1,12 +1,16 @@
 # Reuse record: `gov-readmission-gate`
 
-`check_acceptance_permanent.py` admits or corrects assertions only under `AGENT_ROLE=acceptance`.
+The existing permanence checker is read-only. The former caller-set role label and
+admission/correction/retirement commands have been removed; accepted inputs belong to the
+independent acceptance transition, not a candidate check.
 
 ## Queries
-- the existing permanence script (extended in place, not duplicated).
+- Existing permanence checker and its build/CI callers.
+- Existing accepted-ledger and independent acceptance requirements in architecture policy 2.
 
 ## Owner
-- `scripts/check_acceptance_permanent.py`.
+- `scripts/check_acceptance_permanent.py` and the existing acceptance review channel.
 
 ## New code
-One environment check and one content-aware path rule.
+A read-only accepted-ledger input and regression tests for the observed self-admission channel.
+No replacement role label or approval service is introduced.

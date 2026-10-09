@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   gates:
-    name: Authorship, kernel totality, no leaves, permanent acceptance
+    name: Boundary integrity and permanent acceptance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -90,14 +90,20 @@ jobs:
           test: "false"
           lint: "false"
           use-mathlib-cache: "false"
+      - name: Check candidate assertions against the accepted base ledger
+        run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
       - name: Run the suite at the base and at the head
         run: |
           for side in base head; do
+            inventory_args=()
+            if [ "$side" = head ]; then
+              inventory_args=(--inventory "$GITHUB_WORKSPACE/base/CasAcceptance/Permanent/admitted.json")
+            fi
             # The harness exits nonzero when an assertion fails; the report decides, and a run
             # that did not complete writes none, which fails the comparison.
             rm -f "$GITHUB_WORKSPACE/$side.json"
             (cd "$side" && lake exe cache get && lake build cas-harness \
-              && { lake exe cas-harness --report "$GITHUB_WORKSPACE/$side.json" || true; })
+              && { lake exe cas-harness "${inventory_args[@]}" --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done
       - name: Compare, assertion by assertion
         run: python3 head/scripts/check_acceptance_regression.py base.json head.json

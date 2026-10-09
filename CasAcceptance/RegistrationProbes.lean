@@ -22,7 +22,7 @@ Statements of the suite's kind are run through `CasCatalogue.Realize.run` over p
   hold with no leaf installed: their propositions are proved by decision, checked by the kernel.
   So do the element and morphism equalities of `ℤ`, `ℤ/5` and `Fin(3)`, by the catalogue's
   decidable equality of morphisms of a concrete category. A false one (`2 + 3 = 6`) is refuted
-  by Lean and invalid. What Lean does not decide and no registration computes is a gap:
+  by Lean and reported as wrong. What Lean does not decide and no registration computes is a gap:
   cardinalities.
 * **An admitted element is part of the term, with its evidence.** `3 in ℚˣ` is the unit
   `(3, ⅟3)`: its registered evidence (`Units.invertibleEvidence`, run through the kernel's one
@@ -93,15 +93,10 @@ meta def expectIn (harness : Harness) (lets : List String) (kind : String) (text
   unless kindOf outcome == kind do
     throwError "`{text}` is {repr outcome}, not {kind}"
 
-/-- Run `text` and require that it is invalid: its reading fails with that stratum, or Lean
-refutes it. An internal error or an ambiguity is not invalidity. -/
+/-- Run `text` and require that its reading or domain admission is invalid.
+A false comparison of admitted terms is wrong; an internal error or ambiguity is not invalidity. -/
 meta def expectInvalid (harness : Harness) (text : String) : CommandElabM Unit :=
   expect harness "invalid" text
-
-/-- Run `text` after the `let`s `lets`, and require that it is invalid. -/
-meta def expectInInvalid (harness : Harness) (lets : List String) (text : String) :
-    CommandElabM Unit :=
-  expectIn harness lets "invalid" text
 
 /-- The harness of the probe manifest `name`, with what it rejects. -/
 meta def harnessOf (name : String) : CommandElabM Harness :=
@@ -118,9 +113,9 @@ run_cmd do
       "assert 2 + 3 = 5", "assert 2 + 3 = 0 in ℤ/5", "assert 2 · 3 = 1 in ℤ/5",
       "assert rev(3) ∘ rev(3) = id(Fin(3))", "assert gcd(84, 30) = 6"] do
     expect harness "holds" text
-  -- False mathematics that Lean decides is refuted: the statement is invalid, whatever is
+  -- False mathematics that Lean decides is refuted: the comparison is wrong, whatever is
   -- installed.
-  expectInvalid harness "assert 2 + 3 = 6"
+  expect harness "wrong" "assert 2 + 3 = 6"
   for text in ["assert |Fin(3)| = 3", "assert |ℤ| = ℵ₀", "assert |(ℤ/4)^3| = 64",
       "assert implemented |Fin(3)|"] do
     expect harness "gap" text
@@ -141,7 +136,7 @@ run_cmd do
   let harness ← (Harness.empty : IO Harness)
   for text in ["assert (3 in ℚˣ)⁻¹ = 1/3", "assert 1/(3 in ℚˣ) = 1/3"] do
     expect harness "holds" text
-  expectInvalid harness "assert (3 in ℚˣ)⁻¹ = 1/2"
+  expect harness "wrong" "assert (3 in ℚˣ)⁻¹ = 1/2"
   expectInvalid harness "assert 2 in ℤˣ"
   expectInvalid harness "assert 2 ∈ ℤˣ"
 
@@ -198,16 +193,16 @@ run_cmd do
   -- different one is refuted.
   expectIn harness A "holds" "assert A = {1, 2, 3}"
   expectIn harness A "holds" "assert A = {3, 1, 2, 2}"
-  expectInInvalid harness A "assert A = {1, 2}"
+  expectIn harness A "wrong" "assert A = {1, 2}"
   -- The images of literals under `∪`, `∩` and the cardinality are decided by Lean: the form's
   -- registered evaluation rewrites them to literals, and `decide` settles the equation of
   -- literals that remains, checked by the kernel.
   for text in ["assert A ∪ B = {1, 2, 3, 4, 5}", "assert A ∩ B = {3}", "assert |A| = 3"] do
     expectIn harness AB "holds" text
   expectIn harness ["let B := {1, 2, 2} in 𝒫(ℤ)"] "holds" "assert |B| = 2"
-  -- False mathematics about them is refuted: invalid, whatever is installed.
-  expectInInvalid harness AB "assert A ∪ B = {1, 2, 3, 4}"
-  expectInInvalid harness A "assert |A| = 4"
+  -- False mathematics about admitted literals is refuted: wrong, whatever is installed.
+  expectIn harness AB "wrong" "assert A ∪ B = {1, 2, 3, 4}"
+  expectIn harness A "wrong" "assert |A| = 4"
 
 -- A registration of `meth.cardinality` on the subset form is admitted, and never asked: Lean
 -- discharges what it decides before any leaf is consulted (`specs/leaf-registration.md`, "What
@@ -218,8 +213,8 @@ run_cmd withHarness "registration_subsets_seven.json" fun harness => do
   let AB := ["let A := {1, 2, 3} in 𝒫(ℤ)", "let B := {3, 4, 5} in 𝒫(ℤ)"]
   for text in ["assert |A| = 3", "assert A ∪ B = {1, 2, 3, 4, 5}"] do
     expectIn harness AB "holds" text
-  expectInInvalid harness AB "assert |A| = 4"
-  expectInInvalid harness AB "assert |A| = 7"
+  expectIn harness AB "wrong" "assert |A| = 4"
+  expectIn harness AB "wrong" "assert |A| = 7"
 
 -- The codec reads a finite subset from its elements, deciding that they do not repeat, and the
 -- value read is the literal (an adapter-level exercise of the quotient rule; the public

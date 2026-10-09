@@ -1,11 +1,9 @@
-# The custodian's acceptance boundary for changes to main (custodian/CONTAINMENT.md).
-# pull_request_target runs THIS file as it is on main, never the pull request's copy, and the
-# pull request's head is only read as data. Its secrets live in the `custodian-review` environment,
-# which only main may deploy to, so no other branch's workflow can read them.
+# Trusted-base independent review. Candidate source is data. The reviewer environment
+# is deployed only from accepted/controller; construction main is not an accepted release.
 name: Custodian review
 on:
   pull_request_target:
-    branches: [main]
+    branches: [main, "accepted/controller"]
     types: [opened, synchronize, reopened, edited]
     # A descriptive edit outside the boundary is not reviewed (CONTRIBUTING, "Documentation and
     # construction work"); the owner's texts and custodian/ are.
@@ -70,6 +68,15 @@ jobs:
               issue_number: context.payload.pull_request.number});
             const asks = comments.filter(c => (c.body || '').startsWith('Custodian reconsideration:'));
             fs.writeFileSync('reconsideration.md', asks.length ? asks[asks.length - 1].body : '');
+      - name: Verify exact signed input advancement
+        if: github.base_ref == 'accepted/controller'
+        env:
+          CANDIDATE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          ln -s base deployment
+          assessed=$(python3 -c 'import json; c=json.load(open("base/custodian/deployment.json")); n=json.load(open("head/custodian/deployment.json")); print(n["accepted"][c["review_component"]]["commit"])')
+          python3 base/custodian/materialize.py --configuration base/custodian/deployment.json --candidate "$assessed"
+          python3 base/custodian/verify_publication.py --configuration base/custodian/deployment.json --candidate-tree head
       - name: Review
         id: review
         env:

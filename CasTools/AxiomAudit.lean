@@ -6,6 +6,26 @@ module
 
 public import CasCatalogue
 public import CasAcceptance
+public import CasAcceptance.ReindexExecutionProbes
+public import CasAcceptance.StructuredComparisonProbes
+public import CasCatalogue.BinderReaderProbes
+public import CasCatalogue.CodecConditionProbes
+public import CasCatalogue.ConstructionData
+public import CasCatalogue.ConstructionDataProbes
+public import CasCatalogue.ConstructionLegReaderProbes
+public import CasCatalogue.ElementData
+public import CasCatalogue.ElementDataProbes
+public import CasCatalogue.EquationData
+public import CasCatalogue.EquationDataProbes
+public import CasCatalogue.FunctorActionData
+public import CasCatalogue.FunctorActionDataProbes
+public import CasCatalogue.ImageFormProbes
+public import CasCatalogue.LiftedSubobjectData
+public import CasCatalogue.LiftedSubobjectDataProbes
+public import CasCatalogue.PresentationReaderProbes
+public import CasCatalogue.SelectedCarrierProbes
+public import CasCatalogue.ParameterStructureProbes
+public import CasCatalogue.StructuredReconstructionProbes
 public import Lean.Util.CollectAxioms
 
 @[expose] public section
