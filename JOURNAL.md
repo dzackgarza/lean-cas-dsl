@@ -6,6 +6,23 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Continued `cc-realize` at the pinned tuple (`lean_categories` `5b96a8a`,
+  `cas_leaf_contracts` `5133fb8`). Two bounded, owner-local attempts to compile
+  `CasCatalogue.TestSuite` advanced the dependency graph through the catalogue
+  semantic registrations, including its full `LeanCategories.Catalogue` module.
+  However, `CasCatalogue.Language`, `Realize`, and `TestSuite` have no compiled
+  `.olean` yet. The first command exited at its 180-second bound; the second
+  stopped after an extended silent compilation. Neither executed a registered
+  acceptance assertion. The next executable computational boundary is the
+  compiled `CasCatalogue.TestSuite` plus `CasTools.Harness`; no output of the
+  independent acceptance operation exists at this tuple.
+- The separately installed real Sage 10.8.12 leaf port additionally returned
+  `some false` for finiteness of integers and `some true` for the realized
+  `Fin 6` presentation of `Fin 2 × Z/3`. The latter is a backend-level
+  representative only; it does not itself verify the semantic product or its
+  structural route. These two observations remain distinct from the frozen
+  suite's integrated executions.
+
 - `b0-authority` is not enforced. The current Core2 shell has an authenticated GitHub
   credential with repository administration capability. Read-only API inspection found
   `main` governed by ruleset `24252144` (`deletion`, `non_fast_forward` only, empty
