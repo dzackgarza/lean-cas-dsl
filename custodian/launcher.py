@@ -99,6 +99,12 @@ class RoleServer:
                 raise ValueError('invalid validation arguments')
             from execution import execute
             revision = Revision(self.repository,args['candidate'])
+            parents = git(self.repository, 'rev-list', '--parents', '-n', '1', revision.commit).decode().split()[1:]
+            if len(parents) != 1:
+                raise ValueError('validation requires one source parent')
+            files = git(self.repository, 'diff', '--name-only', parents[0], revision.commit).decode().splitlines()
+            if not files or any(not self.permitted(p) for p in files):
+                raise PermissionError('validation candidate changes another role source')
             return json.dumps(execute(revision,self.validation['runtime'],
                                       tuple(self.validation['arguments'])),sort_keys=True)
         if name == 'submit_source':

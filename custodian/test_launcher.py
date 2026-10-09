@@ -34,6 +34,16 @@ class LauncherTest(unittest.TestCase):
                 with self.assertRaises(PermissionError): server.call(operation,{})
             for path in ('custodian/root.pub','custodian/controller.py','.github/workflows/trusted.yml','specs/owner/convergence-process.md','INTENT.md','scripts/check_acceptance.py'):
                 with self.assertRaises(PermissionError): server.call('write_source',{'path':path,'content':'forged authority'})
+    def test_validation_refuses_cross_role_candidate_before_execution(self):
+        server=self.server('kernel')
+        server.validation={'runtime':'sha256:'+'0'*64,'arguments':[]}
+        target=self.repo/'custodian/controller.py'
+        target.parent.mkdir(parents=True,exist_ok=True)
+        target.write_text('cross-role change')
+        self.commit()
+        candidate=self.shell('git','-C',str(self.repo),'rev-parse','HEAD')
+        with self.assertRaises(PermissionError):
+            server.call('validate_source',{'candidate':candidate})
     def test_leaf_receives_frozen_public_artifact_without_mathematics_or_acceptance(self):
         import hashlib
         artifact=self.root/'external-public.json';artifact.write_text('{"operation":"declared"}')
