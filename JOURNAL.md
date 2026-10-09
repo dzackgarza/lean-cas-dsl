@@ -6,6 +6,20 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Current leaf-specimen coverage, measured from the separate `lean-cas-dsl-leaves`
+  checkout `48a99b5`: its 22 distinct `(operation, input)` registrations contain
+  **no** `finite_sets` input registration and **no** formed-lattice discriminant
+  or bilinear cokernel operation. Hence the frozen `finite_sets.limit.pullback.card`
+  must use the upstream creation lift plus an existing `cat.sets` registration;
+  on this kernel's `Realize.realize`, `lift?` immediately returns `noImplementation`
+  before sending any diagram. The three frozen `lattices.discriminant.a1–a3`
+  also have no available registered computation in this specimen. These are
+  concrete execution gaps under `cc-realize` / `cc-backends`, not reasons to
+  change the assertions, import leaf definitions, or mark the rows complete.
+  The existing `origin/b0/lifted-limits` reference contains an `alongLift`
+  realization, but its lifted cone and defining-map requirements must be
+  reconciled with the consolidated structured-result interface before use.
+
 - Continued `cc-realize` at the pinned tuple (`lean_categories` `5b96a8a`,
   `cas_leaf_contracts` `5133fb8`). Two bounded, owner-local attempts to compile
   `CasCatalogue.TestSuite` advanced the dependency graph through the catalogue
