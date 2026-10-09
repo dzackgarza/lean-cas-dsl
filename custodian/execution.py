@@ -81,7 +81,16 @@ def execute(revision: Revision, image: str, arguments: tuple[str, ...], timeout=
                 process.wait()
             process.stdout.close()
             process.stderr.close()
-            subprocess.run(['docker','rm','--force',container],capture_output=True)
+            # A stalled Docker daemon must not hold the trusted runner forever
+            # after the candidate's own deadline has elapsed.
+            try:
+                cleanup = subprocess.run(['docker','rm','--force',container],
+                                         capture_output=True, timeout=5)
+                if cleanup.returncode and failure is None:
+                    failure = 'container_cleanup'
+            except subprocess.TimeoutExpired:
+                if failure is None:
+                    failure = 'container_cleanup'
         return {'revision':revision.commit,'runtime':image,'arguments':list(arguments),
                 'container':container,'returncode':process.returncode,'operation_failure':failure,
                 'stdout':b''.join(chunks['stdout']).decode(errors='replace'),
