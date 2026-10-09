@@ -6,6 +6,20 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Correction to the `b0/lifted-execution` disposition: it is based on the old
+  `b0/lifted-limits` decoder and is **not** the designated consolidation source.
+  The candidate `b0/reconcile-typed-question` at `cbe4f17` already routes
+  a created result through `StructuredResult.complete` with an independently
+  reconstructed formal upper cone, apex, and defining maps; its separate
+  `StructuredResult.lift` path reconstructs checked creation evidence. Therefore
+  the earlier assertion that *the consolidated mechanism* lacks an upper cone
+  was false. The missing task is to validate and integrate the entire generic
+  structured-result/registered-dispatch mechanism at one compatible tuple,
+  especially the demanded real execution, not to transplant a partial cone from
+  the obsolete branch. `37c4836` and `9c4c422` remain historical checkpoints,
+  not an accepted fix or a successor to #65. No accepted mathematical records
+  or proofs were changed.
+
 - On `b0/lifted-execution`, committed `37c4836` to require the lifted upper
   apex to map to the computed lower apex under the declared functor, and
   `9c4c422` to stop presenting the lower cone as an upper universal structure.
