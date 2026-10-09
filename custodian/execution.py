@@ -68,6 +68,12 @@ def execute(revision: Revision, image: str, arguments: tuple[str, ...], timeout=
                         break
             if failure:
                 process.kill()
+            else:
+                try:
+                    process.wait(timeout=max(deadline-time.monotonic(), 0))
+                except subprocess.TimeoutExpired:
+                    failure = 'process_timeout'
+                    process.kill()
             process.wait(timeout=5)
         finally:
             if process.poll() is None:
