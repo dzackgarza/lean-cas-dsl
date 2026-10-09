@@ -2448,7 +2448,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let packet ← match lift? with
         | none => pure (StructuredResult.ComputationPacket.direct answer)
         | some lift => pure (.created lift.raw sourceDiagramJson answer)
-      let completed ← match ← StructuredResult.complete row formalDiagram formalDiagramJson
+      let mut completed ← match ← StructuredResult.complete row formalDiagram formalDiagramJson
           packet formalPresentation (fun answer =>
             StructuredResult.validatePlannedData plan answer
               (fun port seen json => ComputationalData.validatePlannedPort plan port seen json
@@ -2488,7 +2488,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         match ← StructuredResult.extendCreated decoded comparison with
         | .error message =>
             throwStratum .noImplementation m!"the creation comparison cannot transport its defining maps: {message}"
-        | .ok _ => pure ()
+        | .ok extended =>
+            let some transported := extended.presentation
+              | throwStratum .noImplementation "the transported creation lost its universal presentation"
+            completed ← match ← StructuredResult.complete row formalDiagram formalDiagramJson
+                packet transported (fun answer =>
+                  StructuredResult.validatePlannedData plan answer
+                    (fun port seen json => ComputationalData.validatePlannedPort plan port seen json
+                      externalDescriptor ComputationalData.endpointKeys)) with
+              | .ok result => pure result
+              | .error message =>
+                  throwStratum .noImplementation m!"the transported creation cannot be retained: {message}"
       let form ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => pure (.limitApex row)
         | some lift => do
