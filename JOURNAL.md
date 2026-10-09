@@ -4,6 +4,38 @@ Process narration lives here, not in chat: what was done, what was found, what i
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
 
+## 2026-10-09 (B0 authority and real-backend execution)
+
+- `b0-authority` is not enforced. The current Core2 shell has an authenticated GitHub
+  credential with repository administration capability. Read-only API inspection found
+  `main` governed by ruleset `24252144` (`deletion`, `non_fast_forward` only, empty
+  bypass list); GitHub's branch-protection endpoint reports no branch protection.
+  This session can author the evaluator and has access to a credential capable of
+  changing its hosting protection. No local gate, workflow, source signature or role
+  label can establish requirement 4 in this configuration. The launcher must remove
+  administration and accepted-reference write capabilities from the construction
+  role and supply the evaluator/accepted references from a separately controlled
+  revision before independent acceptance can be claimed. No protection setting
+  or credential was changed here.
+- Cloned the separate `lean-cas-dsl-leaves` specimen at `48a99b5` without editing
+  it; installed PassageMath's modules, combinat and GAP packages in an ignored
+  local virtual environment. Over its port protocol, real GAP 4.16.1 answered
+  cardinalities 64 for `(Z/4)^3`, 7 for `Z/7` and 1 for `(Z/5)^0`;
+  Sage 10.8.12 answered `aleph0` for the integers and 6 for `Fin 6`.
+  The Sage set-limits port answered apex sizes 6 for `Fin 2 × Z/3`, 5 for
+  `Fin 2 ⊔ Fin 3`, and 3 for the specified finite-set pullback.
+  These are **backend-port observations only**: they do not close any required
+  assertion without admitted registered execution and kernel-side decoding
+  against independently established questions.
+- The first attempt to build the harness was stopped when uncached transitive
+  dependencies expanded the focused target. Pinned package checkouts were
+  prepared without updating the accepted mathematical revision, and Mathlib's
+  precompiled cache was subsequently obtained. A focused `lake build cas-harness`
+  advanced through the pinned `lean_categories` source but expanded to 7,260
+  transitive native targets and was stopped rather than running an over-broad
+  build. The integrated harness did not run; the required 15 assertions therefore
+  have no new accepted execution results from this session.
+
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
 - Directive B's central defect is still in `CasCatalogue/Language.lean`:
