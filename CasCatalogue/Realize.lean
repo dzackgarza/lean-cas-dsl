@@ -2334,8 +2334,16 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
       if let some liftId := lift? then
-        unless state.lifts.any (·.id == liftId) do
-          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} is not registered"
+        let some creation := state.lifts.find? (·.id == liftId)
+          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} is not registered"
+        unless creation.kind == .createsLimits row.shape do
+          throwStratum .noImplementation m!"the requested lift {liftId.raw} does not create {row.shape} limits"
+        let some edge := state.structuralEdge? creation.edge
+          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no registered functor"
+        let some target := state.category? edge.target
+          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no target category"
+        unless target.id == row.category do
+          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} does not target {row.category.raw}"
       let some category := state.categories.find? (·.id == row.category)
         | throwError "internal registry inconsistency: the category of {id.raw} is not registered"
       -- The diagram's data: the explicit arguments of its standard form, in their forms.

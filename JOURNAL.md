@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Creation-lift dispatch now checks the selected lift's kind and shape, registered
+  structural functor, and target category against the lower limit row before
+  sending a backend request. Previously only the lift ID's existence was checked
+  at that boundary; the full checks were deferred to subsequent reconstruction.
+  This is a source guard, not evidence of completed lifted execution or B0 acceptance.
+
 - Creation-lift realization: an explicitly selected but absent lift previously
   passed through `lift?.bind` into the unlifted branch, allowing lower-category
   data to be treated as an unlifted result. `Realize.realizeFresh` now refuses
