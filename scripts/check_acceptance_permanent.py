@@ -9,28 +9,14 @@ with whitespace collapsed. Its hash is recorded in `CasAcceptance/Permanent/admi
 
     check_acceptance_permanent.py           fail if an admitted assertion changed or disappeared,
                                             or an assertion is not admitted
-    check_acceptance_permanent.py --admit   admit new assertions; never changes an admitted one
-    check_acceptance_permanent.py --correct "reason"
-                                            re-admit changed assertions after an upstream
-                                            correction to the mathematics, recorded with the
-                                            reason, which names the upstream commit
-    check_acceptance_permanent.py --retire "reason" ID=REPLACEMENT[,REPLACEMENT...] ...
-                                            retire deleted assertions that were established
-                                            from an implementation's definitions (the evidence
-                                            model, specs/architecture.md), each naming the
-                                            admitted suite assertions that restate its
-                                            proposition without naming any implementation;
-                                            the replacements are admitted (--admit) before the
-                                            retired assertion is deleted
+    check_acceptance_permanent.py --base FILE
+                                            check against an independently accepted inventory
 
-Admitting or correcting an assertion is the acceptance author's alone (specs/architecture.md,
-"Authors: one role per agent"): `--correct` and `--admit` run only with `AGENT_ROLE=acceptance`.
-A change to an admitted assertion or to the corrections also changes the sealed ledger, which only
-an escalation accepts (custodian/CONTAINMENT.md).
+This script cannot admit, correct, or retire assertions. Those operations require an
+independent assessment and protected accepted-input transition, never a caller-set role.
 """
 
 import hashlib
-import os
 import json
 import re
 import sys
@@ -102,76 +88,30 @@ def suite_ids() -> set[str]:
 
 def main() -> int:
     args = sys.argv[1:]
+    # This command is a read-only checker. Admission belongs to the independently
+    # reviewed accepted-input mechanism, never to a caller-selected role label.
+    if args and args[0] in ("--admit", "--correct", "--retire"):
+        raise SystemExit(2)
+    base = None
+    if len(args) == 2 and args[0] == "--base":
+        base = Path(args[1])
+        args = []
+    if args:
+        raise SystemExit(2)
     current = assertions()
-    if not MANIFEST.is_file():
-        raise SystemExit(f"missing authoritative acceptance inventory: {MANIFEST}")
-    manifest = json.loads(MANIFEST.read_text())
+    authoritative = base if base is not None else MANIFEST
+    if not authoritative.is_file():
+        raise FileNotFoundError(f"missing authoritative acceptance inventory: {authoritative}")
+    manifest = json.loads(authoritative.read_text())
     admitted: dict[str, str] = manifest["assertions"]
     missing = sorted(set(admitted) - set(current))
     changed = sorted(i for i in admitted if i in current and current[i] != admitted[i])
     new = sorted(set(current) - set(admitted))
 
-    def acceptance_author(action: str) -> None:
-        if os.environ.get("AGENT_ROLE") != "acceptance":
-            raise SystemExit(f"{action} is the acceptance author's (AGENT_ROLE=acceptance); an "
-                             "implementation or orchestrator agent never admits or corrects the "
-                             "tests that measure its work (specs/architecture.md, \"Authors: one "
-                             "role per agent\")")
-
-    if args[:1] == ["--correct"]:
-        acceptance_author("--correct")
-        if len(args) != 2 or not args[1].strip():
-            raise SystemExit("--correct needs the upstream correction it records")
-        if missing:
-            raise SystemExit("--correct cannot delete admitted assertions: " + ", ".join(missing))
-        for i in changed:
-            admitted[i] = current[i]
-        manifest["corrections"].append({"reason": args[1], "changed": changed})
-        MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-        return 0
-
-    if args[:1] == ["--retire"]:
-        acceptance_author("--retire")
-        if len(args) < 3 or not args[1].strip():
-            raise SystemExit("--retire needs a reason and at least one ID=REPLACEMENT,...")
-        suite = suite_ids()
-        retired: dict[str, list[str]] = {}
-        for spec in args[2:]:
-            ident, _, repl = spec.partition("=")
-            replacements = [r for r in repl.split(",") if r]
-            if ident not in missing:
-                raise SystemExit(f"{ident} is not an admitted assertion that was deleted: only a "
-                                 "deleted assertion is retired")
-            if not replacements:
-                raise SystemExit(f"{ident} names no replacement")
-            for r in replacements:
-                if r not in suite or r not in admitted or admitted[r] != current.get(r):
-                    raise SystemExit(f"the replacement {r} of {ident} is not an admitted "
-                                     "assertion of the suite (tests/acceptance)")
-            retired[ident] = replacements
-        if changed or set(missing) - set(retired):
-            raise SystemExit("--retire retires deleted assertions only, all of them named: "
-                             f"changed {changed}, unnamed {sorted(set(missing) - set(retired))}")
-        for i in retired:
-            del admitted[i]
-        manifest["corrections"].append({"reason": args[1], "retired": retired})
-        MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-        return 0
-
     problems = [f"admitted assertion {i} was deleted" for i in missing]
     problems += [f"admitted assertion {i} was modified" for i in changed]
-    if args == ["--admit"]:
-        if new:
-            acceptance_author(f"admitting {', '.join(new)}")
-        if problems:
-            print("\n".join(problems), file=sys.stderr)
-            return 1
-        for i in new:
-            admitted[i] = current[i]
-        MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
-        return 0
     if args:
-        raise SystemExit(__doc__)
+        raise SystemExit(2)
     problems += [f"assertion {i} is not admitted (run with --admit)" for i in new]
     if problems:
         print("permanent acceptance assertions are append-only:", file=sys.stderr)
