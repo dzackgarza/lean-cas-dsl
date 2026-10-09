@@ -470,7 +470,10 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
           map to the computed apex of {id.raw} along {lift.id.raw}"
       let json := Json.mkObj [("ctor", above.id.raw),
         ("args", (args[0]!.getObjVal? "args").toOption.getD (Json.arr #[]))]
-      return { form := .object above, value, json, universal := some cone }
+      -- `cone` is a cone in the lower category, with apex `apex`. It is not a
+      -- cone over `value` in the upper category. Its legs cannot be reused as
+      -- an upper universal structure until the creation lift reconstructs them.
+      return { form := .object above, value, json, universal := none }
   | .method id route receiver =>
       let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let input ← transport trace input route
