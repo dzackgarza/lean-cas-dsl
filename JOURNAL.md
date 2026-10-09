@@ -6,6 +6,14 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- The question-permanence comparison and initial recording now refuse an admitted
+  assertion whose semantic question was not read. Merely including the assertion ID in
+  the harness report is insufficient: an unread assertion cannot acquire an accepted
+  interpretation, and the required denominator remains the full admission inventory.
+  This exposes existing unread interpretations rather than promoting an incomplete
+  question record to a passing comparison. Independent initial interpretation and
+  structural authority isolation remain open.
+
 - Corrected two realization-stage comparison-form mismatches in `Realize.realizeClaim`:
   they now report `noImplementation`, not semantic `invalid`. The statement was already
   read; a realization using an incompatible form does not make its mathematical

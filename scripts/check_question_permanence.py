@@ -86,6 +86,11 @@ def main() -> int:
         print(f"UNADMITTED ASSERTION IN REPORT: {ident}")
     if omitted or unexpected:
         return 1
+    unread = sorted(ident for ident in inventory if not head[ident])
+    if unread:
+        for ident in unread:
+            print(f"ADMITTED QUESTION NOT READ: {ident}")
+        return 1
     recorded = json.loads(RECORD.read_text()) if RECORD.is_file() else {}
     if record:
         added = {i: q for i, q in head.items() if q and i not in recorded}
