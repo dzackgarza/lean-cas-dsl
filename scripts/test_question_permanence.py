@@ -27,7 +27,7 @@ class QuestionGate(unittest.TestCase):
         self.report.write_text('[{"id":"a","question":"typed"}]')
 
     def run_gate(self, args=None):
-        with patch.object(gate, "RECORD", self.record), patch.object(sys, "argv", ["gate"] + (args or ["--base", str(self.base), str(self.report)])):
+        with patch.object(gate, "RECORD", self.record), patch.object(gate, "INVENTORY", self.inventory), patch.object(sys, "argv", ["gate"] + (args or ["--base", str(self.base), str(self.report)])):
             return gate.main()
 
     def test_unread_is_required_even_without_interpretation(self):
@@ -41,7 +41,8 @@ class QuestionGate(unittest.TestCase):
 
     def test_duplicate_does_not_overwrite(self):
         self.report.write_text('[{"id":"a","question":"bad"},{"id":"a","question":"typed"}]')
-        self.assertEqual(self.run_gate(), 1)
+        with self.assertRaises(SystemExit):
+            self.run_gate()
 
     def test_record_mutation_has_no_command(self):
         before = self.record.read_bytes()
