@@ -6,6 +6,11 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Corrected the acceptance regression reader to reject duplicate `(file, id)` results.
+  Previously dictionary construction silently took the last reported outcome, permitting
+  an earlier failure to disappear from the comparison. This does not establish the
+  complete B0 acceptance boundary or substitute for the independent evaluator.
+
 - Hardened the `--record` operation: it no longer treats an absent record as an empty
   authoritative baseline or reports success while existing interpretations disagree
   with the current question. It rejects orphaned recorded IDs as well. It still cannot

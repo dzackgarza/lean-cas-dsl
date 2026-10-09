@@ -29,7 +29,13 @@ def outcomes(path: Path) -> dict[tuple[str, str], str]:
     if not path.is_file():
         sys.exit(f"no report at {path}: the suite did not run to completion")
     results = json.loads(path.read_text())
-    return {(r["file"], r["id"]): r["kind"] for r in results}
+    found: dict[tuple[str, str], str] = {}
+    for result in results:
+        key = (result["file"], result["id"])
+        if key in found:
+            sys.exit(f"duplicate assertion in report {path}: {key}")
+        found[key] = result["kind"]
+    return found
 
 
 def main() -> int:
