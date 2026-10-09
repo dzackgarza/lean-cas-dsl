@@ -6,6 +6,19 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Directive B's central defect is still in `CasCatalogue/Language.lean`:
+  `Claim.settled` stores only an outcome and flattened `about : Array Expr`;
+  `judgedTerms` reconstructs membership/containment tokens after evaluation, and
+  `Realize.claimQuestion` hashes that array. Consequently this is not the preserved
+  typed logical question required by directive B. The consolidated reference
+  `origin/b0/construction` (`cbe4f17`) instead defines `TypedQuestion`, a structural
+  `QuestionIdentity` encoder, and an `interpret` stage whose request is consumed
+  by evaluation. Recover and reconcile that *generic mechanism* with the current
+  main changes and its complete probes, not further fingerprint/checker patches.
+  `main` and the reference diverge at `bcd08de`; a merge-tree inspection reports
+  multiple overlapping changes. No candidate source was merged or accepted by
+  this finding; the protected question records must not be regenerated.
+
 - Corrected the acceptance regression reader to reject duplicate `(file, id)` results.
   Previously dictionary construction silently took the last reported outcome, permitting
   an earlier failure to disappear from the comparison. This does not establish the
