@@ -6,6 +6,13 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Corrected `StructuredResult.complete` failure stratification: a kernel exception
+  while checking the fixed formal construction no longer becomes an `.error`
+  subsequently reported as a malformed backend answer. Explicit computational
+  validation errors remain malformed; interpreter exceptions propagate as internal
+  failures. This addresses the existing `cc-failure-strata` obligation without
+  weakening the required created-cone execution.
+
 - Added a pre-dispatch check that the diagram obtained by transporting individual
   input wires is definitionally the image of the full original diagram under
   the selected registered creation functor. Previously the full comparison was

@@ -344,24 +344,21 @@ def complete (row : LimitEntry) (diagram : Expr) (diagramJson : Json)
     (formalPresentation : Expr)
     (validateAnswer : Json → TermElabM (Except String Unit)) :
     TermElabM (Except String Result) := do
-  try
-    let diagram ← checkReconstruction diagram
-    let formalPresentation ← checkReconstruction formalPresentation
-    let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone
-      else ``CategoryTheory.Limits.LimitCone) #[diagram]
-    unless ← withTransparency .all <| isDefEq (← inferType formalPresentation) expected do
-      return .error "the formal construction has a different exact diagram"
-    match ← validateAnswer packet.answer with
-    | .error message => return .error message
-    | .ok () => pure ()
-    let cone ← instantiateMVars (← mkAppM (if row.colimit then
-      ``CategoryTheory.Limits.ColimitCocone.cocone else
-      ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation])
-    let apex ← instantiateMVars (← mkAppM (if row.colimit then
-      ``CategoryTheory.Limits.Cocone.pt else ``CategoryTheory.Limits.Cone.pt) #[cone])
-    return .ok ⟨row.colimit, formalPresentation, diagram, cone, apex, diagramJson, packet⟩
-  catch exception =>
-    return .error (← exception.toMessageData.toString)
+  let diagram ← checkReconstruction diagram
+  let formalPresentation ← checkReconstruction formalPresentation
+  let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone
+    else ``CategoryTheory.Limits.LimitCone) #[diagram]
+  unless ← withTransparency .all <| isDefEq (← inferType formalPresentation) expected do
+    return .error "the formal construction has a different exact diagram"
+  match ← validateAnswer packet.answer with
+  | .error message => return .error message
+  | .ok () => pure ()
+  let cone ← instantiateMVars (← mkAppM (if row.colimit then
+    ``CategoryTheory.Limits.ColimitCocone.cocone else
+    ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation])
+  let apex ← instantiateMVars (← mkAppM (if row.colimit then
+    ``CategoryTheory.Limits.Cocone.pt else ``CategoryTheory.Limits.Cone.pt) #[cone])
+  return .ok ⟨row.colimit, formalPresentation, diagram, cone, apex, diagramJson, packet⟩
 
 /-- Reconstruct universal evidence from accepted mathematics and checked map data. The wire
 contains no proof. Every inverse equation and defining-map equation is decided by the kernel. -/
