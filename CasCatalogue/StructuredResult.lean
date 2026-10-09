@@ -297,29 +297,26 @@ No backend field is supplied to this procedure, and its temporary schema express
 returned as a cone, law or universal witness. Only the data-port position escapes. -/
 def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
     TermElabM (Except String Nat) := withoutModifyingState do
-  try
-    let some constructor := standardCone row.shape row.colimit
-      | return .error "the registered shape has no defining-map data-port schema"
-    let constructor ← mkConstWithFreshMVarLevels constructor
-    let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
-    let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
-      else ``CategoryTheory.Limits.Cone) #[diagram]
-    unless ← isDefEq conclusion expected do
-      return .error "the defining-map schema has a different exact formal diagram"
-    let mut ports : Array Expr := #[]
-    for (field, info) in fields.zip infos do
-      if ← isDataPort field info then ports := ports.push field
-    let schema := mkAppN constructor fields
-    let transformation ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.ι
-      else ``CategoryTheory.Limits.Cone.π) #[schema]
-    let projection ← withTransparency .all <| whnf
-      (← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index])
-    let projection ← instantiateMVars projection
-    for port in [:ports.size] do
-      if projection == (← instantiateMVars ports[port]!) then return .ok port
-    return .error "the requested defining map is a composite, not a direct computational data port"
-  catch exception =>
-    return .error (← exception.toMessageData.toString)
+  let some constructor := standardCone row.shape row.colimit
+    | return .error "the registered shape has no defining-map data-port schema"
+  let constructor ← mkConstWithFreshMVarLevels constructor
+  let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
+  let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone
+    else ``CategoryTheory.Limits.Cone) #[diagram]
+  unless ← isDefEq conclusion expected do
+    return .error "the defining-map schema has a different exact formal diagram"
+  let mut ports : Array Expr := #[]
+  for (field, info) in fields.zip infos do
+    if ← isDataPort field info then ports := ports.push field
+  let schema := mkAppN constructor fields
+  let transformation ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.ι
+    else ``CategoryTheory.Limits.Cone.π) #[schema]
+  let projection ← withTransparency .all <| whnf
+    (← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index])
+  let projection ← instantiateMVars projection
+  for port in [:ports.size] do
+    if projection == (← instantiateMVars ports[port]!) then return .ok port
+  return .error "the requested defining map is a composite, not a direct computational data port"
 
 /-- Select an opaque defining-map field using an independently interpreted formal schema. -/
 def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr) :

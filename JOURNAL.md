@@ -6,6 +6,11 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- `StructuredResult.dataPortIndex` now propagates unexpected interpreter exceptions
+  instead of converting them to an ordinary missing-data-port/schema result.
+  Explicitly identified composite projections and absent schemas still return their
+  distinct errors. No registered computation was executed for this source change.
+
 - Corrected `StructuredResult.complete` failure stratification: a kernel exception
   while checking the fixed formal construction no longer becomes an `.error`
   subsequently reported as a malformed backend answer. Explicit computational
