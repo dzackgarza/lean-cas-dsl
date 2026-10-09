@@ -2333,6 +2333,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
             {id.raw} is not encoded ({message})"
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
+      if let some liftId := lift? then
+        unless state.lifts.any (·.id == liftId) do
+          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} is not registered"
       let some category := state.categories.find? (·.id == row.category)
         | throwError "internal registry inconsistency: the category of {id.raw} is not registered"
       -- The diagram's data: the explicit arguments of its standard form, in their forms.

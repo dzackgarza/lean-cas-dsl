@@ -6,6 +6,14 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Creation-lift realization: an explicitly selected but absent lift previously
+  passed through `lift?.bind` into the unlifted branch, allowing lower-category
+  data to be treated as an unlifted result. `Realize.realizeFresh` now refuses
+  an unknown requested lift before constructing or sending the diagram, with
+  `NoImplementation`. This protects the named-lift dependency rather than
+  substituting ordinary limit computation. The generic lifted execution and
+  registered acceptance remain to be established.
+
 - Launcher source boundary: `validate_source` and `submit_source` now reject
   Git symlink/submodule entries masquerading as role-permitted regular files;
   the previous path-only checks admitted these candidate trees. Added a
