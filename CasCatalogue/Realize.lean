@@ -2426,6 +2426,14 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               pure { wire with form := .graph form, payload := forwardPayload wire value json }
             | _ => throwStratum .noImplementation m!"the diagram data has no accepted presentation along {lift.edge.label}"
           pure (← mkAppM standard (mapped.map (·.value)), mapped)
+      if let some liftId := lift? then
+        let some creation := state.lifts.find? (·.id == liftId)
+          | throwStratum .noImplementation "the requested creation lift is not registered"
+        let U ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
+        let expected ← withTransparency .all <| mkFunctorComp sourceDiagram U
+        unless ← withTransparency .all <| isDefEq sent expected do
+          throwStratum .noImplementation
+            "the selected diagram transport is not the registered creation functor's action"
       let diagramJson := Json.mkObj [("ctor", Codec.label standard),
         ("args", Json.arr (wires.map (·.json)))]
       let input : Wire := {

@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Added a pre-dispatch check that the diagram obtained by transporting individual
+  input wires is definitionally the image of the full original diagram under
+  the selected registered creation functor. Previously the full comparison was
+  deferred until reconstruction, after backend execution. This is only a source
+  guard; compilation and registered acceptance remain unestablished.
+
 - The requested creation-lift pre-dispatch guard now also refuses colimit
   requests and checks the complete diagram's source category against the selected
   structural functor's registered source. Target and shape agreement alone were
