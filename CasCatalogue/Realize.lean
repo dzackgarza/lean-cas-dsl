@@ -345,7 +345,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
                json := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)] }
   | .literal id literal =>
       let some form := state.form? id.raw
-        | throwStratum .invalid m!"{id.raw} is not a registered literal form"
+        | throwError "the realized trace refers to unregistered literal form {id.raw}"
       match ← Codec.encode literal with
       | .ok json => return { form, value := e, json }
       | .error message =>
@@ -354,7 +354,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
   | .limit id D lift? =>
       let some row := state.limits.find? (·.id == id) | unreachable!
       let some category := state.categories.find? (·.id == row.category)
-        | throwStratum .invalid m!"the category of {id.raw} is not registered"
+        | throwError "the realized trace refers to a missing category of {id.raw}"
       if let some lift := lift? then
         throwStratum .noImplementation m!"no registration computes {what}: its diagram is \
           returned along the lift {lift.raw}, and the realized reading does not send a diagram \
@@ -381,7 +381,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       -- The answer is the cone (cocone) of the shape, as the data of Mathlib's standard
       -- constructor: its apex, then its legs; the commutation it needs is decided by the kernel.
       let some constructor := standardCone row.shape row.colimit
-        | throwStratum .invalid m!"the shape {row.shape} has no standard cone"
+        | throwError "the registered shape {row.shape} has no standard cone"
       let kind := if row.colimit then "cocone" else "cone"
       let shape := s!"a {kind} is \{\"ctor\": \"{kind}\", \"args\": [<apex>, <legs>…]}"
       let .ok name := answer.getObjValAs? String "ctor" | malformed backend id.raw answer shape
@@ -403,9 +403,9 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let input ← transport trace input route
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
-        | throwStratum .invalid m!"{id.raw} has no registered functor"
+        | throwError "the realized method {id.raw} has no registered functor"
       let some target := state.category? functor.target
-        | throwStratum .invalid m!"the result category of {id.raw} is not registered"
+        | throwError "the realized method {id.raw} has no registered result category"
       let (form, type) ← resultForm state target.id m!"the result of {id.raw}"
       let (value, json) ← call h id.raw input type
       return { form := .literal form, value, json }

@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Corrected five realization-stage catalogue inconsistency branches in `Realize.realize`
+  to throw interpreter errors rather than assert mathematical invalidity. These are
+  missing registered forms/categories/functors/standard cones after the semantic reader
+  has already admitted a typed claim; `runAsking` classifies these errors as `internal`.
+  No semantic registration or acceptance assertion was changed.
+
 - The question permanence comparison now fails when a candidate has readable admitted
   assertions absent from the independently established question record. Previously it
   printed the missing interpretations but returned success, allowing an unrecorded
