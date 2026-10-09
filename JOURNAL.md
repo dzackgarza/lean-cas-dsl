@@ -10,7 +10,10 @@ per working session; terse. Not an authority: rules live in their owning documen
   requests and checks the complete diagram's source category against the selected
   structural functor's registered source. Target and shape agreement alone were
   insufficient to distinguish functors with the same lower-category target.
-  This remains source validation, not a completed registered computation.
+  Source-category checking compares both complete source categorical parameters
+  of the typed diagram and typed functor. A bounded owner-local Lean invocation
+  produced no result before interruption; no compile claim is made. This remains
+  source validation, not a completed registered computation.
 
 - Creation-lift dispatch now checks the selected lift's kind and shape, registered
   structural functor, and target category against the lower limit row before

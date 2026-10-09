@@ -2342,13 +2342,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           throwStratum .noImplementation m!"the requested lift {liftId.raw} does not create {row.shape} limits"
         let some edge := state.structuralEdge? creation.edge
           | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no registered functor"
-        let some source := state.categories.find? (·.expression.syntacticEq edge.source)
-          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no source category"
+        let U ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
+        let functorType ← withTransparency .all <| whnf (← inferType U)
+        unless functorType.isAppOfArity ``CategoryTheory.Functor 4 do
+          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no full functor type"
         let diagramType ← withTransparency .all <| whnf (← inferType D)
-        let some diagramCategory := diagramType.getAppArgs[3]?
-          | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no full diagram category"
-        let fullSource ← Semantic.namedCategoryFor state source.expression
-        unless ← withTransparency .all <| isDefEq diagramCategory fullSource do
+        unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
+          throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no full diagram category"
+        unless (← withTransparency .all <|
+            isDefEq (diagramType.getAppArgs[2]!) (functorType.getAppArgs[0]!)) &&
+            (← withTransparency .all <|
+              isDefEq (diagramType.getAppArgs[3]!) (functorType.getAppArgs[1]!)) do
           throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has a different source diagram category"
         let some target := state.category? edge.target
           | throwStratum .noImplementation m!"the requested creation lift {liftId.raw} has no target category"
