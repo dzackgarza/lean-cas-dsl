@@ -449,7 +449,7 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let some (apex, some form) := decoded[0]?
         | malformed backend id.raw answer s!"the apex is not a value of a registered form of \
             {rowCategory.name}"
-      let some (lift, _) := lift
+      let some (lift, U) := lift
         | return { form, value := apex, json := args[0]!, universal := some cone }
       -- Along the lift, the limit is the object above the computed apex that the catalogue
       -- prescribes along the lift's edge: the object refining it along exactly that edge
@@ -465,6 +465,9 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       let some (.object _ params) ← (trace.node? apex : IO _)
         | throwError "the apex of {id.raw} is not recorded"
       let value ← objectAt trace above params
+      unless ← isDefEq (← Semantic.objOf U value) apex do
+        throwStratum .noImplementation m!"the registered object {above.id.raw} does not \
+          map to the computed apex of {id.raw} along {lift.id.raw}"
       let json := Json.mkObj [("ctor", above.id.raw),
         ("args", (args[0]!.getObjVal? "args").toOption.getD (Json.arr #[]))]
       return { form := .object above, value, json, universal := some cone }
