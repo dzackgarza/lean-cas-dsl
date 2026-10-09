@@ -528,7 +528,7 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
         | throwStratum .noImplementation m!"{left} is not computed as a value of the literal \
             form {form.id.raw}"
       unless form'.id == form.id do
-        throwStratum .invalid m!"{left} is computed in the form {form'.id.raw}, and compared in \
+        throwStratum .noImplementation m!"{left} is computed in the form {form'.id.raw}, and compared in \
           {form.id.raw}"
       return if ← evaluatedEq w.value L then .holds
         else .wrong s!"{left} is not {right}: the registration answered {w.json.compress}"
@@ -537,7 +537,7 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Outco
       let a ← realize h trace left f
       let b ← realize h trace right g
       unless a.formId == b.formId do
-        throwStratum .invalid m!"{left} is computed in the form {a.formId}, and {right} in \
+        throwStratum .noImplementation m!"{left} is computed in the form {a.formId}, and {right} in \
           {b.formId}"
       return if ← evaluatedEq a.value b.value then .holds
         else .wrong s!"{left} is not {right}: computed as {a.json.compress} and \

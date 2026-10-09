@@ -6,6 +6,12 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 acceptance-inventory gate)
 
+- Corrected two realization-stage comparison-form mismatches in `Realize.realizeClaim`:
+  they now report `noImplementation`, not semantic `invalid`. The statement was already
+  read; a realization using an incompatible form does not make its mathematical
+  question ill-typed. This is a focused `cc-failure-strata` source correction,
+  not completion of directive B or the full required computational execution.
+
 - Extended the question-permanence candidate check to require the admitted assertion inventory,
   reject absent or extraneous report identities, reject duplicate identities, and refuse an absent
   accepted or candidate question record. This closes silent success when the runner prunes rows or
