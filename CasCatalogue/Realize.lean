@@ -1738,7 +1738,9 @@ partial def validateComputationalObject (_trace : Trace) (_category : NamedCateg
 identifying that representation with the formal universal object. The complete
 construction and its independently fixed semantic value remain in `input`. -/
 def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire := do
+  let state ← registryState
   let mut answer := input.json
+  let mut apexCategory := input.form.category
   -- Structural transport keeps the complete construction packet nested in
   -- selected functor actions. The packet identifies the backend's answer,
   -- never a mathematical identification of its apex with the formal one.
@@ -1749,6 +1751,10 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
       let some child := args[1]? | break
       answer := child
     else if tag == some "constructionApex" then
+      let some identifier := args[0]? | return input
+      let .ok name := identifier.getStr? | return input
+      let some row := state.limits.find? (·.id.raw == name) | return input
+      apexCategory := row.category
       let some child := args[2]? | break
       answer := child
     else if tag == some "createdCone" then
@@ -1761,7 +1767,7 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | return input
   let some apexJson := args[0]? | return input
   let .ok (entry, _) ← decodeObject trace apexJson | return input
-  unless entry.category == input.form.category do return input
+  unless entry.category == apexCategory do return input
   let form : Form := .object entry
   let payload := forwardPayload input input.value apexJson
   return { input with form, payload }
