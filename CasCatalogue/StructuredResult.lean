@@ -351,7 +351,7 @@ def complete (row : LimitEntry) (diagram : Expr) (diagramJson : Json)
   let expected ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone
     else ``CategoryTheory.Limits.LimitCone) #[diagram]
   unless ← withTransparency .all <| isDefEq (← inferType formalPresentation) expected do
-    return .error "the formal construction has a different exact diagram"
+    throwError "the independently fixed formal construction has a different exact diagram"
   match ← validateAnswer packet.answer with
   | .error message => return .error message
   | .ok () => pure ()

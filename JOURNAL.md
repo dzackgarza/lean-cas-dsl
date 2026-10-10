@@ -6,6 +6,11 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- `StructuredResult.complete` now propagates a formal construction/diagram type
+  disagreement as an internal interpreter error. Previously its `.error` return
+  was classified by the caller as malformed backend output, although the backend
+  cannot alter the independently fixed formal presentation or diagram.
+
 - `StructuredResult.projectData` rejects a missing or mismatched cone/cocone
   constructor tag before extracting a defining-map field from opaque backend data.
   Previously the projection read `args` without verifying its envelope. This is
