@@ -1991,7 +1991,8 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
   -- A map is an object of the registered arrow category; its methods follow the same
   -- structural closure and prescribed lifts as every other object's methods.
   if let .morphism hom source target sourceCategory _ := receiver then
-    let arrowExpression := CategoryExpr.construct ConstructorId.arrow #[.category sourceCategory.expression]
+    let some arrowExpression := state.arrowsOf? sourceCategory.expression
+      | throwStratum .invalid "the arrow-category constructor is not registered"
     let arrowCategories := state.categories.filter (·.expression.syntacticEq arrowExpression)
     let arrowCategory ← match arrowCategories with
       | #[category] => pure category
