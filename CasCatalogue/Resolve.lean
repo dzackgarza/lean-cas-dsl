@@ -112,7 +112,7 @@ def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (c
         for c in cells do
           unless used.contains c do used := used.push c
     { members := indices.map (candidates[·]!)
-      comparisons := if indices.size > 1 then used else #[]
+      comparisons := if indices.size > 1 then used.qsort (fun a b => a.raw < b.raw) else #[]
       ambiguities := (ambiguities.filter fun (i, _, _) => classOf[i]! == r).map
         fun (i, j, cells) => (candidates[i]!, candidates[j]!, cells)
       sources := (indices.filter (!incoming[·]!)).map (candidates[·]!) }
