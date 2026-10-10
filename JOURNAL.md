@@ -6,6 +6,11 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- `StructuredResult.projectData` rejects a missing or mismatched cone/cocone
+  constructor tag before extracting a defining-map field from opaque backend data.
+  Previously the projection read `args` without verifying its envelope. This is
+  a kernel-source correction; registered computational acceptance remains open.
+
 - `StructuredResult.dataPortIndex` now propagates unexpected interpreter exceptions
   instead of converting them to an ordinary missing-data-port/schema result.
   Explicitly identified composite projections and absent schemas still return their

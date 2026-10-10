@@ -324,6 +324,11 @@ def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Exp
   let port ← match ← dataPortIndex row diagram index with
     | .error message => return .error message
     | .ok port => pure port
+  let expected := if row.colimit then "cocone" else "cone"
+  let .ok constructor := answer.getObjValAs? String "ctor"
+    | return .error "the computational construction has no constructor tag"
+  unless constructor == expected do
+    return .error s!"expected {expected} computational data, received {constructor}"
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
     | return .error "the computational construction has no complete args array"
   let some data := args[port]?
