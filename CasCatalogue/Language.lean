@@ -3032,12 +3032,18 @@ partial def presentationMapValue (value : Value) (entry : PresentationComparison
     ⟨{ source := category.expression, target := sets.expression, steps := #[] }⟩
   do
     let routes := state.routes category.expression sets.expression
-    let [cls] := (state.classify routes (fun _ => sets.id.raw) id).toList
-      | throwStratum .semanticAmbiguity m!"the presentation has no unique carrier route"
-    unless cls.ambiguities.isEmpty do
-      throwStratum .semanticAmbiguity m!"several comparisons determine the presentation carrier map"
-    let [route] := cls.sources.toList
-      | throwStratum .semanticAmbiguity m!"the presentation has no unique directed carrier route"
+    let route ← if let some refs ← retainedCarrierRoute state sourceValue then
+      match routes.find? (·.refs == refs) with
+      | some route => pure route
+      | none => throwStratum .invalid m!"the retained presentation carrier route is not registered"
+    else do
+      let [cls] := (state.classify routes (fun _ => sets.id.raw) id).toList
+        | throwStratum .semanticAmbiguity m!"the presentation has no unique carrier route"
+      unless cls.ambiguities.isEmpty do
+        throwStratum .semanticAmbiguity m!"several comparisons determine the presentation carrier map"
+      let [route] := cls.sources.toList
+        | throwStratum .semanticAmbiguity m!"the presentation has no unique directed carrier route"
+      pure route
     let mapped ← if route.steps.isEmpty then pure arrow else
       elabTermAndSynthesize (← `(CategoryTheory.Functor.map
         $(← quoteExpr (← Semantic.routeFunctor state route.refs)) $(← quoteExpr arrow))) none
