@@ -110,8 +110,17 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
     let dispatchStart ← match harness.dispatches with
       | some observations => pure (← observations.get).size
       | none => pure 0
-    let (outcome, scope', question) ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
-      Realize.runAsking harness scope statement
+    let execution ← try
+      let result ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+        Realize.runAsking harness scope statement
+      pure (some result)
+    catch error =>
+      results := results.push {
+        file := path, id, kind := "internal"
+        detail := s!"statement execution failed: {← error.toMessageData.toString}"
+        fails := true }
+      pure none
+    let some (outcome, scope', question) := execution | continue
     let dispatches ← match harness.dispatches with
       | some observations => do
           let calls ← observations.get
