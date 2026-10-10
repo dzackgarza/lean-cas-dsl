@@ -79,6 +79,8 @@ must be verified before claiming enforcement. Local checks and candidate-control
 construction feedback, not independent acceptance. `gates.yml` runs its configured checks for
 non-documentation changes; `lean-categories`' totality gate runs in its own build.
 
+**Owner ruling (2026-10-10).** This separation is a rule about what each agent is permitted to do, not a technical gate on what it is able to do. An agent may hold a credential or tool capable of more (for example the shared GitHub token); it does not use it to write outside its role, and acceptance does not wait on removing such capability. A breach of the rule is a defect in the agent's conduct, recorded and repaired, not an argument that `b0-authority` is unreachable.
+
 ## Contracts between silos
 
 | Boundary | Payload | The consumer may | The consumer must never |

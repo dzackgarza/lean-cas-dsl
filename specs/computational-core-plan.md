@@ -164,7 +164,7 @@ at the specified tuple (architecture.md, policy 4).
 | `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` | partial probes; execution still owed | kernel probes over `CasAcceptance/Strata`; real registered execution still required; historical host observations do not establish current engine availability |
 | `cc-observations` | check reported | RegistrationProbes (`|(ℤ/4)^3| = 64` holds through a registration, wrong answers are `wrong`) |
 | `gov-meaning-permanence` | partial fingerprint mechanism | `c09e06d` reported fingerprints for 137/149 read assertions; stability and partial coverage do not establish question preservation. Current checked-in inventory: 153 admitted identities, 142 records; directive B covers all identities and proof-artifact migration |
-| `b0-authority` | open | completion requirement |
+| `b0-authority` | rule of conduct (owner ruling 2026-10-10) | agents keep to their roles; no technical gate is owed |
 | `b0-trials` | not started | stage E, after the kernel is fixed |
 
 **Required computational assertions (frozen IDs).** These must execute through a registered
@@ -231,6 +231,8 @@ by the candidate's author, and costs only at its boundary (policy 2). Under that
   from the build, CI and the repository, 2026-10-02). Authority comes from configuration (below).
 
 ### Authority configuration (`b0-authority`)
+
+**Owner ruling (2026-10-10).** This separation is a rule about what each agent is permitted to do, not a technical gate on what it is able to do. An agent may hold a credential or tool capable of more (for example the shared GitHub token); it does not use it to write outside its role, and acceptance does not wait on removing such capability. A breach of the rule is a defect in the agent's conduct, recorded and repaired, not an argument that `b0-authority` is unreachable.
 
 The essential restrictions are on reading, writing, commissioning, approving and replacing
 authoritative inputs. The existing launcher, runner and hosting controls must enforce them; their

@@ -222,6 +222,8 @@ acceptance depends on it, and a blocked item names that dependency (policy 5). A
 objective delegates its implementation; owner escalation is for a change of requirement or
 authority only (policy 2). Review is independent, informed and correctable (policy 6).
 
+**Owner ruling (2026-10-10).** This separation is a rule about what each agent is permitted to do, not a technical gate on what it is able to do. An agent may hold a credential or tool capable of more (for example the shared GitHub token); it does not use it to write outside its role, and acceptance does not wait on removing such capability. A breach of the rule is a defect in the agent's conduct, recorded and repaired, not an argument that `b0-authority` is unreachable.
+
 **No downstream authorship of upstream mathematics (architecture.md, "B0 policies", policy 1).**
 A kernel worker consumes an accepted mathematical release. It writes nothing in `lean-categories`,
 its registry schemas, validators, probes and admission rules included, and it commissions no
