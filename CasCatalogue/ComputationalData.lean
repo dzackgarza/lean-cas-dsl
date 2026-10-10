@@ -343,13 +343,18 @@ def validatePlannedPort (plan : StructuredResult.DataPlan)
     (externalDescriptor : Nat → Option Json)
     (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
     TermElabM (Except String Unit) := do
-  match ← validatePort port.formalField port.expectedType data with
+  let validation ← validatePort port.formalField port.expectedType data
+  let graph := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  unless graph.getArr?.isOk do return validation
+  -- Ordinary scalar/list data ports are not callable graphs.
+  if port.domainBinder.isNone && port.codomainBinder.isNone then return validation
+  -- Graph points may have a released representation even when the formal
+  -- callable's (uncomputed) endpoint types are not literal codecs. Validate
+  -- such graphs against both actual endpoint representations below instead.
+  match validation with
+  | .error "the callable's point types require their released data representation" => pure ()
   | .error message => return .error message
   | .ok () => pure ()
-  let graph := if let .ok ("valueData", #[actual]) := envelope data then actual else data
-  unless graph.getArr?.isOk do return .ok ()
-  -- Ordinary scalar/list data ports are not callable graphs.
-  if port.domainBinder.isNone && port.codomainBinder.isNone then return .ok ()
   let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
   let some domainBinder := port.domainBinder
     | return .error "the callable graph has no retained computational domain role"

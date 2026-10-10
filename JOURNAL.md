@@ -1,5 +1,9 @@
 # Journal
 
+## 2026-10-10 (B0 coproduct actual endpoint graph validation)
+
+- Following the registered `sets.card.fin2_sqcup_fin3` run, whose Sage cocone had complete `Fin 5` apex and legs but failed with `the callable's point types require their released data representation`, corrected the kernel's `ComputationalData.validatePlannedPort`: only that specific formal point-codec gap may be resolved using the already required actual input/output endpoint descriptors and `validateGraphEndpoints`. All other `validatePort` errors are retained, non-callable fields retain ordinary validation, and the graph must have the exact actual domain keys and admissible codomain points. No backend response becomes formal semantics and no expected assertion changes. Owner-local `lake build CasCatalogue.ComputationalData:olean` passed. Two bounded native harness rebuilds expired before linking, so this source correction has **not** been validated end-to-end and does not close the coproduct assertion or B0 requirement 3.
+
 ## 2026-10-10 (B0 finite-reversal required assertion)
 
 - The unchanged `sets.eq.rev_rev` assertion was isolated verbatim from `tests/acceptance/sets.cas` and executed through `cas-harness --computation-only` with the installed `.tmp/b0-leaves-specimen/leaves.json` manifest. Its report `.tmp/b0-rev-only-correct.json` records `kind=gap`, `fails=false`, `dispatches=[]`, and `NoImplementation: no admitted registration computes mor.sets.fin_rev on the form obj.sets.fin`. This frozen B0-required assertion is not yet met by a registered computation. Do not count the `gap` as success, invent a fallback, or change the assertion. The narrow run reports missing inventory entries because the remaining admitted assertions are absent from the diagnostic file. A preceding multi-row diagnostic omitted a necessary `let` and timed out without a result; it is not evidence about the assertion.
