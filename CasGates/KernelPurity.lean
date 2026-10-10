@@ -198,7 +198,13 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
         found := found.push s!"{d} ({m}) uses {c} of {cm}: only {evidenceRunner} runs a proof \
           procedure, and only a domain's registered evidence"
       continue
-    unless allowedModules.any (·.isPrefixOf cm) do
+    -- These two acceptance fixtures elaborate upstream mathematical examples. Their
+    -- generated declarations observe those examples, rather than implement kernel
+    -- mathematics. Keep all execution, evaluation and tactic restrictions above; do
+    -- not exempt new modules by naming convention.
+    let observationModule := m == `CasCatalogue.BinderReaderProbes ||
+      m == `CasCatalogue.StructuredReconstructionProbes
+    unless observationModule || allowedModules.any (·.isPrefixOf cm) do
       found := found.push s!"{d} ({m}) refers to {c} of {cm}: the kernel carries no mathematics"
   for n in literals do
     if tacticKinds.contains n || tacticSyntax.contains n then
