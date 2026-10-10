@@ -301,10 +301,18 @@ def start (root : System.FilePath) (backend : BackendProgram) :
   let path := match ← IO.getEnv "PYTHONPATH" with
     | some p => s!"{portPython}:{p}"
     | none => portPython.toString
+  -- Direct harness invocations have the same engine default as `just harness`.
+  -- Explicit engine selections always take precedence over the workspace venv.
+  let workspacePython := (← IO.currentDir) / ".venv" / "bin" / "python"
+  let enginePython := if ← workspacePython.pathExists then some workspacePython.toString else none
+  let sagePython := (← IO.getEnv "CAS_SAGE_PYTHON").orElse fun _ => enginePython
+  let gapPython := (← IO.getEnv "CAS_GAP_PYTHON").orElse fun _ => enginePython
   let child ← try
       IO.Process.spawn { toStdioConfig := Backend.Stdio, cmd := backend.command
                          args := backend.args, cwd := some root
-                         env := #[("PYTHONPATH", some path)] }
+                         env := #[("PYTHONPATH", some path),
+                                  ("CAS_SAGE_PYTHON", sagePython),
+                                  ("CAS_GAP_PYTHON", gapPython)] }
     -- not a reading fallback: a program that cannot start is the unavailable stratum
     catch e => return .error (.unavailable backend.name s!"cannot start {backend.command}: {e}")
   match (← Backend.readFrame child.stdout) >>= Backend.readyOf with
