@@ -264,5 +264,12 @@ run_cmd do
   let results ← runSuite harness ".tmp/b0-strata-missing-file-7db8de.cas"
   unless results.size == 1 && results[0]!.kind == "internal" && results[0]!.fails do
     throwError "a file read failure was treated as a semantic verdict"
+  -- A second infrastructure failure must not erase the first result, nor be
+  -- misclassified as invalid input. This exercises the inventory catch path.
+  let results ← runSuite harness ".tmp/b0-strata-missing-file-7db8de.cas"
+    (some ".tmp/b0-strata-missing-inventory-7db8de.json")
+  unless results.size == 2 && results.all (fun r => r.kind == "internal" && r.fails) &&
+      results.any (·.id == "(statement) inventory infrastructure") do
+    throwError "inventory failure discarded previously recorded infrastructure results"
 
 end CasCatalogue.Language
