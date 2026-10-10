@@ -1,5 +1,9 @@
 # Journal
 
+## 2026-10-10 (B0 mapped-graph native harness rebuild after e04c172)
+
+- The focused kernel correction at `e04c172` has an updated `CasCatalogue/Realize.olean` and generated C. A fresh bounded `lake build cas-harness` of 240 seconds advanced through `CasCatalogue.TestSuite`, `CasTools.Harness`, and `CasTools.HarnessMain` but expired before producing a new executable; the prior executable still predates the correction. Exact build log: `.tmp/b0-e04-build.log`. The new source therefore has not been exercised by the frozen harness assertions. This is not evidence that either `finite_sets.limit.pullback.card` or B0 requirement 3 holds. No repeat of the already established stale-binary computation is counted as validation.
+
 ## 2026-10-10 (B0 checked graph presentation for concrete transport)
 
 - Corrected `CasCatalogue/Realize.lean` at the general created-limit diagram transport: a selected `U.map f` may use the original finite graph as its computational input only when Lean checks definitional equality of the source and target *concrete callables* and the mapped arrow accepts those graph bytes at its actual target type. Otherwise its complete selected `map` descriptor remains on the wire. The source arrow, mapped arrow, chosen functor, cospan comparison and creation evidence remain the original typed constructions; this is a guarded computational representation, not an identification supplied by a leaf.
