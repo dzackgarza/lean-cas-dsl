@@ -96,10 +96,13 @@ theory with the general logic, quivers and bundled maps it is stated in, and `le
 categorical foundation and registry schema. -/
 meta def allowedModules : List Name :=
   [`Init, `Std, `Lean, `Mathlib.CategoryTheory, `Mathlib.Combinatorics.Quiver,
-   `Mathlib.Logic.Equiv.Defs, `Mathlib.Data.FunLike, `Mathlib.Order.Defs.Prop,
+   `Mathlib.Logic.Equiv.Defs, `Mathlib.Logic.ExistsUnique,
+   `Mathlib.Data.FunLike, `Mathlib.Data.Fintype.Defs, `Mathlib.Data.Finset.Defs,
+   `Mathlib.Order.Defs.Prop,
    `LeanCategories.CategoryTheory, `LeanCategories.Foundation.Mathlib,
    `LeanCategories.Catalogue.Id, `LeanCategories.Catalogue.Syntax, `LeanCategories.Catalogue.Holds,
    `LeanCategories.Catalogue.Registry, `LeanCategories.Catalogue.Constructors,
+   `LeanCategories.Catalogue.Lift,
    `LeanCategories.Catalogue.Semantics.Foundation.Catalogue,
    `CasCatalogue, `CasContract]
 

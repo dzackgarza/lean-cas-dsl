@@ -1476,7 +1476,10 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       | `(cas_term| ℤ), _ =>
           -- Quotient arithmetic denotes its registered ring; expose its declared carrier
           -- while retaining that full chosen structure when no category is requested.
-          let some rings := state.categories.find? (·.id == CategoryId.rings)
+          let some declared := state.objects.find? (fun entry =>
+              entry.name == "ZMod" && entry.refines.isNone)
+            | throwStratum .invalid m!"quotient arithmetic has no registered object"
+          let some rings := state.categories.find? (·.id == declared.category)
             | throwStratum .invalid m!"quotient arithmetic has no registered ring category"
           let quotient ← object state "ZMod" #[← eval scope n] (some rings)
           match category? with
