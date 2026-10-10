@@ -6,6 +6,15 @@ per working session; terse. Not an authority: rules live in their owning documen
 
 ## 2026-10-09 (B0 authority and real-backend execution)
 
+- Defining-map projection now requires the full opaque cone/cocone envelope to have
+  exactly the number of data ports in the independently interpreted constructor
+  schema. Previously `projectData` accepted extra fields and returned a single
+  selected field without checking the full envelope cardinality. This is a
+  generic `cc-realize`/malformed-output source correction, not proof of a
+  registered execution or of B0 acceptance. Focused `lake env lean
+  CasCatalogue/StructuredResult.lean` succeeded (one pre-existing deprecation
+  warning); no broad suite was run.
+
 - `StructuredResult.complete` now propagates a formal construction/diagram type
   disagreement as an internal interpreter error. Previously its `.error` return
   was classified by the caller as malformed backend output, although the backend

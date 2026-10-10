@@ -294,9 +294,10 @@ def validateData (row : LimitEntry) (diagram formalPresentation : Expr) (answer 
 
 /-- Interpret a defining-map projection using only the authoritative constructor schema.
 No backend field is supplied to this procedure, and its temporary schema expression is never
-returned as a cone, law or universal witness. Only the data-port position escapes. -/
+returned as a cone, law or universal witness. Only the data-port position and total
+data-port count escape. -/
 def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
-    TermElabM (Except String Nat) := withoutModifyingState do
+    TermElabM (Except String (Nat × Nat)) := withoutModifyingState do
   let some constructor := standardCone row.shape row.colimit
     | return .error "the registered shape has no defining-map data-port schema"
   let constructor ← mkConstWithFreshMVarLevels constructor
@@ -315,13 +316,14 @@ def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
     (← mkAppM ``CategoryTheory.NatTrans.app #[transformation, index])
   let projection ← instantiateMVars projection
   for port in [:ports.size] do
-    if projection == (← instantiateMVars ports[port]!) then return .ok port
+    if projection == (← instantiateMVars ports[port]!) then
+      return .ok (port, ports.size)
   return .error "the requested defining map is a composite, not a direct computational data port"
 
 /-- Select an opaque defining-map field using an independently interpreted formal schema. -/
 def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr) :
     TermElabM (Except String Json) := do
-  let port ← match ← dataPortIndex row diagram index with
+  let (port, fieldCount) ← match ← dataPortIndex row diagram index with
     | .error message => return .error message
     | .ok port => pure port
   let expected := if row.colimit then "cocone" else "cone"
@@ -331,6 +333,8 @@ def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Exp
     return .error s!"expected {expected} computational data, received {constructor}"
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?)
     | return .error "the computational construction has no complete args array"
+  unless args.size == fieldCount do
+    return .error "the computational construction has a different required field count"
   let some data := args[port]?
     | return .error "the computational construction omitted the requested defining-map port"
   return .ok data
