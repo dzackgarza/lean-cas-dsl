@@ -125,10 +125,11 @@ run_cmd liftTermElabM do
   let actual ← elabTermAndSynthesize terms[1]! none
   let some (.parameterEquivalence expected representative sources) ← plainTrace.node? actual
     | throwError "identical complete incoming structures lost their source presentations"
-  let #[first, second] := sources
-    | throwError "incoming structure equivalence did not retain both registered origins"
-  unless first.source != second.source do
+  unless sources.size ≥ 2 do
     throwError "incoming structure equivalence did not retain both registered origins"
+  let originIds := sources.map (·.source)
+  unless originIds.toList.eraseDups.length == sources.size do
+    throwError "incoming structure equivalence duplicated a registered origin"
   unless ← Lean.Meta.isDefEq actual representative do
     throwError "the retained equivalent parameter is not the actual application parameter"
   for source in sources do
