@@ -90,15 +90,16 @@ meta def runFile (harness : Harness) (path : System.FilePath) :
     let parsed ← match Parser.runParserCategory (← getEnv) `cas_item item path with
       | .ok s => pure s
       | .error e =>
-          -- A parser failure belongs to this item. Keep its admitted identity in the report
-          -- and continue, so unread assertions cannot shrink the execution denominator.
+          -- A syntactically unreadable statement is invalid, not an interpreter crash.
+          -- Keep its asserted identity in the report so malformed input cannot shrink
+          -- the execution denominator. Exceptions during execution remain internal.
           let identity := if item.startsWith "test " then
               ((item.drop 5).toString.splitOn " ").head!
             else s!"(statement) {item}"
           results := results.push {
             file := path
             id := identity
-            kind := "internal"
+            kind := "invalid"
             detail := s!"reader parser failure: {e}"
             fails := true }
           continue
