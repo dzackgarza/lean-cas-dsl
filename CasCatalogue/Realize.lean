@@ -2422,33 +2422,41 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               let value ← Semantic.mapOf U wire.value
               let some form := state.graphLiterals.find? (·.category == category.id)
                 | throwStratum .noImplementation "the selected graph action has no declared target data form"
-              -- A concrete forgetful map may preserve the actual finite graph
-              -- representation definitionally. This is checked on both typed
-              -- arrows, never inferred from the name or from backend behavior.
-              -- If the representations differ, keep the full action envelope.
-              let mappedCallable ← try
-                pure (some (← mkAppM ``CategoryTheory.ConcreteCategory.hom #[value]))
-              catch _ => pure none
-              let originalCallable ← try
-                pure (some (← mkAppM ``CategoryTheory.ConcreteCategory.hom #[wire.value]))
-              catch _ => pure none
-              let unchanged ← match mappedCallable, originalCallable with
-                | some mapped, some original => do
-                    if ← withTransparency .all <| withoutModifyingState (isDefEq mapped original) then
-                      pure true
-                    else if ← withTransparency .all <| withoutModifyingState
-                        (isDefEq (← inferType mapped) (← inferType original)) then do
-                      let condition ← mkEq mapped original
+              -- Interpret the existing source graph as an arrow of the *target*
+              -- graph-literal form, at the mapped arrow's exact typed endpoints.
+              -- Reuse its bytes only if Lean identifies this independently
+              -- reconstructed target map with the selected U.map source map.
+              let decoded ← decodeValue trace category (← inferType value) wire.json
+              let unchanged ← match decoded with
+                | .error _ => pure false
+                | .ok (targetMap, _) => do
+                    if ← withTransparency .all <| withoutModifyingState
+                        (isDefEq value targetMap) then pure true
+                    else do
+                      let condition ← mkEq value targetMap
                       match ← Codec.conditionProof condition with
                       | some proof => Decide.kernelAccepts condition proof
                       | none => pure false
-                    else pure false
-                | _, _ => pure false
               let unchanged ← if unchanged then do
-                -- The same bytes must also be a valid graph at the *target*
-                -- arrow's exact callable type and published point codec.
+                -- Check the target representation. A non-primitive concrete
+                -- point type can use only its actual transported endpoint
+                -- descriptors, never enumeration of the formal carrier.
                 let checked ← ComputationalData.validatePort value (← inferType value) wire.json
-                pure checked.isOk
+                match checked with
+                | .ok () => pure true
+                | .error "the callable's point types require their released data representation" => do
+                    let some (source, target) := Language.homEnds? (← inferType wire.value)
+                      | pure false
+                    let sourceWire ← realize h trace "the mapped graph source" source
+                    let targetWire ← realize h trace "the mapped graph target" target
+                    let sourceWire ← transport trace sourceWire #[lift.edge]
+                    let targetWire ← transport trace targetWire #[lift.edge]
+                    match ← ComputationalData.endpointKeys sourceWire.json,
+                        ← ComputationalData.endpointKeys targetWire.json with
+                    | .ok (some domain), .ok codomain =>
+                        pure (ComputationalData.validateGraphEndpoints domain codomain wire.json).isOk
+                    | _, _ => pure false
+                | .error _ => pure false
               else pure false
               let json ← if unchanged then pure wire.json else
                 pure <| Json.mkObj [("ctor", "map"), ("args", Json.arr #[
@@ -2569,8 +2577,13 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           | throwStratum .noImplementation "the requested creation lift is not registered"
         let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[formalLowerPresentation]
         let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+        -- The lower universal cone has been transported along the checked
+        -- cospan comparison: it is over sourceDiagram ⋙ U, not over the
+        -- standard mapped cospan `sent` used as the computational wire.
+        let lowerDiagram ← withTransparency .all <| mkFunctorComp sourceDiagram
+          (← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge))
         let decoded : StructuredResult.Decoded := {
-          diagram := sent, cone, apex, answer }
+          diagram := lowerDiagram, cone, apex, answer }
         match ← StructuredResult.lift state creation sourceDiagram decoded formalLowerPresentation with
         | .ok lifted =>
           unless ← withTransparency .all <| isDefEq lifted.diagram sourceDiagram do
