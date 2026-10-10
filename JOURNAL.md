@@ -1,5 +1,10 @@
 # Journal
 
+## 2026-10-10 (B0 required lattice discriminants, real harness diagnostic)
+
+- Executed the unchanged `tests/acceptance/lattices.cas` through `lake env cas-harness --computation-only` with `.tmp/b0-leaves-specimen/leaves.json`; report `.tmp/b0-lattice-focus-result.json`. Each frozen required `lattices.discriminant.a1`, `.a2`, `.a3` is `kind=gap` with zero dispatches: `NoImplementation: no admitted registration computes colim.bil_w_form.cokernel on the form cat.bil_wform`. The kernel does not presently reach a registered backend for these three computations. This is not acceptance and is not a mathematical-invalidity finding; neither an upstream semantic row nor an acceptance assertion was changed.
+- Earlier current-tuple diagnostics identify the other unresolved required execution paths: finite-set pullback dispatch sends complete mapped-arrow envelopes that `sage-set-limits` cannot decode; ordinary set pullback and coproduct dispatch successfully but lack subsequent result-form cardinality registrations; `rev_rev` lacks its `mor.sets.fin_rev` registration. These are distinct failures, not permission to substitute computations or alter the permanent suite. B0 requirement 3 remains open.
+
 ## 2026-10-10 (B0 finite-set pullback creation transport to registered dispatch)
 
 - Repaired the created pullback's formal diagram transport in `CasCatalogue/Realize.lean`: the target's standard cospan and the actual selected functor composite are checked using Mathlib `cospanCompIso`, not equated definitionally. The accepted lower universal cone/evidence is transported along this checked isomorphism; its independent standard-schema presentation still governs computational data fields. For the mapped arrow input roles, the exact original endpoint wires are realized and transported through the same registered edge, rather than attempting to interpret `U.obj X` as a fresh named object. `CasCatalogue.Realize:olean` and `cas-harness` compiled successfully.
