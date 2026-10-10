@@ -2433,8 +2433,16 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                 pure (some (← mkAppM ``CategoryTheory.ConcreteCategory.hom #[wire.value]))
               catch _ => pure none
               let unchanged ← match mappedCallable, originalCallable with
-                | some mapped, some original =>
-                    withTransparency .all <| withoutModifyingState (isDefEq mapped original)
+                | some mapped, some original => do
+                    if ← withTransparency .all <| withoutModifyingState (isDefEq mapped original) then
+                      pure true
+                    else if ← withTransparency .all <| withoutModifyingState
+                        (isDefEq (← inferType mapped) (← inferType original)) then do
+                      let condition ← mkEq mapped original
+                      match ← Codec.conditionProof condition with
+                      | some proof => Decide.kernelAccepts condition proof
+                      | none => pure false
+                    else pure false
                 | _, _ => pure false
               let unchanged ← if unchanged then do
                 -- The same bytes must also be a valid graph at the *target*
