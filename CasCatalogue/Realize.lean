@@ -2422,8 +2422,29 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               let value ← Semantic.mapOf U wire.value
               let some form := state.graphLiterals.find? (·.category == category.id)
                 | throwStratum .noImplementation "the selected graph action has no declared target data form"
-              let json := Json.mkObj [("ctor", "map"), ("args", Json.arr #[
-                ← edgeDescriptor trace lift.edge U, wire.json])]
+              -- A concrete forgetful map may preserve the actual finite graph
+              -- representation definitionally. This is checked on both typed
+              -- arrows, never inferred from the name or from backend behavior.
+              -- If the representations differ, keep the full action envelope.
+              let mappedCallable ← try
+                pure (some (← mkAppM ``CategoryTheory.ConcreteCategory.hom #[value]))
+              catch _ => pure none
+              let originalCallable ← try
+                pure (some (← mkAppM ``CategoryTheory.ConcreteCategory.hom #[wire.value]))
+              catch _ => pure none
+              let unchanged ← match mappedCallable, originalCallable with
+                | some mapped, some original =>
+                    withTransparency .all <| withoutModifyingState (isDefEq mapped original)
+                | _, _ => pure false
+              let unchanged ← if unchanged then do
+                -- The same bytes must also be a valid graph at the *target*
+                -- arrow's exact callable type and published point codec.
+                let checked ← ComputationalData.validatePort value (← inferType value) wire.json
+                pure checked.isOk
+              else pure false
+              let json ← if unchanged then pure wire.json else
+                pure <| Json.mkObj [("ctor", "map"), ("args", Json.arr #[
+                  ← edgeDescriptor trace lift.edge U, wire.json])]
               pure { wire with form := .graph form, payload := forwardPayload wire value json }
             | _ => throwStratum .noImplementation m!"the diagram data has no accepted presentation along {lift.edge.label}"
           pure (← mkAppM standard (mapped.map (·.value)), mapped)
