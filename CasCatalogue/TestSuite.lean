@@ -173,18 +173,28 @@ meta def runSuite (harness : Harness) (path : System.FilePath)
         detail := ← error.toMessageData.toString
         fails := true }
   if let some inventory := inventory? then
-    let .ok document := Json.parse (← IO.FS.readFile inventory)
-      | throwError "cannot read the fixed assertion inventory {inventory}"
-    let .ok (.obj assertions) := document.getObjVal? "assertions"
-      | throwError "missing assertion inventory in {inventory}"
-    for (identity, _) in assertions.toList do
-      unless results.any (·.id == identity) do
-        results := results.push {
-          file := path.toString
-          id := identity
-          kind := "internal"
-          detail := "required assertion produced no result"
-          fails := true }
+    try
+      let .ok document := Json.parse (← IO.FS.readFile inventory)
+        | throwError "cannot read the fixed assertion inventory {inventory}"
+      let .ok (.obj assertions) := document.getObjVal? "assertions"
+        | throwError "missing assertion inventory in {inventory}"
+      for (identity, _) in assertions.toList do
+        unless results.any (·.id == identity) do
+          results := results.push {
+            file := path.toString
+            id := identity
+            kind := "internal"
+            detail := "required assertion produced no result"
+            fails := true }
+    catch error =>
+      -- Preserve the outcomes already executed even when inventory I/O fails.
+      -- This is an infrastructure failure, not a verdict on those assertions.
+      results := results.push {
+        file := inventory.toString
+        id := "(statement) inventory infrastructure"
+        kind := "internal"
+        detail := ← error.toMessageData.toString
+        fails := true }
   return results
 
 /-- Runs one statement of the language, given as text, through `harness` within `scope`: its
