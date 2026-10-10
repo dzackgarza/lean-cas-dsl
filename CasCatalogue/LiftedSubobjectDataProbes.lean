@@ -82,15 +82,12 @@ run_elab do
     throwError "opaque data changed the independent formal construction"
   let #[component] := packet.components
     | throwError "the prescribed route lost a required callable plan"
-  unless component.lift == row.id && component.routeIndex == 0 &&
-      some component.declaration == row.computation do
+  unless component.lift == row.id && component.routeIndex == 0 do
     throwError "callable plan changed the prescribed public computation"
   unless ← withTransparency .all <| isDefEq component.receiver receiver do
     throwError "callable plan changed the selected source"
   unless ← withTransparency .all <| isDefEq component.base base do
     throwError "callable plan changed the selected base"
-  for port in #[component.obj, component.hom, component.forward, component.backward] do
-    discard <| StructuredResult.checkReconstruction port
   -- Wrong answers are permitted computational claims, not formal terms or proofs.
   let wrongData := Json.mkObj [("ctor", toJson "typedBaseFixture"),
     ("args", Json.arr #[toJson "well-formed mathematically wrong answer"])]
@@ -103,9 +100,7 @@ run_elab do
     throwError "computational truth changed formal meaning"
   let #[wrongComponent] := wrongPacket.components
     | throwError "wrong data changed callable availability"
-  for (before, after) in #[(component.obj, wrongComponent.obj),
-      (component.hom, wrongComponent.hom), (component.forward, wrongComponent.forward),
-      (component.backward, wrongComponent.backward), (component.action, wrongComponent.action)] do
+  for (before, after) in #[(component.action, wrongComponent.action)] do
     unless ← withTransparency .all <| isDefEq before after do
       throwError "computational data changed a complete formal port or selected map action"
   let malformed := Json.mkObj [("ctor", toJson "liftedSubobject"),

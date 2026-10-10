@@ -38,14 +38,8 @@ map is converted into a law-bearing morphism or isomorphism. -/
 structure Component where
   lift : LiftId
   action : Expr
-  computation : Expr
   receiver : Expr
   base : Expr
-  obj : Expr
-  hom : Expr
-  forward : Expr
-  backward : Expr
-  declaration : Name
   /-- Route index; execution runs in reverse order and consumes the next step outputs. -/
   routeIndex : Nat
 
@@ -93,8 +87,10 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
       | return .error "the complete arrow constructor is absent or ambiguous"
     let originalSource : CategoryExpr := .construct arrowConstructor.id #[.category source]
     let sourceType ← sourceArrowType expected
-    discard <| StructuredResult.checkReconstruction fixedSource
-    discard <| StructuredResult.checkReconstruction fixedBase
+    try discard <| StructuredResult.checkReconstruction fixedSource
+    catch _ => throwError "fixedSource is not closed"
+    try discard <| StructuredResult.checkReconstruction fixedBase
+    catch _ => throwError "fixedBase is not closed"
     unless ← withTransparency .all <| isDefEq (← inferType fixedSource) sourceType do
       return .error "the independently retained source has different complete arrow parameters"
     unless ← withTransparency .all <| isDefEq
@@ -146,43 +142,15 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
       let some row := rows[index]?
         | return .error "the prescribed lift lost its retained row"
       let saved := receivers[index]!
-      let some declaration := row.computation
-        | return .error "the prescribed lift has no published computational signature"
-      let computation ← instantiateFresh declaration
-      let ambient ← mkAppM ``CategoryTheory.Arrow.left #[saved]
-      let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[formalResult]
-      let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
-      let monic ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.property #[formalResult]
       let .constructMap _ inner := row.edge
         | return .error "the prescribed lift lost its selected inner action"
       let action ← Semantic.asFunctor (← Semantic.edgeFunctor state inner)
-      let signature ← withTransparency .all <| whnf (← inferType computation)
-      unless signature.isAppOfArity ``CasCatalogue.MonoLiftComputation 5 do
-        return .error "the published lift computation has no complete signature"
-      let selected := signature.getAppArgs
-      unless ← withTransparency .all <| isDefEq selected[0]! (← inferType ambient) do
-        return .error "the lift computation changes its selected source category"
-      unless ← withTransparency .all <| isDefEq selected[2]!
-          (← inferType (← mkAppM ``CategoryTheory.Arrow.right #[arrow])) do
-        return .error "the lift computation changes its selected base category"
-      unless ← withTransparency .all <| isDefEq selected[4]! action do
-        return .error "the lift computation changes its exact selected functor action"
-      let arguments := selected.map some ++ #[some computation, some ambient,
-        none, some inclusion, some monic]
-      let obj ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLiftComputation.obj arguments
-      let hom ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLiftComputation.hom arguments
-      let forward ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLiftComputation.forward arguments
-      let backward ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLiftComputation.backward arguments
       let next ← Semantic.liftSubobject state row saved formalResult
-      for expression in #[action, computation, obj, hom, forward, backward, next] do
-        discard <| StructuredResult.checkReconstruction (← instantiateMVars expression)
+      try discard <| StructuredResult.checkReconstruction (← instantiateMVars next)
+      catch _ => throwError "next is not closed"
       reverseComponents := reverseComponents.push {
         lift := row.id, action := (← instantiateMVars action),
-        computation := (← instantiateMVars computation), receiver := saved,
-        base := formalResult, obj := (← instantiateMVars obj),
-        hom := (← instantiateMVars hom), forward := (← instantiateMVars forward),
-        backward := (← instantiateMVars backward),
-        declaration, routeIndex := index }
+        receiver := saved, base := formalResult, routeIndex := index }
       formalResult := next
     unless ← withTransparency .all <| isDefEq (← inferType formalResult) expected do
       return .error "the formal lift has a different complete selected result category"
@@ -191,7 +159,8 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     let .ok () ← validateBase baseCategory fixedBase args[0]!
       | return .error "the computational base does not match its fixed full descriptor"
     let components := reverseComponents.reverse
-    let closed ← StructuredResult.checkReconstruction formalResult
+    let closed ← try StructuredResult.checkReconstruction formalResult
+      catch _ => throwError "formalResult is not closed"
     return .ok {
       formalResult := closed
       fixedSource := fixedSource
