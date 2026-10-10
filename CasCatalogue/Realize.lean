@@ -2255,7 +2255,18 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return { form := imageForm state (.functor id) target, payload := .computed e data }
   | .retainedRoute _ targetCategory route applications receiver =>
       let input ← realize h trace "the retained structural source" receiver
-      let result ← transportImage trace input route (some applications)
+      -- An exact application of the registered route can use its published
+      -- refinement identifications. Non-definitional applications retain the
+      -- complete action descriptors and are never silently replaced.
+      let mut registered := route.size == applications.size
+      if registered then
+        for (step, application) in route.zip applications do
+          unless ← withTransparency .all <| withoutModifyingState
+              (isDefEq application (← Semantic.edgeFunctor state step)) do
+            registered := false
+            break
+      let result ← if registered then transport trace input route
+        else transportImage trace input route (some applications)
       unless result.form.category == targetCategory &&
           (← withTransparency .all <| isDefEq (← inferType result.value) (← inferType e)) do
         throwError "the retained route changed its full selected target category"
