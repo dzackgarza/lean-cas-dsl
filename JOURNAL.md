@@ -1,5 +1,9 @@
 # Journal
 
+## 2026-10-10 (B0 next registered computations)
+
+- At `fc30b45`, the unchanged frozen `sets.card.z7`, `sets.card.z5_empty_power`, and `sets.card.integers` assertions were executed in `--computation-only` mode through the actual `cas-harness` and `.tmp/b0-leaves-specimen/leaves.json`. All three individually returned `kind=holds`, `fails=false` and recorded real backend dispatches: GAP `meth.cardinality` on `obj.sets.integers_mod_power` at `[7,1]` produced `finite(7)` and at `[5,0]` produced `finite(1)`; Sage `meth.cardinality` on `obj.sets.integers` produced `aleph0`. Report `.tmp/b0-card-next.json`; the isolated diagnostic's overall nonzero exit represents inventory entries omitted from the excerpt, not these three failures. The existing prior run established `sets.card.z4_cubed`; four frozen required assertions have now passed individually with registered dispatch. Full suite and finite-set pullback creation lift remain open. No acceptance assertion, leaf, or mathematical definition was edited.
+
 ## 2026-10-10 (B0 actual registered execution; finite-set lift failure)
 
 - The pinned `cas-harness` built successfully (`7440/7440`). A focused `--computation-only` harness run of the **unchanged** `sets.card.z4_cubed` assertion against `.tmp/b0-leaves-specimen/leaves.json` returned `kind=holds`, `fails=false`, with a recorded dispatch to backend `gap`, operation `meth.cardinality`, input `obj.sets.integers_mod_power` parameters `[4,3]`, and answer `finite(64)`. The diagnostic used a byte-for-byte extracted assertion in `.tmp/b0-single-card.cas`; all other admitted assertions remained required by the inventory and were reported missing, so the diagnostic command as a whole exited nonzero. The isolated assertion's real registered kernel execution is established; full-suite completion is not.
