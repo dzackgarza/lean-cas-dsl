@@ -469,7 +469,17 @@ partial def decodeAt (type : Expr) (j : Json)
           {args.size}"
     if ← isProp fieldType then
       -- The condition the data must satisfy, decided by the kernel.
-      let some proof ← conditionProof fieldType
+      let proof? ← conditionProof fieldType
+      let proof? ← match proof? with
+        | some proof => pure (some proof)
+        | none => do
+          let normalized ← withTransparency .all <| whnf fieldType
+          if let some proof ← Decide.decisionProof normalized then
+            let sealed := mkExpectedPropHint proof fieldType
+            if ← Decide.kernelAccepts fieldType sealed then pure (some sealed)
+            else pure none
+          else pure none
+      let some proof := proof?
         | return .error s!"the kernel does not establish condition {fieldName} of \
             constructor {label ctor.name}"
       value := mkApp value proof
