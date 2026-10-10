@@ -1734,6 +1734,38 @@ partial def validateComputationalObject (_trace : Trace) (_category : NamedCateg
     (fixed : Expr) (json : Json) : TermElabM (Except String Unit) := do
   ComputationalData.validatePort fixed (← inferType fixed) json
 
+/-- Dispatch a method on the backend's returned apex representation, without
+identifying that representation with the formal universal object. The complete
+construction and its independently fixed semantic value remain in `input`. -/
+def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire := do
+  let mut answer := input.json
+  -- Structural transport keeps the complete construction packet nested in
+  -- selected functor actions. The packet identifies the backend's answer,
+  -- never a mathematical identification of its apex with the formal one.
+  for _ in [:32] do
+    let tag := (answer.getObjValAs? String "ctor").toOption
+    let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | break
+    if tag == some "functorAction" then
+      let some child := args[1]? | break
+      answer := child
+    else if tag == some "constructionApex" then
+      let some child := args[2]? | break
+      answer := child
+    else if tag == some "createdCone" then
+      let some child := args[2]? | break
+      answer := child
+    else break
+  unless ((answer.getObjValAs? String "ctor").toOption == some "cone" ||
+      (answer.getObjValAs? String "ctor").toOption == some "cocone") do
+    return input
+  let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | return input
+  let some apexJson := args[0]? | return input
+  let .ok (entry, _) ← decodeObject trace apexJson | return input
+  unless entry.category == input.form.category do return input
+  let form : Form := .object entry
+  let payload := forwardPayload input input.value apexJson
+  return { input with form, payload }
+
 mutual
 
 partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array Expr) :
@@ -2652,7 +2684,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let F ← registeredFunctorInstance functor
       let acceptedInput ← methodArgument method input.value
       let expected ← Semantic.objOf F acceptedInput
-      let (json, backend) ← send h id.raw input
+      let (json, backend) ← send h id.raw (← computationalApexReceiver trace input)
       match ← validateComputationalObject trace target expected json with
       | .error message => malformed backend id.raw json message
       | .ok () => pure ()
@@ -2723,7 +2755,8 @@ def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
         property of a value the realized reading evaluates"
   let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
   let input ← transport trace input route
-  call h id.raw input (mkApp (mkConst ``Option [0]) (mkConst ``Bool))
+  call h id.raw (← computationalApexReceiver trace input)
+    (mkApp (mkConst ``Option [0]) (mkConst ``Bool))
 
 /-- Whether two closed values of a type with decidable equality are equal: the kernel accepts
 the proof by decision of `a = b`, or of `a ≠ b`. The literal forms are registered with decidable
