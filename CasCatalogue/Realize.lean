@@ -2073,7 +2073,12 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | some (.namedMorphism id params) => pure (some (id.raw, params))
         | some (.namedCallable address _ params) => pure (some (address, params))
         | _ => pure none
-      if let some (address, params) := callable then
+      -- Composition with a registered callable is point evaluation only when
+      -- the first arrow starts at the published generalized-point domain.
+      -- Otherwise it is genuine categorical composition (e.g. rev ∘ rev).
+      let pointApplication ← withTransparency .all <| withoutModifyingState
+        (isDefEq source (← closedElementDomain state))
+      if let some (address, params) := if pointApplication then callable else none then
         let some (_, declaredCategory) := state.callable? address
           | throwError "the applied map is not registered"
         unless declaredCategory == categoryId do
