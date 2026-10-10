@@ -8,6 +8,18 @@ meta import CasCatalogue.Codec
 open Lean Meta Elab Term Command
 namespace CasCatalogue.CodecConditionProbes
 
+-- Generic constructor decoding must discharge a true dependent proof field while
+-- refusing false evidence; neither outcome comes from a leaf or a type-specific codec.
+run_cmd liftTermElabM do
+  let t ← elabTermAndSynthesize (← `(Finset Int)) none
+  let .ok decoded ← Codec.decode t (Json.arr #[1, 2, 3])
+    | throwError "a finite set with distinct elements was not decoded"
+  let expected ← elabTermAndSynthesize (← `(({1, 2, 3} : Finset Int))) none
+  unless (← CasCatalogue.Decide.decideProp (← mkEq decoded expected)) == some true do
+    throwError "the decoded finite set differs from its literal"
+  if (← Codec.decode t (Json.arr #[1, 1, 2])).isOk then
+    throwError "the decoder constructed false no-duplicates evidence"
+
 -- Engineering checks of generic proof assembly on finite functions and their record wrappers.
 run_cmd liftTermElabM do
   let proposition ← elabTermAndSynthesize (← `(
