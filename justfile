@@ -39,7 +39,7 @@ build: track-main
 harness *manifest="": track-main
     @lake build cas-harness
     @mkdir -p .tmp
-    @lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
+    @CAS_SAGE_PYTHON="$PWD/.venv/bin/python" CAS_GAP_PYTHON="$PWD/.venv/bin/python" lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
 
 # Run the suite here and compare it with the base run `base` (a report of `cas-harness`),
 # assertion by assertion (`scripts/check_acceptance_regression.py`): an assertion of the base that is
@@ -51,7 +51,7 @@ acceptance base: track-main
     @lake build cas-harness
     @mkdir -p .tmp
     @rm -f .tmp/harness.json
-    -@lake exe cas-harness --report .tmp/harness.json
+    -@CAS_SAGE_PYTHON="$PWD/.venv/bin/python" CAS_GAP_PYTHON="$PWD/.venv/bin/python" lake exe cas-harness --report .tmp/harness.json
     @python3 scripts/check_acceptance_regression.py {{ base }} .tmp/harness.json
     @python3 scripts/check_question_permanence.py --base CasAcceptance/Permanent/questions.json .tmp/harness.json
 
