@@ -598,6 +598,7 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     return json
   if let .ok json ← Codec.encode value then return json
   let mut candidates : Array (ObjectEntry × Array Expr) := #[]
+  let mut exact : Array (ObjectEntry × Array Expr) := #[]
   for entry in state.objects do
     let candidate ← withoutModifyingState do
       let application ← instantiateFresh entry.declaration
@@ -608,7 +609,16 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
         xs.mapM (·.fvarId!.getBinderInfo)
       return some ((application.getAppArgs.zip infos).filterMap fun (arg, info) =>
         if info.isExplicit then some arg else none)
-    if let some params := candidate then candidates := candidates.push (entry, params)
+    if let some params := candidate then
+      candidates := candidates.push (entry, params)
+      -- Definitional equality may recognize several upstream presentations. A
+      -- literal occurrence of the registered declaration supplies its own
+      -- selected identity; no transparent alias is chosen by catalogue order.
+      if value.getAppFn.constName? == some entry.declaration then
+        exact := exact.push (entry, params)
+  if let #[(entry, params)] := exact then
+    return Json.mkObj [("ctor", entry.id.raw),
+      ("args", Json.arr (← params.mapM (parameterData trace)))]
   let #[(entry, params)] := candidates
     | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data presentation"
   return Json.mkObj [("ctor", entry.id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
