@@ -2354,8 +2354,8 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       let mut witnesses : Array Value := #[]
       let sourceValues := known.flatMap sourceParameterValues
       let selected := sourceValues.filter fun
-        | .object _ candidateCategory _ selected _ =>
-            candidateCategory.id != CategoryId.sets || selected.isSome
+        | .object _ candidateCategory origin selected _ =>
+            candidateCategory.id != CategoryId.sets || selected.isSome || origin.isSome
         | _ => false
       for candidate in (if selected.isEmpty then sourceValues else selected) do
         if ← parameterCompatible (do
