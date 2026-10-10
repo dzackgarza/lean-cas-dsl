@@ -1,5 +1,10 @@
 # Journal
 
+## 2026-10-10 (B0 specimen backend protocol checks; harness still outstanding)
+
+- At `933c663`, directly exercised the installed specimen's framed backend port using its published `leaves.json` operation/input pairs, without importing leaf code into the kernel or changing an acceptance assertion. GAP 4.16.1 (`meth.cardinality`, `obj.sets.integers_mod_power`, parameters `[4,3]`) answered `{"ctor":"finite","args":[64]}` with `status=ok`. Sage 10.8.12 (`lim.sets.pullback`, `cat.sets`, the suite's graphs `[[0,0],[1,1],[2,1]]` and `[[0,1],[1,0]]`) answered a `cone` with apex `Fin 3` and complete legs `[[0,0],[1,1],[2,2]]` and `[[0,1],[1,0],[2,0]]`, `status=ok`. Both backend processes exited 0. These are computational port observations only, **not** B0 registered kernel/harness acceptance, formal cone reconstruction, or correctness evidence independent of the permanent suite.
+- The kernel harness was still unbuilt (`CasCatalogue.TestSuite.olean` and `cas-harness` absent). Recent bounded builds repeatedly stalled in the pinned upstream `LeanCategories/Lattices/Valued/Standard.lean`; no backend failure through the kernel has been observed. Next owner-local requirement: run the two unchanged assertions through the actual harness once compiled, preserving their registered dispatch traces; inspect and correct only real kernel failures.
+
 Process narration lives here, not in chat: what was done, what was found, what is pending and on
 whom. Chat carries only what needs the owner's action or decision. Newest entry first; one entry
 per working session; terse. Not an authority: rules live in their owning documents (AGENTS.md).
