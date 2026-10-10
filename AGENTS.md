@@ -234,10 +234,12 @@ mathematical requirement and its sources. The session's credentials and tools mu
 
 # Architecture contract (read first)
 
+**Owner ruling (2026-10-10): every repository consumes its own-organisation dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`, `lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at their latest `main`. There are no pins, accepted release tuples or re-pin steps; every build and harness run updates those requires to the latest `main` first. Where a spec in this repository speaks of a pinned or released revision, read it as the latest `main`.**
+
 [`specs/architecture.md`](specs/architecture.md) owns the separation of concerns:
 - `lean-categories` owns all mathematics;
-- this repository derives the language from an explicitly pinned, independently accepted
-  `lean-categories` release and owns no ontology;
+- this repository derives the language from `lean-categories` at its latest `main` and owns no
+  ontology;
 - leaves only supply opaque computations for operations that are already formal, and nothing
   from a leaf is trusted;
 - `research` owns no ontology.
@@ -248,8 +250,7 @@ Every plan node and edit conforms to it. In practice it forbids the following.
   or coherence is missing, stop only its dependent operation and record the missing accepted
   input in the existing obligation. The independent upstream author works from the approved
   mathematical requirement and its sources; the kernel worker neither commissions nor briefs it.
-  Consume the independently accepted release at an explicit compatible pin, never unassessed
-  upstream `main`. Continue source work that does not require the missing input.
+  Consume `lean-categories` at its latest `main`. Continue source work that does not require the missing input.
   - Never coin it in this repository: a leaf, a probe, the notebook or the kernel.
   - The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`). `normalized_registry`
     refuses every module outside it, and `SemanticProjectionProbes` checks that every semantic row
@@ -312,8 +313,7 @@ mechanical, external, long-tail work.
 - A leaf never sees the tests. It is written against the released leaf contract alone, and the
   harness runs the suite over installed leaves (`just harness`).
 - The contract is the kernel's: develop it with the kernel and integrate the compatible source.
-  Publish an independently assessed release, then explicitly pin that release in the leaves and
-  this repository. A source merge or an unconstrained `lake update` does not accept the tuple.
+  The leaves and this repository build against its latest `main`.
 
 # Search before authoring (gate-enforced)
 

@@ -22,7 +22,11 @@ default:
 # (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests). The suite is
 # executed by `just harness` and `just acceptance`, not compiled.
 # Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
-build:
+# Own-organisation requires always build at their latest `main` (owner, 2026-10-10): no pins.
+track-main:
+    @lake update lean_categories cas_leaf_contracts nbdsl-worker
+
+build: track-main
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
@@ -32,7 +36,7 @@ build:
 # Run the acceptance suite over a leaves manifest (default: the installed leaves', through
 # `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are
 # the report, not failures.
-harness *manifest="":
+harness *manifest="": track-main
     @lake build cas-harness
     @mkdir -p .tmp
     @lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
@@ -43,7 +47,7 @@ harness *manifest="":
 # each fail the comparison. The harness exits nonzero whenever an assertion fails, so its exit
 # does not decide; its report does, and a run that did not complete writes none (the stale
 # report is removed first).
-acceptance base:
+acceptance base: track-main
     @lake build cas-harness
     @mkdir -p .tmp
     @rm -f .tmp/harness.json
