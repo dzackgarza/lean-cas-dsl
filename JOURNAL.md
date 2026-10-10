@@ -1,5 +1,10 @@
 # Journal
 
+## 2026-10-10 (B0 frozen cyclic-cardinality regressions)
+
+- Re-ran the individual frozen required assertions `sets.card.z7` and `sets.card.z5_empty_power` against the corrected native `.tmp/b0-refinement-routed-harness` and installed specimen registrations, in separate tightly scoped suites. Both returned **holds** with exactly one real backend dispatch each: `.tmp/b0-z7-only-report.json` and `.tmp/b0-z5-only-report.json`. The process exit status is nonzero because the deliberately isolated suites omit other required inventory entries; the two individual assertion records are `kind=holds`, with no associated failure. Neither the accepted assertions nor the backends were modified.
+- This validation establishes two additional requirement-3 witnesses at current commit `b044ad9`. The independently confirmed constructed-product and created-pullback result-form cardinality/finiteness admission gaps remain unresolved; no kernel-only registration substitution is justified.
+
 ## 2026-10-10 (B0 registered retained-route refinement now reaches Sage product)
 
 - Repaired `Realize.lean`'s `.retainedRoute` dispatch: this branch always selected `transportImage`, bypassing already published object refinement rows even when its stored full functor applications were definitionally identical to the registered route. It now checks each **actual retained application** against its registered edge with Lean's definitional equality, selects `transport` (which checks the full registered refinement isomorphism) only if every application agrees, and otherwise retains `transportImage` with all original descriptors. No name-only coercion or backend-dependent erasure.
