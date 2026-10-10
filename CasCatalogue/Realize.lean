@@ -2939,6 +2939,31 @@ def evaluatedPointEq (trace : Trace) (a b : Expr) : TermElabM Bool := do
     if ← evaluatedDecides evaluations (mkNot condition) then return false
   evaluatedEq a b
 
+/-- Interpret the port's finite function graphs under categorical composition.
+This is execution data, not a proposition: the final graph is independently
+decoded at the fixed formal morphism type before an equality is observed. -/
+partial def composedFiniteGraph (json : Json) : Except String Json := do
+  if json.getArr?.isOk then return json
+  unless (json.getObjValAs? String "ctor").toOption == some "compose" do
+    throw "the computed finite map is neither a graph nor a composite of graphs"
+  let #[first, second] ← (json.getObjVal? "args").bind (·.getArr?)
+    | throw "the computed composition must have exactly two arrows"
+  let first ← (← composedFiniteGraph first).getArr?
+  let second ← (← composedFiniteGraph second).getArr?
+  let mut result := #[]
+  for entry in first do
+    let #[input, middle] ← entry.getArr?
+      | throw "the first finite map has a malformed graph entry"
+    let mut outputs := #[]
+    for entry' in second do
+      let #[key, output] ← entry'.getArr?
+        | throw "the second finite map has a malformed graph entry"
+      if key == middle then outputs := outputs.push output
+    let #[output] := outputs
+      | throw "the second finite map is not uniquely defined on an intermediate point"
+    result := result.push (Json.arr #[input, output])
+  return Json.arr result
+
 /-- Observe actual computational points through the published equality characteristic map.
 The truth datum is never elaborated as a proposition or used as proof evidence. -/
 def observeComputedPoints (h : Harness) (trace : Trace) (first second : Wire)
@@ -2947,6 +2972,23 @@ def observeComputedPoints (h : Harness) (trace : Trace) (first second : Wire)
   let pointType ← inferType formal
   let some (domain, target) := Language.homEnds? pointType
     | throwStratum .noImplementation "the computational observation has no retained categorical point endpoints"
+  -- A finite graph is already an observation of the entire arrow, rather than
+  -- a generalized point. Check its completeness and endpoints using the
+  -- published codec, then compare the actual functions at the fixed type.
+  let finiteGraphValue (wire : Wire) : TermElabM (Option Expr) := do
+    match wire.payload with
+    | .ordinary value _ => return some value
+    | .computed _ (.inline data) =>
+      match composedFiniteGraph data with
+      | .ok graph =>
+        match ← Codec.decode pointType graph with
+        | .ok value => return some value
+        | .error message => throwStratum .malformed m!"the computed finite graph is invalid: {message}"
+      | .error _ => return none
+    | _ => return none
+  if let some actualFirst ← finiteGraphValue first then
+    if let some actualSecond ← finiteGraphValue second then
+      return ← evaluatedPointEq trace actualFirst actualSecond
   unless ← withTransparency .all <| isDefEq domain (← closedElementDomain state) do
     throwStratum .noImplementation "this computational map requires a pointwise observation implementation"
   if ← ComputationalData.plainType target then
