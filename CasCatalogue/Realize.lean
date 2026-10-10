@@ -2408,6 +2408,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                   ("args", Json.arr #[sourceWire.json, targetWire.json])]) }
         realize h trace s!"the diagram of {id.raw} in {what}" a
       let sourceDiagram ← mkAppM standard (wires.map (·.value))
+      let sourceWires := wires
       let sourceDiagramJson := Json.mkObj [("ctor", Codec.label standard),
         ("args", Json.arr (wires.map (·.json)))]
       let (sent, wires) ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
@@ -2426,25 +2427,48 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               pure { wire with form := .graph form, payload := forwardPayload wire value json }
             | _ => throwStratum .noImplementation m!"the diagram data has no accepted presentation along {lift.edge.label}"
           pure (← mkAppM standard (mapped.map (·.value)), mapped)
+      let mut lowerComparison? : Option Expr := none
       if let some liftId := lift? then
         let some creation := state.lifts.find? (·.id == liftId)
           | throwStratum .noImplementation "the requested creation lift is not registered"
         let U ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
         let expected ← withTransparency .all <| mkFunctorComp sourceDiagram U
-        unless ← withTransparency .all <| isDefEq sent expected do
-          throwStratum .noImplementation
-            "the selected diagram transport is not the registered creation functor's action"
+        let comparison ← match row.shape with
+          | "pullback" => do
+              let some left := data[0]? | throwError "the source cospan has no left arrow"
+              let some right := data[1]? | throwError "the source cospan has no right arrow"
+              unless data.size == 2 do throwError "the source cospan has extra arrows"
+              StructuredResult.checkReconstruction
+                (← mkAppM ``CategoryTheory.Limits.cospanCompIso #[U, left, right])
+          | _ =>
+              throwStratum .noImplementation
+                "the selected diagram transport has no accepted standard-form comparison"
+        let comparisonType ← mkAppM ``CategoryTheory.Iso #[expected, sent]
+        unless ← withTransparency .all <| isDefEq (← inferType comparison) comparisonType do
+          throwError "the selected diagram comparison has different complete endpoints"
+        lowerComparison? := some comparison
       let diagramJson := Json.mkObj [("ctor", Codec.label standard),
         ("args", Json.arr (wires.map (·.json)))]
       let input : Wire := {
         form := .diagrams category
         payload := (← combinedPayload sent diagramJson wires) }
-      let formalLowerPresentation ← Semantic.limitPresentation row sent
-      let plan ← match ← StructuredResult.dataPlan row sent formalLowerPresentation with
+      let encodingPresentation ← Semantic.limitPresentation row sent
+      let plan ← match ← StructuredResult.dataPlan row sent encodingPresentation with
         | .error message => throwStratum .noImplementation m!"the formal construction has no computational data schema: {message}"
         | .ok plan => pure plan
-      let inputRoles ← wires.mapM fun wire => do
-        let ends := Language.homEnds? (← inferType wire.value)
+      let mut inputRoles := #[]
+      for index in [:wires.size] do
+        let some wire := wires[index]?
+          | throwError "the constructed diagram lost an input wire"
+        -- The source and target of U.map f need not be separately named
+        -- objects. Their selected presentations are U applied to the
+        -- original endpoints, not fresh interpretations of U.obj X.
+        let original ← if lift?.isSome then
+          match sourceWires[index]? with
+          | some original => pure original
+          | none => throwError "the created diagram lost its original input wire"
+          else pure wire
+        let ends := Language.homEnds? (← inferType original.value)
         let endpointData ← match ends with
           | none => pure (none, none)
           | some (source, target) => do
@@ -2453,8 +2477,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                 discard <| Semantic.recordNamedObject endpoint (some trace)
             let source ← realize h trace "the construction input map's retained source" source
             let target ← realize h trace "the construction input map's retained target" target
+            let (source, target) ← match lift? with
+              | none => pure (source, target)
+              | some liftId => do
+                  let some lift := state.lifts.find? (·.id == liftId)
+                    | throwStratum .noImplementation "the source endpoint has no selected creation lift"
+                  pure (← transport trace source #[lift.edge],
+                    ← transport trace target #[lift.edge])
             pure (some source.json, some target.json)
-        pure (wire.json, endpointData.1, endpointData.2)
+        inputRoles := inputRoles.push (wire.json, endpointData.1, endpointData.2)
       let resolveRole := fun role => do
         match role with
         | .argument position => return (← inputRoles[position]?).1
@@ -2467,6 +2498,20 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         if binding.inputRoles.all (fun other => resolveRole other == some descriptor) then
           some descriptor
         else none
+      let formalLowerPresentation ← match lowerComparison? with
+        | none => pure encodingPresentation
+        | some comparison => do
+            let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[encodingPresentation]
+            let proof ← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[encodingPresentation]
+            let transported ← mkAppM ``CategoryTheory.Limits.Cone.postcompose
+              #[← mkAppM ``CategoryTheory.Iso.inv #[comparison]]
+            let transported ← mkAppM ``CategoryTheory.Functor.obj #[transported, cone]
+            let equivalence ← mkAppM ``CategoryTheory.Limits.IsLimit.postcomposeInvEquiv
+              #[comparison, cone]
+            let proof ← mkAppM ``Equiv.toFun
+              #[← mkAppM ``Equiv.symm #[equivalence], proof]
+            StructuredResult.checkReconstruction
+              (← mkAppM ``CategoryTheory.Limits.LimitCone.mk #[transported, proof])
       let (answer, backend) ← send h id.raw input
       let mut createdPresentation? : Option Expr := none
       let formalPresentation ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
