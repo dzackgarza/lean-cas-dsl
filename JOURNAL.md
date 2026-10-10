@@ -1,5 +1,10 @@
 # Journal
 
+## 2026-10-10 (B0 three additional frozen registered-backend witnesses)
+
+- Ran the frozen assertions `sets.card.integers`, `sets.finite.integers`, and `sets.implemented.card_fin` in independent focused files, without changing their expressions, using the current corrected native `.tmp/b0-refinement-routed-harness` and installed specimen. All three individual assertion records report `kind=holds` with exactly one actual registered backend dispatch each. Report `.tmp/b0-integers-report.json`. A preliminary concatenation of separate two-line assertions into a single file caused a reader parser error; it was corrected by separating the unmodified assertions into separate files, with no evaluator or acceptance changes. The isolated suite still exits nonzero for the other required inventory entries omitted from the focused run.
+- This increases the explicitly checked required-assertion witnesses at `b044ad9` to at least six (`sets.card.z4_cubed`, `sets.card.z7`, `sets.card.z5_empty_power`, and these three). Required created products, coproducts and pullbacks still lack admitted method registrations for their constructed image forms; no unverified result-form coercion is authorized.
+
 ## 2026-10-10 (B0 frozen cyclic-cardinality regressions)
 
 - Re-ran the individual frozen required assertions `sets.card.z7` and `sets.card.z5_empty_power` against the corrected native `.tmp/b0-refinement-routed-harness` and installed specimen registrations, in separate tightly scoped suites. Both returned **holds** with exactly one real backend dispatch each: `.tmp/b0-z7-only-report.json` and `.tmp/b0-z5-only-report.json`. The process exit status is nonzero because the deliberately isolated suites omit other required inventory entries; the two individual assertion records are `kind=holds`, with no associated failure. Neither the accepted assertions nor the backends were modified.
