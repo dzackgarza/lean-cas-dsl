@@ -76,13 +76,21 @@ run_cmd liftTermElabM do
   let index ← elabTermAndSynthesize
     (← `(CategoryTheory.Discrete.mk CategoryTheory.Limits.WalkingPair.left)) none
   let .ok indexJson ← Codec.encode index | throwError "the actual diagram index did not encode"
-  let acceptedLegs ← mkAppM ``CategoryTheory.Limits.Cone.π #[acceptedCone]
+  let acceptedLegs ← mkAppM ``CategoryTheory.Limits.Cone.π #[result.cone]
   let expectedLeg ← elabTermAndSynthesize
     (← `(CategoryTheory.NatTrans.app $(← exprToSyntax acceptedLegs) $(← exprToSyntax index))) none
   let legAnswer := Json.mkObj [("ctor", "constructionLeg"),
     ("args", Json.arr #[toJson row.id.raw, diagramJson, answer, indexJson])]
-  let .ok (actualLeg, _) ← Realize.decodeValue trace category (← inferType expectedLeg) legAnswer
-    | throwError "the full noncanonical construction leg did not roundtrip"
+  if (← Realize.decodeValue trace category (← inferType expectedLeg) legAnswer).isOk then
+    throwError "a contextless computational defining leg was admitted as a formal construction"
+  -- The bare constructionLeg envelope intentionally cannot supply its own
+  -- formal construction context. Project only through the accepted row/diagram
+  -- and decode the returned graph at the independently fixed leg type.
+  let .ok projected ← StructuredResult.projectData row diagram answer index
+    | throwError "the accepted defining-leg schema did not project its data"
+  let actualLeg ← match ← Realize.decodeValue trace category (← inferType expectedLeg) projected with
+    | .ok (actualLeg, _) => pure actualLeg
+    | .error message => throwError "the full noncanonical construction leg did not roundtrip: {message}"
   let some _ ← Codec.conditionProof (← mkEq actualLeg expectedLeg)
     | throwError "the actual returned leg lost its checked apex alignment"
   let badLegAnswer := Json.mkObj [("ctor", "constructionLeg"),

@@ -47,34 +47,37 @@ run_cmd liftTermElabM do
   let legJson := toJson (#[#[0, 0]] : Array (Array Nat))
   let answer := Json.mkObj [("ctor", "cone"),
     ("args", Json.arr #[apexJson, legJson, legJson])]
-  let (result, fields) ← match ← StructuredResult.decode row diagram answer
-      (fun constructor expected args =>
-        Realize.decodeFamily constructor expected args (Realize.decodeValue trace category)) with
+  let decode := fun constructor expected args =>
+    Realize.decodeFamily constructor expected args (Realize.decodeValue trace category)
+  let (result, fields) ← match ← StructuredResult.decode row diagram answer decode with
     | .ok decoded => pure decoded
     | .error message => throwError "the complete finite-set cone fixture did not decode: {message}"
 
   unless fields.size == 3 do
     throwError "decoding lost an apex or a defining map"
-  let some (apex, some form) := fields[0]?
+  let some (_, some form) := fields[0]?
     | throwError "the decoded apex has no registered form"
+  let diagramJson := Json.mkObj [("ctor", "cospan"),
+    ("args", Json.arr #[legJson, legJson])]
+  let sourceData := Json.mkObj [("ctor", "constructionApex"),
+    ("args", Json.arr #[toJson form.id, diagramJson, result.answer])]
   let wire : Realize.Wire := {
     form := form
-    value := apex
-    json := apexJson
-    universal := some result.cone
-    universalJson := some result.answer
-    universalDiagram := some result.diagram }
+    payload := .computed result.apex (.inline sourceData) }
 
   let transported ← Realize.transport trace wire refinement.route
-  unless transported.formId == refinement.base.raw do
-    throwError "the probe did not execute the representation-changing refinement"
-  unless (transported.json.getObjValAs? String "ctor").toOption == some refinement.base.raw do
-    throwError "the transported apex has the wrong wire presentation"
-  unless transported.universal == wire.universal do
-    throwError "structural transport dropped or changed the source cone and defining maps"
-  unless transported.universalJson == wire.universalJson do
-    throwError "structural transport dropped or changed the complete source response"
-  unless transported.universalDiagram == wire.universalDiagram do
-    throwError "structural transport dropped or changed the source diagram"
+  unless transported.form.category == CategoryId.sets && transported.formId != wire.formId do
+    throwError "the refinement did not change to the registered underlying set category"
+  unless (transported.json.getObjValAs? String "ctor").toOption == some "functorAction" do
+    throwError "the transported apex lost its registered structural functor action"
+  let .ok #[_, retained] := (transported.json.getObjVal? "args").bind (·.getArr?)
+    | throwError "structural transport lost the original source payload"
+  unless (retained.getObjValAs? String "ctor").toOption == some "constructionApex" do
+    throwError "structural transport lost the structured source construction"
+  let .ok #[_, retainedDiagram, retainedResult] :=
+      (retained.getObjVal? "args").bind (·.getArr?)
+    | throwError "structural transport lost the construction fields"
+  unless retainedDiagram == diagramJson && retainedResult == result.answer do
+    throwError "structural transport lost the complete diagram, cone and returned maps"
 
 end CasCatalogue.StructuredResultProbes
