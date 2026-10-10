@@ -1,5 +1,9 @@
 # Journal
 
+## 2026-10-10 (B0 finite-reversal required assertion)
+
+- The unchanged `sets.eq.rev_rev` assertion was isolated verbatim from `tests/acceptance/sets.cas` and executed through `cas-harness --computation-only` with the installed `.tmp/b0-leaves-specimen/leaves.json` manifest. Its report `.tmp/b0-rev-only-correct.json` records `kind=gap`, `fails=false`, `dispatches=[]`, and `NoImplementation: no admitted registration computes mor.sets.fin_rev on the form obj.sets.fin`. This frozen B0-required assertion is not yet met by a registered computation. Do not count the `gap` as success, invent a fallback, or change the assertion. The narrow run reports missing inventory entries because the remaining admitted assertions are absent from the diagnostic file. A preceding multi-row diagnostic omitted a necessary `let` and timed out without a result; it is not evidence about the assertion.
+
 ## 2026-10-10 (B0 focused product and finiteness execution)
 
 - Ran unchanged `tests/acceptance/sets.cas` assertions in a narrowed computation-only `cas-harness` invocation against `.tmp/b0-leaves-specimen/leaves.json`; the report is `.tmp/b0-next-finite.json`. `sets.finite.integers` holds with Sage `prop.is_finite` returning `some false` for `obj.sets.integers`. `sets.implemented.card_fin` holds with Sage `meth.cardinality` returning `finite(3)` for `obj.sets.fin` `[3]`. These establish two additional registered successful assertions (six total including the four prior required cardinalities).
