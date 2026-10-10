@@ -503,3 +503,9 @@ Pending:
 - #59 "Build and audit": semgrep's exception lookup for the known `pull_request_target` finding hit
   GitHub's rate limit (403); one re-run queued (run 36893318437).
 - Next construction work: stage B (`b0-typed-application`) once stage A is on `main`.
+
+## 2026-10-10 — B0 discriminant integration
+
+- Updated `lean_categories` pin to GitHub main `76ca85d7bc35bf55b6268c81f8807ef46b6ab063` via `lake update lean_categories`; leaf manifest `lean-cas-dsl-leaves` `037f1e7` contains the discriminant cokernel/cardinality registrations.
+- Removed obsolete `LiftEntry.computation` from the kernel registry manifest projection, matching the new upstream `LiftEntry` interface.
+- Focused `lake build cas-harness` found an additional incompatible kernel consumer: `CasCatalogue/LiftedSubobjectData.lean` still requires removed `LiftEntry.computation` and `MonoLiftComputation` declarations. This is a real kernel adaptation, not a leaf or acceptance change. The discriminant suite has not been executed and 12/15 remains the last demonstrated count.
