@@ -1,5 +1,9 @@
 # Journal
 
+## 2026-10-10 (B0 mapped-graph guard isolated by native execution)
+
+- Isolated the failed condition in `e04c172` with a diagnostic-only kernel source change and actual native harness execution, using a focused `-O0` replacement native object and unchanged installed specimen. `sets.card.z4_cubed` still holds; the unchanged `finite_sets.limit.pullback.card` returns `NoImplementation: diagnostic: mapped and original concrete callables do not agree` **before** checking endpoint graph representation or calling Sage. Report: `.tmp/b0-map-diagnostic-report.json`. Thus the first `withTransparency .all / isDefEq` comparison of `ConcreteCategory.hom (U.map f)` and `ConcreteCategory.hom f` fails for the actual reconstructed terms even though an abstract theorem `rfl` holds for the finite classifier's map action. No unchecked graph erasure is justified. The temporary exception-based instrumentation and the subsequent endpoint-codec experiment were reverted from source; the result of this diagnostic is recorded without accepting or altering the frozen assertion. Next source owner must inspect the actual elaborated concrete morphisms and their selected endpoint comparison before attempting a typed computational graph transport. B0 requirement 3 remains open.
+
 ## 2026-10-10 (B0 corrected executable, finite-set mapped-arrow regression)
 
 - A native *diagnostic* harness executable was successfully linked using a focused `-O0` compilation of the current `CasCatalogue/Realize.c`, substituted for precisely its native object in a copy of the pre-existing `cas-harness.rsp` (the standard `-O3` native compilation remained too slow). The original executable and build cache were not replaced. Diagnostic executable `.tmp/b0-graph-debug-harness`, report `.tmp/b0-graph-debug-report.json`.
