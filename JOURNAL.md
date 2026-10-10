@@ -1,5 +1,10 @@
 # Journal
 
+## 2026-10-10 (B0 corrected executable, finite-set mapped-arrow regression)
+
+- A native *diagnostic* harness executable was successfully linked using a focused `-O0` compilation of the current `CasCatalogue/Realize.c`, substituted for precisely its native object in a copy of the pre-existing `cas-harness.rsp` (the standard `-O3` native compilation remained too slow). The original executable and build cache were not replaced. Diagnostic executable `.tmp/b0-graph-debug-harness`, report `.tmp/b0-graph-debug-report.json`.
+- Running the two unchanged frozen assertions against `.tmp/b0-leaves-specimen/leaves.json` gave `sets.card.z4_cubed`: **holds**, one GAP dispatch, and `finite_sets.limit.pullback.card`: **unavailable**, one Sage dispatch, still reporting `a morphism is a list of pairs` for `map(classifierForget(clf.sets.finite), graph)`. Thus `e04c172` is **not an effective repair of this regression** at the current runtime path, notwithstanding its source compilation and the separate `rfl` identity for the abstract forgetful functor. The retained callable check did not authorize primitive graph projection in this actual execution. A new source correction must establish the exact instantiated concrete arrow/action equality and target graph codec; no backend-adaptive stripping or semantic rewrite is licensed. B0 requirement 3 remains open.
+
 ## 2026-10-10 (B0 mapped-graph native harness rebuild after e04c172)
 
 - The focused kernel correction at `e04c172` has an updated `CasCatalogue/Realize.olean` and generated C. A fresh bounded `lake build cas-harness` of 240 seconds advanced through `CasCatalogue.TestSuite`, `CasTools.Harness`, and `CasTools.HarnessMain` but expired before producing a new executable; the prior executable still predates the correction. Exact build log: `.tmp/b0-e04-build.log`. The new source therefore has not been exercised by the frozen harness assertions. This is not evidence that either `finite_sets.limit.pullback.card` or B0 requirement 3 holds. No repeat of the already established stale-binary computation is counted as validation.
