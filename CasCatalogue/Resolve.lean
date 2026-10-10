@@ -63,6 +63,7 @@ two distinct structural composites, whose `left` occurs in `a` and is replaced b
 `b`. -/
 def RegistryState.comparisonsFrom (state : RegistryState) (a b : Route) :
     Array NaturalTransformationId :=
+  if !a.source.syntacticEq b.source || !a.target.syntacticEq b.target then #[] else
   (state.cells.filter fun c =>
       c.invertible && c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
         rewritesTo a.refs b.refs c.left c.right).map (·.id)
