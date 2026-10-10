@@ -21,6 +21,7 @@ import all CasCatalogue.ImageFormProbes
 import all CasCatalogue.LiftedSubobjectData
 import all CasCatalogue.LiftedSubobjectDataProbes
 import all CasCatalogue.PresentationReaderProbes
+import all CasCatalogue.ProofIdentityProbes
 import all CasCatalogue.SelectedCarrierProbes
 import all CasCatalogue.ParameterStructureProbes
 import all CasCatalogue.StructuredReconstructionProbes
