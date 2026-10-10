@@ -92,8 +92,15 @@ def dataFieldCount (ctor : ConstructorVal) : MetaM Nat :=
 constructor congruence. No tactic or leaf proof participates; the final proof is kernel-checked. -/
 partial def conditionProofAux (condition : Expr) (fuel : Nat) : MetaM (Option Expr) := do
   if fuel == 0 then return none
-  let condition ← whnfR (← instantiateMVars condition)
-  let originalCondition := condition
+  let original ← instantiateMVars condition
+  -- The original bundled type can own a decision instance whose head is hidden by
+  -- carrier normalization. Try its published instance before changing the presentation.
+  if let some proof ← Decide.decisionProof original then return some proof
+  if (← Decide.decisionProof (mkNot original)).isSome then return none
+  let condition ← whnfR original
+  -- The equation-data normalizer handles both an equation and its negation.
+  -- Keep `Not` visible instead of losing it to the reduced function type.
+  let originalCondition := if original.isAppOf ``Not then original else condition
   if let some (_, left, right) := condition.eq? then
     if ← withReducible <| isDefEq left right then return some (← mkEqRefl left)
     let leftHead ← withTransparency .all <| whnf left
@@ -178,7 +185,7 @@ partial def conditionProofAux (condition : Expr) (fuel : Nat) : MetaM (Option Ex
     if !negative.hasMVar && !negative.hasLevelMVar && !negative.hasFVar &&
         !negative.hasLooseBVars && (← Decide.kernelAccepts (mkNot originalCondition) negative) then
       return none
-  if originalCondition.eq?.isSome then
+  if originalCondition.eq?.isSome || originalCondition.isAppOf ``Not then
     if let some proof ← EquationData.prove originalCondition fun normalized =>
         conditionProofAux normalized (fuel - 1) then return some proof
   if let some (_, left, right) := condition.eq? then

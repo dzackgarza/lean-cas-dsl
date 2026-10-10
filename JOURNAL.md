@@ -1,5 +1,42 @@
 # Journal
 
+## 2026-10-10 (B0 unit-inverse candidate; current contract integration blocks verification)
+
+- Investigated the unchanged `RegistrationProbes` unit observations at kernel `95382b8`.
+  The consumed `lean_categories` `76ca85d` already supplies the units admission/evidence,
+  units functor and group inverse. No missing `lc-units-structure` row or leaf implementation
+  was established. The rational gap discarded a retained parameter-equivalence presentation;
+  the quotient reader selected the unrefined residue set instead of its declared ring, leaving
+  distinct additive and multiplicative monoids as candidates.
+- Candidate kernel changes retain `obj.rings.integers_mod` as the quotient's selected complete
+  structure and use existing `realizedParameters` for admitted points, including the returned
+  payload dependencies. Closed ordinary discharge reuses `Codec.conditionProof`; the original
+  proposition is still kernel-checked and computation-only mode still skips discharge. Codec
+  now tries the original type's published decision instance before carrier normalization and
+  keeps negated equations visible to the existing equation-data proof transport. No inverse
+  theorem, equality instance, mathematical row, leaf or acceptance expectation was authored.
+- `lake build CasCatalogue.CodecConditionProbes` completed successfully after importing the
+  existing `LeanCategories.Foundation.Mathlib` instance into that engineering probe. The probe
+  establishes the true finite bundled-function equation, rejects its negation, rejects the
+  false equation and establishes its negation. Log: `.tmp/b0-units-codec-probes.log`. The first
+  two probe attempts failed on the negative case before the original-type decision was tried;
+  their failures were not accepted as evidence. These are codec observations, not verification
+  of either unit-inverse assertion.
+- The required latest-main update changed `cas_leaf_contracts` from the previously consumed
+  `bcd4721` to current `main`/`origin/main` `e292368`. That current main lacks
+  `Stratum.semanticAmbiguity`, `Backend.ComputationalValue`, `Backend.PointInvocation` and the
+  later published invocation/admitted-point wire interface. The focused owner build stops at
+  `Semantic.lean:141,351` with unknown `Stratum.semanticAmbiguity`. The compatible public
+  contract must be integrated by its kernel/contract owner; replacing ambiguity with invalidity
+  or copying the missing public port into the consumer would not satisfy the contract.
+- Reran the full requested background `just build`, bounded at 240 seconds. It reproduced
+  those two Semantic errors and the existing requirement-owner-pending `CohereProbes:42`
+  failure, then the bound terminated the remaining build (exit 124). Log:
+  `.tmp/b0-units-full-build.log`. Re-read the assigned B0 construction boundary and narrowed
+  the next action to the incompatible contract, without another broad build. The refreshed unit
+  observations could not execute; neither their rows nor stage-A integration is established.
+  The candidate is preserved for verification after the steward reconciles contract main.
+
 ## 2026-10-10 (B0 three additional frozen registered-backend witnesses)
 
 - Ran the frozen assertions `sets.card.integers`, `sets.finite.integers`, and `sets.implemented.card_fin` in independent focused files, without changing their expressions, using the current corrected native `.tmp/b0-refinement-routed-harness` and installed specimen. All three individual assertion records report `kind=holds` with exactly one actual registered backend dispatch each. Report `.tmp/b0-integers-report.json`. A preliminary concatenation of separate two-line assertions into a single file caused a reader parser error; it was corrected by separating the unmodified assertions into separate files, with no evaluator or acceptance changes. The isolated suite still exits nonzero for the other required inventory entries omitted from the focused run.

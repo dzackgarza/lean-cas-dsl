@@ -3,6 +3,7 @@ module
 import CasCatalogue.Codec
 import Mathlib.CategoryTheory.Types.Basic
 import Mathlib.CategoryTheory.Limits.Shapes.FiniteLimits
+import LeanCategories.Foundation.Mathlib
 meta import CasCatalogue.Codec
 
 open Lean Meta Elab Term Command
@@ -32,6 +33,10 @@ run_cmd liftTermElabM do
       TypeCat.ofHom (fun _ : Fin 2 => (0 : Fin 2)))) none
   if (← Codec.conditionProof wrong).isSome then
     throwError "the structural codec accepted a false bundled-function equation"
+  if (← Codec.conditionProof (mkNot wrong)).isNone then
+    throwError "the structural codec could not refute a false bundled-function equation"
+  if (← Codec.conditionProof (mkNot proposition)).isSome then
+    throwError "the structural codec refuted a true bundled-function equation"
   let quantified ← elabTermAndSynthesize (← `(
     ∀ j : CategoryTheory.Discrete CategoryTheory.Limits.WalkingPair,
       TypeCat.ofHom (fun x : Fin 2 => x) =

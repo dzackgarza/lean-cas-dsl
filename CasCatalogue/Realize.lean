@@ -1935,7 +1935,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let datum ← realize h trace "the original admitted computational point" original
       unless datum.form.category == originalCategory do
         throwError "the admitted point changed its original computational category"
-      let parameters ← params.mapM (parameterData trace)
+      let (parameters, parameterWires) ← realizedParameters h trace params
       let source ← realize h trace "the admitted point original domain" originalSource
       let target ← realize h trace "the admitted point original codomain" originalTarget
       let some (_, selected) := Language.homEnds? (← inferType e)
@@ -1944,7 +1944,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let selected ← realize h trace "the admitted point selected target" selected
       let json := Json.mkObj [("ctor", "admittedPoint"), ("args", Json.arr #[
         toJson id.raw, Json.arr parameters, source.json, target.json, selected.json, datum.json])]
-      let payload ← combinedPayload e json #[datum, source, target, selected]
+      let payload ← combinedPayload e json (#[datum, source, target, selected] ++ parameterWires)
       let some category := state.categories.find? (·.id == categoryId)
         | throwError "the admitted point category is not registered"
       return { form := .canonicalMorphism category, payload }
@@ -2850,12 +2850,11 @@ def presentationEvaluationsOf (trace : Trace) (p : Expr) : TermElabM (Array Name
 
 /-- Whether Lean's kernel accepts a proof of the closed proposition `p` by the registered
 evaluations `evaluations` and decision: the goal `p` is given to each evaluation in turn, through
-the one sanctioned runner (`Language.runProcedure`, LC-18), and the goal that remains is proved
-by `of_decide_eq_true (Eq.refl true)` (`mkDecideProof`, on `Decidable` instances alone); the
-proof so formed is checked by Lean's kernel, synchronously, within `decideBudget`
-(`kernelAccepts`). With no evaluation, it is the proof by decision alone. `false` when an
-evaluation fails or leaves several goals, when the remainder has no `Decidable` instance, or when
-the kernel does not accept the proof within the budget. -/
+the one sanctioned runner (`Language.runProcedure`, LC-18). A closed remainder uses the existing
+structural decision (`Codec.conditionProof`), retaining its complete declared types while
+normalizing their presentation. Ordinary `mkDecideProof` remains available for a residue with
+local hypotheses. The assembled proof is checked against the original `p` by Lean's kernel,
+synchronously within `decideBudget`. Failure to construct or check a proof decides nothing. -/
 def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := do
   let attempt : TermElabM Bool := do
     let goal ← mkFreshExprMVar p .syntheticOpaque
@@ -2869,7 +2868,14 @@ def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := d
       | .error _ => return false
     match remaining with
     | [] => pure ()
-    | [residue] => residue.withContext do residue.assign (← mkDecideProof (← residue.getDecl).type)
+    | [residue] => residue.withContext do
+        let condition ← instantiateMVars (← residue.getDecl).type
+        let structural ← if condition.hasFVar || condition.hasMVar || condition.hasLevelMVar then
+          pure none else Codec.conditionProof condition
+        let proof ← match structural with
+          | some proof => pure proof
+          | none => mkDecideProof condition
+        residue.assign proof
     | _ => return false
     let proof ← instantiateMVars goal
     if proof.hasMVar || proof.hasLevelMVar || proof.hasSorry then return false
