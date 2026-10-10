@@ -87,7 +87,7 @@ def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (c
   let n := candidates.size
   let mut classOf : Array Nat := Array.range n
   let mut incoming : Array Bool := Array.replicate n false
-  let mut used : Array NaturalTransformationId := #[]
+  let mut compared : Array (Nat × Nat × Array NaturalTransformationId) := #[]
   let mut ambiguities : Array (Nat × Nat × Array NaturalTransformationId) := #[]
   for i in [0:n] do
     for j in [0:n] do
@@ -96,15 +96,19 @@ def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (c
         if cells.size > 1 then
           ambiguities := ambiguities.push (i, j, cells)
         unless cells.isEmpty do
+          compared := compared.push (i, j, cells)
           incoming := incoming.set! j true
           let (ci, cj) := (classOf[i]!, classOf[j]!)
           if ci != cj then
             classOf := classOf.map fun k => if k == cj then ci else k
-          for c in cells do
-            unless used.contains c do used := used.push c
   let reps := (classOf.toList.eraseDups).toArray
-  return reps.map fun r =>
+  return reps.map fun r => Id.run do
     let indices := (Array.range n).filter (classOf[·]! == r)
+    let mut used : Array NaturalTransformationId := #[]
+    for (i, j, cells) in compared do
+      if classOf[i]! == r && classOf[j]! == r then
+        for c in cells do
+          unless used.contains c do used := used.push c
     { members := indices.map (candidates[·]!)
       comparisons := if indices.size > 1 then used else #[]
       ambiguities := (ambiguities.filter fun (i, _, _) => classOf[i]! == r).map
