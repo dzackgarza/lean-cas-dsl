@@ -238,4 +238,21 @@ syntax (name := casStatementCommand) "#cas " str (&" manifest " str)? : command
   let shown := if outcome matches .holds then outcome.kind else s!"{outcome.kind}: {outcome.detail}"
   if outcome.fails then throwError shown else logInfo shown
 
+-- Exercise the complete reporting codomain at the owner of the suite runner.
+-- Unavailable implementations do not make a mathematical assertion invalid;
+-- an interpreter failure does fail the run.
+run_cmd do
+  let cases : Array (Outcome × String × Bool) := #[(.holds, "holds", false),
+    (.invalid "syntax", "invalid", true), (.gap "missing", "gap", false),
+    (.unavailable "offline", "unavailable", false),
+    (.malformed "wire", "malformed", true), (.wrong "answer", "wrong", true),
+    (.ambiguous "routes", "ambiguous", true), (.internal "exception", "internal", true)]
+  for (outcome, kind, fails) in cases do
+    unless outcome.kind == kind && outcome.fails == fails do
+      throwError "outcome {kind} lost its distinct failure stratum"
+  let harness ← (Realize.Harness.empty : IO Realize.Harness)
+  let results ← runSuite harness ".tmp/b0-strata-missing-file-7db8de.cas"
+  unless results.size == 1 && results[0]!.kind == "internal" && results[0]!.fails do
+    throwError "a file read failure was treated as a semantic verdict"
+
 end CasCatalogue.Language
