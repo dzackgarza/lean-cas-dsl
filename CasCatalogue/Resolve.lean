@@ -65,7 +65,8 @@ def RegistryState.comparisonsFrom (state : RegistryState) (a b : Route) :
     Array NaturalTransformationId :=
   if !a.source.syntacticEq b.source || !a.target.syntacticEq b.target then #[] else
   (state.cells.filter fun c =>
-      c.invertible && c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
+      c.invertible && c.source.syntacticEq a.source && c.target.syntacticEq a.target &&
+        c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
         rewritesTo a.refs b.refs c.left c.right).map (·.id)
 
 /-- A class of routes identified by registered comparisons. -/
