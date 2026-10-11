@@ -94,6 +94,20 @@ run_cmd liftTermElabM do
   let actual ← Semantic.objOf (← state.routeFunctor #[.functor multiplication.id]) ring
   unless ← withTransparency .all <| isDefEq retained actual do
     throwError "quotient notation substituted a different full monoid"
+  let monoidValue ← (structuredParameterView quotient retained monoids).run {}
+  let monoidCarrier ← (carrierObject monoidValue).run {}
+  unless (← (coercionMap quotient monoidCarrier).run {}).isSome do
+    throwError "the retained forward carrier-route prefix was not usable"
+  if (← (coercionMap monoidCarrier quotient).run {}).isSome then
+    throwError "a forgotten ring structure was recovered from its carrier"
+  let .object objectHandle objectCategory objectOrigin (some selectedMonoid) objectData := monoidCarrier
+    | throwError "the monoid carrier lost its complete selected source"
+  let .object monoidHandle monoidCategory monoidOrigin monoidSelected _ := selectedMonoid
+    | throwError "the selected monoid is not an object"
+  let withoutWitness := Value.object objectHandle objectCategory objectOrigin
+    (some (.object monoidHandle monoidCategory monoidOrigin monoidSelected none)) objectData
+  if (← (coercionMap quotient withoutWitness).run {}).isSome then
+    throwError "equal carriers replaced the missing forward-action witness"
   let ambiguous ← try
     discard <| (typedParameter expected
       (.object carrier sets origin none none)).run {}

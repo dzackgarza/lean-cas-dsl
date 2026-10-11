@@ -3145,9 +3145,24 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   let (.object y _ yOrigin ySelected _, .object x category xOrigin xSelected _) := (Y, X)
     | return none
   let sameSelection ← match ySelected, xSelected with
-    | some (.object leftObject leftCategory ..), some (.object rightObject rightCategory ..) =>
-        if leftCategory.id != rightCategory.id then pure false else
+    | some left@(.object leftObject leftCategory ..),
+        some (.object rightObject rightCategory _ _ rightData) =>
+        if leftCategory.id == rightCategory.id then
           parameterTrial <| withTransparency .all <| isDefEq leftObject rightObject
+        else parameterCompatible do
+          -- A retained forward view may forget structure, but may not recover it from
+          -- a carrier. Replay its actual prefix of this source's declared carrier route.
+          let some (_, source, route, _, arguments) := rightData | return false
+          let .object sourceObject sourceCategory .. := source | return false
+          unless sourceCategory.id == leftCategory.id &&
+              (← isDefEq (← inferType sourceObject) (← inferType leftObject)) &&
+              (← withTransparency .all <| isDefEq sourceObject leftObject) do return false
+          let some carrierRoute ← retainedCarrierRoute state left | return false
+          unless !route.isEmpty && route.size ≤ carrierRoute.size &&
+              route == carrierRoute.extract 0 route.size do return false
+          let (image, _) ← retainedActions state sourceObject route arguments
+          unless ← isDefEq (← inferType image) (← inferType rightObject) do return false
+          withTransparency .all <| isDefEq image rightObject
     | some _, some _ => pure false
     | _, _ => pure true
   let sameOrigin := match yOrigin, xOrigin with
@@ -3259,7 +3274,16 @@ partial def coerceTo (v : Value) (X : Value) : M Value := do
             | .object _ _ _ none _, .object _ _ _ (some _) _ => Y
             | _, _ => X
           return .element h target
-      | none => throwStratum .invalid m!"the element has no admitted inclusion into the requested set"
+      | none =>
+          let source := match Y with
+            | .object _ _ _ (some selected) _ => selected
+            | _ => Y
+          let target := match X with
+            | .object _ _ _ (some selected) _ => selected
+            | _ => X
+          throwStratum .invalid m!"the element has no admitted inclusion into the requested set; \
+            source {← semanticObject Y}, selected source {← semanticObject source}; \
+            target {← semanticObject X}, selected target {← semanticObject target}"
   | _ => toElement v X
 
 /-- A set among `sets` that each of them is included in. -/

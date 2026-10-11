@@ -155,3 +155,17 @@ conversion, then checks the entire presented evidence target against the origina
 This presentation step supports the same registered procedure's recognition of constant
 point actions; it supplies no new theorem or chosen instance. These checks concern formal
 admission and convergence statements and consume no backend answer data.
+
+## Retained forward carrier views (2026-10-11)
+
+The existing `coercionMap`, `retainedCarrierRoute`, `structuredParameterView`, and
+`retainedActions` supply the needed ownership and actual-action checks. A complete
+ring and its retained multiplicative-monoid view formerly failed the identity-carrier
+test solely because their selected categories differed. The kernel now admits this
+forward view only when the recorded full source agrees, the recorded route is a prefix
+of that source's declared carrier route, and replay of every retained application gives
+the exact selected target. The existing carrier and named-origin checks still apply.
+No inverse recovery, general carrier matching, arbitrary functor, or new mathematical
+comparison is introduced. ParameterStructureProbes checks the valid forward view,
+refuses the reverse recovery, and refuses the same carrier after its action witness is
+removed; its existing distinct-structure checks remain unchanged.

@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-10-11 — b0-selected-structure: retained forward carrier views
+
+The forward-view unit is committed separately from binder argument sharing. `coercionMap`
+accepts a structure-forgetting carrier view only from its retained complete source, the
+actual prefix of that source's registered carrier route, and replayed applications giving
+its exact selected target. Equal carriers alone remain insufficient; reverse structure
+recovery remains refused. Inclusion failures now retain the selected endpoints in their
+diagnostic. `SelectedStructureProbes` imports the reader directly instead of the
+contract-dependent test runner; its existing assertions are unchanged.
+
+Unit positive and negative observations hold in the completed focused build
+`.tmp/b0-forward-view-probes.log`: the forward ring-to-monoid carrier view succeeds,
+reverse recovery is refused, deleting the action witness prevents the same-carrier view,
+and the existing full-structure distinction checks pass. The log ends `Build completed
+successfully (3716 jobs)`. Dependencies are `lean_categories` 76ca85d and contract e292368.
+This does not establish all observations of the table row: the table additionally names
+two forms on one module and Maps/Vec; a complete row-wide result is not recorded here.
+
+The detached full build has now genuinely finished, rather than timing out:
+`.tmp/b0-stage-a-full.log` ends `build failed`, with only `CasAcceptance.CohereProbes`
+and `CasCatalogue.Realize` in its failed-target list. The former remains reserved to its
+requirement owner; the latter reports the absent shared-contract packet interfaces.
+Those failures do not stop the independent reader units. No contract remote polling or
+publication is part of this unit.
+
 ## 2026-10-11 (B0 reader ambiguity and unit admission observations)
 
 - Removed the reader's dependency on the contract's absent `semanticAmbiguity` constructor.
