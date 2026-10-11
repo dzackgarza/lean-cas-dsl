@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Registry
 public import CasContract.Failure
+public meta import LeanCategories.Catalogue.Registry.Entry
 
 @[expose] public section
 
@@ -55,19 +56,28 @@ instance : Inhabited Resolution :=
 /-- Whether `a` becomes `b` by replacing one occurrence of `left` with `right`. -/
 def rewritesTo (a b left right : Array EdgeRef) : Bool :=
   (List.range (a.size + 1)).any fun i =>
-    a.extract i (i + left.size) == left &&
+    i + left.size ≤ a.size && a.extract i (i + left.size) == left &&
       b == a.extract 0 i ++ right ++ a.extract (i + left.size) a.size
 
+#guard rewritesTo #[.functor ⟨"prefix"⟩, .functor ⟨"left"⟩, .functor ⟨"suffix"⟩]
+  #[.functor ⟨"prefix"⟩, .functor ⟨"right"⟩, .functor ⟨"suffix"⟩]
+  #[.functor ⟨"left"⟩] #[.functor ⟨"right"⟩]
+#guard !rewritesTo #[.functor ⟨"prefix"⟩, .functor ⟨"left"⟩]
+  #[.functor ⟨"prefix"⟩, .functor ⟨"right"⟩]
+  #[.functor ⟨"other"⟩] #[.functor ⟨"right"⟩]
+#guard !rewritesTo #[.functor ⟨"left"⟩]
+  #[.functor ⟨"right"⟩] #[.functor ⟨"left"⟩, .functor ⟨"extra"⟩]
+  #[.functor ⟨"right"⟩]
+
 /-- The registered comparisons from route `a` to route `b` (CC-COHERE): invertible cells between
-two distinct structural composites, whose `left` occurs in `a` and is replaced by their `right` in
-`b`. -/
+two distinct structural composites, whiskered by the common prefix and suffix of the routes.
+The cell's own endpoints belong to the replaced segment, not necessarily to the entire route. -/
 def RegistryState.comparisonsFrom (state : RegistryState) (a b : Route) :
     Array NaturalTransformationId :=
   if !a.source.syntacticEq b.source || !a.target.syntacticEq b.target then #[] else
   (state.cells.filter fun c =>
-      c.invertible && c.source.syntacticEq a.source && c.target.syntacticEq a.target &&
-        c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
-        rewritesTo a.refs b.refs c.left c.right).map (·.id)
+      c.invertible && c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
+      rewritesTo a.refs b.refs c.left c.right).map (·.id)
 
 /-- A class of routes identified by registered comparisons. -/
 structure CoherenceClass (α : Type) where
