@@ -2153,6 +2153,13 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       let some argumentSyntax := args[parameters.size]? | break
       let value ← eval scope argumentSyntax
       let expected ← instantiateMVars (← inferType parameter)
+      -- A parameter whose declared type is the object type of a registered category can only
+      -- be supplied by an object value.  In particular, an operand such as `F : R[x]` must not
+      -- be speculatively transported through every structured route merely because it is the
+      -- first written argument of a family such as `d : ∀ R, R[x] ⟶ Ω¹_R`.
+      let categoryClass ← mkAppM ``CategoryTheory.Category #[expected]
+      let expectsObject := (← trySynthInstance categoryClass).toOption.isSome
+      if expectsObject && !(value matches .object ..) then break
       unless ← parameterCompatible (do
           let term ← typedParameter expected value
           isDefEq parameter term) do break
