@@ -279,3 +279,42 @@ The initial all-carrier expansion was rejected by the new positive probe: it exp
 function-wrapper dictionaries before their presentation phase, hiding the value's existing
 arithmetic heads. The restricted final-projection pass preserves those heads and passes the
 isolated positive and negative checks; no unsuccessful build or probe is counted as a hold.
+
+## b0-typed-application: dependent registered structure arguments (2026-10-11)
+
+Corpus queries `forallMetaTelescopeReducing` (the inherited scalar-parameter investigation)
+and `forallMetaTelescopeReducing identityAt` (no matches), together with local searches for
+`registeredStructuredParameter`, `registeredArrowParameter`, `identityAt`, and the published
+`scalarAlgebra`, locate the existing owners. Lean owns dependent telescopes, isolated trials
+and definitional equality; Mathlib owns categorical identity. The scalar constructor and
+coefficient maps are already registered by lean-categories. This extends the two existing
+generic inference functions; it adds no mathematical construction or semantic row.
+
+The constructor's requested type and its image at an actual structured operand jointly
+determine its ordered arguments before the complete application is required to be closed.
+Anonymous carriers supply no missing structure. Remaining arrow parameters can use only a
+unique registered arrow or the identity of their already fixed complete endpoints. Identities
+compete with named maps rather than suppressing them. All successful constructor applications
+are retained until ambiguity is resolved; different full structures remain ambiguous. The closed
+candidate is checked again by the ordinary registered route classifier, so the inference trial
+does not decide between un-compared routes. Original operand and result type checks remain in
+`applyFamily`. The new engineering probes test complete self and nonidentity scalar maps,
+refuse anonymous-carrier acquisition and a missing coefficient map, and preserve the ambiguity
+between a named endomap and the categorical identity.
+
+Only source witnesses whose actual outgoing action reaches the operand participate;
+coefficient objects elsewhere in its provenance do not choose an alternative scalar target.
+Repeated full structured images are coalesced within the same target category. After unique
+selection, `Semantic.recordNamedObject` preserves the exact constructor and ordered parameters
+without reinterpreting them against unrelated provenance views. Inferred arrows are recorded
+at their unchanged complete types. `applyFamily` keeps the isolated inference result and its
+private trace, committing that trace only after the actual operand and full application checks
+succeed. It does not rerun the same search merely to recover its trace, and it does not raise
+the reader's heartbeat budget.
+
+The nonidentity scalar control exposes both the generic scalar constructor and an existing
+named scalar-algebra presentation. When their complete structured values are definitionally
+equal, the existing `ParameterPresentation` / `Node.parameterEquivalence` records retain every
+declaration id, full ordered parameter and checked complete-object equality witness. Sorting
+occurs only after the full equality checks and chooses a serialization representative, not a
+preferred mathematical structure. Carrier equality alone never admits this identification.

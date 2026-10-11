@@ -2519,57 +2519,134 @@ partial def applyNamed (state : RegistryState) (name : String) (elements : Array
 /-- Select a registered structured parameter through its actual structured forgetful image. -/
 partial def registeredStructuredParameter (expected : Expr) (operand : Value) : M (Option Expr) := do
   let expected ← instantiateMVars expected
-  if expected.hasMVar || expected.isSort then return none
+  if expected.hasMVar || expected.hasLevelMVar || expected.isSort then return none
+  let .object operandHandle operandCategory .. := operand | return none
   let state ← registryState
   let originalValues := sourceParameterValues operand
-  let instantiate (entry : ObjectEntry) : M (Expr × NamedCategoryEntry) := do
-    let some category := state.categories.find? (·.id == entry.category)
-      | throwStratum .invalid m!"a registered parameter has no category"
-    let constant ← mkConstWithFreshMVarLevels entry.declaration
-    let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
-    unless ← isDefEq type expected do
-      throwStratum .invalid m!"the registered parameter has a different declared type"
-    synthesizeInstances args infos
-    let object ← instantiateMVars (mkAppN constant args)
-    if object.hasMVar || !(← isTypeCorrect object) then
-      throwStratum .invalid m!"the registered parameter's actual arguments are not determined"
-    return (object, category)
-  let mut candidates := #[]
+  let mut candidates : Array (ObjectEntry × Expr × Array Expr) := #[]
   for entry in state.objects do
-    if ← parameterCompatible (do
-        let (object, sourceCategory) ← instantiate entry
-        let selected := Value.object object sourceCategory (some (entry, #[])) none none
-        for targetCategory in state.categories do
-          if targetCategory.id == CategoryId.sets || targetCategory.id == sourceCategory.id then continue
-          if (state.routes sourceCategory.expression targetCategory.expression).isEmpty then continue
+    let some sourceCategory := state.categories.find? (·.id == entry.category) | continue
+    unless ← parameterCompatible (do
+        let constant ← mkConstWithFreshMVarLevels entry.declaration
+        let (_, _, type) ← forallMetaTelescopeReducing (← inferType constant)
+        isDefEq type expected) do continue
+    for targetCategory in state.categories do
+      if targetCategory.id == CategoryId.sets || targetCategory.id == sourceCategory.id then continue
+      let routes := state.routes sourceCategory.expression targetCategory.expression
+      if routes.isEmpty then continue
+      let mut seenImages : Array Expr := #[]
+      for original in originalValues do
+        let actual? ← parameterTrial do
+          let .object handle originalCategory origin selected _ := original | return none
+          -- Selected carriers already contribute their full source through originalValues.
+          -- Do not acquire a different refinement of that same named carrier.
+          if originalCategory.id == CategoryId.sets && selected.isSome then return none
+          if originalCategory.id != CategoryId.sets &&
+              originalCategory.id != targetCategory.id then return none
+          let declaredAcquisition := originalCategory.id == CategoryId.sets &&
+            origin.any (fun (base, _) => state.objects.any fun row =>
+              row.category == targetCategory.id && refinesObject state row base.id)
+          if originalCategory.id == CategoryId.sets && !declaredAcquisition then return none
           let family ← instantiateFresh targetCategory.declaration
           let targetType ← mkAppM ``CategoryTheory.Bundled.α #[family]
-          for original in originalValues do
-            let .object originalHandle originalCategory originalOrigin _ _ := original | continue
-            let directType ← parameterTrial (isDefEq targetType (← inferType originalHandle))
-            let declaredAcquisition := originalCategory.id == CategoryId.sets &&
-              (originalOrigin.map fun (origin, _) => state.objects.any fun source =>
-                source.category == targetCategory.id && refinesObject state source origin.id).getD false
-            -- A full retained original or its declared named refinement supplies the witness.
-            -- An anonymous carrier cannot acquire a missing structure.
-            unless directType || declaredAcquisition do continue
-            if ← parameterCompatible (do
-                let actual ← typedParameter targetType original
-                let image ← transportedStructure (← inferType actual) selected
-                withTransparency .all <| isDefEq image actual) then return true
-        return false) then candidates := candidates.push entry
-  match candidates.toList with
-  | [] => return none
-  | [entry] =>
-      let (object, category) ← instantiate entry
-      discard <| recognize state object category
-      return some object
-  | _ => throwSemanticAmbiguity m!"several registered structures have this exact selected structural image"
+          let directType ← parameterTrial (isDefEq (← inferType handle) targetType)
+          -- Only a complete retained structure or its declared named refinement is a witness.
+          unless directType || declaredAcquisition do return none
+          try
+            let actual ← instantiateMVars (← typedParameter targetType original)
+            if actual.hasMVar || actual.hasLevelMVar || !(← isTypeCorrect actual) then return none
+            -- Provenance may also contain coefficient objects of the operand. Only a
+            -- witness whose actual outgoing action reaches this operand is relevant.
+            let endpoint ← if originalCategory.id == operandCategory.id then pure handle
+              else do
+                let endpointType ← inferType operandHandle
+                transportedStructure endpointType original (some operandCategory.id)
+            unless ← withTransparency .all <| isDefEq endpoint operandHandle do return none
+            return some actual
+          catch error =>
+            if Exception.stratum? error == some .invalid then return none else throw error
+        let some actual := actual? | continue
+        if ← seenImages.anyM (fun other => parameterTrial do
+            withTransparency .all <| isDefEq other actual) then continue
+        seenImages := seenImages.push actual
+        for route in routes do
+          let candidate? ← parameterTrial do
+            try
+              let constant ← mkConstWithFreshMVarLevels entry.declaration
+              let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+              unless ← isDefEq type expected do return none
+              let openObject := mkAppN constant args
+              let image ← Semantic.objOf (← Semantic.routeFunctor state route.refs) openObject
+              -- Infer ordered constructor parameters from the full structured image before
+              -- demanding closure. A carrier alone never determines a missing structure.
+              unless ← withTransparency .all <| isDefEq image actual do return none
+              let mut inferredArrows := #[]
+              for parameter in args do
+                let parameter ← instantiateMVars parameter
+                unless parameter.isMVar do continue
+                let some arrow ← registeredArrowParameter (← inferType parameter) | continue
+                unless ← isDefEq parameter arrow do return none
+                inferredArrows := inferredArrows.push arrow
+              synthesizeInstances args infos
+              let object ← instantiateMVars openObject
+              unless !object.hasMVar && !object.hasLevelMVar && (← isTypeCorrect object) &&
+                  (← withTransparency .all <| isDefEq (← inferType object) expected) do return none
+              -- Recheck the closed candidate using the ordinary route classifier. The trial
+              -- route cannot bypass competing routes or select its own comparison.
+              let selected := Value.object object sourceCategory (some (entry, #[])) none none
+              let checked ← transportedStructure (← inferType actual) selected (some targetCategory.id)
+              unless ← withTransparency .all <| isDefEq checked actual do return none
+              return some (object, inferredArrows)
+            catch error =>
+              if Exception.stratum? error == some .invalid then return none else throw error
+          if let some (candidate, arrows) := candidate? then
+            unless ← candidates.anyM (fun (otherEntry, other, _) => parameterTrial do
+                return otherEntry.id == entry.id &&
+                  (← withTransparency .all <| isDefEq other candidate)) do
+              candidates := candidates.push (entry, candidate, arrows)
+  let some (_, first, _) := candidates[0]? | return none
+  for (_, object, _) in candidates do
+    unless ← parameterTrial (withTransparency .all <| isDefEq object first) do
+      throwSemanticAmbiguity m!"several registered structures have this exact selected structural image"
+  -- Only the serialization representative is ordered, after complete structures agree.
+  -- All declaration identities survive in the existing full-parameter equivalence record.
+  let ordered := candidates.qsort fun left right => left.1.id.raw < right.1.id.raw
+  let some (_, representative, _) := ordered[0]? | unreachable!
+  let mut presentations : Array ParameterPresentation := #[]
+  for (entry, object, arrows) in ordered do
+    for arrow in arrows do
+      let some recorded ← registeredArrowParameter (← inferType arrow)
+        | throwError "an inferred constructor map lost its declared source"
+      unless ← isDefEq recorded arrow do
+        throwError "recording an inferred constructor map changed its selected value"
+    unless ← Semantic.recordNamedObject object (← read).trace do
+      throwError "the selected constructor lost its registered declaration"
+    if ordered.size == 1 then continue
+    let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
+      xs.mapM (·.fvarId!.getBinderInfo)
+    let params := (object.getAppArgs.zip infos).filterMap fun (arg, info) =>
+      if info.isExplicit then some arg else none
+    let identity ← mkEqRefl representative
+    unless (← isTypeCorrect identity) &&
+        (← withTransparency .all <| isDefEq (← inferType identity)
+          (← mkEq object representative)) do
+      throwError "the complete constructor equivalence failed kernel conversion"
+    let (carrierRoute, identifications) := (declaredCarrierRoute state entry).getD (#[], #[])
+    presentations := presentations.push {
+      source := entry.id, sourceCategory := entry.category, targetCategory := entry.category
+      params, route := #[], applications := #[], carrierRoute, identifications
+      object, image := object, identity }
+  unless presentations.isEmpty do
+    Trace.record (← read).trace representative
+      (.parameterEquivalence expected representative presentations)
+  return some representative
 
-/-- Infer a missing map only from a unique actual registered declaration at fixed endpoints. -/
+/-- Infer a missing map from registered declarations and the categorical identity at fixed
+endpoints. An identity competes with named maps; it is not a default for an arbitrary endomap. -/
 partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
   let expected ← instantiateMVars expected
-  if expected.hasMVar || (homEnds? expected).isNone then return none
+  if expected.hasMVar || expected.hasLevelMVar then return none
+  let some (source, target) := homEnds? expected | return none
   let state ← registryState
   let instantiate (entry : MorphismEntry) : M Expr := do
     let constant ← mkConstWithFreshMVarLevels entry.declaration
@@ -2578,7 +2655,7 @@ partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
       throwStratum .invalid m!"the registered map has different selected endpoints"
     synthesizeInstances args infos
     let arrow ← instantiateMVars (mkAppN constant args)
-    if arrow.hasMVar || !(← isTypeCorrect arrow) then
+    if arrow.hasMVar || arrow.hasLevelMVar || !(← isTypeCorrect arrow) then
       throwStratum .invalid m!"the registered map's actual parameters are not determined"
     return arrow
   let mut candidates := #[]
@@ -2586,13 +2663,34 @@ partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
     if ← parameterCompatible (do
         discard <| instantiate entry
         pure true) then candidates := candidates.push entry
-  match candidates.toList with
-  | [] => return none
-  | [entry] =>
-      let arrow ← instantiate entry
-      Semantic.namedMorphism entry arrow (← read).trace
-      return some arrow
-  | _ => throwSemanticAmbiguity m!"several registered maps have these selected endpoints"
+  if candidates.size > 1 then
+    throwSemanticAmbiguity m!"several registered maps have these selected endpoints"
+  let mut identities : Array (Expr × NamedCategoryEntry) := #[]
+  if ← parameterTrial (isDefEq source target) then
+    for category in state.categories do
+      let candidate? ← parameterTrial do
+        let family ← instantiateFresh category.declaration
+        let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
+        unless ← isDefEq (← inferType source) objectType do return none
+        let identity ← identityAt (.object source category none none none)
+        unless !identity.hasMVar && !identity.hasLevelMVar && (← isTypeCorrect identity) &&
+            (← isDefEq (← inferType identity) expected) do return none
+        return some identity
+      if let some identity := candidate? then
+        unless ← identities.anyM (fun (other, _) => parameterTrial (isDefEq other identity)) do
+          identities := identities.push (identity, category)
+  if identities.size > 1 then
+    throwSemanticAmbiguity m!"several categorical identities have these selected endpoints"
+  if let some entry := candidates[0]? then
+    let arrow ← instantiate entry
+    if let some (identity, _) := identities[0]? then
+      unless ← parameterTrial (withTransparency .all <| isDefEq arrow identity) do
+        throwSemanticAmbiguity m!"a registered map and the identity have these selected endpoints"
+    Semantic.namedMorphism entry arrow (← read).trace
+    return some arrow
+  if let some (_, category) := identities[0]? then
+    return some (← identityAt (.object source category none none none))
+  return none
 
 /-- Infer declaration arguments from the operand's stored typed constructor parameters before
 comparing carriers. Nested registered constructors retain bundled parameters that an abbreviation
@@ -2855,15 +2953,22 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
         unless ← isDefEq parameter witness <&&> isDefEq operandSource (← semanticObject A) do
           throwStratum .invalid m!"the chosen constructor parameter does not give the actual source"
         break
-      if ← parameterCompatible (do
-          let some selected ← registeredStructuredParameter expected A | return false
-          unless ← isDefEq parameter selected <&&>
-              isDefEq operandSource (← semanticObject A) do return false
-          isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
-        let some selected ← registeredStructuredParameter expected A | unreachable!
+      let inferred? ← parameterTrial do
+        let recorder ← Trace.new
+        let selected? ← withReader (fun context => { context with trace := some recorder }) do
+          registeredStructuredParameter expected A
+        let some selected := selected? | return none
+        unless ← isDefEq parameter selected <&&>
+            isDefEq operandSource (← semanticObject A) do return none
+        unless ← isTypeCorrect (← instantiateMVars (mkAppN constant args)) do return none
+        return some (selected, ← recorder.get)
+      if let some (selected, records) := inferred? then
         unless ← isDefEq parameter selected <&&>
             isDefEq operandSource (← semanticObject A) do
           throwStratum .invalid m!"the actual selected structural parameter differs from its operand source"
+        if let some trace := (← read).trace then
+          trace.modify fun current => records.fold
+            (fun result term node => result.insert term node) current
         break
   -- Its parameters are unified with the sets' objects (semantic, whichever reading).
   if let some T@(.object ..) := target? then

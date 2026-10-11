@@ -1,5 +1,61 @@
 # Journal
 
+## 2026-10-11 — b0-typed-application: complete parameters from structured operands
+
+The `differentials.at_two` refusal was in generic parameter inference, not a missing
+mathematical scalar-algebra construction. `registeredStructuredParameter` demanded a closed
+constructor before its actual structured image could determine the target ring and map.
+It now constrains the declared constructor by that image, completes remaining arrow parameters
+from registered maps or the categorical identity at fixed endpoints, and checks the full
+closed application through the ordinary route classifier. Named endomorphisms compete with
+identity rather than being silently replaced by it. Anonymous carriers provide no structure.
+
+Only a witness whose actual outgoing action reaches the operand is eligible; coefficient
+objects elsewhere in its provenance do not select a different target. Repeated complete
+images are coalesced within a target category. The chosen constructor and inferred maps are
+recorded by their actual declarations, without a second name-recovery pass. `applyFamily`
+retains one isolated inference result and its private trace, merging it only after its
+operand endpoints and full application type check. It no longer reruns the entire search
+just to reproduce its trace. The ordinary reader heartbeat budget is unchanged.
+
+The extension control also exposed two registered presentations of the same complete scalar
+algebra: the generic constructor and the named rational-to-complex algebra. All full candidate
+structures are checked before choosing a serialization representative. The existing
+`parameterEquivalence` record retains both declaration identities, all ordered parameters,
+and kernel-checked equality witnesses for the complete structures. Different full structures
+remain ambiguous; equality of carriers alone is insufficient.
+
+Final checked source: Language blob `2030754fc04f05c8422eb2ea5967857915972d21`,
+StructuredParameterProbes blob `43da68a257ace1818ed5d2ca7472a2cba614443b`,
+lean_categories `76ca85d7bc35bf55b6268c81f8807ef46b6ab063`, and contract
+`e292368d5ebbebc90833e0c0f78261d1436231d9`. Completed checks:
+
+- Direct Language compilation: `.tmp/b0-scalar-equivalence-language.log`, BUILD_EXIT=0.
+- The unchanged `.tmp/b0-reader-poly-eval.json` input passes actual `Language.claim`
+  reading in `.tmp/b0-scalar-final-at-two.log`, CHECK_EXIT=0: the original binding retains
+  27 closed, type-correct trace terms and `differentials.at_two` retains 40. This establishes
+  validity of the reading, not evaluation or proof of its numerical answer.
+- `.tmp/b0-scalar-parameter-controls.log`, CHECK_EXIT=0: exact self and nonidentity scalar
+  maps; complete equivalence provenance; anonymous-carrier acquisition refused; named
+  endomap versus identity ambiguous; missing coefficient map refused; incompatible operand
+  rejected as `invalid` at a fixed complete dependent application.
+- `.tmp/b0-scalar-selected-carrier-regression.log` and
+  `.tmp/b0-scalar-parameter-structure-regression.log`, both CHECK_EXIT=0. Existing Maps/Vec,
+  distinct-form, forward-view, missing-witness and coefficient-coercion controls still pass.
+
+The first standalone probe exposed a spurious ambiguity from reinterpreting the already
+selected constructor; the next exposed irrelevant coefficient witnesses. An earlier full
+reading reached its heartbeat limit. Those failures were repaired in this unit, not accepted
+as results. Two subsequent test sessions were invalidated by the connector before returning;
+their incomplete logs are not results. The final completed runs above replace those attempts.
+The positive and negative observations of this parameter-inference unit all hold together;
+the existing selected-structure row observations remain verified at this source.
+
+The full `b0-typed-application` row is not closed by one repaired reading: all admitted
+assertions must still satisfy its positive observation. Shared-contract execution checks
+and the owner-reserved CohereProbes failure remain separate dependencies. No permanent
+acceptance statement, upstream mathematical source, leaf, or shared contract was changed.
+
 ## 2026-10-11 — b0-selected-structure: declared identity and full table observations
 
 Completed the inherited selected-structure unit before further evaluator work. Recognition
