@@ -10,6 +10,10 @@ evidence; `CasGates.KernelPurity` with `KernelPurityProbes`.
 - Lean `Environment.getModuleIdxFor?`, `Expr.getUsedConstants`, `Parser.parserExtension`
   (category `tactic` kinds): the module of every constant a declaration uses, and tactic kinds
   among its name literals.
+- Corpus query `structure projection congrArg disequality` (2026-10-11), followed by the
+  existing `Lean.getStructureInfo?`, `StructureInfo.fieldNames`, `Lean.Meta.mkProjection`
+  and `Lean.Meta.mkCongrArg` implementations and their Mathlib uses. The core metadata and
+  congruence builders already supply the required general mechanism.
 
 ## Owner
 - The domain's evidence: `lean-categories` (formalization author).
@@ -36,3 +40,15 @@ refer to.
 - Admitted-point parameters reuse `Realize.realizedParameters`, including the existing
   `parameterEquivalence` reconstruction and all returned payload dependencies. Mathematical
   identities continue to come from the retained, kernel-checked parameter evidence.
+
+## B0 refutation through structure projections (2026-10-11)
+
+The current unit construction exposed a remaining generic gap: Codec's positive equation
+assembly can traverse function wrappers, but its negative assembly could not. A wrapper need
+not itself have a `DecidableEq` or `DFunLike` instance. Preserve the original complete equality
+type, select its sole declared structure field with Lean's existing metadata, and construct its
+projection using `Lean.Meta.mkProjection`. Reuse the existing solver on the field disequality;
+`mkCongrArg` transports an assumed record equality to the contradiction. The final proof is
+still checked against the original negation. The restriction to actual one-field structures
+excludes any inference from unequal quotient representatives. No theorem, instance, admission
+procedure, semantic row, or backend implementation is added.

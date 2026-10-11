@@ -37,6 +37,18 @@ run_cmd liftTermElabM do
     throwError "the structural codec could not refute a false bundled-function equation"
   if (← Codec.conditionProof (mkNot proposition)).isSome then
     throwError "the structural codec refuted a true bundled-function equation"
+  -- TypeCat.Fun has no equality decision instance. Its declared field must carry
+  -- both observations without requiring an instance on the outer wrapper.
+  let wrappedTrue ← elabTermAndSynthesize (← `(
+    TypeCat.Fun.mk (fun x : Fin 2 => x) =
+      TypeCat.Fun.mk (fun x : Fin 2 => if x = 0 then 0 else 1))) none
+  let wrappedFalse ← elabTermAndSynthesize (← `(
+    TypeCat.Fun.mk (fun x : Fin 2 => x) =
+      TypeCat.Fun.mk (fun _ : Fin 2 => (0 : Fin 2)))) none
+  if (← Codec.conditionProof (mkNot wrappedFalse)).isNone then
+    throwError "the structural codec could not refute an equation of function wrappers"
+  if (← Codec.conditionProof (mkNot wrappedTrue)).isSome then
+    throwError "the structural codec refuted equal function wrappers"
   let quantified ← elabTermAndSynthesize (← `(
     ∀ j : CategoryTheory.Discrete CategoryTheory.Limits.WalkingPair,
       TypeCat.ofHom (fun x : Fin 2 => x) =

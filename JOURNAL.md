@@ -1,5 +1,36 @@
 # Journal
 
+## 2026-10-11 (B0 unit-inverse refutation)
+
+- Completed the isolated released-unit construction with the same evidence-presentation
+  transformation used by `Language.establish`. Admission succeeds for the retained rational
+  monoid. On `080779e`, Codec proves its true inverse equation but cannot refute the false
+  equation. The earlier isolated admission refusal omitted this presentation step and does
+  not establish a missing upstream unit-evidence case.
+- Fixed the remaining generic Codec defect: negative equations did not traverse function
+  wrappers that lack their own equality-decision instance. The new branch projects an actual
+  one-field structure at the original complete equality type, recursively refutes the field
+  equation, and applies that refutation to `congrArg` of an assumed record equality. It uses
+  Lean's existing structure metadata and projection builder, supplies no instance or domain
+  theorem, and cannot project quotient representatives. Final original-proposition kernel
+  checking is unchanged. Independent source review found no blocking defect.
+- `lake build CasCatalogue.CodecConditionProbes` passed, including the added true/false
+  function-wrapper observations (`.tmp/b0-unit-refutation-codec-build.log`). The focused
+  released-construction checks preserve the full rational and `ZMod 5` monoid parameters,
+  invoke the published admission evidence, and check the group-inverse identification. Both
+  true inverse equations and both false variants are proved/refuted with kernel-checked
+  proofs; logs `.tmp/b0-unit-rational-refutation-check.log` and
+  `.tmp/b0-unit-zmod-refutation-check.log`, both exit 0. These are component observations,
+  not executions of the `RegistrationProbes` statements through the current reader.
+- Reran the requested full background `just build`, bounded at 120 seconds. It reported
+  `Semantic.lean:141,351` missing `Stratum.semanticAmbiguity` and the untouched
+  requirement-owner-pending `CohereProbes:42`, then exited 124 at the bound. Log:
+  `.tmp/b0-unit-refutation-full-build.log`. Contract remote main is still `e292368`; the
+  required compatible source exists on its published descendant `b0/construction`,
+  `d7b087b`. Integration of that public contract source into main remains necessary to
+  execute the unchanged RegistrationProbes blocks at the current tuple. No B0 row is
+  marked established by these component checks or by the incomplete full build.
+
 ## 2026-10-10 (B0 unit-inverse candidate; current contract integration blocks verification)
 
 - Investigated the unchanged `RegistrationProbes` unit observations at kernel `95382b8`.

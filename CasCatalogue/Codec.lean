@@ -101,6 +101,31 @@ partial def conditionProofAux (condition : Expr) (fuel : Nat) : MetaM (Option Ex
   -- The equation-data normalizer handles both an equation and its negation.
   -- Keep `Not` visible instead of losing it to the reduced function type.
   let originalCondition := if original.isAppOf ``Not then original else condition
+  if original.isAppOf ``Not then
+    let equation ← whnfR original.appArg!
+    if let some (type, left, right) := equation.eq? then
+      -- A wrapper need not have a FunLike or DecidableEq instance. Refute its equality
+      -- through its declared structure field, retaining the exact original parameters.
+      -- This uses projection congruence; quotient representatives are never projected.
+      let projected ← withoutModifyingState do
+        let shape ← withTransparency .all <| whnf type
+        let some name := shape.getAppFn.constName? | return none
+        let some info := getStructureInfo? (← getEnv) name | return none
+        let #[field] := info.fieldNames | return none
+        let projection ← withLocalDeclD `record type fun record => do
+          mkLambdaFVars #[record] (← withTransparency .all <| mkProjection record field)
+        let leftField ← whnfCore (mkApp projection left)
+        let rightField ← whnfCore (mkApp projection right)
+        let fieldEquation ← mkEq leftField rightField
+        if fieldEquation == equation then return none
+        let some negative ← conditionProofAux (mkNot fieldEquation) (fuel - 1)
+          | return none
+        let proof ← withLocalDeclD `sameRecord equation fun sameRecord => do
+          let sameField ← mkCongrArg projection sameRecord
+          mkLambdaFVars #[sameRecord]
+            (mkApp negative (mkExpectedPropHint sameField fieldEquation))
+        return some proof
+      if let some proof := projected then return some proof
   if let some (_, left, right) := condition.eq? then
     if ← withReducible <| isDefEq left right then return some (← mkEqRefl left)
     let leftHead ← withTransparency .all <| whnf left
