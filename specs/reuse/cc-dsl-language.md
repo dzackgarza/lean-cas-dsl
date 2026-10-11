@@ -204,3 +204,29 @@ at the fixed endpoints. No reverse structural coercion is enabled, no nonidentit
 inverted, and an unretained or different parameter cannot be supplied by matching carriers.
 The engineering probes verify the actual declared arrow and reject structural recovery,
 a missing action witness, and a different coefficient parameter.
+
+## b0-domain-preservation: supplied carrier projections (2026-10-11)
+
+The local searches for `evidencePresentation`, `plumbingRoots`, `carrierAlias`, and
+`deltaExpand`, and the corpus query `deltaExpand`, identify Lean's existing restricted
+definition expansion. Reuse it with the unchanged `plumbingRoots` policy. No new mathematical
+normalizer, evidence procedure, lemma, instance or type-specific case is needed.
+
+A supplied carrier may remain a projection of an actual registered categorical action after
+reducible weak-head normalization. The published constant-polynomial evidence cannot recognize
+that projection as its polynomial carrier, although the complete obligation is definitionally
+equal to the one it handles. After dictionary presentation, expand only the existing plumbing
+owners in closed type expressions that still weak-head reduce to a projection, then use the
+existing reducible normalization. Predicate heads and mathematical value
+expressions are not rewritten by this carrier step. The existing full-target conversion check
+and the returned term's original expected type remain mandatory.
+
+EvidencePresentationProbes constructs the selected carrier through the registered algebra
+and monoid views, runs only the units row's published evidence, checks its term at the original
+obligation, and confirms that the zero constant polynomial remains invalid. The accepted
+domain and formal admission map are never replaced by a different object.
+
+The initial all-carrier expansion was rejected by the new positive probe: it exposed
+function-wrapper dictionaries before their presentation phase, hiding the value's existing
+arithmetic heads. The restricted final-projection pass preserves those heads and passes the
+isolated positive and negative checks; no unsuccessful build or probe is counted as a hold.

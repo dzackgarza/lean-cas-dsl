@@ -1,5 +1,45 @@
 # Journal
 
+## 2026-10-11 — b0-domain-preservation: expose supplied carrier projections
+
+The next `factorization.over_complexes` refusal was also in the kernel: the complete
+admission obligation was definitionally the published constant-polynomial unit obligation,
+but its carrier remained a projection of the registered algebra-forget action. Reducible
+weak-head normalization left that projection stuck. The published units evidence already
+handles canonical complex constant polynomials, including the initial-ring-map numeral;
+no upstream evidence case is missing for this input.
+
+The final presentation step now expands the existing plumbing owners only inside closed
+type expressions that still reduce to a projection, after dictionary presentation. It
+preserves predicate and arithmetic heads, the selected multiplication, the original
+admission map, and the original complete obligation. Both the presented target and the
+returned evidence are checked against that original obligation. An initial broader
+carrier-expansion attempt failed the new positive probe by exposing function dictionaries;
+it was replaced, not accepted as a result.
+
+At `lean_categories` 76ca85d / contract e292368, the final Language build completed with
+exit 0 (`.tmp/b0-carrier-final-language-build.log`). EvidencePresentationProbes completed
+with exit 0 (`.tmp/b0-carrier-final-probes.log`): the published procedure establishes the
+retained constant unit at its original obligation, while zero remains `invalid`.
+ParameterStructureProbes also completed with exit 0 on this combined source
+(`.tmp/b0-carrier-final-parameter-probes.log`), including the preceding coefficient fix's
+forward, reverse-rejection, missing-witness and wrong-parameter cases.
+
+The unchanged `factorization.over_complexes` now reads successfully: all 118 retained trace
+terms are closed and type-correct (`.tmp/b0-carrier-final-factorization.log`, exit 0). The
+four required calculus readings—limit_sinc, limit_infinity, integral_square and integral_sine—
+also complete with closed, type-correct traces (`.tmp/b0-carrier-final-calculus.log`, exit 0).
+These are actual reader observations, not backend evaluation or proofs of the numerical
+factorization and calculus assertions.
+
+The repaired coefficient and evidence-presentation units' positive and negative observations
+hold together. This does not close all observations of either B0 table row or establish the
+contract-dependent execution path. `b0-typed-application` still has the distinct
+`differentials.at_two` application failure; it requires an exact chosen scalar-algebra
+parameter for the published polynomial evaluator. The domain-preservation row's full
+acceptance is not declared complete by these focused probes. No permanent assertion,
+upstream mathematical source, leaf, or public contract was changed.
+
 ## 2026-10-11 — b0-typed-application: constants at witnessed coefficient views
 
 The coefficient-inclusion refusal is a kernel coercion defect. The selected polynomial

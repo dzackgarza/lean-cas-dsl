@@ -1179,6 +1179,18 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
         return .done candidate) (skipConstInApp := true)
   let presented ← Core.betaReduce presented
   let presented ← suppliedHomPresentation state presented
+  -- Finish only stuck, closed carrier projections after dictionary presentation. Expanding
+  -- all type expressions earlier would also expose the value's function-wrapper dictionaries.
+  let presented ← Meta.transform presented (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    unless (← isType e) && !(← isProp e) do return .continue
+    let reduced ← whnfR e
+    unless reduced.isProj do return .continue
+    let expanded ← deltaExpand reduced fun name => plumbingRoots.any (·.isPrefixOf name)
+    let normalized ← whnfR expanded
+    unless ← withTransparency .all <| isDefEq normalized e do
+      throwError "presenting the carrier changed its complete type"
+    return .done normalized) (skipConstInApp := true)
   unless !presented.hasMVar && !presented.hasLevelMVar &&
       (← isTypeCorrect presented) &&
       (← withTransparency .all <| isDefEq presented p) do
