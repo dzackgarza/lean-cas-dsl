@@ -1186,8 +1186,10 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     unless (← isType e) && !(← isProp e) do return .continue
     let reduced ← whnfR e
     unless reduced.isProj do return .continue
-    let expanded ← deltaExpand reduced fun name => plumbingRoots.any (·.isPrefixOf name)
-    let normalized ← whnfR expanded
+    -- Reducing a *closed type projection* is elaboration of a supplied carrier,
+    -- not a tactic or a proof procedure.  Do not invoke Lean.Meta.Tactic.Delta:
+    -- that machinery belongs exclusively to the registered evidence runner.
+    let normalized ← withTransparency .all <| whnf reduced
     unless ← withTransparency .all <| isDefEq normalized e do
       throwError "presenting the carrier changed its complete type"
     return .done normalized) (skipConstInApp := true)

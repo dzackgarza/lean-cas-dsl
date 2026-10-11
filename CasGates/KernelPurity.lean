@@ -8,11 +8,13 @@ import all CasCatalogue
 import all CasCatalogue.Acceptance
 import all CasCatalogue.BinderReaderProbes
 import all CasCatalogue.CodecConditionProbes
+import all CasCatalogue.ContextualSubsetProbes
 import all CasCatalogue.ConstructionData
 import all CasCatalogue.ConstructionDataProbes
 import all CasCatalogue.ConstructionLegReaderProbes
 import all CasCatalogue.ElementData
 import all CasCatalogue.ElementDataProbes
+import all CasCatalogue.EvidencePresentationProbes
 import all CasCatalogue.EquationData
 import all CasCatalogue.EquationDataProbes
 import all CasCatalogue.FunctorActionData
@@ -25,6 +27,7 @@ import all CasCatalogue.ProofIdentityProbes
 import all CasCatalogue.SelectedCarrierProbes
 import all CasCatalogue.ParameterStructureProbes
 import all CasCatalogue.StructuredReconstructionProbes
+import all CasCatalogue.StructuredParameterProbes
 import all CasCatalogue.AcceptanceSyntax
 import all CasCatalogue.Admission
 import all CasCatalogue.CellCall
