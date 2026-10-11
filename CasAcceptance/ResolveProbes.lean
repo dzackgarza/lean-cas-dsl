@@ -22,15 +22,18 @@ public meta import LeanCategories.Catalogue.Semantics.Lattices.Valued.CatalogueR
 /-!
 # Acceptance for `cc-resolve` (CC-TRANSPORT, CC-UNIFORM, CC-RESOLVE)
 
-* A formed module's `cardinality` resolves to the three-step structural composite
-  `BilinModule → Mod_R → ∫ᶜ Mod → Sets` followed by the one registered cardinality on
-  `Core(Sets)`; a lattice's to the four-step composite. No category below `Sets` declares a
+* A formed module's `cardinality` resolves through the structural additive-group carrier
+  `BilinModule → Mod_R → ∫ᶜ Mod → AddGrp → Grp → Mon → SemiGrp → Magma → Sets`,
+  followed by the one registered cardinality on `Core(Sets)`; a lattice adds its forgetful
+  step. The explicit total-module underlying-set callable is not a structural edge.
+  No category below `Sets` declares a
   cardinality.
 * The semantic reading of a method call is the method's functor applied after the route's
   composite functor (`Semantic.method`): a term of the catalogue's mathematics, recorded as the
   method after its route, with no string-keyed dispatch and no leaf in it.
-* The ring diamond: `Ring` reaches `Magma`, and hence `Sets`, along the multiplicative and the
-  additive port, and the two routes are distinct. This module deliberately does not import the
+* The ring diamond: `Ring` reaches `Magma` along the multiplicative and additive-group
+  ports. Both set routes remain distinct without registered comparisons in this deliberately
+  restricted import environment. This module does not import the
   comparison row (`lean-categories` `LeanCategories/Catalogue/Semantics/Algebra/PortComparison.lean`): without it, `cardinality` on rings is
   reported ambiguous with both routes, and naming a port with `via` resolves it. With it, see
   `CohereProbes`.
@@ -55,11 +58,13 @@ run_cmd liftTermElabM do
     | throwError "cat.rings is not registered"
   let some magmas := state.categories.find? (·.id.raw == "cat.magmas")
     | throwError "cat.magmas is not registered"
-  -- CC-TRANSPORT: the formed module's route is the three-step structural composite.
+  -- CC-TRANSPORT: the formed module's route uses the structural additive-group carrier.
   match state.resolveMethod bilin.expression "cardinality" with
   | .ok r =>
       unless r.route.functorIds.map (·.raw) ==
-          #["fun.bilin_module.forget", "fun.modules.fibre_inclusion", "fun.modules.underlying"] do
+          #["fun.bilin_module.forget", "fun.modules.fibre_inclusion",
+            "fun.modules.additive_group", "fun.additive_groups.to_groups",
+            "fun.groups.monoid", "fun.monoids.semigroup"] do
         throwError "unexpected formed-module route {state.renderResolution r}"
       unless r.method.functor.raw == "fun.sets.cardinality" do
         throwError "cardinality is not the one registered on Sets"
@@ -67,7 +72,9 @@ run_cmd liftTermElabM do
   match state.resolveMethod lattice.expression "cardinality" with
   | .ok r =>
       unless r.route.functorIds.map (·.raw) == #["fun.lattice.forget_form",
-          "fun.bilin_module.forget", "fun.modules.fibre_inclusion", "fun.modules.underlying"] do
+          "fun.bilin_module.forget", "fun.modules.fibre_inclusion",
+          "fun.modules.additive_group", "fun.additive_groups.to_groups",
+          "fun.groups.monoid", "fun.monoids.semigroup"] do
         throwError "unexpected lattice route {state.renderResolution r}"
   | .error e => throwError e.render state
   -- CC-RESOLVE: the two ports of a ring are distinct routes to magmas.
@@ -76,11 +83,13 @@ run_cmd liftTermElabM do
       portRoutes.any (·.functorIds.contains FunctorId.ringsMultiplicative) &&
       portRoutes.any (·.functorIds.contains FunctorId.ringsAdditive) do
     throwError "the ring's two ports are not two distinct routes to magmas"
-  -- Without a comparison, `cardinality` on rings is ambiguous and names both routes.
+  -- Without comparisons, `cardinality` on rings is ambiguous across both imported routes.
   match state.resolveMethod rings.expression "cardinality" with
   | .error (.ambiguous _ candidates) =>
-      unless candidates.size == 2 do
-        throwError "expected exactly the two port routes, got {candidates.size}"
+      unless candidates.size == 2 &&
+          candidates.any (·.route.functorIds.contains FunctorId.ringsMultiplicative) &&
+          candidates.any (·.route.functorIds.contains FunctorId.ringsAdditive) do
+        throwError "expected both distinct ring carrier routes, got {candidates.size}"
   | .ok r => throwError "ring cardinality resolved by a selection rule: {state.renderResolution r}"
   | .error e => throwError "unexpected: {e.render state}"
   -- Naming the port resolves it.
