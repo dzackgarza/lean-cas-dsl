@@ -3137,13 +3137,12 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     bindings := (v, ← generatorOf (← eval scope ring) index) :: bindings
   return bindings
 
-/-- How the elements of the set `Y` are elements of the set `X`: `some none` if they are the same
-set, `some (some ι)` along `ι : Y ⟶ X`, the registered constants of `X` from its parameter `Y`
-(`ℚ ↪ ℚ[x]`) or a chain of registered inclusions (`ℚ ⊆ ℝ`); `none` otherwise. -/
-partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
+/-- Identity on an already selected carrier, or its witnessed forward structural view.
+This checks the full chosen source and actual carrier-route prefix, not carrier equality alone. -/
+partial def identityCarrierView (Y X : Value) : M Bool := do
   let state ← registryState
-  let (.object y _ yOrigin ySelected _, .object x category xOrigin xSelected _) := (Y, X)
-    | return none
+  let (.object y _ yOrigin ySelected _, .object x _ xOrigin xSelected _) := (Y, X)
+    | return false
   let sameSelection ← match ySelected, xSelected with
     | some left@(.object leftObject leftCategory ..),
         some (.object rightObject rightCategory _ _ rightData) =>
@@ -3169,14 +3168,27 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
     | some (left, _), some (right, _) => left.id == right.id
     | none, none => true
     | _, _ => false
-  if sameSelection && sameOrigin && (y == x || (← isDefEq y x)) then return some none
+  return sameSelection && sameOrigin && (y == x || (← isDefEq y x))
+
+/-- How the elements of the set `Y` are elements of the set `X`: `some none` if they are the same
+set, `some (some ι)` along `ι : Y ⟶ X`, the registered constants of `X` from its parameter `Y`
+(`ℚ ↪ ℚ[x]`) or a chain of registered inclusions (`ℚ ⊆ ℝ`); `none` otherwise. -/
+partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
+  let state ← registryState
+  let (.object y _ yOrigin .., .object x category xOrigin ..) := (Y, X) | return none
+  if ← identityCarrierView Y X then return some none
   if let some (entry, params) := xOrigin then
     if let (some constants, some parameter@(.object ..)) :=
         (entry.constants, params.find? (· matches .object ..)) then
       let P ← carrierObject parameter
       let .object p .. := P | unreachable!
-      -- Into its parameter `P` (itself, or along a coercion), then its constants `P ↪ X`.
-      if let some into ← coercionMap Y P then
+      -- The target fixes its complete parameter independently. A coefficient may already
+      -- inhabit that parameter's witnessed weaker carrier view. Applying these fixed
+      -- constants does not recover a structure on the coefficient's source object.
+      let into ← coercionMap Y P
+      let into ← if into.isSome then pure into
+        else if ← identityCarrierView P Y then pure (some none) else pure none
+      if let some into := into then
         let ι ← homIn (← `($(mkCIdent constants) $(← typedParamTerms constants params)*)) p x category
         return some (some (← match into with
           | some ι₀ => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι₀, ι]

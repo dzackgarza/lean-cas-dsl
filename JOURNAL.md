@@ -1,5 +1,38 @@
 # Journal
 
+## 2026-10-11 — b0-typed-application: constants at witnessed coefficient views
+
+The coefficient-inclusion refusal is a kernel coercion defect. The selected polynomial
+target already retains its registered constants declaration and complete coefficient
+parameter, but the source point may have that parameter's weaker ring interface. The
+reader formerly demanded a reverse structural coercion before it could apply the constant
+map. `identityCarrierView` now factors the existing exact forward-view check. The constants
+branch uses that check against the independently supplied target parameter, then applies
+the unchanged registered constant map at its original parameters and fixed endpoints.
+It does not recover a stronger structure on the source or invert a nonidentity map.
+
+At `lean_categories` 76ca85d / contract e292368, the focused Language build completed with
+exit 0 (`.tmp/b0-coefficient-language-build.log`). The full ParameterStructureProbes file
+completed with exit 0 (`.tmp/b0-coefficient-parameter-probes.log`). Its new positive checks
+the actual constant arrow at the selected polynomial target. Its negatives refuse reverse
+structure recovery, a coefficient with its action witness erased, and a different coefficient
+parameter; an attempted application at that wrong parameter reports `invalid`. The existing
+chosen-structure and forward-view observations still pass.
+
+The unchanged `factorization.over_complexes` reading now gets past coefficient inclusion
+but fails later at admission of the constant polynomial `C 2` into units
+(`.tmp/b0-coefficient-factorization.log`, completed exit 1). The published upstream evidence
+succeeds on canonical complex and rational constant polynomials, including the image of 2
+under the initial ring map (`.tmp/b0-polynomial-unit-evidence.log`); therefore this failure
+does not yet establish a missing upstream units case. The exact retained admission target
+and evidence presentation need to be compared, without changing the assertion or its domain.
+The separate `differentials.at_two` reading also completed and remains invalid at the
+published polynomial-evaluation application (`.tmp/b0-coefficient-polynomial-evaluation.log`).
+
+The tested coefficient-coercion unit's positive and negative observations hold. The entire
+`b0-typed-application` row remains open; neither of these two permanent readings is claimed
+to hold. No contract branch polling, leaf changes, upstream edits or publication occurred.
+
 ## 2026-10-11 — b0-binders: share the context-free argument reading
 
 This unit contains only the generic binder argument-sharing change, its root-sum/root-product

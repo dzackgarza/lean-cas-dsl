@@ -117,3 +117,60 @@ run_cmd liftTermElabM do
     else throw error
   unless ambiguous do
     throwError "the bare residue set's distinct monoid structures were collapsed"
+
+/- Constants use the target's independently selected parameter. A point in its witnessed
+weaker carrier view may be supplied without recovering that parameter's structure. -/
+run_cmd liftTermElabM do
+  let state ← registryState
+  let readObject : String → TermElabM Value := fun text => do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the coefficient probe did not parse"
+    (eval {} parsed).run {}
+  let polynomial ← readObject "ℂ[x]"
+  let complex ← readObject "ℂ"
+  let some multiplication := state.functors.find? (·.id == FunctorId.ringsMultiplicative)
+    | throwError "the multiplication route is absent"
+  let some rings := state.categories.find? (·.expression.syntacticEq multiplication.source)
+    | throwError "the ring category is absent"
+  let some monoids := state.categories.find? (·.expression.syntacticEq multiplication.target)
+    | throwError "the monoid category is absent"
+  let ringType ← mkAppM ``CategoryTheory.Bundled.α #[← instantiateFresh rings.declaration]
+  let ring ← (typedParameter ringType complex).run {}
+  let ringView ← (structuredParameterView complex ring rings).run {}
+  let source ← (carrierObject ringView).run {}
+  let monoidType ← mkAppM ``CategoryTheory.Bundled.α #[← instantiateFresh monoids.declaration]
+  let monoid ← (typedParameter monoidType polynomial).run {}
+  let targetView ← (structuredParameterView polynomial monoid monoids).run {}
+  let target ← (carrierObject targetView).run {}
+  let .object targetHandle sets (some (entry, params)) _ _ := target
+    | throwError "the polynomial carrier lost its registered source"
+  let (some constants, some parameter@(.object ..)) :=
+      (entry.constants, params.find? (· matches .object ..))
+    | throwError "the polynomial constants lost their declared parameter"
+  let coefficientCarrier ← (carrierObject parameter).run {}
+  let some (some arrow) ← (coercionMap source target).run {}
+    | throwError "the declared constants reject their witnessed coefficient view"
+  let declared ← (homIn (← `($(mkCIdent constants) $(← (typedParamTerms constants params).run {})*))
+    (← (semanticObject source).run {}) targetHandle sets).run {}
+  unless !arrow.hasMVar && !arrow.hasLevelMVar && (← isTypeCorrect arrow) &&
+      (← withTransparency .all <| isDefEq arrow declared) do
+    throwError "the coefficient view changed the target's declared constant map"
+  if (← (coercionMap source coefficientCarrier).run {}).isSome then
+    throwError "applying constants enabled reverse structural recovery"
+  let .object handle category origin (some (.object h c o s _)) _ := source
+    | throwError "the coefficient did not retain its complete structural view"
+  let withoutWitness := Value.object handle category origin
+    (some (.object h c o s none)) none
+  if (← (coercionMap withoutWitness target).run {}).isSome then
+    throwError "carrier equality replaced the missing coefficient-source witness"
+  let otherTarget ← readObject "ℚ[x]"
+  if (← (coercionMap source otherTarget).run {}).isSome then
+    throwError "a coefficient was admitted into a different declared parameter"
+  let coefficient ← (toElement (.nat 1) source).run {}
+  let wrongParameter ← try
+    discard <| (coerceTo coefficient otherTarget).run {}
+    pure false
+  catch error =>
+    if (← Outcome.ofException error).kind == "invalid" then pure true else throw error
+  unless wrongParameter do
+    throwError "a coefficient outside the declared parameter was not invalid when read"

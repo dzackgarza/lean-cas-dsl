@@ -187,3 +187,20 @@ No inverse recovery, general carrier matching, arbitrary functor, or new mathema
 comparison is introduced. ParameterStructureProbes checks the valid forward view,
 refuses the reverse recovery, and refuses the same carrier after its action witness is
 removed; its existing distinct-structure checks remain unchanged.
+
+## b0-typed-application: constants at witnessed coefficient views (2026-10-11)
+
+Corpus queries `Polynomial.C forgetful functor natural transformation coefficients` and
+`Polynomial.C`, together with the local `constants` declarations and coercion probes, locate
+the existing mathematical owner: `CasCatalogue.Algebra.Polynomials.coefficients`, registered
+as `ObjectEntry.constants`, uses Mathlib's `Polynomial.C`. The kernel needs no new constant
+map or comparison theorem. Its own `coercionMap` already checks exact selected identity
+views with retained carrier-route applications; `identityCarrierView` factors out that check.
+
+When the target independently fixes its constants declaration and complete parameter, a
+coefficient in that parameter's witnessed forward carrier view can be passed to this same
+declared arrow. The arrow is elaborated with the target's original parameter and checked
+at the fixed endpoints. No reverse structural coercion is enabled, no nonidentity map is
+inverted, and an unretained or different parameter cannot be supplied by matching carriers.
+The engineering probes verify the actual declared arrow and reject structural recovery,
+a missing action witness, and a different coefficient parameter.
