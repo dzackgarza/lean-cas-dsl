@@ -1,5 +1,48 @@
 # Journal
 
+## 2026-10-11 — b0-binders: share the context-free argument reading
+
+This unit contains only the generic binder argument-sharing change, its root-sum/root-product
+reader probes, and its reuse record. When exactly one supplied argument has the same unscoped
+reading in every candidate signature, evaluate it once and retain its complete value and
+trace. Each candidate still checks its own dependent signature; contextual or multiple
+arguments retain their previous path. The unique chosen binder's domain evidence is still
+established only after selection. No operation-specific reading or increased heartbeat
+budget is introduced.
+
+Existing reader observations at `lean_categories` 76ca85d / contract e292368 record successful
+reading of the four required calculus statements (`.tmp/b0-reader-calculus.log`), all four
+series statements (`.tmp/b0-reader-series.log`), `composed.root_sum`
+(`.tmp/b0-reader-root-sum-fixed.log`), and `composed.root_product`
+(`.tmp/b0-reader-root-product-current.log`). These logs concern validity and retained typed
+terms, not numerical truth. The root-probe addition checks the selected binder row, closed
+well-typed parameters, actual body, admission and original generalized-point domain.
+
+Fresh checks at the combined committed Lean source (`Language.lean` blob `abb78b4a08499a4059066aee4178422af876f8c7`),
+after the required dependency refresh retained 76ca85d / e292368:
+
+- `.tmp/b0-binders-8825b08-calculus.log` exits 0: all four table-named calculus readings
+  succeed and every retained trace term is closed and type-correct.
+- `.tmp/b0-binders-8825b08-root-sum.log` and
+  `.tmp/b0-binders-8825b08-root-product.log` each exit 0. Both use the unchanged permanent
+  assertion and its original polynomial binding. The unused `roots` binding is omitted
+  from these focused runs; neither assertion refers to it.
+- Source inspection of `evalAnalysis`, `binderReading`, and `binder` establishes the stated
+  negative observation: binding syntax supplies a token, arguments and body to the same
+  generic function; candidates come from `state.binders`; declaration, domain and parameters
+  come from the selected row, not an operation-specific case. Shared evaluation is restricted
+  by all candidates' dependent signatures, not by a binder id or mathematical function.
+- The combined binder-probe command and series batch each reached their 150-second bound
+  (CHECK_EXIT=124); neither is a completed successful check. The series log reaches a successful
+  reading of `series.coefficient_two` but not the three remaining coefficients. The narrower
+  root runs above completed; no time limit or acceptance assertion was relaxed.
+
+The full `b0-binders` row therefore remains open: its remaining series observations have not
+all been re-established in completed runs at this source. No full row is marked complete
+from these component observations. These results are recorded in the same binder-unit commit,
+not in an extra status-only commit. B0 integration remains a separate failure; reader work
+is not waiting on the contract owner.
+
 ## 2026-10-11 — b0-selected-structure: retained forward carrier views
 
 The forward-view unit is committed separately from binder argument sharing. `coercionMap`

@@ -3595,7 +3595,8 @@ partial def pairOf (x y : Value) : M Value := do
 object or morphism parameters. The declaration fixes the domain; the body's codomain supplies
 any remaining structure parameters. Evidence is checked only after the unique reading is chosen. -/
 partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
-    (arguments : Array Syntax) (body : Syntax) (ambient? : Option Value) :
+    (arguments : Array Syntax) (body : Syntax) (ambient? : Option Value)
+    (sharedArgument? : Option Value := none) :
     M (Expr × Value × Value × Value) := do
   let state ← registryState
   let some category := state.categories.find? (·.id == row.category)
@@ -3612,11 +3613,16 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
     let expected ← instantiateMVars (← inferType parameter)
     let value ← if let some (_, target) := homEnds? (← whnfR expected) then
         let target ← instantiateMVars target
-        if target.hasMVar then eval scope argumentSyntax
+        if target.hasMVar then
+          match sharedArgument? with
+          | some value => pure value
+          | none => eval scope argumentSyntax
         else do
           let X ← recognize state target category
           toElement (← eval scope argumentSyntax none (some X)) X
-      else eval scope argumentSyntax
+      else match sharedArgument? with
+        | some value => pure value
+        | none => eval scope argumentSyntax
     let term ← typedParameter expected value
     unless ← isDefEq parameter term do
       throwStratum .invalid m!"a binder argument is outside its declared parameter"
@@ -3686,17 +3692,35 @@ or retain metavariable assignments. Absent evidence never chooses another interp
 partial def binder (scope : Scope) (token : String) (boundName : Name)
     (arguments : Array Syntax) (body : Syntax) (ambient? : Option Value) : M Value := do
   let state ← registryState
+  let rows := state.binders.filter (·.token == token)
+  -- Share only an identical, context-free reading requested by every candidate. With
+  -- one argument no earlier parameter assignment can change its expected context.
+  -- Contextual readings and dependent multi-argument readings retain their usual path.
+  let sharedArgument? ← if arguments.size == 1 && !rows.isEmpty && (← rows.allM fun row =>
+      parameterTrial do
+        let constant ← mkConstWithFreshMVarLevels row.operation
+        let (params, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+        let explicit := (params.zip infos).filterMap fun (p, i) =>
+          if i.isExplicit then some p else none
+        let some parameter := explicit.back? | return false
+        let expected ← instantiateMVars (← inferType parameter)
+        if let some (_, target) := homEnds? (← whnfR expected) then
+          return (← instantiateMVars target).hasMVar
+        return true) then
+      some <$> eval scope arguments[0]!
+    else pure none
   let mut candidates := #[]
-  for row in state.binders.filter (·.token == token) do
+  for row in rows do
     if ← parameterCompatible (do
-        discard <| binderReading scope row boundName arguments body ambient?
+        discard <| binderReading scope row boundName arguments body ambient? sharedArgument?
         pure true) then
       candidates := candidates.push row
   let row ← match candidates with
     | #[row] => pure row
     | #[] => throwStratum .invalid m!"no registered binder `{token}` reads these arguments and body"
     | _ => throwSemanticAmbiguity m!"several registered binders `{token}` read these arguments and body"
-  let (operation, M, bodyMap, Y) ← binderReading scope row boundName arguments body ambient?
+  let (operation, M, bodyMap, Y) ←
+    binderReading scope row boundName arguments body ambient? sharedArgument?
   let admitted ← admit M bodyMap
   let .object _ category _ _ _ := Y | unreachable!
   let result ← applyFamily row.operation category #[admitted] (some Y) (application := some operation)

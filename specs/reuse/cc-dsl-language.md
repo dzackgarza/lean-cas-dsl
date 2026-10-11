@@ -156,6 +156,24 @@ This presentation step supports the same registered procedure's recognition of c
 point actions; it supplies no new theorem or chosen instance. These checks concern formal
 admission and convergence statements and consume no backend answer data.
 
+## Shared context-free binder arguments (2026-10-11)
+
+The corpus queries `Lean elaboration shared argument syntax candidate overload` and
+`forallMetaTelescopeReducing withoutModifyingState` found metaprogramming guidance and
+other syntax elaborators, not an owner of this DSL's binder selection. Reuse the existing
+`binderReading`, `eval`, `typedParameter`, and `parameterTrial`; Lean owns the dependent
+telescope and isolated metavariable trials.
+
+When there is one supplied argument and every candidate signature requests its unscoped
+reading, evaluate that common argument once before candidate selection. Each candidate
+still checks its own complete parameter type, body, and target. Evidence runs only after
+the unique candidate is selected. Contextual and dependent multi-argument readings are
+unchanged. The shared value retains its original chosen structure and trace; no row is
+selected by a timeout, registration order, or a notation-specific rule. The ordinary
+heartbeat budget remains unchanged. The existing admitted root-sum/root-product texts
+are used in reader-mechanics probes without accepting numerical answers or changing the
+permanent assertion corpus.
+
 ## Retained forward carrier views (2026-10-11)
 
 The existing `coercionMap`, `retainedCarrierRoute`, `structuredParameterView`, and
