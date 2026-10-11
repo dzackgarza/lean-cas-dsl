@@ -159,9 +159,9 @@ run_cmd liftTermElabM do
   let invalid ← (parameterCompatible (throwStratum .invalid "inapplicable trial")).run {}
   unless !invalid do throwError "an inapplicable trial was retained"
   let ambiguity ← try
-    discard <| (parameterCompatible (throwStratum .semanticAmbiguity "nested ambiguity")).run {}
+    discard <| (parameterCompatible (throwSemanticAmbiguity "nested ambiguity")).run {}
     pure false
-  catch error => pure ((CasCatalogue.Exception.stratum? error) == some .semanticAmbiguity)
+  catch error => pure (CasCatalogue.Exception.isSemanticAmbiguity error)
   unless ambiguity do throwError "a nested parameter ambiguity became inapplicability"
   let internal ← try
     discard <| (parameterCompatible (throwError "unexpected interpreter failure")).run {}

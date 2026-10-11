@@ -52,3 +52,17 @@ projection using `Lean.Meta.mkProjection`. Reuse the existing solver on the fiel
 still checked against the original negation. The restriction to actual one-field structures
 excludes any inference from unequal quotient representatives. No theorem, instance, admission
 procedure, semantic row, or backend implementation is added.
+
+## B0 reader-owned ambiguity (2026-10-11)
+
+Corpus queries `file:\.lean$ MessageData.tagged`, `file:\.lean$ throwError hasTag`,
+and `"semantic ambiguity"` found no existing reader-ambiguity classifier. The returned
+ordinary error/attribute-tag uses and linguistic title do not supply this mechanism.
+Lean Core already owns `MonadError`, `throwError`, `Exception.toMessageData`,
+`MessageData.tagged`, and `MessageData.hasTag`. The two helpers in
+`CasCatalogue/InterpretationFailure.lean` attach a reader-owned outer message tag and
+recognize it through Core's context wrappers. They add no shared stratum, replacement
+exception transport, mathematical declaration, or leaf protocol. The existing reader
+outcome remains `ambiguous`; a semantic exception during execution remains an interpreter
+error. Ownership follows architecture's interpretation stage and AGENTS's distinction
+between ambiguity, invalidity, and backend failures.

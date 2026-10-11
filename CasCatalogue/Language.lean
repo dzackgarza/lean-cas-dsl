@@ -398,7 +398,7 @@ def objectNamed (state : RegistryState) (name : String) (category? : Option Name
   | #[object] => return object
   | #[] => throwStratum .invalid m!"no registered object is named {name}{match category? with
       | some c => m!" in {c.name}" | none => m!""}"
-  | _ => throwStratum .semanticAmbiguity m!"several registered objects are named {name}: state its \
+  | _ => throwSemanticAmbiguity m!"several registered objects are named {name}: state its \
       category (`in C`)"
 
 /-- A term for an elaborated expression. -/
@@ -604,12 +604,12 @@ partial def transportedStructure (expected : Expr) (value : Value)
     let (target, route) ← match state.classify classifiedCandidates (fun c => c.1.id.raw) (·.2) with
       | #[cls] =>
         unless cls.ambiguities.isEmpty do
-          throwStratum .semanticAmbiguity m!"several comparisons determine a selected structural route"
+          throwSemanticAmbiguity m!"several comparisons determine a selected structural route"
         let #[candidate] := cls.sources
-          | throwStratum .semanticAmbiguity m!"the selected object has no unique structural route"
+          | throwSemanticAmbiguity m!"the selected object has no unique structural route"
         pure candidate
       | #[] => throwStratum .invalid m!"the selected object has no registered structure at this type"
-      | _ => throwStratum .semanticAmbiguity m!"several routes give the selected object this structure \
+      | _ => throwSemanticAmbiguity m!"several routes give the selected object this structure \
           (source {sourceCategory.id.raw}, demanded type {expected}, receiver {receiver})"
     let (image, _) ← checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
     return image
@@ -680,11 +680,11 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
       let candidate ← match classes with
         | #[cls] =>
           unless cls.ambiguities.isEmpty do
-            throwStratum .semanticAmbiguity m!"several registered comparisons determine a parameter route"
+            throwSemanticAmbiguity m!"several registered comparisons determine a parameter route"
           let #[candidate] := cls.sources
-            | throwStratum .semanticAmbiguity m!"a parameter has no unique registered source route"
+            | throwSemanticAmbiguity m!"a parameter has no unique registered source route"
           pure candidate
-        | _ => throwStratum .semanticAmbiguity m!"a selected source has unresolved parameter routes"
+        | _ => throwSemanticAmbiguity m!"a selected source has unresolved parameter routes"
       sourceChoices := sourceChoices.push candidate
     if sourceChoices.isEmpty then
       throwStratum .invalid m!"{origin.name} has no registered structure at the parameter's type"
@@ -704,7 +704,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
         throwStratum .invalid m!"a structural parameter is outside its complete declared type"
       let representative := representative?.getD image
       unless ← withTransparency .all <| isDefEq image representative do
-        throwStratum .semanticAmbiguity m!"several distinct full structures determine a parameter of {origin.name}"
+        throwSemanticAmbiguity m!"several distinct full structures determine a parameter of {origin.name}"
       representative? := some representative
       let identity ← mkEqRefl representative
       unless (← isTypeCorrect identity) &&
@@ -786,7 +786,7 @@ def standardDiagram (shape : String) (args : Array Value) : M Term := do
     match rows with
     | #[row] => return ← quoteExpr (← declaredDiagram row args)
     | #[] => pure ()
-    | _ => throwStratum .semanticAmbiguity m!"several registered presentations own this diagram"
+    | _ => throwSemanticAmbiguity m!"several registered presentations own this diagram"
   let ts ← args.mapM (liftM ∘ quote)
   match shape, ts with
   | "pullback", #[f, g] => `(CategoryTheory.Limits.cospan $f $g)
@@ -1530,7 +1530,7 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
     | [(presentation, inverse)] =>
         let result ← presentationMapValue value presentation inverse
         return ← coerceTo result (← carrierObject target)
-    | _ => throwStratum .semanticAmbiguity m!"several registered presentations map these selected endpoints"
+    | _ => throwSemanticAmbiguity m!"several registered presentations map these selected endpoints"
   if stx.getKind == ``casPresentationForward || stx.getKind == ``casPresentationBack then
     return ← presentationMap scope stx[1]
       stx[if stx.getKind == ``casPresentationBack then 4 else 3].getId.toString
@@ -1662,7 +1662,7 @@ partial def localGeneratorBindings (scope : Scope) (term objectSyntax : Syntax) 
   match names.toList with
   | [] => return []
   | [name] => return [(name, ← generatorOf X)]
-  | _ => throwStratum .semanticAmbiguity m!"a distinguished generator has several local variable names"
+  | _ => throwSemanticAmbiguity m!"a distinguished generator has several local variable names"
 
 /-- Explicit generator scopes remove only their locally bound occurrences from free variables. -/
 partial def contextualIdentifiers (scope : Scope) (term : Syntax) : M (Array Name) := do
@@ -1968,7 +1968,7 @@ partial def object (state : RegistryState) (name : String) (args : Array Value)
             let selectedCategory ← match categories.toList with
               | [candidate] => pure candidate
               | [] => throwStratum .invalid m!"a selected constructor parameter has no category"
-              | _ => throwStratum .semanticAmbiguity m!"a selected constructor parameter has several categories"
+              | _ => throwSemanticAmbiguity m!"a selected constructor parameter has several categories"
             if selectedCategory.id == CategoryId.sets then carrierObject value
             else structuredParameterView value actual selectedCategory
       | _ => pure value
@@ -2000,7 +2000,7 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
     let arrowCategory ← match arrowCategories with
       | #[category] => pure category
       | #[] => throwStratum .invalid m!"the map's arrow category is not registered"
-      | _ => throwStratum .semanticAmbiguity m!"several registered categories identify this map's arrow category"
+      | _ => throwSemanticAmbiguity m!"several registered categories identify this map's arrow category"
     let arrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
     discard <| Semantic.recordNamedObject source (← read).trace
     discard <| Semantic.recordNamedObject target (← read).trace
@@ -2114,7 +2114,7 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
   match compatible.toList with
   | [action] => action
   | [] => throwStratum .invalid m!"no registered signature named {name} applies to these arguments"
-  | _ => throwStratum .semanticAmbiguity m!"several complete registered signatures named {name} apply to these arguments"
+  | _ => throwSemanticAmbiguity m!"several complete registered signatures named {name} apply to these arguments"
 
 /-- The registered morphism family `entry` at `args`: its leading arguments are its numeral
 parameters, and the rest are elements it is applied to (`gcd(84, 30)`, `rev(3, 0)`). Unapplied, it
@@ -2210,7 +2210,7 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
     unless !handle.hasMVar && (← isTypeCorrect handle) &&
         (← isDefEq (← inferType handle) expected) &&
         (← withTransparency .all <| isDefEq handle actual) do
-      throwStratum .semanticAmbiguity m!"distinct full structures supply a declaration parameter"
+      throwSemanticAmbiguity m!"distinct full structures supply a declaration parameter"
     let (source, route, alternatives, applications) := match data with
       | some (_, source, route, alternatives, applications) =>
           (source, route, alternatives, applications)
@@ -2297,7 +2297,7 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     match matchedValues.toList with
     | [candidate] => return candidate
     | [] => pure ()
-    | _ => throwStratum .semanticAmbiguity m!"several complete selected values give this declared endpoint"
+    | _ => throwSemanticAmbiguity m!"several complete selected values give this declared endpoint"
   let mut found : Array (ObjectEntry × Array Expr) := #[]
   -- Identity by declaration (b0-selected-structure): an expression that is a registered object's
   -- declaration applied to its parameters is that object, never another object whose carrier it
@@ -2344,7 +2344,7 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     let parameterCategory ← match categories with
       | #[candidate] => pure candidate
       | #[] => throwStratum .invalid m!"a parameter of {entry.name} has no registered category"
-      | _ => throwStratum .semanticAmbiguity m!"a parameter of {entry.name} has several registered categories"
+      | _ => throwSemanticAmbiguity m!"a parameter of {entry.name} has several registered categories"
     -- A registered declaration may own an exact bundled parameter without giving it
     -- a separate named-object row. Retain that selected value rather than replacing
     -- it with a carrier or guessing a named refinement.
@@ -2540,7 +2540,7 @@ partial def registeredStructuredParameter (expected : Expr) (operand : Value) : 
       let (object, category) ← instantiate entry
       discard <| recognize state object category
       return some object
-  | _ => throwStratum .semanticAmbiguity m!"several registered structures have this exact selected structural image"
+  | _ => throwSemanticAmbiguity m!"several registered structures have this exact selected structural image"
 
 /-- Infer a missing map only from a unique actual registered declaration at fixed endpoints. -/
 partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
@@ -2568,7 +2568,7 @@ partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
       let arrow ← instantiate entry
       Semantic.namedMorphism entry arrow (← read).trace
       return some arrow
-  | _ => throwStratum .semanticAmbiguity m!"several registered maps have these selected endpoints"
+  | _ => throwSemanticAmbiguity m!"several registered maps have these selected endpoints"
 
 /-- Infer declaration arguments from the operand's stored typed constructor parameters before
 comparing carriers. Nested registered constructors retain bundled parameters that an abbreviation
@@ -2654,7 +2654,7 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value) : M Bool := 
           if CasCatalogue.Exception.stratum? error == some .invalid then pure none else throw error
       if let some candidate := candidate? then witnesses := #[candidate]
     if witnesses.size > 1 then
-      throwStratum .semanticAmbiguity m!"distinct complete source parameter witnesses remain"
+      throwSemanticAmbiguity m!"distinct complete source parameter witnesses remain"
     if let some candidate := witnesses[0]? then
       unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do return false
   isDefEq parameter actualTerm
@@ -2826,7 +2826,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
           unless ← witnesses.anyM (fun existing => parameterTrial (isDefEq existing witness)) do
             witnesses := witnesses.push witness
       if witnesses.size > 1 then
-        throwStratum .semanticAmbiguity m!"several full typed constructor parameters determine the source"
+        throwSemanticAmbiguity m!"several full typed constructor parameters determine the source"
       if let some witness := witnesses[0]? then
         unless ← isDefEq parameter witness <&&> isDefEq operandSource (← semanticObject A) do
           throwStratum .invalid m!"the chosen constructor parameter does not give the actual source"
@@ -3042,11 +3042,11 @@ partial def presentationMapValue (value : Value) (entry : PresentationComparison
       | none => throwStratum .invalid m!"the retained presentation carrier route is not registered"
     else do
       let [cls] := (state.classify routes (fun _ => sets.id.raw) id).toList
-        | throwStratum .semanticAmbiguity m!"the presentation has no unique carrier route"
+        | throwSemanticAmbiguity m!"the presentation has no unique carrier route"
       unless cls.ambiguities.isEmpty do
-        throwStratum .semanticAmbiguity m!"several comparisons determine the presentation carrier map"
+        throwSemanticAmbiguity m!"several comparisons determine the presentation carrier map"
       let [route] := cls.sources.toList
-        | throwStratum .semanticAmbiguity m!"the presentation has no unique directed carrier route"
+        | throwSemanticAmbiguity m!"the presentation has no unique directed carrier route"
       pure route
     let mapped ← if route.steps.isEmpty then pure arrow else
       elabTermAndSynthesize (← `(CategoryTheory.Functor.map
@@ -3132,7 +3132,7 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
     let candidates := if own.isEmpty then rings.filter (·.1 == v) else own
     let written := candidates.map (shown ·.2.1)
     unless written.all (· == written[0]!) do
-      throwStratum .semanticAmbiguity m!"{v} is the variable of several rings: {written.toList}"
+      throwSemanticAmbiguity m!"{v} is the variable of several rings: {written.toList}"
     let some (_, ring, index) := candidates[0]? | unreachable!
     bindings := (v, ← generatorOf (← eval scope ring) index) :: bindings
   return bindings
@@ -3370,7 +3370,7 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
       let argument ← typedParameter (← inferType parameter) A
       unless ← isDefEq (← inferType parameter) (← inferType argument) <&&> isDefEq parameter argument do
         throwStratum .invalid m!"{entry.name} does not take this selected object at its declared type"
-  | _ => throwStratum .semanticAmbiguity m!"several declared parameters accept this selected receiver"
+  | _ => throwSemanticAmbiguity m!"several declared parameters accept this selected receiver"
   synthesizeInstances args infos
   unless ← isTypeCorrect (← instantiateMVars (mkAppN constant args)) do
     throwStratum .invalid m!"an argument of {entry.name} is outside its declared type"
@@ -3671,7 +3671,7 @@ partial def binder (scope : Scope) (token : String) (boundName : Name)
   let row ← match candidates with
     | #[row] => pure row
     | #[] => throwStratum .invalid m!"no registered binder `{token}` reads these arguments and body"
-    | _ => throwStratum .semanticAmbiguity m!"several registered binders `{token}` read these arguments and body"
+    | _ => throwSemanticAmbiguity m!"several registered binders `{token}` read these arguments and body"
   let (operation, M, bodyMap, Y) ← binderReading scope row boundName arguments body ambient?
   let admitted ← admit M bodyMap
   let .object _ category _ _ _ := Y | unreachable!
@@ -3972,7 +3972,7 @@ partial def operationPointComparison (source : Expr) : M (Option Expr) := do
   | [] => return none
   | [(entry, iso)] =>
       return some (← Semantic.presentationArrow entry iso false (← read).trace)
-  | _ => throwStratum .semanticAmbiguity m!"several admitted singleton comparisons determine the operation point"
+  | _ => throwSemanticAmbiguity m!"several admitted singleton comparisons determine the operation point"
 
 /-- A numeral of a retained full source, forwarded along its actual structural action.
 All source numeral structures are checked before choosing a serialization representative. -/
@@ -4031,7 +4031,7 @@ partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
         (← isDefEq (← inferType sourceHandle) (← inferType otherHandle)) &&
         (← withTransparency .all <| isDefEq sourceHandle otherHandle) &&
         (← withTransparency .all <| isDefEq point otherPoint) do
-      throwStratum .semanticAmbiguity m!"distinct retained numeral structures determine this point"
+      throwSemanticAmbiguity m!"distinct retained numeral structures determine this point"
   let some (domain, _) := homEnds? (← inferType point) | unreachable!
   let typed ← homIn (← quoteExpr point) domain carrier category
   let hom ← mkAppM ``id #[typed]
@@ -4187,7 +4187,7 @@ partial def inclusionTargetValue (D : Value) (endpoint : Expr)
         throwStratum .invalid m!"the retained parameter carrier is not the declared inclusion endpoint"
       return candidate
   | [] => recognize (← registryState) endpoint category
-  | _ => throwStratum .semanticAmbiguity m!"several retained structures give this inclusion endpoint"
+  | _ => throwSemanticAmbiguity m!"several retained structures give this inclusion endpoint"
 
 /-- The element (or map) `v` admitted into the domain `D` by its registered admission
 `∀ params (x : B) (h : P x), 1 ⟶ D params`, the evidence `P x` established when the statement is
@@ -4298,7 +4298,7 @@ partial def selectedOperationApplication (declaration : Name) (owner : CategoryI
   let some representative := applications[0]? | return none
   for application in applications do
     unless ← withTransparency .all <| isDefEq application representative do
-      throwStratum .semanticAmbiguity m!"several full applications accept this selected operation receiver"
+      throwSemanticAmbiguity m!"several full applications accept this selected operation receiver"
   return some representative
 
 /-- The registered operation `name` on elements of the set `X`: the operation of the category of
@@ -4322,7 +4322,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
   let (operation, application) ← match applicable.toList with
     | [candidate] => pure candidate
     | [] => throwStratum .invalid m!"the selected structure has no registered operation `{name}`"
-    | _ => throwStratum .semanticAmbiguity m!"several registered operations `{name}` apply to the selected structure"
+    | _ => throwSemanticAmbiguity m!"several registered operations `{name}` apply to the selected structure"
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid m!"an element operation has no registered category of sets"
   let target ← match operation.result with
@@ -4546,12 +4546,12 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
     let classes := state.classify routes (fun _ => sets.id.raw) (fun route => route)
     let cls ← match classes.toList with
       | [entry] => pure entry
-      | _ => throwStratum .semanticAmbiguity m!"the map has no unique registered carrier interpretation"
+      | _ => throwSemanticAmbiguity m!"the map has no unique registered carrier interpretation"
     unless cls.ambiguities.isEmpty do
-      throwStratum .semanticAmbiguity m!"the map carrier interpretation has unresolved comparisons"
+      throwSemanticAmbiguity m!"the map carrier interpretation has unresolved comparisons"
     let route ← match cls.sources.toList with
       | [entry] => pure entry
-      | _ => throwStratum .semanticAmbiguity m!"the map has several directed carrier interpretations"
+      | _ => throwSemanticAmbiguity m!"the map has several directed carrier interpretations"
     let mapped ← if route.steps.isEmpty then pure h else
       elabTermAndSynthesize (← `(CategoryTheory.Functor.map
         $(← quoteExpr (← Semantic.routeFunctor state route.refs)) $(← quoteExpr h))) none
@@ -4751,16 +4751,16 @@ unavailable backend. -/
 def Outcome.fails (o : Outcome) : Bool :=
   !(o matches .holds | .gap _ | .unavailable _)
 
-/-- The outcome of the failure `e`: its stratum, or, without one, an internal error. -/
+/-- Classify a reader ambiguity or a contract failure; an unclassified exception is internal. -/
 def Outcome.ofException (e : Exception) : TermElabM Outcome := do
   let message ← e.toMessageData.toString
+  if Exception.isSemanticAmbiguity e then return .ambiguous message
   return match Exception.stratum? e with
     | some .invalid => .invalid message
-    | some .semanticAmbiguity => .ambiguous message
     | some .noImplementation | some .ambiguousRealization => .gap message
     | some .unavailable => .unavailable message
     | some .malformed => .malformed message
-    | none => .internal message
+    | _ => .internal message
 
 /-- `lit` as a value of the literal type `type`. -/
 def literalExpr (type : Name) : Value → TermElabM Expr

@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Resolve
+public import CasCatalogue.InterpretationFailure
 public import CasCatalogue.Trace
 public import CasCatalogue.Decide
 public import Mathlib.CategoryTheory.Limits.Creates
@@ -138,7 +139,7 @@ def namedCategoryFor (state : RegistryState) (expression : CategoryExpr) :
   let #[entry] := candidates
     | if candidates.isEmpty then
         throwStratum .invalid m!"the selected result family has no named schema"
-      else throwStratum .semanticAmbiguity m!"the selected result family has multiple named schemas"
+      else throwSemanticAmbiguity m!"the selected result family has multiple named schemas"
   return entry
 
 /-- `F.obj X`, elaborated at the current depth, so that the universe levels and parameters of `F`'s
@@ -348,7 +349,7 @@ def reindex (X : Expr) (_source : NamedCategoryEntry) (baseMorphism : Expr)
   let #[(entry, value, params)] := candidates
     | if candidates.isEmpty then
         throwStratum .invalid m!"no registered family reindexing applies to this object and base morphism"
-      else throwStratum .semanticAmbiguity m!"multiple registered family reindexings apply: \
+      else throwSemanticAmbiguity m!"multiple registered family reindexings apply: \
         {candidates.map (·.1.id.raw)}"
   let target ← namedCategoryFor state entry.target
   Trace.record trace? value (.functor entry.id params X)

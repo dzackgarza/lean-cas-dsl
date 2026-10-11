@@ -99,7 +99,7 @@ run_cmd liftTermElabM do
       (.object carrier sets origin none none)).run {}
     pure false
   catch error =>
-    if CasCatalogue.Exception.stratum? error == some .semanticAmbiguity then pure true
+    if (← Outcome.ofException error).kind == "ambiguous" then pure true
     else throw error
   unless ambiguous do
     throwError "the bare residue set's distinct monoid structures were collapsed"

@@ -3476,7 +3476,7 @@ def executionFailure (e : Exception) : TermElabM ExecutionOutcome := do
     | some .noImplementation | some .ambiguousRealization => .gap reason
     | some .unavailable => .unavailable reason
     | some .malformed => .malformed reason
-    | some .invalid | some .semanticAmbiguity | none => .internal reason
+    | _ => .internal reason
 
 /-- Interpret before execution, retaining the same request through every later outcome.
 Bindings are read without being counted as assertions. Incomplete interpretations fail visibly;

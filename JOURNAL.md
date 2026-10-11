@@ -1,5 +1,44 @@
 # Journal
 
+## 2026-10-11 (B0 reader ambiguity and unit admission observations)
+
+- Removed the reader's dependency on the contract's absent `semanticAmbiguity` constructor.
+  Interpretation now owns its ambiguity tag, reusing Lean Core's `MessageData.tagged`,
+  `throwError`, `Exception.toMessageData`, and `MessageData.hasTag`. All reader producers
+  retain their previous conditions and messages. The public reader outcome is still
+  `ambiguous`; a semantic exception during execution remains `internal`. No backend
+  stratum, mathematical row, admission procedure, or public packet grammar was added.
+- The helper and Semantic compile against contract main `e292368`, with `lean_categories`
+  `76ca85d`. Direct compilation of `CasCatalogue/Language.lean` to its OLean succeeded;
+  `lake env lean CasCatalogue/ParameterStructureProbes.lean` then exited 0. The probes check
+  the retained complete quotient ring and multiplication route, preserve distinct full
+  structures, and classify the unrefined residue carrier as ambiguous. Logs:
+  `.tmp/b0-reader-language-lean.log`, `.tmp/b0-reader-parameter-probes.log`.
+- Checked the six unchanged unit assertion texts through the actual `Language.claim` reader
+  and the existing kernel-checked Codec. The rational inverse and division and the `ZMod 5`
+  inverse all report `holds` in `.tmp/b0-unit-reader-codec.log`. That first diagnostic exited 1
+  on its later false case because it omitted production's per-attempt exception handler.
+  After matching `Realize.evaluatedDecides`' bounded unsuccessful-attempt handling, the
+  remaining negatives report `wrong`, `invalid`, `invalid`, respectively; the focused run
+  `.tmp/b0-unit-reader-codec-negative.log` exited 0. The false rational equation is refuted
+  by a kernel-checked proof of its original negation. No leaf or missing upstream units row
+  was established by these checks.
+- Reran the requested full background `just build`, including its latest-main update and
+  repository checks, with a 180-second bound. It rebuilt the helper and Semantic native
+  objects and reported the untouched requirement-owner-pending `CohereProbes:42` failure.
+  It exited 124 while compiling Language, before Realize or RegistrationProbes completed;
+  `.tmp/b0-unit-reader-full-build.log` is not a successful integration result. No build
+  process was left running. The focused direct Language compilation above remains the
+  available reader compilation result; the full build was not broadened or repeated.
+- These are reader/Codec component observations, not execution of the ordinary Realize
+  consumer. The current contract main still lacks `Backend.ComputationalValue` and
+  `Backend.PointInvocation`, used by Realize. Although its transport carries arbitrary JSON,
+  the complete packet grammar belongs in the separately published contract
+  (`specs/leaf-registration.md`, wire grammar; architecture, contract ownership). The compatible
+  published `b0/construction` source `d7b087b` must be integrated into contract main; a private
+  kernel grammar or dependency branch override would not satisfy the current contract.
+  Neither the admission row nor the broader units row is marked established by this check.
+
 ## 2026-10-11 (B0 unit-inverse refutation)
 
 - Completed the isolated released-unit construction with the same evidence-presentation
