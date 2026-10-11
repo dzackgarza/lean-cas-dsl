@@ -1,5 +1,54 @@
 # Journal
 
+## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
+
+After the scalar-parameter repair, the next unresolved reading was the unchanged binding
+`let Fs := {h ∈ ∫ f dx | h(0) = 0} in 𝒫(ℚ[x])` from `differentials.cas`.
+It failed with `only a map X → Y is applied`. The subset-comprehension domain and unary
+primitive application both discarded the explicitly supplied power-object result context.
+The primitive map therefore returned a power object over an anonymous polynomial carrier,
+which correctly supplied no callable declaration for the predicate's generic element.
+The diagnostic `.tmp/b0-primitive-callable.log` records that absent origin and callable.
+
+Forward the existing expected result through these two calls. `applyFamily` still checks
+the original dependent signature before retaining the complete supplied target. The
+polynomial evaluator comes from the explicit `𝒫(ℚ[x])` annotation, not from identifying
+an anonymous carrier with a convenient named object. No mathematical map, admission
+evidence, expected answer, or upstream registration is added or changed.
+
+At Language blob `26da62af57486c1b26eca2ee851b23fd801f9bf9`, ContextualSubsetProbes blob
+`d7b6d7fecbf1a18cd257577a31b2468ebe99e893`, lean_categories `76ca85d7`, and contract
+`e292368d`, the completed observations are:
+
+- `.tmp/b0-subset-context-language.log`, BUILD_EXIT=0: direct reader compilation.
+- `.tmp/b0-subset-context-probes.log`, CHECK_EXIT=0: the explicit complete power-object
+  target and its callable base are retained; erasing the declaration cannot recover a
+  callable from the bare carrier; an incompatible polynomial-coefficient target is invalid.
+- `.tmp/b0-subset-context-primitives.log`, CHECK_EXIT=0: the original polynomial binding
+  retains 27 closed, type-correct trace terms and the unchanged `Fs` binding retains 70.
+  The selected input texts were checked against the permanent source without editing it.
+- `.tmp/b0-context-normalized-count.log` and `.tmp/b0-context-normalized-equality.log`,
+  both CHECK_EXIT=0: the same original bindings and the unchanged
+  `integration.normalized_count` and `integration.normalized` assertions read successfully,
+  retaining 72 and 104 closed, type-correct trace terms respectively.
+- `.tmp/b0-subset-context-selection.log`, CHECK_EXIT=0: SelectedCarrierProbes still passes,
+  including the Maps/Vec and distinct-form positive and negative observations.
+- Acceptance-permanence, reuse-record and whitespace checks pass.
+
+The positive and negative observations of this context-propagation repair hold together.
+This is validity of the original reading, not evaluation of a primitive or its cardinality.
+The full `b0-typed-application` row still requires every admitted assertion to read at its
+declared types; no new entire B0 row is closed by this unit. The existing selected-structure
+observations remain verified at this source. The remaining differential-workflow readings
+after these observations are the explicit `F` binding and its differential, derivative and
+evaluation assertions; the other admitted files still require the same row-wide check.
+
+The focused companion check at the preceding committed reader also completed successfully:
+`.tmp/b0-next-companion.log` validates the original `r` and `C` bindings and
+`composed.charpoly`, with 29, 38 and 42 closed trace terms respectively. These are not
+backend outcomes. The contract-dependent execution and owner-reserved coherence failures
+remain separate; there was no contract polling, publication, or repeated full build.
+
 ## 2026-10-11 — b0-typed-application: complete parameters from structured operands
 
 The `differentials.at_two` refusal was in generic parameter inference, not a missing

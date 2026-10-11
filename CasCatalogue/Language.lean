@@ -1407,7 +1407,9 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   | `(cas_term| √$x) => applyNamed state "sqrt" #[← eval scope x]
   | `(cas_term| {$xs,*}) => setLiteral scope xs.getElems ambient?
   | `(cas_term| {$t:ident ∈ $X | $p}) =>
-      let A ← eval scope X
+      -- A supplied power-object target also fixes the subset domain's presentation.
+      -- Keep that expected result through its declared application before binding t.
+      let A ← eval scope X none ambient?
       -- `{t ∈ A | P}` for a subset `A ⊆ X` is `A ∩ {t ∈ X | P}`.
       if let some (_, base) ← powerSetOf? A then
         let P ← powerSetOf base
@@ -1593,7 +1595,7 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
       | throwStratum .invalid m!"a binding differential must name its variable"
     return ← binder scope "∫" boundName #[stx[1], stx[3]] stx[5] ambient?
   if stx.getKind == ``casIntegral then
-    return ← applyNamed state "∫" #[← eval scope stx[1]]
+    return ← applyNamed state "∫" #[← eval scope stx[1]] ambient?
   if stx.getKind == ``casActed then
     let b ← eval scope (← `(cas_term| $(⟨stx[1]⟩):ident)) none ambient?
     return ← juxtapose (← eval scope stx[0]) b ambient?

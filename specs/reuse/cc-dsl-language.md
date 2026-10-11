@@ -318,3 +318,20 @@ equal, the existing `ParameterPresentation` / `Node.parameterEquivalence` record
 declaration id, full ordered parameter and checked complete-object equality witness. Sorting
 occurs only after the full equality checks and chooses a serialization representative, not a
 preferred mathematical structure. Carrier equality alone never admits this identification.
+
+## b0-typed-application: retain explicit subset result contexts (2026-10-11)
+
+Corpus search `registered callable dependent parameter provenance` found generic unification
+material, not an owner of this reader. Local searches of `applicationOf?`, `comprehension`,
+`powerSetOf?`, `evalIn`, and `applyFamily` identify the existing mechanism: explicit result
+contexts flow to `applyFamily`, which checks the complete declared result type before retaining
+the selected target. The mathematical primitive map remains the published declaration; its
+polynomial evaluator remains the published `ObjectEntry.application`.
+
+The subset-comprehension domain and unary primitive application previously dropped an explicit
+`in 𝒫(X)` context. Their actual result then retained only its raw base carrier, without a chosen
+callable object. Forward the supplied context through these existing calls. Do not recover a
+name from the carrier, change the registered map, or provide missing admission evidence.
+An incompatible result type must still be invalid. Without an explicit context, an anonymous
+result must stay anonymous. The unchanged normalized-primitive binding supplies its own
+`𝒫(ℚ[x])` target; that target, not a guessed polynomial alias, supplies the evaluator for `h(0)`.
