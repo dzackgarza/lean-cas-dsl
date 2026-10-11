@@ -1,5 +1,54 @@
 # Reuse record: `cc-dsl-language`
 
+## b0-selected-structure: full same-carrier observations (2026-10-11)
+
+Searches for `recognize`, `carrierObject`, `Maps`, `BilinModuleCat.ofBilinMap`, and
+`LinearMap.mul` in the existing selected-structure/carrier probes and the upstream
+bilinear-map module locate all required input constructors. The checks extend
+`SelectedCarrierProbes`; no new mathematical row or construction is introduced.
+The public `Maps` and `Vec` declarations supply the function-carrier pair. The upstream
+`BilinModuleCat.ofBilinMap` applied to the existing zero and multiplication maps supplies
+the form pair on the same module. The reader's existing `recognize`, `carrierObject`,
+and `coercionMap` are checked in both candidate orders: full selected inputs retain
+their identities, whereas the common carrier alone is ambiguous and does not confer
+an identity coercion between the chosen forms.
+
+The no-witness function-carrier case exposed an additional defect: `recognize` searched
+transparent aliases when the expression named no object declaration. It selected `Vec`
+while the same-carrier `Maps` declaration was opaque. Recognition now uses retained
+complete values or the actual registered declaration head and its typed parameters only.
+It no longer recovers an object identity from reducibility. A caller holding an anonymous
+structured value must retain that value; it cannot manufacture named provenance from
+its carrier.
+
+A declaration may still pass its supplied value to an anonymous equal carrier required
+by another signature. This is forward forgetting, not named-object recovery. The identity
+carrier check permits only a target with no origin, selection or retained view data; the
+reverse direction remains refused. `coerceTo` retains the supplied point's provenance in
+that case. The new probe checks both directions and preservation of the named vector input.
+
+Binder domains use the actual registered domain function and the supplied arguments'
+retained objects and constructor parameters. The function's returned declaration is kept
+before reducing its carrier; a domain supplied as an argument is recognized from that
+argument, not from an unrelated alias. Fixed parameter contexts are retained before
+reading numerals, so distinct numeral traces cannot create different choices of domain.
+This preserves integral/limit domains and the chosen coefficient objects in root binders
+without reintroducing reverse recognition from bare carriers.
+
+When an anonymous parameter already records its complete source and exact full declared
+carrier route, `carrierObject` replays that action and retains the source's carrier origin
+and chosen structure. Both the replayed image and the actual source carrier must be the
+supplied handle. This is forward use of retained provenance, not alias lookup. A raw
+carrier without that record stays anonymous. Identity views of Maps and Vec recover only
+their explicitly recorded source, even though both have the same function carrier.
+
+Dependent result parameters retain the actual ambient endpoints of their operands' public
+inclusions. `inclusionOut?` and `inclusionTargetValue` own this construction. If an endpoint
+has no named presentation, it is kept as that same anonymous object; no alias is inferred
+and ambiguity or interpreter errors are not suppressed. The factor-result probe checks that
+the element-set parameter comes from the nonzero-polynomial domain's declared ambient,
+without using a computed answer to choose the formal result or its operations.
+
 ## Queries
 `formalization_corpus.py search`:
 - "custom syntax category DSL elaborator declare_syntax_cat": no owner;

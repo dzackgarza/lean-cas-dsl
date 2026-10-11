@@ -1,5 +1,34 @@
 # Journal
 
+## 2026-10-11 — b0-selected-structure: declared identity and full table observations
+
+Completed the inherited selected-structure unit before further evaluator work. Recognition
+now uses the actual registered declaration and its complete parameters or retained selected
+values, never a search for a reducible alias of a bare carrier. Dependent binder domains and
+result parameters retain the objects prescribed by their supplied arguments and public
+inclusions. Forward carrier views retain their provenance; they do not recover a named
+structure on an anonymous source.
+
+All positive and negative observations of the `b0-selected-structure` table row hold at
+Language blob `7e8a7cc4bcc67a21fe0d6ef91b35625f95fa1b2a`, SelectedCarrierProbes blob
+`a76b7bc71a5cdcc5b97a6cc0fba38a1303e5c39d`, lean_categories `76ca85d7`, and
+cas_leaf_contracts `e292368d`. The completed full build in `.tmp/b0-stage-a-full.log`
+reports SelectedCarrierProbes built successfully: Maps and Vec retain distinct declared
+identities in either candidate order; zero and multiplication forms on the same module
+retain their complete choices; a common carrier without a witness selects neither, and
+opposite carrier-only coercions between the forms are refused. The dependent-result probe
+also retains the ambient supplied by the domain's actual inclusion. These assertions test
+the generic recognition rule: name recovery is restricted to declaration identity, while
+candidate order cannot remove multiple retained choices.
+
+That same completed build passes Language, ParameterStructureProbes and BinderReaderProbes.
+The unchanged factorization reading also completes with 118 closed, type-correct trace terms
+(`.tmp/b0-selection-complete-factorization.log`, CHECK_EXIT=0). The full build finishes with
+B0_BUILD_EXIT=1, reporting only the owner-reserved CohereProbes and contract-dependent Realize
+failures; neither was suppressed. Thus the selected-structure row observations hold, not the
+entire B0 table or independent final acceptance. The next unblocked selected unit is
+`b0-typed-application`: the scalar-algebra parameter of `differentials.at_two`.
+
 ## 2026-10-11 — b0-domain-preservation: expose supplied carrier projections
 
 The next `factorization.over_complexes` refusal was also in the kernel: the complete

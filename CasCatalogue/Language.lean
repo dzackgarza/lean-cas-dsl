@@ -2278,8 +2278,8 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
   let alternatives := ordered.flatMap fun (_, _, _, alternatives, _) => alternatives
   return (ordered.map (·.1), source, route, alternatives, applications)
 
-/-- The object `x` of `category` as the registered object it is (reducibly) at numeral
-parameters. -/
+/-- Recognize a retained complete object or its actual registered declaration application.
+A carrier expression alone does not select a named presentation. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry)
     (known : Array Value := #[]) :
     M Value := do
@@ -2311,25 +2311,21 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     | [] => pure ()
     | _ => throwSemanticAmbiguity m!"several complete selected values give this declared endpoint"
   let mut found : Array (ObjectEntry × Array Expr) := #[]
-  -- Identity by declaration (b0-selected-structure): an expression that is a registered object's
-  -- declaration applied to its parameters is that object, never another object whose carrier it
-  -- also unfolds to (`(ℤ/n)^k` and `Vec` share `Fin k → ℤ/n`). Only an expression that is no
-  -- object's declaration is matched by unfolding, and then only a unique match is an object.
+  -- Identity by declaration (b0-selected-structure): reducible aliases cannot recover an
+  -- object's identity from its carrier. In particular, a transparent Vec alias must not
+  -- win over the opaque Maps declaration on their shared function carrier.
   let head := (← instantiateMVars x).getAppFn.constName?
   let declared := state.objects.filter fun e => e.category == category.id && some e.declaration == head
-  for entry in (if declared.isEmpty then state.objects.filter (·.category == category.id) else declared) do
+  for entry in declared do
     let declaration ← mkConstWithFreshMVarLevels entry.declaration
     let (args, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
     let params? ← (withoutModifyingState do
-      if head == some entry.declaration then
-        let actualArgs := x.getAppArgs
-        unless actualArgs.size == args.size do return none
-        for (parameter, actual) in args.zip actualArgs do
-          unless ← isDefEq (← inferType parameter) (← inferType actual) <&&>
-              isDefEq parameter actual do return none
-        unless ← isTypeCorrect (← instantiateMVars (mkAppN declaration args)) do return none
-      else
-        unless ← withReducible (isDefEq (mkAppN declaration args) x) do return none
+      let actualArgs := x.getAppArgs
+      unless actualArgs.size == args.size do return none
+      for (parameter, actual) in args.zip actualArgs do
+        unless ← isDefEq (← inferType parameter) (← inferType actual) <&&>
+            isDefEq parameter actual do return none
+      unless ← isTypeCorrect (← instantiateMVars (mkAppN declaration args)) do return none
       let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
       return some (← explicit.mapM instantiateMVars) : MetaM _)
     if let some params := params? then
@@ -2404,10 +2400,26 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
 /-- The named set supplied by the exact registered refinement of a structured object.
 The structured value remains the family's parameter; this viewData stages its elements. -/
 partial def carrierObject (value : Value) : M Value := do
-  let .object handle category origin _ viewData := value
+  let .object handle category origin selected viewData := value
     | throwStratum .invalid m!"a carrier belongs to a selected structured object"
-  if category.id == CategoryId.sets then return value
   let state ← registryState
+  if category.id == CategoryId.sets then
+    -- An anonymous parameter may already carry the exact source of its declared carrier.
+    -- Reuse that forward construction; do not recover a name by matching bare types.
+    if origin.isNone && selected.isNone then
+      if let some (_, source, route, _, arguments) := viewData then
+        if (← retainedCarrierRoute state source) == some route then
+          let .object receiver .. := source | unreachable!
+          let (image, _) ← retainedActions state receiver route arguments
+          unless ← withTransparency .all <| isDefEq image handle do
+            throwStratum .invalid m!"the supplied carrier differs from its actual source action"
+          let sourceCarrier ← carrierObject source
+          let .object sourceHandle _ sourceOrigin sourceSelected _ := sourceCarrier
+            | unreachable!
+          unless ← withTransparency .all <| isDefEq sourceHandle handle do
+            throwStratum .invalid m!"the supplied source does not have this declared carrier"
+          return .object handle category sourceOrigin sourceSelected viewData
+    return value
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid m!"no registered category of sets"
   let family ← instantiateFresh sets.declaration
@@ -2880,8 +2892,18 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   -- An operand of a set included in the source is carried there (`Mˣ ↪ M`, `ℕ ⊆ ℤ`). Anything else
   -- is not in the family's domain: an operand is never admitted into a domain because the family
   -- needs it there (it is formed there, `x in D`).
-  let endpointWitnesses := parameters ++
-    (elements.filterMap fun | .element _ X => some X | _ => none) ++ target?.toArray
+  let operandObjects := elements.filterMap fun | .element _ X => some X | _ => none
+  let mut endpointWitnesses := parameters ++ operandObjects ++ target?.toArray
+  -- The domain's declared inclusion also fixes its ambient object. Keep that actual
+  -- endpoint for dependent result parameters rather than recovering an alias from a carrier.
+  for X in operandObjects do
+    if let some (_, ambient) ← inclusionOut? X then
+      let ambientValue ← try inclusionTargetValue X ambient category catch error =>
+        if Exception.stratum? error == some .invalid then
+          -- No named presentation is asserted: the inclusion still supplies this exact object.
+          pure (Value.object ambient category none none none)
+        else throw error
+      endpointWitnesses := endpointWitnesses.push ambientValue
   let elements ← (sources.zip elements).mapM fun (set, v) => do
     let .element _ A@(.object ..) := v | return v
     let a ← semanticObject A
@@ -3153,7 +3175,7 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
 This checks the full chosen source and actual carrier-route prefix, not carrier equality alone. -/
 partial def identityCarrierView (Y X : Value) : M Bool := do
   let state ← registryState
-  let (.object y _ yOrigin ySelected _, .object x _ xOrigin xSelected _) := (Y, X)
+  let (.object y _ yOrigin ySelected _, .object x _ xOrigin xSelected xData) := (Y, X)
     | return false
   let sameSelection ← match ySelected, xSelected with
     | some left@(.object leftObject leftCategory ..),
@@ -3176,7 +3198,10 @@ partial def identityCarrierView (Y X : Value) : M Bool := do
           withTransparency .all <| isDefEq image rightObject
     | some _, some _ => pure false
     | _, _ => pure true
-  let sameOrigin := match yOrigin, xOrigin with
+  -- A bare target asks only for the already fixed carrier. This forward view does not
+  -- acquire a name or structure on a bare source; coerceTo retains the supplied provenance.
+  let sameOrigin := if xOrigin.isNone && xSelected.isNone && xData.isNone then true else
+    match yOrigin, xOrigin with
     | some (left, _), some (right, _) => left.id == right.id
     | none, none => true
     | _, _ => false
@@ -3295,6 +3320,7 @@ partial def coerceTo (v : Value) (X : Value) : M Value := do
       | some none =>
           -- An identity view through an unstructured carrier keeps the source's chosen data.
           let target := match X, Y with
+            | .object _ _ none none none, _ => Y
             | .object _ _ _ none _, .object _ _ _ (some _) _ => Y
             | _, _ => X
           return .element h target
@@ -3633,35 +3659,52 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
   unless arguments.size ≤ explicit.size do
     throwStratum .invalid m!"a binder has too few declared parameters"
   let supplied := explicit.extract (explicit.size - arguments.size) explicit.size
+  let mut knownArguments : Array Value := #[]
   for (parameter, argumentSyntax) in supplied.zip arguments do
     let expected ← instantiateMVars (← inferType parameter)
-    let value ← if let some (_, target) := homEnds? (← whnfR expected) then
+    let (value, declaredContext) ← if let some (_, target) := homEnds? (← whnfR expected) then
         let target ← instantiateMVars target
         if target.hasMVar then
-          match sharedArgument? with
+          let value ← match sharedArgument? with
           | some value => pure value
           | none => eval scope argumentSyntax
+          pure (value, #[])
         else do
-          let X ← recognize state target category
-          toElement (← eval scope argumentSyntax none (some X)) X
-      else match sharedArgument? with
-        | some value => pure value
-        | none => eval scope argumentSyntax
+          let X ← recognize state target category knownArguments
+          let value ← toElement (← eval scope argumentSyntax none (some X)) X
+          pure (value, #[X])
+      else do
+        let value ← match sharedArgument? with
+          | some value => pure value
+          | none => eval scope argumentSyntax
+        pure (value, #[])
     let term ← typedParameter expected value
     unless ← isDefEq parameter term do
       throwStratum .invalid m!"a binder argument is outside its declared parameter"
+    let retained := if !declaredContext.isEmpty then declaredContext else match value with
+      | .element _ X@(.object _ _ origin _ _) =>
+          #[X] ++ (origin.map (·.2)).getD #[]
+      | v@(.object ..) => #[v]
+      | .morphism _ _ _ _ (some (X, Y)) => #[X, Y]
+      | _ => #[]
+    knownArguments := knownArguments ++ retained
   synthesizeInstances params infos
   let domain ← mkConstWithFreshMVarLevels row.domain
   let domain ← instantiateMVars (mkAppN domain params)
+  -- Evaluate the declared domain function, not candidate object aliases. Its returned
+  -- object declaration or actual argument keeps its identity and supplied provenance.
+  let domain ← match ← unfoldDefinition? domain with
+    | some unfolded => instantiateMVars unfolded
+    | none => pure domain
   -- The domain may ignore a still unknown codomain parameter. Reduce that dependency only;
   -- recognition retains declaration identity of the domain's registered object.
   let domain ← if domain.hasMVar then instantiateMVars (← whnfR domain) else pure domain
   if domain.hasMVar then
     throwStratum .invalid m!"the binder arguments do not determine its domain"
-  let D ← recognize state domain category
+  let D ← recognize state domain category knownArguments
   let knownTarget ← instantiateMVars target
   let bodyAmbient ← if knownTarget.hasMVar then pure ambient?
-    else pure (some (← recognize state knownTarget category))
+    else pure (some (← recognize state knownTarget category knownArguments))
   let value ← atStage scope boundName D body bodyAmbient
   let value ← match value, bodyAmbient with
     | .nat _, some Y => toElement value Y
