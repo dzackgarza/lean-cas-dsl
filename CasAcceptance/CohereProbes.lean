@@ -13,14 +13,15 @@ public meta import CasCatalogue.ResolveSyntax
 /-!
 # Acceptance for `cc-cohere` (CC-COHERE, CC-RESOLVE's ring diamond)
 
-With the comparison `cmp.rings.carrier` registered (the identity natural isomorphism between the
-multiplicative and additive routes from rings to sets):
+The registered ring-to-set routes form the directed comparison chain
+additive commutative monoid → multiplicative → additive group. Its cells are
+`cell.rings.additive_monoid_carrier` and `cmp.rings.carrier`.
 
-* `cardinality` on rings resolves, and its provenance names the comparison;
-* the call runs on the comparison's source route (the multiplicative one), whatever the order of
-  rows; reversing the comparison's direction designates the other route: the direction, a
-  registered datum, designates the route, not an order; two registered comparisons between the
-  same two routes are an ambiguity;
+* `cardinality` on rings resolves, and its provenance retains both comparisons;
+* the call runs on the chain's source route, whatever the order of rows; reversing both cells
+  reverses that source, whereas reversing only the second leaves two sources and is ambiguous;
+* removing the ring-carrier comparison leaves the original multiplicative and additive routes
+  unresolved; two registered comparisons between the same routes are also an ambiguity;
 * the ports stay distinct where they carry different structure: a method owned at magmas is still
   ambiguous on rings, since the comparison covers only the route to sets;
 * registration rejects a comparison whose evidence is about other functors or whose sides are not
@@ -47,38 +48,83 @@ run_cmd liftTermElabM do
     | throwError "cat.magmas is not registered"
   let some carrier := state.cells.find? (·.id.raw == "cmp.rings.carrier")
     | throwError "cmp.rings.carrier is not registered"
-  -- The comparison identifies the two routes at sets, and the provenance says so.
+  let some monoidCarrier := state.cells.find? (·.id.raw == "cell.rings.additive_monoid_carrier")
+    | throwError "cell.rings.additive_monoid_carrier is not registered"
+  let multiplicative : Array EdgeRef := #[.functor FunctorId.ringsMultiplicative,
+    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
+    .classifierForget ClassifierId.setsBinaryOperation]
+  let additive : Array EdgeRef := #[.functor FunctorId.ringsAdditive,
+    .functor FunctorId.additiveGroupsToGroups, .functor FunctorId.groupsMonoid,
+    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
+    .classifierForget ClassifierId.setsBinaryOperation]
+  let additiveMonoid : Array EdgeRef := #[.functor FunctorId.ringsAdditiveCommutative,
+    .functor FunctorId.additiveCommutativeMonoidsAdditiveMonoid,
+    .functor FunctorId.additiveMonoidsUnderlying]
+  unless carrier.left == multiplicative && carrier.right == additive &&
+      monoidCarrier.left == additiveMonoid && monoidCarrier.right == multiplicative do
+    throwError "the registered comparisons do not form the stated three-route chain"
+  -- Both independently declared cells are needed to identify the full current diagram.
   match state.resolveMethod rings.expression "cardinality" with
   | .ok r =>
-      unless r.comparisons.map (·.raw) == #["cmp.rings.carrier"] do
-        throwError "the resolution does not carry its comparison: {state.renderResolution r}"
+      unless r.comparisons.size == 2 && r.comparisons.contains carrier.id &&
+          r.comparisons.contains monoidCarrier.id do
+        throwError "the resolution does not carry both comparisons: {state.renderResolution r}"
   | .error e => throwError e.render state
+  let withoutCarrier := { state with cells := state.cells.filter (·.id != carrier.id) }
+  match withoutCarrier.resolveMethod rings.expression "cardinality" with
+  | .error (.ambiguous _ candidates) =>
+      unless candidates.size == 3 && candidates.any (·.route.refs == multiplicative) &&
+          candidates.any (·.route.refs == additive) &&
+          candidates.any (·.route.refs == additiveMonoid) do
+        throwError "removing the comparison lost one of the three unresolved routes"
+  | _ => throwError "the ring diamond resolved without its registered comparison"
   -- A single route needs no comparison: the formed-module route carries none.
   let some bilin := state.categories.find? (·.id.raw == "cat.bilin_module")
     | throwError "cat.bilin_module is not registered"
   match state.resolveMethod bilin.expression "cardinality" with
   | .ok r => unless r.comparisons.isEmpty do throwError "a unique route carries a comparison"
   | .error e => throwError e.render state
-  -- The call runs on the comparison's source route, whatever the order of rows.
-  let runsOn (s : RegistryState) : MetaM (Option FunctorId) :=
+  -- The complete route is fixed by the directed chain, independently of storage order.
+  let runsOn (s : RegistryState) : MetaM (Array EdgeRef) :=
     match s.resolveMethod rings.expression "cardinality" with
-    | .ok r => pure r.route.functorIds[0]?
+    | .ok r => pure r.route.refs
     | .error e => throwError e.render s
-  unless (← runsOn state) == some FunctorId.ringsMultiplicative do
-    throwError "the call does not run on the comparison's source route"
-  let reordered := { state with cells := state.cells.reverse, methods := state.methods.reverse }
-  unless (← runsOn reordered) == some FunctorId.ringsMultiplicative do
+  unless (← runsOn state) == additiveMonoid do
+    throwError "the call does not run on the comparison chain's source route"
+  let reordered := { state with
+    cells := state.cells.reverse
+    methods := state.methods.reverse
+    functors := state.functors.reverse
+    classifiers := state.classifiers.reverse }
+  unless (← runsOn reordered) == additiveMonoid do
     throwError "the executed route depends on the order of rows"
-  -- Reversing the comparison's direction designates the other route.
-  let reversed := { state with cells := state.cells.map fun c =>
+  match reordered.resolveMethod rings.expression "cardinality" with
+  | .ok r =>
+      unless r.comparisons.size == 2 && r.comparisons.contains carrier.id &&
+          r.comparisons.contains monoidCarrier.id do
+        throwError "reordering the registry changed the comparison provenance"
+  | .error e => throwError e.render reordered
+  -- Reversing the whole chain designates the original additive-group route.
+  let reversed := { state with cells := state.cells.map fun (c : CellEntry) =>
+      if c.id == carrier.id || c.id == monoidCarrier.id then
+        { c with left := c.right, right := c.left } else c }
+  unless (← runsOn reversed) == additive do
+    throwError "the comparison chain's direction does not designate the route"
+  let twoSources := { state with cells := state.cells.map fun (c : CellEntry) =>
       if c.id == carrier.id then { c with left := c.right, right := c.left } else c }
-  unless (← runsOn reversed) == some FunctorId.ringsAdditive do
-    throwError "the comparison's direction does not designate the route"
+  match twoSources.resolveMethod rings.expression "cardinality" with
+  | .error (.noSourceRoute _ sources) =>
+      unless sources.size == 2 && sources.any (·.refs == additive) &&
+          sources.any (·.refs == additiveMonoid) do
+        throwError "reversing one comparison did not retain both source routes"
+  | _ => throwError "two source routes were resolved by an implicit choice"
   -- Two comparisons between the same routes are an ambiguity.
   let twice := { state with cells := state.cells.push { carrier with id := ⟨"cmp.probe.twice"⟩ } }
   match twice.resolveMethod rings.expression "cardinality" with
   | .error (.ambiguousComparison _ _ _ cells) =>
-      unless cells.size == 2 do throwError "expected both comparisons, got {cells.size}"
+      unless cells.size == 2 && cells.contains carrier.id &&
+          cells.contains ⟨"cmp.probe.twice"⟩ do
+        throwError "expected exactly the two competing direct comparisons"
   | _ => throwError "two comparisons between the same routes were not an ambiguity"
   -- The ports stay distinct at magmas: a method owned there is ambiguous on rings.
   let magmaMethod : MethodEntry :=
@@ -95,13 +141,6 @@ run_cmd liftTermElabM do
       validateRegistryEntryDeclaration entry
       pure false
     catch _ => pure true
-  let multiplicative : Array EdgeRef := #[.functor FunctorId.ringsMultiplicative,
-    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
-    .classifierForget ClassifierId.setsBinaryOperation]
-  let additive : Array EdgeRef := #[.functor FunctorId.ringsAdditive,
-    .functor FunctorId.additiveGroupsToGroups, .functor FunctorId.groupsMonoid,
-    .functor FunctorId.monoidsSemigroup, .classifierForget ClassifierId.magmasAssociative,
-    .classifierForget ClassifierId.setsBinaryOperation]
   let comparison (id : String) (left right : Array EdgeRef) (evidence : Name) : RegistryEntry :=
     .cell
       { id := ⟨id⟩
