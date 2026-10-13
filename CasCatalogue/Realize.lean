@@ -1933,8 +1933,21 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       unless entry.category == categoryId && entry.admission.isSome do
         throwError "the admitted point changed its published owner or category"
       let datum ← realize h trace "the original admitted computational point" original
-      unless datum.form.category == originalCategory do
-        throwError "the admitted point changed its original computational category"
+      let some originalSchema := state.categories.find? (·.id == originalCategory)
+        | throwError "the admitted point's original category is not registered"
+      let family ← instantiateFresh originalSchema.declaration
+      let objects ← mkAppM ``CategoryTheory.Bundled.α #[family]
+      let dictionary ← mkAppM ``CategoryTheory.Cat.str #[family]
+      let categoryStruct ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
+        #[some objects, some dictionary]
+      let quiver ← mkAppOptM ``CategoryTheory.CategoryStruct.toQuiver
+        #[some objects, some categoryStruct]
+      let pointType ← mkAppOptM ``Quiver.Hom
+        #[some objects, some quiver, some originalSource, some originalTarget]
+      -- The element descriptor names its selected structured object. Its owner
+      -- category need not be the category of the original point's actual arrow.
+      unless ← withTransparency .all <| isDefEq (← inferType datum.value) pointType do
+        throwError "the admitted point changed its original computational arrow type"
       let (parameters, parameterWires) ← realizedParameters h trace params
       let source ← realize h trace "the admitted point original domain" originalSource
       let target ← realize h trace "the admitted point original codomain" originalTarget

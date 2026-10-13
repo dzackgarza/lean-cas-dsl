@@ -204,3 +204,21 @@ run_cmd liftTermElabM do
   let (outcome, _, question) ← runAsking harness {} parsed
   unless outcome.kind == "gap" && question.isSome do
     throwError "a missing computation lost the admitted point's fixed question: {outcome.kind}"
+  let prepared ← interpret {} parsed
+  for changeCategory in #[true, false] do
+    let mut changed := false
+    let altered := prepared.trace.fold (fun records term node =>
+      let replacement := match node with
+        | .admittedPoint id category parameters original originalCategory source target =>
+            Node.admittedPoint id category parameters original
+              (if changeCategory then CategoryId.groups else originalCategory)
+              source (if changeCategory then target else source)
+        | _ => node
+      records.insert term replacement) ({} : Std.HashMap Lean.Expr Node)
+    for (_, node) in prepared.trace.toArray do
+      if node matches .admittedPoint .. then changed := true
+    unless changed do throwError "the admitted-point probe did not reach an admission"
+    let rejected ← tryCatchRuntimeEx
+      (evaluate harness { prepared with trace := altered }) executionFailure
+    unless rejected matches .internal _ do
+      throwError "execution accepted an altered admitted-point category or endpoint"
