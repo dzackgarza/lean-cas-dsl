@@ -389,13 +389,7 @@ The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
 
-Required Lean compilations and long-running acceptance-harness executions run
-once in the background with a durable output log, source revision and identifiable
-process. While one runs, continue independent construction and source repairs.
-If no independent work remains, give the live process and log to the fleet steward
-for the wait. Do not relaunch a live run or kill it for elapsed time alone.
-Diagnose a vanished process from its actual process state and output. A successful
-compile does not discharge the unchanged positive assertion and its same-candidate
+A successful compile does not discharge the unchanged positive assertion and its same-candidate
 protected negatives.
 
 An instruction describing how the finished system protects accepted mathematics
