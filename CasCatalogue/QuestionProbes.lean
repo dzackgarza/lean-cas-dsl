@@ -239,3 +239,32 @@ run_cmd withoutModifyingEnv <| liftTermElabM do
       "assert ∑_{a ∈ ((map r to ℂ[x]) in ℂ[x] ∖ 0).roots()} a = 0"
     | throwError "binder snapshot request did not parse"
   discard <| interpret scope parsed
+
+/- Complete registered readings stay inside the ordinary preparation budget.
+These observations compare no mathematical answer with an implementation. -/
+run_cmd withoutModifyingEnv <| liftTermElabM do
+  let bind (scope : Language.Scope) (text : String) : TermElabM Language.Scope := do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt text
+      | throwError "differential binding did not parse"
+    let some (name, value) ← letBinding? parsed
+      | throwError "differential operand was not bound"
+    return scope.insert name value
+  let scope ← bind {} "let f := x ↦ 3x² + x + 1 in ℚ[x]"
+  let scope ← bind scope "let F := x³ + (1/2)x² + x in ℚ[x]"
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt "assert d(F) = f dx"
+    | throwError "differential request did not parse"
+  discard <| interpret scope parsed
+
+run_cmd withoutModifyingEnv <| liftTermElabM do
+  let bind (scope : Language.Scope) (text : String) : TermElabM Language.Scope := do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt text
+      | throwError "span binding did not parse"
+    let some (name, value) ← letBinding? parsed
+      | throwError "span operand was not bound"
+    return scope.insert name value
+  let scope ← bind {} "let u₁ := (1, 0, 1) in ℚ³"
+  let scope ← bind scope "let u₂ := (0, 1, 1) in ℚ³"
+  let scope ← bind scope "let W := span({u₁, u₂})"
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt "assert W.dim() = 2"
+    | throwError "span request did not parse"
+  discard <| interpret scope parsed

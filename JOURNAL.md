@@ -54,6 +54,16 @@ still execute their full typed actions. The speculative closed-source binding
 guard was removed before validation. All three companion-matrix requests read
 successfully at their own ordinary per-request budget.
 
+The complete `SelectedCarrierProbes`, `ParameterStructureProbes` and
+`QuestionProbes` build now finishes with exit 0 (3,729 jobs), including the
+unchanged carrier negatives, admitted-point negatives and ordinary-budget
+binder, differential and span requests. The durable log is
+`closed-source-validation.log`; `closed-source-process.json` records the
+construction source hashes and process identity. This establishes the request
+mechanism checks, not mathematical acceptance or the full B0 requirement.
+Unconsumed temporary `B0_*` evaluator progress prints were removed; evaluation
+and its outcomes are unchanged.
+
 The existing owner ruling of 2026-10-10 governs author role separation as
 conduct even when broader credentials exist. Conflicting author-capability
 wording in AGENTS, architecture and the plan now states that ruling.

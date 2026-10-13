@@ -141,6 +141,16 @@ run_cmd liftTermElabM do
       | throwError "taking a carrier erased its selected form"
     unless category.id == forms.id && (← isDefEq actual selected) do
       throwError "taking a carrier replaced its selected form"
+  let observedLeft := Value.object zeroForm forms none none
+    (some (#[left], left, #[], #[], #[]))
+  let observedCarrier ← (carrierObject observedLeft).run {}
+  let .object shared .. := leftCarrier | unreachable!
+  for candidates in #[#[leftCarrier, observedCarrier], #[observedCarrier, leftCarrier]] do
+    let retained ← (recognize state shared sets candidates).run {}
+    let .object _ _ _ (some selected) _ := retained
+      | throwError "equivalent complete sources lost their selected form"
+    unless ← isDefEq (← (semanticObject selected).run {}) zeroForm do
+      throwError "equivalent complete source views chose another form"
   if (← (coercionMap leftCarrier rightCarrier).run {}).isSome ||
       (← (coercionMap rightCarrier leftCarrier).run {}).isSome then
     throwError "a carrier-only coercion identified distinct chosen forms"

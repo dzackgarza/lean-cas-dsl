@@ -2095,8 +2095,26 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
   let mut objectCategories : Array CategoryId := #[]
   for entry in objects do
     unless objectCategories.contains entry.category do
-      objectCategories := objectCategories.push entry.category
       if let some category := state.categories.find? (·.id == entry.category) then
+        -- Reject a partial constructor whose declared type cannot be an object
+        -- before evaluating its operands. No argument value participates here.
+        let applicable ← parameterTrial do
+          let declaration ← mkConstWithFreshMVarLevels entry.declaration
+          let (parameters, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+          let mut supplied := #[]
+          let mut explicit := 0
+          for (parameter, info) in parameters.zip infos do
+            if info.isExplicit then
+              if explicit == args.size then break
+              explicit := explicit + 1
+            supplied := supplied.push parameter
+          unless explicit == args.size do return false
+          let partialApplication := mkAppN declaration supplied
+          let family ← instantiateFresh category.declaration
+          let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+          isDefEq (← inferType partialApplication) expected
+        unless applicable do continue
+        objectCategories := objectCategories.push entry.category
         actions := actions.push (do
           object state name (← args.mapM (eval scope · none)) (some category))
   for entry in morphisms do
@@ -2123,6 +2141,9 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
         let apex ← apexOf row.colimit presentation
         Trace.alias (← read).trace presentation apex
         return .object apex category none none none)
+  -- One declared signature has no competing reading. Execute its full typed
+  -- action once; speculative execution is needed only to select among rows.
+  if let #[action] := actions then return ← action
   let mut compatible : Array (M Value) := #[]
   for action in actions do
     if ← parameterCompatible (do discard action; pure true) then
@@ -2327,6 +2348,15 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
             unless left.size == right.size do return false
             (left.zip right).allM fun (a, b) => withTransparency .all <| isDefEq a b) do
           matchedValues := matchedValues.push candidate
+    if category.id != CategoryId.sets && matchedValues.size > 1 then
+      -- The endpoint fixes a complete structured object, not its carrier.
+      -- Retain every checked presentation of that same full object.
+      let evidence ← coalesceSelectedParameterViews (← inferType x) x matchedValues
+      let (_, _, _, alternatives, _) := evidence
+      unless alternatives.isEmpty do
+        Trace.record (← read).trace x
+          (.parameterEquivalence (← inferType x) x alternatives)
+      return .object x category none none (some evidence)
     if category.id == CategoryId.sets && matchedValues.size > 1 then
       -- A declared operation fixes complete structure parameters before its
       -- endpoints are read. Compare those full values, never just their carriers.
@@ -2377,6 +2407,28 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         if selectedCategory.id == CategoryId.sets then return false
         matchedValues.allM fun other => identityCarrierView candidate other
       if let #[candidate] := maximal then return candidate
+      if let some representative := maximal[0]? then
+        let .object _ _ _ (some (.object actual selectedCategory ..)) _ := representative
+          | unreachable!
+        let mut views := #[]
+        for candidate in maximal do
+          let .object _ _ _ (some selected@(.object handle candidateCategory ..)) _ := candidate
+            | unreachable!
+          unless candidateCategory.id == selectedCategory.id &&
+              (← parameterTrial (withTransparency .all <|
+                isDefEq (← inferType handle) (← inferType actual) <&&>
+                  isDefEq handle actual)) do
+            throwSemanticAmbiguity m!"distinct complete sources give this declared endpoint"
+          views := views.push selected
+        let evidence ← coalesceSelectedParameterViews (← inferType actual) actual views
+        let (_, _, _, alternatives, _) := evidence
+        unless alternatives.isEmpty do
+          Trace.record (← read).trace actual
+            (.parameterEquivalence (← inferType actual) actual alternatives)
+        let carrier ← carrierObject (.object actual selectedCategory none none (some evidence))
+        unless ← withTransparency .all <| isDefEq (← semanticObject carrier) x do
+          throwStratum .invalid m!"the common full source has a different endpoint"
+        return carrier
     match matchedValues.toList with
     | [candidate] => return candidate
     | [] => pure ()

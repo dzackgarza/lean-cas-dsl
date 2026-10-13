@@ -3477,17 +3477,11 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
 
 /-- Execute exactly the previously interpreted request. -/
 def evaluate (h : Harness) (question : TypedQuestion) : TermElabM ExecutionOutcome := do
-  IO.eprintln "B0_EVALUATE_ENTER"
   let trace ← IO.mkRef question.trace
   unless h.computationOnly do
-    IO.eprintln "B0_DISCHARGE_ENTER"
     let attempt ← discharge question.claim (some trace)
-    IO.eprintln "B0_DISCHARGE_RETURN"
     if let some outcome := attempt then return outcome
-  IO.eprintln "B0_REALIZE_ENTER"
-  let outcome ← realizeClaim h trace question.claim
-  IO.eprintln "B0_REALIZE_RETURN"
-  return outcome
+  realizeClaim h trace question.claim
 
 /-- Runtime failures cannot assert mathematical invalidity or semantic ambiguity. Those
 judgements belong to interpretation; an unexpected semantic exception during evaluation is
