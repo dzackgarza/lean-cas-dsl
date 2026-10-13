@@ -1,5 +1,32 @@
 # Journal
 
+## 2026-10-13 — Complete build, source publication and controller snapshots
+
+At clean source `9370ee5be07bd0d45fe593688008e353e5c9367c`, the complete
+`just build` finished with exit 0 and 7,551 jobs. Kernel purity and its protected
+negatives passed with the admitted-point observation isolated. The ordinary
+installed push gate passed and normal `git push` published that source to main.
+The shared scanner work unit ai-review-ci#468 is closed after that downstream
+publication. The final typed-term identity sample still matches its saved
+pre-cache bytes exactly.
+
+The full computation-only harness runs once at that recorded source and
+executable hash; `harness-9370ee5-process.json` owns its process, log and exact
+latest-main inputs. Controller source work does not alter those kernel inputs.
+
+Hosted controller check `38414011963` failed while copying a live Git object
+database: object paths vanished during fixture `copytree`, and a production
+local-filesystem clone also failed. Repository snapshots now use Git's regular
+transport (`--no-local`); fixture copies clone committed repositories and their
+dependencies rather than copying `.git` directories. Git's
+[clone documentation](https://git-scm.com/docs/git-clone) distinguishes this
+transport from local object-directory copies. The real full transition fixture
+passes 79/79; an actual garbage collection of its source repository completed
+while it ran. The durable outputs are `controller-ci-9370ee5.log`,
+`controller-transport-fixture.log` and `controller-transport-gc.log` under
+`.tmp/b0-completion-20261013/`. This is snapshot transport evidence, not an
+independent B0 acceptance grant.
+
 ## 2026-10-13 — Isolate registered-evidence observation artifacts
 
 The complete build at `62d3a69405ef89dfb2fef283328b8e44176e14ee` finished

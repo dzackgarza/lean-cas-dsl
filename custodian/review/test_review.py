@@ -81,13 +81,26 @@ def move_upstream(package, path, line):
     commit(S / "head")
 
 
+def copy_repository(source, target):
+    """Copy committed fixture inputs through Git, including dependency repositories."""
+    subprocess.run(["git", "clone", "--quiet", "--no-local", str(source), str(target)],
+                   check=True, capture_output=True, text=True)
+    packages = source / ".lake" / "packages"
+    for package in packages.iterdir():
+        destination = target / ".lake" / "packages" / package.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "clone", "--quiet", "--no-local",
+                        str(package), str(destination)],
+                       check=True, capture_output=True, text=True)
+
+
 def fresh(phase="steady"):
     for n in ("base", "head", "out", "rej"):
         shutil.rmtree(S / n, ignore_errors=True)
-    shutil.copytree(SRC, S / "base", symlinks=True)
+    copy_repository(SRC, S / "base")
     (S / "base" / "custodian" / "phase.json").write_text(json.dumps({"phase": phase}) + "\n")
     commit(S / "base")
-    shutil.copytree(S / "base", S / "head", symlinks=True)
+    copy_repository(S / "base", S / "head")
     (S / "rej").mkdir()
 
 
@@ -212,7 +225,7 @@ with open(S / "head" / KERNEL, "a") as f:
 commit(S / "head")
 code = run(stub("approve"))
 shutil.rmtree(S / "base")
-shutil.copytree(S / "head", S / "base", symlinks=True)
+copy_repository(S / "head", S / "base")
 for f in (S / "out" / "verdicts").iterdir():
     (S / "base" / "custodian" / "verdicts").mkdir(exist_ok=True)
     shutil.copy(f, S / "base" / "custodian" / "verdicts" / f.name)
@@ -357,7 +370,7 @@ with open(S / "base" / KERNEL, "a") as f:
     f.write("\n-- main has moved past the seal\n")
 commit(S / "base")
 shutil.rmtree(S / "head")
-shutil.copytree(S / "base", S / "head", symlinks=True)
+copy_repository(S / "base", S / "head")
 calls.clear()
 expect("construction: a head equal to main has nothing to review", run(stub("reject")), "PASS")
 results.append(not calls)
@@ -391,7 +404,7 @@ fresh("construction")
 (S / "base" / "custodian" / "verdicts" / "000001.json").write_text("obsolete chain")
 commit(S / "base")
 shutil.rmtree(S / "head")
-shutil.copytree(S / "base", S / "head", symlinks=True)
+copy_repository(S / "base", S / "head")
 with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- authorized replacement\n")
 commit(S / "head")
@@ -439,7 +452,7 @@ fresh("construction")
 (S / "base" / "specs" / "architecture.md").unlink()
 commit(S / "base")
 shutil.rmtree(S / "head")
-shutil.copytree(S / "base", S / "head", symlinks=True)
+copy_repository(S / "base", S / "head")
 with open(S / "head" / KERNEL, "a") as f:
     f.write("\n-- review requiring missing mandate\n")
 commit(S / "head")

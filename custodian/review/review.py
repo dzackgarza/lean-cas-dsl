@@ -292,7 +292,7 @@ def snapshot(V, source: Path, target: Path) -> dict:
     revision = V.git(source, "rev-parse", "HEAD").strip()
     if V.git(source, "status", "--porcelain", "--untracked-files=no").strip():
         raise ValueError(f"uncommitted review input: {source}")
-    subprocess.run(["git", "clone", "--quiet", "--no-hardlinks", "--no-checkout",
+    subprocess.run(["git", "clone", "--quiet", "--no-local", "--no-checkout",
                     str(source), str(target)], check=True, capture_output=True)
     subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(target),
                     "checkout", "--quiet", "--detach", revision], check=True, capture_output=True)
@@ -312,7 +312,7 @@ def snapshot(V, source: Path, target: Path) -> dict:
             raise ValueError(f"review dependency is not manifest revision: {package}")
         dest = target / V.PACKAGES / name
         dest.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["git", "clone", "--quiet", "--no-hardlinks", "--no-checkout",
+        subprocess.run(["git", "clone", "--quiet", "--no-local", "--no-checkout",
                         str(package), str(dest)], check=True, capture_output=True)
         subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(dest),
                         "checkout", "--quiet", "--detach", rev], check=True, capture_output=True)
