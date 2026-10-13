@@ -203,7 +203,7 @@ run_cmd liftTermElabM do
     | throwError "admitted-point request did not parse"
   let (outcome, _, question) ← runAsking harness {} parsed
   unless outcome.kind == "gap" && question.isSome do
-    throwError "a missing computation lost the admitted point's fixed question: {outcome.kind}"
+    throwError "a missing computation lost the admitted point's fixed question: {outcome.kind}: {outcome.detail}"
   let prepared ← interpret {} parsed
   for changeCategory in #[true, false] do
     let mut changed := false
@@ -222,3 +222,17 @@ run_cmd liftTermElabM do
       (evaluate harness { prepared with trace := altered }) executionFailure
     unless rejected matches .internal _ do
       throwError "execution accepted an altered admitted-point category or endpoint"
+
+/- The whole prepared binder request, including its operation snapshot, must be
+read within the ordinary command budget. No mathematical answer is evaluated. -/
+run_cmd liftTermElabM do
+  let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt
+      "let r(x) := x³ - 2x + 1 in ℚ[x]"
+    | throwError "binder snapshot fixture did not parse"
+  let some (name, value) ← letBinding? binding
+    | throwError "binder snapshot fixture was not bound"
+  let scope : Language.Scope := ({} : Language.Scope).insert name value
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt
+      "assert ∑_{a ∈ ((map r to ℂ[x]) in ℂ[x] ∖ 0).roots()} a = 0"
+    | throwError "binder snapshot request did not parse"
+  discard <| interpret scope parsed
