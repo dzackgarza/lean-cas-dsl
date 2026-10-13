@@ -1,5 +1,5 @@
 {"version": "1.2.0",
- "packagesDir": ".lake/packages",
+ "packagesDir": "../../.local/share/lean/v4.33.0/packages",
  "packages":
  [{"url": "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts",
    "type": "git",
@@ -21,7 +21,7 @@
    "inputRev": "main",
    "inherited": false,
    "configFile": "lakefile.toml"},
-  {"url": "https://github.com/leanprover-community/mathlib4.git",
+  {"url": "https://github.com/leanprover-community/mathlib4",
    "type": "git",
    "subDir": null,
    "scope": "",

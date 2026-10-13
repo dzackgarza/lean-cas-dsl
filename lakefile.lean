@@ -9,13 +9,14 @@ core only through the `Worker` library of «nbdsl-worker».
 -/
 package «cas-dsl» where
   version := v!"0.1.0"
+  packagesDir := "../../.local/share/lean/v4.33.0/packages"
 
 require «nbdsl-worker» from git
   "https://github.com/dzackgarza/lean-jupyter-kernel"
     @ "main" / "worker"
 
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.33.0"
+  "https://github.com/leanprover-community/mathlib4" @ "v4.33.0"
 
 /- All mathematics, including the CAS's semantic registry (`LeanCategories.Catalogue`). This
 package owns the CAS machinery over it (resolution and propagation, the language, the permanent
