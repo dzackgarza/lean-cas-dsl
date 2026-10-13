@@ -49,6 +49,12 @@ class ControllerTest(unittest.TestCase):
             decision.write_text(json.dumps({'request_id': request['request_id'], 'outcome': 'no_blocking_finding', 'findings': []}))
             run('ssh-keygen', '-Y', 'sign', '-f', str(key), '-n', 'lean-cas-custodian', str(decision))
             self.assertEqual(controller.advance(request, decision, Path(str(decision)+'.sig')), {'mathematics':base.commit,'contract':base.commit,'acceptance': candidate.commit})
+            # A signed but incomplete decision is not an approval.
+            decision.write_text(json.dumps({'request_id': request['request_id'], 'outcome': 'no_blocking_finding'}))
+            Path(str(decision)+'.sig').unlink()
+            run('ssh-keygen', '-Y', 'sign', '-f', str(key), '-n', 'lean-cas-custodian', str(decision))
+            with self.assertRaises(KeyError):
+                controller.advance(request, decision, Path(str(decision)+'.sig'))
             with self.assertRaises(ValueError):controller.request('b0-authority',{'acceptance':base},{'acceptance':candidate})
             request['request_id'] = 'different snapshot'
             with self.assertRaises(ValueError):

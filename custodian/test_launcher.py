@@ -34,6 +34,9 @@ class LauncherTest(unittest.TestCase):
                 with self.assertRaises(PermissionError): server.call(operation,{})
             for path in ('custodian/root.pub','custodian/controller.py','.github/workflows/trusted.yml','specs/owner/convergence-process.md','INTENT.md','scripts/check_acceptance.py'):
                 with self.assertRaises(PermissionError): server.call('write_source',{'path':path,'content':'forged authority'})
+    def test_tool_call_requires_explicit_arguments(self):
+        with self.assertRaises(KeyError):
+            self.server('kernel').handle({'method':'tools/call','params':{'name':'list_source'}})
     def test_validation_refuses_cross_role_candidate_before_execution(self):
         server=self.server('kernel')
         server.validation={'runtime':'sha256:'+'0'*64,'arguments':[]}
