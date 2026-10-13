@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-10-13 — Preserve actual structured result parameters
+
+The matrix coefficient reader regression failed because result recognition
+searched outer operands without their retained constructor parameters. Expanding
+those actual parameters exposed a second defect: a complete structure and its
+checked forward view were counted as unrelated selections. Recognition now
+uses the existing full-source/carrier-route check, plus the operation's complete
+declared parameter slots, including implicit arguments. It coalesces views only
+at a fixed complete typed parameter and retains their checked source alternatives.
+
+At upstream main `fd2cd45f6d81645f0b46632cc2fddb604299eb74`, matrix literal
+construction and determinant reading pass. `ParameterStructureProbes.lean`
+passes in full; `SelectedCarrierProbes.lean` passes with the unchanged map/vector
+and distinct-form shared-carrier negatives. Added fixed-parameter checks retain
+the exact chosen form in either candidate order, and reject two distinct full
+parameters. Repeating the same full parameter in two slots reproduced an
+ambiguity before the correction and passes afterward. Durable red/green outputs
+are `repeated-parameter-red.log`, `repeated-parameter-green.log` and
+`full-parameter-green.log` under `.tmp/b0-completion-20261013/`.
+
+The final source also refuses conflicting selected categories before choosing a
+parameter category. The complete build checks that source checkpoint, including
+the large-question serializer and its ordinary-budget binder probe. No permanent
+mathematical assertion or admitted interpretation was rewritten.
+
 ## 2026-10-13 — Shared scanner correction integrated
 
 Independent reviewer and native downstream scanner regressions verified

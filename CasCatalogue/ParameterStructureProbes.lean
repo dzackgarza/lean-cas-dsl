@@ -189,6 +189,26 @@ run_cmd liftTermElabM do
     | throwError "the registered family call did not parse"
   discard <| (claim scope statement).run {}
 
+run_cmd liftTermElabM do
+  let state ← registryState
+  let .ok matrixTerm := Parser.runParserCategory (← getEnv) `cas_term "Mat₂(ℚ)"
+    | throwError "the constructor fixture did not parse"
+  let matrix ← (eval {} matrixTerm).run {}
+  let .object handle category (some (_, parameters)) _ _ := matrix
+    | throwError "the constructor fixture lost its actual parameters"
+  let some coefficient := parameters.back?
+    | throwError "the constructor fixture has no coefficient parameter"
+  let .object carrier sets .. ← (carrierObject coefficient).run {}
+    | throwError "the coefficient parameter has no forward carrier"
+  let anonymous := Value.object handle category none none none
+  let rejected ← try
+    discard <| (recognize state carrier sets #[anonymous]).run {}
+    pure false
+  catch error =>
+    if Exception.stratum? error == some .invalid then pure true else throw error
+  unless rejected do
+    throwError "a result coefficient was recovered without its supplied constructor parameter"
+
 /- A result carrier may be a supplied constructor parameter. Its declared
 structure is retained from that constructor, never reconstructed from a type. -/
 run_cmd liftTermElabM do

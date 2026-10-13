@@ -157,6 +157,24 @@ run_cmd liftTermElabM do
       if Exception.isSemanticAmbiguity error then pure true else throw error
     unless ambiguous do
       throwError "the common carrier chose a bilinear form"
+    for fixed in #[zeroForm, multiplicationForm] do
+      let retained ← (recognize state bare sets candidates #[fixed]).run {}
+      let .object _ _ _ (some selected) _ := retained
+        | throwError "a fixed full parameter lost its selection at the endpoint"
+      unless ← isDefEq (← (semanticObject selected).run {}) fixed do
+        throwError "the declared full parameter selected a different form"
+      let repeated ← (recognize state bare sets candidates #[fixed, fixed]).run {}
+      let .object _ _ _ (some repeatedSelection) _ := repeated
+        | throwError "repeated declared parameters lost their full selection"
+      unless ← isDefEq (← (semanticObject repeatedSelection).run {}) fixed do
+        throwError "repeated full parameter slots changed the chosen structure"
+    let stillAmbiguous ← try
+      discard <| (recognize state bare sets candidates #[zeroForm, multiplicationForm]).run {}
+      pure false
+    catch error =>
+      if Exception.isSemanticAmbiguity error then pure true else throw error
+    unless stillAmbiguous do
+      throwError "two distinct declared full parameters selected a common carrier"
 
 /- A dependent result retains the ambient prescribed by its input's registered inclusion.
 The raw result carrier alone is not used to recover its named element presentation. -/

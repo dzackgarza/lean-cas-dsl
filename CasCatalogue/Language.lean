@@ -2294,11 +2294,19 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
 /-- Recognize a retained complete object or its actual registered declaration application.
 A carrier expression alone does not select a named presentation. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry)
-    (known : Array Value := #[]) :
+    (known : Array Value := #[]) (fixedParameters : Array Expr := #[]) :
     M Value := do
   if !x.hasMVar then
     let mut matchedValues : Array Value := #[]
-    for candidate in known do
+    let mut supplied := known
+    let mut position := 0
+    while position < supplied.size do
+      let candidate := supplied[position]!
+      position := position + 1
+      -- A supplied constructor retains its actual declared parameters. They
+      -- are witnesses for result endpoints, not structures guessed from carriers.
+      if let .object _ _ (some (_, parameters)) _ _ := candidate then
+        supplied := supplied ++ parameters
       let candidate ← try
         match candidate with
         | .object .. => if category.id == CategoryId.sets then carrierObject candidate else pure candidate
@@ -2319,6 +2327,56 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
             unless left.size == right.size do return false
             (left.zip right).allM fun (a, b) => withTransparency .all <| isDefEq a b) do
           matchedValues := matchedValues.push candidate
+    if category.id == CategoryId.sets && matchedValues.size > 1 then
+      -- A declared operation fixes complete structure parameters before its
+      -- endpoints are read. Compare those full values, never just their carriers.
+      -- Without that context, distinct selections remain ambiguous.
+      let mut fixedViews : Array (Expr × NamedCategoryEntry × Array Value) := #[]
+      for parameter in fixedParameters do
+        if parameter.hasMVar || parameter.hasLevelMVar then continue
+        let mut views := #[]
+        let mut parameterCategory? : Option NamedCategoryEntry := none
+        for candidate in matchedValues do
+          let .object _ _ _ (some selected@(.object handle selectedCategory ..)) _ := candidate
+            | continue
+          if selectedCategory.id == CategoryId.sets then continue
+          if ← parameterTrial (do
+              withTransparency .all <|
+                isDefEq (← inferType handle) (← inferType parameter) <&&>
+                  isDefEq handle parameter) then
+            if let some previousCategory := parameterCategory? then
+              unless previousCategory.id == selectedCategory.id do
+                throwSemanticAmbiguity m!"the fixed parameter has several selected categories"
+            views := views.push selected
+            parameterCategory? := some selectedCategory
+        if let some parameterCategory := parameterCategory? then
+          unless ← fixedViews.anyM (fun (previous, _, _) => parameterTrial do
+              withTransparency .all <|
+                isDefEq (← inferType previous) (← inferType parameter) <&&>
+                  isDefEq previous parameter) do
+            fixedViews := fixedViews.push (parameter, parameterCategory, views)
+      if let #[(parameter, parameterCategory, views)] := fixedViews then
+        let (originals, source, route, alternatives, applications) ←
+          coalesceSelectedParameterViews (← inferType parameter) parameter views
+        unless alternatives.isEmpty do
+          Trace.record (← read).trace parameter
+            (.parameterEquivalence (← inferType parameter) parameter alternatives)
+        let selected := Value.object parameter parameterCategory none none
+          (some (originals, source, route, alternatives, applications))
+        let carrier ← carrierObject selected
+        unless ← withTransparency .all <| isDefEq (← semanticObject carrier) x do
+          throwStratum .invalid m!"the fixed structure parameter has a different endpoint"
+        return carrier
+    if category.id == CategoryId.sets && matchedValues.size > 1 then
+      -- Reuse the checked forward carrier relation. A retained structural
+      -- view is not a second selection when one supplied full source gives
+      -- every view along its actual declared carrier route.
+      let maximal ← matchedValues.filterM fun candidate => do
+        let .object _ _ _ (some (.object _ selectedCategory ..)) _ := candidate
+          | return false
+        if selectedCategory.id == CategoryId.sets then return false
+        matchedValues.allM fun other => identityCarrierView candidate other
+      if let #[candidate] := maximal then return candidate
     match matchedValues.toList with
     | [candidate] => return candidate
     | [] => pure ()
@@ -2349,8 +2407,8 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
   let values ← params.mapM fun p => do
     if let some n ← (Meta.evalNat p).run then return Value.nat n
     if let some (source, target) := homEnds? (← inferType p) then
-      let sourceValue ← recognize state source category known
-      let targetValue ← recognize state target category known
+      let sourceValue ← recognize state source category known fixedParameters
+      let targetValue ← recognize state target category known fixedParameters
       let terminal ← semanticObject (← oneObject)
       if ← parameterTrial (isDefEq source terminal) then
         return Value.element p targetValue
@@ -2370,9 +2428,9 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     -- a separate named-object row. Retain that selected value rather than replacing
     -- it with a carrier or guessing a named refinement.
     if ← parameterCompatible (do
-        discard <| recognize state p parameterCategory known
+        discard <| recognize state p parameterCategory known fixedParameters
         pure true) then
-      recognize state p parameterCategory known
+      recognize state p parameterCategory known fixedParameters
     else
       unless ← isTypeCorrect p do
         throwStratum .invalid m!"a registered object's structure parameter is not typed"
@@ -3038,7 +3096,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
-    let S ← recognize state set category endpointWitnesses
+    let S ← recognize state set category endpointWitnesses (← args.mapM instantiateMVars)
     if (← coercionMap A S).isNone then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
     coerceTo v S
@@ -3048,7 +3106,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"the set of an operand of {declaration} is not determined"
-    toElement v (← recognize state set category endpointWitnesses)
+    toElement v (← recognize state set category endpointWitnesses (← args.mapM instantiateMVars))
   synthesizeInstances args infos
   for parameter in args do
     if !(← instantiateMVars parameter).isMVar then continue
@@ -3081,7 +3139,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let target ← instantiateMVars target
     let targetValue ← match target? with
       | some targetValue => pure targetValue
-      | none => recognize state target category endpointWitnesses
+      | none => recognize state target category endpointWitnesses (← args.mapM instantiateMVars)
     if category.id == CategoryId.sets then
       if ← parameterTrial (isDefEq source (← semanticObject (← oneObject))) then
         let result ← staged operation
@@ -3110,12 +3168,12 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
           Trace.record (← read).trace result
             (.operationPoint entry.id actualParameters comparison operation target (← semanticObject chosen))
           return .element result targetValue
-    let sourceValue ← recognize state source category endpointWitnesses
+    let sourceValue ← recognize state source category endpointWitnesses (← args.mapM instantiateMVars)
     return .morphism operation source target category (some (sourceValue, targetValue))
   let family ← quoteExpr operation
   let target ← match target? with
     | some T => pure T
-    | none => recognize state (← instantiateMVars target) category endpointWitnesses
+    | none => recognize state (← instantiateMVars target) category endpointWitnesses (← args.mapM instantiateMVars)
   let result ← applyTo family elements target
   if let some entry := state.operations.find? (·.declaration == declaration) then
     let .element resultMap _ := result | unreachable!
@@ -3788,7 +3846,7 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
           | none => eval scope argumentSyntax
           pure (value, #[])
         else do
-          let X ← recognize state target category knownArguments
+          let X ← recognize state target category knownArguments (← params.mapM instantiateMVars)
           let value ← toElement (← eval scope argumentSyntax none (some X)) X
           pure (value, #[X])
       else do
@@ -3819,10 +3877,10 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
   let domain ← if domain.hasMVar then instantiateMVars (← whnfR domain) else pure domain
   if domain.hasMVar then
     throwStratum .invalid m!"the binder arguments do not determine its domain"
-  let D ← recognize state domain category knownArguments
+  let D ← recognize state domain category knownArguments (← params.mapM instantiateMVars)
   let knownTarget ← instantiateMVars target
   let bodyAmbient ← if knownTarget.hasMVar then pure ambient?
-    else pure (some (← recognize state knownTarget category knownArguments))
+    else pure (some (← recognize state knownTarget category knownArguments (← params.mapM instantiateMVars)))
   let value ← atStage scope boundName D body bodyAmbient
   let value ← match value, bodyAmbient with
     | .nat _, some Y => toElement value Y
@@ -3853,7 +3911,7 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
     throwStratum .invalid m!"the binder parameters are not determined"
   unless ← isTypeCorrect operation do
     throwStratum .invalid m!"a binder parameter is outside its declared type"
-  let M ← recognize state (← instantiateMVars source) category #[D, Y]
+  let M ← recognize state (← instantiateMVars source) category #[D, Y] (← params.mapM instantiateMVars)
   let retainedSource ← semanticObject M
   let operationSource ← instantiateMVars source
   unless !operationSource.hasMVar && !operationSource.hasLevelMVar &&
