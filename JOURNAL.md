@@ -32,6 +32,13 @@
   behind the successful integration build, under PID 3930594, with log
   `.tmp/b0-completion-20261013/harness.log`; its execution records all consumed
   dependency revisions in `harness-inputs.json` beside the report.
+- The isolated review transition fixture completes with **79/79 checks holding**,
+  including construction replacement, outage handling, reconsideration and large
+  snapshot retrieval. Fixture keys and model responses establish controller
+  wiring only; they confer no independent approval or B0 acceptance.
+- The full build has compiled `CasGates.KernelPurity`, its protected negative
+  probes and the harness executable. Registration and notebook boundary probes
+  remain live; no full-build success is asserted from these partial results.
 
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 
