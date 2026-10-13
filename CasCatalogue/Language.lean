@@ -2157,7 +2157,9 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       -- be supplied by an object value.  In particular, an operand such as `F : R[x]` must not
       -- be speculatively transported through every structured route merely because it is the
       -- first written argument of a family such as `d : ∀ R, R[x] ⟶ Ω¹_R`.
-      let categoryClass ← mkAppM ``CategoryTheory.Category #[expected]
+      -- Category's hom universe is inferred by instance synthesis. AppBuilder
+      -- rejects that still-open universe before synthesis can determine it.
+      let categoryClass := mkApp (← mkConstWithFreshMVarLevels ``CategoryTheory.Category) expected
       let expectsObject := (← trySynthInstance categoryClass).toOption.isSome
       if expectsObject && !(value matches .object ..) then break
       unless ← parameterCompatible (do
