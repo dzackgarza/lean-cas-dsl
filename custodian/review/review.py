@@ -42,6 +42,7 @@ namespace `lean-cas-custodian`).
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import argparse
 import difflib
 import hashlib
@@ -52,6 +53,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Iterator
 
 MODEL = "claude-opus-5-5"
 BATCH_LIMIT = 500_000  # total input characters supported by one complete reviewer call
@@ -247,6 +249,17 @@ def combine(results: list[dict]) -> dict:
             "summary": " / ".join(r["summary"] for r in results)}
 
 
+@contextmanager
+def materialized_context(requirements: str, change: str, explanation: str) -> Iterator[Path]:
+    """Keep the complete review payload available for one call, then remove it."""
+    with tempfile.TemporaryDirectory(prefix="custodian-context-") as tmp:
+        retrieval = Path(tmp)
+        for name, text in (("requirements.txt", requirements), ("change.txt", change),
+                           ("explanation.txt", explanation)):
+            (retrieval / name).write_text(text)
+        yield retrieval
+
+
 def review(prompt: Path, requirements: str, batches: list[str], explanation: str):
     """Review one complete snapshot or fail the operation before any reviewer call."""
     if len(batches) != 1:
@@ -255,11 +268,7 @@ def review(prompt: Path, requirements: str, batches: list[str], explanation: str
     if len(prompt.read_text()) + len(requirements) + len(change) + len(explanation) > BATCH_LIMIT:
         # One continuing reviewer with read-only retrieval of the complete frozen payload.
         # No summarization or independent partition verdicts replace the complete snapshot.
-        with tempfile.TemporaryDirectory(prefix="custodian-context-") as tmp:
-            retrieval = Path(tmp)
-            for name, text in (("requirements.txt", requirements), ("change.txt", change),
-                               ("explanation.txt", explanation)):
-                (retrieval / name).write_text(text)
+        with materialized_context(requirements, change, explanation) as retrieval:
             result, why = call_reviewer(prompt.resolve(),
                 "Read requirements.txt in this directory for all authoritative requirements.",
                 "Read change.txt for the complete frozen tuple patches and source. "
