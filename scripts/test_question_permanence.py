@@ -1,15 +1,9 @@
 """Mechanical gate probes; no mathematical interpretation is admitted by these tests."""
-import importlib.util
-import json
-import sys
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-
-spec = importlib.util.spec_from_file_location("gate", Path(__file__).with_name("check_question_permanence.py"))
-gate = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(gate)
 
 
 class QuestionGate(unittest.TestCase):
@@ -17,36 +11,48 @@ class QuestionGate(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        scripts = self.root / "scripts"
+        scripts.mkdir()
+        self.script = scripts / "check_question_permanence.py"
+        shutil.copyfile(Path(__file__).with_name("check_question_permanence.py"), self.script)
         self.base = self.root / "questions.json"
-        self.record = self.root / "candidate.json"
+        permanent = self.root / "CasAcceptance" / "Permanent"
+        permanent.mkdir(parents=True)
+        self.record = permanent / "questions.json"
         self.report = self.root / "report.json"
-        self.inventory = self.root / "admitted.json"
+        self.inventory = permanent / "admitted.json"
         self.base.write_text('{"a":"typed"}')
         self.record.write_text(self.base.read_text())
         self.inventory.write_text('{"assertions":{"a":"text","unread":"text"}}')
         self.report.write_text('[{"id":"a","question":"typed"}]')
 
     def run_gate(self, args=None):
-        with patch.object(gate, "RECORD", self.record), patch.object(gate, "INVENTORY", self.inventory), patch.object(sys, "argv", ["gate"] + (args or ["--base", str(self.base), str(self.report)])):
-            return gate.main()
+        arguments = ["--base", str(self.base), str(self.report)] if args is None else args
+        return subprocess.run(["python3", str(self.script), *arguments],
+                              capture_output=True, text=True)
 
     def test_unread_is_required_even_without_interpretation(self):
-        self.assertEqual(self.run_gate(), 1)
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("ADMITTED ASSERTION MISSING: unread", result.stdout)
 
     def test_complete_comparison(self):
         self.inventory.write_text('{"assertions":{"a":"text"}}')
-        self.assertEqual(self.run_gate(), 0)
+        self.assertEqual(self.run_gate().returncode, 0)
         self.report.write_text('[{"id":"a","question":"different"}]')
-        self.assertEqual(self.run_gate(), 1)
+        result = self.run_gate()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("QUESTION CHANGED: a", result.stdout)
 
     def test_duplicate_does_not_overwrite(self):
         self.report.write_text('[{"id":"a","question":"bad"},{"id":"a","question":"typed"}]')
-        with self.assertRaises(SystemExit):
-            self.run_gate()
+        result = self.run_gate()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate assertion in report: a", result.stderr)
 
     def test_record_mutation_has_no_command(self):
         before = self.record.read_bytes()
-        self.assertEqual(self.run_gate(["--record", str(self.report)]), 2)
+        self.assertEqual(self.run_gate(["--record", str(self.report)]).returncode, 2)
         self.assertEqual(self.record.read_bytes(), before)
 
 
