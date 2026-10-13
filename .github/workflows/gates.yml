@@ -107,8 +107,9 @@ jobs:
             # The harness exits nonzero when an assertion fails; the report decides, and a run
             # that did not complete writes none, which fails the comparison.
             rm -f "$GITHUB_WORKSPACE/$side.json"
-            (cd "$side" && lake update lean_categories cas_leaf_contracts nbdsl-worker \
-                        && python3 scripts/ci_chain.py && lake exe cache get && lake build cas-harness \
+            (cd "$side" && python3 scripts/ci_chain.py \
+              && lake update lean_categories cas_leaf_contracts nbdsl-worker \
+              && lake exe cache get && lake build cas-harness \
               && { lake exe cas-harness "${inventory_args[@]}" --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done
       - name: Compare, assertion by assertion
