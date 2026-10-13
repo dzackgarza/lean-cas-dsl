@@ -1,5 +1,55 @@
 # Journal
 
+## 2026-10-13 — Full inventory observations and temporary artifact residency
+
+The single computation-only harness at `9370ee5` finished with exit 1.
+Its 156 entries report 120 gaps, 15 holds, six internal errors, four
+ambiguities, eight invalid readings and three unavailable executions.
+The durable report, log and source/input identities are
+`.tmp/b0-completion-20261013/harness-9370ee5.{json,log}` and
+`harness-9370ee5-process.json`. No assertion or authoritative interpretation
+was regenerated from these outputs.
+
+Of the fifteen frozen required IDs, twelve report `holds`: eleven have
+nonempty registered dispatch and `sets.eq.rev_rev` has none. The three
+`lattices.discriminant.*` IDs are gaps because the latest-main installed leaf
+release supplies no applicable cokernel registration. Historical fifteen-ID
+execution observations therefore do not establish the current requirement.
+The three unavailable outcomes are backend `ValueError` responses about
+unnamed objects or a construction apex, not absent Sage/GAP executables.
+
+Reader-only measurements place the differential request at 225,208
+heartbeats and the span request at 421,731; identity serialization takes
+1,987 and 906 respectively. A single registered named signature was executed
+both speculatively and again after selection. Construction source now executes
+that unique typed action once; competing signatures retain their independent
+applicability checks. Ordinary-budget request probes cover both full readings.
+
+A separate selected-carrier regression reproduced ambiguity for two
+presentations of the same complete form. Construction source compares the
+complete selected structures and checks every retained source action before
+coalescing their provenance. Different structures sharing a carrier remain
+subject to the unchanged protected negatives. Validation is running; these
+observations do not close a B0 acceptance row.
+
+The existing owner ruling of 2026-10-10 governs author role separation as
+conduct even when broader credentials exist. Conflicting author-capability
+wording in AGENTS, architecture and the plan now states that ruling.
+Independent protected acceptance and authoritative transition controls retain
+their separate obligations.
+
+Eighteen inactive ELF harness executables occupied 6,516,485,888 bytes under
+`.tmp`. After checking live process executable paths, all eighteen were compressed
+with Zstandard checksums, retaining recoverable copies and original source/log
+records. Temporary residency fell from 7.0 GiB to 2.3 GiB; no source checkout,
+acceptance report or live compiler artifact was deleted. The per-file inventory
+is `obsolete-binaries.json` in the completion directory.
+
+Hosted controller source validation at `4e14c11` passed (run `38417669602`),
+as did boundary integrity, build/audit and kernel purity. Hosted acceptance
+regression remains failed; its unchanged mathematical assertions require the
+source repairs and independent question-preservation assessment.
+
 ## 2026-10-13 — Complete build, source publication and controller snapshots
 
 At clean source `9370ee5be07bd0d45fe593688008e353e5c9367c`, the complete

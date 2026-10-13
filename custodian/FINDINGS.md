@@ -2,6 +2,24 @@
 
 ## 2026-10-13 — Current B0 construction defects
 
+- Current `b0-typed-application` dependency at upstream main `fd2cd45f`:
+  `Semirings.primeFactors` declares `finiteSubsets Nat.Primes`; the exact
+  constructor argument is not the registered declaration `Semirings.primes`.
+  The result reader retains that actual anonymous parameter. Literal primes
+  have no named admission source in it. Recovering a named set solely by
+  reducible carrier equality would violate `b0-selected-structure`.
+- The matrix `ker` declaration at the same upstream revision returns
+  `powerSet (Fin n → K)` without a selected vector structure. The actual
+  result's base retains only that function carrier. The registered vector-zero
+  family does not unify with it (`familyLandsIn` returns false). This blocks
+  the existing typed-literal obligation; the kernel neither invents a vector
+  selection nor changes the assertion. Source diagnostics are
+  `numeral-targets-zero.log` in `.tmp/b0-completion-20261013/`.
+- The registered `Units.invertibleEvidence` refuses the actual matrix literal
+  with its declared `Int.castRingHom` coefficients. The unchanged full-suite
+  report records the exact obligation. No alternate proof, coefficient
+  rewriting or mathematical admission was authored downstream. This is an
+  input dependency of `core-admission-realized`, not a successful reading.
 - Repaired in controller construction source: a signed decision without
   `findings`, or with `findings: null`, could advance accepted inputs. Red
   regressions reproduce both failures; decisions now require an explicit list.

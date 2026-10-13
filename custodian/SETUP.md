@@ -42,7 +42,7 @@ examples are not credentials or accepted releases. Never print or commit private
    accepted configuration or treat a subagent's technical finding as a signing credential.
 7. Launch a fresh author with `launch_author.py --configuration ...`. Confirm the tool list
    is only its assigned MCP operations and validation, then exercise source write/read and
-   immutable submission. Run source checks and the existing 70 fixtures before deployment;
+   immutable submission. Run source checks and the existing 79 fixtures before deployment;
    run genuine independently assessed acceptance with the fixed denominator separately.
 
 Read-only observations on 2026-10-02: DSL main ruleset 24252144 has deletion and

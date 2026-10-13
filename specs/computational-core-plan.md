@@ -135,7 +135,7 @@ only when its full acceptance holds at the integration tuple.
 | `cc-realize-2cat`, `cc-realize`, `cc-adapter`, `cc-backends` (stage D; CC-ACTION, CC-ADAPTER, CC-DECODE, CC-ROUTE) | Execution of a fixed semantic request: composite requests, diagrams and arrows over the port, decoded against the fixed result form; realization selection after the semantic judgment | kernel, contract; specimen leaves | the required computational assertions below execute / a result missing a defining map is `malformed`; a fused computation never selects a different composite | the semantic reader imports no leaf state (gate A) |
 | `cc-observations` (stage D) | A computed value compared with a literal by evaluation in the declared literal form | kernel | `|(ℤ/4)^3| = 64` against `64` / no leaf-facing observation or proof | — |
 | `gov-meaning-permanence` (gate B) | The admitted semantic question of each assertion is retained and compared under a candidate | kernel (mechanism); acceptance author (initial interpretations) | an unchanged assertion whose elaborated question changes fails; a genuine transition needs independent acceptance / no comparison by text, booleans or provability alone | — |
-| `b0-authority` (completion requirement) | The kernel worker cannot write or accept upstream semantics, protected acceptance or its judging rules through its available tools | orchestrator (implementation); repository administration (configuration writes) | see "Authority configuration" below; established for B0 acceptance, not a prerequisite of construction | — |
+| `b0-authority` (completion requirement) | The kernel worker does not write upstream semantics or protected acceptance; independent controls protect authoritative acceptance and judging rules | orchestrator (implementation); repository administration (configuration writes) | see "Authority configuration" below; established for B0 acceptance, not a prerequisite of construction | — |
 | `b0-trials` (stage E) | The exit trials below, each succeeding with the kernel and old leaves frozen | independent contributors | see "Exit trials" | per mechanism, the argument of its row above |
 
 ### Recorded construction observations (2026-10-02)
@@ -235,11 +235,13 @@ by the candidate's author, and costs only at its boundary (policy 2). Under that
 **Owner ruling (2026-10-10).** This separation is a rule about what each agent is permitted to do, not a technical gate on what it is able to do. An agent may hold a credential or tool capable of more (for example the shared GitHub token); it does not use it to write outside its role, and acceptance does not wait on removing such capability. A breach of the rule is a defect in the agent's conduct, recorded and repaired, not an argument that `b0-authority` is unreachable.
 
 The essential restrictions are on reading, writing, commissioning, approving and replacing
-authoritative inputs. The existing launcher, runner and hosting controls must enforce them; their
-actual deployed configuration and bypass paths remain to be verified. These are requirements,
-not claims that GitHub path rules, credentials or network isolation already provide them:
-- the kernel worker's session holds no write credential for `lean-categories` and no tool to
-  commission its authors; upstream requirements come from the protected requirement revision;
+authoritative inputs. Assigned author permissions bind conduct, including when a shared
+credential or tool has broader capability. The launcher supplies independently assigned
+requirements and permitted inputs and operations; the author follows them. Protection of
+independent authoritative transitions remains a deployed-control obligation, whose actual
+configuration and bypass paths are verified before claiming that protection:
+- the kernel worker does not use a credential or tool to write `lean-categories` or commission
+  its authors; upstream requirements come independently from the protected requirement revision;
 - independently accepted references require the applicable independent review, dismiss stale
   approvals, and allow no worker bypass; acceptance statements, interpretations, evaluator rules,
   owner requirements and protection configuration cannot become authoritative through a
@@ -249,11 +251,11 @@ not claims that GitHub path rules, credentials or network isolation already prov
 - the custodian's review decides trusted-boundary changes against these requirements (policy 6);
   the owner decides only a change of requirement, completion standard or authority (policy 2).
 
-Record the verified configuration and independent result here once the worker can no longer
-modify or accept upstream semantics, protected acceptance or its judging rules through any of its
-tools. A missing administration capability, isolated launcher or independent acceptance path is
-an implementation dependency of that operation, not a reason to assert enforcement or fabricate
-approval. Ordinary kernel source work continues; a `gov-*` node blocks only operations whose
+Record the assigned roles, independently supplied requirements and permitted inputs and
+operations, together with the verified authoritative-transition controls and independent result.
+Do not wait for removal of an author's broader credential or tool capability. A missing
+administration operation or independent acceptance path is a dependency of its consumers, not a
+reason to claim protection or fabricate approval. Ordinary kernel source work continues; a `gov-*` node blocks only operations whose
 correctness or authorized acceptance actually consumes its result (policy 5).
 
 ### Construction directives (owner replacement, 2026-10-02)

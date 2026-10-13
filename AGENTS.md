@@ -232,8 +232,10 @@ A kernel worker consumes an accepted mathematical release. It writes nothing in 
 its registry schemas, validators, probes and admission rules included, and it commissions no
 upstream work with kernel-generated goals, acceptance failures, desired row arrangements or
 instructions for making a tactic succeed. Upstream work starts from an independently approved
-mathematical requirement and its sources. The session's credentials and tools must enforce this
-(the plan, "Authority configuration"); a prompt convention or role variable is not enforcement.
+mathematical requirement and its sources. The author uses only its role's permitted inputs and
+operations, even when shared credentials or tools can do more (owner ruling, 2026-10-10).
+A breach is recorded and repaired as conduct; removing that capability is not an acceptance
+prerequisite. Independently protected acceptance operations remain separate from construction.
 
 # Architecture contract (read first)
 
