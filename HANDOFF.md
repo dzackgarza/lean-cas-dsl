@@ -1,0 +1,99 @@
+# Undone work — 2026-10-13
+
+Resume from source checkpoint `49f5944fb0f187be492b519d5c773c93099cc2a8`.
+The owner requested a checkpoint and handoff; implementation is stopped.
+The working tree was clean before this report. Preserve the concurrent central
+Lean dependency migration in that revision; the owner explicitly approved
+coordination with it.
+
+## Next source repairs
+
+1. **Resolve anonymous point/literal reading through the existing formal API.**
+   Reproduce the prime-factor request and matrix-kernel `{0}` request using
+   `.tmp/b0-completion-20261013/anonymous-point-red.lean` and its `.log`.
+   Both currently report “a numeral is an element of a named set.”
+   Inspect `CasDsl/Language.lean`, particularly `toElement`, `zeroElement`,
+   `admit`, `recognize`, and `applyFamily`.
+
+   The diagnostic `point-input-availability.lean` and its `.log` in the same
+   directory show that existing formal inputs can construct both points:
+   named `ℕ` numeral 2 admitted to `ℙ` reaches the anonymous prime-factor
+   target; the existing zero family with the matrix's actual coefficient
+   ring and size reaches its vector target. Investigate kernel wiring and
+   retained parameter context before declaring missing upstream mathematics.
+   No repair for these two requests has been implemented. No proposed repair
+   design has been settled. Correct the premature upstream-dependency claims
+   in `custodian/FINDINGS.md` against the established cause.
+
+   Preserve selected structures, complete parameters and provenance. Bare
+   carrier equality does not authorize a named alias or a structure choice.
+
+2. **Diagnose matrix-unit admission separately.**
+   `Units.invertibleEvidence` refuses the matrix literal with its declared
+   `Int.castRingHom` coefficients. The earlier full report contains six
+   invalid inverse assertions/binding. Establish the cause using the actual
+   declared evidence and value. Do not reformulate mathematical evidence to
+   suit a tactic or author upstream mathematics from the failure.
+
+## Required validation and acceptance
+
+3. **Run the complete computation-only acceptance inventory at the final
+   repaired source.** Commit repairs first. Update own-organisation requires
+   to latest `main` before each build/harness run and record the resolved
+   inputs. Launch each required long run once with a durable log, source
+   revision and identifiable process. Use
+   `/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python` explicitly for Sage/GAP
+   execution from a temporary checkout.
+
+   No full acceptance harness has run at `608c607` or the current checkpoint.
+   `.tmp/b0-completion-20261013/harness-9370ee5.json` is a diagnostic baseline,
+   not acceptance of the current source.
+
+4. **Demonstrate all 15 required registered computations.** The prior report
+   has 12 frozen IDs holding, but only 11 with nonempty dispatch;
+   `sets.eq.rev_rev` has zero dispatch. The three `lattices.discriminant.*`
+   cases remain gaps, with no applicable cokernel registration in the
+   installed latest-main leaf inputs used by that report. Check current
+   inputs and preserve the required registered-execution obligation.
+   The orchestrator does not implement leaves or restore old dependency pins.
+
+5. **Obtain independent question-preservation and B0 acceptance.** Work through
+   the remaining obligations in `specs/computational-core-plan.md`, including
+   protected negatives, required arguments and independent extension trials.
+   Use `custodian/SETUP.md` for authoritative deployment operations.
+   Candidate output must not regenerate authoritative interpretations or
+   acceptance records. Source integration and successful compilation do not
+   constitute independent approval or B0 acceptance.
+
+6. **Publish the final source and reconcile hosted checks with its exact SHA.**
+   Inspect current local/remote revisions first, preserving the concurrent
+   migration. Use normal publication gates; earlier hosted results are not
+   results for this checkpoint. Publication of the current checkpoint was
+   not verified during handoff.
+
+## Process and workspace state needed to resume
+
+- No CAS build, acceptance harness or diagnostic from this stream remains
+  live at handoff. A separate Lake build was observed as PID `2728436`, with
+  cwd `/home/dzack/research/computations/experiments/lean_category_dsl_spike`;
+  recheck its existence and ownership before touching shared dependencies.
+- The existing full-build record for `608c607` is
+  `.tmp/b0-completion-20261013/build-608c607.log`, with exit record `0`,
+  `build-608c607-inputs.json` and `build-608c607-process.json`.
+  This record prevents mistaking an absent process for an interrupted run;
+  it does not validate later source or discharge acceptance.
+- `/tmp/lean-cas-dsl-final-608c607` is detached at `608c607`. Its
+  `.lake/packages` points to `/home/dzack/.local/share/lean/v4.33.0/packages`
+  and `.lake/build` points to this checkout's build directory. Coordinate
+  shared-cache builds; do not recursively delete through these links.
+- `.tmp` contains diagnostic source, worktrees and recoverable compressed
+  harness binaries. Inventory ownership and remaining consumers before
+  cleanup. Do not treat the subtree as disposable because of its size.
+- The management connector returned `WORKSTREAM_PAUSED`; no usable
+  coordination token was obtained. Resume through its normal authorized
+  route rather than bypassing that state.
+
+The governing boundaries remain `INTENT.md` and `specs/architecture.md`:
+kernel/controller work here; independently authored mathematics upstream;
+permanent acceptance assertions owned by the acceptance role; opaque leaves
+owned by the leaf role. The full approved B0 task remains unfinished.
