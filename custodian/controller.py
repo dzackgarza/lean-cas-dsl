@@ -241,6 +241,8 @@ class Controller:
         decision = json.loads(Path(decision_file).read_text())
         if decision['request_id'] != request['request_id'] or decision['outcome'] != 'no_blocking_finding':
             raise ValueError('decision does not accept this snapshot')
+        if not isinstance(decision['findings'], list):
+            raise ValueError('decision findings must be an explicit list')
         if decision['findings']:
             raise ValueError('blocking findings cannot advance inputs')
         self.decisions[request['request_id']] = decision
