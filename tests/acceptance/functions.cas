@@ -1,0 +1,18 @@
+-- Functions ℝ → ℝ (SPEC.md, "Functions"): maps t ↦ e, their application and equality. Each test is
+-- admitted once and never changed.
+
+let h := t ↦ t² + 1 in ℝ → ℝ
+
+let hp(t) := t^2 + 1 in ℝ → ℝ
+
+test functions.extensional "SPEC.md: t ↦ t² + 1 and t ↦ t^2 + 1 are the same map":
+  assert h = hp
+
+test functions.at_zero "SPEC.md: h(0) = 0² + 1 = 1":
+  assert h(0) = 1
+
+test functions.at_three "SPEC.md: h(3) = 3² + 1 = 10":
+  assert h(3) = 10
+
+test functions.even "SPEC.md: h(-t) = (-t)² + 1 = t² + 1 = h(t) for all t":
+  assert h(-t) = h(t)

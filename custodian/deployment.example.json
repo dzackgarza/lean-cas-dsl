@@ -1,0 +1,42 @@
+{
+  "requirements": {
+    "url": "https://github.com/dzackgarza/lean-cas-dsl",
+    "repository": "inputs/lean-cas-dsl",
+    "commit": "f284b1eb6b5e155b628ae2ce2e412d71fb2f164a"
+  },
+  "accepted": {
+    "mathematics": {
+      "url": "https://github.com/dzackgarza/lean-categories",
+      "repository": "inputs/lean-categories",
+      "commit": "b249ca2dd6ca29a51d959458527b137fce0a28e4"
+    },
+    "contract": {
+      "url": "https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts",
+      "repository": "inputs/leaf-contracts",
+      "commit": "c8173f49cc0902abcb50f6b45b3c12553e23251a"
+    },
+    "acceptance": {
+      "url": "https://github.com/dzackgarza/lean-cas-dsl",
+      "repository": "inputs/lean-cas-dsl",
+      "commit": "bcd08de425e95a8ae591620518cf75cfc308b53a"
+    }
+  },
+  "reviewer_public_key": "deployment/custodian/reviewer.pub",
+  "reviewer_fingerprint": "CONFIGURE_EXISTING_INDEPENDENT_REVIEW_FINGERPRINT",
+  "assignments": {
+    "b0-authority": "acceptance"
+  },
+  "obligation": "b0-authority",
+  "review_component": "acceptance",
+  "source_repository": "source/acceptance",
+  "source_base": {
+    "repository": "inputs/lean-cas-dsl",
+    "commit": "bcd08de425e95a8ae591620518cf75cfc308b53a"
+  },
+  "rejections": {
+    "url": "https://github.com/dzackgarza/lean-cas-dsl",
+    "repository": "inputs/rejections",
+    "ref": "custodian/rejections"
+  },
+  "independently_supplied_assignment": "Supply the independently approved acceptance requirement from its owning protected requirement revision."
+}

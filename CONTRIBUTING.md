@@ -1,228 +1,222 @@
-# Contributing an operation — the wiring half
+# Contributing
 
-This documents how a computation gets **wired**: op signature, route,
-executor, adapter. It is the half of the contributor contract that is
-stable under the registry migration (issue #35).
+[`specs/architecture.md`](specs/architecture.md) is the contract every contribution conforms to.
+This file says where each kind of contribution goes.
 
-Of the **mathematical half**, the structural part — declaring a category
-and a membership — is deliberately not documented yet: its citation form is
-owned by the upstream catalogue (lean-lattices#56) and lands with the
-pinned consumer contract (lean-lattices#49). Until then, treat the
-declarations in `CasDsl/Std.lean` as the examples of record. The worked
-external-backend example (a numpy implementation of Vinberg's algorithm)
-ships with that half. The DOCUMENTATION part of the mathematical half is
-specified now — see §7, "Authoring the documentation fields."
+## Which repository?
 
-## The path of a call
+| You need | It goes to |
+| --- | --- |
+| A category, functor, classifier, operation (method), predicate, coherence, constructor or family that is not yet formal | `lean-categories`, through its independently assigned mathematical requirement and sources. A kernel worker records the missing accepted input, never authors or commissions the upstream repair. Consume the independently accepted release at an explicit compatible pin; never coin it downstream. |
+| A computation of a registered operation on one of its declared input forms | A leaf, in `lean-cas-dsl-leaves` or another package written against the leaf contract |
+| A proposition the language should always make true | `tests/acceptance/*.cas`, as a permanent test |
+| Resolution, calls, the language or surface syntax | The kernel (`CasCatalogue/`) or the notebook (`CasDsl/`), under a plan node in `specs/computational-core-plan.md` |
+| The realization registry, the leaf API or the port | The leaf contract (`lean-cas-dsl-leaf-contracts`, `CasContract/`), with the kernel change that needs it |
+
+The semantic registry is `lean-categories`' (`LeanCategories.Catalogue`, rows under
+`LeanCategories/Catalogue/Semantics/`). `normalized_registry` refuses every module outside
+`lean-categories`; this repository reads the registry at its explicitly pinned, independently
+accepted mathematical release. Upstream `main` is not automatically that release.
+
+## Mathematics is never inverted into implementation
+
+`lean-categories`' policies [LC-13, LC-14 and LC-15](https://github.com/dzackgarza/lean-categories/blob/main/CONTRIBUTING.md#lc-13--structure-belongs-to-the-category-never-to-a-typeclass-on-a-carrier)
+bind the kernel, the language and every leaf. Their consequences here:
+
+- The language and the kernel never supply structure that the catalogue did not give an
+  object: no element, unit, `0` or operation is attached to a set because a Lean instance
+  happens to exist on its carrier (LC-13).
+- Every operation is total on its domain object, and there are no partial maps: an argument not
+  known to lie in the domain makes the statement invalid when it is read, never a gap, value or
+  failure found when it is computed. No fallback reinterprets a term to make it land in a domain
+  (a divisor retried in another set, a numeral read where no numeral exists) (LC-14).
+- LC-14 is about mathematics: an operation, a domain, a value. It is not about the kernel's own
+  program structure. A `partial def` in the elaborator, a parser or an encoder says that a piece
+  of code is not proved to terminate; it gives no term a meaning off a domain, so it is not a
+  partial map. What LC-14 forbids in the kernel is semantic: reading a term outside its
+  operation's domain, a fallback reading, a default for something that does not exist. The
+  seal's ratchet on new `partial def` anywhere in this repository, and `custodian/FINDINGS.md`
+  item 13, conflate the two; the ratchet is corrected as an ordinary independently reviewed change (the plan, B0, "Gates"; architecture.md, policies 2 and 6).
+- A numeral is the image of the map out of the initial object of its object's category; where
+  there is none, it is not a numeral of that object (LC-15).
+- A leaf computes on an input form that `lean-categories` and the kernel define for the
+  catalogue's object; it never shapes the object or says what its values mean. A contract rule
+  that would need the catalogue to change to suit a leaf's representation is itself a defect.
+- An operation exists only where its structure exists: `⁻¹` on units and automorphisms, never on
+  endomorphisms or a bare monoid (LC-16). The language never attempts an operation on a value
+  not established to lie in its domain.
+- The kernel carries no mathematics, and no proof automation about mathematics: it is purely
+  categorical and completely general. That a value lies in a domain (a unit, a monic polynomial,
+  a smooth map), and how that is established, is the domain's: formalized with the domain in
+  `lean-categories`, and registered as the `evidence` of its admission (LC-18). The kernel runs
+  that evidence and nothing else. It cannot do otherwise: the default build target
+  `CasGates.KernelPurity` fails on any reference to mathematics, any tactic syntax, and any proof
+  procedure run outside `establish`. If a statement fails because evidence is missing or too
+  weak, record the missing accepted input against the existing obligation. The independent
+  upstream author owns the mathematical repair; the kernel neither supplies it nor sends an
+  implementation-shaped formalization request.
+- How a value comes to lie in a domain `D ↪ B` (derived from LC-14 and LC-15; the kernel's
+  reading rule):
+  - a numeral needed in `D` is formed there: the numeral of `B`, with the proposition that it lies
+    in `D` (`2 ∈ ℚˣ`) decided when the statement is read. A false one (`2 ∈ ℤˣ`) makes the
+    statement invalid;
+  - any other value is in `D` only when the statement forms it there, `x in D`, with its evidence
+    established when the statement is read. The kernel never admits a value into `D` implicitly
+    because an operation needs it there, and never tries another reading when one fails;
+  - a variable (a generic element at a stage) is never in `D` by admission: `t ↦ 1/t` is a map
+    only on a domain of units.
+
+## Authors are separated by layer
+
+[architecture.md](specs/architecture.md), "Authors: one role per agent":
+- The orchestrator owns policies, gates, compliance, the kernel and the leaf contract.
+- Formalization (`lean-categories`), acceptance assertions and leaves each have a separate
+  subagent author.
+- No agent writes in two layers.
+- The implementation never informs the formalization or the tests.
+- Downstream findings stay in their owning review channel. Upstream assignments come from the
+  approved mathematical requirements, never a downstream finding rewritten as a request.
+
+The leaves are not part of this repository; the dependency that remains is a defect
+(`gov-no-leaves-here`).
+
+## Documentation and construction work
+
+An already-issued decision is recorded in the existing document that owns it.
+Recording the decision is ordinary maintenance, not a new approval transaction.
+
+A documentation-only correction is an ordinary commit. It needs no dedicated PR,
+custodian verdict, owner signature, plan node, full Lean build, or unrelated code
+change to carry it. Documentation accompanying an implementation change belongs
+with that change.
+
+A proposed change to mathematical requirements, acceptance standards, or reserved
+authority needs the appropriate decision. A faithful record of a decision already
+made does not. File extensions do not determine this distinction.
+
+During B0 construction, the controller, reviewer prompt, gates, and publication
+workflow are themselves implementation work. Correct them under the construction
+mandate. Do not submit their replacement to an obsolete policy in order to obtain
+permission to write or test it. Source integration does not accept or install a new
+authoritative judge: the author cannot approve its own replacement. The evaluator,
+accepted mathematics and acceptance inputs used to judge a candidate remain
+independently accepted revisions outside that candidate's control.
+
+Run the checks relevant to the actual change. A changed reviewer decision path
+needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests.
+A descriptive text correction does not acquire a full mathematical build merely
+because the repository contains Lean code.
+
+A publication dependency does not suspend implementation or invalidate the
+instruction being recorded. Preserve the commit and continue the selected work
+while the already-specified publication correction is executed.
+
+## Writing a leaf
+
+A leaf holds zero semantic authority, and nothing from it is trusted in any form
+(`INTENT.md`; `specs/architecture.md`, "The evidence model: nothing from a leaf is trusted"). It
+ships no mathematics and no Lean. It is a registration:
+- the operation id, of a semantic operation or composite of operations registered in
+  `lean-categories`;
+- the input form it accepts, one of the typed request forms that `lean-categories` and the kernel
+  define for that operation;
+- an opaque implementation, in any language, returning a value of the operation's declared
+  result form.
+
+The system runs that implementation and believes nothing about it. A leaf states nothing else:
+no denotation of its values, no proof, certificate or checker about its own code, no
+identification of two values, no evidence for a property or an equality, and no status or trust
+level. Anything of that kind it writes is ignored. A leaf may be arbitrarily bad; the worst leaf
+imaginable can make its own answers fail the suite and nothing else. It may keep whatever
+internal tests it wants; they are evidence of nothing. Whether its answers are right is decided
+only by the permanent acceptance assertions below, run by `lean-cas-dsl`'s harness
+(`cas-harness`, `just harness`) over the installed leaves; a leaf package never imports or runs
+the suite.
+
+A leaf never adds a category, method, property, placement, forgetful route, coercion or natural
+transformation. If it seems to need one, or needs to forward an inherited method, the defect is
+upstream: record that dependency, without commissioning or prescribing its repair. Anything that
+can be discharged in Lean is never a leaf's: either
+`lean-categories` proves it, or the kernel discharges it generically.
+
+Never write a leaf against, or extend, a contract form that carries a functor, a proof, an
+isomorphism, evidence or a status.
+
+**A leaf is glue over existing backends** ([`lean-cas-dsl-leaves` AGENTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md), "A leaf is
+glue over existing backends", following `sage-categories`' `specs/leaves.md`, "Computation-engine
+boundary"):
+- it wires a registered operation to a mature engine (GAP, Sage, Singular, Macaulay2, Julia, SymPy,
+  research code): declared input form, then engine input, then the engine's routine, then the
+  engine result, then the declared result form;
+- it hand-rolls no algorithm, and names the engine and routine it calls;
+- it carries no kernel machinery (dispatch, placement, propagation, composition, refinement,
+  caching); a leaf that needs any has found a kernel or contract gap, reported upstream;
+- engine values stay private: only a value of the declared result form crosses the port.
+
+This is writing guidance, checked by a separate engineering review. Following it earns no trust:
+correctness is judged only by the suite, and the firewall holds even for a leaf that ignores it.
+
+**Backends.** A backend is a child process speaking the port protocol (`CasContract/Port.lean`;
+reference implementation `python/cas_port.py` of the contract, put on the adapter's
+`PYTHONPATH`). Its announced capabilities must be registered operation ids, or `connect` refuses
+it. Its answers are untrusted JSON, read by the kernel into the operation's declared result form
+or rejected as malformed. A backend's restrictions restrict its computation, never the
+operation's domain.
+
+## Acceptance assertions
+
+A permanent assertion is a proposition in the mathematical language, in `tests/acceptance/*.cas`,
+with the source of its expected value:
 
 ```
-p.roots()
-  → resolveMethod      semantic availability (category walk, Resolve.lean)
-  → verifyResolution   Mathlib re-derives the membership (the tripwire)
-  → routeFor           implementation selection (Route.lean)
-  → execute            the (backend, opId) executor runs (this document)
+let A := {1, 2, 3} in 𝒫(ℤ)
+
+test finite_sets.card_power_set "SPEC.md: |𝒫(A)| = 2^|A| = 2^3 (Mathlib Fintype.card_set)":
+  assert |𝒫(A)| = 8
 ```
+(`tests/acceptance/finite_sets.cas`)
 
-Wiring only ever touches the last step plus the registration data the
-selection reads. No wiring step may make a semantic claim: a route says
-"this op can compute that method for this presentation", never "this
-method exists".
+It never mentions a leaf, a handle, a backend or a representation, and its truth is never
+established from an implementation's definitions. The acceptance suite is the whole body of
+correctness evidence: an installed computation's answer is compared against it.
 
-## 1 · The adapter process (for an external backend)
+The independent acceptance author submits the assertion and its mathematical interpretation
+through the acceptance channel. `python3 scripts/check_acceptance_permanent.py --admit` records
+text hashes; running it, or setting `AGENT_ROLE=acceptance`, does not confer admission authority.
+Admission depends on the independent acceptance operation specified by `b0-authority`.
+An assertion that no installed computation answers yet is a gap (`#acceptance_gaps`); it cannot
+satisfy an obligation requiring execution.
 
-An adapter is a child process speaking length-framed JSON on stdio
-(`CasDsl/Port.lean`; `backends/sage_adapter.py` is the model). Each frame
-is `<byte-length>\n<compact JSON>`; stderr is inherited (adapter logs land
-on the kernel's stderr).
+- State the proposition in the mathematical language, through the public surfaces.
+- Write its expected value from a proof, a cited source or an independent oracle before you run
+  anything, and record that provenance.
+- Never read a leaf, a handle's internals or a backend to decide what to assert.
+- An admitted assertion is permanent. If an implementation disagrees, the implementation is wrong.
+  Only an independently accepted upstream correction changes its mathematics, with the release
+  that corrects it.
+- The permanent object is the full mathematical question, expected answer and execution
+  requirement, not a particular syntax, serialization or proof term. A meaning-preserving
+  artifact change uses an independently assessed comparison or migration preserving every
+  admitted identity. A changed hash alone neither proves changed mathematics nor authorizes
+  rewriting its accepted record. Equal truth values do not prove identical questions. An erroneous
+  old reading or record may be corrected independently against the unchanged assertion and its
+  mathematical sources; the candidate's behavior cannot determine the intended question.
+- Every admitted assertion remains in the report, including unreadable and unrecorded ones.
+  Neither an interpreter failure nor a missing fingerprint removes it from the denominator.
 
-- **Handshake**: on start the adapter emits one unsolicited ready frame
-  `{"op": "ready", "protocol": 1, "backend": …, "backend_version": …,
-  "adapter_version": …, "capabilities": [opIds…]}`. A wrong protocol
-  number kills the connection at handshake, loudly.
-- **Requests**: `{"request_id": n, "op": opId, "args": {...}}`. Replies
-  carry the same `request_id` and one of:
-  - `{"status": "ok", "value": <codec frame>}`
-  - `{"status": "error", "kind": …, "message": …}` — a structured backend
-    refusal (e.g. `not_expressible`, `bad_request`); never invent a nearby
-    answer to avoid one.
-  - `{"status": "unsupported", "op": …}` for an op outside `capabilities`.
-- **Values** cross the wire only as codec frames (`CasDsl/Codec.lean`;
-  the Python side mirrors them in its `enc_*`/`dec_*` helpers). A new
-  value shape means a new codec tag on BOTH sides plus a round-trip
-  sample in `CasDslTests/Codec.lean` — never an ad-hoc encoding.
-- **Discovery** is by environment variable with a checked default
-  (`CASDSL_SAGE`, `CASDSL_ADAPTER`), relative to the project root.
+## Gate
 
-Exactness is not negotiable: no floats on the wire, no silent
-approximation, no dropped terms. What the backend cannot express exactly
-is a structured error naming the ceiling.
-
-## 2 · The Lean adapter module (`CasDsl/Backends/`)
-
-One module per backend. Its jobs, in order (see `Sage.lean`):
-
-- **Connection cache**: an `IO.Ref (Option PortConn)` holding the pipe.
-  This is code wiring, exempt from the plugin state law (all *semantic*
-  state lives in the `Environment`) — nothing a notebook can observe is
-  stored here.
-- **Encoders**: one per op, matching on the receiver `Obj` and producing
-  the `args` JSON. A receiver outside the op's declared signature is
-  `offSignature` — a `protocolError` blaming the registration, because
-  routes are supposed to make it unreachable.
-- **Argument validation**: receivers are shape-checked by routing;
-  arguments are validated at execution. The executor is **default-deny**
-  on arguments: an op takes its receiver alone unless it is explicitly
-  listed as argument-taking.
-- **`expectKind`**: the decoded reply must be the kind of value the op
-  promises — a well-formed value of the wrong kind is an adapter defect,
-  not a result. Where exact arithmetic on this side can check the answer
-  against the receiver (a determinant, a charpoly's monicity, a companion
-  matrix's trace/determinant, an approximation's certificate, a
-  factorization's product $u\prod_i p_i^{e_i}$, a claimed root's
-  evaluation $p(r) = 0$), check it; where the entries have no arithmetic
-  here (ℚ̄), check the invariant that survives — degree bookkeeping, the
-  split count. These checks are pure functions, `#guard`-tested in
-  `CasDslTests/Core.lean` so deleting one fails the build.
-
-## 3 · Op signatures (`OpSig`)
-
-The executor's receiver match, restated as checked registration data:
-
-```lean
-{ backend := `sage, opId := "roots_poly_q",
-  accepts := #[.elemOf (.polyOver (.exact .rat))],
-  doc := …, docUrl := …, advisory := … }
-```
-
-- Registered with `registerOpSig!` in a `run_cmd`; a duplicate
-  `(backend, opId)` is a build error, never a precedence question.
-- `backendFn`, `conventions`, `doc` and `docUrl` are rendered by the
-  diagnostics — see §7 for what belongs in each; an op naming no external
-  docs falls back to the adapter source at registration.
-- `advisory` is the provider's own disclosure of a choice the answer
-  rides (Sage's fixed ℚ̄ ↪ ℂ embedding), appended IN NOTATION to every
-  rendered result of the op — a qualifying phrase like "under a fixed
-  embedding $\bar{\mathbb{Q}} \hookrightarrow \mathbb{C}$", written in
-  the §7 register, never a standalone prose note. Registration data: no
-  advisory text may live in `Eval.lean`.
-
-## 4 · Executors
-
-```lean
-abbrev Executor := String → Obj → Array Obj → IO (Except ExecError Value)
-initialize sageOpSigs.forM fun s => registerExecutor s.backend s.opId executor
-```
-
-Drive the executor table from the same array the signature registration
-reads, so an op is executable exactly when it is declared. A pure-Lean
-backend (`Native.lean`) is the same wiring with `Native.run` as a pure
-function lifted into `IO` — keep it pure so every op is `#guard`-testable.
-
-## 5 · Routes (`CasDsl/Std.lean`)
-
-```lean
-{ method := `roots, pattern := .elemOf (.polyOver (.exact .rat)),
-  backend := `sage, opId := "roots_poly_q" }
-```
-
-- Registered with `registerRoute!`. `addRouteChecked` verifies at BUILD
-  time that the route's pattern is implied by one of the op's declared
-  `accepts` patterns — a route can never send an op a receiver shape it
-  does not implement.
-- Priorities break ties deterministically; a tie among applicable routes
-  is an explicit ambiguity error at the call.
-- A presentation with no matching route is a **structured capability
-  gap** (`NoImplementation`) — the honest, auditable outcome. Do not
-  widen a pattern to make a gap disappear.
-
-## 6 · Proof obligations
-
-Every wiring change carries its checks; the layered QC gates run them at
-commit/push (`just test`, `just test-ci`):
-
-- **Routing pins** — `expectRouted` / `expectGap` / `expectNotApplicable`
-  in `CasDsl/Std.lean`'s `run_cmd` test block: which backend answers
-  which presentation, and which presentations honestly gap.
-- **Codec round-trip** — new value shapes join the samples in
-  `CasDslTests/Codec.lean` (one of every constructor, including the
-  degenerate cases).
-- **Adapter round-trip** — `tests/roundtrip.py` drives the adapter
-  process directly, pinning each op's wire behavior against live Sage,
-  boundary cases included.
-- **Product surface** — `tests/test_e2e.py` drives the installed
-  kernelspec end to end; the committed notebooks are re-executed
-  (`scripts/reexec_notebooks.py`) so their outputs are genuine kernel
-  output — the demo as a runnable trail, boundaries with its live
-  refusals.
-- **Wording** — user-facing diagnostic text is pinned verbatim
-  (`CasDslTests/Wording.lean`, `#guard_msgs`); a wording change is a
-  reviewed product change.
-
-## 7 · Authoring the documentation fields
-
-Everything in these fields is **emitted text**: the diagnostics render it
-verbatim to a research mathematician. The build enforces the mechanical
-parts (the banned-vocabulary gate in `CasDslTests/Wording.lean` runs over
-every field below), and `#explain_route`'s wording is pinned verbatim — a
-field edit is a reviewed product change.
-
-**The register.** Write LaTeX prose with inline math (`$…$`). Rendered
-surfaces typeset it; plain-text surfaces show the source, which a
-mathematician reads fluently — so the text must read acceptably both ways.
-State mathematics in notation, never in prose paraphrase ("$x =
-u\prod_i p_i^{e_i}$", not "a unit times prime powers"). No caps-as-emphasis,
-no internal vocabulary, no project-management language; an unimplemented
-case is a capability ceiling and must never be worded as mathematical
-undefinedness.
-
-**Placement — the generality rule.** Every sentence lives at the widest
-level where it is true:
-
-- `MethodDecl.doc` — the general mathematical statement of the operation,
-  at the declaring category's generality. The worked example:
-
-  ```
-  for $x \in R$ a UFD: a factorization $x = u\prod_i p_i^{e_i}$
-  with $u$ a unit, each $p_i$ irreducible and $e_i \geq 1$
-  ```
-
-  Nothing receiver-specific may appear here.
-- `MethodDecl.conventions` — presentation choices true at the same
-  generality ("stated up to units"). A convention chooses presentations,
-  never the value of a well-defined predicate.
-- `MethodDecl.advisory` — the template for an unexpected-but-true result,
-  `{…}` placeholders filled by the method's own semantics.
-- `OpSig.backendFn` — the REAL function the backend runs
-  (`Integer.factor()`), which is what the diagnostics display; the wire
-  `opId` is bookkeeping and never user-facing.
-- `OpSig.conventions` — the receiver-specific presentation choices that
-  motivated the op ("the unit is ±1, with all prime factors positive";
-  "factors are monic; the unit carries the leading coefficient"). This is
-  where per-ring normalization lives, never on the method.
-- `OpSig.docUrl` — the EXTERNAL documentation of `backendFn` (the Sage
-  reference page), verified to exist. Never a link back into this
-  repository — the reader already knows the provider; an op naming no
-  external docs falls back to the adapter source at registration.
-- `Route.doc`/`Route.docUrl` — only for what the *binding* means beyond
-  the op itself; usually empty.
-
-**How it renders.** `#explain_route` shows: the availability path as an
-arrow chain (`$360 \longrightarrow \mathbb{Z} \longrightarrow
-\mathrm{EuclideanDomain} \longrightarrow \dots$` — arrows, because
-availability is a path of functors, not subcategory containment), then
-`method ≐ anchor: doc — conventions`, then `via backend, backendFn —
-op conventions` with the docs link, then the result shape. The notebook
-receives it as markdown (typeset math, clickable docs); plain contexts get
-the same sentences as text.
-
-**The anchor discipline (guideline).** Categories carry anchors as checked
-registration data: a `CatDecl` names the category it means in Mathlib
-(`ModuleCat`, `FintypeCat`), or the constant defining it where Mathlib
-holds no name, and registration refuses the entry otherwise. For methods
-the discipline is judgment: the anchor may not carry stronger
-hypotheses than the declared generality of its home: `Polynomial.roots` is
-the IsDomain *carrier* of an any-commutative-ring meaning, and citing
-`EuclideanDomain.gcd` for a UFD-level declaration was an algorithm posing
-as a meaning. This is judgment, not automation — though its mechanical
-core (the anchor constant elaborates at the declared generality) is an
-ordinary typecheck if a gate is ever wanted.
+Run what the change touches:
+- **Kernel, language, probes, tools:** `just build` runs the repository checks (no leaves,
+  reuse records, permanent acceptance) and compiles the
+  kernel, gates, acceptance probes, tools and notebook package. Compilation does not execute the
+  suite. `just test` adds `cas-axiom-audit` (only `propext`, `Classical.choice`, `Quot.sound`)
+  and the no-sorry check; `just test-ci` re-executes the demo notebook.
+- **Acceptance:** `just harness` runs the suite and reports every assertion's outcome;
+  `just acceptance BASE` compares that report with a base report, assertion by assertion
+  (`scripts/check_acceptance_regression.py`). That is development regression, not B0
+  completion, which is judged against the fixed B0 requirements at one revision tuple.
+- **Reviewer controller:** `python3 custodian/review/test_review.py` on a scratch copy (its usage
+  line).
+- **Documentation only:** inspect the focused diff and its stated invariants; no Lean build.
+  CI skips the Lean jobs for documentation-only changes.

@@ -1,0 +1,8 @@
+{
+  "backends": [
+    {"name": "probe", "command": "/nonexistent/program", "args": []}
+  ],
+  "registrations": [
+    {"operation": "meth.cardinality", "input": "obj.sets.fin", "backend": "probe"}
+  ]
+}

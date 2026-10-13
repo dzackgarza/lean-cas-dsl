@@ -1,0 +1,48 @@
+{
+  "observed_utc": "2026-10-03T14:03:51.547276+00:00",
+  "outcome": "holds",
+  "runner": "timeout 30s lake env lean specs/observations/2026-10-03/polynomial-reuse.lean",
+  "kernel_git_head": "52ae711259422788bd386d2463f43e0fd4df0789",
+  "kernel_uncommitted_sources": [
+    "M CasAcceptance/StructuredComparisonProbes.lean",
+    " M CasCatalogue/Codec.lean",
+    " M CasCatalogue/ComputationalData.lean",
+    " M CasCatalogue/Language.lean",
+    " M CasCatalogue/Realize.lean",
+    " M CasCatalogue/Trace.lean",
+    " M specs/reuse/cc-dsl-language.md",
+    "?? specs/observations/"
+  ],
+  "source_sha256": {
+    "CasCatalogue/Realize.lean": "0f31fef16c011f3ea6bf3f615721596e65460cef81a449aa7d452e3555d08bc2",
+    "CasCatalogue/Language.lean": "26fb7e480ace39c8c965c998e5f5fda9dc254889d910bdb08c6dcc848ef012ca",
+    "CasCatalogue/Trace.lean": "cff2a923102d4c71d0dcdb2167b3996dbcaef86ad9aeedb2453b44bcba98d639",
+    "CasCatalogue/Codec.lean": "21d30daa064c98e138a4c294b134a0292acf7e0e068a9a7141a4c473d5d6da2a",
+    "CasCatalogue/StructuredResult.lean": "e20fbf336d2994271fd17bb3b32399551e531ef1e4c2aae967a24f4a3ac0f72f",
+    "CasCatalogue/ComputationalData.lean": "a54bb5142f50d0152c0eeda0f73c7f51d2f9fc8c93765d8b00301620fbac3623",
+    "lake-manifest.json": "b684236ec1767f0ee5402d36f401b0ac291a619baf760cc9a1c16e91ddd918a3"
+  },
+  "artifact_sha256_after_run": {
+    ".lake/build/lib/lean/CasCatalogue/Realize.olean": "e22ffb540fd2f362ff9f2e7fc7cc1aa61893f6822b830fdedec6035a775f3544",
+    ".lake/build/lib/lean/CasCatalogue/Language.olean": "95fa2cf36a594ae260e512a4c84b418cdc7f38434d96951f37dff28a1c6eca05",
+    ".lake/build/lib/lean/CasCatalogue/StructuredResult.olean": "d73bb3a345961c64a592be2e25e49df5ba7eedb20e70f5b1e9ff7a8b169c3c42"
+  },
+  "dependencies": {
+    "lean_categories": {
+      "manifest_rev": "01b44cd379e8051fc29957c5e0300033ec2605d9",
+      "checkout_head": "01b44cd379e8051fc29957c5e0300033ec2605d9"
+    },
+    "cas_leaf_contracts": {
+      "manifest_rev": "bcd47216fe593fe825b877569a35e8bf50913ee1",
+      "checkout_head": "bcd47216fe593fe825b877569a35e8bf50913ee1"
+    }
+  },
+  "leaf_head": "4f4ad3340a0b51efff7bc62fcb02765de0f17996",
+  "leaf_sha256": "900cd78054b9a715b5df90b24df626d2b604125d8569ce10b8db6839306d8cb7",
+  "limitations": [
+    "Hashes recorded after this run, not a before/after snapshot; source was frozen by the execution owner.",
+    "Kernel HEAD alone does not identify the then-uncommitted compiled producers; explicit source hashes are recorded.",
+    "One connected assertion; not original-suite or B0 acceptance."
+  ],
+  "context_recorded_utc": "2026-10-03T14:06:56.682867+00:00"
+}

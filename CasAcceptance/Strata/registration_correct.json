@@ -1,0 +1,10 @@
+{
+  "backends": [
+    {"name": "probe", "command": "python3", "args": ["probe_registration.py", "--answer=correct"]}
+  ],
+  "registrations": [
+    {"operation": "meth.cardinality", "input": "obj.sets.fin", "backend": "probe"},
+    {"operation": "meth.cardinality", "input": "obj.sets.integers_mod_power", "backend": "probe",
+     "trust": "certified", "note": "fields a registration does not have carry no meaning"}
+  ]
+}

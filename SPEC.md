@@ -1,6 +1,6 @@
 # Elementary mathematics
 
-Definitions use :=. Equality = is a proposition. The command assert asks the available computational backend to decide or establish that proposition. A proposition may also be stated bare — the cell then displays its truth value, `true | false | unknown` — while assert is the collapsing form: it commits only on `true`, and `false` and `unknown` are both assertion failures.
+Definitions use :=. Equality = is a proposition. The command assert states that proposition: the language reads it through `lean-categories`' mathematics, runs whatever computations are installed for the operations it names, and compares the computed values. A computation supplies values only; it never decides or establishes a proposition, and nothing it reports about itself is believed. A proposition may also be stated bare — the cell then displays its truth value, `true | false | unknown` — while assert is the collapsing form: it commits only on `true`, and `false` and `unknown` are both assertion failures.
 
 ## Exact number systems
 
@@ -108,6 +108,19 @@ assert h(-t) = h(t)
 ```
 
 ## Polynomials
+
+A named object can expose a distinguished generator through its mathematical declaration.
+`generator(X)` reads that generator; `generator(X, i)` reads an indexed generator when the
+declaration has an index. This keeps the selected object and its parameters.
+
+A registered presentation comparison has a name and fixed source and target presentations.
+`map t along P` applies its forward map; `map u back along P` applies its inverse. The chosen
+comparison and the endpoint data remain part of the question. The language checks each argument
+at the declared source or target; naming two objects with the same carrier does not identify them.
+These forms apply to any registered generator or presentation comparison.
+
+Use `X in Groups`, `X in CommutativeRings`, or another registered category to select the declared
+structure when the same display name denotes objects with different structures.
 
 ```text
 let p(x) := x³ - 2x + 1 in ℤ[x]

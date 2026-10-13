@@ -1,163 +1,79 @@
 # lean-cas-dsl
 
-**A categorically organized CAS in Lean 4** — a computer algebra system
-whose user-facing interfaces are organized by the mathematical categories
-where operations first make sense, running as a Jupyter kernel via
+A computer algebra language over Lean 4, where every object, operation and structural route is
+mathematics formalized in [`lean-categories`](https://github.com/dzackgarza/lean-categories),
+and every computation is done by an ordinary backend (Sage, GAP, or anything else) registered
+against a catalogue operation, whose answers are decoded and compared, never believed
+([`specs/leaf-registration.md`](specs/leaf-registration.md)). It runs as a Jupyter kernel through
 [lean-jupyter-kernel](https://github.com/dzackgarza/lean-jupyter-kernel).
 
-```text
-let n := 360 in ℤ
-n.factor()                 -- 2^3 * 3^2 * 5   (a Sage-computed, trusted value —
-                            --  but no expression ever names a backend)
-let F := ℤ/4 in CyclicModules(ℤ)
-F.annihilator()            -- (4)             (declared once, on Modules — any
-                            --  module — and inherited through the inclusion)
-let A := [1, 2; 3, 4] in Mat₂(ℤ/5)
-A.det()                    -- NoImplementation: det is *semantically* available
-                            --  on any square matrix — there is just no route yet
+```lean
+#cas "assert 2 + 3 = 0 in ℤ/5"
+-- holds                        (decided in Lean; no leaf is consulted)
+#cas "assert |Fin(3)| = 3"
+-- gap: no admitted registration computes meth.cardinality on the form obj.sets.fin
+--                              (holds once a leaf registers it; wrong if it answers 4)
+#resolve cardinality in "cat.finite_sets"
+-- cat.finite_sets --forget[clf.sets.finite]--> cat.sets ;
+--   meth.cardinality = fun.sets.cardinality on the core
 ```
 
-Three invariants, enforced end to end:
-
-1. **Backend-blind syntax.** Ordinary expressions never name Sage, GAP, or
-   an algorithm. A developer-owned routing layer selects implementations
-   *after* the mathematical operation is resolved; `#explain_route`,
-   `#capabilities`, and `#capability_gaps` are the only places backend
-   identity is visible.
-2. **Category-owned methods, inherited by functor composition.** `factor`,
-   `det`, `annihilator`, `nth`, and `cardinality` are declared where the
-   mathematical operation first makes sense. An object receives a method
-   whenever its category has a registered structural functor to that source
-   category—not only when it lies in a subtype/full subcategory. Thus a
-   formed module or lattice can inherit `cardinality` through its projection
-   to modules and the underlying-set functor, without leaf-specific
-   forwarding code. Method resolution lives behind one boundary
-   (`CasDsl/Resolve.lean`); `F.cardinality()` resolves to application of the
-   resulting composite functor.
-3. **Semantic availability ≠ computability.** What is mathematically
-   meaningful is decided by the Lean-owned category/operation graph; what is
-   currently executable is decided by backend realization records attached
-   to those operations or normalized composites. A missing implementation is
-   a structured, auditable `NoImplementation` gap—never a hidden method, a
-   narrowed category, or a fake value.
-
-The worked proof is the pair of committed notebooks, re-executed against
-the live kernel (`scripts/reexec_notebooks.py`) so every embedded output
-is genuine: [`notebooks/demo.ipynb`](notebooks/demo.ipynb) — the runnable
-trail through the product surface (exact arithmetic and trusted
-assertions, Sage-backed factorization, roots as multisets with their
-disclosed choices, exact matrices over ℚ, the inherited `annihilator` and
-transport along the forgetful functor, calculus, progression sets with
-Haskell-style ellipses, countable indexing) — and
-[`notebooks/boundaries.ipynb`](notebooks/boundaries.ipynb) — the refusal
-catalogue, executed with its errors, because a refusal is content there
-(`ℤ[3]` under the registered `0, 1, −1, 2, −2, …` choice), exact algebraic
-numbers (`√2 ∈ ℝ`, `2 + 2i ∈ ℂ`, `|2 + 2i| = 2√2` — never a decimal) with
-the ⊆-chain read off the canonical-map registry, the cubic split over ℂ[x],
-numerical approximation as an operation ON an exact value
-(`map √2 to ℝ/O(1/10^{10})`, whose decimal is certified against the value it
-presents and whose tolerance is a request rather than a quotient),
-vectors and the shape-checked linear action in SPEC.md's four spellings
-(`M*v`, `M v`, `M⁻¹ b`, `M(M⁻¹ b)`), subspaces presented by a reduced basis
-(`span_QQ{u₁, u₂} \leq ℚ³ in Mod(QQ)`, which answers `dim`, `∈`, `∉` and `=`
-from that one normal form), the root set of an equation
-(`{a ∈ ℂ | r(a) = 0}`) with `∑` and `∏` folded exactly over its surds, and
-the companion matrix closing the loop on its own characteristic polynomial,
-and the calculus block — the universal differential and the derivation that
-shadows it (`d(f) = (6x + 1) dx`, `(d/dx)(f) = 6x + 1`), the indefinite
-integral as the **coset** its `+ ℚ` says it is, limits and definite integrals
-answered exactly by the backend, and formal power series with their
-truncations (`map f to ℤ[[t]] / O(t^5)`) —
-and ten cells that **fail on purpose**: one square root over ℚ is the
-documented ceiling, `Mat₂(ℤ/5).det()` is the structured capability gap
-(whose `trace` routes, because reading a diagonal needs no ℚ), a matrix
-applied to a vector of the wrong length names both shapes, a lambda with
-several binders names itself as a disclosed gap, five refusals in the
-approximation section keep a request, a registry gap, a capability failure
-and the absence of error propagation apart, and `let boom := t ↦ e^t` shows
-SPEC.md colliding with itself — it binds `e` to the doubling map in §Set
-comprehensions and writes `e^t` for Euler's number in §Elementary calculus,
-and a binding wins over a constant.
-
-## Quickstart
-
-Requires: [elan](https://github.com/leanprover/elan), `uv`, `just`, and
-SageMath on `PATH` (the direct backend; without it, Sage-routed operations
-fail honestly as capability gaps).
-
-```bash
-lake exe cache get && lake build CasDsl nbdsl_worker
-just setup            # venv + kernel adapter + casdsl kernelspec
-jupyter lab notebooks/demo.ipynb              # kernel: "CasDsl (Lean 4)"
-```
-
-`just test` runs the full gate: Lean build + no-sorry, the Sage adapter
-roundtrip (against real Sage), and the E2E suite through the
-installed kernelspec.
+`cardinality` is declared once, as a functor on sets, in `lean-categories`. Everything that
+reaches sets along a structural functor receives it, and nothing else is written. The assertion
+above is permanent and names no leaf: whatever computation is installed for cardinality is run,
+and its answer either meets the assertion or does not.
 
 ## Architecture
 
-```text
-surface expression  (CasDsl/Syntax.lean, Eval.lean — backend-blind casTerm language)
-  -> Lean object + typed category expression
-  -> semantic method resolution        (operation functor + structural composite)
-  -> backend realization selection      (chosen | gap | ambiguous)
-  -> executor                           (Native.lean in-process, or a direct adapter)
-  -> trusted typed Value                (ordinary CAS trust, no proof laundering)
-  -> notebook state                     (persistent env extensions; snapshot-safe)
-```
+[`specs/architecture.md`](specs/architecture.md) is the contract. It covers:
+- who owns what;
+- the one-way workflow;
+- the payload at each boundary;
+- the invariants and trust boundaries;
+- the states the leaf API must make impossible.
 
-The current implementation realizes parts of this through local category
-profiles, method rows, and route rows. Those are implementation scaffolding,
-not a second ontology. The convergence work is explicit:
+In short:
 
-- [`lean-lattices`](https://github.com/dzackgarza/lean-lattices) owns the
-  checked categories, structural functors, classifiers, constructors,
-  operation functors, and coherences;
-- lean-lattices #49 and this repository's #14 own pinned Lake consumption of
-  that registry;
-- lean-lattices #28/#53 and this repository's #15 own replacement of local
-  method ownership by the imported semantic operation graph;
-- this repository's #19–#23 own versioned Sage observation, applicability,
-  realization routes, and executed parity.
+| Silo | Owns |
+| --- | --- |
+| `lean-categories` | All mathematics: categories, functors, classifiers, operations, coherences |
+| catalogue (`LeanCategories.Catalogue`, in `lean-categories`) | The semantic registry: the symbolic calculus, the registered categories, functors, classifiers, methods, cells, limits and adjunctions, each checked against its mathematics |
+| kernel (`CasCatalogue`) | Deterministic interpretation of the upstream mathematics: resolution, ambiguity, the semantic reading of statements, their discharge in Lean and their realization through registrations (encoding, decoding, comparison), the language, the harness. |
+| leaf contract (`CasContract`, repository `lean-cas-dsl-leaf-contracts`) | Kernel-owned, published separately: the shape of a leaf's manifest, the port protocol, the failure strata, and the kernel's reading of the semantic registry. Depends on `lean-categories` only. |
+| leaves (`lean-cas-dsl-leaves`, or any other package) | Opaque computations, each registered against an operation's declared type (operation id, input form, implementation): glue from the declared input form to a mature engine's routine and back ([leaf guidance](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/e2f8537/AGENTS.md)). A leaf ships no mathematics and no Lean, and nothing it says is believed; it never sees this repository's tests. |
+| acceptance (`tests/acceptance/`) | The only correctness evidence: permanent, leaf-blind assertions in the mathematical language, whose expected values come from proof, citation or an independent oracle |
+| notebook (`CasDsl`) | Surface syntax only |
 
-A local profile may cache the structural facts needed by the elaborator, and
-an optimized Sage method may realize a whole composite directly. Neither may
-redefine the mathematical source of the operation or erase typed parameters,
-operation ports, or route provenance.
-
-The Sage bridge is a **direct adapter** (`CasDsl/Backends/Sage.lean` +
-`backends/sage_adapter.py` under `sage -python`, framed typed JSON —
-`CasDsl/Port.lean` is generic and contains no Sage branches). Sage brokers
-nothing: future GAP/Singular/Macaulay2 bridges are parallel direct
-adapters registering realizations against the *existing* mathematical
-operations.
-
-All notebook/session state is held in persistent environment extensions per
-the [plugin state law](https://github.com/dzackgarza/lean-jupyter-kernel/blob/main/docs/plugins.md),
-so cell atomicity, restart replay, and the olean session cache come from the
-notebook core. Once the semantic registry is imported, local state stores
-references, derived closures, realization choices, and bindings—not an
-independent category graph.
-
-Notebook semantics follow the kernel's document-order philosophy: a cell's
-state is the state of elaborating the *visible* prefix of the notebook
-through that cell, so outputs always correspond to the source shown above
-them. Editing cell 2 never re-runs an unchanged cell 1 (cached snapshots);
-editing cell 1 re-runs only the cells below it, visibly, rather than
-leaving downstream outputs silently stale against a changed definition.
-A failing cell rolls the session back — no partially-applied notebook
-state. This is a deliberate exclusion of the standard notebook footgun
-(unknown, inconsistent state), not a limitation; the execution-order REPL
-model remains available in clients that do not stream the document.
-
-Design contract, decisions, ceilings, and open questions: [DESIGN.md](DESIGN.md).
-Deferred work is tracked in the issues.
+Semantic availability and computability are separate. An operation that applies but has no
+realization is a `NoImplementation` gap, and never a missing method. The requirements are in
+[`specs/computational-core.md`](specs/computational-core.md), and the execution order is in
+[`specs/computational-core-plan.md`](specs/computational-core-plan.md). The semantic registry
+is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at `main` and writes
+no semantic row.
 
 ## Layout
 
-`CasDsl/` (engine: value model, registries, resolver, router, native
-executors, port, Sage adapter, surface syntax, diagnostics, standard
-universe) · `CasDslTests/` (elaboration-time `#guard`/`run_cmd` suites) ·
-`backends/` (the Python half of the Sage adapter) · `tests/` (adapter
-roundtrip + kernel E2E) · `notebooks/` (the live acceptance notebook).
+- `CasCatalogue/`, the kernel over the leaf contract (`CasContract`, a dependency):
+  - resolution (`Resolve`, `ResolveSyntax`) and composites of registered cells (`CellCall`);
+  - the semantic reading (`Semantic`, `Trace`), the language (`Language`), the admission of
+    registrations (`Admission`), the codec (`Codec`), the realized reading (`Realize`) and the
+    suite's runner (`TestSuite`).
+- `tests/acceptance/*.cas`: the permanent suite, in the language.
+- `CasAcceptance/`: the probes and the standard catalogue's ids.
+- `CasTools/`: `cas-registry-export`, `cas-axiom-audit` and `cas-harness` (the suite over a
+  leaves manifest).
+- `CasDsl/`, `CasDslTests/`: the notebook prelude, the boundary check, and the demo's cells,
+  generated by `scripts/demo_notebook.py`.
+- `notebooks/demo.ipynb`: the demo, re-executed by `scripts/reexec_notebooks.py`.
+
+## Quickstart
+
+Requires [elan](https://github.com/leanprover/elan), `uv` and `just`.
+
+```bash
+just setup    # Mathlib cache, venv, casdsl kernelspec
+just build    # the gate: the static checks, then the kernel, acceptance, tools and notebook
+just test-ci  # the gate, then the demo notebook through the live kernel
+just harness path/to/leaves.json   # the suite over a leaves manifest, to .tmp/harness.json
+just acceptance base.json          # the suite here, compared with a base run assertion by assertion
+```

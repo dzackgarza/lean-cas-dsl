@@ -1,0 +1,58 @@
+-- Exact number systems (SPEC.md, "Exact number systems"): elements of the named rings and their
+-- ring operations. Each test is admitted once and never changed.
+
+test numbers.integers.sum "2 + 3 = 5":
+  assert 2 + 3 = 5
+
+test numbers.zmod5.sum "SPEC.md: 2 + 3 = 5 ≡ 0 (mod 5)":
+  assert 2 + 3 = 0 in ℤ/5
+
+test numbers.zmod5.product "2 · 3 = 6 ≡ 1 (mod 5)":
+  assert 2 · 3 = 1 in ℤ/5
+
+test numbers.zmod5.negation "-2 ≡ 3 (mod 5)":
+  assert -2 = 3 in ℤ/5
+
+test numbers.zmod5.difference "2 - 3 = -1 ≡ 4 (mod 5)":
+  assert 2 - 3 = 4 in ℤ/5
+
+test numbers.zmod7.distributive "3 · (4 + 5) = 27 ≡ 6 and 3 · 4 + 3 · 5 = 27 ≡ 6 (mod 7)":
+  assert 3 · (4 + 5) = 3 · 4 + 3 · 5 in ℤ/7
+
+test numbers.zmod7.value "3 · (4 + 5) = 27 ≡ 6 (mod 7)":
+  assert 3 · (4 + 5) = 6 in ℤ/7
+
+test numbers.rationals.sum "2 + 3 = 5 in ℚ":
+  assert 2 + 3 = 5 in ℚ
+
+test numbers.containments "Mathlib Nat.cast_injective, Int.cast_injective, Rat.cast_injective, Complex.ofReal_injective: ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ":
+  assert ℤ ⊆ ℚ and ℚ ⊆ ℝ and ℝ ⊆ ℂ
+
+test numbers.containments.transitive "ℕ ⊆ ℤ ⊆ ℚ ⊆ ℝ ⊆ ℂ":
+  assert ℕ ⊆ ℂ
+
+test numbers.membership.zmod "3 ∈ ℤ/5":
+  assert 3 ∈ ℤ/5
+
+test numbers.membership.negative "SPEC.md: -3 ∈ ℤ":
+  assert -3 ∈ ℤ
+
+test numbers.gcd "SPEC.md: gcd(84, 30) = 6":
+  assert gcd(84, 30) = 6
+
+let z := 2 + 2 · i in ℂ
+
+test numbers.complex.re "SPEC.md: z = 2 + 2i, re z = 2":
+  assert z.re() = 2
+
+test numbers.complex.im "SPEC.md: z = 2 + 2i, im z = 2":
+  assert z.im() = 2
+
+test numbers.complex.bar "SPEC.md: conj(2 + 2i) = 2 - 2i":
+  assert z.bar() = 2 - 2 · i
+
+test numbers.complex.norm "SPEC.md: (2 + 2i)(2 - 2i) = 8":
+  assert z · z.bar() = 8
+
+test numbers.complex.abs "SPEC.md: |2 + 2i| = √8 = 2√2":
+  assert |z| = 2 · sqrt(2)

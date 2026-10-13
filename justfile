@@ -1,8 +1,10 @@
 # lean-cas-dsl — categorically organized CAS in Lean, an nbdsl DSL plugin.
 #
 # One Lake package (library CasDsl + prelude CasDsl.Notebook) over the
-# nbdsl-worker core, plus the Python half of the Sage adapter
-# (backends/sage_adapter.py, runs under `sage -python`). Lake owns
+# nbdsl-worker core. The leaves (`lean-cas-dsl-leaves`) are not a Lake
+# dependency: a leaf is a manifest `leaves.json` of registrations and the
+# programs it names, found through `CAS_LEAVES` (or `.lake/packages/cas_leaves`),
+# written against the leaf contract (`lean-cas-dsl-leaf-contracts`). Lake owns
 # compilation; language-level QC delegates to the global gates.
 #
 # Not adopted: lean-axiom-audit — it requires a target-private
@@ -16,11 +18,45 @@ set dotenv-load := true
 default:
     @just --list
 
-# Build the CasDsl library (and the worker it depends on)
-build:
-    @lake build CasDsl CasDslTests nbdsl_worker
+# Build the core and the notebook package, and run their probes: the acceptance probes
+# (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests). The suite is
+# executed by `just harness` and `just acceptance`, not compiled.
+# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
+# Own-organisation requires always build at their latest `main` (owner, 2026-10-10): no pins.
+track-main:
+    @lake update lean_categories cas_leaf_contracts nbdsl-worker
 
-# One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec
+build: track-main
+    @python3 scripts/check_no_leaves.py --self-test
+    @python3 scripts/check_no_leaves.py
+    @python3 scripts/check_reuse_records.py
+    @python3 scripts/check_acceptance_permanent.py
+    @lake build CasCatalogue CasGates CasAcceptance CasTools CasDsl CasDslTests cas-registry-export cas-axiom-audit cas-harness
+
+# Run the acceptance suite over a leaves manifest (default: the installed leaves', through
+# `CAS_LEAVES` or `.lake/packages/cas_leaves`); writes every result to .tmp/harness.json. Gaps are
+# the report, not failures.
+harness *manifest="": track-main
+    @lake build cas-harness
+    @mkdir -p .tmp
+    @CAS_SAGE_PYTHON="${CAS_SAGE_PYTHON:-$PWD/.venv/bin/python}" CAS_GAP_PYTHON="${CAS_GAP_PYTHON:-$PWD/.venv/bin/python}" lake exe cas-harness --report .tmp/harness.json {{ if manifest == "" { "" } else { "--manifest " + manifest } }}
+
+# Run the suite here and compare it with the base run `base` (a report of `cas-harness`),
+# assertion by assertion (`scripts/check_acceptance_regression.py`): an assertion of the base that is
+# missing here, one that the base did not fail and fails here, and a new one that fails here,
+# each fail the comparison. The harness exits nonzero whenever an assertion fails, so its exit
+# does not decide; its report does, and a run that did not complete writes none (the stale
+# report is removed first).
+acceptance base: track-main
+    @lake build cas-harness
+    @mkdir -p .tmp
+    @rm -f .tmp/harness.json
+    -@CAS_SAGE_PYTHON="${CAS_SAGE_PYTHON:-$PWD/.venv/bin/python}" CAS_GAP_PYTHON="${CAS_GAP_PYTHON:-$PWD/.venv/bin/python}" lake exe cas-harness --report .tmp/harness.json
+    @python3 scripts/check_acceptance_regression.py {{ base }} .tmp/harness.json
+    @python3 scripts/check_question_permanence.py --base CasAcceptance/Permanent/questions.json .tmp/harness.json
+
+# One-time dev setup: Mathlib cache, venv, kernel adapter, casdsl kernelspec. The leaves' engines
+# (Sage, GAP, …) are the leaves' own (`lean-cas-dsl-leaves`), installed with them.
 setup:
     @lake exe cache get
     @uv venv .venv
@@ -55,37 +91,34 @@ sync-kernel:
     @cp .lake/packages/nbdsl-worker/jupyterlab_nbdsl/install.json \
         ~/.local/share/jupyter/labextensions/jupyterlab_nbdsl/install.json
 
-# The full suite (Sage roundtrip + E2E) runs under `test-ci`; this is the
-# commit gate and must stay fast.
-# The worker's oleans are toolchain-bound, so this repo and the kernel repo
-# must pin the same Lean (release.toml there is the source of truth). The
-# diff below fails the gate loudly on drift, naming both pins.
-# Run the QC preflight: compile Lean and the Python adapter, then the Lean laws.
+# Lean compilation runs in CI only (.github/workflows/gates.yml): the commit
+# and push tiers are static scans.
+# Build everything, then run the audits and the Lean laws.
 test: build
-    @diff -u .lake/packages/nbdsl-worker/worker/lean-toolchain lean-toolchain
+    @lake exe cas-axiom-audit
+    @lake exe cas-registry-export > /dev/null
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-no-sorry
     @just -f ~/ai-review-ci/justfiles/lean.just -d . lean-semgrep
-    @python3 -m py_compile backends/sage_adapter.py tests/roundtrip.py
+    @python3 -m py_compile CasAcceptance/Strata/probe_registration.py
 
+# Drives the installed casdsl kernelspec (`just setup` first) through the demo notebook.
 [private]
 _test-full:
-    @python3 tests/roundtrip.py
-    @.venv/bin/pytest tests/test_e2e.py -q
+    @.venv/bin/python scripts/reexec_notebooks.py
 
-# Talks to real Sage and drives the installed casdsl kernelspec
-# (`just setup` first); the full suite behind it is `_test-full`.
-# Run the full QC gate: the preflight, the Sage roundtrip, and the E2E suite.
+# Run the full QC gate: the preflight, then the demo notebook through the live kernel.
 test-ci: test _test-full
 
+# Scan staged Lean source; the permanent assertions stay append-only.
 [private]
-test-commit: test
+test-commit:
+    @just -f ~/ai-review-ci/justfiles/lean.just -d . test-commit
+    @python3 scripts/check_acceptance_permanent.py
 
-# Re-execute the committed notebooks against the live casdsl kernel:
+# Re-execute the committed notebook against the live casdsl kernel:
 # outputs stay genuine kernel output (a23ee30 standard). The demo is a
 # runnable trail — a live error cell fails this gate, since the document
-# model would block every cell below it — while boundaries.ipynb runs with
-# errors allowed: its refusals ARE its content, and the gate fails instead
-# if it stops producing them. The re-executed notebooks — execution
+# model would block every cell below it. The re-executed notebook — execution
 # timestamps included, they are the provenance of the genuine outputs —
 # are committed here; the push in flight proceeds, and the commit rides
 # the next one.
@@ -94,10 +127,14 @@ _notebook-reexec:
     #!/usr/bin/env bash
     set -euo pipefail
     .venv/bin/python scripts/reexec_notebooks.py
-    if ! git diff --quiet -- notebooks/demo.ipynb notebooks/boundaries.ipynb; then
-        git add notebooks/demo.ipynb notebooks/boundaries.ipynb
+    if ! git diff --quiet -- notebooks/demo.ipynb; then
+        git add notebooks/demo.ipynb
         git commit -m "chore: notebook session metadata"
     fi
 
+# Static Lean scans before push; no compilation.
 [private]
-test-push: sync-kernel test-ci _notebook-reexec
+test-push:
+    @just -f ~/ai-review-ci/justfiles/lean.just -d . test-push
+    @python3 scripts/check_acceptance_permanent.py
+    @python3 -m py_compile CasAcceptance/Strata/probe_registration.py
