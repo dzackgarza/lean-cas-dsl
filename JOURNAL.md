@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-10-13 — Full latest-main computation-only harness result
+
+The original background run finished with exit 1; it was not stopped or relaunched.
+The immutable report is `.tmp/b0-completion-20261013/harness.json`, with exact inputs
+in `harness-inputs.json`. It records 155 entries: 15 holds, 104 NoImplementation
+gaps, 3 unavailable executions, 16 invalid interpretations and 17 internal failures.
+The admitted inventory contains 153 identities; anonymous statement entries account
+for the extra report rows and are not extra admitted assertions.
+
+Eleven frozen required identities hold with registered dispatches. `sets.eq.rev_rev`
+holds with no dispatch; current leaves main has no `mor.sets.fin_rev` registration.
+The three frozen discriminant identities report missing
+`colim.bil_w_form.cokernel` registrations. The previous October 10 focused results
+therefore do not establish the required latest-main tuple. No leaf was modified.
+
+Internal failures include category-family inference through `mkAppM Category`,
+admitted-point category retention, and deterministic elaboration heartbeat exhaustion.
+Invalid interpretations and internal errors remain kernel obligations; they are not
+accepted NoImplementation outcomes. The permanent assertions remain unchanged.
+
 ## 2026-10-13 — Recover full B0 integration validation
 
 - Current construction source began at `70e0364`; the existing uncommitted

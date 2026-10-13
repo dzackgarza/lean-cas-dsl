@@ -174,3 +174,17 @@ run_cmd liftTermElabM do
     if (← Outcome.ofException error).kind == "invalid" then pure true else throw error
   unless wrongParameter do
     throwError "a coefficient outside the declared parameter was not invalid when read"
+
+/- A registered morphism family infers its category-valued parameter from the
+operand. Unconstrained hom universes must remain available for instance synthesis. -/
+run_cmd liftTermElabM do
+  let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt
+      "let f := x ↦ 3x² + x + 1 in ℚ[x]"
+    | throwError "the registered family operand did not parse"
+  let some (name, value) ← letBinding? binding
+    | throwError "the registered family operand was not bound"
+  let scope : Language.Scope := ({} : Language.Scope).insert name value
+  let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt
+      "assert implemented d(f)"
+    | throwError "the registered family call did not parse"
+  discard <| (claim scope statement).run {}
