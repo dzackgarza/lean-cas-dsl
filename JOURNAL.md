@@ -1,5 +1,21 @@
 # Journal
 
+## 2026-10-13 — Isolate registered-evidence observation artifacts
+
+The complete build at `62d3a69405ef89dfb2fef283328b8e44176e14ee` finished
+with one failed target, `CasGates.KernelPurity`; all other requested targets
+completed. The ordinary-budget binder probe and the admitted-point protected
+negatives passed, as did acceptance registration and notebook boundaries.
+The purity failure named seven factorial equation/splitter lemmas generated
+by registered evidence execution in the new binder observation's environment.
+
+The observation now uses Lean's `withoutModifyingEnv`, which restores the
+incoming environment after the complete request has been checked. This keeps
+runtime proof artifacts inside the observation and exports no mathematical
+declarations from the kernel probe. The purity gate, its import coverage and
+its allowed-module list remain unchanged. The full failed-run output and exact
+inputs remain under `.tmp/b0-completion-20261013/build-62d3a69.*`.
+
 ## 2026-10-13 — Preserve actual structured result parameters
 
 The matrix coefficient reader regression failed because result recognition

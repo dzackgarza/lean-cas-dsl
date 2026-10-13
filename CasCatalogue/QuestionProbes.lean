@@ -224,8 +224,10 @@ run_cmd liftTermElabM do
       throwError "execution accepted an altered admitted-point category or endpoint"
 
 /- The whole prepared binder request, including its operation snapshot, must be
-read within the ordinary command budget. No mathematical answer is evaluated. -/
-run_cmd liftTermElabM do
+read within the ordinary command budget. No mathematical answer is evaluated.
+Registered evidence may generate equation lemmas while observing the request;
+keep those artifacts in the observation environment, not this kernel module. -/
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt
       "let r(x) := x³ - 2x + 1 in ℚ[x]"
     | throwError "binder snapshot fixture did not parse"
