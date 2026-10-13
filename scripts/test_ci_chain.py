@@ -42,7 +42,15 @@ class ChainTests(unittest.TestCase):
                 actual = subprocess.check_output(
                     ["git", "-C", str(package), "rev-parse", "HEAD"], text=True).strip()
                 self.assertEqual(actual, current, name)
+            (remote / "value").write_text("new main\n")
+            git("commit", "-qam", "advance main")
+            advanced = git("rev-parse", "HEAD")
             subprocess.run(command, check=True, capture_output=True)
+            for name in names:
+                package = checkout / ".lake" / "packages" / name
+                actual = subprocess.check_output(
+                    ["git", "-C", str(package), "rev-parse", "HEAD"], text=True).strip()
+                self.assertEqual(actual, advanced, name)
             dirty = checkout / ".lake/packages/lean_categories/value"
             dirty.write_text("local work\n")
             result = subprocess.run(command, capture_output=True, text=True)

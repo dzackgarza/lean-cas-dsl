@@ -20,9 +20,18 @@
   fixtures pass with global Git hooks disabled only in their disposable test
   repositories. The repository's ordinary commit hooks remain active.
 - Latest-main leaves are `48a99b5bcb2b090e1c778db29f006b612bed02ed`.
-  The repository `.venv/bin/python` currently cannot import Sage; registered
-  computation requires an actual engine environment. Earlier selected-assertion
-  reports do not establish execution at these newly consumed inputs.
+  The repository `.venv/bin/python` successfully runs the modular Sage and GAP
+  entry points: `sage.all__sagemath_modules` and `sage.all__sagemath_gap`
+  (integer arithmetic returns 4 and a cyclic group's order returns 7).
+  `sage.all` is absent from this modular installation and is not its entry point.
+  Earlier selected-assertion reports do not establish execution at these newly
+  consumed inputs.
+- All 11 script fixtures pass, including a further remote-main advance; they now
+  run in `build`. Preparation finishes with `lake update` so Lake records the
+  revisions it will compile. Full computation-only acceptance is queued once
+  behind the successful integration build, under PID 3930594, with log
+  `.tmp/b0-completion-20261013/harness.log`; its execution records all consumed
+  dependency revisions in `harness-inputs.json` beside the report.
 
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 

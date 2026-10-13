@@ -39,8 +39,8 @@ jobs:
           auto-config: 'false'
       - name: Build the gate at latest main
         run: |
-          lake update lean_categories cas_leaf_contracts nbdsl-worker
           python3 scripts/ci_chain.py
+          lake update lean_categories cas_leaf_contracts nbdsl-worker
           lake build CasGates
   build:
     name: Build and audit (just test)

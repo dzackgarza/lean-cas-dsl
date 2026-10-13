@@ -24,10 +24,11 @@ default:
 # Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
 # Own-organisation requires always build at their latest `main` (owner, 2026-10-10): no pins.
 track-main:
-    @lake update lean_categories cas_leaf_contracts nbdsl-worker
     @python3 scripts/ci_chain.py
+    @lake update lean_categories cas_leaf_contracts nbdsl-worker
 
 build: track-main
+    @python3 -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py
     @python3 scripts/check_reuse_records.py
