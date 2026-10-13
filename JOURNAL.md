@@ -1,5 +1,28 @@
 # Journal
 
+## 2026-10-13 — Shared scanner correction integrated
+
+Independent reviewer and native downstream scanner regressions verified
+ai-review-ci PR #469 at `088892b1690024a22317d7afe50dcac4b3b59254`.
+Hosted QC passed at that exact head (run `38398299480`); fresh feedback
+collection closed all five review threads with evidenced dispositions.
+Source integrated as `9b43a56c23518412dd4aa145441f0d4bc6425cb7`, then the
+ordinary installed `just test-push` returned 0. Its durable output is
+`.tmp/b0-completion-20261013/integrated-qc-9b43a56.log`. The caller remains
+dirty, so its retained scanner report is not a committed-revision report.
+Nine suffix findings and three native parsing diagnostics remain reviewer
+input; their individual source-level dispositions are recorded in
+`custodian/FINDINGS.md`. No source name, exclusion or blocking exception was
+changed downstream. This integration establishes the publication gate, not
+kernel computation correctness or B0 acceptance.
+
+Closed-subterm question serialization passed `ProofIdentityProbes.lean` and
+preserved the five independently saved binder/proof/selected-dictionary
+identities byte for byte. The complete binder request also exposed competing
+retained parameter views. Its correction is being checked against the
+operation's full declared parameters and same-carrier protected negatives;
+no permanent assertion or interpretation record was changed.
+
 ## 2026-10-13 — Full latest-main computation-only harness result
 
 The original background run finished with exit 1; it was not stopped or relaunched.

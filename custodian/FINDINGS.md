@@ -10,18 +10,19 @@
 - Repaired the mocked context test by exercising the production context's real
   file materialization and cleanup. It establishes transport of the complete
   payload, not the independent reviewer's mathematical or technical judgment.
-- `just test-push` still rejects nine engineering declarations under the global
-  `lean-shim-suffix-decl` rule. The rule's stated obligation is mathematical
-  surfaces naming mathematical objects; its implementation matches every Lean
-  declaration with a listed suffix. The hits are two equation-reader fixture
-  functions in `CasCatalogue/EquationDataProbes.lean`, the `ComputationData`
-  transport variant and two packet routines in `CasCatalogue/Realize.lean`, and
-  four returned-packet planning/validation/projection functions in
-  `CasCatalogue/StructuredResult.lean`. They introduce no semantic catalogue
-  rows or mathematical objects. The kernel-purity gate and its negative probes
-  compile at the current inputs. This requires disposition at the owning QC
-  boundary; renaming the declarations or suppressing the gate would conceal the
-  mismatch. The global checker has not been changed or self-accepted here.
+- Resolved at the owning QC boundary: the lexical `lean-shim-suffix-decl`
+  rule was specified as a reviewer tripwire, but its ERROR severity rejected
+  nine engineering declarations. Independently reviewed PR ai-review-ci#469
+  integrated as `9b43a56c23518412dd4aa145441f0d4bc6425cb7`; the ordinary
+  installed `just test-push` now passes. No declaration was renamed or excluded.
+  Every native suffix finding remains visible for review. Independent source
+  assessment classified the equation-reader fixtures, computational envelopes,
+  and packet planning/validation/projection as engineering, not catalogue
+  mathematics. Three retained native partial-parsing diagnostics affect the
+  workflow's curl-to-shell rule; independent inspection of each affected clone,
+  Python invocation and commit command found no such pipeline. These individual
+  dispositions establish neither surrounding workflow correctness nor B0 acceptance.
+
 
 The dated findings below retain their historical revisions.
 
