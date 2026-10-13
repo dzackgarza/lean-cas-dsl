@@ -114,6 +114,18 @@ Do not stop construction because:
 Correct the relevant dependency and continue the available substantive work.
 Do not count unfinished work as complete.
 
+Required Lean compilations run once in the background with a durable output log,
+source revision and identifiable process. They are not worker-turn polling jobs:
+while one runs, continue independent B0 construction and source-level repairs.
+If no such work remains, give the live process and log to the fleet steward,
+which owns the wait and may temporarily pause this stream until it can return
+the actual compiler result. Do not relaunch a live build or kill it for elapsed
+time alone. A vanished compiler or terminal session is diagnosed from its
+actual process and output before choosing the next action; repeated empty
+`write_stdin` calls do not establish progress or acceptance. A successful
+compile by itself does not discharge the unchanged positive assertion and its
+same-candidate protected negatives.
+
 An explicit current owner instruction governs work immediately. Recording it
 makes it durable; recording, merging, or signing it does not create its authority.
 An assistant proposal is not an owner instruction. A question is not automatically
