@@ -1,15 +1,14 @@
 name: Gates
-on:
-  # A documentation-only change runs no Lean job (CONTRIBUTING, "Documentation and construction work").
+'on':
   push:
     branches:
       - main
     paths-ignore:
-      - "**/*.md"
+      - '**/*.md'
   pull_request:
     paths-ignore:
-      - "**/*.md"
-  workflow_dispatch:
+      - '**/*.md'
+  workflow_dispatch: null
 permissions:
   contents: read
 jobs:
@@ -20,7 +19,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - name: Check out the chain at its pins
+      - name: Check out the chain at latest main
         run: python3 scripts/ci_chain.py
       - name: No leaves in lean-cas-dsl
         run: python3 scripts/check_no_leaves.py --self-test && python3 scripts/check_no_leaves.py
@@ -34,9 +33,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
-          build-args: CasGates
           test: false
           lint: false
+          build: false
+          auto-config: 'false'
+      - name: Build the gate at latest main
+        run: |
+          lake update lean_categories cas_leaf_contracts nbdsl-worker
+          python3 scripts/ci_chain.py
+          lake build CasGates
   build:
     name: Build and audit (just test)
     runs-on: ubuntu-latest
@@ -45,7 +50,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - name: Check out the chain at the manifest revisions
+      - name: Check out the chain at latest main
         run: python3 scripts/ci_chain.py
       - name: Clone QC infrastructure
         run: git clone --depth 1 https://github.com/dzackgarza/ai-review-ci.git "$HOME/ai-review-ci"
@@ -55,11 +60,11 @@ jobs:
       - name: Install Lean and restore the Mathlib cache
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
-          auto-config: "false"
-          build: "false"
-          test: "false"
-          lint: "false"
-          use-mathlib-cache: "true"
+          auto-config: 'false'
+          build: 'false'
+          test: 'false'
+          lint: 'false'
+          use-mathlib-cache: 'true'
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
       - name: Build and audit
         run: just test
@@ -77,7 +82,7 @@ jobs:
         with:
           path: base
           ref: ${{ github.event.pull_request.base.sha || github.event.before }}
-      - name: Check out each side's chain at its manifest revisions
+      - name: Check out each side's chain at latest main
         run: |
           python3 head/scripts/ci_chain.py head
           python3 head/scripts/ci_chain.py base
@@ -85,11 +90,11 @@ jobs:
         uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
         with:
           lake-package-directory: head
-          auto-config: "false"
-          build: "false"
-          test: "false"
-          lint: "false"
-          use-mathlib-cache: "false"
+          auto-config: 'false'
+          build: 'false'
+          test: 'false'
+          lint: 'false'
+          use-mathlib-cache: 'false'
       - name: Check candidate assertions against the accepted base ledger
         run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
       - name: Run the suite at the base and at the head
@@ -102,7 +107,8 @@ jobs:
             # The harness exits nonzero when an assertion fails; the report decides, and a run
             # that did not complete writes none, which fails the comparison.
             rm -f "$GITHUB_WORKSPACE/$side.json"
-            (cd "$side" && lake exe cache get && lake build cas-harness \
+            (cd "$side" && lake update lean_categories cas_leaf_contracts nbdsl-worker \
+                        && python3 scripts/ci_chain.py && lake exe cache get && lake build cas-harness \
               && { lake exe cas-harness "${inventory_args[@]}" --report "$GITHUB_WORKSPACE/$side.json" || true; })
           done
       - name: Compare, assertion by assertion

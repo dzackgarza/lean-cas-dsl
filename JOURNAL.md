@@ -1,5 +1,29 @@
 # Journal
 
+## 2026-10-13 — Recover full B0 integration validation
+
+- Current construction source began at `70e0364`; the existing uncommitted
+  `AGENTS.md` correction is preserved. No earlier compiler or harness was live.
+- The full `just build` runs once under PID 3817498, with log
+  `.tmp/b0-completion-20261013/build.log` and recorded source/process metadata.
+  Dependency refresh resolved `lean_categories` to `1a538db0796851e31de946bb4b01844ede14f0d3`.
+  The build has not yet discharged integration acceptance.
+- Corrected `scripts/ci_chain.py`, `track-main` and CI preparation to consume latest
+  `main`, including the non-Lean leaves checkout. The previous CI script also used
+  an unsupported `git checkout --end-of-options` invocation. A real local Git
+  regression verifies latest-main selection, repeat execution and dirty-work
+  preservation. Permanent acceptance and no-leaves static checks pass.
+- Recorded the existing owner rulings on latest-main dependencies and durable
+  background validation in the owning architecture document. This introduces no
+  mathematical requirement or authority transition.
+- Controller, launcher, author-launch, materialization, assessment and context
+  fixtures pass with global Git hooks disabled only in their disposable test
+  repositories. The repository's ordinary commit hooks remain active.
+- Latest-main leaves are `48a99b5bcb2b090e1c778db29f006b612bed02ed`.
+  The repository `.venv/bin/python` currently cannot import Sage; registered
+  computation requires an actual engine environment. Earlier selected-assertion
+  reports do not establish execution at these newly consumed inputs.
+
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 
 After the scalar-parameter repair, the next unresolved reading was the unchanged binding

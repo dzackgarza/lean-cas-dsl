@@ -25,6 +25,7 @@ default:
 # Own-organisation requires always build at their latest `main` (owner, 2026-10-10): no pins.
 track-main:
     @lake update lean_categories cas_leaf_contracts nbdsl-worker
+    @python3 scripts/ci_chain.py
 
 build: track-main
     @python3 scripts/check_no_leaves.py --self-test

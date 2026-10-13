@@ -10,6 +10,13 @@ discussion of 2026-09-29 is the source.
 The governing rule: **every fact has exactly one owner, and downstream layers may consume it but
 may not reinterpret it.**
 
+**Owner ruling (2026-10-10):** every repository consumes its own-organisation
+dependencies (`lean-categories`, `lean-cas-dsl-leaf-contracts`,
+`lean-cas-dsl-leaves`, `lean-jupyter-kernel`) at latest `main`. Every build and
+harness run updates those dependencies first. References below to pins, accepted
+release tuples or re-pinning mean latest `main`; they introduce no pinning step.
+The revisions actually consumed are recorded with execution results.
+
 ## Ownership
 
 | Silo | Owns | Owns nothing of |
@@ -381,6 +388,15 @@ Until these close, an orchestrator claim about its own gates or deliverables is 
 The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
+
+Required Lean compilations and long-running acceptance-harness executions run
+once in the background with a durable output log, source revision and identifiable
+process. While one runs, continue independent construction and source repairs.
+If no independent work remains, give the live process and log to the fleet steward
+for the wait. Do not relaunch a live run or kill it for elapsed time alone.
+Diagnose a vanished process from its actual process state and output. A successful
+compile does not discharge the unchanged positive assertion and its same-candidate
+protected negatives.
 
 An instruction describing how the finished system protects accepted mathematics
 or accepts future changes is an implementation requirement during B0 construction.
