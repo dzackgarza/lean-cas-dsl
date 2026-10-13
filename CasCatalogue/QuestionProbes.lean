@@ -192,3 +192,15 @@ run_cmd liftTermElabM do
   let (_, _, question) ← runAsking harness scope assertion
   unless question.isNone do
     throwError "a failed fixed binding became an interpreted free-variable question"
+
+/- Reading an admitted point and preparing its fixed execution remains distinct
+from finding a missing implementation. No mathematical answer is supplied here. -/
+run_cmd liftTermElabM do
+  let harness ← Harness.empty
+  let harness := { harness with computationOnly := true }
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt
+      "assert (360).multiplicity(2) = 3"
+    | throwError "admitted-point request did not parse"
+  let (outcome, _, question) ← runAsking harness {} parsed
+  unless outcome.kind == "gap" && question.isSome do
+    throwError "a missing computation lost the admitted point's fixed question: {outcome.kind}"
