@@ -194,8 +194,9 @@ run_cmd liftTermElabM do
     throwError "a failed fixed binding became an interpreted free-variable question"
 
 /- Reading an admitted point and preparing its fixed execution remains distinct
-from finding a missing implementation. No mathematical answer is supplied here. -/
-run_cmd liftTermElabM do
+from finding a missing implementation. No mathematical answer is supplied here.
+Registered evidence artifacts stay inside this complete observation. -/
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let harness ← Harness.empty
   let harness := { harness with computationOnly := true }
   let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt

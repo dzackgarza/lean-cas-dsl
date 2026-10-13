@@ -7,14 +7,19 @@ with one failed target, `CasGates.KernelPurity`; all other requested targets
 completed. The ordinary-budget binder probe and the admitted-point protected
 negatives passed, as did acceptance registration and notebook boundaries.
 The purity failure named seven factorial equation/splitter lemmas generated
-by registered evidence execution in the new binder observation's environment.
+by registered evidence execution in the probe module. Isolating only the last
+binder observation did not remove them; build `79fa7b1` repeated that failure.
+An environment checkpoint before each of the nine observations showed no
+factorial equation lemma before observation eight, and its presence before
+observation nine. The admitted-point observation, not the last binder, creates
+these artifacts.
 
-The observation now uses Lean's `withoutModifyingEnv`, which restores the
-incoming environment after the complete request has been checked. This keeps
-runtime proof artifacts inside the observation and exports no mathematical
-declarations from the kernel probe. The purity gate, its import coverage and
-its allowed-module list remain unchanged. The full failed-run output and exact
-inputs remain under `.tmp/b0-completion-20261013/build-62d3a69.*`.
+Both complete request observations now use Lean's `withoutModifyingEnv`, which
+restores the incoming environment after their positive and protected negative
+checks. The purity gate, import coverage and allowed-module list remain unchanged.
+The failed runs and the diagnostic remain in
+`.tmp/b0-completion-20261013/build-62d3a69.*`, `build-79fa7b1.*` and
+`question-environment-detail.log`.
 
 ## 2026-10-13 — Preserve actual structured result parameters
 
