@@ -170,7 +170,7 @@ class RoleServer:
             return {'tools':self.tools()}
         if method == 'tools/call':
             params = request['params']
-            return {'content':[{'type':'text','text':self.call(params['name'],params.get('arguments',{}))}]}
+            return {'content':[{'type':'text','text':self.call(params['name'],params['arguments'])}]}
         if method == 'ping':
             return {}
         raise ValueError('unsupported operation')

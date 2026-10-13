@@ -39,6 +39,12 @@
 - The full build has compiled `CasGates.KernelPurity`, its protected negative
   probes and the harness executable. Registration and notebook boundary probes
   remain live; no full-build success is asserted from these partial results.
+- The static push gate found existing controller defaults, a mocked context test
+  and Lean name-suffix findings; it remains unsatisfied. Two red regressions
+  reproduced acceptance of a signed decision omitting `findings` and a tool call
+  omitting `arguments`. Required controller/request/discussion fields now fail
+  when absent. The controller, all 11 launcher cases and complete assessment
+  fixture pass after the correction. This changes construction source only.
 
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 

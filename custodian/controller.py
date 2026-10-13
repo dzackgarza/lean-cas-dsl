@@ -226,7 +226,7 @@ class Controller:
         base = {name:self.accepted[name] for name in request['base']}
         candidate = {}
         for name,commit in request['candidate'].items():
-            descriptor=request.get('artifacts',{}).get(name)
+            descriptor=request['artifacts'].get(name)
             revision=(ArtifactSource if descriptor and 'artifact_file' in descriptor else Revision)(self.accepted[name].repository,commit)
             if descriptor and 'artifact_file' in descriptor:
                 candidate[name]=ExternalArtifact.load(revision,Path(descriptor['artifact_file']),descriptor['sha256'],descriptor['provenance'])
@@ -241,11 +241,11 @@ class Controller:
         decision = json.loads(Path(decision_file).read_text())
         if decision['request_id'] != request['request_id'] or decision['outcome'] != 'no_blocking_finding':
             raise ValueError('decision does not accept this snapshot')
-        if decision.get('findings'):
+        if decision['findings']:
             raise ValueError('blocking findings cannot advance inputs')
         self.decisions[request['request_id']] = decision
         advancement=dict(request['candidate'])
-        for name,artifact in request.get('artifacts',{}).items():
+        for name,artifact in request['artifacts'].items():
             advancement[name]=dict(artifact,commit=request['candidate'][name])
         return advancement
 

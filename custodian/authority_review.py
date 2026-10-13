@@ -45,7 +45,7 @@ def main():
         verify_review_signature(prior,Path(str(prior)+'.sig'),controller.reviewer_key,controller.reviewer_fingerprint)
         earlier=json.loads(prior.read_text())
         if earlier['request_id']!=request['request_id']:raise ValueError('review discussion snapshot mismatch')
-    cached=earlier is not None and (not reconsideration or evidence_digest in earlier.get('reconsidered',[]))
+    cached=earlier is not None and (not reconsideration or evidence_digest in earlier['reconsidered'])
     if cached:
         result={key:earlier[key] for key in ('outcome','findings','checked','summary')}
         why='reused independently signed judgment; no repeated model sampling'
@@ -61,7 +61,7 @@ def main():
     if result is None:
         (args.out/'operation-failure.txt').write_text(why)
         return 1
-    considered=list(earlier.get('reconsidered',[])) if earlier else []
+    considered=list(earlier['reconsidered']) if earlier else []
     if evidence_digest and evidence_digest not in considered:considered.append(evidence_digest)
     decision = dict(result,request_id=request['request_id'],reconsidered=considered)
     path = args.out/'decision.json'
