@@ -3189,10 +3189,7 @@ def TermTable.intern (table : TermTable) (node : Json) : TermElabM Nat := do
   return index
 
 partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat := do
-  if let some index := (← table.terms.get)[term]? then return index
-  let index ← QuestionIdentity.encode table.intern term
-  table.terms.modify (·.insert term index)
-  return index
+  QuestionIdentity.encode table.intern table.terms term
 
 def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
   return (Json.mkObj [("roots", roots), ("terms", Json.arr (← table.nodes.get))]).compress
