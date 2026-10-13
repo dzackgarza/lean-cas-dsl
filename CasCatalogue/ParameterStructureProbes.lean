@@ -188,3 +188,17 @@ run_cmd liftTermElabM do
       "assert implemented d(f)"
     | throwError "the registered family call did not parse"
   discard <| (claim scope statement).run {}
+
+/- A result carrier may be a supplied constructor parameter. Its declared
+structure is retained from that constructor, never reconstructed from a type. -/
+run_cmd liftTermElabM do
+  let .ok binding := Parser.runParserCategory (← getEnv) `cas_stmt
+      "let A := [1, 2; 3, 4] in Mat₂(ℚ)"
+    | throwError "matrix parameter fixture did not parse"
+  let some (name, value) ← letBinding? binding
+    | throwError "matrix parameter fixture was not bound"
+  let scope : Language.Scope := ({} : Language.Scope).insert name value
+  let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt
+      "assert implemented A.det()"
+    | throwError "constructor parameter result did not parse"
+  discard <| (claim scope statement).run {}
