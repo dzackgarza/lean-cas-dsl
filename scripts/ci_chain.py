@@ -39,8 +39,14 @@ def main() -> None:
     manifest = json.loads((root / "lake-manifest.json").read_text())
     packages = root / ".lake" / "packages"
     packages.mkdir(parents=True, exist_ok=True)
-    entries = {entry["name"]: entry for entry in manifest["packages"]
-               if entry["name"] in CHAIN}
+    entries = {}
+    for entry in manifest["packages"]:
+        name = entry["name"]
+        # Lake prints identifiers containing punctuation with Lean's quotation marks.
+        if name.startswith("«") and name.endswith("»"):
+            name = name[1:-1]
+        if name in CHAIN:
+            entries[name] = entry
     if "cas_leaves" not in entries:
         entries["cas_leaves"] = {"url": "https://github.com/dzackgarza/lean-cas-dsl-leaves"}
     for name, entry in entries.items():

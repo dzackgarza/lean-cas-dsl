@@ -2,6 +2,17 @@
 
 ## 2026-10-13 — Full inventory observations and temporary artifact residency
 
+The shared-package migration remains intact: its package directory and
+normalized Mathlib URL are preserved as separate working-tree changes.
+Own-organisation source declarations and resolved input revisions remain on
+`main`. The dependency-preparation helper now recognizes Lake's quoted
+`«nbdsl-worker»` identifier and updates the actual worker checkout.
+The production-shaped real-Git fixture first fails on the missing worker
+checkout, then passes latest-main advancement for every dependency and
+preservation of dirty worker source. Red/green evidence is
+`quoted-worker-{red,green}.log` in the completion directory. The actual
+installed worker matches remote main `4c6c2a77abcc717513a65ca35723ed428647e1bd`.
+
 The single computation-only harness at `9370ee5` finished with exit 1.
 Its 156 entries report 120 gaps, 15 holds, six internal errors, four
 ambiguities, eight invalid readings and three unavailable executions.
@@ -32,6 +43,17 @@ coalescing their provenance. Different structures sharing a carrier remain
 subject to the unchanged protected negatives. Validation is running; these
 observations do not close a B0 acceptance row.
 
+The first performance correction makes the differential ordinary-budget
+probe pass and reduces its reader cost to 125,980 heartbeats. Span remains
+421,737 and its new probe fails. Its name denotes both a three-parameter
+object constructor and a morphism. The constructor's one-argument partial
+application cannot have its registered object type, yet the old trial evaluates
+the expensive argument first. Construction source now checks that declared
+partial-application type before constructing the trial; compatible signatures
+still execute their full typed actions. The speculative closed-source binding
+guard was removed before validation. All three companion-matrix requests read
+successfully at their own ordinary per-request budget.
+
 The existing owner ruling of 2026-10-10 governs author role separation as
 conduct even when broader credentials exist. Conflicting author-capability
 wording in AGENTS, architecture and the plan now states that ruling.
@@ -44,6 +66,8 @@ with Zstandard checksums, retaining recoverable copies and original source/log
 records. Temporary residency fell from 7.0 GiB to 2.3 GiB; no source checkout,
 acceptance report or live compiler artifact was deleted. The per-file inventory
 is `obsolete-binaries.json` in the completion directory.
+All eighteen compressed copies pass Zstandard checksum validation;
+`obsolete-binaries-integrity.log` records each result.
 
 Hosted controller source validation at `4e14c11` passed (run `38417669602`),
 as did boundary integrity, build/audit and kernel purity. Hosted acceptance

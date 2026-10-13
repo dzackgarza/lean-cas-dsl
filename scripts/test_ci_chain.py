@@ -33,7 +33,8 @@ class ChainTests(unittest.TestCase):
             checkout.mkdir()
             names = ("lean_categories", "cas_leaf_contracts", "cas_leaves", "nbdsl-worker")
             (checkout / "lake-manifest.json").write_text(json.dumps({"packages": [
-                {"name": name, "url": str(remote), "rev": old} for name in names]}))
+                {"name": "«nbdsl-worker»" if name == "nbdsl-worker" else name,
+                 "url": str(remote), "rev": old} for name in names]}))
             command = ["python3", str(SCRIPT), str(checkout)]
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -51,7 +52,7 @@ class ChainTests(unittest.TestCase):
                 actual = subprocess.check_output(
                     ["git", "-C", str(package), "rev-parse", "HEAD"], text=True).strip()
                 self.assertEqual(actual, advanced, name)
-            dirty = checkout / ".lake/packages/lean_categories/value"
+            dirty = checkout / ".lake/packages/nbdsl-worker/value"
             dirty.write_text("local work\n")
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
