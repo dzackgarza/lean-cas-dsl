@@ -55,6 +55,11 @@ class ControllerTest(unittest.TestCase):
             run('ssh-keygen', '-Y', 'sign', '-f', str(key), '-n', 'lean-cas-custodian', str(decision))
             with self.assertRaises(KeyError):
                 controller.advance(request, decision, Path(str(decision)+'.sig'))
+            decision.write_text(json.dumps({'request_id': request['request_id'], 'outcome': 'no_blocking_finding', 'findings': None}))
+            Path(str(decision)+'.sig').unlink()
+            run('ssh-keygen', '-Y', 'sign', '-f', str(key), '-n', 'lean-cas-custodian', str(decision))
+            with self.assertRaises(ValueError):
+                controller.advance(request, decision, Path(str(decision)+'.sig'))
             with self.assertRaises(ValueError):controller.request('b0-authority',{'acceptance':base},{'acceptance':candidate})
             request['request_id'] = 'different snapshot'
             with self.assertRaises(ValueError):
