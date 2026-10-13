@@ -51,6 +51,21 @@
   removing their reviewer/budget monkeypatches. The remaining nine static
   name-suffix findings are recorded in `custodian/FINDINGS.md` with their actual
   engineering scope; the gate remains failing and has not been weakened.
+- The full integration build completed successfully: **7,551 jobs**, exit 0 in
+  `.tmp/b0-completion-20261013/build.exit`. All Lean kernel, gate, probe, tool
+  and notebook-boundary sources are unchanged between its starting source
+  `70e0364` and the current construction commits. This includes compilation of
+  the protected kernel-purity negatives and axiom audit; it does not establish
+  the permanent assertions or independently accept B0.
+- The single queued full harness run is now preparing latest-main inputs under
+  PID 3930594. Its log and final report are
+  `.tmp/b0-completion-20261013/harness.log` and `harness.json`; its actual input
+  revisions are recorded before execution in `harness-inputs.json`.
+- `git push origin main` was refused by the ordinary pre-push hook's remaining
+  nine Lean name-suffix findings. Exact output is
+  `.tmp/b0-completion-20261013/push.log`. No hooks were bypassed. Publication
+  and final independent acceptance remain outstanding; the live harness is not
+  relaunched or stopped for elapsed time.
 
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 
