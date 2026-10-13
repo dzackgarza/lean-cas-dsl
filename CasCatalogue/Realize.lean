@@ -1937,6 +1937,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | throwError "the admitted point's original category is not registered"
       let family ← instantiateFresh originalSchema.declaration
       let objects ← mkAppM ``CategoryTheory.Bundled.α #[family]
+      unless ← isDefEq (← inferType originalSource) objects <&&>
+          isDefEq (← inferType originalTarget) objects do
+        throwError "the admitted point's endpoints left their original category"
+      let family ← instantiateMVars family
+      let objects ← instantiateMVars objects
       let dictionary ← mkAppM ``CategoryTheory.Cat.str #[family]
       let categoryStruct ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
         #[some objects, some dictionary]
