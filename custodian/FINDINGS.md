@@ -1,5 +1,30 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-13 — Current B0 construction defects
+
+- Repaired in controller construction source: a signed decision without
+  `findings`, or with `findings: null`, could advance accepted inputs. Red
+  regressions reproduce both failures; decisions now require an explicit list.
+  Required request artifacts, signed discussion reconsiderations and MCP call
+  arguments likewise cannot be replaced by empty runtime defaults.
+- Repaired the mocked context test by exercising the production context's real
+  file materialization and cleanup. It establishes transport of the complete
+  payload, not the independent reviewer's mathematical or technical judgment.
+- `just test-push` still rejects nine engineering declarations under the global
+  `lean-shim-suffix-decl` rule. The rule's stated obligation is mathematical
+  surfaces naming mathematical objects; its implementation matches every Lean
+  declaration with a listed suffix. The hits are two equation-reader fixture
+  functions in `CasCatalogue/EquationDataProbes.lean`, the `ComputationData`
+  transport variant and two packet routines in `CasCatalogue/Realize.lean`, and
+  four returned-packet planning/validation/projection functions in
+  `CasCatalogue/StructuredResult.lean`. They introduce no semantic catalogue
+  rows or mathematical objects. The kernel-purity gate and its negative probes
+  compile at the current inputs. This requires disposition at the owning QC
+  boundary; renaming the declarations or suppressing the gate would conceal the
+  mismatch. The global checker has not been changed or self-accepted here.
+
+The dated findings below retain their historical revisions.
+
 This file is inside the sealed boundary. Revisions cited: lean-cas-dsl `0ba53dab`, lean-categories
 `c06aeedc` (the pin), lean-cas-dsl-leaf-contracts `6588a86c` (the pin), lean-cas-dsl-leaves
 `c4cff164` (the pin). Some line numbers come from the sibling branch heads (lean-categories

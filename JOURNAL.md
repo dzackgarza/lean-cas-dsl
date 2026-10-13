@@ -45,6 +45,12 @@
   omitting `arguments`. Required controller/request/discussion fields now fail
   when absent. The controller, all 11 launcher cases and complete assessment
   fixture pass after the correction. This changes construction source only.
+- The subsequent controller regression also reproduces and repairs acceptance
+  of `findings: null`; findings now require an explicit list. Both real context
+  file tests pass after extracting the existing materialization lifecycle and
+  removing their reviewer/budget monkeypatches. The remaining nine static
+  name-suffix findings are recorded in `custodian/FINDINGS.md` with their actual
+  engineering scope; the gate remains failing and has not been weakened.
 
 ## 2026-10-11 — b0-typed-application: preserve explicit subset result contexts
 
