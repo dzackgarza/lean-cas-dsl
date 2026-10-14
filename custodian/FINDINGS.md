@@ -28,6 +28,11 @@
 - Repaired the mocked context test by exercising the production context's real
   file materialization and cleanup. It establishes transport of the complete
   payload, not the independent reviewer's mathematical or technical judgment.
+- Open (2026-10-14): that test exercises `materialized_context` only, and
+  `custodian/review/test_review.py` substitutes `call_reviewer`. No check
+  observes the actual external reviewer reading the complete
+  `requirements.txt`, `change.txt` and `explanation.txt` through its scoped
+  read interface, or the retrieval directory removed after that real call.
 - Resolved at the owning QC boundary: the lexical `lean-shim-suffix-decl`
   rule was specified as a reviewer tripwire, but its ERROR severity rejected
   nine engineering declarations. Independently reviewed PR ai-review-ci#469
