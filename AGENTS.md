@@ -332,6 +332,14 @@ mathematics), and `## New code` (only what no dependency supplies). `just build`
 pasting, adjunctions and limits are Mathlib's (`Cat` is a strict bicategory; `CatCommSq`,
 `TwoSquare`); never write a second calculus of them. Failure of record: `cc-cells`, 2026-09-29.
 
+# Scratch and worktrees stay outside the repository
+
+`.tmp/` holds only `.tmp/harness.json`, written by `just harness`. Experiment binaries, object
+files, logs and probe copies go in the session's scratch directory, never in the repository. A git
+worktree is created outside the repository (`git worktree add ../lean-cas-dsl-<branch>`) and removed
+with `git worktree remove` once its branch is merged. Failure of record: 2026-10-10/11, 2.3 GB of
+saved harness executables, logs and worktrees with full Lake package copies left in `.tmp/`.
+
 <!-- agent-memory:start -->
 # Agent memory
 
