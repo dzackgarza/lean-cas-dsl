@@ -3251,49 +3251,6 @@ def TermTable.rootIdentity (source : TermTable) (root : Nat) : TermElabM String 
   let root ← remap.encode root
   target.finish (toJson root)
 
-/-- Every typed expression retained by a trace recipe. Encoding these before the recipe's result
-lets composites and universal mediators reuse their operands in the source identity DAG. -/
-def Node.identityTerms : Node → Array Expr
-  | .object _ params => params
-  | .parameterTransport _ _ _ _ receiver => #[receiver]
-  | .structureTransport _ _ _ receiver => #[receiver]
-  | .retainedRoute _ _ _ applications receiver => applications ++ #[receiver]
-  | .parameterEquivalence expected representative sources =>
-      sources.foldl (fun terms source => terms ++ source.params ++ source.applications ++
-        #[source.object, source.image, source.identity]) #[expected, representative]
-  | .namedMorphism _ params => params
-  | .namedInclusion _ _ params source target => params ++ #[source, target]
-  | .namedCallable _ _ params => params
-  | .callableRecipe _ domain target body => #[domain, target, body]
-  | .admittedPoint _ _ params original _ source target =>
-      params ++ #[original, source, target]
-  | .presentation _ params _ => params
-  | .generator _ params => params
-  | .presentationApply _ params _ source target argument =>
-      params ++ #[source, target, argument]
-  | .operationApply _ params operands target selected =>
-      params ++ operands ++ #[target, selected]
-  | .operationPoint _ params comparison operation target selected =>
-      params ++ #[comparison, operation, target, selected]
-  | .elementNumeral _ target selected => #[target, selected]
-  | .productMediator _ presentation domain left right => #[presentation, domain, left, right]
-  | .morphismComposition _ first second source middle target =>
-      #[first, second, source, middle, target]
-  | .morphismIdentity _ object => #[object]
-  | .arrowProjection receiver => #[receiver]
-  | .limitProjection receiver index => #[receiver, index]
-  | .pointView source target _ applications argument =>
-      #[source, target] ++ applications ++ #[argument]
-  | .morphismTransport _ _ _ receiver => #[receiver]
-  | .functor _ params receiver => params ++ #[receiver]
-  | .binder _ params domain body admitted => params ++ #[domain, body, admitted]
-  | .arrow _ morphism source target => #[morphism, source, target]
-  | .literal _ literal => #[literal]
-  | .method _ _ receiver => #[receiver]
-  | .methodWithLifts _ _ _ receiver => #[receiver]
-  | .property _ _ receiver => #[receiver]
-  | .limit _ diagram _ => #[diagram]
-
 partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
   | .proposition term => return Json.arr #[toJson "proposition", toJson (← table.encode term)]
   | .judgement relation terms route declarations types => do
@@ -3448,8 +3405,6 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
   -- Sorting complete canonical term encodings makes the snapshot independent of hash-map
   -- layout. Shared term references then keep the complete record compact.
   let sourceTable ← TermTable.new
-  for (_, node) in nodes do
-    for term in node.identityTerms do discard <| sourceTable.encode term
   let rooted ← nodes.mapM fun (term, node) => do
     return (← sourceTable.encode term, term, node)
   let ordered ← rooted.mapM fun (root, term, node) => do
