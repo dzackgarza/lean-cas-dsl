@@ -20,11 +20,18 @@
   not finish before the probe was stopped. This is separate from semantic
   validity and must be profiled at question-identity construction before B0
   acceptance.
-- The registered `Units.invertibleEvidence` refuses the actual matrix literal
-  with its declared `Int.castRingHom` coefficients. The unchanged full-suite
-  report records the exact obligation. No alternate proof, coefficient
-  rewriting or mathematical admission was authored downstream. This is an
-  input dependency of `core-admission-realized`, not a successful reading.
+- Diagnosed formal-side dependency on 2026-10-18: the registered
+  `Units.invertibleEvidence` proves invertibility for the same matrix over
+  literal `ℚ`, but refuses it over the selected rational-ring object used by
+  the catalogue. Running the registered numeral normalization first changes
+  the displayed entries to `1,2,3,4` and still fails. A definitionally valid
+  `change` from that selected carrier to
+  `Matrix (Fin 2) (Fin 2) ℚ` makes the unchanged evidence tactic succeed.
+  Thus the determinant and unit evidence already suffice; the formal evidence
+  tactic fails to normalize the selected-object construction before selecting
+  its field/unit route. This is an upstream evidence implementation defect,
+  not missing mathematics and not a kernel admission to reformulate. The six
+  inverse readings remain blocked until the formal owner repairs it.
 - Repaired in controller construction source: a signed decision without
   `findings`, or with `findings: null`, could advance accepted inputs. Red
   regressions reproduce both failures; decisions now require an explicit list.

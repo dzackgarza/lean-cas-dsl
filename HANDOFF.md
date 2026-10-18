@@ -28,12 +28,15 @@ coordination with it.
    Preserve selected structures, complete parameters and provenance. Bare
    carrier equality does not authorize a named alias or a structure choice.
 
-2. **Diagnose matrix-unit admission separately.**
-   `Units.invertibleEvidence` refuses the matrix literal with its declared
-   `Int.castRingHom` coefficients. The earlier full report contains six
-   invalid inverse assertions/binding. Establish the cause using the actual
-   declared evidence and value. Do not reformulate mathematical evidence to
-   suit a tactic or author upstream mathematics from the failure.
+2. **Obtain the formal repair for selected-carrier matrix-unit evidence.**
+   Diagnosis completed 2026-10-18: `Units.invertibleEvidence` succeeds for the
+   matrix over literal `ℚ`, but fails for the definitionally equal selected
+   rational-ring carrier. `Units.evaluateNumerals` does not suffice; a valid
+   `change` to the underlying `ℚ` matrix makes the unchanged evidence succeed.
+   The formal evidence tactic must normalize the selected-object construction
+   before selecting its field/unit route. This is an upstream implementation
+   defect, not missing mathematics or a kernel admission to reformulate. The
+   earlier full report's six inverse failures remain blocked on that repair.
 
 ## Required validation and acceptance
 

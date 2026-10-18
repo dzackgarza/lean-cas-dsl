@@ -1,5 +1,21 @@
 # Journal
 
+## 2026-10-18 — Selected rational carrier blocks matrix-unit evidence
+
+The six invalid inverse readings reduce to the registered formal evidence for
+the matrix-unit constructor. `Units.invertibleEvidence` succeeds on the matrix
+`!![1,2;3,4]` over literal `ℚ`, and it fails on the same matrix over the
+catalogue's selected rational-ring carrier. `Units.evaluateNumerals` alone
+normalizes the displayed coefficients but does not remove the failure. After a
+definitionally valid `change` from the selected carrier to
+`Matrix (Fin 2) (Fin 2) ℚ`, the unchanged evidence tactic succeeds.
+
+This isolates the cause to formal evidence normalization across the selected
+object construction. No alternative evidence, coefficient rewrite, or local
+mathematical admission was added. Repair belongs to the formal owner; all six
+inverse assertions remain invalid at the current pin until that dependency is
+delivered.
+
 ## 2026-10-18 — Anonymous endpoint points from formal construction data
 
 The frozen prime-factor and matrix-kernel assertions both failed before
