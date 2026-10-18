@@ -25,9 +25,16 @@
   a fully abstracted key at every node repeated the expensive traversal. A
   function-spine proof-check optimization preserved the focused proof-identity
   probes but left exact encoding at 64.2 seconds and was reverted. The repair
-  must avoid generating or revisiting the expanded contextual expressions
-  while preserving the complete question identity; no timeout increase or
-  weaker identity is an acceptable fix.
+  now encodes one source DAG and remaps its canonical nodes to reproduce the
+  legacy standalone sort keys and final insertion order byte-for-byte. This
+  removes the independent per-root expression pass: exact production
+  interpretation completes in 149.890 seconds, with 65.178 seconds in source
+  encoding, 0.988 seconds in remapped keys and 65.222 seconds in operation
+  fields. Pre-encoding all operation fields made the exact run exceed three
+  minutes because fields and roots do not share raw cache identities, and was
+  reverted. The remaining repair must unify those two expression passes while
+  preserving the complete identity; no timeout increase or weaker identity is
+  acceptable.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by

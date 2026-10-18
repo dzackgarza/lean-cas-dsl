@@ -22,6 +22,18 @@ term traversal. The remaining source repair must prevent generation or repeat
 visitation of the expanded contextual expressions while preserving the exact
 question-identity format.
 
+A canonical DAG remapper now removes one full expression pass without changing
+the established serialization. Focused regressions compare both standalone
+identity bytes and reordered shared-table bytes; the proof-identity probes also
+pass. Exact production interpretation completes in 149.890 seconds: 13.175
+seconds reading, 4.196 seconds building the assertion question, 65.178 seconds
+encoding the source DAG, 0.988 seconds deriving all sorted keys by remapping,
+and 65.222 seconds assembling operation fields. Pre-encoding every operation
+field before the roots exceeded three minutes because the two sets do not
+share raw expression cache identities; that experiment was reverted. The
+remaining performance work is the distinct source-root/operation-field pair,
+not sorting, final compression or metavariable instantiation.
+
 ## 2026-10-18 — Selected rational carrier blocks matrix-unit evidence
 
 The six invalid inverse readings reduce to the registered formal evidence for

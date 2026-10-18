@@ -16,10 +16,13 @@ coordination with it.
    The matrix trace exposes a separate production blocker: 99 roots cause
    2,097,785 recursive encoder calls before collapsing to 640 canonical nodes.
    `custodian/FINDINGS.md` and `JOURNAL.md` record separated timings and two
-   falsified repair routes. Preserve the complete identity and its proof and
-   binder quotient. Do not replace it with a digest, timeout increase or
-   weaker trace. The remaining repair must avoid generating or revisiting the
-   expanded contextual expressions.
+   falsified repair routes. The canonical DAG remapper removes the independent
+   root-key traversal and preserves the legacy byte format, but exact
+   production interpretation still takes 149.890 seconds: source-root and
+   operation-field encoding each cost about 65 seconds. Pre-encoding fields
+   did not unify those raw expressions and was reverted. Preserve the complete
+   identity and its proof and binder quotient. Do not replace it with a digest,
+   timeout increase or weaker trace.
 
 2. **Obtain the formal repair for selected-carrier matrix-unit evidence.**
    Diagnosis completed 2026-10-18: `Units.invertibleEvidence` succeeds for the
