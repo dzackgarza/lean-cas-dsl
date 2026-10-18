@@ -3253,7 +3253,7 @@ def TermTable.rootIdentity (source : TermTable) (root : Nat) : TermElabM String 
 
 /-- Every typed expression retained by a trace recipe. Encoding these before the recipe's result
 lets composites and universal mediators reuse their operands in the source identity DAG. -/
-def Node.identityTerms : Node → Array Expr
+def nodeIdentityTerms : Node → Array Expr
   | .object _ params => params
   | .parameterTransport _ _ _ _ receiver => #[receiver]
   | .structureTransport _ _ _ receiver => #[receiver]
@@ -3449,7 +3449,7 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
   -- layout. Shared term references then keep the complete record compact.
   let sourceTable ← TermTable.new
   for (_, node) in nodes do
-    for term in node.identityTerms do discard <| sourceTable.encode term
+    for term in nodeIdentityTerms node do discard <| sourceTable.encode term
   let rooted ← nodes.mapM fun (term, node) => do
     return (← sourceTable.encode term, term, node)
   let ordered ← rooted.mapM fun (root, term, node) => do
