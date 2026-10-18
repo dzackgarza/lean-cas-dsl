@@ -32,9 +32,9 @@
   encoding, 0.988 seconds in remapped keys and 65.222 seconds in operation
   fields. Pre-encoding all operation fields made the exact run exceed three
   minutes because fields and roots do not share raw cache identities, and was
-  reverted. The remaining repair must unify those two expression passes while
-  preserving the complete identity; no timeout increase or weaker identity is
-  acceptable.
+  reverted. The remaining repair is tracked by lean-cas-dsl#66 and must unify
+  those two expression passes while preserving the complete identity; no
+  timeout increase or weaker identity is acceptable.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by
@@ -46,7 +46,8 @@
   tactic fails to normalize the selected-object construction before selecting
   its field/unit route. This is an upstream evidence implementation defect,
   not missing mathematics and not a kernel admission to reformulate. The six
-  inverse readings remain blocked until the formal owner repairs it.
+  inverse readings remain blocked on lean-categories#92 until the formal owner
+  repairs it.
 - Repaired in controller construction source: a signed decision without
   `findings`, or with `findings: null`, could advance accepted inputs. Red
   regressions reproduce both failures; decisions now require an explicit list.

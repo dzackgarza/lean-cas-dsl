@@ -22,7 +22,7 @@ coordination with it.
    operation-field encoding each cost about 65 seconds. Pre-encoding fields
    did not unify those raw expressions and was reverted. Preserve the complete
    identity and its proof and binder quotient. Do not replace it with a digest,
-   timeout increase or weaker trace.
+   timeout increase or weaker trace. Owning work unit: lean-cas-dsl#66.
 
 2. **Obtain the formal repair for selected-carrier matrix-unit evidence.**
    Diagnosis completed 2026-10-18: `Units.invertibleEvidence` succeeds for the
@@ -32,7 +32,8 @@ coordination with it.
    The formal evidence tactic must normalize the selected-object construction
    before selecting its field/unit route. This is an upstream implementation
    defect, not missing mathematics or a kernel admission to reformulate. The
-   earlier full report's six inverse failures remain blocked on that repair.
+   earlier full report's six inverse failures remain blocked on
+   lean-categories#92.
 
 ## Required validation and acceptance
 
