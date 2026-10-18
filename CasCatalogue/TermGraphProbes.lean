@@ -2,6 +2,7 @@
 module
 
 import CasCatalogue.Realize
+meta import CasCatalogue.Realize
 
 open Lean Elab Command Term
 open CasCatalogue CasCatalogue.Realize
