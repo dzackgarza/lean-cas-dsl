@@ -10,7 +10,7 @@ open CasCatalogue CasCatalogue.Realize
 /- Engineering regression: a term recovered from a shared identity DAG must have exactly the
 same standalone serialization as direct encoding, including binders and proof quotienting. -/
 run_cmd liftTermElabM do
-  let term ← elabTermAndSynthesize (← `(fun (n : Nat) (h : n = n) => (n, h))) none
+  let term ← elabTermAndSynthesize (← `(fun (n : Nat) (_h : n = n) => n)) none
   let distractor ← elabTermAndSynthesize (← `(Nat.succ 3)) none
   let expected ← termIdentity term
   let source ← TermTable.new
