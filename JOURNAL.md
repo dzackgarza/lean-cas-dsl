@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-10-18 — Anonymous endpoint points from formal construction data
+
+The frozen prime-factor and matrix-kernel assertions both failed before
+question construction with `a numeral is an element of a named set`. The
+formal declarations already supplied the required routes. For
+`finiteSubsets Nat.Primes`, the registered prime admission lands at the exact
+anonymous endpoint; the reader now evaluates all applicable parameter-free
+admissions and requires their points to agree without assigning a named alias
+to the carrier. For `powerSet (Fin n → K)`, the matrix operand retains its
+direct declared parameters `n,K`. Result recognition now considers only
+registered constructors named as codomains of point families, reconstructs
+`Vec(K,n)` from those parameters, and rejects distinct constructor rows.
+Equivalent applications of one constructor are coalesced only after their
+constructed objects agree. The registered vector-zero family is applied with
+the retained constructor parameters rather than asking carrier unification to
+infer a bundled additive monoid.
+
+At `lean-categories` `fd2cd45f` and leaf contracts `3c2159b`, direct reader
+probes establish that the unchanged prime-factor claim and matrix-kernel claim
+are valid in 31.3 seconds and 38.7 seconds respectively. The matrix claim with
+trace recording produces 99 nodes in 38.9 seconds. Production `interpret`
+then spent more than three minutes in post-read trace canonicalization before
+the probe was stopped; that performance defect remains open and these focused
+reader results do not establish execution, full acceptance, or B0 completion.
+
 ## 2026-10-13 — Full inventory observations and temporary artifact residency
 
 The shared-package migration remains intact: its package directory and

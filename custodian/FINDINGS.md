@@ -2,19 +2,24 @@
 
 ## 2026-10-13 — Current B0 construction defects
 
-- Current `b0-typed-application` dependency at upstream main `fd2cd45f`:
-  `Semirings.primeFactors` declares `finiteSubsets Nat.Primes`; the exact
-  constructor argument is not the registered declaration `Semirings.primes`.
-  The result reader retains that actual anonymous parameter. Literal primes
-  have no named admission source in it. Recovering a named set solely by
-  reducible carrier equality would violate `b0-selected-structure`.
-- The matrix `ker` declaration at the same upstream revision returns
-  `powerSet (Fin n → K)` without a selected vector structure. The actual
-  result's base retains only that function carrier. The registered vector-zero
-  family does not unify with it (`familyLandsIn` returns false). This blocks
-  the existing typed-literal obligation; the kernel neither invents a vector
-  selection nor changes the assertion. Source diagnostics are
-  `numeral-targets-zero.log` in `.tmp/b0-completion-20261013/`.
+- Resolved in kernel construction source on 2026-10-18: neither the anonymous
+  `Nat.Primes` parameter of `primeFactors` nor the anonymous `Fin n → K`
+  parameter of `ker` requires new upstream mathematics. A parameter-free
+  registered admission can form a point at an anonymous endpoint without
+  assigning that endpoint a named alias; all applicable admission points must
+  agree. A registered result constructor can be recovered from the direct
+  declared parameters of the actual operand, but only when a registered point
+  family names that constructor as its codomain. This recovers `Vec(K,n)` from
+  the matrix's retained `K,n`, and the vector-zero family is then applied with
+  those exact parameters. The unchanged prime-factor and matrix-kernel claims
+  both read successfully against `lean-categories` `fd2cd45f` and contracts
+  `3c2159b`; no carrier-only alias selection or assertion change was used.
+- Open performance defect observed on 2026-10-18: the matrix-kernel claim reads
+  with trace recording in 39 seconds and produces 99 nodes, but production
+  `interpret` spent more than three minutes canonicalizing that trace and did
+  not finish before the probe was stopped. This is separate from semantic
+  validity and must be profiled at question-identity construction before B0
+  acceptance.
 - The registered `Units.invertibleEvidence` refuses the actual matrix literal
   with its declared `Int.castRingHom` coefficients. The unchanged full-suite
   report records the exact obligation. No alternate proof, coefficient

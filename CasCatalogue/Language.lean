@@ -2517,7 +2517,69 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
           Trace.record (← read).trace p
             (.parameterEquivalence (← inferType p) p alternatives)
         return .object p parameterCategory none none (some evidence)
-      else pure (.object p parameterCategory none none none)
+      else
+        -- A declared result can build a named object from parameters already fixed by its
+        -- actual operands (`Vec(K,n)` inside `𝒫(Fin n → K)`). This is constructor provenance,
+        -- not recovery of a parameter-free alias from a coincident carrier.
+        let mut constructed : Array (ObjectEntry × Array Value) := #[]
+        let constructorSources := known.flatMap fun value => match value with
+          | .object _ _ (some (_, parameters)) _ _ => parameters
+          | _ => #[]
+        let mut pointTargetHeads : Array Name := #[]
+        for row in state.morphisms do
+          unless row.category == parameterCategory.id do continue
+          let family ← mkConstWithFreshMVarLevels row.declaration
+          let (_, _, familyType) ← forallMetaTelescopeReducing (← inferType family)
+          let some (_, familyTarget) := homEnds? familyType | continue
+          if let some head := familyTarget.getAppFn.constName? then
+            unless pointTargetHeads.contains head do pointTargetHeads := pointTargetHeads.push head
+        for candidateEntry in state.objects do
+          unless candidateEntry.category == parameterCategory.id do continue
+          unless pointTargetHeads.contains candidateEntry.declaration do continue
+          let declaration ← mkConstWithFreshMVarLevels candidateEntry.declaration
+          let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+          let explicit := (arguments.zip infos).filterMap fun (argument, info) =>
+            if info.isExplicit then some argument else none
+          if explicit.isEmpty then continue
+          let rec search (slot : Nat) (chosen : Array Value) : M (Array (Array Value)) := do
+            if slot == explicit.size then
+              let terms ← typedParamTerms candidateEntry.declaration chosen
+              let handle ← Semantic.object candidateEntry terms none
+              unless ← withTransparency .all <| isDefEq handle p do return #[]
+              return #[chosen]
+            let mut results : Array (Array Value) := #[]
+            for source in constructorSources do
+              let branch ← try
+                parameterTrial do
+                  let expected ← instantiateMVars (← inferType explicit[slot]!)
+                  let actual ← typedParameter expected source
+                  unless ← isDefEq explicit[slot]! actual do return #[]
+                  search (slot + 1) (chosen.push source)
+              catch error =>
+                if CasCatalogue.Exception.stratum? error == some .invalid then pure #[]
+                else throw error
+              results := results ++ branch
+            return results
+          for chosen in ← search 0 #[] do
+            let duplicate ← constructed.anyM fun (entry, values) => parameterTrial do
+              unless entry.id == candidateEntry.id do return false
+              let existing ← Semantic.object entry
+                (← typedParamTerms entry.declaration values) none
+              let candidate ← Semantic.object candidateEntry
+                (← typedParamTerms candidateEntry.declaration chosen) none
+              withTransparency .all <| isDefEq existing candidate
+            unless duplicate do
+              constructed := constructed.push (candidateEntry, chosen)
+        match constructed.toList with
+        | [(constructedEntry, values)] =>
+            let terms ← typedParamTerms constructedEntry.declaration values
+            let handle ← Semantic.object constructedEntry terms (← read).trace
+            unless ← withTransparency .all <| isDefEq handle p do
+              throwStratum .invalid m!"the retained constructor does not give this result parameter"
+            pure (.object p parameterCategory (some (constructedEntry, values)) none none)
+        | [] => pure (.object p parameterCategory none none none)
+        | _ => throwSemanticAmbiguity m!"several retained constructors give this result parameter: \
+            {String.intercalate ", " (constructed.toList.map (·.1.name))}"
   object state entry.name values (some category)
 
 /-- The named set supplied by the exact registered refinement of a structured object.
@@ -4415,6 +4477,56 @@ partial def forwardNumeralSources (target value : Value) :
     result := result ++ (← forwardNumeralSources target original)
   return result
 
+/-- A numeral admitted through every parameter-free registered domain whose admission has the
+anonymous target as its actual endpoint. The endpoint remains anonymous; the admission morphism,
+rather than a carrier alias, supplies the point, and all applicable admissions must agree. -/
+partial def anonymousAdmissionPoint (k : Nat) (X : Value) : M (Option Value) := do
+  let .object target category none none _ := X | return none
+  let state ← registryState
+  let mut candidates : Array (ObjectId × Expr) := #[]
+  for entry in state.objects do
+    unless entry.category == category.id && entry.admission.isSome do continue
+    let declaration ← mkConstWithFreshMVarLevels entry.declaration
+    let (_, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+    unless infos.all (!·.isExplicit) do continue
+    let candidate? ← try
+      parameterTrial do
+        let D ← object state entry.name #[] (some category)
+        let .object _ _ (some (actual, parameters)) _ _ := D | return none
+        unless actual.id == entry.id && parameters.isEmpty do return none
+        unless ← withTransparency .all <| isDefEq (← semanticObject D) target do return none
+        let some (_, base) ← inclusionOut? D | return none
+        let B ← inclusionTargetValue D base category
+        let .element point _ ← admit D (← toElement (.nat k) B) | return none
+        let some (_, endpoint) := homEnds? (← inferType point) | return none
+        unless ← withTransparency .all <| isDefEq endpoint target do return none
+        return some point
+    catch error =>
+      if CasCatalogue.Exception.stratum? error == some .invalid then pure none else throw error
+    if let some point := candidate? then candidates := candidates.push (entry.id, point)
+  let some (_, point) := candidates[0]? | return none
+  for (_, other) in candidates do
+    unless ← withTransparency .all <| isDefEq point other do
+      throwSemanticAmbiguity m!"distinct registered admissions determine this anonymous point"
+  -- Re-run the unique/equivalent construction with tracing enabled.
+  for (id, _) in candidates do
+    let some entry := state.objects.find? (·.id == id) | unreachable!
+    if ← parameterCompatible (do
+        let D ← object state entry.name #[] (some category)
+        let .object _ _ (some (actual, parameters)) _ _ := D | return false
+        unless actual.id == entry.id && parameters.isEmpty do return false
+        unless ← withTransparency .all <| isDefEq (← semanticObject D) target do return false
+        let some (_, base) ← inclusionOut? D | return false
+        let B ← inclusionTargetValue D base category
+        let .element admitted _ ← admit D (← toElement (.nat k) B) | return false
+        withTransparency .all <| isDefEq admitted point) then
+      let D ← object state entry.name #[] (some category)
+      let some (_, base) ← inclusionOut? D | unreachable!
+      let B ← inclusionTargetValue D base category
+      let .element admitted _ ← admit D (← toElement (.nat k) B) | unreachable!
+      return some (.element admitted X)
+  throwError "an applicable anonymous admission disappeared after selection"
+
 /-- `v` as an element of the set `X`: an element already, or the element a numeral names: its
 registered numeral in `X` (`numeralIn`); in a set of constants from its parameter `P` without
 numerals of its own, the image of the numeral of `P`; in a domain `D ↪ B` with an admission
@@ -4425,6 +4537,7 @@ partial def toElement (v : Value) (X : Value) : M Value := do
   | .nat k =>
       let state ← registryState
       let X ← carrierObject X
+      let .object _ category .. := X | unreachable!
       if let some point ← forwardNumeral k X then return point
       -- A nullary registered operation can name a point of an anonymous selected structure.
       -- Its actual terminal source must already be the admitted global-point source.
@@ -4433,6 +4546,19 @@ partial def toElement (v : Value) (X : Value) : M Value := do
             let result ← applyOperation "0" #[] X
             return result matches .element ..) then
           return ← applyOperation "0" #[] X
+        if let some zero := state.morphisms.find? fun morphism =>
+            morphism.name == "0" && morphism.category == category.id then
+          if let .object _ _ (some (_, parameters)) _ _ := X then
+            if ← parameterCompatible (do
+                let result ← applyFamily zero.declaration category #[] (some X)
+                  (parameters := parameters)
+                return result matches .element ..) then
+              return ← applyFamily zero.declaration category #[] (some X)
+                (parameters := parameters)
+          if ← familyLandsIn zero.declaration X then
+            let hom ← zeroElement zero.declaration X
+            return .element (← staged hom) X
+      if let some point ← anonymousAdmissionPoint k X then return point
       let .object x category (some (entry, params)) _ _ := X
         | throwStratum .invalid m!"a numeral is an element of a named set"
       if entry.admission.isSome then
@@ -4479,14 +4605,6 @@ partial def toElement (v : Value) (X : Value) : M Value := do
             (.elementNumeral k (← semanticObject X) (← semanticObject chosen))
           return .element hom X
       | none =>
-          -- `0` of a set with a registered zero element (`0 ∈ Kⁿ`, the unit of its addition): that
-          -- element, by name.
-          if k == 0 then
-            if let some zero := state.morphisms.find? fun m =>
-                m.name == "0" && m.category == category.id then
-              if (← familyLandsIn zero.declaration X) then
-                let hom ← zeroElement zero.declaration X
-                return .element (← staged hom) X
           -- A set of constants from its parameter `P` without numerals of its own: the image of
           -- the numeral of `P`.
           if let (some _, some P@(Value.object ..)) :=
