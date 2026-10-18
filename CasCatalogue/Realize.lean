@@ -3198,16 +3198,16 @@ def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
 target table, so visiting roots in a new order produces exactly the table that direct encoding
 in that order would produce, without traversing the Lean expressions again. -/
 structure TermRemap where
-  source : Array Json
+  source : TermTable
   target : TermTable
   mapped : IO.Ref (Std.HashMap Nat Nat)
 
 def TermRemap.new (source target : TermTable) : IO TermRemap := do
-  return { source := ← source.nodes.get, target, mapped := ← IO.mkRef {} }
+  return { source, target, mapped := ← IO.mkRef {} }
 
 partial def TermRemap.encode (remap : TermRemap) (root : Nat) : TermElabM Nat := do
   if let some mapped := (← remap.mapped.get)[root]? then return mapped
-  let some node := remap.source[root]?
+  let some node := (← remap.source.nodes.get)[root]?
     | throwError "a term identity DAG refers outside its node table"
   let child (value : Json) : TermElabM Nat := do
     let .ok index := value.getNat?
@@ -3235,6 +3235,21 @@ partial def TermRemap.encode (remap : TermRemap) (root : Nat) : TermElabM Nat :=
   let mapped ← remap.target.intern rebuilt
   remap.mapped.modify (·.insert root mapped)
   return mapped
+
+/-- Encode a term once in the source DAG, then reproduce its nodes in the target's current
+insertion order. Closed source terms already encountered by another root require no Lean-term
+traversal. -/
+def TermRemap.encodeTerm (remap : TermRemap) (term : Expr) : TermElabM Nat := do
+  let root ← if let some root := (← remap.source.terms.get)[term]? then pure root
+    else remap.source.encode term
+  remap.encode root
+
+/-- The legacy standalone serialization of one root, recovered from a shared encoded DAG. -/
+def TermTable.rootIdentity (source : TermTable) (root : Nat) : TermElabM String := do
+  let target ← TermTable.new
+  let remap ← TermRemap.new source target
+  let root ← remap.encode root
+  target.finish (toJson root)
 
 partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
   | .proposition term => return Json.arr #[toJson "proposition", toJson (← table.encode term)]
@@ -3389,22 +3404,27 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
     return (term, node)
   -- Sorting complete canonical term encodings makes the snapshot independent of hash-map
   -- layout. Shared term references then keep the complete record compact.
-  let ordered ← nodes.mapM fun (term, node) => do
-    return (← termIdentity term, term, node)
+  let sourceTable ← TermTable.new
+  let rooted ← nodes.mapM fun (term, node) => do
+    return (← sourceTable.encode term, term, node)
+  let ordered ← rooted.mapM fun (root, term, node) => do
+    return (← sourceTable.rootIdentity root, root, term, node)
   let ordered := ordered.qsort fun a b => a.1 < b.1
   let table ← TermTable.new
-  let operations ← ordered.mapM fun (_, term, node) => do
-    let root ← table.encode term
+  let remap ← TermRemap.new sourceTable table
+  let encode := remap.encodeTerm
+  let operations ← ordered.mapM fun (_, sourceRoot, _, node) => do
+    let root ← remap.encode sourceRoot
     let operation ← match node with
       | .object id parameters =>
-          pure (Json.arr #[toJson "object", toJson id.raw, toJson (← parameters.mapM table.encode)])
+          pure (Json.arr #[toJson "object", toJson id.raw, toJson (← parameters.mapM encode)])
       | .parameterTransport source sourceCategory targetCategory route receiver =>
           pure (Json.arr #[toJson "parameterTransport", toJson source.raw,
             toJson sourceCategory.raw, toJson targetCategory.raw, toJson (route.map reprStr),
-            toJson (← table.encode receiver)])
+            toJson (← encode receiver)])
       | .structureTransport sourceCategory targetCategory route receiver =>
           pure (Json.arr #[toJson "structureTransport", toJson sourceCategory.raw,
-            toJson targetCategory.raw, toJson (route.map reprStr), toJson (← table.encode receiver)])
+            toJson targetCategory.raw, toJson (route.map reprStr), toJson (← encode receiver)])
       | .parameterEquivalence expected representative sources => do
           let keyed ← sources.mapM fun source => do
             let parameters ← source.params.mapM termIdentity
@@ -3412,103 +3432,103 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           let sources := (keyed.qsort fun a b => a.1 < b.1).map (·.2)
           let data ← sources.mapM fun source => do
             return Json.arr #[toJson source.source.raw, toJson source.sourceCategory.raw,
-              toJson source.targetCategory.raw, toJson (← source.params.mapM table.encode),
-              toJson (source.route.map reprStr), toJson (← source.applications.mapM table.encode),
+              toJson source.targetCategory.raw, toJson (← source.params.mapM encode),
+              toJson (source.route.map reprStr), toJson (← source.applications.mapM encode),
               toJson (source.carrierRoute.map reprStr),
-              toJson (source.identifications.map Name.toString), toJson (← table.encode source.object),
-              toJson (← table.encode source.image), toJson (← table.encode source.identity)]
-          pure (Json.arr #[toJson "parameterEquivalence", toJson (← table.encode expected),
-            toJson (← table.encode representative), Json.arr data])
+              toJson (source.identifications.map Name.toString), toJson (← encode source.object),
+              toJson (← encode source.image), toJson (← encode source.identity)]
+          pure (Json.arr #[toJson "parameterEquivalence", toJson (← encode expected),
+            toJson (← encode representative), Json.arr data])
       | .retainedRoute source target route applications receiver =>
           pure (Json.arr #[toJson "retainedRoute", toJson source.raw, toJson target.raw,
-            toJson (route.map reprStr), toJson (← applications.mapM table.encode),
-            toJson (← table.encode receiver)])
+            toJson (route.map reprStr), toJson (← applications.mapM encode),
+            toJson (← encode receiver)])
       | .namedMorphism id params =>
-          pure (Json.arr #[toJson "namedMorphism", toJson id.raw, toJson (← params.mapM table.encode)])
+          pure (Json.arr #[toJson "namedMorphism", toJson id.raw, toJson (← params.mapM encode)])
       | .admittedPoint id category params original originalCategory source target =>
           pure (Json.arr #[toJson "admittedPoint", toJson id.raw, toJson category.raw,
-            toJson (← params.mapM table.encode), toJson (← table.encode original),
-            toJson originalCategory.raw, toJson (← table.encode source), toJson (← table.encode target)])
+            toJson (← params.mapM encode), toJson (← encode original),
+            toJson originalCategory.raw, toJson (← encode source), toJson (← encode target)])
       | .namedInclusion id category params source target =>
           pure (Json.arr #[toJson "namedInclusion", toJson id.raw, toJson category.raw,
-            toJson (← params.mapM table.encode), toJson (← table.encode source),
-            toJson (← table.encode target)])
+            toJson (← params.mapM encode), toJson (← encode source),
+            toJson (← encode target)])
       | .callableRecipe category domain target body =>
           pure (Json.arr #[toJson "callableRecipe", toJson category.raw,
-            toJson (← table.encode domain), toJson (← table.encode target),
-            toJson (← table.encode body)])
+            toJson (← encode domain), toJson (← encode target),
+            toJson (← encode body)])
       | .namedCallable address category params =>
           pure (Json.arr #[toJson "namedCallable", toJson address, toJson category.raw,
-            toJson (← params.mapM table.encode)])
+            toJson (← params.mapM encode)])
       | .presentation id params inverse =>
           pure (Json.arr #[toJson "presentation", toJson id.raw,
-            toJson (← params.mapM table.encode), toJson inverse])
+            toJson (← params.mapM encode), toJson inverse])
       | .generator id params =>
-          pure (Json.arr #[toJson "generator", toJson id.raw, toJson (← params.mapM table.encode)])
+          pure (Json.arr #[toJson "generator", toJson id.raw, toJson (← params.mapM encode)])
       | .elementNumeral value target selected =>
           pure (Json.arr #[toJson "elementNumeral", toJson value,
-            toJson (← table.encode target), toJson (← table.encode selected)])
+            toJson (← encode target), toJson (← encode selected)])
       | .productMediator category presentation domain left right =>
           pure (Json.arr #[toJson "productMediator", toJson category.raw,
-            toJson (← table.encode presentation), toJson (← table.encode domain),
-            toJson (← table.encode left), toJson (← table.encode right)])
+            toJson (← encode presentation), toJson (← encode domain),
+            toJson (← encode left), toJson (← encode right)])
       | .morphismComposition category first second source middle target =>
           pure (Json.arr #[toJson "morphismComposition", toJson category.raw,
-            toJson (← table.encode first), toJson (← table.encode second),
-            toJson (← table.encode source), toJson (← table.encode middle),
-            toJson (← table.encode target)])
+            toJson (← encode first), toJson (← encode second),
+            toJson (← encode source), toJson (← encode middle),
+            toJson (← encode target)])
       | .morphismIdentity category object =>
           pure (Json.arr #[toJson "morphismIdentity", toJson category.raw,
-            toJson (← table.encode object)])
+            toJson (← encode object)])
       | .arrowProjection receiver =>
-          pure (Json.arr #[toJson "arrowProjection", toJson (← table.encode receiver)])
+          pure (Json.arr #[toJson "arrowProjection", toJson (← encode receiver)])
       | .limitProjection receiver index =>
-          pure (Json.arr #[toJson "limitProjection", toJson (← table.encode receiver),
-            toJson (← table.encode index)])
+          pure (Json.arr #[toJson "limitProjection", toJson (← encode receiver),
+            toJson (← encode index)])
       | .pointView source target route applications argument =>
-          pure (Json.arr #[toJson "pointView", toJson (← table.encode source),
-            toJson (← table.encode target), toJson (route.map reprStr),
-            toJson (← applications.mapM table.encode), toJson (← table.encode argument)])
+          pure (Json.arr #[toJson "pointView", toJson (← encode source),
+            toJson (← encode target), toJson (route.map reprStr),
+            toJson (← applications.mapM encode), toJson (← encode argument)])
       | .operationPoint id params comparison operation target selected =>
           pure (Json.arr #[toJson "operationPoint", toJson id.raw,
-            toJson (← params.mapM table.encode), toJson (← table.encode comparison),
-            toJson (← table.encode operation), toJson (← table.encode target),
-            toJson (← table.encode selected)])
+            toJson (← params.mapM encode), toJson (← encode comparison),
+            toJson (← encode operation), toJson (← encode target),
+            toJson (← encode selected)])
       | .operationApply id params operands target selected =>
           pure (Json.arr #[toJson "operationApply", toJson id.raw,
-            toJson (← params.mapM table.encode), toJson (← operands.mapM table.encode),
-            toJson (← table.encode target), toJson (← table.encode selected)])
+            toJson (← params.mapM encode), toJson (← operands.mapM encode),
+            toJson (← encode target), toJson (← encode selected)])
       | .presentationApply id params inverse source target argument =>
           pure (Json.arr #[toJson "presentationApply", toJson id.raw,
-            toJson (← params.mapM table.encode), toJson inverse, toJson (← table.encode source),
-            toJson (← table.encode target), toJson (← table.encode argument)])
+            toJson (← params.mapM encode), toJson inverse, toJson (← encode source),
+            toJson (← encode target), toJson (← encode argument)])
       | .morphismTransport sourceCategory targetCategory route receiver =>
           pure (Json.arr #[toJson "morphismTransport", toJson sourceCategory.raw,
-            toJson targetCategory.raw, toJson (route.map reprStr), toJson (← table.encode receiver)])
+            toJson targetCategory.raw, toJson (route.map reprStr), toJson (← encode receiver)])
       | .functor id params receiver =>
           pure (Json.arr #[toJson "functor", toJson id.raw,
-            toJson (← params.mapM table.encode), toJson (← table.encode receiver)])
+            toJson (← params.mapM encode), toJson (← encode receiver)])
       | .binder id params domain body admitted =>
-          pure (Json.arr #[toJson "binder", toJson id.raw, toJson (← params.mapM table.encode),
-            toJson (← table.encode domain), toJson (← table.encode body),
-            toJson (← table.encode admitted)])
+          pure (Json.arr #[toJson "binder", toJson id.raw, toJson (← params.mapM encode),
+            toJson (← encode domain), toJson (← encode body),
+            toJson (← encode admitted)])
       | .arrow category morphism source target =>
           pure (Json.arr #[toJson "arrow", toJson category.raw,
-            toJson (← table.encode morphism), toJson (← table.encode source),
-            toJson (← table.encode target)])
+            toJson (← encode morphism), toJson (← encode source),
+            toJson (← encode target)])
       | .literal form literal =>
-          pure (Json.arr #[toJson "literal", toJson form.raw, toJson (← table.encode literal)])
+          pure (Json.arr #[toJson "literal", toJson form.raw, toJson (← encode literal)])
       | .method id route receiver =>
           pure (Json.arr #[toJson "method", toJson id.raw, toJson (route.map reprStr),
-            toJson (← table.encode receiver)])
+            toJson (← encode receiver)])
       | .methodWithLifts id route lifts receiver =>
           pure (Json.arr #[toJson "methodWithLifts", toJson id.raw, toJson (route.map reprStr),
-            toJson (lifts.map (·.raw)), toJson (← table.encode receiver)])
+            toJson (lifts.map (·.raw)), toJson (← encode receiver)])
       | .property id route receiver =>
           pure (Json.arr #[toJson "property", toJson id.raw, toJson (route.map reprStr),
-            toJson (← table.encode receiver)])
+            toJson (← encode receiver)])
       | .limit id diagram lift =>
-          pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← table.encode diagram),
+          pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← encode diagram),
             toJson (lift.map (·.raw))])
     return Json.arr #[toJson root, operation]
   let tree ← table.finish (Json.arr operations)

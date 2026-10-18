@@ -22,3 +22,16 @@ run_cmd liftTermElabM do
   let actual ← target.finish (toJson targetRoot)
   unless actual == expected do
     throwError "remapping a shared identity DAG changed the standalone term identity"
+  let direct ← TermTable.new
+  let directTerm ← direct.encode term
+  let directDistractor ← direct.encode distractor
+  let expectedTable ← direct.finish (Json.arr #[toJson directTerm, toJson directDistractor])
+  let reordered ← TermTable.new
+  let reorder ← TermRemap.new source reordered
+  let reorderedTerm ← reorder.encode sourceRoot
+  let sourceDistractor ← source.encode distractor
+  let reorderedDistractor ← reorder.encode sourceDistractor
+  let actualTable ← reordered.finish
+    (Json.arr #[toJson reorderedTerm, toJson reorderedDistractor])
+  unless actualTable == expectedTable do
+    throwError "remapping identity roots changed direct-encoding insertion order"
