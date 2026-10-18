@@ -8,25 +8,18 @@ coordination with it.
 
 ## Next source repairs
 
-1. **Resolve anonymous point/literal reading through the existing formal API.**
-   Reproduce the prime-factor request and matrix-kernel `{0}` request using
-   `.tmp/b0-completion-20261013/anonymous-point-red.lean` and its `.log`.
-   Both currently report “a numeral is an element of a named set.”
-   Inspect `CasDsl/Language.lean`, particularly `toElement`, `zeroElement`,
-   `admit`, `recognize`, and `applyFamily`.
+1. **Repair question-identity construction for expanded contextual terms.**
+   The anonymous prime-factor and matrix-kernel readings are repaired at
+   `6a962cf` through the existing formal admissions, retained constructor
+   parameters and exact zero family. The unchanged claims now read.
 
-   The diagnostic `point-input-availability.lean` and its `.log` in the same
-   directory show that existing formal inputs can construct both points:
-   named `ℕ` numeral 2 admitted to `ℙ` reaches the anonymous prime-factor
-   target; the existing zero family with the matrix's actual coefficient
-   ring and size reaches its vector target. Investigate kernel wiring and
-   retained parameter context before declaring missing upstream mathematics.
-   No repair for these two requests has been implemented. No proposed repair
-   design has been settled. Correct the premature upstream-dependency claims
-   in `custodian/FINDINGS.md` against the established cause.
-
-   Preserve selected structures, complete parameters and provenance. Bare
-   carrier equality does not authorize a named alias or a structure choice.
+   The matrix trace exposes a separate production blocker: 99 roots cause
+   2,097,785 recursive encoder calls before collapsing to 640 canonical nodes.
+   `custodian/FINDINGS.md` and `JOURNAL.md` record separated timings and two
+   falsified repair routes. Preserve the complete identity and its proof and
+   binder quotient. Do not replace it with a digest, timeout increase or
+   weaker trace. The remaining repair must avoid generating or revisiting the
+   expanded contextual expressions.
 
 2. **Obtain the formal repair for selected-carrier matrix-unit evidence.**
    Diagnosis completed 2026-10-18: `Units.invertibleEvidence` succeeds for the

@@ -15,11 +15,19 @@
   both read successfully against `lean-categories` `fd2cd45f` and contracts
   `3c2159b`; no carrier-only alias selection or assertion change was used.
 - Open performance defect observed on 2026-10-18: the matrix-kernel claim reads
-  with trace recording in 39 seconds and produces 99 nodes, but production
-  `interpret` spent more than three minutes canonicalizing that trace and did
-  not finish before the probe was stopped. This is separate from semantic
-  validity and must be profiled at question-identity construction before B0
-  acceptance.
+  with trace recording in 12--40 seconds and produces 99 roots, but production
+  `interpret` spent more than three minutes canonicalizing that trace. The
+  identity encoder takes about 63 seconds before its 2--4 ms final JSON
+  compression. An instrumented unchanged pass made 2,097,785 recursive proof
+  checks and interner calls to produce only 640 canonical nodes; proof checks
+  accounted for 10.9 seconds and interning 28.2 seconds. An exact contextual
+  cache had zero hits because fresh local IDs distinguish the raw terms; making
+  a fully abstracted key at every node repeated the expensive traversal. A
+  function-spine proof-check optimization preserved the focused proof-identity
+  probes but left exact encoding at 64.2 seconds and was reverted. The repair
+  must avoid generating or revisiting the expanded contextual expressions
+  while preserving the complete question identity; no timeout increase or
+  weaker identity is an acceptable fix.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by

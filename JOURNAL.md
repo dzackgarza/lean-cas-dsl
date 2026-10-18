@@ -1,5 +1,27 @@
 # Journal
 
+## 2026-10-18 — Question identity performance boundary
+
+The matrix-kernel claim records 99 trace roots. A separated exact profile took
+62.879 seconds to encode those roots into 640 canonical nodes and 2 ms to
+compress the resulting 13,857-byte JSON table. An instrumented copy of the
+unchanged encoder made 2,097,785 recursive `isProof` and interner calls;
+`isProof` accounted for 10.896 seconds and interning for 28.210 seconds. Thus
+final serialization and trace-node metavariable instantiation are not the
+cause. Raw context-sensitive expressions are traversed millions of times and
+collapse only after their local binders and proof tokens reach canonical node
+descriptions.
+
+Two candidate repairs were falsified and removed. Propagating known-nonproof
+status down application function spines left exact encoding at 64.201 seconds;
+its committed experiment was reverted. A cache keyed by exact expression and
+ordered binder context received zero hits because separate traversals use fresh
+local IDs. Constructing a fully abstracted cache key at every node crossed two
+minutes before completion and was stopped because it repeated the same whole
+term traversal. The remaining source repair must prevent generation or repeat
+visitation of the expanded contextual expressions while preserving the exact
+question-identity format.
+
 ## 2026-10-18 — Selected rational carrier blocks matrix-unit evidence
 
 The six invalid inverse readings reduce to the registered formal evidence for
