@@ -3194,6 +3194,48 @@ partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat :
 def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
   return (Json.mkObj [("roots", roots), ("terms", Json.arr (← table.nodes.get))]).compress
 
+/-- Rebuild roots from an already encoded term DAG. Child indices are rewritten through the
+target table, so visiting roots in a new order produces exactly the table that direct encoding
+in that order would produce, without traversing the Lean expressions again. -/
+structure TermRemap where
+  source : Array Json
+  target : TermTable
+  mapped : IO.Ref (Std.HashMap Nat Nat)
+
+def TermRemap.new (source target : TermTable) : IO TermRemap := do
+  return { source := ← source.nodes.get, target, mapped := ← IO.mkRef {} }
+
+partial def TermRemap.encode (remap : TermRemap) (root : Nat) : TermElabM Nat := do
+  if let some mapped := (← remap.mapped.get)[root]? then return mapped
+  let some node := remap.source[root]?
+    | throwError "a term identity DAG refers outside its node table"
+  let child (value : Json) : TermElabM Nat := do
+    let .ok index := value.getNat?
+      | throwError "a term identity DAG has a nonnumeric child"
+    remap.encode index
+  let rebuilt ← match node with
+    | .arr #[.str "proof", type] =>
+        pure (Json.arr #[toJson "proof", toJson (← child type)])
+    | .arr #[.str "app", fn, arg] =>
+        pure (Json.arr #[toJson "app", toJson (← child fn), toJson (← child arg)])
+    | .arr #[.str "lam", domain, body, info] =>
+        pure (Json.arr #[toJson "lam", toJson (← child domain),
+          toJson (← child body), info])
+    | .arr #[.str "forall", domain, body, info] =>
+        pure (Json.arr #[toJson "forall", toJson (← child domain),
+          toJson (← child body), info])
+    | .arr #[.str "let", domain, value, body, nondep] =>
+        pure (Json.arr #[toJson "let", toJson (← child domain),
+          toJson (← child value), toJson (← child body), nondep])
+    | .arr #[.str "proj", name, index, value] =>
+        pure (Json.arr #[toJson "proj", name, index, toJson (← child value)])
+    | .arr #[.str "bvar", _] | .arr #[.str "sort", _] |
+        .arr #[.str "const", _, _] | .arr #[.str "literal", _] => pure node
+    | _ => throwError "a term identity DAG contains an unknown node"
+  let mapped ← remap.target.intern rebuilt
+  remap.mapped.modify (·.insert root mapped)
+  return mapped
+
 partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
   | .proposition term => return Json.arr #[toJson "proposition", toJson (← table.encode term)]
   | .judgement relation terms route declarations types => do
