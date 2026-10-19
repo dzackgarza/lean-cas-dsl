@@ -1,6 +1,7 @@
 /- Engineering timing harness for the admitted linear-algebra assertions.
 Run with `CAS_BENCH_ASSERTION=matrices.kernel /usr/bin/time -v lake env lean
-benchmarks/question_identity.lean`. The selected assertion is read from the permanent suite. -/
+benchmarks/question_identity.lean`. The selected assertion is read from the permanent suite.
+`CAS_BENCH_ONCE=1` runs once; `CAS_BENCH_IDENTITY_OUT=FILE` saves its full identity. -/
 module
 
 import CasCatalogue.TestSuite
@@ -25,7 +26,8 @@ run_cmd liftTermElabM do
       | _ => (none, parsed)
     if id? == some target then
       let mut firstIdentity : Option String := none
-      for trial in [:2] do
+      let trials := if (← IO.getEnv "CAS_BENCH_ONCE") == some "1" then 1 else 2
+      for trial in [:trials] do
         let stages ← IO.mkRef (#[] : Array (String × Nat))
         let question ← withCurrHeartbeats <| interpret scope statement (some stages)
         if let some first := firstIdentity then
@@ -33,6 +35,8 @@ run_cmd liftTermElabM do
             throwError "repeated interpretation changed the complete question identity"
         else
           firstIdentity := some question.identity.1
+          if let some path := ← IO.getEnv "CAS_BENCH_IDENTITY_OUT" then
+            IO.FS.writeFile path question.identity.1
         IO.println s!"trial={trial + 1} assertion={target} trace_roots={question.trace.size} identity_bytes={question.identity.1.utf8ByteSize}"
         for (name, elapsed) in ← stages.get do
           IO.println s!"{name}_ms={elapsed}"

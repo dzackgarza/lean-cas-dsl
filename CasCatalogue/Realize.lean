@@ -3163,11 +3163,17 @@ partial def showQuestion : Question → TermElabM String
 equality is checked on expressions or complete node encodings, never on a digest. -/
 structure TermTable where
   terms : IO.Ref (Std.HashMap Expr Nat)
+  contextualTerms : IO.Ref (Std.HashMap (Expr × QuestionIdentity.BinderContext) Nat)
   nodes : IO.Ref (Array Json)
   canonicalNodes : IO.Ref (Std.HashMap String Nat)
 
 def TermTable.new : IO TermTable := do
-  return { terms := ← IO.mkRef {}, nodes := ← IO.mkRef #[], canonicalNodes := ← IO.mkRef {} }
+  let terms ← IO.mkRef ({} : Std.HashMap Expr Nat)
+  let contextualTerms ← IO.mkRef ({} : Std.HashMap
+    (Expr × QuestionIdentity.BinderContext) Nat)
+  let nodes ← IO.mkRef (#[] : Array Json)
+  let canonicalNodes ← IO.mkRef ({} : Std.HashMap String Nat)
+  return { terms, contextualTerms, nodes, canonicalNodes }
 
 /-- Universe syntax is serialized without Lean's cached hash fields. -/
 partial def encodeLevel : Level → Json
@@ -3189,7 +3195,7 @@ def TermTable.intern (table : TermTable) (node : Json) : TermElabM Nat := do
   return index
 
 partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat := do
-  QuestionIdentity.encode table.intern table.terms term
+  QuestionIdentity.encode table.intern table.terms table.contextualTerms term
 
 def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
   return (Json.mkObj [("roots", roots), ("terms", Json.arr (← table.nodes.get))]).compress

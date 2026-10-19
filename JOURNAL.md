@@ -1,5 +1,38 @@
 # Journal
 
+## 2026-10-19 — Contextual question encoding candidate
+
+The encoder now caches unopened expression syntax with its ordered binder
+types and let values, while using opened terms only for Lean's proof/type
+inspection. This avoids giving repeated occurrences fresh local IDs before
+the cache can identify them. It retains the existing canonical node format and
+root insertion order. The `matrices.kernel` question identity matches the
+pre-change 28,383-byte serialization exactly (`cmp` over the full strings).
+
+At the same dependency revisions recorded below, a two-run production-path
+benchmark reported these timings for `matrices.kernel`:
+
+| Stage | First run (ms) | Second run (ms) |
+| --- | ---: | ---: |
+| Semantic reading | 10,854 | 9,955 |
+| Question construction | 514 | 768 |
+| Trace instantiation | 59 | 1 |
+| Source encoding | 49 | 55 |
+| Remapped keys and sort | 640 | 649 |
+| Operation-field encoding | 60 | 34 |
+| Final compression | 1 | 1 |
+
+Both runs retained 66 roots and the same 28,383-byte identity. The timed
+process peaked at 2,143,984 KiB resident memory; that whole-process number
+does not establish an encoder memory improvement. `TermGraphProbes` and
+`ProofIdentityProbes` pass. The first reader-mechanics block of
+`QuestionProbes` passes separately, covering relations, logical forms,
+parameters, selected structures, routes, binder spelling and a wrong-answer
+outcome. The full `QuestionProbes` build still times out at line 258 while
+reading `W := span({u₁, u₂})`. The complete build, protected negatives,
+3×3 benchmark, integrated latency budget and independent acceptance remain
+unproved.
+
 ## 2026-10-19 — Current question-identity performance baseline
 
 At base source `0c139a8b1cd50abe73b70894fe887b20b962139c` plus this

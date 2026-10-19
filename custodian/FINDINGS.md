@@ -14,7 +14,7 @@
   those exact parameters. The unchanged prime-factor and matrix-kernel claims
   both read successfully against `lean-categories` `fd2cd45f` and contracts
   `3c2159b`; no carrier-only alias selection or assertion change was used.
-- Open performance defect observed on 2026-10-18: the matrix-kernel claim reads
+- Performance defect observed on 2026-10-18: the matrix-kernel claim reads
   with trace recording in 12--40 seconds and produces 99 roots, but production
   `interpret` spent more than three minutes canonicalizing that trace. The
   identity encoder takes about 63 seconds before its 2--4 ms final JSON
@@ -32,9 +32,16 @@
   encoding, 0.988 seconds in remapped keys and 65.222 seconds in operation
   fields. Pre-encoding all operation fields made the exact run exceed three
   minutes because fields and roots do not share raw cache identities, and was
-  reverted. The remaining repair is tracked by lean-cas-dsl#66 and must unify
-  those two expression passes while preserving the complete identity; no
-  timeout increase or weaker identity is acceptable.
+  reverted. A 2026-10-19 kernel candidate caches unopened syntax with binder
+  context, so fresh local IDs no longer force those two repeated traversals.
+  On the admitted 2×2 matrix-kernel assertion at latest-main mathematical
+  revision `a2123729`, source and operation-field encoding each take 34--60 ms
+  and the complete 28,383-byte question identity matches the previous encoder
+  byte for byte. Semantic reading still takes about 10 seconds, the 3×3
+  `subspaces.kernel` assertion is blocked earlier by a 200,000-heartbeat
+  `span` binding timeout, and full protected acceptance has not run. Issue
+  lean-cas-dsl#66 remains open for those integrated obligations; no timeout
+  increase or weaker identity is acceptable.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by
