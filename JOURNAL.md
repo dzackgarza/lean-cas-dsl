@@ -1,5 +1,34 @@
 # Journal
 
+## 2026-10-19 — Targeted feedback workflow and identity import boundary
+
+The local gate now starts with `just focus TARGET`: it refreshes
+own-organisation checkouts to latest `main`, resolves Lake only if those
+heads differ from the manifest, builds one target, and records wall time,
+peak RSS and a `/tmp` log. A build taking at least 60 seconds automatically
+profiles that source with Lean and keeps a separate profile log. Local
+`just build` now refuses an uncommitted or non-integration candidate; GitHub
+Actions and an explicit `B0_INTEGRATION=1` at a clean revision retain the
+complete integration gate. `AGENTS.md` and `CONTRIBUTING.md` now direct source
+iterations to this smaller path and require analysis of slow profiles before
+another broad check. Neither focused checks nor this workflow change count
+as mathematical acceptance.
+
+The term-identity DAG/table machinery now lives in its existing lightweight
+`QuestionIdentity` import rather than the full `Realize` module. Its names and
+encoding are unchanged. `TermGraphProbes` imports that module directly. The
+same probe's Lean profile changed from 49.2 seconds importing and 71.66
+seconds total to 2.85 seconds importing and 8.44 seconds total; its targeted
+build passed in 10.19 seconds. `CasCatalogue.QuestionIdentity` built in 16.39
+seconds. The targeted `CasCatalogue.Realize` build passed in 122 seconds and
+automatically captured an 82.90-second source profile; no whole-repository
+build was used for this edit. The admitted 2×2 `matrices.kernel` assertion
+retained 66 roots and the exact 28,383-byte identity, byte-identical to the
+saved pre-move baseline. `CasCatalogue.ProofIdentityProbes` also passes at the
+changed import boundary. The resolver's unchanged/changed-head test passes;
+the local integration guard refuses an ordinary or dirty full build before
+dependency work begins, while the GitHub Actions path remains available.
+
 ## 2026-10-19 — End-to-end reading cost of the admitted 3×3 question
 
 The reproducible `benchmarks/question_identity.lean` now reports each binding's

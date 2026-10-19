@@ -3159,104 +3159,6 @@ partial def showQuestion : Question → TermElabM String
   | .conjunction left right => return s!"({← showQuestion left}) and ({← showQuestion right})"
   | .negation question => return s!"not ({← showQuestion question})"
 
-/-- Exact structural serialization with shared subterms. Hash maps are only indexes:
-equality is checked on expressions or complete node encodings, never on a digest. -/
-structure TermTable where
-  terms : IO.Ref (Std.HashMap Expr Nat)
-  contextualTerms : IO.Ref (Std.HashMap (Expr × QuestionIdentity.BinderContext) Nat)
-  nodes : IO.Ref (Array Json)
-  canonicalNodes : IO.Ref (Std.HashMap String Nat)
-
-def TermTable.new : IO TermTable := do
-  let terms ← IO.mkRef ({} : Std.HashMap Expr Nat)
-  let contextualTerms ← IO.mkRef ({} : Std.HashMap
-    (Expr × QuestionIdentity.BinderContext) Nat)
-  let nodes ← IO.mkRef (#[] : Array Json)
-  let canonicalNodes ← IO.mkRef ({} : Std.HashMap String Nat)
-  return { terms, contextualTerms, nodes, canonicalNodes }
-
-/-- Universe syntax is serialized without Lean's cached hash fields. -/
-partial def encodeLevel : Level → Json
-  | .zero => Json.arr #[toJson "zero"]
-  | .succ level => Json.arr #[toJson "succ", encodeLevel level]
-  | .max left right => Json.arr #[toJson "max", encodeLevel left, encodeLevel right]
-  | .imax left right => Json.arr #[toJson "imax", encodeLevel left, encodeLevel right]
-  | .param name => Json.arr #[toJson "param", toJson (reprStr name)]
-  | .mvar id => Json.arr #[toJson "unresolved", toJson (reprStr id)]
-
-/-- Intern complete typed node descriptions. Context-sensitive expressions are never cached
-inside the binder traversal; only their canonical node descriptions are shared. -/
-def TermTable.intern (table : TermTable) (node : Json) : TermElabM Nat := do
-  let description := node.compress
-  if let some index := (← table.canonicalNodes.get)[description]? then return index
-  let index := (← table.nodes.get).size
-  table.nodes.modify (·.push node)
-  table.canonicalNodes.modify (·.insert description index)
-  return index
-
-partial def TermTable.encode (table : TermTable) (term : Expr) : TermElabM Nat := do
-  QuestionIdentity.encode table.intern table.terms table.contextualTerms term
-
-def TermTable.finish (table : TermTable) (roots : Json) : IO String := do
-  return (Json.mkObj [("roots", roots), ("terms", Json.arr (← table.nodes.get))]).compress
-
-/-- Rebuild roots from an already encoded term DAG. Child indices are rewritten through the
-target table, so visiting roots in a new order produces exactly the table that direct encoding
-in that order would produce, without traversing the Lean expressions again. -/
-structure TermRemap where
-  source : TermTable
-  target : TermTable
-  mapped : IO.Ref (Std.HashMap Nat Nat)
-
-def TermRemap.new (source target : TermTable) : IO TermRemap := do
-  return { source, target, mapped := ← IO.mkRef {} }
-
-partial def TermRemap.encode (remap : TermRemap) (root : Nat) : TermElabM Nat := do
-  if let some mapped := (← remap.mapped.get)[root]? then return mapped
-  let some node := (← remap.source.nodes.get)[root]?
-    | throwError "a term identity DAG refers outside its node table"
-  let child (value : Json) : TermElabM Nat := do
-    let .ok index := value.getNat?
-      | throwError "a term identity DAG has a nonnumeric child"
-    remap.encode index
-  let rebuilt ← match node with
-    | .arr #[.str "proof", type] =>
-        pure (Json.arr #[toJson "proof", toJson (← child type)])
-    | .arr #[.str "app", fn, arg] =>
-        pure (Json.arr #[toJson "app", toJson (← child fn), toJson (← child arg)])
-    | .arr #[.str "lam", domain, body, info] =>
-        pure (Json.arr #[toJson "lam", toJson (← child domain),
-          toJson (← child body), info])
-    | .arr #[.str "forall", domain, body, info] =>
-        pure (Json.arr #[toJson "forall", toJson (← child domain),
-          toJson (← child body), info])
-    | .arr #[.str "let", domain, value, body, nondep] =>
-        pure (Json.arr #[toJson "let", toJson (← child domain),
-          toJson (← child value), toJson (← child body), nondep])
-    | .arr #[.str "proj", name, index, value] =>
-        pure (Json.arr #[toJson "proj", name, index, toJson (← child value)])
-    | .arr #[.str "bvar", _] | .arr #[.str "sort", _] |
-        .arr #[.str "const", _, _] | .arr #[.str "literal", _] => pure node
-    | _ => throwError "a term identity DAG contains an unknown node"
-  let mapped ← remap.target.intern rebuilt
-  remap.mapped.modify (·.insert root mapped)
-  return mapped
-
-/-- Encode a term once in the source DAG, then reproduce its nodes in the target's current
-insertion order. Closed source terms already encountered by another root require no Lean-term
-traversal. -/
-def TermRemap.encodeTerm (remap : TermRemap) (term : Expr) : TermElabM Nat := do
-  let root ← if let some root := (← remap.source.terms.get)[term]? then pure root
-    else remap.source.encode term
-  remap.encode root
-
-/-- The legacy standalone serialization of one root, recovered from a shared encoded DAG. -/
-def TermTable.rootIdentity (source : TermTable) (root : Nat) : TermElabM String := do
-  let target ← TermTable.new
-  let remap ← TermRemap.new source target
-  let root ← remap.encode root
-  target.finish (toJson root)
-
 partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
   | .proposition term => return Json.arr #[toJson "proposition", toJson (← table.encode term)]
   | .judgement relation terms route declarations types => do
@@ -3267,11 +3169,6 @@ partial def encodeQuestion (table : TermTable) : Question → TermElabM Json
   | .conjunction left right =>
       return Json.arr #[toJson "and", ← encodeQuestion table left, ← encodeQuestion table right]
   | .negation question => return Json.arr #[toJson "not", ← encodeQuestion table question]
-
-def termIdentity (term : Expr) : TermElabM String := do
-  let table ← TermTable.new
-  let root ← table.encode term
-  table.finish (toJson root)
 
 /-- The semantic question a claim asks, as a fingerprint of its elaborated proposition (and, for a
 decision, the expected answer): what an admitted assertion means under this kernel, parser and

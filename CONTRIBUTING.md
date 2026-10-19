@@ -207,11 +207,24 @@ satisfy an obligation requiring execution.
 ## Gate
 
 Run what the change touches:
-- **Kernel, language, probes, tools:** `just build` runs the repository checks (no leaves,
-  reuse records, permanent acceptance) and compiles the
-  kernel, gates, acceptance probes, tools and notebook package. Compilation does not execute the
-  suite. `just test` adds `cas-axiom-audit` (only `propext`, `Classical.choice`, `Quot.sound`)
-  and the no-sorry check; `just test-ci` re-executes the demo notebook.
+- **Kernel, language, probes, tools during development:**
+  `just focus CasCatalogue.Language` builds one target and its dependencies, measuring elapsed time
+  and peak memory. Substitute the changed target. A run reaching 60 seconds automatically profiles
+  that source; `just focus CasCatalogue/Language.lean profile` requests a profile directly. The
+  direct profile is diagnostic, while the targeted build establishes current imported dependencies.
+  When a downstream probe needs a fresh import, focus that exact probe next. Each
+  invocation fetches own-organisation latest `main`; it runs `lake update` only if a resolved
+  revision changed. Logs stay in `/tmp`. If a focused run reaches 60 seconds, use its profile to
+  locate the expensive declaration, import or repeated work before another broad check. Try a
+  smaller reproducer, cache/reuse or compiler-boundary repair, and verify the specific invariant
+  with the unchanged admitted assertion or a targeted probe. A faster check reports only that
+  invariant, not acceptance.
+- **Clean integration candidate:** `B0_INTEGRATION=1 just build` runs the repository checks (no
+  leaves, reuse records, permanent acceptance) and compiles the kernel, gates, acceptance probes,
+  tools and notebook package. Plain local `just build` refuses to start; CI runs it directly.
+  Compilation does not execute the suite. `just test` adds `cas-axiom-audit` (only `propext`,
+  `Classical.choice`, `Quot.sound`) and the no-sorry check; `just test-ci` re-executes the demo
+  notebook. Do not spend a full build on each small edit.
 - **Acceptance:** `just harness` runs the suite and reports every assertion's outcome;
   `just acceptance BASE` compares that report with a base report, assertion by assertion
   (`scripts/check_acceptance_regression.py`). That is development regression, not B0

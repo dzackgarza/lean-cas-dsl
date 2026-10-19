@@ -18,16 +18,70 @@ set dotenv-load := true
 default:
     @just --list
 
-# Build the core and the notebook package, and run their probes: the acceptance probes
-# (CasAcceptance), the notebook boundary and the demo notebook's cells (CasDslTests). The suite is
-# executed by `just harness` and `just acceptance`, not compiled.
-# Permanent acceptance assertions are append-only (scripts/check_acceptance_permanent.py).
-# Own-organisation requires always build at their latest `main` (owner, 2026-10-10): no pins.
+# Refresh own-organisation checkouts to latest main and resolve changed Lake requires.
 track-main:
     @python3 scripts/ci_chain.py
-    @lake update lean_categories cas_leaf_contracts nbdsl-worker
+    @python3 scripts/resolve_lake_if_needed.py
 
-build: track-main
+# Build one Lean target and automatically profile it if slow; mode=profile profiles a source.
+focus target mode="build": track-main
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target={{quote(target)}}
+    mode={{quote(mode)}}
+    if [[ "$target" == *.lean ]]; then
+      source=$target
+      module=${target%.lean}
+      module=${module//\//.}
+    else
+      module=$target
+      source=${target//.//}.lean
+    fi
+    log=$(mktemp /tmp/lean-cas-focus.XXXXXX.log)
+    started=$(date +%s)
+    set +e
+    case "$mode" in
+      profile) /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+          lake env lean --profile "$source" 2>&1 | tee "$log" ;;
+      build) /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+          lake build "$module" 2>&1 | tee "$log" ;;
+      *) echo "mode must be profile or build" >&2; exit 2 ;;
+    esac
+    result=${PIPESTATUS[0]}
+    set -e
+    echo "Focused log: $log"
+    elapsed=$(($(date +%s) - started))
+    if (( elapsed >= 60 )); then
+      if [[ "$mode" == "build" && -f "$source" ]]; then
+        profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
+        set +e
+        /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+          lake env lean --profile "$source" 2>&1 | tee "$profile_log"
+        profile_result=${PIPESTATUS[0]}
+        set -e
+        echo "Profile log: $profile_log"
+        if (( result == 0 )); then result=$profile_result; fi
+      fi
+      echo "Slow target ($elapsed s): inspect the profile and import costs before another source iteration." >&2
+    fi
+    exit "$result"
+
+[private]
+_integration-intent:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then exit 0; fi
+    if [[ "${B0_INTEGRATION:-}" != "1" ]]; then
+      echo "Full build is for integration candidates. Use 'just focus SOURCE' first; set B0_INTEGRATION=1 for the final gate." >&2
+      exit 2
+    fi
+    if [[ -n "$(git status --porcelain)" ]]; then
+      echo "Full build requires a clean committed candidate. Use 'just focus SOURCE' while editing." >&2
+      exit 2
+    fi
+
+# Build and statically check a clean integration candidate (CI or B0_INTEGRATION=1).
+build: _integration-intent track-main
     @python3 -m unittest discover -s scripts -p 'test_*.py'
     @python3 scripts/check_no_leaves.py --self-test
     @python3 scripts/check_no_leaves.py

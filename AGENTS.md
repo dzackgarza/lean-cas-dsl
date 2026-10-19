@@ -340,6 +340,29 @@ worktree is created outside the repository (`git worktree add ../lean-cas-dsl-<b
 with `git worktree remove` once its branch is merged. Failure of record: 2026-10-10/11, 2.3 GB of
 saved harness executables, logs and worktrees with full Lake package copies left in `.tmp/`.
 
+# Short feedback cycles during B0 construction
+
+Use `just focus CasCatalogue.Language` (or the changed Lean target) as the first local check. It
+builds only that target and its dependencies, measures elapsed time and peak memory, and saves its
+log in `/tmp`. A run taking at least 60 seconds automatically profiles that target's source and
+saves the profile beside the build log. `just focus CasCatalogue/Language.lean profile` requests
+the profile directly; it is a diagnostic, while the targeted build establishes current imported
+dependencies. Build the exact dependent probe or run the unchanged admitted assertion it unblocks.
+Do not run `just build` after each small source edit.
+
+When a focused check takes 60 seconds or more, inspect its profile and the dependency/import path
+before another edit or rerun. Reduce repeated elaboration or traversal, use the existing shared
+Lake cache, factor the compiler boundary where justified, or use a faster check of the exact
+invariant under repair. Keep the original failing assertion and the relevant protected negatives
+as the eventual behavior check; a syntax check, compile, timing, or identity comparison proves only
+its own narrow claim. Do not raise heartbeats or weaken an assertion to shorten feedback.
+
+`just build` is the integration gate for a clean committed candidate, run by CI or explicitly with
+`B0_INTEGRATION=1`. The local recipe refuses an accidental full build during source iteration.
+It still refreshes own-organisation dependencies to latest `main` before any build; unchanged
+resolved Lake revisions skip the redundant update hook. A full compile remains distinct from
+the permanent suite, same-candidate protected negatives and independent B0 acceptance.
+
 <!-- agent-memory:start -->
 # Agent memory
 

@@ -1,8 +1,8 @@
 /- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
 module
 
-import CasCatalogue.Realize
-meta import CasCatalogue.Realize
+import CasCatalogue.QuestionIdentity
+meta import CasCatalogue.QuestionIdentity
 
 open Lean Elab Command Term
 open CasCatalogue CasCatalogue.Realize
