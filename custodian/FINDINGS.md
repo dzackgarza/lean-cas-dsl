@@ -37,9 +37,13 @@
   On the admitted 2×2 matrix-kernel assertion at latest-main mathematical
   revision `a2123729`, source and operation-field encoding each take 34--60 ms
   and the complete 28,383-byte question identity matches the previous encoder
-  byte for byte. Semantic reading still takes about 10 seconds, the 3×3
-  `subspaces.kernel` assertion is blocked earlier by a 200,000-heartbeat
-  `span` binding timeout, and full protected acceptance has not run. Issue
+  byte for byte. Semantic reading still takes about 10 seconds. A further
+  generic morphism repair retained the first argument after it failed the
+  declared leading-parameter check, instead of rereading it as the first
+  operand. The 3×3 `subspaces.kernel` bindings now pass the ordinary budget,
+  and its full 39,816-byte diagnostic identity is unchanged, but the assertion
+  itself reaches a 200,000-heartbeat `whnf` timeout. Full protected acceptance
+  has not run. Issue
   lean-cas-dsl#66 remains open for those integrated obligations; no timeout
   increase or weaker identity is acceptable.
 - Diagnosed formal-side dependency on 2026-10-18: the registered

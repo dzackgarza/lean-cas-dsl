@@ -2170,6 +2170,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
     let explicit := (declarationArgs.zip infos).filterMap fun (arg, info) =>
       if info.isExplicit then some arg else none
     let mut parameters : Array Value := #[]
+    let mut firstOperand : Option Value := none
     for parameter in explicit do
       let some argumentSyntax := args[parameters.size]? | break
       let value ← eval scope argumentSyntax
@@ -2182,15 +2183,25 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       -- rejects that still-open universe before synthesis can determine it.
       let categoryClass := mkApp (← mkConstWithFreshMVarLevels ``CategoryTheory.Category) expected
       let expectsObject := (← trySynthInstance categoryClass).toOption.isSome
-      if expectsObject && !(value matches .object ..) then break
+      if expectsObject && !(value matches .object ..) then
+        firstOperand := some value
+        break
       unless ← parameterCompatible (do
           let term ← typedParameter expected value
-          isDefEq parameter term) do break
+          isDefEq parameter term) do
+        firstOperand := some value
+        break
       let term ← typedParameter expected value
       discard <| isDefEq parameter term
       parameters := parameters.push value
+    -- The first rejected parameter is exactly the first operand, in the same evaluation
+    -- context. Retain its value and trace rather than reading it a second time.
+    let mut elements := #[]
+    if let some value := firstOperand then elements := elements.push value
+    elements := elements ++ (← (args.extract (parameters.size + elements.size) args.size).mapM
+      (eval scope · none))
     return ← applyFamily entry.declaration category
-      (← (args.extract parameters.size args.size).mapM (eval scope · none))
+      elements
       (parameters := parameters)
   let arity ← forallTelescopeReducing (← inferType declaration) fun xs _ => pure xs.size
   unless arity ≤ args.size do

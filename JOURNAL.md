@@ -1,5 +1,32 @@
 # Journal
 
+## 2026-10-19 — Reuse a rejected morphism parameter as its operand
+
+The generic `morphism` reader used to evaluate the first argument of
+`span({u₁, u₂})` as a possible leading parameter. When that set value failed
+the declaration's object-parameter check, the reader evaluated the same
+syntax again as the first operand. The rejected value now feeds the operand
+call in the same reader context, retaining its first trace and avoiding the
+second evaluation. This is a generic parameter/operand boundary, not a
+special case for `span`.
+
+Before the change, diagnostic evaluation of `W := span({u₁, u₂})` took 90,673
+ms with the heartbeat cap lifted; its set-literal argument alone took 48,074
+ms. A separately read set value took 54,061 ms, while the registered span
+family applied to that value in 1,531 ms. These observations and the
+`morphism` call path identify the duplicate argument read. Each bound vector
+cost about 12 seconds to evaluate; set-literal reading still evaluates typed
+vectors more than once while inferring and forming its subset.
+
+After the change, the ordinary-budget `subspaces.kernel` benchmark reads all
+bindings through `W` and `N`, but its assertion reaches a separate `whnf`
+timeout. With only the diagnostic probe's heartbeat cap lifted, the assertion
+retains 126 trace roots and a 39,816-byte identity byte-identical to the
+pre-change source. Its semantic-reading stage fell from 113,291 ms to 59,165
+ms. The full `CasCatalogue.QuestionProbes` target now builds successfully;
+the previous line-258 span probe failure is gone. These checks do not make the
+3×3 assertion usable under the ordinary budget or establish full B0 acceptance.
+
 ## 2026-10-19 — Contextual question encoding candidate
 
 The encoder now caches unopened expression syntax with its ordered binder
@@ -64,11 +91,12 @@ decoding, leaf execution, or complete request latency. The earlier 149.890-secon
 profile in this journal used a different dependency revision and a 99-root
 3×3 assertion, so the two measurements are not a before-and-after result.
 
-The current 3×3 `subspaces.kernel` benchmark stops before interpretation while
-reading its `W := span({u₁, u₂})` binding: `isDefEq` reaches the 200,000-heartbeat
-limit. A refreshed `just build` also reported that timeout in
-`CasCatalogue/BinderReaderProbes.lean:11`; the build was interrupted after the
-failure while later probes were still consuming substantial memory. Neither
+At that checkpoint, the 3×3 `subspaces.kernel` benchmark stopped before interpretation while
+reading its `W := span({u₁, u₂})` binding: `isDefEq` reached the 200,000-heartbeat
+limit. A refreshed `just build` separately reported a timeout in the first
+integral-binder probe at `CasCatalogue/BinderReaderProbes.lean:11`; the build
+was interrupted after that failure while later probes were still consuming
+substantial memory. Neither
 run establishes a passing full build or a current 3×3 performance baseline.
 
 ## 2026-10-18 — Question identity performance boundary
