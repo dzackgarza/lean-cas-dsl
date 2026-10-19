@@ -40,10 +40,16 @@
   byte for byte. Semantic reading still takes about 10 seconds. A further
   generic morphism repair retained the first argument after it failed the
   declared leading-parameter check, instead of rereading it as the first
-  operand. The 3×3 `subspaces.kernel` bindings now pass the ordinary budget,
-  and its full 39,816-byte diagnostic identity is unchanged, but the assertion
-  itself reaches a 200,000-heartbeat `whnf` timeout. Full protected acceptance
-  has not run. Issue
+  operand. A further set-literal repair reuses initially read bound elements
+  with an explicit non-category `in X`, whose value ignores the literal's
+  ambient; all other elements retain contextual reading. The unchanged 3×3
+  `subspaces.kernel` assertion now completes at the ordinary budget with 126
+  roots and a full 39,816-byte identity byte-identical to its prechange
+  diagnostic result. Its seven binding reads still total about 77 seconds,
+  and assertion semantic reading takes another 38 seconds, so the practical
+  latency target remains open. The separate first-integral binder timeout was
+  removed by reading a sole registered binder row once; focused
+  `BinderReaderProbes` passes. Full protected acceptance has not run. Issue
   lean-cas-dsl#66 remains open for those integrated obligations; no timeout
   increase or weaker identity is acceptable.
 - Diagnosed formal-side dependency on 2026-10-18: the registered

@@ -42,7 +42,9 @@ run_cmd liftTermElabM do
           IO.println s!"{name}_ms={elapsed}"
       found := true
     else if let some (name, value) ← letBinding? statement then
-      IO.println s!"binding={name}"
+      IO.println s!"binding_start={name}"
+      let started ← IO.monoMsNow
       discard <| (claim scope statement).run {}
+      IO.println s!"binding={name} semantic_reading_ms={(← IO.monoMsNow) - started}"
       scope := scope.insert name value
   unless found do throwError "benchmark assertion not found: {target}"

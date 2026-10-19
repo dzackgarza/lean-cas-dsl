@@ -1,5 +1,21 @@
 # Journal
 
+## 2026-10-19 — End-to-end reading cost of the admitted 3×3 question
+
+The reproducible `benchmarks/question_identity.lean` now reports each binding's
+semantic-reading time as well as the assertion stages. At the committed
+`e2bd797` kernel and latest-main inputs `lean-categories` `a2123729` and
+leaf contracts `3c2159b`, a normal-budget, one-run `subspaces.kernel`
+benchmark completed with 126 roots and 39,816 identity bytes. Its bindings
+read in 6,740 ms (`M`), 5,202 (`v`), 5,011 (`b`), 10,412 (`u₁`), 9,958
+(`u₂`), 24,474 (`W`), and 15,089 (`N`); the assertion's semantic reading
+took a further 38,166 ms. Thus the earlier 38-second figure was only the
+assertion, not the whole admitted request. Question construction was 965 ms;
+source encoding 89 ms; remapped-key sorting 1,412 ms; operation fields 72
+ms. This diagnostic excludes registration, transport, decoding and external
+computation. The remaining latency is chiefly in semantic reading and formal
+evidence, and the proposed low-single-digit end-to-end budget is open.
+
 ## 2026-10-19 — Read sole registered binders once
 
 The binder reader tried every candidate under an isolated compatibility
