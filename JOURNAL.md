@@ -1,5 +1,29 @@
 # Journal
 
+## 2026-10-19 — Reuse explicitly typed set elements
+
+The set-literal reader previously evaluated each element to infer its set,
+then evaluated it again with that set as an ambient input to construct the
+subset. A bound element whose stored syntax explicitly says `in X` takes its
+ambient from that annotation, independently of the enclosing literal. The
+reader now reuses its first value only for that case; other elements retain
+the contextual second reading. The chosen subset form and fallback union of
+singletons use the same rule.
+
+At the current latest-main dependencies, `subspaces.kernel` from the unchanged
+admitted suite now completes under the ordinary 200,000-heartbeat limit:
+126 trace roots, 39,816 identity bytes, and 37,914 ms semantic reading. The
+entire identity is byte-identical to the prechange diagnostic result. The
+`CasCatalogue.Language` and `CasCatalogue.QuestionProbes` targets build. This
+removes the 3×3 timeout, but the measured full interpretation still exceeds
+the proposed low-single-digit performance budget.
+
+The preceding full `just build` at `645a1f4` failed at the first integral
+probe in `CasCatalogue/BinderReaderProbes.lean:11` with a deterministic
+`isDefEq` timeout at 200,000 heartbeats. Its remaining long-running jobs
+were stopped after this failure; it was not a passing full gate. The binder
+failure is separate from the set-literal result and remains open.
+
 ## 2026-10-19 — Reuse a rejected morphism parameter as its operand
 
 The generic `morphism` reader used to evaluate the first argument of

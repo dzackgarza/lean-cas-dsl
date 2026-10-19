@@ -5095,8 +5095,8 @@ elements); `none` where it does not (`ℝ`). The literal is `{x₁, …, xₙ}` 
 notation at the form's type (`Insert`, `Singleton`, `EmptyCollection`), each `xᵢ` the element of
 `X` it is, and the value is the form's denotation of it: the element of `𝒫(X)`. It is recorded as
 that literal, which the realized reading sends as its elements. -/
-partial def subsetLiteral (scope : Scope) (form : SubsetLiteralEntry) (xs : Array Syntax)
-    (X P : Value) : M (Option Value) := do
+partial def subsetLiteral (form : SubsetLiteralEntry) (xs : Array Syntax)
+    (X P : Value) (readElement : Syntax → Nat → M Value) : M (Option Value) := do
   let .object p _ _ _ _ := P | unreachable!
   let one ← semanticObject (← oneObject)
   let expected ← mkAppM ``Quiver.Hom #[one, p]
@@ -5113,8 +5113,8 @@ partial def subsetLiteral (scope : Scope) (form : SubsetLiteralEntry) (xs : Arra
       return (← instantiateMVars m).isMVar && (← instantiateMVars (← inferType m)).isAppOf form.type
     | throwStratum .invalid m!"the literal form {form.id.raw} takes no literal of {form.type}"
   let literalType ← instantiateMVars (← inferType literalMVar)
-  let elements ← xs.mapM fun x => do
-    let .element h _ ← coerceTo (← eval scope x none (some X)) X
+  let elements ← xs.zipIdx.mapM fun (x, i) => do
+    let .element h _ ← coerceTo (← readElement x i) X
       | throwStratum .invalid m!"`{shown x}` is not an element of {← semanticObject X}"
     `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
   let literal ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
@@ -5127,15 +5127,29 @@ partial def subsetLiteral (scope : Scope) (form : SubsetLiteralEntry) (xs : Arra
   Trace.record (← read).trace hom (.literal form.id literal)
   return some (.element (← staged hom) P)
 
+/-- A bound term with an explicit non-category `in X` ignores the set literal's ambient: `evalIn`
+reads its declared object and evaluates its body there. -/
+partial def explicitlyTypedSetElement (scope : Scope) (stx : Syntax) : M Bool := do
+  if let `(cas_term| ($t)) := stx then return ← explicitlyTypedSetElement scope t
+  if let `(cas_term| $t in $c) := stx then
+    if let `(cas_term| $name:ident) := c then
+      return !(← registryState).categories.any (·.name == name.getId.toString)
+    return true
+  if let `(cas_term| $name:ident) := stx then
+    if let some t := scope.get? name.getId then
+      return ← explicitlyTypedSetElement scope t
+  return false
+
 /-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the literal of the power
 object's registered subset-literal form where it applies (`subsetLiteral`), else the union of
 singletons. -/
 partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
+  let inferred? ← if ambient?.isNone then some <$> xs.mapM (eval scope ·) else pure none
   -- Without an enclosing `𝒫(X)`: the set its elements are in, else `ℤ`.
   let P ← match ambient? with
     | some P => pure P
     | none =>
-        let sets := (← xs.mapM (eval scope ·)).filterMap fun | .element _ X => some X | _ => none
+        let sets := inferred?.get!.filterMap fun | .element _ X => some X | _ => none
         match ← commonSet? sets, sets[0]? with
         | some X, _ | none, some X => powerSetOf X
         | none, none => powerSetOf (← object (← registryState) "ℤ" #[] none)
@@ -5149,20 +5163,24 @@ partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Va
   let some (po, X) ← powerOf? P
     | throwStratum .invalid m!"a set literal is a subset: `in 𝒫(X)`"
   let .object p category _ _ _ := P | unreachable!
+  let readElement (x : Syntax) (i : Nat) : M Value := do
+    if let some inferred := inferred? then
+      if ← explicitlyTypedSetElement scope x then return inferred[i]!
+    eval scope x none (some X)
   -- The registered subset-literal form of the power object, where it applies to `X`.
   if let some form := (← registryState).subsetLiterals.find? (·.powerObject == po.id) then
-    if let some literal ← subsetLiteral scope form xs X P then return literal
-  let singletonOf (x : Syntax) : M Value := do
-    let element ← coerceTo (← eval scope x none (some X)) X
+    if let some literal ← subsetLiteral form xs X P readElement then return literal
+  let singletonOf (x : Syntax) (i : Nat) : M Value := do
+    let element ← coerceTo (← readElement x i) X
     applyTo (← `($(mkCIdent po.singleton) $(← paramTerms #[X])*)) #[element] P
-  match xs.toList with
+  match xs.zipIdx.toList with
   | [] =>
       let .object one _ _ _ _ ← oneObject | unreachable!
       let empty ← homIn (← `($(mkCIdent po.empty) $(← paramTerms #[X])*)) one p category
       return .element (← staged empty) P
-  | x :: rest =>
-      let mut acc ← singletonOf x
-      for y in rest do acc ← applyOperation po.union #[acc, ← singletonOf y] P
+  | (x, i) :: rest =>
+      let mut acc ← singletonOf x i
+      for (y, j) in rest do acc ← applyOperation po.union #[acc, ← singletonOf y j] P
       return acc
 
 /-- The registered product of `a` and `b`, or their coproduct if `colimit`. -/
