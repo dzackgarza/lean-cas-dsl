@@ -29,6 +29,11 @@ focus target mode="build": track-main
     set -euo pipefail
     target={{quote(target)}}
     mode={{quote(mode)}}
+    budget=${B0_FOCUS_BUDGET_SECONDS:-120}
+    if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
+      echo "B0_FOCUS_BUDGET_SECONDS must be a positive integer" >&2
+      exit 2
+    fi
     if [[ "$target" == *.lean ]]; then
       source=$target
       module=${target%.lean}
@@ -41,9 +46,11 @@ focus target mode="build": track-main
     started=$(date +%s)
     set +e
     case "$mode" in
-      profile) /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+      profile) timeout --signal=TERM --kill-after=5s "${budget}s" \
+          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
           lake env lean --profile "$source" 2>&1 | tee "$log" ;;
-      build) /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+      build) timeout --signal=TERM --kill-after=5s "${budget}s" \
+          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
           lake build "$module" 2>&1 | tee "$log" ;;
       *) echo "mode must be profile or build" >&2; exit 2 ;;
     esac
@@ -51,18 +58,61 @@ focus target mode="build": track-main
     set -e
     echo "Focused log: $log"
     elapsed=$(($(date +%s) - started))
+    if (( result == 124 )); then
+      echo "Focused $mode exceeded ${budget}s. Diagnose the target before increasing B0_FOCUS_BUDGET_SECONDS." >&2
+    fi
     if (( elapsed >= 60 )); then
-      if [[ "$mode" == "build" && -f "$source" ]]; then
+      if [[ "$mode" == "build" && -f "$source" && ( "$result" == 0 || "$result" == 124 ) ]]; then
         profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
         set +e
-        /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+        timeout --signal=TERM --kill-after=5s "${budget}s" \
+          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
           lake env lean --profile "$source" 2>&1 | tee "$profile_log"
         profile_result=${PIPESTATUS[0]}
         set -e
         echo "Profile log: $profile_log"
+        if (( profile_result == 124 )); then
+          echo "Profile exceeded ${budget}s; reduce the reproducer or inspect the import boundary." >&2
+        fi
         if (( result == 0 )); then result=$profile_result; fi
       fi
       echo "Slow target ($elapsed s): inspect the profile and import costs before another source iteration." >&2
+    fi
+    exit "$result"
+
+# Measure the unchanged admitted question through the production reader and encoder.
+bench-question assertion="matrices.kernel": track-main
+    #!/usr/bin/env bash
+    set -euo pipefail
+    budget=${B0_BENCH_BUDGET_SECONDS:-180}
+    if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
+      echo "B0_BENCH_BUDGET_SECONDS must be a positive integer" >&2
+      exit 2
+    fi
+    log=$(mktemp /tmp/lean-cas-question.XXXXXX.log)
+    echo "Question benchmark log: $log"
+    for package in . lean_categories cas_leaf_contracts cas_leaves nbdsl-worker; do
+      if [[ "$package" == . ]]; then
+        checkout=.
+      else
+        checkout=".lake/packages/$package"
+      fi
+      echo "revision[$package]=$(git -C "$checkout" rev-parse HEAD)" | tee -a "$log"
+    done
+    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+      echo "source_worktree=dirty" | tee -a "$log"
+    else
+      echo "source_worktree=clean" | tee -a "$log"
+    fi
+    set +e
+    CAS_BENCH_ONCE=1 CAS_BENCH_ASSERTION={{quote(assertion)}} \
+      timeout --signal=TERM --kill-after=5s "${budget}s" \
+      /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+      lake env lean benchmarks/question_identity.lean 2>&1 | tee -a "$log"
+    result=${PIPESTATUS[0]}
+    set -e
+    if (( result == 124 )); then
+      echo "Question benchmark exceeded ${budget}s; inspect per-binding timings in $log." >&2
     fi
     exit "$result"
 

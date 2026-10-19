@@ -1,5 +1,27 @@
 # Journal
 
+## 2026-10-19 — Bounded focused runs and production question timings
+
+`just focus` now caps each targeted build or profile at 120 seconds by default,
+reports a timeout as a failed check, and retains the log for diagnosis. It
+profiles a successful or timed-out build that reaches 60 seconds, with a
+separate cap on that profile; an ordinary compile error does not trigger a
+second expensive run. `just bench-question ASSERTION` now drives the existing
+production-path timing harness from an unchanged admitted assertion under a
+180-second limit. Its log records the source and latest-main dependency
+revisions, dirty source state, per-binding and phase times, elapsed time and
+peak memory. The recipes and contributor instructions require profile/import
+diagnosis and a specific invariant check before increasing a budget.
+
+Targeted validation: `just focus CasCatalogue.QuestionIdentity` passed in
+17.36 seconds at 793,176 KiB peak RSS. The normal `matrices.kernel` question
+benchmark passed with 66 trace roots and 28,383 identity bytes; its complete
+run took 76.79 seconds at 2,257,812 KiB peak RSS, including 9.458 seconds of
+assertion semantic reading. One-second diagnostic limits on both recipes
+returned exit 124 and preserved their logs. The existing `justfile` has unrelated formatter drift,
+so recipe parsing was checked with `just --dry-run`; `git diff --check` passed.
+No full build or acceptance suite was run for this workflow edit.
+
 ## 2026-10-19 — Targeted feedback workflow and identity import boundary
 
 The local gate now starts with `just focus TARGET`: it refreshes

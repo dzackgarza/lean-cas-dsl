@@ -350,6 +350,16 @@ the profile directly; it is a diagnostic, while the targeted build establishes c
 dependencies. Build the exact dependent probe or run the unchanged admitted assertion it unblocks.
 Do not run `just build` after each small source edit.
 
+`just focus` has a 120-second per-command budget, including its separate profile command. A
+timeout is a failed check, not a compile result. Inspect the saved build and profile logs and
+reduce the target's import or elaboration cost before raising `B0_FOCUS_BUDGET_SECONDS` for a
+specific diagnosed run. For question-reading or encoding changes, run
+`just bench-question matrices.kernel` and the harder `just bench-question subspaces.kernel`;
+these use unchanged admitted assertions, print per-binding and phase timings, and stop after
+180 seconds by default (`B0_BENCH_BUDGET_SECONDS` changes that diagnostic limit). Compare the
+complete identity with an independently saved baseline; timing or compilation alone does not
+establish preservation.
+
 When a focused check takes 60 seconds or more, inspect its profile and the dependency/import path
 before another edit or rerun. Reduce repeated elaboration or traversal, use the existing shared
 Lake cache, factor the compiler boundary where justified, or use a faster check of the exact
