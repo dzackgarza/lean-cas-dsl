@@ -3304,11 +3304,19 @@ structure TypedQuestion where
   identity : String × String
   mathematicalRevision : String
 
-/-- Prepare the question against the current mathematical environment. A reader which has
-cannot produce an interpretation record until its typed terms are complete. -/
-def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
+/-- Prepare the question against the current mathematical environment. A reader cannot
+produce an interpretation record until its typed terms are complete. The optional timing
+sink observes the production path without affecting the request or its identity. -/
+def interpret (scope : Scope) (stx : Syntax)
+    (timings : Option (IO.Ref (Array (String × Nat))) := none) : TermElabM TypedQuestion := do
+  let started ← IO.monoMsNow
+  let record (stage : String) (before : Nat) : TermElabM Nat := do
+    let now ← IO.monoMsNow
+    if let some sink := timings then sink.modify (·.push (stage, now - before))
+    return now
   let trace ← (Trace.new : IO _)
   let claim ← (Language.claim scope stx).run { trace := some trace }
+  let afterRead ← record "semantic_reading" started
   let .ok manifest := Json.parse (← IO.FS.readFile "lake-manifest.json")
     | throwError "cannot identify the mathematical dependency revision"
   let .ok packages := (manifest.getObjVal? "packages").bind (·.getArr?)
@@ -3319,6 +3327,7 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
   let .ok mathematicalRevision := package.getObjValAs? String "rev"
     | throwError "no pinned mathematical dependency revision"
   let (identity, shown) ← claimQuestion claim
+  let afterQuestion ← record "question_construction" afterRead
   let nodes ← (← trace.get).toArray.mapM fun (term, node) => do
     let term ← instantiateMVars term
     let node : Node ← match node with
@@ -3402,14 +3411,17 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
       | .property id route receiver => pure (.property id route (← instantiateMVars receiver))
       | .limit id diagram lift => pure (.limit id (← instantiateMVars diagram) lift)
     return (term, node)
+  let afterInstantiation ← record "trace_instantiation" afterQuestion
   -- Sorting complete canonical term encodings makes the snapshot independent of hash-map
   -- layout. Shared term references then keep the complete record compact.
   let sourceTable ← TermTable.new
   let rooted ← nodes.mapM fun (term, node) => do
     return (← sourceTable.encode term, term, node)
+  let afterSource ← record "source_encoding" afterInstantiation
   let ordered ← rooted.mapM fun (root, term, node) => do
     return (← sourceTable.rootIdentity root, root, term, node)
   let ordered := ordered.qsort fun a b => a.1 < b.1
+  let afterKeys ← record "remapped_keys_and_sort" afterSource
   let table ← TermTable.new
   let remap ← TermRemap.new sourceTable table
   let encode := remap.encodeTerm
@@ -3531,7 +3543,9 @@ def interpret (scope : Scope) (stx : Syntax) : TermElabM TypedQuestion := do
           pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← encode diagram),
             toJson (lift.map (·.raw))])
     return Json.arr #[toJson root, operation]
+  let afterFields ← record "operation_fields" afterKeys
   let tree ← table.finish (Json.arr operations)
+  discard <| record "compression" afterFields
   return { claim := claim
            trace := Std.HashMap.ofArray nodes
            mathematicalRevision := mathematicalRevision

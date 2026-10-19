@@ -1,5 +1,43 @@
 # Journal
 
+## 2026-10-19 — Current question-identity performance baseline
+
+At base source `0c139a8b1cd50abe73b70894fe887b20b962139c` plus this
+change's timing hook, with
+`lean-categories` `a2123729df092e58b6fb0cd39c78db5e1714faf2` and leaf contracts
+`3c2159b510db2ca63455530ed0f4c28ba27da2f8`, the admitted
+`matrices.kernel` assertion from `tests/acceptance/linear_algebra.cas` reads to
+66 trace roots and a 28,383-byte complete question identity. The reproducible
+diagnostic is `benchmarks/question_identity.lean`; run
+`/usr/bin/time -v lake env lean benchmarks/question_identity.lean` after updating
+own-organisation dependencies and building `CasCatalogue.Realize`. It calls the
+production `interpret` path twice in one process and checks exact identity
+equality. The timed run peaked at 1,931,060 KiB resident memory for the entire
+Lean process; that figure does not isolate encoder memory.
+
+| Stage | First run (ms) | Second run (ms) |
+| --- | ---: | ---: |
+| Semantic reading | 12,676 | 9,667 |
+| Question construction | 2,955 | 2,442 |
+| Trace instantiation | 2 | 1 |
+| Source encoding | 28,645 | 28,450 |
+| Remapped keys and sort | 567 | 688 |
+| Operation-field encoding | 28,127 | 27,340 |
+| Final compression | 1 | 2 |
+
+The source and operation-field passes dominate both runs. This measures
+interpretation only; it does not measure registration selection, transport,
+decoding, leaf execution, or complete request latency. The earlier 149.890-second
+profile in this journal used a different dependency revision and a 99-root
+3×3 assertion, so the two measurements are not a before-and-after result.
+
+The current 3×3 `subspaces.kernel` benchmark stops before interpretation while
+reading its `W := span({u₁, u₂})` binding: `isDefEq` reaches the 200,000-heartbeat
+limit. A refreshed `just build` also reported that timeout in
+`CasCatalogue/BinderReaderProbes.lean:11`; the build was interrupted after the
+failure while later probes were still consuming substantial memory. Neither
+run establishes a passing full build or a current 3×3 performance baseline.
+
 ## 2026-10-18 — Question identity performance boundary
 
 The matrix-kernel claim records 99 trace roots. A separated exact profile took
