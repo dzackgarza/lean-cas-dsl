@@ -1,5 +1,22 @@
 # Journal
 
+## 2026-10-19 — Read sole registered binders once
+
+The binder reader tried every candidate under an isolated compatibility
+check, then read the unique selected candidate again. For a token with
+exactly one registered row, candidate selection needs no trial; the selected
+row's full dependent signature is checked by the remaining reading. Tokens
+with multiple rows keep the isolated uniqueness trials. The upstream
+catalogue currently has one `∫` row, and the first integral probe timed out
+in the repeated path at 200,000 heartbeats.
+
+After removing that repeat, `lake build CasCatalogue.BinderReaderProbes`
+completes successfully (3,716 jobs, 146 seconds on its last target) at the
+ordinary heartbeat limit. The target exercises both integral readings,
+two limit readings, a limit at infinity, and root-sum/root-product binder
+readings. This is a focused reader result, not a passing full build or a
+calculus acceptance result.
+
 ## 2026-10-19 — Reuse explicitly typed set elements
 
 The set-literal reader previously evaluated each element to infer its set,

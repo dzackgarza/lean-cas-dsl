@@ -4077,13 +4077,18 @@ partial def binder (scope : Scope) (token : String) (boundName : Name)
         return true) then
       some <$> eval scope arguments[0]!
     else pure none
-  let mut candidates := #[]
-  for row in rows do
-    if ← parameterCompatible (do
-        discard <| binderReading scope row boundName arguments body ambient? sharedArgument?
-        pure true) then
-      candidates := candidates.push row
-  let row ← match candidates with
+  -- A sole registered row needs no speculative reading: the selected reading below checks its
+  -- complete dependent signature. Multiple rows still require isolated trials for uniqueness.
+  let row ← match rows with
+  | #[row] => pure row
+  | _ => do
+    let mut candidates := #[]
+    for row in rows do
+      if ← parameterCompatible (do
+          discard <| binderReading scope row boundName arguments body ambient? sharedArgument?
+          pure true) then
+        candidates := candidates.push row
+    match candidates with
     | #[row] => pure row
     | #[] => throwStratum .invalid m!"no registered binder `{token}` reads these arguments and body"
     | _ => throwSemanticAmbiguity m!"several registered binders `{token}` read these arguments and body"
