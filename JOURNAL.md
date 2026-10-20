@@ -32,6 +32,22 @@ receives implementation outcomes as mathematical requirements. Existing
 acceptance proposals and interpretation dispositions remain source artifacts;
 protected admission and final B0 acceptance are outstanding.
 
+The focused leaf-replacement diagnostic completed over the unchanged
+`tests/acceptance/sets.cas`, without replacing the full inventory. All four
+reports retain identical questions and propositions for its 18 assertion IDs.
+For `finite_sets.card.three`, the independently supplied missing, wrong,
+malformed and unavailable registrations produce respectively a gap, wrong
+answer, malformed output and unavailable outcome. Logs, exact reports and the
+comparison are in `/tmp/b0-poc-5410e70/leaf-replacement/`. The expected failures
+make the driver exit 1. This is focused construction evidence, not protected
+acceptance or completion of the other extension trials.
+
+Acceptance source `eb50604` adds five unactivated formed-module proposals from
+the published mathematical interface and is integrated as `32ac21e`. The
+admitted inventory remains unchanged. Its specifications record the precise
+remaining mathematical inputs without replacing the chosen assertions or
+commissioning upstream definitions.
+
 ## 2026-10-20 — Independent role work resumed
 
 The owner authorized subagents to perform the remaining independent role work.
