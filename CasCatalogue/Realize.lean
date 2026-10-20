@@ -2241,8 +2241,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwError "the retained element expression is not closed"
       unless ← isTypeCorrect e do
         throwError "the retained formal element expression is outside its declared signature"
-      return { form := .element selectedWire.form,
-        payload := forwardPayload selectedWire e answer }
+      return { form := .element selectedWire.form, payload := forwardPayload selectedWire e answer }
   | .presentationApply id params inverse source target argument =>
       let some entry := state.presentations.find? (·.id == id) | unreachable!
       let comparison ← elabTermAndSynthesize
