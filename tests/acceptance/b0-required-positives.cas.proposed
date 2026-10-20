@@ -1,0 +1,56 @@
+-- Source assertions owed by the B0 acceptance table, "Required computational assertions".
+-- Expected propositions and values are mathematical inputs fixed before execution.
+-- Adding this source does not activate its protected admission or interpretation records.
+
+test lattices.rank.e8 "Bourbaki, Lie Groups ch. VI, Plate VII: E8 has eight simple roots; published LeanCategories.Lattices.Valued.e8Lattice uses the module Fin 8 → ℤ":
+  assert E8.rank() = 8
+
+test units.rationals.three_inverse "The nonzero rational 3 is a unit; its group inverse has underlying rational 1/3 since 3 · (1/3) = (1/3) · 3 = 1":
+  assert (3 in ℚˣ)⁻¹ = 1/3
+
+test refinement.finite_product_card "Mathlib Finite.instProd, Fintype.card_prod, Fintype.card_fin and ZMod.card: the formally finite product Fin 2 × ZMod 3 keeps its carrier of cardinality 2 · 3 = 6 when admitted to finite sets":
+  assert |(Fin(2) × ℤ/3) in FiniteSets| = 6
+
+let S3 := Sym(3) in Groups
+
+let C3 := ZMod(3) in Groups
+
+let sigma := sign(3)
+
+let zero_map := trivial(S3, ZMod(2) in Groups)
+
+let identity_map := id(S3)
+
+test groups.kernel.sign_card "Mathlib Equiv.Perm.sign and alternatingGroup; published CasCatalogue.Algebra.FiniteGroups.sign_kernel and alternating_three_card: ker(sign : S3 → ZMod 2) is A3 with three elements":
+  assert |sigma.ker()| = 3
+
+test groups.kernel.trivial_card "Published CasCatalogue.Algebra.FiniteGroups.trivial_kernel: the kernel of the trivial map S3 → ZMod 2 is all of S3; Mathlib Fintype.card_perm: 3! = 6":
+  assert |zero_map.ker()| = 6
+
+test groups.kernel.identity_card "Published CasCatalogue.Algebra.FiniteGroups.identity_kernel: ker(id_S3) is the trivial subgroup, consisting only of the identity permutation":
+  assert |identity_map.ker()| = 1
+
+test groups.alternating.three_card "Published CasCatalogue.Algebra.FiniteGroups.alternating_three_card: the alternating subgroup A3 with its defining inclusion into S3 has three elements":
+  assert |Alt(3)| = 3
+
+test groups.abelian.cyclic_three "The selected cyclic group is Multiplicative (ZMod 3); addition in ZMod 3 is commutative, so this group is abelian":
+  assert C3.is_abelian()
+
+test groups.abelian.symmetric_three "The permutations (0 1) and (1 2) in S3 do not commute: their two composites send 0 to 1 and 2 respectively":
+  assert S3.is_abelian() = false
+
+let X := F9x in CommutativeRings
+
+let Y := F9y in CommutativeRings
+
+test presentations.f9.forward_generator "Published CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison_root: the selected comparison F3[x]/(x²+1) → F3[y]/(y²+y+2) sends x to y+2":
+  assert (map generator(X) along F9translation) = generator(Y) + 2
+
+test presentations.f9.inverse_generator "Published CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison_inv_root: the inverse selected comparison sends y to x-2":
+  assert (map generator(Y) back along F9translation) = generator(X) - 2
+
+test presentations.f9.forward_constant "Published CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison_constants: the selected comparison preserves the chosen F3 coefficient maps, in particular the nonzero constant 2":
+  assert (map F9x_constants(2) along F9translation) = F9y_constants(2)
+
+test presentations.f9.inverse_constant "The selected comparison is an F3-algebra isomorphism; its inverse also preserves the chosen coefficient maps, so the constant 2 in the target is sent to the source constant 2":
+  assert (map F9y_constants(2) back along F9translation) = F9x_constants(2)
