@@ -1,5 +1,39 @@
 # Journal
 
+## 2026-10-20 — Integrated source gate at 3e0f982
+
+`B0_INTEGRATION=1 just build` completed with failure at clean committed
+`3e0f982`. Input revisions and source digests are retained in
+`/tmp/b0-poc-3e0f982/integration-inputs.json`: mathematics `80520813`,
+contract `c6e78eb2`, installed leaves `992f3c6`. The ordinary script tests,
+no-leaves checks, reuse records and permanent-text inventory checks passed.
+The native harness and registry exporter binaries built. The complete gate
+reports exactly these failed targets:
+
+- `CasCatalogue.FunctorActionDataProbes`: complete declared receiver source
+  type guard (`Semantic.bindFunctorSource`).
+- `CasCatalogue.StructuredReconstructionProbes`: the same source guard on
+  the supplied parameterized module action.
+- `CasCatalogue.BinderReaderProbes`: ordinary 200000-heartbeat timeout at
+  `isDefEq`; the exact failing member of its shared five-question block
+  requires isolation before assigning a cause.
+- `CasAcceptance.LiftProbes`: the retained constructed-arrow routes have no
+  registered comparison identifying them. This is the existing recorded
+  constructor-cell input/resolution boundary, not a new owner decision.
+
+`RegistrationProbes`, `QuestionProbes`, full structured-comparison and
+reindexing probes, and the notebook boundary probe all compiled successfully.
+`LiftedSubobjectDataProbes` also passes as a focused source target
+(`/tmp/lean-cas-focus.lPaIEw.log`, 51.88 seconds).
+Notebook cell compilation logged unavailable native engine invocations under
+its default environment. It is not evidence of suite execution. The complete
+native inventory and required positive outcomes remain owed.
+
+The source gate's failures stay recorded while exact receiver and binder
+reproducers run sequentially. No assertion, selected structure, source guard
+or heartbeat limit was weakened. The untouched original-worktree Language
+patch still compares byte-for-byte with its independently saved initial copy.
+
 ## 2026-10-20 — Checkpoint combined reader and returned-result repairs
 
 Kernel source checkpoint `a45c797` integrates the proof-refinement, named-map
