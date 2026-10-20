@@ -1,5 +1,26 @@
 # Journal
 
+## 2026-10-20 — Enforce a diagnosed budget and import-only probe
+
+The focused recipe now refuses a build budget above 120 seconds unless the
+caller supplies a completed, target-tagged profile and uses diagnosed mode.
+This prevents an ordinary source edit from silently becoming a longer compile
+without the profile that justified it. `just probe /tmp/NAME.lean` runs a
+bounded import-only reproducer with elapsed time, peak RSS and a `/tmp` log;
+its default bound is 60 seconds. The contributor instructions route uncertain
+declaration, registry, and branch questions there before another slow source
+edit. A probe is diagnostic and cannot replace the target build or protected
+assertions.
+
+The refusal path was exercised with
+`B0_FOCUS_BUDGET_SECONDS=121 just focus CasCatalogue.Language`: it stopped
+with exit 2 before compilation. The
+vector-zero source probe first exceeded a 30-second bound without a result;
+under 60 seconds it completed in 22.59 seconds at 4,055,836 KiB peak RSS and
+reported the `Fin 1` source. That observation set the default bound.
+`just --list` parsed the revised recipe surface. No full build or acceptance suite
+was run for this workflow change.
+
 ## 2026-10-20 — Isolate the zero-numeral reader cost
 
 The `subspaces.kernel` reader-only profile on the unchanged acceptance file

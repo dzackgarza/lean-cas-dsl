@@ -220,7 +220,11 @@ Run what the change touches:
   with the unchanged admitted assertion or a targeted probe. A faster check reports only that
   invariant, not acceptance. Each focused command has a 120-second limit; timeout is failure, not
   proof that the target compiled. Increase `B0_FOCUS_BUDGET_SECONDS` only for a diagnosed target
-  when the build or profile log explains why more time is needed.
+  when the build or profile log explains why more time is needed. A build budget above 120 seconds
+  requires a completed profile tagged for that target and diagnosed mode. If the next change rests
+  on an uncertain declaration type, registry row, or branch result, first run a minimal import-only
+  reproducer from `/tmp` with `just probe /tmp/NAME.lean`; its 60-second default limit forces a
+  smaller question before another slow compile. A probe cannot establish a current source build.
   For another edit to the same diagnosed hotspot, set `B0_PRIOR_PROFILE_LOG` to its completed
   profile and run `just focus TARGET diagnosed`; the focused build still runs under its time
   limit, while the redundant automatic profile is skipped. Profile again when the cost moves.

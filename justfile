@@ -45,6 +45,10 @@ focus target mode="build": track-main
       echo "B0_FOCUS_BUDGET_SECONDS must be a positive integer" >&2
       exit 2
     fi
+    if (( budget > 120 && diagnosed == 0 )) && [[ "$mode" == "build" ]]; then
+      echo "A build budget above 120s requires a completed target profile; use profile first, then diagnosed mode." >&2
+      exit 2
+    fi
     if [[ "$target" == *.lean ]]; then
       source=$target
       module=${target%.lean}
@@ -108,6 +112,33 @@ focus target mode="build": track-main
         if (( result == 0 )); then result=$profile_result; fi
       fi
       echo "Slow target ($elapsed s): inspect the profile and import costs before another source iteration." >&2
+    fi
+    exit "$result"
+
+# Run a bounded import-only Lean reproducer from /tmp before another slow source edit.
+probe source: track-main
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source={{quote(source)}}
+    if [[ "$source" != /tmp/*.lean || ! -f "$source" ]]; then
+      echo "Probe source must be an existing /tmp/*.lean file." >&2
+      exit 2
+    fi
+    budget=${B0_PROBE_BUDGET_SECONDS:-60}
+    if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
+      echo "B0_PROBE_BUDGET_SECONDS must be a positive integer" >&2
+      exit 2
+    fi
+    log=$(mktemp /tmp/lean-cas-probe.XXXXXX.log)
+    echo "Probe log: $log"
+    set +e
+    timeout --signal=TERM --kill-after=5s "${budget}s" \
+      /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+      lake env lean "$source" 2>&1 | tee "$log"
+    result=${PIPESTATUS[0]}
+    set -e
+    if (( result == 124 )); then
+      echo "Probe exceeded ${budget}s; shrink the reproducer before another source edit." >&2
     fi
     exit "$result"
 

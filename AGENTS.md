@@ -353,7 +353,12 @@ Do not run `just build` after each small source edit.
 `just focus` has a 120-second per-command budget, including its separate profile command. A
 timeout is a failed check, not a compile result. Inspect the saved build and profile logs and
 reduce the target's import or elaboration cost before raising `B0_FOCUS_BUDGET_SECONDS` for a
-specific diagnosed run. For question-reading or encoding changes, run
+specific diagnosed run. A build budget above 120 seconds requires a completed profile tagged for
+that target and `just focus TARGET diagnosed`; use `just focus SOURCE profile` to obtain it.
+Before another slow source edit when a declaration type, registry row, or failing branch is still
+uncertain, put a minimal import-only Lean reproducer in `/tmp` and run `just probe /tmp/NAME.lean`.
+The probe has a 60-second default limit and measures its own import cost; it does not establish a
+current source build or assertion result. For question-reading or encoding changes, run
 `just bench-question matrices.kernel` and the harder `just bench-question subspaces.kernel`;
 these use unchanged admitted assertions, print per-binding and phase timings, and stop after
 180 seconds by default (`B0_BENCH_BUDGET_SECONDS` changes that diagnostic limit). Compare the
