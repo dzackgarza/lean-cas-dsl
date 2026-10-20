@@ -1,5 +1,58 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent disposition of consumer/provenance correction
+
+Assessed clean construction revision
+`1ca184cb7a600e18d806c04a06a21e7b6aa19784`, including its actual launcher,
+resolver, committed/external artifact readers, controller snapshot reconstruction,
+assessment assembly, publication verifier and owning SETUP instructions.
+The three remaining findings recorded for `230ed8d` are resolved in this source:
+
+- Launcher selects the assigned role before resolving its `ROLE_INPUTS`.
+  Public metadata adds mathematics/contract only for an operation consuming that
+  artifact. Independently rerunning the prior two-repository production-resolver
+  reproduction after advancing contract main now lets the mathematics-only
+  formalization consumer proceed and leaves the unrelated contract snapshot
+  untouched. Real launcher subprocess fixtures additionally establish that
+  formalization, acceptance and kernel nonconsumers start despite stale metadata,
+  while an unavailable contract blocks its actual acceptance consumer.
+- Both committed and external public metadata now require explicit mathematics
+  and contract provenance. Independently rerunning production resolution for
+  both representations rejected stale contract provenance and missing
+  provenance. `AcceptedArtifact`, `ExternalArtifact`, leaf assignment and
+  full review request assembly retain/check the corresponding provenance;
+  signed request reconstruction includes it. A metadata descriptor without a
+  fixed artifact wrapper is rejected at the consuming resolver rather than
+  exposing an upstream repository as public metadata.
+- SETUP now states latest-main source consumption without separate dependency
+  admission or re-pin transactions, distinguishes reproducibility snapshots
+  from fixed judging inputs, and limits stale-artifact blocking to consumers.
+  Protected controller bootstrap, evaluator/requirements protection and the
+  real independent signing identity remain separate authority operations.
+
+Inspected signed replay separately from latest-main selection:
+`apply_assessment.assemble` reuses captured source base commits without fetching,
+keeps configuration-owned requirements, acceptance/judging and reviewer identity,
+and calls `Controller.advance` to reconstruct the exact source/artifact snapshot
+before verifying the independently configured signature. Publication verification
+requires that reconstruction to match the proposed configuration. The real Git
+and ephemeral-fixture-key assessment/publication fixture passed its signed
+snapshot, absent-evidence, changed-authority-field and forged-source cases.
+Its substituted model response establishes transport only, not independent
+reviewer competence or protected admission. No additional blocking finding was
+found in these changed consumer/provenance and replay paths.
+
+Independently ran all seven lightweight fixture programs with
+`GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1`: controller (1), launcher
+(11), author launcher (1), materialize (1), assessment (1), dependencies (4)
+and review context (2), 21 passing fixtures. The separate production-resolver
+reproduction confirmed protected requirements, acceptance and reviewer identity
+were unchanged. No Docker runtime fixture or real external reviewer invocation
+ran; prior evidence gaps remain bounded to those operations. Broader technical
+capability alone is not a conduct defect or additional acceptance prerequisite
+under the 2026-10-10 owner ruling. This source review neither activates a
+controller nor declares B0 accepted.
+
 ## 2026-10-20 — Independent review of latest-main correction
 
 Assessed construction revision
