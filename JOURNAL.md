@@ -2409,3 +2409,33 @@ Exact target `just focus CasAcceptance.CohereProbes` passed 3694 jobs in
 `/tmp/lean-cas-focus.9r4uQG.log`. This establishes the engineering control at
 this source boundary, not the still-failing constructed-route positive, full
 POC execution, independent acceptance, or activation of a replacement judge.
+
+
+## 2026-10-20 — Read every original inverse question through actual execution
+
+The exact `tests/acceptance/inverses.cas` file (SHA256
+`29ff6c9e55285554b5c981f906e6a3ce131229bd81afae575ab8d6d41f96d738`)
+was parsed with production `FileItems.items` and `cas_item`, preserving every
+binding and all five original IDs. All three bindings held. All five admitted
+questions now read and retain both full identity and proposition. Each returns
+`NoImplementation` with zero dispatches: four lack structural arithmetic data
+for admitted-point operands; `inverses.right` lacks realization of its second
+product point. The diagnostic's stronger demand for five registered holds
+therefore failed after 314.09 seconds. This does not fail the frozen fifteen
+execution obligations: the plan permits gaps in these broader corpus statements.
+It establishes local repair of the former invalid/unread questions, not their
+independent interpretation approval or final-candidate question permanence.
+
+Evidence: `/tmp/b0-poc-5410e70/inverses-exact-file-current.json`, `.log`, and
+`inverses-exact-file-inputs.json`; the latter records dependency and compiled
+artifact digests for the loaded runtime preceding pending LiftData corrections.
+The opaque question/proposition-only extract is
+`inverses-opaque-interpretations.json`; no authoritative record was regenerated.
+Native engines were configured explicitly. Dependency publication and refresh
+were held until this run and the reader's product/F9 run ended.
+
+An earlier commentary prematurely included SelectedCarrierProbes among passes
+while its target was still running; it was corrected immediately. The eventual
+actual target passed in 72.80 seconds with a completed 62.15-second diagnostic
+profile. That exact result, not the earlier statement, is the evidence. The
+original unrelated dirty Language patch still exactly matches its saved baseline.
