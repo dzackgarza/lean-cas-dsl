@@ -1,5 +1,42 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent review of candidate data retrieval
+
+Assessed repair `3764b13204dd059775addcb79e38147d338fb338` against
+`5410e70`, including the trusted review workflow, new retrieval helper, chain
+preparation and the existing snapshot consumer. The helper validates full SHA,
+checks fetched PR ref against the event SHA, and uses object reads instead of
+checkout. It rejects links, gitlinks, absolute/traversal/Git-metadata paths and
+backslashes before writing candidate files. Its fresh destination and sanitized
+Git environment prevent candidate source and ambient checkout filters from
+running during retrieval. Workflow inputs are shell-quoted environment values;
+the executable helper remains the trusted base's. No changed mathematical,
+requirements, evaluator or signing-identity selection was found.
+
+The real Git retrieval-to-snapshot fixture passed, preserving exact candidate
+bytes and revision, leaving its executable marker absent, rejecting a symlink
+tree before materialization and refusing a moved PR ref. Source inspection found
+no new arbitrary candidate-execution or protected-authority path in this repair.
+
+**Bounded remaining filter-path finding:** the downstream existing
+`custodian/review/review.py:snapshot` still invokes ordinary `git clone` and
+`git checkout` with ambient Git configuration. Independently reproduced with a
+temporary candidate containing `.gitattributes` naming `reviewfixture` and a
+temporary global Git config defining its smudge command as `touch MARKER; cat`.
+`retrieve_candidate.retrieve` preserved exact bytes and left MARKER absent;
+the subsequent production `snapshot(verify, head, target)` created MARKER.
+Thus initial retrieval is filter-free, but its current snapshot consumer is not
+filter-free by construction. This is an existing consumer condition, not proof
+that the hosted runner has that filter or that a candidate can install an
+arbitrary filter command. Complete the end-to-end guarantee by suppressing
+ambient filters in snapshot materialization, or establish the exact protected
+runtime configuration excludes them; do not infer that guarantee from replacing
+the workflow's first checkout alone.
+
+No privileged hosted run, real reviewer invocation, protected publication or
+activation was performed. This is independent technical source assessment;
+passing the retrieval fixture is not protected approval or B0 acceptance.
+
 ## 2026-10-20 — Privileged candidate checkout source repair
 
 The push-time Semgrep rule
