@@ -10,6 +10,30 @@ permanent assertions and the approved B0 requirements. Their inputs exclude
 later-stage implementations and reports. The orchestrator continues integration;
 none of these assignments grants protected acceptance authority.
 
+Acceptance source commit `a6311e1` independently specifies all 153 admitted
+questions. Commit `b4b8edd` preserves 13 further required-positive proposals and
+their independent sources; they are not admitted or counted as executed. The
+unchanged admission hook rejected activating new `.cas` identities, so their
+concrete source is retained as `.cas.proposed` pending protected admission.
+The acceptance author is comparing interpretation-only output after fixing its
+expectations, with computation outcomes and leaf details excluded.
+
+Leaf main `e016230` publishes engine-import compatibility repairs and independent
+missing/wrong/malformed/unavailable replacement specimens. The leaf author is
+continuing the existing approved realization scope, not treating those repairs
+as completion. The formalization author reproduced its own issue #92 and has a
+definition-preserving source repair under focused regression checks.
+
+Independent controller source review is recorded in FINDINGS (commit `90dd700`):
+stale configured dependency consumption remains a construction defect. Its 17
+lightweight fixtures prove their narrow contracts only. No protected state was
+changed. Preliminary clean-worktree harness preparation hit the 120-second
+focus budget (`/tmp/lean-cas-focus.fikKGv.log`, exit 124). A subsequent Language
+rebuild using its completed profile was stopped deliberately (exit 143,
+`/tmp/lean-cas-focus.6jXnwW.log`) to prioritize the upstream repair and avoid
+rebuilding immediately before that dependency changes. Neither is a passed
+build. The next integrated build consumes the published mathematical repair.
+
 Runtime candidate `32c3897` and the complete local evidence remain unchanged in
 `/tmp/b0-poc-32c3897`. Missing role outputs call for independent author work;
 role separation does not by itself prevent delegation. The fixed completion
