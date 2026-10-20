@@ -11,7 +11,8 @@ class LauncherTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.repo = self.root/'source'; self.repo.mkdir()
-        self.shell('git','init','-q',str(self.repo))
+        self.shell('git','init','-q','-b','main',str(self.repo))
+        self.shell('git','-C',str(self.repo),'remote','add','origin',str(self.repo))
         self.shell('git','-C',str(self.repo),'config','user.name','test')
         self.shell('git','-C',str(self.repo),'config','user.email','test@example.test')
         for path in ('INTENT.md','specs/architecture.md','specs/computational-core-plan.md','specs/owner/convergence-process.md'):

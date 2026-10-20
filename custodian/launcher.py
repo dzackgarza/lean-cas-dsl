@@ -12,6 +12,7 @@ import sys
 import subprocess
 from pathlib import Path
 from controller import Controller, Revision, configured_input, ROLE_INPUTS, git
+from dependencies import resolve_dependencies
 
 
 SCHEMA = {'type': 'object', 'properties': {'path': {'type': 'string'}},
@@ -203,6 +204,7 @@ def main():
     args = parser.parse_args()
     config = json.loads(args.configuration.read_text())
     role=config['assignments'][config['obligation']]
+    config = resolve_dependencies(config, ROLE_INPUTS[role])
     if role=='leaf' and 'public_metadata' in config['accepted']:
         public=config['accepted']['public_metadata']
         if 'artifact_file' in public and public['provenance']['mathematics']!=config['accepted']['mathematics']['commit']:
@@ -212,6 +214,10 @@ def main():
     controller = Controller(requirements, revisions, Path(config['reviewer_public_key']),
                             config['reviewer_fingerprint'], config['assignments'])
     server = RoleServer(controller,config['obligation'],prepare_source(config),config.get('validation'))
+    print(json.dumps({'kind': 'author_input_snapshot',
+                      'requirements': requirements.commit,
+                      'inputs': {name: value.commit for name, value in server.inputs.items()}},
+                     sort_keys=True), file=sys.stderr, flush=True)
     for line in sys.stdin:
         request = json.loads(line)
         if 'id' not in request:

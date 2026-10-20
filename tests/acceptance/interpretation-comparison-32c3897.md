@@ -38,8 +38,9 @@ an unsatisfied question-preservation obligation. No smaller denominator or
 replacement assertion repairs that absence.
 
 The other 148 assertion rows contain question material. Presence is not a
-finding of preservation. The concrete comparisons below cover only the named
-questions; the remaining rows still require assessment.
+finding of preservation. The concrete comparisons below explain selected
+canonical identifications; the complete per-identity assessment is in
+[interpretation-dispositions-32c3897.md](interpretation-dispositions-32c3897.md).
 
 ## Concrete mathematical comparisons
 

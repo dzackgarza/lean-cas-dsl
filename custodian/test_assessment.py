@@ -15,17 +15,21 @@ class AssessmentTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);repo=root/'source';repo.mkdir();history=root/'history';history.mkdir()
             def run(*args,**kw):return subprocess.run(args,check=True,capture_output=True,text=True,**kw).stdout.strip()
-            run('git','init','-q',str(repo));run('git','-C',str(repo),'config','user.name','fixture');run('git','-C',str(repo),'config','user.email','fixture@example.test')
+            run('git','init','-q','-b','main',str(repo));run('git','-C',str(repo),'remote','add','origin',str(repo));run('git','-C',str(repo),'config','user.name','fixture');run('git','-C',str(repo),'config','user.email','fixture@example.test')
             for path in ('SPEC.md','INTENT.md','specs/architecture.md','specs/computational-core-plan.md','specs/owner/convergence-process.md','tests/acceptance/question.txt'):
                 p=repo/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('`b0-authority` fixed fixture requirements\n')
             run('git','-C',str(repo),'add','.');run('git','-C',str(repo),'commit','-qm','base');base=run('git','-C',str(repo),'rev-parse','HEAD')
+            (repo/'current-mathematics.txt').write_text('new source dependency main')
+            run('git','-C',str(repo),'add','current-mathematics.txt');run('git','-C',str(repo),'commit','-qm','advance dependency main')
+            current=run('git','-C',str(repo),'rev-parse','HEAD')
+            run('git','-C',str(repo),'checkout','--detach','-q')
             (repo/'tests/acceptance/question.txt').write_text('independent source proposal\n')
             run('git','-C',str(repo),'add','.');run('git','-C',str(repo),'commit','-qm','proposal');candidate=run('git','-C',str(repo),'rev-parse','HEAD')
             key=root/'test-review-key';run('ssh-keygen','-q','-t','ed25519','-N','','-f',str(key));fingerprint=run('ssh-keygen','-lf',str(key)+'.pub').split()[1]
             remote=root/'history.git';run('git','init','--bare','-q',str(remote));run('git','init','-q',str(history));run('git','-C',str(history),'remote','add','origin',str(remote))
             cfg={'requirements':{'repository':str(repo),'commit':base},'accepted':{name:{'repository':str(repo),'commit':base} for name in ('mathematics','contract','acceptance')},'reviewer_public_key':str(key)+'.pub','reviewer_fingerprint':fingerprint,'assignments':{'b0-authority':'acceptance'},'obligation':'b0-authority','review_component':'acceptance','rejections':{'repository':str(history),'ref':'custodian/rejections'}}
             artifact=root/'public-metadata.json';artifact.write_text('immutable fixture public metadata')
-            cfg['accepted']['public_metadata']={'repository':str(root/'unavailable-upstream-checkout'),'commit':base,'artifact_file':str(artifact),'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest(),'provenance':{'mathematics':base,'contract':base}}
+            cfg['accepted']['public_metadata']={'repository':str(root/'unavailable-upstream-checkout'),'commit':current,'artifact_file':str(artifact),'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest(),'provenance':{'mathematics':current,'contract':current}}
             config=root/'config.json';config.write_text(json.dumps(cfg))
             binary=root/'bin';binary.mkdir();calls=root/'calls'
             fake=binary/'claude';fake.write_text('#!/usr/bin/env python3\nimport json,pathlib,sys\npathlib.Path('+repr(str(calls))+').write_text("called")\njson.dump({"subtype":"success","structured_output":{"outcome":"no_blocking_finding","findings":[],"checked":["fixture transport"],"summary":"fixture; not independent technical assessment"}},sys.stdout)\n');fake.chmod(0o755)
@@ -36,6 +40,10 @@ class AssessmentTest(unittest.TestCase):
             self.assertTrue(calls.exists())
             result=assemble(config,out/'request.json',out/'decision.json',out/'decision.json.sig')
             self.assertEqual(result['accepted']['acceptance']['commit'],candidate)
+            self.assertEqual(result['accepted']['mathematics']['commit'],current)
+            self.assertEqual(result['accepted']['contract']['commit'],current)
+            self.assertEqual(result['requirements']['commit'],base)
+            self.assertEqual(json.loads(config.read_text())['accepted']['mathematics']['commit'],base)
             request=json.loads((out/'request.json').read_text());requestid=request['request_id']
             publication=root/'publication';proof=publication/'custodian/admission'/requestid;proof.mkdir(parents=True)
             (publication/'custodian/deployment.json').write_text(json.dumps(result))

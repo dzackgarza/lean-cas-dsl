@@ -58,6 +58,12 @@ class AcceptedArtifact:
     revision: Revision
     path: str
     sha256: str
+    provenance: tuple
+
+    def __post_init__(self):
+        provenance = dict(self.provenance)
+        if provenance.get('mathematics') != self.commit or not provenance.get('contract'):
+            raise ValueError('public artifact requires mathematics and contract provenance')
 
     @property
     def repository(self): return self.revision.repository
@@ -92,7 +98,7 @@ class ExternalArtifact:
         contents=path.read_bytes()
         if hashlib.sha256(contents).hexdigest()!=digest:
             raise ValueError('external release artifact digest mismatch')
-        if provenance.get('mathematics')!=revision.commit:
+        if provenance.get('mathematics')!=revision.commit or not provenance.get('contract'):
             raise ValueError('external artifact mathematical source revision mismatch')
         return cls(revision,path,digest,tuple(sorted(provenance.items())),contents)
     @property
@@ -111,7 +117,7 @@ def configured_input(value):
         return ExternalArtifact.load(source,Path(value['artifact_file']),value['sha256'],value['provenance'])
     revision=Revision(Path(value['repository']),value['commit'])
     if 'path' in value:
-        return AcceptedArtifact(revision,value['path'],value['sha256'])
+        return AcceptedArtifact(revision,value['path'],value['sha256'],tuple(sorted(value['provenance'].items())))
     return revision
 
 
@@ -160,7 +166,7 @@ class Controller:
         if role=='leaf':
             public=self.accepted.get('public_metadata')
             if public is None:raise ValueError('leaf dispatch missing released public metadata input')
-            if isinstance(public,ExternalArtifact):
+            if isinstance(public,(AcceptedArtifact,ExternalArtifact)):
                 provenance=dict(public.provenance)
                 if provenance.get('contract')!=self.accepted['contract'].commit:
                     raise ValueError('leaf public metadata is not the released contract tuple')
@@ -196,17 +202,18 @@ class Controller:
             payload['base'][name] = a.commit
             payload['candidate'][name] = b.commit
             if isinstance(b,AcceptedArtifact):
-                payload['artifacts'][name] = {'path':b.path,'sha256':b.sha256}
+                payload['artifacts'][name] = {'path':b.path,'sha256':b.sha256,'provenance':dict(b.provenance)}
             elif isinstance(b,ExternalArtifact):
                 payload['artifacts'][name] = {'artifact_file':str(b.artifact_file),'sha256':b.sha256,'provenance':dict(b.provenance)}
+            if isinstance(b,(AcceptedArtifact,ExternalArtifact)):
+                provenance=dict(b.provenance)
+                if provenance.get('mathematics')!=candidate['mathematics'].commit or provenance.get('contract')!=candidate['contract'].commit:
+                    raise ValueError('public artifact incompatible with mathematical/contract tuple')
             if isinstance(b,ExternalArtifact):
                 import difflib
                 before=a.read('public_operation_metadata.json').decode(errors='replace').splitlines(keepends=True) if isinstance(a,ExternalArtifact) else []
                 after=b.contents.decode(errors='replace').splitlines(keepends=True)
                 payload['patches'][name]=''.join(difflib.unified_diff(before,after,fromfile='accepted-public-metadata',tofile='candidate-public-metadata'))
-                provenance=dict(b.provenance)
-                if provenance.get('mathematics')!=candidate['mathematics'].commit or provenance.get('contract')!=candidate['contract'].commit:
-                    raise ValueError('public artifact incompatible with mathematical/contract tuple')
             else:
                 payload['patches'][name] = git(b.repository, 'diff', '--no-ext-diff', '--no-textconv', a.commit, b.commit).decode(errors='replace')
             payload['source'][name] = {p: b.read(p).decode(errors='replace') for p in b.files()}
@@ -231,7 +238,7 @@ class Controller:
             if descriptor and 'artifact_file' in descriptor:
                 candidate[name]=ExternalArtifact.load(revision,Path(descriptor['artifact_file']),descriptor['sha256'],descriptor['provenance'])
             else:
-                candidate[name]=AcceptedArtifact(revision,descriptor['path'],descriptor['sha256']) if descriptor else revision
+                candidate[name]=AcceptedArtifact(revision,descriptor['path'],descriptor['sha256'],tuple(sorted(descriptor['provenance'].items()))) if descriptor else revision
         if self.request(request['obligation'], base, candidate) != request:
             raise ValueError('request is not the revision-derived snapshot')
         for name, revision in request['base'].items():

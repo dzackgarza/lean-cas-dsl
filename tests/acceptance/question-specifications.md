@@ -263,8 +263,13 @@ vectors retain the selected rational ring/module structures. Sources: SPEC,
 `A(n)` is the positive-definite integral root lattice of type `A_n`, with its
 chosen integral bilinear form and rank `n`, not merely its free abelian carrier.
 `to_dual(n):A_n→A_n^♯` is the form-induced map to its integral dual.
-Its cokernel is formed in the integral module category, retaining the defining
-quotient map; cardinality is then applied to its underlying set. Rank is
+Its cokernel is formed in the category `BilWFormCat ℤ` of formed modules with
+varying values, retaining its carrier quotient, value quotient, induced form
+and defining quotient map; cardinality is then applied to its underlying set.
+The carrier is the integral-module quotient by the image of the carrier map.
+This context follows the published `rootAToDual` signature and
+`BilWFormCat.cokernelObject`; it corrects the original explanatory category
+description without changing any assertion, map or expected value. Rank is
 cardinal-valued module rank through the formal lattice-to-module functor.
 Sources: Conway–Sloane, *Sphere Packings, Lattices and Groups*, ch. 4 §6.1
 (`A_n^♯/A_n≅ℤ/(n+1)`); Bourbaki, *Lie Groups*, ch. VI, Plate I (simple-root
