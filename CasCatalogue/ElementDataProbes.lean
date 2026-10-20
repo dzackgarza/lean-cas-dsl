@@ -73,7 +73,7 @@ run_cmd liftTermElabM do
     throwError "selected-element regression did not exercise a transported structure"
 
 /- Engineering regression: the binder's fixed domain retains its structured parameter sources. -/
-run_cmd liftTermElabM do
+run_cmd withoutModifyingEnv <| liftTermElabM do
   let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt
       "assert lim_{t → ∞} 1/t = 0"
     | throwError "binder-domain regression did not parse"
