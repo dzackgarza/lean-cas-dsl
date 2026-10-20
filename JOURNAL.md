@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-10-20 — Integrated element-transport candidate 8fb0eb3
+
+The first integration attempt at `64a4c69` failed on the new record's layout;
+it remains a failed candidate. Correction `8fb0eb374878f5544a2f26935819ae6191ce0a7f`
+passes the complete clean `B0_INTEGRATION=1 just build` gate (7,554 Lake jobs).
+The gate's log and exit 0 are
+`/tmp/b0-poc-7e44f61/integration-8fb0eb3.{log,exit}`. The original checkout was
+fast-forwarded to this source without changing its pre-existing `Language.lean`
+edit; the external candidate checkout remains clean and frozen at `8fb0eb3`.
+
+The persistent element regression changes from the exact named-object refusal
+to a passing target in 34.81 seconds. Its malformed-envelope checks also pass.
+The focused realizer build passes in 106.66 seconds, and its automatic profile
+completes in 82.85 seconds. The same-candidate question, proof-identity,
+selected-structure, parameter, structured-result, registration, boundary and
+purity probes pass in the integration gate. This validates their respective
+contracts, not B0 acceptance.
+
+Both required question diagnostics pass: `matrices.kernel` in 73.32 seconds and
+`subspaces.kernel` in 129.04 seconds. Their complete identities are byte-identical
+to the independently saved output of the earlier `7e44f61` run (28,383 and
+39,816 bytes). This is preservation across the port-form repair, not independent
+acceptance of either reading or migration of the 137 differing stored artifacts.
+
+The complete unchanged computation-only inventory is running once at `8fb0eb3`,
+session `9060`, runner PID `1607866`, using the existing repository virtual
+environment for both Sage and GAP. Its source, inputs, process identity and log
+are `/tmp/b0-poc-8fb0eb3/{inputs.json,harness-process.json,harness.log}`.
+The wrapper saves `harness.exit` and `harness.json` when it finishes. Poll that
+existing process before launching any successor. The completed `7e44f61` report
+remains separate. Latest-main input revisions are unchanged from that report.
+
+Construction source `8fb0eb3` is published on `b0/poc-completion-20261020`.
+Hosted Gates run `39394721114` has exactly that full `headSha`; it is still
+running. Its boundary-integrity and permanent-assertion job has passed. Older
+run `39391136444` judges `929850d`, not this functional repair.
+Current manifest registration metadata has no `mor.sets.fin_rev`,
+`colim.bil_w_form.cokernel` or `meth.rank` registration. The required execution
+gaps, selected-carrier admission dependency, independent interpretation
+assessment, independent extensions and authoritative acceptance remain open.
+
 ## 2026-10-20 — Retain full selected forms in element transport
 
 The complete inventory's `the selected element structure has no exact object descriptor`
