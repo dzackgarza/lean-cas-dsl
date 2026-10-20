@@ -1,5 +1,21 @@
 # Reuse record: `cc-dsl-language`
 
+## Complete family parameters in structural applications (2026-10-20)
+
+Corpus queries `CategoryFamilyFibreWitness` and `structure eta reduction`, followed
+by direct dependency source inspection, locate the owners in
+`LeanCategories/Catalogue/Realization.lean` and Lean's `Meta/Structure.lean`.
+`FunctorRealization.sourceRealization` and `.targetRealization` retain the actual
+category-family fibre witnesses. `CategoryFamilyFibreWitness.parameter` supplies
+the complete selected parameter, including its dictionaries. Lean's existing
+`etaStruct?` reduces a reconstructed record of projections to that same record.
+
+The kernel adds no category, parameter constructor, equality or transport. It
+unifies these published complete parameters before comparing adjacent carriers,
+and uses the declared source category's witness when applying an action to its
+actual typed receiver. Definitional equality checks retain the complete supplied
+data; an equal carrier alone does not identify different selected parameters.
+
 ## b0-selected-structure: full same-carrier observations (2026-10-11)
 
 Searches for `recognize`, `carrierObject`, `Maps`, `BilinModuleCat.ofBilinMap`, and

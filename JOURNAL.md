@@ -1,5 +1,38 @@
 # Journal
 
+## 2026-10-20 — Complete family parameters in structural applications
+
+The E8 route failed before execution when the new public fixed-value inclusion
+needed a bundled value-module parameter. Both ordinary and full-transparency
+composition refused the same middle-category constraint; the closed carrier
+projection did not determine the missing bundle. Logs are
+`/tmp/b0-poc-5410e70/route-composition.log` and
+`route-realized-composition-eta.log`.
+
+`Semantic` now reads the existing public functor endpoint realizations and
+family-fibre parameters. Lean structure eta reduction exposes the original
+complete parameter record before unification. After assignment, the original
+full parameters and their presentations are checked definitionally equal.
+Application uses the action's declared source-category witness and the supplied
+receiver's full type. No carrier search, new mathematics, or leaf data supplies
+structure. The exact public action and retained route applications stay intact.
+
+The first production check exposed an early presentation-equality check before
+bundle assignment; it was moved after assignment while retaining all original
+full-data checks. The full E8 method then exposed current-depth universe
+unification in ordinary metadata projection application; those projections now
+use the existing `mkAppHere` primitive. Focused `Semantic` passed 1481 jobs in
+25.41 seconds. The exact `FibreParameterProbes` target passed 3695 jobs in
+29.05 seconds, including the full registered E8 semantic method and application
+at a supplied formed module. The original `SelectedCarrierProbes`, registered
+execution, complete question preservation and final combined source checks
+remain required; these focused results do not establish them.
+
+The CI plumbing correction is published at
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Exact hosted controller source checks,
+controller boundary fixtures and the construction seal check pass. Other Gates
+jobs remain separate from this unintegrated functional source candidate.
+
 ## 2026-10-20 — Expose applied closed carrier projections for admission
 
 The unchanged matrix-unit reader binding was refused although its complete admission
