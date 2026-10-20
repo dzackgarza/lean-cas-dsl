@@ -1,7 +1,7 @@
 module
 
-import CasCatalogue.ElementData
-meta import CasCatalogue.ElementData
+import CasCatalogue.Realize
+meta import CasCatalogue.Realize
 
 open Lean Meta Elab Command Term
 open CasCatalogue CasCatalogue.Language
@@ -41,3 +41,33 @@ run_cmd liftTermElabM do
   let .element generator _ ← (ElementData.read polynomial (node "generator" #[])).run {}
     | throwError "registered generator data did not produce an element"
   unless ← isTypeCorrect generator do throwError "registered generator data is not typed"
+
+/- Engineering regression: encoding a point retains its complete selected structural form. -/
+open CasCatalogue.Realize
+
+run_cmd liftTermElabM do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt "assert 2 + 3 = 5"
+    | throwError "selected-element regression did not parse"
+  let question ← interpret {} parsed
+  let trace ← IO.mkRef question.trace
+  let harness ← Harness.empty
+  let mut transported := 0
+  for (point, node) in question.trace.toArray do
+    let .elementNumeral _ target selected := node | continue
+    let selectedWire ← realize harness trace "the selected structure" selected
+    if selectedWire.form matches .object _ then continue
+    let wire ← realize harness trace "the retained numeral point" point
+    let .ok args := (wire.json.getObjVal? "args").bind (·.getArr?)
+      | throwError "selected element lost its envelope"
+    unless args.size == 2 && args[0]! == selectedWire.json do
+      throwError "selected element changed its complete structural descriptor"
+    unless wire.form.id == selectedWire.form.id &&
+        wire.form.category == selectedWire.form.category do
+      throwError "selected element changed its declared computational form"
+    let some (_, actualTarget) := Language.homEnds? (← inferType wire.value)
+      | throwError "selected element lost its typed point endpoints"
+    unless ← Lean.Meta.isDefEq actualTarget target do
+      throwError "selected element changed its formal target"
+    transported := transported + 1
+  unless transported > 0 do
+    throwError "selected-element regression did not exercise a transported structure"
