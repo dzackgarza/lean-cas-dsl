@@ -64,7 +64,8 @@ inductive Form
   /-- Canonical typed zero or identity data inside an already accepted diagram. -/
   | canonicalMorphism (entry : NamedCategoryEntry)
   | generator (entry : ObjectEntry)
-  | element (entry : ObjectEntry)
+  /-- A point of the exact supplied object presentation, including structural images. -/
+  | element (selectedForm : Form)
   | limitApex (entry : LimitEntry)
   /-- The formal apex of an accepted creation lift, with complete opaque construction data. -/
   | createdApex (entry : LimitEntry) (category : CategoryId)
@@ -104,7 +105,7 @@ def Form.id : Form → String
   | .binder entry => entry.id.raw
   | .canonicalMorphism entry => entry.id.raw
   | .generator entry => entry.id.raw
-  | .element entry => entry.id.raw
+  | .element selectedForm => selectedForm.id
   | .limitApex entry => entry.id.raw
   | .createdApex entry _ => entry.id.raw
   | .functorImage entry _ => entry.id.raw
@@ -124,7 +125,7 @@ def Form.category : Form → CategoryId
   | .binder entry => entry.category
   | .canonicalMorphism entry => entry.id
   | .generator entry => entry.category
-  | .element entry => entry.category
+  | .element selectedForm => selectedForm.category
   | .limitApex entry => entry.category
   | .createdApex _ category => category
   | .functorImage _ category => category
@@ -296,7 +297,7 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
             | none => false
         | _, _ => false
     match form with
-    | .object object | .generator object | .element object =>
+    | .object object | .generator object | .element (.object object) =>
         if endpoint object (state.objects.size + 1) then none
         else some s!"{entry.id.raw} requires its registered source or target endpoint"
     | _ => some s!"{entry.id.raw} requires an element of a registered endpoint"

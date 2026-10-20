@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-10-20 — Retain full selected forms in element transport
+
+The complete inventory's `the selected element structure has no exact object descriptor`
+gap is reproduced by reading `assert 2 + 3 = 5` and encoding its numeral points.
+The persistent regression in `ElementDataProbes` fails at that refusal before
+the correction (`selected-element-persistent-red.log`, exit 1, 35.32 seconds).
+It checks complete selected descriptors, computational form identity and category,
+and fixed point endpoints; it does not establish an arithmetic answer.
+
+The construction candidate makes `Form.element` retain the full supplied form
+rather than require an `ObjectEntry`. Encoding preserves the selected object's
+descriptor and payload ownership. Presentation results likewise retain their
+fixed target form. Admission of comparisons at named endpoints retains its
+existing checks; no carrier-based endpoint recognition is added. The wire
+grammar, registration IDs and formal operations are unchanged.
+
+`just focus CasCatalogue.Admission` passes in 18.90 seconds. The required
+dependent `Language` build passes in 201.06 seconds using the existing completed
+target profile `/tmp/lean-cas-profile.QTqf3h.log` and diagnosed mode with a
+360-second wall-clock budget. This is not a heartbeat increase or a performance
+repair. The next check is the clean committed candidate's integration gate,
+including the regression and protected negatives. The new runtime path and full
+candidate acceptance are not yet verified. Evidence remains under
+`/tmp/b0-poc-7e44f61/selected-element-*`; original-candidate harness evidence
+remains separate and unchanged.
+
 ## 2026-10-20 — Complete computation-only inventory at 7e44f61
 
 The original harness invocation completed with exit 1; its runner PID `815702`

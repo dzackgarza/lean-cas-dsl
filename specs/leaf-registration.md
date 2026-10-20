@@ -80,6 +80,9 @@ The complete wire grammar is maintained in `cas_leaf_contracts`' `CasContract/Po
 It includes registered named morphisms, functor actions, structured arrows and subobjects,
 finite function graphs, and canonical limit apex/leg descriptors. Selected element data is a
 closed numeral/generator/arithmetic grammar at an exact independently selected object.
+Its computational form retains that object's complete presentation, including a structural
+image; element encoding never replaces such an image by a named object with the same carrier.
+The element envelope preserves the selected descriptor and its computational ownership.
 Presentation applications retain their registered comparison, parameters and direction; their
 returned points never choose the endpoint by carrier equality.
 

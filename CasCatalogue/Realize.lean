@@ -2230,9 +2230,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .elementNumeral _ target selected | .operationApply _ _ _ target selected =>
       discard <| Semantic.recordNamedObject selected (some trace)
       let selectedWire ← realize h trace "the selected element structure" selected
-      let .object entry := selectedWire.form
-        | throwStratum .noImplementation m!"the selected element structure has no exact object descriptor"
-      let some category := state.categories.find? (·.id == entry.category) | unreachable!
       let expression ← elementExpression trace e
       let answer := Json.mkObj [("ctor", "element"),
         ("args", Json.arr #[selectedWire.json, expression])]
@@ -2244,7 +2241,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwError "the retained element expression is not closed"
       unless ← isTypeCorrect e do
         throwError "the retained formal element expression is outside its declared signature"
-      return { form := .element entry, payload := .ordinary (e) (answer) }
+      return { form := .element selectedWire.form,
+        payload := forwardPayload selectedWire e answer }
   | .presentationApply id params inverse source target argument =>
       let some entry := state.presentations.find? (·.id == id) | unreachable!
       let comparison ← elabTermAndSynthesize
@@ -2269,10 +2267,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           ("args", Json.arr #[Json.arr args, toJson inverse, sourceWire.json, targetWire.json, argumentWire.json])])
         (← sharedOwner sourceWire argumentWire)) }
       let (answer, backend) ← send h id.raw request
-      let .object targetEntry := targetWire.form
-        | throwError "the selected presentation target has no exact registered object form"
-      let some category := state.categories.find? (·.id == targetEntry.category) | unreachable!
-      let selected ← (Language.recognize state target category).run {}
       let expectedPoint ← elabTermAndSynthesize
         (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← exprToSyntax e) 0)) none
       let pointType ← inferType expectedPoint
@@ -2280,7 +2274,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       | .error message => malformed backend id.raw answer message
       | .ok () => pure ()
       let data ← receiveComputationalData h backend id.raw answer true
-      return { form := .element targetEntry, payload := .computed e data }
+      return { form := .element targetWire.form, payload := .computed e data }
 
   | .morphismTransport sourceCategory targetCategory route receiver =>
       let input ← realize h trace "the map before structural transport" receiver
