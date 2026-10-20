@@ -1,5 +1,28 @@
 # Journal
 
+## 2026-10-20 — Hosted build/audit exception lookup failure at 32c3897
+
+Main run `39406728912` reports exact SHA `32c3897`. Its purity and boundary
+jobs pass. Build/audit job `118574349359` failed when the unchanged Semgrep
+exception lookup for `dzackgarza/ai-review-ci#450` received HTTP 403, rate limit
+exceeded. Full failed-job output is saved at
+`/tmp/b0-poc-32c3897/hosted-build-failure.log`. No checker or exception was
+weakened, and no hosted result was synthesized from the successful local push hook.
+
+One job-only retry was attempted through
+`POST repos/dzackgarza/lean-cas-dsl/actions/jobs/118574349359/rerun`.
+GitHub refused it because the containing workflow is still running (HTTP 403).
+The response and exit are in `hosted-build-rerun.{err,exit}` in the same directory.
+This is a workflow-state dependency, not a request for additional authority.
+Retry that failed job once the containing workflow is terminal; continue polling
+the existing run meanwhile. Do not dispatch a replacement complete inventory.
+
+The local full inventory is still live at PID `3209288`, exec session `93238`.
+Its CPU time continues advancing; the report is written only after the complete
+run. Candidate worktree and dependency working trees remain frozen. The existing
+upstream evidence defect and independent acceptance/extension obligations are
+unchanged; no B0 completion is claimed.
+
 ## 2026-10-20 — Original checkout source integration with unrelated edit preserved
 
 The original checkout now contains candidate `32c3897` through merge `7d9fda1`.
