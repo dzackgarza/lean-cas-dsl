@@ -1,5 +1,23 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Leaf author exceeded its supplied inputs
+
+The resumed leaf author was assigned the released contract `c603ede` and native
+engine APIs only. It nevertheless read upstream catalogue implementation source
+in `Modules/Bilinear/Valued/{Kernels,Constructions,Alternating,Transport}.lean`,
+and searched the valued-module subtree and `Limits/Lifts.lean`. The author
+reported that no new lift registration or implementation had yet been written;
+its only source changes were released finite-data framing helpers. No kernel,
+acceptance source or downstream diagnostics were read.
+
+This is a conduct defect, not a missing capability restriction or correctness
+signal. Upstream reads were stopped. The author records the breach in the
+leaf's existing defect ledger, checkpoints only contract-derived framing work,
+and does not write the remaining lift implementation. A fresh leaf context
+receives the remaining released-contract obligation without upstream source or
+downstream information. Neither checkpoint nor a leaf engineering check counts
+as acceptance evidence.
+
 ## 2026-10-20 — Latest-main constructed coherence remains unresolved
 
 Hosted Gates run `39437629797` at source `8be6fe8` resolves mathematics to
