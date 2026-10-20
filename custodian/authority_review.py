@@ -6,6 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 from controller import Controller, Revision, configured_input, canonical, verify_review_signature
+from dependencies import resolve_dependencies
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
     parser.add_argument('--out',type=Path,required=True)
     parser.add_argument('--reconsideration',type=Path)
     args = parser.parse_args()
-    cfg = json.loads(args.configuration.read_text())
+    cfg = resolve_dependencies(json.loads(args.configuration.read_text()))
     accepted = {name:configured_input(v) for name,v in cfg['accepted'].items()}
     req = Revision(Path(cfg['requirements']['repository']),cfg['requirements']['commit'])
     controller = Controller(req,accepted,Path(cfg['reviewer_public_key']),cfg['reviewer_fingerprint'],cfg['assignments'])
@@ -57,6 +58,7 @@ def main():
             raise ValueError('reconsideration requires the existing signed review discussion')
         result, why = review.review(Path(__file__).parent/'review/prompt.md',requirements,[context],explanation)
     args.out.mkdir(parents=True,exist_ok=True)
+    (args.out/'resolved-configuration.json').write_bytes(canonical(cfg))
     (args.out/'request.json').write_bytes(canonical(request))
     if result is None:
         (args.out/'operation-failure.txt').write_text(why)
@@ -73,7 +75,7 @@ def main():
     advancement = controller.advance(request,path,Path(str(path)+'.sig'))
     (args.out/'accepted-input-proposal.json').write_bytes(canonical(advancement))
     from apply_assessment import assemble
-    next_configuration=assemble(args.configuration,args.out/'request.json',path,Path(str(path)+'.sig'))
+    next_configuration=assemble(args.out/'resolved-configuration.json',args.out/'request.json',path,Path(str(path)+'.sig'))
     (args.out/'next-configuration.json').write_bytes(canonical(next_configuration))
     return 0
 

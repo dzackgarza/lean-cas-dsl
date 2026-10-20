@@ -9,14 +9,19 @@ import argparse
 import json
 from pathlib import Path
 from controller import Controller, Revision, configured_input, canonical
+from dependencies import SOURCE_DEPENDENCIES
 
 
 def assemble(configuration, request, decision, signature):
     cfg=json.loads(configuration.read_text())
+    envelope=json.loads(request.read_text())
+    # Replay the signed source snapshot, never a newer network resolution.
+    # Protected judging/requirements/artifact identities remain configuration-owned.
+    for name in SOURCE_DEPENDENCIES.intersection(cfg['accepted']):
+        cfg['accepted'][name]['commit']=envelope['base'][name]
     accepted={name:configured_input(value) for name,value in cfg['accepted'].items()}
     req=Revision(Path(cfg['requirements']['repository']),cfg['requirements']['commit'])
     controller=Controller(req,accepted,Path(cfg['reviewer_public_key']),cfg['reviewer_fingerprint'],cfg['assignments'])
-    envelope=json.loads(request.read_text())
     advancement=controller.advance(envelope,decision,signature)
     result=json.loads(json.dumps(cfg))
     for name,value in advancement.items():

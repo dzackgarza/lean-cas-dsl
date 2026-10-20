@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from dependencies import resolve_dependencies
 
 
 def main():
@@ -34,12 +35,15 @@ def main():
     history=config.get('rejections')
     if history:
         subprocess.run(['git','-c','core.hooksPath=/dev/null','clone','--quiet','--branch',history['ref'],'--',history['url'],history['repository']],check=True)
+    config=resolve_dependencies(config)
+    entries=[config['requirements'],*[v for v in config['accepted'].values() if 'artifact_file' not in v]]
     for entry in entries:
         if not re.fullmatch(r'[0-9a-f]{40}',entry['commit']):raise ValueError('full configured revision required')
         subprocess.run(['git','-C',entry['repository'],'cat-file','-e',entry['commit']+'^{commit}'],check=True)
     component=config['review_component']
     source=config['accepted'][component]['repository']
     subprocess.run(['git','-c','core.hooksPath=/dev/null','-C',source,'fetch','--quiet','origin','--',args.candidate],check=True)
+    print(json.dumps(config,sort_keys=True))
     return 0
 
 if __name__=='__main__':raise SystemExit(main())
