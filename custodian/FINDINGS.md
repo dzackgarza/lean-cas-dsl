@@ -1,5 +1,65 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent review of latest-main correction
+
+Assessed construction revision
+`230ed8d8502df5f5729047c2b7204cfd83d33698` in its clean external worktree.
+Read the actual materialization, role-server startup, authority-review and signed
+replay consumers, resolver, public-artifact readers and updated fixtures. The
+resolver now fetches source dependency main from the configured trusted remote;
+requirements, acceptance evaluator and signing identities are not resolved from
+candidate-controlled inputs. `apply_assessment.assemble` reconstructs dependency
+base identities from the signed envelope, then `Controller.advance` rebuilds the
+complete snapshot and verifies its configured independent signature. No new
+authority bypass was found in that replay path. This disposition is source
+review, not protected deployment or B0 acceptance.
+
+Remaining construction findings:
+
+1. **Stale public metadata blocks roles that do not consume it.**
+   `custodian/dependencies.py:31-39` validates public metadata whenever it exists
+   in configuration. `custodian/launcher.py:205` calls this before selecting
+   `ROLE_INPUTS[role]`. Thus a formalization author, whose only assigned input is
+   mathematics, cannot start if unrelated public metadata has old contract
+   provenance. Reproduced with two temporary local main repositories and a
+   configuration assigned to formalization: after advancing only contract main,
+   `resolve_dependencies(config)` raised `fixed public metadata provenance
+   differs from current main`. This is an execution dependency imposed on a
+   nonconsumer, contrary to the requirement to block only consumers of missing
+   input. Resolve/check dependencies and artifacts for the actual consuming
+   operation, retaining complete tuple checks where the independent assessment
+   really consumes that tuple.
+
+2. **Committed public artifacts can omit contract provenance.**
+   `custodian/dependencies.py:38-39` accepts a `public_metadata` entry without
+   `provenance` if its commit equals current mathematical main. The supported
+   `configured_input` path wrapper then verifies only its content digest.
+   Reproduced with a committed `public.json`, `path` and correct digest but no
+   provenance: advancing contract main updated the resolved contract while the
+   old artifact remained readable. Exact observed output was
+   `contract_updated: True, old_public_artifact_still_readable: '{}'`.
+   Require the actual mathematics and contract provenance for each supported
+   artifact representation at its consumer; an unchanged mathematical commit
+   cannot establish compatibility with a changed contract. Do not relabel or
+   regenerate a protected artifact to satisfy that comparison.
+
+3. **SETUP still instructs separate admitted source dependency releases.**
+   `custodian/SETUP.md:9-19` retains the mathematics/contract accepted-reference
+   bootstrap and immutable-input prerequisites from the earlier finding. The
+   new resolver makes those configured source commits reproducibility snapshots,
+   so replace these conflicting instructions in SETUP while preserving the
+   independently protected controller, evaluator, requirements and signing
+   operations. Updating CONTROLLER alone leaves the operative setup contradictory.
+
+All seven lightweight fixture programs passed with
+`GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1`: controller (1), launcher
+(11), author launcher (1), materialize (1), assessment (1), dependencies (2) and
+review context (2), 19 fixtures total. The two local-main reproductions above
+exercise production resolver/artifact readers independently of fixture assertions.
+No Docker runtime fixture or real external reviewer call ran in this assessment;
+their previously bounded evidence gaps remain. No implementation, credential,
+protected reference or authoritative record was changed by this review.
+
 ## 2026-10-20 — Independent controller source review
 
 Assessed committed controller source at
