@@ -43,6 +43,7 @@ import all CasCatalogue.Resolve
 import all CasCatalogue.ResolveSyntax
 import all CasCatalogue.Semantic
 import all CasCatalogue.TestSuite
+import all CasCatalogue.TermGraphProbes
 import all CasCatalogue.Trace
 import all CasContract
 import all CasContract.Failure

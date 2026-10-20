@@ -1,5 +1,41 @@
 # Journal
 
+## 2026-10-20 — Execute the committed POC candidate and restore purity coverage
+
+The complete integration recipe ran at clean `7e44f61fc0a4afcbed9b62e8103970d58ddc347b`
+in the external checkout `/home/dzack/gitclones/lean-cas-dsl-poc-7e44f61`.
+It exited 1 solely because `CasGates.KernelPurity` omitted
+`CasCatalogue.TermGraphProbes` from its imports. All other requested targets
+completed, including question, proof-identity, binder, registration and boundary
+probes. The correction adds that import to the existing audit. The corrected
+source was checked against the candidate's built modules with
+`B0_FOCUS_BUDGET_SECONDS=240 just focus /tmp/b0-poc-7e44f61/KernelPurity.lean profile`:
+exit 0, 140.33 seconds, peak RSS 2,181,168 KiB. This executes the corrected audit;
+it does not establish a successful full integration build of the successor.
+
+The complete unchanged computation-only harness is running once at the original
+candidate, with session handle `47855` and runner PID `815702`. Its executable,
+suite and checkout remain at `7e44f61`; the gate correction is in the original
+checkout and does not alter that run. Invocation is `just harness
+.lake/packages/cas_leaves/leaves.json --computation-only`, with both
+`CAS_SAGE_PYTHON` and `CAS_GAP_PYTHON` set to
+`/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python`. Evidence is in
+`/tmp/b0-poc-7e44f61/`: `build.log`, `build.exit`, `inputs.json`,
+`build-process.json`, `harness-process.json`, `harness.log`, and `purity-fix.log`.
+The wrapper saves `harness.exit` and `harness.json` when execution finishes.
+Re-poll the existing handle or PID before considering another invocation.
+
+Resolved latest-main inputs are mathematics
+`a2123729df092e58b6fb0cd39c78db5e1714faf2`, contract
+`3c2159b510db2ca63455530ed0f4c28ba27da2f8`, leaves
+`48a99b5bcb2b090e1c778db29f006b612bed02ed`, and notebook worker
+`4c6c2a77abcc717513a65ca35723ed428647e1bd`; all had clean worktrees.
+The documented `accepted/controller` GitHub ref lookup returned HTTP 404.
+Independent controller admission remains an external authority operation;
+no accepted reference was created. B0 completion is unproved. Preserve all
+153 admitted identities and all 15 required registered computations when
+assessing the pending report. The pre-existing `Language.lean` edit is untouched.
+
 ## 2026-10-20 — Put complete POC execution before long-tail optimization
 
 The owner corrected the work order after the encoder repair had turned into
