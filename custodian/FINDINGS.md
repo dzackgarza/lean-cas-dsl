@@ -1,5 +1,35 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent snapshot ambient-Git reassessment
+
+Assessed `8399a64055cacafdd3e09cf2ac5ece7f2967c378` on the focused
+snapshot path. Root and dependency revision/status checks, clone and checkout
+operations now use the explicit sanitized environment and disabled hooks.
+The remaining `V.tracked` calls list files; they do not perform clean/smudge
+materialization. Independently reran the original temporary global filter
+reproduction with both clean and smudge marker commands: neither retrieval nor
+snapshot created the marker, and the ordinary candidate bytes and exact revision
+were preserved. The real retrieval/snapshot fixture also passed. The previous
+ambient-filter finding is resolved in this construction source.
+
+**Remaining exact-byte finding in this same snapshot path:** sanitized
+`git checkout` still applies candidate-controlled built-in attributes. A separate
+real Git reproduction committed `candidate.txt` as `b'committed\n'` with
+`.gitattributes` containing `candidate.txt text eol=crlf`, retrieved it with the
+production helper, then invoked production `snapshot`. Retrieval retained
+`b'committed\n'`; snapshot produced `b'committed\r\n'`. The revision stayed
+the same but snapshot bytes differed. This does not execute candidate programs,
+and it is not a remaining ambient command-filter path. It prevents claiming
+that snapshot materialization always presents the committed bytes to byte-based
+seal/assertion checks. Materialize snapshot files from their Git blobs, or
+otherwise prevent attribute transformations while preserving the exact source
+revision and regular-file checks. Do not change authoritative hashes or
+acceptance assertions to match checkout-transformed bytes.
+
+No implementation, protected authority, evaluator or mathematical input was
+changed by this assessment. It is technical source review, not independent
+authority activation or B0 acceptance.
+
 ## 2026-10-20 — Independent review of candidate data retrieval
 
 Assessed repair `3764b13204dd059775addcb79e38147d338fb338` against
