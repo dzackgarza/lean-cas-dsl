@@ -50,6 +50,11 @@ the element-set parameter comes from the nonzero-polynomial domain's declared am
 without using a computed answer to choose the formal result or its operations.
 
 ## Queries
+2026-10-20: `structured parameter provenance` and `selected object parameter transport`.
+The returned physics and charge-sector declarations supply no owner for this
+interpreter bookkeeping. The existing `typedParameter`, `structuredParameterView`
+and `coalesceSelectedParameterViews` computations are reused rather than recreated.
+
 `formalization_corpus.py search`:
 - "custom syntax category DSL elaborator declare_syntax_cat": no owner;
 - "parse external file runParserCategory": a file-extraction tactic (tcslib), no owner;
@@ -65,6 +70,13 @@ The language authors no mathematics. Every name it accepts is a catalogue row's 
 
 ## New code, and why no dependency supplies it
 The syntax category of SPEC.md's statements and its elaboration through the catalogue.
+
+Binder domains are fixed before their bodies are read. Once the body supplies its
+selected values, the existing full-parameter witness computation records missing
+structured sources of those same declared constructors. It does not replace the
+domain or recover a named object from a carrier. Every checked source presentation
+and its exact registered action is retained. Type-valued parameters keep their
+existing declaration identity. This adds no mathematics or subject-specific rule.
 
 ## Compositional application and selected identity
 
