@@ -29,13 +29,13 @@ jobs:
         with:
           path: base
           persist-credentials: false
-      - name: Check out the pull request's head (data only)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: head
-          persist-credentials: false
+      - name: Retrieve exact candidate as regular-file data without checkout
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+          CANDIDATE_NUMBER: ${{ github.event.pull_request.number }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 base/custodian/retrieve_candidate.py --repository "https://github.com/$SOURCE_REPOSITORY" --reference "refs/pull/$CANDIDATE_NUMBER/head" --expected "$CANDIDATE_SHA" --destination head
       - name: Check out each side's chain at its manifest revisions, and the rejection log
         run: |
           python3 base/scripts/ci_chain.py base

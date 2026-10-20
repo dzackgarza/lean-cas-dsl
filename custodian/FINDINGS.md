@@ -1,5 +1,27 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Privileged candidate checkout source repair
+
+The push-time Semgrep rule
+`yaml.github-actions.security.pull-request-target-code-checkout.pull-request-target-code-checkout`
+reported `.github/workflows/custodian-review.yml` checking out a PR head under
+`pull_request_target`. Candidate commands were not intentionally run, but candidate
+filesystem links reached privileged dependency preparation before review snapshot link
+checks. Candidate retrieval now runs trusted-base code that fetches Git objects, verifies
+the event SHA, rejects links/gitlinks and escaping paths across the entire tree, and writes
+only regular blob bytes without checkout filters, hooks or candidate execution. Protected
+base review code, judging requirements, signer and signature/publication checks remain the
+independent authorities. The fetched PR ref comes from the base GitHub repository and
+must still equal the event's full SHA; a moving ref fails rather than selecting a new one.
+
+A temporary real Git repository test exercises retrieval through the actual reviewer
+snapshot consumer, checks candidate bytes and exact revision, verifies a candidate script
+never executes, and rejects a later symlink and a moved ref before exposing candidate
+files. Twenty controller fixtures and two review-context fixtures passed. Semgrep's
+`p/github-actions` scan ran 11 YAML rules with zero findings on the changed workflow;
+no suppression or QC change was made. No real GitHub workflow, Docker runtime check,
+independent acceptance or deployment ran as part of this construction repair.
+
 ## 2026-10-20 — Independent disposition of consumer/provenance correction
 
 Assessed clean construction revision
