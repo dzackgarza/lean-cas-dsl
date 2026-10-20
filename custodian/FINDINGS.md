@@ -1,5 +1,30 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Latest-main constructed coherence remains unresolved
+
+Hosted Gates run `39437629797` at source `8be6fe8` resolves mathematics to
+`805208138f016368f6a4eac415f25f3922a5807d`. Its unchanged `LiftProbes` cannot
+identify the direct formed-module arrow forgetful route with the new
+fixed-value/carrier composite under the arrow constructor. The base-category
+comparison is registered, but `Resolve.comparisonsFrom` rewrites only explicit
+route segments. `ConstructorEntry` publishes `functorialAction`; its type alone
+does not provide an action on natural transformations, and `NatTransExpr`
+publishes identity, atomic, vertical and horizontal composition only. A general
+constructor-cell action must not be inferred from its action on functors.
+
+This is an unresolved input/resolution boundary in the existing `cc-closure`
+obligation, not a reason to remove the new structural route or weaken the
+unchanged positive. The current public interfaces and existing Mathlib owners
+must be checked before classifying a required upstream extension. No such
+extension has been commissioned from this downstream failure.
+
+The same run fails `CohereProbes`' assertion that the formed-module route is
+unique: the independently published new base routes now require a registered
+comparison. Its control assumptions need a source correction independently of
+the unchanged mathematical acceptance inventory. The hosted kernel gate also
+fails `SelectedCarrierProbes`; the focused family-parameter repair at `82037d2`
+addresses its source mechanism, but the exact protected target still must run.
+
 ## 2026-10-20 — Reuse-search ordering during family-parameter repair
 
 The orchestrator drafted the first family-parameter helper before running the
