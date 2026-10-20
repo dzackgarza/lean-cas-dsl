@@ -1,5 +1,40 @@
 # Journal
 
+## 2026-10-20 — Preserve complete Arrow and admitted composite requests
+
+`Realize` now resolves a traced base-category Arrow to its unique registered Arrow
+category, checks the complete typed value, and retains both endpoints and its defining
+map. Already normalized Arrow contexts remain unchanged; contradictory source contexts
+are rejected. The unchanged `arrow-runtime-form.lean` production reproducer failed
+before repair (“an Arrow receiver was framed as its base category”) and passes after.
+
+Operation requests now follow only the catalogue's complete named-refinement prefix,
+as required by `specs/leaf-registration.md`; residual structural route applications
+remain part of the fixed admitted source composite. Separately, the complete selected
+formal route is applied before method-domain/result and property-domain checks. Selection
+never consults backend availability. `RuntimeRequestProbes` exercises actual reader and
+realization boundaries with `Harness.empty`: Arrow framing and wrong-source rejection,
+already normalized context, full source parameters, distinct source structures, complete
+refinement prefixes, and definitional agreement with the independently read operation.
+
+At mathematics main `805208138f016368f6a4eac415f25f3922a5807d`, focused Realize builds pass
+(97.82 seconds), and `RuntimeRequestProbes` passes (3737 jobs, 32.44 seconds). The unchanged
+installed-registration diagnostic previously reported `NoImplementation` for alternating
+group cardinality and cyclic/symmetric group abelianness on transported image forms. After
+repair all three report `holds`, each with one actual `gap-groups` dispatch on its admitted
+source form and full parameter `[3]`. Their complete question identities are unchanged.
+The diagnostic still exits 1: `E8.rank()` retains its earlier internal `routeFunctor`
+composition failure between `integralLatticeFormForgetDeclaration` and `fixedValue`, before
+registered execution. This is separate from the repaired request boundary, not evidence
+of missing mathematics or a completed positive suite. Lift component execution remains
+separate construction work; no lift semantics or permanent assertions changed here.
+
+Scratch red/green evidence is under `/tmp/b0-poc-5410e70/`:
+`arrow-runtime-form-{red,green}.log`, `composite-dispatch-{red,green}.{json,log}`,
+`realize-runtime-repair-domain-build.log`, and `runtime-request-probes-final.log`.
+These engineering checks establish the repaired wiring, not mathematical correctness or
+B0 acceptance. The refreshed dependency manifest is deliberately outside this source commit.
+
 ## 2026-10-20 — Preserve semantic resolution ambiguity
 
 The production-boundary reproducer calls `Semantic.property "is_commutative"` on
