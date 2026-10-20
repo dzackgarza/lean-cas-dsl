@@ -48,6 +48,7 @@ import difflib
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -289,13 +290,20 @@ def report(result: dict) -> list[str]:
 
 def snapshot(V, source: Path, target: Path) -> dict:
     """Materialize committed inputs once; candidate source is read, never executed."""
-    revision = V.git(source, "rev-parse", "HEAD").strip()
-    if V.git(source, "status", "--porcelain", "--untracked-files=no").strip():
+    # A candidate may name a filter in .gitattributes. Neither status (clean)
+    # nor materialization (smudge) may consume ambient Git filter commands.
+    environment = {'PATH': os.defpath, 'LANG': 'C.UTF-8',
+                   'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'}
+    def git(repository, *arguments):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(repository), *arguments],
+                              env=environment, check=True, capture_output=True, text=True).stdout
+    revision = git(source, "rev-parse", "HEAD").strip()
+    if git(source, "status", "--porcelain", "--untracked-files=no").strip():
         raise ValueError(f"uncommitted review input: {source}")
-    subprocess.run(["git", "clone", "--quiet", "--no-local", "--no-checkout",
-                    str(source), str(target)], check=True, capture_output=True)
+    subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--quiet", "--no-local", "--no-checkout",
+                    str(source), str(target)], env=environment, check=True, capture_output=True)
     subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(target),
-                    "checkout", "--quiet", "--detach", revision], check=True, capture_output=True)
+                    "checkout", "--quiet", "--detach", revision], env=environment, check=True, capture_output=True)
     if any((target / f).is_symlink() for f in V.tracked(target)):
         raise ValueError(f"review source contains symbolic links: {source}")
     packages = {}
@@ -307,15 +315,15 @@ def snapshot(V, source: Path, target: Path) -> dict:
             if name in V.CHAIN:
                 raise ValueError(f"missing review dependency: {package}")
             continue
-        if V.git(package, "rev-parse", "HEAD").strip() != rev or V.git(
+        if git(package, "rev-parse", "HEAD").strip() != rev or git(
                 package, "status", "--porcelain", "--untracked-files=no").strip():
             raise ValueError(f"review dependency is not manifest revision: {package}")
         dest = target / V.PACKAGES / name
         dest.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["git", "clone", "--quiet", "--no-local", "--no-checkout",
-                        str(package), str(dest)], check=True, capture_output=True)
+        subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--quiet", "--no-local", "--no-checkout",
+                        str(package), str(dest)], env=environment, check=True, capture_output=True)
         subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-C", str(dest),
-                        "checkout", "--quiet", "--detach", rev], check=True, capture_output=True)
+                        "checkout", "--quiet", "--detach", rev], env=environment, check=True, capture_output=True)
         if any((dest / f).is_symlink() for f in V.tracked(dest)):
             raise ValueError(f"review dependency contains symbolic links: {package}")
         packages[name] = rev

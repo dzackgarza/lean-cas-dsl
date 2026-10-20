@@ -1,4 +1,7 @@
 import json
+import os
+import shlex
+import sys
 import subprocess
 import tempfile
 import unittest
@@ -33,6 +36,26 @@ class CandidateRetrievalTest(unittest.TestCase):
             self.assertEqual((destination/'candidate.py').read_bytes(), script.read_bytes())
             self.assertEqual(subprocess.run(['git', '-C', str(destination), 'rev-parse', 'HEAD'],
                                            check=True, capture_output=True, text=True).stdout.strip(), commit)
+            attributes = source/'.gitattributes'
+            attributes.write_text('*.py filter=reviewfixture\n')
+            git('add', '.gitattributes')
+            git('commit', '-qm', 'candidate names an ambient filter')
+            filtered_commit = git('rev-parse', 'HEAD')
+            filtered = root/'filtered-retrieved'
+            retrieve(str(source), 'refs/heads/main', filtered_commit, filtered)
+            filter_marker = root/'ambient-filter-executed'
+            global_config = root/'global.gitconfig'
+            filter_command = 'touch '+shlex.quote(str(filter_marker))+'; cat'
+            for direction in ('smudge', 'clean'):
+                subprocess.run(['git', 'config', '--file', str(global_config),
+                                'filter.reviewfixture.'+direction, filter_command], check=True)
+            environment = dict(os.environ, GIT_CONFIG_GLOBAL=str(global_config), GIT_CONFIG_NOSYSTEM='1',
+                               PYTHONPATH=str(Path(__file__).resolve().parent))
+            script_text = 'from pathlib import Path; import verify; from review import review; review.snapshot(verify, Path('+repr(str(filtered))+'), Path('+repr(str(root/'filtered-snapshot'))+'))'
+            subprocess.run([sys.executable, '-c', script_text], env=environment,
+                           check=True, capture_output=True, text=True)
+            self.assertFalse(filter_marker.exists())
+            self.assertEqual((root/'filtered-snapshot'/'candidate.py').read_bytes(), script.read_bytes())
             frozen = root/'review-snapshot'
             captured = reviewer.snapshot(verify, destination, frozen)
             self.assertEqual(captured['repository'], commit)

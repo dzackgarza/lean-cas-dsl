@@ -37,6 +37,17 @@ No privileged hosted run, real reviewer invocation, protected publication or
 activation was performed. This is independent technical source assessment;
 passing the retrieval fixture is not protected approval or B0 acceptance.
 
+Construction repair note (2026-10-20): the actual snapshot consumer now uses a
+fresh Git environment for metadata/status reads and every repository/dependency
+clone and checkout. Ambient global/system configuration and inherited Git
+configuration variables are absent, and hooks remain disabled. A real subprocess
+regression supplies both clean and smudge commands through a temporary global
+Git config and candidate `.gitattributes`: the marker appeared before the repair;
+afterwards neither filter executes and snapshot bytes still match committed
+candidate bytes. Twenty controller fixtures and two review-context fixtures pass.
+This repairs the reproduced ambient configuration path; it does not claim an
+arbitrary preexisting local Git configuration is trusted or independently accepted.
+
 ## 2026-10-20 — Privileged candidate checkout source repair
 
 The push-time Semgrep rule
