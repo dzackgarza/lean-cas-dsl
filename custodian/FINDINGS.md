@@ -1,5 +1,69 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent controller source review
+
+Assessed committed controller source at
+`a6311e1ab86b8aa31741a91c5040a236677edb72`. The concurrent uncommitted
+`CasCatalogue/Language.lean` edit was outside this review. Inspected controller,
+role launcher, author launcher, materialization, candidate execution, assessment,
+publication, authority workflow, review prompt/context transport and setup against
+INTENT and the architecture's role, transition and reviewer-context requirements.
+This is technical source assessment, not protected deployment or B0 acceptance.
+
+1. **Dependency selection contradicts latest-main consumption.**
+   `custodian/SETUP.md:9-19` still requires separately admitted mathematical and
+   contract release references and immutable configured dependency revisions.
+   `custodian/materialize.py:37-39` only checks those old commits exist;
+   `custodian/controller.py:configured_input` consumes them unchanged. Neither
+   refreshes those own-organisation dependencies to latest main as required by
+   the owner ruling in `specs/architecture.md:13`. Reproduced with a temporary
+   Git repository containing two main commits: passing the first commit to
+   `configured_input` returned its old file contents after main advanced to the
+   second. Resolve dependency main before construction builds/harness execution
+   and retain its exact resolved identity for reproducibility. This correction
+   must not let a candidate select its judge, requirements or signing authority;
+   independently protected judging inputs remain separate from construction.
+
+**Boundary observation, not a blocking finding:** configured candidate
+   validation exposes the whole source repository.
+   `custodian/launcher.py:97-113` checks only the candidate's changed paths and
+   then passes the entire revision to `execution.execute`.
+   `custodian/execution.py:25-39` archives and mounts every tracked file, all
+   readable by the candidate process, and returns its stdout to the author.
+   Consequently, configuring validation of an acceptance author's candidate
+   program in the DSL checkout exposes unchanged `CasCatalogue/` implementation
+   source, despite `read_source` correctly denying that read. To reproduce on a
+   Docker-capable host, configure Python validation of an acceptance-owned
+   `tests/acceptance/inspect.py`, have that program print
+   `Path('/candidate/CasCatalogue/Language.lean').read_text()`, checkpoint it
+   through the acceptance server and call `validate_source`. The changed-path
+   check admits the program and the full-tree mount supplies its input.
+   This runtime reproduction was not executed here: `docker info --format
+   '{{.ServerVersion}}'` returned permission denied on `/var/run/docker.sock`.
+   Under the 2026-10-10 owner ruling, technical ability alone is neither a
+   conduct breach nor a B0 acceptance blocker. No inspected instruction
+   authorizes the acceptance author to perform this forbidden read, and no
+   actual forbidden read was observed. Thus this is a limit on the technical
+   containment claimed by source inspection, not an additional repair or
+   capability-removal prerequisite.
+
+Existing source fixtures passed: controller (1), launcher (11), author launcher
+(1), materialize (1), assessment (1), review context (2). Controller,
+materialize and assessment needed `GIT_CONFIG_GLOBAL=/dev/null
+GIT_CONFIG_NOSYSTEM=1` to keep ambient Git hooks out of their temporary fixture
+commits; without it those fixture commits failed before the tested behavior.
+These 17 fixtures establish their specific wiring/rejection behavior only.
+The already recorded missing real external-reviewer context-read observation
+remains open: the context fixtures do not execute that reviewer.
+
+No protected reference, environment, signing identity or authoritative record
+was changed. The remaining authority operation is bootstrap of an independently
+reviewed controller revision at `accepted/controller`, with the real independent
+public signing identity and protected environment/check configuration described
+in SETUP; this source review neither supplies that identity nor performs the
+bootstrap. The dependency-selection defect remains construction work, not a new
+owner choice.
+
 ## 2026-10-20 — Integrated candidate and remaining B0 dependencies
 
 Candidate `32c3897163a6f6595b44277b097efad0da9ccfdc` passes the complete local
