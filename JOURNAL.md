@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-10-20 — Integrated structured-domain candidate 32c3897
+
+Candidate `2be4777` failed its unchanged purity gate: the new binder-domain
+observation persisted lazily generated upstream `RealLimits` equation theorems
+inside ElementDataProbes. The complete failed integration is retained at
+`/tmp/b0-poc-2be4777/integration.{log,exit}` (exit 1). Other registration,
+question, binder, parameter and notebook-boundary targets built successfully.
+
+Correction `32c3897163a6f6595b44277b097efad0da9ccfdc` wraps that observation in
+`withoutModifyingEnv`, following the existing QuestionProbes pattern. Every
+regression assertion and the purity gate remain unchanged. The focused probe
+and its automatic profile pass; the full clean integration passes all 7,554 jobs,
+including purity, at `/tmp/b0-poc-32c3897/integration.{log,exit}` (exit 0).
+The causal record is `/tmp/b0-poc-2be4777/purity-diagnosis.md`.
+The corrected source is published on `b0/poc-completion-20261020`; hosted run
+`39406008396` reports this exact SHA. Its boundary/permanence job passed;
+remaining jobs were live at the saved snapshot. Resolved inputs and clean statuses
+are in `/tmp/b0-poc-32c3897/inputs.json`.
+
+The matrix diagnostic passes in 41.46 seconds, and its full saved identity is
+byte-identical to the independent `7e44f61` baseline. The sequential subspace
+diagnostic is running in exec session `26573`; its artifact and log are in the
+same candidate directory. Neither observation establishes initial interpretation
+acceptance. No authoritative expectation has been regenerated.
+
+The reduced generalized-product diagnostic completes in 34.25 seconds. Its log
+`/tmp/b0-poc-32c3897/generalized-product.log` demonstrates the complete units-domain
+parameter and its identity map now encode successfully. The product apex still
+has no recorded computational construction, and the mediator refuses the
+non-singleton domain. The first component is a staged constant map, but its
+current wire is the closed-element envelope. `staged` constructs the actual
+terminal-map composition; `toElement` records the staged composite as a numeral,
+so that original composition is not retained for realization. This is a generic
+callable-data defect, not grounds to drop the mediator guard or invent a
+singleton domain. The original admitted question remains the behavior check.
+No speculative protocol or source change has been made for it.
+
+The complete `8fb0eb3` inventory remains the last completed computation run;
+B0 is not accepted. The original checkout's unrelated Language changes remain
+untouched.
+
 ## 2026-10-20 — Structured binder-domain candidate in integration
 
 Source candidate `2be4777c747987ff8fcc3ed249de72a0ab71daaf` is committed in the
