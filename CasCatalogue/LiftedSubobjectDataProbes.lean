@@ -67,6 +67,14 @@ run_elab do
   let wrongRoute ← LiftedSubobjectData.plan expectedType sourceCategory receiver
     #[⟨"unregistered.lift"⟩] base
   if wrongRoute.isOk then throwError "a lift accepted a route outside the fixed catalogue"
+  let wrongBase ← elabTermAndSynthesize (← `((
+    ⟨Arrow.mk (CategoryStruct.id (ModuleCat.of ℤ ℤ)), (by
+      change Mono (CategoryStruct.id (ModuleCat.of ℤ ℤ)); infer_instance)⟩ :
+    ObjectProperty.FullSubcategory (fun a : Arrow (ModuleCat ℤ) => Mono a.hom)))) none
+  let wrongParameters ← LiftedSubobjectData.plan expectedType sourceCategory receiver
+    #[row.id] wrongBase
+  if wrongParameters.isOk then
+    throwError "a lift accepted a different fixed full base ambient in the same category"
   let trace ← CasCatalogue.Trace.new
   let .constructMap _ inner := row.edge
     | throwError "the registered lift lost its selected inner action"
@@ -86,6 +94,25 @@ run_elab do
   let outputs := #[objectData, typedMap objectData ambient (data "actual inclusion"),
     typedMap (image objectData) (data "base apex") (data "actual forward callable"),
     typedMap (data "base apex") (image objectData) (data "actual backward callable")]
+  -- Inventory enrichment retains each original descriptor. Both comparisons
+  -- must then use the same actual mapped and base endpoints, even for opaque maps.
+  let finite descriptor (points : Array Json) := Json.mkObj [("ctor", "finiteData"),
+    ("args", Json.arr #[descriptor, Json.arr points])]
+  let point (x : Int) := Json.arr #[toJson x, toJson (0 : Int)]
+  let mappedA := finite (image objectData) #[point 0]
+  let mappedB := finite (image objectData) #[point 1]
+  let baseA := finite (data "base apex") #[point 0]
+  let baseB := finite (data "base apex") #[point 1]
+  let enriched := (outputs.set! 2
+    (typedMap mappedA baseA (data "actual forward callable"))).set! 3
+    (typedMap baseA mappedA (data "actual backward callable"))
+  if let .error message ← LiftedSubobjectData.validatePrefix component action sourceData baseData enriched then
+    throwError "exact comparison endpoints rejected their actual inventories: {message}"
+  for changed in #[
+      enriched.set! 3 (typedMap baseA mappedB (data "different image inventory")),
+      enriched.set! 3 (typedMap baseB mappedA (data "different base inventory"))] do
+    let .error _ ← LiftedSubobjectData.validatePrefix component action sourceData baseData changed
+      | throwError "the inverse comparison changed a previously returned endpoint inventory"
   let step fields := Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
     toJson row.id.raw, action, sourceData, baseData, Json.arr fields])]
   let envelope fields := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
@@ -111,6 +138,16 @@ run_elab do
     | throwError "the next actual base lost its complete subobject context"
   unless fields[0]! == objectData && fields[2]! == data "actual inclusion" && next != baseData do
     throwError "the next step repeated the initial base instead of the actual preceding outputs"
+  let actualObject := finite objectData #[point 0]
+  let actualAmbient := finite ambient #[point 0]
+  let actualInclusion := outputs.set! 1
+    (typedMap actualObject actualAmbient (data "actual inclusion"))
+  let .ok actualNext := LiftedSubobjectData.nextBase sourceData actualInclusion
+    | throwError "actual defining-map endpoints could not advance the route"
+  let .ok actualFields := LiftedSubobjectData.fields "subobject" 3 actualNext
+    | throwError "the next actual base lost its subobject fields"
+  unless actualFields[0]! == actualObject && actualFields[1]! == actualAmbient do
+    throwError "the next base discarded actual defining-map endpoint inventories"
   let incomplete := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
     baseData, sourceData, toJson #[row.id.raw]])]
   let wrongEndpoints := outputs.set! 2
@@ -144,3 +181,23 @@ run_elab do
       if CasCatalogue.Exception.stratum? error == some .noImplementation then pure true
       else throw error
   unless missing do throwError "the executor claimed a completed lift without registered execution"
+
+run_elab do
+  let formal ← elabTermAndSynthesize (← `(fun x : Fin 2 => x)) none
+  let object (size : Nat) := Json.mkObj [("ctor", "obj.sets.fin"),
+    ("args", Json.arr #[toJson size])]
+  let graph (inventory pairs : Array Json) := Json.mkObj [("ctor", "finiteGraph"),
+    ("args", Json.arr #[Json.arr inventory, Json.arr pairs])]
+  let framed source target callable := Json.mkObj [("ctor", "typedMap"),
+    ("args", Json.arr #[source, target, callable])]
+  let pair (x y : Nat) := Json.arr #[toJson x, toJson y]
+  let source := object 2
+  let incompleteGraph := graph #[toJson (0 : Nat)] #[pair 0 0]
+  let incomplete ← LiftedSubobjectData.validateMap formal source source
+    (framed source source incompleteGraph)
+  if incomplete.isOk then
+    throwError "a lift map accepted a graph inventory smaller than its actual declared domain"
+  let wrong := graph #[toJson (0 : Nat), toJson (1 : Nat)]
+    #[pair 0 1, pair 1 1]
+  let .ok () ← LiftedSubobjectData.validateMap formal source source (framed source source wrong)
+    | throwError "a complete well-framed wrong map was rejected or forced to the canonical identity"

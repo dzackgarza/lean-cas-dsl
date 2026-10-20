@@ -71,6 +71,9 @@ category given by their graphs, a registered named object at its parameters, or 
 registered category (the input of its registered limits), encoded in the forms of their objects
 and arrows. -/
 inductive Form
+  /-- Internal proof-only total-category context. Its checked forgetful prefix restores the
+  original registered form; it introduces no leaf input descriptor. -/
+  | proofRefinement (category : NamedCategoryEntry) (classifier : ClassifierId) (base : Form)
   | liftInput (entry : LiftEntry) (category : CategoryId)
   | literal (entry : LiteralEntry)
   | graph (entry : GraphLiteralEntry)
@@ -118,6 +121,8 @@ def edgeImageId (edge : EdgeRef) (category : CategoryId) : String :=
 /-- The form's id: a literal, graph-literal, subset-literal or object row's; for diagrams, their
 category's. -/
 def Form.id : Form → String
+  | .proofRefinement category classifier base =>
+      s!"proof-refinement:{category.id.raw}:{classifier.raw}:{base.id}"
   | .liftInput entry _ => entry.inputAddress
   | .literal entry => entry.id.raw
   | .graph entry => entry.id.raw
@@ -139,6 +144,7 @@ def Form.id : Form → String
   | .diagrams entry => entry.id.raw
 
 def Form.category : Form → CategoryId
+  | .proofRefinement category _ _ => category.id
   | .liftInput _ category => category
   | .literal entry => entry.category
   | .graph entry => entry.category

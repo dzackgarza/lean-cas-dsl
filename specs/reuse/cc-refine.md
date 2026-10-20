@@ -27,3 +27,21 @@ The registry-level re-typing of an object after a proof of membership (in `lean-
 discharged by the kernel; never a leaf's answer),
 the registered containment/intersection rows naming `ιOfLE`/`⊓`, and the category-owned equality
 decision returning a three-valued result.
+
+## B0 proof-only reader construction (2026-10-20)
+
+Corpus queries rerun against the current index: `ObjectProperty FullSubcategory mk`
+(36 files, 1057 matches; existing full-subcategory constructions) and
+`classifier full subcategory proof refinement` (one unrelated Rocq file; no replacement
+for the registered Lean classifier interface). Direct current sources confirm
+`ObjectProperty.FullSubcategory.mk`, `FintypeCat.of`, and the actual registered
+classifier total/forgetful functor own the mathematics. Lean's documented metavariable
+depth explains why `mkAppM` cannot assign an older constructor telescope; the existing
+upstream `mkAppHere` performs current-depth application without changing the mathematics.
+
+The kernel adds constructor elaboration and provenance only: constrain the public total
+constructor by its complete registered forgetful image; fill remaining proposition fields
+from existing class or Decidable instances; kernel-check them; refuse remaining chosen
+nonproof data. It retains the original full object, action, identification and complete
+computational source payload, and consumes only the exact checked forgetful prefix.
+No category, predicate, lemma, proof procedure, or mathematical admission is authored here.

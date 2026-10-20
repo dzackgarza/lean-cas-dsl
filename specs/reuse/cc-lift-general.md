@@ -113,3 +113,23 @@ retains argument/source/target positions; callers resolve those positions from
 actual input wires. This adds context provenance rather than selecting an input
 by equality with a canonical formal object. Compilation and production wiring
 of this addition are pending.
+
+The computational framing repair reuses public `Functor.obj`/`Prefunctor.obj`,
+`Arrow.left`/`right`/`hom`, `ConcreteCategory.hom`/`ToType`, and existing Lean
+constructor metadata. Corpus queries `Functor obj Arrow left` and
+`Equiv Subtype constructor` (2026-10-20) located existing arrow/subtype examples;
+none supplies this kernel's untrusted-data framing mechanism. Mathlib already
+owns the mathematical structures, including `Equiv` and `Subtype`; their
+constructor data slots are inspected, never redefined. `Codec.isUnlabelled`,
+`Codec.label`, `plainType`, and the primitive finite codec retain the
+existing wire convention. New code derives only a data-schema tree, preserves
+all non-proof computational slots, and checks supplied point inventories and
+graph completeness without constructing law-bearing Lean values or enumerating
+the requested formal result. A complete closed formal context alone binds public
+declaration parameters; computational JSON never supplies that context.
+
+Actual endpoint contexts are the existing structured-result binder roles and
+four-field lift packet endpoints. Their supplied inventories frame callable data;
+the public primitive codecs retain scalar representation and bounds. No formal
+product carrier is substituted for an actual computational apex, and no new
+mathematical construction or role-cache calculus is introduced.

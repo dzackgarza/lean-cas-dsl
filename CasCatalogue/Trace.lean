@@ -52,6 +52,10 @@ inductive Node
   /-- A structural route retaining the exact full edge applications formed by the reading. -/
   | retainedRoute (sourceCategory targetCategory : CategoryId) (route : Array EdgeRef)
       (applications : Array Expr) (receiver : Expr)
+  /-- Proof-only construction in an actual classifier total, retaining the complete
+  original object, registered forgetful action and full-image identification. -/
+  | proofRefinement (classifier : ClassifierId) (sourceCategory targetCategory : CategoryId)
+      (source action identity : Expr)
   | parameterEquivalence (expectedType representative : Expr)
       (sources : Array ParameterPresentation)
   /-- A registered named morphism at its ordered explicit declaration arguments. -/
