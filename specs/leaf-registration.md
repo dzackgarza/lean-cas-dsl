@@ -71,6 +71,17 @@ Prescribed formal lifts determine the semantic construction; computational lifti
 the returned inclusion and complete representation. A well-formed wrong structured answer,
 like a well-typed wrong numeral, reaches acceptance as a wrong answer.
 
+For each prescribed subobject-lift step, the kernel instantiates all four public fields of
+`LiftEntry.computation` (`MonoLiftComputation.obj`, `hom`, `forward`, and `backward`) at the
+complete selected action, source receiver and formal base. The corresponding concrete field
+addresses and input packet are specified in `CasContract/Port.lean`. It executes the route
+in reverse order, supplying preceding actual outputs to subsequent field requests and using
+the actual object and inclusion as the next step's base. A completed packet retains all four
+outputs of every step. A packet containing only a base reply, source and lift ids is incomplete.
+Map framing uses actual computational endpoints and `Unit` validators; it does not prove
+monicity, inverse equations, factorization, universality or agreement with a canonical answer.
+Opaque callables on infinite carriers retain their owning session and are never enumerated.
+
 Subsequent computations retain the complete requested functor action and returned subobject
 response together. The first is fixed by the formal trace; the second is computational data.
 An `objectPresentation` envelope does not establish an isomorphism between them or determine

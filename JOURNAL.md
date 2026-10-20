@@ -1,5 +1,56 @@
 # Journal
 
+## 2026-10-20 — Execute the prescribed public lift computation fields
+
+The runtime now fixes every selected `LiftEntry.computation` before dispatch and
+instantiates `MonoLiftComputation.obj`, `hom`, `forward`, and `backward` at the complete
+source receiver, selected action and independently retained formal base. Admission exposes
+only those published fields, at `<lift id>#<field>` on `<lift id>#input`; no semantic rows
+or leaf laws are introduced. Every field request includes the actual preceding outputs.
+Execution runs in reverse route order and constructs the next base from the preceding
+actual object and inclusion, never by repeating the original base packet. All four outputs
+and complete source/base/action context remain in the final packet. Opaque session owners
+are merged through every request and result; incompatible owners remain unavailable.
+
+The completed envelope now requires the actual four-field output group for every step.
+`typedMap` framing checks actual declared endpoints and shared finite-graph data inventories;
+opaque maps on infinite carriers remain callable data. Validators return `Unit`, never a
+backend-derived object, inverse law, monicity proof or universal-property certificate.
+Well-framed wrong objects and maps remain unchanged computational claims. The production
+caller passes the actual Subobjects result context to completion, rather than the original
+Arrow category, and cannot return the bare base when a lift registration is absent.
+
+Before repair, the unchanged production decoder probe
+`/tmp/b0-poc-5410e70/lift-unexecuted-packet.lean` failed because a three-field packet with no
+component outputs was accepted as completed data. It now passes (17.68 seconds).
+`LiftedSubobjectDataProbes` passes (3737 jobs, 34.92 seconds): all four public types are closed,
+all opaque computational fields survive completion, malformed/missing fields and wrong map
+endpoints fail, wrong but well-framed data survives, actual next-base data uses returned fields,
+wrong fixed source/route fails, and the production executor with no registrations reports
+`NoImplementation` rather than claiming completion. The selected formal fixture has an
+infinite integer-pair carrier; no map is enumerated or reconstructed as a law-bearing value.
+The first focused lift source check failed because a concurrent source build removed its
+Semantic import; the serial corrected check passed (1489 jobs, 25.43 seconds). The complete
+required Realize dependency build passed (3736 jobs, 374.91 seconds, diagnosed 600-second
+budget): Language 242 seconds, Realize 96 seconds. No heartbeats changed.
+
+These checks ran in the combined construction tree with the independent ComputationalData
+action-context repair. The unchanged installed-registration diagnostic then reports E8 rank,
+alternating-group cardinality and both cyclic/symmetric group abelianness assertions `holds`,
+each with one actual dispatch. The three earlier group question identities are unchanged;
+E8 previously failed before producing an identity. The separate sign-kernel diagnostic still
+rejects unsupported nested computational point framing, owned by the independent Data repair.
+Logs and JSON are in `/tmp/b0-poc-5410e70/`, including `lift-runtime-source-build.log`,
+`lift-computation-probes-third.log`, `lift-unexecuted-packet-{red,green}.log`,
+`composite-dispatch-lift-source.{json,log}` and `sign-runtime-context-repair.log`.
+
+Kernel-owned contract source `1d2b2be06e7b39acff30357d3dd9ae1d2831f88b` specifies the complete
+four-field protocol; its ordinary publication is queued at the machine-wide QC lock. Actual
+registered execution of the newly exposed lift fields remains dependent on the complete
+published contract and independently authored installed registrations. This source checkpoint
+and its engineering checks do not establish that missing execution, mathematical correctness,
+full assertion success, or B0 acceptance. The refreshed manifest is outside this source commit.
+
 ## 2026-10-20 — Complete family parameters in structural applications
 
 The E8 route failed before execution when the new public fixed-value inclusion

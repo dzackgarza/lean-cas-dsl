@@ -58,9 +58,9 @@ computational graphs. Its integrated build and execution remain pending at this
 source checkpoint. Earlier proof-reconstruction probes are not evidence for this
 replacement boundary.
 
-The production caller migration and actual lift-component consumption must be
-checked together. A completed result container alone does not demonstrate that
-all consumers preserve this separation or that the mathematical assertions hold.
+The production caller and actual lift-component consumption are checked together.
+A completed result container alone does not demonstrate registered execution or
+that the mathematical assertions hold.
 
 ### Computational packets through the prescribed subobject lift (2026-10-03)
 
@@ -74,16 +74,17 @@ selected formal lift, whose laws remain on the formal side.
 `LiftedSubobjectData` retains the independent source, base, selected route and
 formal result together with one opaque source/base packet. Its ordered component
 plans instantiate the public signatures solely from those formal inputs. They
-are pending computations, not backend answers or proved comparisons. Intermediate
-computational data do not yet exist: execution must obtain them from actual
-preceding component outputs. Copying the original downstairs packet into every
-step would not compute those intermediate objects or maps.
+are computation requests, not backend answers or proved comparisons. Execution
+obtains intermediate computational data from actual preceding component outputs.
+The reverse route forms each next base from the preceding actual object and
+inclusion; copying the original downstairs packet into every step is forbidden.
 
 Source/base validators return `Unit` and check representation and declared
 endpoints. They do not decode a backend into a monomorphism, lift, isomorphism,
-or universal property. Existing three-field packet framing is retained; it does
-not assert that the required component computations have run. Integration builds
-and ordinary registered execution of the required components remain necessary.
+or universal property. Completed four-field packet framing retains every step's actual object, inclusion,
+forward map and backward map. Old three-field packets without component outputs
+are incomplete. Integration builds and actual independent registered execution
+remain necessary; strict framing by itself establishes neither.
 
 `ComputationalData` supplies the shared `Unit`-returning framing validator.
 Corpus search for computational data validation found general runtime examples,
@@ -92,7 +93,8 @@ not a CAS contract owner. Direct sources identify the published `ObjectEntry`,
 owners of the declared schemas. Dependent context comes from the formal request;
 validation never reconstructs backend objects or maps into law-bearing terms.
 Opaque callables remain computational claims at their declared types rather than
-requiring eager enumeration or proof recovery.
+requiring eager enumeration or proof recovery. Concrete field addresses expose
+only these existing public signatures; they create no new mathematical rows.
 
 Port dependency provenance uses Lean's existing `forallMetaTelescopeReducing`,
 `inferType`, and expression traversal. Corpus queries for constructor binder
