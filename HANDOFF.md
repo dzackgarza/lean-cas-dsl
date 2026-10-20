@@ -1,63 +1,52 @@
-# Undone work — 2026-10-13
+# Undone work — priorities corrected 2026-10-20
 
-Resume from source checkpoint `49f5944fb0f187be492b519d5c773c93099cc2a8`.
-The owner requested a checkpoint and handoff; implementation is stopped.
-The working tree was clean before this report. Preserve the concurrent central
-Lean dependency migration in that revision; the owner explicitly approved
-coordination with it.
+Resume from the current committed source, preserving concurrent changes and the
+shared Lean dependency setup. The controlling order is
+[POC-first execution](specs/computational-core-plan.md#execution-priority-finish-the-poc-owner-correction-2026-10-20).
+Do not resume the former encoder/reader latency optimization loop.
 
-## Next source repairs
+## Next: complete POC execution and functional gaps
 
-1. **Repair question-identity construction for expanded contextual terms.**
-   The anonymous prime-factor and matrix-kernel readings are repaired at
-   `6a962cf` through the existing formal admissions, retained constructor
-   parameters and exact zero family. The unchanged claims now read.
+1. **Run the complete unchanged computation-only inventory at a committed
+   candidate.** Build the integration targets with `B0_INTEGRATION=1 just build`,
+   then run the harness through the existing recipe. Update own-organisation
+   requires to latest `main` before each build/harness run and record resolved
+   inputs. Launch each required long run once with a durable log, source revision
+   and identifiable process. Use this repository's `.venv/bin/python` for
+   Sage/GAP execution from a temporary checkout. Obtain all per-assertion outcomes
+   before selecting another optimization; a failing result is useful diagnosis,
+   not a reason to omit that assertion or defer the inventory indefinitely.
 
-   The matrix trace exposes a separate production blocker: 99 roots cause
-   2,097,785 recursive encoder calls before collapsing to 640 canonical nodes.
-   `custodian/FINDINGS.md` and `JOURNAL.md` record separated timings and two
-   falsified repair routes. The canonical DAG remapper removes the independent
-   root-key traversal and preserves the legacy byte format, but exact
-   production interpretation still takes 149.890 seconds: source-root and
-   operation-field encoding each cost about 65 seconds. Pre-encoding fields
-   did not unify those raw expressions and was reverted. Preserve the complete
-   identity and its proof and binder quotient. Do not replace it with a digest,
-   timeout increase or weaker trace. Owning work unit: lean-cas-dsl#66.
+   The recorded contextual encoder defect was repaired in `024bb72`; the 2×2
+   encoding passes fell to milliseconds. The 3×3 reading completes under the
+   ordinary heartbeat budget after the subsequent reader repairs. Its roughly
+   102-second complete question benchmark is not an obstacle to starting the POC
+   run. These two diagnostic identities are preserved; complete preservation
+   and execution remain to be established. Issue #66's integrated obligations
+   remain open, but proposed low-single-digit latency is not its next task.
 
-2. **Obtain the formal repair for selected-carrier matrix-unit evidence.**
-   Diagnosis completed 2026-10-18: `Units.invertibleEvidence` succeeds for the
-   matrix over literal `ℚ`, but fails for the definitionally equal selected
-   rational-ring carrier. `Units.evaluateNumerals` does not suffice; a valid
-   `change` to the underlying `ℚ` matrix makes the unchanged evidence succeed.
-   The formal evidence tactic must normalize the selected-object construction
-   before selecting its field/unit route. This is an upstream implementation
-   defect, not missing mathematics or a kernel admission to reformulate. The
-   earlier full report's six inverse failures remain blocked on
-   lean-categories#92.
+2. **Repair actual functional blockers against the B0 table.** Complete missing
+   generic composition, parameter/presentation transport, structured results and
+   subsequent operations, application/admission, and contract handling as exposed
+   by the complete run and required probes. Reuse existing implementations and
+   focused evidence. Repair cost only if it prevents a required run from
+   completing, then return to that run.
 
-## Required validation and acceptance
+   The recorded selected-carrier matrix-unit evidence failure belongs upstream
+   (lean-categories#92). Recheck whether the supplied latest-main input repairs it.
+   If absent, keep its six inverse readings visible and continue independent
+   work. The kernel worker neither changes nor commissions upstream mathematics.
 
-3. **Run the complete computation-only acceptance inventory at the final
-   repaired source.** Commit repairs first. Update own-organisation requires
-   to latest `main` before each build/harness run and record the resolved
-   inputs. Launch each required long run once with a durable log, source
-   revision and identifiable process. Use
-   `/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python` explicitly for Sage/GAP
-   execution from a temporary checkout.
-
-   No full acceptance harness has run at `608c607` or the current checkpoint.
-   `.tmp/b0-completion-20261013/harness-9370ee5.json` is a diagnostic baseline,
-   not acceptance of the current source.
-
-4. **Demonstrate all 15 required registered computations.** The prior report
-   has 12 frozen IDs holding, but only 11 with nonempty dispatch;
-   `sets.eq.rev_rev` has zero dispatch. The three `lattices.discriminant.*`
-   cases remain gaps, with no applicable cokernel registration in the
+3. **Demonstrate all 15 required registered computations.** The October 13 report
+   had 12 frozen IDs holding, but only 11 with nonempty dispatch;
+   `sets.eq.rev_rev` had zero dispatch. The three `lattices.discriminant.*`
+   cases were gaps, with no applicable cokernel registration in the
    installed latest-main leaf inputs used by that report. Check current
    inputs and preserve the required registered-execution obligation.
    The orchestrator does not implement leaves or restore old dependency pins.
 
-5. **Obtain independent question-preservation and B0 acceptance.** Work through
+4. **Complete question preservation alongside functional repairs, then obtain
+   independent extension trials and B0 acceptance.** Work through
    the remaining obligations in `specs/computational-core-plan.md`, including
    protected negatives, required arguments and independent extension trials.
    Use `custodian/SETUP.md` for authoritative deployment operations.
@@ -65,13 +54,13 @@ coordination with it.
    acceptance records. Source integration and successful compilation do not
    constitute independent approval or B0 acceptance.
 
-6. **Publish the final source and reconcile hosted checks with its exact SHA.**
+5. **Publish the final source and reconcile hosted checks with its exact SHA.**
    Inspect current local/remote revisions first, preserving the concurrent
    migration. Use normal publication gates; earlier hosted results are not
    results for this checkpoint. Publication of the current checkpoint was
    not verified during handoff.
 
-## Process and workspace state needed to resume
+## Historical process and workspace observations (2026-10-13; recheck before use)
 
 - No CAS build, acceptance harness or diagnostic from this stream remains
   live at handoff. A separate Lake build was observed as PID `2728436`, with

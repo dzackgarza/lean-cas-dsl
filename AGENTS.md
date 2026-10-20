@@ -342,6 +342,12 @@ saved harness executables, logs and worktrees with full Lake package copies left
 
 # Short feedback cycles during B0 construction
 
+Select work by the [POC-first execution priority](specs/computational-core-plan.md#execution-priority-finish-the-poc-owner-correction-2026-10-20).
+The next objective is the complete POC run and its functional blockers, not another
+reader optimization. Proposed latency budgets do not gate B0. Use the diagnostics
+below to unblock required work; once a required path completes, return to
+integration and remaining capabilities rather than selecting its next hotspot.
+
 Use `just focus CasCatalogue.Language` (or the changed Lean target) as the first local check. It
 builds only that target and its dependencies, measures elapsed time and peak memory, and saves its
 log in `/tmp`. A run taking at least 60 seconds automatically profiles that target's source and
@@ -351,9 +357,10 @@ dependencies. Build the exact dependent probe or run the unchanged admitted asse
 Do not run `just build` after each small source edit.
 
 `just focus` has a 120-second per-command budget, including its separate profile command. A
-timeout is a failed check, not a compile result. Inspect the saved build and profile logs and
-reduce the target's import or elaboration cost before raising `B0_FOCUS_BUDGET_SECONDS` for a
-specific diagnosed run. A build budget above 120 seconds requires a completed profile tagged for
+timeout is a failed check, not a compile result. Inspect the saved build and profile logs.
+For a finite required check, use a justified `B0_FOCUS_BUDGET_SECONDS` rather than starting
+an optimization project merely to meet the default diagnostic limit.
+A build budget above 120 seconds requires a completed profile tagged for
 that target and `just focus TARGET diagnosed`; use `just focus SOURCE profile` to obtain it.
 Before another slow source edit when a declaration type, registry row, or failing branch is still
 uncertain, put a minimal import-only Lean reproducer in `/tmp` and run `just probe /tmp/NAME.lean`.
@@ -372,17 +379,19 @@ tagged for that target; it avoids rerunning an unchanged compiler diagnosis on e
 iteration. Profile again if
 the bottleneck moves or the prior log no longer explains the slow path.
 
-For a semantic-reader iteration, `just bench-reading subspaces.kernel` imports only the reader
-and measures the production semantic claim. Use it to reject a slow or failing candidate before
+For a necessary semantic-reader repair, `just bench-reading subspaces.kernel` imports only the reader
+and measures the production semantic claim. Use it to diagnose a failing candidate before
 rebuilding the realization layer. It measures neither complete question identity nor execution;
 retain `just bench-question` and the protected negative probes for a candidate worth keeping.
 For a slow admitted reader question, profile that exact diagnostic with
 `CAS_BENCH_ASSERTION=subspaces.kernel B0_FOCUS_BUDGET_SECONDS=240 just focus benchmarks/semantic_reading.lean profile`.
 
-When a focused check takes 60 seconds or more, inspect its profile and the dependency/import path
-before another edit or rerun. Reduce repeated elaboration or traversal, use the existing shared
-Lake cache, factor the compiler boundary where justified, or use a faster check of the exact
-invariant under repair. Keep the original failing assertion and the relevant protected negatives
+When a focused check takes 60 seconds or more, inspect its profile and dependency/import path
+to choose the shortest check of the invariant under repair. Reuse the existing shared Lake
+cache and completed diagnosis. A slow successful check does not require compiler-boundary,
+caching, or elaboration changes before proceeding. Make such changes before POC completion
+only when their cost prevents required execution or validation.
+Keep the original failing assertion and the relevant protected negatives
 as the eventual behavior check; a syntax check, compile, timing, or identity comparison proves only
 its own narrow claim. Do not raise heartbeats or weaken an assertion to shorten feedback.
 

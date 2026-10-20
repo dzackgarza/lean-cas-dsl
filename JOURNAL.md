@@ -1,5 +1,18 @@
 # Journal
 
+## 2026-10-20 — Put complete POC execution before long-tail optimization
+
+The owner corrected the work order after the encoder repair had turned into
+repeated reader optimization before the POC was complete. The architecture and
+execution plan now lead with the complete inventory, functional repairs,
+question preservation, independent trials and integrated acceptance. The
+handoff no longer sends the next session back to the old encoder bottleneck.
+AGENTS and CONTRIBUTING retain focused checks and profile reuse, but no longer
+require optimization of every slow successful check or attainment of proposed
+latency targets before functional completion. Mathematical acceptance and
+independent role boundaries are unchanged. Validation is the documentation diff
+and consistency check; no Lean build is needed for this priority correction.
+
 ## 2026-10-20 — Enforce a diagnosed budget and import-only probe
 
 The focused recipe now refuses a build budget above 120 seconds unless the

@@ -61,6 +61,61 @@ interpretations, evaluator and controlling requirements):
 **The orchestrator cannot reduce this table, move a row beyond B0, or redefine a row's acceptance.**
 A change to a row needs a decision of the authority that owns the requirement.
 
+### Execution priority: finish the POC (owner correction, 2026-10-20)
+
+The seven-milestone roadmap's performance measurements and semantic safeguards
+remain useful. Its sequencing is corrected here: proposed usability budgets do
+not precede generic completion, independent trials, or the complete inventory.
+Milestone 2's requirement to meet all of Milestone 1's budgets coupled an encoder
+repair to optimization of the entire interpreter. That dependency is removed.
+The initial repeated contextual encoding defect warranted repair; it does not
+justify continuing through every smaller reader hotspot before integration.
+
+Proceed in this order within the existing obligations:
+
+1. **Establish the current complete POC result.** At a committed candidate, build
+   the required integration targets and run the complete unchanged inventory over
+   the installed registrations. Record resolved latest-main dependencies and
+   per-assertion outcomes. Run this before selecting another local optimization;
+   do not wait for every known failure to be repaired before obtaining the report.
+2. **Complete the functional mechanisms exposed by that run and the B0 table.**
+   Prioritize generic composition, transport, structured results and subsequent
+   operations, application/admission, and contract gaps that prevent the required
+   computations. Earlier focused probes are reusable evidence, not a reason to
+   rebuild mechanisms already implemented. A missing upstream input blocks only
+   its consumers; the kernel author does not commission upstream repairs.
+3. **Complete question preservation alongside those repairs.** Retain all admitted
+   identities, independent interpretation assessment, proof/binder invariance,
+   and discrimination of structures, parameters, relations and routes. Do not
+   replace full preservation by the two matrix benchmark comparisons.
+4. **Run the independent extension trials, then accept the integrated candidate.**
+   Preserve the fixed positives, protected negatives, all 15 registered
+   computations, compositional arguments, reviewer context checks, and independent
+   acceptance. A failed trial leads to the generic repair and affected re-trial.
+   Publication and hosted checks must refer to the actual candidate.
+5. **After the POC, address usability targets and controlled leaf expansion.**
+   Cold/warm measurements, broader depth/sharing workloads, latency budgets and
+   memory tuning inform that work. Broad expansion still requires the stable
+   contract and preservation boundary; it is not part of finishing B0.
+
+Performance work before POC completion is limited to a demonstrated obstruction:
+name the required run that cannot finish and the measured cause. Diagnose and
+repair it, then resume that run. An actual timeout, resource exhaustion or
+combinatorial amplification preventing required validation qualifies; a completed
+request missing a proposed latency target does not. Keep complete question
+identity and the relevant protected negatives throughout. Do not raise Lean
+heartbeats, reduce the inventory, or weaken assertions to manufacture completion.
+Existing diagnosed wall-clock budget controls may be used to let a finite required
+check complete; spending time making every check fit its default diagnostic budget
+is not a prerequisite.
+
+The corrected critical path is **complete POC run → functional completion with
+question preservation → independent extension trials → integrated acceptance**.
+Performance repairs enter that path only at an actual execution obstruction.
+Independent preparation follows the existing role boundaries and need not await
+latency tuning. These priorities change neither the acceptance table nor its
+denominator.
+
 ### Stage A
 
 Stage A constructs a usable integration workflow as well as a buildable candidate.

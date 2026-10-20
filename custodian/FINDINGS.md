@@ -1,5 +1,16 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Priority correction
+
+The encoder repair removed the recorded repeated contextual encoding obstruction.
+Continuing to optimize smaller reader costs before complete POC execution was a
+work-selection defect. The owner corrected that priority: follow
+`specs/computational-core-plan.md`, "Execution priority: finish the POC".
+The latency observations below remain diagnostic history. Proposed usability
+targets are deferred; complete preservation, functional execution and independent
+B0 acceptance remain required. Performance work resumes before POC completion
+only for a measured obstruction to a required run.
+
 ## 2026-10-13 — Current B0 construction defects
 
 - Resolved in kernel construction source on 2026-10-18: neither the anonymous
@@ -46,8 +57,8 @@
   `subspaces.kernel` assertion now completes at the ordinary budget with 126
   roots and a full 39,816-byte identity byte-identical to its prechange
   diagnostic result. Its seven binding reads still total about 77 seconds,
-  and assertion semantic reading takes another 38 seconds, so the practical
-  latency target remains open. The separate first-integral binder timeout was
+  and assertion semantic reading takes another 38 seconds; further latency
+  tuning is deferred until the POC is complete. The separate first-integral binder timeout was
   removed by reading a sole registered binder row once; focused
   `BinderReaderProbes` passes. Full protected acceptance has not run. Issue
   lean-cas-dsl#66 remains open for those integrated obligations; no timeout
@@ -60,8 +71,8 @@
   The full `subspaces.kernel` benchmark now takes 102.34 seconds with 25.91
   seconds in assertion semantic reading; its 126-root, 39,816-byte identity
   is byte-identical to the saved prechange diagnostic baseline. The 2×2
-  identity is likewise unchanged. The practical latency target, independent
-  interpretation preservation, and full protected acceptance remain open.
+  identity is likewise unchanged. Independent interpretation preservation and
+  full protected acceptance remain open; the proposed latency target is deferred.
   A subsequent profiler split found 12.0 seconds in speculative vector-zero
   family trials and 4.75 seconds in `0` operation trials on the same admitted
   3×3 file. The vector-zero declaration has a terminal `Fin 1` source, so
