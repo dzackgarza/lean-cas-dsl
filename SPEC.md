@@ -119,8 +119,8 @@ comparison and the endpoint data remain part of the question. The language check
 at the declared source or target; naming two objects with the same carrier does not identify them.
 These forms apply to any registered generator or presentation comparison.
 
-Use `X in Groups`, `X in CommutativeRings`, or another registered category to select the declared
-structure when the same display name denotes objects with different structures.
+Use `X in Groups`, `X in FiniteSets`, or another category's registered surface name to select
+the declared structure when the same display name denotes objects with different structures.
 
 ```text
 let p(x) := x³ - 2x + 1 in ℤ[x]
