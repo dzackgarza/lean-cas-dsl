@@ -16,7 +16,12 @@ This is an unresolved input/resolution boundary in the existing `cc-closure`
 obligation, not a reason to remove the new structural route or weaken the
 unchanged positive. The current public interfaces and existing Mathlib owners
 must be checked before classifying a required upstream extension. No such
-extension has been commissioned from this downstream failure.
+extension has been commissioned from this downstream failure. The existing
+Mathlib owner is `CategoryTheory.Functor.mapArrowFunctor` in
+`Mathlib/CategoryTheory/Comma/Arrow.lean`; it acts on natural transformations.
+The published constructor registration supplies `Constructors.arrowMap` only,
+not that functor or a checked general cell-action witness. The kernel cannot
+substitute the Mathlib declaration by recognizing the constructor's name.
 
 The same run fails `CohereProbes`' assertion that the formed-module route is
 unique: the independently published new base routes now require a registered

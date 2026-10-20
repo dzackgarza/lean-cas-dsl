@@ -2355,3 +2355,57 @@ entries stay unchanged, and a dirty dependency preserves both its local work
 and the previous manifest. No seal, verifier condition, protected accepted input,
 mathematics, acceptance assertion or leaf was changed. The hosted repaired run
 remains to be executed at the integrated source revision.
+
+
+## 2026-10-20 — Reconcile completed hosted comparison at 8be6fe8
+
+Gates run `39437629797` finished at exact published source
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Controller boundary fixtures
+passed, including the repaired reviewer discovery. The per-assertion base/head
+comparison passed; the following permanence check failed because all five
+`inverses.*` questions were unread. No permanent record was rewritten.
+The full job log is `/tmp/b0-poc-5410e70/hosted-per-assertion-8be.log`.
+Both runner suites reported native Sage/GAP programs unavailable (`no ready
+frame`); that hosted run does not establish the required registered executions.
+The earlier local native report remains separate and has the already recorded
+mixed dependency-label provenance defect.
+
+Inspection of published constructor inputs confirms that Mathlib owns
+`Functor.mapArrowFunctor`, while the catalogue supplies only the constructor's
+action on functors. No general action on comparison cells is supplied through
+that registry interface. The unchanged constructed-route positive stays open;
+no Arrow-specific semantic inference or upstream work instruction was added.
+
+
+## 2026-10-20 — Provision native engines for hosted execution
+
+The missing-engine condition in hosted `8be6fe8` is repaired as construction
+workflow source: the build/audit and per-assertion jobs create the full Sage
+conda-forge environment through the pinned setup-micromamba action and export
+its actual interpreter as both `CAS_SAGE_PYTHON` and `CAS_GAP_PYTHON`. A required
+step imports Sage and its native libgap before either consumer runs. It does not
+assert mathematical correctness or count an installation check as acceptance.
+The installation follows Sage's official
+[installation guide](https://doc.sagemath.org/html/en/installation/index.html)
+and the action's documented
+[environment and run-shell interface](https://github.com/mamba-org/setup-micromamba).
+No leaf implementation or assertion was changed. `actionlint` 1.7.12 accepts
+the parsed workflow; actual hosted environment creation and registered execution
+remain to be run at the integrated published source revision.
+
+
+## 2026-10-20 — Preserve coherence controls after independent semantic growth
+
+The hosted `8be6fe8` failure in `CohereProbes` was the control's obsolete
+assumption that formed modules have one carrier route. The control now checks
+the method owner's Sets category for an empty prefix and no comparison; the
+formed-module check remains and requires its actual independently published
+`cell.bilin_module.carrier_routes` comparison. The ring-diamond, missing-cell,
+reordering, direction and ambiguous-comparison checks are unchanged. No
+permanent `.cas` statement or authoritative question record was altered.
+
+Exact target `just focus CasAcceptance.CohereProbes` passed 3694 jobs in
+48.66 seconds with mathematics `80520813` and contract `c603ede`; log
+`/tmp/lean-cas-focus.9r4uQG.log`. This establishes the engineering control at
+this source boundary, not the still-failing constructed-route positive, full
+POC execution, independent acceptance, or activation of a replacement judge.

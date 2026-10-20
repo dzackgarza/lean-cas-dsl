@@ -66,6 +66,26 @@ jobs:
           lint: 'false'
           use-mathlib-cache: 'true'
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3
+      - name: Install native computation engines
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39
+        with:
+          environment-name: cas-engines
+          create-args: -c conda-forge sage
+          init-shell: none
+          cache-environment: true
+      - name: Expose and check native engine interpreter
+        shell: micromamba-shell {0}
+        run: |
+          python - <<'PYENGINE'
+          import os
+          import sys
+          import sage.all
+          from sage.libs.gap.libgap import libgap
+          with open(os.environ["GITHUB_ENV"], "a") as stream:
+              stream.write(f"CAS_SAGE_PYTHON={sys.executable}\n")
+              stream.write(f"CAS_GAP_PYTHON={sys.executable}\n")
+          print(f"Native Sage and GAP imports available in {sys.executable}")
+          PYENGINE
       - name: Build and audit
         run: just test
   acceptance:
@@ -97,6 +117,26 @@ jobs:
           use-mathlib-cache: 'false'
       - name: Check candidate assertions against the accepted base ledger
         run: python3 head/scripts/check_acceptance_permanent.py --base base/CasAcceptance/Permanent/admitted.json
+      - name: Install native computation engines
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39
+        with:
+          environment-name: cas-engines
+          create-args: -c conda-forge sage
+          init-shell: none
+          cache-environment: true
+      - name: Expose and check native engine interpreter
+        shell: micromamba-shell {0}
+        run: |
+          python - <<'PYENGINE'
+          import os
+          import sys
+          import sage.all
+          from sage.libs.gap.libgap import libgap
+          with open(os.environ["GITHUB_ENV"], "a") as stream:
+              stream.write(f"CAS_SAGE_PYTHON={sys.executable}\n")
+              stream.write(f"CAS_GAP_PYTHON={sys.executable}\n")
+          print(f"Native Sage and GAP imports available in {sys.executable}")
+          PYENGINE
       - name: Run the suite at the base and at the head
         run: |
           for side in base head; do
