@@ -1,5 +1,34 @@
 # Journal
 
+## 2026-10-20 — Complete registered run at runtime candidate 5410e70
+
+Exec session `69924` terminated with exit 1 and PID 895162 is gone. The complete
+report has every admitted ID exactly once; no identity was dropped or rerun as
+a replacement inventory. The extra row records the failed matrix-unit binding.
+
+| Admitted outcome | Count |
+| --- | ---: |
+| Holds | 18 |
+| NoImplementation | 127 |
+| Unavailable | 3 |
+| Invalid | 5 |
+
+All 15 required computations hold with nonempty registered dispatches. Reversal
+now dispatches; all three discriminants dispatch twice and hold. The five inverse
+questions remain unreadable. Exact dispatch/outcome audit is
+`/tmp/b0-poc-5410e70/analysis.json`. This is the original imported environment's
+runtime result with the mixed revision-label limitation recorded below, not one
+coherent accepted tuple or completion of the additional positives.
+
+The unchanged permanence gate failed on the five unread identities. Its early
+return does not establish record comparison. The separate exact record audit
+retains 11 unrecorded identities and 137 readable historical differences, with
+no record rewritten from the saved base. All 148 readable claim bodies and
+propositions match `32c3897` after ignoring only the revision-label prefix;
+interpretation-only data went to the acceptance author for independent assessment.
+All complete reports, the unchanged gate exit, comparison and coverage audit are
+retained in the same scratch directory. No authoritative expectation was generated.
+
 ## 2026-10-20 — Explicit source URLs at dependency consumption
 
 Normal publication of `8cef0b2` failed Semgrep on

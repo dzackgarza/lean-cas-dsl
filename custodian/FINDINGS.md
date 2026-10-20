@@ -501,45 +501,61 @@ owner choice.
 
 ## 2026-10-20 — Integrated candidate and remaining B0 dependencies
 
-Candidate `32c3897163a6f6595b44277b097efad0da9ccfdc` passes the complete local
-7,554-job integration and hosted build/audit, purity and boundary checks in run
-`39406008396`. Its completed computation-only report contains all 153 admitted
-IDs exactly once, plus the failed inverse binding: 15 holds, 130 gaps, three
-unavailable outcomes and five invalid readings. These are construction observations,
-not independent B0 acceptance. Artifacts and exact clean inputs are in
-`/tmp/b0-poc-32c3897/`; `analysis.json` summarizes the complete report.
+Runtime candidate `5410e70e012963501d4583e0660b14d4079bbd02` passed the local
+7,554-job integration. Its completed computation-only run reports all 153 admitted
+IDs exactly once and one additional failed inverse binding. It imported mathematics
+`eea5c7f3`, contract `3c2159b5`, leaves `c5bf283c` and notebook worker `4c6c2a77`.
+Artifacts, complete reports and input observations are in `/tmp/b0-poc-5410e70/`.
+No hosted result is attributed to this candidate: ordinary publication failed its
+source QC gate and is being corrected through normal source operations.
 
-The required registered-execution target remains **11/15**: reversal equality
-holds with no dispatch and the three discriminants have no admitted cokernel
-registration. Latest-main leaves `48a99b5` supply neither `mor.sets.fin_rev` nor
-`colim.bil_w_form.cokernel`. They also supply no `meth.rank`, so the admitted
-`rank(A₂) = 2` positive remains a gap. A kernel proof discharge or a historical
-leaf revision cannot replace these required current registered computations.
+| Admitted assertion outcome | Count |
+| --- | ---: |
+| Holds | 18 |
+| NoImplementation | 127 |
+| Unavailable | 3 |
+| Invalid | 5 |
 
-The five inverse readings remain invalid through the same upstream evidence
-failure tracked in lean-categories#92 (still open). No kernel evidence rewrite or
-alternate mathematical admission was added. The other three unavailable outcomes
-remain backend errors on returned finite-set/construction data; their strata are
-preserved.
+All **15/15 required computations hold with nonempty registered dispatches**,
+including reversal and all three discriminants. This establishes that runtime
+observation, not the additional positives, question preservation or B0 acceptance.
+The report has a provenance limitation: a concurrent diagnostic refreshed the
+running worktree's manifest while its imported environment stayed fixed. Readable
+question labels split between 82 `eea5c7f3` and 66 `293fccff` records. They are
+retained unchanged. The final integrated candidate must run with stable inputs;
+this mixed-label report cannot establish one coherent authoritative tuple.
 
-Of 148 readable questions, 147 are byte-identical to the previous complete run.
-Only `calculus.limit_infinity` differs: its claim portion is byte-identical, while
-its operation provenance now retains the structured domain parameter. This is
-not self-issued interpretation acceptance. The unchanged permanence checker
-fails on the five unread questions. There are still 11 unrecorded identities and
-137 readable differences from the stored historical records, requiring independent
-assessment. No assertion or authoritative interpretation record was edited.
+Five inverse questions remain unreadable through matrix-unit admission, despite
+the independently published upstream repair and closure of lean-categories#92.
+That source milestone did not discharge the actual unchanged assertions. Establish
+the current reader/admission boundary on latest mathematics before assigning the
+remaining defect; the kernel does not reshape upstream evidence or commission
+mathematics from its failing term. Three broader unavailable outcomes are backend
+errors on finite-set/construction data; their failure stratum remains visible.
 
-Independent extension trials, their arguments and final acceptance remain
-unestablished. Fresh-context formalization, acceptance and leaf authors are now
-performing their respective remaining work under the owner's authorization to
-delegate. Role separation governs their inputs and edits; it does not preclude
-those assignments. The protected `accepted/controller` path still returns 404;
-source integration does not bootstrap or approve it. The deployment operations remain
-in `custodian/SETUP.md`. The completed inventory supplies no new required-execution
-failure that can be repaired by authoring a leaf or upstream mathematics in the
-kernel role. Unsupported broader computations remain visible gaps; they do not
-reduce the fixed B0 obligations above.
+All 148 readable complete question bodies and propositions match `32c3897` after
+removing only the revision-label prefix for diagnostic comparison. Independent
+acceptance assessment covers those identities against its prior source-grounded
+specifications and retains the five absent questions. This does not admit new
+interpretation records. The unchanged permanence checker stops at those five
+unread questions; it has not passed the later record comparison. A separate exact
+audit finds 11 unrecorded identities and 137 readable differences from the stored
+historical records. The record itself is unchanged from the saved base.
+
+The additional positive proposals expose generic runtime work, including Arrow
+request categories and canonical source-form dispatch for already admitted
+composites. Independent source assessment also identifies unexecuted prescribed
+lift components. The ambiguity-stratification defect is corrected in `69e96e2`
+with real reader-boundary red/green checks; its wider integrated behavior remains
+to be established. No admitted mathematical assertion or expected value changed.
+
+Upstream mathematical source instances and their bounded independent assessment
+are published through `80520813`; they are not kernel extension-trial outcomes.
+Independent trials, their complete compositional arguments and final acceptance
+remain outstanding. The last verified protected `accepted/controller` lookup was
+404; source integration does not bootstrap or approve it. Actual deployment
+operations remain in `custodian/SETUP.md`. These dependencies do not stop available
+generic kernel construction or permit downstream authorship of mathematics/leaves.
 
 ## 2026-10-20 — Priority correction
 
