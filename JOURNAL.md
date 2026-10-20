@@ -39,6 +39,36 @@ The diagnostic itself failed on a missing `module` header before reaching its
 intended regression (`/tmp/lean-cas-probe.AWRe30.log`); this is not a red
 behavior check or a successful build.
 
+## 2026-10-20 — Preserve semantic resolution ambiguity
+
+The production-boundary reproducer calls `Semantic.property "is_commutative"` on
+upstream `ringIntegers` in `cat.rings` and requires the reader's semantic ambiguity
+tag. Before repair it failed with “a ring's unresolved multiplicative/additive property
+routes were not classified as ambiguous”; after repair the same probe passed.
+The unchanged probe and its red/green logs are in
+`/tmp/b0-poc-5410e70/semantic-ambiguity.lean`, `semantic-ambiguity-red.log`,
+and `semantic-ambiguity-green.log`.
+
+`throwResolutionError` now exhaustively maps `ambiguous`, `ambiguousProperty`,
+`ambiguousComparison` and `noSourceRoute` to the existing semantic ambiguity tag;
+`unknownMethod`, `notApplicable` and `missingLift` retain their invalid-call stratum.
+`Semantic.method`, `Semantic.property` and `reportResolution` share that conversion.
+The permanent engineering `ResolutionFailureProbes` uses existing catalogue entries
+to check the ring property, ring `units` method and resolution reporter, together
+with unknown method/property calls remaining invalid. It introduces no semantic rows
+and changes no permanent mathematical assertion, expected answer or record.
+
+`just focus CasCatalogue.Semantic` passed (1481 jobs, 34.41 seconds).
+`just focus CasCatalogue.ResolutionFailureProbes` passed the current Catalogue
+rebuild (3722 jobs, 82.55 seconds); its automatic profile completed in 18.95 seconds.
+The final probe source passed a focused rebuild (3722 jobs, 15.97 seconds) without
+warnings. Logs are `semantic-ambiguity-build.log`, `resolution-failure-probes.log`
+and `resolution-failure-probes-final.log` in the same scratch directory. The checks
+used mathematics main snapshot `bdc49771e97ca0237d4d8453c3e6c58417f999bd`;
+the separately refreshed manifest remains outside this source commit. These results
+establish failure classification at those reader boundaries, not full harness success
+or independent B0 acceptance.
+
 ## 2026-10-20 — Integrated runtime candidate 5410e70
 
 The clean committed candidate `5410e70e012963501d4583e0660b14d4079bbd02`

@@ -471,7 +471,7 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry)
   let state ← registryState
   let resolution ← match state.resolveMethod category.expression name #[] with
     | .ok resolution => pure resolution
-    | .error error => throwStratum .invalid (error.render state)
+    | .error error => throwResolutionError state error
   let some functor := state.functor? resolution.method.functor
     | throwStratum .invalid m!"`{name}` has no registered functor"
   let some target := state.category? functor.target
@@ -516,7 +516,7 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
   let state ← registryState
   let resolution ← match state.resolveProperty category.expression name #[] with
     | .ok resolution => pure resolution
-    | .error error => throwStratum .invalid (error.render state)
+    | .error error => throwResolutionError state error
   let image ← if resolution.route.steps.isEmpty then pure X else do
     objOf (← routeFunctor state (resolution.route.steps.map (·.ref))) X
   let classifier ← classifierInstance resolution.classifier
