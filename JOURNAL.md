@@ -1,5 +1,29 @@
 # Journal
 
+## 2026-10-20 — Match binder engineering probes to production question scope
+
+The integrated `3e0f982` build timed out in the first `BinderReaderProbes`
+command at the ordinary 200000-heartbeat limit. After the independent Semantic
+source correction, the exact unchanged first loop still failed on its fifth
+question: the first four claims and retained-domain checks completed, then the
+infinite-limit question exhausted the shared budget at `whnf`
+(`/tmp/lean-cas-probe.fm9O6c.log`, 125.68s). Each of those same five questions
+passed independently with every original binder invariant and the ordinary
+heartbeat limit: polynomial integral 36.36s (`atcipD`), sine integral 29.74s
+(`Nch9me`), polynomial limit 53.80s (`44xFgk`), sine quotient limit 53.17s
+(`MFK8aB`), and infinite limit 42.93s (`iSchA4`); these are `/tmp/lean-cas-probe.*.log`.
+
+The first probe loop had shared one `liftTermElabM` state and heartbeat baseline
+across five independent questions. Production `TestSuite` instead enters a fresh
+`liftTermElabM`, `withoutErrToSorry`, and `withCurrHeartbeats` for each item.
+The probe now uses exactly that per-question boundary. All five original strings,
+all retained-binder invariants, and the ordinary limit remain unchanged; an
+individual timeout remains fatal. The second root-binder block is unchanged.
+The exact corrected first block passed in 136.72s
+(`/tmp/lean-cas-probe.c6bNq9.log`). This is a cached consumer diagnostic against
+the new Semantic artifact, not a rebuilt Language/BinderReaderProbes source gate
+or B0 acceptance. The parent owns the remaining dependent source gate.
+
 ## 2026-10-20 — Bind categorical actions to their supplied full source realization
 
 The integrated `3e0f982` source gate failed unchanged
