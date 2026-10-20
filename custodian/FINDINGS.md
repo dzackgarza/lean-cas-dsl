@@ -1,5 +1,31 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent disposition of exact-blob snapshot repair
+
+Assessed focused repair `f1061e045d8779fbd15119db765592bfe3dc6986`.
+The snapshot imports `retrieve_candidate.py` by the trusted review module's own
+location, not from the candidate. Root and dependency snapshots both reuse that
+blob materializer with their independently read exact revision; fetching HEAD
+must reproduce that revision or retrieval fails. Source/dependency status reads
+retain the sanitized Git environment. No checkout remains in these snapshot
+materialization paths, and the helper validates complete regular-file trees
+before writing raw blobs. No authority or mathematical input selection changed.
+
+Independently reran the CRLF and ambient clean/smudge reproductions together
+through production snapshot, using separate temporary source and dependency Git
+repositories. Both contained `candidate.txt text eol=crlf filter=reviewfixture`
+attributes; the ambient clean/smudge commands would create a marker. Observed:
+filter marker absent; exact source revision preserved; exact dependency revision
+preserved; source and dependency bytes both remained `b'committed\n'`.
+The existing real Git retrieval/snapshot fixture also passed, including its
+source/dependency raw-byte assertions and prior link/moved-ref rejection paths.
+
+The previously reproduced ambient-filter and checkout-EOL findings are resolved
+in this construction source. No additional blocking finding was found in this
+focused repair. This disposition does not establish protected runtime deployment,
+real reviewer completion, independent signing approval or B0 acceptance. No
+implementation or protected authority was changed by the assessment.
+
 ## 2026-10-20 — Exact-byte snapshot construction repair
 
 The reviewer identified candidate `.gitattributes` with `text eol=crlf` changing
