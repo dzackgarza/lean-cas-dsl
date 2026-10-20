@@ -22,6 +22,12 @@ permanent assertion or its expected answer; a complete identity comparison
 was not run on those discarded candidates. The next reader
 optimization must identify which declared parameter or result check makes the
 vector-zero `applyFamily` trial fail before repeating the full application.
+An import-only reproducer then showed the mismatch more directly: the tuple's
+fixed element set is `ℚ`, while the registered zero family targets `Vec`.
+`familyLandsIn` rejects `ℚ` in about 1 ms, but it also rejects `ℚ³` before
+explicit parameters are bound even though `applyFamily` returns an element
+there. Moving that check ahead of the trial would therefore discard a valid
+reading. The safe preflight still needs the family's actual parameter binding.
 Focused compilation and reader timing here are engineering diagnostics, not
 protected acceptance or completion of the latency milestone.
 
