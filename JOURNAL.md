@@ -1,5 +1,40 @@
 # Journal
 
+## 2026-10-20 — Checkpoint combined reader and returned-result repairs
+
+Kernel source checkpoint `a45c797` integrates the proof-refinement, named-map
+context, complete computational inventory and receiver corrections. The combined
+`CasCatalogue.Realize` source gate passes at mathematics `805208138f016368f6a4eac415f25f3922a5807d`
+and contract `c6e78eb2e5939e58b6f18b5fc456320c65f10186`:
+`/tmp/lean-cas-focus.bCnVQe.log` (3738 jobs, 158.01 seconds).
+`RuntimeRequestProbes` passes in `/tmp/lean-cas-focus.wNyGJA.log`
+(66.35 seconds); its completed profile is `/tmp/lean-cas-profile.DaoVk0.log`.
+`ComputationalActionContextProbes` passes in `/tmp/lean-cas-focus.JQ5XG2.log`
+(43.10 seconds). These establish their individual construction checks.
+
+The original-source five-assertion diagnostic completes in 134.87 seconds,
+`/tmp/lean-cas-probe.ZsicEM.log`, with complete identities in
+`/tmp/b0-poc-5410e70/reader-product-f9-combined-final.json`. It retains all
+original bindings and reads the unchanged original proposal file. The finite
+product assertion holds through two registered dispatches. Both F9 generator
+assertions remain unavailable after one dispatch, and both coefficient-map
+assertions report `NoImplementation` before dispatch. Leaf main advanced after
+that loaded diagnostic; these outcomes must remain separate from the next run.
+
+The independent source engineering review of Admission, ProofRefinement,
+EvidencePresentation, Trace, Language and their Realize consumers established no
+concrete new defect. EvidencePresentation preserves the extracted original bodies.
+The review excludes the reviewer's own Data, LiftData and receiver changes and
+confers no protected acceptance. Independently authored mathematical assessments
+of the five product/F9 encodings and five inverse encodings are committed under
+`tests/acceptance/interpretation-comparison-5410e70-{product-f9,inverses}.md`.
+They assess question meaning, not runtime authentication or authoritative migration.
+
+The complete integrated inventory, remaining required positives, same-candidate
+protected negatives, frozen extension trials and independent acceptance remain
+owed. The already recorded constructor-cell coherence input remains unresolved;
+no kernel rule or assertion was weakened to hide it.
+
 ## 2026-10-20 — Frame complete computational point data without reconstructing laws
 
 The unchanged actual `sign(3).ker()` computation dispatched
