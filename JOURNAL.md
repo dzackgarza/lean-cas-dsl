@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-10-20 — Merged candidate worktree retired after the complete run
+
+The merged external `lean-cas-dsl-poc-7e44f61` worktree was removed with
+`git worktree remove` after its runner terminated. Its source was clean, all
+commits were reachable from this checkout's main, no process had a working
+directory inside it, and no untracked source was present. The archived report
+and worktree report had the same SHA-256:
+`1d2879904100bd8054fb1fca81bf95eec9142b96afc514359ab730b6b9cdce47`.
+All logs, exact inputs and complete report remain in `/tmp/b0-poc-32c3897`;
+shared dependency checkouts were symlinks and remain intact. The immutable source
+candidate remains available as commit `32c3897` and on remote main. The original
+checkout retains only the preserved unrelated Language edit outside committed work.
+No build or acceptance result is attributed to that dirty edit.
+
 ## 2026-10-20 — Complete inventory at integrated candidate 32c3897
 
 The existing run in exec session `93238` terminated with exit 1; PID `3209288`
