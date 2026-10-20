@@ -95,5 +95,104 @@ class DependencyInvocationTest(unittest.TestCase):
             self.assertEqual(artifact.read_text(), '{"operations": []}')
 
 
+class ScopedDependencyTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.math = self.create_repository('mathematics')
+        self.contract = self.create_repository('contract')
+        self.original_math = self.git(self.math, 'rev-parse', 'HEAD')
+        self.original_contract = self.git(self.contract, 'rev-parse', 'HEAD')
+        self.config = {
+            'requirements': {'repository': str(self.math), 'commit': self.original_math},
+            'accepted': {
+                'mathematics': {'repository': str(self.math), 'url': str(self.math), 'commit': self.original_math},
+                'contract': {'repository': str(self.contract), 'url': str(self.contract), 'commit': self.original_contract},
+                'acceptance': {'repository': str(self.math), 'commit': self.original_math},
+                'leaves': {'repository': str(self.root/'unavailable-leaves'), 'url': str(self.root/'unavailable-leaves'), 'commit': self.original_math},
+                'notebook': {'repository': str(self.root/'unavailable-notebook'), 'url': str(self.root/'unavailable-notebook'), 'commit': self.original_math},
+                'public_metadata': {
+                    'repository': str(self.math), 'commit': self.original_math,
+                    'path': 'public.json', 'sha256': hashlib.sha256(b'{"operation": "declared"}').hexdigest(),
+                    'provenance': {'mathematics': self.original_math, 'contract': self.original_contract}}},
+            'reviewer_public_key': str(self.root/'unused'), 'reviewer_fingerprint': 'unused',
+            'assignments': {'b0-authority': 'formalization'}, 'obligation': 'b0-authority',
+            'source_repository': str(self.math)}
+
+    def git(self, repo, *args):
+        return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-C', str(repo), *args],
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    def create_repository(self, name):
+        repo = self.root/name
+        repo.mkdir()
+        self.git(repo, 'init', '-q', '-b', 'main')
+        self.git(repo, 'config', 'user.name', 'fixture')
+        self.git(repo, 'config', 'user.email', 'fixture@example.test')
+        (repo/'specs').mkdir()
+        (repo/'specs/computational-core-plan.md').write_text('`b0-authority`')
+        (repo/'meaning').write_text(name+' original')
+        (repo/'public.json').write_text('{"operation": "declared"}')
+        self.git(repo, 'add', '.')
+        self.git(repo, 'commit', '-qm', 'initial main')
+        return repo
+
+    def invoke(self, role, input_name, path):
+        self.config['assignments']['b0-authority'] = role
+        config = self.root/'launch.json'
+        config.write_text(json.dumps(self.config))
+        request = {'id': 1, 'method': 'tools/call', 'params': {'name': 'read_assigned_input',
+                   'arguments': {'input': input_name, 'path': path}}}
+        return subprocess.run(['python3', str(Path(__file__).with_name('launcher.py')),
+                               '--configuration', str(config)], input=json.dumps(request)+'\n',
+                              capture_output=True, text=True)
+
+    def test_only_actual_consumers_block_on_stale_or_unavailable_inputs(self):
+        initial = self.invoke('leaf', 'public_metadata', 'public.json')
+        self.assertEqual(initial.returncode, 0, initial.stderr)
+        self.assertEqual(json.loads(initial.stdout)['result']['content'][0]['text'], '{"operation": "declared"}')
+        (self.contract/'meaning').write_text('contract current main')
+        self.git(self.contract, 'add', 'meaning')
+        self.git(self.contract, 'commit', '-qm', 'advance contract main')
+        for role in ('formalization', 'acceptance', 'kernel'):
+            result = self.invoke(role, 'mathematics', 'meaning')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)['result']['content'][0]['text'], 'mathematics original')
+        stale = self.invoke('leaf', 'public_metadata', 'public.json')
+        self.assertNotEqual(stale.returncode, 0)
+        self.assertEqual(stale.stdout, '')
+        self.config['accepted']['contract']['url'] = str(self.root/'unavailable-contract')
+        (self.math/'meaning').write_text('mathematics current main')
+        self.git(self.math, 'add', 'meaning')
+        self.git(self.math, 'commit', '-qm', 'advance mathematical main')
+        result = self.invoke('formalization', 'mathematics', 'meaning')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['result']['content'][0]['text'], 'mathematics current main')
+        self.assertEqual(json.loads(result.stderr)['inputs'], {'mathematics': self.git(self.math, 'rev-parse', 'HEAD')})
+        result = self.invoke('acceptance', 'mathematics', 'meaning')
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_both_artifact_representations_require_complete_exact_provenance(self):
+        public = self.config['accepted']['public_metadata']
+        for external in (False, True):
+            if external:
+                public['artifact_file'] = str(self.math/'public.json')
+                del public['path']
+            for provenance in (None, {'mathematics': self.original_math},
+                               {'contract': self.original_contract}):
+                if provenance is None:
+                    public.pop('provenance', None)
+                else:
+                    public['provenance'] = provenance
+                rejected = self.invoke('leaf', 'public_metadata', 'public_operation_metadata.json' if external else 'public.json')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            public['provenance'] = {'mathematics': self.original_math, 'contract': self.original_contract}
+            result = self.invoke('leaf', 'public_metadata', 'public_operation_metadata.json' if external else 'public.json')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)['result']['content'][0]['text'], '{"operation": "declared"}')
+
+
 if __name__ == '__main__':
     unittest.main()

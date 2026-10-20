@@ -7,17 +7,23 @@ The operator must supply the real independent assignment and reviewer public ide
 examples are not credentials or accepted releases. Never print or commit private keys.
 
 1. Independently assess the controller and judging source, then bootstrap its reviewed
-   immutable revision as `accepted/controller`. Bootstrap separately reviewed mathematics,
-   contract, acceptance and public metadata releases as protected accepted references in
-   their respective repositories. Do not mark a construction candidate accepted merely
-   because an engineering check passes. `deployment.example.json` identifies retained
-   construction inputs; replace its placeholders with independently admitted identities.
+   immutable revision as `accepted/controller`. Keep acceptance/judging source, governing
+   requirements and public metadata under their existing independent protection. Mathematics,
+   contract, leaves and notebook source dependencies are consumed from their latest `main`
+   at each build, harness or author invocation, without separate accepted dependency releases
+   or re-pin transactions. Do not mark a construction candidate accepted merely because an
+   engineering check passes. `deployment.example.json` identifies construction inputs;
+   replace protected authority placeholders with independently admitted identities.
 2. Commit `custodian/deployment.json` on the controller release with fixed repository URLs,
-   immutable input revisions, independently supplied assignment, public reviewer key and
-   fingerprint, isolated author checkout, and the existing signed review history branch.
-   External public metadata additionally needs the immutable file, full digest and exact
-   mathematics/contract provenance. Provision that file in the protected deployment; an
-   unsigned construction export is not an accepted public release.
+   fixed requirements/judging revisions, independently supplied assignment, public reviewer
+   key and fingerprint, isolated author checkout, and existing signed review history branch.
+   Source dependency commits record reproducibility snapshots; the resolver fetches current
+   `main` from the configured trusted URL or protected input origin before consumption.
+   Both committed and external public metadata need a full content digest and exact
+   mathematics AND contract provenance. Provision the independently fixed artifact in the
+   protected deployment. If either source main has advanced beyond that provenance, only
+   consumers of that artifact stop; do not relabel it or regenerate it from a candidate.
+   An unsigned construction export is not an accepted public release.
 3. Apply the reviewed `accepted-ruleset.json` in each applicable repository. Its `accepted/**`
    scope requires independent PR review and the trusted `Custodian review` check, with no
    bypass actors, deletion or force pushes. Provision independent CODEOWNERS before using
@@ -32,16 +38,23 @@ examples are not credentials or accepted releases. Never print or commit private
    keys under the existing seal protocol; author launchers receive none of these keys.
 5. Dispatch `custodian-authority.yml` at `accepted/controller` for a full candidate commit.
    The trusted workflow materializes Git objects without checking out candidate programs,
-   reviews one complete request, signs its actual judgment, and records it in the existing
-   discussion branch. Download the `custodian-independent-assessment` artifact and verify the signature.
+   resolves the full source dependency tuple, reviews one complete request, signs its actual
+   judgment, and records it in the existing discussion branch. Retain its
+   `resolved-configuration.json` and request as the exact reproducibility snapshot. Download the `custodian-independent-assessment` artifact and verify the signature.
    A missing credential, invocation failure or blocking finding cannot advance inputs.
 6. Run `publish_assessment.py --configuration ... --request ... --decision ... --signature ...
    --deployment-repository ...` to inspect the exact publication plan. After applicable
    authorization, add `--publish` to open its conventional PR against `accepted/controller`.
-   Independent protected review and merge admit the configuration. Never direct-push an
-   accepted configuration or treat a subagent's technical finding as a signing credential.
+   Independent protected review and merge admit changes to the protected configuration;
+   source dependency resolution itself needs no such transaction. Signed request replay
+   uses the captured source commits without refetching or changing protected judging inputs.
+   Never direct-push an accepted configuration or treat a subagent's technical finding as
+   a signing credential.
 7. Launch a fresh author with `launch_author.py --configuration ...`. Confirm the tool list
-   is only its assigned MCP operations and validation, then exercise source write/read and
+   is only its assigned MCP operations and validation. Capture the permitted-input revision
+   snapshot on the role server's stderr. The launcher resolves only that role's input
+   dependencies; checking public metadata also resolves its mathematics/contract provenance
+   sources without exposing mathematical source to a leaf author. Then exercise source write/read and
    immutable submission. Run source checks and the existing 79 fixtures before deployment;
    run genuine independently assessed acceptance with the fixed denominator separately.
 

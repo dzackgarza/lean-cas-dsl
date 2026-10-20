@@ -202,8 +202,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--configuration', type=Path, required=True)
     args = parser.parse_args()
-    config = resolve_dependencies(json.loads(args.configuration.read_text()))
+    config = json.loads(args.configuration.read_text())
     role=config['assignments'][config['obligation']]
+    config = resolve_dependencies(config, ROLE_INPUTS[role])
     if role=='leaf' and 'public_metadata' in config['accepted']:
         public=config['accepted']['public_metadata']
         if 'artifact_file' in public and public['provenance']['mathematics']!=config['accepted']['mathematics']['commit']:

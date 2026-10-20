@@ -20,7 +20,11 @@ python3 custodian/controller.py submit-acceptance --repository /workspace/lean-c
 
 At each materialization, author-server start and independent assessment invocation,
 `dependencies.py` fetches `refs/heads/main` for configured mathematics, contract, leaves
-and notebook source dependencies. Their configured commits are previous snapshots, never
+and notebook source dependencies consumed by that operation. Author startup resolves only
+its role's assigned inputs and the provenance dependencies of its public artifact; an
+unavailable unrelated source or stale unconsumed artifact does not block the role. Complete
+independent assessment still resolves and checks the complete tuple it reviews.
+Their configured commits are previous snapshots, never
 pins or admission requirements. The trusted configured URL (or protected input storage's
 origin) supplies the remote; no author tool chooses it. A matching mutable source base
 also starts from that resolved dependency revision. Requirements, acceptance/judging
@@ -28,8 +32,9 @@ source, signing identities and public artifact bytes remain independently fixed.
 `materialize.py` prints its resolved configuration; author startup records only its
 permitted input revision snapshot on stderr. Independent assessment saves
 `resolved-configuration.json` beside the exact request. Capture those outputs as run
-records. A fixed public artifact with stale mathematics or contract provenance blocks
-its consumer; resolution never relabels or regenerates it.
+records. Both committed and external public artifacts require exact mathematics AND contract
+provenance. Missing provenance or either stale source identity blocks the artifact's
+consumer; resolution never relabels or regenerates it.
 
 Submission grants no acceptance. `controller.py` constructs the complete immutable tuple,
 unchanged source, patches and governing requirements. Independent review must bind that

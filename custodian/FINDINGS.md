@@ -51,6 +51,21 @@ Remaining construction findings:
    independently protected controller, evaluator, requirements and signing
    operations. Updating CONTROLLER alone leaves the operative setup contradictory.
 
+Construction repair note (2026-10-20; independent disposition remains separate):
+The launcher now supplies its role's permitted input names to dependency resolution.
+Only consumed inputs and public-artifact provenance dependencies are resolved or checked;
+full assessment/materialization still checks its complete consumed tuple. Both committed
+and external artifacts require exact mathematics and contract provenance. Committed
+artifact provenance is retained in the signed request and checked during reconstruction.
+SETUP now states current-main source consumption and reproducibility snapshots, retaining
+separate controller/evaluator/requirements/signing protection. Temporary Git repository
+regressions exercise a contract main advancing while unrelated authors continue, unavailable
+nonconsumed source repositories, mathematical main advancing for a formalization author,
+and missing provenance in both artifact representations. Nineteen controller fixtures and
+two review-context fixtures passed with isolated Git configuration. These are construction
+checks, not independent acceptance, deployment, a real reviewer result or a Docker runtime
+result; the previously recorded Docker evidence gap remains.
+
 All seven lightweight fixture programs passed with
 `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1`: controller (1), launcher
 (11), author launcher (1), materialize (1), assessment (1), dependencies (2) and
