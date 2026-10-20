@@ -109,6 +109,37 @@ with the same kernel would change the fixed trial input, so no such replacement
 is made. Its actual declared module morphism and the prescribed restricted-form
 kernel construction remain inputs to that trial.
 
+At published main `e8e97d2b13fad4b868b0f8447a5e511a47732436`, the new
+`formed_morphism` declaration exposes the genuine formed-morphism law with
+both carrier and value-module maps. This does not turn the selected projection
+into a fixed-value formed morphism. With `e₂=(0,1)`, its carrier map sends
+`e₂` to zero, while the selected form has `b(e₂,e₂)=3`. An isometric
+fixed-value morphism would require `3=b_Y(0,0)=0`, a contradiction. Therefore
+the stated kernel line with restricted form `[3]` is an assertion about
+restriction along an arbitrary module subobject; it cannot be presented as
+the kernel of a morphism in fixed-value `Bil(ℚ,ℚ)` or count as the required
+formed-arrow trial. The selected map, source form and expected restricted
+form are preserved; no different morphism is substituted.
+
+For a variable-value formed morphism the same source data instead require a
+specified value map `α` annihilating that self-pairing and satisfying the law
+on every pair. No such extra map or target form was part of the selected
+trial. Supplying one would be new mathematical data, not a spelling correction.
+The new constructor alone does not provide it.
+
+The published complete-cokernel example supplies a different, valid formed
+endomorphism of hyperbolic `U`: carrier multiplication by two and value
+multiplication by four, with the full identity
+`4b(x,y)=b(2x,2y)`. Its prescribed nonzero modulo-two descent is proved in
+`Modules/Bilinear/Valued/CokernelLiftTests.lean`. Those source-owned module
+maps are constructed there by `ModuleCat.ofHom`; they are not registered
+public map names. The inspected public constructor `formed_morphism` consumes
+module maps and a pairing-law proof, rather than admitting a general pair of
+function literals as module maps. Hence it does not yet supply source-language
+expressions for those specific maps or justify manufacturing them locally.
+This different mathematical example does not replace the fixed projection
+trial or its expected data.
+
 For the chosen exit trials requiring a new generic operation or new formal
 object absent from the published vocabulary, their independently published
 mathematical extension and a frozen candidate remain needed. These formed

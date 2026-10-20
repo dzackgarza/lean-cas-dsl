@@ -39,9 +39,9 @@ test groups.abelian.cyclic_three "The selected cyclic group is Multiplicative (Z
 test groups.abelian.symmetric_three "The permutations (0 1) and (1 2) in S3 do not commute: their two composites send 0 to 1 and 2 respectively":
   assert S3.is_abelian() = false
 
-let X := F9x in CommutativeRings
+let X := F9x
 
-let Y := F9y in CommutativeRings
+let Y := F9y
 
 test presentations.f9.forward_generator "Published CasCatalogue.Algebra.PolynomialPresentations.quadraticComparison_root: the selected comparison F3[x]/(x²+1) → F3[y]/(y²+y+2) sends x to y+2":
   assert (map generator(X) along F9translation) = generator(Y) + 2

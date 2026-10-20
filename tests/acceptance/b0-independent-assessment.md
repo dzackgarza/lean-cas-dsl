@@ -122,6 +122,16 @@ counts only after the relevant new formal input exists and the fixed candidate
 and old leaves are supplied. An example already present before freezing cannot
 alone demonstrate a post-freeze extension. No trial was executed in this assessment.
 
+The selected structured-result specimen above uses the projection
+`(a,b)↦a:ℚ²→ℚ` as a module map with a chosen source form `diag(2,3)`.
+It cannot be an isometric morphism in fixed-value `Bil(ℚ,ℚ)`: the vector
+`(0,1)` maps to zero while its self-pairing is three. Its nonzero restricted
+kernel form is a legitimate arbitrary-subobject restriction question, but
+this selection does not provide the B0 formed-arrow kernel trial. The exact
+source, map and expected restricted form are retained; no easier map is
+substituted. The published-signature audit and remaining inputs are detailed
+in [b0-formed-positive-specifications.md](b0-formed-positive-specifications.md).
+
 ## Compositional arguments and remaining acceptance inputs
 
 The acceptance table requires arguments in addition to examples. The arguments
