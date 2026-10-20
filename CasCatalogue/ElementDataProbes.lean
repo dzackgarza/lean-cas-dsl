@@ -71,3 +71,35 @@ run_cmd liftTermElabM do
     transported := transported + 1
   unless transported > 0 do
     throwError "selected-element regression did not exercise a transported structure"
+
+/- Engineering regression: the binder's fixed domain retains its structured parameter sources. -/
+run_cmd liftTermElabM do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt
+      "assert lim_{t → ∞} 1/t = 0"
+    | throwError "binder-domain regression did not parse"
+  let question ← interpret {} parsed
+  let trace : Trace ← IO.mkRef question.trace
+  let harness ← Harness.empty
+  let mut structured := 0
+  for (_, node) in question.trace.toArray do
+    let .binder _ _ domain _ _ := node | continue
+    let some (.object expectedId parameters) ← Trace.node? trace domain
+      | throwError "the declared binder domain lost its registered constructor"
+    let wire ← realize harness trace "the binder's declared domain" domain
+    let .object entry := wire.form
+      | throwError "the declared binder domain changed its registered form"
+    unless entry.id == expectedId do
+      throwError "the declared binder domain changed its registered identity"
+    let .ok arguments := (wire.json.getObjVal? "args").bind (·.getArr?)
+      | throwError "the binder domain has no complete parameter data"
+    unless arguments.size == parameters.size do
+      throwError "the binder domain omitted a declared parameter"
+    for (parameter, argument) in parameters.zip arguments do
+      let parameterType ← inferType parameter
+      if (← whnfR parameterType).isSort || (← isProp parameterType) then continue
+      let selected ← realize harness trace "the binder's fixed structured parameter" parameter
+      unless argument == selected.json do
+        throwError "the binder domain changed its complete structured parameter data"
+      structured := structured + 1
+  unless structured > 0 do
+    throwError "binder-domain regression did not exercise a structured parameter"
