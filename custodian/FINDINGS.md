@@ -1,5 +1,44 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Integrated candidate and remaining B0 dependencies
+
+Candidate `32c3897163a6f6595b44277b097efad0da9ccfdc` passes the complete local
+7,554-job integration and hosted build/audit, purity and boundary checks in run
+`39406008396`. Its completed computation-only report contains all 153 admitted
+IDs exactly once, plus the failed inverse binding: 15 holds, 130 gaps, three
+unavailable outcomes and five invalid readings. These are construction observations,
+not independent B0 acceptance. Artifacts and exact clean inputs are in
+`/tmp/b0-poc-32c3897/`; `analysis.json` summarizes the complete report.
+
+The required registered-execution target remains **11/15**: reversal equality
+holds with no dispatch and the three discriminants have no admitted cokernel
+registration. Latest-main leaves `48a99b5` supply neither `mor.sets.fin_rev` nor
+`colim.bil_w_form.cokernel`. They also supply no `meth.rank`, so the admitted
+`rank(A₂) = 2` positive remains a gap. A kernel proof discharge or a historical
+leaf revision cannot replace these required current registered computations.
+
+The five inverse readings remain invalid through the same upstream evidence
+failure tracked in lean-categories#92 (still open). No kernel evidence rewrite or
+alternate mathematical admission was added. The other three unavailable outcomes
+remain backend errors on returned finite-set/construction data; their strata are
+preserved.
+
+Of 148 readable questions, 147 are byte-identical to the previous complete run.
+Only `calculus.limit_infinity` differs: its claim portion is byte-identical, while
+its operation provenance now retains the structured domain parameter. This is
+not self-issued interpretation acceptance. The unchanged permanence checker
+fails on the five unread questions. There are still 11 unrecorded identities and
+137 readable differences from the stored historical records, requiring independent
+assessment. No assertion or authoritative interpretation record was edited.
+
+Independent extension trials, their arguments and final acceptance remain
+unestablished. The protected `accepted/controller` path still returns 404; source
+integration does not bootstrap or approve it. The deployment operations remain
+in `custodian/SETUP.md`. The completed inventory supplies no new required-execution
+failure that can be repaired by authoring a leaf or upstream mathematics in the
+kernel role. Unsupported broader computations remain visible gaps; they do not
+reduce the fixed B0 obligations above.
+
 ## 2026-10-20 — Priority correction
 
 The encoder repair removed the recorded repeated contextual encoding obstruction.

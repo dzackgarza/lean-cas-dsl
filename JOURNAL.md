@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-10-20 — Complete inventory at integrated candidate 32c3897
+
+The existing run in exec session `93238` terminated with exit 1; PID `3209288`
+is gone. Its complete `harness.json` and `harness.exit` were saved under
+`/tmp/b0-poc-32c3897/`. All 153 admitted IDs occur exactly once; the extra row is
+the failed matrix-unit binding. Outcomes are 15 holds, 130 gaps, three unavailable
+and five invalid, with no changes of outcome from `8fb0eb3`. Required registered
+execution is 11/15. The detailed dispatch audit is `analysis.json`.
+
+Exactly one of the 148 readable identities differs from `8fb0eb3`:
+`calculus.limit_infinity`. Its claim portion is identical; its operation table
+has 29 roots rather than 28 and retains the structured parameter provenance.
+The full difference remains for independent assessment. The unchanged permanence
+checker fails on the same five unread inverse IDs; its log and exit are saved.
+`question-record-coverage.json` records 11 unrecorded identities and 137 readable
+historical-record differences. No candidate output regenerated an expectation.
+
+All own-organisation remote main heads were rechecked after completion and match
+the input snapshot: mathematics `a2123729`, contract `3c2159b`, leaves `48a99b5`,
+notebook worker `4c6c2a7`. The manifest still lacks reversal, discriminant-cokernel
+and rank registrations. Upstream issue #92 remains open, and accepted/controller
+is absent. Current outstanding requirements and their owning dependencies are
+recorded directly in `custodian/FINDINGS.md`. Hosted acceptance jobs remain live;
+the same-SHA hosted source gates already pass. No replacement inventory was run.
+
 ## 2026-10-20 — Successful hosted build/audit at the exact integrated SHA
 
 Branch run `39406008396` reports SHA
