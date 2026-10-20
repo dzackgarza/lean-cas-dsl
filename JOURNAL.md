@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-10-20 — Running harness metadata affected by a concurrent diagnostic
+
+The orchestrator started `just probe` in the running harness's worktree.
+Its `track-main` prerequisite refreshed the mathematics manifest from `eea5c7f3`
+to `293fccff` while PID 895162 still evaluated the complete inventory. This was
+an execution mistake: the process retains its original imported environment,
+but `Realize.interpret` reads `lake-manifest.json` separately for each question.
+The report therefore needs a revision-prefix audit and cannot establish one
+unchanged input snapshot. All outcomes and assertions are retained; no record
+is regenerated or relabelled. The exact observation is
+`/tmp/b0-poc-5410e70/concurrent-manifest-refresh.json`.
+
+Subsequent diagnostics use a separate worktree. The final full run was already
+required to consume the independently published extension mathematics; it will
+run against stable source and manifest inputs. The original runtime report
+remains evidence of its loaded execution environment within this stated limit.
+The diagnostic itself failed on a missing `module` header before reaching its
+intended regression (`/tmp/lean-cas-probe.AWRe30.log`); this is not a red
+behavior check or a successful build.
+
 ## 2026-10-20 — Integrated runtime candidate 5410e70
 
 The clean committed candidate `5410e70e012963501d4583e0660b14d4079bbd02`
