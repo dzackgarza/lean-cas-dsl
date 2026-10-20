@@ -1,5 +1,37 @@
 # Journal
 
+## 2026-10-20 — Integrated runtime candidate 5410e70
+
+The clean committed candidate `5410e70e012963501d4583e0660b14d4079bbd02`
+passed `B0_INTEGRATION=1 just build` (7554 jobs). The exact log and exit
+record are `/tmp/b0-poc-5410e70/integration.log` and `integration.exit`.
+This establishes compilation and the build's protected probes, not the required
+registered computations or independent acceptance.
+
+The complete unchanged computation-only harness is running in the external
+`lean-cas-dsl-poc-independent` worktree. Its input snapshot is
+`/tmp/b0-poc-5410e70/inputs-before-harness.json`: mathematics `eea5c7f3`,
+contract `3c2159b5`, leaves `c5bf283c`, notebook worker `4c6c2a77`.
+It uses the existing Docker Sage interpreter and modular GAP interpreter.
+Later mathematical publications are separate inputs and are not attributed to
+this run. The original checkout's unrelated Language edit remains preserved.
+
+The local controller runtime fixture failed with
+`exec /usr/bin/python3.12: operation not permitted` under the existing Docker
+security flags; its log is
+`/tmp/b0-poc-de849f6/controller-execution.log`. The candidate adds an ordinary
+hosted controller-fixture job so the real fixture can run on the standard
+runner. That job is not protected approval. Normal publication of `5410e70`
+failed Semgrep on the privileged review workflow's PR-head checkout. The
+controller author is repairing that source path; QC was not bypassed.
+
+The formalization author continues independently chosen center construction
+against the fixed mathematical requirements. The acceptance author continues
+positive and extension-trial source against published mathematics. Neither
+receives implementation outcomes as mathematical requirements. Existing
+acceptance proposals and interpretation dispositions remain source artifacts;
+protected admission and final B0 acceptance are outstanding.
+
 ## 2026-10-20 — Independent role work resumed
 
 The owner authorized subagents to perform the remaining independent role work.
