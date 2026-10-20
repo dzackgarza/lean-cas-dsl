@@ -4604,18 +4604,19 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       let state ← registryState
       let X ← carrierObject X
       let .object _ category .. := X | unreachable!
-      if let some point ← forwardNumeral k X then return point
+      if let some point ← profileReader "numeral forward" (forwardNumeral k X) then
+        return point
       -- A nullary registered operation can name a point of an anonymous selected structure.
       -- Its actual terminal source must already be the admitted global-point source.
       if k == 0 then
-        if ← parameterCompatible (do
+        if ← profileReader "numeral zero operation trial" (parameterCompatible do
             let result ← applyOperation "0" #[] X
             return result matches .element ..) then
           return ← applyOperation "0" #[] X
         if let some zero := state.morphisms.find? fun morphism =>
             morphism.name == "0" && morphism.category == category.id then
           if let .object _ _ (some (_, parameters)) _ _ := X then
-            if ← parameterCompatible (do
+            if ← profileReader "numeral zero family trial" (parameterCompatible do
                 let result ← applyFamily zero.declaration category #[] (some X)
                   (parameters := parameters)
                 return result matches .element ..) then
@@ -4650,7 +4651,8 @@ partial def toElement (v : Value) (X : Value) : M Value := do
             discard <| typedParameter expected X
             pure true) then
           refinements := refinements.push (over, ← typedParameter expected X)
-      match ← numeralIn state k one (← semanticObject X) refinements with
+      match ← profileReader "numeral registered search"
+          (numeralIn state k one (← semanticObject X) refinements) with
       | some numeral =>
           let X ← match state.numerals.find? (·.declaration == numeral.getAppFn.constName?.getD .anonymous) with
             | some numeralRow => match numeralRow.over with

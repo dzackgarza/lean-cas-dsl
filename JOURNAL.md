@@ -1,5 +1,30 @@
 # Journal
 
+## 2026-10-20 — Isolate the zero-numeral reader cost
+
+The `subspaces.kernel` reader-only profile on the unchanged acceptance file
+assigned 4.75 seconds cumulatively to speculative `0` operation trials and
+12.0 seconds to speculative vector-zero family trials. Forwarded numerals
+accounted for 22.5 ms and registered numeral search for 102 ms. Tuple coercion
+still accounted for 37.2 seconds, with 10.7 seconds in tuple construction.
+These timings came from conditional Lean profiler spans; ordinary reading does
+not run the profiler. The targeted `Language` compile passed in 199 seconds,
+and the reader-only profile completed in 98.85 seconds with 126 trace roots.
+
+Reusing a successful speculative family result did not improve this assertion:
+its family trial yields no element result. A second candidate tried a closed
+source-type prefilter, but an import-only probe showed the registered vector
+zero has terminal source `Fin 1`, and the next profile still assigned 12.0
+seconds to that trial. Both candidate optimizations were removed. The final
+source retains only profiling spans around numeral forwarding, the two zero
+trials, and registered numeral search. Neither experiment edited the
+permanent assertion or its expected answer; a complete identity comparison
+was not run on those discarded candidates. The next reader
+optimization must identify which declared parameter or result check makes the
+vector-zero `applyFamily` trial fail before repeating the full application.
+Focused compilation and reader timing here are engineering diagnostics, not
+protected acceptance or completion of the latency milestone.
+
 ## 2026-10-20 — Locate and reuse repeated tuple numerals
 
 The unchanged `subspaces.kernel` reader profile assigned about 70 seconds

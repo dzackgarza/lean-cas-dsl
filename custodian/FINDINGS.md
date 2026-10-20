@@ -62,6 +62,14 @@
   is byte-identical to the saved prechange diagnostic baseline. The 2×2
   identity is likewise unchanged. The practical latency target, independent
   interpretation preservation, and full protected acceptance remain open.
+  A subsequent profiler split found 12.0 seconds in speculative vector-zero
+  family trials and 4.75 seconds in `0` operation trials on the same admitted
+  3×3 file. The vector-zero declaration has a terminal `Fin 1` source, so
+  source-type rejection cannot remove the family trial. Reusing its speculative
+  result and a closed-source prefilter were tried and removed after the
+  reader profile showed no family-trial reduction. Conditional profiling spans
+  remain in the reader to locate the failing parameter/application check;
+  this is an engineering defect observation, not acceptance evidence.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by
