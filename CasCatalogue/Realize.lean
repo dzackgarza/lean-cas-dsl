@@ -3218,7 +3218,8 @@ def interpret (scope : Scope) (stx : Syntax)
     if let some sink := timings then sink.modify (·.push (stage, now - before))
     return now
   let trace ← (Trace.new : IO _)
-  let claim ← (Language.claim scope stx).run { trace := some trace }
+  let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
+  let claim ← (Language.claim scope stx).run { trace := some trace, closedTerms := some closedTerms }
   let afterRead ← record "semantic_reading" started
   let .ok manifest := Json.parse (← IO.FS.readFile "lake-manifest.json")
     | throwError "cannot identify the mathematical dependency revision"

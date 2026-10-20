@@ -357,6 +357,8 @@ structure Ctx where
   /-- Where the semantic reading records the operations that form its values
   (`CasCatalogue.Trace`), for the realized reading to evaluate the same term. -/
   trace : Option Trace := none
+  /-- Closed readings shared only within one fixed question scope and trace. -/
+  closedTerms : Option (IO.Ref (Std.HashMap String Value)) := none
   deriving Inhabited
 
 /-- The language's evaluation monad: elaboration in a reading. -/
@@ -1316,8 +1318,26 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
 set_option maxHeartbeats 400000 in
 mutual
 
-/-- The value of a term, in the category `category?` of an enclosing `in C`. -/
+/-- Reuse closed readings only within this question's unchanged context. -/
 partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry := none)
+    (ambient? : Option Value := none) : M Value := do
+  let ctx ← read
+  let cache? := if category?.isNone && ambient?.isNone && ctx.stage.isNone &&
+      ctx.bound.isEmpty then ctx.closedTerms else none
+  if let some cache := cache? then
+    if let some value := (← cache.get)[shown stx]? then return value
+  let value ← evalUncached scope stx category? ambient?
+  if let some cache := cache? then
+    match value with
+    | .object .. | .element .. =>
+        if value.terms.all (fun term => !term.hasMVar && !term.hasLevelMVar) then
+          cache.modify (·.insert (shown stx) value)
+    | _ => pure ()
+  return value
+
+/-- The uncached value of a term, in the category `category?` of an enclosing `in C`. -/
+partial def evalUncached (scope : Scope) (stx : Syntax)
+    (category? : Option NamedCategoryEntry := none)
     (ambient? : Option Value := none) : M Value := do
   let state ← registryState
   match stx with
@@ -3685,11 +3705,10 @@ partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Opt
     | some (.object _ _ (some (entry, #[.nat m, K])) _ _) =>
         if entry.name == "Mat" && m == n then some K else none
     | _ => none
-  let rowValues ← rows.mapM fun row => do
-    let rowAmbient ← match K? with
-      | some K => some <$> object (← registryState) "Vec" #[K, .nat n] none
-      | none => pure none
-    tuple scope row rowAmbient
+  let rowAmbient ← match K? with
+    | some K => some <$> object (← registryState) "Vec" #[K, .nat n] none
+    | none => pure none
+  let rowValues ← rows.mapM fun row => tuple scope row rowAmbient
   let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
   applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
 

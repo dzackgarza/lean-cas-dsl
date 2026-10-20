@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import CasCatalogue.Realize
+public import CasCatalogue.FileItems
 public meta import CasCatalogue.Realize
 
 public section
@@ -41,20 +42,6 @@ open Lean Elab Command Term
 namespace CasCatalogue.Language
 
 open Realize (Harness)
-
-/-- The items of a file: its blank-line-separated paragraphs, without comment lines. -/
-meta def items (text : String) : Array String := Id.run do
-  let mut out := #[]
-  let mut current := ""
-  for line in text.splitOn "\n" do
-    let t := line.trimAscii.toString
-    if t.startsWith "--" then continue
-    if t.isEmpty then
-      unless current.isEmpty do out := out.push current
-      current := ""
-    else current := if current.isEmpty then line else current ++ "\n" ++ line
-  unless current.isEmpty do out := out.push current
-  return out
 
 meta section
 

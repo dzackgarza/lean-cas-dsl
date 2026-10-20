@@ -360,6 +360,11 @@ these use unchanged admitted assertions, print per-binding and phase timings, an
 complete identity with an independently saved baseline; timing or compilation alone does not
 establish preservation.
 
+For a semantic-reader iteration, `just bench-reading subspaces.kernel` imports only the reader
+and measures the production semantic claim. Use it to reject a slow or failing candidate before
+rebuilding the realization layer. It measures neither complete question identity nor execution;
+retain `just bench-question` and the protected negative probes for a candidate worth keeping.
+
 When a focused check takes 60 seconds or more, inspect its profile and the dependency/import path
 before another edit or rerun. Reduce repeated elaboration or traversal, use the existing shared
 Lake cache, factor the compiler boundary where justified, or use a faster check of the exact

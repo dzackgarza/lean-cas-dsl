@@ -48,15 +48,22 @@ focus target mode="build": track-main
     case "$mode" in
       profile) timeout --signal=TERM --kill-after=5s "${budget}s" \
           /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake env lean --profile "$source" 2>&1 | tee "$log" ;;
+          lake env lean --profile "$source" 2>&1 | tee "$log" >/dev/null ;;
       build) timeout --signal=TERM --kill-after=5s "${budget}s" \
           /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake build "$module" 2>&1 | tee "$log" ;;
+          lake build "$module" 2>&1 | tee "$log" >/dev/null ;;
       *) echo "mode must be profile or build" >&2; exit 2 ;;
     esac
     result=${PIPESTATUS[0]}
     set -e
     echo "Focused log: $log"
+    if (( result == 0 )); then
+      if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
+      else rg 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8 || true
+      fi
+    else
+      tail -n 30 "$log"
+    fi
     elapsed=$(($(date +%s) - started))
     if (( result == 124 )); then
       echo "Focused $mode exceeded ${budget}s. Diagnose the target before increasing B0_FOCUS_BUDGET_SECONDS." >&2
@@ -67,10 +74,11 @@ focus target mode="build": track-main
         set +e
         timeout --signal=TERM --kill-after=5s "${budget}s" \
           /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake env lean --profile "$source" 2>&1 | tee "$profile_log"
+          lake env lean --profile "$source" 2>&1 | tee "$profile_log" >/dev/null
         profile_result=${PIPESTATUS[0]}
         set -e
         echo "Profile log: $profile_log"
+        tail -n 27 "$profile_log"
         if (( profile_result == 124 )); then
           echo "Profile exceeded ${budget}s; reduce the reproducer or inspect the import boundary." >&2
         fi
@@ -80,8 +88,8 @@ focus target mode="build": track-main
     fi
     exit "$result"
 
-# Measure the unchanged admitted question through the production reader and encoder.
-bench-question assertion="matrices.kernel": track-main
+# Measure an unchanged admitted assertion through the requested production stage.
+bench-question assertion="matrices.kernel" source="benchmarks/question_identity.lean": track-main
     #!/usr/bin/env bash
     set -euo pipefail
     budget=${B0_BENCH_BUDGET_SECONDS:-180}
@@ -90,7 +98,7 @@ bench-question assertion="matrices.kernel": track-main
       exit 2
     fi
     log=$(mktemp /tmp/lean-cas-question.XXXXXX.log)
-    echo "Question benchmark log: $log"
+    echo "Benchmark log: $log"
     for package in . lean_categories cas_leaf_contracts cas_leaves nbdsl-worker; do
       if [[ "$package" == . ]]; then
         checkout=.
@@ -108,13 +116,17 @@ bench-question assertion="matrices.kernel": track-main
     CAS_BENCH_ONCE=1 CAS_BENCH_ASSERTION={{quote(assertion)}} \
       timeout --signal=TERM --kill-after=5s "${budget}s" \
       /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-      lake env lean benchmarks/question_identity.lean 2>&1 | tee -a "$log"
+      lake env lean {{quote(source)}} 2>&1 | tee -a "$log"
     result=${PIPESTATUS[0]}
     set -e
     if (( result == 124 )); then
-      echo "Question benchmark exceeded ${budget}s; inspect per-binding timings in $log." >&2
+      echo "Benchmark exceeded ${budget}s; inspect per-binding timings in $log." >&2
     fi
     exit "$result"
+
+# Fast semantic-reading diagnostic; the full question benchmark still checks identity.
+bench-reading assertion="matrices.kernel":
+    @just bench-question {{quote(assertion)}} benchmarks/semantic_reading.lean
 
 [private]
 _integration-intent:

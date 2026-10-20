@@ -228,6 +228,9 @@ Run what the change touches:
   limit can be changed with `B0_BENCH_BUDGET_SECONDS` after inspecting the log. Compare full
   identities with an independent baseline and run the relevant protected negatives before
   claiming behavior preservation; benchmark timings are engineering data, not correctness evidence.
+  For reader iterations, `just bench-reading subspaces.kernel` imports only the reader and
+  reports the semantic claim's time, trace size, and closed-term count. Use it before rebuilding
+  the realization layer; it cannot establish complete identity or execution behavior.
 - **Clean integration candidate:** `B0_INTEGRATION=1 just build` runs the repository checks (no
   leaves, reuse records, permanent acceptance) and compiles the kernel, gates, acceptance probes,
   tools and notebook package. Plain local `just build` refuses to start; CI runs it directly.

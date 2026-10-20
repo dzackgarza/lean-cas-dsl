@@ -1,5 +1,32 @@
 # Journal
 
+## 2026-10-20 — Per-question closed-term reuse and reader-only feedback
+
+The semantic reader now reuses fully instantiated object and element values only within one
+question's immutable scope and trace. A bound variable, staged reading, selected category or
+ambient result type bypasses the cache. The matrix reader also forms a shared row ambient once
+for a matrix instead of reconstructing it for every row. The suite's paragraph splitter moved
+unchanged to `CasCatalogue.FileItems`, allowing `benchmarks/semantic_reading.lean` to import the
+reader without the realization/encoder layer. `just bench-reading ASSERTION` exposes that faster
+diagnostic; focused build output now retains warnings in `/tmp` while printing a short result.
+
+At the same latest-main mathematical and contract revisions, the unchanged `matrices.kernel`
+assertion read in 7,898 ms versus 9,458 ms in the previous recorded run; `subspaces.kernel`
+read in 31,469 ms versus 38,166 ms before these edits (40,514 ms after row-ambient sharing
+alone). The complete 28,383-byte and 39,816-byte question identities were byte-identical to
+their saved pre-cache baselines, with 66 and 126 trace roots. The full 3×3 benchmark took
+116.50 seconds at 2,386,408 KiB peak RSS; these numbers are run-sensitive and remain far from
+the proposed low-single-digit kernel budget. They are engineering observations, not independent
+mathematical acceptance. The semantic-only diagnostic passed at 35,332 ms for its 3×3 claim;
+it omits question construction and encoding by design.
+
+Targeted `CasCatalogue.Language`, `CasCatalogue.TestSuite`, `CasCatalogue.QuestionProbes`,
+`CasCatalogue.ProofIdentityProbes` and the new `CasCatalogue.FileItems` builds passed. The
+reader's target build still required 233 seconds at about 2.6 GiB peak RSS. Its profile assigned
+roughly 40 seconds to LCNF base compilation, 35 seconds to `do` elaboration, 34 seconds to
+typeclass inference, and 52 seconds to unaccounted blocking. Its 3,900-line mutual block remains
+a compiler feedback bottleneck. Full B0 acceptance and complete question preservation remain open.
+
 ## 2026-10-19 — Bounded focused runs and production question timings
 
 `just focus` now caps each targeted build or profile at 120 seconds by default,
