@@ -203,17 +203,24 @@ def validateMap (formal : Expr) (source target data : Json) :
   let .ok args := fields "typedMap" 3 data
     | return .error "a lift map requires its actual source, target and callable data"
   unless args[0]! == source && args[1]! == target do
-    return .error "a lift map changes its declared computational endpoints"
-  match ← ComputationalData.validatePort formal (← inferType formal) args[2]! with
-  | .error message => return .error message
-  | .ok () => pure ()
-  if args[2]!.getArr?.isOk then
-    let .ok (some domain) ← ComputationalData.endpointKeys source
-      | return .error "a finite lift map requires complete actual domain keys or an opaque callable"
-    let .ok codomain ← ComputationalData.endpointKeys target
-      | return .error "a lift map has malformed actual codomain data"
-    return ComputationalData.validateGraphEndpoints domain codomain args[2]!
-  return .ok ()
+    let type := (← inferType formal).consumeMData
+    unless type.isAppOf ``Quiver.Hom do
+      return .error "endpoint inventories require independently retained categorical endpoint types"
+    let parameters := type.getAppArgs
+    for (expected, actual, fixed) in #[(source, args[0]!, parameters[parameters.size - 2]!),
+        (target, args[1]!, parameters.back!)] do
+      if expected == actual then continue
+      -- Enrich only a symbolic endpoint. An already supplied inventory is part
+      -- of its actual data and cannot be replaced by a different inventory.
+      if (expected.getObjValAs? String "ctor").toOption == some "finiteData" then
+        return .error "a lift map changes its declared computational endpoints"
+      let .ok ("finiteData", #[descriptor, _]) := ComputationalData.envelope actual
+        | return .error "a lift map changes its declared computational endpoints"
+      unless descriptor == expected do
+        return .error "a lift map changes its declared computational endpoints"
+      if let .error message ← ComputationalData.validatePort fixed (← inferType fixed) actual then
+        return .error message
+  ComputationalData.validateEndpointPort formal args[0]! args[1]! args[2]!
 
 /-- Validate all four outputs against actual earlier fields and the fixed public types. -/
 def validatePrefix (component : Component) (action source base : Json)
@@ -229,21 +236,30 @@ def validatePrefix (component : Component) (action source base : Json)
     | return .error "the lift object output has malformed framing"
   let mapped := Json.mkObj [("ctor", "functorAction"),
     ("args", Json.arr #[action, outputs[0]!])]
-  for (index, domain, codomain) in #[(1, outputs[0]!, sourceFields[0]!),
-      (2, mapped, baseFields[0]!), (3, baseFields[0]!, mapped)] do
+  let mut mappedEndpoint := mapped
+  let mut baseEndpoint := baseFields[0]!
+  for index in #[1, 2, 3] do
     if index >= outputs.size then continue
+    let (domain, codomain) := if index == 1 then (outputs[0]!, sourceFields[0]!)
+      else if index == 2 then (mappedEndpoint, baseEndpoint)
+      else (baseEndpoint, mappedEndpoint)
     match ← validateMap component.ports[index]! domain codomain outputs[index]! with
     | .error message => return .error message
     | .ok () => pure ()
+    if index == 2 then
+      let .ok actual := fields "typedMap" 3 outputs[index]!
+        | return .error "a validated comparison lost its complete endpoint fields"
+      mappedEndpoint := actual[0]!
+      baseEndpoint := actual[1]!
   return .ok ()
 
 /-- Advance with this step's actual object and defining map, not the original base packet. -/
 def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
-  let sourceFields ← fields "arrow" 3 source
+  discard <| fields "arrow" 3 source
   unless outputs.size == 4 do throw "an incomplete lift cannot advance the reverse route"
   let inclusion ← fields "typedMap" 3 outputs[1]!
   return Json.mkObj [("ctor", "subobject"),
-    ("args", Json.arr #[outputs[0]!, sourceFields[0]!, inclusion[2]!])]
+    ("args", Json.arr #[inclusion[0]!, inclusion[1]!, inclusion[2]!])]
 
 /-- Only completed packets with every actual output count as prescribed lifted data.
 Source packets and selected action descriptors are supplied by the kernel's fixed route. -/

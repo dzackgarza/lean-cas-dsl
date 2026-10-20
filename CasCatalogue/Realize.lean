@@ -87,6 +87,13 @@ inductive WirePayload where
   | computed (value : Expr) (data : ComputationData)
   | construction (result : StructuredResult.Result) (scope : ComputationScope)
 
+/-- A complete kernel-owned source snapshot for a proof-only refinement. -/
+structure WireSnapshot where
+  form : Form
+  payload : WirePayload
+  presentationIsos : Array Expr
+  objectIso : Option Expr
+
 structure Wire where
   form : Form
   payload : WirePayload
@@ -94,6 +101,8 @@ structure Wire where
   presentationIsos : Array Expr := #[]
   /-- Full selected-object comparison from the fixed semantic receiver to actual returned data. -/
   objectIso : Option Expr := none
+  /-- Full source snapshots, restored only by their checked classifier forgetful prefixes. -/
+  proofSources : List WireSnapshot := []
 
 def Wire.value (wire : Wire) : Expr := match wire.payload with
   | .ordinary value _ | .computed value _ => value
@@ -596,6 +605,41 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     unless ← Decide.kernelAccepts condition (← mkEqRefl image) do
       throwError "the retained parameter route failed its original image identification"
     return json
+  if let some (.parameterEquivalence expectedType representative sources) ←
+      (trace.node? value : IO _) then
+    unless ← isDefEq representative value do
+      throwError "the parameter identity class has a different requested representative"
+    let some chosen := sources[0]?
+      | throwError "the parameter identity class has no accepted source"
+    for source in sources do
+      let some entry := state.objects.find? (·.id == source.source)
+        | throwError "the parameter identity class has an unregistered source"
+      unless entry.category == source.sourceCategory do
+        throwError "the parameter identity class has a different declared source category"
+      let object ← objectAt trace entry source.params
+      unless ← isDefEq object source.object do
+        throwError "the parameter identity class lost its exact declared source arguments"
+      unless source.route.size == source.applications.size do
+        throwError "the parameter identity class lost its complete ordered edge applications"
+      let mut image := object
+      for (step, application) in source.route.zip source.applications do
+        if application.hasMVar || application.hasLevelMVar || application.hasFVar ||
+            application.hasLooseBVars then
+          throwError "the parameter identity class has an unresolved selected edge application"
+        discard <| edgeDescriptor trace step application
+        image ← Semantic.objOf application image
+      unless (← isDefEq image source.image) && (← isDefEq (← inferType image) expectedType) do
+        throwError "the parameter identity class has an incompatible full structured image"
+      unless ← Decide.kernelAccepts (← mkEq source.image representative) source.identity do
+        throwError "the parameter identity class has no checked full-object identification"
+    -- The chosen source is already a checked registered application. Encoding it directly
+    -- also avoids following the representative back into its own identity-class trace node.
+    let mut json := Json.mkObj [("ctor", chosen.source.raw),
+      ("args", Json.arr (← chosen.params.mapM (parameterData trace)))]
+    for (step, application) in chosen.route.zip chosen.applications do
+      json := Json.mkObj [("ctor", "functorAction"),
+        ("args", Json.arr #[← edgeDescriptor trace step application, json])]
+    return json
   if let .ok json ← Codec.encode value then return json
   let mut candidates : Array (ObjectEntry × Array Expr) := #[]
   let mut exact : Array (ObjectEntry × Array Expr) := #[]
@@ -695,6 +739,56 @@ def imageForm (state : RegistryState) (edge : EdgeRef) (category : NamedCategory
           | none => .edgeImage edge category
       | _ => .edgeImage edge category
 
+/-- Check the complete fixed object context, allowing only a retained full object isomorphism. -/
+def checkProofRefinementSource (wire : Wire) (source : Expr) : TermElabM Unit := do
+  unless ← withTransparency .all <| isDefEq (← inferType wire.value) (← inferType source) do
+    throwError "the proof refinement source changed its complete object type"
+  if ← withTransparency .all <| isDefEq wire.value source then return
+  let some comparison := wire.objectIso
+    | throwStratum .noImplementation "the proof refinement source requires its full object comparison"
+  let expected ← withTransparency .all <| mkAppHere ``CategoryTheory.Iso #[source, wire.value]
+  unless ← withTransparency .all <| isDefEq (← inferType comparison) expected do
+    throwError "the proof refinement source comparison has different complete endpoints"
+  discard <| StructuredResult.checkReconstruction comparison
+
+/-- Restore exactly the original computational source after the witnessed forgetful action.
+No registration lookup or computational answer participates in this normalization. -/
+def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElabM Wire := do
+  let .proofRefinement target classifier baseForm := wire.form
+    | throwError "the requested wire is not a proof-only refinement"
+  let some (.proofRefinement recorded sourceCategory targetCategory source retained identity) ←
+      trace.node? wire.value
+    | throwError "the proof refinement lost its complete formal provenance"
+  unless recorded == classifier && targetCategory == target.id do
+    throwError "the proof refinement changed its registered classifier context"
+  let state ← registryState
+  let some owner := state.classifier? classifier
+    | throwError "the proof refinement classifier is no longer registered"
+  let some host := state.category? owner.host
+    | throwError "the proof refinement host schema is no longer registered"
+  unless sourceCategory == host.id do
+    throwError "the proof refinement has a different complete host context"
+  let complete ← ProofRefinement.construct state classifier target source
+  let action ← Semantic.asFunctor action
+  unless (← withTransparency .all <| isDefEq complete.value wire.value) &&
+      (← withTransparency .all <| isDefEq complete.action retained) &&
+      (← withTransparency .all <| isDefEq action retained) do
+    throwError "the proof refinement changed its complete total object or forgetful action"
+  let image ← Semantic.objOf retained wire.value
+  unless !identity.hasMVar && !identity.hasLevelMVar && !identity.hasSorry &&
+      (← Decide.kernelAccepts (← mkEq image source) identity) do
+    throwError "the proof refinement lost its full forgetful-image identification"
+  let snapshot :: remaining := wire.proofSources
+    | throwError "the proof refinement lost its complete computational source snapshot"
+  unless snapshot.form.id == baseForm.id && snapshot.form.category == sourceCategory do
+    throwError "the proof refinement snapshot has a different registered input form"
+  let original : Wire := {
+    form := snapshot.form, payload := snapshot.payload,
+    presentationIsos := snapshot.presentationIsos, objectIso := snapshot.objectIso,
+    proofSources := remaining }
+  checkProofRefinementSource original source
+  return original
+
 /-- Retain every residual object action, including its complete instantiated edge data. -/
 def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     (applications : Option (Array Expr) := none) : TermElabM Wire := do
@@ -716,6 +810,11 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     let U ← match applications with
       | some retained => pure retained[index]!
       | none => Semantic.edgeFunctor state step
+    if let .proofRefinement _ classifier _ := result.form then
+      if step == .classifierForget classifier then
+        result ← proofRefinementBase trace result U
+        expression := edge.target
+        continue
     let value ← Semantic.objOf U result.value
     let U ← instantiateMVars U
     if U.hasMVar || U.hasLevelMVar || U.hasFVar || U.hasLooseBVars then
@@ -723,7 +822,7 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     let json := Json.mkObj [("ctor", "functorAction"),
       ("args", Json.arr #[← edgeDescriptor trace step U, result.json])]
     let objectIso ← mapObjectComparison U result.value result.objectIso
-    result := { result with form := imageForm state step target, objectIso := objectIso, payload := forwardPayload result value json }
+    result := { result with form := imageForm state step target, objectIso := objectIso, proofSources := [], payload := forwardPayload result value json }
     expression := edge.target
   return result
 
@@ -830,20 +929,30 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermE
   let refined := { w with form := .object current, presentationIsos := identifications, payload := .ordinary (value) (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
   transportImage trace refined remaining
 
-/-- Separate the fixed full mathematical receiver from its implementation input encoding.
-Only the catalogue's named refinement prefixes change the request form; residual structural
-edges remain part of the operation's admitted source composite, independent of availability. -/
+/-- Canonical request input consumes only exact checked proof-refinement and named
+refinement prefixes. All residual structural edges remain in the admitted source composite. -/
+partial def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+    TermElabM Wire := do
+  let state ← registryState
+  match wire.form with
+  | .proofRefinement _ classifier _ =>
+      if route[0]? == some (.classifierForget classifier) then
+        let action ← Semantic.edgeFunctor state (.classifierForget classifier)
+        let original ← proofRefinementBase trace wire action
+        return ← canonicalOperationReceiver trace original (route.extract 1 route.size)
+      return wire
+  | .object entry =>
+      let (_, remaining) := state.transport entry route
+      transport trace wire (route.extract 0 (route.size - remaining.size))
+  | _ => return wire
+
+/-- Keep the full mathematical receiver separate from its canonical computational input. -/
 def operationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
     TermElabM (Wire × Expr) := do
   let state ← registryState
   let image ← if route.isEmpty then pure wire.value else
     Semantic.objOf (← Semantic.routeFunctor state route) wire.value
-  let request ← match wire.form with
-    | .object entry =>
-        let (_, remaining) := state.transport entry route
-        transport trace wire (route.extract 0 (route.size - remaining.size))
-    | _ => pure wire
-  return (request, image)
+  return (← canonicalOperationReceiver trace wire route, image)
 
 /-- Decode `j` as a registered named object at its parameters, `{"ctor": <object id>, "args":
 [<numerals, or objects>]}`, elaborated and recorded in `trace`. -/
@@ -1834,7 +1943,7 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
   -- Structural transport keeps the complete construction packet nested in
   -- selected functor actions. The packet identifies the backend's answer,
   -- never a mathematical identification of its apex with the formal one.
-  for _ in [:32] do
+  while true do
     let tag := (answer.getObjValAs? String "ctor").toOption
     let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | break
     if tag == some "functorAction" then
@@ -1856,7 +1965,14 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
     return input
   let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | return input
   let some apexJson := args[0]? | return input
-  let .ok (entry, _) ← decodeObject trace apexJson | return input
+  -- Only the exact inner object descriptor selects a registered form. The
+  -- full finiteData envelope remains the computational receiver payload.
+  let mut descriptor := apexJson
+  if (apexJson.getObjValAs? String "ctor").toOption == some "finiteData" then
+    let .ok (_, fields) := ComputationalData.envelope apexJson | return input
+    unless fields.size == 2 do return input
+    descriptor := fields[0]!
+  let .ok (entry, _) ← decodeObject trace descriptor | return input
   unless entry.category == apexCategory do return input
   let form : Form := .object entry
   let payload := forwardPayload input input.value apexJson
@@ -1937,6 +2053,27 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some edge := route.back?
         | throwError "an empty structural route changed its selected category"
       return { output with form := imageForm state edge target, payload := forwardPayload output image (← actionObjectData trace input route) }
+  | .proofRefinement classifier sourceCategory targetCategory source action identity =>
+      let some target := state.categories.find? (·.id == targetCategory)
+        | throwError "the proof refinement total schema is no longer registered"
+      let completed ← ProofRefinement.construct state classifier target source
+      unless (← withTransparency .all <| isDefEq completed.value e) &&
+          (← withTransparency .all <| isDefEq completed.action action) do
+        throwError "the proof refinement changed its complete supplied formal object"
+      let image ← Semantic.objOf action e
+      unless !identity.hasSorry && (← Decide.kernelAccepts (← mkEq image source) identity) do
+        throwError "the proof refinement has no accepted full forgetful-image identification"
+      let original ← realize h trace s!"the full source of the proof refinement in {what}" source
+      unless original.form.category == sourceCategory do
+        throwError "the proof refinement source has a different registered category"
+      checkProofRefinementSource original source
+      let snapshot : WireSnapshot := {
+        form := original.form, payload := original.payload,
+        presentationIsos := original.presentationIsos, objectIso := original.objectIso }
+      return {
+        form := .proofRefinement target classifier original.form,
+        payload := forwardPayload original e original.json,
+        proofSources := snapshot :: original.proofSources }
   | .parameterEquivalence expectedType representative sources =>
       unless ← isDefEq representative e do
         throwError "the parameter identity class has a different requested representative"
@@ -3328,6 +3465,9 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.parameterTransport source sourceCategory targetCategory route (← instantiateMVars receiver))
       | .structureTransport sourceCategory targetCategory route receiver =>
           pure (.structureTransport sourceCategory targetCategory route (← instantiateMVars receiver))
+      | .proofRefinement classifier sourceCategory targetCategory source action identity =>
+          pure (.proofRefinement classifier sourceCategory targetCategory
+            (← instantiateMVars source) (← instantiateMVars action) (← instantiateMVars identity))
       | .parameterEquivalence expected representative sources => do
           let sources ← sources.mapM fun source => do
             pure { source with
@@ -3429,6 +3569,10 @@ def interpret (scope : Scope) (stx : Syntax)
       | .structureTransport sourceCategory targetCategory route receiver =>
           pure (Json.arr #[toJson "structureTransport", toJson sourceCategory.raw,
             toJson targetCategory.raw, toJson (route.map reprStr), toJson (← encode receiver)])
+      | .proofRefinement classifier sourceCategory targetCategory source action identity =>
+          pure (Json.arr #[toJson "proofRefinement", toJson classifier.raw,
+            toJson sourceCategory.raw, toJson targetCategory.raw,
+            toJson (← encode source), toJson (← encode action), toJson (← encode identity)])
       | .parameterEquivalence expected representative sources => do
           let keyed ← sources.mapM fun source => do
             let parameters ← source.params.mapM termIdentity

@@ -1,5 +1,152 @@
 # Journal
 
+## 2026-10-20 — Frame complete computational point data without reconstructing laws
+
+The unchanged actual `sign(3).ker()` computation dispatched
+`meth.group_arrow_kernel` and returned a three-field subobject packet, but framing
+rejected its projected apex action because the formal context used
+`Prefunctor.obj` and an `Arrow.left` projection rather than a syntactic
+`Functor.obj`. `ComputationalData.actionContext` now matches the whole public
+projection under a fresh receiver. Public declaration parameters come only from
+the closed fixed formal expression; backend JSON cannot bind that context.
+The original red is `/tmp/b0-poc-5410e70/lift-runtime-red.log`.
+
+The next actual packet boundary exposed the inclusion's opaque category alias
+and proof-bearing point structures. Concrete callable selection now normalizes
+only the retained category parameter. A generic schema derives every public
+constructor data slot, including both callable slots of an equivalence, while
+omitting proof slots and never reconstructing a law-bearing Lean value. It has
+no permutation-specific case. Its independently fixed public `ToType` telescope
+resolves the concrete dictionary before prerequisite callable dictionaries;
+expected missing dictionaries are handled by `trySynthInstance`, while internal
+interpreter failures propagate. Exact carrier/schema diagnosis is recorded in
+`/tmp/b0-poc-5410e70/computational-object-carrier.log`.
+
+Contract source `c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13` publishes complete
+untrusted point inventories (`finiteData`) and nested callable inventories
+(`finiteGraph`). Graphs remain total at their actual declared inventory.
+`validateEndpointPort` preserves actual endpoint identity, complete point data,
+and graph domain/range checks. It never manufactures an inventory by enumerating
+the requested formal result or copying graph keys. Engineering probes cover the
+projected/direct action contexts, complete explicit inventories, well-framed
+false inverse-law data, missing/duplicate inventories and keys, incomplete nested
+functions, missing slots, and wrong ranges. Their invented computational carriers
+are framing fixtures, not mathematical expected answers or B0 acceptance.
+
+The earlier native sign run supplied a symbolic kernel apex without its actual
+point inventory and did not establish a positive computation. A conforming
+registered answer must carry the actual inventory or released opaque callable
+representation. The current latest-main native answer must be checked separately
+after the coupled framing repairs; the earlier failure is not a claim about that
+newer input. No leaf source or mathematical acceptance assertion was changed. The complete first question
+identity in `lift-runtime-current.json` equals the independently saved
+`computational-action-question-baseline.json` exactly. Before the later lift-endpoint context extension, the
+source-dependent `CasCatalogue.Realize` gate passed 3,738 jobs in 134.58 seconds
+(`/tmp/lean-cas-focus.ouqZk3.log`); the corresponding
+`ComputationalActionContextProbes` gate passed 3,701 jobs in 30.83 seconds
+(`/tmp/lean-cas-focus.5fTaIj.log`). These establish the stated source/framing
+checks, not the missing native positive or mathematical correctness. No independent authority operation or B0 acceptance
+is asserted here.
+
+The later real-boundary checks reproduced three coupled endpoint defects before
+repair: wrapped actual endpoints were rejected, an inverse comparison could
+replace the forward map's inventory, and `nextBase` discarded actual inclusion
+endpoints. The fixed four-field prefix now retains the forward map's actual
+image/base endpoints for its inverse and propagates the actual inclusion
+endpoints. Inner formal descriptors remain exactly equal; no carrier-equivalence
+or action-image inference is introduced.
+
+The saved actual native finite-product response exposed a separate primitive
+codec boundary: its `Fin 6` inventory was being checked as points of the formal
+product carrier. Data framing now checks supplied object inventories against
+their actual released descriptors and defining graphs against actual binder
+roles, retaining primitive scalar codecs and bounds. It never demands that an
+untrusted computational apex be the requested formal construction. The source
+check of `LiftedSubobjectData` and its current Data dependency passed 1,489 jobs
+in 60.37 seconds; the automatically completed profile took 18.00 seconds
+(`/tmp/b0-poc-5410e70/data-lift-actual-endpoints-build.log`). Cached exact packet
+replay (`product-packet-framing-green.log`), full prefix inventory regression
+(`lift-prefix-inventory-green.log`), and the complete current
+`ComputationalActionContextProbes` (`actual-endpoint-context-probes.log`) all
+exited successfully. The latter includes a deliberately wrong but well-framed
+noncanonical four-point product carrier and primitive range negatives. These
+are source/framing checks; final dependent Realize and unchanged native
+computation/identity checks remain separate.
+
+The actual saved native cone was also replayed at the real
+`Realize.computationalApexReceiver` boundary, with the original public product
+apex and a session-owned complete packet. The old helper retained its construction
+form because `decodeObject` has no `finiteData` constructor
+(`/tmp/b0-poc-5410e70/apex-receiver-framing-red.log`). The narrow receiver helper
+now projects exactly one two-field inventory envelope solely for registered-form
+lookup, while forwarding the complete original apex JSON, original formal value
+and ownership. Global object decoding and category checks are unchanged. Traversal
+follows the actual finite JSON wrapper chain instead of stopping after 32 layers.
+`RuntimeRequestProbes` records the actual packet and checks full payload/formal/
+ownership preservation and contradictory-category, unknown,
+malformed and nested descriptors. The cached exact-new-helper replay and these controls passed
+(`/tmp/b0-poc-5410e70/apex-receiver-source-green.log`, exit 0). This diagnostic
+compiled the extracted current helper source, not the entire modified Realize
+module. Final whole-source Realize and actual product execution gates must
+consume this added consumer correction as well.
+
+## 2026-10-20 — Construct proof-only refinements and preserve supplied map context
+
+The unchanged finite-product proposal previously failed reading because the product was
+read directly as finite-set parameters; the fixed F9 constants proposal failed because its
+raw `ZMod 3` source supplied no named set identity. Exact red logs are
+`/tmp/b0-poc-5410e70/reader-finite-product-red.log` and
+`/tmp/b0-poc-5410e70/reader-f9-constant-red.log`. Rational inverse reading already succeeds;
+its retained full parameter-equivalence context exposed a separate serialization gap.
+
+The candidate reader elaborates the registered classifier total's public constructor
+against its full forgetful image and fills only remaining proposition fields using existing
+class or Decidable instances, with kernel checking. Trace data retains the complete source,
+chosen action and identification. Realization retains the original complete input payload,
+form and comparisons and restores them only along the exact checked forgetful prefix.
+A classifier requiring unsupplied nonproof structure remains refused.
+
+For raw endpoints of a registered named map, the reader can inspect that map's accepted
+public-field presentation for full supplied structured arguments. It compares complete
+registered structures, retains every equivalent source and preserves the original named
+map declaration and public parameters. Bare carriers still select no structure. Existing
+named-endpoint readings retain their previous operation trees.
+
+The smallest source gate, `just focus CasCatalogue.ProofRefinement`, passed 1483 jobs in
+49.32 seconds after the normal latest-main dependency refresh; log
+`/tmp/lean-cas-focus.0ZPNnl.log`. The diagnosed Language source gate passed 3727 jobs in
+232.59 seconds (source 207 seconds), log `/tmp/lean-cas-focus.DyIOkk.log`. The combined Realize source gate passes 3738 jobs in 157.62 seconds (Data 17, LiftData 10,
+Realize 98 seconds), log `/tmp/lean-cas-focus.CPWi6K.log`, at actual latest-main mathematics
+`805208138f016368f6a4eac415f25f3922a5807d` and contracts
+`c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13`. Proof-refinement runtime probes, unchanged proposal
+executions and full question-identity comparisons remain unestablished for this candidate. `NamedFieldContextProbes` passes at the
+current Language artifact (3728 jobs, 20.80 seconds; `/tmp/lean-cas-focus.wY4kYD.log`): both
+coefficient maps retain their original zero-parameter named-map identity and supplied full
+structured context; the corresponding raw carriers without that context remain refused. These construction changes do not admit or modify an acceptance assertion.
+
+The current Language artifact also passes the original matrix-unit reader positive
+(27.22 seconds, `/tmp/lean-cas-probe.BGHtkD.log`) and singular-matrix protected refusal
+(40.69 seconds, `/tmp/lean-cas-probe.Q7Vj7V.log`). Existing `SelectedCarrierProbes` passes
+(72.80-second source gate, `/tmp/lean-cas-focus.pmSAdr.log`; required completed profile
+62.15 seconds, `/tmp/lean-cas-profile.oiPwYT.log`). `ProofRefinementProbes` passes at the
+built Realize snapshot (26.38 seconds, `/tmp/lean-cas-focus.mf19un.log`): full original product
+and forgetful identity retained, false proof obligation and unsupplied chosen magma structure
+refused, original bound-source request restored only under its exact action and full source.
+
+An exact-file diagnostic selects the original product and four F9 assertions with all original
+bindings, using production `FileItems.items`, `cas_item` parsing and `runAsking`; it rewrites no
+assertion. At mathematics `80520813`, contracts `c603ede` and leaf manifest `7663031`, every
+selected assertion reads with a complete question. The first attempt lacked a configured native
+interpreter and is retained as an unavailable diagnostic. With the configured native interpreters,
+`/tmp/lean-cas-probe.s6NYHF.log` and
+`/tmp/b0-poc-5410e70/reader-product-f9-native-diagnostic.json` record: product malformed after
+one dispatch (finiteData/cone framing); both generator comparisons unavailable after one dispatch
+(the engine rejects a published generator point descriptor); both constant comparisons
+`NoImplementation` before dispatch on the exact `obj.sets.integers_mod` source form. None holds.
+These are runtime findings, not permission to substitute an alias, narrow mathematics or change
+an assertion. Later coupled LiftData/Data corrections are not represented by this loaded snapshot;
+final source and dependent/runtime checks remain required.
+
 ## 2026-10-20 — Execute the prescribed public lift computation fields
 
 The runtime now fixes every selected `LiftEntry.computation` before dispatch and

@@ -118,3 +118,75 @@ run_elab do
   unless three.form.id != symmetric.form.id && three.json != symmetric.json do
     throwError "different source structures collapsed to a shared request"
   unless refined do throwError "no complete catalogue refinement prefix was exercised"
+
+run_elab do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "(3 in ℚˣ)⁻¹"
+    | throwError "the unchanged rational inverse term did not parse"
+  let trace ← CasCatalogue.Trace.new
+  discard <| (eval {} parsed).run { trace := some trace }
+  let snapshot ← trace.get
+  let mut checked := false
+  for (representative, node) in snapshot.toArray do
+    let .parameterEquivalence expected recorded sources := node | continue
+    unless sources.size >= 2 do throwError "the actual parameter lost its independent origins"
+    let some chosen := sources[0]? | throwError "the actual parameter has no source"
+    let mut encoded ← parameterData trace representative
+    for index in (List.range chosen.route.size).reverse do
+      let .ok args := LiftedSubobjectData.fields "functorAction" 2 encoded
+        | throwError "the serializer discarded a selected structural application"
+      let action ← edgeDescriptor trace chosen.route[index]! chosen.applications[index]!
+      unless args[0]! == action do
+        throwError "the serializer changed a full selected application or its parameters"
+      encoded := args[1]!
+    unless encoded.getObjValAs? String "ctor" == .ok chosen.source.raw do
+      throwError "the serializer changed the independently selected named source"
+    let some other := sources[1]? | throwError "the protected nonchosen origin is absent"
+    let forged := sources.set! 1 { other with sourceCategory := CategoryId.sets }
+    let wrong ← IO.mkRef (snapshot.insert representative
+      (.parameterEquivalence expected recorded forged))
+    let rejected ← try
+        discard <| parameterData wrong representative
+        pure false
+      catch error =>
+        if (CasCatalogue.Exception.stratum? error).isNone then pure true else throw error
+    unless rejected do throwError "the serializer skipped a contradictory nonchosen origin"
+    checked := true
+  unless checked do throwError "the actual inverse did not retain a parameter identity class"
+
+/- Replay the actual native product packet at method receiver selection, without
+asserting that its apex or legs satisfy the product law. -/
+run_elab do
+  let state ← registryState
+  let some row := state.limits.find? (·.id.raw == "lim.sets.product")
+    | throwError "the released product declaration is absent"
+  let left ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let right ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.integersMod 3)) none
+  let formal ← mkAppM row.declaration #[left, right]
+  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[formal]
+  let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+  let .ok packet := Json.parse r#"{"ctor":"cone","args":[{"ctor":"finiteData","args":[{"ctor":"obj.sets.fin","args":[6]},[0,1,2,3,4,5]]},{"ctor":"finiteGraph","args":[[0,1,2,3,4,5],[[0,0],[1,0],[2,0],[3,1],[4,1],[5,1]]]},{"ctor":"finiteGraph","args":[[0,1,2,3,4,5],[[0,0],[1,1],[2,2],[3,0],[4,1],[5,2]]]}]}"#
+    | throwError "the recorded native packet is not JSON"
+  let .ok fields := (packet.getObjVal? "args").bind (·.getArr?)
+    | throwError "the recorded native packet lost its fields"
+  let apexJson := fields[0]!
+  let wire := fun (tag : String) (args : Array Json) => Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)]
+  let trace ← CasCatalogue.Trace.new
+  let original : Wire := { form := .limitApex row, payload := .computed apex (.owned "engineering-owner" 17 packet) }
+  let check := fun input => do
+    let actual ← computationalApexReceiver trace input
+    unless actual.form.id == "obj.sets.fin" && actual.json == apexJson &&
+        actual.value == apex && actual.owner? == original.owner? do
+      throwError "apex receiver changed actual form, complete finiteData payload, formal value or ownership"
+  check original
+  let descriptor := fun name => wire name #[toJson (6 : Nat)]
+  for wrong in #[
+      wire "finiteData" #[descriptor "obj.groups.symmetric", fields[0]!],
+      wire "finiteData" #[descriptor "not.a.registered.object", fields[0]!],
+      wire "finiteData" #[descriptor "obj.sets.fin"],
+      wire "finiteData" #[wire "finiteData" #[descriptor "obj.sets.fin", Json.arr #[]], Json.arr #[]]] do
+    let candidate := { original with payload := .computed apex (.owned "engineering-owner" 17
+      (wire "cone" (fields.set! 0 wrong))) }
+    let actual ← computationalApexReceiver trace candidate
+    unless actual.form.id == candidate.form.id && actual.json == candidate.json &&
+        actual.value == candidate.value && actual.owner? == candidate.owner? do
+      throwError "apex receiver selected a nearby form for a contradictory or malformed descriptor"
