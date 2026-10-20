@@ -1,5 +1,169 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Independent compositional assessment at 8cef0b2
+
+Assessed committed candidate `8cef0b299ebd9d37f910fcf3244b6945d8d8f6d5`
+against the fixed B0 acceptance-table arguments, after reading the owning reuse
+records. Its `CasCatalogue/` bytes are identical to `5410e70`. Read generic
+kernel source and protected probe source, not leaf source, leaf claims, or the
+concurrent harness outcomes. Public formal-interface inspection used the local
+`lean_categories` checkout at manifest revision
+`eea5c7f3bce7a1d2fdfbd58840c4d4bd75c9a8bc`; this was verified before inspecting
+the registry, family-reindex validator and lift computation interfaces.
+This assessment supplies conditional engineering arguments and concrete gaps;
+it supplies no new mathematical theorem, protected approval or B0 acceptance.
+
+**Dependent application and admission.** `Language.applyFamily` (3045 onward)
+opens the registered declaration's complete dependent telescope, binds explicit
+parameters and actual source endpoints jointly, applies only admitted
+coercions, synthesizes instances and closed obligations, then checks the whole
+instantiated application. Unresolved parameters fail; supplied applications
+must have the registered head, exact argument count and correct full type.
+The completed operation is retained in the trace rather than reconstructed from
+its answer. `typedParameter`, `registeredStructuredParameter`,
+`selectedOperationApplication` and `applyOperation` retain complete selected
+structure witnesses instead of selecting an arbitrary carrier alias. The
+compositional argument is conditional on each input already having its declared
+semantic endpoint: applying the same telescope rule to the next registered
+arrow preserves those endpoints and obligations, without a per-operation case.
+`Language.admit` (4756 onward) separately retains original map/category/endpoints,
+applies the row's admission at its actual target, and obtains hypotheses only
+through the row's evidence operation. Operation demand never supplies admission
+evidence. These are inspected mechanisms, not a proof that all readable inputs
+or independently supplied extensions succeed. Selected-structure, parameter,
+evidence-presentation and binder probes are relevant bounded checks; none was
+rebuilt during this assessment.
+
+**Structural closure and coherence.** `Resolve.resolveMethod` enumerates
+registered structural routes; `closure` derives receiver operations from that
+resolution, not a receiver-specific method inventory. `Semantic.method`
+composes the registered functors and applies the method at its owner.
+Consequently a new row enters the same closure computation provided its source,
+target and retained parameters match the registered route. `comparisonsFrom`
+and `classify` identify routes only through registered invertible cells, with
+common-prefix/suffix rewriting; multiple comparison cells, several classes or
+no unique directed source remain resolution errors. The explicit `CellSyntax`
+surface elaborates composition, whiskering and actual `NatTrans.app` components
+using Mathlib. There is a remaining argument gap for the ordinary method path:
+resolution carries `comparisons`, but `Semantic.method` records only method id,
+route and receiver in `Node.method`; `Realize` executes that source route and
+does not consume those comparison ids. The separate explicit-cell surface and
+resolver probes therefore do not establish automatic execution/provenance of
+the comparison required by `cc-cohere-exec`. No claim that all such comparisons
+are actually applied follows from route identification alone.
+
+**Prescribed reindexing.** `Semantic.reindex` (314) admits only registered
+`.familyReindex` functors, binds the actual base morphism and selected receiver
+type, rejects open terms, and refuses multiple applicable reindexings. Public
+upstream `validateSemanticEntryDeclaration` checks that such a row uses its
+family's `CategoryFamilyRealization.reindexRealization`, rather than merely
+having matching endpoint names. `Trace.functor` retains the chosen declaration
+arguments and receiver; `Realize`'s corresponding branch reconstructs that exact
+action and verifies its semantic image before dispatch. This gives a conditional
+prescribed-transport argument from the checked upstream family structure; it
+does not establish all fibrations or new source presentations. The family
+registry probe rejects constant counterfeit inclusion/reindexing realizations;
+its source was inspected, not rerun.
+
+**Complete structured results and route lifts: concrete defects remain.**
+`StructuredResult.dataPlan` saves constructor-binder and diagram-input roles
+before formal unification, so equal formal objects need not collapse distinct
+computational ports. `validatePlannedData` requires the complete ordered packet;
+`complete` keeps its independently fixed formal presentation separately from
+opaque backend fields, and `projectData` selects defining maps from that complete
+schema. Validators return `Unit`, not backend-derived categorical laws.
+For subobjects, `Resolve.resolveMethod` requires a lift for every route step,
+and `Semantic.method` reverse-folds `liftSubobject` over the saved intermediate
+receivers. This is a formal compositional argument: each accepted lift is
+applied at the actual next base and source, preserving the defining arrow and
+its formal monicity. It is not yet the required computational argument:
+
+- `Realize.realizeFresh`, `.methodWithLifts` (2733 onward), establishes that
+  `sourceCategory.expression` uses the Arrow constructor and builds a separate
+  result `category` using Subobjects, but passes `sourceCategory` to
+  `LiftedSubobjectData.decode` (2764). The decoder (84 onward) requires its
+  category argument to use Subobjects and rejects an Arrow constructor. Thus
+  this production call cannot complete a lifted packet even though the direct
+  packet probe passes the correct `cat.subobjects_bilin_module` argument.
+  Its exact failure position can occur earlier: `Language.method` (2051)
+  records `.arrow sourceCategory.id` using the base category, and `Realize`'s
+  `.arrow` branch turns that directly into `Form.arrow`; `Form.category` returns
+  that id although transport expects the Arrow category's expression. The
+  actual production path needs one consistent base/Arrow/Subobjects context.
+- Public `LiftEntry.computation` publishes the prescribed
+  `MonoLiftComputation.obj`, `.hom`, `.forward` and `.backward` callable data.
+  The production kernel never reads that field. `LiftedSubobjectData.decode`
+  constructs `packet.components` as pending plans, but only its direct probes
+  read the components; `Realize` returns `packet.data` without executing them.
+  Later `.functor` and transport branches forward the opaque packet under
+  their own operations; they contain no lift-component dispatch loop.
+  `decodeLiftedAt` explicitly refuses law-bearing reconstruction and supplies
+  no deferred computation path. Therefore neither creation of a closed formal
+  lift nor storage of a plan establishes required component execution or
+  composition of actual intermediate outputs. Missing component computation
+  must remain a named execution gap. Do not substitute the formal lift or copy
+  the downstairs data into every step.
+
+**Proof refinement and group constructions.** Property interpretation is
+classifier-based (`Semantic.property`), while `Realize.realizeDecision` returns
+an untrusted `Option Bool` through its ordinary computation port. It cannot
+re-type an object; `.property` is not a value-producing realization branch.
+Formal proof discharge uses `Decide`/`Codec`, independently of that answer.
+However, the reuse record describes a generic `CasCatalogue.refine` and
+`refine%` surface that are absent from the tracked Lean source inspected here.
+The current `Language.object` selects already registered refinements and
+`Realize.transport` follows their accepted identifications; this does not
+establish the table's generic proof-driven retyping of `Fin 2 × ℤ/3`.
+That row's positive interface/production path must be established, rather than
+counting the property-resolution probe as its retyping argument.
+
+Group inverse itself has a generic dispatch path: notation calls
+`applyOperation "⁻¹"`, whose selected-structure binding and dependent
+application are shared with other operations. A construction already supplied
+as an object of the group category can obtain that interface without a bespoke
+inverse-method inventory. This argument is conditional on complete upstream
+construction/category/structural rows and their typed result recognition. It
+does not establish the required second construction, subgroup inclusion or
+registered computation observations; those independent inputs and trials remain
+separate obligations.
+
+**Stage-specific outcomes: concrete ambiguity collapse.** The outer pipeline
+has the right separation: `interpret` prepares a typed question before execution;
+`ExecutionOutcome` cannot express semantic invalidity/ambiguity;
+`executionFailure` maps unexpected semantic/runtime exceptions to `internal`;
+`TestSuite.runFile` catches an escaped execution exception as `internal` and
+preserves the assertion id. `send` distinguishes absent/ambiguous registrations,
+unavailable sessions and port failures; packet rejection is `malformed`.
+But `Semantic.method` (475) and `Semantic.property` (519) map *every*
+`ResolutionError` to `throwStratum .invalid`, including unresolved route/property
+ambiguity, competing comparison cells and no unique source route. Production
+`Language.method` uses those functions. `Outcome.ofException` (5327) sees the
+invalid stratum and cannot recover the distinct ambiguity tag. This violates
+the required stage meaning; a correctly typed outcome enumeration alone does
+not prove a total correctly stratified pipeline. Correct the resolution-error
+translation, preserving invalidity, ambiguity, missing computation and internal
+failure according to their actual stage.
+
+**Preserved question consumed by execution.** `Realize.TypedQuestion` contains
+claim, immutable interpreted trace, identity and mathematical revision.
+`interpret` constructs it before discharge/dispatch; `evaluate` consumes that
+claim and trace rather than re-reading source or deriving a question from the
+answer. `QuestionIdentity.encodeInContext` rejects open/metavariable terms and
+retains declaration identities, levels, application arguments, binder types,
+let values, projections and propositions of proof arguments; metadata and
+binder spelling are ignored. Operation-tree serialization includes selected
+parameters, explicit maps and routes. This supports the architecture of one
+typed request crossing evaluation, with the coherence-provenance limitation
+above. It is not an independent mathematical preservation comparison for all
+admitted identities or dependency changes. No authoritative interpretation
+record was edited or regenerated.
+
+No Lean builds, live backend executions or extension trials were launched in
+this review; root held the Lean slot and the full harness was still running.
+Inspected probes establish their stated boundaries only when actually run at
+the candidate. Source arguments above neither replace those observations nor
+close the fixed B0 rows. Only this findings document was changed.
+
 ## 2026-10-20 — Independent disposition of exact-blob snapshot repair
 
 Assessed focused repair `f1061e045d8779fbd15119db765592bfe3dc6986`.
