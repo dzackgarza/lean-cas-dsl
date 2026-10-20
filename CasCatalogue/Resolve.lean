@@ -6,6 +6,7 @@ module
 
 public import CasCatalogue.Registry
 public import CasContract.Failure
+public import CasCatalogue.InterpretationFailure
 public meta import LeanCategories.Catalogue.Registry.Entry
 
 @[expose] public section
@@ -237,6 +238,15 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
         "\n".intercalate
           (candidates.toList.map fun c => "  " ++ state.renderPropertyResolution c)
 
+/-- Preserve unresolved semantic choices separately from an invalid call. -/
+def throwResolutionError {α : Type} (state : RegistryState) (error : ResolutionError) :
+    TermElabM α :=
+  match error with
+  | .ambiguous .. | .ambiguousProperty .. | .ambiguousComparison .. | .noSourceRoute .. =>
+      throwSemanticAmbiguity (error.render state)
+  | .unknownMethod .. | .notApplicable .. | .missingLift .. =>
+      throwStratum .invalid (error.render state)
+
 /-- Resolve `receiver.name`, optionally requiring the route to pass through the functors `via`. -/
 def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr) (name : String)
     (through : Array FunctorId := #[]) : Except ResolutionError Resolution := do
@@ -408,6 +418,6 @@ def reportResolution (name category : String) (through : Array String) : TermEla
   | .ok resolution =>
       discard <| resolution.route.compositeExpr
       logInfo m!"{state.renderResolution resolution}"
-  | .error error => throwStratum .invalid (error.render state)
+  | .error error => throwResolutionError state error
 
 end CasCatalogue
