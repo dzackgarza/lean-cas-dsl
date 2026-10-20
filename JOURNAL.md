@@ -1,5 +1,35 @@
 # Journal
 
+## 2026-10-20 — Structured binder-domain candidate in integration
+
+Source candidate `2be4777c747987ff8fcc3ed249de72a0ab71daaf` is committed in the
+external `lean-cas-dsl-poc-7e44f61` worktree and published on
+`b0/poc-completion-20261020`. Red regression `2e351bc` checks the complete
+structured parameters of a fixed declared binder domain. The repair reuses the
+existing full-parameter witness computation; the regression and dependent source
+builds pass. Candidate-local details are in that candidate's journal.
+
+The full clean integration is running in exec session `92744`, with output and
+exit file `/tmp/b0-poc-2be4777/integration.{log,exit}`. Input revisions and clean
+statuses were saved to `/tmp/b0-poc-2be4777/inputs.json`. Hosted run `39404478458`
+reports the exact candidate SHA; boundary/permanence passed, other jobs were still
+running at the snapshot in `hosted.json`.
+
+The matrix question timing check passed (42.38 seconds). It did not save a full
+identity artifact, so it does not establish baseline equality. The subspace check
+exceeded 180 seconds during concurrent integration and has no established result.
+The generalized-product reproducer `/tmp/b0-generalized-product-current.lean`
+similarly exceeded its 60-second budget during concurrent compilation. Neither
+failure authorizes a semantic or performance change. Rerun these sequentially
+once integration finishes; preserve full identities against the independently
+saved baseline. The standalone QuestionProbes build and automatic profile each
+exceeded 120 seconds; the full integration is rebuilding the unchanged probe.
+
+The original checkout's unrelated `CasCatalogue/Language.lean` changes remain
+untouched. No protected expectation, acceptance assertion, upstream mathematics
+or leaf was changed. The complete inventory at `8fb0eb3` remains the last complete
+computation run; this candidate has not established B0 completion.
+
 ## 2026-10-20 — Complete 8fb0eb3 inventory and binder-domain diagnosis
 
 The single `8fb0eb3` computation-only run completed with exit 1. Its report is
