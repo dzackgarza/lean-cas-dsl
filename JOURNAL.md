@@ -1,5 +1,26 @@
 # Journal
 
+## 2026-10-20 — Original checkout source integration with unrelated edit preserved
+
+The original checkout now contains candidate `32c3897` through merge `7d9fda1`.
+Its committed code tree equals that candidate; the additional committed difference
+is the journal's later observations. The only journal conflict was resolved by
+retaining both complete histories. No evaluator or acceptance reference changed.
+
+Git first refused the merge because of the unrelated Language working-tree edit.
+That exact patch, original file and checksum were saved under
+`/tmp/b0-poc-32c3897/original-language*` and `original-Language.lean`; a named
+safety stash retained the original edit during the merge. It was then reapplied
+successfully. Comparing the complete ordered added/deleted lines of the old and
+restored patches proves all 22 lines unchanged. Only that pre-existing edit is
+unstaged. The safety stash is retained; its immutable object id is in
+`original-language-stash.oid` in the same scratch directory.
+
+The clean candidate's external worktree and its live inventory were not modified.
+Its process and report remain the evidence for `32c3897`, not for the unrelated
+dirty edit in this checkout. Hosted branch run `39406008396` has passed purity
+and boundary; other hosted checks and the full local inventory remain live.
+
 ## 2026-10-20 — Source integrated on main; complete candidate inventory live
 
 Ordinary `git push origin HEAD:refs/heads/main` succeeded without bypassing
