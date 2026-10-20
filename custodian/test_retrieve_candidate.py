@@ -37,12 +37,18 @@ class CandidateRetrievalTest(unittest.TestCase):
             self.assertEqual(subprocess.run(['git', '-C', str(destination), 'rev-parse', 'HEAD'],
                                            check=True, capture_output=True, text=True).stdout.strip(), commit)
             attributes = source/'.gitattributes'
-            attributes.write_text('*.py filter=reviewfixture\n')
+            attributes.write_text('*.py filter=reviewfixture text eol=crlf\n')
             git('add', '.gitattributes')
             git('commit', '-qm', 'candidate names an ambient filter')
+            dependency_commit = git('rev-parse', 'HEAD')
+            (source/'lake-manifest.json').write_text(json.dumps({'packages': [{'name': 'mathlib', 'rev': dependency_commit}]}))
+            git('add', 'lake-manifest.json')
+            git('commit', '-qm', 'include exact dependency snapshot')
             filtered_commit = git('rev-parse', 'HEAD')
             filtered = root/'filtered-retrieved'
             retrieve(str(source), 'refs/heads/main', filtered_commit, filtered)
+            (filtered/'.lake/packages').mkdir(parents=True)
+            retrieve(str(source), dependency_commit, dependency_commit, filtered/'.lake/packages/mathlib')
             filter_marker = root/'ambient-filter-executed'
             global_config = root/'global.gitconfig'
             filter_command = 'touch '+shlex.quote(str(filter_marker))+'; cat'
@@ -56,6 +62,7 @@ class CandidateRetrievalTest(unittest.TestCase):
                            check=True, capture_output=True, text=True)
             self.assertFalse(filter_marker.exists())
             self.assertEqual((root/'filtered-snapshot'/'candidate.py').read_bytes(), script.read_bytes())
+            self.assertEqual((root/'filtered-snapshot'/'.lake/packages/mathlib/candidate.py').read_bytes(), script.read_bytes())
             frozen = root/'review-snapshot'
             captured = reviewer.snapshot(verify, destination, frozen)
             self.assertEqual(captured['repository'], commit)

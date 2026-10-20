@@ -1,5 +1,22 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Exact-byte snapshot construction repair
+
+The reviewer identified candidate `.gitattributes` with `text eol=crlf` changing
+committed LF bytes during the remaining snapshot checkout, despite ambient filter
+isolation. Reproduced as a failing byte comparison through production `snapshot`.
+Snapshot source and dependency materialization now both call the existing trusted
+Git-blob retrieval helper, preserving complete-tree path/link validation and exact
+revision checks without checkout attribute conversion. Metadata/status reads retain
+the isolated Git environment. Requirements, signing and admission paths are unchanged.
+
+The real temporary Git regression now exercises source and dependency snapshots
+with candidate CRLF attributes and independently configured clean/smudge commands:
+committed LF bytes remain exact and no filter marker appears. Twenty controller
+fixtures and two review-context fixtures passed; the expanded dependency-byte check
+also passed. These are bounded construction checks, not independent approval or a
+hosted workflow/acceptance result.
+
 ## 2026-10-20 — Independent snapshot ambient-Git reassessment
 
 Assessed `8399a64055cacafdd3e09cf2ac5ece7f2967c378` on the focused
