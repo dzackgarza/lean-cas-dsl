@@ -107,7 +107,7 @@ value module and actual forgetful route must remain in the question. `cc-realize
 also names the zero form on `ℤ⁰`, whose carrier has cardinality one; different
 input presentations must remain presentations of their respective selected objects.
 
-The published catalogue has the `Bil` category, its structural forgetful functor
+At the inspected revision `a2123729`, the published catalogue has the `Bil` category, its structural forgetful functor
 and `pairing`, but no registered named `U` or a registered object constructor
 accepting its module and bilinear map. The formal mathematical construction
 `BilinModuleCat.ofBilinMap` exists upstream; existence of an unregistered Lean
@@ -118,7 +118,11 @@ found no such object registration. The named lattice objects are not this
 specified formed-module input. The exact missing input is its independently
 published mathematical object registration, or a general registered constructor
 for an object of `Bil` with the stated module, values and bilinear map. No
-substitute notation or local mathematics is introduced here.
+substitute notation or local mathematics is introduced here. This missing
+constructor input is resolved by the subsequently published `BilinearMaps`,
+`BilinearForm` and `FormedModule` interface at main `c5512676`; the concrete
+proposed source and mathematical questions are in
+[b0-formed-positive-specifications.md](b0-formed-positive-specifications.md).
 
 The `cc-forms-general` example additionally fixes the A₂ discriminant form:
 on the discriminant class represented by the first dual-basis vector its
@@ -130,6 +134,10 @@ this value still needs a registered selected dual-basis element in `A_dual(2)`
 and an exposed value-group element `[2/3]:ℚ/ℤ`, together with the varying-value
 pairing's declared argument/result type. This assessment has not established
 those registrations and does not manufacture them from a coordinate vector.
+The later published interface now supplies the varying-value `formed_pairing`
+signature and the defining value-quotient projection through `formed_value_map`;
+the selected dual-basis element remains a missing input as detailed in
+`b0-formed-positive-specifications.md`.
 The expected proposition is fixed here independently; its language expression
 remains an explicit mathematical-vocabulary dependency.
 
