@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-10-20 — Complete computation-only inventory at 7e44f61
+
+The original harness invocation completed with exit 1; its runner PID `815702`
+is terminal. `/tmp/b0-poc-7e44f61/harness.json` contains all 153 admitted IDs
+exactly once, plus one failed binding: 15 holds, 130 gaps, three unavailable
+executions and five invalid assertions. No admitted assertion is omitted, and
+there are no internal, malformed, wrong or ambiguous outcomes. Inputs and source
+remain those recorded below for `7e44f61`; no later source result is combined
+with this report.
+
+Eleven of the fifteen required IDs hold with actual registered dispatches.
+`sets.eq.rev_rev` holds with no dispatch and does not meet its registered-execution
+obligation. The three `lattices.discriminant.*` IDs are gaps for the missing
+`colim.bil_w_form.cokernel` registration on `cat.bil_wform`. These are missing
+computational inputs, not authorization for the kernel author to implement leaves.
+The five inverse assertions and their initial binding remain invalid because the
+registered matrix-unit admission evidence fails over the selected rational carrier,
+as isolated in the existing October 18 finding. No upstream evidence was changed.
+
+The three unavailable executions are backend `ValueError` answers: finite-subset
+product and power-set cardinality report `not a named object: [1, 2, 3]`, and
+`sets.card.square` reports `no finite Sage parent for constructionApex`.
+The report also exposes a kernel transport obstruction: element encoding requires
+a named-object form even when its selected structure retains a complete structural
+image form. That generic mechanism is the next source repair under investigation.
+
+The read-only question comparison exits 1 for the five unread inverse assertions.
+Of 142 stored records, 137 have readable candidate questions with differing
+artifacts; eleven other admitted IDs have no stored interpretation. These counts
+are comparison findings, not proof of changed mathematics or an accepted migration.
+The comparison log is `/tmp/b0-poc-7e44f61/question-comparison.log`. Independent
+interpretation assessment remains required; records were not regenerated.
+
+The ordinary retry successfully published construction source `929850d18669fc336f31aec4438697c503ecd6a4`
+to `b0/poc-completion-20261020`. Its six shell errors are gone; nine existing
+naming warnings still request independent review but do not refuse publication.
+The hosted Gates workflow was dispatched as run `39391136444` and its `headSha`
+matches that source exactly. Boundary integrity and permanent-assertion checks
+passed; remaining hosted jobs were still running at this observation. Neither
+that source publication nor those checks establish B0 acceptance.
+
 ## 2026-10-20 — Checkpoint publication and focused-recipe boundary checks
 
 Publishing `1b25499` to construction branch `b0/poc-completion-20261020`
