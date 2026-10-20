@@ -1,5 +1,38 @@
 # Journal
 
+## 2026-10-20 — Complete 8fb0eb3 inventory and binder-domain diagnosis
+
+The single `8fb0eb3` computation-only run completed with exit 1. Its report is
+`/tmp/b0-poc-8fb0eb3/harness.json`: all 153 admitted IDs, no omissions, plus
+the failed inverse binding. Outcomes remain 15 holds, 130 gaps, three unavailable
+executions and five invalid assertions. Every readable question (148) is
+byte-identical to the `7e44f61` report; the same five inverse readings lack questions.
+No interpretation record was regenerated. Required registered-execution gaps
+remain, including the zero-dispatch reversal equality and absent discriminant
+registrations. The source repair advances several failures to later named gaps;
+`calculus.integral_sine` now reaches the missing `bind.sets.integral` registration.
+
+Hosted run `39394721114` completed at exact SHA `8fb0eb3`: build/audit, boundary
+and purity jobs pass; acceptance fails on the five unread inverse assertions in
+the question-permanence check. Its failed-step log is
+`/tmp/b0-poc-8fb0eb3/hosted-failure.log`. Those results do not establish B0.
+
+Read-only probes used the frozen compiled modules via `just --no-deps probe`,
+without refreshing or changing the running candidate. The generalized product
+mediator's singleton guard is not its only obstruction: its units-domain parameter
+has no retained realization, and its product apex has no recorded construction.
+The existing structured-parameter reader can recover that parameter from values
+already supplied in the binder body. Re-recognizing the same domain with that
+context changes its encoding from the `MonCat.mk` type-field refusal to the full
+registered reals → rings → monoids action, while retaining the fixed formal domain.
+The successful probe and log are `/tmp/b0-binder-domain-provenance.lean` and
+`/tmp/b0-poc-8fb0eb3/binder-domain-provenance.log` (37.95 seconds).
+
+The next source repair reuses structured-parameter witness recognition rather
+than adding a units case or recovering structure from a carrier. The completed
+inventory and frozen candidate remain available for comparison. The original
+`Language.lean` working-tree edit remains separate and untouched.
+
 ## 2026-10-20 — Integrated element-transport candidate 8fb0eb3
 
 The first integration attempt at `64a4c69` failed on the new record's layout;
