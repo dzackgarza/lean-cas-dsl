@@ -34,7 +34,8 @@ class ChainTests(unittest.TestCase):
             names = ("lean_categories", "cas_leaf_contracts", "cas_leaves", "nbdsl-worker")
             (checkout / "lake-manifest.json").write_text(json.dumps({"packages": [
                 {"name": "«nbdsl-worker»" if name == "nbdsl-worker" else name,
-                 "url": str(remote), "rev": old} for name in names]}))
+                 "url": str(remote), "rev": old} for name in names] + [
+                    {"name": "third_party", "url": str(remote), "rev": old}]}))
             command = ["python3", str(SCRIPT), str(checkout)]
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -43,6 +44,13 @@ class ChainTests(unittest.TestCase):
                 actual = subprocess.check_output(
                     ["git", "-C", str(package), "rev-parse", "HEAD"], text=True).strip()
                 self.assertEqual(actual, current, name)
+            subprocess.run(command + ["--record-resolved"], check=True, capture_output=True)
+            recorded = json.loads((checkout / "lake-manifest.json").read_text())
+            self.assertEqual([entry["rev"] for entry in recorded["packages"][:-1]],
+                             [current] * len(names))
+            self.assertEqual(recorded["packages"][-1],
+                             {"name": "third_party", "url": str(remote), "rev": old})
+            self.assertFalse((checkout / ".lake/packages/third_party").exists())
             (remote / "value").write_text("new main\n")
             git("commit", "-qam", "advance main")
             advanced = git("rev-parse", "HEAD")
@@ -54,8 +62,9 @@ class ChainTests(unittest.TestCase):
                 self.assertEqual(actual, advanced, name)
             dirty = checkout / ".lake/packages/nbdsl-worker/value"
             dirty.write_text("local work\n")
-            result = subprocess.run(command, capture_output=True, text=True)
+            result = subprocess.run(command + ["--record-resolved"], capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(json.loads((checkout / "lake-manifest.json").read_text()), recorded)
             self.assertEqual(dirty.read_text(), "local work\n")
             self.assertIn("uncommitted", result.stderr)
 

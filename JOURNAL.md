@@ -2182,3 +2182,30 @@ Pending:
 - A single computation-only run at this candidate tuple reports **all 15 frozen required assertions `holds`, each with nonempty registered dispatch** (`.tmp/b0-frozen-registered-current.json`). This establishes the specified positive computational observations, not completion of B0's realization row or the other acceptance rows.
 - Stage-A `b0-integration` acceptance remains unestablished: a complete targeted multi-module build passed some targets but exceeded the five-minute action boundary; no row is closed by that partial compile. Focused gate compilation identified `QuestionProbes` assuming exactly two equivalent parameter origins, despite the current upstream API retaining three distinct sources (`obj.commutative_rings.complexes`, `obj.fields.complexes`, `obj.rings.complexes`). The assertion now checks at least two **distinct** origins and retains the full validation loop over every source. `lake env lean CasCatalogue/QuestionProbes.lean` passes. Remaining integration obligations require their own positive and negative checks at this tuple.
 - Further stage-A focused gate compilation exposed two probes still referencing the retired `Wire` construction fields or bypassing the formal construction context: `StructuredResultProbes` and `StructuredReconstructionProbes`. The former now checks a decoded complete cone's apex/legs and the exact source computational packet surviving the registered representation change; the latter reconstructs and checks the noncanonical cone, projects the actual graph using the registered construction schema, decodes at the returned noncanonical leg endpoints, and rejects contextless `constructionLeg` envelopes. Both files pass focused `lake env lean` checks. These are integration-probe repairs, not separate B0 row completions.
+## 2026-10-20 — Hosted reviewer discovery and chain snapshot repair
+
+At `a69089a13c8a13b7d1139b5dbc1f4eadaacc43c4`, Gates run
+`39434392982`, job `118667457101`, passed all 22 controller/container fixtures
+but reviewer discovery imported a procedural CLI fixture. Its top-level
+`sys.argv` parsing treated unittest's `-s` as its source checkout and attempted
+to load `-s/custodian/review/review.py`. The exact failure was reproduced
+locally. The fixture is now import-safe; unittest discovery invokes its prepared
+signed scenario runner, while the original positional CLI remains available.
+All original scenario statements/assertions are preserved. The exact formerly
+failing discovery command now passes three tests, including all **79/79** signed
+review-loop checks, in 476.851 seconds on this host. Log:
+`/tmp/b0-reviewer-discovery-repair.log`. The substituted model response checks
+transport and control flow; it does not establish real reviewer judgment.
+
+Custodian seal run `39434393018` failed because `ci_chain.py` had refreshed
+mathematics to current main while the construction manifest still recorded
+`eea5c7f3bce7`. The seal workflow now invokes the resolver's explicit
+`--record-resolved` mode, recording actual checkout SHAs for existing consumed
+own-organisation entries after all updates succeed. The ordinary default still
+leaves manifest resolution to Lake. The real local-Git chain test failed on
+stale manifest values before this correction and passes after it; third-party
+entries stay unchanged, and a dirty dependency preserves both its local work
+and the previous manifest. No seal, verifier condition, protected accepted input,
+mathematics, acceptance assertion or leaf was changed. The hosted repaired run
+remains to be executed at the integrated source revision.
+
