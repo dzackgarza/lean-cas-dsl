@@ -97,6 +97,24 @@ untouched. No protected expectation, acceptance assertion, upstream mathematics
 or leaf was changed. The complete inventory at `8fb0eb3` remains the last complete
 computation run; this candidate has not established B0 completion.
 
+## 2026-10-20 — Binder-domain structured parameter source repair
+
+Regression `2e351bc` retains the fixed domain of `lim_{t → ∞} 1/t` and checks
+that its declared structured parameters encode with their complete supplied
+sources. It failed with the `MonCat.mk` type-field refusal (62.60 seconds).
+The reader now reuses its existing full structured-parameter witness computation
+once the binder body supplies its selected values. It records missing structured
+sources without replacing the domain, selecting a named object from a carrier,
+or changing an assertion or mathematical declaration.
+
+The language build passes (198.53 seconds), the dependent realizer build passes
+(115.18 seconds), and the same regression passes (55.87 seconds). Logs are
+`/tmp/b0-poc-8fb0eb3/binder-domain-{language,realize,green}.log`.
+These are encoding and source-build checks, not a computed limit result or B0
+acceptance. Full question preservation and integration remain to be checked at
+the committed candidate. The original checkout's unrelated Language edit remains
+untouched.
+
 ## 2026-10-20 — Complete 8fb0eb3 inventory and binder-domain diagnosis
 
 The single `8fb0eb3` computation-only run completed with exit 1. Its report is

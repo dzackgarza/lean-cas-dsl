@@ -2351,6 +2351,42 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
   let alternatives := ordered.flatMap fun (_, _, _, alternatives, _) => alternatives
   return (ordered.map (·.1), source, route, alternatives, applications)
 
+/-- Retain complete structured views supplied by the caller at one fixed parameter.
+No object is selected from a carrier, and all checked source presentations are preserved. -/
+partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Expr)
+    (parameterCategory : NamedCategoryEntry) (known : Array Value) : M (Option Value) := do
+  let mut witnesses : Array Value := #[]
+  let sourceValues := known.flatMap sourceParameterValues
+  let selected := sourceValues.filter fun
+    | .object _ candidateCategory origin selected _ =>
+        candidateCategory.id != CategoryId.sets || selected.isSome || origin.isSome
+    | _ => false
+  for candidate in (if selected.isEmpty then sourceValues else selected) do
+    if ← parameterCompatible (do
+        let image ← typedParameter (← inferType actual) candidate
+        isDefEq image actual) then
+      unless witnesses.any (fun existing =>
+          existing.declarations == candidate.declarations && existing.terms == candidate.terms) do
+        witnesses := witnesses.push candidate
+  if witnesses.isEmpty then return none
+  let views ← witnesses.mapM fun original => do
+    let chosen := match original with
+      | .object _ _ _ (some selected) _ => selected
+      | _ => original
+    if let .object handle chosenCategory origin selected _ := chosen then
+      if chosenCategory.id == parameterCategory.id &&
+          (← isDefEq (← inferType handle) (← inferType actual)) &&
+          (← withTransparency .all <| isDefEq handle actual) then
+        return Value.object handle chosenCategory origin selected
+          (some (#[original], chosen, #[], #[], #[]))
+    structuredParameterView original actual parameterCategory
+  let evidence ← coalesceSelectedParameterViews (← inferType actual) actual views
+  let (_, _, _, alternatives, _) := evidence
+  unless alternatives.isEmpty do
+    Trace.record (← read).trace actual
+      (.parameterEquivalence (← inferType actual) actual alternatives)
+  return some (.object actual parameterCategory none none (some evidence))
+
 /-- Recognize a retained complete object or its actual registered declaration application.
 A carrier expression alone does not select a named presentation. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry)
@@ -2525,37 +2561,8 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     else
       unless ← isTypeCorrect p do
         throwStratum .invalid m!"a registered object's structure parameter is not typed"
-      let mut witnesses : Array Value := #[]
-      let sourceValues := known.flatMap sourceParameterValues
-      let selected := sourceValues.filter fun
-        | .object _ candidateCategory origin selected _ =>
-            candidateCategory.id != CategoryId.sets || selected.isSome || origin.isSome
-        | _ => false
-      for candidate in (if selected.isEmpty then sourceValues else selected) do
-        if ← parameterCompatible (do
-            let image ← typedParameter (← inferType p) candidate
-            isDefEq image p) then
-          unless witnesses.any (fun existing =>
-              existing.declarations == candidate.declarations && existing.terms == candidate.terms) do
-            witnesses := witnesses.push candidate
-      if !witnesses.isEmpty then
-        let views ← witnesses.mapM fun original => do
-          let chosen := match original with
-            | .object _ _ _ (some selected) _ => selected
-            | _ => original
-          if let .object handle chosenCategory origin selected _ := chosen then
-            if chosenCategory.id == parameterCategory.id &&
-                (← isDefEq (← inferType handle) (← inferType p)) &&
-                (← withTransparency .all <| isDefEq handle p) then
-              return Value.object handle chosenCategory origin selected
-                (some (#[original], chosen, #[], #[], #[]))
-          structuredParameterView original p parameterCategory
-        let evidence ← coalesceSelectedParameterViews (← inferType p) p views
-        let (_, _, _, alternatives, _) := evidence
-        unless alternatives.isEmpty do
-          Trace.record (← read).trace p
-            (.parameterEquivalence (← inferType p) p alternatives)
-        return .object p parameterCategory none none (some evidence)
+      if let some selected ← selectedParameterFromWitnesses state p parameterCategory known then
+        return selected
       else
         -- A declared result can build a named object from parameters already fixed by its
         -- actual operands (`Vec(K,n)` inside `𝒫(Fin n → K)`). This is constructor provenance,
@@ -3014,6 +3021,23 @@ partial def sourceParameterValues (value : Value) : Array Value :=
           original.flatMap sourceParameterValues ++ sourceParameterValues source).getD #[] ++
         (origin.map fun (_, parameters) => parameters.flatMap sourceParameterValues).getD #[]
   | _ => #[value]
+
+/-- Retain supplied structured sources of parameters of already declared constructors.
+Carrier parameters keep their existing identity; this never infers a named object from a type. -/
+partial def retainStructuredParameterSources (value : Value) (known : Array Value) : M Unit := do
+  let some trace := (← read).trace | return
+  let state ← registryState
+  for source in sourceParameterValues value do
+    let .object handle _ (some (entry, values)) _ _ := source | continue
+    let some (.object recorded parameters) ← Trace.node? trace handle | continue
+    unless recorded == entry.id && parameters.size == values.size do
+      throwError "retained constructor parameters differ from their declared provenance"
+    for (actual, selected) in parameters.zip values do
+      let .object _ category .. := selected | continue
+      let expected ← inferType actual
+      if (← whnfR expected).isSort || (← isProp expected) then continue
+      if (← Trace.node? trace actual).isSome then continue
+      discard <| selectedParameterFromWitnesses state actual category known
 
 /-- The family of morphisms `declaration` of `category` applied to elements. Its parameters are
 unified from the sets of the operands and from `target?`, the set it is to land in (`deg` on
@@ -4086,6 +4110,7 @@ partial def binderReading (scope : Scope) (row : BinderEntry) (boundName : Name)
     throwStratum .invalid m!"the binder parameters are not determined"
   unless ← isTypeCorrect operation do
     throwStratum .invalid m!"a binder parameter is outside its declared type"
+  retainStructuredParameterSources D (knownArguments ++ #[Y])
   let M ← recognize state (← instantiateMVars source) category #[D, Y] (← params.mapM instantiateMVars)
   let retainedSource ← semanticObject M
   let operationSource ← instantiateMVars source
