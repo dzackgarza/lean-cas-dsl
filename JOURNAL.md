@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-10-20 — Source integrated on main; complete candidate inventory live
+
+Ordinary `git push origin HEAD:refs/heads/main` succeeded without bypassing
+hooks or forcing history. Readback reports main at
+`32c3897163a6f6595b44277b097efad0da9ccfdc`, the clean integrated candidate.
+This publishes construction source; it does not install or accept an independent
+controller, judge or release. Main's hosted gate run is `39406728912`; the earlier
+branch run `39406008396` has the same SHA. Remaining scan warnings retain their
+independent-review disposition in `/tmp/b0-poc-32c3897/push-main.log`.
+
+Both production question diagnostics pass sequentially and save full identities:
+matrices.kernel 41.46 seconds; subspaces.kernel 106.58 seconds. Each is byte-identical
+to its independently saved `7e44f61` baseline. Full initial-interpretation assessment
+and the unresolved inventory readings remain independent obligations.
+
+The complete unchanged computation-only inventory is now live at this candidate:
+exec session `93238`, verified runner PID `3209288`. Its log, exact inputs and
+process record are `/tmp/b0-poc-32c3897/{harness.log,inputs.json,harness-process.json}`.
+The command uses the original checkout's explicit Sage/GAP Python, all installed
+registrations, all admitted IDs and their failures. The command will save its
+terminal report and exit to `harness.json` and `harness.exit` in that directory.
+Do not restart it because observation times out, mutate its frozen checkout or
+refresh its shared dependency working trees while it is running. Source and
+probes are frozen; the original checkout retains only the unrelated Language edit
+in addition to these ordinary journal commits.
+
 ## 2026-10-20 — Integrated structured-domain candidate 32c3897
 
 Candidate `2be4777` failed its unchanged purity gate: the new binder-domain
