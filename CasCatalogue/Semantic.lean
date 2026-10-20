@@ -244,10 +244,28 @@ partial def bindFunctorSource (F X : Expr) : TermElabM Unit := do
   let realizationType ← withTransparency .all <| whnf (← inferType categoryRealization)
   unless realizationType.isAppOf ``CasCatalogue.CategoryRealization do
     throwError "the declared source has no complete category realization"
-  let carrier ← mkAppM ``CategoryTheory.Bundled.α #[realizationType.getAppArgs.back!]
+  -- The supplied action already fixes its complete source parameters. A fresh
+  -- category schema can hide them behind carrier projections (for example a
+  -- module category's ring), which cannot recover the original bundle.
+  let (source, _) ← realizedFunctorEndpoints (← instantiateFresh entry.realization) F
+  let sourceType ← withTransparency .all <| whnf (← inferType source)
+  unless sourceType.isAppOf ``CasCatalogue.CategoryRealization do
+    throwError "the selected action has no complete source realization"
+  unless ← withTransparency .all <| isDefEq
+      sourceType.getAppArgs[sourceType.getAppNumArgs - 2]!
+      realizationType.getAppArgs[realizationType.getAppNumArgs - 2]! do
+    throwError "the selected action has a different declared source category"
+  -- A published fibre witness can elaborate an omitted full family parameter
+  -- from the supplied structured receiver. Plain category schemas have no such
+  -- parameter witness; their already selected action supplies the source.
+  if (← selectedFamilyParameter? categoryRealization).isSome then
+    let schemaCarrier ← mkAppHere ``CategoryTheory.Bundled.α #[realizationType.getAppArgs.back!]
+    unless ← withTransparency .all <| isDefEq schemaCarrier (← inferType X) do
+      throwError "the supplied receiver has a different complete declared family source type"
+    alignCategoryParameters categoryRealization source
+  let carrier ← mkAppHere ``CategoryTheory.Bundled.α #[sourceType.getAppArgs.back!]
   unless ← withTransparency .all <| isDefEq carrier (← inferType X) do
     throwError "the supplied receiver has a different complete declared source type"
-  let (source, _) ← realizedFunctorEndpoints (← instantiateFresh entry.realization) F
   alignCategoryParameters categoryRealization source
 
 /-- `F.obj X`, elaborated at the current depth, so that the universe levels and parameters of `F`'s

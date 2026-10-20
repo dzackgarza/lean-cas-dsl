@@ -1,5 +1,41 @@
 # Journal
 
+## 2026-10-20 — Bind categorical actions to their supplied full source realization
+
+The integrated `3e0f982` source gate failed unchanged
+`FunctorActionDataProbes` and `StructuredReconstructionProbes` at
+`Semantic.bindFunctorSource`'s complete declared-source guard. The exact public
+module-kernel diagnostic reproduced the failure: a fresh named source realization
+retained `arrowsModulesCategory ?R`; both `mkAppM` and `mkAppHere` carrier
+projections failed the same receiver-type check. The public realization bound to
+the actual `kernelDeclaration (RingCat.of ℤ)` passed that exact check
+(`/tmp/b0-poc-5410e70/functor-kernel-source-context-red-final.log`, 19.90s).
+This was a generic source-binding defect, not a stale fixture or permission to
+recover a ring bundle from its carrier.
+
+The source binder now projects the source realization of the exact supplied
+action, checks its declared source-category metadata, and retains the exact
+receiver-type guard. Explicit published family-fibre witnesses still elaborate
+omitted full parameters from the structured receiver and align all selected
+parameter data. The existing `FibreParameterProbes` caught omission of that
+necessary witness path in the first repair (red 17.49s); it remains unchanged.
+There is no catch/retry branch, canonical bundle substitution or mathematical
+addition. Public realization definitions and the existing family witness own the
+data; this change only binds their supplied contexts.
+
+Final focused `CasCatalogue.Semantic` source check passed 1,481 jobs in 27.04s
+(`/tmp/b0-poc-5410e70/semantic-action-bound-family-source-build.log`).
+Byte-identical scratch copies of unchanged `FunctorActionDataProbes` and
+`StructuredReconstructionProbes` both passed cached source elaboration (exit 0),
+including their wrong-source/endpoint and wrong-construction protections.
+The unchanged `FibreParameterProbes` passed in 29.02s, retaining composed E8 and
+direct fixed-value full-parameter inference. Logs are
+`functor-action-consumer-action-bound-final.log`,
+`structured-reconstruction-consumer-action-bound.log`, and
+`fibre-parameter-consumer-action-bound-green.log` under the same scratch directory.
+No Language or Realize source rebuild or native computation ran here. These
+focused checks do not close the other full-build failures or B0 acceptance.
+
 ## 2026-10-20 — Integrated source gate at 3e0f982
 
 `B0_INTEGRATION=1 just build` completed with failure at clean committed
