@@ -1,5 +1,22 @@
 # Journal
 
+## 2026-10-20 — Successful hosted build/audit at the exact integrated SHA
+
+Branch run `39406008396` reports SHA
+`32c3897163a6f6595b44277b097efad0da9ccfdc`. Its build/audit job `118571998435`,
+purity job and boundary/permanence job all pass. The complete successful audit
+log is `/tmp/b0-poc-32c3897/hosted-build-success.log`; its actual Semgrep lookup
+successfully verifies the existing open `ai-review-ci#450` exception. The same
+nine naming warnings and scanner parsing warnings retain their independent-review
+disposition. Passing this job does not accept B0 or dispose of those reviews.
+
+The main run's separate 403 failure remains recorded accurately. The earlier
+job-only retry was unavailable while that workflow remained live; with the same
+candidate's identical hosted build/audit now observed passing, no additional
+retry is needed to establish this narrow check. Do not change the checker or
+call the main run green. Both acceptance jobs and the full local inventory were
+still live at this observation. All reports remain candidate-specific.
+
 ## 2026-10-20 — Hosted build/audit exception lookup failure at 32c3897
 
 Main run `39406728912` reports exact SHA `32c3897`. Its purity and boundary
