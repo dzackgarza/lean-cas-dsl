@@ -908,3 +908,20 @@ and they are the orchestrator's record.
 - **Successor signer.** The custodian's key dies with this session. Either the owner signs future
   seals with a key of their own, or the owner names a new custodian session and receives its
   fingerprint.
+
+
+## 2026-10-20 — Unfinished route-completeness argument at owner stop
+
+Read-only review of construction `4bc36b6` found all seven kernel consumers of public
+`SemanticState.routes` omit its fuel argument (default 32). Thus a complete finite
+composition argument has not been established by the consumed enumeration. This
+is not evidence that any particular admitted assertion fails; the native inventory
+was interrupted by the owner before producing its report.
+
+A proposed kernel-consumer correction would discover a finite reachable enclosure,
+check closure under actual public `edgesFrom`, and pass its vertex count to the existing
+simple-route enumerator. Current Arrow/Core lifting and non-growing explicit endpoint
+spines permit such an enclosure in the inspected tuple; future releases require actual
+closure checking. No correction, extension trial, or proof of cyclic-walk equivalence
+was implemented. See `HANDOFF.md` for remaining validation and the distinct missing
+constructor-cell action.
