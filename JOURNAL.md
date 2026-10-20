@@ -1,5 +1,101 @@
 # Journal
 
+## 2026-10-20 — Complete family parameters in structural applications
+
+The E8 route failed before execution when the new public fixed-value inclusion
+needed a bundled value-module parameter. Both ordinary and full-transparency
+composition refused the same middle-category constraint; the closed carrier
+projection did not determine the missing bundle. Logs are
+`/tmp/b0-poc-5410e70/route-composition.log` and
+`route-realized-composition-eta.log`.
+
+`Semantic` now reads the existing public functor endpoint realizations and
+family-fibre parameters. Lean structure eta reduction exposes the original
+complete parameter record before unification. After assignment, the original
+full parameters and their presentations are checked definitionally equal.
+Application uses the action's declared source-category witness and the supplied
+receiver's full type. No carrier search, new mathematics, or leaf data supplies
+structure. The exact public action and retained route applications stay intact.
+
+The first production check exposed an early presentation-equality check before
+bundle assignment; it was moved after assignment while retaining all original
+full-data checks. The full E8 method then exposed current-depth universe
+unification in ordinary metadata projection application; those projections now
+use the existing `mkAppHere` primitive. Focused `Semantic` passed 1481 jobs in
+25.41 seconds. The exact `FibreParameterProbes` target passed 3695 jobs in
+29.05 seconds, including the full registered E8 semantic method and application
+at a supplied formed module. The original `SelectedCarrierProbes`, registered
+execution, complete question preservation and final combined source checks
+remain required; these focused results do not establish them.
+
+The CI plumbing correction is published at
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Exact hosted controller source checks,
+controller boundary fixtures and the construction seal check pass. Other Gates
+jobs remain separate from this unintegrated functional source candidate.
+
+## 2026-10-20 — Expose applied closed carrier projections for admission
+
+The unchanged matrix-unit reader binding was refused although its complete admission
+predicate is definitionally equal to the ordinary rational-matrix predicate, which the
+same registered evidence establishes. The explicit supplied presentation retained closed
+carrier projections applied to their selected object arguments inside the matrix entries.
+The final carrier cleanup recognized only bare projection nodes, leaving these applied
+projections hidden from the evidence procedure.
+
+`evidencePresentation` now recognizes a projection at the head of an application. This
+change is restricted to closed type expressions, retains the full definitional-equality
+check against the original target, and does not unfold mathematical values or ring-map
+applications. `CarrierProjectionProbes` exercises the actual reader admission and retains
+a singular-matrix refusal. No mathematical assertion, expected answer, or upstream
+procedure changed.
+
+At mathematical main `805208138f016368f6a4eac415f25f3922a5807d`, the permanent reader
+regression failed before repair (55.13 seconds). The focused Language build passed
+(3725 jobs, 254.96 seconds), using its completed prior profile and a 300-second diagnostic
+budget. Cached-import checks of the unchanged positive and negative probe sections pass
+separately (36.25 and 31.74 seconds), and the existing `EvidencePresentationProbes` passes
+(46.15 seconds), retaining the original typed predicate and polynomial nonunit refusal.
+The combined cached-import probe exceeded its 60-second budget and is not counted as a
+pass. Logs and exact original-predicate diagnostics are under `/tmp/b0-poc-5410e70/`.
+These checks establish this reader boundary only; a combined source build after the
+concurrent Semantic correction, complete question preservation, the permanent suite,
+protected negatives, and independent B0 acceptance remain separate obligations.
+
+## 2026-10-20 — Preserve complete Arrow and admitted composite requests
+
+`Realize` now resolves a traced base-category Arrow to its unique registered Arrow
+category, checks the complete typed value, and retains both endpoints and its defining
+map. Already normalized Arrow contexts remain unchanged; contradictory source contexts
+are rejected. The unchanged `arrow-runtime-form.lean` production reproducer failed
+before repair (“an Arrow receiver was framed as its base category”) and passes after.
+
+Operation requests now follow only the catalogue's complete named-refinement prefix,
+as required by `specs/leaf-registration.md`; residual structural route applications
+remain part of the fixed admitted source composite. Separately, the complete selected
+formal route is applied before method-domain/result and property-domain checks. Selection
+never consults backend availability. `RuntimeRequestProbes` exercises actual reader and
+realization boundaries with `Harness.empty`: Arrow framing and wrong-source rejection,
+already normalized context, full source parameters, distinct source structures, complete
+refinement prefixes, and definitional agreement with the independently read operation.
+
+At mathematics main `805208138f016368f6a4eac415f25f3922a5807d`, focused Realize builds pass
+(97.82 seconds), and `RuntimeRequestProbes` passes (3737 jobs, 32.44 seconds). The unchanged
+installed-registration diagnostic previously reported `NoImplementation` for alternating
+group cardinality and cyclic/symmetric group abelianness on transported image forms. After
+repair all three report `holds`, each with one actual `gap-groups` dispatch on its admitted
+source form and full parameter `[3]`. Their complete question identities are unchanged.
+The diagnostic still exits 1: `E8.rank()` retains its earlier internal `routeFunctor`
+composition failure between `integralLatticeFormForgetDeclaration` and `fixedValue`, before
+registered execution. This is separate from the repaired request boundary, not evidence
+of missing mathematics or a completed positive suite. Lift component execution remains
+separate construction work; no lift semantics or permanent assertions changed here.
+
+Scratch red/green evidence is under `/tmp/b0-poc-5410e70/`:
+`arrow-runtime-form-{red,green}.log`, `composite-dispatch-{red,green}.{json,log}`,
+`realize-runtime-repair-domain-build.log`, and `runtime-request-probes-final.log`.
+These engineering checks establish the repaired wiring, not mathematical correctness or
+B0 acceptance. The refreshed dependency manifest is deliberately outside this source commit.
+
 ## 2026-10-20 — Complete registered run at runtime candidate 5410e70
 
 Exec session `69924` terminated with exit 1 and PID 895162 is gone. The complete

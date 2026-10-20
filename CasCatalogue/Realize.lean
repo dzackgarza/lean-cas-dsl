@@ -830,6 +830,21 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermE
   let refined := { w with form := .object current, presentationIsos := identifications, payload := .ordinary (value) (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
   transportImage trace refined remaining
 
+/-- Separate the fixed full mathematical receiver from its implementation input encoding.
+Only the catalogue's named refinement prefixes change the request form; residual structural
+edges remain part of the operation's admitted source composite, independent of availability. -/
+def operationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+    TermElabM (Wire × Expr) := do
+  let state ← registryState
+  let image ← if route.isEmpty then pure wire.value else
+    Semantic.objOf (← Semantic.routeFunctor state route) wire.value
+  let request ← match wire.form with
+    | .object entry =>
+        let (_, remaining) := state.transport entry route
+        transport trace wire (route.extract 0 (route.size - remaining.size))
+    | _ => pure wire
+  return (request, image)
+
 /-- Decode `j` as a registered named object at its parameters, `{"ctor": <object id>, "args":
 [<numerals, or objects>]}`, elaborated and recorded in `trace`. -/
 partial def decodeObject (trace : Trace) (j : Json) :
@@ -2396,8 +2411,22 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some category := state.categories.find? (·.id == entry.category) | unreachable!
       return { form := .canonicalMorphism category, payload := .computed e data }
   | .arrow category morphism source target =>
-      let some entry := state.categories.find? (·.id == category)
-        | throwError "the recorded arrow category is not registered"
+      let some recorded := state.categories.find? (·.id == category)
+        | throwError "the recorded arrow context is not registered"
+      let isArrow : Bool := match recorded.expression with
+        | .construct constructor #[.category _] =>
+            (state.constructors.find? (·.id == constructor)).any
+              (·.semantics == `CasCatalogue.Constructors.arrow)
+        | _ => false
+      let expression ← if isArrow then pure recorded.expression else do
+        let some expression := state.arrowsOf? recorded.expression
+          | throwError "the recorded arrow's constructor is not registered"
+        pure expression
+      let #[entry] := state.categories.filter (·.expression.syntacticEq expression)
+        | throwError "the recorded arrow has no unique registered Arrow category"
+      unless ← withTransparency .all <|
+          isDefEq (← inferType e) (← categoryCarrierInstance entry) do
+        throwError "the recorded arrow context disagrees with its complete typed value"
       let source ← realize h trace s!"the source of {what}" source
       let target ← realize h trace s!"the target of {what}" target
       let morphism ← realize h trace s!"the defining map of {what}" morphism
@@ -2714,17 +2743,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let scope ← computationalScope h backend answer
       return { form := form, payload := .construction completed scope }
   | .method id route receiver =>
-      let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-      let input ← transport trace input route
+      let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
+      let (request, input) ← operationReceiver trace original route
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
         | throwError "{id.raw} has no registered functor"
       let some target := state.category? functor.target
         | throwError "the result category of {id.raw} is not registered"
       let F ← registeredFunctorInstance functor
-      let acceptedInput ← methodArgument method input.value
+      let acceptedInput ← methodArgument method input
       let expected ← Semantic.objOf F acceptedInput
-      let (json, backend) ← send h id.raw (← computationalApexReceiver trace input)
+      let (json, backend) ← send h id.raw (← computationalApexReceiver trace request)
       match ← validateComputationalObject trace target expected json with
       | .error message => malformed backend id.raw json message
       | .ok () => pure ()
@@ -2732,17 +2761,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return { form := .functorImage functor target.id, payload := .computed e data }
   | .methodWithLifts id route lifts receiver =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-      let input ← transport trace original route
+      let (request, input) ← operationReceiver trace original route
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor | unreachable!
       let some target := state.category? functor.target | unreachable!
       let F ← registeredFunctorInstance functor
-      let acceptedInput ← methodArgument method input.value
+      let acceptedInput ← methodArgument method input
       let expected ← Semantic.objOf F acceptedInput
       let (retainedBase, _) ← Semantic.applyRegisteredFunctor functor acceptedInput #[] (some trace)
       unless ← withTransparency .all <| isDefEq retainedBase expected do
         throwError "the prescribed base action changed its full retained method input"
-      let (answer, backend) ← send h id.raw input
+      let (answer, backend) ← send h id.raw request
       match ← validateComputationalObject trace target expected answer with
       | .error message => malformed backend id.raw answer message
       | .ok () => pure ()
@@ -2793,9 +2822,18 @@ def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
   let some (.property id route receiver) ← (trace.node? p : IO _)
     | throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
         property of a value the realized reading evaluates"
-  let input ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-  let input ← transport trace input route
-  call h id.raw (← computationalApexReceiver trace input)
+  let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
+  let (request, input) ← operationReceiver trace original route
+  let state ← registryState
+  let some property := state.properties.find? (·.id == id)
+    | throwError "the recorded property is not registered"
+  let some classifier := state.classifier? property.classifier
+    | throwError "the recorded property's classifier is not registered"
+  -- Check the full selected domain without requiring an encoding of every intermediate image.
+  let classifier ← classifierInstance classifier
+  discard <| elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
+    $(← exprToSyntax classifier) $(← exprToSyntax input))) none
+  call h id.raw (← computationalApexReceiver trace request)
     (mkApp (mkConst ``Option [0]) (mkConst ``Bool))
 
 /-- Whether two closed values of a type with decidable equality are equal: the kernel accepts

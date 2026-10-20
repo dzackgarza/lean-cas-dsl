@@ -1,5 +1,14 @@
 # Custodian findings, 2026-09-30
 
+## 2026-10-20 — Reuse-search ordering during family-parameter repair
+
+The orchestrator drafted the first family-parameter helper before running the
+required corpus query and updating the owning reuse record. Direct dependency
+inspection alone did not meet that ordering requirement. The corpus queries
+`CategoryFamilyFibreWitness` and `structure eta reduction` have now run, and
+`specs/reuse/cc-dsl-language.md` identifies the existing formal witnesses and
+Lean structure-eta implementation; no mathematical construction is added.
+
 ## 2026-10-20 — Independent compositional assessment at 8cef0b2
 
 Assessed committed candidate `8cef0b299ebd9d37f910fcf3244b6945d8d8f6d5`

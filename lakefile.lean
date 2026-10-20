@@ -42,7 +42,7 @@ lean_lib CasDsl where
 
 /-- The core: resolution, propagation, calls and the language, over the leaf contract
 (`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
-reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
+reads at latest main and never writes (`specs/architecture.md`). It keeps `lean-categories`'
 elaboration options. -/
 @[default_target]
 lean_lib CasCatalogue where
