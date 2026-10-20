@@ -1192,7 +1192,8 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
     unless (← isType e) && !(← isProp e) do return .continue
     let reduced ← whnfR e
-    unless reduced.isProj do return .continue
+    unless reduced.getAppFn.isProj do return .continue
+    -- A carrier projection can itself be a function applied to its supplied object.
     -- Reducing a *closed type projection* is elaboration of a supplied carrier,
     -- not a tactic or a proof procedure.  Do not invoke Lean.Meta.Tactic.Delta:
     -- that machinery belongs exclusively to the registered evidence runner.

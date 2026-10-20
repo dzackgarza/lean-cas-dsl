@@ -1,5 +1,33 @@
 # Journal
 
+## 2026-10-20 — Expose applied closed carrier projections for admission
+
+The unchanged matrix-unit reader binding was refused although its complete admission
+predicate is definitionally equal to the ordinary rational-matrix predicate, which the
+same registered evidence establishes. The explicit supplied presentation retained closed
+carrier projections applied to their selected object arguments inside the matrix entries.
+The final carrier cleanup recognized only bare projection nodes, leaving these applied
+projections hidden from the evidence procedure.
+
+`evidencePresentation` now recognizes a projection at the head of an application. This
+change is restricted to closed type expressions, retains the full definitional-equality
+check against the original target, and does not unfold mathematical values or ring-map
+applications. `CarrierProjectionProbes` exercises the actual reader admission and retains
+a singular-matrix refusal. No mathematical assertion, expected answer, or upstream
+procedure changed.
+
+At mathematical main `805208138f016368f6a4eac415f25f3922a5807d`, the permanent reader
+regression failed before repair (55.13 seconds). The focused Language build passed
+(3725 jobs, 254.96 seconds), using its completed prior profile and a 300-second diagnostic
+budget. Cached-import checks of the unchanged positive and negative probe sections pass
+separately (36.25 and 31.74 seconds), and the existing `EvidencePresentationProbes` passes
+(46.15 seconds), retaining the original typed predicate and polynomial nonunit refusal.
+The combined cached-import probe exceeded its 60-second budget and is not counted as a
+pass. Logs and exact original-predicate diagnostics are under `/tmp/b0-poc-5410e70/`.
+These checks establish this reader boundary only; a combined source build after the
+concurrent Semantic correction, complete question preservation, the permanent suite,
+protected negatives, and independent B0 acceptance remain separate obligations.
+
 ## 2026-10-20 — Preserve complete Arrow and admitted composite requests
 
 `Realize` now resolves a traced base-category Arrow to its unique registered Arrow
