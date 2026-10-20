@@ -193,6 +193,17 @@ class ScopedDependencyTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)['result']['content'][0]['text'], '{"operation": "declared"}')
 
+    def test_missing_consumed_source_url_cannot_use_repository_origin(self):
+        self.git(self.contract, 'remote', 'add', 'origin', str(self.contract))
+        del self.config['accepted']['contract']['url']
+        independent = self.invoke('formalization', 'mathematics', 'meaning')
+        self.assertEqual(independent.returncode, 0, independent.stderr)
+        self.assertEqual(json.loads(independent.stdout)['result']['content'][0]['text'],
+                         'mathematics original')
+        consumer = self.invoke('acceptance', 'contract', 'meaning')
+        self.assertNotEqual(consumer.returncode, 0)
+        self.assertEqual(consumer.stdout, '')
+
 
 if __name__ == '__main__':
     unittest.main()

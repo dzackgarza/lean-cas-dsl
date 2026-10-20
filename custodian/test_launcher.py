@@ -124,6 +124,8 @@ class LauncherTest(unittest.TestCase):
              'accepted':{name:{'repository':str(self.repo),'commit':self.revision.commit} for name in ('mathematics','contract','acceptance')},
              'reviewer_public_key':str(self.root/'unused-key'),'reviewer_fingerprint':'unused',
              'assignments':{'b0-authority':'acceptance'},'obligation':'b0-authority','source_repository':str(self.repo)}
+        for name in ('mathematics', 'contract'):
+            cfg['accepted'][name]['url'] = str(self.repo)
         config=self.root/'launch.json';config.write_text(json.dumps(cfg))
         requests=[{'jsonrpc':'2.0','id':1,'method':'tools/list'},
                   {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'write_source','arguments':{'path':'CasCatalogue/Forbidden','content':'x'}}}]

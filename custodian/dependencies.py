@@ -21,8 +21,10 @@ def resolve_dependencies(configuration, inputs=None):
             continue
         if 'artifact_file' in entry or 'path' in entry:
             raise ValueError('source dependency cannot be a fixed artifact')
+        if 'url' not in entry or not isinstance(entry['url'], str) or not entry['url'].strip():
+            raise ValueError('consumed source dependency requires an explicit nonempty URL')
         repository = Path(entry['repository'])
-        remote = entry.get('url', 'origin')
+        remote = entry['url']
         git(repository, 'fetch', '--quiet', '--no-tags', '--', remote, 'refs/heads/main')
         entry['commit'] = git(repository, 'rev-parse', 'FETCH_HEAD^{commit}').decode().strip()
     source = config.get('source_base')

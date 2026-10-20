@@ -1,5 +1,24 @@
 # Journal
 
+## 2026-10-20 — Explicit source URLs at dependency consumption
+
+Normal publication of `8cef0b2` failed Semgrep on
+`custodian/dependencies.py`'s implicit `origin` fallback. A real launcher
+regression reproduced success with a missing contract URL and an available
+repository origin. The resolver now requires a nonempty explicit URL for each
+consumed source; a role that does not consume that source remains unaffected.
+Existing controller fixtures now declare their intended source URLs.
+
+The regression failed before the correction and passed afterward. The bounded
+controller source checks passed all 21 fixtures using the same isolated Git
+configuration as their hosted job. Exact logs and exits are under
+`/tmp/b0-poc-5410e70/`: `dependency-url-red`, `dependency-url-green` and
+`controller-source-after-url-fixtures`. Earlier broad attempts are retained:
+the first encountered ambient fixture hooks; the isolated attempt exposed two
+fixtures still relying on the implicit URL. Their explicit input corrections
+leave their assertions unchanged. The local Docker runtime fixture remains a
+separate failed check; these source fixtures do not establish it or B0 acceptance.
+
 ## 2026-10-20 — Running harness metadata affected by a concurrent diagnostic
 
 The orchestrator started `just probe` in the running harness's worktree.

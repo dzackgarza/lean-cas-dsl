@@ -28,6 +28,8 @@ class AssessmentTest(unittest.TestCase):
             key=root/'test-review-key';run('ssh-keygen','-q','-t','ed25519','-N','','-f',str(key));fingerprint=run('ssh-keygen','-lf',str(key)+'.pub').split()[1]
             remote=root/'history.git';run('git','init','--bare','-q',str(remote));run('git','init','-q',str(history));run('git','-C',str(history),'remote','add','origin',str(remote))
             cfg={'requirements':{'repository':str(repo),'commit':base},'accepted':{name:{'repository':str(repo),'commit':base} for name in ('mathematics','contract','acceptance')},'reviewer_public_key':str(key)+'.pub','reviewer_fingerprint':fingerprint,'assignments':{'b0-authority':'acceptance'},'obligation':'b0-authority','review_component':'acceptance','rejections':{'repository':str(history),'ref':'custodian/rejections'}}
+            for name in ('mathematics', 'contract'):
+                cfg['accepted'][name]['url'] = str(repo)
             artifact=root/'public-metadata.json';artifact.write_text('immutable fixture public metadata')
             cfg['accepted']['public_metadata']={'repository':str(root/'unavailable-upstream-checkout'),'commit':current,'artifact_file':str(artifact),'sha256':hashlib.sha256(artifact.read_bytes()).hexdigest(),'provenance':{'mathematics':current,'contract':current}}
             config=root/'config.json';config.write_text(json.dumps(cfg))
