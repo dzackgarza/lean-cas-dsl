@@ -145,3 +145,46 @@ The complete structured formed-module kernel and retained nonidentity
 presentation transport remain obligations beyond the scalar cardinality
 observations. The thirteen added source assertions neither replace those
 requirements nor claim execution of their expected computations.
+
+## Public-name audit at the later mathematical revision
+
+Published latest main was verified on 2026-10-20 as
+`e8e97d2b13fad4b868b0f8447a5e511a47732436`. The proposed sources were checked
+against their actual upstream registrations and full signatures:
+
+| Source names | Published owner and retained type |
+| --- | --- |
+| `Groups` | `Algebra/CatalogueRegistration.lean`: explicitly named category of groups |
+| `FiniteSets` | `Limits/Lifts.lean`: explicitly named finite-set category |
+| `Sym`, `ZMod`, `sign`, `trivial`, `id`, `Alt` | `Algebra/FiniteGroups.lean`: selected groups, actual group maps and subgroup objects |
+| `ker`, `is_abelian` | `Algebra/Subgroups.lean` and `Properties.lean`: kernel on group arrows, and commutativity classifier with group receiver |
+| `E8`, `rank` | `Modules/Bilinear/Valued/Lattices.lean` and `Modules/Rank.lean`: the selected integral lattice and inherited cardinal-valued module rank |
+| `F9x`, `F9y`, `F9translation`, `F9x_constants`, `F9y_constants` | `Algebra/PolynomialPresentations.lean`: the two distinct declared ring presentations, selected comparison, and actual coefficient maps |
+| `BilinearMaps`, `BilinearForm`, `FormedModule`, `formed_pairing` | `Modules/Bilinear/Valued/Constructions.lean`: full bilinearity admission, selected ring/carrier/value modules, actual form and its evaluation |
+| `Vec`, `RegularModule` | `Algebra/LinearAlgebra.lean` and `Modules/CatalogueRegistration.lean`: parameterized vector module and regular scalar module |
+
+Paths in this table are relative to `LeanCategories/Catalogue/Semantics/`.
+`generator`, `map … along`, and `map … back along` are the language notations
+specified in SPEC, not invented catalogue operation names.
+
+The earlier proposed bindings used `in CommutativeRings`. That spelling is
+not a published public category name: the commutative-ring category entry in
+`Exceptional/CatalogueRegistration.lean` leaves `name` empty.
+`Registry/Entry.lean`, `NamedCategoryEntry.name`, expressly defines empty as
+“the language does not name it.” The selectors are removed from the proposed
+bindings; the public names `F9x`, `F9y` and the comparison's independently
+declared endpoint object identities still fix exactly the original two
+presentations. Their commutative-ring registrations explicitly refine the same
+named set registrations along the declared structural routes, with their
+independently formal identifications.
+This corrects a source spelling, leaving all four transport propositions and
+expected values unchanged. The corresponding SPEC example's use of
+`CommutativeRings` is an owning-language-document discrepancy for the
+orchestrator; it is not a grant to invent a mathematical category name here.
+
+No proposed assertion constructs a formed morphism from a mere carrier map.
+The new `formed_morphism` public interface at this revision requires both
+`f:X.carrier→Y.carrier` and `α:X.value→Y.value`, and the full law
+`α(b_X(x,y))=b_Y(f(x),f(y))` for every pair. The distinction matters to the
+previously selected structured-kernel trial; its exact limitation is recorded
+in `b0-formed-positive-specifications.md` and the original trial assessment.
