@@ -52,6 +52,16 @@
   `BinderReaderProbes` passes. Full protected acceptance has not run. Issue
   lean-cas-dsl#66 remains open for those integrated obligations; no timeout
   increase or weaker identity is acceptable.
+  A 2026-10-20 reader profile located the remaining repeated work in tuple
+  element coercion: 79.7 seconds cumulatively across the 3×3 file, compared
+  with 11 seconds applying `cons`. Reusing closed numeral conversions within
+  one fixed tuple element set, and across rows only for one explicitly typed
+  matrix coefficient set, lowered cumulative coercion to 55.1 seconds.
+  The full `subspaces.kernel` benchmark now takes 102.34 seconds with 25.91
+  seconds in assertion semantic reading; its 126-root, 39,816-byte identity
+  is byte-identical to the saved prechange diagnostic baseline. The 2×2
+  identity is likewise unchanged. The practical latency target, independent
+  interpretation preservation, and full protected acceptance remain open.
 - Diagnosed formal-side dependency on 2026-10-18: the registered
   `Units.invertibleEvidence` proves invertibility for the same matrix over
   literal `ℚ`, but refuses it over the selected rational-ring object used by

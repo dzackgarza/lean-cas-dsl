@@ -364,6 +364,11 @@ structure Ctx where
 /-- The language's evaluation monad: elaboration in a reading. -/
 abbrev M := ReaderT Ctx TermElabM
 
+/-- Optional reader profiling; ordinary interpretation executes the action directly. -/
+def profileReader {α : Type} (name : String) (action : M α) : M α := do
+  let opts ← getOptions
+  if profiler.get opts then profileitM Exception s!"cas {name}" opts action else action
+
 /-- The morphism `f : a ⟶ b` of `category`, elaborated there. -/
 def homIn (f : Term) (a b : Expr) (_category : NamedCategoryEntry) : M Expr :=
   Semantic.hom f a b
@@ -1326,7 +1331,10 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
       ctx.bound.isEmpty then ctx.closedTerms else none
   if let some cache := cache? then
     if let some value := (← cache.get)[shown stx]? then return value
-  let value ← evalUncached scope stx category? ambient?
+  let value ← if profiler.get (← getOptions) then
+    profileitM Exception s!"cas reader {stx.getKind}" (← getOptions)
+      (evalUncached scope stx category? ambient?)
+  else evalUncached scope stx category? ambient?
   if let some cache := cache? then
     match value with
     | .object .. | .element .. =>
@@ -3663,23 +3671,43 @@ partial def commonSet? (sets : Array Value) : M (Option Value) := do
     if ← sets.allM fun Y => return (← coercionMap Y X).isSome then return some X
   return none
 
-/-- The tuple of the elements `values` of `X`, in `Xⁿ`: `cons(x₁, … cons(xₙ, ()))`. -/
-partial def tupleOf (values : Array Value) (X : Value) : M Value := do
+/-- The tuple of the elements `values` of `X`, in `Xⁿ`: `cons(x₁, … cons(xₙ, ()))`.
+The optional cache is shared only by tuples with the same fixed `X` in a closed reading. -/
+partial def tupleOf (values : Array Value) (X : Value)
+    (numerals? : Option (IO.Ref (Std.HashMap Nat Value)) := none) : M Value := do
   let state ← registryState
+  let ctx ← read
+  let numerals? ← if ctx.stage.isNone && ctx.bound.isEmpty then
+    match numerals? with
+    | some cache => pure (some cache)
+    | none => some <$> IO.mkRef ({} : Std.HashMap Nat Value)
+  else pure none
   let some empty := state.morphisms.find? (·.name == "()") | throwStratum .invalid m!"no tuples"
-  let E ← object state "Vec" #[X, .nat 0] none
+  let E ← profileReader "tuple empty object" <| object state "Vec" #[X, .nat 0] none
   let .object e category _ _ _ := E | unreachable!
   let .object one _ _ _ _ ← oneObject | unreachable!
-  let mut hom ← homIn (← `($(mkCIdent empty.declaration) $(← paramTerms #[X])*)) one e category
+  let mut hom ← profileReader "tuple empty map" <|
+    homIn (← `($(mkCIdent empty.declaration) $(← paramTerms #[X])*)) one e category
   if let some S := (← read).stage then
     hom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
   let mut acc := Value.element hom E
   for v in values.reverse do
-    acc ← applyNamed state "cons" #[← coerceTo v X, acc]
+    let element ← profileReader "tuple coerce" <| do
+      if let .nat n := v then
+        if let some numerals := numerals? then
+          if let some element := (← numerals.get)[n]? then return element
+          let element ← coerceTo v X
+          if element.terms.all (fun term => !term.hasMVar && !term.hasLevelMVar &&
+              !term.hasFVar && !term.hasLooseBVars) then
+            numerals.modify (·.insert n element)
+          return element
+      coerceTo v X
+    acc ← profileReader "tuple cons" <| applyNamed state "cons" #[element, acc]
   return acc
 
 /-- `(x₁, …, xₙ)`: in an enclosing `Xⁿ`, else in a set its components are in, else `ℤ`. -/
-partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
+partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value)
+    (numerals? : Option (IO.Ref (Std.HashMap Nat Value)) := none) : M Value := do
   let X? := match ambient? with
     | some (.object _ _ (some (entry, #[X, .nat n])) _ _) =>
         if entry.name == "Vec" && n == xs.size then some X else none
@@ -3692,7 +3720,7 @@ partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) 
         match ← commonSet? sets, sets[0]? with
         | some X, _ | none, some X => pure X
         | none, none => object (← registryState) "ℤ" #[] none
-  tupleOf values X
+  tupleOf values X numerals?
 
 /-- `[a, b; c, d]`: the registered matrix with these rows, in an enclosing `Matₙ(K)`, else over the
 set its entries are in. -/
@@ -3708,7 +3736,10 @@ partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Opt
   let rowAmbient ← match K? with
     | some K => some <$> object (← registryState) "Vec" #[K, .nat n] none
     | none => pure none
-  let rowValues ← rows.mapM fun row => tuple scope row rowAmbient
+  let ctx ← read
+  let numerals? ← if K?.isSome && ctx.stage.isNone && ctx.bound.isEmpty then
+    some <$> IO.mkRef ({} : Std.HashMap Nat Value) else pure none
+  let rowValues ← rows.mapM fun row => tuple scope row rowAmbient numerals?
   let .element _ V := rowValues[0]! | throwStratum .invalid m!"a row is a tuple"
   applyNamed (← registryState) "rows" #[← tupleOf rowValues V]
 

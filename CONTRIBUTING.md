@@ -221,6 +221,9 @@ Run what the change touches:
   invariant, not acceptance. Each focused command has a 120-second limit; timeout is failure, not
   proof that the target compiled. Increase `B0_FOCUS_BUDGET_SECONDS` only for a diagnosed target
   when the build or profile log explains why more time is needed.
+  For another edit to the same diagnosed hotspot, set `B0_PRIOR_PROFILE_LOG` to its completed
+  profile and run `just focus TARGET diagnosed`; the focused build still runs under its time
+  limit, while the redundant automatic profile is skipped. Profile again when the cost moves.
 - **Question reader or encoder changes:** `just bench-question matrices.kernel` and
   `just bench-question subspaces.kernel` measure the unchanged admitted questions through the
   production reader, recording dependency revisions, per-binding and phase timings, and peak

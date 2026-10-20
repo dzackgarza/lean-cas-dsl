@@ -29,6 +29,17 @@ focus target mode="build": track-main
     set -euo pipefail
     target={{quote(target)}}
     mode={{quote(mode)}}
+    diagnosed=0
+    if [[ "$mode" == "diagnosed" ]]; then
+      if [[ -z "${B0_PRIOR_PROFILE_LOG:-}" || ! -s "$B0_PRIOR_PROFILE_LOG" ]] ||
+          ! rg -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
+        echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
+        exit 2
+      fi
+      diagnosed=1
+      mode=build
+      echo "Using prior target profile: $B0_PRIOR_PROFILE_LOG"
+    fi
     budget=${B0_FOCUS_BUDGET_SECONDS:-120}
     if [[ ! "$budget" =~ ^[1-9][0-9]*$ ]]; then
       echo "B0_FOCUS_BUDGET_SECONDS must be a positive integer" >&2
@@ -41,6 +52,11 @@ focus target mode="build": track-main
     else
       module=$target
       source=${target//.//}.lean
+    fi
+    if (( diagnosed == 1 )) &&
+        [[ "$(cat "${B0_PRIOR_PROFILE_LOG}.target" 2>/dev/null || true)" != "$module" ]]; then
+      echo "Prior profile must be tagged for $module." >&2
+      exit 2
     fi
     log=$(mktemp /tmp/lean-cas-focus.XXXXXX.log)
     started=$(date +%s)
@@ -56,6 +72,9 @@ focus target mode="build": track-main
     esac
     result=${PIPESTATUS[0]}
     set -e
+    if [[ "$mode" == "profile" && "$result" == 0 ]]; then
+      printf '%s\n' "$module" > "${log}.target"
+    fi
     echo "Focused log: $log"
     if (( result == 0 )); then
       if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
@@ -69,7 +88,8 @@ focus target mode="build": track-main
       echo "Focused $mode exceeded ${budget}s. Diagnose the target before increasing B0_FOCUS_BUDGET_SECONDS." >&2
     fi
     if (( elapsed >= 60 )); then
-      if [[ "$mode" == "build" && -f "$source" && ( "$result" == 0 || "$result" == 124 ) ]]; then
+      if [[ "$mode" == "build" && "$diagnosed" == 0 && -f "$source" &&
+          ( "$result" == 0 || "$result" == 124 ) ]]; then
         profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
         set +e
         timeout --signal=TERM --kill-after=5s "${budget}s" \
@@ -77,6 +97,9 @@ focus target mode="build": track-main
           lake env lean --profile "$source" 2>&1 | tee "$profile_log" >/dev/null
         profile_result=${PIPESTATUS[0]}
         set -e
+        if (( profile_result == 0 )); then
+          printf '%s\n' "$module" > "${profile_log}.target"
+        fi
         echo "Profile log: $profile_log"
         tail -n 27 "$profile_log"
         if (( profile_result == 124 )); then

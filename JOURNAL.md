@@ -1,5 +1,35 @@
 # Journal
 
+## 2026-10-20 — Locate and reuse repeated tuple numerals
+
+The unchanged `subspaces.kernel` reader profile assigned about 70 seconds
+cumulatively to tuple readings. A second profile isolated 79.7 seconds in
+tuple element coercion across the admitted file, versus 11 seconds applying
+`cons`; tuple empty-object and map construction were below 0.1 seconds each.
+Kernel `perf` sampling was unavailable, so the instrumentation uses Lean's
+in-process profiler and is inactive for ordinary interpretation.
+
+The reader now caches a successful, closed numeral conversion for the fixed
+element set of one tuple. Explicitly typed matrix rows may share that cache
+only when their coefficient set and reading context are the same. Bound or
+staged contexts and values with unresolved metavariables or free variables
+bypass the cache. In the profiled 3×3 run, cumulative coercion fell from 79.7
+to 55.1 seconds; assertion semantic reading fell from 34.27 to 24.75 seconds.
+The full production-question benchmark fell from 116.50 to 102.34 seconds in
+separate runs, with 25.91 seconds in semantic reading and 2,431,416 KiB peak
+RSS. Its 126-root, 39,816-byte identity and the 2×2 66-root, 28,383-byte
+identity are byte-identical to saved prechange diagnostic baselines. These
+comparisons establish representation preservation for these specimens, not
+independent acceptance or the proposed latency target.
+
+Targeted `Language`, `TestSuite`, `QuestionProbes`, `ContextualSubsetProbes`,
+`ParameterStructureProbes`, and `ProofIdentityProbes` builds passed with
+latest-main dependencies. The same-target diagnosed build mode now requires a
+completed profile tagged for its module and skips rerunning that profile; its
+bounded `Language` build passed in 189.91 seconds. No full build or acceptance
+suite was run for this iteration. Reader construction, full preservation,
+composition, extension trials, and integrated B0 acceptance remain open.
+
 ## 2026-10-20 — Per-question closed-term reuse and reader-only feedback
 
 The semantic reader now reuses fully instantiated object and element values only within one

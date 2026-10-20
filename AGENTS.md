@@ -360,10 +360,19 @@ these use unchanged admitted assertions, print per-binding and phase timings, an
 complete identity with an independently saved baseline; timing or compilation alone does not
 establish preservation.
 
+When the same slow target has already produced a completed profile and the next edit addresses
+that diagnosed hotspot, use `B0_PRIOR_PROFILE_LOG=/tmp/the-profile.log just focus TARGET diagnosed`.
+This still builds the exact target under the same time limit and requires a completed profile log
+tagged for that target; it avoids rerunning an unchanged compiler diagnosis on every source
+iteration. Profile again if
+the bottleneck moves or the prior log no longer explains the slow path.
+
 For a semantic-reader iteration, `just bench-reading subspaces.kernel` imports only the reader
 and measures the production semantic claim. Use it to reject a slow or failing candidate before
 rebuilding the realization layer. It measures neither complete question identity nor execution;
 retain `just bench-question` and the protected negative probes for a candidate worth keeping.
+For a slow admitted reader question, profile that exact diagnostic with
+`CAS_BENCH_ASSERTION=subspaces.kernel B0_FOCUS_BUDGET_SECONDS=240 just focus benchmarks/semantic_reading.lean profile`.
 
 When a focused check takes 60 seconds or more, inspect its profile and the dependency/import path
 before another edit or rerun. Reduce repeated elaboration or traversal, use the existing shared
