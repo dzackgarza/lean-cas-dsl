@@ -2208,4 +2208,3 @@ entries stay unchanged, and a dirty dependency preserves both its local work
 and the previous manifest. No seal, verifier condition, protected accepted input,
 mathematics, acceptance assertion or leaf was changed. The hosted repaired run
 remains to be executed at the integrated source revision.
-
