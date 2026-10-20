@@ -1727,6 +1727,63 @@ partial def decodeObjectAt (trace : Trace) (category : NamedCategoryEntry)
 
 end
 
+/-- Execute every selected public lift field on preceding actual data, in reverse route order.
+The formal plan is fixed before dispatch; no reply supplies a semantic term or lift law. -/
+def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectData.Plan)
+    (source base : Wire) : TermElabM (Json × Option (String × Nat)) := do
+  let .ok _ := LiftedSubobjectData.fields "subobject" 3 base.json
+    | throwStratum .malformed "the lift base omitted its complete apex, ambient and inclusion"
+  let state ← registryState
+  let mut sources : Array Json := #[]
+  let mut actions : Array Json := #[]
+  let mut currentSource := source.json
+  for component in plan.components do
+    let some row := state.lifts.find? (·.id == component.lift)
+      | throwError "the fixed lift plan lost its registered row"
+    let .constructMap _ inner := row.edge
+      | throwError "the fixed lift plan lost its selected inner action"
+    let action ← edgeDescriptor trace inner component.action
+    sources := sources.push currentSource
+    actions := actions.push action
+    let .ok next := LiftedSubobjectData.mapArrowData action currentSource
+      | throwStratum .malformed "the prescribed lift source omitted complete Arrow fields"
+    currentSource := next
+  let mut currentBase := base.json
+  let mut owner ← sharedOwner source base
+  let mut steps := Array.replicate plan.components.size Json.null
+  for index in (List.range plan.components.size).reverse do
+    let some component := plan.components[index]?
+      | throwError "the fixed route lost a required computation component"
+    let some row := state.lifts.find? (·.id == component.lift)
+      | throwError "the fixed lift plan lost its public computation row"
+    let some form := state.liftInputForm? row.inputAddress
+      | throwError "the public lift request has no unique registered source context"
+    let mut outputs : Array Json := #[]
+    for field in LiftField.all do
+      let request := Json.mkObj [("ctor", "liftInput"), ("args", Json.arr #[
+        toJson row.id.raw, actions[index]!, sources[index]!, currentBase, Json.arr outputs])]
+      let input : Wire := { form, payload := dataPayload component.receiver request owner }
+      let operation := row.fieldAddress field
+      let (answer, backend) ← send h operation input
+      outputs := outputs.push answer
+      match ← LiftedSubobjectData.validatePrefix component actions[index]!
+          sources[index]! currentBase outputs with
+      | .error message => malformed backend operation answer message
+      | .ok () => pure ()
+      let scope ← computationalScope h backend answer
+      let returnedOwner := match scope with
+        | .portable => none
+        | .owned backend session => some (backend, session)
+      owner ← mergeOwners owner returnedOwner
+    steps := steps.set! index (Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
+      toJson row.id.raw, actions[index]!, sources[index]!, currentBase, Json.arr outputs])])
+    let .ok next := LiftedSubobjectData.nextBase sources[index]! outputs
+      | throwError "the completed lift omitted its actual next object or inclusion"
+    currentBase := next
+  let json := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
+    base.json, source.json, toJson (plan.components.map (·.lift.raw)), Json.arr steps])]
+  return (json, owner)
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 -- Closed element data comes from the formal operation trace, never from carrier matching.
@@ -2771,12 +2828,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let (retainedBase, _) ← Semantic.applyRegisteredFunctor functor acceptedInput #[] (some trace)
       unless ← withTransparency .all <| isDefEq retainedBase expected do
         throwError "the prescribed base action changed its full retained method input"
-      let (answer, backend) ← send h id.raw request
-      match ← validateComputationalObject trace target expected answer with
-      | .error message => malformed backend id.raw answer message
-      | .ok () => pure ()
-      let liftedJson := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
-        answer, original.json, toJson (lifts.map (·.raw))])]
       let some sourceCategory := state.categories.find? (·.id == original.form.category)
         | throwError "the prescribed method has no independently retained source schema"
       let .construct arrowConstructor #[source] := sourceCategory.expression
@@ -2790,7 +2841,18 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some category := state.categories.find?
           (·.expression.syntacticEq (.construct constructor.id #[source]))
         | throwError "the prescribed lift target has no registered full schema"
-      let some checked ← LiftedSubobjectData.decode (← inferType e) sourceCategory
+      let prepared ← LiftedSubobjectData.plan (← inferType e) category receiver lifts retainedBase
+      let plan ← match prepared with
+        | .ok plan => pure plan
+        | .error message => throwError "{message}"
+      let (answer, backend) ← send h id.raw request
+      match ← validateComputationalObject trace target expected answer with
+      | .error message => malformed backend id.raw answer message
+      | .ok () => pure ()
+      let baseData ← receiveComputationalData h backend id.raw answer true
+      let base : Wire := { form := .subobject target, payload := .computed retainedBase baseData }
+      let (liftedJson, owner) ← executePrescribedLift h trace plan original base
+      let some checked ← LiftedSubobjectData.decode (← inferType e) category
           receiver lifts retainedBase liftedJson
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
@@ -2800,11 +2862,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .error message => malformed backend id.raw liftedJson message
       unless ← withTransparency .all <| isDefEq packet.formalResult e do
         throwError "the independent prescribed lift changed its formal result"
-      let scope ← computationalScope h backend answer
-      let owner := match scope with
-        | .portable => original.owner?
-        | .owned backend session => some (backend, session)
-      let owner ← mergeOwners original.owner? owner
       return { form := .subobject category, payload := match owner with
         | none => .computed e (.inline packet.data)
         | some (backend, session) => .computed e (.owned backend session packet.data) }
