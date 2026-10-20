@@ -32,8 +32,11 @@ fails on the five unread questions. There are still 11 unrecorded identities and
 assessment. No assertion or authoritative interpretation record was edited.
 
 Independent extension trials, their arguments and final acceptance remain
-unestablished. The protected `accepted/controller` path still returns 404; source
-integration does not bootstrap or approve it. The deployment operations remain
+unestablished. Fresh-context formalization, acceptance and leaf authors are now
+performing their respective remaining work under the owner's authorization to
+delegate. Role separation governs their inputs and edits; it does not preclude
+those assignments. The protected `accepted/controller` path still returns 404;
+source integration does not bootstrap or approve it. The deployment operations remain
 in `custodian/SETUP.md`. The completed inventory supplies no new required-execution
 failure that can be repaired by authoring a leaf or upstream mathematics in the
 kernel role. Unsupported broader computations remain visible gaps; they do not

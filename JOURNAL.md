@@ -1,34 +1,26 @@
 # Journal
 
-## 2026-10-20 — Required external inputs unchanged after complete local execution
+## 2026-10-20 — Independent role work resumed
 
-The published findings at main `5263b0b` describe runtime candidate `32c3897`;
-only JOURNAL and FINDINGS differ in the committed trees. Source and mathematical
-acceptance are not relabelled as complete by that publication.
+The owner authorized subagents to perform the remaining independent role work.
+Three fresh-context authors are active: formalization in lean-categories against
+its existing issue #92; leaf engineering against the published contract and its
+own approved requirements; and acceptance assessment against mathematical sources,
+permanent assertions and the approved B0 requirements. Their inputs exclude
+later-stage implementations and reports. The orchestrator continues integration;
+none of these assignments grants protected acceptance authority.
 
-A fresh dependency audit again returns mathematics `a2123729` and leaves
-`48a99b5`; lean-categories#92 remains open, and accepted/controller still returns
-404. These same role-bound missing inputs have recurred across at least three
-consecutive goal turns. The full local inventory and source gates are complete;
-no new required failure in that report supplies a permitted kernel repair.
-Completing the remaining registered executions by writing a leaf, replacing
-formal evidence in the kernel, regenerating interpretations, choosing extension
-specimens for other roles or self-bootstrapping the judge would cross the assigned
-boundaries. No such operation was performed.
+Runtime candidate `32c3897` and the complete local evidence remain unchanged in
+`/tmp/b0-poc-32c3897`. Missing role outputs call for independent author work;
+role separation does not by itself prevent delegation. The fixed completion
+requirements remain outstanding, including independent acceptance.
 
-Required next inputs remain the current-contract reversal, cokernel and rank
-registrations; the independently delivered formal evidence repair; independently
-assessed interpretations, extension trials and arguments; and the independently
-reviewed controller/acceptance deployment described in SETUP.md. These are
-execution and input dependencies, not requests to change the requirements or
-re-authorize construction.
-
-Hosted acceptance jobs in runs `39406008396` and `39406728912` remain live at the
-last check. They can finish independently; inspect those existing runs before
-starting replacements when work resumes. Their eventual source-CI result cannot
-supply the missing registrations, upstream evidence or independent admission.
-The complete local report, inputs and analysis remain in `/tmp/b0-poc-32c3897`.
-The original Language edit is still unstaged and preserved exactly.
+Hosted main run `39406728912` has now completed. Regression comparison completed;
+question permanence failed on the same five unread inverse assertions. The
+build/audit job separately failed on its exception lookup HTTP 403. The completed
+log is `hosted-main-acceptance-completed.log` beside the local evidence. These
+hosted outcomes do not replace the local registered-execution results.
+The unrelated Language edit remains unstaged and preserved.
 
 ## 2026-10-20 — Merged candidate worktree retired after the complete run
 
