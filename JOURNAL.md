@@ -1,5 +1,25 @@
 # Journal
 
+## 2026-10-20 — Checkpoint publication and focused-recipe boundary checks
+
+Publishing `1b25499` to construction branch `b0/poc-completion-20261020`
+was refused by the ordinary pre-push Semgrep gate. The report is
+`/tmp/ai-review-ci-semgrep.VjC65o/head.json`: nine existing
+`POLICY.NO_UNGROUNDED_MATH_NAME` warnings require independent review, and six
+`POLICY.RUNTIME_DEFAULT` errors point to shell disjunctions and masked failures
+in the focused recipes. The separately excepted workflow checkout finding is
+not part of that remaining report. No hook or checker was bypassed.
+
+The focused recipes now check their required profile inputs separately, let a
+failed target-tag read fail directly, and retain the explicit build-success or
+timeout states that trigger profiling. Successful-build log filtering no longer
+ignores failures. Probe path validation reports its two invalid conditions
+separately. Diagnostic budgets and accepted mathematical assertions are unchanged.
+The ordinary `just focus CasCatalogue.TermGraphProbes` command succeeds in
+6.76 seconds. Missing prior profile, extended budget without diagnosis, and
+missing probe source each refuse with exit 2. Logs are in
+`/tmp/b0-poc-7e44f61/`; the full original-candidate harness continues independently.
+
 ## 2026-10-20 — Execute the committed POC candidate and restore purity coverage
 
 The complete integration recipe ran at clean `7e44f61fc0a4afcbed9b62e8103970d58ddc347b`

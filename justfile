@@ -31,8 +31,15 @@ focus target mode="build": track-main
     mode={{quote(mode)}}
     diagnosed=0
     if [[ "$mode" == "diagnosed" ]]; then
-      if [[ -z "${B0_PRIOR_PROFILE_LOG:-}" || ! -s "$B0_PRIOR_PROFILE_LOG" ]] ||
-          ! rg -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
+      if [[ -z "${B0_PRIOR_PROFILE_LOG:-}" ]]; then
+        echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
+        exit 2
+      fi
+      if [[ ! -s "$B0_PRIOR_PROFILE_LOG" ]]; then
+        echo "Prior profile must be a nonempty readable log: $B0_PRIOR_PROFILE_LOG" >&2
+        exit 2
+      fi
+      if ! rg -q 'cumulative profiling times:' "$B0_PRIOR_PROFILE_LOG"; then
         echo "Diagnosed build requires B0_PRIOR_PROFILE_LOG from a completed profile." >&2
         exit 2
       fi
@@ -57,10 +64,12 @@ focus target mode="build": track-main
       module=$target
       source=${target//.//}.lean
     fi
-    if (( diagnosed == 1 )) &&
-        [[ "$(cat "${B0_PRIOR_PROFILE_LOG}.target" 2>/dev/null || true)" != "$module" ]]; then
-      echo "Prior profile must be tagged for $module." >&2
-      exit 2
+    if (( diagnosed == 1 )); then
+      prior_target=$(cat "${B0_PRIOR_PROFILE_LOG}.target")
+      if [[ "$prior_target" != "$module" ]]; then
+        echo "Prior profile must be tagged for $module." >&2
+        exit 2
+      fi
     fi
     log=$(mktemp /tmp/lean-cas-focus.XXXXXX.log)
     started=$(date +%s)
@@ -82,7 +91,7 @@ focus target mode="build": track-main
     echo "Focused log: $log"
     if (( result == 0 )); then
       if [[ "$mode" == "profile" ]]; then tail -n 27 "$log"
-      else rg 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8 || true
+      else rg 'Built |Build completed|elapsed_seconds=' "$log" | tail -n 8
       fi
     else
       tail -n 30 "$log"
@@ -92,25 +101,28 @@ focus target mode="build": track-main
       echo "Focused $mode exceeded ${budget}s. Diagnose the target before increasing B0_FOCUS_BUDGET_SECONDS." >&2
     fi
     if (( elapsed >= 60 )); then
-      if [[ "$mode" == "build" && "$diagnosed" == 0 && -f "$source" &&
-          ( "$result" == 0 || "$result" == 124 ) ]]; then
-        profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
-        set +e
-        timeout --signal=TERM --kill-after=5s "${budget}s" \
-          /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
-          lake env lean --profile "$source" 2>&1 | tee "$profile_log" >/dev/null
-        profile_result=${PIPESTATUS[0]}
-        set -e
-        if (( profile_result == 0 )); then
-          printf '%s\n' "$module" > "${profile_log}.target"
+      case "$mode:$diagnosed:$result" in
+        build:0:0|build:0:124)
+        if [[ -f "$source" ]]; then
+          profile_log=$(mktemp /tmp/lean-cas-profile.XXXXXX.log)
+          set +e
+          timeout --signal=TERM --kill-after=5s "${budget}s" \
+            /usr/bin/time -f 'elapsed_seconds=%e peak_rss_kib=%M' \
+            lake env lean --profile "$source" 2>&1 | tee "$profile_log" >/dev/null
+          profile_result=${PIPESTATUS[0]}
+          set -e
+          if (( profile_result == 0 )); then
+            printf '%s\n' "$module" > "${profile_log}.target"
+          fi
+          echo "Profile log: $profile_log"
+          tail -n 27 "$profile_log"
+          if (( profile_result == 124 )); then
+            echo "Profile exceeded ${budget}s; reduce the reproducer or inspect the import boundary." >&2
+          fi
+          if (( result == 0 )); then result=$profile_result; fi
         fi
-        echo "Profile log: $profile_log"
-        tail -n 27 "$profile_log"
-        if (( profile_result == 124 )); then
-          echo "Profile exceeded ${budget}s; reduce the reproducer or inspect the import boundary." >&2
-        fi
-        if (( result == 0 )); then result=$profile_result; fi
-      fi
+        ;;
+      esac
       echo "Slow target ($elapsed s): inspect the profile and import costs before another source iteration." >&2
     fi
     exit "$result"
@@ -120,7 +132,11 @@ probe source: track-main
     #!/usr/bin/env bash
     set -euo pipefail
     source={{quote(source)}}
-    if [[ "$source" != /tmp/*.lean || ! -f "$source" ]]; then
+    if [[ "$source" != /tmp/*.lean ]]; then
+      echo "Probe source must be an existing /tmp/*.lean file." >&2
+      exit 2
+    fi
+    if [[ ! -f "$source" ]]; then
       echo "Probe source must be an existing /tmp/*.lean file." >&2
       exit 2
     fi
