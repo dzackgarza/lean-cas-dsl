@@ -195,10 +195,12 @@ Local checks give feedback on one edit in minutes. The whole suite runs only in 
 - **Dependencies.** Run `just track-main` in the work worktree at session start and after a
   subagent finishes (rule 8), never between the two reports of one comparison. A report records
   the `lake-manifest.json` hash it ran at.
-- **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the item's IDs
-  into an empty scratch directory (for K3 and K14, copy the `.cas.proposed` file under a `.cas`
-  name). Write an inventory file `{"assertions": {"<id>": "", …}}` listing exactly the item's
-  IDs. Run, from the work worktree:
+- **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the checked IDs
+  into an empty scratch directory (for K3 and K14, the `.cas.proposed` file under a `.cas` name),
+  keeping every line outside a `test` block and only the `test` blocks of the checked IDs; a
+  copied file runs all of its tests otherwise. Write an inventory file
+  `{"assertions": {"<id>": "", …}}` listing exactly the checked IDs. Check the IDs the edit is
+  meant to change, not the whole item, while iterating. Run, from the work worktree:
 
   ```bash
   CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
