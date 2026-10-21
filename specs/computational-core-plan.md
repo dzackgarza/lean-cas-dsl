@@ -192,6 +192,13 @@ Local checks give feedback on one edit in minutes. The whole suite runs only in 
   closing an item (`gh run download <run id> -n acceptance-report`). CI runs the suite with Lean
   discharge and without the Sage and GAP backends, so a computation it needs is `unavailable`
   there; required execution (K1, K3) is observed locally. A refused push is rule 3.
+- **Measured cost of one check (2026-10-21, this machine).** Harness startup maps 3.9 GB of
+  imports: 30 s with a warm page cache, about 110 s cold, and any build evicts that cache. Each
+  assertion then costs 10 to 30 s of CPU, more when it dispatches to a backend. Kernel C is
+  compiled at `-O0`, which makes a full kernel C rebuild and link take about 70 s instead of
+  about six minutes. Elaborating `Language.lean` (about 5,500 lines) takes several minutes, and
+  an edit to it or to `Trace.lean` rebuilds everything above it. So a check names at most three
+  IDs, and an edit to `Language.lean` or `Trace.lean` is batched with the other edits it needs.
 - **One heavy process at a time.** This machine has 7 GB of memory; each harness process maps
   about 2 GB of imports, and two of them, or one beside a Lean build, swap and slow every check
   several-fold. Run one harness or one `lake build` at a time, never both.
