@@ -14,20 +14,21 @@ The assignment is paused. Resume only on an owner instruction.
 `b0/poc-independent-role-integration` at `7591253efc8ad03b3c1de67ced505cd521b2d8e9`. Its kernel
 source is `4bc36b61e15ac2bd0abab2a48317d1423ee1b0fe`; the two later commits are documentation.
 **Not pushed**: the branch exists only in `/home/dzack/gitclones/lean-cas-dsl/.git`. No worktree
-of it exists on disk; create one with procedure rule 10.
+of it is registered; create one with procedure rule 10.
 
-No complete report exists for this kernel source (the 2026-10-20 run was stopped with an empty
-report). The session starts with the baseline:
+Latest complete report: none for this kernel source (the 2026-10-20 run was stopped before
+writing one). `/home/dzack/gitclones/lean-cas-dsl-reports/` exists and is empty. The session
+starts with the baseline, from the worktree, run in the background:
 
 ```bash
-cd ../lean-cas-dsl-b0
-git hash-object lake-manifest.json            # record; compare after the run
 just track-main
 lake build cas-harness
+H=$(git hash-object lake-manifest.json)
+R=/home/dzack/gitclones/lean-cas-dsl-reports/$(git rev-parse --short HEAD)-$H-full
 CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
 CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
-lake exe cas-harness --computation-only --report SCRATCH/baseline.json > SCRATCH/baseline.log 2>&1
-git hash-object lake-manifest.json
+lake exe cas-harness --computation-only --report $R.json > $R.log 2>&1
+test "$H" = "$(git hash-object lake-manifest.json)"   # otherwise the report does not count
 ```
 
 ## Work list state
@@ -46,13 +47,13 @@ git hash-object lake-manifest.json
 | K10 comparison used in execution | open |
 | K11 route enumeration bound | open |
 | K12 constructor-induced comparison cells | blocked: lean-categories constructor action on comparison cells |
+| K13 registration gaps (leaf dispatch) | open |
+| K14 formed-module positives | open |
 
 ## Noticed, not worked
 
 - `/home/dzack/gitclones/lean-cas-dsl` has the owner's uncommitted `CasCatalogue/Language.lean`
-  edit (a zero-family prefilter in `toElement`). It is identical to
-  `/tmp/b0-poc-32c3897/original-language-restored.patch`. Leave it untouched (rule 10).
-- `git worktree list` shows five prunable entries whose directories no longer exist.
+  edit (a zero-family prefilter in `toElement`). Leave it untouched (rule 10).
 
 ## Owner actions
 

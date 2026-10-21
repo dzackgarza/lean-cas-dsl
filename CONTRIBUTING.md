@@ -94,7 +94,7 @@ A proposed change to mathematical requirements, acceptance standards, or reserve
 authority needs the appropriate decision. A faithful record of a decision already
 made does not. File extensions do not determine this distinction.
 
-During B0 construction, the controller, reviewer prompt, gates, and publication
+In a controller session during B0 construction, the controller, reviewer prompt, gates, and publication
 workflow are themselves implementation work. Correct them under the construction
 mandate. Do not submit their replacement to an obsolete policy in order to obtain
 permission to write or test it. Source integration does not accept or install a new
@@ -107,7 +107,7 @@ needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests
 A descriptive text correction does not acquire a full mathematical build merely
 because the repository contains Lean code.
 
-A publication dependency does not suspend implementation or invalidate the
+In a controller session, a publication dependency does not suspend implementation or invalidate the
 instruction being recorded. Preserve the commit and continue the selected work
 while the already-specified publication correction is executed.
 

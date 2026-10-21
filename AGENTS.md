@@ -7,7 +7,8 @@ only evidence about computations; a one-way workflow in which each stage is blin
 Every decision, contract, gate, plan node and change here is grounded against it. Before writing
 anything, check whether it, or anything it touches, violates that model or its invariants. A
 violation found, in your task or outside it, is recorded as a defect where this repository records
-defects, never worked around or silently kept.
+defects (in a kernel session: one line under "Noticed, not worked" in `HANDOFF.md`), never worked
+around or silently kept.
 
 # The evidence model: nothing from a leaf is trusted (read before anything else)
 
@@ -226,8 +227,10 @@ You are either the **orchestrator** or a subagent with exactly one role
 No agent writes in two of those roles. `b0-authority` must enforce that separation through
 permitted inputs and operations, not a label an author declares about itself. Until the actual
 configuration is verified, this is an implementation obligation, not a claim of containment.
-Information flows formalization → tests → implementation, never back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
-by actual dependency: a governance node blocks only the work whose correctness or authorized
+Information flows formalization → tests → implementation, never back. A kernel session selects work only by the
+[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
+The B0 acceptance table of [the plan](specs/computational-core-plan.md) fixes the obligations,
+and dependencies are actual: a governance node blocks only the work whose correctness or authorized
 acceptance depends on it, and a blocked item names that dependency (policy 5). An approved
 objective delegates its implementation; owner escalation is for a change of requirement or
 authority only (policy 2). Review is independent, informed and correctable (policy 6).
@@ -350,10 +353,10 @@ saved harness executables, logs and worktrees with full Lake package copies left
 # Builds and checks
 
 Which check to run, and when, is the procedure's "Running checks". The commands:
-- `just focus TARGET` builds one Lean target and its dependencies under a 120-second limit
-  and saves the log in `/tmp`. A timeout is a failed check (procedure, rule 4), not a compile
-  result. `just focus SOURCE profile`, `just probe /tmp/NAME.lean`, `just bench-question` and
-  `just bench-reading` are diagnostics used only inside rule-4 performance work.
+- In a kernel session, `lake build TARGET` in the worktree builds one Lean target with no time
+  limit and no dependency refresh. `just focus`, `just probe`, `just bench-question` and
+  `just bench-reading` refresh dependencies or impose diagnostic limits; a kernel session uses
+  them only inside the procedure's rule-4 performance work.
 - `B0_INTEGRATION=1 just build` compiles the whole candidate; plain local `just build`
   refuses to start. A compile does not execute the suite and discharges no assertion.
 - `cas-harness` runs the suite; its report is the only evidence an item uses.

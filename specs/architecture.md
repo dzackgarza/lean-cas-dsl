@@ -478,7 +478,8 @@ suggested mathematical repair, or rewritten "mathematical requirement."
 Upstream assignments and priorities come from the upstream requirement queue. A kernel worker
 cannot select an upstream task, change its priority, replace its brief, or restart its author with
 different instructions. Otherwise even an apparently harmless requirement selector remains a
-steering channel.
+steering channel. The upstream rows fixed in the kernel construction procedure's work list are
+part of that queue: a kernel session dispatches such a row verbatim and selects nothing.
 
 The B0 mathematical work is already authorized by the fixed requirements. Removing downstream
 commissioning must not create a new requirement that the owner manually redispatch every existing

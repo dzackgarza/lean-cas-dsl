@@ -65,14 +65,18 @@ A change to a row needs a decision of the authority that owns the requirement.
 
 This section is the whole work-selection rule for a kernel construction session. It replaces
 every earlier priority statement, roadmap milestone and "next objective" sentence in this
-repository. It changes no row of the acceptance table and no admitted assertion.
+repository. In a kernel session its rules override any other instruction in this repository that
+directs an action: recording, publishing, reconciling branches, escalating, correcting gates,
+messaging sessions or dispatching work. It changes no row of the acceptance table and no admitted
+assertion.
 
 The kernel is ready for leaf work when a leaf author can fill every remaining gap by adding a
 registration. In a report, that means no admitted assertion stops at a **request-formation gap**:
-a `NoImplementation` whose detail does not begin `NoImplementation: no admitted registration
-computes`. The 2026-10-20 report at `5410e70` had 101 request-formation gaps and 26
-registration gaps among 154 entries. Readiness is followed by the frozen-candidate exit trials
-and independent acceptance (construction directive D); those are not a kernel session's work.
+an entry of kind `gap` whose `detail` does not begin `NoImplementation: no admitted registration
+computes`. The 2026-10-20 report at `5410e70` had 154 entries: 18 holds, 101 request-formation
+gaps, 26 registration gaps, 6 invalid, 3 unavailable. Readiness is followed by the
+frozen-candidate exit trials and independent acceptance (construction directives B and D); those
+are not a kernel session's work.
 
 Controller, custodian, review, publication and CI work (construction directive A) is a separate
 session. It starts only on an owner instruction that names it, and it follows directive A, not
@@ -87,119 +91,143 @@ how important, small, risky or promising something is.
 1. **Selection.** Work on the first item of the work list below that is neither closed nor
    blocked. Do nothing else. A defect noticed outside that item is one line in `HANDOFF.md`,
    "Noticed, not worked"; it is not repaired.
-2. **Write set.** An item's commits change only `CasCatalogue/`, `CasGates/`, `CasTools/`,
-   `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `JOURNAL.md` (rule 9) and
-   `HANDOFF.md` (rules 1, 3, 8 and 11).
-   If the next edit is to any other path or any other repository, it is not this item's work: do
-   not make it. In particular `custodian/`, `.github/`, `scripts/`, `justfile`,
-   `tests/acceptance/`, `CasAcceptance/Permanent/`, `specs/`, hooks, CI and other repositories
-   are outside every item.
-3. **Refused operations.** When a commit hook, push, CI job, controller or reviewer refuses an
-   operation, write the exact command and its error under "Owner actions" in `HANDOFF.md` and
-   continue the item. Never edit a gate, hook, controller, workflow or recipe to get past it.
-   Never bypass it. A refused push leaves the commits on the local branch.
-4. **Performance.** Performance work starts only when a command this procedure requires exits
-   by timeout, heartbeat exhaustion or memory exhaustion. Name that command and its exit in the
-   message of every commit of the performance work. The performance work ends when that same command completes; rerun it and
-   resume the item at the step it blocked. Profiles, `just bench-question` and
-   `just bench-reading` are used only inside such work. No time or memory figure is a target.
-   Do not raise heartbeats.
-5. **Verification.** Commit every repair attempt, including one you will later undo, and run the
-   item's targeted check (see "Running checks") on it. Record each ID's outcome and detail before and after in the commit message. A commit that
-   changes no ID's outcome or detail says `no outcome change` in its subject. Compare each
-   report entry's `question` with the one before the repair, ignoring the revision label before
-   the first `:`. A changed question is listed under `question changed` in the commit message,
-   and that ID cannot close until the acceptance subagent has assessed the change against the
-   unchanged assertion (rule 8).
+2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
+   `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `specs/reuse/K<n>.md` (the reuse record
+   AGENTS.md requires before a new Lean definition), `JOURNAL.md` (rule 9) and `HANDOFF.md`
+   (rule 9); and, when the item's request form needs it, `CasContract/` in
+   `lean-cas-dsl-leaf-contracts`, committed to its `main` and named in the kernel commit. Any
+   other path or repository is outside every item: `custodian/`, `.github/`, `scripts/`,
+   `justfile`, `tests/acceptance/`, `CasAcceptance/Permanent/`, the rest of `specs/`, hooks, CI,
+   leaves, `lean-categories`, containers and every other repository. If the next edit is there,
+   it is not this item's work: do not make it.
+3. **Refused or unavailable operations.** When a commit hook, push, CI job, controller or reviewer
+   refuses an operation, or a backend (`CAS_SAGE_PYTHON`, `CAS_GAP_PYTHON`) fails to start, write
+   the exact command and its error under "Owner actions" in `HANDOFF.md` and continue. A backend
+   that fails to start marks the item `blocked: engine <name>`. Never edit a gate, hook,
+   controller, workflow or recipe to get past a refusal, never bypass one, and never build,
+   install or recreate an engine or container. A refused push leaves the commits on the local
+   branch.
+4. **Performance.** Performance work starts only when a report entry for one of the item's IDs
+   has kind `internal` with a timeout, heartbeat or memory detail, or a required `lake` or
+   harness process is killed for memory. Name that entry or process in the message of every
+   commit of the performance work. It ends when that entry has another kind or that process
+   completes; then resume the item. Profiles, `just bench-question` and `just bench-reading` are
+   used only inside such work. No time or memory figure is a target. Do not raise heartbeats.
+5. **Verification.** For every repair attempt, including one you will later undo, run the item's
+   targeted check on the edited tree, then commit. The commit message has one line per item ID,
+   `id: kind → kind`, marked `detail changed` where the detail differs, plus the report path. A
+   commit in which no ID's kind or detail changed says `no outcome change` in its subject. Undo
+   an attempt by a forward commit. Compare only reports with the same `lake-manifest.json` hash;
+   if the hash changed, rerun the earlier report at the current manifest first. Compare each
+   entry's `question` with the earlier one. A changed question is listed under
+   `question changed`, and that ID cannot close until the acceptance subagent has assessed the
+   change against the unchanged assertion (rule 8).
 6. **Thrash interlock.** After three consecutive commits on one item whose subjects say
-   `no outcome change`, stop editing. Start a fresh subagent and give it only: the item's IDs,
-   their report entries before the first of those commits and now, and the three diffs. Do not
-   give it your explanation or plan. Follow its diagnosis or report its disagreement under
-   "Owner actions"; do not make a fourth such commit on your own diagnosis.
+   `no outcome change`, stop editing. Start a fresh read-only subagent and give it only: the
+   item's IDs, their report entries before the first of those commits and now, and the three
+   diffs. Do not give it your explanation or plan. It returns a diagnosis and makes no edits or
+   commits. Follow its diagnosis, or write the disagreement under "Owner actions" and take the
+   next item; do not make a fourth such commit on your own diagnosis.
 7. **Item identity.** An item is its ID set, not its current detail message. When a repair
    moves an ID from one request-formation detail to another, the item stays open. An item closes
    only when the closure condition of its row holds for every ID in one report at one candidate.
 8. **Blocked items.** An item is blocked only when its next step needs an input owned by another
    role (formalization, acceptance, leaf) or an owner operation. Then:
-   - if the input is mathematics, start the formalization subagent with the acceptance-table
-     row's requirement and its cited sources, and nothing from the kernel run;
-   - if the input is an assertion or interpretation, start the acceptance subagent with the
-     admitted assertion and its sources;
-   - if the input is a registration, it is leaf work: the ID is a registration gap and closes
-     the kernel item for that ID;
+   - mathematics: if the item names an upstream row, start the formalization subagent in a
+     `lean-categories` checkout with that acceptance-table row's text and its cited sources,
+     verbatim and nothing else (the owner's instruction of 2026-10-20 that such inputs are
+     delegated to a subagent). If the item names none, write the missing input under
+     "Owner actions";
+   - an interpretation or question change: start the acceptance subagent in its own checkout with
+     the admitted assertion text and its cited sources only;
+   - registrations: K13 is the only leaf dispatch;
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
      item.
-   The session ends when every item is closed or blocked, or the owner stops it. It does not
-   end because an item is blocked, a check is slow, or a record is unpublished.
+   The session does not end while a subagent it started is running. When one finishes, run
+   `just track-main`, rerun the targeted check of each item blocked on it, and resume selection
+   at rule 1. The session ends when every item is closed or blocked and no started subagent is
+   running, or when the owner stops it.
 9. **Records.** Write one `JOURNAL.md` entry when an item closes, in the closing commit, at most
-   ten lines: the IDs, their outcomes before and after, the candidate commit and the report path.
-   Item states are kept in `HANDOFF.md`, never in this plan. Write no other `JOURNAL.md`,
-   `custodian/FINDINGS.md`, plan or policy text during a session.
-10. **Checkouts.** Work in a worktree outside the repository on the construction branch
-    `HANDOFF.md` names (`git worktree add ../lean-cas-dsl-b0 <branch>`). Never run
-    `git stash`, `checkout`, `reset`, `restore` or `clean` in `/home/dzack/gitclones/lean-cas-dsl`;
-    its working tree holds the owner's uncommitted edit. While a harness run is in progress, run
-    no `lake` or `just` command in that worktree.
+   ten lines: the IDs, their kinds before and after, the candidate commit and the report path.
+   Commit `HANDOFF.md` only when an item closes or is blocked, after a refusal (rule 3), and at
+   session end (rule 11). Item states are kept in `HANDOFF.md`, never in this plan. Write no other
+   `JOURNAL.md`, `custodian/FINDINGS.md`, plan, policy or agent-memory record during a session.
+10. **Checkouts.** Run `git worktree prune`, then work in a worktree outside the repository on the
+    construction branch `HANDOFF.md` names (`git worktree add ../lean-cas-dsl-b0 <branch>`).
+    Never run `git stash`, `checkout`, `reset`, `restore` or `clean` in
+    `/home/dzack/gitclones/lean-cas-dsl`; its working tree holds the owner's uncommitted edit.
+    While a harness run is in progress, run no `lake` or `just` command in that worktree.
 11. **Handoff.** At session end `HANDOFF.md` contains only: the branch and commit, and whether
-    it is pushed or the exact push error; each work-list item as closed, open or
-    `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp` path or worktree
-    as the only location of anything the next session needs.
+    it is pushed or the exact push error; the latest complete report's path; each work-list item
+    as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
+    path or worktree as the only location of anything the next session needs.
 12. **Claims.** Say an item is closed only by citing the report and its entries for the item's
     IDs. A compile, probe, benchmark, review or reasoning about the code does not close an item.
 
 #### Running checks
 
-- **Baseline.** At the start of a session, if there is no complete computation-only report for
-  the branch head's kernel source, build `cas-harness` in the worktree and run it over the whole
-  inventory (command in `HANDOFF.md`). It takes about forty minutes. The report counts only if
-  `lake-manifest.json` is byte-identical before and after the run.
+Reports are written to `/home/dzack/gitclones/lean-cas-dsl-reports/` (outside the repository),
+named `<kernel commit>-<lake-manifest.json hash>-<full|targeted-Kn>.json`. Record the manifest hash
+with every report.
+
+- **Dependencies.** Run `just track-main` once at session start and after a subagent finishes
+  (rule 8), never between the two reports of one comparison.
+- **Baseline.** If the reports directory has no complete computation-only report for the branch
+  head's kernel commit at the current manifest hash, build `cas-harness` in the worktree and run it
+  over the whole inventory (command in `HANDOFF.md`). It takes about forty minutes. Start it in
+  the background and wait for its exit notification: no status polling and no sleep loops.
+  While it runs, read source only. The report counts only if the manifest hash is the same
+  before and after the run.
 - **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the item's IDs
-  into an empty scratch directory (for K3, copy the `.cas.proposed` file under a `.cas` name).
-  Write an inventory file `{"assertions": {"<id>": "", …}}` listing exactly the item's IDs. Run,
-  from the worktree:
+  into an empty scratch directory (for K3 and K14, copy the `.cas.proposed` file under a `.cas`
+  name). Write an inventory file `{"assertions": {"<id>": "", …}}` listing exactly the item's
+  IDs. Run, from the worktree:
 
   ```bash
   CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
   CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
   lake exe cas-harness --computation-only --suite SCRATCH --inventory SCRATCH/inventory.json \
-    --report SCRATCH/report.json
+    --report /home/dzack/gitclones/lean-cas-dsl-reports/NAME.json
   ```
 
-  It rebuilds `cas-harness` when the source changed. On a warm build one suite file takes about
-  a minute (`ellipses.cas`, 2026-10-21: 76 seconds); its details matched the full report's. Omit
+  It rebuilds `cas-harness` from the edited source. On a warm build one suite file took
+  76 seconds (`ellipses.cas`, 2026-10-21), and its details matched the full report's. Omit
   `--computation-only` for the full report that K4 accepts. A targeted report closes an item;
-  the full inventory re-checks it (below).
-- **Lean source checks.** `just focus TARGET` for the changed target (120-second limit; a
-  timeout is a rule-4 condition). `B0_INTEGRATION=1 just build` only before the session's final
-  full inventory run.
+  the final full inventory re-checks it.
+- **Lean source checks.** `lake build TARGET` in the worktree for the changed module or probe.
+  It has no time limit and does not refresh dependencies. `B0_INTEGRATION=1 just build` runs only
+  before the session's final full inventory.
 - **Full inventory.** Rerun it once, before writing the handoff, at the final committed head.
 
 #### Work list
 
-Kernel items, in order. "Report outcome" means the outcome in a computation-only report unless
-the row says otherwise. A request-formation gap is defined above.
+Kernel items, in order. "Kind" is the entry's kind in a computation-only report unless the row
+says otherwise. A request-formation gap is defined above.
 
 | Item | IDs (from the `5410e70` report) | Closes when |
 | --- | --- | --- |
 | K1 required computations | `sets.card.z4_cubed`, `sets.card.z7`, `sets.card.z5_empty_power`, `sets.card.fin2_times_z3`, `sets.card.integers`, `sets.finite.integers`, `sets.finite.fin2_times_z3`, `sets.implemented.card_fin`, `sets.card.fin2_sqcup_fin3`, `sets.eq.rev_rev`, `sets.limit.pullback.card`, `finite_sets.limit.pullback.card`, `lattices.discriminant.a1`, `lattices.discriminant.a2`, `lattices.discriminant.a3` | every ID holds with at least one dispatch |
-| K2 invalid inverse readings | `inverses.value`, `inverses.solve`, `inverses.left`, `inverses.right`, `inverses.det` and the `Mat₂(ℚ)ˣ` statement row | no ID is invalid; a remaining evidence failure is `blocked: lean-categories evidence` (rule 8) |
-| K3 required positives | the assertions of `tests/acceptance/b0-required-positives.cas.proposed` | every assertion holds through registered execution with its protected negatives, run unchanged; an assertion not yet admitted is `blocked: acceptance admission` |
-| K4 membership and containment judgments | `algebras.polynomials_several`, `algebras.polynomials`, `schemes.affine_line`, `schemes.affine_space`, `calculus.taylor_exp`, `calculus.taylor_sin`, `composed.root_one`, `differentials.member`, `ellipses.even_square`, `ellipses.odd_square`, `ellipses.prime`, `ellipses.not_prime`, `factorization.approximation`, `finite_sets.member`, `finite_sets.not_member`, `finite_sets.subset_union`, `finite_sets.intersection_subset`, `comprehension.typed`, `comprehension.image_typed`, `comprehension.even_member`, `comprehension.odd_not_member`, `fractions.member`, `fractions.sqrt_member`, `subspaces.member`, `subspaces.not_member`, `numbers.containments`, `numbers.containments.transitive`, `numbers.membership.zmod`, `numbers.membership.negative`, `polynomials.variable`, `polynomials.member`, `polynomials.irrational_roots`, `several_variables.variable`, `several_variables.last_variable` | every ID is not a request-formation gap in the computation-only report, or holds in the full report through Lean discharge |
+| K2 invalid inverse readings | `inverses.value`, `inverses.solve`, `inverses.left`, `inverses.right`, `inverses.det` and the `(statement)` entry of `inverses.cas` | no ID is invalid. Their earlier questions are empty, so every reading is a question change (rule 5). Upstream row: `core-admission-realized` |
+| K3 required positives | the assertions of `tests/acceptance/b0-required-positives.cas.proposed` | every assertion holds through registered execution, run unchanged, with its protected negatives. None is admitted yet: once all hold, K3 is `blocked: admission operation (owner)` until admitted |
+| K4 membership and containment judgments | `algebras.polynomials_several`, `algebras.polynomials`, `schemes.affine_line`, `schemes.affine_space`, `calculus.taylor_exp`, `calculus.taylor_sin`, `composed.root_one`, `differentials.member`, `ellipses.even_square`, `ellipses.odd_square`, `ellipses.prime`, `ellipses.not_prime`, `factorization.approximation`, `finite_sets.member`, `finite_sets.not_member`, `finite_sets.subset_union`, `finite_sets.intersection_subset`, `comprehension.typed`, `comprehension.image_typed`, `comprehension.even_member`, `comprehension.odd_not_member`, `fractions.member`, `fractions.sqrt_member`, `subspaces.member`, `subspaces.not_member`, `numbers.containments`, `numbers.containments.transitive`, `numbers.membership.zmod`, `numbers.membership.negative`, `polynomials.variable`, `polynomials.member`, `polynomials.irrational_roots`, `several_variables.variable`, `several_variables.last_variable` | every ID is not a request-formation gap in the computation-only report, or holds in the full report through Lean discharge. Expect question changes (rule 5) |
 | K5 closed elements as request data | `calculus.integral_square`, `composed.composition`, `integration.normalized_count`, `integration.normalized`, `integration.differential`, `integration.derivative`, `integration.at_zero`, `finite_sets.union`, `finite_sets.intersection`, `finite_sets.difference`, `finite_sets.symmetric_difference`, `fractions.halves`, `fractions.cancel`, `fractions.modulus`, `functions.extensional`, `functions.at_zero`, `functions.at_three`, `functions.even`, `numbers.complex.re`, `numbers.complex.im`, `numbers.complex.bar`, `numbers.complex.norm`, `numbers.complex.abs`, `polynomials.at_minus_sqrt2`, `series.coefficient_two`, `series.coefficient_three`, `series.coefficient_zero`, `series.coefficient_four` | no ID is a request-formation gap |
 | K6 operands not formed by a catalogue operation | `composed.root_count`, `differentials.derivative`, `ellipses.naturals`, `ellipses.evens`, `ellipses.multiples`, `ellipses.squares_even`, `factorization.multiplicity_two`, `factorization.multiplicity_three`, `factorization.multiplicity_seven`, `comprehension.elements`, `comprehension.card`, `comprehension.even_card`, `comprehension.image_apply`, `comprehension.image_method`, `matrices.product`, `matrices.juxtaposition`, `matrices.application`, `matrices.det`, `matrices.rank`, `matrices.kernel`, `matrices.trace`, `matrices.charpoly`, `numbers.gcd` | no ID is a request-formation gap |
 | K7 maps without an observation decoder | `numbers.integers.sum`, `numbers.zmod5.sum`, `numbers.zmod5.product`, `numbers.zmod5.negation`, `numbers.zmod5.difference`, `numbers.zmod7.distributive`, `numbers.zmod7.value`, `numbers.rationals.sum`, `several_variables.dimension`, `several_variables.plane` | no ID is a request-formation gap |
 | K8 remaining request-formation gaps | `differentials.at_two`, `polynomials.root`, `factorization.prime_factors`, `fractions.lowest_terms`, `calculus.limit_sinc`, `calculus.limit_infinity` | no ID is a request-formation gap |
 | K9 unavailable requests | `finite_sets.card_product`, `finite_sets.card_power_set`, `sets.card.square` | the kernel's request for each ID matches the contract's declared input form (then the backend error is leaf work and the ID leaves this item), or it is corrected so that it does |
 | K10 comparison used in execution (`cc-cohere-exec`) | ring `cardinality` probe | the executed request records the comparison `cmp.rings.carrier` that selected its route; without that row the outcome is an ambiguity naming both routes |
-| K11 route enumeration bound | `Resolve`, `Closure`, `Cohere` probes | no consumer of `SemanticState.routes` relies on the default fuel; the bound is computed from the registry as `custodian/FINDINGS.md` (2026-10-20, route completeness) describes; those probes pass |
-| K12 constructor-induced comparison cells | the lift positive in `CohereProbes` | `blocked: lean-categories constructor action on cells` until that input exists; then the probe resolves without ambiguity |
+| K11 route enumeration bound | `Resolve`, `Closure`, `Cohere` probes | no consumer of `SemanticState.routes` relies on the default fuel; the bound is computed from the registry as `custodian/FINDINGS.md`, "Unfinished route-completeness argument at owner stop", describes; those probes pass |
+| K12 constructor-induced comparison cells | the lift positive in `CohereProbes` | the probe resolves without ambiguity. Upstream row: `cc-cohere`; `blocked: lean-categories constructor action on comparison cells` until that input exists |
+| K13 registration gaps (leaf dispatch) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
+| K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
 
 Items K1–K3 are re-checked in every full inventory. A closed item that reopens there becomes the
 first open item again.
 
-After K1–K12: the kernel is ready for leaf work in the sense above. Freezing the candidate, the
+After K1–K14: the kernel is ready for leaf work in the sense above. Freezing the candidate, the
 exit trials, question-preservation assessment and acceptance follow construction directives B
-and D. Latency work, broader workloads and leaf expansion come after B0.
+and D, in sessions the owner starts. Latency work, broader workloads and leaf expansion come
+after B0.
 
 ### Stage A
 
@@ -225,7 +253,7 @@ release. Publication uses the authorized repository operations; this text neithe
 changes hosting protections. The mathematical release remains explicitly pinned and independently
 assessed.
 
-Reconcile outstanding branches by their existing obligations, not as a merge queue (comparison at
+Outside a kernel session (which follows the kernel construction procedure), reconcile outstanding branches by their existing obligations, not as a merge queue (comparison at
 #65 `cbe4f174`, #63 `f805933`, #64 `5fd3f924`):
 - [#63](https://github.com/dzackgarza/lean-cas-dsl/pull/63) and
   [#64](https://github.com/dzackgarza/lean-cas-dsl/pull/64) are divergent reference branches, not
