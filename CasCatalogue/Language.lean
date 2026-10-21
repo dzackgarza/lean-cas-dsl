@@ -3491,8 +3491,7 @@ partial def generatorOf (P : Value) (index : Option Nat := none) : M Value := do
   Trace.record (← read).trace hom (.generator entry.id arguments)
   match (← read).stage with
   | none => return .element hom P
-  | some S => return .element (← mkAppM ``CategoryTheory.CategoryStruct.comp
-      #[← terminalAt S, hom]) P
+  | some S => return .element (← throughTerminal S hom) P
 
 /-- The variables of the polynomial rings `R[v]` of `stx` (and of the bindings it uses) that `stx`
 uses, bound to their generators: of a ring `stx` writes, else of a ring of a binding it uses. A
@@ -3721,8 +3720,7 @@ partial def tupleOf (values : Array Value) (X : Value)
   let mut hom ← profileReader "tuple empty map" <|
     homIn (← `($(mkCIdent empty.declaration) $(← paramTerms #[X])*)) one e category
   Trace.record (← read).trace hom (.namedMorphism empty.id #[← semanticObject X])
-  if let some S := (← read).stage then
-    hom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
+  hom ← staged hom
   let mut acc := Value.element hom E
   for v in values.reverse do
     let element ← profileReader "tuple coerce" <| do
@@ -4309,7 +4307,7 @@ partial def cosetOf (p Y : Value) : M Value := do
     | some ι => pure ι
     | none => identityAt Y
   let sum ← withReader (fun ctx => { ctx with stage := some Y }) do
-    let constant ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt Y, h]
+    let constant ← throughTerminal Y h
     applyOperation "+" #[.element constant X, .element ι X] X
   let .element s _ := sum | throwStratum .invalid m!"`+` of elements is an element"
   imageOfMap s Y X
@@ -4367,7 +4365,7 @@ partial def complementOf (X Y : Value) : M Value := do
   let some omega := state.objects.find? (·.id == po.omega) | unreachable!
   let .object ω .. ← object state omega.name #[] none | unreachable!
   let truth ← homIn (mkCIdent po.truth) one ω category
-  let everything ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt X, truth]
+  let everything ← throughTerminal X truth
   let univ ← homIn (← `($(mkCIdent po.transpose) $(← paramTerms #[X])* $(← quoteExpr everything)))
     one p category
   applyOperation "\\" #[.element (← staged univ) P, image] P
@@ -5179,7 +5177,17 @@ partial def restage (v : Value) : M Value := do
 partial def staged (hom : Expr) : M Expr := do
   match (← read).stage with
   | none => return hom
-  | some S => mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
+  | some S => throughTerminal S hom
+
+/-- `S → 1 → X`: the global element `hom : 1 → X` read at the stage `S`, recorded as the
+composite of the registered terminal map and `hom`. -/
+partial def throughTerminal (S : Value) (hom : Expr) : M Expr := do
+  let terminal ← terminalAt S
+  let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[terminal, hom]
+  if let (.object s .., some (one, target)) := (S, homEnds? (← inferType hom)) then
+    Trace.record (← read).trace composite
+      (.morphismComposition CategoryId.sets terminal hom s one target)
+  return composite
 
 /-- `{e | t ∈ X}`, the image of `t ↦ e`. -/
 partial def imageOf (scope : Scope) (e : Syntax) (t : Name) (X : Value) : M Value := do

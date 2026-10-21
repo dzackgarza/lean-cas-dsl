@@ -2048,11 +2048,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               ("args", Json.arr #[toJson po.id.raw, ambient.json, literal.json])]
         if (← trace.node? p).isSome then
           return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
-        match ← Codec.encode p with
-        | .ok json => pure json
-        | .error message =>
-            throwStratum .noImplementation m!"a parameter of {id.raw} in {what} has no \
-              registered realization or structural encoding: {message}"
+        parameterData trace p
       return { form := .object entry, payload := .ordinary (e) (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]) }
   | .parameterTransport source sourceCategory targetCategory route receiver =>
       let input ← realize h trace s!"the structural parameter of {what}" receiver
@@ -2130,9 +2126,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let args ← params.mapM fun parameter => do
         if (← trace.node? parameter).isSome then
           return (← realize h trace s!"a parameter of {id.raw}" parameter).json
-        match ← Codec.encode parameter with
-        | .ok json => pure json
-        | .error message => throwStratum .noImplementation m!"{id.raw}: {message}"
+        parameterData trace parameter
       let request : Wire := { form := .namedMorphism entry, payload := .ordinary (e) (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]) }
       if h.computationOnly && h.admitted.any (fun registration =>
           registration.registration.operation == id.raw &&
@@ -2349,10 +2343,13 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .productMediator categoryId presentation domain left right =>
       let some category := state.categories.find? (·.id == categoryId)
         | throwError "the formal product mediator category is not registered"
-      unless ← withTransparency .all <| isDefEq domain (← closedElementDomain state) do
-        throwStratum .noImplementation "this product mediator requires generalized pointwise computational data"
       let first ← realize h trace "the first product point" left
       let second ← realize h trace "the second product point" right
+      -- A mediator of maps out of a generalized domain is the morphism `⟨f, g⟩`, sent with
+      -- both maps; its endpoints are the declared domain and product apex.
+      unless ← withTransparency .all <| isDefEq domain (← closedElementDomain state) do
+        let json := Json.mkObj [("ctor", "mediator"), ("args", Json.arr #[first.json, second.json])]
+        return { form := .canonicalMorphism category, payload := ← combinedPayload e json #[first, second] }
       let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
       let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
       unless ← withTransparency .all <| isDefEq (← inferType e)
