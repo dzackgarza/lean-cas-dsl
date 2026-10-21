@@ -3349,6 +3349,19 @@ This is execution data, not a proposition: the final graph is independently
 decoded at the fixed formal morphism type before an equality is observed. -/
 partial def composedFiniteGraph (json : Json) : Except String Json := do
   if json.getArr?.isOk then return json
+  -- `finiteGraph`: an explicit domain inventory and a graph with exactly those keys, once each.
+  if (json.getObjValAs? String "ctor").toOption == some "finiteGraph" then
+    let #[inventory, graph] ← (json.getObjVal? "args").bind (·.getArr?)
+      | throw "a finite graph has exactly an inventory and a graph"
+    let inventory ← inventory.getArr?
+    let entries ← graph.getArr?
+    let keys ← entries.mapM fun entry => do
+      let #[key, _] ← entry.getArr? | throw "a finite graph entry is not a pair"
+      pure key
+    unless keys.size == inventory.size && inventory.all (fun point => keys.contains point) &&
+        keys.all (fun key => inventory.contains key) do
+      throw "the finite graph's keys are not exactly its inventory"
+    return graph
   unless (json.getObjValAs? String "ctor").toOption == some "compose" do
     throw "the computed finite map is neither a graph nor a composite of graphs"
   let #[first, second] ← (json.getObjVal? "args").bind (·.getArr?)
