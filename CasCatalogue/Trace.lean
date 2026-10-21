@@ -63,9 +63,9 @@ inductive Node
   /-- A registered inclusion at its complete declared parameters and exact endpoints. -/
   | namedInclusion (id : InclusionId) (category : CategoryId) (params : Array Expr)
       (source target : Expr)
-  /-- The admission inclusion `D ↪ B` that the object row `object` registers, at its explicit
-  parameters (`Mˣ ↪ M`). -/
-  | objectInclusion (object : ObjectId) (category : CategoryId) (params : Array Expr)
+  /-- A map the object row `object` registers as its field `field` (`inclusion`: the admission
+  inclusion `Mˣ ↪ M`; `constants`: `R → R[[t]]`), at its explicit parameters. -/
+  | objectField (object : ObjectId) (field : String) (category : CategoryId) (params : Array Expr)
   /-- A map of the registered power object `powerObject`, its field `field` (`member`, `truth`)
   at its explicit parameters. -/
   | powerObjectMap (powerObject : PowerObjectId) (field : String) (params : Array Expr)

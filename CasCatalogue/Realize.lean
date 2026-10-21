@@ -2164,15 +2164,20 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let json := Json.mkObj [("ctor", "powerObjectMap"),
         ("args", Json.arr #[toJson id.raw, toJson field, Json.arr parameters])]
       return { form := .canonicalMorphism sets, payload := ← combinedPayload e json wires }
-  | .objectInclusion id categoryId params =>
+  | .objectField id field categoryId params =>
       let some entry := state.objects.find? (·.id == id)
-        | throwError "the retained inclusion owner is not registered"
-      unless entry.inclusion.isSome do
-        throwError "the retained object row registers no inclusion"
+        | throwError "the retained field owner is not registered"
+      let declared := match field with
+        | "inclusion" => entry.inclusion
+        | "constants" => entry.constants
+        | _ => none
+      unless declared.isSome do
+        throwError "the retained object row registers no {field} map"
       let parameters ← params.mapM (parameterData trace)
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
       return { form := .canonicalMorphism category, payload := (.ordinary e
-        (Json.mkObj [("ctor", "inclusion"), ("args", Json.arr #[toJson id.raw, Json.arr parameters])])) }
+        (Json.mkObj [("ctor", "objectField"),
+          ("args", Json.arr #[toJson id.raw, toJson field, Json.arr parameters])])) }
   | .admittedPoint id categoryId params original originalCategory originalSource originalTarget =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the admitted point owner is not registered"
@@ -3552,8 +3557,8 @@ def interpret (scope : Scope) (stx : Syntax)
       | .namedMorphism id params => pure (.namedMorphism id (← params.mapM instantiateMVars))
       | .powerObjectMap id field params =>
           pure (.powerObjectMap id field (← params.mapM instantiateMVars))
-      | .objectInclusion id category params =>
-          pure (.objectInclusion id category (← params.mapM instantiateMVars))
+      | .objectField id field category params =>
+          pure (.objectField id field category (← params.mapM instantiateMVars))
       | .namedInclusion id category params source target =>
           pure (.namedInclusion id category (← params.mapM instantiateMVars)
             (← instantiateMVars source) (← instantiateMVars target))
@@ -3672,8 +3677,8 @@ def interpret (scope : Scope) (stx : Syntax)
       | .powerObjectMap id field params =>
           pure (Json.arr #[toJson "powerObjectMap", toJson id.raw, toJson field,
             toJson (← params.mapM encode)])
-      | .objectInclusion id category params =>
-          pure (Json.arr #[toJson "objectInclusion", toJson id.raw, toJson category.raw,
+      | .objectField id field category params =>
+          pure (Json.arr #[toJson "objectField", toJson id.raw, toJson field, toJson category.raw,
             toJson (← params.mapM encode)])
       | .namedInclusion id category params source target =>
           pure (Json.arr #[toJson "namedInclusion", toJson id.raw, toJson category.raw,

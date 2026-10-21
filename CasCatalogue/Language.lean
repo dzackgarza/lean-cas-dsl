@@ -3574,8 +3574,14 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
         else if ← identityCarrierView P Y then pure (some none) else pure none
       if let some into := into then
         let ι ← homIn (← `($(mkCIdent constants) $(← typedParamTerms constants params)*)) p x category
+        Trace.record (← read).trace ι
+          (.objectField entry.id "constants" entry.category (← explicitArguments constants ι))
         return some (some (← match into with
-          | some ι₀ => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι₀, ι]
+          | some ι₀ => do
+              let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[ι₀, ι]
+              Trace.record (← read).trace composite
+                (.morphismComposition category.id ι₀ ι y p x)
+              pure composite
           | none => pure ι))
   if let (some (sub, _), some (super, _)) := (yOrigin, xOrigin) then
     if let some chain := inclusionChain state sub.id super.id then
@@ -3587,15 +3593,16 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
     let .object bHandle .. := B | unreachable!
     let .object _ _ (some (entry, _)) _ _ := Y | unreachable!
     let some declaration := entry.inclusion | unreachable!
-    let explicit ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
-      xs.mapM (·.fvarId!.getBinderInfo)
-    let params := ((ι.getAppArgs.zip explicit).filterMap fun (arg, info) =>
-      if info.isExplicit then some arg else none)
+    let params ← explicitArguments declaration ι
     let ι ← homIn (← quoteExpr ι) y bHandle category
-    Trace.record (← read).trace ι (.objectInclusion entry.id entry.category params)
+    Trace.record (← read).trace ι (.objectField entry.id "inclusion" entry.category params)
     if let some into ← coercionMap B X then
       return some (some (← match into with
-        | some ι' => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, ι']
+        | some ι' => do
+            let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, ι']
+            Trace.record (← read).trace composite
+              (.morphismComposition category.id ι ι' y bHandle x)
+            pure composite
         | none => pure ι))
   return none
 
@@ -4322,6 +4329,7 @@ partial def derivativeAt (g : Value) : M Value := do
   let some entry := state.morphisms.find? (·.name == "derivative")
     | throwStratum .invalid m!"no registered derivative"
   let h ← homIn (← `($(mkCIdent entry.declaration) $(← typedParamTerms entry.declaration params)*)) p p category
+  Trace.record (← read).trace h (.namedMorphism entry.id (← explicitArguments entry.declaration h))
   return .morphism h p p category (some (P, P))
 
 /-- `a / b`: the registered division `M × Mˣ → M`, `(a, u) ↦ a u⁻¹`, in the enclosing set `M`,
@@ -4713,6 +4721,16 @@ partial def toElement (v : Value) (X : Value) : M Value := do
               return ← coerceTo (← toElement v N) X
           throwStratum .invalid m!"no registered numeral lands in {entry.name}"
   | _ => return v
+
+/-- The explicit arguments of an application of the declaration `declaration`, the
+parameters a trace node retains. -/
+partial def explicitArguments (declaration : Name) (application : Expr) : M (Array Expr) := do
+  let mut e := application.consumeMData
+  while e.isAppOfArity ``id 2 do e := e.appArg!.consumeMData
+  let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
+    xs.mapM (·.fvarId!.getBinderInfo)
+  return ((e.getAppArgs.zip infos).filterMap fun (arg, info) =>
+    if info.isExplicit then some arg else none)
 
 /-- The registered inclusion `D ↪ B` out of the named set `D` (`Mˣ ↪ M`, `𝒫_fin(X) ↪ 𝒫(X)`), read
 semantically, and `B`. -/
