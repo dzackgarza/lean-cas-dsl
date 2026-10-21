@@ -137,7 +137,7 @@ how important, small, risky or promising something is.
 7. **Item identity.** An item is its ID set, not its current detail message. When a repair
    moves an ID from one request-formation detail to another, the item stays open. An item closes
    when the closure condition of its row holds for every ID in one report at one candidate; a
-   targeted report suffices. A later full report in which the condition fails for one of its IDs
+   targeted report suffices. A later CI report in which the condition fails for one of its IDs
    reopens it, and it is again selected by rule 1.
 8. **Blocked items.** An item is blocked only when its next step needs an input owned by another
    role (formalization, acceptance, leaf) or an owner operation. Then:
@@ -151,9 +151,9 @@ how important, small, risky or promising something is.
    - registrations: K13 is the only leaf dispatch;
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
      item.
-   The session does not end while a subagent it started is running. When one finishes, its output
-   reaches the kernel through the next full run's `just track-main` ("Running checks"); rerun the
-   targeted check of each item blocked on it after that, and resume selection
+   The session does not end while a subagent it started is running. When one finishes, run
+   `just track-main` in the work worktree, commit `lake-manifest.json` if it changed, rerun the
+   targeted check of each item blocked on it, and resume selection
    at rule 1. Nothing waits for a subagent: the session keeps working the work list while it
    runs. The session ends when every item is closed or blocked and no started subagent is
    running, or when the owner stops it.
@@ -162,19 +162,17 @@ how important, small, risky or promising something is.
    Commit `HANDOFF.md` only when an item closes or is blocked, after a refusal (rule 3), and at
    session end (rule 11). Item states are kept in `HANDOFF.md`, never in this plan. Write no other
    `JOURNAL.md`, `custodian/FINDINGS.md`, plan, policy or agent-memory record during a session.
-10. **Checkouts.** Run `git worktree prune`. Edit, build and run targeted checks only in the
-    work worktree, on the construction branch `HANDOFF.md` names
-    (`git worktree add ../lean-cas-dsl-b0 <branch>`). Full runs happen only in the report
-    worktree, detached at the commit being measured (`git worktree add --detach
-    ../lean-cas-dsl-report <commit>`); nothing is edited there. Never run `git stash`,
-    `checkout`, `reset`, `restore` or `clean` in `/home/dzack/gitclones/lean-cas-dsl`; its working
-    tree holds the owner's uncommitted edit. Every checkout shares one Lake package directory
+10. **Checkouts.** Run `git worktree prune`, then edit, build and run targeted checks in one
+    worktree on the construction branch `HANDOFF.md` names
+    (`git worktree add ../lean-cas-dsl-kernel <branch>`). Never run `git stash`, `checkout`,
+    `reset`, `restore` or `clean` in `/home/dzack/gitclones/lean-cas-dsl`; its working tree holds
+    the owner's uncommitted edit. Every checkout shares one Lake package directory
     (`packagesDir` in the lakefile), and a `lake` command in a checkout whose `lake-manifest.json`
-    differs moves those packages to its own revisions. So run no `lake` or `just` command in
-    `/home/dzack/gitclones/lean-cas-dsl`, and run `just track-main` only as the first step of a full
-    run (below).
+    differs moves those packages to its own revisions and forces a rebuild of everything above
+    them. So run no `lake` or `just` command in `/home/dzack/gitclones/lean-cas-dsl`, and run
+    `just track-main` only where "Running checks" says.
 11. **Handoff.** At session end `HANDOFF.md` contains only: the branch and commit, and whether
-    it is pushed or the exact push error; the latest complete report's path; each work-list item
+    it is pushed or the exact push error; the latest CI report (run id and artifact); each work-list item
     as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
     path or worktree as the only location of anything the next session needs.
 12. **Claims.** Say an item is closed only by citing the report and its entries for the item's
@@ -182,42 +180,39 @@ how important, small, risky or promising something is.
 
 #### Running checks
 
-Reports are written to `/home/dzack/gitclones/lean-cas-dsl-reports/` (outside the repository),
-named `<kernel commit>-<lake-manifest.json hash>-<full|targeted-Kn>.json`. Record the manifest hash
-with every report.
+Local checks give feedback on one edit in minutes. The whole suite runs only in CI.
 
-- **Full runs: the burndown signal.** A full run measures the whole inventory at one commit.
-  It runs in the background in the report worktree and never blocks anything: no item, edit,
-  build, targeted check or subagent waits for it, and nothing polls it. Full runs follow one
-  another. When the session starts, and each time a full run exits:
-  1. in the work worktree, run `just track-main` and commit `lake-manifest.json` if it changed;
-  2. move the report worktree to the work worktree's head
-     (`git -C ../lean-cas-dsl-report switch --detach <head>`);
-  3. start the next full run there in the background (command in `HANDOFF.md`).
-
-  Its report is the triage queue: it confirms closed items, reopens failed ones (rule 7), and
-  supplies the entries a targeted check is compared against. It counts only if the manifest hash
-  is the same before and after the run; otherwise discard it, and the next run replaces it.
-  Run `just track-main` nowhere else, so that the shared packages do not move under a run.
+- **CI: the burndown queue.** Every push to the construction branch runs the Gates workflow's
+  "Acceptance" job, which runs the whole suite and publishes its report as the
+  `acceptance-report` artifact (`head.json`). That report is the triage queue: it confirms closed
+  items, reopens failed ones (rule 7), and supplies the entries a targeted check is compared
+  against. Nothing waits for it and nothing polls it; read the latest one when choosing or
+  closing an item (`gh run download <run id> -n acceptance-report`). CI runs the suite with Lean
+  discharge and without the Sage and GAP backends, so a computation it needs is `unavailable`
+  there; required execution (K1, K3) is observed locally. A refused push is rule 3.
+- **No full run locally.** Do not run `cas-harness` without `--suite` and `--inventory`, and do
+  not run `B0_INTEGRATION=1 just build`, on this machine.
+- **Dependencies.** Run `just track-main` in the work worktree at session start and after a
+  subagent finishes (rule 8), never between the two reports of one comparison. A report records
+  the `lake-manifest.json` hash it ran at.
 - **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the item's IDs
   into an empty scratch directory (for K3 and K14, copy the `.cas.proposed` file under a `.cas`
   name). Write an inventory file `{"assertions": {"<id>": "", …}}` listing exactly the item's
-  IDs. Run, from the worktree:
+  IDs. Run, from the work worktree:
 
   ```bash
   CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
   CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
   lake exe cas-harness --computation-only --suite SCRATCH --inventory SCRATCH/inventory.json \
-    --report /home/dzack/gitclones/lean-cas-dsl-reports/NAME.json
+    --report /home/dzack/gitclones/lean-cas-dsl-reports/<commit>-<manifest hash>-targeted-Kn.json
   ```
 
   It rebuilds `cas-harness` from the edited source. On a warm build one suite file took
   76 seconds (`ellipses.cas`, 2026-10-21), and its details matched the full report's. Omit
-  `--computation-only` for the full report that K4 accepts. A targeted report closes an item;
-  later full runs re-check it.
+  `--computation-only` for the Lean-discharge outcome K4 accepts. A targeted report closes an
+  item; later CI reports re-check it.
 - **Lean source checks.** `lake build TARGET` in the work worktree for the changed module or
-  probe. It has no time limit and does not refresh dependencies. `B0_INTEGRATION=1 just build`
-  runs in the report worktree before a full run that the handoff will cite.
+  probe. It has no time limit and does not refresh dependencies.
 
 #### Work list
 
@@ -241,8 +236,9 @@ says otherwise. A request-formation gap is defined above.
 | K13 registration gaps (leaf dispatch) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
 | K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
 
-Items K1–K3 are re-checked in every full inventory. A closed item that reopens there becomes the
-first open item again.
+Every CI report re-checks K2 and the closed request-formation items; K1 and K3 need the
+backends, so their targeted checks are rerun whenever another item closes. A closed item that
+reopens becomes the first open item again.
 
 After K1–K14: the kernel is ready for leaf work in the sense above. Freezing the candidate, the
 exit trials, question-preservation assessment and acceptance follow construction directives B

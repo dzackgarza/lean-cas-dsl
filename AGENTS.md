@@ -359,9 +359,12 @@ Which check to run, and when, is the procedure's "Running checks". The commands:
   limit and no dependency refresh. `just focus`, `just probe`, `just bench-question` and
   `just bench-reading` refresh dependencies or impose diagnostic limits; a kernel session uses
   them only inside the procedure's rule-4 performance work.
-- `B0_INTEGRATION=1 just build` compiles the whole candidate; plain local `just build`
-  refuses to start. A compile does not execute the suite and discharges no assertion.
-- `cas-harness` runs the suite; its report is the only evidence an item uses.
+- The whole-candidate build and the whole suite run in CI (the Gates workflow), whose suite
+  report is the burndown queue. A kernel session runs neither locally: plain local `just build`
+  refuses to start, and `B0_INTEGRATION=1 just build` is CI's. A compile does not execute the
+  suite and discharges no assertion.
+- Locally, `cas-harness` runs only with `--suite` and `--inventory` over an item's IDs; its
+  report and CI's are the only evidence an item uses.
 
 Do not raise heartbeats or weaken an assertion to shorten feedback.
 

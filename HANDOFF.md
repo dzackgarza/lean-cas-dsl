@@ -14,19 +14,9 @@ source is `4bc36b61e15ac2bd0abab2a48317d1423ee1b0fe`; the two later commits are 
 **Not pushed**: the branch exists only in `/home/dzack/gitclones/lean-cas-dsl/.git`. No worktree
 of it is registered; create one with procedure rule 10.
 
-Latest complete report: none for this kernel source. Full runs are the background burndown
-signal (procedure, "Running checks"); nothing waits for them. Each one, from the report worktree
-at the commit being measured:
-
-```bash
-lake build cas-harness
-H=$(git hash-object lake-manifest.json)
-R=/home/dzack/gitclones/lean-cas-dsl-reports/$(git rev-parse --short HEAD)-$H-full
-CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
-CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
-lake exe cas-harness --computation-only --report $R.json > $R.log 2>&1
-test "$H" = "$(git hash-object lake-manifest.json)"   # otherwise the report does not count
-```
+Latest CI report: none for this kernel source. CI publishes the whole-suite report as the
+`acceptance-report` artifact of the Gates workflow on every push to the branch; no full run
+happens locally (procedure, "Running checks").
 
 ## Work list state
 
