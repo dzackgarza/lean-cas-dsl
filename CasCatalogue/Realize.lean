@@ -572,6 +572,10 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     throwStratum .noImplementation m!"the exact functor parameter is not closed"
   if let some (.object id params) ← (trace.node? value : IO _) then
     return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
+  -- A numeral point of a selected structure: its element descriptor.
+  if let some (.elementNumeral n _ selected) ← (trace.node? value : IO _) then
+    return Json.mkObj [("ctor", "element"), ("args", Json.arr #[← parameterData trace selected,
+      Json.mkObj [("ctor", "numeral"), ("args", Json.arr #[toJson n])]])]
   if let some (.functor id params receiver) ← (trace.node? value : IO _) then
     if receiver == value then
       throwStratum .noImplementation "the accepted parameter action has cyclic source provenance"
@@ -641,6 +645,20 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
         ("args", Json.arr #[← edgeDescriptor trace step application, json])]
     return json
   if let .ok json ← Codec.encode value then return json
+  -- `F.obj X` for a registered functor `F`, recognized by its declaration: the action of that
+  -- functor on the presentation of `X`.
+  let stripped := value.consumeMData
+  if stripped.isAppOfArity ``Prefunctor.obj 6 then
+    let prefunctor := stripped.getAppArgs[4]!.consumeMData
+    let functor := if prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 then
+      prefunctor.appArg! else prefunctor
+    let head := (functor.find? fun term =>
+      state.functors.any fun entry => term.isConstOf entry.declaration).bind (·.constName?)
+    if let some declaration := head then
+      if let some entry := state.functors.find? (·.declaration == declaration) then
+        return Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
+          ← edgeDescriptor trace (.functor entry.id) functor,
+          ← parameterData trace stripped.appArg!])]
   let mut candidates : Array (ObjectEntry × Array Expr) := #[]
   let mut exact : Array (ObjectEntry × Array Expr) := #[]
   for entry in state.objects do
@@ -664,7 +682,9 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     return Json.mkObj [("ctor", entry.id.raw),
       ("args", Json.arr (← params.mapM (parameterData trace)))]
   let #[(entry, params)] := candidates
-    | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data presentation"
+    | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data \
+        presentation: {candidates.size} registered objects ({candidates.map (·.1.id.raw)}) \
+        present {value}"
   return Json.mkObj [("ctor", entry.id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
 
 /-- The exact explicitly applied arguments of an accepted declaration inside its actual term. -/
