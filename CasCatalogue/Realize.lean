@@ -2022,6 +2022,16 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
       data := data.push (← parameterData trace parameter)
   return (data, dependencies)
 
+/-- A set formed as the extent of a subset literal (`Language.asObject`), where a set is
+expected, is sent as that extent: the power object, its ambient set and the literal. -/
+partial def extentData? (h : Harness) (trace : Trace) (p : Expr) : TermElabM (Option Json) := do
+  let some (.literal _ _) ← (trace.node? p : IO _) | return none
+  let some (po, X, element) := extentOf? (← registryState) p | return none
+  let ambient ← realize h trace "the ambient set of an extent" X
+  let literal ← realize h trace "the literal of an extent" element
+  return some (Json.mkObj [("ctor", "extent"),
+    ("args", Json.arr #[toJson po.id.raw, ambient.json, literal.json])])
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
@@ -2057,15 +2067,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .object id params =>
       let some entry := state.objects.find? (·.id == id) | unreachable!
       let args ← params.mapM fun p => do
-        -- A set parameter formed as the extent of a subset literal (`Language.asObject`) is
-        -- sent as that extent: the power object, its ambient set and the literal.
-        if let some (.literal _ _) ← (trace.node? p : IO _) then
-          if let some extent := extentOf? state p then
-            let (po, X, element) := extent
-            let ambient ← realize h trace s!"the ambient set of a parameter of {id.raw}" X
-            let literal ← realize h trace s!"the literal of a parameter of {id.raw}" element
-            return Json.mkObj [("ctor", "extent"),
-              ("args", Json.arr #[toJson po.id.raw, ambient.json, literal.json])]
+        if let some json ← extentData? h trace p then return json
         if (← trace.node? p).isSome then
           return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
         parameterData trace p
@@ -2297,6 +2299,14 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
             pure (.object source sourceCategory none none
               (some (#[receiverValue], receiverValue, chosen.route, sources,
                 chosen.route.zip (chosen.applications.map actualApplicationArguments))))
+        | _, some (.retainedRoute routeSource _ route applications receiver) => do
+            -- A named receiver along a retained structural route, with its edge applications.
+            let some receiverCategory := state.categories.find? (·.id == routeSource)
+              | throwError "the retained route's source category is not registered"
+            let receiverValue ← (Language.recognize state receiver receiverCategory).run {}
+            pure (.object source sourceCategory none none
+              (some (#[receiverValue], receiverValue, route, #[],
+                route.zip (applications.map actualApplicationArguments))))
         | form, node => throwStratum .noImplementation m!"the original point has no exact selected \
             element structure: form {form.id}, formed by \
             {(reprStr node).takeWhile (· != ' ')} {(reprStr node).drop 5 |>.takeWhile (· != ' ')}"
@@ -2765,6 +2775,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let data := (D.getAppArgs.zip infos).filterMap fun (a, i) =>
         if i.isExplicit then some a else none
       let wires ← data.mapM fun a => do
+        if let some json ← extentData? h trace a then
+          let literal ← realize h trace s!"a diagram object of {what}" a
+          return { literal with payload := .ordinary a json }
         if (← trace.node? a).isNone then
           discard <| Semantic.recordNamedObject a (some trace)
           let mut application := a.consumeMData
