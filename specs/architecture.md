@@ -391,16 +391,8 @@ The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
 
-**Owner priority correction (2026-10-20): complete the POC before long-tail
-optimization.** The fixed B0 capabilities, question preservation, registered
-computations, and independent acceptance remain the objective. Repair performance
-when it prevents a required execution or validation from completing. Once that
-path completes, return to the remaining functional and integration obligations.
-Proposed subsecond encoding and low-single-digit request budgets are subsequent
-usability targets, not additional B0 gates or prerequisites for composition work.
-Keep timings and profiles as diagnostics; a slow successful run does not by itself
-authorize another optimization cycle. Focused testing and diagnosis should reduce
-time to a complete POC, not become an optimization workstream of their own.
+Kernel construction sessions select and verify work only by the
+[kernel construction procedure](computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
 
 A successful compile does not discharge the unchanged positive assertion and its same-candidate
 protected negatives.
