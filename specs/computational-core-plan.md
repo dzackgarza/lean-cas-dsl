@@ -63,7 +63,13 @@ A change to a row needs a decision of the authority that owns the requirement.
 
 ### Kernel construction procedure (owner instruction, 2026-10-21)
 
-This section is the whole work-selection rule for a kernel construction session. It replaces
+A **kernel session** is the orchestrator's own session in this repository: the session the
+owner is talking to, or the one the owner starts to work the kernel. It is never delegated. The
+orchestrator does not hand the kernel, an item or this procedure to a subagent or a fresh agent,
+and does not ask the owner whether to. Subagents are only the formalization, acceptance and leaf
+authors (rule 8) and the rule-6 reviewer; none of them writes the kernel.
+
+This section is the whole work-selection rule for a kernel session. It replaces
 every earlier priority statement, roadmap milestone and "next objective" sentence in this
 repository. In a kernel session its rules override any other instruction in this repository that
 directs an action: recording, publishing, reconciling branches, escalating, correcting gates,

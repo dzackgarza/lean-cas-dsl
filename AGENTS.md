@@ -101,11 +101,13 @@ criteria remain fixed. The current controller and development workflow are being
 constructed and corrected; they are not an already accepted substrate whose
 steady-state restrictions govern their own replacement.
 
-**A kernel construction session selects, verifies and records work only by the
+**The orchestrator's own session is the kernel session; the kernel is never delegated to a
+subagent or a fresh agent. That session selects, verifies and records work only by the
 [kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).**
 Its rules override any other sentence in this repository about what to work on next.
-Controller, custodian, review, publication and CI work is a separate session started
-only by an owner instruction naming it.
+Subagents are only the formalization, acceptance and leaf authors and the procedure's
+read-only reviewer. Controller, custodian, review, publication and CI work happens only when
+an owner instruction names it.
 
 Proceed with the approved B0 work without requesting repeated owner approval.
 In a controller session this includes corrections to custodian code, reviewer prompts,

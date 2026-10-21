@@ -2,12 +2,10 @@
 
 The task is the B0 proof of concept, against the unchanged requirements in [INTENT.md](INTENT.md),
 [architecture.md](specs/architecture.md) and the
-[B0 acceptance table](specs/computational-core-plan.md#acceptance-table). A kernel session
-works only by the
+[B0 acceptance table](specs/computational-core-plan.md#acceptance-table). The orchestrator's own session is the kernel session
+and works only by the
 [kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21)
 and rewrites this file at its end in the form below (rule 11).
-
-The assignment is paused. Resume only on an owner instruction.
 
 ## Branch
 
