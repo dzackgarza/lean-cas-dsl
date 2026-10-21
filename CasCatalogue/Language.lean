@@ -4892,8 +4892,8 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
 /-- `f ∘ ⟨x₁, x₂⟩` (or `f ∘ x₁`): the semantic morphism `semantic : A₁ × A₂ → B` (or `A₁ → B`),
 realized from the registered product of the operands' sets (or their set) to the set `target`,
 composed with the operands' mediator. The result is an element of `target`, typed `1 ⟶ target`. -/
-partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) :
-    M Value := do
+partial def applyTo (semantic : Term) (elements : Array Value) (target : Value)
+    (node? : Option Node := none) : M Value := do
   let .object b category _ _ _ := target
     | throwStratum .invalid m!"the value of a function of elements is in a named set"
   let operands ← elements.mapM fun
@@ -4925,6 +4925,7 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) 
     | #[(x, a₁)] => pure (a₁, x)
     | _ => throwStratum .invalid m!"a function of elements takes one or two operands"
   let f ← homIn semantic source b category
+  if let some node := node? then Trace.record (← read).trace f node
   -- `homIn` retains the accepted map under an expected-type hint. Keep that
   -- representation wrapper connected to the original declaration's recorder.
   Trace.alias (← read).trace f.appArg! f
@@ -4949,6 +4950,7 @@ partial def asAnswer (v : Value) : M Expr := do
         | throwStratum .invalid m!"a decision is a property or a truth value"
       let .object one _ _ _ _ ← oneObject | unreachable!
       let truth ← homIn (mkCIdent po.truth) one ω category
+      Trace.record (← read).trace truth (.powerObjectMap po.id "truth" #[])
       mkEq e truth
   | _ => throwStratum .invalid m!"a decision is a property or a truth value"
 
@@ -5010,6 +5012,7 @@ partial def member (po : PowerObjectEntry) (X : Value) (x A : Value) : M Value :
   let some omega := state.objects.find? (·.id == po.omega) | unreachable!
   let Ω ← object state omega.name #[] none
   applyTo (← `($(mkCIdent po.member) $(← paramTerms #[X])*)) #[← toElement x X, A] Ω
+    (some (.powerObjectMap po.id "member" #[← semanticObject X]))
 
 /-- The negation of a decision (`∉`): the negated proposition. -/
 partial def negate (a : Expr) : M Value := return .answer (mkNot a)

@@ -2156,6 +2156,14 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
       return { form := .canonicalMorphism category, payload := (.ordinary e
         (Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameters)])) }
+  | .powerObjectMap id field params =>
+      unless state.powerObjects.any (·.id == id) do
+        throwError "the retained power object is not registered"
+      let parameters ← params.mapM (parameterData trace)
+      let some sets := state.categories.find? (·.id == CategoryId.sets) | unreachable!
+      return { form := .canonicalMorphism sets, payload := (.ordinary e
+        (Json.mkObj [("ctor", "powerObjectMap"),
+          ("args", Json.arr #[toJson id.raw, toJson field, Json.arr parameters])])) }
   | .objectInclusion id categoryId params =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the retained inclusion owner is not registered"
@@ -3036,14 +3044,60 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
 
 end
 
+/-- Whether two points `1 ⟶ target` are equal, observed by the registered equality
+characteristic map `mor.sets.equality` on both points' data: a dispatch, never a local
+evaluation. -/
+def observeEquality (h : Harness) (trace : Trace) (first second : Wire) (domain target : Expr) :
+    TermElabM Bool := do
+  let state ← registryState
+  let some equality := state.morphisms.find? (·.id.raw == "mor.sets.equality")
+    | throwStratum .noImplementation "the formal API has no released equality characteristic map"
+  let arrow ← withTransparency .all <| mkAppM equality.declaration #[target]
+  let some (source, truth) := Language.homEnds? (← inferType arrow)
+    | throwError "the released equality map has no complete declared endpoints"
+  for object in #[domain, target, truth] do
+    discard <| Semantic.recordNamedObject object (some trace)
+  let domainWire ← realize h trace "the computational equality's point domain" domain
+  let valueWire ← realize h trace "the computational equality's selected carrier" target
+  let sourceJson := Json.mkObj [("ctor", "objectProduct"),
+    ("args", Json.arr #[valueWire.json, valueWire.json])]
+  let truthWire ← realize h trace "the computational equality's truth-value carrier" truth
+  let parameters := #[valueWire.json]
+  let invocation : Backend.PointInvocation := {
+    operation := equality.id.raw, parameters,
+    arrow := Json.mkObj [("ctor", toJson equality.id.raw), ("args", Json.arr parameters)],
+    domain := domainWire.json, source := sourceJson, target := truthWire.json,
+    argument := Json.arr #[first.json, second.json] }
+  let payload := dataPayload arrow invocation.encode (← sharedOwner first second)
+  let request : Wire := { form := .namedMorphism equality, payload }
+  let (answer, backend) ← send h equality.id.raw request
+  match Backend.ComputationalValue.decode answer with
+  | .ok (.inline (.bool truth)) => return truth
+  | .ok _ => malformed backend equality.id.raw answer "the declared truth observation requires inline Boolean data"
+  | .error message => malformed backend equality.id.raw answer message
+
 /-- Evaluate the recorded decision `p` to a three-valued answer (`Option Bool`), through the
 admitted registration of its property on the form of its receiver, sent along the resolved
 route. -/
-def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
+partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
     TermElabM (Expr × Json) := do
   let p ← instantiateMVars p
   let some (.property id route receiver) ← (trace.node? p : IO _)
-    | throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
+    | do
+      -- `¬ q` (`x ∉ A`) is the negated decision of `q`.
+      if let some q := p.not? then
+        let (answer, json) ← realizeDecision h trace what q
+        return (← mkAppM ``Option.map #[mkConst ``not, answer], json)
+      -- A truth value compared with `⊤` (`x ∈ A`) is an equation between two points
+      -- `1 ⟶ Ω`: it is observed through the registered equality of `Ω`.
+      if let some (_, a, b) := p.eq? then
+        if (← (trace.node? a : IO _)).isSome && (← (trace.node? b : IO _)).isSome then
+          if let some (domain, target) := Language.homEnds? (← inferType a) then
+            let first ← realize h trace s!"the left side of {what}" a
+            let second ← realize h trace s!"the right side of {what}" b
+            let truth ← observeEquality h trace first second domain target
+            return (toExpr (some truth), toJson truth)
+      throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
         property of a value the realized reading evaluates"
   let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
   let (request, input) ← operationReceiver trace original route
@@ -3251,38 +3305,6 @@ partial def composedFiniteGraph (json : Json) : Except String Json := do
       | throw "the second finite map is not uniquely defined on an intermediate point"
     result := result.push (Json.arr #[input, output])
   return Json.arr result
-
-/-- Whether two points `1 ⟶ target` are equal, observed by the registered equality
-characteristic map `mor.sets.equality` on both points' data: a dispatch, never a local
-evaluation. -/
-def observeEquality (h : Harness) (trace : Trace) (first second : Wire) (domain target : Expr) :
-    TermElabM Bool := do
-  let state ← registryState
-  let some equality := state.morphisms.find? (·.id.raw == "mor.sets.equality")
-    | throwStratum .noImplementation "the formal API has no released equality characteristic map"
-  let arrow ← withTransparency .all <| mkAppM equality.declaration #[target]
-  let some (source, truth) := Language.homEnds? (← inferType arrow)
-    | throwError "the released equality map has no complete declared endpoints"
-  for object in #[domain, target, truth] do
-    discard <| Semantic.recordNamedObject object (some trace)
-  let domainWire ← realize h trace "the computational equality's point domain" domain
-  let valueWire ← realize h trace "the computational equality's selected carrier" target
-  let sourceJson := Json.mkObj [("ctor", "objectProduct"),
-    ("args", Json.arr #[valueWire.json, valueWire.json])]
-  let truthWire ← realize h trace "the computational equality's truth-value carrier" truth
-  let parameters := #[valueWire.json]
-  let invocation : Backend.PointInvocation := {
-    operation := equality.id.raw, parameters,
-    arrow := Json.mkObj [("ctor", toJson equality.id.raw), ("args", Json.arr parameters)],
-    domain := domainWire.json, source := sourceJson, target := truthWire.json,
-    argument := Json.arr #[first.json, second.json] }
-  let payload := dataPayload arrow invocation.encode (← sharedOwner first second)
-  let request : Wire := { form := .namedMorphism equality, payload }
-  let (answer, backend) ← send h equality.id.raw request
-  match Backend.ComputationalValue.decode answer with
-  | .ok (.inline (.bool truth)) => return truth
-  | .ok _ => malformed backend equality.id.raw answer "the declared truth observation requires inline Boolean data"
-  | .error message => malformed backend equality.id.raw answer message
 
 /-- Observe actual computational points through the published equality characteristic map.
 The truth datum is never elaborated as a proposition or used as proof evidence. -/
@@ -3527,6 +3549,8 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.retainedRoute source target route (← applications.mapM instantiateMVars)
             (← instantiateMVars receiver))
       | .namedMorphism id params => pure (.namedMorphism id (← params.mapM instantiateMVars))
+      | .powerObjectMap id field params =>
+          pure (.powerObjectMap id field (← params.mapM instantiateMVars))
       | .objectInclusion id category params =>
           pure (.objectInclusion id category (← params.mapM instantiateMVars))
       | .namedInclusion id category params source target =>
@@ -3644,6 +3668,9 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (Json.arr #[toJson "admittedPoint", toJson id.raw, toJson category.raw,
             toJson (← params.mapM encode), toJson (← encode original),
             toJson originalCategory.raw, toJson (← encode source), toJson (← encode target)])
+      | .powerObjectMap id field params =>
+          pure (Json.arr #[toJson "powerObjectMap", toJson id.raw, toJson field,
+            toJson (← params.mapM encode)])
       | .objectInclusion id category params =>
           pure (Json.arr #[toJson "objectInclusion", toJson id.raw, toJson category.raw,
             toJson (← params.mapM encode)])
