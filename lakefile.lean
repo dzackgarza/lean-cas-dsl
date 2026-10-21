@@ -47,6 +47,9 @@ elaboration options. -/
 @[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]
+  -- The kernel's generated C is compiled unoptimized: at -O3, clang spent four minutes on
+  -- `CasCatalogue.Realize` alone, and execution time is spent in the natively built toolchain.
+  moreLeancArgs := #["-O0"]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,
@@ -74,6 +77,7 @@ lean_lib CasAcceptance where
 /-- The registry exporter and the axiom audit. -/
 lean_lib CasTools where
   globs := #[.submodules `CasTools]
+  moreLeancArgs := #["-O0"]
 
 /-- Export the normalized registry manifest as JSON. -/
 lean_exe «cas-registry-export» where

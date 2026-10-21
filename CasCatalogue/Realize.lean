@@ -1893,41 +1893,6 @@ def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectD
     base.json, source.json, toJson (plan.components.map (·.lift.raw)), Json.arr steps])]
   return (json, owner)
 
-/-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
-admitted registrations. -/
--- Closed element data comes from the formal operation trace, never from carrier matching.
-partial def elementExpression (trace : Trace) (e : Expr) : TermElabM Json := do
-  let state ← registryState
-  let some node ← trace.node? e
-    | throwStratum .noImplementation m!"the closed element has no retained construction"
-  match node with
-  | .elementNumeral n _ _ =>
-      return Json.mkObj [("ctor", "numeral"), ("args", Json.arr #[toJson n])]
-  | .generator id params =>
-      let some entry := state.objects.find? (·.id == id) | unreachable!
-      unless entry.generator.isSome do throwError "the retained object has no generator"
-      let (_, infos, _) ← forallMetaTelescope (← getConstInfo entry.declaration).type
-      let objectArity := (infos.filter (·.isExplicit)).size
-      let index ← (params.extract objectArity params.size).mapM (parameterData trace)
-      return Json.mkObj [("ctor", "generator"), ("args", Json.arr index)]
-  | .operationApply id params operands _ _ =>
-      let some entry := state.operations.find? (·.id == id) | unreachable!
-      unless operands.size == entry.arity do
-        throwError "the retained operation expression changed its declared arity"
-      let parameters ← params.mapM (parameterData trace)
-      let arguments ← operands.mapM (elementExpression trace)
-      return Json.mkObj [("ctor", "operationExpression"),
-        ("args", Json.arr #[toJson id.raw, Json.arr parameters, Json.arr arguments])]
-  | .morphismTransport _ _ _ receiver =>
-      unless ← withTransparency .all <| isDefEq (← inferType e) (← inferType receiver) do
-        throwStratum .noImplementation "this element transport requires its actual typed action data"
-      unless ← withTransparency .all <| isDefEq e receiver do
-        throwStratum .noImplementation "this nonidentity element transport requires its actual action data"
-      elementExpression trace receiver
-  | other =>
-      throwStratum .noImplementation m!"the closed element is not structural arithmetic data: it was formed by \
-        {(reprStr other).takeWhile (· != ' ')}"
-
 /-- Validate computational object fields without proving construction laws. In particular,
 subobject data carries its inclusion at the declared endpoints but is not promoted to a Lean
 `Mono` instance or identified with the formal construction. -/
@@ -1980,7 +1945,49 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
   let payload := forwardPayload input input.value apexJson
   return { input with form, payload }
 
+/-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
+set `po.extent X A` that `Language.asObject` forms. -/
+def extentOf? (state : RegistryState) (e : Expr) : Option (PowerObjectEntry × Expr × Expr) := do
+  let e := e.consumeMData
+  let po ← state.powerObjects.find? (e.isAppOf ·.extent)
+  let #[X, A] := e.getAppArgs | none
+  return (po, X, A)
+
 mutual
+
+-- Closed element data comes from the formal operation trace, never from carrier matching.
+partial def elementExpression (h : Harness) (trace : Trace) (e : Expr) : TermElabM Json := do
+  let state ← registryState
+  let some node ← trace.node? e
+    | throwStratum .noImplementation m!"the closed element has no retained construction"
+  match node with
+  | .elementNumeral n _ _ =>
+      return Json.mkObj [("ctor", "numeral"), ("args", Json.arr #[toJson n])]
+  | .generator id params =>
+      let some entry := state.objects.find? (·.id == id) | unreachable!
+      unless entry.generator.isSome do throwError "the retained object has no generator"
+      let (_, infos, _) ← forallMetaTelescope (← getConstInfo entry.declaration).type
+      let objectArity := (infos.filter (·.isExplicit)).size
+      let index ← (params.extract objectArity params.size).mapM (parameterData trace)
+      return Json.mkObj [("ctor", "generator"), ("args", Json.arr index)]
+  | .operationApply id params operands _ _ =>
+      let some entry := state.operations.find? (·.id == id) | unreachable!
+      unless operands.size == entry.arity do
+        throwError "the retained operation expression changed its declared arity"
+      let parameters ← params.mapM (parameterData trace)
+      let arguments ← operands.mapM (elementExpression h trace)
+      return Json.mkObj [("ctor", "operationExpression"),
+        ("args", Json.arr #[toJson id.raw, Json.arr parameters, Json.arr arguments])]
+  | .morphismTransport _ _ _ receiver =>
+      unless ← withTransparency .all <| isDefEq (← inferType e) (← inferType receiver) do
+        throwStratum .noImplementation "this element transport requires its actual typed action data"
+      unless ← withTransparency .all <| isDefEq e receiver do
+        throwStratum .noImplementation "this nonidentity element transport requires its actual action data"
+      elementExpression h trace receiver
+  -- Any other closed point `1 ⟶ X` is sent as the point it is, in its published morphism
+  -- encoding (a named morphism, a composite, a mediator, an admitted point).
+  | _ => return Json.mkObj [("ctor", "point"),
+      ("args", Json.arr #[(← realize h trace "a point of a closed element" e).json])]
 
 partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array Expr) :
     TermElabM (Array Json × Array Wire) := do
@@ -1995,6 +2002,8 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
       data := data.push (← parameterData trace parameter)
   return (data, dependencies)
 
+/-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
+admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire := do
   let e ← instantiateMVars e
@@ -2015,7 +2024,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   let some node ← (trace.node? e : IO _)
     | throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
         catalogue operation the realized reading evaluates (a named object at its parameters, \
-        a method of one); its head is {e.consumeMData.getAppFn}"
+        a method of one); the term is {e}"
   match node with
   | .callableRecipe categoryId domain target body =>
       let some category := state.categories.find? (·.id == categoryId)
@@ -2028,6 +2037,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .object id params =>
       let some entry := state.objects.find? (·.id == id) | unreachable!
       let args ← params.mapM fun p => do
+        -- A set parameter formed as the extent of a subset literal (`Language.asObject`) is
+        -- sent as that extent: the power object, its ambient set and the literal.
+        if let some (.literal _ _) ← (trace.node? p : IO _) then
+          if let some extent := extentOf? state p then
+            let (po, X, element) := extent
+            let ambient ← realize h trace s!"the ambient set of a parameter of {id.raw}" X
+            let literal ← realize h trace s!"the literal of a parameter of {id.raw}" element
+            return Json.mkObj [("ctor", "extent"),
+              ("args", Json.arr #[toJson po.id.raw, ambient.json, literal.json])]
         if (← trace.node? p).isSome then
           return (← realize h trace s!"a parameter of {id.raw} in {what}" p).json
         match ← Codec.encode p with
@@ -2235,7 +2253,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let actualHom ← whnfR (← inferType e)
       unless ← withTransparency .all <| isDefEq actualHom.getAppArgs.back! selectedCarrier do
         throwError "the forward point has a different selected carrier endpoint"
-      let expression ← elementExpression trace argument
+      let expression ← elementExpression h trace argument
       let sourceAnswer := Json.mkObj [("ctor", "element"),
         ("args", Json.arr #[original.json, expression])]
       let pointType ← whnfR (← inferType point.value)
@@ -2441,7 +2459,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .elementNumeral _ target selected | .operationApply _ _ _ target selected =>
       discard <| Semantic.recordNamedObject selected (some trace)
       let selectedWire ← realize h trace "the selected element structure" selected
-      let expression ← elementExpression trace e
+      let expression ← elementExpression h trace e
       let answer := Json.mkObj [("ctor", "element"),
         ("args", Json.arr #[selectedWire.json, expression])]
       let some (_, endpoint) := Language.homEnds? (← inferType e)
@@ -3225,6 +3243,38 @@ partial def composedFiniteGraph (json : Json) : Except String Json := do
     result := result.push (Json.arr #[input, output])
   return Json.arr result
 
+/-- Whether two points `1 ⟶ target` are equal, observed by the registered equality
+characteristic map `mor.sets.equality` on both points' data: a dispatch, never a local
+evaluation. -/
+def observeEquality (h : Harness) (trace : Trace) (first second : Wire) (domain target : Expr) :
+    TermElabM Bool := do
+  let state ← registryState
+  let some equality := state.morphisms.find? (·.id.raw == "mor.sets.equality")
+    | throwStratum .noImplementation "the formal API has no released equality characteristic map"
+  let arrow ← withTransparency .all <| mkAppM equality.declaration #[target]
+  let some (source, truth) := Language.homEnds? (← inferType arrow)
+    | throwError "the released equality map has no complete declared endpoints"
+  for object in #[domain, target, truth] do
+    discard <| Semantic.recordNamedObject object (some trace)
+  let domainWire ← realize h trace "the computational equality's point domain" domain
+  let valueWire ← realize h trace "the computational equality's selected carrier" target
+  let sourceJson := Json.mkObj [("ctor", "objectProduct"),
+    ("args", Json.arr #[valueWire.json, valueWire.json])]
+  let truthWire ← realize h trace "the computational equality's truth-value carrier" truth
+  let parameters := #[valueWire.json]
+  let invocation : Backend.PointInvocation := {
+    operation := equality.id.raw, parameters,
+    arrow := Json.mkObj [("ctor", toJson equality.id.raw), ("args", Json.arr parameters)],
+    domain := domainWire.json, source := sourceJson, target := truthWire.json,
+    argument := Json.arr #[first.json, second.json] }
+  let payload := dataPayload arrow invocation.encode (← sharedOwner first second)
+  let request : Wire := { form := .namedMorphism equality, payload }
+  let (answer, backend) ← send h equality.id.raw request
+  match Backend.ComputationalValue.decode answer with
+  | .ok (.inline (.bool truth)) => return truth
+  | .ok _ => malformed backend equality.id.raw answer "the declared truth observation requires inline Boolean data"
+  | .error message => malformed backend equality.id.raw answer message
+
 /-- Observe actual computational points through the published equality characteristic map.
 The truth datum is never elaborated as a proposition or used as proof evidence. -/
 def observeComputedPoints (h : Harness) (trace : Trace) (first second : Wire)
@@ -3270,31 +3320,7 @@ def observeComputedPoints (h : Harness) (trace : Trace) (first second : Wire)
     if let some a ← observe first then
       if let some b ← observe second then
         if let some answer ← Decide.decideProp (← mkEq a b) then return answer
-  let some equality := state.morphisms.find? (·.id.raw == "mor.sets.equality")
-    | throwStratum .noImplementation "the formal API has no released equality characteristic map"
-  let arrow ← withTransparency .all <| mkAppM equality.declaration #[target]
-  let some (source, truth) := Language.homEnds? (← inferType arrow)
-    | throwError "the released equality map has no complete declared endpoints"
-  for object in #[domain, target, truth] do
-    discard <| Semantic.recordNamedObject object (some trace)
-  let domainWire ← realize h trace "the computational equality's point domain" domain
-  let valueWire ← realize h trace "the computational equality's selected carrier" target
-  let sourceJson := Json.mkObj [("ctor", "objectProduct"),
-    ("args", Json.arr #[valueWire.json, valueWire.json])]
-  let truthWire ← realize h trace "the computational equality's truth-value carrier" truth
-  let parameters := #[valueWire.json]
-  let invocation : Backend.PointInvocation := {
-    operation := equality.id.raw, parameters,
-    arrow := Json.mkObj [("ctor", toJson equality.id.raw), ("args", Json.arr parameters)],
-    domain := domainWire.json, source := sourceJson, target := truthWire.json,
-    argument := Json.arr #[first.json, second.json] }
-  let payload := dataPayload arrow invocation.encode (← sharedOwner first second)
-  let request : Wire := { form := .namedMorphism equality, payload }
-  let (answer, backend) ← send h equality.id.raw request
-  match Backend.ComputationalValue.decode answer with
-  | .ok (.inline (.bool truth)) => return truth
-  | .ok _ => malformed backend equality.id.raw answer "the declared truth observation requires inline Boolean data"
-  | .error message => malformed backend equality.id.raw answer message
+  observeEquality h trace first second domain target
 
 def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM ExecutionOutcome := do
   match claim with
@@ -3330,6 +3356,13 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
       if (match a.payload with | .computed .. => true | _ => false) ||
           (match b.payload with | .computed .. => true | _ => false) then
         return if ← observeComputedPoints h trace a b f then .holds
+          else .wrong s!"{left} is not {right}: the computational equality observation is false"
+      -- Closed elements are not computed when read: their data is the element expression, which
+      -- only a registered computation evaluates.
+      if (match a.form, b.form with | .element _, .element _ => true | _, _ => false) then
+        let some (domain, target) := Language.homEnds? (← inferType f)
+          | throwStratum .noImplementation "the compared elements have no retained point endpoints"
+        return if ← observeEquality h trace a b domain target then .holds
           else .wrong s!"{left} is not {right}: the computational equality observation is false"
       -- The retained formal maps fix the question; only the actual computational answer
       -- data is compared here. Using Wire.value would hide a well-formed wrong answer.

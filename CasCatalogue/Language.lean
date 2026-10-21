@@ -4901,6 +4901,8 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value) 
         let cone ← limitIn false "product" diagram category
         let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt
           #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[cone]]
+        -- The apex is the object of the recorded limit; it is realized as that limit.
+        Trace.alias (← read).trace cone apex
         let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[x, y]
         let lift ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
           #[← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[cone], fan]
