@@ -94,7 +94,7 @@ A proposed change to mathematical requirements, acceptance standards, or reserve
 authority needs the appropriate decision. A faithful record of a decision already
 made does not. File extensions do not determine this distinction.
 
-During B0 construction, the controller, reviewer prompt, gates, and publication
+In a controller session during B0 construction, the controller, reviewer prompt, gates, and publication
 workflow are themselves implementation work. Correct them under the construction
 mandate. Do not submit their replacement to an obsolete policy in order to obtain
 permission to write or test it. Source integration does not accept or install a new
@@ -107,7 +107,7 @@ needs reviewer tests. A changed kernel mechanism needs its relevant kernel tests
 A descriptive text correction does not acquire a full mathematical build merely
 because the repository contains Lean code.
 
-A publication dependency does not suspend implementation or invalidate the
+In a controller session, a publication dependency does not suspend implementation or invalidate the
 instruction being recorded. Preserve the commit and continue the selected work
 while the already-specified publication correction is executed.
 
@@ -206,11 +206,9 @@ satisfy an obligation requiring execution.
 
 ## Gate
 
-During B0 construction, follow the [POC-first execution priority](specs/computational-core-plan.md#execution-priority-finish-the-poc-owner-correction-2026-10-20):
-complete the end-to-end inventory, repair functional blockers, establish preservation,
-and run independent trials. Proposed latency targets are subsequent usability work.
-The focused tools below shorten feedback on that work; they do not select a new
-optimization task whenever a completed check is slow.
+A kernel construction session chooses its checks by the
+[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21),
+"Running checks". The commands below are how to run them; none of them selects work.
 
 Run what the change touches:
 - **Kernel, language, probes, tools during development:**
@@ -221,14 +219,14 @@ Run what the change touches:
   When a downstream probe needs a fresh import, focus that exact probe next. Each
   invocation fetches own-organisation latest `main`; it runs `lake update` only if a resolved
   revision changed. Logs stay in `/tmp`. If a focused run reaches 60 seconds, use its profile to
-  choose a smaller check of the required invariant before another broad check. Use a
-  smaller reproducer and existing caches; undertake caching or compiler-boundary changes
-  only when measured cost prevents required execution or validation. Verify the specific invariant
+  choose a smaller check of the required invariant before another broad check. Caching,
+  compiler-boundary and elaboration changes are made only inside the procedure's rule-4
+  performance work. Verify the specific invariant
   with the unchanged admitted assertion or a targeted probe. A faster check reports only that
   invariant, not acceptance. Each focused command has a 120-second limit; timeout is failure, not
   proof that the target compiled. Increase `B0_FOCUS_BUDGET_SECONDS` only for a diagnosed target
   when the build or profile log explains why more time is needed; making every finite required
-  build fit the default limit is not a prerequisite to POC completion. A build budget above 120 seconds
+  build fit the default limit is not a prerequisite to B0. A build budget above 120 seconds
   requires a completed profile tagged for that target and diagnosed mode. If the next change rests
   on an uncertain declaration type, registry row, or branch result, first run a minimal import-only
   reproducer from `/tmp` with `just probe /tmp/NAME.lean`; its 60-second default limit forces a
@@ -236,7 +234,7 @@ Run what the change touches:
   For another edit to the same diagnosed hotspot, set `B0_PRIOR_PROFILE_LOG` to its completed
   profile and run `just focus TARGET diagnosed`; the focused build still runs under its time
   limit, while the redundant automatic profile is skipped. Profile again when the cost moves.
-- **Question reader or encoder changes:** `just bench-question matrices.kernel` and
+- **Reader or encoder performance work (procedure, rule 4, only):** `just bench-question matrices.kernel` and
   `just bench-question subspaces.kernel` measure the unchanged admitted questions through the
   production reader, recording dependency revisions, per-binding and phase timings, and peak
   memory. The 180-second default

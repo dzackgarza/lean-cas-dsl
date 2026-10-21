@@ -7,7 +7,8 @@ only evidence about computations; a one-way workflow in which each stage is blin
 Every decision, contract, gate, plan node and change here is grounded against it. Before writing
 anything, check whether it, or anything it touches, violates that model or its invariants. A
 violation found, in your task or outside it, is recorded as a defect where this repository records
-defects, never worked around or silently kept.
+defects (in a kernel session: one line under "Noticed, not worked" in `HANDOFF.md`), never worked
+around or silently kept.
 
 # The evidence model: nothing from a leaf is trusted (read before anything else)
 
@@ -100,9 +101,17 @@ criteria remain fixed. The current controller and development workflow are being
 constructed and corrected; they are not an already accepted substrate whose
 steady-state restrictions govern their own replacement.
 
+**The orchestrator's own session is the kernel session; the kernel is never delegated to a
+subagent or a fresh agent. That session selects, verifies and records work only by the
+[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).**
+Its rules override any other sentence in this repository about what to work on next.
+Subagents are only the formalization, acceptance and leaf authors and the procedure's
+read-only reviewer. Controller, custodian, review, publication and CI work happens only when
+an owner instruction names it.
+
 Proceed with the approved B0 work without requesting repeated owner approval.
-This includes corrections to custodian code, reviewer prompts, gates, build
-targets, documentation, and integration wiring within the approved design.
+In a controller session this includes corrections to custodian code, reviewer prompts,
+gates, build targets and integration wiring within the approved design.
 
 Do not stop construction because:
 - the new instructions have not reached main;
@@ -111,8 +120,8 @@ Do not stop construction because:
 - an unrelated check fails on the existing base;
 - a controller implementation session started with stale instructions.
 
-Correct the relevant dependency and continue the available substantive work.
-Do not count unfinished work as complete.
+Write the refused operation and its exact error under "Owner actions" in `HANDOFF.md` and
+continue the available substantive work. Do not count unfinished work as complete.
 
 A successful compile by itself does not discharge the unchanged positive assertion and its
 same-candidate protected negatives.
@@ -199,8 +208,8 @@ Consequences, binding on every agent and first of all the orchestrator:
 - **Chat carries only concrete items for the owner: an action to take, or a decision to make.**
   State each directly: what, where, the exact steps. No narration of process, of what you can or
   cannot do, or of environment internals; when the owner must perform an operation you could not,
-  give the steps, not the reason it failed. Process narration (done, found, pending) goes to
-  [`JOURNAL.md`](JOURNAL.md), committed.
+  give the steps, not the reason it failed. Process narration is not recorded anywhere;
+  [`JOURNAL.md`](JOURNAL.md) receives one entry per closed work-list item (procedure, rule 9).
 - **The orchestrator is inside the threat model.** It drifts, exempts itself, and builds
   backdoors into the gates it writes, as any agent does. See `specs/architecture.md`, "The
   orchestrator is inside the threat model", for the holes known now. Do not widen them.
@@ -210,7 +219,8 @@ Consequences, binding on every agent and first of all the orchestrator:
 You are either the **orchestrator** or a subagent with exactly one role
 ([specs/architecture.md](specs/architecture.md), "Authors: one role per agent"):
 - The orchestrator owns policies, gates, compliance, this repository's kernel and language, the
-  leaf contract and, during B0 construction, the custodian's controller (`custodian/`). The
+  leaf contract and, in a controller session during B0 construction, the custodian's controller
+  (`custodian/`). The
   launcher assigns the other roles from their independently approved requirements.
 - The formalization subagent writes `lean-categories` only.
 - The acceptance subagent writes `tests/acceptance/` only.
@@ -219,8 +229,10 @@ You are either the **orchestrator** or a subagent with exactly one role
 No agent writes in two of those roles. `b0-authority` must enforce that separation through
 permitted inputs and operations, not a label an author declares about itself. Until the actual
 configuration is verified, this is an implementation obligation, not a claim of containment.
-Information flows formalization → tests → implementation, never back. Work is selected from the B0 acceptance table of [the plan](specs/computational-core-plan.md),
-by actual dependency: a governance node blocks only the work whose correctness or authorized
+Information flows formalization → tests → implementation, never back. A kernel session selects work only by the
+[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
+The B0 acceptance table of [the plan](specs/computational-core-plan.md) fixes the obligations,
+and dependencies are actual: a governance node blocks only the work whose correctness or authorized
 acceptance depends on it, and a blocked item names that dependency (policy 5). An approved
 objective delegates its implementation; owner escalation is for a change of requirement or
 authority only (policy 2). Review is independent, informed and correctable (policy 6).
@@ -340,66 +352,21 @@ worktree is created outside the repository (`git worktree add ../lean-cas-dsl-<b
 with `git worktree remove` once its branch is merged. Failure of record: 2026-10-10/11, 2.3 GB of
 saved harness executables, logs and worktrees with full Lake package copies left in `.tmp/`.
 
-# Short feedback cycles during B0 construction
+# Builds and checks
 
-Select work by the [POC-first execution priority](specs/computational-core-plan.md#execution-priority-finish-the-poc-owner-correction-2026-10-20).
-The next objective is the complete POC run and its functional blockers, not another
-reader optimization. Proposed latency budgets do not gate B0. Use the diagnostics
-below to unblock required work; once a required path completes, return to
-integration and remaining capabilities rather than selecting its next hotspot.
+Which check to run, and when, is the procedure's "Running checks". The commands:
+- In a kernel session, `lake build TARGET` in the worktree builds one Lean target with no time
+  limit and no dependency refresh. `just focus`, `just probe`, `just bench-question` and
+  `just bench-reading` refresh dependencies or impose diagnostic limits; a kernel session uses
+  them only inside the procedure's rule-4 performance work.
+- The whole-candidate build and the whole suite run in CI (the Gates workflow), whose suite
+  report is the burndown queue. A kernel session runs neither locally: plain local `just build`
+  refuses to start, and `B0_INTEGRATION=1 just build` is CI's. A compile does not execute the
+  suite and discharges no assertion.
+- Locally, `cas-harness` runs only with `--suite` and `--inventory` over an item's IDs; its
+  report and CI's are the only evidence an item uses.
 
-Use `just focus CasCatalogue.Language` (or the changed Lean target) as the first local check. It
-builds only that target and its dependencies, measures elapsed time and peak memory, and saves its
-log in `/tmp`. A run taking at least 60 seconds automatically profiles that target's source and
-saves the profile beside the build log. `just focus CasCatalogue/Language.lean profile` requests
-the profile directly; it is a diagnostic, while the targeted build establishes current imported
-dependencies. Build the exact dependent probe or run the unchanged admitted assertion it unblocks.
-Do not run `just build` after each small source edit.
-
-`just focus` has a 120-second per-command budget, including its separate profile command. A
-timeout is a failed check, not a compile result. Inspect the saved build and profile logs.
-For a finite required check, use a justified `B0_FOCUS_BUDGET_SECONDS` rather than starting
-an optimization project merely to meet the default diagnostic limit.
-A build budget above 120 seconds requires a completed profile tagged for
-that target and `just focus TARGET diagnosed`; use `just focus SOURCE profile` to obtain it.
-Before another slow source edit when a declaration type, registry row, or failing branch is still
-uncertain, put a minimal import-only Lean reproducer in `/tmp` and run `just probe /tmp/NAME.lean`.
-The probe has a 60-second default limit and measures its own import cost; it does not establish a
-current source build or assertion result. For question-reading or encoding changes, run
-`just bench-question matrices.kernel` and the harder `just bench-question subspaces.kernel`;
-these use unchanged admitted assertions, print per-binding and phase timings, and stop after
-180 seconds by default (`B0_BENCH_BUDGET_SECONDS` changes that diagnostic limit). Compare the
-complete identity with an independently saved baseline; timing or compilation alone does not
-establish preservation.
-
-When the same slow target has already produced a completed profile and the next edit addresses
-that diagnosed hotspot, use `B0_PRIOR_PROFILE_LOG=/tmp/the-profile.log just focus TARGET diagnosed`.
-This still builds the exact target under the same time limit and requires a completed profile log
-tagged for that target; it avoids rerunning an unchanged compiler diagnosis on every source
-iteration. Profile again if
-the bottleneck moves or the prior log no longer explains the slow path.
-
-For a necessary semantic-reader repair, `just bench-reading subspaces.kernel` imports only the reader
-and measures the production semantic claim. Use it to diagnose a failing candidate before
-rebuilding the realization layer. It measures neither complete question identity nor execution;
-retain `just bench-question` and the protected negative probes for a candidate worth keeping.
-For a slow admitted reader question, profile that exact diagnostic with
-`CAS_BENCH_ASSERTION=subspaces.kernel B0_FOCUS_BUDGET_SECONDS=240 just focus benchmarks/semantic_reading.lean profile`.
-
-When a focused check takes 60 seconds or more, inspect its profile and dependency/import path
-to choose the shortest check of the invariant under repair. Reuse the existing shared Lake
-cache and completed diagnosis. A slow successful check does not require compiler-boundary,
-caching, or elaboration changes before proceeding. Make such changes before POC completion
-only when their cost prevents required execution or validation.
-Keep the original failing assertion and the relevant protected negatives
-as the eventual behavior check; a syntax check, compile, timing, or identity comparison proves only
-its own narrow claim. Do not raise heartbeats or weaken an assertion to shorten feedback.
-
-`just build` is the integration gate for a clean committed candidate, run by CI or explicitly with
-`B0_INTEGRATION=1`. The local recipe refuses an accidental full build during source iteration.
-It still refreshes own-organisation dependencies to latest `main` before any build; unchanged
-resolved Lake revisions skip the redundant update hook. A full compile remains distinct from
-the permanent suite, same-candidate protected negatives and independent B0 acceptance.
+Do not raise heartbeats or weaken an assertion to shorten feedback.
 
 <!-- agent-memory:start -->
 # Agent memory
