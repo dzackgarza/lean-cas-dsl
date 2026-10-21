@@ -357,7 +357,8 @@ def Harness.stop (h : Harness) : IO Unit := do
 
 /-- Send the value `input` to the admitted registration of `operation` on its form, and read the
 answer: untrusted JSON, with the backend that gave it. -/
-def send (h : Harness) (operation : String) (input : Wire) : TermElabM (Json × String) := do
+def send (h : Harness) (operation : String) (input : Wire)
+    (comparisons : Array NaturalTransformationId := #[]) : TermElabM (Json × String) := do
   let registrations := h.admitted.filter fun a =>
     a.registration.operation == operation && a.registration.input == input.formId &&
       (input.owner?.isNone || input.owner?.any (fun owner => owner.1 == a.registration.backend))
@@ -382,7 +383,8 @@ def send (h : Harness) (operation : String) (input : Wire) : TermElabM (Json × 
     | .error e => throwStratum .unavailable m!"{e.render}"
   let observation := [("operation", toJson operation), ("input", toJson input.formId),
     ("backend", toJson registration.backend), ("session", toJson connection.identity),
-    ("inputOwner", toJson input.owner?), ("request", input.json)]
+    ("inputOwner", toJson input.owner?), ("request", input.json)] ++
+    (if comparisons.isEmpty then [] else [("comparisons", toJson (comparisons.map (·.raw)))])
   let observedIndex : Option Nat ← match h.dispatches with
     | none => pure none
     | some observations =>
@@ -3047,7 +3049,16 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let F ← registeredFunctorInstance functor
       let acceptedInput ← methodArgument method input
       let expected ← Semantic.objOf F acceptedInput
-      let (json, backend) ← send h id.raw (← computationalApexReceiver trace request)
+      -- The registered comparisons that identified the recorded route among its competitors.
+      let some receiverCategory := state.categories.find? (·.id == original.form.category)
+        | throwError "the method receiver's category is not registered"
+      let resolution ← match state.resolveMethod receiverCategory.expression method.name with
+        | .ok resolution => pure resolution
+        | .error error => throwResolutionError state error
+      unless resolution.route.refs == route do
+        throwError "the recorded route of {id.raw} is not the route its resolution selects"
+      let comparisons := resolution.comparisons
+      let (json, backend) ← send h id.raw (← computationalApexReceiver trace request) comparisons
       match ← validateComputationalObject trace target expected json with
       | .error message => malformed backend id.raw json message
       | .ok () => pure ()

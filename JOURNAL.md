@@ -2733,3 +2733,10 @@ original unrelated dirty Language patch still exactly matches its saved baseline
   source along `edgesFrom`, and fails loudly when that set does not close within 4096.
 - `CasAcceptance.ResolveProbes`, `ClosureProbes`, `CohereProbes` build; `sets.card.fin2_times_z3`,
   `lattices.discriminant.a2`, `sets.finite.integers` hold (`0eb14e2-dirty-…-targeted-k11.json`).
+
+## 2026-10-21: K10 closed
+
+- A method dispatch records the registered comparisons of the resolution that selected its
+  route. Scratch diagnostic `|ZMod(5) in Rings| = 5` holds with one `meth.cardinality` dispatch on
+  `obj.rings.integers_mod` recording `cell.rings.additive_monoid_carrier` and `cmp.rings.carrier`
+  (`6452585-dirty-…-targeted-k10.json`); `sets.card.z7`, `sets.card.integers` still hold.
