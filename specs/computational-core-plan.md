@@ -113,12 +113,14 @@ how important, small, risky or promising something is.
    controller, workflow or recipe to get past a refusal, never bypass one, and never build,
    install or recreate an engine or container. A refused push leaves the commits on the local
    branch.
-4. **Performance.** Performance work starts only when a report entry for one of the item's IDs
-   has kind `internal` with a timeout, heartbeat or memory detail, or a required `lake` or
-   harness process is killed for memory. Name that entry or process in the message of every
-   commit of the performance work. It ends when that entry has another kind or that process
-   completes; then resume the item. Profiles, `just bench-question` and `just bench-reading` are
-   used only inside such work. No time or memory figure is a target. Do not raise heartbeats.
+4. **Performance.** The owner's feedback budgets (2026-10-21) are: a targeted check of the IDs
+   one edit is meant to change, under two minutes; a commit, hooks included, under two minutes;
+   a push under ten minutes; CI under six hours, never waited on. Performance work starts only
+   when one of these is exceeded with no other harness or Lean build running on the machine, or
+   when a report entry for an item ID has kind `internal` with a timeout, heartbeat or memory
+   detail. Name the exceeded budget or entry in every commit of that work; it ends when the
+   budget holds or the entry changes. Profiles, `just bench-question` and `just bench-reading`
+   are used only inside such work. Do not raise heartbeats.
 5. **Verification.** For every repair attempt, including one you will later undo, run the item's
    targeted check on the edited tree, then commit. The commit message has one line per item ID,
    `id: kind → kind`, marked `detail changed` where the detail differs, plus the report path. A
@@ -190,6 +192,9 @@ Local checks give feedback on one edit in minutes. The whole suite runs only in 
   closing an item (`gh run download <run id> -n acceptance-report`). CI runs the suite with Lean
   discharge and without the Sage and GAP backends, so a computation it needs is `unavailable`
   there; required execution (K1, K3) is observed locally. A refused push is rule 3.
+- **One heavy process at a time.** This machine has 7 GB of memory; each harness process maps
+  about 2 GB of imports, and two of them, or one beside a Lean build, swap and slow every check
+  several-fold. Run one harness or one `lake build` at a time, never both.
 - **No full run locally.** Do not run `cas-harness` without `--suite` and `--inventory`, and do
   not run `B0_INTEGRATION=1 just build`, on this machine.
 - **Dependencies.** Run `just track-main` in the work worktree at session start and after a
