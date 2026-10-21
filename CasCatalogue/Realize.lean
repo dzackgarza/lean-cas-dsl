@@ -2159,11 +2159,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .powerObjectMap id field params =>
       unless state.powerObjects.any (·.id == id) do
         throwError "the retained power object is not registered"
-      let parameters ← params.mapM (parameterData trace)
+      let (parameters, wires) ← realizedParameters h trace params
       let some sets := state.categories.find? (·.id == CategoryId.sets) | unreachable!
-      return { form := .canonicalMorphism sets, payload := (.ordinary e
-        (Json.mkObj [("ctor", "powerObjectMap"),
-          ("args", Json.arr #[toJson id.raw, toJson field, Json.arr parameters])])) }
+      let json := Json.mkObj [("ctor", "powerObjectMap"),
+        ("args", Json.arr #[toJson id.raw, toJson field, Json.arr parameters])]
+      return { form := .canonicalMorphism sets, payload := ← combinedPayload e json wires }
   | .objectInclusion id categoryId params =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the retained inclusion owner is not registered"
@@ -3388,9 +3388,10 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
           (match b.payload with | .computed .. => true | _ => false) then
         return if ← observeComputedPoints h trace a b f then .holds
           else .wrong s!"{left} is not {right}: the computational equality observation is false"
-      -- Closed elements are not computed when read: their data is the element expression, which
-      -- only a registered computation evaluates.
-      if (match a.form, b.form with | .element _, _ | _, .element _ => true | _, _ => false) then
+      -- Only literal data on both sides is a value the kernel compares itself. Any other
+      -- uncomputed side (an element expression, a power-object map, a composite) is a request
+      -- that only a registered computation evaluates.
+      unless (match a.form, b.form with | .literal _, .literal _ => true | _, _ => false) do
         let some (domain, target) := Language.homEnds? (← inferType f)
           | throwStratum .noImplementation "the compared elements have no retained point endpoints"
         return if ← observeEquality h trace a b domain target then .holds

@@ -4980,7 +4980,9 @@ partial def terminalAt (S : Value) : M Expr := do
   let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
   let .object s category _ _ _ := S | throwStratum .invalid m!"a stage is a set"
   let .object one _ _ _ _ ← oneObject | unreachable!
-  homIn (← `($(mkCIdent po.terminal) $(← paramTerms #[S])*)) s one category
+  let terminal ← homIn (← `($(mkCIdent po.terminal) $(← paramTerms #[S])*)) s one category
+  Trace.record (← read).trace terminal (.powerObjectMap po.id "terminal" #[s])
+  return terminal
 
 /-- A value where a set is needed: a set, or the extent of a subset (the set of its members). -/
 partial def asObject (v : Value) : M Value := do
@@ -5142,6 +5144,8 @@ partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
   let .object one _ _ _ _ ← oneObject | unreachable!
   let image ← homIn (← `($(mkCIdent po.image) $(← paramTerms #[X, Y])* $(← quoteExpr f)))
     one p category
+  Trace.record (← read).trace image
+    (.powerObjectMap po.id "image" #[← semanticObject X, ← semanticObject Y, f])
   return .element (← staged image) P
 
 /-- A bound value at the current stage: a global element `1 → X` (a ring's generator bound for a
@@ -5176,6 +5180,8 @@ partial def comprehension (scope : Scope) (t : Name) (X : Value) (p : Syntax) : 
   let .object one _ _ _ _ ← oneObject | unreachable!
   let subset ← homIn (← `($(mkCIdent po.transpose) $(← paramTerms #[X])* $(← quoteExpr predicate)))
     one pHandle category
+  Trace.record (← read).trace subset
+    (.powerObjectMap po.id "transpose" #[← semanticObject X, predicate])
   return .element (← staged subset) P
 
 /-- `{x₁, …, xₙ}` as a literal of the registered subset-literal form `form` of the power object
