@@ -702,7 +702,9 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
         | _ => throwSemanticAmbiguity m!"a selected source has unresolved parameter routes"
       sourceChoices := sourceChoices.push candidate
     if sourceChoices.isEmpty then
-      throwStratum .invalid m!"{origin.name} has no registered structure at the parameter's type"
+      throwStratum .invalid m!"{origin.name} has no registered structure at the parameter's type \
+        {expected}: refining sources {sources.map (·.id.raw)}, route candidates \
+        {routeCandidates.size}"
     let selectedCandidates := sourceChoices.qsort fun left right =>
       let leftKey := left.1.id.raw ++ reprStr left.2.refs
       let rightKey := right.1.id.raw ++ reprStr right.2.refs
