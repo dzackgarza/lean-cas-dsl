@@ -1924,7 +1924,9 @@ partial def elementExpression (trace : Trace) (e : Expr) : TermElabM Json := do
       unless ← withTransparency .all <| isDefEq e receiver do
         throwStratum .noImplementation "this nonidentity element transport requires its actual action data"
       elementExpression trace receiver
-  | _ => throwStratum .noImplementation m!"the closed element is not structural arithmetic data"
+  | other =>
+      throwStratum .noImplementation m!"the closed element is not structural arithmetic data: it was formed by \
+        {(reprStr other).takeWhile (· != ' ')}"
 
 /-- Validate computational object fields without proving construction laws. In particular,
 subobject data carries its inclusion at the declared endpoints but is not promoted to a Lean
@@ -2013,7 +2015,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   let some node ← (trace.node? e : IO _)
     | throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
         catalogue operation the realized reading evaluates (a named object at its parameters, \
-        a method of one)"
+        a method of one); its head is {e.consumeMData.getAppFn}"
   match node with
   | .callableRecipe categoryId domain target body =>
       let some category := state.categories.find? (·.id == categoryId)
@@ -3335,9 +3337,10 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
         let state ← registryState
         let some category := state.categories.find? (·.id == wire.form.category)
           | throwStratum .malformed "the computed map has no declared category"
-        let .ok (actual, _) ← decodeValue trace category (← inferType formal) wire.json
-          | throwStratum .noImplementation "the computational map has no independent observation decoder"
-        return actual
+        match ← decodeValue trace category (← inferType formal) wire.json with
+        | .ok (actual, _) => return actual
+        | .error message =>
+            throwStratum .noImplementation m!"the computational map has no independent observation decoder: {message}"
       let actualLeft ← observe a f
       let actualRight ← observe b g
       return if ← evaluatedPointEq trace actualLeft actualRight then .holds
