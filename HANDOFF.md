@@ -14,12 +14,11 @@ source is `4bc36b61e15ac2bd0abab2a48317d1423ee1b0fe`; the two later commits are 
 **Not pushed**: the branch exists only in `/home/dzack/gitclones/lean-cas-dsl/.git`. No worktree
 of it is registered; create one with procedure rule 10.
 
-Latest complete report: none for this kernel source (the 2026-10-20 run was stopped before
-writing one). `/home/dzack/gitclones/lean-cas-dsl-reports/` exists and is empty. The session
-starts with the baseline, from the worktree, run in the background:
+Latest complete report: none for this kernel source. Full runs are the background burndown
+signal (procedure, "Running checks"); nothing waits for them. Each one, from the report worktree
+at the commit being measured:
 
 ```bash
-just track-main
 lake build cas-harness
 H=$(git hash-object lake-manifest.json)
 R=/home/dzack/gitclones/lean-cas-dsl-reports/$(git rev-parse --short HEAD)-$H-full

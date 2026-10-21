@@ -136,7 +136,9 @@ how important, small, risky or promising something is.
    next item; do not make a fourth such commit on your own diagnosis.
 7. **Item identity.** An item is its ID set, not its current detail message. When a repair
    moves an ID from one request-formation detail to another, the item stays open. An item closes
-   only when the closure condition of its row holds for every ID in one report at one candidate.
+   when the closure condition of its row holds for every ID in one report at one candidate; a
+   targeted report suffices. A later full report in which the condition fails for one of its IDs
+   reopens it, and it is again selected by rule 1.
 8. **Blocked items.** An item is blocked only when its next step needs an input owned by another
    role (formalization, acceptance, leaf) or an owner operation. Then:
    - mathematics: if the item names an upstream row, start the formalization subagent in a
@@ -149,21 +151,28 @@ how important, small, risky or promising something is.
    - registrations: K13 is the only leaf dispatch;
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
      item.
-   The session does not end while a subagent it started is running. When one finishes, run
-   `just track-main`, rerun the targeted check of each item blocked on it, and resume selection
-   at rule 1. The session ends when every item is closed or blocked and no started subagent is
+   The session does not end while a subagent it started is running. When one finishes, its output
+   reaches the kernel through the next full run's `just track-main` ("Running checks"); rerun the
+   targeted check of each item blocked on it after that, and resume selection
+   at rule 1. Nothing waits for a subagent: the session keeps working the work list while it
+   runs. The session ends when every item is closed or blocked and no started subagent is
    running, or when the owner stops it.
 9. **Records.** Write one `JOURNAL.md` entry when an item closes, in the closing commit, at most
    ten lines: the IDs, their kinds before and after, the candidate commit and the report path.
    Commit `HANDOFF.md` only when an item closes or is blocked, after a refusal (rule 3), and at
    session end (rule 11). Item states are kept in `HANDOFF.md`, never in this plan. Write no other
    `JOURNAL.md`, `custodian/FINDINGS.md`, plan, policy or agent-memory record during a session.
-10. **Checkouts.** Run `git worktree prune`, then work in a worktree outside the repository on the
-    construction branch `HANDOFF.md` names (`git worktree add ../lean-cas-dsl-b0 <branch>`).
-    Never run `git stash`, `checkout`, `reset`, `restore` or `clean` in
-    `/home/dzack/gitclones/lean-cas-dsl`; its working tree holds the owner's uncommitted edit.
-    Every checkout shares one Lake package directory (`packagesDir` in the lakefile), so while a
-    harness run is in progress, run no `lake` or `just` command in any checkout of this repository.
+10. **Checkouts.** Run `git worktree prune`. Edit, build and run targeted checks only in the
+    work worktree, on the construction branch `HANDOFF.md` names
+    (`git worktree add ../lean-cas-dsl-b0 <branch>`). Full runs happen only in the report
+    worktree, detached at the commit being measured (`git worktree add --detach
+    ../lean-cas-dsl-report <commit>`); nothing is edited there. Never run `git stash`,
+    `checkout`, `reset`, `restore` or `clean` in `/home/dzack/gitclones/lean-cas-dsl`; its working
+    tree holds the owner's uncommitted edit. Every checkout shares one Lake package directory
+    (`packagesDir` in the lakefile), and a `lake` command in a checkout whose `lake-manifest.json`
+    differs moves those packages to its own revisions. So run no `lake` or `just` command in
+    `/home/dzack/gitclones/lean-cas-dsl`, and run `just track-main` only as the first step of a full
+    run (below).
 11. **Handoff.** At session end `HANDOFF.md` contains only: the branch and commit, and whether
     it is pushed or the exact push error; the latest complete report's path; each work-list item
     as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
@@ -177,14 +186,19 @@ Reports are written to `/home/dzack/gitclones/lean-cas-dsl-reports/` (outside th
 named `<kernel commit>-<lake-manifest.json hash>-<full|targeted-Kn>.json`. Record the manifest hash
 with every report.
 
-- **Dependencies.** Run `just track-main` once at session start and after a subagent finishes
-  (rule 8), never between the two reports of one comparison.
-- **Baseline.** If the reports directory has no complete computation-only report for the branch
-  head's kernel commit at the current manifest hash, build `cas-harness` in the worktree and run it
-  over the whole inventory (command in `HANDOFF.md`). It takes about forty minutes. Start it in
-  the background and wait for its exit notification: no status polling and no sleep loops.
-  While it runs, read source only. The report counts only if the manifest hash is the same
-  before and after the run.
+- **Full runs: the burndown signal.** A full run measures the whole inventory at one commit.
+  It runs in the background in the report worktree and never blocks anything: no item, edit,
+  build, targeted check or subagent waits for it, and nothing polls it. Full runs follow one
+  another. When the session starts, and each time a full run exits:
+  1. in the work worktree, run `just track-main` and commit `lake-manifest.json` if it changed;
+  2. move the report worktree to the work worktree's head
+     (`git -C ../lean-cas-dsl-report switch --detach <head>`);
+  3. start the next full run there in the background (command in `HANDOFF.md`).
+
+  Its report is the triage queue: it confirms closed items, reopens failed ones (rule 7), and
+  supplies the entries a targeted check is compared against. It counts only if the manifest hash
+  is the same before and after the run; otherwise discard it, and the next run replaces it.
+  Run `just track-main` nowhere else, so that the shared packages do not move under a run.
 - **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the item's IDs
   into an empty scratch directory (for K3 and K14, copy the `.cas.proposed` file under a `.cas`
   name). Write an inventory file `{"assertions": {"<id>": "", …}}` listing exactly the item's
@@ -200,11 +214,10 @@ with every report.
   It rebuilds `cas-harness` from the edited source. On a warm build one suite file took
   76 seconds (`ellipses.cas`, 2026-10-21), and its details matched the full report's. Omit
   `--computation-only` for the full report that K4 accepts. A targeted report closes an item;
-  the final full inventory re-checks it.
-- **Lean source checks.** `lake build TARGET` in the worktree for the changed module or probe.
-  It has no time limit and does not refresh dependencies. `B0_INTEGRATION=1 just build` runs only
-  before the session's final full inventory.
-- **Full inventory.** Rerun it once, before writing the handoff, at the final committed head.
+  later full runs re-check it.
+- **Lean source checks.** `lake build TARGET` in the work worktree for the changed module or
+  probe. It has no time limit and does not refresh dependencies. `B0_INTEGRATION=1 just build`
+  runs in the report worktree before a full run that the handoff will cite.
 
 #### Work list
 
