@@ -2715,3 +2715,13 @@ while its target was still running; it was corrected immediately. The eventual
 actual target passed in 72.80 seconds with a completed 62.15-second diagnostic
 profile. That exact result, not the earlier statement, is the evidence. The
 original unrelated dirty Language patch still exactly matches its saved baseline.
+
+## 2026-10-21: K1, K4, K6, K7, K9 closed
+
+- K1: the fifteen required computations hold with dispatches at `f208613`
+  (`lean-cas-dsl-reports/f208613-dcd5109…-targeted-k1k2.json`); `sets.eq.rev_rev` regressed when
+  the leaf began answering `finiteGraph`, repaired in `f208613`.
+- K4, K6, K7: no ID is a request-formation gap in CI run `39630187816` at `adaec09`
+  (holds 75 → 75; request-formation gaps 101 at `5410e70` → 9).
+- K9: the three requests use the declared `extent` and `constructionApex` forms
+  (contract `f7b047b`); remaining errors are the Sage leaf's (`*-targeted-rest2`).
