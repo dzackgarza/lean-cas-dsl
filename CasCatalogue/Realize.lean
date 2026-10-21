@@ -2248,10 +2248,38 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwStratum .noImplementation "the structural view does not preserve this point's carrier"
       unless ← withTransparency .all <| isDefEq point.value e do
         throwError "the forward carrier identification changed the actual closed point"
-      let .object sourceEntry := original.form
-        | throwStratum .noImplementation "the original point has no exact selected element structure"
-      let some sourceCategory := state.categories.find? (·.id == sourceEntry.category) | unreachable!
-      let sourceValue ← (Language.recognize state source sourceCategory).run {}
+      let some sourceCategory := state.categories.find? (·.id == original.form.category)
+        | throwError "the original point structure category is not registered"
+      -- A named structure is recognized; the image of one under a registered functor carries
+      -- that functor as its view, as the forward target does.
+      let sourceValue ← match original.form, ← (trace.node? source : IO _) with
+        | .object _, _ => (Language.recognize state source sourceCategory).run {}
+        | _, some (.functor functorId _ receiver) => do
+            let receiverWire ← realize h trace "the original structure's named receiver" receiver
+            let .object receiverEntry := receiverWire.form
+              | throwStratum .noImplementation m!"the original point's functor receiver is not a \
+                  named structure: {receiverWire.form.id}"
+            let some receiverCategory := state.categories.find? (·.id == receiverEntry.category)
+              | unreachable!
+            let receiverValue ← (Language.recognize state receiver receiverCategory).run {}
+            let functor ← Semantic.edgeFunctor state (.functor functorId)
+            pure (.object source sourceCategory none none
+              (some (#[receiverValue], receiverValue, #[.functor functorId], #[],
+                #[(.functor functorId, actualApplicationArguments functor)])))
+        | _, some (.parameterEquivalence _ _ sources) => do
+            -- An identity class of parameter presentations: the first accepted presentation,
+            -- a named object along its retained route, is the view.
+            let some chosen := sources[0]?
+              | throwError "the parameter identity class has no accepted source"
+            let some receiverCategory := state.categories.find? (·.id == chosen.sourceCategory)
+              | throwError "the parameter presentation's source category is not registered"
+            let receiverValue ← (Language.recognize state chosen.object receiverCategory).run {}
+            pure (.object source sourceCategory none none
+              (some (#[receiverValue], receiverValue, chosen.route, sources,
+                chosen.route.zip (chosen.applications.map actualApplicationArguments))))
+        | form, node => throwStratum .noImplementation m!"the original point has no exact selected \
+            element structure: form {form.id}, formed by \
+            {(reprStr node).takeWhile (· != ' ')} {(reprStr node).drop 5 |>.takeWhile (· != ' ')}"
       let some targetCategory := state.categories.find? (·.id == selected.form.category)
         | throwError "the selected point view category is not registered"
       let applicationArgs := (route.zip applications).map fun (edge, application) =>
