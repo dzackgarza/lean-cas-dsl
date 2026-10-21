@@ -3713,6 +3713,7 @@ partial def tupleOf (values : Array Value) (X : Value)
   let .object one _ _ _ _ ← oneObject | unreachable!
   let mut hom ← profileReader "tuple empty map" <|
     homIn (← `($(mkCIdent empty.declaration) $(← paramTerms #[X])*)) one e category
+  Trace.record (← read).trace hom (.namedMorphism empty.id #[← semanticObject X])
   if let some S := (← read).stage then
     hom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[← terminalAt S, hom]
   let mut acc := Value.element hom E
