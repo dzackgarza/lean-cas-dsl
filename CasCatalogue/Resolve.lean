@@ -164,6 +164,9 @@ inductive ResolutionError
   | ambiguousComparison (name : String) (a b : Route) (cells : Array NaturalTransformationId)
   /-- Identified routes with no unique source route to run on. -/
   | noSourceRoute (name : String) (sources : Array Route)
+  /-- The categories reachable from `source` along structural edges do not close within the
+  enumeration limit, so no route bound is complete. -/
+  | unclosedRoutes (source : CategoryExpr) (limit : Nat)
 
 /-- The display name of a category expression: its registered id, if it has one. -/
 partial def RegistryState.categoryName (state : RegistryState) (expression : CategoryExpr) :
@@ -232,6 +235,9 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
       s!"`{name}`: the identified routes have {sources.size} source routes under their \
         comparisons, so none is designated to run on:\n" ++
         "\n".intercalate (sources.toList.map fun r => "  " ++ state.renderRoute r)
+  | .unclosedRoutes source limit =>
+      s!"the categories reachable from {state.categoryName source} along structural edges do \
+        not close within {limit}: no complete route enumeration exists"
   | .ambiguousProperty name candidates =>
       s!"`{name}` is ambiguous: {candidates.size} structural routes and no registered \
         comparison identifies them:\n" ++
@@ -246,14 +252,45 @@ def throwResolutionError {α : Type} (state : RegistryState) (error : Resolution
       throwSemanticAmbiguity (error.render state)
   | .unknownMethod .. | .notApplicable .. | .missingLift .. =>
       throwStratum .invalid (error.render state)
+  | .unclosedRoutes .. => throwError (error.render state)
+
+/-- The categories reachable from `source` along structural edges, when they close within
+`limit` categories. -/
+def RegistryState.reachableCategories (state : RegistryState) (source : CategoryExpr)
+    (limit : Nat) : Option (Array CategoryExpr) := Id.run do
+  let mut seen := #[source]
+  let mut frontier := #[source]
+  for _ in [0:limit] do
+    if frontier.isEmpty then return some seen
+    let mut next := #[]
+    for category in frontier do
+      for edge in state.edgesFrom category do
+        unless seen.any (·.syntacticEq edge.target) do
+          seen := seen.push edge.target
+          next := next.push edge.target
+    if seen.size > limit then return none
+    frontier := next
+  return if frontier.isEmpty then some seen else none
+
+/-- Every structural route from `source` to `target`. A route visits no category twice, so it has
+fewer edges than the categories reachable from `source`; that count bounds the enumeration
+(`SemanticState.routes`), which is complete only when the reachable categories close. -/
+def RegistryState.completeRoutes (state : RegistryState) (source target : CategoryExpr) :
+    Except ResolutionError (Array Route) := do
+  let limit := 4096
+  let some reachable := state.reachableCategories source limit
+    | throw (.unclosedRoutes source limit)
+  return state.routes source target reachable.size
 
 /-- Resolve `receiver.name`, optionally requiring the route to pass through the functors `via`. -/
 def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr) (name : String)
     (through : Array FunctorId := #[]) : Except ResolutionError Resolution := do
   let methods := state.methods.filter (·.name == name)
   if methods.isEmpty then throw (.unknownMethod name)
-  let candidates := methods.flatMap fun method =>
-    ((state.routes receiver method.owner).filter fun route =>
+  let routed ← methods.mapM fun method => do
+    return (method, ← state.completeRoutes receiver method.owner)
+  let candidates := routed.flatMap fun (method, routes) =>
+    (routes.filter fun route =>
         through.all fun id => route.functorIds.contains id).map fun route =>
       { method, route : Resolution }
   if candidates.isEmpty then throw (.notApplicable name (methods.map (·.owner)))
@@ -320,8 +357,10 @@ def RegistryState.resolveProperty (state : RegistryState) (receiver : CategoryEx
   let applicable := named.filter fun p => p.receiver.all (·.syntacticEq receiver)
   let entries := applicable.filterMap fun p =>
     (state.classifier? p.classifier).map fun c => (p, c)
-  let candidates := entries.flatMap fun (property, classifier) =>
-    ((state.routes receiver classifier.host).filter fun route =>
+  let routed ← entries.mapM fun (property, classifier) => do
+    return (property, classifier, ← state.completeRoutes receiver classifier.host)
+  let candidates := routed.flatMap fun (property, classifier, routes) =>
+    (routes.filter fun route =>
         through.all fun id => route.functorIds.contains id).map fun route =>
       { property, classifier, route : PropertyResolution }
   if candidates.isEmpty then

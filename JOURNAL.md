@@ -2725,3 +2725,11 @@ original unrelated dirty Language patch still exactly matches its saved baseline
   (holds 75 → 75; request-formation gaps 101 at `5410e70` → 9).
 - K9: the three requests use the declared `extent` and `constructionApex` forms
   (contract `f7b047b`); remaining errors are the Sage leaf's (`*-targeted-rest2`).
+
+## 2026-10-21: K11 closed
+
+- The seven kernel consumers of `SemanticState.routes` now call `RegistryState.completeRoutes`,
+  which bounds the simple-route enumeration by the number of categories reachable from the
+  source along `edgesFrom`, and fails loudly when that set does not close within 4096.
+- `CasAcceptance.ResolveProbes`, `ClosureProbes`, `CohereProbes` build; `sets.card.fin2_times_z3`,
+  `lattices.discriminant.a2`, `sets.finite.integers` hold (`0eb14e2-dirty-…-targeted-k11.json`).

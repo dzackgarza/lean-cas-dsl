@@ -562,6 +562,12 @@ def checkedRouteAction (state : RegistryState) (source target : CategoryId)
     Trace.record (← read).trace image (.retainedRoute source target route applications receiver)
   return (image, applications)
 
+/-- Every structural route from `source` to `target` (`RegistryState.completeRoutes`). -/
+def routesBetween (state : RegistryState) (source target : CategoryExpr) : M (Array Route) := do
+  match state.completeRoutes source target with
+  | .ok routes => return routes
+  | .error error => throwResolutionError state error
+
 mutual
 /-- Read explicit parameters sequentially at the declaration's dependent binder types. -/
 partial def typedParamTerms (declaration : Name) (values : Array Value) : M (Array Term) := do
@@ -594,7 +600,7 @@ partial def transportedStructure (expected : Expr) (value : Value)
       let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
       isDefEq objectType expected
     unless targetTyped do continue
-    for route in state.routes sourceCategory.expression target.expression do
+    for route in (← routesBetween state sourceCategory.expression target.expression) do
       if ← parameterCompatible (do
           let image ← if route.steps.isEmpty then pure receiver else
             Semantic.objOf (← Semantic.routeFunctor state route.refs) receiver
@@ -663,7 +669,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
         let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
         isDefEq objectType expected
       unless targetTyped do continue
-      for route in state.routes sourceCategory.expression targetCategory.expression do
+      for route in (← routesBetween state sourceCategory.expression targetCategory.expression) do
         let applicable ← parameterCompatible do
           let sourceTerm ← Semantic.object source (← typedParamTerms source.declaration parameters)
           let image ← if route.steps.isEmpty then pure sourceTerm else
@@ -2757,7 +2763,7 @@ partial def registeredStructuredParameter (expected : Expr) (operand : Value) : 
         isDefEq type expected) do continue
     for targetCategory in state.categories do
       if targetCategory.id == CategoryId.sets || targetCategory.id == sourceCategory.id then continue
-      let routes := state.routes sourceCategory.expression targetCategory.expression
+      let routes := (← routesBetween state sourceCategory.expression targetCategory.expression)
       if routes.isEmpty then continue
       let mut seenImages : Array Expr := #[]
       for original in originalValues do
@@ -3416,7 +3422,7 @@ partial def presentationMapValue (value : Value) (entry : PresentationComparison
   letI : Inhabited Route :=
     ⟨{ source := category.expression, target := sets.expression, steps := #[] }⟩
   do
-    let routes := state.routes category.expression sets.expression
+    let routes := (← routesBetween state category.expression sets.expression)
     let route ← if let some refs ← retainedCarrierRoute state sourceValue then
       match routes.find? (·.refs == refs) with
       | some route => pure route
@@ -5121,7 +5127,7 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   letI : Inhabited Route :=
     ⟨{ source := category.expression, target := sets.expression, steps := #[] }⟩
   do
-    let routes := state.routes category.expression sets.expression
+    let routes := (← routesBetween state category.expression sets.expression)
     let classes := state.classify routes (fun _ => sets.id.raw) (fun route => route)
     let cls ← match classes.toList with
       | [entry] => pure entry

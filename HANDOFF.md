@@ -32,7 +32,7 @@ Local targeted reports are in `/home/dzack/gitclones/lean-cas-dsl-reports/`.
 | K8 remaining request-formation gaps | open: condition met in targeted reports (`*-targeted-lim`, `*-targeted-par2`, `*-targeted-rest`); awaiting one CI report at or after `d838691` |
 | K9 unavailable requests | closed: requests use the declared `extent` and `constructionApex` forms (contract `f7b047b`); the backend errors are leaf work (`*-targeted-rest2`) |
 | K10 comparison used in execution | open |
-| K11 route enumeration bound | open |
+| K11 route enumeration bound | closed: every kernel route enumeration is bounded by the closed set of categories reachable from its source (`RegistryState.completeRoutes`); Resolve, Closure and Cohere probes build; `*-targeted-k11` holds |
 | K12 constructor-induced comparison cells | blocked: lean-categories constructor action on comparison cells |
 | K13 registration gaps (leaf dispatch) | open |
 | K14 formed-module positives | open |
