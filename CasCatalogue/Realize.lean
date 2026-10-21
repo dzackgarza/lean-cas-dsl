@@ -2156,6 +2156,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
       return { form := .canonicalMorphism category, payload := (.ordinary e
         (Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameters)])) }
+  | .objectInclusion id categoryId params =>
+      let some entry := state.objects.find? (·.id == id)
+        | throwError "the retained inclusion owner is not registered"
+      unless entry.inclusion.isSome do
+        throwError "the retained object row registers no inclusion"
+      let parameters ← params.mapM (parameterData trace)
+      let some category := state.categories.find? (·.id == categoryId) | unreachable!
+      return { form := .canonicalMorphism category, payload := (.ordinary e
+        (Json.mkObj [("ctor", "inclusion"), ("args", Json.arr #[toJson id.raw, Json.arr parameters])])) }
   | .admittedPoint id categoryId params original originalCategory originalSource originalTarget =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the admitted point owner is not registered"
@@ -3359,7 +3368,7 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
           else .wrong s!"{left} is not {right}: the computational equality observation is false"
       -- Closed elements are not computed when read: their data is the element expression, which
       -- only a registered computation evaluates.
-      if (match a.form, b.form with | .element _, .element _ => true | _, _ => false) then
+      if (match a.form, b.form with | .element _, _ | _, .element _ => true | _, _ => false) then
         let some (domain, target) := Language.homEnds? (← inferType f)
           | throwStratum .noImplementation "the compared elements have no retained point endpoints"
         return if ← observeEquality h trace a b domain target then .holds
@@ -3518,6 +3527,8 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.retainedRoute source target route (← applications.mapM instantiateMVars)
             (← instantiateMVars receiver))
       | .namedMorphism id params => pure (.namedMorphism id (← params.mapM instantiateMVars))
+      | .objectInclusion id category params =>
+          pure (.objectInclusion id category (← params.mapM instantiateMVars))
       | .namedInclusion id category params source target =>
           pure (.namedInclusion id category (← params.mapM instantiateMVars)
             (← instantiateMVars source) (← instantiateMVars target))
@@ -3633,6 +3644,9 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (Json.arr #[toJson "admittedPoint", toJson id.raw, toJson category.raw,
             toJson (← params.mapM encode), toJson (← encode original),
             toJson originalCategory.raw, toJson (← encode source), toJson (← encode target)])
+      | .objectInclusion id category params =>
+          pure (Json.arr #[toJson "objectInclusion", toJson id.raw, toJson category.raw,
+            toJson (← params.mapM encode)])
       | .namedInclusion id category params source target =>
           pure (Json.arr #[toJson "namedInclusion", toJson id.raw, toJson category.raw,
             toJson (← params.mapM encode), toJson (← encode source),

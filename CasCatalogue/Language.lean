@@ -3585,7 +3585,14 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
   if let some (ι, b) ← inclusionOut? Y then
     let B ← inclusionTargetValue Y b category
     let .object bHandle .. := B | unreachable!
+    let .object _ _ (some (entry, _)) _ _ := Y | unreachable!
+    let some declaration := entry.inclusion | unreachable!
+    let explicit ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
+      xs.mapM (·.fvarId!.getBinderInfo)
+    let params := ((ι.getAppArgs.zip explicit).filterMap fun (arg, info) =>
+      if info.isExplicit then some arg else none)
     let ι ← homIn (← quoteExpr ι) y bHandle category
+    Trace.record (← read).trace ι (.objectInclusion entry.id entry.category params)
     if let some into ← coercionMap B X then
       return some (some (← match into with
         | some ι' => mkAppM ``CategoryTheory.CategoryStruct.comp #[ι, ι']

@@ -63,6 +63,9 @@ inductive Node
   /-- A registered inclusion at its complete declared parameters and exact endpoints. -/
   | namedInclusion (id : InclusionId) (category : CategoryId) (params : Array Expr)
       (source target : Expr)
+  /-- The admission inclusion `D ↪ B` that the object row `object` registers, at its explicit
+  parameters (`Mˣ ↪ M`). -/
+  | objectInclusion (object : ObjectId) (category : CategoryId) (params : Array Expr)
   /-- A callable published as a typed field of a registered owner. -/
   | namedCallable (address : String) (category : CategoryId) (params : Array Expr)
   /-- A typed callable body in its exact generalized-element domain context. -/
