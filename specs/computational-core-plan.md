@@ -209,22 +209,23 @@ Local checks give feedback on one edit in minutes. The whole suite runs only in 
   the `lake-manifest.json` hash it ran at.
 - **Targeted check.** Copy each `tests/acceptance/*.cas` file containing one of the checked IDs
   into an empty scratch directory (for K3 and K14, the `.cas.proposed` file under a `.cas` name),
-  keeping every line outside a `test` block and only the `test` blocks of the checked IDs; a
-  copied file runs all of its tests otherwise. Write an inventory file
-  `{"assertions": {"<id>": "", …}}` listing exactly the checked IDs. Check the IDs the edit is
-  meant to change, not the whole item, while iterating. Run, from the work worktree:
+  keeping only the `test` blocks of the checked IDs and the `let` bindings they use, transitively;
+  every binding left in the file is read, at several seconds each. Write an inventory file
+  `{"assertions": {"<id>": "", …}}` listing exactly the checked IDs. Elaborate the suite in the
+  Lean frontend, which needs `.olean` files only (no C compile, no link), from the work worktree:
 
   ```bash
+  lake build CasCatalogue.TestSuite
+  printf 'import CasCatalogue.TestSuite\nset_option profiler true in\n#cas_tests "%s" reporting "%s" inventory "%s" computing\n' \
+    SCRATCH REPORT.json SCRATCH/inventory.json > SCRATCH.lean
   CAS_SAGE_PYTHON=/home/dzack/.local/bin/sage-docker-python \
   CAS_GAP_PYTHON=/home/dzack/gitclones/lean-cas-dsl/.venv/bin/python \
-  lake exe cas-harness --computation-only --suite SCRATCH --inventory SCRATCH/inventory.json \
-    --report /home/dzack/gitclones/lean-cas-dsl-reports/<commit>-<manifest hash>-targeted-Kn.json
+  lake env lean SCRATCH.lean
   ```
 
-  It rebuilds `cas-harness` from the edited source. On a warm build one suite file took
-  76 seconds (`ellipses.cas`, 2026-10-21), and its details matched the full report's. Omit
-  `--computation-only` for the Lean-discharge outcome K4 accepts. A targeted report closes an
-  item; later CI reports re-check it.
+  The report is named `<commit>-<manifest hash>-targeted-<label>.json` in the reports directory.
+  Drop `computing` for the Lean-discharge outcome K4 accepts. The profile in the output names
+  the reader steps that cost time. A targeted report closes an item; later CI reports re-check it.
 - **Lean source checks.** `lake build TARGET` in the work worktree for the changed module or
   probe. It has no time limit and does not refresh dependencies.
 
