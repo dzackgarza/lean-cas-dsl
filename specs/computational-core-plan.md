@@ -162,7 +162,8 @@ how important, small, risky or promising something is.
     construction branch `HANDOFF.md` names (`git worktree add ../lean-cas-dsl-b0 <branch>`).
     Never run `git stash`, `checkout`, `reset`, `restore` or `clean` in
     `/home/dzack/gitclones/lean-cas-dsl`; its working tree holds the owner's uncommitted edit.
-    While a harness run is in progress, run no `lake` or `just` command in that worktree.
+    Every checkout shares one Lake package directory (`packagesDir` in the lakefile), so while a
+    harness run is in progress, run no `lake` or `just` command in any checkout of this repository.
 11. **Handoff.** At session end `HANDOFF.md` contains only: the branch and commit, and whether
     it is pushed or the exact push error; the latest complete report's path; each work-list item
     as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
