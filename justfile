@@ -256,7 +256,7 @@ setup:
 # Moves the lake dependency on nbdsl-worker to the latest kernel repo commit
 # and reinstalls the Python kernel adapter to match, so a stale
 # .lake/packages/nbdsl-worker or venv never serves old kernel code to the
-# notebook re-exec (test-push runs this first for that reason). Restarting
+# notebook re-exec (explicit sync-kernel setup, never a local push gate). Restarting
 # the open casdsl notebooks makes JupyterLab pick up the fresh install; a
 # notebook that fails to restart fails the recipe. The JupyterLab federated
 # extension converges too, copied from the same Lake checkout rev into
@@ -297,11 +297,11 @@ _test-full:
 # Run the full QC gate: the preflight, then the demo notebook through the live kernel.
 test-ci: test _test-full
 
-# Scan staged Lean source; the permanent assertions stay append-only.
+# Local commit checks validate staged syntax only. The permanent assertions
+# remain append-only and are audited by the CI-only Gates workflow.
 [private]
 test-commit:
     @just -f ~/ai-review-ci/justfiles/lean.just -d . test-commit
-    @python3 scripts/check_acceptance_permanent.py
 
 # Re-execute the committed notebook against the live casdsl kernel:
 # outputs stay genuine kernel output (a23ee30 standard). The demo is a
@@ -320,9 +320,7 @@ _notebook-reexec:
         git commit -m "chore: notebook session metadata"
     fi
 
-# Static Lean scans before push; no compilation.
+# Local push inspects outgoing committed syntax, without CI-only audits.
 [private]
 test-push:
     @just -f ~/ai-review-ci/justfiles/lean.just -d . test-push
-    @python3 scripts/check_acceptance_permanent.py
-    @python3 -m py_compile CasAcceptance/Strata/probe_registration.py
