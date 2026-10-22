@@ -6,9 +6,8 @@ name: Gates
       - b0/**
     paths-ignore:
       - '**/*.md'
-  pull_request:
-    paths-ignore:
-      - '**/*.md'
+  # Pre-v1: complete acceptance stays on source pushes and explicit dispatch;
+  # it is not an automatic pull-request gate during construction.
   workflow_dispatch: null
 permissions:
   contents: read
