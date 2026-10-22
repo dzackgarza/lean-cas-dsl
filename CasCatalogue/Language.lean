@@ -4641,12 +4641,24 @@ partial def toElement (v : Value) (X : Value) : M Value := do
         if let some zero := state.morphisms.find? fun morphism =>
             morphism.name == "0" && morphism.category == category.id then
           if let .object _ _ (some (_, parameters)) _ _ := X then
-            if ← profileReader "numeral zero family trial" (parameterCompatible do
-                let result ← applyFamily zero.declaration category #[] (some X)
+            let zeroConstant ← mkConstWithFreshMVarLevels zero.declaration
+            let (_, _, zeroType) ← forallMetaTelescopeReducing (← inferType zeroConstant)
+            let rigidMismatch : Bool ← match homEnds? zeroType with
+              | some (_, target) => do
+                  let familyHead ← withTransparency .all <| whnf target
+                  let objectHead ← withTransparency .all <| whnf (← semanticObject X)
+                  let mismatch : Bool := match familyHead, objectHead with
+                    | .forallE .., .const .. => true
+                    | _, _ => false
+                  pure mismatch
+              | none => pure false
+            unless rigidMismatch do
+              if ← profileReader "numeral zero family trial" (parameterCompatible do
+                  let result ← applyFamily zero.declaration category #[] (some X)
+                    (parameters := parameters)
+                  return result matches .element ..) then
+                return ← applyFamily zero.declaration category #[] (some X)
                   (parameters := parameters)
-                return result matches .element ..) then
-              return ← applyFamily zero.declaration category #[] (some X)
-                (parameters := parameters)
           if ← familyLandsIn zero.declaration X then
             let hom ← zeroElement zero.declaration X
             return .element (← staged hom) X
