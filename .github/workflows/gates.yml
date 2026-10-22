@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
+      - b0/**
     paths-ignore:
       - "**/*.md"
-  pull_request:
-    paths-ignore:
-      - "**/*.md"
+  # Pre-v1: full acceptance reports on branch pushes rather than PR events.
   workflow_dispatch:
 permissions:
   contents: read
