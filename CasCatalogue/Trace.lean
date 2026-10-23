@@ -86,6 +86,9 @@ inductive Node
   | operationPoint (id : OperationId) (params : Array Expr)
       (comparison operation target selected : Expr)
   | elementNumeral (value : Nat) (target selected : Expr)
+  /-- The value of a closed point at the registered terminal point, used as a dependent
+  declaration parameter while retaining its complete selected computational source. -/
+  | elementValue (point target selected : Expr)
   /-- The product mediator of independently fixed points at a retained formal product. -/
   | productMediator (category : CategoryId) (presentation domain left right : Expr)
   | morphismComposition (category : CategoryId) (first second source middle target : Expr)

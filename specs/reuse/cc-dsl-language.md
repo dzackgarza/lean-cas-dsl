@@ -379,3 +379,19 @@ witness, existing structured-receiver elaboration and full family-parameter
 alignment still infer omitted parameters before that final action-bound check.
 A plain category schema supplies no such witness. No mathematical constructor,
 source equality, or carrier-based parameter recovery is added.
+
+## V1 registry-driven dependent interpretation (2026-10-23)
+
+The existing Lean dependent telescope, category-family fibre witnesses,
+registered object notation/component fields, and registered terminal point
+own the required constructions. The interpreter consumes those interfaces for
+selected `Vec` parameters, destructured map arguments, quotient notation, and
+closed points. It introduces no object-specific mathematical constructor.
+
+The observed normalized-integration obstruction came from repeating complete
+structured-parameter searches inside the same candidate. Rigid declaration
+filters retain expression metavariables (universe metavariables do not disable
+the filter); candidate-invariant work is shared. Successful transactional
+recognition retains its checked state once, while invalid speculative readings
+restore state and ambiguity/internal failures propagate. No elaboration budget
+is increased and no mathematical evidence is weakened.

@@ -151,11 +151,23 @@ counterexamples in KM2–KM9 are essential.
 
 ### Kernel construction procedure (owner instruction, 2026-10-21)
 
-A **kernel session** is the orchestrator's own session in this repository: the session the
-owner is talking to, or the one the owner starts to work the kernel. It is never delegated. The
-orchestrator does not hand the kernel, an item or this procedure to a subagent or a fresh agent,
-and does not ask the owner whether to. Subagents are only the formalization, acceptance and leaf
-authors (rule 8) and the rule-6 reviewer; none of them writes the kernel.
+**Owner V1 assignment, 2026-10-23.** The current assignment explicitly authorizes
+kernel delegation, targeted upstream interface work, computational-contract changes,
+necessary execution-surface repairs and publication. Those authorizations supersede
+the older procedural restrictions below where they conflict with finishing V1.
+Mathematical ownership, leaf blindness, permanent assertions and independent
+acceptance remain binding. Implementation authorship cannot accept its own
+mathematics or interpretation migration.
+
+The integrated candidate must also execute at least four useful connected real-CAS
+workflows across at least three areas: exact selected arithmetic, finite sets and
+constructions, polynomial algebra, linear or structured algebra, and transport or
+inherited operations. The executed set must include complete structured data used
+in a subsequent operation and a nonidentity transport. Reuse existing real engines
+and narrowly scoped independent diagnostic leaves. This functional demonstration
+and the ten frozen-candidate exit trials are required for V1; a compiling source
+tree or a protocol self-test alone does not complete it. Broad leaf expansion and
+unrelated notebook work remain outside scope.
 
 This section is the whole work-selection rule for a kernel session. It replaces
 every earlier priority statement, roadmap milestone and "next objective" sentence in this

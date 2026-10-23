@@ -61,6 +61,24 @@ run_cmd liftTermElabM do
     throwError "a refuted assertion changed its question or reported semantic invalidity"
 
 run_cmd liftTermElabM do
+  for (stratum, expected) in #[(Stratum.invalid, InterpretationFailureKind.invalid),
+      (.semanticAmbiguity, .ambiguous), (.noImplementation, .internal),
+      (.ambiguousRealization, .internal), (.unavailable, .internal), (.malformed, .internal)] do
+    let failed : TermElabM Unit := throwStratum stratum "stage-classification probe"
+    let actual ← tryCatchRuntimeEx (failed *> pure InterpretationFailureKind.internal)
+      fun error => pure (Exception.interpretationKind error)
+    unless actual == expected do
+      throwError "the interpretation boundary accepted a failure belonging to another stage"
+  let legacy : TermElabM Unit := throwSemanticAmbiguity "legacy reader ambiguity"
+  let legacyKind ← tryCatchRuntimeEx (legacy *> pure InterpretationFailureKind.internal)
+    fun error => pure (Exception.interpretationKind error)
+  unless legacyKind == .ambiguous do
+    throwError "the reader's original ambiguity tag was lost"
+  let internal : TermElabM Unit := throwError "unclassified interpreter failure"
+  let internalKind ← tryCatchRuntimeEx (internal *> pure InterpretationFailureKind.invalid)
+    fun error => pure (Exception.interpretationKind error)
+  unless internalKind == .internal do
+    throwError "an unclassified exception was promoted to mathematical invalidity"
   let simulated : TermElabM ExecutionOutcome :=
     throwStratum .invalid "a computational exception cannot judge mathematical validity"
   let outcome ← tryCatchRuntimeEx simulated executionFailure

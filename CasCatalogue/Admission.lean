@@ -104,6 +104,8 @@ inductive Form
   | subobject (entry : NamedCategoryEntry)
   /-- A registered comparison arrow, with its source category resolved from its object row. -/
   | presentation (entry : PresentationComparisonEntry) (category : CategoryId)
+  /-- The category-wide complete representation. Limits consume diagrams at this
+  address; other admitted operations consume complete values of the category. -/
   | diagrams (entry : NamedCategoryEntry)
 
 /-- A stable structural-edge descriptor, independent of pretty-printing and declaration parameters.
@@ -348,6 +350,9 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
             | none => false
         | _, _ => false
     match form with
+    | .presentation input _ =>
+        if input.id == entry.id then none
+        else some s!"{entry.id.raw} requires its own complete comparison request"
     | .object object | .generator object | .element (.object object) =>
         if endpoint object (state.objects.size + 1) then none
         else some s!"{entry.id.raw} requires its registered source or target endpoint"
@@ -417,10 +422,12 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .presentation _ | .liftField .. => notResolved
     | .functor entry =>
         match form with
-        | .arrow category =>
-            if category.expression.syntacticEq entry.source then none else notResolved
-        | .subobject category =>
-            if category.expression.syntacticEq entry.source then none else notResolved
+        | .arrow category | .subobject category | .diagrams category =>
+            if category.expression.syntacticEq entry.source then none else
+              match category.expression, entry.source with
+              | .familyApp sourceFamily _, .familyApp targetFamily _ =>
+                  if sourceFamily == targetFamily then none else notResolved
+              | _, _ => notResolved
         | .object object =>
             match state.categories.find? (·.id == object.category) with
             | some category => if category.expression.syntacticEq entry.source then none else
@@ -460,6 +467,50 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
 /-- Whether `operation` applies to the values of `form`. -/
 def RegistryState.accepts (state : RegistryState) (operation : Operation) (form : Form) : Bool :=
   (state.rejects operation form).isNone
+
+/-- Every admitted input address applicable to this complete representation.
+Category-wide registrations cover newly registered objects, functor images and
+computed apices in that exact category, using the same public data grammar.
+No route is invented here: dispatch receives the value after its selected
+structural transport. Exact and category-wide addresses are peers, so an
+overlap remains an ambiguity rather than an implicit specialization rule. -/
+def RegistryState.inputAddresses (state : RegistryState) (operation : Operation)
+    (form : Form) : Array String := Id.run do
+  let mut addresses := #[form.id]
+  unless state.accepts operation form do return addresses
+  let some generic := state.form? form.category.raw | return addresses
+  unless state.accepts operation generic do return addresses
+  unless addresses.contains generic.id do addresses := addresses.push generic.id
+  return addresses
+
+/-- A complete point invocation also inhabits its callable's published request
+form. The caller has already checked the original operation address and complete
+invocation fields. An ordinary object or an unapplied descriptor does not gain
+this alternative; every applicable registration still has equal standing. -/
+def RegistryState.pointInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let request : Option Form := match operation with
+    | .morphism entry => some (.namedMorphism entry)
+    | .application entry => some (.application entry)
+    | .binder entry => some (.binder entry)
+    | _ => none
+  if let some request := request then
+    if state.accepts operation request && !addresses.contains request.id then
+      addresses := addresses.push request.id
+  return addresses
+
+/-- A complete comparison invocation also inhabits that exact comparison's
+published request form. The caller has checked the presentationApply framing
+and independently selected comparison; endpoint registrations remain peers. -/
+def RegistryState.presentationInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let .presentation entry := operation | return addresses
+  let some request@(.presentation input _) := state.form? entry.id.raw | return addresses
+  unless input.id == entry.id && state.accepts operation request do return addresses
+  unless addresses.contains request.id do addresses := addresses.push request.id
+  return addresses
 
 /-- An admitted registration, with the rows it resolved to. -/
 structure Admitted where

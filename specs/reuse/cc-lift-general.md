@@ -3,10 +3,12 @@
 Current production boundary: backend answers do not supply reconstructed cones,
 subobjects, isomorphisms, or their laws. The older comparison helpers described
 below are formal-side tools, not obligations imposed on a computational answer.
-For complete cone packets, `validateData` uses Mathlib's existing public
+For complete cone packets, `validateData` uses the constructor published by the
+registered `LimitEntry.dataConstructor`. Current rows name Mathlib's existing
 `BinaryFan.mk`, `BinaryCofan.mk`, `PullbackCone.mk`, `PushoutCocone.mk`,
-`Fork.ofι`, and `Cofork.ofπ` schemas. Their dependent slots are instantiated only
-from the independently retained formal presentation. Computational port
+`Fork.ofι`, and `Cofork.ofπ` schemas; the kernel does not select that list by shape.
+Their dependent slots are instantiated only from the independently retained
+formal presentation. Computational port
 validators return `Unit`, never a backend-derived Lean term or proof. Direct
 dependency source search of those constructors and `LimitCone.cone` /
 `ColimitCocone.cocone` establishes the owners; this changes protocol validation,

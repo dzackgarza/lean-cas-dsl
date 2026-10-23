@@ -10,6 +10,7 @@ public import CasCatalogue.Trace
 public import CasCatalogue.Decide
 public import Mathlib.CategoryTheory.Limits.Creates
 public import Mathlib.CategoryTheory.Functor.EpiMono
+public import Mathlib.CategoryTheory.Whiskering
 public import Mathlib.CategoryTheory.Limits.Shapes.Pullback.HasPullback
 public import Mathlib.CategoryTheory.Limits.Shapes.BinaryProducts
 public import Mathlib.CategoryTheory.Limits.Shapes.Equalizers
@@ -61,29 +62,6 @@ noncomputable def liftedLimitCone {C : Type u} [Category.{v} C] {E : Type u'} [C
     (L : LimitCone (K ⋙ U)) : LimitCone K :=
   ⟨liftLimit L.isLimit, liftedLimitIsLimit L.isLimit⟩
 
-/-- Mathlib's identification of a diagram of a standard shape with its standard form. -/
-def standardFormIso : String → Option Name
-  | "pullback" => some ``CategoryTheory.Limits.diagramIsoCospan
-  | "product" | "coproduct" => some ``CategoryTheory.Limits.diagramIsoPair
-  | "kernel" | "cokernel" | "equalizer" | "coequalizer" =>
-      some ``CategoryTheory.Limits.diagramIsoParallelPair
-  | _ => none
-
-/-- Mathlib's constructor of the cones (cocones) of a standard shape from their data: the apex
-and the legs, with the commutation the legs must satisfy. A cone computed by a registration is
-decoded in this form (`CasCatalogue.Realize`, CC-DECODE). -/
-def standardCone (shape : String) (colimit : Bool) : Option Name :=
-  match shape, colimit with
-  | "product", false => some ``CategoryTheory.Limits.BinaryFan.mk
-  | "coproduct", true => some ``CategoryTheory.Limits.BinaryCofan.mk
-  | "pullback", false => some ``CategoryTheory.Limits.PullbackCone.mk
-  | "pushout", true => some ``CategoryTheory.Limits.PushoutCocone.mk
-  | "equalizer", false => some ``CategoryTheory.Limits.Fork.ofι
-  | "coequalizer", true => some ``CategoryTheory.Limits.Cofork.ofπ
-  | "kernel", false => some ``CategoryTheory.Limits.Fork.ofι
-  | "cokernel", true => some ``CategoryTheory.Limits.Cofork.ofπ
-  | _, _ => none
-
 /-- A declaration applied to fresh metavariables for all its arguments. -/
 def instantiateFresh (declaration : Name) : MetaM Expr := do
   let constant ← mkConstWithFreshMVarLevels declaration
@@ -91,6 +69,15 @@ def instantiateFresh (declaration : Name) : MetaM Expr := do
   return mkAppN constant args
 
 namespace Semantic
+
+/-- The polymorphic diagram constructor is published by the registered presentation's
+result type. No shape name chooses a mathematical construction in the consumer. -/
+def diagramConstructor (row : LimitEntry) : MetaM (Option Name) := do
+  let family ← instantiateFresh row.declaration
+  let type ← whnfR (← inferType family)
+  let diagram := type.appArg!.consumeMData
+  return diagram.getAppFn.constName?
+
 
 /-- Reduce only the presentation of supplied parameter records before unification.
 Structure eta reduction retains every field; it does not choose data from a carrier. -/
@@ -160,16 +147,24 @@ def asFunctor (F : Expr) : MetaM Expr := do
     mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[F]
   else pure F
 
+/-- Supply the exact complete category bundles to an accepted constructor action. -/
+def applyConstructorFunctor (action : Name) (F : Expr) : MetaM Expr := do
+  let F ← asFunctor F
+  let (source, target) ← functorCategoryBundles F
+  applyConstructorInterface action #[source, target] #[F]
+
 /-- Constructor actions consume the ordinary functor projection of their exact inner edge. -/
 partial def edgeFunctor (state : RegistryState) : EdgeRef → MetaM Expr
   | .constructMap constructor inner => do
     let some action := (state.constructor? constructor).bind (·.functorialAction)
       | throwError "the registered constructor has no functorial action"
-    mkAppHere action #[← asFunctor (← edgeFunctor state inner)]
+    applyConstructorFunctor action (← edgeFunctor state inner)
   | edge => state.edgeFunctor edge
 
-/-- Endpoint witnesses are supplied by the registered action, never recovered from a leaf. -/
-def edgeEndpoints? (state : RegistryState) (edge : EdgeRef) (action : Expr) :
+/-- Parameter endpoint witnesses are supplied by the registered action, never recovered from
+a leaf. A constructed edge retains its inner edge's complete parameter witnesses; the outer
+carrier and category dictionaries are still checked when the actions are composed. -/
+partial def edgeEndpoints? (state : RegistryState) (edge : EdgeRef) (action : Expr) :
     MetaM (Option (Expr × Expr)) := do
   match edge with
   | .functor id =>
@@ -182,7 +177,18 @@ def edgeEndpoints? (state : RegistryState) (edge : EdgeRef) (action : Expr) :
       let forgetful ← withTransparency .all <| mkAppHere
         ``CasCatalogue.ClassifierRealization.forgetfulRealization #[realization]
       return some (← realizedFunctorEndpoints forgetful (← asFunctor action))
-  | .constructMap .. => return none
+  | .constructMap constructor inner =>
+      let some name := (state.constructor? constructor).bind (·.functorialAction)
+        | throwError "the constructed edge has no accepted functor action"
+      unless action.getAppFn.isConstOf name do
+        throwError "the constructed edge lost its accepted action application"
+      let infos ← forallTelescopeReducing (← inferType action.getAppFn) fun args _ =>
+        args.mapM (·.fvarId!.getBinderInfo)
+      let explicit := (action.getAppArgs.zip infos).filterMap fun (argument, info) =>
+        if info.isExplicit then some argument else none
+      let #[innerAction] := explicit
+        | throwError "the accepted constructor action has a different complete input interface"
+      edgeEndpoints? state inner innerAction
 
 /-- Construct the route and retain the very same edge applications for semantic provenance. -/
 def routeFunctorWithApplications (state : RegistryState) (route : Array EdgeRef) :
@@ -207,6 +213,27 @@ def routeFunctorWithApplications (state : RegistryState) (route : Array EdgeRef)
 
 def routeFunctor (state : RegistryState) (route : Array EdgeRef) : MetaM Expr := do
   return (← routeFunctorWithApplications state route).1
+
+/-- Compose the exact edge applications already interpreted for a route. Reusing these terms
+preserves their selected parameters and avoids elaborating another copy of the same route. -/
+def compositeOfApplications (applications : Array Expr) : MetaM Expr := do
+  let some first := applications[0]?
+    | throwError "the empty structural route has no functor composite"
+  let mut composite ← asFunctor first
+  for application in applications.extract 1 applications.size do
+    composite ← mkFunctorComp composite (← asFunctor application)
+  return composite
+
+/-- The first and last complete parameter witnesses of the actual retained edge applications.
+These bind separately constructed route segments before whiskering compares their carriers. -/
+def routeParameterEndpoints? (state : RegistryState) (route : Array EdgeRef)
+    (applications : Array Expr) : MetaM (Option Expr × Option Expr) := do
+  unless route.size == applications.size do
+    throwError "the structural route lost its exact edge applications"
+  if route.isEmpty then return (none, none)
+  let source ← edgeEndpoints? state route[0]! applications[0]!
+  let target ← edgeEndpoints? state route.back! applications.back!
+  return (source.map (·.1), target.map (·.2))
 
 /-- Resolve a named family schema independently of its local bound parameter spelling.
 The actual parameter terms remain in the elaborated value and are never copied from this row. -/
@@ -328,6 +355,215 @@ def mapOf (F f : Expr) : TermElabM Expr := do
     (← `(CategoryTheory.Functor.map $(← exprToSyntax F) $(← exprToSyntax f))) none
   instantiateMVars value
 
+/-- A comparison must have the exact supplied functors as endpoints, including their selected
+category structures and parameters. An isomorphism between equal carriers is insufficient. -/
+def checkRouteComparison (comparison left right : Expr) : MetaM Unit := do
+  let expected ← mkAppHere ``CategoryTheory.Iso #[left, right]
+  unless ← withTransparency .all <| isDefEq (← inferType comparison) expected do
+    throwError "the accepted route comparison has different complete functor endpoints"
+
+/-- The two complete composites of retained route applications, including the identity when
+one side is empty. Both nonempty sides use the same composition operation as route execution. -/
+def comparisonApplicationEndpoints (left right : Array Expr) : MetaM (Expr × Expr) := do
+  match left.isEmpty, right.isEmpty with
+  | false, false => return (← compositeOfApplications left, ← compositeOfApplications right)
+  | true, false =>
+      let R ← compositeOfApplications right
+      return (← identityOnSourceOf R, R)
+  | false, true =>
+      let L ← compositeOfApplications left
+      return (L, ← identityOnSourceOf L)
+  | true, true => throwError "a route comparison cannot identify two empty routes"
+
+/-- Interpret both sides with the same route semantics used for execution, retaining their
+complete edge applications. An empty side is the identity on the other's exact source. -/
+def routeComparisonApplications (state : RegistryState) (left right : Array EdgeRef) :
+    MetaM ((Expr × Array Expr) × (Expr × Array Expr)) := do
+  match left.isEmpty, right.isEmpty with
+  | false, false =>
+      return (← routeFunctorWithApplications state left, ← routeFunctorWithApplications state right)
+  | true, false =>
+      let R ← routeFunctorWithApplications state right
+      return ((← identityOnSourceOf R.1, #[]), R)
+  | false, true =>
+      let L ← routeFunctorWithApplications state left
+      return (L, (← identityOnSourceOf L.1, #[]))
+  | true, true => throwError "a route comparison cannot identify two empty routes"
+
+def routeComparisonEndpoints (state : RegistryState) (left right : Array EdgeRef) :
+    MetaM (Expr × Expr) := do
+  let (L, R) ← routeComparisonApplications state left right
+  return (L.1, R.1)
+
+/-- Expand the image of a composite by the constructor's accepted composition comparison.
+For an empty composite its accepted identity comparison is required. The constructed proof
+relates `K(composite)` to the composite of the individually mapped route edges. -/
+def constructorRouteComparison (state : RegistryState) (constructor : ConstructorId)
+    (refs : Array EdgeRef) (composite : Expr) : MetaM Expr := do
+  let some row := state.constructor? constructor
+    | throwError "a comparison names an absent category constructor"
+  let some action := row.functorialAction
+    | throwError "the registered constructor has no functor action"
+  let source ← applyConstructorFunctor action composite
+  if refs.isEmpty then
+    let some identity := row.identityComparison
+      | throwError "the registered constructor has no identity comparison"
+    let functorType ← whnfR (← inferType composite)
+    unless functorType.isAppOfArity ``CategoryTheory.Functor 4 do
+      throwError "the empty route has no complete category structure"
+    let args := functorType.getAppArgs
+    let category ← mkAppOptM ``CategoryTheory.Cat.of #[some args[0]!, some args[1]!]
+    let comparison ← applyConstructorInterface identity #[category] #[category]
+    let target ← identityOnSourceOf source
+    checkRouteComparison comparison source target
+    check comparison
+    return comparison
+  let some composition := row.compositionComparison
+    | throwError "the registered constructor has no composition comparison"
+  let (original, applications) ← routeFunctorWithApplications state refs
+  unless ← withTransparency .all <| isDefEq original composite do
+    throwError "the constructor comparison changed its underlying route composite"
+  let mut raw ← asFunctor applications[0]!
+  let mut mapped ← applyConstructorFunctor action raw
+  let mut comparison ← mkAppM ``CategoryTheory.Iso.refl #[mapped]
+  for application in applications.extract 1 applications.size do
+    let next ← asFunctor application
+    let mappedNext ← applyConstructorFunctor action next
+    let composed ← mkFunctorComp raw next
+    let (C, D) ← functorCategoryBundles raw
+    let (_, E) ← functorCategoryBundles next
+    let expansion ← applyConstructorInterface composition #[C, D, E] #[raw, next]
+    let whiskered ← mkAppHere ``CategoryTheory.Functor.isoWhiskerRight #[comparison, mappedNext]
+    comparison ← mkAppHere ``CategoryTheory.Iso.trans #[expansion, whiskered]
+    raw := composed
+    mapped ← mkFunctorComp mapped mappedNext
+  unless ← withTransparency .all <| isDefEq raw composite do
+    throwError "the constructor comparison changed its underlying route composite"
+  let target ← routeFunctor state (refs.map (.constructMap constructor))
+  unless ← withTransparency .all <| isDefEq mapped target do
+    throwError "the constructor comparison changed its individual edge actions"
+  checkRouteComparison comparison source target
+  check comparison
+  return comparison
+
+/-- Reconstruct one exact accepted route comparison. Constructor actions are applied from
+inside out, with their published comparisons on both composite endpoints, followed by the
+recorded prefix and suffix whiskering. Every step is an actual Mathlib natural isomorphism. -/
+def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM Expr := do
+  let some cell := state.cells.find? (·.id == witness.cell)
+    | throwError "the route comparison names an absent accepted cell"
+  unless cell.invertible && cell.left != cell.right do
+    throwError "the accepted cell does not identify two distinct routes"
+  let mut leftRefs := cell.left
+  let mut rightRefs := cell.right
+  let ((left, leftApplications), (right, rightApplications)) ←
+    routeComparisonApplications state leftRefs rightRefs
+  let mut leftApplications := leftApplications
+  let mut rightApplications := rightApplications
+  let mut precedingApplications : Array Expr := #[]
+  let mut followingApplications : Array Expr := #[]
+  let mut comparison ← instantiateFresh cell.declaration
+  checkRouteComparison comparison left right
+  for constructor in witness.constructors.reverse do
+    let some row := state.constructor? constructor
+      | throwError "the comparison names an absent category constructor"
+    let some action := row.comparisonAction
+      | throwError "the registered constructor has no action on comparison cells"
+    let some functorAction := row.functorialAction
+      | throwError "the registered constructor has no action on functors"
+    let type ← whnfR (← inferType comparison)
+    let leftExpansion ← constructorRouteComparison state constructor leftRefs type.getAppArgs[2]!
+    let rightExpansion ← constructorRouteComparison state constructor rightRefs type.getAppArgs[3]!
+    let (C, D) ← functorCategoryBundles type.getAppArgs[2]!
+    let mapped ← applyConstructorInterface action #[C, D] #[comparison]
+    comparison ← mkAppHere ``CategoryTheory.Iso.trans #[
+      ← mkAppHere ``CategoryTheory.Iso.trans #[
+        ← mkAppM ``CategoryTheory.Iso.symm #[leftExpansion], mapped], rightExpansion]
+    leftRefs := leftRefs.map (.constructMap constructor)
+    rightRefs := rightRefs.map (.constructMap constructor)
+    leftApplications ← leftApplications.mapM (applyConstructorFunctor functorAction)
+    rightApplications ← rightApplications.mapM (applyConstructorFunctor functorAction)
+    let (left, right) ← comparisonApplicationEndpoints leftApplications rightApplications
+    checkRouteComparison comparison left right
+  unless witness.before.isEmpty do
+    let (preceding, applications) ← routeFunctorWithApplications state witness.before
+    precedingApplications := applications
+    let (_, previousTarget) ← routeParameterEndpoints? state witness.before applications
+    let (nextSource, _) ← if leftRefs.isEmpty then
+      routeParameterEndpoints? state rightRefs rightApplications
+    else routeParameterEndpoints? state leftRefs leftApplications
+    if let (some previous, some next) := (previousTarget, nextSource) then
+      alignCategoryParameters previous next
+    comparison ← mkAppHere ``CategoryTheory.Functor.isoWhiskerLeft
+      #[preceding, comparison]
+  unless witness.after.isEmpty do
+    let (_, applications) ← routeFunctorWithApplications state witness.after
+    followingApplications := applications
+    let (_, previousTarget) ← if leftRefs.isEmpty then
+      routeParameterEndpoints? state rightRefs rightApplications
+    else routeParameterEndpoints? state leftRefs leftApplications
+    let (nextSource, _) ← routeParameterEndpoints? state witness.after applications
+    if let (some previous, some next) := (previousTarget, nextSource) then
+      alignCategoryParameters previous next
+    -- Route execution composes from left to right. Whiskering by the individual
+    -- accepted applications retains that association, avoiding normalization of two
+    -- differently parenthesized long composites (and all their category dictionaries).
+    for application in applications do
+      comparison ← mkAppHere ``CategoryTheory.Functor.isoWhiskerRight
+        #[comparison, ← asFunctor application]
+  let (left, right) ← comparisonApplicationEndpoints
+    (precedingApplications ++ leftApplications ++ followingApplications)
+    (precedingApplications ++ rightApplications ++ followingApplications)
+  checkRouteComparison comparison left right
+  check comparison
+  return ← instantiateMVars comparison
+
+/-- Validate all retained witnesses, optionally at the exact selected receiver. Any remaining
+proof hypothesis must be discharged by the existing instance/decision machinery; it is never
+requested from a computational leaf. -/
+def validateRouteComparisons (state : RegistryState) (witnesses : Array RouteComparison)
+    (receiver? : Option Expr := none) : TermElabM (Array Expr) :=
+  witnesses.mapM fun witness => do
+    let comparison ← routeComparison state witness
+    if let some receiver := receiver? then
+      let type ← whnfR (← inferType comparison)
+      discard <| objOf type.getAppArgs[2]! receiver
+      discard <| objOf type.getAppArgs[3]! receiver
+      for id in ← getMVars comparison do
+        let argument ← instantiateMVars (mkMVar id)
+        if argument.isMVar then
+          let type ← instantiateMVars (← inferType argument)
+          if (← isClass? type).isSome then
+            if let some instanceValue := (← trySynthInstance type).toOption then
+              discard <| isDefEq argument instanceValue
+          else if !type.hasMVar && (← isProp type) then
+            if let some proof ← Decide.decisionProof type then
+              discard <| isDefEq argument proof
+      let comparison ← instantiateMVars comparison
+      if comparison.hasMVar || comparison.hasLevelMVar then
+        throwStratum .invalid m!"the accepted route comparison requires further typed parameters"
+    let comparison ← instantiateMVars comparison
+    check comparison
+    return comparison
+
+/-- Check the witness provenance as well as the complete comparison terms of a method. -/
+def validateResolutionComparisons (state : RegistryState) (resolution : Resolution)
+    (receiver? : Option Expr := none) : TermElabM (Array Expr) := do
+  let ids := (resolution.comparisonWitnesses.map (·.cell)).toList.eraseDups.toArray
+  unless ids.qsort (fun a b => a.raw < b.raw) ==
+      resolution.comparisons.qsort (fun a b => a.raw < b.raw) do
+    throwError "the method resolution lost its accepted comparison provenance"
+  validateRouteComparisons state resolution.comparisonWitnesses receiver?
+
+/-- The property path checks the same accepted cells and constructor actions as a method. -/
+def validatePropertyResolutionComparisons (state : RegistryState) (resolution : PropertyResolution)
+    (receiver? : Option Expr := none) : TermElabM (Array Expr) := do
+  let ids := (resolution.comparisonWitnesses.map (·.cell)).toList.eraseDups.toArray
+  unless ids.qsort (fun a b => a.raw < b.raw) ==
+      resolution.comparisons.qsort (fun a b => a.raw < b.raw) do
+    throwError "the property resolution lost its accepted comparison provenance"
+  validateRouteComparisons state resolution.comparisonWitnesses receiver?
+
 /-- The registered object `entry` at the parameters `params`. Recorded with its explicit
 parameters (the declaration's explicit arguments). -/
 def object (entry : ObjectEntry) (params : Array Term) (trace? : Option Trace := none) :
@@ -354,7 +590,7 @@ def limitPresentation (row : LimitEntry) (D : Expr) : TermElabM Expr := do
   let family ← instantiateFresh row.declaration
   let familyDiagram := (← whnfR (← inferType family)).appArg!
   if ← withReducible <| isDefEq familyDiagram D then return ← instantiateMVars family
-  let some isoName := standardFormIso row.shape
+  let some isoName := row.standardization
     | throwStratum .invalid m!"the shape {row.shape} has no standard form"
   let α ← mkAppM isoName #[D]
   let standard := (← whnfR (← inferType α)).getAppArgs.back!
@@ -599,6 +835,7 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry)
   let resolution ← match state.resolveMethod category.expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
+  discard <| validateResolutionComparisons state resolution (some X)
   let some functor := state.functor? resolution.method.functor
     | throwStratum .invalid m!"`{name}` has no registered functor"
   let some target := state.category? functor.target
@@ -644,6 +881,7 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
   let resolution ← match state.resolveProperty category.expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
+  discard <| validatePropertyResolutionComparisons state resolution (some X)
   let image ← if resolution.route.steps.isEmpty then pure X else do
     objOf (← routeFunctor state (resolution.route.steps.map (·.ref))) X
   let classifier ← classifierInstance resolution.classifier

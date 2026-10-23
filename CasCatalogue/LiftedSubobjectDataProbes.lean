@@ -167,20 +167,39 @@ run_elab do
     throwError "wrong computational data was replaced with a canonical result"
   unless ← withTransparency .all <| isDefEq wrong.formalResult packet.formalResult do
     throwError "actual computational claims changed the fixed mathematical question"
+  -- The preferred complete Arrow spelling is also a subobject representation
+  -- at this independently fixed result type, including inside prescribed lifts.
+  let .ok baseFields := LiftedSubobjectData.subobjectFields baseData
+    | throwError "the original complete subobject lost its defining Arrow"
+  let arrowBase := Json.mkObj [("ctor", "arrow"), ("args", Json.arr baseFields)]
+  let arrowStep := Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
+    toJson row.id.raw, action, sourceData, arrowBase, Json.arr outputs])]
+  let arrowPacket := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
+    arrowBase, sourceData, toJson #[row.id.raw], Json.arr #[arrowStep]])]
+  let some (.ok alternate) ← decode arrowPacket
+    | throwError "the complete Arrow spelling could not feed a prescribed lift"
+  unless alternate.baseData == arrowBase && alternate.outputs == packet.outputs do
+    throwError "a lift relabelled or replaced the actual complete Arrow data"
+  for invalid in #[
+      Json.mkObj [("ctor", "arrow"), ("args", Json.arr (baseFields.extract 0 2))],
+      Json.mkObj [("ctor", "cone"), ("args", Json.arr baseFields)]] do
+    if (LiftedSubobjectData.subobjectFields invalid).isOk then
+      throwError "an incomplete or different construction supplied a subobject Arrow"
   -- The production executor must demand registered execution for the public fields.
   let harness ← Realize.Harness.empty
   let sourceWire : Realize.Wire := {
     form := .arrow (← Semantic.namedCategoryFor state prepared.sourceCategory),
     payload := .ordinary receiver sourceData }
-  let baseWire : Realize.Wire := {
-    form := .subobject prepared.baseCategory, payload := .ordinary base baseData }
-  let missing ← try
-      discard <| Realize.executePrescribedLift harness trace prepared sourceWire baseWire
-      pure false
-    catch error =>
-      if CasCatalogue.Exception.stratum? error == some .noImplementation then pure true
-      else throw error
-  unless missing do throwError "the executor claimed a completed lift without registered execution"
+  for baseData in #[baseData, arrowBase] do
+    let baseWire : Realize.Wire := {
+      form := .subobject prepared.baseCategory, payload := .ordinary base baseData }
+    let missing ← try
+        discard <| Realize.executePrescribedLift harness trace prepared sourceWire baseWire
+        pure false
+      catch error =>
+        if CasCatalogue.Exception.stratum? error == some .noImplementation then pure true
+        else throw error
+    unless missing do throwError "the executor claimed a completed lift without registered execution"
 
 run_elab do
   let formal ← elabTermAndSynthesize (← `(fun x : Fin 2 => x)) none

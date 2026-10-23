@@ -188,6 +188,15 @@ def fields (tag : String) (count : Nat) (data : Json) : Except String (Array Jso
   unless args.size == count do throw s!"{tag} requires {count} ordered fields"
   return args
 
+/-- Both published spellings retain the same complete defining Arrow. The
+caller has already fixed the full subobject category; the tag supplies no proof
+of its predicate and cannot choose a different mathematical result interface. -/
+def subobjectFields (data : Json) : Except String (Array Json) := do
+  let (tag, args) ← ComputationalData.envelope data
+  unless (tag == "arrow" || tag == "subobject") && args.size == 3 do
+    throw "a complete subobject requires its source, target and defining map"
+  return args
+
 /-- Structural Arrow transport preserves complete actual endpoint and map data. -/
 def mapArrowData (action source : Json) : Except String Json := do
   let args ← fields "arrow" 3 source
@@ -229,7 +238,7 @@ def validatePrefix (component : Component) (action source base : Json)
     return .error "a lift requires an ordered prefix of its four public outputs"
   let .ok sourceFields := fields "arrow" 3 source
     | return .error "the lift source omitted its complete original Arrow data"
-  let .ok baseFields := fields "subobject" 3 base
+  let .ok baseFields := subobjectFields base
     | return .error "the lift base omitted its complete actual subobject data"
   let .ok () ← ComputationalData.validatePort component.ports[0]!
       (← inferType component.ports[0]!) outputs[0]!

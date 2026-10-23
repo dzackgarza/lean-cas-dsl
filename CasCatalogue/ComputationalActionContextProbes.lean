@@ -56,7 +56,7 @@ run_elab do
   let finite := fun descriptor points => wire "finiteData" #[descriptor, Json.arr points]
   let target := wire "obj.groups.symmetric" #[toJson (3 : Nat)]
   let callable := Json.arr (points.map fun p => Json.arr #[p, p])
-  let packet := fun apex ambient map => wire "subobject" #[apex, ambient, map]
+  let packet := fun apex ambient definingMap => wire "subobject" #[apex, ambient, definingMap]
   let apex := finite action points
   let ambient := finite target points
   let check := fun data => do ComputationalData.validatePort fixed (← inferType fixed) data
@@ -83,7 +83,7 @@ run_elab do
       | throwError "missing inventory, incomplete graph or malformed computational fields accepted"
 
   let formalMap ← mkAppM ``CategoryTheory.Arrow.hom #[inclusion]
-  let typed := fun domain codomain map => wire "typedMap" #[domain, codomain, map]
+  let typed := fun domain codomain definingMap => wire "typedMap" #[domain, codomain, definingMap]
   if let .error message ← LiftedSubobjectData.validateMap formalMap action target
       (typed apex ambient callable) then
     throwError "exact symbolic endpoints rejected their explicit inventories: {message}"

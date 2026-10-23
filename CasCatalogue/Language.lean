@@ -26,7 +26,7 @@ the kernel resolves each call and selects its realization.
 Terms:
 * `N` or `N(a, …)`: the registered object named `N` at the numeral parameters `a, …`: the unrefined
   object of that name, or in an enclosing `in C` its refinement in `C` (`Fin(3) in FiniteSets`);
-* `ℤ/n` is `ZMod(n)`, and `(ℤ/n)^k` is `ZModPower(n, k)`;
+* `ℤ/n` and `(ℤ/n)^k` select the exact families published for those notation tokens;
 * `X × Y`, `X ⊔ Y`: the registered product and coproduct in the category of `X` and `Y`;
 * `m(a, …)`: the registered morphism family named `m` at the numeral parameters `a, …`;
 * `{x ↦ y, …} : X → Y`: the morphism with that graph, by the category's registered graph literal;
@@ -34,7 +34,7 @@ Terms:
 * `id(X)` and `f ∘ g`: identities and composites;
 * `x + y`, `x · y`, `-x`, `x - y` (`x + -y`): the registered operations of the category whose
   refinement of the set `X` the elements are in (the ring `ℤ/5` for elements of `ℤ/5`). An element
-  of `X` is a morphism `1 → X` from the terminal set `Fin(1)`; a numeral is the image of `k` under
+  of `X` is a morphism `1 → X` from the registry's selected terminal source; a numeral is the image of `k` under
   the registered map out of the initial object of a category refining its set (`ℕ → S`, `ℤ → R`),
   or the point `k` of `Fin n` (`k < n` decided), in the set of the other operands, of an enclosing
   `in X`, or else `ℤ`; an operation is its registered morphism composed
@@ -215,6 +215,8 @@ syntax:70 (name := casActed) cas_term:71 ident : cas_term
 syntax:70 (name := casTimes) cas_term:70 " * " cas_term:71 : cas_term
 /-- A tuple `(x₁, …, xₙ)`, an element of `Xⁿ`. -/
 syntax:max (name := casTuple) "(" cas_term ", " cas_term,+ ")" : cas_term
+/-- A map argument may bind a tuple of patterns, recursively, at its declared components. -/
+syntax:51 (name := casPatternLambda) "(" cas_term ", " cas_term,+ ")" " ↦ " cas_term:51 : cas_term
 /-- A matrix `[a, b; c, d]`, by its rows. -/
 syntax:max (name := casMatrix) "[" sepBy1(sepBy1(cas_term, ", "), "; ") "]" : cas_term
 /-- `∑_{a ∈ A} e`, `∏_{a ∈ A} e`: over a finite subset `A`. -/
@@ -252,7 +254,8 @@ syntax "let " ident " := " cas_term : cas_stmt
 syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
 syntax "let " ident noWs "(" ident ")" " := " cas_term : cas_stmt
-syntax "assert " &"implemented " cas_term : cas_stmt
+syntax (name := casLetArgs) "let " ident noWs "(" ident ", " ident,+ ")" " := " cas_term : cas_stmt
+syntax (priority := high) "assert " &"implemented " cas_term : cas_stmt
 syntax "assert " cas_term : cas_stmt
 
 /-- A test item: a statement with its id and the provenance of its expected value. -/
@@ -287,8 +290,8 @@ inductive Value
       (sets : Option (Value × Value))
   /-- The set of maps `source → target` of `Sets`: the ambient of a map `t ↦ e`. -/
   | homSet (source target : Value)
-  /-- An element of the named set `object` (an `.object` value): a morphism `1 ⟶ object` from
-  the terminal set `Fin(1)`. -/
+  /-- An element of the set `object` (an `.object` value): a morphism `1 ⟶ object` from
+  the registry's selected terminal source. -/
   | element (hom : Expr) (object : Value)
   /-- The decision of a property: an `Option Bool`. -/
   | answer (answer : Expr)
@@ -410,19 +413,78 @@ def objectNamed (state : RegistryState) (name : String) (category? : Option Name
   | _ => throwSemanticAmbiguity m!"several registered objects are named {name}: state its \
       category (`in C`)"
 
+/-- A surface form selects the exact family declared by the mathematical registry. -/
+def objectNotation (state : RegistryState) (surfaceForm : String) : TermElabM ObjectEntry := do
+  match state.objects.filter (·.notations.contains surfaceForm) with
+  | #[entry] => return entry
+  | #[] => throwStratum .invalid m!"no registered object owns the notation {surfaceForm}"
+  | _ => throwSemanticAmbiguity m!"several registered objects own the notation {surfaceForm}"
+
+/-- Power-object structure is selected by its registered category, never by row order. -/
+def powerObjectIn (state : RegistryState) (category : CategoryId) : TermElabM PowerObjectEntry := do
+  let rows := state.powerObjects.filter fun power =>
+    state.objects.any fun object => object.id == power.object && object.category == category
+  match rows with
+  | #[entry] => return entry
+  | #[] => throwStratum .invalid m!"no registered power object in {category.raw}"
+  | _ => throwSemanticAmbiguity m!"several registered power objects in {category.raw}"
+
+/-- The exact terminal source published with the registry's power-object structure. -/
+def globalPointSource : M Expr := do
+  let power ← powerObjectIn (← registryState) CategoryId.sets
+  let truth ← instantiateFresh power.truth
+  let type ← whnfR (← inferType truth)
+  unless type.isAppOf ``Quiver.Hom do
+    throwStratum .invalid m!"the registered truth map has no terminal source"
+  return type.appFn!.appArg!
+
+/-- The selected point of the registered global-element source. Computational decoding uses
+this same declaration, so its concrete representation is not part of the protocol. -/
+def globalPoint : M Expr := do
+  let power ← powerObjectIn (← registryState) CategoryId.sets
+  let point ← instantiateFresh power.point
+  unless ← isDefEq (← inferType point) (← globalPointSource) do
+    throwStratum .invalid m!"the registered global point has a different terminal source"
+  return point
+
 /-- A term for an elaborated expression. -/
 def quoteExpr (e : Expr) : TermElabM Term := exprToSyntax e
 
 /-- A term as written. -/
 def shown (stx : Syntax) : String := (stx.reprint.getD (toString stx)).trimAscii.toString
 
-/-- Whether a term is written with numerals and arithmetic alone, naming nothing (`-1/2`, `3 · 4`,
-`1.4142`): no identifier, root or absolute value. Such a term has no set of its own: it is read in
-the enclosing set, else the set of its siblings, else the initial object its numerals come from
-(`ℤ`, the initial ring; `ℚ`, the initial field of characteristic `0`, for a fraction or decimal). -/
+/-- The component pattern carried by the parenthesized map syntax. -/
+def lambdaPattern (stx : Syntax) : Syntax := mkNode ``casTuple (stx.getArgs.extract 0 5)
+
+/-- Names bound by a component pattern. Its shape and arity are checked against the selected
+object when it is bound, so syntax never supplies a coordinate map. -/
+partial def patternNames (stx : Syntax) : Array Name :=
+  match stx with
+  | `(cas_term| $name:ident) => #[name.getId]
+  | `(cas_term| ($pattern)) => patternNames pattern
+  | _ => if stx.getKind == ``casTuple then
+      (#[stx[1]] ++ stx[3].getSepArgs).flatMap patternNames
+    else #[]
+
+/-- Numeral expressions and literals composed of them can use a supplied domain. Recognize
+their syntax explicitly: a named mathematical atom has its own domain even when its notation
+contains no identifier. Roots, absolute values and other named operations determine their own
+domains; literals otherwise use the registered default when no context supplies one. -/
 partial def numeric (stx : Syntax) : Bool :=
-  !stx.isIdent && !(stx.isAtom && (stx.getAtomVal == "√" || stx.getAtomVal == "|")) &&
-    stx.getArgs.all numeric
+  match stx with
+  | `(cas_term| $_:num) | `(cas_term| $_:scientific) => true
+  | `(cas_term| ($t)) | `(cas_term| -$t) | `(cas_term| $t²) | `(cas_term| $t³) => numeric t
+  | `(cas_term| $a + $b) | `(cas_term| $a - $b) | `(cas_term| $a · $b)
+  | `(cas_term| $a / $b) | `(cas_term| $a ^ $b) => numeric a && numeric b
+  | `(cas_term| {$xs,*}) => xs.getElems.all fun x => numeric x
+  | _ =>
+      if stx.getKind == nullKind then stx.getArgs.all numeric
+      else if stx.getKind == ``casTimes then numeric stx[0] && numeric stx[2]
+      else if stx.getKind == ``casTuple then
+        (#[stx[1]] ++ stx[3].getSepArgs).all numeric
+      else if stx.getKind == ``casMatrix then
+        stx[1].getSepArgs.all fun row => row.getSepArgs.all numeric
+      else false
 
 /-- Whether a term names a registered object (`ℤ`, `Fin(3)`, `ℤ/5`, a binding of one), read from
 its syntax and the registry: an object named is then read by `namedObject`, whose failures are
@@ -494,6 +556,45 @@ def parameterCompatible (action : M Bool) : M Bool := do
   try parameterTrial action
   catch error =>
     if (CasCatalogue.Exception.stratum? error) == some .invalid then pure false else throw error
+
+/-- Commit a successful reading once. Only declared inapplicability restores the full
+elaborator, operation trace and closed-term cache before another interpretation is tried. -/
+def optionalReading {α : Type} (action : M α) : M (Option α) := do
+  let saved ← liftM Term.saveState
+  let context ← read
+  let recorded ← context.trace.mapM fun trace => do pure (trace, ← trace.get)
+  let cached ← context.closedTerms.mapM fun cache => do pure (cache, ← cache.get)
+  try return some (← action)
+  catch error =>
+    unless CasCatalogue.Exception.stratum? error == some .invalid do throw error
+    liftM (saved.restore true)
+    for (trace, entries) in recorded.toArray do trace.set entries
+    for (cache, entries) in cached.toArray do cache.set entries
+    return none
+
+/-- A dependent category's carrier parameter can prevent unification before the selected
+object is known. Its rigid type constructor and closed arguments still rule out unrelated
+categories. The complete route image must subsequently satisfy the actual expected type. -/
+def parameterCategoryCompatible (expected : Expr) (category : NamedCategoryEntry) : M Bool :=
+  parameterCompatible do
+    let family ← instantiateFresh category.declaration
+    let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
+    if ← parameterTrial (isDefEq objectType expected) then return true
+    let objectType ← instantiateMVars objectType
+    unless objectType.hasExprMVar do return false
+    let actual ← withTransparency .all <| whnf objectType
+    let required ← withTransparency .all <| whnf expected
+    let actualHead := actual.getAppFn
+    let requiredHead := required.getAppFn
+    if actualHead.hasExprMVar || requiredHead.hasExprMVar then return true
+    unless ← isDefEq actualHead requiredHead do return false
+    let actualArguments := actual.getAppArgs
+    let requiredArguments := required.getAppArgs
+    unless actualArguments.size == requiredArguments.size do return false
+    for (actualArgument, requiredArgument) in actualArguments.zip requiredArguments do
+      unless actualArgument.hasExprMVar || requiredArgument.hasExprMVar do
+        unless ← isDefEq actualArgument requiredArgument do return false
+    return true
 
 /-- Replay complete retained edge applications without inferring new edge parameters. -/
 partial def retainedActions (state : RegistryState) (source : Expr) (route : Array EdgeRef)
@@ -595,10 +696,7 @@ partial def transportedStructure (expected : Expr) (value : Value)
   let mut candidates : Array (NamedCategoryEntry × Route) := #[]
   for target in state.categories do
     if demandedCategory.any (· != target.id) then continue
-    let targetTyped ← parameterCompatible do
-      let family ← instantiateFresh target.declaration
-      let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
-      isDefEq objectType expected
+    let targetTyped ← parameterCategoryCompatible expected target
     unless targetTyped do continue
     for route in (← routesBetween state sourceCategory.expression target.expression) do
       if ← parameterCompatible (do
@@ -620,6 +718,7 @@ partial def transportedStructure (expected : Expr) (value : Value)
       | #[cls] =>
         unless cls.ambiguities.isEmpty do
           throwSemanticAmbiguity m!"several comparisons determine a selected structural route"
+        discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some receiver)
         let #[candidate] := cls.sources
           | throwSemanticAmbiguity m!"the selected object has no unique structural route"
         pure candidate
@@ -637,6 +736,30 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
   if ← parameterTrial (isDefEq (← inferType direct) expected) then
     unless ← isDefEq (← inferType direct) expected do unreachable!
     return direct
+  if let .element point X@(.object target _ _ selected _) := value then
+    let type ← whnfR (← inferType point)
+    unless type.isAppOf ``Quiver.Hom &&
+        (← isDefEq type.appFn!.appArg! (← globalPointSource)) &&
+        (← isDefEq type.appArg! target) && (← isDefEq target expected) do
+      throwStratum .invalid m!"only a closed point of the declared type is an element parameter"
+    let scalar ← instantiateMVars (← elabTermAndSynthesize
+      (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr point)
+        $(← quoteExpr (← globalPoint)))) (some expected))
+    unless !scalar.hasMVar && !scalar.hasLevelMVar && (← isTypeCorrect scalar) do
+      throwStratum .invalid m!"the closed element parameter is outside its declared type"
+    let chosen := selected.getD X
+    Trace.record (← read).trace scalar (.elementValue point target (← semanticObject chosen))
+    return scalar
+  if let .morphism hom _ _ category _ := value then
+    unless category.id == CategoryId.sets do
+      throwStratum .invalid m!"the map parameter has no selected function carrier at this type"
+    let function ← instantiateMVars (← elabTermAndSynthesize
+      (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr hom))) none)
+    unless !function.hasMVar && !function.hasLevelMVar && (← isTypeCorrect function) &&
+        (← isDefEq (← inferType function) expected) do
+      throwStratum .invalid m!"the closed map parameter is outside its declared function type"
+    Trace.alias (← read).trace hom function
+    return function
   let .object _ selectedCategory origin? selected _ := value
     | throwStratum .invalid m!"a parameter has no selected object at its declared type"
   if (← whnfR expected).isSort then
@@ -660,22 +783,32 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
   let sources := if selectedCategory.id == CategoryId.sets then
       state.objects.filter (refinesObject state · origin.id)
     else #[origin]
+  let targetCategories ← state.categories.filterM (parameterCategoryCompatible expected)
   let mut routeCandidates : Array (ObjectEntry × Route) := #[]
   for source in sources do
     let some sourceCategory := state.categories.find? (·.id == source.category) | continue
-    for targetCategory in state.categories do
-      let targetTyped ← parameterCompatible do
-        let family ← instantiateFresh targetCategory.declaration
-        let objectType ← mkAppM ``CategoryTheory.Bundled.α #[family]
-        isDefEq objectType expected
-      unless targetTyped do continue
-      for route in (← routesBetween state sourceCategory.expression targetCategory.expression) do
-        let applicable ← parameterCompatible do
-          let sourceTerm ← Semantic.object source (← typedParamTerms source.declaration parameters)
-          let image ← if route.steps.isEmpty then pure sourceTerm else
-            Semantic.objOf (← Semantic.routeFunctor state route.refs) sourceTerm
-          isDefEq (← inferType image) expected
-        if applicable then routeCandidates := routeCandidates.push (source, route)
+    -- Reachability depends only on the registered category expressions. A source with no
+    -- route to the required object type cannot supply this parameter, and constructing all
+    -- of its own dependent parameters would add no candidate or ambiguity evidence.
+    let mut possibleRoutes : Array Route := #[]
+    for targetCategory in targetCategories do
+      possibleRoutes := possibleRoutes ++
+        (← routesBetween state sourceCategory.expression targetCategory.expression)
+    if possibleRoutes.isEmpty then continue
+    let sourceTerm? ← parameterTrial do
+      try
+        let term ← Semantic.object source (← typedParamTerms source.declaration parameters)
+        if term.hasMVar || term.hasLevelMVar then return none
+        return some term
+      catch error =>
+        if Exception.stratum? error == some .invalid then return none else throw error
+    let some sourceTerm := sourceTerm? | continue
+    for route in possibleRoutes do
+      let applicable ← parameterCompatible do
+        let image ← if route.steps.isEmpty then pure sourceTerm else
+          Semantic.objOf (← Semantic.routeFunctor state route.refs) sourceTerm
+        isDefEq (← inferType image) expected
+      if applicable then routeCandidates := routeCandidates.push (source, route)
   let declaredPrefixes := routeCandidates.filter fun (source, route) =>
     (declaredCarrierRoute state source).any fun (carrierRoute, _) =>
       route.refs.size ≤ carrierRoute.size &&
@@ -689,17 +822,22 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     let sourceIds := (candidates.map (·.1.id)).foldl (fun found id =>
       if found.contains id then found else found.push id) #[]
     let mut sourceChoices : Array (ObjectEntry × Route) := #[]
+    let mut checkedSources : Array (ObjectId × Expr) := #[]
     for sourceId in sourceIds do
       let sourceCandidates := candidates.filter (·.1.id == sourceId)
       let classes := state.classify sourceCandidates (fun c => c.1.id.raw) (·.2)
-      let candidate ← match classes with
+      let (candidate, selected) ← match classes with
         | #[cls] =>
           unless cls.ambiguities.isEmpty do
             throwSemanticAmbiguity m!"several registered comparisons determine a parameter route"
           let #[candidate] := cls.sources
             | throwSemanticAmbiguity m!"a parameter has no unique registered source route"
-          pure candidate
+          let selected ← Semantic.object candidate.1
+            (← typedParamTerms candidate.1.declaration parameters) (← read).trace
+          discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some selected)
+          pure (candidate, selected)
         | _ => throwSemanticAmbiguity m!"a selected source has unresolved parameter routes"
+      checkedSources := checkedSources.push (candidate.1.id, selected)
       sourceChoices := sourceChoices.push candidate
     if sourceChoices.isEmpty then
       throwStratum .invalid m!"{origin.name} has no registered structure at the parameter's type \
@@ -712,7 +850,8 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     let mut presentations : Array ParameterPresentation := #[]
     let mut representative? : Option Expr := none
     for (source, route) in selectedCandidates do
-      let sourceTerm ← Semantic.object source (← typedParamTerms source.declaration parameters) (← read).trace
+      let some (_, sourceTerm) := checkedSources.find? (·.1 == source.id)
+        | throwError "a classified parameter source lost its exact recorded application"
       let some target := state.categories.find? (·.expression.syntacticEq route.target)
         | throwStratum .invalid m!"a parameter route has no registered target category"
       let (image, applications) ← checkedRouteAction state source.category target.id
@@ -790,9 +929,9 @@ def declaredDiagram (row : LimitEntry) (values : Array Value) : M Expr := do
 
 /-- The standard diagram of the shape `shape` on the values `args` (Mathlib's standard forms). -/
 def standardDiagram (shape : String) (args : Array Value) : M Term := do
-  let quote : Value → TermElabM Term
-    | .object handle .. => quoteExpr handle
-    | .morphism hom .. => quoteExpr hom
+  let handle : Value → M Expr
+    | .object handle .. => pure handle
+    | .morphism hom .. => pure hom
     | _ => throwStratum .invalid m!"the diagram of a {shape} is of objects and morphisms"
   let state ← registryState
   let category? := args[0]?.bind fun
@@ -804,18 +943,45 @@ def standardDiagram (shape : String) (args : Array Value) : M Term := do
     | #[row] => return ← quoteExpr (← declaredDiagram row args)
     | #[] => pure ()
     | _ => throwSemanticAmbiguity m!"several registered presentations own this diagram"
-  let ts ← args.mapM (liftM ∘ quote)
-  match shape, ts with
-  | "pullback", #[f, g] => `(CategoryTheory.Limits.cospan $f $g)
-  | "pushout", #[f, g] => `(CategoryTheory.Limits.span $f $g)
-  | "product", #[x, y] | "coproduct", #[x, y] => `(CategoryTheory.Limits.pair $x $y)
-  | "equalizer", #[f, g] | "coequalizer", #[f, g] => `(CategoryTheory.Limits.parallelPair $f $g)
-  | "kernel", #[f] | "cokernel", #[f] =>
-      -- The zero morphism between the handles, as the preimage of the zero of the category.
-      let .morphism _ a b category _ := args[0]! | unreachable!
-      let zero ← homIn (← `(0)) a b category
-      `(CategoryTheory.Limits.parallelPair $f $(← quoteExpr zero))
-  | _, _ => throwStratum .invalid m!"a {shape} of {args.size} arguments has no standard diagram"
+  let values ← args.mapM handle
+  -- A lower presentation supplies the constructor of its diagram. Reapply that constructor
+  -- to the actual source arguments: lower objects are never unified with source objects, and
+  -- a shape string never manufactures distinguished arrows such as zero or the trivial map.
+  let construct (name : Name) : M Expr := do
+    let constant ← mkConstWithFreshMVarLevels name
+    let (parameters, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+    let explicit := (parameters.zip infos).filterMap fun (p, info) =>
+      if info.isExplicit then some p else none
+    unless explicit.size == values.size do
+      throwStratum .invalid m!"the registered diagram constructor takes {explicit.size} arguments"
+    for (parameter, value) in explicit.zip values do
+      unless ← isDefEq (← inferType parameter) (← inferType value) <&&> isDefEq parameter value do
+        throwStratum .invalid m!"a source argument is outside the registered diagram signature"
+    for (parameter, info) in parameters.zip infos do
+      unless info.isInstImplicit && (← instantiateMVars parameter).isMVar do continue
+      let expected ← instantiateMVars (← inferType parameter)
+      if expected.hasMVar then continue
+      if let some synthesized ← synthInstance? expected then discard <| isDefEq parameter synthesized
+    let diagram ← instantiateMVars (mkAppN constant parameters)
+    if diagram.hasMVar || !(← isTypeCorrect diagram) then
+      throwStratum .invalid m!"the registered diagram constructor has undetermined parameters"
+    unless (← whnfR (← inferType diagram)).isAppOf ``CategoryTheory.Functor do
+      throwStratum .invalid m!"the registered constructor does not form a diagram"
+    return diagram
+  let mut constructors : Array Name := #[]
+  for row in state.limits.filter (·.shape == shape) do
+    if let some name ← Semantic.diagramConstructor row then
+      unless constructors.contains name do constructors := constructors.push name
+  let mut diagrams : Array Expr := #[]
+  for constructor in constructors do
+    if ← parameterCompatible (do discard <| construct constructor; pure true) then
+      let diagram ← construct constructor
+      unless ← diagrams.anyM (fun previous => parameterTrial (isDefEq previous diagram)) do
+        diagrams := diagrams.push diagram
+  match diagrams with
+  | #[diagram] => quoteExpr diagram
+  | #[] => throwStratum .invalid m!"a {shape} of {args.size} arguments has no registered diagram"
+  | _ => throwSemanticAmbiguity m!"several registered constructions form this {shape} diagram"
 
 /-- Whether a chain of registered inclusions leads from the object `sub` to `super` (at the same
 parameters), or they are the same object. -/
@@ -922,6 +1088,8 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
     looseIdentifiers stx[1] ++ looseIdentifiers stx[3] ++
       (looseIdentifiers stx[5]).filter fun name =>
         name != stx[6].getId && differentialOf? stx[6].getId != some name
+  else if stx.getKind == ``casPatternLambda then
+    (looseIdentifiers stx[6]).filter (!(patternNames (lambdaPattern stx)).contains ·)
   else match stx with
     | `(cas_term| $bound:ident ↦ $body) =>
         (looseIdentifiers body).filter (· != bound.getId)
@@ -1059,6 +1227,18 @@ partial def plumbingValue (e : Expr) : MetaM Expr := do
   let e ← whnfCore e
   match e with
   | .lam .. => lambdaTelescope e fun xs body => do mkLambdaFVars xs (← plumbingValue body)
+  | .proj name index value =>
+      let env ← getEnv
+      let projection? := do
+        let info ← getStructureInfo? env name
+        let field ← info.fieldNames[index]?
+        getProjFnForField? env name field
+      unless plumbingRoots.any (·.isPrefixOf name) ||
+          projection?.any (fun projection => plumbingRoots.any (·.isPrefixOf projection)) do
+        return e
+      let projected := Expr.proj name index (← plumbingValue value)
+      let reduced ← whnfCore projected
+      if reduced != projected then plumbingValue reduced else pure projected
   | .app .. | .const .. =>
       let f := e.getAppFn
       if let .const c _ := f then
@@ -1067,6 +1247,7 @@ partial def plumbingValue (e : Expr) : MetaM Expr := do
           if let some e' ← unfoldProjInst? e then return ← plumbingValue e'
       let args ← e.getAppArgs.mapM fun a => do
         if (← isProp (← inferType a)) || (← isType a) then pure a else plumbingValue a
+      let f ← if f.isProj then plumbingValue f else pure f
       let e' := mkAppN f args
       -- A projection may now meet its constructor.
       let r ← whnfCore e'
@@ -1186,6 +1367,8 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
 of numerals, each an element of the set `a` or `b` is (its registered numeral, `numeralIn`). -/
 def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
   let state ← registryState
+  let sourceValue := a
+  let targetValue := b
   let .object a category (some (source, sourceParams)) _ _ := a
     | throwStratum .invalid m!"the domain of a graph is a named object"
   let .object b category' (some (target, targetParams)) _ _ := b
@@ -1194,8 +1377,7 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
     throwStratum .invalid m!"a graph from {category.name} to {category'.name}"
   let some form := state.graphLiterals.find? (·.category == category.id)
     | throwStratum .invalid m!"{category.name} has no registered graph literals"
-  let some one := state.objects.find? (·.id.raw == "obj.sets.fin") | unreachable!
-  let one ← Semantic.object one #[Syntax.mkNumLit "1"]
+  let one ← globalPointSource
   -- The element `k` of the named object: its numeral in the set it is, at the point of `1`.
   let element (object : ObjectEntry) (params : Array Value) (k : Nat) : M Term := do
     let set ← setOf state object
@@ -1205,7 +1387,8 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
       return (o.category, ← Semantic.object o params)
     let some numeral ← numeralIn state k one x refinements
       | throwStratum .invalid m!"no registered numeral lands in {object.name}"
-    `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr numeral) 0)
+    `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr numeral)
+      $(← quoteExpr (← globalPoint)))
   let entries ← pairs.mapM fun (x, y) => do
     `(($(← element source sourceParams x), $(← element target targetParams y)))
   let X ← `($(mkCIdent source.declaration) $(← paramTerms sourceParams)*)
@@ -1223,7 +1406,7 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
   let hom ← homIn semantic a b category
   -- The morphism is the literal of its graph: the realized reading sends the graph.
   Trace.record (← read).trace hom (.literal form.id (← instantiateMVars literal.appArg!))
-  return .morphism hom a b category none
+  return .morphism hom a b category (some (sourceValue, targetValue))
 
 -- Compilation of this mutually recursive reader needs additional reduction work as its
 -- provenance payload grows. This local option does not alter caller/probe interpretation budgets.
@@ -1302,7 +1485,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
           if let .element _ Z := x' then
             let v := x'
             if let some (some ι) ← coercionMap Y Z then
-              let some po := state.powerObjects[0]? | throwStratum .invalid m!"no power object"
+              let po ← powerObjectIn state CategoryId.sets
               return ← member po Z v (← imageOfMap ι Y Z)
           throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
       | _ => throwStratum .invalid m!"`∈` relates an element and a named set"
@@ -1427,11 +1610,9 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       | `(cas_term| ℤ), _ =>
           -- The notation binds its declared ring row, rather than the unrefined set of
           -- the same surface name. Expose its carrier while retaining that full structure.
-          let some declared := state.objects.find? (fun entry =>
-              entry.id.raw == "obj.rings.integers_mod")
-            | throwStratum .invalid m!"quotient arithmetic has no registered object"
+          let declared ← objectNotation state "ℤ/"
           let some quotientCategory := state.categories.find? (·.id == declared.category)
-            | throwStratum .invalid m!"quotient arithmetic has no registered ring category"
+            | throwStratum .invalid m!"quotient arithmetic has no registered category"
           let quotient ← object state declared.name #[← eval scope n] (some quotientCategory)
           match category? with
           | none => carrierObject quotient
@@ -1455,6 +1636,10 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
 partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry)
     (ambient? : Option Value) : M Value := do
   let state ← registryState
+  if stx.getKind == ``casPatternLambda then
+    let some (.homSet X Y) := ambient?
+      | throwStratum .invalid m!"a destructured map needs its declared domain and codomain"
+    return ← patternMap scope (lambdaPattern stx) stx[6] X Y
   if stx.getKind == ``casRing then
     return ← object state "Poly" #[← asObject (← eval scope stx[0])] none
   if stx.getKind == ``casMap then
@@ -1567,7 +1752,8 @@ partial def applyIdentifier (scope : Scope) (f : Ident) (args : Array Syntax)
 `ℚ` (a fraction or decimal: the initial field of characteristic `0`) or `ℤ` (the initial ring). -/
 partial def numeralSet (stx : Syntax) (ambient? : Option Value) : M (Option Value) := do
   if ambient?.isSome || !numeric stx then return ambient?
-  some <$> object (← registryState) (if fractional stx then "ℚ" else "ℤ") #[] none
+  some <$> notationObject
+    (if fractional stx then "literal.fractional.domain" else "literal.integral.domain")
 
 /-- A distinguished generator binds a local variable only inside its explicit selected object. -/
 partial def localGeneratorBindings (scope : Scope) (term objectSyntax : Syntax) (X : Value) :
@@ -1632,6 +1818,9 @@ partial def contextualIdentifiers (scope : Scope) (term : Syntax) : M (Array Nam
         name != term[6].getId && differentialOf? term[6].getId != some name)
   if let `(cas_term| $bound:ident ↦ $body) := term then
     return (← contextualIdentifiers scope body).filter (· != bound.getId)
+  if term.getKind == ``casPatternLambda then
+    return (← contextualIdentifiers scope term[6]).filter
+      (!(patternNames (lambdaPattern term)).contains ·)
   if let `(cas_term| {$bound:ident ∈ $domain | $body}) := term then
     return (← contextualIdentifiers scope domain) ++
       (← contextualIdentifiers scope body).filter (· != bound.getId)
@@ -1683,7 +1872,10 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
         Trace.record (← read).trace result.value
           (.proofRefinement classifier sourceCategory.id target.id source result.action result.identity)
         return .object result.value target none none none
-      return ← eval scope t (some target) ambient?
+      let value ← eval scope t (some target) ambient?
+      match value with
+      | .object .. => return ← objectInCategory value target
+      | _ => return value
   if let some (C, Y) := categoryOver? state c then return ← inCategoryOver scope t C Y
   -- `t in X` for a set `X`: `t` with its numerals in `X`.
   let ambient ← eval scope c
@@ -1717,7 +1909,7 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
             throwStratum .invalid m!"`{shown t}` is not an element of `{shown c}`"
           coerceTo v X
       | v => pure v
-  | .object _ _ none (some _) _ =>
+  | .object _ _ none _ _ =>
       let value ← toElement (← eval scope t category? (some X)) X
       let .element _ Y := value
         | throwStratum .invalid m!"a selected carrier receives an element"
@@ -1732,7 +1924,8 @@ partial def evalPower (scope : Scope) (b k : Syntax) (category? : Option NamedCa
   let state ← registryState
   match b with
   | `(cas_term| (ℤ / $n)) =>
-      object state "ZModPower" #[← eval scope n, ← eval scope k] category?
+      let entry ← objectNotation state "(ℤ/)^"
+      object state entry.name #[← eval scope n, ← eval scope k] category?
   | _ =>
     match ← eval scope b none ambient?, ← eval scope k with
     | .nat 2, X@(.object ..) => powerSetOf X
@@ -1903,11 +2096,10 @@ partial def structuredParameterView (original : Value) (actual : Expr)
   let .object handle target origin selected _ := value | unreachable!
   return .object handle target origin selected (some (#[original], source, route, alternatives, applications))
 
-partial def object (state : RegistryState) (name : String) (args : Array Value)
-    (category? : Option NamedCategoryEntry) : M Value := do
-  let entry ← objectNamed state name category?
+partial def registeredObject (state : RegistryState) (entry : ObjectEntry)
+    (args : Array Value) : M Value := do
   let some category := state.categories.find? (·.id == entry.category)
-    | throwStratum .invalid m!"the object {name} has an unregistered category"
+    | throwStratum .invalid m!"the object {entry.name} has an unregistered category"
   let params ← typedParamTerms entry.declaration args
   let handle ← Semantic.object entry params (← read).trace
   let family ← instantiateFresh category.declaration
@@ -1946,6 +2138,27 @@ partial def object (state : RegistryState) (name : String) (args : Array Value)
       | _ => pure value
     retained := retained.push value
   return .object handle category (some (entry, retained)) none none
+
+partial def object (state : RegistryState) (name : String) (args : Array Value)
+    (category? : Option NamedCategoryEntry) : M Value := do
+  registeredObject state (← objectNamed state name category?) args
+
+/-- A notation's default object is the exact published row, including its category. -/
+partial def notationObject (surfaceForm : String) : M Value := do
+  let state ← registryState
+  registeredObject state (← objectNotation state surfaceForm) #[]
+
+/-- Read an explicit category context by an accepted structural action on the complete object.
+The retained source supplies the parameters and provenance of a computed object's new view. -/
+partial def objectInCategory (value : Value) (target : NamedCategoryEntry) : M Value := do
+  let .object _ sourceCategory .. := value
+    | throwStratum .invalid m!"a category context requires an object"
+  if sourceCategory.id == target.id then return value
+  if target.id == CategoryId.sets then return ← carrierObject value
+  let family ← instantiateFresh target.declaration
+  let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+  let actual ← typedParameter expected value
+  structuredParameterView value actual target
 
 /-- The method or property `name` of the object `t`. -/
 partial def call (scope : Scope) (t : Syntax) (name : String)
@@ -2159,7 +2372,8 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
         let presentation ← limitIn row.colimit name (← standardDiagram name values) category
         let apex ← apexOf row.colimit presentation
         Trace.alias (← read).trace presentation apex
-        return .object apex category none none none)
+        let source := Value.object apex category none none none
+        return .object apex category none none (some (values, source, #[], #[], #[])))
   -- One declared signature has no competing reading. Execute its full typed
   -- action once; speculative execution is needed only to select among rows.
   if let #[action] := actions then return ← action
@@ -2250,7 +2464,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
   -- receives context only from full objects already supplied in this accepted map's body.
   let known ← if endpoints.all declaredEndpoint then pure #[]
     else suppliedFieldWitnesses state entry semantic
-  let targetValue ← recognize state target category known
+  let targetValue ← declaredEndpointObject target category known
   if !applied.isEmpty then
     -- The sets of the operands: the factors of a product source, or the source.
     let sources ← if applied.size == 2 then
@@ -2270,14 +2484,21 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
     return ← applyFamily entry.declaration category elements (some targetValue) (numerals := numerals)
   let .object b _ _ _ _ := targetValue
     | throwStratum .invalid m!"the target of {entry.name} is not an object"
-  let sourceValue ← recognize state source category known
-  let .object a _ origin _ _ := sourceValue
+  let sourceValue ← declaredEndpointObject source category known
+  let .object a _ _ _ _ := sourceValue
     | throwStratum .invalid m!"the source of {entry.name} is not an object"
   let hom ← homIn (← quoteExpr semantic) a b category
   Semantic.namedMorphism entry hom (← read).trace
-  -- A morphism from the terminal set `Fin(1)` is an element.
-  if let some (object, #[.nat 1]) := origin then
-    if object.name == "Fin" then return .element hom targetValue
+  if category.id == CategoryId.sets then
+    let one ← globalPointSource
+    if ← isDefEq a one then return .element (← staged hom) targetValue
+    if let some comparison ← operationPointComparison a then
+      let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, hom]
+      unless ← isTypeCorrect composite do
+        throwStratum .invalid m!"the declared terminal comparison does not form this point"
+      Trace.record (← read).trace composite
+        (.morphismComposition category.id comparison hom one a b)
+      return .element (← staged composite) targetValue
   return .morphism hom a b category (some (sourceValue, targetValue))
 
 /-- Merge already constructed selected views at one independently fixed complete parameter.
@@ -2392,7 +2613,8 @@ partial def selectedParameterFromWitnesses (state : RegistryState) (actual : Exp
 /-- Recognize a retained complete object or its actual registered declaration application.
 A carrier expression alone does not select a named presentation. -/
 partial def recognize (state : RegistryState) (x : Expr) (category : NamedCategoryEntry)
-    (known : Array Value := #[]) (fixedParameters : Array Expr := #[]) :
+    (known : Array Value := #[]) (fixedParameters : Array Expr := #[])
+    (expandParameters : Bool := true) :
     M Value := do
   if !x.hasMVar then
     let mut matchedValues : Array Value := #[]
@@ -2403,8 +2625,9 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       position := position + 1
       -- A supplied constructor retains its actual declared parameters. They
       -- are witnesses for result endpoints, not structures guessed from carriers.
-      if let .object _ _ (some (_, parameters)) _ _ := candidate then
-        supplied := supplied ++ parameters
+      if expandParameters then
+        if let .object _ _ (some (_, parameters)) _ _ := candidate then
+          supplied := supplied ++ parameters
       let candidate ← try
         match candidate with
         | .object .. => if category.id == CategoryId.sets then carrierObject candidate else pure candidate
@@ -2556,10 +2779,9 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
     -- A registered declaration may own an exact bundled parameter without giving it
     -- a separate named-object row. Retain that selected value rather than replacing
     -- it with a carrier or guessing a named refinement.
-    if ← parameterCompatible (do
-        discard <| recognize state p parameterCategory known fixedParameters
-        pure true) then
-      recognize state p parameterCategory known fixedParameters
+    if let some recognized ← optionalReading
+        (recognize state p parameterCategory known fixedParameters) then
+      pure recognized
     else
       unless ← isTypeCorrect p do
         throwStratum .invalid m!"a registered object's structure parameter is not typed"
@@ -2624,6 +2846,7 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
             let handle ← Semantic.object constructedEntry terms (← read).trace
             unless ← withTransparency .all <| isDefEq handle p do
               throwStratum .invalid m!"the retained constructor does not give this result parameter"
+            Trace.alias (← read).trace handle p
             pure (.object p parameterCategory (some (constructedEntry, values)) none none)
         | [] => pure (.object p parameterCategory none none none)
         | _ => throwSemanticAmbiguity m!"several retained constructors give this result parameter: \
@@ -2665,11 +2888,14 @@ partial def carrierObject (value : Value) : M Value := do
         pure image
   let carrierOrigin ← match origin with
     | some (entry, parameters) => do
-        let base ← setOf state entry
-        let baseObject ← Semantic.object base (← typedParamTerms base.declaration parameters)
-        -- A nonidentity declared comparison is retained by the structured source; it does
-        -- not make the actual forgotten carrier definitionally that named set.
-        if ← isDefEq image baseObject then pure (some (base, parameters)) else pure none
+        -- A named structured object need not separately name its carrier. Its actual
+        -- registered forgetful action still supplies that carrier and retains the source.
+        if (declaredCarrierRoute state entry).isNone then pure none else do
+          let base ← setOf state entry
+          let baseObject ← Semantic.object base (← typedParamTerms base.declaration parameters)
+          -- A nonidentity declared comparison is retained by the structured source; it does
+          -- not make the actual forgotten carrier definitionally that named set.
+          if ← isDefEq image baseObject then pure (some (base, parameters)) else pure none
     | none => match viewData with
       | none => pure none
       | some (_, source, route, _, arguments) => do
@@ -2744,8 +2970,20 @@ partial def bindSelectedReceiver (explicit : Array Expr) (slot : Nat) (receiver 
 /-- The registered morphism family named `name`, applied to elements (see `applyFamily`). -/
 partial def applyNamed (state : RegistryState) (name : String) (elements : Array Value)
     (target? : Option Value := none) : M Value := do
-  let some entry := state.morphisms.find? (·.name == name)
-    | throwStratum .invalid m!"no registered function of elements is named {name}"
+  let rows := state.morphisms.filter (·.name == name)
+  let entry ← match rows with
+    | #[entry] => pure entry
+    | _ => do
+        let mut candidates := #[]
+        for entry in rows do
+          let some category := state.categories.find? (·.id == entry.category) | continue
+          if ← parameterCompatible (do
+              discard <| applyFamily entry.declaration category elements target?
+              pure true) then candidates := candidates.push entry
+        match candidates with
+        | #[entry] => pure entry
+        | #[] => throwStratum .invalid m!"no registered function named {name} takes these elements"
+        | _ => throwSemanticAmbiguity m!"several complete registered functions named {name} take these elements"
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
   applyFamily entry.declaration category elements target?
 
@@ -2756,87 +2994,102 @@ partial def registeredStructuredParameter (expected : Expr) (operand : Value) : 
   let .object operandHandle operandCategory .. := operand | return none
   let state ← registryState
   let originalValues := sourceParameterValues operand
-  let mut candidates : Array (ObjectEntry × Expr × Array Expr) := #[]
-  for entry in state.objects do
-    let some sourceCategory := state.categories.find? (·.id == entry.category) | continue
-    unless ← parameterCompatible (do
+  -- The expected type fixes the possible owner categories before any constructor or route
+  -- trial. Universe polymorphism is not an unknown object-category constructor.
+  let mut owners : Array (NamedCategoryEntry × Array ObjectEntry) := #[]
+  for sourceCategory in state.categories do
+    unless ← parameterCategoryCompatible expected sourceCategory do continue
+    let entries ← (state.objects.filter (·.category == sourceCategory.id)).filterM fun entry =>
+      parameterCompatible do
         let constant ← mkConstWithFreshMVarLevels entry.declaration
         let (_, _, type) ← forallMetaTelescopeReducing (← inferType constant)
-        isDefEq type expected) do continue
-    for targetCategory in state.categories do
-      if targetCategory.id == CategoryId.sets || targetCategory.id == sourceCategory.id then continue
-      let routes := (← routesBetween state sourceCategory.expression targetCategory.expression)
-      if routes.isEmpty then continue
-      let mut seenImages : Array Expr := #[]
-      for original in originalValues do
-        let actual? ← parameterTrial do
-          let .object handle originalCategory origin selected _ := original | return none
-          -- Selected carriers already contribute their full source through originalValues.
-          -- Do not acquire a different refinement of that same named carrier.
-          if originalCategory.id == CategoryId.sets && selected.isSome then return none
-          if originalCategory.id != CategoryId.sets &&
-              originalCategory.id != targetCategory.id then return none
-          let declaredAcquisition := originalCategory.id == CategoryId.sets &&
-            origin.any (fun (base, _) => state.objects.any fun row =>
+        isDefEq type expected
+    unless entries.isEmpty do owners := owners.push (sourceCategory, entries)
+  let mut candidates : Array (ObjectEntry × Expr × Array Expr) := #[]
+  for targetCategory in state.categories do
+    if targetCategory.id == CategoryId.sets then continue
+    -- Only an already selected source or an explicitly declared refinement can supply
+    -- this target structure. Unrelated categories need no route enumeration.
+    let originals := originalValues.filter fun
+      | .object _ originalCategory origin selected _ =>
+          if originalCategory.id == CategoryId.sets then
+            selected.isNone && origin.any (fun (base, _) => state.objects.any fun row =>
               row.category == targetCategory.id && refinesObject state row base.id)
-          if originalCategory.id == CategoryId.sets && !declaredAcquisition then return none
-          let family ← instantiateFresh targetCategory.declaration
-          let targetType ← mkAppM ``CategoryTheory.Bundled.α #[family]
-          let directType ← parameterTrial (isDefEq (← inferType handle) targetType)
-          -- Only a complete retained structure or its declared named refinement is a witness.
-          unless directType || declaredAcquisition do return none
-          try
-            let actual ← instantiateMVars (← typedParameter targetType original)
-            if actual.hasMVar || actual.hasLevelMVar || !(← isTypeCorrect actual) then return none
-            -- Provenance may also contain coefficient objects of the operand. Only a
-            -- witness whose actual outgoing action reaches this operand is relevant.
-            let endpoint ← if originalCategory.id == operandCategory.id then pure handle
-              else do
-                let endpointType ← inferType operandHandle
-                transportedStructure endpointType original (some operandCategory.id)
-            unless ← withTransparency .all <| isDefEq endpoint operandHandle do return none
-            return some actual
-          catch error =>
-            if Exception.stratum? error == some .invalid then return none else throw error
-        let some actual := actual? | continue
-        if ← seenImages.anyM (fun other => parameterTrial do
-            withTransparency .all <| isDefEq other actual) then continue
-        seenImages := seenImages.push actual
-        for route in routes do
-          let candidate? ← parameterTrial do
-            try
-              let constant ← mkConstWithFreshMVarLevels entry.declaration
-              let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
-              unless ← isDefEq type expected do return none
-              let openObject := mkAppN constant args
-              let image ← Semantic.objOf (← Semantic.routeFunctor state route.refs) openObject
-              -- Infer ordered constructor parameters from the full structured image before
-              -- demanding closure. A carrier alone never determines a missing structure.
-              unless ← withTransparency .all <| isDefEq image actual do return none
-              let mut inferredArrows := #[]
-              for parameter in args do
-                let parameter ← instantiateMVars parameter
-                unless parameter.isMVar do continue
-                let some arrow ← registeredArrowParameter (← inferType parameter) | continue
-                unless ← isDefEq parameter arrow do return none
-                inferredArrows := inferredArrows.push arrow
-              synthesizeInstances args infos
-              let object ← instantiateMVars openObject
-              unless !object.hasMVar && !object.hasLevelMVar && (← isTypeCorrect object) &&
-                  (← withTransparency .all <| isDefEq (← inferType object) expected) do return none
-              -- Recheck the closed candidate using the ordinary route classifier. The trial
-              -- route cannot bypass competing routes or select its own comparison.
-              let selected := Value.object object sourceCategory (some (entry, #[])) none none
-              let checked ← transportedStructure (← inferType actual) selected (some targetCategory.id)
-              unless ← withTransparency .all <| isDefEq checked actual do return none
-              return some (object, inferredArrows)
-            catch error =>
-              if Exception.stratum? error == some .invalid then return none else throw error
-          if let some (candidate, arrows) := candidate? then
-            unless ← candidates.anyM (fun (otherEntry, other, _) => parameterTrial do
-                return otherEntry.id == entry.id &&
-                  (← withTransparency .all <| isDefEq other candidate)) do
-              candidates := candidates.push (entry, candidate, arrows)
+          else originalCategory.id == targetCategory.id
+      | _ => false
+    if originals.isEmpty then continue
+    let mut routesByOwner : Array (NamedCategoryEntry × Array ObjectEntry × Array Route) := #[]
+    for (sourceCategory, entries) in owners do
+      if sourceCategory.id == targetCategory.id then continue
+      let routes ← routesBetween state sourceCategory.expression targetCategory.expression
+      unless routes.isEmpty do
+        routesByOwner := routesByOwner.push (sourceCategory, entries, routes)
+    if routesByOwner.isEmpty then continue
+    -- Complete selected images depend on the actual operand and target category, not
+    -- the constructor being tested. Compute each once, before the constructor trials.
+    let mut images : Array Expr := #[]
+    for original in originals do
+      let actual? ← parameterTrial do
+        let .object handle originalCategory _ _ _ := original | return none
+        let family ← instantiateFresh targetCategory.declaration
+        let targetType ← mkAppM ``CategoryTheory.Bundled.α #[family]
+        let directType ← parameterTrial (isDefEq (← inferType handle) targetType)
+        unless directType || originalCategory.id == CategoryId.sets do return none
+        try
+          let actual ← instantiateMVars (← typedParameter targetType original)
+          if actual.hasMVar || actual.hasLevelMVar || !(← isTypeCorrect actual) then return none
+          -- A coefficient in the provenance is relevant only if its accepted action
+          -- reaches this exact operand, rather than merely sharing its carrier type.
+          let endpoint ← if originalCategory.id == operandCategory.id then pure handle
+            else do
+              let endpointType ← inferType operandHandle
+              transportedStructure endpointType original (some operandCategory.id)
+          unless ← withTransparency .all <| isDefEq endpoint operandHandle do return none
+          return some actual
+        catch error =>
+          if Exception.stratum? error == some .invalid then return none else throw error
+      let some actual := actual? | continue
+      unless ← images.anyM (fun other => parameterTrial do
+          withTransparency .all <| isDefEq other actual) do
+        images := images.push actual
+    for (sourceCategory, entries, routes) in routesByOwner do
+      for entry in entries do
+        for actual in images do
+          for route in routes do
+            let candidate? ← parameterTrial do
+              try
+                let constant ← mkConstWithFreshMVarLevels entry.declaration
+                let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+                unless ← isDefEq type expected do return none
+                let openObject := mkAppN constant args
+                let image ← Semantic.objOf (← Semantic.routeFunctor state route.refs) openObject
+                -- Infer ordered constructor parameters from the full structured image before
+                -- demanding closure. A carrier alone never determines a missing structure.
+                unless ← withTransparency .all <| isDefEq image actual do return none
+                let mut inferredArrows := #[]
+                for parameter in args do
+                  let parameter ← instantiateMVars parameter
+                  unless parameter.isMVar do continue
+                  let some arrow ← registeredArrowParameter (← inferType parameter) | continue
+                  unless ← isDefEq parameter arrow do return none
+                  inferredArrows := inferredArrows.push arrow
+                synthesizeInstances args infos
+                let object ← instantiateMVars openObject
+                unless !object.hasMVar && !object.hasLevelMVar && (← isTypeCorrect object) &&
+                    (← withTransparency .all <| isDefEq (← inferType object) expected) do return none
+                -- Recheck the closed candidate using the ordinary route classifier. The trial
+                -- route cannot bypass competing routes or select its own comparison.
+                let selected := Value.object object sourceCategory (some (entry, #[])) none none
+                let checked ← transportedStructure (← inferType actual) selected (some targetCategory.id)
+                unless ← withTransparency .all <| isDefEq checked actual do return none
+                return some (object, inferredArrows)
+              catch error =>
+                if Exception.stratum? error == some .invalid then return none else throw error
+            if let some (candidate, arrows) := candidate? then
+              unless ← candidates.anyM (fun (otherEntry, other, _) => parameterTrial do
+                  return otherEntry.id == entry.id &&
+                    (← withTransparency .all <| isDefEq other candidate)) do
+                candidates := candidates.push (entry, candidate, arrows)
   let some (_, first, _) := candidates[0]? | return none
   for (_, object, _) in candidates do
     unless ← parameterTrial (withTransparency .all <| isDefEq object first) do
@@ -3022,6 +3275,9 @@ partial def sourceParameterValues (value : Value) : Array Value :=
         (viewData.map fun (original, source, _, _, _) =>
           original.flatMap sourceParameterValues ++ sourceParameterValues source).getD #[] ++
         (origin.map fun (_, parameters) => parameters.flatMap sourceParameterValues).getD #[]
+  | .element _ object => #[value] ++ sourceParameterValues object
+  | .morphism _ _ _ _ (some (source, target)) =>
+      #[value] ++ sourceParameterValues source ++ sourceParameterValues target
   | _ => #[value]
 
 /-- Retain supplied structured sources of parameters of already declared constructors.
@@ -3275,7 +3531,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
-    let S ← recognize state set category endpointWitnesses (← args.mapM instantiateMVars)
+    let S ← declaredEndpointObject set category endpointWitnesses (← args.mapM instantiateMVars)
     if (← coercionMap A S).isNone then
       throwStratum .invalid m!"{declaration} does not apply to an element of {a}"
     coerceTo v S
@@ -3285,7 +3541,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let set ← instantiateMVars set
     if set.hasMVar then
       throwStratum .invalid m!"the set of an operand of {declaration} is not determined"
-    toElement v (← recognize state set category endpointWitnesses (← args.mapM instantiateMVars))
+    toElement v (← declaredEndpointObject set category endpointWitnesses (← args.mapM instantiateMVars))
   synthesizeInstances args infos
   for parameter in args do
     if !(← instantiateMVars parameter).isMVar then continue
@@ -3318,7 +3574,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let target ← instantiateMVars target
     let targetValue ← match target? with
       | some targetValue => pure targetValue
-      | none => recognize state target category endpointWitnesses (← args.mapM instantiateMVars)
+      | none => declaredEndpointObject target category endpointWitnesses (← args.mapM instantiateMVars)
     if category.id == CategoryId.sets then
       if ← parameterTrial (isDefEq source (← semanticObject (← oneObject))) then
         let result ← staged operation
@@ -3332,13 +3588,15 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
             (.operationApply entry.id actualParameters #[] target (← semanticObject chosen))
         else Trace.alias (← read).trace operation result
         return .element result targetValue
-      if let some entry := state.operations.find? (·.declaration == declaration) then
-        if let some comparison ← operationPointComparison source then
-          let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, operation]
-          unless !composite.hasMVar && !composite.hasLevelMVar &&
-              (← isTypeCorrect composite) do
-            throwStratum .invalid m!"the admitted terminal comparison does not form this operation point"
-          let result ← staged composite
+      if let some comparison ← operationPointComparison source then
+        let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, operation]
+        unless !composite.hasMVar && !composite.hasLevelMVar &&
+            (← isTypeCorrect composite) do
+          throwStratum .invalid m!"the admitted terminal comparison does not form this point"
+        Trace.record (← read).trace composite
+          (.morphismComposition category.id comparison operation (← globalPointSource) source target)
+        let result ← staged composite
+        if let some entry := state.operations.find? (·.declaration == declaration) then
           let actualParameters := (operation.getAppArgs.zip infos).filterMap fun (argument, info) =>
             if info.isExplicit then some argument else none
           let chosen := match targetValue with
@@ -3346,13 +3604,14 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
             | _ => targetValue
           Trace.record (← read).trace result
             (.operationPoint entry.id actualParameters comparison operation target (← semanticObject chosen))
-          return .element result targetValue
-    let sourceValue ← recognize state source category endpointWitnesses (← args.mapM instantiateMVars)
+        else Trace.alias (← read).trace composite result
+        return .element result targetValue
+    let sourceValue ← declaredEndpointObject source category endpointWitnesses (← args.mapM instantiateMVars)
     return .morphism operation source target category (some (sourceValue, targetValue))
   let family ← quoteExpr operation
   let target ← match target? with
     | some T => pure T
-    | none => recognize state (← instantiateMVars target) category endpointWitnesses (← args.mapM instantiateMVars)
+    | none => declaredEndpointObject (← instantiateMVars target) category endpointWitnesses (← args.mapM instantiateMVars)
   let result ← applyTo family elements target
   if let some entry := state.operations.find? (·.declaration == declaration) then
     let .element resultMap _ := result | unreachable!
@@ -3434,6 +3693,8 @@ partial def presentationMapValue (value : Value) (entry : PresentationComparison
         | throwSemanticAmbiguity m!"the presentation has no unique carrier route"
       unless cls.ambiguities.isEmpty do
         throwSemanticAmbiguity m!"several comparisons determine the presentation carrier map"
+      discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses
+        (some (← semanticObject sourceValue))
       let [route] := cls.sources.toList
         | throwSemanticAmbiguity m!"the presentation has no unique directed carrier route"
       pure route
@@ -3531,6 +3792,22 @@ partial def identityCarrierView (Y X : Value) : M Bool := do
   let state ← registryState
   let (.object y _ yOrigin ySelected _, .object x _ xOrigin xSelected xData) := (Y, X)
     | return false
+  -- A named source can supply its declared refinement at an independently fixed full
+  -- target structure. This checks every eligible registered source and compares the whole
+  -- resulting object; an unnamed carrier cannot acquire such a structure by conversion.
+  let matchingOrigins := match yOrigin, xOrigin with
+    | some (left, _), some (right, _) => left.id == right.id
+    | _, _ => false
+  if ySelected.isNone && yOrigin.isSome && !matchingOrigins then
+    if let some (.object target targetCategory ..) := xSelected then
+      if targetCategory.id != CategoryId.sets &&
+          (← parameterTrial (withTransparency .all <| isDefEq y x)) then
+        if ← parameterCompatible (do
+            let selected ← typedParameter (← inferType target) Y
+            unless !selected.hasMVar && !selected.hasLevelMVar && (← isTypeCorrect selected) do
+              return false
+            withTransparency .all <| isDefEq selected target <&&> isDefEq y x) then
+          return true
   let sameSelection ← match ySelected, xSelected with
     | some left@(.object leftObject leftCategory ..),
         some (.object rightObject rightCategory _ _ rightData) =>
@@ -3714,6 +3991,7 @@ partial def commonSet? (sets : Array Value) : M (Option Value) := do
 The optional cache is shared only by tuples with the same fixed `X` in a closed reading. -/
 partial def tupleOf (values : Array Value) (X : Value)
     (numerals? : Option (IO.Ref (Std.HashMap Nat Value)) := none) : M Value := do
+  let X ← carrierObject X
   let state ← registryState
   let ctx ← read
   let numerals? ← if ctx.stage.isNone && ctx.bound.isEmpty then
@@ -3747,10 +4025,20 @@ partial def tupleOf (values : Array Value) (X : Value)
 /-- `(x₁, …, xₙ)`: in an enclosing `Xⁿ`, else in a set its components are in, else `ℤ`. -/
 partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value)
     (numerals? : Option (IO.Ref (Std.HashMap Nat Value)) := none) : M Value := do
+  if let some target@(.object handle _ none _ _) := ambient? then
+    let mut actual := handle.consumeMData
+    while actual.isAppOfArity ``id 2 do actual := actual.appArg!.consumeMData
+    if actual.isAppOf ``CategoryTheory.Limits.Cone.pt && xs.size == 2 then
+      let projections ← componentElements (.element (← identityAt target) target) xs.size
+      let values ← (xs.zip projections).mapM fun (termSyntax, projection) => do
+        let .element _ component := projection | unreachable!
+        toElement (← eval scope termSyntax none (some component)) component
+      return ← applyTo (← quoteExpr (← identityAt target)) values target
   let X? := match ambient? with
     | some (.object _ _ (some (entry, #[X, .nat n])) _ _) =>
         if entry.name == "Vec" && n == xs.size then some X else none
     | _ => none
+  let X? ← X?.mapM carrierObject
   let values ← xs.mapM (eval scope · none X?)
   let X ← match X? with
     | some X => pure X
@@ -3758,7 +4046,7 @@ partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value)
         let sets := values.filterMap fun | .element _ X => some X | _ => none
         match ← commonSet? sets, sets[0]? with
         | some X, _ | none, some X => pure X
-        | none, none => object (← registryState) "ℤ" #[] none
+        | none, none => notationObject "literal.integral.domain"
   tupleOf values X numerals?
 
 /-- `[a, b; c, d]`: the registered matrix with these rows, in an enclosing `Matₙ(K)`, else over the
@@ -3848,17 +4136,21 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
   let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let endpoint (term : Expr) : M Value := do
-    try recognize state term category #[A]
-    catch error =>
-      if (CasCatalogue.Exception.stratum? error) == some .invalid then
-        pure (.object term category none none none)
-      else throw error
+    declaredEndpointObject term category #[A] (← args.mapM instantiateMVars)
   let T ← endpoint target
   if ← isDefEq source one then
     let .object t .. := T | unreachable!
-    let hom ← staged (← homIn (← quoteExpr family) one t category)
+    let hom ← homIn (← quoteExpr family) one t category
     Trace.alias (← read).trace family hom
-    return .element hom T
+    return .element (← staged hom) T
+  if let some comparison ← operationPointComparison source then
+    let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, family]
+    let .object t .. := T | unreachable!
+    let hom ← homIn (← quoteExpr composite) one t category
+    Trace.record (← read).trace composite
+      (.morphismComposition category.id comparison family one source target)
+    Trace.alias (← read).trace composite hom
+    return .element (← staged hom) T
   return .morphism family source target category (some (← endpoint source, T))
 
 /-- Decode an ordinal only at the complete actual diagram-index type. -/
@@ -3873,6 +4165,9 @@ partial def constructionIndex (indexType : Expr) (ordinal : Nat) : M Expr := do
     let some proof ← decideObligation proposition
       | throwStratum .invalid m!"the construction index is outside its actual bound"
     return mkApp3 (mkConst ``Fin.mk) bound (mkNatLit ordinal) proof
+  if indexType.isAppOf ``CategoryTheory.Discrete then
+    let index ← constructionIndex indexType.appArg! ordinal
+    return ← mkAppM ``CategoryTheory.Discrete.mk #[index]
   let some name := indexType.getAppFn.constName?
     | throwStratum .invalid m!"the construction index is not a closed finite enumeration"
   let .inductInfo info ← getConstInfo name
@@ -3972,11 +4267,7 @@ partial def constructionLeg (scope : Scope) (term indexSyntax : Syntax) : M Valu
     | throwStratum .invalid m!"the defining leg is not a morphism"
   let endpoint (value : Expr) : M Value := do
     if ← isDefEq value apex then return receiver
-    try recognize state value category #[receiver]
-    catch error =>
-      if (CasCatalogue.Exception.stratum? error) == some .invalid then
-        pure (.object value category none none none)
-      else throw error
+    declaredEndpointObject value category #[receiver]
   if let some trace := (← read).trace then
     let entries ← recorder.get
     trace.modify fun current => entries.fold (fun result value record => result.insert value record) current
@@ -4353,7 +4644,7 @@ partial def divide (a b : Value) (ambient? : Option Value := none) : M Value := 
   let K ← match ambient?, a, b with
     | some K, _, _ | none, .element _ K, _ => pure K
     | none, _, .element _ Y => pure ((← unitsOf? Y).getD Y)
-    | none, _, _ => object state "ℤ" #[] none
+    | none, _, _ => notationObject "literal.integral.domain"
   applyNamed state "/" #[← toElement (← coerceTo a K) K, b] (some K)
 
 /-- `X - Y` for named sets `Y ⊆ X`: the complement in `𝒫(X)` of the image of the registered
@@ -4365,7 +4656,7 @@ partial def complementOf (X Y : Value) : M Value := do
   let .object _ _ (some (sub, _)) _ _ := Y | throwStratum .invalid m!"a complement is of named sets"
   let some chain := inclusionChain state sub.id super.id
     | throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
-  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let po ← powerObjectIn state CategoryId.sets
   let image ← imageOfMap (← inclusionMap chain Y) Y X
   let P ← powerSetOf X
   let .object p _ _ _ _ := P | unreachable!
@@ -4396,9 +4687,9 @@ partial def namedObject (scope : Scope) (stx : Syntax) : M (ObjectEntry × Array
       return (← objectNamed state x.getId.toString none, #[])
   | `(cas_term| $f:ident($args,*)) =>
       return (← objectNamed state f.getId.toString none, ← numerals args.getElems)
-  | `(cas_term| ℤ / $n) => return (← objectNamed state "ZMod" none, ← numerals #[n])
+  | `(cas_term| ℤ / $n) => return (← objectNotation state "ℤ/", ← numerals #[n])
   | `(cas_term| (ℤ / $n) ^ $k) =>
-      return (← objectNamed state "ZModPower" none, ← numerals #[n, k])
+      return (← objectNotation state "(ℤ/)^", ← numerals #[n, k])
   | _ =>
       match stx.getKind == ``casAtom, stx.find? (·.isAtom) with
       | true, some atom => return (← objectNamed state atom.getAtomVal none, #[])
@@ -4418,42 +4709,37 @@ partial def graph (scope : Scope) (pairs : Array Syntax) (s t : Syntax)
     return (x, y)
   graphOf a b numerals
 
-/-- The operands `args` as elements of one set: the enclosing one, else that of an operand which
-is an element, else `ℤ`. Each operand is evaluated once, and again only if it defaulted to another
-set than its siblings'. -/
+/-- Read nonnumeric operands once to retain their selected domains. An enclosing domain
+supplies their operation only when declared coercions carry all of them there; otherwise their
+own common domain determines the operation. Numeric operands are then read in that domain. -/
 partial def operands (scope : Scope) (args : Array Syntax) (ambient? : Option Value) :
     M (Array Value × Value) := do
-  -- A term of numerals alone (`-1/2`) has no set of its own: it is read in the enclosing set, else
-  -- the set of its siblings (`det(M⁻¹) = -1/2` in `ℚ`); numerals alone throughout are read in
-  -- `ℚ` if a fraction or decimal is among them, else in `ℤ` (`numeralSet`). Each operand is read
-  -- once; an operand in a set not included in the others' is not in the operation's domain.
+  let ambient? ← ambient?.mapM carrierObject
   let mut known : Array (Option Value) := args.map fun _ => none
-  let mut numeralsIn? : Option Value := ambient?
-  if ambient?.isNone then
-    if args.all numeric then
-      let group := mkNullNode args
-      numeralsIn? ← numeralSet group none
-    else if args.any numeric then
-      let mut sets : Array Value := #[]
-      for i in [0:args.size] do
-        unless numeric args[i]! do
-          let v ← eval scope args[i]! none none
-          known := known.set! i (some v)
-          if let .element _ X := v then sets := sets.push X
-      numeralsIn? ← match ← commonSet? sets with
-        | some X => pure (some X)
-        | none => pure sets[0]?
-  let values ← (args.zip known).mapM fun
-    | (_, some v) => pure v
-    | (arg, none) => eval scope arg none (if numeric arg then numeralsIn? else ambient?)
-  let sets := values.filterMap fun | .element _ X => some X | _ => none
-  -- The enclosing set, else one all the operands' sets are included in, else the first.
-  let X ← match ambient? with
-    | some X => pure X
+  let mut sets : Array Value := #[]
+  for i in [:args.size] do
+    unless numeric args[i]! do
+      let value ← eval scope args[i]! none ambient?
+      known := known.set! i (some value)
+      if let .element _ domain := value then sets := sets.push domain
+  let ambient? ← match ambient? with
+    | some ambient =>
+        if ← sets.allM (fun domain => return (← coercionMap domain ambient).isSome) then
+          pure (some ambient)
+        else pure none
+    | none => pure none
+  let domain ← match ambient? with
+    | some ambient => pure ambient
     | none => match ← commonSet? sets, sets[0]? with
-      | some X, _ | none, some X => pure X
-      | none, none => object (← registryState) "ℤ" #[] none
-  return (← values.mapM (coerceTo · X), X)
+      | some common, _ | none, some common => pure common
+      | none, none =>
+          match ← numeralSet (mkNullNode args) none with
+          | some selected => pure selected
+          | none => notationObject "literal.integral.domain"
+  let values ← (args.zip known).mapM fun
+    | (_, some value) => pure value
+    | (arg, none) => eval scope arg none (some domain)
+  return (← values.mapM (coerceTo · domain), domain)
 
 /-- The registered operation `name` on the operands `args`. -/
 partial def operate (scope : Scope) (name : String) (args : Array Syntax)
@@ -4461,30 +4747,32 @@ partial def operate (scope : Scope) (name : String) (args : Array Syntax)
   let (elements, X) ← operands scope args ambient?
   applyOperation name elements X
 
-/-- An actual admitted singleton comparison at a nullary operation's complete source. -/
+/-- An accepted terminal-source comparison for a global operation or admission point. -/
 partial def operationPointComparison (source : Expr) : M (Option Expr) := do
   let state ← registryState
   let one ← semanticObject (← oneObject)
-  let mut candidates : Array (PresentationComparisonEntry × Expr) := #[]
+  let mut candidates : Array (PresentationComparisonEntry × Expr × Bool) := #[]
   for entry in state.presentations do
-    let applicable ← parameterCompatible do
+    for inverse in #[false, true] do
+      let field := if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom
+      let applicable ← parameterCompatible do
+        let iso ← instantiateFresh entry.declaration
+        let hom ← mkAppM field #[iso]
+        let some (left, right) := homEnds? (← inferType hom) | return false
+        unless ← isDefEq left one <&&> isDefEq right source do return false
+        let iso ← instantiateMVars iso
+        return !iso.hasMVar && !iso.hasLevelMVar && (← isTypeCorrect iso)
+      unless applicable do continue
       let iso ← instantiateFresh entry.declaration
-      let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
-      let some (left, right) := homEnds? (← inferType hom) | return false
-      unless ← isDefEq left one <&&> isDefEq right source do return false
-      let iso ← instantiateMVars iso
-      return !iso.hasMVar && !iso.hasLevelMVar && (← isTypeCorrect iso)
-    unless applicable do continue
-    let iso ← instantiateFresh entry.declaration
-    let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
-    let some (left, right) := homEnds? (← inferType hom) | unreachable!
-    unless ← isDefEq left one <&&> isDefEq right source do unreachable!
-    candidates := candidates.push (entry, ← instantiateMVars iso)
+      let hom ← mkAppM field #[iso]
+      let some (left, right) := homEnds? (← inferType hom) | unreachable!
+      unless ← isDefEq left one <&&> isDefEq right source do unreachable!
+      candidates := candidates.push (entry, ← instantiateMVars iso, inverse)
   match candidates.toList with
   | [] => return none
-  | [(entry, iso)] =>
-      return some (← Semantic.presentationArrow entry iso false (← read).trace)
-  | _ => throwSemanticAmbiguity m!"several admitted singleton comparisons determine the operation point"
+  | [(entry, iso, inverse)] =>
+      return some (← Semantic.presentationArrow entry iso inverse (← read).trace)
+  | _ => throwSemanticAmbiguity m!"several admitted terminal comparisons determine the global point"
 
 /-- A numeral of a retained full source, forwarded along its actual structural action.
 All source numeral structures are checked before choosing a serialization representative. -/
@@ -4516,7 +4804,9 @@ partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
     let sourceCarrier ← carrierObject source
     let .object sourceType .. := sourceCarrier | continue
     unless ← withTransparency .all <| isDefEq sourceType carrier do continue
-    let some numeral ← numeralIn state k one sourceType #[(sourceCategory.id, sourceHandle)]
+    let sourceNumerals := state.numerals.filter (·.over == some sourceCategory.id)
+    let some numeral ← numeralIn { state with numerals := sourceNumerals }
+        k one sourceType #[(sourceCategory.id, sourceHandle)]
       | continue
     if let some (entry, params) := sourceOrigin then
       let named ← Semantic.object entry (← typedParamTerms entry.declaration params) none
@@ -4640,13 +4930,43 @@ numerals of its own, the image of the numeral of `P`; in a domain `D ↪ B` with
 (`Mˣ ↪ M`), the numeral of `B` admitted, its evidence established. -/
 partial def toElement (v : Value) (X : Value) : M Value := do
   match v with
-  | .element .. => return v
+  | .element .. => coerceTo v (← carrierObject X)
   | .nat k =>
       let state ← registryState
       let X ← carrierObject X
       let .object _ category .. := X | unreachable!
       if let some point ← profileReader "numeral forward" (forwardNumeral k X) then
         return point
+      -- A complete selected structure supplies a numeral directly, or through an actual
+      -- structural action to its registered numeral owner. A matching carrier never supplies
+      -- missing structure. Competing inherited numeral constructions must agree as points.
+      if let .object carrier _ _ (some chosen@(.object selected selectedCategory ..)) _ := X then
+        let directRows := state.numerals.filter (·.over == some selectedCategory.id)
+        let owners := if !directRows.isEmpty then #[selectedCategory.id] else
+          (state.numerals.filterMap (·.over)).toList.eraseDups.toArray
+        let one ← semanticObject (← oneObject)
+        let mut points : Array Expr := #[]
+        for owner in owners do
+          let some ownerCategory := state.categories.find? (·.id == owner) | continue
+          let point? ← optionalReading do
+            let family ← instantiateFresh ownerCategory.declaration
+            let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+            let actual ← if owner == selectedCategory.id then pure selected else
+              transportedStructure expected chosen (some owner)
+            unless ← isDefEq (← inferType actual) expected do
+              throwStratum .invalid m!"the selected numeral owner has a different full type"
+            let rows := state.numerals.filter (·.over == some owner)
+            let some point ← numeralIn { state with numerals := rows } k one carrier #[(owner, actual)]
+              | throwStratum .invalid m!"the selected numeral owner has a different carrier"
+            return point
+          if let some point := point? then points := points.push point
+        if let some numeral := points[0]? then
+          for point in points do
+            unless ← withTransparency .all <| isDefEq point numeral do
+              throwSemanticAmbiguity m!"several registered structural numerals give different points"
+          let hom ← staged (← homIn (← quoteExpr numeral) one carrier category)
+          Trace.record (← read).trace hom (.elementNumeral k carrier selected)
+          return .element hom X
       -- A nullary registered operation can name a point of an anonymous selected structure.
       -- Its actual terminal source must already be the admitted global-point source.
       if k == 0 then
@@ -4693,7 +5013,7 @@ partial def toElement (v : Value) (X : Value) : M Value := do
             pure true) then
           refinements := refinements.push (over, ← typedParameter expected X)
       match ← profileReader "numeral registered search"
-          (numeralIn state k one (← semanticObject X) refinements) with
+          (numeralIn { state with numerals := numeralRows } k one (← semanticObject X) refinements) with
       | some numeral =>
           let X ← match state.numerals.find? (·.declaration == numeral.getAppFn.constName?.getD .anonymous) with
             | some numeralRow => match numeralRow.over with
@@ -4749,25 +5069,224 @@ partial def inclusionOut? (D : Value) : M (Option (Expr × Expr)) := do
     | throwStratum .invalid m!"the inclusion of {entry.name} is not a morphism"
   return some (ι, b)
 
-/-- The target value of an actual declared inclusion, retaining structured parameter carriers. -/
+/-- Prefer complete parameters actually occurring in a dependent endpoint. A nested ring
+parameter does not replace the selected module whose carrier that endpoint names. -/
+partial def endpointSelection? (value : Value) : Option Expr := match value with
+  | .object _ _ _ (some (.object actual ..)) _ => some actual
+  | .object actual .. => some actual
+  | _ => none
+
+partial def endpointWitnesses (endpoint : Expr) (known : Array Value) :
+    M (Array Value × Bool) := do
+  let occurring := known.filter fun value => (endpointSelection? value).any fun actual =>
+    (endpoint.find? (· == actual)).isSome
+  let maximal := occurring.filter fun value => !(endpointSelection? value).any fun actual =>
+    occurring.any fun other => (endpointSelection? other).any fun container =>
+      container != actual && (container.find? (· == actual)).isSome
+  return if maximal.isEmpty then (known, true) else (maximal, false)
+
+/-- An endpoint may name a field of a complete supplied object. If that whole object's
+carrier is not the endpoint, its retained parameters remain available as independent witnesses.
+Every successful reading keeps the ordinary full-selection ambiguity checks. -/
+partial def recognizedEndpoint? (state : RegistryState) (endpoint : Expr)
+    (category : NamedCategoryEntry) (known : Array Value)
+    (fixedParameters : Array Expr := #[]) : M (Option Value) := do
+  let mut available := known.flatMap sourceParameterValues
+  -- A declaration-owned constructor already fixes the result's identity. Keep every
+  -- retained witness for its dependent parameters, even when a parameter's registered
+  -- wrapper was reduced in the declaration's signature (`FiniteSubsets (Polynomial R)`).
+  -- Syntactic occurrence of the coefficient alone must not discard the supplied ambient.
+  if state.objects.any (fun row => row.category == category.id &&
+      some row.declaration == endpoint.getAppFn.constName?) then
+    return ← optionalReading (recognize state endpoint category known fixedParameters)
+  for _ in [:available.size + 1] do
+    let (preferred, expandParameters) ← endpointWitnesses endpoint available
+    if let some recognized ← optionalReading
+        (recognize state endpoint category preferred fixedParameters expandParameters) then
+      return some recognized
+    if expandParameters then return none
+    let rejected := preferred.filterMap endpointSelection?
+    let remaining := available.filter fun value =>
+      !(endpointSelection? value).any rejected.contains
+    if remaining.size == available.size then return none
+    available := remaining
+  return none
+
+/-- A declared field path, without reducing its complete owner. Projection functions and
+primitive projections denote the same path; no carrier equality identifies the owner. -/
+partial def objectFieldPath (env : Environment) (term : Expr) (owners : Array Expr := #[]) :
+    M (Expr × Array (Name × Nat)) := do
+  let term := term.consumeMData
+  if owners.contains term then return (term, #[])
+  if term.isAppOfArity ``id 2 then return ← objectFieldPath env term.appArg! owners
+  match term with
+  | .proj structureName index owner =>
+      let (root, fields) ← objectFieldPath env owner owners
+      return (root, fields.push (structureName, index))
+  | _ =>
+      match term.getAppFn.constName? with
+      | some name =>
+          match env.getProjectionFnInfo? name, env.getProjectionStructureName? name with
+          | some info, some structureName =>
+              let arguments := term.getAppArgs
+              if arguments.size == info.numParams + 1 then
+                let (root, fields) ← objectFieldPath env arguments[info.numParams]! owners
+                return (root, fields.push (structureName, info.i))
+              else return (term, #[])
+          | _, _ =>
+              if let some expanded ← withReducible <| unfoldDefinition? term then
+                if expanded != term then return ← objectFieldPath env expanded owners
+              return (term, #[])
+      | none => return (term, #[])
+
+/-- Complete supplied owners occurring through proper projections in a declaration body.
+A registered full object may repackage fields into a bundle instead of returning one projection. -/
+partial def objectFieldOwners (env : Environment) (term : Expr) (owners : Array Expr) :
+    M (Array Expr) := do
+  let term := term.consumeMData
+  if owners.contains term then return #[]
+  let (owner, fields) ← objectFieldPath env term owners
+  if !fields.isEmpty && owners.contains owner then return #[owner]
+  if let some expanded ← withReducible <| unfoldDefinition? term then
+    if expanded != term then return ← objectFieldOwners env expanded owners
+  let parts := match term with
+    | .app function argument => #[function, argument]
+    | .proj _ _ owner => #[owner]
+    | _ => #[]
+  let mut result := #[]
+  for part in parts do
+    for owner in (← objectFieldOwners env part owners) do
+      unless result.contains owner do result := result.push owner
+  return result
+
+/-- Retain a registered full object construction from fields of an explicitly supplied owner.
+The accepted full construction must occur in the endpoint; only then is its carrier checked.
+No owner or complete structure is inferred from equality of underlying carriers. -/
+partial def declaredFieldEndpoint? (state : RegistryState) (endpoint : Expr)
+    (known : Array Value) : M (Option Value) := do
+  let env ← getEnv
+  let mut owners : Array Expr := #[]
+  for supplied in known.flatMap sourceParameterValues do
+    let supplied := match supplied with
+      | .object _ _ _ (some selected) _ => selected
+      | _ => supplied
+    let .object actual actualCategory .. := supplied | continue
+    if actualCategory.id == CategoryId.sets || actual.hasMVar then continue
+    unless owners.contains actual do owners := owners.push actual
+  if owners.isEmpty then return none
+  let selections ← IO.mkRef (#[] : Array (Expr × Array Expr))
+  endpoint.forEach' fun part => do
+    -- The internals of a supplied complete object do not choose a new field owner.
+    if owners.contains part then return false
+    if part.hasLooseBVars then return true
+    let roots ← objectFieldOwners env part owners
+    unless roots.isEmpty do
+      let type ← whnfR (← inferType part)
+      unless type.isSort || type.isForall do
+        selections.modify fun found =>
+          if found.any (·.1 == part) then found else found.push (part, roots)
+    return true
+  let selections ← selections.get
+  if selections.isEmpty then return none
+  let mut found : Array (Expr × NamedCategoryEntry) := #[]
+  for row in state.objects do
+    if row.category == CategoryId.sets then continue
+    let some category := state.categories.find? (·.id == row.category) | continue
+    let declaration ← mkConstWithFreshMVarLevels row.declaration
+    let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+    let application := mkAppN declaration arguments
+    let some body ← unfoldDefinition? application true | continue
+    let receivers ← objectFieldOwners env body arguments
+    for receiver in receivers do
+      unless (arguments.zip infos).any (fun (argument, info) =>
+          info.isExplicit && argument == receiver) do continue
+      for actual in owners do
+        let candidate? ← parameterTrial do
+          unless ← isDefEq (← inferType receiver) (← inferType actual) <&&>
+              isDefEq receiver actual do return none
+          synthesizeInstances arguments infos
+          let candidate ← instantiateMVars application
+          let projected ← instantiateMVars body
+          if candidate.hasMVar || candidate.hasLevelMVar || !(← isTypeCorrect candidate) then
+            return none
+          let occurs ← selections.anyM fun (part, roots) => do
+            unless roots.contains actual do return false
+            parameterTrial <| withTransparency .all <|
+              isDefEq (← inferType projected) (← inferType part) <&&> isDefEq projected part
+          unless occurs do return none
+          let carrier ← carrierObject (.object candidate category none none none)
+          unless ← withTransparency .all <| isDefEq (← semanticObject carrier) endpoint do
+            return none
+          return some candidate
+        if let some candidate := candidate? then
+          unless found.any (fun (previous, _) => previous == candidate) do
+            found := found.push (candidate, category)
+  let some (first, category) := found[0]? | return none
+  unless found.all (fun (_, other) => other.id == category.id) do
+    throwSemanticAmbiguity m!"the declared field has several registered object categories"
+  let views ← found.mapM fun (candidate, _) => recognize state candidate category known
+  let selected ← match views with
+    | #[selectedView] => pure selectedView
+    | _ => do
+        let evidence ← coalesceSelectedParameterViews (← inferType first) first views
+        let (_, _, _, alternatives, _) := evidence
+        unless alternatives.isEmpty do
+          Trace.record (← read).trace first
+            (.parameterEquivalence (← inferType first) first alternatives)
+        pure (.object first category none none (some evidence))
+  let carrier ← carrierObject selected
+  unless ← withTransparency .all <| isDefEq (← semanticObject carrier) endpoint do
+    throwStratum .invalid m!"the declared field's registered carrier differs from its endpoint"
+  return some carrier
+
+/-- An object endpoint supplied by a checked declaration. Product endpoints are reconstructed
+through their registered universal construction, retaining each complete source parameter. -/
+partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEntry)
+    (known : Array Value) (fixedParameters : Array Expr := #[]) : M Value := do
+  let state ← registryState
+  let productEndpoint (product : Expr) : M Value := do
+    let #[left, right] := product.getAppArgs | unreachable!
+    let first ← declaredEndpointObject left category known fixedParameters
+    let second ← declaredEndpointObject right category known fixedParameters
+    let diagram ← standardDiagram "product" #[first, second]
+    let presentation ← limitIn false "product" diagram category
+    let apex ← apexOf false presentation
+    unless ← isDefEq apex endpoint do
+      throwStratum .invalid m!"the declared product endpoint differs from its registered construction"
+    Trace.alias (← read).trace presentation apex
+    let source := Value.object apex category none none none
+    return .object apex category none none (some (#[first, second], source, #[], #[], #[]))
+  -- An explicit product in the declaration already supplies its construction. There is
+  -- no unknown whole structure to discover by repeatedly trying every component carrier.
+  -- A selected object's carrier is recognized first unless the endpoint itself is a product.
+  let mut direct := endpoint.consumeMData
+  while direct.isAppOfArity ``id 2 do direct := direct.appArg!.consumeMData
+  if category.id == CategoryId.sets && direct.isAppOf ``Prod then
+    return ← productEndpoint direct
+  if category.id == CategoryId.sets then
+    if let some projected ← declaredFieldEndpoint? state endpoint known then return projected
+  if let some recognized ← recognizedEndpoint? state endpoint category known fixedParameters then
+    return recognized
+  let reduced ← whnfR endpoint
+  if category.id == CategoryId.sets && reduced.isAppOf ``Prod then
+    return ← productEndpoint reduced
+  unless ← isTypeCorrect endpoint do
+    throwStratum .invalid m!"the declared endpoint is outside its actual type"
+  return .object endpoint category none none none
+
+/-- The target of an actual declared inclusion. A function-space target supplies its exact
+map domain and codomain; it never borrows a named presentation from a matching carrier. -/
 partial def inclusionTargetValue (D : Value) (endpoint : Expr)
     (category : NamedCategoryEntry) : M Value := do
-  let .object _ _ (some (_, parameters)) .. := D
-    | return ← recognize (← registryState) endpoint category
-  let mut candidates : Array Value := #[]
-  for parameter in parameters do
-    unless parameter matches .object .. do continue
-    let carrier ← carrierObject parameter
-    let .object handle carrierCategory .. := carrier | unreachable!
-    if carrierCategory.id == category.id && (← parameterTrial (isDefEq handle endpoint)) then
-      candidates := candidates.push carrier
-  match candidates.toList with
-  | [candidate] =>
-      unless ← isDefEq (← semanticObject candidate) endpoint do
-        throwStratum .invalid m!"the retained parameter carrier is not the declared inclusion endpoint"
-      return candidate
-  | [] => recognize (← registryState) endpoint category
-  | _ => throwSemanticAmbiguity m!"several retained structures give this inclusion endpoint"
+  let state ← registryState
+  let known := #[D]
+  if let some recognized ← recognizedEndpoint? state endpoint category known then
+    return recognized
+  let reduced ← whnfR endpoint
+  if category.id == CategoryId.sets && reduced.isForall && !reduced.bindingBody!.hasLooseBVars then
+    return .homSet (← declaredEndpointObject reduced.bindingDomain! category known)
+      (← declaredEndpointObject reduced.bindingBody! category known)
+  declaredEndpointObject endpoint category known
 
 /-- The element (or map) `v` admitted into the domain `D` by its registered admission
 `∀ params (x : B) (h : P x), 1 ⟶ D params`, the evidence `P x` established when the statement is
@@ -4802,7 +5321,8 @@ partial def admit (D : Value) (v : Value) : M Value := do
         if (← read).stage.isSome then
           throwStratum .invalid m!"a variable is not established to lie in {entry.name}: the \
             evidence of an admission is of a value"
-        `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
+        `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h)
+          $(← quoteExpr (← globalPoint)))
     | .morphism f .. =>
         -- The function the map is, so that its evidence is about that function.
         quoteExpr (← functionOf f)
@@ -4810,7 +5330,9 @@ partial def admit (D : Value) (v : Value) : M Value := do
   let one ← semanticObject (← oneObject)
   let c ← mkConstWithFreshMVarLevels admission
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType c)
-  unless ← isDefEq type (← mkAppM ``Quiver.Hom #[one, ← semanticObject D]) do
+  let some (admissionSource, admissionTarget) := homEnds? type
+    | throwStratum .invalid m!"the admission of {entry.name} is not a family of points"
+  unless ← isDefEq admissionTarget (← semanticObject D) do
     throwStratum .invalid m!"the admission of {entry.name} does not land in it"
   let explicit := (List.range args.size).toArray.filter (infos[·]!.isExplicit)
   -- The element: the first explicit binder the target does not depend on (the parameters of the
@@ -4838,9 +5360,18 @@ partial def admit (D : Value) (v : Value) : M Value := do
   Trace.record (← read).trace admitted
     (.admittedPoint entry.id category.id parameters original originalCategory
       originalSource originalTarget)
-  let .object oneHandle .. ← oneObject | unreachable!
-  let hom ← homIn (← quoteExpr admitted) oneHandle d category
-  Trace.alias (← read).trace admitted hom
+  let source ← instantiateMVars admissionSource
+  let point ← if ← isDefEq source one then pure admitted else do
+    let some comparison ← operationPointComparison source
+      | throwStratum .invalid m!"the admission's source has no registered global-point comparison"
+    let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[comparison, admitted]
+    unless ← isTypeCorrect composite do
+      throwStratum .invalid m!"the admission's terminal comparison has incompatible endpoints"
+    Trace.record (← read).trace composite
+      (.morphismComposition category.id comparison admitted one source d)
+    pure composite
+  let hom ← homIn (← quoteExpr point) one d category
+  Trace.alias (← read).trace point hom
   return .element hom D
 
 /-- Instantiate an operation from a fully selected receiver at its actual explicit binder.
@@ -4929,7 +5460,8 @@ partial def applyTo (semantic : Term) (elements : Array Value) (target : Value)
   let one := (← whnfR (← inferType x₀)).appFn!.appArg!
   let (source, mediator) ← match operands with
     | #[(x, a₁), (y, a₂)] =>
-        let diagram ← `(CategoryTheory.Limits.pair $(← quoteExpr a₁) $(← quoteExpr a₂))
+        let diagram ← standardDiagram "product"
+          #[.object a₁ category none none none, .object a₂ category none none none]
         let cone ← limitIn false "product" diagram category
         let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt
           #[← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[cone]]
@@ -4978,8 +5510,15 @@ partial def asAnswer (v : Value) : M Expr := do
       mkEq e truth
   | _ => throwStratum .invalid m!"a decision is a property or a truth value"
 
-/-- The terminal set `1`, the domain of global elements: `Fin(1)`. -/
-partial def oneObject : M Value := do object (← registryState) "Fin" #[.nat 1] none
+/-- The registered terminal set `1`, the domain of global elements. -/
+partial def oneObject : M Value := do
+  let state ← registryState
+  let source ← globalPointSource
+  let some category := state.categories.find? (·.id == CategoryId.sets)
+    | throwStratum .invalid m!"no registered category of sets"
+  if ← parameterCompatible (do discard <| recognize state source category; pure true) then
+    recognize state source category
+  else pure (.object source category none none none)
 
 /-- The registered power object whose family `𝒫` the set `P` is a value of, and its `X`. -/
 partial def powerOf? (P : Value) : M (Option (PowerObjectEntry × Value)) := do
@@ -4994,14 +5533,14 @@ partial def powerSetOf? (v : Value) : M (Option (PowerObjectEntry × Value)) := 
 /-- `𝒫(X)`. -/
 partial def powerSetOf (X : Value) : M Value := do
   let state ← registryState
-  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let po ← powerObjectIn state CategoryId.sets
   let some entry := state.objects.find? (·.id == po.object) | unreachable!
   object state entry.name #[X] none
 
 /-- The terminal map `S → 1`, by the registered power object's structure. -/
 partial def terminalAt (S : Value) : M Expr := do
   let state ← registryState
-  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let po ← powerObjectIn state CategoryId.sets
   let .object s category _ _ _ := S | throwStratum .invalid m!"a stage is a set"
   let .object one _ _ _ _ ← oneObject | unreachable!
   let terminal ← homIn (← `($(mkCIdent po.terminal) $(← paramTerms #[S])*)) s one category
@@ -5053,7 +5592,7 @@ partial def power (scope : Scope) (base : Value) (k : Nat) (ambient? : Option Va
         if (← coercionMap Y X).isSome then pure X else pure Y
     | .element _ X, _ => pure X
     | _, some X => pure X
-    | _, none => object (← registryState) "ℤ" #[] none
+    | _, none => notationObject "literal.integral.domain"
   applyOperation "^" #[← toElement base X] X #[.nat k]
 
 /-- The identity `X → X`: the generic element of `X` at the stage `X`. -/
@@ -5084,6 +5623,20 @@ partial def callableMap (category : NamedCategoryEntry) (domain target body : Ex
   Trace.record (← read).trace wrapped (.callableRecipe category.id domain target body)
   return wrapped
 
+/-- A function body inhabits its independently declared codomain when its actual map already
+has that exact carrier type. This retains the codomain's selected structure without changing
+the operations used to form the body. Other carrier types require a declared coercion. -/
+partial def declaredResult (value target : Value) : M Value := do
+  let target ← carrierObject target
+  if let .element arrow source := value then
+    let some (_, endpoint) := homEnds? (← inferType arrow)
+      | throwStratum .invalid m!"a function body has no categorical target"
+    unless ← isDefEq endpoint (← semanticObject source) do
+      throwStratum .invalid m!"a function body differs from its retained target"
+    if ← isDefEq endpoint (← semanticObject target) then
+      return .element arrow target
+  toElement value target
+
 /-- `e` read at the stage `X` with `t` its generic element: a generalized element `X → Y`. -/
 partial def atStage (scope : Scope) (t : Name) (X : Value) (e : Syntax)
     (ambient? : Option Value) : M Value := do
@@ -5094,13 +5647,137 @@ partial def atStage (scope : Scope) (t : Name) (X : Value) (e : Syntax)
     | .nat _, some Y => toElement v Y
     | _, _ => pure v
 
+/-- The exact declared components of an element. Named families publish their finite
+coordinate maps; constructed products retain their accepted cone and its defining legs. -/
+partial def componentElements (value : Value) (count : Nat) : M (Array Value) := do
+  let .element _ X@(.object objectHandle category origin _ _) := value
+    | throwStratum .invalid m!"a component pattern binds an element of its declared domain"
+  let state ← registryState
+  if let some (entry, parameters) := origin then
+    if let some components := entry.components then
+      let arityTerms ← typedParamTerms components.arity parameters
+      let arity ← instantiateMVars (← elabTermAndSynthesize
+        (← `($(mkCIdent components.arity) $arityTerms*)) none)
+      let normalizedArity ← withTransparency .all <| whnf arity
+      let some actualCount ← (Meta.evalNat normalizedArity).run
+        | throwStratum .invalid m!"the selected component arity is not determined"
+      unless actualCount == count do
+        throwStratum .invalid m!"the argument has {actualCount} components, but its pattern has {count}"
+      let terms ← typedParamTerms components.projection parameters
+      let family ← elabTermAndSynthesize (← `($(mkCIdent components.projection) $terms*)) none
+      let signature ← whnfR (← inferType family)
+      unless signature.isForall do
+        throwStratum .invalid m!"the registered components have no finite index"
+      let some row := state.morphisms.find? fun row =>
+          row.declaration == components.projection && row.category == category.id
+        | throwStratum .invalid m!"the registered component projection has no callable morphism row"
+      return ← (List.range count).toArray.mapM fun ordinal => do
+        let index ← constructionIndex signature.bindingDomain! ordinal
+        let projection ← instantiateMVars (mkApp family index)
+        unless !projection.hasMVar && !projection.hasLevelMVar && (← isTypeCorrect projection) do
+          throwStratum .invalid m!"a component map is outside its exact dependent signature"
+        let some (source, target) := homEnds? (← inferType projection)
+          | throwStratum .invalid m!"the registered component is not a morphism"
+        unless ← isDefEq source objectHandle do
+          throwStratum .invalid m!"the component belongs to a different selected object"
+        Semantic.namedMorphism row projection (← read).trace
+        let targetValue ← try recognize state target category parameters
+          catch error =>
+            if Exception.stratum? error == some .invalid then
+              pure (.object target category none none none)
+            else throw error
+        applyTo (← quoteExpr projection) #[value] targetValue
+  let mut apex := objectHandle.consumeMData
+  while apex.isAppOfArity ``id 2 do apex := apex.appArg!.consumeMData
+  unless apex.isAppOf ``CategoryTheory.Limits.Cone.pt do
+    throwStratum .invalid m!"the selected object declares no component maps"
+  let cone := apex.appArg!
+  let projections ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
+  let app ← mkAppM ``CategoryTheory.NatTrans.app #[projections]
+  let (indices, _, _) ← forallMetaTelescopeReducing (← inferType app)
+  let #[parameter] := indices
+    | throwStratum .invalid m!"the selected cone has no unique component index"
+  let indexType ← instantiateMVars (← inferType parameter)
+  if ← parameterCompatible (do discard <| constructionIndex indexType count; pure true) then
+    throwStratum .invalid m!"the component pattern does not cover the selected cone's finite diagram"
+  let name ← mkFreshUserName `_componentSource
+  let identifier := mkIdent name
+  let term ← `(cas_term| $identifier:ident)
+  return ← (List.range count).toArray.mapM fun ordinal => do
+    let index := Syntax.mkNumLit (toString ordinal)
+    let projection ← withReader (fun ctx => { ctx with bound := (name, X) :: ctx.bound }) do
+      constructionLeg {} term (← `(cas_term| $index:num))
+    let .morphism hom _ _ _ (some (_, target)) := projection
+      | throwStratum .invalid m!"a component of the selected cone is not a map"
+    applyTo (← quoteExpr hom) #[value] target
+
+/-- Bind a pattern through the source's declared maps, retaining every selected component. -/
+partial def bindPattern (pattern : Syntax) (value : Value) : M (List (Name × Value)) := do
+  match pattern with
+  | `(cas_term| $name:ident) => return [(name.getId, value)]
+  | `(cas_term| ($inner)) => bindPattern inner value
+  | _ =>
+      unless pattern.getKind == ``casTuple do
+        throwStratum .invalid m!"a map argument pattern contains only names and component tuples"
+      let patterns := #[pattern[1]] ++ pattern[3].getSepArgs
+      let components ← componentElements value patterns.size
+      return (← (patterns.zip components).mapM fun (pattern, value) => bindPattern pattern value).toList.flatten
+
+/-- A map with a destructured domain argument. Its body is read at the one original stage;
+the component variables are its projections, so compositions retain their common domain. -/
+partial def patternMap (scope : Scope) (pattern body : Syntax) (X Y : Value) : M Value := do
+  let names := patternNames pattern
+  unless names.toList.eraseDups.length == names.size do
+    throwStratum .invalid m!"a map argument binds each component name once"
+  let bindings ← bindPattern pattern (.element (← identityAt X) X)
+  let result ← withReader (fun ctx =>
+      { ctx with stage := some X, bound := bindings ++ ctx.bound }) do
+    declaredResult (← eval scope body none (some Y)) Y
+  let .element hom target := result
+    | throwStratum .invalid m!"the body of a destructured map is not an element of its codomain"
+  let (.object source category .., .object destination ..) := (X, target) | unreachable!
+  let hom ← callableMap category source destination hom
+  return .morphism hom source destination category (some (X, target))
+
 /-- The map `t ↦ e : X → Y`. -/
 partial def lambda (scope : Scope) (t : Name) (e : Syntax) (X Y : Value) : M Value := do
-  let .element body Y' ← atStage scope t X e (some Y)
+  let .element body Y' ← declaredResult (← atStage scope t X e (some Y)) Y
     | throwStratum .invalid m!"the body of `{t} ↦ …` is an element of `{shown e}`'s set"
   let (.object x category _ _ _, .object y _ _ _ _) := (X, Y') | unreachable!
   let body ← callableMap category x y body
   return .morphism body x y category (some (X, Y'))
+
+/-- The input object of an element's registered application, after its actual callable
+object fixes the dependent parameters. An inclusion may supply that callable object. -/
+partial def callableInput (declaration : Name) (category : NamedCategoryEntry)
+    (value : Value) : M Value := do
+  let .element _ original := value
+    | throwStratum .invalid m!"a registered application acts on an element"
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (parameters, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+  let some (source, _) := homEnds? type
+    | throwStratum .invalid m!"the registered application is not a family of maps"
+  let source ← whnfR source
+  let (callable, input) ← match source.getAppFn.constName?, source.getAppArgs with
+    | some ``Prod, #[callable, input] => pure (callable, input)
+    | _, _ => throwStratum .invalid m!"the registered application has no callable and input pair"
+  let state ← registryState
+  let mut owner := original
+  let mut matched := false
+  for _ in [:state.objects.size + 1] do
+    if ← parameterCompatible (bindSourceParameter callable owner) then
+      unless ← bindSourceParameter callable owner do unreachable!
+      matched := true
+      break
+    let some (_, endpoint) ← inclusionOut? owner | break
+    owner ← inclusionTargetValue owner endpoint category
+  unless matched do
+    throwStratum .invalid m!"the selected callable is outside its registered application source"
+  synthesizeInstances parameters infos
+  let input ← instantiateMVars input
+  if input.hasMVar || input.hasLevelMVar then
+    throwStratum .invalid m!"the selected callable does not determine its complete input object"
+  declaredEndpointObject input category #[owner]
 
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
@@ -5109,16 +5786,20 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   if let .element _ (.object _ _ (some (entry, _)) _ _) := f then
     let some (application, category, params, address) ← applicationOf? f
       | throwStratum .invalid m!"the elements of {entry.name} are not applied"
-    let #[arg] := args | throwStratum .invalid m!"an element of {entry.name} takes one argument"
-    let v ← match ← eval scope arg with
-      | v@(.element ..) => pure v
-      | v => match params.find? (· matches .object ..) with
-        | some R => toElement v R
-        | none => throwStratum .invalid m!"`{shown arg}` is not an element"
+    if args.isEmpty then throwStratum .invalid m!"a callable element takes its input argument"
+    let v ← match args with
+      | #[arg] => match ← eval scope arg with
+        | v@(.element ..) => pure v
+        | v => match params.find? (· matches .object ..) with
+          | some R => toElement v R
+          | none => throwStratum .invalid m!"`{shown arg}` is not an element"
+      | _ =>
+        let input ← callableInput application category f
+        toElement (← tuple scope args (some input)) input
     return ← applyFamily application category #[f, v] (callableAddress := some address)
   let .morphism h _ _ category (some (X, Y)) := f
     | throwStratum .invalid m!"only a map `X → Y` is applied"
-  let #[arg] := args | throwStratum .invalid m!"a map `X → Y` takes one argument"
+  if args.isEmpty then throwStratum .invalid m!"a map `X → Y` takes its domain argument"
   let sourceCarrier ← carrierObject X
   let targetCarrier ← carrierObject Y
   let .object source sets .. := sourceCarrier | unreachable!
@@ -5136,6 +5817,8 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
       | _ => throwSemanticAmbiguity m!"the map has no unique registered carrier interpretation"
     unless cls.ambiguities.isEmpty do
       throwSemanticAmbiguity m!"the map carrier interpretation has unresolved comparisons"
+    discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses
+      (some (← semanticObject X))
     let route ← match cls.sources.toList with
       | [entry] => pure entry
       | _ => throwSemanticAmbiguity m!"the map has several directed carrier interpretations"
@@ -5145,7 +5828,9 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
     unless route.steps.isEmpty do
       Trace.record (← read).trace mapped
         (.morphismTransport category.id sets.id route.refs h)
-    let v ← eval scope arg none (some sourceCarrier)
+    let v ← match args with
+      | #[arg] => eval scope arg none (some sourceCarrier)
+      | _ => tuple scope args (some sourceCarrier)
     -- A map applied to its whole carrier domain is its image.
     if let .object .. := v then return ← imageOfMap mapped sourceCarrier targetCarrier
     let .element x _ ← toElement v sourceCarrier
@@ -5162,7 +5847,7 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
 /-- The image `f(X) ∈ 𝒫 Y` of a map `f : X → Y`. -/
 partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
   let state ← registryState
-  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let po ← powerObjectIn state CategoryId.sets
   let P ← powerSetOf Y
   let .object p category _ _ _ := P | unreachable!
   let .object one _ _ _ _ ← oneObject | unreachable!
@@ -5206,7 +5891,7 @@ partial def imageOf (scope : Scope) (e : Syntax) (t : Name) (X : Value) : M Valu
 /-- `{t ∈ X | P}`, the subset of `X` the predicate `t ↦ P` classifies (its transpose). -/
 partial def comprehension (scope : Scope) (t : Name) (X : Value) (p : Syntax) : M Value := do
   let state ← registryState
-  let some po := state.powerObjects[0]? | throwStratum .invalid m!"no registered power object"
+  let po ← powerObjectIn state CategoryId.sets
   let .element predicate _ ← atStage scope t X p none
     | throwStratum .invalid m!"`{shown p}` is a predicate"
   let P ← powerSetOf X
@@ -5245,7 +5930,8 @@ partial def subsetLiteral (form : SubsetLiteralEntry) (xs : Array Syntax)
   let elements ← xs.zipIdx.mapM fun (x, i) => do
     let .element h _ ← coerceTo (← readElement x i) X
       | throwStratum .invalid m!"`{shown x}` is not an element of {← semanticObject X}"
-    `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h) 0)
+    `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr h)
+      $(← quoteExpr (← globalPoint)))
   let literal ← if elements.isEmpty then `((∅ : $(← quoteExpr literalType)))
     else `(({$elements:term,*} : $(← quoteExpr literalType)))
   let literal ← instantiateMVars (← elabTermEnsuringType literal literalType)
@@ -5269,19 +5955,20 @@ partial def explicitlyTypedSetElement (scope : Scope) (stx : Syntax) : M Bool :=
       return ← explicitlyTypedSetElement scope t
   return false
 
-/-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of `𝒫(ℤ)`): the literal of the power
+/-- `{x₁, …, xₙ}`, a subset of the enclosing `𝒫(X)` (else of the registered default domain):
+the literal of the power
 object's registered subset-literal form where it applies (`subsetLiteral`), else the union of
 singletons. -/
 partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Value) : M Value := do
   let inferred? ← if ambient?.isNone then some <$> xs.mapM (eval scope ·) else pure none
-  -- Without an enclosing `𝒫(X)`: the set its elements are in, else `ℤ`.
+  -- Without an enclosing `𝒫(X)`: the set its elements are in, else the published default.
   let P ← match ambient? with
     | some P => pure P
     | none =>
         let sets := inferred?.get!.filterMap fun | .element _ X => some X | _ => none
         match ← commonSet? sets, sets[0]? with
         | some X, _ | none, some X => powerSetOf X
-        | none, none => powerSetOf (← object (← registryState) "ℤ" #[] none)
+        | none, none => powerSetOf (← notationObject "literal.finite_subset.domain")
   -- In a domain of subsets (`𝒫_fin(X) ↪ 𝒫(X)`): a set literal is a subset, in `𝒫(X)`, which the
   -- domain's elements are compared in along its inclusion.
   let P ← match ← powerOf? P, ← inclusionOut? P with
@@ -5316,18 +6003,25 @@ partial def setLiteral (scope : Scope) (xs : Array Syntax) (ambient? : Option Va
 partial def product (scope : Scope) (colimit : Bool) (a b : Syntax)
     (category? : Option NamedCategoryEntry) : M Value := do
   let symbol := if colimit then "⊔" else "×"
-  let .object x category _ _ _ ← asObject (← eval scope a category?)
+  let first ← asObject (← eval scope a category?)
+  let first ← match category? with
+    | some category => objectInCategory first category
+    | none => pure first
+  let .object x category _ _ _ := first
     | throwStratum .invalid m!"`{symbol}` is of objects"
-  let .object y category' _ _ _ ← asObject (← eval scope b (some category))
+  let second ← objectInCategory (← asObject (← eval scope b (some category))) category
+  let .object y category' _ _ _ := second
     | throwStratum .invalid m!"`{symbol}` is of objects"
   unless category.id == category'.id do
     throwStratum .invalid m!"`{symbol}` of objects of {category.name} and {category'.name}"
-  let diagram ← `(CategoryTheory.Limits.pair $(← quoteExpr x) $(← quoteExpr y))
   let shape := if colimit then "coproduct" else "product"
+  let diagram ← standardDiagram shape
+    #[.object x category none none none, .object y category none none none]
   let presentation ← limitIn colimit shape diagram category
   let apex ← apexOf colimit presentation
   Trace.alias (← read).trace presentation apex
-  return .object apex category none none none
+  let source := Value.object apex category none none none
+  return .object apex category none none (some (#[first, second], source, #[], #[], #[]))
 
 end
 
@@ -5370,16 +6064,14 @@ unavailable backend. -/
 def Outcome.fails (o : Outcome) : Bool :=
   !(o matches .holds | .gap _ | .unavailable _)
 
-/-- Classify a reader ambiguity or a contract failure; an unclassified exception is internal. -/
+/-- Classify failures at the interpretation boundary. A computational failure before a
+complete question exists is an internal reader failure, rather than a missing leaf. -/
 def Outcome.ofException (e : Exception) : TermElabM Outcome := do
   let message ← e.toMessageData.toString
-  if Exception.isSemanticAmbiguity e then return .ambiguous message
-  return match Exception.stratum? e with
-    | some .invalid => .invalid message
-    | some .noImplementation | some .ambiguousRealization => .gap message
-    | some .unavailable => .unavailable message
-    | some .malformed => .malformed message
-    | _ => .internal message
+  return match Exception.interpretationKind e with
+    | .invalid => .invalid message
+    | .ambiguous => .ambiguous message
+    | .internal => .internal message
 
 /-- `lit` as a value of the literal type `type`. -/
 def literalExpr (type : Name) : Value → TermElabM Expr
@@ -5427,6 +6119,7 @@ def comparands (scope : Scope) (l r : Syntax) : M (Value × Value) := do
       pure (← eval scope l none ambient, right)
   -- Elements are compared as morphisms `1 → X`; a numeral side is an element of `X`.
   let (left, right) ← match left, right with
+    | .element .., .element .. => pure (left, right)
     | .element _ X, _ => pure (left, ← toElement right X)
     | _, .element _ X => pure (← toElement left X, right)
     | _, _ => pure (left, right)
@@ -5452,6 +6145,19 @@ def comparands (scope : Scope) (l r : Syntax) : M (Value × Value) := do
 /-- The name and term a `let` binds: `let x := t`; `let x : T := t` binds `t in T`;
 `let f(t) := e in X → Y` binds `(t ↦ e) in X → Y`. -/
 def letBinding? (stx : Syntax) : TermElabM (Option (Name × Syntax)) := do
+  if stx.getKind == ``casLetArgs then
+    let function := stx[1].getId
+    let first : TSyntax `ident := ⟨stx[3]⟩
+    let rest : Array (TSyntax `cas_term) ← stx[5].getSepArgs.mapM fun argument => do
+      let argument : TSyntax `ident := ⟨argument⟩
+      `(cas_term| $argument:ident)
+    let first ← `(cas_term| $first:ident)
+    let expression : TSyntax `cas_term := ⟨stx[8]⟩
+    let bind (body : TSyntax `cas_term) : TermElabM (TSyntax `cas_term) :=
+      `(cas_term| ($first, $rest,*) ↦ $body)
+    if let `(cas_term| $body in $target) := expression then
+      return some (function, ← `(cas_term| $(← bind body) in $target))
+    return some (function, ← bind expression)
   match stx with
   | `(cas_stmt| let $x:ident := $t) => return some (x.getId, t)
   | `(cas_stmt| let $x:ident : $T := $t) => return some (x.getId, ← `(cas_term| $t in $T))
@@ -5468,7 +6174,8 @@ partial def binders (stx : Syntax) : Array Name :=
     | `(cas_term| {$t:ident ∈ $_ | $_}) => #[t.getId]
     | `(cas_term| {$_ | $t:ident ∈ $_}) => #[t.getId]
     | _ =>
-      if stx.getKind == ``casBig then #[stx[2].getId]
+      if stx.getKind == ``casPatternLambda then patternNames (lambdaPattern stx)
+      else if stx.getKind == ``casBig then #[stx[2].getId]
       else if stx.getKind == ``casLimit then #[stx[1].getId]
       else if stx.getKind == ``casDefinite then
         #[stx[6].getId] ++ (differentialOf? stx[6].getId).toArray
@@ -5481,20 +6188,51 @@ def isVariable (v : Name) (t : Syntax) : Bool :=
   | `(cas_term| $x:ident) => x.getId == v
   | _ => false
 
-/-- The maps a free variable `v` is applied to in `stx` (`f(v)`). -/
-partial def applicationsOf (v : Name) (stx : Syntax) : Array Syntax :=
-  let own : Array Syntax := match stx with
+/-- Every direct argument occurrence of a free variable, with its actual position and the
+number of domain components supplied to that map. -/
+partial def applicationsOf (v : Name) (stx : Syntax) : Array (Syntax × Nat × Nat) :=
+  let own : Array (Syntax × Nat × Nat) := match stx with
     | `(cas_term| $f:ident($args,*)) =>
-        if args.getElems.any (isVariable v ·.raw) then #[(Unhygienic.run `(cas_term| $f:ident)).raw]
-        else #[]
+        args.getElems.zipIdx.filterMap fun (arg, index) =>
+          if isVariable v arg then
+            some ((Unhygienic.run `(cas_term| $f:ident)).raw, index, args.getElems.size)
+          else none
     | `(cas_term| ($f)($args,*)) =>
-        if args.getElems.any (isVariable v ·.raw) then #[f.raw] else #[]
+        args.getElems.zipIdx.filterMap fun (arg, index) =>
+          if isVariable v arg then some (f.raw, index, args.getElems.size) else none
     | _ => #[]
   own ++ stx.getArgs.flatMap (applicationsOf v)
 
-/-- Read `k` with the statement's free variable, if it has one, bound as the generic element of the
-domain of the maps it is applied to (`h(-t) = h(t)` for all `t`): the statement is then about maps
-out of that domain. -/
+/-- Independent variables share a stage formed by the registered products of their exact
+domains. The returned elements are the composite projections from that one stage. -/
+partial def variableStage (domains : Array Value) : M (Value × Array Value) := do
+  let some first := domains[0]?
+    | throwStratum .invalid m!"an independent symbol context has a domain"
+  if domains.size == 1 then return (first, #[.element (← identityAt first) first])
+  let (rest, tailVariables) ← variableStage (domains.extract 1 domains.size)
+  let .object _ category .. := first | throwStratum .invalid m!"a symbol domain is an object"
+  let diagram ← standardDiagram "product" #[first, rest]
+  let presentation ← limitIn false "product" diagram category
+  let apex ← apexOf false presentation
+  Trace.alias (← read).trace presentation apex
+  let source := Value.object apex category none none none
+  let stage := Value.object apex category none none (some (#[first, rest], source, #[], #[], #[]))
+  let #[head, tail] ← componentElements (.element (← identityAt stage) stage) 2
+    | throwStratum .invalid m!"the registered product does not supply two symbol projections"
+  let .element tailMap _ := tail | unreachable!
+  let restHandle ← semanticObject rest
+  let boundValues ← tailVariables.mapM fun symbol => do
+    let .element arrow target := symbol | unreachable!
+    let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[tailMap, arrow]
+    unless ← isTypeCorrect composite do
+      throwStratum .invalid m!"independent variables do not retain one common product stage"
+    Trace.record (← read).trace composite
+      (.morphismComposition category.id tailMap arrow apex restHandle (← semanticObject target))
+    return Value.element composite target
+  return (stage, #[head] ++ boundValues)
+
+/-- Read `k` with the statement's free variables bound as projections from the registered
+product of their selected domains: the statement is then about maps out of one common stage. -/
 def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M α := do
   let state ← registryState
   -- The variables of its polynomial rings are their generators.
@@ -5503,7 +6241,7 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
   let bound := binders stx
   let keywords := [`true, `false, `unknown, `«ℵ₀»]
   let ctx ← read
-  -- A free variable is an atomic name that nothing binds and the catalogue does not name.
+  -- A free symbol is an atomic name that nothing binds and the catalogue does not name.
   let named (n : Name) : Bool :=
     let s := n.toString
     (s == "id" || s == "reindex" || s == "generator") || state.objects.any (·.name == s) || state.morphisms.any (·.name == s) ||
@@ -5514,19 +6252,31 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
   let free := (← contextualIdentifiers scope stx).filter fun n =>
     n.isAtomic && !bound.contains n && !scope.contains n && (ctx.bound.lookup n).isNone &&
       !keywords.contains n && !named n &&
-      -- `dv`, the differential of a bound variable `v`.
+      -- `dv`, the differential of a bound symbol `v`.
       !((differentialOf? n).any fun v => (ctx.bound.lookup v).isSome)
   let free := free.foldl (fun acc n => if acc.contains n then acc else acc.push n) #[]
-  match free.toList with
-  | [] => k
-  | [v] =>
-      let some f := (applicationsOf v stx)[0]?
-        | throwStratum .invalid m!"the free variable {v} is applied to no map"
-      let .morphism _ _ _ _ (some (X, _)) ← eval scope f
-        | throwStratum .invalid m!"the free variable {v} is applied to something that is not a map"
-      let generic := Value.element (← identityAt X) X
-      withReader (fun ctx => { ctx with stage := some X, bound := (v, generic) :: ctx.bound }) k
-  | _ => throwStratum .invalid m!"a statement has at most one free variable: {free.toList}"
+  if free.isEmpty then return ← k
+  let domains ← free.mapM fun symbol => do
+    let uses := applicationsOf symbol stx
+    if uses.isEmpty then throwStratum .invalid m!"the free symbol {symbol} is applied to no map"
+    let domains ← uses.mapM fun (function, position, count) => do
+      let .morphism _ _ _ _ (some (domain, _)) ← eval scope function
+        | throwStratum .invalid m!"the free symbol {symbol} is applied to something that is not a map"
+      if count == 1 then return domain
+      let components ← componentElements (.element (← identityAt domain) domain) count
+      let some (.element _ domain) := components[position]?
+        | throwStratum .invalid m!"the free symbol has no component at its argument position"
+      return domain
+    let applicable ← domains.filterM fun domain =>
+      domains.allM fun target => return (← coercionMap domain target).isSome
+    let some selected := applicable[0]?
+      | throwStratum .invalid m!"the maps of {symbol} have no common declared input domain"
+    unless ← applicable.allM (identityCarrierView selected) do
+      throwSemanticAmbiguity m!"the free symbol {symbol} has distinct selected input domains"
+    return selected
+  let (stage, boundValues) ← variableStage domains
+  let bindings := (free.zip boundValues).toList
+  withReader (fun ctx => { ctx with stage := some stage, bound := bindings ++ ctx.bound }) k
 
 /-- What a statement claims, as its semantic reading forms it: the proposition to discharge in
 Lean, and what to compute and compare when Lean does not decide it (`CasCatalogue.Realize`). -/

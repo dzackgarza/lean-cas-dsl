@@ -1,0 +1,21 @@
+-- New independent pre-execution demo; not a permanent acceptance assertion.
+-- The exact three-step linear recurrence is derived in mathematical-review.md.
+
+let repeated_M := [1, 2, -1; 0, 1, 3; 2, -1, 1] in Mat₃(ℚ)
+
+let repeated_v0 := (2, -1, 3) in ℚ³
+
+let repeated_v1 := repeated_M(repeated_v0)
+
+test v1.additional.matrix.first_application "The three row sums are 2-2-3, -1+9, and 4+1+3":
+  assert repeated_v1 = (-3, 8, 8) in ℚ³
+
+let repeated_v2 := repeated_M(repeated_v1)
+
+test v1.additional.matrix.second_application "Reuse of (-3,8,8) gives (-3+16-8,8+24,-6-8+8)":
+  assert repeated_v2 = (5, 32, -6) in ℚ³
+
+let repeated_v3 := repeated_M(repeated_v2)
+
+test v1.additional.matrix.third_application "Reuse of (5,32,-6) gives (5+64+6,32-18,10-32-6)":
+  assert repeated_v3 = (75, 14, -28) in ℚ³

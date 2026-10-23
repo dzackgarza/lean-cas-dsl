@@ -1,8 +1,11 @@
 /- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
 module
 public import CasCatalogue.Semantic
+public import CasCatalogue.Language
 public import CasCatalogue.Codec
 public import CasCatalogue.StructuredResult
+public import CasCatalogue.Admission
+public import CasContract.Port
 public import Mathlib.CategoryTheory.FintypeCat
 
 @[expose] public section
@@ -252,6 +255,30 @@ inductive PointSchema where
   | recordFields (unlabelled : Bool) (fields : Array PointSchema)
   | alternatives (constructors : Array (String × PointSchema))
 
+/-- A scalar literal has only independently fixed scalar data slots. Callable
+fields and computational endpoint inventories remain data-only interfaces. -/
+partial def PointSchema.scalarLiteral : PointSchema → Bool
+  | .plain _ => true
+  | .list element => element.scalarLiteral
+  | .recordFields _ fields => fields.all PointSchema.scalarLiteral
+  | .alternatives constructors => constructors.all (fun (_, schema) => schema.scalarLiteral)
+  | .keys _ | .graph .. => false
+
+/-- Extract wholly inline literal data, preserving its public structure while
+removing value wrappers. An owned opaque field cannot become a decoded literal. -/
+partial def inlineLiteralData? (json : Json) : Option Json := do
+  if let .ok (tag, args) := envelope json then
+    if tag == "opaqueData" then return ← none
+    if tag == "valueData" then
+      let #[value] := args | return ← none
+      return ← inlineLiteralData? value
+  match json with
+  | .arr values => return .arr (← values.mapM inlineLiteralData?)
+  | .obj fields =>
+      return Json.mkObj (← fields.toList.mapM fun (key, value) => do
+        return (key, ← inlineLiteralData? value))
+  | value => return value
+
 /-- Derive only data slots from public constructor metadata. Dependent data
 slots without an independent fixed type remain unsupported. -/
 partial def pointSchema (type : Expr) (fuel : Nat := 32) :
@@ -299,6 +326,14 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
 constructors, filling proof slots, or producing a law-bearing Lean value. -/
 partial def validatePoint (schema : PointSchema) (json : Json) :
     TermElabM (Except String Unit) := do
+  -- Opaque fields may occur inside records as well as at the outer result. Their
+  -- live owner is retained by the computational consumer. Actual finite endpoint
+  -- keys, however, must still be members of the supplied inventory verbatim.
+  unless schema matches .keys _ do
+    if (json.getObjValAs? String "ctor").toOption == some "opaqueData" then
+      return (Backend.ComputationalValue.decode json).map fun _ => ()
+    if let .ok ("valueData", #[actual]) := envelope json then
+      return ← validatePoint schema actual
   match schema with
   | .plain type => return (← Codec.decode type json).map fun _ => ()
   | .keys points =>
@@ -360,7 +395,8 @@ def projectionApplication (declaration : Name) (arity : Nat)
   unless parameters.size >= arity do return none
   for (index, argument) in supplied do
     let some parameter := parameters[index]? | return none
-    unless ← isDefEq parameter argument do return none
+    unless ← isDefEq (← inferType parameter) (← inferType argument) <&&>
+        isDefEq parameter argument do return none
   for parameter in (parameters.extract 0 arity).reverse do
     let parameter ← instantiateMVars parameter
     if parameter.isMVar then
@@ -376,6 +412,15 @@ def projectionApplication (declaration : Name) (arity : Nat)
   let type ← instantiateMVars (← inferType application)
   if type.hasMVar || type.hasLevelMVar then return none
   return some application
+
+/-- A public record projection is applicable only at its independently fixed
+receiver type. A reply's constructor tag cannot make an incompatible receiver
+into a record or turn malformed data into an interpreter exception. -/
+def recordProjection (declaration : Name) (receiver : Expr) : TermElabM (Option Expr) := do
+  let arity ← forallTelescopeReducing (← getConstInfo declaration).type
+    fun fields _ => pure fields.size
+  if arity == 0 then return none
+  projectionApplication declaration arity #[(arity - 1, receiver)]
 
 /-- The published concrete-category dictionary fixes a point type independently
 of any returned descriptor or inventory. -/
@@ -567,6 +612,58 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       return ← declarationPorts entry.declaration formalField expectedType args
     if let some entry := state.morphisms.find? (·.id.raw == tag) then
       return ← declarationPorts entry.declaration formalField expectedType args
+    if let some entry := state.inclusions.find? (·.id.raw == tag) then
+      return ← declarationPorts entry.declaration formalField expectedType args
+    if let some (declaration, _) := state.callable? tag then
+      return ← declarationPorts declaration formalField expectedType args
+    if tag == "objectField" then
+      let #[id, field, parameters] := args
+        | return .error "objectField requires its object id, public field and ordered parameters"
+      let .ok id := id.getStr? | return .error "an object field requires its registered object id"
+      let some entry := state.objects.find? (·.id.raw == id)
+        | return .error "the object field names no registered object"
+      let .ok field := field.getStr? | return .error "an object field name must be a string"
+      let declaration := match field with
+        | "inclusion" => entry.inclusion
+        | "constants" => entry.constants
+        | _ => none
+      let some declaration := declaration
+        | return .error "the object has no such released callable field"
+      let .ok parameters := parameters.getArr?
+        | return .error "object field parameters must be ordered data"
+      return ← declarationPorts declaration formalField expectedType parameters
+    if tag == "powerObjectMap" then
+      let #[id, field, parameters] := args
+        | return .error "powerObjectMap requires its power object id, public field and ordered parameters"
+      let .ok id := id.getStr? | return .error "a power-object map requires its registered id"
+      let some entry := state.powerObjects.find? (·.id.raw == id)
+        | return .error "the map names no registered power object"
+      let .ok field := field.getStr? | return .error "a power-object field name must be a string"
+      let declaration := match field with
+        | "member" => some entry.member
+        | "terminal" => some entry.terminal
+        | "transpose" => some entry.transpose
+        | "image" => some entry.image
+        | "truth" => some entry.truth
+        | _ => none
+      let some declaration := declaration
+        | return .error "the power object has no such released callable field"
+      let .ok parameters := parameters.getArr?
+        | return .error "power-object field parameters must be ordered data"
+      return ← declarationPorts declaration formalField expectedType parameters
+    if tag == "typedMap" then
+      let .ok typed := Backend.TypedMap.decode json
+        | return .error "typedMap requires its complete source, target and callable"
+      let type := expectedType.consumeMData
+      unless type.isAppOf ``Quiver.Hom do
+        return .error "typedMap requires its retained categorical endpoint types"
+      let fields := type.getAppArgs
+      let source := fields[fields.size - 2]!
+      let target := fields.back!
+      for (field, data) in #[(source, typed.source), (target, typed.target)] do
+        if let .error message ← validatePort field (← inferType field) data then
+          return .error message
+      return ← validateEndpointPort formalField typed.source typed.target typed.callable
     if tag == "map" then
       let #[action, sourceData] := args
         | return .error "map requires its selected action and source map"
@@ -613,7 +710,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
     if tag == "objectProduct" then
       let #[leftData, rightData] := args
         | return .error "objectProduct requires two complete object descriptors"
-      let formal := formalField.consumeMData
+      let formal ← withTransparency .all <| whnf formalField
       unless formal.isAppOf ``Prod do
         return .error "the product descriptor requires its retained formal factor contexts"
       let fields := formal.getAppArgs
@@ -624,40 +721,39 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         | .error message => return .error message
         | .ok () => pure ()
       return .ok ()
-    if tag == "arrow" then
-      let #[source, target, map] := args | return .error "arrow requires source, target and map"
-      let sourceField ← mkAppM ``CategoryTheory.Arrow.left #[formalField]
-      let targetField ← mkAppM ``CategoryTheory.Arrow.right #[formalField]
-      let mapField ← mkAppM ``CategoryTheory.Arrow.hom #[formalField]
-      for (field, data) in #[(sourceField, source), (targetField, target), (mapField, map)] do
-        match ← validatePort field (← inferType field) data with
-        | .error message => return .error message
-        | .ok () => pure ()
-      return .ok ()
-    if tag == "subobject" then
-      let #[source, target, inclusion] := args
-        | return .error "subobject requires source, ambient object and inclusion"
-      let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[formalField]
-      let sourceField ← mkAppM ``CategoryTheory.Arrow.left #[arrow]
-      let targetField ← mkAppM ``CategoryTheory.Arrow.right #[arrow]
-      let inclusionField ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
+    if tag == "arrow" || tag == "subobject" then
+      let #[source, target, definingMap] := args
+        | return .error "an Arrow record requires source, target and defining map"
+      -- Full subcategories retain the same three Arrow data fields. Their
+      -- independently fixed predicate is not a proof requested from the reply.
+      let refined ← recordProjection ``CategoryTheory.ObjectProperty.FullSubcategory.obj formalField
+      if tag == "subobject" && refined.isNone then
+        return .error "subobject data require an independently declared full subcategory of Arrow"
+      let arrow := refined.getD formalField
+      let some sourceField ← recordProjection ``CategoryTheory.Arrow.left arrow
+        | return .error "Arrow data require their independently declared source projection"
+      let some targetField ← recordProjection ``CategoryTheory.Arrow.right arrow
+        | return .error "Arrow data require their independently declared target projection"
+      let some mapField ← recordProjection ``CategoryTheory.Arrow.hom arrow
+        | return .error "Arrow data require their independently declared defining-map projection"
       for (field, data) in #[(sourceField, source), (targetField, target)] do
         match ← validatePort field (← inferType field) data with
         | .error message => return .error message
         | .ok () => pure ()
-      if let .error message ← validateEndpointPort inclusionField source target inclusion then
+      if let .error message ← validateEndpointPort mapField source target definingMap then
         return .error message
-      if let some presentation := (json.getObjVal? "presentation").toOption then
-        -- Both representations have the declared source-category object schema.
-        -- These are interface placeholders, not chosen canonical comparison maps.
-        let mapType ← mkAppM ``Quiver.Hom #[sourceField, sourceField]
-        for key in #["hom", "inv"] do
-          let .ok data := presentation.getObjVal? key
-            | return .error "the supplied computational presentation omitted a comparison map"
-          let placeholder ← mkFreshExprMVar mapType
-          match ← validateEndpointPort placeholder source source data with
-          | .error message => return .error message
-          | .ok () => pure ()
+      if refined.isSome then
+        if let some presentation := (json.getObjVal? "presentation").toOption then
+          -- The existing optional presentation compares the source slot. It
+          -- does not change the direction of an epi or any other defining map.
+          let mapType ← mkAppM ``Quiver.Hom #[sourceField, sourceField]
+          for key in #["hom", "inv"] do
+            let .ok data := presentation.getObjVal? key
+              | return .error "the supplied computational presentation omitted a comparison map"
+            let placeholder ← mkFreshExprMVar mapType
+            match ← validateEndpointPort placeholder source source data with
+            | .error message => return .error message
+            | .ok () => pure ()
       return .ok ()
   if ← plainType expectedType then
     return (← Codec.decode expectedType json).map fun _ => ()
@@ -699,6 +795,17 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         keys := keys.push input
       | .error message, _ | _, .error message => return .error message
     return .ok ()
+  -- Public records and quotients retain their complete data fields. Wholly
+  -- inline scalar literals additionally satisfy the independently declared
+  -- representation constraints (for example, a rational denominator is nonzero).
+  -- The checked literal is discarded. Callable/type-valued fields and opaque
+  -- components never enter this decoder or contribute mathematical evidence.
+  if let some schema ← pointSchema expectedType then
+    if let .error message ← validatePoint schema json then return .error message
+    if schema.scalarLiteral then
+      if let some literal := inlineLiteralData? json then
+        return (← Codec.decode expectedType literal).map fun _ => ()
+    return .ok ()
   return .error "the computational port has no supported released data representation"
 
 /-- A finite map is complete at its actual supplied domain. Inventories are
@@ -706,6 +813,12 @@ computational data, never an enumeration of the requested formal construction. -
 partial def validateEndpointPort (formal : Expr) (source target data : Json) :
     TermElabM (Except String Unit) := do
   let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" then
+    let .ok typed := Backend.TypedMap.decode unwrapped
+      | return .error "typedMap requires its complete source, target and callable"
+    unless typed.source == source && typed.target == target do
+      return .error "the callable's complete endpoint descriptors differ from its selected computational endpoints"
+    return ← validateEndpointPort formal source target typed.callable
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
   unless graph.getArr?.isOk do return ← validatePort formal (← inferType formal) data
   let .ok (some domain) ← endpointKeys source
@@ -730,6 +843,14 @@ def validatePlannedPort (plan : StructuredResult.DataPlan)
     (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
     TermElabM (Except String Unit) := do
   let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" &&
+      (port.domainBinder.isSome || port.codomainBinder.isSome) then
+    let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
+    let some source := port.domainBinder.bind resolve
+      | return .error "the typed callable has no actual computational domain descriptor"
+    let some target := port.codomainBinder.bind resolve
+      | return .error "the typed callable has no actual computational codomain descriptor"
+    return ← validateEndpointPort port.formalField source target data
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
   -- Ordinary scalar/list ports have no callable endpoint roles.
   unless graph.getArr?.isOk && (port.domainBinder.isSome || port.codomainBinder.isSome) do
@@ -751,5 +872,705 @@ def validatePlannedPort (plan : StructuredResult.DataPlan)
     | .error message => return .error message
     | .ok keys => codomainKeys := keys
   validateGraphAtKeys port.formalField port.expectedType data domainKeys codomainKeys
+
+mutual
+/-- Check a public declaration's complete explicit data slots without substituting
+the reply into dependent formal parameters. Closed primitive slot types are
+checked by the existing codec; other slots retain their public data grammar. -/
+partial def validateDeclaredData (declaration : Name) (data : Array Json) :
+    TermElabM (Except String Unit) := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (fields, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let mut types := #[]
+  for (field, info) in fields.zip infos do
+    let type ← instantiateMVars (← inferType field)
+    if info.isExplicit && !(← isProp type) then types := types.push type
+  unless types.size == data.size do
+    return .error "the public descriptor omitted or added declaration parameters"
+  for (type, datum) in types.zip data do
+    if !type.hasMVar && !type.hasLevelMVar && (← plainType type) then
+      if let .error message ← Codec.decode type datum then return .error message
+    else if let .error message ← validatePublicData datum then return .error message
+  return .ok ()
+
+/-- Released symbolic computational framing. This traversal produces no Lean
+value or proof and does not treat a supplied symbolic expression as the original
+formal answer. Its caller retains the independent complete interface. -/
+partial def validatePublicData (data : Json) : TermElabM (Except String Unit) := do
+  match data with
+  | .num _ => return data.getInt?.map fun _ => ()
+  | .str _ | .bool _ => return .ok ()
+  | .arr values =>
+      for value in values do
+        if let .error message ← validatePublicData value then return .error message
+      return .ok ()
+  | .null => return .error "null is not a released mathematical data constructor"
+  | .obj _ => pure ()
+  let .ok (tag, args) := envelope data
+    | return .error "symbolic computational data require a public constructor and ordered fields"
+  let state ← registryState
+  if let some entry := state.objects.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  if let some entry := state.morphisms.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  if let some entry := state.inclusions.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  if let some (declaration, _) := state.callable? tag then
+    return ← validateDeclaredData declaration args
+  if let some entry := state.functors.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  let mut diagramConstructors : Array Name := #[]
+  for row in state.limits do
+    if let some constructor ← Semantic.diagramConstructor row then
+      if Codec.label constructor == tag && !diagramConstructors.contains constructor then
+        diagramConstructors := diagramConstructors.push constructor
+  unless diagramConstructors.isEmpty do
+    for constructor in diagramConstructors do
+      if (← validateDeclaredData constructor args).isOk then return .ok ()
+    return .error "the diagram data do not frame any registered diagram constructor"
+  if tag == "opaqueData" || tag == "valueData" then
+    let .ok value := Backend.ComputationalValue.decode data
+      | return .error "the computational value envelope is malformed"
+    match value with
+    | .opaque _ => return .ok ()
+    | .inline value => return ← validatePublicData value
+  if tag == "operationExpression" then
+    let #[id, parameters, operands] := args
+      | return .error "operationExpression requires its id, complete parameters and operands"
+    let .ok id := id.getStr? | return .error "an operation id must be a string"
+    let some entry := state.operations.find? (·.id.raw == id)
+      | return .error "the expression names no registered operation"
+    let .ok parameters := parameters.getArr?
+      | return .error "operation parameters must be ordered data"
+    let .ok operands := operands.getArr?
+      | return .error "operation operands must be ordered data"
+    unless operands.size == entry.arity do
+      return .error "the operation expression has the wrong declared arity"
+    if let .error message ← validateDeclaredData entry.declaration parameters then
+      return .error message
+    for operand in operands do
+      if let .error message ← validatePublicData operand then return .error message
+    return .ok ()
+  if tag == "objectField" || tag == "powerObjectMap" then
+    let #[id, field, parameters] := args
+      | return .error "a public field requires its owner id, field and ordered parameters"
+    let .ok id := id.getStr? | return .error "the public field owner id must be a string"
+    let .ok field := field.getStr? | return .error "the public field name must be a string"
+    let .ok parameters := parameters.getArr?
+      | return .error "the public field parameters must be ordered data"
+    let declaration := if tag == "objectField" then
+      (state.objects.find? (·.id.raw == id)).bind fun entry =>
+        match field with
+        | "inclusion" => entry.inclusion
+        | "constants" => entry.constants
+        | _ => none
+    else
+      (state.powerObjects.find? (·.id.raw == id)).bind fun entry =>
+        match field with
+        | "member" => some entry.member | "terminal" => some entry.terminal
+        | "transpose" => some entry.transpose | "image" => some entry.image
+        | "truth" => some entry.truth | _ => none
+    let some declaration := declaration
+      | return .error "the registered owner has no such public callable field"
+    return ← validateDeclaredData declaration parameters
+  if tag == "presentation" then
+    let #[id, parameters, inverse] := args
+      | return .error "a presentation requires its id, ordered parameters and orientation"
+    let .ok id := id.getStr? | return .error "a presentation id must be a string"
+    let some entry := state.presentations.find? (·.id.raw == id)
+      | return .error "the presentation is not registered"
+    let .ok parameters := parameters.getArr?
+      | return .error "presentation parameters must be ordered data"
+    unless inverse.getBool?.isOk do return .error "presentation orientation must be Boolean"
+    return ← validateDeclaredData entry.declaration parameters
+  if tag == "classifierForget" then
+    let #[id, parameters] := args
+      | return .error "classifierForget requires its registered classifier and parameters"
+    let .ok id := id.getStr? | return .error "a classifier id must be a string"
+    let some entry := state.classifiers.find? (·.id.raw == id)
+      | return .error "the classifier action is not registered"
+    let .ok parameters := parameters.getArr?
+      | return .error "classifier parameters must be ordered data"
+    return ← validateDeclaredData entry.declaration parameters
+  if tag == "constructorMap" then
+    let #[id, inner] := args
+      | return .error "constructorMap requires its registered constructor and inner action"
+    let .ok id := id.getStr? | return .error "a constructor id must be a string"
+    let some entry := state.constructors.find? (·.id.raw == id)
+      | return .error "the constructor action is not registered"
+    unless entry.functorialAction.isSome do
+      return .error "the constructor has no released action on functors"
+    return ← validatePublicData inner
+  if tag == "operationPoint" then
+    let #[id, parameters, comparison, domain, selected] := args
+      | return .error "operationPoint requires its full operation, comparison, domain and selected target"
+    let .ok id := id.getStr? | return .error "an operation id must be a string"
+    let some entry := state.operations.find? (·.id.raw == id)
+      | return .error "the terminal operation is not registered"
+    unless entry.arity == 0 do return .error "the operation is not nullary"
+    let .ok parameters := parameters.getArr?
+      | return .error "operation parameters must be ordered data"
+    if let .error message ← validateDeclaredData entry.declaration parameters then
+      return .error message
+    for datum in #[comparison, domain, selected] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "extent" then
+    let #[id, ambient, subset] := args
+      | return .error "extent requires its power object, ambient object and subset data"
+    let .ok id := id.getStr? | return .error "a power-object id must be a string"
+    unless state.powerObjects.any (·.id.raw == id) do
+      return .error "the extent names no registered power object"
+    for datum in #[ambient, subset] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if #["limitApex", "limitLeg", "constructionApex", "constructionLeg"].contains tag then
+    let count := if tag == "limitApex" then 2 else if tag == "constructionLeg" then 4 else 3
+    unless args.size == count do
+      return .error "the construction projection omitted part of its complete receiver or index"
+    let .ok id := args[0]!.getStr? | return .error "a construction id must be a string"
+    unless state.limits.any (·.id.raw == id) do
+      return .error "the construction is not registered"
+    for datum in args.extract 1 args.size do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "cone" || tag == "cocone" then
+    if args.isEmpty then return .error "a complete construction requires its actual apex"
+    for datum in args do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "createdCone" || tag == "liftStep" then
+    unless args.size == (if tag == "createdCone" then 3 else 5) do
+      return .error "the prescribed lift omitted its complete construction context"
+    let .ok id := args[0]!.getStr? | return .error "a lift id must be a string"
+    unless state.lifts.any (·.id.raw == id) do return .error "the selected lift is not registered"
+    if tag == "liftStep" then
+      let .ok fields := args[4]!.getArr?
+        | return .error "a completed lift step requires all four ordered component outputs"
+      unless fields.size == 4 do
+        return .error "a completed lift step requires all four ordered component outputs"
+    for datum in args.extract 1 args.size do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "liftedSubobject" then
+    let #[base, source, ids, steps] := args
+      | return .error "a completed lifted subobject requires its base, source, route and complete steps"
+    let .ok ids := ids.getArr? | return .error "a prescribed lift route must be ordered data"
+    let .ok steps := steps.getArr? | return .error "completed lift steps must be ordered data"
+    unless ids.size == steps.size do return .error "the completed lift route omitted component outputs"
+    for (id, step) in ids.zip steps do
+      let .ok id := id.getStr? | return .error "a lift id must be a string"
+      let .ok ("liftStep", fields) := envelope step
+        | return .error "the completed lift route contains no complete step"
+      unless fields[0]?.bind (fun field => field.getStr?.toOption) == some id do
+        return .error "a completed lift step differs from its selected route id"
+      if let .error message ← validatePublicData step then return .error message
+    for datum in #[base, source] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "admittedPoint" then
+    let .ok point := Backend.AdmittedPoint.decode data
+      | return .error "the admitted point has incomplete public context"
+    let some entry := state.objects.find? (·.id.raw == point.object)
+      | return .error "the admission names no registered object"
+    unless entry.admission.isSome do return .error "the registered object has no admission interface"
+    if let .error message ← validateDeclaredData entry.declaration point.parameters then
+      return .error message
+    for datum in #[point.domain, point.source, point.target, point.argument] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  if tag == "numeral" then
+    let #[number] := args | return .error "a numeral requires exactly one natural number"
+    return number.getNat?.map fun _ => ()
+  if tag == "generator" then
+    match args with
+    | #[] => return .ok ()
+    | #[index] => return index.getNat?.map fun _ => ()
+    | #[id, parameters] =>
+      let .ok id := id.getStr? | return .error "a generator arrow requires its object id"
+      let some entry := state.objects.find? (·.id.raw == id)
+        | return .error "the generator names no registered object"
+      let some declaration := entry.generator | return .error "the object has no registered generator"
+      let .ok parameters := parameters.getArr?
+        | return .error "generator declaration parameters must be ordered data"
+      return ← validateDeclaredData declaration parameters
+    | _ => return .error "the generator has the wrong declared framing"
+  if tag == "typedMap" then
+    let .ok typed := Backend.TypedMap.decode data
+      | return .error "typedMap requires its complete source, target and callable"
+    for datum in #[typed.source, typed.target, typed.callable] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
+  let arity := match tag with
+    | "true" | "false" | "none" => some 0
+    | "point" | "neg" | "some" | "arrowHom" | "subobjectApex" | "subobjectInclusion" => some 1
+    | "add" | "mul" | "element" | "compose" | "mediator" | "map" |
+        "identity" | "zero" | "functorAction" | "objectPresentation" |
+        "objectProduct" | "finiteData" | "finiteGraph" => some 2
+    | "pointView" | "arrow" | "subobject" => some 3
+    | _ => none
+  let some arity := arity
+    | return .error "the symbolic data use no supported released constructor"
+  unless args.size == arity do return .error "the public symbolic constructor has the wrong arity"
+  for datum in args do
+    if let .error message ← validatePublicData datum then return .error message
+  return .ok ()
+end
+
+mutual
+
+/-- An element envelope contains the published expression grammar, not arbitrary
+public parameter data. In particular a raw string, scalar or object descriptor
+cannot masquerade as an element expression. This check frames syntax only; it
+neither evaluates the expression nor proves it equal to the requested point. -/
+partial def validateElementExpression (expression : Json) :
+    TermElabM (Except String Unit) := do
+  let .ok (tag, args) := envelope expression
+    | return .error "an element expression requires a published expression constructor"
+  match tag, args with
+  | "numeral", #[value] => return value.getNat?.map fun _ => ()
+  | "generator", #[] => return .ok ()
+  | "generator", #[index] => return index.getNat?.map fun _ => ()
+  | "add", #[left, right] | "mul", #[left, right] =>
+      if let .error message ← validateElementExpression left then return .error message
+      validateElementExpression right
+  | "neg", #[value] => validateElementExpression value
+  | "operationExpression", #[_, _, operands] =>
+      if let .error message ← validatePublicData expression then return .error message
+      let .ok operands := operands.getArr?
+        | return .error "operation operands must be ordered element expressions"
+      for operand in operands do
+        if let .error message ← validateElementExpression operand then return .error message
+      return .ok ()
+  | "point", #[arrow] => validateCallableData arrow
+  | _, _ => return .error "the element expression has an unknown constructor or incorrect arity"
+
+/-- Framing for an actual callable, as distinct from an object descriptor or a
+scalar parameter. Composition recursively preserves that distinction. This is
+computational syntax validation, not reconstruction of a law-bearing arrow. -/
+partial def validateCallableData (data : Json) : TermElabM (Except String Unit) := do
+  if let .arr entries := data then
+    for entry in entries do
+      let .ok #[_, _] := entry.getArr?
+        | return .error "a finite callable graph requires ordered input/output pairs"
+    return ← validatePublicData data
+  let .ok (tag, args) := envelope data
+    | return .error "a point requires its callable or finite-graph representation"
+  let state ← registryState
+  if state.morphisms.any (·.id.raw == tag) || state.inclusions.any (·.id.raw == tag) ||
+      (state.callable? tag).isSome then
+    return ← validatePublicData data
+  match tag, args with
+  | "valueData", #[value] => validateCallableData value
+  | "element", #[descriptor, expression] =>
+      let .ok _ := envelope descriptor
+        | return .error "an element point requires its complete selected object descriptor"
+      if let .error message ← validatePublicData descriptor then return .error message
+      validateElementExpression expression
+  | "compose", #[first, second] | "mediator", #[first, second] =>
+      if let .error message ← validateCallableData first then return .error message
+      validateCallableData second
+  | "map", #[action, arrow] =>
+      let .ok (actionTag, _) := envelope action
+        | return .error "a mapped callable requires its selected action descriptor"
+      unless state.functors.any (·.id.raw == actionTag) ||
+          #["classifierForget", "constructorMap"].contains actionTag do
+        return .error "a mapped callable requires a registered functor or structural edge"
+      if let .error message ← validatePublicData action then return .error message
+      validateCallableData arrow
+  | "typedMap", #[source, target, arrow] | "arrow", #[source, target, arrow] =>
+      for endpoint in #[source, target] do
+        if let .error message ← validatePublicData endpoint then return .error message
+      validateCallableData arrow
+  | "finiteGraph", #[inventory, graph] =>
+      let .ok _ := inventory.getArr?
+        | return .error "a finite callable inventory requires its complete point array"
+      if let .error message ← validatePublicData inventory then return .error message
+      validateCallableData graph
+  | "generator", #[_, _] => validatePublicData data
+  | "operationPoint", #[_, _, comparison, _, _] =>
+      if let .error message ← validatePublicData data then return .error message
+      validateCallableData comparison
+  | _, _ =>
+      if #["opaqueData", "objectField", "powerObjectMap", "presentation", "pointView",
+          "arrowHom", "limitLeg", "constructionLeg", "subobjectInclusion", "identity",
+          "zero", "admittedPoint"].contains tag then
+        validatePublicData data
+      else return .error "an object or scalar descriptor cannot serve as a callable"
+
+end
+
+/-- The selected objects used only while checking the types of symbolic data. A
+computational callable is represented by a fresh placeholder at its declared type;
+no returned function, object law, admission proof or equality is reconstructed. -/
+abbrev InterfaceObjects := Array (Json × Expr)
+
+mutual
+
+/-- Instantiate public signature parameters for type checking. Named descriptors
+refer to accepted declarations; arbitrary data occupy typed placeholders. The
+result is discarded by the response validator and is never a computed answer. -/
+partial def interfaceDeclaration (objects : InterfaceObjects)
+    (declaration : Name) (expected : Expr) (data : Array Json) :
+    TermElabM (Except String Expr) := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (fields, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+  -- A carrier does not determine a selected ring or other structured parameter.
+  -- Supply the declared arguments before requiring the resulting Hom type.
+  if ← withoutModifyingState (withTransparency .all <| isDefEq result expected) then
+    discard <| withTransparency .all <| isDefEq result expected
+  let mut position := 0
+  for (field, info) in fields.zip infos do
+    let type ← instantiateMVars (← inferType field)
+    if !info.isExplicit || (← isProp type) then continue
+    let some datum := data[position]?
+      | return .error "the symbolic declaration omitted a parameter"
+    let .ok argument ← interfaceArgument objects type datum
+      | return .error "a symbolic parameter does not have its declared interface"
+    unless ← withTransparency .all <| isDefEq field argument do
+      return .error "a symbolic parameter changes its selected dependent endpoint"
+    position := position + 1
+  unless position == data.size do return .error "the symbolic declaration added a parameter"
+  for field in fields do
+    let field ← instantiateMVars field
+    if field.isMVar then
+      let type ← instantiateMVars (← inferType field)
+      if (← isClass? type).isSome then
+        if let some dictionary := (← trySynthInstance type).toOption then
+          unless ← isDefEq field dictionary do
+            return .error "the symbolic declaration has incompatible selected structure"
+  unless ← withTransparency .all <| isDefEq result expected do
+    return .error "the symbolic declaration has incompatible complete endpoints"
+  return .ok (← instantiateMVars (mkAppN constant fields))
+
+partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
+    TermElabM (Except String Expr) := do
+  if let some (_, fixed) := objects.find? (·.1 == data) then return .ok fixed
+  let .ok (tag, args) := envelope data
+    | return .error "a symbolic endpoint requires its complete object descriptor"
+  let state ← registryState
+  if let some entry := state.objects.find? (·.id.raw == tag) then
+    let expected ← inferType (← instantiateFresh entry.declaration)
+    return ← interfaceDeclaration objects entry.declaration expected args
+  if tag == "objectProduct" then
+    let #[left, right] := args | return .error "a product endpoint requires both factors"
+    let .ok left ← interfaceObject objects left | return .error "the first product factor is incomplete"
+    let .ok right ← interfaceObject objects right | return .error "the second product factor is incomplete"
+    return .ok (← mkAppM ``Prod #[left, right])
+  if tag == "finiteData" || tag == "objectPresentation" then
+    let #[descriptor, _] := args | return .error "the endpoint wrapper is incomplete"
+    return ← interfaceObject objects descriptor
+  if tag == "functorAction" then
+    let #[action, source] := args | return .error "an object action requires its selected source"
+    let .ok action ← interfaceAction objects action | return .error "the endpoint action is incomplete"
+    let .ok source ← interfaceObject objects source | return .error "the endpoint source is incomplete"
+    return .ok (← Semantic.objOf action source)
+  return .error "the symbolic endpoint requires its independently selected object context"
+
+partial def interfaceAction (objects : InterfaceObjects) (data : Json) :
+    TermElabM (Except String Expr) := do
+  let .ok (tag, args) := envelope data | return .error "the action requires a public descriptor"
+  let state ← registryState
+  if let some entry := state.functors.find? (·.id.raw == tag) then
+    let expected ← inferType (← instantiateFresh entry.declaration)
+    let .ok action ← interfaceDeclaration objects entry.declaration expected args
+      | return .error "the action parameters have incompatible declared types"
+    return .ok (← Semantic.asFunctor action)
+  if tag == "classifierForget" then
+    let #[id, parameters] := args | return .error "the classifier action is incomplete"
+    let .ok id := id.getStr? | return .error "the classifier id must be a string"
+    let .ok parameters := parameters.getArr? | return .error "classifier parameters must be ordered"
+    let some row := state.classifiers.find? (·.id.raw == id)
+      | return .error "the classifier action is not registered"
+    let .ok classifier ← interfaceDeclaration objects row.declaration
+        (← inferType (← instantiateFresh row.declaration)) parameters
+      | return .error "the classifier parameters have incompatible declared types"
+    let mut classifier := classifier
+    let type ← whnfR (← inferType classifier)
+    if type.isAppOf ``LeanCategories.PropertyClassifier then
+      classifier ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[classifier]
+    else if type.isAppOf ``LeanCategories.StructureClassifier then
+      classifier ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[classifier]
+    return .ok (← mkAppM ``CategoryTheory.Cat.Hom.toFunctor
+      #[← mkAppM ``LeanCategories.Classifier.forget #[classifier]])
+  if tag == "constructorMap" then
+    let #[id, inner] := args | return .error "the constructor action is incomplete"
+    let .ok id := id.getStr? | return .error "the constructor id must be a string"
+    let some action := (state.constructors.find? (·.id.raw == id)).bind (·.functorialAction)
+      | return .error "the constructor has no registered action"
+    let .ok inner ← interfaceAction objects inner | return .error "the inner action is incomplete"
+    return .ok (← Semantic.applyConstructorFunctor action inner)
+  return .error "the symbolic action requires its independently selected context"
+
+partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (data : Json) :
+    TermElabM (Except String Expr) := do
+  let expected ← instantiateMVars expected
+  if ← isProp expected then return .error "a proof is not computational data"
+  if let some (_, fixed) := objects.find? (·.1 == data) then
+    unless ← isDefEq (← inferType fixed) expected do
+      return .error "the selected descriptor has a different declared type"
+    return .ok fixed
+  if let some _ := Language.homEnds? expected then
+    let .ok () ← validateCallableAt objects expected data
+      | return .error "the callable parameter has incompatible endpoints"
+    return .ok (← mkFreshExprMVar expected)
+  if let .ok (tag, _) := envelope data then
+    let state ← registryState
+    if state.objects.any (·.id.raw == tag) ||
+        #["objectProduct", "finiteData", "functorAction", "objectPresentation"].contains tag then
+      let .ok object ← interfaceObject objects data
+        | return .error "the object parameter has no complete declared interface"
+      unless ← withTransparency .all <| isDefEq (← inferType object) expected do
+        return .error "the object parameter has a different selected category"
+      return .ok object
+  if ← plainType expected then return ← Codec.decode expected data
+  let placeholder ← mkFreshExprMVar expected
+  let .ok () ← validatePort placeholder expected data
+    | return .error "the symbolic parameter has no supported declared data representation"
+  return .ok placeholder
+
+/-- Check the complete Hom type recursively, without constructing a runtime map.
+Compositions infer their middle object from declared constituents or typedMap;
+two untyped opaque maps cannot invent that missing interface. -/
+partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (data : Json) :
+    TermElabM (Except String Unit) := do
+  let expected ← instantiateMVars expected
+  let some (source, target) := Language.homEnds? expected
+    | return .error "a symbolic point requires its independently fixed Hom type"
+  let placeholder ← mkFreshExprMVar expected
+  let state ← registryState
+  if let .ok (tag, args) := envelope data then
+    let declaration := (state.callable? tag).map Prod.fst <|>
+      (state.inclusions.find? (·.id.raw == tag)).map (·.declaration)
+    if let some declaration := declaration then
+      return (← interfaceDeclaration objects declaration expected args).map fun _ => ()
+    match tag, args with
+    | "valueData", #[value] => return ← validateCallableAt objects expected value
+    | "opaqueData", _ => return (Backend.ComputationalValue.decode data).map fun _ => ()
+    | "typedMap", #[sourceData, targetData, callable] =>
+      for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
+        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor
+          | return .error "a typed callable endpoint has no complete interface"
+        unless ← withTransparency .all <| isDefEq fixed actual do
+          return .error "the typed callable changes a complete endpoint"
+      return ← validateCallableAt objects expected callable
+    | "identity", #[sourceData, targetData] | "zero", #[sourceData, targetData] =>
+      for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
+        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor
+          | return .error "the nullary callable omitted a complete endpoint"
+        unless ← withTransparency .all <| isDefEq fixed actual do
+          return .error "the nullary callable changes a complete endpoint"
+      if tag == "identity" then
+        unless ← withTransparency .all <| isDefEq source target do
+          return .error "identity requires the same complete endpoint"
+      else
+        let zeroType ← mkAppM ``CategoryTheory.Limits.HasZeroMorphisms #[expected.getAppArgs[0]!]
+        unless (← trySynthInstance zeroType).toOption.isSome do
+          return .error "zero requires the selected category's zero-morphism structure"
+      return .ok ()
+    | "presentation", #[id, parameters, inverse] =>
+      let .ok id := id.getStr? | return .error "the presentation id must be a string"
+      let .ok parameters := parameters.getArr? | return .error "presentation parameters must be ordered"
+      let .ok inverse := inverse.getBool? | return .error "presentation orientation must be Boolean"
+      let some row := state.presentations.find? (·.id.raw == id)
+        | return .error "the presentation is not registered"
+      let .ok comparison ← interfaceDeclaration objects row.declaration
+          (← inferType (← instantiateFresh row.declaration)) parameters
+        | return .error "the presentation parameters have incompatible declared types"
+      let arrow ← Semantic.presentationArrow row comparison inverse
+      unless ← withTransparency .all <| isDefEq (← inferType arrow) expected do
+        return .error "the presentation has incompatible complete endpoints"
+      return .ok ()
+    | "generator", #[id, parameters] =>
+      let .ok id := id.getStr? | return .error "the generator owner must be a string"
+      let .ok parameters := parameters.getArr? | return .error "generator parameters must be ordered"
+      let some declaration := (state.objects.find? (·.id.raw == id)).bind (·.generator)
+        | return .error "the object has no registered generator"
+      return (← interfaceDeclaration objects declaration expected parameters).map fun _ => ()
+    | "admittedPoint", _ =>
+      let .ok admitted := Backend.AdmittedPoint.decode data
+        | return .error "the admitted point omitted its complete interface"
+      if let .error message ← validatePublicData data then return .error message
+      let .ok domain ← interfaceObject objects admitted.domain | return .error "the admitted domain is incomplete"
+      let .ok original ← interfaceObject objects admitted.source | return .error "the original endpoint is incomplete"
+      let .ok selected ← interfaceObject objects admitted.target | return .error "the admitted endpoint is incomplete"
+      unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target selected do
+        return .error "the admitted point changes a complete endpoint"
+      let checked ← withoutModifyingState <|
+        validateCallableAt objects (← mkAppM ``Quiver.Hom #[domain, original]) admitted.argument
+      if checked.isOk then return checked
+      unless ← withTransparency .all <| isDefEq domain (← Language.globalPointSource.run {}) do
+        return checked
+      return ← validatePort (← mkFreshExprMVar original) original admitted.argument
+    | "pointView", #[selectedData, original, domainData] =>
+      let .ok domain ← interfaceObject objects domainData | return .error "the point view domain is incomplete"
+      let .ok selected ← interfaceObject objects selectedData | return .error "the selected point view is incomplete"
+      let .ok carrier ← interfaceCarrier selected selectedData | return .error "the point view has no declared carrier"
+      unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target carrier do
+        return .error "the point view changes a complete endpoint"
+      return ← validateCallableAt objects expected original
+    | "operationPoint", #[id, parameters, comparison, domainData, selectedData] =>
+      let .ok id := id.getStr? | return .error "the nullary operation id must be a string"
+      let .ok parameters := parameters.getArr? | return .error "nullary parameters must be ordered"
+      let some row := state.operations.find? (·.id.raw == id)
+        | return .error "the nullary operation is not registered"
+      unless row.arity == 0 do return .error "the operation is not nullary"
+      let .ok domain ← interfaceObject objects domainData | return .error "the nullary point domain is incomplete"
+      let .ok selected ← interfaceObject objects selectedData | return .error "the nullary selection is incomplete"
+      let .ok carrier ← interfaceCarrier selected selectedData | return .error "the nullary selection has no carrier"
+      unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target carrier do
+        return .error "the nullary point changes a complete endpoint"
+      let operationSource ← mkFreshExprMVar (← inferType target)
+      let .ok _ ← interfaceDeclaration objects row.declaration
+          (← mkAppM ``Quiver.Hom #[operationSource, target]) parameters
+        | return .error "the nullary operation changes its selected result interface"
+      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[source, operationSource]) comparison
+    | "compose", #[first, second] =>
+      let middle ← mkFreshExprMVar (← inferType source)
+      if let .error message ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[source, middle]) first then
+        return .error message
+      if let .error message ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[middle, target]) second then
+        return .error message
+      if (← instantiateMVars middle).hasMVar then
+        return .error "the symbolic composition omitted its intermediate object interface"
+      return .ok ()
+    | "mediator", #[first, second] =>
+      let left ← mkFreshExprMVar (← inferType target)
+      let right ← mkFreshExprMVar (← inferType target)
+      unless ← withTransparency .all <| isDefEq target (← mkAppM ``Prod #[left, right]) do
+        return .error "the mediator does not land in the declared product"
+      if let .error message ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[source, left]) first then
+        return .error message
+      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[source, right]) second
+    | "element", #[descriptor, expression] =>
+      let .ok selected ← interfaceObject objects descriptor
+        | return .error "the nested point lost its selected object"
+      let .ok carrier ← interfaceCarrier selected descriptor
+        | return .error "the nested point has no independently declared carrier"
+      unless ← withTransparency .all <| isDefEq source (← Language.globalPointSource.run {}) <&&>
+          isDefEq target carrier do
+        return .error "the nested point has incompatible complete endpoints"
+      return ← validateElementExpressionAt (objects.push (descriptor, selected)) selected carrier expression
+    | "map", #[action, arrow] =>
+      let .ok action ← interfaceAction objects action | return .error "the mapped callable has no selected action"
+      let actionType ← whnfR (← inferType action)
+      unless actionType.isAppOf ``CategoryTheory.Functor do return .error "the action is not a functor"
+      let category := actionType.getAppArgs[0]!
+      let left ← mkFreshExprMVar category
+      let right ← mkFreshExprMVar category
+      let mapType ← mkAppM ``Quiver.Hom #[left, right]
+      let callable ← mkFreshExprMVar mapType
+      unless ← withTransparency .all <| isDefEq (← inferType (← Semantic.mapOf action callable)) expected do
+        return .error "the mapped callable has incompatible result endpoints"
+      return ← validateCallableAt objects mapType arrow
+    | "objectField", #[id, field, parameters] | "powerObjectMap", #[id, field, parameters] =>
+      let .ok id := id.getStr? | return .error "the callable field owner must be a string"
+      let .ok field := field.getStr? | return .error "the callable field must be a string"
+      let .ok parameters := parameters.getArr? | return .error "the callable field parameters are incomplete"
+      let declaration := if tag == "objectField" then
+        (state.objects.find? (·.id.raw == id)).bind fun row =>
+          if field == "inclusion" then row.inclusion else if field == "constants" then row.constants else none
+      else (state.powerObjects.find? (·.id.raw == id)).bind fun row =>
+        match field with
+        | "member" => some row.member | "terminal" => some row.terminal
+        | "transpose" => some row.transpose | "image" => some row.image
+        | "truth" => some row.truth | _ => none
+      let some declaration := declaration | return .error "the owner has no such callable field"
+      return (← interfaceDeclaration objects declaration expected parameters).map fun _ => ()
+    | _, _ =>
+      -- Construction packets are checked by their complete-result consumers.
+      -- Their stored computational apex must not be substituted for the fixed
+      -- formal projection's type here (a wrong but framed apex is still data).
+      if #["constructionLeg", "limitLeg", "arrowHom", "subobjectInclusion"].contains tag then
+        return ← validateCallableData data
+  validatePort placeholder expected data
+
+partial def interfaceCarrier (selected : Expr) (descriptor : Json) :
+    TermElabM (Except String Expr) := do
+  if ← isType selected then return .ok selected
+  let state ← registryState
+  let .ok (tag, _) := envelope descriptor | return .error "a selected object requires its descriptor"
+  let category ← if let some entry := state.objects.find? (·.id.raw == tag) then do
+      let some category := state.categories.find? (·.id == entry.category)
+        | return .error "the selected category is not registered"
+      pure category
+    else if let .ok ("functorAction", #[action, _]) := envelope descriptor then do
+      let .ok (actionTag, actionArgs) := envelope action
+        | return .error "the selected object action is incomplete"
+      let category := (state.functors.find? (·.id.raw == actionTag)).map (·.target) <|>
+        (if actionTag == "classifierForget" then do
+          let id ← actionArgs[0]?.bind (·.getStr?.toOption)
+          (state.classifiers.find? (·.id.raw == id)).map (·.host)
+        else none)
+      let some category := category
+        | return .error "the selected action requires its retained carrier context"
+      Semantic.namedCategoryFor state category
+    else return .error "the selected structured descriptor requires its retained carrier context"
+  let value ← (Language.recognize state selected category).run {}
+  return .ok (← (Language.semanticObject (← (Language.carrierObject value).run {})).run {})
+
+partial def validateElementExpressionAt (objects : InterfaceObjects) (selected carrier : Expr)
+    (expression : Json) : TermElabM (Except String Unit) := do
+  let .ok (tag, args) := envelope expression | return .error "an element requires its expression envelope"
+  match tag, args with
+  | "point", #[arrow] =>
+      validateCallableAt objects (← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]) arrow
+  | "add", #[left, right] | "mul", #[left, right] =>
+      if let .error message ← validateElementExpressionAt objects selected carrier left then return .error message
+      validateElementExpressionAt objects selected carrier right
+  | "neg", #[value] => validateElementExpressionAt objects selected carrier value
+  | "operationExpression", #[id, parameters, operands] =>
+      let state ← registryState
+      let .ok id := id.getStr? | return .error "the operation id must be a string"
+      let some row := state.operations.find? (·.id.raw == id)
+        | return .error "the expression names no registered operation"
+      let .ok parameters := parameters.getArr? | return .error "operation parameters must be ordered"
+      let .ok operands := operands.getArr? | return .error "operation operands must be ordered"
+      unless operands.size == row.arity do return .error "the operation has a different declared arity"
+      let source ← mkFreshExprMVar (← inferType carrier)
+      let .ok operation ← interfaceDeclaration objects row.declaration
+          (← mkAppM ``Quiver.Hom #[source, carrier]) parameters
+        | return .error "the operation expression changes its selected result interface"
+      if row.result.isNone && !(← isType selected) then
+        let explicit ← (Language.explicitArguments row.declaration operation).run {}
+        unless ← explicit.anyM (fun field => withoutModifyingState <| isDefEq field selected) do
+          return .error "the operation expression changes its selected mathematical structure"
+      let sources ← if operands.isEmpty then pure #[] else if operands.size == 2 then do
+          let source ← withTransparency .all <| whnf source
+          unless source.isAppOf ``Prod do return .error "a binary operation requires its declared product source"
+          pure source.getAppArgs
+        else pure #[← instantiateMVars source]
+      unless sources.size == operands.size do return .error "the operation has a different operand interface"
+      for (source, operand) in sources.zip operands do
+        if let .error message ← validateElementExpressionAt objects selected source operand then return .error message
+      return .ok ()
+  | _, _ => validateElementExpression expression
+
+end
+
+/-- Frame a returned point at the caller's exact selected object. The formal
+point is supplied independently and is never reconstructed from the answer.
+Symbolic fields remain computational claims, including a different expression
+for the same requested result; opaque owners are checked by the live consumer. -/
+def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Expr)
+    (answer : Json) : TermElabM (Except String Unit) := do
+  if selected.hasMVar || selected.hasLevelMVar then
+    throwError "the selected element interface has unresolved formal parameters"
+  let data := if let .ok ("valueData", #[data]) := envelope answer then data else answer
+  if (data.getObjValAs? String "ctor").toOption == some "element" then
+    let .ok (_, #[descriptor, expression]) := envelope data
+      | return .error "an element requires its exact selected object and expression"
+    unless descriptor == selectedData do
+      return .error "the element descriptor differs from the exact selected endpoint"
+    let pointType ← inferType formalPoint
+    let carrier ← match Language.homEnds? pointType with
+      | some (domain, target) =>
+          unless ← withTransparency .all <| isDefEq domain (← Language.globalPointSource.run {}) do
+            return .error "a closed element cannot replace a nonconstant generalized point"
+          pure target
+      | none => pure pointType
+    return ← withoutModifyingState <|
+      validateElementExpressionAt #[(selectedData, selected)] selected carrier expression
+  validatePort formalPoint (← inferType formalPoint) answer
 
 end CasCatalogue.ComputationalData

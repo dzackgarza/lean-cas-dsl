@@ -39,12 +39,35 @@ open Lean Meta Elab Term Command
 
 namespace CasCatalogue
 
+/-- One application of an accepted comparison. The constructor path is ordered from the
+outermost constructor to the innermost; the exact surrounding edges retain the whiskering
+context. Different contexts are different witnesses even when they use the same cell. -/
+structure RouteComparison where
+  cell : NaturalTransformationId
+  constructors : Array ConstructorId := #[]
+  before : Array EdgeRef := #[]
+  after : Array EdgeRef := #[]
+  deriving BEq, Repr, Inhabited
+
+/-- Apply the declared constructor context to every edge of a route segment. -/
+def RouteComparison.mapRefs (constructors : Array ConstructorId) (refs : Array EdgeRef) :
+    Array EdgeRef :=
+  constructors.foldr (fun constructor refs => refs.map (.constructMap constructor)) refs
+
+/-- Apply the same constructor context to a category endpoint. -/
+def RouteComparison.mapCategory (constructors : Array ConstructorId) (category : CategoryExpr) :
+    CategoryExpr :=
+  constructors.foldr (fun constructor category =>
+    .construct constructor #[.category category]) category
+
 /-- A resolved method call: the method row, the route to its owner, and the registered
 comparisons that identified every other candidate route with it (its provenance). -/
 structure Resolution where
   method : MethodEntry
   route : Route
   comparisons : Array NaturalTransformationId := #[]
+  /-- Exact comparison applications, including actions induced by constructors. -/
+  comparisonWitnesses : Array RouteComparison := #[]
   /-- For a method that returns to the source side, the registered lift serving each route
   step (CC-LIFT). -/
   lifts : Array LiftId := #[]
@@ -70,21 +93,60 @@ def rewritesTo (a b left right : Array EdgeRef) : Bool :=
   #[.functor ⟨"right"⟩] #[.functor ⟨"left"⟩, .functor ⟨"extra"⟩]
   #[.functor ⟨"right"⟩]
 
-/-- The registered comparisons from route `a` to route `b` (CC-COHERE): invertible cells between
-two distinct structural composites, whiskered by the common prefix and suffix of the routes.
-The cell's own endpoints belong to the replaced segment, not necessarily to the entire route. -/
+/-- Every nonempty outer constructor context occurring on one edge. -/
+def EdgeRef.constructorContexts : EdgeRef → Array (Array ConstructorId)
+  | .constructMap constructor inner =>
+      #[#[constructor]] ++ inner.constructorContexts.map (#[constructor] ++ ·)
+  | _ => #[]
+
+/-- The exact accepted comparisons from route `a` to route `b` (CC-COHERE). A registered cell
+may act inside any common prefix and suffix, and through any sequence of constructors whose
+registered interfaces supply the action and its identity/composition comparisons. No new cell
+is inferred merely because the two resulting routes have the same endpoints. -/
+def RegistryState.comparisonWitnessesFrom (state : RegistryState) (a b : Route) :
+    Array RouteComparison := Id.run do
+  if !a.source.syntacticEq b.source || !a.target.syntacticEq b.target || a.refs == b.refs then
+    return #[]
+  let mut contexts : Array (Array ConstructorId) := #[#[]]
+  for edge in a.refs ++ b.refs do
+    for context in edge.constructorContexts do
+      unless contexts.contains context do contexts := contexts.push context
+  let mut witnesses := #[]
+  for cell in state.cells do
+    unless cell.invertible && cell.left != cell.right do continue
+    for constructors in contexts do
+      unless constructors.all (fun constructor => (state.constructor? constructor).any fun entry =>
+          entry.functorialAction.isSome && entry.comparisonAction.isSome &&
+          entry.identityComparison.isSome && entry.compositionComparison.isSome) do continue
+      let left := RouteComparison.mapRefs constructors cell.left
+      let right := RouteComparison.mapRefs constructors cell.right
+      let source := RouteComparison.mapCategory constructors cell.source
+      let target := RouteComparison.mapCategory constructors cell.target
+      for offset in [0:a.steps.size + 1] do
+        unless offset + left.size ≤ a.steps.size &&
+            a.refs.extract offset (offset + left.size) == left do continue
+        let before := a.refs.extract 0 offset
+        let after := a.refs.extract (offset + left.size) a.steps.size
+        unless b.refs == before ++ right ++ after do continue
+        let segmentSource := (a.steps[offset]?).map (·.source) |>.getD a.target
+        let segmentTarget := (a.steps[offset + left.size]?).map (·.source) |>.getD a.target
+        unless source.syntacticEq segmentSource && target.syntacticEq segmentTarget do continue
+        witnesses := witnesses.push { cell := cell.id, constructors, before, after }
+  return witnesses
+
+/-- Registered comparison IDs, retaining multiplicity when one cell has competing contexts.
+The complete typed interpretation uses `comparisonWitnessesFrom`. -/
 def RegistryState.comparisonsFrom (state : RegistryState) (a b : Route) :
     Array NaturalTransformationId :=
-  if !a.source.syntacticEq b.source || !a.target.syntacticEq b.target then #[] else
-  (state.cells.filter fun c =>
-      c.invertible && c.left != c.right && !c.left.isEmpty && !c.right.isEmpty &&
-      rewritesTo a.refs b.refs c.left c.right).map (·.id)
+  (state.comparisonWitnessesFrom a b).map (·.cell)
 
 /-- A class of routes identified by registered comparisons. -/
 structure CoherenceClass (α : Type) where
   members : Array α
   /-- The comparisons used to identify the members. -/
   comparisons : Array NaturalTransformationId
+  /-- All exact comparison applications used to connect the members. -/
+  comparisonWitnesses : Array RouteComparison
   /-- Pairs of members related by more than one comparison: an ambiguity (no comparison is
   chosen). -/
   ambiguities : Array (α × α × Array NaturalTransformationId)
@@ -100,16 +162,18 @@ def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (c
   let n := candidates.size
   let mut classOf : Array Nat := Array.range n
   let mut incoming : Array Bool := Array.replicate n false
-  let mut compared : Array (Nat × Nat × Array NaturalTransformationId) := #[]
+  let mut compared : Array (Nat × Nat × Array RouteComparison) := #[]
   let mut ambiguities : Array (Nat × Nat × Array NaturalTransformationId) := #[]
   for i in [0:n] do
     for j in [0:n] do
       if i != j && key candidates[i]! == key candidates[j]! then
-        let cells := state.comparisonsFrom (route candidates[i]!) (route candidates[j]!)
+        let witnesses := state.comparisonWitnessesFrom
+          (route candidates[i]!) (route candidates[j]!)
+        let cells := witnesses.map (·.cell)
         if cells.size > 1 then
           ambiguities := ambiguities.push (i, j, cells)
         unless cells.isEmpty do
-          compared := compared.push (i, j, cells)
+          compared := compared.push (i, j, witnesses)
           incoming := incoming.set! j true
           let (ci, cj) := (classOf[i]!, classOf[j]!)
           if ci != cj then
@@ -118,12 +182,16 @@ def RegistryState.classify {α : Type} [Inhabited α] (state : RegistryState) (c
   return reps.map fun r => Id.run do
     let indices := (Array.range n).filter (classOf[·]! == r)
     let mut used : Array NaturalTransformationId := #[]
-    for (i, j, cells) in compared do
+    let mut witnesses : Array RouteComparison := #[]
+    for (i, j, comparisons) in compared do
       if classOf[i]! == r && classOf[j]! == r then
-        for c in cells do
-          unless used.contains c do used := used.push c
+        for comparison in comparisons do
+          unless used.contains comparison.cell do used := used.push comparison.cell
+          unless witnesses.contains comparison do witnesses := witnesses.push comparison
     { members := indices.map (candidates[·]!)
       comparisons := if indices.size > 1 then used.qsort (fun a b => a.raw < b.raw) else #[]
+      comparisonWitnesses := if indices.size > 1 then
+        witnesses.qsort (fun a b => reprStr a < reprStr b) else #[]
       ambiguities := (ambiguities.filter fun (i, _, _) => classOf[i]! == r).map
         fun (i, j, cells) => (candidates[i]!, candidates[j]!, cells)
       sources := (indices.filter (!incoming[·]!)).map (candidates[·]!) }
@@ -140,6 +208,7 @@ structure PropertyResolution where
   classifier : ClassifierEntry
   route : Route
   comparisons : Array NaturalTransformationId := #[]
+  comparisonWitnesses : Array RouteComparison := #[]
 
 instance : Inhabited PropertyResolution :=
   ⟨{ property := { id := default, name := "", classifier := default }
@@ -160,6 +229,12 @@ inductive ResolutionError
   /-- The method's result must return to the receiver's side, and a route step has no
   registered lift of subobjects. -/
   | missingLift (name : String) (resolution : Resolution) (step : EdgeRef)
+  /-- No member of a coherent forward class has a complete registered return construction.
+  Every missing route step is retained, rather than selecting one incomplete route. -/
+  | missingReturn (name : String) (requirements : Array (Resolution × Array EdgeRef))
+  /-- Coherent forward routes admit several complete return constructions. Their forward
+  comparisons do not identify the independently registered lift data. -/
+  | ambiguousReturn (name : String) (candidates : Array Resolution)
   /-- Two routes are related by several registered comparisons; none is chosen. -/
   | ambiguousComparison (name : String) (a b : Route) (cells : Array NaturalTransformationId)
   /-- Identified routes with no unique source route to run on. -/
@@ -228,6 +303,16 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
       s!"`{name}` resolves to {state.renderResolution resolution}, but its result must return \
         to the receiver's side and no lift of subobjects is registered along {step.label} \
         (CC-LIFT)"
+  | .missingReturn name requirements =>
+      s!"`{name}` has no complete registered return construction on its coherent routes \
+        (CC-LIFT):\n" ++ "\n".intercalate (requirements.toList.map fun (resolution, steps) =>
+          s!"  {state.renderResolution resolution} ; missing lifts along \
+            {steps.toList.map (·.label)}")
+  | .ambiguousReturn name candidates =>
+      s!"`{name}` has {candidates.size} complete registered return constructions; \
+        comparisons of their forward routes do not identify their lift data:\n" ++
+        "\n".intercalate (candidates.toList.map fun candidate =>
+          "  " ++ state.renderResolution candidate)
   | .ambiguousComparison name a b cells =>
       s!"`{name}`: the routes {state.renderRoute a} and {state.renderRoute b} are related by \
         several registered comparisons {cells.toList.map (·.raw)}; choosing one is not made here"
@@ -248,9 +333,10 @@ def ResolutionError.render (state : RegistryState) : ResolutionError → String
 def throwResolutionError {α : Type} (state : RegistryState) (error : ResolutionError) :
     TermElabM α :=
   match error with
-  | .ambiguous .. | .ambiguousProperty .. | .ambiguousComparison .. | .noSourceRoute .. =>
+  | .ambiguous .. | .ambiguousProperty .. | .ambiguousComparison .. | .noSourceRoute .. |
+      .ambiguousReturn .. =>
       throwSemanticAmbiguity (error.render state)
-  | .unknownMethod .. | .notApplicable .. | .missingLift .. =>
+  | .unknownMethod .. | .notApplicable .. | .missingLift .. | .missingReturn .. =>
       throwStratum .invalid (error.render state)
   | .unclosedRoutes .. => throwError (error.render state)
 
@@ -282,6 +368,37 @@ def RegistryState.completeRoutes (state : RegistryState) (source target : Catego
     | throw (.unclosedRoutes source limit)
   return state.routes source target reachable.size
 
+/-- Every complete declared subobject return construction for this route. A lift is selected
+only when the entire call has one such construction; multiple rows on a step remain distinct
+candidates, and a step without a row makes this route incomplete. -/
+def RegistryState.returnConstructions (state : RegistryState) (resolution : Resolution) :
+    Array Resolution := Id.run do
+  let mut candidates := #[{ resolution with lifts := #[] }]
+  for step in resolution.route.refs do
+    let lifts := state.lifts.filter fun lift => lift.kind == .subobjects && lift.edge == step
+    candidates := candidates.flatMap fun candidate => lifts.map fun lift =>
+      { candidate with lifts := candidate.lifts.push lift.id }
+  return candidates
+
+/-- Resolve the full return data across one coherent forward class. Forward comparisons are
+retained for every candidate, but cannot supply a missing lift or equate independent lifts. -/
+def RegistryState.resolveReturn (state : RegistryState) (name : String)
+    (cls : CoherenceClass Resolution) : Except ResolutionError Resolution := do
+  let members := cls.members.map fun member => { member with
+    comparisons := cls.comparisons
+    comparisonWitnesses := cls.comparisonWitnesses }
+  let complete := members.flatMap state.returnConstructions
+  match complete.toList with
+  | [resolution] => return resolution
+  | [] =>
+      let requirements := members.map fun resolution =>
+        (resolution, resolution.route.refs.filter fun step =>
+          !state.lifts.any (fun lift => lift.kind == .subobjects && lift.edge == step))
+      if let #[(resolution, steps)] := requirements then
+        if let some step := steps[0]? then throw (.missingLift name resolution step)
+      throw (.missingReturn name requirements)
+  | _ => throw (.ambiguousReturn name complete)
+
 /-- Resolve `receiver.name`, optionally requiring the route to pass through the functors `via`. -/
 def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr) (name : String)
     (through : Array FunctorId := #[]) : Except ResolutionError Resolution := do
@@ -296,19 +413,16 @@ def RegistryState.resolveMethod (state : RegistryState) (receiver : CategoryExpr
   if candidates.isEmpty then throw (.notApplicable name (methods.map (·.owner)))
   match (state.coherenceClasses candidates).toList with
   | [cls] =>
-      -- One semantic route (#53 §8 steps 6–7), run on the source of its comparisons.
       if let some (a, b, cells) := cls.ambiguities[0]? then
         throw (.ambiguousComparison name a.route b.route cells)
+      if candidates[0]!.method.returnsToSource then
+        return ← state.resolveReturn name cls
+      -- A forward-only call runs on the designated source of its comparisons.
       let #[source] := cls.sources
         | throw (.noSourceRoute name (cls.sources.map (·.route)))
-      let resolution := { source with comparisons := cls.comparisons }
-      if !resolution.method.returnsToSource then return resolution
-      let mut lifts := #[]
-      for step in resolution.route.refs do
-        match state.lifts.find? (fun l => l.kind == .subobjects && l.edge == step) with
-        | some lift => lifts := lifts.push lift.id
-        | none => throw (.missingLift name resolution step)
-      pure { resolution with lifts }
+      return { source with
+        comparisons := cls.comparisons
+        comparisonWitnesses := cls.comparisonWitnesses }
   | _ => throw (.ambiguous name candidates)
 
 /-- How a limit of a registered shape in a registered category is computed (CC-UNIV, CC-LIFT): a
@@ -371,7 +485,9 @@ def RegistryState.resolveProperty (state : RegistryState) (receiver : CategoryEx
         throw (.ambiguousComparison name a.route b.route cells)
       let #[source] := cls.sources
         | throw (.noSourceRoute name (cls.sources.map (·.route)))
-      pure { source with comparisons := cls.comparisons }
+      pure { source with
+        comparisons := cls.comparisons
+        comparisonWitnesses := cls.comparisonWitnesses }
   | _ => throw (.ambiguousProperty name candidates)
 
 /-! ## The generated operation surface (CC-CLOSURE) -/
