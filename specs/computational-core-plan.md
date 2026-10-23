@@ -169,7 +169,7 @@ request-formation gap*: an entry of kind `gap` whose detail does not begin
 `NoImplementation: no admitted registration computes`. The 2026-10-20
 report at `5410e70` had 154 entries: 18 holds, 101 request-formation gaps,
 26 registration gaps, 6 invalid and 3 unavailable. That criterion remains
-necessary under KM2, but it is **not kernel readiness**. The kernel is ready
+necessary under KM3, but it is **not kernel readiness**. The kernel is ready
 for substantive leaf work only after KM1–KM9, including the frozen-kernel
 independent trials and question-preservation assessment; full B0 execution
 and independent acceptance remain obligatory.
@@ -184,23 +184,26 @@ worked" (rule 1).
 Each rule names an observable condition and the action it requires. None depends on judging
 how important, small, risky or promising something is.
 
-1. **Selection.** KM1–KM9 are *acceptance gates*, not giant implementation
-   tickets whose complete acceptance must precede work on their dependencies.
-   First reconcile #63/#64's surviving generic source obligations with
-   #65 (KM1), without waiting for the final whole-suite result. Then select
-   the first actionable, unblocked **kernel-owned** K2–K12 or K14 item
-   from the fixed work list below, also including K3's *reader/request*
-   portion. K13 bulk leaf dispatch, backend-specific K1 registration work and
-   the leaf-execution/admission portions of K3/K14 are excluded;
-   a K1 failure caused by a generic kernel defect is owned by KM5–KM7. When these
-   K items have no actionable kernel work, take the first undischarged
-   generic mechanism under KM2–KM8 (for example, complete lift replay
-   or a public wire encoding). Re-evaluate the full KM1 integration
-   gate when the candidate is assembled, then submit KM9 to independent
-   frozen-candidate trials; these are not new kernel source tasks.
-   Missing independently owned inputs block only dependent operations.
-   A defect outside the selected item is one line in `HANDOFF.md`,
-   "Noticed, not worked"; it is not opportunistic patch work.
+1. **Selection.** The *implementation queue* is KM1's source
+   reconciliation, then the missing generic source work of KM2–KM8 in
+   dependency order. KM9 is the final independent frozen-kernel gate.
+   Do not mistake KM1's final full-build requirement for a reason to
+   postpone implementing its dependencies. The older K1–K14 assertion-ID
+   rows below identify precise regression examples and protected B0
+   obligations, **not an alternative work-selection queue**.
+   Within an active KM task, use the relevant K IDs and targeted probes
+   to locate and verify the generic fix; do not move to a particular
+   backend implementation just because its ID is next. K13's bulk
+   registrations and the leaf-owned execution/admission portions of
+   K3/K14 are excluded. An actual generic defect exposed by a K1
+   computation remains kernel-owned under the applicable KM task.
+   Missing independently authored upstream mathematics/acceptance
+   blocks only the particular dependent KM mechanism; continue the
+   next available kernel mechanism. At completion of KM2–KM8,
+   re-evaluate KM1 on the integrated tuple and run KM9; every
+   component must pass. A defect unrelated to the selected KM
+   mechanism is recorded once in `HANDOFF.md`, not opportunistically
+   patched.
 2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
    `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `specs/reuse/K<n>.md` (the reuse record
    AGENTS.md requires before a new Lean definition), `JOURNAL.md` (rule 9) and `HANDOFF.md`
