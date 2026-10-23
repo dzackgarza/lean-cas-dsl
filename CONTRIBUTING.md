@@ -113,6 +113,17 @@ while the already-specified publication correction is executed.
 
 ## Writing a leaf
 
+**Development-phase prerequisite.** Substantial production leaf work begins only
+after the [kernel-MVP readiness gate](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
+has passed, including independently selected extension trials on the frozen
+kernel/contract. Before then, an independent leaf author may supply a small
+diagnostic specimen to check a fixed public request/reply form or generic
+execution path; it is not a license to invent representations or build out
+method coverage. A form missing from the released contract is an unfinished
+kernel/contract obligation, **not** leaf work. The full B0 acceptance suite
+and its required actual backend computations remain mandatory after the
+readiness gate.
+
 A leaf holds zero semantic authority, and nothing from it is trusted in any form
 (`INTENT.md`; `specs/architecture.md`, "The evidence model: nothing from a leaf is trusted"). It
 ships no mathematics and no Lean. It is a registration:
