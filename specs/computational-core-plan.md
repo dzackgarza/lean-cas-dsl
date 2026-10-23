@@ -166,8 +166,9 @@ how important, small, risky or promising something is.
    #65 (KM1), without waiting for the final whole-suite result. Then select
    the first actionable, unblocked **kernel-owned** K2–K12 or K14 item
    from the fixed work list below, also including K3's *reader/request*
-   portion. K13 bulk leaf dispatch, K1's leaf-only coverage and the
-   leaf-execution/admission portions of K3/K14 are excluded. When these
+   portion. K13 bulk leaf dispatch, backend-specific K1 registration work and
+   the leaf-execution/admission portions of K3/K14 are excluded;
+   a K1 failure caused by a generic kernel defect is owned by KM4. When these
    K items have no actionable kernel work, take the first undischarged
    generic mechanism under KM3–KM6 (for example, complete lift replay
    or a public wire encoding). Re-evaluate the full KM1 integration
