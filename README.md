@@ -51,6 +51,33 @@ realization is a `NoImplementation` gap, and never a missing method. The require
 is `lean-categories`' (`LeanCategories.Catalogue`); this repository reads it at `main` and writes
 no semantic row.
 
+## Current milestone: kernel ready before substantial leaves
+
+The [kernel-MVP gate](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
+is **proved readiness for sustained independent leaf work**, not increasing
+the number of implemented backend methods. The kernel must generically
+interpret every admitted mathematical question and formed request in the
+declared B0 extension language; propagate operations compositionally;
+execute structural actions, comparisons, refinements and complete result
+lifts; and publish all required request/reply encodings before leaves
+depend on them. A missing implementation is acceptable only if adding
+an ordinary registration can fill it *without changing the kernel,
+contract or upstream mathematics*.
+
+A frozen kernel/contract must pass independently chosen extension trials
+for every supported mechanism, including new object/old operation,
+new operation/old object, nonidentity transport, structured results and
+bad or absent leaves, **without patches**. Only small independent
+diagnostic specimen leaves run before this gate. Broad leaf implementation
+starts after it. The gate does not eliminate the complete real-backend
+execution and independently accepted assertions required for full B0.
+
+As of 2026-10-23, this gate has **not** been established; the
+[construction handoff](HANDOFF.md) and the
+[plan's evidence section](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development)
+record the unresolved work. Do not treat a compiling kernel, a falling
+request-gap count, or a new leaf registration as milestone completion.
+
 ## Layout
 
 - `CasCatalogue/`, the kernel over the leaf contract (`CasContract`, a dependency):
