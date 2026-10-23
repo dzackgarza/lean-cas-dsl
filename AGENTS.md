@@ -95,6 +95,19 @@ Consequences:
 
 # Current task: construct B0
 
+**The immediate deliverable is kernel MVP: proved readiness for substantial,
+independent leaf development.** The required work and acceptance gate are
+[KM1–KM7](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development).
+Close semantic reading, compositional resolution/transport, complete structured
+execution and lifts, every supported public request/reply encoding, and
+question permanence, then demonstrate independence using *fresh, externally
+chosen extension trials against a frozen kernel and contract*. A leaf author
+must be able to add ordinary registrations without creating a queue of
+kernel/contract/upstream patches. **K13 bulk leaf work and leaf-owned K3/K14
+execution are not kernel-MVP work**; before the readiness gate, only small
+independently authored diagnostic leaf specimens are allowed. The complete
+real-execution obligations of B0 remain unchanged.
+
 The operating mandate is "Operating phase: B0 construction" in
 specs/architecture.md. The approved mathematical requirements and completion
 criteria remain fixed. The current controller and development workflow are being
