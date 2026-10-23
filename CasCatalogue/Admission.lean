@@ -45,11 +45,36 @@ semantic row: the declaration and its dependent signature remain the object's me
 def ObjectEntry.applicationAddress (entry : ObjectEntry) : String :=
   entry.id.raw ++ "#application"
 
+/-- The four computational fields already published by `MonoLiftComputation`. -/
+inductive LiftField where
+  | obj | hom | forward | backward
+  deriving BEq, Repr
+
+def LiftField.all : Array LiftField := #[.obj, .hom, .forward, .backward]
+
+def LiftField.label : LiftField → String
+  | .obj => "obj" | .hom => "hom" | .forward => "forward" | .backward => "backward"
+
+def LiftField.declaration : LiftField → Name
+  | .obj => ``CasCatalogue.MonoLiftComputation.obj
+  | .hom => ``CasCatalogue.MonoLiftComputation.hom
+  | .forward => ``CasCatalogue.MonoLiftComputation.forward
+  | .backward => ``CasCatalogue.MonoLiftComputation.backward
+
+def LiftEntry.inputAddress (entry : LiftEntry) : String := entry.id.raw ++ "#input"
+
+def LiftEntry.fieldAddress (entry : LiftEntry) (field : LiftField) : String :=
+  entry.id.raw ++ "#" ++ field.label
+
 /-- A form the kernel encodes: values of a registered literal type, morphisms of a registered
 category given by their graphs, a registered named object at its parameters, or the diagrams of a
 registered category (the input of its registered limits), encoded in the forms of their objects
 and arrows. -/
 inductive Form
+  /-- Internal proof-only total-category context. Its checked forgetful prefix restores the
+  original registered form; it introduces no leaf input descriptor. -/
+  | proofRefinement (category : NamedCategoryEntry) (classifier : ClassifierId) (base : Form)
+  | liftInput (entry : LiftEntry) (category : CategoryId)
   | literal (entry : LiteralEntry)
   | graph (entry : GraphLiteralEntry)
   /-- The finite subsets of a power object's sets, as literals of its registered subset-literal
@@ -96,6 +121,9 @@ def edgeImageId (edge : EdgeRef) (category : CategoryId) : String :=
 /-- The form's id: a literal, graph-literal, subset-literal or object row's; for diagrams, their
 category's. -/
 def Form.id : Form → String
+  | .proofRefinement category classifier base =>
+      s!"proof-refinement:{category.id.raw}:{classifier.raw}:{base.id}"
+  | .liftInput entry _ => entry.inputAddress
   | .literal entry => entry.id.raw
   | .graph entry => entry.id.raw
   | .subset entry _ => entry.id.raw
@@ -116,6 +144,8 @@ def Form.id : Form → String
   | .diagrams entry => entry.id.raw
 
 def Form.category : Form → CategoryId
+  | .proofRefinement category _ _ => category.id
+  | .liftInput _ category => category
   | .literal entry => entry.category
   | .graph entry => entry.category
   | .subset _ category => category
@@ -175,7 +205,17 @@ def RegistryState.edgeImageForm? (state : RegistryState) (id : String) : Option 
   let #[edge] := candidates | none
   some (.edgeImage edge.ref target)
 
+/-- A public lift request retains the registered Arrow source of its exact route step. -/
+def RegistryState.liftInputForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.lifts.find? (fun row =>
+    row.inputAddress == id && row.kind == .subobjects && row.computation.isSome)
+  let candidates := state.categories.filter fun category =>
+    (state.edgesFrom category.expression).any (·.ref == entry.edge)
+  let #[source] := candidates | none
+  return .liftInput entry source.id
+
 def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
+  state.liftInputForm? id <|>
   (state.literals.find? (·.id.raw == id) |>.map .literal) <|>
   (state.graphLiterals.find? (·.id.raw == id) |>.map .graph) <|>
   (state.subsetLiterals.find? (·.id.raw == id) |>.bind fun entry =>
@@ -212,6 +252,7 @@ def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
 
 /-- A catalogue operation a registration may compute. -/
 inductive Operation
+  | liftField (entry : LiftEntry) (field : LiftField)
   | method (entry : MethodEntry)
   | property (entry : PropertyEntry)
   | limit (entry : LimitEntry)
@@ -223,6 +264,7 @@ inductive Operation
   | presentation (entry : PresentationComparisonEntry)
 
 def Operation.id : Operation → String
+  | .liftField entry field => entry.fieldAddress field
   | .method entry => entry.id.raw
   | .property entry => entry.id.raw
   | .limit entry => entry.id.raw
@@ -235,6 +277,10 @@ def Operation.id : Operation → String
 
 /-- The operation `id` names. -/
 def RegistryState.operation? (state : RegistryState) (id : String) : Option Operation :=
+  (state.lifts.findSome? (fun entry => do
+    if entry.kind != .subobjects || entry.computation.isNone then none else
+      let field ← LiftField.all.find? (fun field => entry.fieldAddress field == id)
+      return .liftField entry field)) <|>
   (state.methods.find? (·.id.raw == id) |>.map .method) <|>
   (state.properties.find? (·.id.raw == id) |>.map .property) <|>
   (state.limits.find? (·.id.raw == id) |>.map .limit) <|>
@@ -287,7 +333,12 @@ along the route is computed as that one (`transport`), so a registration on it w
 selected, and is not admitted. -/
 def RegistryState.rejects (state : RegistryState) (operation : Operation) (form : Form) :
     Option String :=
-  if let .presentation entry := operation then
+  if let .liftInput input _ := form then
+    match operation with
+    | .liftField entry _ => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own published lift request"
+    | _ => some s!"{operation.id} is not a published field of this lift"
+  else if let .presentation entry := operation then
     let rec endpoint (object : ObjectEntry) (fuel : Nat) : Bool :=
       if object.id == entry.source || object.id == entry.target then true else
         match fuel, object.refines with
@@ -363,7 +414,7 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .morphism entry => if entry.category == form.category then none else notResolved
     | .application entry => if entry.category == form.category then none else notResolved
     | .binder entry => if entry.category == form.category then none else notResolved
-    | .presentation _ => notResolved
+    | .presentation _ | .liftField .. => notResolved
     | .functor entry =>
         match form with
         | .arrow category =>

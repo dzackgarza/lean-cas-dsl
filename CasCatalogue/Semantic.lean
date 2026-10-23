@@ -92,6 +92,68 @@ def instantiateFresh (declaration : Name) : MetaM Expr := do
 
 namespace Semantic
 
+/-- Reduce only the presentation of supplied parameter records before unification.
+Structure eta reduction retains every field; it does not choose data from a carrier. -/
+def parameterPresentation (value : Expr) : MetaM Expr := do
+  Meta.transform value (pre := fun e => do
+    let reduced ← withTransparency .reducible <| whnf e
+    if let some short ← etaStruct? reduced (fun _ => true) then return .done short
+    return .continue (some reduced))
+
+/-- Read the actual selected family parameter from its published fibre witness. -/
+def selectedFamilyParameter? (realization : Expr) : MetaM (Option (Expr × Expr)) := do
+  let fibre ← withTransparency .all <| whnf
+    (← mkAppHere ``CasCatalogue.CategoryRealization.familyFibre #[realization])
+  if fibre.isAppOfArity ``Option.none 1 then return none
+  unless fibre.isAppOf ``Option.some do
+    throwError "a category realization has no determined fibre witness"
+  let packed ← withTransparency .all <| whnf fibre.getAppArgs.back!
+  let witness := packed.getAppArgs.back!
+  let witnessType ← withTransparency .all <| whnf (← inferType witness)
+  unless witnessType.isAppOf ``CasCatalogue.CategoryFamilyFibreWitness do
+    throwError "a category realization has a malformed fibre witness"
+  let family := witnessType.getAppArgs[4]!
+  let parameter ← withTransparency .all <| mkAppHere
+    ``CasCatalogue.CategoryFamilyFibreWitness.parameter #[witness]
+  return some (family, parameter)
+
+/-- Match complete parameters of the same published family, before comparing its carriers. -/
+def alignCategoryParameters (left right : Expr) : MetaM Unit := do
+  match ← selectedFamilyParameter? left, ← selectedFamilyParameter? right with
+  | none, none => pure ()
+  | some (leftFamily, leftParameter), some (rightFamily, rightParameter) =>
+      unless ← withTransparency .all <| isDefEq leftFamily rightFamily do
+        throwError "the adjacent endpoints have different registered family realizations"
+      unless ← withTransparency .all <| isDefEq
+          (← inferType leftParameter) (← inferType rightParameter) do
+        throwError "the adjacent endpoints have different complete parameter types"
+      let leftPresented ← parameterPresentation leftParameter
+      let rightPresented ← parameterPresentation rightParameter
+      unless ← withTransparency .all <| isDefEq leftPresented rightPresented do
+        throwError "the adjacent endpoints have different complete selected parameters"
+      -- The presentations can expose an as-yet unassigned bundle. Check the original
+      -- full parameters after that assignment, rather than demanding projection inversion.
+      unless ← withTransparency .all <| isDefEq leftParameter leftPresented do
+        throwError "the source parameter presentation changed its complete data"
+      unless ← withTransparency .all <| isDefEq rightParameter rightPresented do
+        throwError "the target parameter presentation changed its complete data"
+      unless ← withTransparency .all <| isDefEq leftParameter rightParameter do
+        throwError "the original complete selected parameters differ"
+  | _, _ => throwError "the adjacent endpoints disagree on their declared family context"
+
+/-- Instantiate endpoint metadata at exactly the supplied public action. -/
+def realizedFunctorEndpoints (realization action : Expr) : MetaM (Expr × Expr) := do
+  let type ← withTransparency .all <| whnf (← inferType realization)
+  unless type.isAppOf ``CasCatalogue.FunctorRealization do
+    throwError "a registered action has no public typed realization"
+  unless ← withTransparency .all <| isDefEq type.getAppArgs.back! action do
+    throwError "a functor realization describes a different complete action"
+  let source ← withTransparency .all <| mkAppHere
+    ``CasCatalogue.FunctorRealization.sourceRealization #[realization]
+  let target ← withTransparency .all <| mkAppHere
+    ``CasCatalogue.FunctorRealization.targetRealization #[realization]
+  return (source, target)
+
 /-- Preserve the accepted category morphism while projecting its ordinary functor action. -/
 def asFunctor (F : Expr) : MetaM Expr := do
   if (← withTransparency .all <| whnf (← inferType F)).isAppOf ``CategoryTheory.Cat.Hom then
@@ -106,18 +168,40 @@ partial def edgeFunctor (state : RegistryState) : EdgeRef → MetaM Expr
     mkAppHere action #[← asFunctor (← edgeFunctor state inner)]
   | edge => state.edgeFunctor edge
 
+/-- Endpoint witnesses are supplied by the registered action, never recovered from a leaf. -/
+def edgeEndpoints? (state : RegistryState) (edge : EdgeRef) (action : Expr) :
+    MetaM (Option (Expr × Expr)) := do
+  match edge with
+  | .functor id =>
+      let some entry := state.functor? id | throwError "the route names an absent functor"
+      return some (← realizedFunctorEndpoints (← instantiateFresh entry.realization)
+        (← asFunctor action))
+  | .classifierForget id =>
+      let some entry := state.classifier? id | throwError "the route names an absent classifier"
+      let realization ← instantiateFresh entry.realization
+      let forgetful ← withTransparency .all <| mkAppHere
+        ``CasCatalogue.ClassifierRealization.forgetfulRealization #[realization]
+      return some (← realizedFunctorEndpoints forgetful (← asFunctor action))
+  | .constructMap .. => return none
+
 /-- Construct the route and retain the very same edge applications for semantic provenance. -/
 def routeFunctorWithApplications (state : RegistryState) (route : Array EdgeRef) :
     MetaM (Expr × Array Expr) := do
   let mut result : Option Expr := none
   let mut applications : Array Expr := #[]
+  let mut previousTarget : Option Expr := none
   for edge in route do
     let application ← edgeFunctor state edge
+    let endpoints ← edgeEndpoints? state edge application
+    if let some previous := previousTarget then
+      if let some (source, _) := endpoints then
+        alignCategoryParameters previous source
     applications := applications.push application
     let next ← asFunctor application
     result ← some <$> match result with
       | none => pure next
       | some previous => mkFunctorComp previous next
+    previousTarget := endpoints.map (·.2)
   let some composite := result | throwError "the empty structural route has no functor composite"
   return (composite, applications)
 
@@ -142,11 +226,54 @@ def namedCategoryFor (state : RegistryState) (expression : CategoryExpr) :
       else throwSemanticAmbiguity m!"the selected result family has multiple named schemas"
   return entry
 
+/-- Use the source row's complete family witness to infer bundled action parameters.
+The named source is supplied by the action's metadata, not selected by carrier equality. -/
+partial def bindFunctorSource (F X : Expr) : TermElabM Unit := do
+  let F := F.consumeMData
+  if F.isAppOf ``CategoryTheory.Functor.comp then
+    let args := F.getAppArgs
+    bindFunctorSource args[args.size - 2]! X
+    return
+  let declaration := if F.isAppOf ``CategoryTheory.Cat.Hom.toFunctor then
+    F.getAppArgs.back! else F
+  let state ← registryState
+  let some entry := state.functors.find?
+      (fun entry => declaration.getAppFn.constName? == some entry.declaration) | return
+  let some category := state.category? entry.source | return
+  let categoryRealization ← instantiateFresh category.realization
+  let realizationType ← withTransparency .all <| whnf (← inferType categoryRealization)
+  unless realizationType.isAppOf ``CasCatalogue.CategoryRealization do
+    throwError "the declared source has no complete category realization"
+  -- The supplied action already fixes its complete source parameters. A fresh
+  -- category schema can hide them behind carrier projections (for example a
+  -- module category's ring), which cannot recover the original bundle.
+  let (source, _) ← realizedFunctorEndpoints (← instantiateFresh entry.realization) F
+  let sourceType ← withTransparency .all <| whnf (← inferType source)
+  unless sourceType.isAppOf ``CasCatalogue.CategoryRealization do
+    throwError "the selected action has no complete source realization"
+  unless ← withTransparency .all <| isDefEq
+      sourceType.getAppArgs[sourceType.getAppNumArgs - 2]!
+      realizationType.getAppArgs[realizationType.getAppNumArgs - 2]! do
+    throwError "the selected action has a different declared source category"
+  -- A published fibre witness can elaborate an omitted full family parameter
+  -- from the supplied structured receiver. Plain category schemas have no such
+  -- parameter witness; their already selected action supplies the source.
+  if (← selectedFamilyParameter? categoryRealization).isSome then
+    let schemaCarrier ← mkAppHere ``CategoryTheory.Bundled.α #[realizationType.getAppArgs.back!]
+    unless ← withTransparency .all <| isDefEq schemaCarrier (← inferType X) do
+      throwError "the supplied receiver has a different complete declared family source type"
+    alignCategoryParameters categoryRealization source
+  let carrier ← mkAppHere ``CategoryTheory.Bundled.α #[sourceType.getAppArgs.back!]
+  unless ← withTransparency .all <| isDefEq carrier (← inferType X) do
+    throwError "the supplied receiver has a different complete declared source type"
+  alignCategoryParameters categoryRealization source
+
 /-- `F.obj X`, elaborated at the current depth, so that the universe levels and parameters of `F`'s
 source category are assigned by `X`'s category (a bundled category is unfolded as needed). -/
 def objOf (F X : Expr) : TermElabM Expr := do
   let F ← if (← withTransparency .all <| whnf (← inferType F)).isAppOf ``CategoryTheory.Cat.Hom then
     mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[F] else pure F
+  bindFunctorSource F X
   let value ← elabTermAndSynthesize
     (← `(Prefunctor.obj (CategoryTheory.Functor.toPrefunctor $(← exprToSyntax F)) $(← exprToSyntax X)))
     none

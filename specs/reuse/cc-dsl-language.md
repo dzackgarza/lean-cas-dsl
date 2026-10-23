@@ -1,5 +1,21 @@
 # Reuse record: `cc-dsl-language`
 
+## Complete family parameters in structural applications (2026-10-20)
+
+Corpus queries `CategoryFamilyFibreWitness` and `structure eta reduction`, followed
+by direct dependency source inspection, locate the owners in
+`LeanCategories/Catalogue/Realization.lean` and Lean's `Meta/Structure.lean`.
+`FunctorRealization.sourceRealization` and `.targetRealization` retain the actual
+category-family fibre witnesses. `CategoryFamilyFibreWitness.parameter` supplies
+the complete selected parameter, including its dictionaries. Lean's existing
+`etaStruct?` reduces a reconstructed record of projections to that same record.
+
+The kernel adds no category, parameter constructor, equality or transport. It
+unifies these published complete parameters before comparing adjacent carriers,
+and uses the declared source category's witness when applying an action to its
+actual typed receiver. Definitional equality checks retain the complete supplied
+data; an equal carrier alone does not identify different selected parameters.
+
 ## b0-selected-structure: full same-carrier observations (2026-10-11)
 
 Searches for `recognize`, `carrierObject`, `Maps`, `BilinModuleCat.ofBilinMap`, and
@@ -347,3 +363,19 @@ name from the carrier, change the registered map, or provide missing admission e
 An incompatible result type must still be invalid. Without an explicit context, an anonymous
 result must stay anonymous. The unchanged normalized-primitive binding supplies its own
 `𝒫(ℚ[x])` target; that target, not a guessed polynomial alias, supplies the evaluator for `h(0)`.
+
+## Action-bound source realization (2026-10-20)
+
+Corpus searches `FunctorRealization sourceRealization` and
+`CategoryRealization familyFibre` returned no indexed matches; direct existing
+`LeanCategories/Catalogue/Realization.lean` supplies the complete typed source
+realization, and existing `Semantic.realizedFunctorEndpoints` projects it while
+checking the exact supplied action. The module-kernel diagnostic confirms a
+fresh source schema cannot recover a RingCat bundle from its carrier, whereas
+the existing action-bound realization retains that bundle. The kernel now checks
+the declared source metadata and exact receiver type against this supplied
+realization. Where the named source explicitly supplies a published family-fibre
+witness, existing structured-receiver elaboration and full family-parameter
+alignment still infer omitted parameters before that final action-bound check.
+A plain category schema supplies no such witness. No mathematical constructor,
+source equality, or carrier-based parameter recovery is added.

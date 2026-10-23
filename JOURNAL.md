@@ -1,5 +1,428 @@
 # Journal
 
+## 2026-10-20 — Match binder engineering probes to production question scope
+
+The integrated `3e0f982` build timed out in the first `BinderReaderProbes`
+command at the ordinary 200000-heartbeat limit. After the independent Semantic
+source correction, the exact unchanged first loop still failed on its fifth
+question: the first four claims and retained-domain checks completed, then the
+infinite-limit question exhausted the shared budget at `whnf`
+(`/tmp/lean-cas-probe.fm9O6c.log`, 125.68s). Each of those same five questions
+passed independently with every original binder invariant and the ordinary
+heartbeat limit: polynomial integral 36.36s (`atcipD`), sine integral 29.74s
+(`Nch9me`), polynomial limit 53.80s (`44xFgk`), sine quotient limit 53.17s
+(`MFK8aB`), and infinite limit 42.93s (`iSchA4`); these are `/tmp/lean-cas-probe.*.log`.
+
+The first probe loop had shared one `liftTermElabM` state and heartbeat baseline
+across five independent questions. Production `TestSuite` instead enters a fresh
+`liftTermElabM`, `withoutErrToSorry`, and `withCurrHeartbeats` for each item.
+The probe now uses exactly that per-question boundary. All five original strings,
+all retained-binder invariants, and the ordinary limit remain unchanged; an
+individual timeout remains fatal. The second root-binder block is unchanged.
+The exact corrected first block passed in 136.72s
+(`/tmp/lean-cas-probe.c6bNq9.log`). This is a cached consumer diagnostic against
+the new Semantic artifact, not a rebuilt Language/BinderReaderProbes source gate
+or B0 acceptance. The parent owns the remaining dependent source gate.
+
+## 2026-10-20 — Bind categorical actions to their supplied full source realization
+
+The integrated `3e0f982` source gate failed unchanged
+`FunctorActionDataProbes` and `StructuredReconstructionProbes` at
+`Semantic.bindFunctorSource`'s complete declared-source guard. The exact public
+module-kernel diagnostic reproduced the failure: a fresh named source realization
+retained `arrowsModulesCategory ?R`; both `mkAppM` and `mkAppHere` carrier
+projections failed the same receiver-type check. The public realization bound to
+the actual `kernelDeclaration (RingCat.of ℤ)` passed that exact check
+(`/tmp/b0-poc-5410e70/functor-kernel-source-context-red-final.log`, 19.90s).
+This was a generic source-binding defect, not a stale fixture or permission to
+recover a ring bundle from its carrier.
+
+The source binder now projects the source realization of the exact supplied
+action, checks its declared source-category metadata, and retains the exact
+receiver-type guard. Explicit published family-fibre witnesses still elaborate
+omitted full parameters from the structured receiver and align all selected
+parameter data. The existing `FibreParameterProbes` caught omission of that
+necessary witness path in the first repair (red 17.49s); it remains unchanged.
+There is no catch/retry branch, canonical bundle substitution or mathematical
+addition. Public realization definitions and the existing family witness own the
+data; this change only binds their supplied contexts.
+
+Final focused `CasCatalogue.Semantic` source check passed 1,481 jobs in 27.04s
+(`/tmp/b0-poc-5410e70/semantic-action-bound-family-source-build.log`).
+Byte-identical scratch copies of unchanged `FunctorActionDataProbes` and
+`StructuredReconstructionProbes` both passed cached source elaboration (exit 0),
+including their wrong-source/endpoint and wrong-construction protections.
+The unchanged `FibreParameterProbes` passed in 29.02s, retaining composed E8 and
+direct fixed-value full-parameter inference. Logs are
+`functor-action-consumer-action-bound-final.log`,
+`structured-reconstruction-consumer-action-bound.log`, and
+`fibre-parameter-consumer-action-bound-green.log` under the same scratch directory.
+No Language or Realize source rebuild or native computation ran here. These
+focused checks do not close the other full-build failures or B0 acceptance.
+
+## 2026-10-20 — Integrated source gate at 3e0f982
+
+`B0_INTEGRATION=1 just build` completed with failure at clean committed
+`3e0f982`. Input revisions and source digests are retained in
+`/tmp/b0-poc-3e0f982/integration-inputs.json`: mathematics `80520813`,
+contract `c6e78eb2`, installed leaves `992f3c6`. The ordinary script tests,
+no-leaves checks, reuse records and permanent-text inventory checks passed.
+The native harness and registry exporter binaries built. The complete gate
+reports exactly these failed targets:
+
+- `CasCatalogue.FunctorActionDataProbes`: complete declared receiver source
+  type guard (`Semantic.bindFunctorSource`).
+- `CasCatalogue.StructuredReconstructionProbes`: the same source guard on
+  the supplied parameterized module action.
+- `CasCatalogue.BinderReaderProbes`: ordinary 200000-heartbeat timeout at
+  `isDefEq`; the exact failing member of its shared five-question block
+  requires isolation before assigning a cause.
+- `CasAcceptance.LiftProbes`: the retained constructed-arrow routes have no
+  registered comparison identifying them. This is the existing recorded
+  constructor-cell input/resolution boundary, not a new owner decision.
+
+`RegistrationProbes`, `QuestionProbes`, full structured-comparison and
+reindexing probes, and the notebook boundary probe all compiled successfully.
+`LiftedSubobjectDataProbes` also passes as a focused source target
+(`/tmp/lean-cas-focus.lPaIEw.log`, 51.88 seconds).
+Notebook cell compilation logged unavailable native engine invocations under
+its default environment. It is not evidence of suite execution. The complete
+native inventory and required positive outcomes remain owed.
+
+The source gate's failures stay recorded while exact receiver and binder
+reproducers run sequentially. No assertion, selected structure, source guard
+or heartbeat limit was weakened. The untouched original-worktree Language
+patch still compares byte-for-byte with its independently saved initial copy.
+
+## 2026-10-20 — Checkpoint combined reader and returned-result repairs
+
+Kernel source checkpoint `a45c797` integrates the proof-refinement, named-map
+context, complete computational inventory and receiver corrections. The combined
+`CasCatalogue.Realize` source gate passes at mathematics `805208138f016368f6a4eac415f25f3922a5807d`
+and contract `c6e78eb2e5939e58b6f18b5fc456320c65f10186`:
+`/tmp/lean-cas-focus.bCnVQe.log` (3738 jobs, 158.01 seconds).
+`RuntimeRequestProbes` passes in `/tmp/lean-cas-focus.wNyGJA.log`
+(66.35 seconds); its completed profile is `/tmp/lean-cas-profile.DaoVk0.log`.
+`ComputationalActionContextProbes` passes in `/tmp/lean-cas-focus.JQ5XG2.log`
+(43.10 seconds). These establish their individual construction checks.
+
+The original-source five-assertion diagnostic completes in 134.87 seconds,
+`/tmp/lean-cas-probe.ZsicEM.log`, with complete identities in
+`/tmp/b0-poc-5410e70/reader-product-f9-combined-final.json`. It retains all
+original bindings and reads the unchanged original proposal file. The finite
+product assertion holds through two registered dispatches. Both F9 generator
+assertions remain unavailable after one dispatch, and both coefficient-map
+assertions report `NoImplementation` before dispatch. Leaf main advanced after
+that loaded diagnostic; these outcomes must remain separate from the next run.
+
+The independent source engineering review of Admission, ProofRefinement,
+EvidencePresentation, Trace, Language and their Realize consumers established no
+concrete new defect. EvidencePresentation preserves the extracted original bodies.
+The review excludes the reviewer's own Data, LiftData and receiver changes and
+confers no protected acceptance. Independently authored mathematical assessments
+of the five product/F9 encodings and five inverse encodings are committed under
+`tests/acceptance/interpretation-comparison-5410e70-{product-f9,inverses}.md`.
+They assess question meaning, not runtime authentication or authoritative migration.
+
+The complete integrated inventory, remaining required positives, same-candidate
+protected negatives, frozen extension trials and independent acceptance remain
+owed. The already recorded constructor-cell coherence input remains unresolved;
+no kernel rule or assertion was weakened to hide it.
+
+## 2026-10-20 — Frame complete computational point data without reconstructing laws
+
+The unchanged actual `sign(3).ker()` computation dispatched
+`meth.group_arrow_kernel` and returned a three-field subobject packet, but framing
+rejected its projected apex action because the formal context used
+`Prefunctor.obj` and an `Arrow.left` projection rather than a syntactic
+`Functor.obj`. `ComputationalData.actionContext` now matches the whole public
+projection under a fresh receiver. Public declaration parameters come only from
+the closed fixed formal expression; backend JSON cannot bind that context.
+The original red is `/tmp/b0-poc-5410e70/lift-runtime-red.log`.
+
+The next actual packet boundary exposed the inclusion's opaque category alias
+and proof-bearing point structures. Concrete callable selection now normalizes
+only the retained category parameter. A generic schema derives every public
+constructor data slot, including both callable slots of an equivalence, while
+omitting proof slots and never reconstructing a law-bearing Lean value. It has
+no permutation-specific case. Its independently fixed public `ToType` telescope
+resolves the concrete dictionary before prerequisite callable dictionaries;
+expected missing dictionaries are handled by `trySynthInstance`, while internal
+interpreter failures propagate. Exact carrier/schema diagnosis is recorded in
+`/tmp/b0-poc-5410e70/computational-object-carrier.log`.
+
+Contract source `c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13` publishes complete
+untrusted point inventories (`finiteData`) and nested callable inventories
+(`finiteGraph`). Graphs remain total at their actual declared inventory.
+`validateEndpointPort` preserves actual endpoint identity, complete point data,
+and graph domain/range checks. It never manufactures an inventory by enumerating
+the requested formal result or copying graph keys. Engineering probes cover the
+projected/direct action contexts, complete explicit inventories, well-framed
+false inverse-law data, missing/duplicate inventories and keys, incomplete nested
+functions, missing slots, and wrong ranges. Their invented computational carriers
+are framing fixtures, not mathematical expected answers or B0 acceptance.
+
+The earlier native sign run supplied a symbolic kernel apex without its actual
+point inventory and did not establish a positive computation. A conforming
+registered answer must carry the actual inventory or released opaque callable
+representation. The current latest-main native answer must be checked separately
+after the coupled framing repairs; the earlier failure is not a claim about that
+newer input. No leaf source or mathematical acceptance assertion was changed. The complete first question
+identity in `lift-runtime-current.json` equals the independently saved
+`computational-action-question-baseline.json` exactly. Before the later lift-endpoint context extension, the
+source-dependent `CasCatalogue.Realize` gate passed 3,738 jobs in 134.58 seconds
+(`/tmp/lean-cas-focus.ouqZk3.log`); the corresponding
+`ComputationalActionContextProbes` gate passed 3,701 jobs in 30.83 seconds
+(`/tmp/lean-cas-focus.5fTaIj.log`). These establish the stated source/framing
+checks, not the missing native positive or mathematical correctness. No independent authority operation or B0 acceptance
+is asserted here.
+
+The later real-boundary checks reproduced three coupled endpoint defects before
+repair: wrapped actual endpoints were rejected, an inverse comparison could
+replace the forward map's inventory, and `nextBase` discarded actual inclusion
+endpoints. The fixed four-field prefix now retains the forward map's actual
+image/base endpoints for its inverse and propagates the actual inclusion
+endpoints. Inner formal descriptors remain exactly equal; no carrier-equivalence
+or action-image inference is introduced.
+
+The saved actual native finite-product response exposed a separate primitive
+codec boundary: its `Fin 6` inventory was being checked as points of the formal
+product carrier. Data framing now checks supplied object inventories against
+their actual released descriptors and defining graphs against actual binder
+roles, retaining primitive scalar codecs and bounds. It never demands that an
+untrusted computational apex be the requested formal construction. The source
+check of `LiftedSubobjectData` and its current Data dependency passed 1,489 jobs
+in 60.37 seconds; the automatically completed profile took 18.00 seconds
+(`/tmp/b0-poc-5410e70/data-lift-actual-endpoints-build.log`). Cached exact packet
+replay (`product-packet-framing-green.log`), full prefix inventory regression
+(`lift-prefix-inventory-green.log`), and the complete current
+`ComputationalActionContextProbes` (`actual-endpoint-context-probes.log`) all
+exited successfully. The latter includes a deliberately wrong but well-framed
+noncanonical four-point product carrier and primitive range negatives. These
+are source/framing checks; final dependent Realize and unchanged native
+computation/identity checks remain separate.
+
+The actual saved native cone was also replayed at the real
+`Realize.computationalApexReceiver` boundary, with the original public product
+apex and a session-owned complete packet. The old helper retained its construction
+form because `decodeObject` has no `finiteData` constructor
+(`/tmp/b0-poc-5410e70/apex-receiver-framing-red.log`). The narrow receiver helper
+now projects exactly one two-field inventory envelope solely for registered-form
+lookup, while forwarding the complete original apex JSON, original formal value
+and ownership. Global object decoding and category checks are unchanged. Traversal
+follows the actual finite JSON wrapper chain instead of stopping after 32 layers.
+`RuntimeRequestProbes` records the actual packet and checks full payload/formal/
+ownership preservation and contradictory-category, unknown,
+malformed and nested descriptors. The cached exact-new-helper replay and these controls passed
+(`/tmp/b0-poc-5410e70/apex-receiver-source-green.log`, exit 0). This diagnostic
+compiled the extracted current helper source, not the entire modified Realize
+module. Final whole-source Realize and actual product execution gates must
+consume this added consumer correction as well.
+
+## 2026-10-20 — Construct proof-only refinements and preserve supplied map context
+
+The unchanged finite-product proposal previously failed reading because the product was
+read directly as finite-set parameters; the fixed F9 constants proposal failed because its
+raw `ZMod 3` source supplied no named set identity. Exact red logs are
+`/tmp/b0-poc-5410e70/reader-finite-product-red.log` and
+`/tmp/b0-poc-5410e70/reader-f9-constant-red.log`. Rational inverse reading already succeeds;
+its retained full parameter-equivalence context exposed a separate serialization gap.
+
+The candidate reader elaborates the registered classifier total's public constructor
+against its full forgetful image and fills only remaining proposition fields using existing
+class or Decidable instances, with kernel checking. Trace data retains the complete source,
+chosen action and identification. Realization retains the original complete input payload,
+form and comparisons and restores them only along the exact checked forgetful prefix.
+A classifier requiring unsupplied nonproof structure remains refused.
+
+For raw endpoints of a registered named map, the reader can inspect that map's accepted
+public-field presentation for full supplied structured arguments. It compares complete
+registered structures, retains every equivalent source and preserves the original named
+map declaration and public parameters. Bare carriers still select no structure. Existing
+named-endpoint readings retain their previous operation trees.
+
+The smallest source gate, `just focus CasCatalogue.ProofRefinement`, passed 1483 jobs in
+49.32 seconds after the normal latest-main dependency refresh; log
+`/tmp/lean-cas-focus.0ZPNnl.log`. The diagnosed Language source gate passed 3727 jobs in
+232.59 seconds (source 207 seconds), log `/tmp/lean-cas-focus.DyIOkk.log`. The combined Realize source gate passes 3738 jobs in 157.62 seconds (Data 17, LiftData 10,
+Realize 98 seconds), log `/tmp/lean-cas-focus.CPWi6K.log`, at actual latest-main mathematics
+`805208138f016368f6a4eac415f25f3922a5807d` and contracts
+`c603ede9e51adaa3a1365d2d82aeebb3aa0f6d13`. Proof-refinement runtime probes, unchanged proposal
+executions and full question-identity comparisons remain unestablished for this candidate. `NamedFieldContextProbes` passes at the
+current Language artifact (3728 jobs, 20.80 seconds; `/tmp/lean-cas-focus.wY4kYD.log`): both
+coefficient maps retain their original zero-parameter named-map identity and supplied full
+structured context; the corresponding raw carriers without that context remain refused. These construction changes do not admit or modify an acceptance assertion.
+
+The current Language artifact also passes the original matrix-unit reader positive
+(27.22 seconds, `/tmp/lean-cas-probe.BGHtkD.log`) and singular-matrix protected refusal
+(40.69 seconds, `/tmp/lean-cas-probe.Q7Vj7V.log`). Existing `SelectedCarrierProbes` passes
+(72.80-second source gate, `/tmp/lean-cas-focus.pmSAdr.log`; required completed profile
+62.15 seconds, `/tmp/lean-cas-profile.oiPwYT.log`). `ProofRefinementProbes` passes at the
+built Realize snapshot (26.38 seconds, `/tmp/lean-cas-focus.mf19un.log`): full original product
+and forgetful identity retained, false proof obligation and unsupplied chosen magma structure
+refused, original bound-source request restored only under its exact action and full source.
+
+An exact-file diagnostic selects the original product and four F9 assertions with all original
+bindings, using production `FileItems.items`, `cas_item` parsing and `runAsking`; it rewrites no
+assertion. At mathematics `80520813`, contracts `c603ede` and leaf manifest `7663031`, every
+selected assertion reads with a complete question. The first attempt lacked a configured native
+interpreter and is retained as an unavailable diagnostic. With the configured native interpreters,
+`/tmp/lean-cas-probe.s6NYHF.log` and
+`/tmp/b0-poc-5410e70/reader-product-f9-native-diagnostic.json` record: product malformed after
+one dispatch (finiteData/cone framing); both generator comparisons unavailable after one dispatch
+(the engine rejects a published generator point descriptor); both constant comparisons
+`NoImplementation` before dispatch on the exact `obj.sets.integers_mod` source form. None holds.
+These are runtime findings, not permission to substitute an alias, narrow mathematics or change
+an assertion. Later coupled LiftData/Data corrections are not represented by this loaded snapshot;
+final source and dependent/runtime checks remain required.
+
+## 2026-10-20 — Execute the prescribed public lift computation fields
+
+The runtime now fixes every selected `LiftEntry.computation` before dispatch and
+instantiates `MonoLiftComputation.obj`, `hom`, `forward`, and `backward` at the complete
+source receiver, selected action and independently retained formal base. Admission exposes
+only those published fields, at `<lift id>#<field>` on `<lift id>#input`; no semantic rows
+or leaf laws are introduced. Every field request includes the actual preceding outputs.
+Execution runs in reverse route order and constructs the next base from the preceding
+actual object and inclusion, never by repeating the original base packet. All four outputs
+and complete source/base/action context remain in the final packet. Opaque session owners
+are merged through every request and result; incompatible owners remain unavailable.
+
+The completed envelope now requires the actual four-field output group for every step.
+`typedMap` framing checks actual declared endpoints and shared finite-graph data inventories;
+opaque maps on infinite carriers remain callable data. Validators return `Unit`, never a
+backend-derived object, inverse law, monicity proof or universal-property certificate.
+Well-framed wrong objects and maps remain unchanged computational claims. The production
+caller passes the actual Subobjects result context to completion, rather than the original
+Arrow category, and cannot return the bare base when a lift registration is absent.
+
+Before repair, the unchanged production decoder probe
+`/tmp/b0-poc-5410e70/lift-unexecuted-packet.lean` failed because a three-field packet with no
+component outputs was accepted as completed data. It now passes (17.68 seconds).
+`LiftedSubobjectDataProbes` passes (3737 jobs, 34.92 seconds): all four public types are closed,
+all opaque computational fields survive completion, malformed/missing fields and wrong map
+endpoints fail, wrong but well-framed data survives, actual next-base data uses returned fields,
+wrong fixed source/route fails, and the production executor with no registrations reports
+`NoImplementation` rather than claiming completion. The selected formal fixture has an
+infinite integer-pair carrier; no map is enumerated or reconstructed as a law-bearing value.
+The first focused lift source check failed because a concurrent source build removed its
+Semantic import; the serial corrected check passed (1489 jobs, 25.43 seconds). The complete
+required Realize dependency build passed (3736 jobs, 374.91 seconds, diagnosed 600-second
+budget): Language 242 seconds, Realize 96 seconds. No heartbeats changed.
+
+These checks ran in the combined construction tree with the independent ComputationalData
+action-context repair. The unchanged installed-registration diagnostic then reports E8 rank,
+alternating-group cardinality and both cyclic/symmetric group abelianness assertions `holds`,
+each with one actual dispatch. The three earlier group question identities are unchanged;
+E8 previously failed before producing an identity. The separate sign-kernel diagnostic still
+rejects unsupported nested computational point framing, owned by the independent Data repair.
+Logs and JSON are in `/tmp/b0-poc-5410e70/`, including `lift-runtime-source-build.log`,
+`lift-computation-probes-third.log`, `lift-unexecuted-packet-{red,green}.log`,
+`composite-dispatch-lift-source.{json,log}` and `sign-runtime-context-repair.log`.
+
+Kernel-owned contract source `1d2b2be06e7b39acff30357d3dd9ae1d2831f88b` specifies the complete
+four-field protocol; its ordinary publication is queued at the machine-wide QC lock. Actual
+registered execution of the newly exposed lift fields remains dependent on the complete
+published contract and independently authored installed registrations. This source checkpoint
+and its engineering checks do not establish that missing execution, mathematical correctness,
+full assertion success, or B0 acceptance. The refreshed manifest is outside this source commit.
+
+## 2026-10-20 — Complete family parameters in structural applications
+
+The E8 route failed before execution when the new public fixed-value inclusion
+needed a bundled value-module parameter. Both ordinary and full-transparency
+composition refused the same middle-category constraint; the closed carrier
+projection did not determine the missing bundle. Logs are
+`/tmp/b0-poc-5410e70/route-composition.log` and
+`route-realized-composition-eta.log`.
+
+`Semantic` now reads the existing public functor endpoint realizations and
+family-fibre parameters. Lean structure eta reduction exposes the original
+complete parameter record before unification. After assignment, the original
+full parameters and their presentations are checked definitionally equal.
+Application uses the action's declared source-category witness and the supplied
+receiver's full type. No carrier search, new mathematics, or leaf data supplies
+structure. The exact public action and retained route applications stay intact.
+
+The first production check exposed an early presentation-equality check before
+bundle assignment; it was moved after assignment while retaining all original
+full-data checks. The full E8 method then exposed current-depth universe
+unification in ordinary metadata projection application; those projections now
+use the existing `mkAppHere` primitive. Focused `Semantic` passed 1481 jobs in
+25.41 seconds. The exact `FibreParameterProbes` target passed 3695 jobs in
+29.05 seconds, including the full registered E8 semantic method and application
+at a supplied formed module. The original `SelectedCarrierProbes`, registered
+execution, complete question preservation and final combined source checks
+remain required; these focused results do not establish them.
+
+The CI plumbing correction is published at
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Exact hosted controller source checks,
+controller boundary fixtures and the construction seal check pass. Other Gates
+jobs remain separate from this unintegrated functional source candidate.
+
+## 2026-10-20 — Expose applied closed carrier projections for admission
+
+The unchanged matrix-unit reader binding was refused although its complete admission
+predicate is definitionally equal to the ordinary rational-matrix predicate, which the
+same registered evidence establishes. The explicit supplied presentation retained closed
+carrier projections applied to their selected object arguments inside the matrix entries.
+The final carrier cleanup recognized only bare projection nodes, leaving these applied
+projections hidden from the evidence procedure.
+
+`evidencePresentation` now recognizes a projection at the head of an application. This
+change is restricted to closed type expressions, retains the full definitional-equality
+check against the original target, and does not unfold mathematical values or ring-map
+applications. `CarrierProjectionProbes` exercises the actual reader admission and retains
+a singular-matrix refusal. No mathematical assertion, expected answer, or upstream
+procedure changed.
+
+At mathematical main `805208138f016368f6a4eac415f25f3922a5807d`, the permanent reader
+regression failed before repair (55.13 seconds). The focused Language build passed
+(3725 jobs, 254.96 seconds), using its completed prior profile and a 300-second diagnostic
+budget. Cached-import checks of the unchanged positive and negative probe sections pass
+separately (36.25 and 31.74 seconds), and the existing `EvidencePresentationProbes` passes
+(46.15 seconds), retaining the original typed predicate and polynomial nonunit refusal.
+The combined cached-import probe exceeded its 60-second budget and is not counted as a
+pass. Logs and exact original-predicate diagnostics are under `/tmp/b0-poc-5410e70/`.
+These checks establish this reader boundary only; a combined source build after the
+concurrent Semantic correction, complete question preservation, the permanent suite,
+protected negatives, and independent B0 acceptance remain separate obligations.
+
+## 2026-10-20 — Preserve complete Arrow and admitted composite requests
+
+`Realize` now resolves a traced base-category Arrow to its unique registered Arrow
+category, checks the complete typed value, and retains both endpoints and its defining
+map. Already normalized Arrow contexts remain unchanged; contradictory source contexts
+are rejected. The unchanged `arrow-runtime-form.lean` production reproducer failed
+before repair (“an Arrow receiver was framed as its base category”) and passes after.
+
+Operation requests now follow only the catalogue's complete named-refinement prefix,
+as required by `specs/leaf-registration.md`; residual structural route applications
+remain part of the fixed admitted source composite. Separately, the complete selected
+formal route is applied before method-domain/result and property-domain checks. Selection
+never consults backend availability. `RuntimeRequestProbes` exercises actual reader and
+realization boundaries with `Harness.empty`: Arrow framing and wrong-source rejection,
+already normalized context, full source parameters, distinct source structures, complete
+refinement prefixes, and definitional agreement with the independently read operation.
+
+At mathematics main `805208138f016368f6a4eac415f25f3922a5807d`, focused Realize builds pass
+(97.82 seconds), and `RuntimeRequestProbes` passes (3737 jobs, 32.44 seconds). The unchanged
+installed-registration diagnostic previously reported `NoImplementation` for alternating
+group cardinality and cyclic/symmetric group abelianness on transported image forms. After
+repair all three report `holds`, each with one actual `gap-groups` dispatch on its admitted
+source form and full parameter `[3]`. Their complete question identities are unchanged.
+The diagnostic still exits 1: `E8.rank()` retains its earlier internal `routeFunctor`
+composition failure between `integralLatticeFormForgetDeclaration` and `fixedValue`, before
+registered execution. This is separate from the repaired request boundary, not evidence
+of missing mathematics or a completed positive suite. Lift component execution remains
+separate construction work; no lift semantics or permanent assertions changed here.
+
+Scratch red/green evidence is under `/tmp/b0-poc-5410e70/`:
+`arrow-runtime-form-{red,green}.log`, `composite-dispatch-{red,green}.{json,log}`,
+`realize-runtime-repair-domain-build.log`, and `runtime-request-probes-final.log`.
+These engineering checks establish the repaired wiring, not mathematical correctness or
+B0 acceptance. The refreshed dependency manifest is deliberately outside this source commit.
+
 ## 2026-10-20 — Complete registered run at runtime candidate 5410e70
 
 Exec session `69924` terminated with exit 1 and PID 895162 is gone. The complete
@@ -2208,3 +2631,112 @@ entries stay unchanged, and a dirty dependency preserves both its local work
 and the previous manifest. No seal, verifier condition, protected accepted input,
 mathematics, acceptance assertion or leaf was changed. The hosted repaired run
 remains to be executed at the integrated source revision.
+
+
+## 2026-10-20 — Reconcile completed hosted comparison at 8be6fe8
+
+Gates run `39437629797` finished at exact published source
+`8be6fe8db2b46b0882de7de444b701390c7fe22e`. Controller boundary fixtures
+passed, including the repaired reviewer discovery. The per-assertion base/head
+comparison passed; the following permanence check failed because all five
+`inverses.*` questions were unread. No permanent record was rewritten.
+The full job log is `/tmp/b0-poc-5410e70/hosted-per-assertion-8be.log`.
+Both runner suites reported native Sage/GAP programs unavailable (`no ready
+frame`); that hosted run does not establish the required registered executions.
+The earlier local native report remains separate and has the already recorded
+mixed dependency-label provenance defect.
+
+Inspection of published constructor inputs confirms that Mathlib owns
+`Functor.mapArrowFunctor`, while the catalogue supplies only the constructor's
+action on functors. No general action on comparison cells is supplied through
+that registry interface. The unchanged constructed-route positive stays open;
+no Arrow-specific semantic inference or upstream work instruction was added.
+
+
+## 2026-10-20 — Provision native engines for hosted execution
+
+The missing-engine condition in hosted `8be6fe8` is repaired as construction
+workflow source: the build/audit and per-assertion jobs create the full Sage
+conda-forge environment through the pinned setup-micromamba action and export
+its actual interpreter as both `CAS_SAGE_PYTHON` and `CAS_GAP_PYTHON`. A required
+step imports Sage and its native libgap before either consumer runs. It does not
+assert mathematical correctness or count an installation check as acceptance.
+The installation follows Sage's official
+[installation guide](https://doc.sagemath.org/html/en/installation/index.html)
+and the action's documented
+[environment and run-shell interface](https://github.com/mamba-org/setup-micromamba).
+No leaf implementation or assertion was changed. `actionlint` 1.7.12 accepts
+the parsed workflow; actual hosted environment creation and registered execution
+remain to be run at the integrated published source revision.
+
+
+## 2026-10-20 — Preserve coherence controls after independent semantic growth
+
+The hosted `8be6fe8` failure in `CohereProbes` was the control's obsolete
+assumption that formed modules have one carrier route. The control now checks
+the method owner's Sets category for an empty prefix and no comparison; the
+formed-module check remains and requires its actual independently published
+`cell.bilin_module.carrier_routes` comparison. The ring-diamond, missing-cell,
+reordering, direction and ambiguous-comparison checks are unchanged. No
+permanent `.cas` statement or authoritative question record was altered.
+
+Exact target `just focus CasAcceptance.CohereProbes` passed 3694 jobs in
+48.66 seconds with mathematics `80520813` and contract `c603ede`; log
+`/tmp/lean-cas-focus.9r4uQG.log`. This establishes the engineering control at
+this source boundary, not the still-failing constructed-route positive, full
+POC execution, independent acceptance, or activation of a replacement judge.
+
+
+## 2026-10-20 — Read every original inverse question through actual execution
+
+The exact `tests/acceptance/inverses.cas` file (SHA256
+`29ff6c9e55285554b5c981f906e6a3ce131229bd81afae575ab8d6d41f96d738`)
+was parsed with production `FileItems.items` and `cas_item`, preserving every
+binding and all five original IDs. All three bindings held. All five admitted
+questions now read and retain both full identity and proposition. Each returns
+`NoImplementation` with zero dispatches: four lack structural arithmetic data
+for admitted-point operands; `inverses.right` lacks realization of its second
+product point. The diagnostic's stronger demand for five registered holds
+therefore failed after 314.09 seconds. This does not fail the frozen fifteen
+execution obligations: the plan permits gaps in these broader corpus statements.
+It establishes local repair of the former invalid/unread questions, not their
+independent interpretation approval or final-candidate question permanence.
+
+Evidence: `/tmp/b0-poc-5410e70/inverses-exact-file-current.json`, `.log`, and
+`inverses-exact-file-inputs.json`; the latter records dependency and compiled
+artifact digests for the loaded runtime preceding pending LiftData corrections.
+The opaque question/proposition-only extract is
+`inverses-opaque-interpretations.json`; no authoritative record was regenerated.
+Native engines were configured explicitly. Dependency publication and refresh
+were held until this run and the reader's product/F9 run ended.
+
+An earlier commentary prematurely included SelectedCarrierProbes among passes
+while its target was still running; it was corrected immediately. The eventual
+actual target passed in 72.80 seconds with a completed 62.15-second diagnostic
+profile. That exact result, not the earlier statement, is the evidence. The
+original unrelated dirty Language patch still exactly matches its saved baseline.
+
+## 2026-10-21: K1, K4, K6, K7, K9 closed
+
+- K1: the fifteen required computations hold with dispatches at `f208613`
+  (`lean-cas-dsl-reports/f208613-dcd5109…-targeted-k1k2.json`); `sets.eq.rev_rev` regressed when
+  the leaf began answering `finiteGraph`, repaired in `f208613`.
+- K4, K6, K7: no ID is a request-formation gap in CI run `39630187816` at `adaec09`
+  (holds 75 → 75; request-formation gaps 101 at `5410e70` → 9).
+- K9: the three requests use the declared `extent` and `constructionApex` forms
+  (contract `f7b047b`); remaining errors are the Sage leaf's (`*-targeted-rest2`).
+
+## 2026-10-21: K11 closed
+
+- The seven kernel consumers of `SemanticState.routes` now call `RegistryState.completeRoutes`,
+  which bounds the simple-route enumeration by the number of categories reachable from the
+  source along `edgesFrom`, and fails loudly when that set does not close within 4096.
+- `CasAcceptance.ResolveProbes`, `ClosureProbes`, `CohereProbes` build; `sets.card.fin2_times_z3`,
+  `lattices.discriminant.a2`, `sets.finite.integers` hold (`0eb14e2-dirty-…-targeted-k11.json`).
+
+## 2026-10-21: K10 closed
+
+- A method dispatch records the registered comparisons of the resolution that selected its
+  route. Scratch diagnostic `|ZMod(5) in Rings| = 5` holds with one `meth.cardinality` dispatch on
+  `obj.rings.integers_mod` recording `cell.rings.additive_monoid_carrier` and `cmp.rings.carrier`
+  (`6452585-dirty-…-targeted-k10.json`); `sets.card.z7`, `sets.card.integers` still hold.
