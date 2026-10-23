@@ -59,14 +59,14 @@ Build the required source targets through the project's existing build process
 before running the demo. The specific targets used here are:
 
 ```bash
-lake build CasTools.Harness CasDsl.Notebook
+lake build cas-harness CasDsl.Notebook
 ```
 
 For a deliberately selected local source combination, pass the same **external**
 Lake package manifest to the build and to the runner:
 
 ```bash
-lake --packages=/absolute/path/to/source-packages.json build CasTools.Harness CasDsl.Notebook
+lake --packages=/absolute/path/to/source-packages.json build cas-harness CasDsl.Notebook
 python3 scripts/run_kernel_v1_demo.py \
   --packages /absolute/path/to/source-packages.json \
   --contract /absolute/path/to/lean-cas-dsl-leaf-contracts \
@@ -75,8 +75,7 @@ python3 scripts/run_kernel_v1_demo.py \
 
 The runner passes this file to Lake's existing `--packages` option. It does not
 rewrite `lake-manifest.json`, dependency declarations, or package revisions.
-`--lake` and `--lean` can select explicit toolchain executables when they are not
-on `PATH`.
+`--lake` can select an explicit toolchain executable when it is not on `PATH`.
 
 ## Run from the command line
 
@@ -99,8 +98,9 @@ python3 scripts/run_kernel_v1_demo.py
 The runner writes its configuration and output to `../kernel-v1-run/` by default.
 Choose a different directory outside the repository with `--output`.
 
-It invokes the existing `CasTools/HarnessMain.lean` entry point through
-`lake env lean --run`, with `--computation-only`. Consequently the assertions use
+It invokes the built `cas-harness` executable through `lake env`, with
+`--computation-only`. The executable is built with the project's existing
+`supportInterpreter` setting so imported commands are available during execution. Consequently the assertions use
 the realization path instead of succeeding solely through Lean proof discharge.
 There is no extra CAS interpreter in this script.
 

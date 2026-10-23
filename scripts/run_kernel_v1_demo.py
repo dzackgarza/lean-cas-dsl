@@ -186,7 +186,6 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--packages", type=Path,
                         help="external Lake package overrides, passed as --packages; never copied into the repo")
     parser.add_argument("--lake", default="lake", help="Lake executable for the existing built source")
-    parser.add_argument("--lean", default="lean", help="Lean executable inside the selected Lake environment")
     parser.add_argument("--prepare-only", action="store_true",
                         help="write the run configuration and notebook instructions without running Lean or Sage")
     parser.add_argument("--check-report", type=Path,
@@ -220,16 +219,16 @@ def main() -> int:
     # nor substitutes for CasAcceptance/Permanent/admitted.json.
     write_json(inventory, {"assertions": {identity: {} for identity in assertions}})
     lake = args.lake if args.prepare_only else executable(args.lake, "Lake")
-    lean = args.lean
-    if not args.prepare_only and "/" in lean:
-        lean = executable(lean, "Lean")
+    harness = ROOT / ".lake/build/bin/cas-harness"
+    if not args.prepare_only:
+        executable(str(harness), "built CAS harness")
     lake_command = [lake]
     if args.packages:
         packages = args.packages.resolve()
         if not packages.is_file():
             raise ValueError(f"external Lake package manifest is missing: {packages}")
         lake_command.append(f"--packages={packages}")
-    command = lake_command + ["env", lean, "--run", "CasTools/HarnessMain.lean",
+    command = lake_command + ["env", str(harness),
                               "--suite", str(suite), "--manifest", str(manifest_path),
                               "--inventory", str(inventory), "--report", str(report),
                               "--computation-only"]
@@ -253,8 +252,6 @@ def main() -> int:
         print(f"#cas_tests {quote(suite)} manifest {quote(manifest_path)} "
               f"reporting {quote(output / 'notebook-report.json')} inventory {quote(inventory)} computing")
         return 0
-    if not (ROOT / ".lake/build/lib/lean/CasTools/Harness.olean").is_file():
-        raise ValueError("CasTools.Harness is not built; build the documented targets first")
     environment = os.environ.copy()
     environment["CAS_LEAF_CONTRACT_PATH"] = str(contract)
     environment["CAS_SAGE_PYTHON"] = sage

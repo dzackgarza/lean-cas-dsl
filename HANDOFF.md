@@ -13,7 +13,7 @@ permanent assertions, and independent release acceptance are unchanged.
 | --- | --- | --- |
 | lean-cas-dsl | `work/kernel-v1-20261023`; merge checkpoint `f8bd60b` | Generic implementation changes are being integrated; not frozen |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `dbab309f2ee6a4da2c19e970f4d5d6460d8665a4` | Published necessary registry, series, constructor comparison interfaces and selected-presentation documentation; draft [PR #93](https://github.com/dzackgarza/lean-categories/pull/93) |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `7c3f35762c6e64d7b0728bd7e40af8fc8bb26ffe` | Public forms, package startup repair, complete Arrow/comparison requests, and integrated mathematical dependency published; API snapshot regeneration pending |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `ba8b91a70561c3e0888c66de30f0e6b2907c01e5` | Public forms, package startup repair, complete Arrow/comparison requests, and integrated mathematical dependency published; fresh API snapshot and declaration documentation published |
 | lean-cas-dsl-leaves | Existing checkout | Existing implementations and manifest unchanged |
 | Diagnostic leaf worktree | `work/v1-contract-diagnostic-20261023` | Additive independent public-contract specimen; no correctness claim from its own tests |
 
@@ -85,18 +85,28 @@ and their consumers. Rational, bottom-valued degree, differential, matrix,
 infinite subset/span, binder, complete product, and closed-point forms are
 documented. The rational dual-number presentation's existing formulas are now
 declaration docstrings so the public export can expose them. The exported API
-snapshot must still be regenerated, not relabelled. A blind diagnostic author completed the specimen's consumption of already published wrappers and selected
+snapshot was regenerated from published kernel `9630f544f0b82581ba0083f7bbd49831ef5967e2`
+and mathematics `dbab309f2ee6a4da2c19e970f4d5d6460d8665a4`. Its SHA-256 is
+`f3a17fd1d2fa98d72513fbe9ac333834f64b6b160a9ccd5206b97a5991802b19`.
+The exporter loads Lean server metadata for public docstrings while preserving module visibility. A blind diagnostic author completed the specimen's consumption of already published wrappers and selected
 scalar descriptors; no execution outcomes or expected answers were supplied. The additive
 specimen is published at `5a9e82377007689547f3532955e3803a93b08b5b`.
 
 Four unchanged independently specified workflows, an existing-surface notebook,
 and a strict execution/report runner are prepared under `examples/kernel-v1`,
-`notebooks/kernel-v1.ipynb`, and `scripts/run_kernel_v1_demo.py`. Their final
-integrated execution is pending; prepared files alone are not successful evidence.
+`notebooks/kernel-v1.ipynb`, and `scripts/run_kernel_v1_demo.py`. The strict integrated
+run passes all eight arithmetic, all three successive matrix, all four F9, and
+the first finite pullback observation. The remaining product reuse is a named
+unsupported construction consumer in the additive diagnostic leaf; its author
+is completing the consumer from the refreshed public API, without receiving
+assertions or execution outcomes. The runner launches the built `cas-harness`
+with its existing interpreter support. Sixteen of seventeen is not the V1 exit gate.
 
 Independent mathematical workflow specifications and independent additive
 upstream extensions have been prepared separately from implementations. The
-candidate is not frozen yet, and no frozen extension trial is claimed.
+initial kernel source checkpoint `9630f54` and public contract `ba8b91a` are
+immutable extension inputs. Independent authors are preparing additive upstream
+modules; no completed frozen extension trial is claimed.
 
 ## Noticed, not worked
 
