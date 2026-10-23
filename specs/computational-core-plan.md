@@ -61,6 +61,70 @@ interpretations, evaluator and controlling requirements):
 **The orchestrator cannot reduce this table, move a row beyond B0, or redefine a row's acceptance.**
 A change to a row needs a decision of the authority that owns the requirement.
 
+### Kernel MVP: proved readiness for substantial leaf development (owner instruction, 2026-10-23)
+
+**Milestone deliverable:** a kernel and computational contract demonstrated to be
+*ready for substantial independent leaf development*, not a kernel that merely
+passes its current specimen assertions. Ordinary subsequent leaf implementations
+using the declared B0 extension mechanisms must not repeatedly force generic
+kernel, port, or upstream mathematical "patches". This is a mandatory **earlier
+gate inside B0**, not a lowering of any B0 mathematical, acceptance or real
+execution obligation. Expanding production leaf coverage comes *after* this
+gate, not as a means of finding the missing generic kernel.
+
+**Extent of the claim:** the supported extension language is the complete set of
+B0-declared categories/objects, structural functors, method/classifier
+registrations, constructors, fibrations, dependent applications, binders,
+presentation comparisons, admission/refinement, structured results, and lifts.
+Readiness concerns arbitrary new well-formed instances composed from those
+mechanisms. An entirely new mathematical mechanism outside this language is
+new scope, rather than a retrospective failure of the earlier guarantee.
+Conversely, it is forbidden to shrink this declared language to make the gate
+pass. Installed leaves can affect only realization outcomes, not meanings,
+types, available operations or semantic routes.
+
+The kernel MVP is **not passed until every row below is met at one coherent
+source/dependency revision combination**. A code inspection or historical
+targeted result cannot replace an execution observation. Compositional
+correctness needs a general argument from the actual data types/algorithms;
+testing finitely many examples alone cannot establish it.
+
+| ID | Required kernel work and completion evidence |
+| --- | --- |
+| **KM1 — One buildable integrated candidate** | Reconcile the integrated [#65](https://github.com/dzackgarza/lean-cas-dsl/pull/65) with the generic binder obligations of open [#63](https://github.com/dzackgarza/lean-cas-dsl/pull/63) and the complete lifted-result obligations of open [#64](https://github.com/dzackgarza/lean-cas-dsl/pull/64), retaining their relevant negative and compositional probes rather than reviving conflicting decoder APIs. The kernel, contract, gates, tools and all relevant probes build at the same resolved mathematical revisions. A full admitted-inventory report at the exact integrated head exists, with no uncontrolled dependency changes; a targeted pass or a report from a different commit does not establish this. |
+| **KM2 — Complete generic semantic reading** | Every admitted valid statement keeps its intended typed mathematical question and is semantically readable, discharged, or transformed into a complete registered computation request; no valid assertion remains `invalid` or stops at a request-formation gap. Invalid inputs and genuine ambiguities fail at the correct stage. Repair K2–K8 and K14's *reader/request* obligations: inverse admission, domain and membership evidence, literal/point/map formation, composition, selected structure, formed-module vector parameters/destructuring, and all registered binder instances including power series. No binder/operation-specific patches. A missing upstream mathematical domain such as `Series.powerSeriesTAdic R` belongs to independently authored `lean-categories`, not a kernel imitation. |
+| **KM3 — Proved compositional propagation and transport** | Establish both extension directions without editing existing objects or leaf registrations: new structured objects acquire old applicable methods, and new generic methods become applicable to old objects. Prove/verify preservation of actual functor object/morphism actions, dependent parameters, selected structures (including different structures on one carrier), admissions, fibration reindexings, proof-driven refinements, nonidentity presentation isomorphisms and exact structural routes. Resolve ambiguity only with registered comparison cells; the executed request must use and record those cells (K10). Route enumeration must be complete within its declared finite structural closure (K11). Constructor-induced comparison-cell actions must work (K12), not merely be documented. Include competing-route and missing-evidence negatives. |
+| **KM4 — Generic execution, decoding and result replay** | Execute the exact preinterpreted request using only admitted registrations, including composite calls, Arrow/morphism/diagram computations, produced points/maps reused by later operations, and complete kernel/cokernel/subobject/limit/colimit structured outputs. Return each independently fixed defining arrow/cone/other universal datum, not a bare apex; actually dispatch, decode and compose every prescribed lift computation along the actual route. A pending component plan, `universal := none`, a copied lower-level result, or a leaf-supplied mathematical proof is never a completed result. For every supported generic shape run a real chained specimen and malicious/missing-component negative. |
+| **KM5 — Complete public leaf-facing contract** | Publish exact dependent operation addresses, accepted input/result forms, full wire encoding, opaque port and structured reply fields, with a working generic kernel codec. A leaf author must need only this released contract and native engine APIs—not kernel source, unstated wire guesses or acceptance expected answers. Resolve the independently recorded missing families in [leaves/DEFECTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md): non-integral/irrational points, bottom-valued polynomial degrees, Kähler differential results, matrices, possibly infinite spans/subsets, binder map requests, symbolic product apices/legs and closed points inside compose/mediator. Reconcile `extent` versus `constructionApex` and other actual request/reply discrepancies. Each family needs unambiguous generic encoding, round-trip and hostile decoding checks. A `NoImplementation` may remain only if a conforming leaf could fill it *without altering any of these contracts*. |
+| **KM6 — Meaning permanence, failure strata and executable verification** | Preserve one complete typed mathematical question before execution (relation, operands, binder and map domains, proof propositions not proof artifacts, selected structure, parameters, routes and compositions), and have execution consume that same question. Independently assess *every* admitted identity including currently unreadable ones and migrate meaningless hash differences without authoring new answers. Separate semantically invalid, ambiguous, missing registration, wrong answer, malformed answer, unavailable backend and internal exceptions/timeouts at the stage causing them; no catch-and-relabel workaround. Resolve measured runtime obstructions that prevent these required paths, including the `integration.normalized` heartbeat case and any reproducing question-identity traversal obstruction; unrelated optimization is not this milestone. |
+| **KM7 — Independent frozen-kernel exit proof** | Freeze the kernel, contract and existing specimen leaves **before** independently selected extensions. Complete *all ten* [exit trials](#exit-trials): new structured object; new generic operation; group-valued construction; classifier/refinement; competing routes; parameter/base transport; nonidentity presentation comparison; complete structured lifting; generic application/admission/binder; and leaf replacement (no, wrong, malformed and unavailable backends). Require both a compositional correctness argument for each mechanism and fresh positive/negative executable trials covering shared carriers with different structure, nonidentity maps, connected computations, and nontrivial structured/infinite data. A leaf trial is written only from the released contract. **Passing means zero required edits to the frozen kernel, contract, existing mathematical objects and old leaves.** Any such edit fails the gate: repair the *general* mechanism, re-freeze and rerun affected trials. Exemptions or special-casing the new example never count. |
+
+**Ownership and scheduling boundary.** Elimination of request-formation gaps
+(the former readiness definition) is a *necessary subcondition of KM2 only*.
+K13's general leaf dispatch and the leaf-execution/admission portions of
+K3/K14 are **post-KM7 work**, although their kernel request/codec obligations
+must be resolved beforehand. Before KM7, only small, independently authored
+*diagnostic specimen leaves* necessary to exercise the kernel mechanisms and
+the public protocol are permitted. These authors receive neither kernel source
+nor the permanent acceptance answers. All B0 required real computations
+(including K1's fifteen) and protected negatives remain mandatory for **full
+B0**; the kernel gate does not discharge or defer them out of B0.
+
+**Evidence at the published heads (2026-10-23; none certifies readiness):**
+[`main` Gates](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/39828838313)
+fails at `dbaa47c`. The unmerged `b0/kernel` head `4bcd912` has no
+completed post-repair whole-suite report. Its
+[handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/HANDOFF.md)
+and [checkpoint](https://github.com/dzackgarza/lean-cas-dsl/blob/checkpoint/lean-cas-inflight-20261022/TODO.md)
+identify formed-module destructuring/vector selection, `integration.normalized`
+timeouts, power-series upstream input, constructor-induced comparison,
+question-preservation assessment and build/purity discrepancies. Several
+individual K rows have earlier targeted closure observations only. The
+[compositional assessment](https://github.com/dzackgarza/lean-cas-dsl/blob/main/custodian/FINDINGS.md)
+and [leaf contract defects](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md)
+record additional obligations; newer code must be judged against these
+requirements, not assumed deficient merely because older source was.
+
 ### Kernel construction procedure (owner instruction, 2026-10-21)
 
 A **kernel session** is the orchestrator's own session in this repository: the session the
@@ -76,13 +140,15 @@ directs an action: recording, publishing, reconciling branches, escalating, corr
 messaging sessions or dispatching work. It changes no row of the acceptance table and no admitted
 assertion.
 
-The kernel is ready for leaf work when a leaf author can fill every remaining gap by adding a
-registration. In a report, that means no admitted assertion stops at a **request-formation gap**:
-an entry of kind `gap` whose `detail` does not begin `NoImplementation: no admitted registration
-computes`. The 2026-10-20 report at `5410e70` had 154 entries: 18 holds, 101 request-formation
-gaps, 26 registration gaps, 6 invalid, 3 unavailable. Readiness is followed by the
-frozen-candidate exit trials and independent acceptance (construction directives B and D); those
-are not a kernel session's work.
+The former diagnostic criterion was *no admitted assertion stopping at a
+request-formation gap*: an entry of kind `gap` whose detail does not begin
+`NoImplementation: no admitted registration computes`. The 2026-10-20
+report at `5410e70` had 154 entries: 18 holds, 101 request-formation gaps,
+26 registration gaps, 6 invalid and 3 unavailable. That criterion remains
+necessary under KM2, but it is **not kernel readiness**. The kernel is ready
+for substantive leaf work only after KM1–KM7, including the frozen-kernel
+independent trials and question-preservation assessment; full B0 execution
+and independent acceptance remain obligatory.
 
 Controller, custodian, review, publication and CI work (construction directive A) is a separate
 session. It starts only on an owner instruction that names it, and it follows directive A, not
@@ -94,9 +160,13 @@ worked" (rule 1).
 Each rule names an observable condition and the action it requires. None depends on judging
 how important, small, risky or promising something is.
 
-1. **Selection.** Work on the first item of the work list below that is neither closed nor
-   blocked. Do nothing else. A defect noticed outside that item is one line in `HANDOFF.md`,
-   "Noticed, not worked"; it is not repaired.
+1. **Selection.** Take the first open, unblocked **kernel-owned** KM1–KM6
+   obligation above, using K1–K14 below for precise test IDs. K13's bulk
+   leaf dispatch, and leaf-owned execution/admission under K3/K14, are
+   excluded. On a genuinely missing independent upstream/acceptance input,
+   record the blocker and proceed to the next kernel obligation. A defect
+   outside the selected obligation is one line in `HANDOFF.md`,
+   "Noticed, not worked"; it is not an opportunistic patch.
 2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
    `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `specs/reuse/K<n>.md` (the reuse record
    AGENTS.md requires before a new Lean definition), `JOURNAL.md` (rule 9) and `HANDOFF.md`
@@ -150,7 +220,9 @@ how important, small, risky or promising something is.
      "Owner actions";
    - an interpretation or question change: start the acceptance subagent in its own checkout with
      the admitted assertion text and its cited sources only;
-   - registrations: K13 is the only leaf dispatch;
+   - registrations: K13 is post-KM7 production work; before KM7 use
+      independently authored *diagnostic* leaf specimens only when needed
+      to validate the published contract or a generic kernel mechanism;
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
      item.
    The session does not end while a subagent it started is running. When one finishes, run
@@ -248,17 +320,18 @@ says otherwise. A request-formation gap is defined above.
 | K10 comparison used in execution (`cc-cohere-exec`) | ring `cardinality` probe | the executed request records the comparison `cmp.rings.carrier` that selected its route; without that row the outcome is an ambiguity naming both routes |
 | K11 route enumeration bound | `Resolve`, `Closure`, `Cohere` probes | no consumer of `SemanticState.routes` relies on the default fuel; the bound is computed from the registry as `custodian/FINDINGS.md`, "Unfinished route-completeness argument at owner stop", describes; those probes pass |
 | K12 constructor-induced comparison cells | the lift positive in `CohereProbes` | the probe resolves without ambiguity. Upstream row: `cc-cohere`; `blocked: lean-categories constructor action on comparison cells` until that input exists |
-| K13 registration gaps (leaf dispatch) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
+| K13 registration gaps (post-KM7 leaf dispatch; full B0 obligation) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
 | K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
 
 Every CI report re-checks K2 and the closed request-formation items; K1 and K3 need the
 backends, so their targeted checks are rerun whenever another item closes. A closed item that
 reopens becomes the first open item again.
 
-After K1–K14: the kernel is ready for leaf work in the sense above. Freezing the candidate, the
-exit trials, question-preservation assessment and acceptance follow construction directives B
-and D, in sessions the owner starts. Latency work, broader workloads and leaf expansion come
-after B0.
+The K1–K14 table is retained as the concrete B0 assertion/diagnostic
+inventory; checking its rows does not by itself prove readiness. Kernel MVP
+requires KM1–KM7, **including** independent frozen-kernel trials and question
+preservation, *before* mass K13 leaf work. Full B0 still requires all real
+computations and protected negatives.
 
 ### Stage A
 
@@ -386,7 +459,9 @@ the convergence process).
 
 ### Exit trials
 
-Run after the kernel is fixed, by contributors who choose the concrete extension themselves; the
+**These trials are a required kernel-MVP exit gate before substantial
+production leaf work**, and remain part of final B0 acceptance. Run after
+the kernel is fixed, by contributors who choose the concrete extension themselves; the
 orchestrator supplies no pre-shaped definition or expected output. A trial that needs an edit to the
 frozen kernel or an old leaf has failed; the deficiency is repaired, the candidate re-frozen, and the
 trial repeated.
