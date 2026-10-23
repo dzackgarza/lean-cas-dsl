@@ -63,67 +63,91 @@ A change to a row needs a decision of the authority that owns the requirement.
 
 ### Kernel MVP: proved readiness for substantial leaf development (owner instruction, 2026-10-23)
 
-**Milestone deliverable:** a kernel and computational contract demonstrated to be
-*ready for substantial independent leaf development*, not a kernel that merely
-passes its current specimen assertions. Ordinary subsequent leaf implementations
-using the declared B0 extension mechanisms must not repeatedly force generic
-kernel, port, or upstream mathematical "patches". This is a mandatory **earlier
-gate inside B0**, not a lowering of any B0 mathematical, acceptance or real
-execution obligation. Expanding production leaf coverage comes *after* this
-gate, not as a means of finding the missing generic kernel.
+**The implementation target is an extensible kernel, not a collection of leaves.**
+A leaf author implementing any registered operation over a B0-supported request/result
+form must need only the released mathematical API, computational contract, and an
+existing engine. Leaf work must not routinely uncover a missing interpreter case,
+undocumented wire type, transport/lift algorithm, or mathematically unsupported
+operation that must be patched upstream to keep that leaf functioning.
 
-**Extent of the claim:** the supported extension language is the complete set of
-B0-declared categories/objects, structural functors, method/classifier
-registrations, constructors, fibrations, dependent applications, binders,
-presentation comparisons, admission/refinement, structured results, and lifts.
-Readiness concerns arbitrary new well-formed instances composed from those
-mechanisms. An entirely new mathematical mechanism outside this language is
-new scope, rather than a retrospective failure of the earlier guarantee.
-Conversely, it is forbidden to shrink this declared language to make the gate
-pass. Installed leaves can affect only realization outcomes, not meanings,
-types, available operations or semantic routes.
+This is a *bounded statement about the extension mechanisms B0 already claims*:
+dependent operation/object declarations, structural functors and their actions,
+classifiers/refinements, comparisons, presentations, binders, parameter/fibration
+transport, and structured universal constructions/lifts. New mathematics outside
+these mechanisms is not promised for free. Conversely, the kernel cannot declare
+itself ready by shrinking the accepted mechanisms or by refusing their legitimate
+instances.
 
-The kernel MVP is **not passed until every row below is met at one coherent
-source/dependency revision combination**. A code inspection or historical
-targeted result cannot replace an execution observation. Compositional
-correctness needs a general argument from the actual data types/algorithms;
-testing finitely many examples alone cannot establish it.
+**Source of implementation work.** The substantive integrated source is on
+[`b0/kernel`](https://github.com/dzackgarza/lean-cas-dsl/tree/b0/kernel),
+distinct from `main`, incorporating #65 and parts of #63/#64.
+[The kernel handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/HANDOFF.md),
+[the checkpoint's exact residue](https://github.com/dzackgarza/lean-cas-dsl/blob/checkpoint/lean-cas-inflight-20261022/TODO.md),
+[the compositional audit](https://github.com/dzackgarza/lean-cas-dsl/blob/main/custodian/FINDINGS.md),
+and the *source itself* determine the work. Old findings are not automatically
+bugs in newer source. The tasks below distinguish missing code from already
+implemented code whose integration and generality still require proof.
 
-| ID | Required kernel work and completion evidence |
+#### Concrete kernel implementation work — exhaustive within the declared B0 scope
+
+| Work | Exact owner, necessary change, and concrete completion test |
 | --- | --- |
-| **KM1 — One buildable integrated candidate** | Reconcile the integrated [#65](https://github.com/dzackgarza/lean-cas-dsl/pull/65) with the generic binder obligations of open [#63](https://github.com/dzackgarza/lean-cas-dsl/pull/63) and the complete lifted-result obligations of open [#64](https://github.com/dzackgarza/lean-cas-dsl/pull/64), retaining their relevant negative and compositional probes rather than reviving conflicting decoder APIs. The kernel, contract, gates, tools and all relevant probes build at the same resolved mathematical revisions. A full admitted-inventory report at the exact integrated head exists, with no uncontrolled dependency changes; a targeted pass or a report from a different commit does not establish this. |
-| **KM2 — Complete generic semantic reading** | Every admitted valid statement keeps its intended typed mathematical question and is semantically readable, discharged, or transformed into a complete registered computation request; no valid assertion remains `invalid` or stops at a request-formation gap. Invalid inputs and genuine ambiguities fail at the correct stage. Repair K2–K8 and K14's *reader/request* obligations: inverse admission, domain and membership evidence, literal/point/map formation, composition, selected structure, formed-module vector parameters/destructuring, and all registered binder instances including power series. No binder/operation-specific patches. A missing upstream mathematical domain such as `Series.powerSeriesTAdic R` belongs to independently authored `lean-categories`, not a kernel imitation. |
-| **KM3 — Proved compositional propagation and transport** | Establish both extension directions without editing existing objects or leaf registrations: new structured objects acquire old applicable methods, and new generic methods become applicable to old objects. Prove/verify preservation of actual functor object/morphism actions, dependent parameters, selected structures (including different structures on one carrier), admissions, fibration reindexings, proof-driven refinements, nonidentity presentation isomorphisms and exact structural routes. Resolve ambiguity only with registered comparison cells; the executed request must use and record those cells (K10). Route enumeration must be complete within its declared finite structural closure (K11). Constructor-induced comparison-cell actions must work (K12), not merely be documented. Include competing-route and missing-evidence negatives. |
-| **KM4 — Generic execution, decoding and result replay** | Execute the exact preinterpreted request using only admitted registrations, including composite calls, Arrow/morphism/diagram computations, produced points/maps reused by later operations, and complete kernel/cokernel/subobject/limit/colimit structured outputs. Return each independently fixed defining arrow/cone/other universal datum, not a bare apex; actually dispatch, decode and compose every prescribed lift computation along the actual route. A pending component plan, `universal := none`, a copied lower-level result, or a leaf-supplied mathematical proof is never a completed result. For every supported generic shape run a real chained specimen and malicious/missing-component negative. |
-| **KM5 — Complete public leaf-facing contract** | Publish exact dependent operation addresses, accepted input/result forms, full wire encoding, opaque port and structured reply fields, with a working generic kernel codec. A leaf author must need only this released contract and native engine APIs—not kernel source, unstated wire guesses or acceptance expected answers. Resolve the independently recorded missing families in [leaves/DEFECTS.md](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md): non-integral/irrational points, bottom-valued polynomial degrees, Kähler differential results, matrices, possibly infinite spans/subsets, binder map requests, symbolic product apices/legs and closed points inside compose/mediator. Reconcile `extent` versus `constructionApex` and other actual request/reply discrepancies. Each family needs unambiguous generic encoding, round-trip and hostile decoding checks. A `NoImplementation` may remain only if a conforming leaf could fill it *without altering any of these contracts*. |
-| **KM6 — Meaning permanence, failure strata and executable verification** | Preserve one complete typed mathematical question before execution (relation, operands, binder and map domains, proof propositions not proof artifacts, selected structure, parameters, routes and compositions), and have execution consume that same question. Independently assess *every* admitted identity including currently unreadable ones and migrate meaningless hash differences without authoring new answers. Separate semantically invalid, ambiguous, missing registration, wrong answer, malformed answer, unavailable backend and internal exceptions/timeouts at the stage causing them; no catch-and-relabel workaround. Resolve measured runtime obstructions that prevent these required paths, including the `integration.normalized` heartbeat case and any reproducing question-identity traversal obstruction; unrelated optimization is not this milestone. |
-| **KM7 — Independent frozen-kernel exit proof** | Freeze the kernel, contract and existing specimen leaves **before** independently selected extensions. Complete *all ten* [exit trials](#exit-trials): new structured object; new generic operation; group-valued construction; classifier/refinement; competing routes; parameter/base transport; nonidentity presentation comparison; complete structured lifting; generic application/admission/binder; and leaf replacement (no, wrong, malformed and unavailable backends). Require both a compositional correctness argument for each mechanism and fresh positive/negative executable trials covering shared carriers with different structure, nonidentity maps, connected computations, and nontrivial structured/infinite data. A leaf trial is written only from the released contract. **Passing means zero required edits to the frozen kernel, contract, existing mathematical objects and old leaves.** Any such edit fails the gate: repair the *general* mechanism, re-freeze and rerun affected trials. Exemptions or special-casing the new example never count. |
+| **KM1 — Consolidate one implementation** | Incorporate the applicable #63 generic-binder behavior and #64 creation-lift behavior into the #65-derived `b0/kernel` implementation without resurrecting incompatible old decoder APIs. Preserve #63's zero/multiple row readings, selected structures, actual admission-domain evidence and notation separators; preserve #64's full diagram transport and returned defining maps. Reconcile the current kernel/probes with the actual latest `lean-categories` and `CasContract` interfaces, and correct the failing `CasGates.KernelPurity`/`LiftProbes` integration at its owner rather than turning off a gate. All kernel, contract, probes and tools must build at the same source versions. This assembles the candidate; its *full* acceptance comes after KM2–KM8, not before their implementation. |
+| **KM2 — Remove mathematical decisions from the generic interpreter** | In [`Language.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Language.lean), `oneObject` and `graphOf` select `Fin(1)` / `obj.sets.fin`, `evalAnalysis` explicitly selects `obj.rings.integers_mod`, `powerSetOf` picks the first power-object row, `setLiteral` defaults to a named `ℤ`, and `standardDiagram` chooses particular Mathlib constructors on a shape-name fallback. In [`Realize.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean), `closedElementDomain` hard-codes `obj.sets.fin` and `observeEquality` hard-codes `mor.sets.equality`. Replace each *generic semantic decision* with the applicable unique registered terminal/global-point, quotient, power-object, equality/observation, and diagram declaration/action; a syntax spelling can still select its *declared* operation. If the registry does not expose a genuinely necessary mathematical structure, that is an independent upstream interface input, never a substitute local constant. Check a second presentation and a second relevant structure, reordered registry entries, missing/competing rows, and absence of unexpected methods. No first-match semantics. |
+| **KM3 — Finish one dependent elaboration/admission path for the accepted language** | Repair the actual [`Language.typedParameter` / `applyFamily` / `toElement`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Language.lean) formation cases, not each assertion separately: destructured map parameters `((a,b),(c,d)) ↦ …`, selected `Vec(ℤ,2)` over the correct `ModuleCat` ring parameter, closed map/point operands, genuinely dependent target/source selection, and the generic binder reader when its upstream domain exists. `withFreeVariables` currently rejects more than one free variable; the declared multi-variable/tuple map syntax must form the correct context without inventing a unary surrogate. Preserve a distinction between false/out-of-domain (invalid), ambiguous readings, and a valid unimplemented request. The K2–K8 and K14 *reader/request portions*, all protected negatives, and the entire admitted assertion inventory must elaborate with their complete intended meanings. No production leaf implementation is required to form those requests. |
+| **KM4 — Complete functorial closure, comparisons, and refinement *as consumers*** | [`Resolve.completeRoutes`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Resolve.lean) already computes a checked reachable enclosure; [`ProofRefinement.construct`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/ProofRefinement.lean) already constructs proof-only classifier refinements. **Do not reimplement these.** Show that `closure`, `Semantic.method/property`, `Language` and `Realize` compose their actual actions on new objects *and morphisms* and on newly admitted generic operations, preserving selected parameters, proof-driven refinements and reindexing. In particular, K10's route comparison must remain operative in the execution path, not become a mere diagnostic label; K11's route enumeration must be complete; and K12 must consume the independently formalized constructor-induced action on comparison cells (not a new ad hoc rule for `kernel`). Test the ring comparison diamond, formed-module `ker` route with its nonidentity comparison, the refinement of `Fin 2 × ℤ/3`, two structures on one set, and extension in both directions without editing existing objects/leaves. |
+| **KM5 — Make ordinary computational point/morphism transport general** | [`Realize.elementExpression`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1980-L2012) explicitly refuses nonidentity element transport when its expression is not definitionally the receiver; [`Realize.morphismTransport`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L2586-L2602) requires a target graph-literal form even when the source is a perfectly valid registered symbolic/opaque callable. Close the general `map`/`compose`/`apply`/`presentationApply` route for *actual data* at its exact declared endpoints and original generalized-point domain, preserving session ownership and comparisons. Use the registered target form and structural action rather than demanding an enumerable graph or silently renaming endpoints. A nonidentity `𝔽₉` presentation translation and a sequence of two registered computations where the second consumes the first result must execute; disagreement/missing comparison, wrong endpoints, or an incompatible opaque session must fail correctly. |
+| **KM6 — Make structured results computationally closed under subsequent operations** | [`Realize.executePrescribedLift`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1861-L1916) already executes the four prescribed lift fields, and [`LiftedSubobjectData`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/LiftedSubobjectData.lean) validates their packet; retain this work. But [`decodeLiftedAt`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean#L1717-L1741) unconditionally refuses a lifted child needed by later decoding, and `Realize`'s creation-lift diagram comparison implements only `"pullback"`. Implement *data-level* projection and reuse of lifted apex, inclusion, object/map actions and reverse-route components, **without** converting untrusted maps into authoritative Lean mathematical objects/proofs. Use the full independently fixed universal cone, comparison, diagram and lift fields generically, not a new case for each limit shape. Check a computed formed-module kernel followed by its inclusion and an inherited invariant, a nontrivial finite-set pullback through a creation lift, a second registered shape/route, and missing/incorrect component fields. Do not count a formal cone, bare apex, copied downstairs packet, `universal := none` or an unexecuted plan as the computed result. |
+| **KM7 — Finish and prove sufficient the public computational forms** | Audit [`CasContract/Port.lean`](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/CasContract/Port.lean) jointly with [`Admission.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Admission.lean), [`Codec.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Codec.lean), [`ComputationalData.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/ComputationalData.lean) and `Realize`. Discharge **each** case in the [leaf author's dated `DEFECTS.md`](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md): nonintegral/irrational points, bottom-valued degrees, Kähler differentials, matrices, possibly infinite spans and subsets, binder map/request encoding, symbolic product apex/projections and closed points in composition/mediators. Some frames (for example `objectProduct` as a *callable source descriptor*) are **already published**; do not count their existence as full coverage of an unrelated returned product apex, or redo them as if absent. For every case, either identify the existing complete authoritative form and demonstrate both kernel encode/decode and hostile checks, **or implement exactly the missing generic form and its validator**. Bind the form to the published type, input and output; preserve dependencies/sessions; no leaf invents a wire convention, denominator encoding or proof. The contract must be sufficient to implement every supported B0 family using a conforming backend without reading kernel code. |
+| **KM8 — Finish permanent questions, failure meaning and obstructing runtimes** | [`Realize.interpret/evaluate`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/Realize.lean) already separate semantic reading from execution; [`QuestionIdentity.lean`](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/CasCatalogue/QuestionIdentity.lean) already serializes a typed term graph. Finish the proof-irrelevant semantic identity and independently assessed migration for **every** admitted assertion, including historically unreadable inverses: preserve exact relations, domains, parameters, selected objects, routes and proposition types, but do not mistake Lean revision labels or incidental proof terms for changed mathematics. An execution uses the same immutable question, not a recovered answer. Check each failure stage for invalid, ambiguous, no registration, malformed, unavailable, wrong and internal; no error is relabeled to make a positive pass. Repair the concrete `integration.normalized` heartbeat/slow evaluation and any still-reproducing question-encoding obstruction to the required run; do not start an unrelated optimization programme or raise resource limits to hide a defect. |
+| **KM9 — Prove readiness with the kernel and contract *frozen*** | After KM1–KM8, freeze their integrated candidate and complete the already prescribed [ten independent extension trials](#exit-trials), with independent contributors choosing their examples from the public interfaces. Establish the compositional argument *per supported mechanism*, not solely a handful of green fixtures. Verify new objects inherit old applicable operations, new generic operations reach old objects, fresh group-valued constructions, classifiers/refinements, competing structural routes, reindexing, nonidentity presentation changes, binders/admission, complete structured results/lifts and leaf replacement (missing/wrong/malformed/unavailable). The leaf author sees the published protocol only. **Zero changes to the frozen kernel, contract, old objects or old leaves** are permitted to pass; any required patch fails this gate, the generic mechanism is repaired, and affected independent trials are repeated. |
 
-**Ownership and scheduling boundary.** Elimination of request-formation gaps
-(the former readiness definition) is a *necessary subcondition of KM2 only*.
-K13's general leaf dispatch and the leaf-execution/admission portions of
-K3/K14 are **post-KM7 work**, although their kernel request/codec obligations
-must be resolved beforehand. Before KM7, only small, independently authored
-*diagnostic specimen leaves* necessary to exercise the kernel mechanisms and
-the public protocol are permitted. These authors receive neither kernel source
-nor the permanent acceptance answers. All B0 required real computations
-(including K1's fifteen) and protected negatives remain mandatory for **full
-B0**; the kernel gate does not discharge or defer them out of B0.
+#### What is already implemented, and what is not kernel-MVP work
 
-**Evidence at the published heads (2026-10-23; none certifies readiness):**
-[`main` Gates](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/39828838313)
-fails at `dbaa47c`. The unmerged `b0/kernel` head `4bcd912` has no
-completed post-repair whole-suite report. Its
-[handoff](https://github.com/dzackgarza/lean-cas-dsl/blob/b0/kernel/HANDOFF.md)
-and [checkpoint](https://github.com/dzackgarza/lean-cas-dsl/blob/checkpoint/lean-cas-inflight-20261022/TODO.md)
-identify formed-module destructuring/vector selection, `integration.normalized`
-timeouts, power-series upstream input, constructor-induced comparison,
-question-preservation assessment and build/purity discrepancies. Several
-individual K rows have earlier targeted closure observations only. The
-[compositional assessment](https://github.com/dzackgarza/lean-cas-dsl/blob/main/custodian/FINDINGS.md)
-and [leaf contract defects](https://github.com/dzackgarza/lean-cas-dsl-leaves/blob/main/DEFECTS.md)
-record additional obligations; newer code must be judged against these
-requirements, not assumed deficient merely because older source was.
+On `b0/kernel` the checked reachable-route bound (`completeRoutes`), proof-only
+classifier construction (`ProofRefinement.construct`), ordered lift-component
+dispatch (`executePrescribedLift`) and per-assertion trace machinery are
+**existing implementations to consume and validate**, not new tasks to
+reimplement. The fifteen existing K1 mandatory computations have targeted
+registered holds on an earlier head; they are not a reason to restart leaf work
+or infer that the whole kernel has passed. Open [#66](https://github.com/dzackgarza/lean-cas-dsl/issues/66)
+is a performance obligation **only to the extent its obstruction still
+reproduces on the selected candidate**.
+
+The truly upstream prerequisites are independently authored/assessed
+mathematics, **not kernel edits**: in particular, the currently unregistered
+`powerSeriesTAdic R` object required by the power-series binder (the
+mathematical declaration exists in
+[`lean-categories/Series.lean`](https://github.com/dzackgarza/lean-categories/blob/main/LeanCategories/Catalogue/Semantics/Algebra/Series.lean),
+but the registry's object rows do not include it), and the
+constructor-induced comparison-cell action missing for K12. Such an
+input blocks only its consumer; the kernel must not supply an
+implementation-shaped upstream proof or an alternate meaning.
+
+**Explicitly *not* in the kernel work list:** K13's bulk registration
+programme, broad Sage/GAP method parity, production leaf backends,
+`SPEC.md` surface expansion beyond existing B0 declarations, rebuilding
+the Jupyter/notebook frontend, adding new named mathematical examples,
+and arbitrary unrelated throughput/CI/administrative projects.
+K3/K14's *request-formation machinery* is KM3, but their full backend
+execution and owner admission belong to later B0 acceptance, as do all
+other previously required real computations. No mathematical positive or
+protected negative is discarded or rewritten.
+
+#### Single exit condition
+
+**The kernel MVP closes when KM1–KM9 hold together**: every admitted B0
+expression either has its independently fixed valid semantic reading
+and a *fully specified runnable computational request*, or has an
+independently justified invalid/ambiguous reading; all supported generic
+transport/construction cases and complete reply shapes work; a missing
+implementation affects only the computation outcome; and independent
+fresh extensions demonstrate closure under the declared mechanisms with
+the source frozen. Full B0 remains a separate, stronger delivery requirement:
+the specified computations must still execute through registered engines
+and satisfy their fixed mathematical assertions. A finite suite alone does
+not prove genericity; the structural/compositional arguments and negative
+counterexamples in KM2–KM9 are essential.
 
 ### Kernel construction procedure (owner instruction, 2026-10-21)
 
@@ -146,7 +170,7 @@ request-formation gap*: an entry of kind `gap` whose detail does not begin
 report at `5410e70` had 154 entries: 18 holds, 101 request-formation gaps,
 26 registration gaps, 6 invalid and 3 unavailable. That criterion remains
 necessary under KM2, but it is **not kernel readiness**. The kernel is ready
-for substantive leaf work only after KM1–KM7, including the frozen-kernel
+for substantive leaf work only after KM1–KM9, including the frozen-kernel
 independent trials and question-preservation assessment; full B0 execution
 and independent acceptance remain obligatory.
 
@@ -160,7 +184,7 @@ worked" (rule 1).
 Each rule names an observable condition and the action it requires. None depends on judging
 how important, small, risky or promising something is.
 
-1. **Selection.** KM1–KM7 are *acceptance gates*, not giant implementation
+1. **Selection.** KM1–KM9 are *acceptance gates*, not giant implementation
    tickets whose complete acceptance must precede work on their dependencies.
    First reconcile #63/#64's surviving generic source obligations with
    #65 (KM1), without waiting for the final whole-suite result. Then select
@@ -168,11 +192,11 @@ how important, small, risky or promising something is.
    from the fixed work list below, also including K3's *reader/request*
    portion. K13 bulk leaf dispatch, backend-specific K1 registration work and
    the leaf-execution/admission portions of K3/K14 are excluded;
-   a K1 failure caused by a generic kernel defect is owned by KM4. When these
+   a K1 failure caused by a generic kernel defect is owned by KM5–KM7. When these
    K items have no actionable kernel work, take the first undischarged
-   generic mechanism under KM3–KM6 (for example, complete lift replay
+   generic mechanism under KM2–KM8 (for example, complete lift replay
    or a public wire encoding). Re-evaluate the full KM1 integration
-   gate when the candidate is assembled, then submit KM7 to independent
+   gate when the candidate is assembled, then submit KM9 to independent
    frozen-candidate trials; these are not new kernel source tasks.
    Missing independently owned inputs block only dependent operations.
    A defect outside the selected item is one line in `HANDOFF.md`,
@@ -241,7 +265,7 @@ how important, small, risky or promising something is.
      "Owner actions";
    - an interpretation or question change: start the acceptance subagent in its own checkout with
      the admitted assertion text and its cited sources only;
-   - registrations: K13 is post-KM7 production work; before KM7 use
+   - registrations: K13 is post-KM9 production work; before KM9 use
       independently authored *diagnostic* leaf specimens only when needed
       to validate the published contract or a generic kernel mechanism;
    - write `blocked: <exact missing input>` next to the item in `HANDOFF.md` and take the next
@@ -345,7 +369,7 @@ says otherwise. A request-formation gap is defined above.
 | K10 comparison used in execution (`cc-cohere-exec`) | ring `cardinality` probe | the executed request records the comparison `cmp.rings.carrier` that selected its route; without that row the outcome is an ambiguity naming both routes |
 | K11 route enumeration bound | `Resolve`, `Closure`, `Cohere` probes | no consumer of `SemanticState.routes` relies on the default fuel; the bound is computed from the registry as `custodian/FINDINGS.md`, "Unfinished route-completeness argument at owner stop", describes; those probes pass |
 | K12 constructor-induced comparison cells | the lift positive in `CohereProbes` | the probe resolves without ambiguity. Upstream row: `cc-cohere`; `blocked: lean-categories constructor action on comparison cells` until that input exists |
-| K13 registration gaps (post-KM7 leaf dispatch; full B0 obligation) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
+| K13 registration gaps (post-KM9 leaf dispatch; full B0 obligation) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
 | K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
 
 Every CI report re-checks K2 and the closed request-formation items; K1 and K3 need the
@@ -354,7 +378,7 @@ reopens becomes the first open item again.
 
 The K1–K14 table is retained as the concrete B0 assertion/diagnostic
 inventory; checking its rows does not by itself prove readiness. Kernel MVP
-requires KM1–KM7, **including** independent frozen-kernel trials and question
+requires KM1–KM9, **including** independent frozen-kernel trials and question
 preservation, *before* mass K13 leaf work. Full B0 still requires all real
 computations and protected negatives.
 
