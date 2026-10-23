@@ -97,7 +97,7 @@ Consequences:
 
 **The immediate deliverable is kernel MVP: proved readiness for substantial,
 independent leaf development.** The required work and acceptance gate are
-[KM1–KM7](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development).
+[KM1–KM9](specs/computational-core-plan.md#kernel-mvp-proved-readiness-for-substantial-leaf-development).
 Close semantic reading, compositional resolution/transport, complete structured
 execution and lifts, every supported public request/reply encoding, and
 question permanence, then demonstrate independence using *fresh, externally
