@@ -160,13 +160,22 @@ worked" (rule 1).
 Each rule names an observable condition and the action it requires. None depends on judging
 how important, small, risky or promising something is.
 
-1. **Selection.** Take the first open, unblocked **kernel-owned** KM1–KM6
-   obligation above, using K1–K14 below for precise test IDs. K13's bulk
-   leaf dispatch, and leaf-owned execution/admission under K3/K14, are
-   excluded. On a genuinely missing independent upstream/acceptance input,
-   record the blocker and proceed to the next kernel obligation. A defect
-   outside the selected obligation is one line in `HANDOFF.md`,
-   "Noticed, not worked"; it is not an opportunistic patch.
+1. **Selection.** KM1–KM7 are *acceptance gates*, not giant implementation
+   tickets whose complete acceptance must precede work on their dependencies.
+   First reconcile #63/#64's surviving generic source obligations with
+   #65 (KM1), without waiting for the final whole-suite result. Then select
+   the first actionable, unblocked **kernel-owned** K2–K12 or K14 item
+   from the fixed work list below, also including K3's *reader/request*
+   portion. K13 bulk leaf dispatch, K1's leaf-only coverage and the
+   leaf-execution/admission portions of K3/K14 are excluded. When these
+   K items have no actionable kernel work, take the first undischarged
+   generic mechanism under KM3–KM6 (for example, complete lift replay
+   or a public wire encoding). Re-evaluate the full KM1 integration
+   gate when the candidate is assembled, then submit KM7 to independent
+   frozen-candidate trials; these are not new kernel source tasks.
+   Missing independently owned inputs block only dependent operations.
+   A defect outside the selected item is one line in `HANDOFF.md`,
+   "Noticed, not worked"; it is not opportunistic patch work.
 2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
    `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `specs/reuse/K<n>.md` (the reuse record
    AGENTS.md requires before a new Lean definition), `JOURNAL.md` (rule 9) and `HANDOFF.md`
@@ -191,26 +200,37 @@ how important, small, risky or promising something is.
    detail. Name the exceeded budget or entry in every commit of that work; it ends when the
    budget holds or the entry changes. Profiles, `just bench-question` and `just bench-reading`
    are used only inside such work. Do not raise heartbeats.
-5. **Verification.** For every repair attempt, including one you will later undo, run the item's
-   targeted check on the edited tree, then commit. The commit message has one line per item ID,
-   `id: kind → kind`, marked `detail changed` where the detail differs, plus the report path. A
-   commit in which no ID's kind or detail changed says `no outcome change` in its subject. Undo
-   an attempt by a forward commit. Compare only reports with the same `lake-manifest.json` hash;
-   if the hash changed, rerun the earlier report at the current manifest first. Compare each
-   entry's `question` with the earlier one. A changed question is listed under
-   `question changed`, and that ID cannot close until the acceptance subagent has assessed the
-   change against the unchanged assertion (rule 8).
-6. **Thrash interlock.** After three consecutive commits on one item whose subjects say
-   `no outcome change`, stop editing. Start a fresh read-only subagent and give it only: the
-   item's IDs, their report entries before the first of those commits and now, and the three
-   diffs. Do not give it your explanation or plan. It returns a diagnosis and makes no edits or
-   commits. Follow its diagnosis, or write the disagreement under "Owner actions" and take the
-   next item; do not make a fourth such commit on your own diagnosis.
-7. **Item identity.** An item is its ID set, not its current detail message. When a repair
-   moves an ID from one request-formation detail to another, the item stays open. An item closes
-   when the closure condition of its row holds for every ID in one report at one candidate; a
-   targeted report suffices. A later CI report in which the condition fails for one of its IDs
-   reopens it, and it is again selected by rule 1.
+5. **Verification.** For every repair attempt, including one later
+    undone, run the relevant targeted check on the edited tree, then
+    commit. For a K assertion-ID item the commit records one line per
+    ID, `id: kind → kind` (and `detail changed` when appropriate)
+    and the report path. For a generic KM-only mechanism without an
+    assertion ID, name the KM obligation, exact existing probe or
+    end-to-end check, and observed result. Do not invent assertion
+    IDs or treat one successful probe as proof of the entire KM gate.
+    When neither IDs nor relevant generic check outcomes change, mark
+    `no outcome change` in the subject. Undo by a forward commit.
+    Compare assertion reports only against the same
+    `lake-manifest.json` hash; if it changed, rerun the older report
+    at the current manifest. Compare every entry's `question` with
+    the preceding report; a `question changed` entry cannot close
+    without independent assessment of the unchanged assertion (rule 8).
+6. **Thrash interlock.** After three consecutive commits on one
+    item saying `no outcome change`, stop editing. Start a fresh
+    read-only subagent with only the item's IDs and their before/after
+    report entries (or the exact generic-probe results), and the three
+    diffs; do not supply an explanation or plan. Follow the diagnosis,
+    or record a disagreement in "Owner actions" and take the next item.
+    No fourth edit on the same diagnosis.
+7. **Item identity.** A K assertion item is its ID set, not the
+    current detail. Moving an ID to another request-formation error
+    does not close it. A K assertion item closes when every ID meets
+    its row's condition in one candidate report; a targeted report
+    can establish *that item's* condition. A KM gate closes only
+    after **all** evidence required in its own row has passed on the
+    combined candidate. No K item, compile, or isolated probe
+    substitutes for that evidence. A later contradictory full report
+    reopens the affected claim.
 8. **Blocked items.** An item is blocked only when its next step needs an input owned by another
    role (formalization, acceptance, leaf) or an owner operation. Then:
    - mathematics: if the item names an upstream row, start the formalization subagent in a
@@ -249,8 +269,12 @@ how important, small, risky or promising something is.
     it is pushed or the exact push error; the latest CI report (run id and artifact); each work-list item
     as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
     path or worktree as the only location of anything the next session needs.
-12. **Claims.** Say an item is closed only by citing the report and its entries for the item's
-    IDs. A compile, probe, benchmark, review or reasoning about the code does not close an item.
+12. **Claims.** Cite the complete per-ID report for a K assertion
+     item. Cite every compositional argument, probe, coherent source
+     result and independently run frozen-kernel trial required by the
+     corresponding KM row before claiming kernel readiness. Source
+     review, a compile, a benchmark, or a reduction in gaps alone
+     cannot establish the milestone.
 
 #### Running checks
 
