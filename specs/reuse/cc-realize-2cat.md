@@ -96,3 +96,13 @@ registered equality characteristic map by its complete typed signature; absent
 or competing declarations remain distinct failures. These source arguments need
 the corresponding end-to-end execution and frozen independent extension trials;
 they are not acceptance of a leaf or a mathematical release.
+
+### Complete diagram callable context
+
+The public `typedMap(source,target,callable)` form owns callable endpoint framing.
+The existing limit execution already realizes both source endpoints and their
+selected images under a creation functor for result validation. Retain those same
+fields in every arrow of both the source diagram and the dispatched mapped
+diagram, and include their data in ownership composition. Bare graph images do
+not determine their codomain or its selected structure. No mathematical object,
+comparison, graph algorithm, or shape-specific reconstruction is introduced.

@@ -11,9 +11,9 @@ permanent assertions, and independent release acceptance are unchanged.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; merge checkpoint `f8bd60b` | Generic implementation changes are being integrated; not frozen |
+| lean-cas-dsl | `work/kernel-v1-20261023`; integrated checkpoint `8ca2615` | Coherent build and 153 readings pass; construction-data repairs precede the next freeze |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `dbab309f2ee6a4da2c19e970f4d5d6460d8665a4` | Published necessary registry, series, constructor comparison interfaces and selected-presentation documentation; draft [PR #93](https://github.com/dzackgarza/lean-categories/pull/93) |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `ba8b91a70561c3e0888c66de30f0e6b2907c01e5` | Public forms, package startup repair, complete Arrow/comparison requests, and integrated mathematical dependency published; fresh API snapshot and declaration documentation published |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6780f9f0e0ac9acb7355d9281993df44f0d13b54` | Public forms, package startup repair, complete Arrow/comparison requests, and integrated mathematical dependency published; fresh API snapshot and declaration documentation published |
 | lean-cas-dsl-leaves | Existing checkout | Existing implementations and manifest unchanged |
 | Diagnostic leaf worktree | `work/v1-contract-diagnostic-20261023` | Additive independent public-contract specimen; no correctness claim from its own tests |
 
@@ -37,7 +37,7 @@ they must not enter source commits or exported API provenance.
 
 Existing `completeRoutes`, `ProofRefinement.construct`, and
 `executePrescribedLift` are retained. Isolated mechanism probes are not the exit
-gate. The coherent build, connected workflows, and frozen extension trials still
+gate. The coherent build passes. Connected workflows and frozen extension trials still
 have to complete before claiming V1 readiness.
 
 ## Current verification boundary
@@ -96,17 +96,34 @@ Four unchanged independently specified workflows, an existing-surface notebook,
 and a strict execution/report runner are prepared under `examples/kernel-v1`,
 `notebooks/kernel-v1.ipynb`, and `scripts/run_kernel_v1_demo.py`. The strict integrated
 run passes all eight arithmetic, all three successive matrix, all four F9, and
-the first finite pullback observation. The remaining product reuse is a named
-unsupported construction consumer in the additive diagnostic leaf; its author
-is completing the consumer from the refreshed public API, without receiving
-assertions or execution outcomes. The runner launches the built `cas-harness`
+the first finite pullback observation. A subsequent complete-consumer repair
+exposed missing endpoint descriptors in retained diagram arrows. The kernel now
+retains source/target fields through the public typedMap form, including the
+original and mapped diagrams and their computational ownership. The old finite
+set adapter is being independently checked against that public callable form,
+without assertions or execution outcomes. The runner launches the built `cas-harness`
 with its existing interpreter support. Sixteen of seventeen is not the V1 exit gate.
 
 Independent mathematical workflow specifications and independent additive
 upstream extensions have been prepared separately from implementations. The
-initial kernel source checkpoint `9630f54` and public contract `ba8b91a` are
-immutable extension inputs. Independent authors are preparing additive upstream
-modules; no completed frozen extension trial is claimed.
+initial kernel source checkpoint `9630f54` and public contract `ba8b91a` remain
+immutable preparation inputs. The retained-diagram repair requires a new freeze;
+no completed frozen extension trial is claimed. Four independently authored
+additive mathematical modules are published at `6ca8586a1e17e7cd1ebb14cd98f5b6c14f0909cc`,
+without changing existing objects or registry schemas. Direct category-sensitive
+ConstructionEntry application is also missing from the surface reader and public
+operation admission; the fixed generic-construction trial requires its completion.
+
+
+The coherent build completed successfully across 7,548 jobs, including
+CasCatalogue, CasAcceptance, CasGates, CasTools, CasDsl, both native executables,
+and the upstream literal-domain probes. The complete 153-question run has 153
+typed readings, no invalid/ambiguous/internal interpretations, and 153 correctly
+classified gaps with no leaves installed. Independent question review covers all
+153 IDs in `tests/acceptance/kernel-v1-question-review.md`: 116 identical records,
+35 revisited metadata changes, and two newly readable questions. Existing
+assertion sources and protected baselines remain unchanged. These observations
+do not accept an interpretation migration or B0.
 
 ## Noticed, not worked
 
@@ -120,7 +137,7 @@ modules; no completed frozen extension trial is claimed.
 
 ## Remaining integration steps
 
-Finish the coherent build and complete production question/provenance checks;
+Re-freeze after the retained-diagram and direct-construction repairs;
 run unchanged semantic, integrity, negative, and hostile-result regressions;
 execute at least four useful connected real-engine workflows across at least
 three areas, including structured reuse and nonidentity transport; export the

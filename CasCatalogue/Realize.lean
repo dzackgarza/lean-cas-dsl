@@ -3082,8 +3082,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         realize h trace s!"the diagram of {id.raw} in {what}" a
       let sourceDiagram ← mkAppM standard (wires.map (·.value))
       let sourceWires := wires
-      let sourceDiagramJson := Json.mkObj [("ctor", Codec.label standard),
-        ("args", Json.arr (wires.map (·.json)))]
       let (sent, wires) ← match lift?.bind (fun id => state.lifts.find? (·.id == id)) with
         | none => pure (sourceDiagram, wires)
         | some lift => do
@@ -3165,36 +3163,40 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         unless ← withTransparency .all <| isDefEq (← inferType comparison) comparisonType do
           throwError "the selected diagram comparison has different complete endpoints"
         lowerComparison? := some comparison
-      let diagramJson := Json.mkObj [("ctor", Codec.label standard),
-        ("args", Json.arr (wires.map (·.json)))]
-      let input : Wire := {
-        form := .diagrams category
-        payload := (← combinedPayload sent diagramJson wires) }
       let encodingPresentation ← Semantic.limitPresentation row sent
       let plan ← match ← StructuredResult.dataPlan row sent encodingPresentation with
         | .error message => throwStratum .noImplementation m!"the formal construction has no computational data schema: {message}"
         | .ok plan => pure plan
       let mut inputRoles := #[]
+      let mut retainedSourceWires := #[]
+      let mut retainedWires := #[]
       for index in [:wires.size] do
         let some wire := wires[index]?
           | throwError "the constructed diagram lost an input wire"
         -- The source and target of U.map f need not be separately named
         -- objects. Their selected presentations are U applied to the
         -- original endpoints, not fresh interpretations of U.obj X.
-        let original ← if lift?.isSome then
-          match sourceWires[index]? with
-          | some original => pure original
-          | none => throwError "the created diagram lost its original input wire"
-          else pure wire
-        let ends := Language.homEnds? (← inferType original.value)
-        let endpointData ← match ends with
-          | none => pure (none, none)
-          | some (source, target) => do
+        let some original := sourceWires[index]?
+          | throwError "the constructed diagram lost its original input wire"
+        match Language.homEnds? (← inferType original.value) with
+        | none =>
+            retainedSourceWires := retainedSourceWires.push original
+            retainedWires := retainedWires.push wire
+            inputRoles := inputRoles.push (wire.json, none, none)
+        | some (source, target) =>
             for endpoint in #[source, target] do
               if (← trace.node? endpoint).isNone then
                 discard <| Semantic.recordNamedObject endpoint (some trace)
             let source ← realize h trace "the construction input map's retained source" source
             let target ← realize h trace "the construction input map's retained target" target
+            -- A graph's images cannot specify its chosen codomain. Keep the
+            -- complete callable context in source packets and dispatched diagrams,
+            -- so later operations can consume either without inventing endpoints.
+            let sourceJson := Json.mkObj [("ctor", "typedMap"),
+              ("args", Json.arr #[source.json, target.json, original.json])]
+            let original := { original with payload :=
+              (← combinedPayload original.value sourceJson #[original, source, target]) }
+            retainedSourceWires := retainedSourceWires.push original
             let (source, target) ← match lift? with
               | none => pure (source, target)
               | some liftId => do
@@ -3202,8 +3204,19 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                     | throwStratum .noImplementation "the source endpoint has no selected creation lift"
                   pure (← transport trace source #[lift.edge],
                     ← transport trace target #[lift.edge])
-            pure (some source.json, some target.json)
-        inputRoles := inputRoles.push (wire.json, endpointData.1, endpointData.2)
+            let json := Json.mkObj [("ctor", "typedMap"),
+              ("args", Json.arr #[source.json, target.json, wire.json])]
+            let wire := { wire with payload :=
+              (← combinedPayload wire.value json #[wire, source, target]) }
+            retainedWires := retainedWires.push wire
+            inputRoles := inputRoles.push (wire.json, some source.json, some target.json)
+      let sourceDiagramJson := Json.mkObj [("ctor", Codec.label standard),
+        ("args", Json.arr (retainedSourceWires.map (·.json)))]
+      let diagramJson := Json.mkObj [("ctor", Codec.label standard),
+        ("args", Json.arr (retainedWires.map (·.json)))]
+      let input : Wire := {
+        form := .diagrams category
+        payload := (← combinedPayload sent diagramJson (retainedSourceWires ++ retainedWires)) }
       let resolveRole := fun role => do
         match role with
         | .argument position => return (← inputRoles[position]?).1
