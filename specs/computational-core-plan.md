@@ -205,8 +205,10 @@ how important, small, risky or promising something is.
    mechanism is recorded once in `HANDOFF.md`, not opportunistically
    patched.
 2. **Write set.** An item's commits change only: `CasCatalogue/`, `CasGates/`, `CasTools/`,
-   `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, `specs/reuse/K<n>.md` (the reuse record
-   AGENTS.md requires before a new Lean definition), `JOURNAL.md` (rule 9) and `HANDOFF.md`
+   `CasAcceptance/*Probes.lean`, `CasAcceptance/Strata/`, the existing
+   owning `specs/reuse/cc-*.md` or `specs/reuse/K<n>.md` (and
+   `specs/reuse/KM<n>.md` only if a genuinely new KM-specific Lean
+   definition requires a reuse record), `JOURNAL.md` (rule 9) and `HANDOFF.md`
    (rule 9); and, when the item's request form needs it, `CasContract/` in
    `lean-cas-dsl-leaf-contracts`, committed to its `main` and named in the kernel commit. Any
    other path or repository is outside every item: `custodian/`, `.github/`, `scripts/`,
@@ -279,11 +281,16 @@ how important, small, risky or promising something is.
    at rule 1. Nothing waits for a subagent: the session keeps working the work list while it
    runs. The session ends when every item is closed or blocked and no started subagent is
    running, or when the owner stops it.
-9. **Records.** Write one `JOURNAL.md` entry when an item closes, in the closing commit, at most
-   ten lines: the IDs, their kinds before and after, the candidate commit and the report path.
-   Commit `HANDOFF.md` only when an item closes or is blocked, after a refusal (rule 3), and at
-   session end (rule 11). Item states are kept in `HANDOFF.md`, never in this plan. Write no other
-   `JOURNAL.md`, `custodian/FINDINGS.md`, plan, policy or agent-memory record during a session.
+9. **Records.** Write one `JOURNAL.md` entry on closure of an
+   implementation unit, at most ten lines: KM owner, relevant assertion
+   IDs and outcomes if present, otherwise the precise generic probe
+   and its observed result, candidate commit and evidence path.
+   Commit `HANDOFF.md` only when a unit closes or is blocked,
+   after a refusal (rule 3), or at session end (rule 11).
+   Implementation and gate states are kept in `HANDOFF.md`;
+   this plan fixes requirements, not writable completion claims.
+   Write no other administrative report or agent-memory record
+   during a kernel session.
 10. **Checkouts.** Run `git worktree prune`, then edit, build and run targeted checks in one
     worktree on the construction branch `HANDOFF.md` names
     (`git worktree add ../lean-cas-dsl-kernel <branch>`). Never run `git stash`, `checkout`,
@@ -293,10 +300,14 @@ how important, small, risky or promising something is.
     differs moves those packages to its own revisions and forces a rebuild of everything above
     them. So run no `lake` or `just` command in `/home/dzack/gitclones/lean-cas-dsl`, and run
     `just track-main` only where "Running checks" says.
-11. **Handoff.** At session end `HANDOFF.md` contains only: the branch and commit, and whether
-    it is pushed or the exact push error; the latest CI report (run id and artifact); each work-list item
-    as closed, open or `blocked: <input>`; "Noticed, not worked"; "Owner actions". Name no `/tmp`
-    path or worktree as the only location of anything the next session needs.
+11. **Handoff.** At session end `HANDOFF.md` contains only:
+    the branch and commit, pushed status or exact error; latest CI
+    report (run id and artifact); KM1–KM9 status as open, closed
+    *with its required evidence*, or `blocked: <exact input>`;
+    the K assertion IDs relevant to any outstanding KM mechanism;
+    "Noticed, not worked"; "Owner actions". Do not name a `/tmp`
+    path or ephemeral worktree as the only location of anything
+    the next session needs.
 12. **Claims.** Cite the complete per-ID report for a K assertion
      item. Cite every compositional argument, probe, coherent source
      result and independently run frozen-kernel trial required by the
