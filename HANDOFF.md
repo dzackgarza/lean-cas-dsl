@@ -17,7 +17,7 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `1b0d8c574344c4e7fcbc1b0a44dffb9d4d971a88` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published core integration `bfc9130565ddebfee38dc225c913ad985d48a7d6` | Generic binding, operation agreement, transport, admission and structured-result repairs; selected core build passes, further combined verification and frozen trials remain |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `7a413381900a3fc4effdf5f7ce483fae042062c3` | Includes universal operation agreement, additive-monoid operation/action, coordinate-linearity evidence, and definitionally equal selected-module presentations; public declaration signatures are unchanged by the latest evidence repair |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `706b353f6cc58d204cbbd8e47cea038ccaa0a9d3` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
@@ -152,7 +152,8 @@ endpoints. The independently authored mathematical repair at `7a413381` handles
 definitionally equal module instances locally inside the existing linearity
 procedure: six universal presentation controls and the affine, noncentral and
 different-selected-action negatives pass. No mathematical signature or object is
-changed. These source changes still require the combined downstream build/run.
+changed. The selected core containing these changes builds; the combined
+downstream interpretation and execution reruns remain outstanding.
 
 The remaining source ambiguity in `projection.ker()` is independently assessed
 in the additive RX08 clarification under `completion/clarifications/`: the public
@@ -164,9 +165,29 @@ IDs and propositions. This is not admission or interpretation-migration approval
 The original RX05/RX10 driver failures are preserved. RX05 now checks the complete
 accepted four-route inventory, and RX10 uses the production statement-scoped
 elaboration budgets without increasing them. RX05 and RX09 pass their scoped
-reruns. RX10 reaches all six execution conditions but exposes a real missing
-parameter-presentation path before dispatch; this is not reported as an expected
-gap or a passing condition. Its generic execution repair is under integration.
+reruns. The initial RX10 run reached all six execution conditions but exposed a
+real missing parameter-presentation path before dispatch. The later generic
+repair follows exact retained object actions, checks their complete parameters
+and result, and forwards actual source packets with their owning sessions. It
+does not use a definitionally equal cache peer or infer structure from a carrier.
+
+The corrected core at local `d729046e`, published with the exact same tree as
+`bfc91305`, passed all 3,781 selected build jobs against mathematics `7a413381`
+and contract `706b353f`. This includes the runtime parameter recovery path and
+the exact named-morphism binding repair. The earlier expanded build's reserved
+word error, reader/admission failures and dependent-reader exit 137 remain in
+their original failed log; that build was interrupted before completing native
+dependencies. The corrected selected build is not a full gate/native build.
+
+RX10 then executed at this corrected tuple with 906 imported artifacts unchanged.
+The original parameter gap was removed and actual dispatch occurred. The holds
+and wrong conditions both stopped at an `objectProduct` framing error from the
+backend; the missing-implementation condition exposed retained-map endpoint loss
+as an internal failure. Unavailable, malformed and intentional internal conditions
+kept their expected distinct strata. Every condition preserved the independent
+typed question, but no callable was returned, so session/reuse controls remain
+unmet. These are open integration failures, not passing frozen trials. Their
+complete raw observations and source/artifact provenance are preserved separately.
 
 The local runtime was restored after the former recovery directory disappeared:
 the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and

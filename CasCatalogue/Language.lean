@@ -831,6 +831,28 @@ def parameterCategoryCompatible (expected : Expr) (category : NamedCategoryEntry
         unless ← isDefEq actualArgument requiredArgument do return false
     return true
 
+/-- A result type with a rigid function or inductive head cannot become a different
+such type by filling declaration parameters. An unresolved projection or eliminator
+is deliberately inconclusive. This checks inapplicability before parameter reading;
+it neither supplies a structure from a carrier nor identifies complete parameters. -/
+def incompatibleTypeShapes (left right : Expr) : M Bool := parameterTrial do
+  unless (← isType left) && (← isType right) do return false
+  let left ← withTransparency .all <| whnf (← instantiateMVars left)
+  let right ← withTransparency .all <| whnf (← instantiateMVars right)
+  let inductiveHead? (value : Expr) : MetaM (Option Name) := do
+    let some head := value.getAppFn.constName? | return none
+    let .inductInfo _ ← getConstInfo head | return none
+    return some head
+  match left, right with
+  | .forallE .., .forallE .. | .sort .., .sort .. => return false
+  | .forallE .., .sort .. | .sort .., .forallE .. => return true
+  | .forallE .., _ | .sort .., _ => return (← inductiveHead? right).isSome
+  | _, .forallE .. | _, .sort .. => return (← inductiveHead? left).isSome
+  | _, _ =>
+      match ← inductiveHead? left, ← inductiveHead? right with
+      | some a, some b => return a != b
+      | _, _ => return false
+
 /-- Replay complete retained edge applications without inferring new edge parameters. -/
 partial def retainedActions (state : RegistryState) (source : Expr) (route : Array EdgeRef)
     (arguments : Array (EdgeRef × Array Expr)) : M (Expr × Array Expr) := do
@@ -4301,6 +4323,9 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
   let some (source, target) := homEnds? type
     | throwStratum .invalid m!"{declaration} is not a family of morphisms"
+  if let some T@(.object ..) := target? then
+    if ← incompatibleTypeShapes target (← semanticObject T) then
+      throwStratum .invalid m!"{declaration} has a different declared result type"
   if let some supplied := application then
     let mut supplied := supplied.consumeMData
     while supplied.isAppOfArity ``id 2 || supplied.isAppOfArity ``Trace.operationResult 3 do
