@@ -137,6 +137,7 @@ def decode (selected : Language.Value) (descriptor : Json) (expected : Expr) (js
       return some (.error "element data has the wrong point type")
     return some (.ok point)
   catch exception =>
+    if Exception.hasConflictingStrata exception then throw exception
     match Exception.stratum? exception with
     | some .invalid | some .malformed =>
         return some (.error (← exception.toMessageData.toString))

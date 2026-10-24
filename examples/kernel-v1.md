@@ -44,7 +44,7 @@ The default checkout layout is:
   `diagnostics/v1/leaves.json`.
 
 The diagnostic source for this configuration is
-`5a9e82377007689547f3532955e3803a93b08b5b` in the diagnostic checkout.
+`2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` in the diagnostic checkout.
 Its manifest supplies 19 registrations. A local checkout may be elsewhere:
 `--diagnostic-manifest` and `--leaves-manifest` accept explicit manifest paths.
 No local package override or machine-specific path is committed here.
@@ -54,6 +54,25 @@ already installed. This is a path to an executable, not a shell command such as
 `sage -python`. The host's ordinary `python3` must also be available for the
 manifest launchers. `--prepare-only` verifies the paths and writes configuration;
 it does not import Sage or test engine availability.
+
+The reconstructed Linux x86_64 environment uses CPython 3.12, passagemath
+10.8.13 and its native GAP 4.16.1. The complete resolved binary-package versions
+and PyPI SHA-256 hashes are retained in
+[requirements-passagemath-py312-linux-x86_64.txt](kernel-v1/requirements-passagemath-py312-linux-x86_64.txt).
+To reproduce that environment separately from the source checkout, with `uv`
+and Python 3.12 already installed:
+
+```bash
+uv venv --no-config --no-python-downloads --python python3.12 ../kernel-v1-engines
+uv pip install --no-config --no-python-downloads \
+  --default-index https://pypi.org/simple --only-binary=:all: \
+  --require-hashes --strict --python ../kernel-v1-engines/bin/python \
+  --requirements examples/kernel-v1/requirements-passagemath-py312-linux-x86_64.txt
+```
+
+Supply that environment's absolute `bin/python` path as `--sage-python`.
+The lock reconstructs engine dependencies; importing them or checking their
+versions alone does not establish that a mathematical workflow succeeds.
 
 Build the required source targets through the project's existing build process
 before running the demo. The specific targets used here are:

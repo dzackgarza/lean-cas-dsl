@@ -52,7 +52,8 @@ diagram's name with its explicit arguments in their forms, e.g.
 `{"ctor": "cone" | "cocone", "args": [apex, leg₁, …]}`. The kernel decodes it against the
 data fields of the standard cone constructor of the shape:
 - the apex is a named object or a literal of the category;
-- each leg is a graph literal;
+- each leg uses the declared map interface at its complete endpoints, including a finite
+  graph or an owned callable when that interface admits one;
 - formal commutation proofs remain with the independent mathematical construction.
 
 A missing leg or a leg that is not a map at the declared endpoints makes the answer
@@ -198,6 +199,59 @@ Lean, generically: `decide` within a fixed budget, and the catalogue's registere
 - If Lean refutes the well-typed comparison, its outcome is `wrong`; reading validity is
   unchanged. No leaf was consulted in that discharge.
 - Otherwise the realized reading decides it.
+
+## Running a fixed question with selected implementations
+
+The public harness selects an implementation environment independently of the mathematical
+statement. Given an already built kernel, an independently supplied assertion file and its
+inventory, run:
+
+```sh
+lake env .lake/build/bin/cas-harness \
+  --suite /absolute/path/to/questions.cas \
+  --inventory /absolute/path/to/inventory.json \
+  --manifest /absolute/path/to/leaves.json \
+  --report /absolute/path/to/report.json \
+  --computation-only
+```
+
+The `--suite` argument also accepts a directory. `--computation-only` requests actual
+computational execution of the same interpreted question instead of first discharging it in
+Lean. It changes neither the assertion nor its expected answer. To compare implementations,
+keep the question file, inventory and selected mathematical source fixed and supply a different
+manifest and report path. A manifest contains only the public backend declarations and
+operation/input registrations above; it carries no interpretation or expected answer.
+
+The JSON report retains `id`, `question`, `proposition`, `kind`, `detail`, `fails` and the actual
+`dispatches` for each assertion. `question` includes the complete typed claim and its operation
+trace; `proposition` is a readable display. A comparison of environments must retain the same
+question, rather than treating equal displays or equal answers as proof of unchanged meaning.
+The report's dispatch records are engineering observations, not mathematical evidence.
+
+For a fixed well-formed true assertion, independent environment specimens exercise the
+following outcomes:
+
+| Environment behavior | Reported outcome |
+| --- | --- |
+| Declared computations supply the independently expected answer | `holds` |
+| No matching registration, or a conforming `unsupported` reply for the dispatched operation | `gap` with the missing implementation reason |
+| Several matching registrations | `gap` with the realization ambiguity reason |
+| A backend cannot start, exits during a request, or reports an engine failure | `unavailable` |
+| A response has an invalid frame, wrong request ID, missing required field or incompatible endpoint | `malformed` |
+| A response has the required form but contradicts the independent assertion | `wrong` |
+| The kernel violates an internal invariant or raises an unclassified exception | `internal` |
+
+The last row is exercised by a kernel engineering fault fixture, not by granting a leaf an
+`internal` or `invalid` verdict. A leaf's error reply remains an execution failure. Semantic
+invalidity or ambiguity is determined before implementation selection. Conflicting nested
+failure tags cannot turn an internal failure into an invalid mathematical question or a gap.
+
+Owned data and callable tokens remain attached to the live connection that created them.
+Subsequent operations in that session must retain their owners, including every owner carried
+by transported maps and complete structured results. A fresh harness invocation opens its own
+sessions; it does not import tokens from an earlier report. Ownership checks and deliberate
+foreign-session fixtures are engineering tests of this boundary, separate from the unchanged
+mathematical assertion. No backend identifier or wire token belongs in the assertion text.
 
 The normal path avoids backend calls after successful Lean discharge. A leaf supplies values
 and never supplies a proof.
