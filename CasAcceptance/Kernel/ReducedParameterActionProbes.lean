@@ -137,12 +137,11 @@ run_elab do
     | throwError "the accepted target category is absent"
   Trace.record (some trace) image
     (.retainedRoute row.category targetCategory.id #[edge] #[action] source)
-  let different ← elabTermAndSynthesize
-    (← `(MonCat.of (Multiplicative (↑$(← exprToSyntax source))))) none
-  let imageCarrier ← elabTermAndSynthesize
-    (← `((↑$(← exprToSyntax image) : Type))) none
-  let differentCarrier ← elabTermAndSynthesize
-    (← `((↑$(← exprToSyntax different) : Type))) none
+  let sourceCarrier ← withTransparency .all <| mkAppM ``RingCat.carrier #[source]
+  let different ← withTransparency .all <| elabTermAndSynthesize
+    (← `(MonCat.of (Multiplicative $(← exprToSyntax sourceCarrier)))) none
+  let imageCarrier ← withTransparency .all <| mkAppM ``MonCat.carrier #[image]
+  let differentCarrier ← withTransparency .all <| mkAppM ``MonCat.carrier #[different]
   unless (← withTransparency .all <| isDefEq imageCarrier differentCarrier) &&
       !(← withTransparency .all <| isDefEq image different) do
     throwError "the wrong-structure fixture does not distinguish full dictionaries"
