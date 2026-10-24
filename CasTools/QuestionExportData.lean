@@ -24,6 +24,8 @@ structure Options where
 structure Reading where
   file : String
   id : String
+  /-- Original one-based source line; zero denotes an inventory-only record. -/
+  sourceLine : Nat := 0
   question : String := ""
   proposition : String := ""
   deriving ToJson, FromJson, Inhabited
@@ -31,6 +33,9 @@ structure Reading where
 structure Failure where
   file : String
   id : String
+  /-- Preserve the attempted source even when no complete typed question exists. -/
+  sourceLine : Nat := 0
+  source : String := ""
   stage : String
   kind : String
   detail : String

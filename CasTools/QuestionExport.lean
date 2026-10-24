@@ -52,15 +52,19 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
   let mut result : Export := {}
   let mut scope : Language.Scope := {}
   let mut blockedScope := false
-  let sourceItems := items text
+  let sourceItems := itemsWithLocations text
   for index in [:sourceItems.size] do
-    let item := sourceItems[index]!
+    let sourceItem := sourceItems[index]!
+    let item := sourceItem.text
+    let atSource (problem : Failure) : Failure :=
+      { problem with sourceLine := sourceItem.line, source := item }
     let fallback := s!"(statement) item {index + 1}"
     let parsed ← match Parser.runParserCategory (← getEnv) `cas_item item file with
       | .ok parsed => pure parsed
       | .error detail =>
           result := { result with failures := result.failures.push {
-            file, id := fallback, stage := "parse", kind := "invalid", detail } }
+            file, id := fallback, sourceLine := sourceItem.line, source := item,
+            stage := "parse", kind := "invalid", detail } }
           -- No guessed identifier is inserted into the scope. The inventory below
           -- retains every omitted admitted ID even when its syntax is unreadable.
           if !item.startsWith "test " then blockedScope := true
@@ -73,12 +77,13 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
     IO.eprintln s!"reading {file}: {id}"
     let binding ← liftTermElabM <| tryCatchRuntimeEx
       (Except.ok <$> letBinding? statement)
-      (fun error => return .error (← failure file id "binding" error))
+      (fun error => return .error (atSource (← failure file id "binding" error)))
     let .ok binding := binding | do
       if let .error problem := binding then
         result := { result with failures := result.failures.push problem }
       if id?.isSome then
-        result := { result with readings := result.readings.push { file, id } }
+        result := { result with readings := result.readings.push {
+          file, id, sourceLine := sourceItem.line } }
       blockedScope := true
       continue
     if let some (name, value) := binding then
@@ -88,7 +93,7 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
             let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
             discard <| (Language.claim scope statement).run { closedTerms := some closedTerms }
             pure none)
-            (fun error => return some (← failure file name.toString "binding" error))
+            (fun error => return some (atSource (← failure file name.toString "binding" error)))
         -- Preserve even a failing fixed binding; dependent questions must read its
         -- original term, never reinterpret its name as an unbound variable.
         scope := scope.insert name value
@@ -97,9 +102,10 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
         continue
     if blockedScope then
       result := { result with
-        readings := result.readings.push { file, id },
+        readings := result.readings.push { file, id, sourceLine := sourceItem.line },
         failures := result.failures.push {
-          file, id, stage := "scope", kind := "internal",
+          file, id, sourceLine := sourceItem.line, source := item,
+          stage := "scope", kind := "internal",
           detail := "a preceding binding could not be parsed; the original scope is unavailable" } }
       continue
     let stages ← IO.mkRef (#[] : Array (String × Nat))
@@ -108,13 +114,14 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
       tryCatchRuntimeEx (do
         let question ← Realize.interpret scope statement (some stages)
         pure (.ok ({
-          file, id, question := question.identity.1,
+          file, id, sourceLine := sourceItem.line, question := question.identity.1,
           proposition := question.identity.2 } : Reading)))
-        (fun error => return .error (← failure file id "interpretation" error (← stages.get)))
+        (fun error => return .error
+          (atSource (← failure file id "interpretation" error (← stages.get))))
     match interpreted with
     | .ok reading => result := { result with readings := result.readings.push reading }
     | .error problem => result := { result with
-        readings := result.readings.push { file, id },
+        readings := result.readings.push { file, id, sourceLine := sourceItem.line },
         failures := result.failures.push problem }
   return result
 
