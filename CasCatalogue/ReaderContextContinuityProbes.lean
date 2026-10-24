@@ -71,19 +71,22 @@ run_elab do
   let mapSyntax ← parse
     "map integerCoefficients(Scommutative) along «fun.commutative_rings.ring»()"
   let viewSyntax ← parse "view Scommutative along «fun.commutative_rings.ring»()"
+  let sourceViewSyntax ← parse "view (ℤ in CommutativeRings) along «fun.commutative_rings.ring»()"
   (show M Unit from do
-    let selected ← carrierObject (← eval scope viewSyntax)
-    let (_, _, _, _, _, target) ← morphismContext (← eval scope mapSyntax)
-    unless ← identityCarrierView (← carrierObject target) selected do
-      throwError "the mapped endpoint lost the independently selected carrier view"
-    let .object _ _ _ _ (some (_, original, route, _, arguments)) := target
-      | throwError "the mapped endpoint lost its full selected action"
-    unless route == #[.functor ⟨"fun.commutative_rings.ring"⟩] && arguments.size == 1 do
-      throwError "the mapped endpoint lost its actual edge or parameter application"
-    let (replayed, _) ← retainedActions (← registryState)
-      (← semanticObject original) route arguments
-    unless ← isDefEq replayed (← semanticObject target) do
-      throwError "the retained action does not give the complete mapped endpoint").run {}
+    let selectedSource ← carrierObject (← eval scope sourceViewSyntax)
+    let selectedTarget ← carrierObject (← eval scope viewSyntax)
+    let (_, _, _, _, source, target) ← morphismContext (← eval scope mapSyntax)
+    for (endpoint, selected) in #[(source, selectedSource), (target, selectedTarget)] do
+      unless ← identityCarrierView (← carrierObject endpoint) selected do
+        throwError "the mapped endpoint lost the independently selected carrier view"
+      let .object _ _ _ _ (some (_, original, route, _, arguments)) := endpoint
+        | throwError "the mapped endpoint lost its full selected action"
+      unless route == #[.functor ⟨"fun.commutative_rings.ring"⟩] && arguments.size == 1 do
+        throwError "the mapped endpoint lost its actual edge or parameter application"
+      let (replayed, _) ← retainedActions (← registryState)
+        (← semanticObject original) route arguments
+      unless ← isDefEq replayed (← semanticObject endpoint) do
+        throwError "the retained action does not give the complete mapped endpoint").run {}
 
 /- A numeral's chosen arithmetic owner does not suppress a named set's independent
 order binding. Explicit structure selections and nearer same-name bindings remain fixed. -/
@@ -113,6 +116,6 @@ run_elab do
       | throwError "the accepted monoid category is absent"
     let sources ← operationSourceValues receiver (some (monoids.expression, "·"))
     let selectedSources ← operationSourceValues source (some (monoids.expression, "·"))
-    unless sources.size == selectedSources.size &&
+    unless !selectedSources.isEmpty && sources.size == selectedSources.size &&
         (sources.zip selectedSources).all (fun (left, right) => left.sameSource right) do
       throwError "a nearer multiplication binding reopened unrelated named refinements").run {}
