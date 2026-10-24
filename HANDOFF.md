@@ -17,10 +17,10 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `263d55d6b2139db2c80afa6f891c988a8f9c2326` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `1b0d8c574344c4e7fcbc1b0a44dffb9d4d971a88` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `ae3c76e7a439681ad264a3d1cf113cb55d4f8fcc` | Includes independently specified universal operation agreement, additive-monoid operation/action, and generic coordinate-linearity evidence; public declaration signatures are unchanged by the latest evidence addition |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `89de508622cff4bfd1a457844a1a3a0fccd36405` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `7a413381900a3fc4effdf5f7ce483fae042062c3` | Includes universal operation agreement, additive-monoid operation/action, coordinate-linearity evidence, and definitionally equal selected-module presentations; public declaration signatures are unchanged by the latest evidence repair |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `706b353f6cc58d204cbbd8e47cea038ccaa0a9d3` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 | Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `5b2ce9e5a2da78227d43a01297874667bd6f436e` | Replacement author supplied 66 registrations in the new diagnostic subtree, including generic monoid, additive-monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
 
@@ -137,11 +137,44 @@ not the final combined execution trials. The next source at `e8075df` adds
 complete component-refinement presentation, exact accepted row identity for
 aliases, candidate-local inapplicability, rigid full-owner presentation checks,
 and forwarding of an original computed parameter through its checked named
-presentation. Its coherent build is in progress. The earlier `08051c0` build
+presentation. Its coherent module build passed 3,763 jobs. Seven focused controls
+passed with 1,482 imported artifacts unchanged, including actual parameter-packet
+and session reuse. The earlier `08051c0` build
 failed only the reader compilation heartbeat budget; the scoped compilation
 allowance is now 800,000, without changing runtime/proof evaluation budgets.
 The original native binaries still belong to the older recorded producer until
 explicitly rebuilt; no newer result is inferred from those binaries.
+
+The unchanged `e8075df` binding run checked 173 bindings across 14 extension files
+and retained four failures. Later source repairs supply a complete component
+context for numerals and check admitted lift maps at their selected categorical
+endpoints. The independently authored mathematical repair at `7a413381` handles
+definitionally equal module instances locally inside the existing linearity
+procedure: six universal presentation controls and the affine, noncentral and
+different-selected-action negatives pass. No mathematical signature or object is
+changed. These source changes still require the combined downstream build/run.
+
+The remaining source ambiguity in `projection.ker()` is independently assessed
+in the additive RX08 clarification under `completion/clarifications/`: the public
+name `kernel()` selects the already specified complete module kernel. The original
+source remains unchanged and remains an ambiguity control. A separate positive
+selection uses the independently proposed spelling, with the same seven question
+IDs and propositions. This is not admission or interpretation-migration approval.
+
+The original RX05/RX10 driver failures are preserved. RX05 now checks the complete
+accepted four-route inventory, and RX10 uses the production statement-scoped
+elaboration budgets without increasing them. RX05 and RX09 pass their scoped
+reruns. RX10 reaches all six execution conditions but exposes a real missing
+parameter-presentation path before dispatch; this is not reported as an expected
+gap or a passing condition. Its generic execution repair is under integration.
+
+The local runtime was restored after the former recovery directory disappeared:
+the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and
+hash-pinned passagemath 10.8.13/GAP 4.16.1 environment are available under
+`/tmp/kernel-runtime-20261024`. Its `lake.sh`, `packages.json`, and `engines.sh`
+select the local environment. Do not use the vanished recovery paths or infer a
+new result from the older native executables. Source and raw verification records
+are backed up separately; final source-tuple verification remains outstanding.
 
 The independent leaf is pinned at local `d8a24f9`, published `5b2ce9e`, in an
 immutable checkout. Its three added public addresses are additive-monoid addition,
