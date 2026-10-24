@@ -6747,22 +6747,33 @@ partial def sameOperationApplication (left right : Expr) : M Bool := parameterTr
 structure or structural view fixes its own source. A named unstructured set may use only
 its declared refinements; an anonymous coordinate uses its supplied constructor context. -/
 partial def collectOperationSourceValues (state : RegistryState) (pending : List Value)
-    (seen sources : Array Value) : M (Array Value) := do
+    (seen sources : Array Value) (demanded : Option (CategoryExpr × String) := none) :
+    M (Array Value) := do
   let current :: rest := pending | return sources
-  if seen.any (·.sameSource current) then return ← collectOperationSourceValues state rest seen sources
+  if seen.any (·.sameSource current) then
+    return ← collectOperationSourceValues state rest seen sources demanded
   let seen := seen.push current
   match current with
-  | .object _ _ _ (some selected) _ => collectOperationSourceValues state (selected :: rest) seen sources
+  | .object _ _ _ (some selected) _ =>
+      collectOperationSourceValues state (selected :: rest) seen sources demanded
   | .object _ category _ _ _ =>
       if category.id != CategoryId.sets then
-        return ← collectOperationSourceValues state rest seen (sources.push current)
+        return ← collectOperationSourceValues state rest seen (sources.push current) demanded
       let .object _ _ origin _ data := current | unreachable!
       if let some (_, source, route, _, _) := data then
-        if !route.isEmpty then return ← collectOperationSourceValues state (source :: rest) seen sources
+        if !route.isEmpty then
+          return ← collectOperationSourceValues state (source :: rest) seen sources demanded
       if let some (origin, parameters) := origin then
         let mut refinements : Array Value := #[]
         for entry in state.objects.filter (refinesObject state · origin.id) do
           let some category := state.categories.find? (·.id == entry.category) | continue
+          -- An unrelated refinement cannot supply this binding. Check its
+          -- declared structural paths before reading any dependent parameters;
+          -- ambiguity remains visible for every possibly applicable source.
+          if let some (target, surfaceName) := demanded then
+            let routes ← routesBetween state category.expression target
+            unless routes.any (state.toSemanticState.isFirstOperationBindingRoute surfaceName) do
+              continue
           let candidate ← optionalReading do
             let value ← Semantic.object entry (← typedParamTerms entry.declaration parameters)
               (← read).trace
@@ -6770,16 +6781,18 @@ partial def collectOperationSourceValues (state : RegistryState) (pending : List
               throwStratum .invalid m!"an operation refinement is not completely determined"
             return Value.object value category (some (entry, parameters)) none none
           if let some value := candidate then refinements := refinements.push value
-        return ← collectOperationSourceValues state rest seen (sources ++ refinements)
+        return ← collectOperationSourceValues state rest seen (sources ++ refinements) demanded
       if let some (originals, source, _, _, _) := data then
-        return ← collectOperationSourceValues state (originals.toList ++ (source :: rest)) seen sources
-      collectOperationSourceValues state rest seen (sources.push current)
-  | .derivedObject .. => collectOperationSourceValues state rest seen (sources.push current)
-  | .element _ object => collectOperationSourceValues state (object :: rest) seen sources
-  | _ => collectOperationSourceValues state rest seen sources
+        return ← collectOperationSourceValues state
+          (originals.toList ++ (source :: rest)) seen sources demanded
+      collectOperationSourceValues state rest seen (sources.push current) demanded
+  | .derivedObject .. => collectOperationSourceValues state rest seen (sources.push current) demanded
+  | .element _ object => collectOperationSourceValues state (object :: rest) seen sources demanded
+  | _ => collectOperationSourceValues state rest seen sources demanded
 
-partial def operationSourceValues (receiver : Value) : M (Array Value) := do
-  collectOperationSourceValues (← registryState) [receiver] #[] #[]
+partial def operationSourceValues (receiver : Value)
+    (demanded : Option (CategoryExpr × String) := none) : M (Array Value) := do
+  collectOperationSourceValues (← registryState) [receiver] #[] #[] demanded
 
 /-- The complete owner images at the first binding on each structural path. The
 upstream registry fixes where name lookup stops; its accepted comparison cells still
@@ -6792,7 +6805,8 @@ partial def operationOwnerCandidates (surfaceName : String) (owner : CategoryId)
   let _ : Inhabited Route :=
     ⟨{ source := ownerCategory.expression, target := ownerCategory.expression, steps := #[] }⟩
   let mut views : Array (Value × OperationSource) := #[]
-  for source in (← operationSourceValues receiver) do
+  for source in (← operationSourceValues receiver
+      (some (ownerCategory.expression, surfaceName))) do
     let sourceContext ← objectContext source
     let original ← semanticObject source
     let routes := (← routesBetween state sourceContext.expression ownerCategory.expression).filter

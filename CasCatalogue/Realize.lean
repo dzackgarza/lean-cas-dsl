@@ -211,15 +211,20 @@ def combinedPayload (formal : Expr) (json : Json) (dependencies : Array Wire) :
 /-- Transport an entire actual callable through independently accepted endpoint
 presentations. No graph is enumerated, no data are recovered from its formal term,
 and even a comparison with definitionally equal endpoints is retained. -/
-def presentMorphism (input source target : Wire) : TermElabM Wire := do
-  if input.morphismFramed then return input
-  let type ← whnfR (← inferType input.value)
-  unless type.isAppOfArity ``Quiver.Hom 4 do
-    throwError "the whole computational arrow lost its complete hom signature"
-  let arguments := type.getAppArgs
-  unless ← withTransparency .all <|
-      isDefEq arguments[2]! source.value <&&> isDefEq arguments[3]! target.value do
-    throwError "the whole computational arrow changed its selected complete endpoints"
+def presentMorphism (input source target : Wire)
+    (context : Option CategoryContext := none) : TermElabM Wire := do
+  let context := context.orElse fun _ => input.categoryContext
+  if let some context := context then
+    CategoryContext.checkMorphism context input.value source.value target.value
+  if input.morphismFramed then return { input with categoryContext := context }
+  if context.isNone then
+    let type ← whnfR (← inferType input.value)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the whole computational arrow lost its complete hom signature"
+    let arguments := type.getAppArgs
+    unless ← withTransparency .all <|
+        isDefEq arguments[2]! source.value <&&> isDefEq arguments[3]! target.value do
+      throwError "the whole computational arrow changed its selected complete endpoints"
   let mut actual := input.value
   let mut data := input.json
   if let some presentation := source.endpointPresentation then
@@ -245,6 +250,7 @@ def presentMorphism (input source target : Wire) : TermElabM Wire := do
   discard <| StructuredResult.checkReconstruction actual
   return { input with
     morphismFramed := true
+    categoryContext := context
     payload := (← combinedPayload input.value data #[input, source, target]) }
 
 def mapEndpointPresentation (action : Expr) (descriptor : Json)
@@ -335,6 +341,24 @@ def pointResultValue (state : RegistryState) (point : Expr) : TermElabM Expr := 
   unless ← withTransparency .all <| isDefEq (← inferType value) target do
     throwError "the requested point result changed its declared target"
   return value
+
+/-- Recover the endpoints through the complete independently selected Hom interface.
+The original `Quiver.Hom` syntax retains priority. A bundled Hom representation may
+use another head; its complete selected category still fixes both object arguments.
+Unresolved objects are rejected instead of selecting an object from its carrier. -/
+def contextualMorphismEndpoints (context : CategoryContext) (value : Expr) :
+    TermElabM (Expr × Expr) := do
+  let type ← instantiateMVars (← inferType value)
+  if let some (source, target) := Language.homEnds? type.consumeMData then
+    CategoryContext.checkMorphism context value source target
+    return (source, target)
+  let target ← mkFreshExprMVar (← CategoryContext.carrier context)
+  let source ← CategoryContext.morphismDomain context value target
+  let target ← instantiateMVars target
+  if target.hasMVar || target.hasLevelMVar then
+    throwError "the selected Hom interface does not retain its complete target object"
+  CategoryContext.checkMorphism context value source target
+  return (source, target)
 
 /-- The checked universal properties identify the requested and returned apex completely. -/
 def universalPointIso (row : LimitEntry) (accepted rebuilt : Expr) : TermElabM Expr := do
@@ -2858,7 +2882,11 @@ partial def realizeCallableEndpoint (h : Harness) (trace : Trace) (wire : Wire)
 objects in the public typed-map frame before placing it in another map expression.
 Named descriptors and already framed or opaque callables keep their existing data. -/
 partial def frameMorphismData (h : Harness) (trace : Trace) (source target : Expr)
-    (wire : Wire) : TermElabM (Json × Array Wire) := do
+    (wire : Wire) (context : Option CategoryContext := none) :
+    TermElabM (Json × Array Wire) := do
+  let context := context.orElse fun _ => wire.categoryContext
+  if let some context := context then
+    CategoryContext.checkMorphism context wire.value source target
   if wire.morphismFramed then return (wire.json, #[])
   let graph := wire.json.getArr?.isOk ||
     (wire.json.getObjValAs? String "ctor").toOption == some "finiteGraph"
@@ -2871,19 +2899,20 @@ partial def frameMorphismData (h : Harness) (trace : Trace) (source target : Exp
     return false
   unless graph || (← needsPresentation source) || (← needsPresentation target) do
     return (wire.json, #[])
-  let type ← whnfR (← inferType wire.value)
-  unless type.isAppOfArity ``Quiver.Hom 4 do
-    throwError "the graph lost its independently selected complete hom signature"
-  let arguments := type.getAppArgs
-  unless ← withTransparency .all <|
-      isDefEq arguments[2]! source <&&> isDefEq arguments[3]! target do
-    throwError "the graph changed its independently selected complete endpoints"
+  if context.isNone then
+    let type ← whnfR (← inferType wire.value)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the graph lost its independently selected complete hom signature"
+    let arguments := type.getAppArgs
+    unless ← withTransparency .all <|
+        isDefEq arguments[2]! source <&&> isDefEq arguments[3]! target do
+      throwError "the graph changed its independently selected complete endpoints"
   for object in #[source, target] do
     if (← trace.node? object).isNone then
       discard <| Semantic.recordNamedObject object (some trace)
-  let sourceWire ← realizeCallableEndpoint h trace wire source true
-  let targetWire ← realizeCallableEndpoint h trace wire target false
-  let presented ← presentMorphism wire sourceWire targetWire
+  let sourceWire ← realizeCallableEndpoint h trace wire source true context
+  let targetWire ← realizeCallableEndpoint h trace wire target false context
+  let presented ← presentMorphism wire sourceWire targetWire context
   if !graph then return (presented.json, #[sourceWire, targetWire])
   return (Json.mkObj [("ctor", "typedMap"),
     ("args", Json.arr #[sourceWire.json, targetWire.json, presented.json])], #[sourceWire, targetWire])
@@ -2947,10 +2976,8 @@ partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Ex
   let mut data := original.json
   let mut dependencies := #[original]
   if morphism then
-    let some (first, second) := Language.homEnds? (← inferType receiver)
-      | throwError "the retained map action lost its original complete endpoints"
-    CategoryContext.checkMorphism source receiver first second
-    let (framed, endpoints) ← frameMorphismData h trace first second original
+    let (first, second) ← contextualMorphismEndpoints source receiver
+    let (framed, endpoints) ← frameMorphismData h trace first second original (some source)
     data := framed
     dependencies := dependencies ++ endpoints
   else CategoryContext.checkObject source receiver
