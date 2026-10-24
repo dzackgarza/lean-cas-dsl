@@ -2428,15 +2428,24 @@ partial def validateShortOperation (selected : Language.Value) (carrier : Expr)
   OperationAgreement.validate representative.result 0 candidates comparisons
   return .ok ()
 
+/-- A nested operation operand inherits the complete value selected by its
+accepted declaration parameters. External envelopes still resolve that value
+only through their independently fixed complete descriptor. -/
+partial def elementSelection (objects : InterfaceObjects) (selected : Expr)
+    (retained : Option Language.Value := none) : TermElabM (Except String Language.Value) := do
+  if let some value := retained then return .ok value
+  let some (descriptor, _) := objects.find? (·.2 == selected)
+    | return .error "an element requires its fixed complete selected descriptor"
+  interfaceSelectedValue objects selected descriptor
+
 /-- Primitive point tags instantiate the existing declared point interface only.
 The temporary signature term is discarded; it is never returned as computed
 data or compared with the independently requested mathematical value. -/
 partial def validateShortTag (objects : InterfaceObjects) (selected carrier : Expr)
-    (tag : String) (args : Array Json) : TermElabM (Except String Unit) := do
-  let some (descriptor, _) := objects.find? (·.2 == selected)
-    | return .error "a short element tag requires its fixed complete selected descriptor"
+    (tag : String) (args : Array Json) (retained : Option Language.Value := none) :
+    TermElabM (Except String Unit) := do
   try
-    let .ok value ← interfaceSelectedValue objects selected descriptor
+    let .ok value ← elementSelection objects selected retained
       | return .error "a short element tag has no complete selected interface"
     if tag == "add" || tag == "mul" || tag == "neg" then
       return ← validateShortOperation value carrier
@@ -2463,19 +2472,20 @@ partial def validateShortTag (objects : InterfaceObjects) (selected carrier : Ex
     | _ => throw error
 
 partial def validateElementExpressionAt (objects : InterfaceObjects) (selected carrier : Expr)
-    (expression : Json) : TermElabM (Except String Unit) := do
+    (expression : Json) (retained : Option Language.Value := none) :
+    TermElabM (Except String Unit) := do
   let .ok (tag, args) := envelope expression | return .error "an element requires its expression envelope"
   match tag, args with
   | "point", #[arrow] =>
       validateCallableAt objects (← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]) arrow
   | "add", #[left, right] | "mul", #[left, right] =>
-      if let .error message ← validateShortTag objects selected carrier tag args then return .error message
-      if let .error message ← validateElementExpressionAt objects selected carrier left then return .error message
-      validateElementExpressionAt objects selected carrier right
+      if let .error message ← validateShortTag objects selected carrier tag args retained then return .error message
+      if let .error message ← validateElementExpressionAt objects selected carrier left retained then return .error message
+      validateElementExpressionAt objects selected carrier right retained
   | "neg", #[value] =>
-      if let .error message ← validateShortTag objects selected carrier tag args then return .error message
-      validateElementExpressionAt objects selected carrier value
-  | "numeral", _ | "generator", _ => validateShortTag objects selected carrier tag args
+      if let .error message ← validateShortTag objects selected carrier tag args retained then return .error message
+      validateElementExpressionAt objects selected carrier value retained
+  | "numeral", _ | "generator", _ => validateShortTag objects selected carrier tag args retained
   | "operationExpression", #[id, parameters, operands] =>
       let state ← registryState
       let .ok id := id.getStr? | return .error "the operation id must be a string"
@@ -2488,9 +2498,18 @@ partial def validateElementExpressionAt (objects : InterfaceObjects) (selected c
       let .ok operation ← interfaceDeclaration objects row.declaration
           (← mkAppM ``Quiver.Hom #[source, carrier]) parameters
         | return .error "the operation expression changes its selected result interface"
-      if row.result.isNone && !(← isType selected) then
+      let .ok selection ← elementSelection objects selected retained
+        | return .error "the operation expression lost its fixed complete selected interface"
+      let selectedValue := match selection with
+        | .object _ _ _ (some value) _ => value
+        | value => value
+      if row.result.isNone && !(← isType (← (Language.semanticObject selectedValue).run {})) then
         let explicit ← (Language.explicitArguments row.declaration operation).run {}
-        unless ← explicit.anyM (fun field => withoutModifyingState <| isDefEq field selected) do
+        unless explicit.size > row.numerals do
+          return .error "the operation expression lost its declared owner parameter"
+        let owner := explicit.size - 1 - row.numerals
+        unless ← (Language.parameterCompatible
+            (Language.bindSelectedReceiver explicit owner selection (some row.category))).run {} do
           return .error "the operation expression changes its selected mathematical structure"
       let sources ← if operands.isEmpty then pure #[] else if operands.size == 2 then do
           let source ← withTransparency .all <| whnf source
@@ -2498,9 +2517,21 @@ partial def validateElementExpressionAt (objects : InterfaceObjects) (selected c
           pure source.getAppArgs
         else pure #[← instantiateMVars source]
       unless sources.size == operands.size do return .error "the operation has a different operand interface"
-      for (source, operand) in sources.zip operands do
-        if let .error message ← validateElementExpressionAt objects selected source operand then return .error message
-      return .ok ()
+      let some sets := state.categories.find? (·.id == CategoryId.sets)
+        | return .error "the operation expression lost its declared data category"
+      try
+        let known ← (Language.operationParameterObjects row operation #[selection]).run {}
+        for (source, operand) in sources.zip operands do
+          let operandSelection ← (Language.declaredEndpointObject source sets
+            known operation.getAppArgs).run {}
+          if let .error message ← validateElementExpressionAt objects source source operand
+              (some operandSelection) then return .error message
+        return .ok ()
+      catch error =>
+        match CasCatalogue.Exception.interpretationKind error with
+        | .invalid | .ambiguous =>
+            return .error "the operation operand has no unique complete declared interface"
+        | _ => throw error
   | _, _ => validateElementExpression expression
 
 /-- Validate one constructor port with its original binder-role provenance.

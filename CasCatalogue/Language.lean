@@ -1840,7 +1840,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       if let some t := scope.get? x.getId then
         let rings ← ringBindings scope t
         return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
-          eval scope t category? ambient?
+          restage (← eval scope t category? ambient?)
       let name := x.getId.toString
       -- `dv` for a variable `v`: its differential `d(v)`.
       if let some v ← differentialVariable? x.getId then return ← applyNamed state "d" #[v]
@@ -3117,6 +3117,12 @@ partial def suppliedFieldWitnesses (state : RegistryState) (entry : MorphismEntr
   let mut current := semantic
   let mut visited : Array Name := #[]
   while true do
+    -- Trace/cache addresses are transparent wrappers around the same complete
+    -- supplied declaration. Inspect its public field without replacing the
+    -- original addressed map or dropping the selected primitive identity.
+    current := current.consumeMData
+    while current.isAppOfArity ``id 2 || current.isAppOfArity ``Trace.operationResult 3 do
+      current := current.appArg!.consumeMData
     let some head := current.getAppFn.constName? | return #[]
     if fields.contains head then
       let infos ← forallTelescopeReducing (← getConstInfo head).type fun xs _ =>
@@ -5433,7 +5439,7 @@ partial def selectedBinder (scope : Scope) (name : String) (parameters : Array S
     | none => pure admitted
   Trace.record (← read).trace result
     (.binder row.id application.explicit declaredDomain original admitted)
-  if asElement then return .element result targetValue
+  if asElement then return ← restage (.element result targetValue)
   let (_, _, _, _, domainValue, _) ← morphismContext family
   morphismInContext result domain target context (domainValue, targetValue)
 
@@ -6770,6 +6776,37 @@ partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
     (receiver : Value) : M (Array Value) := do
   return (← operationOwnerCandidates surfaceName owner receiver).map (·.1)
 
+/-- Retain complete object parameters of an already fixed operation application.
+The accepted owner slot determines its category. Other supplied parameters keep
+all compatible registered category schemas; none is inferred from an operand's
+carrier or from a computed answer. These witnesses let heterogeneous operands
+use their own declared interfaces even when the result belongs to another set. -/
+partial def operationParameterObjects (row : OperationEntry) (application : Expr)
+    (known : Array Value := #[]) : M (Array Value) := do
+  let state ← registryState
+  let parameters := application.getAppArgs
+  unless parameters.size > row.numerals do
+    throwStratum .invalid "the operation lost its complete declared owner"
+  let ownerSlot := parameters.size - 1 - row.numerals
+  let mut available := known
+  for index in [:parameters.size] do
+    let parameter ← instantiateMVars parameters[index]!
+    let type ← instantiateMVars (← inferType parameter)
+    if parameter.hasMVar || parameter.hasLevelMVar || (← isProp type) then continue
+    let categories ← if index == ownerSlot then do
+        let some owner := state.categories.find? (·.id == row.category)
+          | throwStratum .invalid "the operation's accepted owner category is absent"
+        pure #[owner]
+      else state.categories.filterM (parameterCategoryCompatible type)
+    for category in categories do
+      let context ← CategoryContext.ofNamed category parameter
+      let value ← match ← optionalReading
+          (recognize state parameter category available parameters) with
+        | some value => pure value
+        | none => objectInContext parameter context available
+      available := available.push value
+  return available
+
 /-- Instantiate the operation at the owner binder validated by the registry. A selected
 receiver fixes that whole owner; retained constructor parameters may not replace it with a
 different structure on the same carrier. Anonymous declaration-owned coordinates may still
@@ -7422,10 +7459,12 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   if (f matches .morphism ..) || (f matches .derivedMorphism ..) then
     if let #[argumentSyntax] := args then
       let temporary ← Trace.new
+      let (_, _, _, _, originalSource, _) ← morphismContext f
+      let argumentContext ← carrierObject originalSource
       let candidate ← try
         pure (some (← withReader (fun context =>
           { context with trace := some temporary, closedTerms := none })
-          (eval scope argumentSyntax)))
+          (eval scope argumentSyntax none (some argumentContext))))
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
       if let some argument := candidate then
@@ -7559,7 +7598,11 @@ partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
 whole statement) read inside a map is `S → 1 → X`. -/
 partial def restage (v : Value) : M Value := do
   let (.element h X, some (.object s ..)) := (v, (← read).stage) | return v
-  let some (domain, _) := homEnds? (← whnfR (← inferType h)) | return v
+  let signature ← inferType h
+  let endpoints ← match homEnds? signature with
+    | some endpoints => pure (some endpoints)
+    | none => pure (homEnds? (← whnfR signature))
+  let some (domain, _) := endpoints | return v
   let .object one .. ← oneObject | return v
   if (← isDefEq domain s) || !(← isDefEq domain one) then return v
   return .element (← staged h) X

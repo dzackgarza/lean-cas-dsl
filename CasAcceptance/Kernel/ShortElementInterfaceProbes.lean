@@ -73,3 +73,15 @@ run_elab do
       (← mkFreshExprMVar expected) (node "element" #[descriptor, node tag #[point, point]])
     unless result.isOk == accepted do
       throwError "the short tag borrowed an operation from a different selected owner: {repr result}"
+
+/- An operation with a separate result object obtains each operand's selection
+from its exact declaration parameters, rather than from that result object. -/
+run_elab do
+  let state ← registryState
+  let some order := state.objects.find? (·.declaration ==
+      ``CasCatalogue.Foundation.PowerSets.orderIntegers)
+    | throwError "the accepted integer order is unavailable"
+  let expression := node "operationExpression" #[toJson "op.linear_orders.le",
+    Json.arr #[node order.id.raw #[]],
+    Json.arr #[node "numeral" #[toJson (37 : Nat)], node "numeral" #[toJson (12 : Nat)]]]
+  checkTag "obj.sets.truth_values" #[] #[] expression true

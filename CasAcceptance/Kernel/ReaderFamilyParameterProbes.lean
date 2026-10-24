@@ -20,10 +20,9 @@ run_cmd liftTermElabM <| withoutErrToSorry do
     let .ok term := Parser.runParserCategory (← getEnv) `cas_term text
       | throwError "the named-family input did not parse: {text}"
     return term
-  let mut selected := #[]
-  for (name, declaration) in #[("FinOrder", ``CasCatalogue.Foundation.FiniteOrders.ordinary),
-      ("ReverseFinOrder", ``CasCatalogue.Foundation.FiniteOrders.reverse)] do
-    withCurrHeartbeats do
+  let selected ← #[("FinOrder", ``CasCatalogue.Foundation.FiniteOrders.ordinary),
+      ("ReverseFinOrder", ``CasCatalogue.Foundation.FiniteOrders.reverse)].mapM
+    fun (name, declaration) => withCurrHeartbeats do
       let value ← (eval {} (← parse s!"{name}(5)")).run {}
       let .object handle category (some (row, _)) .. := value
         | throwError "a separately named refinement was not an object"
@@ -32,7 +31,7 @@ run_cmd liftTermElabM <| withoutErrToSorry do
       let expected ← mkAppM declaration #[mkNatLit 5]
       unless ← withTransparency .all <| isDefEq handle expected do
         throwError "the refined object changed its full selected structure"
-      selected := selected.push handle
+      return handle
   if ← withTransparency .all <| isDefEq selected[0]! selected[1]! then
     throwError "distinct selected orders were identified through their common carrier"
   let candidates := objectBindings state "Fin" none
@@ -69,7 +68,35 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   let expected ← mkAppM entry.declaration #[mkNatLit 2, qHandle, matrix]
   unless ← withTransparency .all <| isDefEq hom expected do
     throwError "the row data parameter was not retained in the complete map"
-  let some (.namedMorphism address _) ← trace.node? hom
-    | throwError "the complete row map lost its selected callable address"
+  let address ← match ← trace.node? hom with
+    | some (.namedMorphism address _) => pure address.raw
+    | some (.namedCallable address _ _) => pure address
+    | _ => throwError "the complete row map lost its selected callable address"
   unless address == entry.id.raw do
     throwError "a different primitive address replaced the selected row map"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let some entry := state.morphisms.find? (·.name == "F9x_constants")
+    | throwError "the independently registered constants map is absent"
+  let original ← instantiateFresh entry.declaration
+  unless !original.hasMVar && !original.hasLevelMVar do
+    throwError "the registered constants map is not completely supplied"
+  let plain ← (suppliedFieldWitnesses state entry original).run {}
+  unless !plain.isEmpty do
+    throwError "the supplied constants map lost its complete coefficient object"
+  let trace ← Trace.new
+  let addressed ← (retainNamedMorphism entry original).run { trace := some trace }
+  let retained ← (suppliedFieldWitnesses state entry addressed).run { trace := some trace }
+  unless retained.size == plain.size do
+    throwError "a primitive address wrapper hid its complete public field parameters"
+  for (before, after) in plain.zip retained do
+    let left ← (semanticObject before).run {}
+    let right ← (semanticObject after).run {}
+    unless ← withTransparency .all <| isDefEq (← inferType left) (← inferType right) <&&>
+        isDefEq left right do
+      throwError "reading an addressed field replaced its selected coefficient structure"
+  let some (.namedMorphism address _) ← trace.node? addressed
+    | throwError "reading field parameters dropped the original primitive address"
+  unless address == entry.id do
+    throwError "reading field parameters changed the original primitive address"

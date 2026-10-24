@@ -71,12 +71,11 @@ partial def read (selected : Language.Value) (json : Json) (decoders : Decoders 
       -- object instead derive their operand selections from their complete parameters.
       if operation.result.isNone then
         let explicit ← Language.explicitArguments operation.declaration application
-        let mut matched := false
-        for slot in [:explicit.size] do
-          if ← Language.parameterCompatible
-              (Language.bindSelectedReceiver explicit slot selected (some operation.category)) then
-            matched := true
-        unless matched do
+        unless explicit.size > operation.numerals do
+          throwStratum .malformed m!"the operation expression lost its declared owner parameter"
+        let owner := explicit.size - 1 - operation.numerals
+        unless ← Language.parameterCompatible
+            (Language.bindSelectedReceiver explicit owner selected (some operation.category)) do
           throwStratum .malformed m!"the operation parameters differ from the selected structure"
       let some (source, target) := Language.homEnds? (← inferType application)
         | throwStratum .malformed m!"the registered element operation is not a morphism"
@@ -92,8 +91,9 @@ partial def read (selected : Language.Value) (json : Json) (decoders : Decoders 
         throwStratum .malformed m!"the operation's operand interface is not its declared source"
       let some sets := state.categories.find? (·.id == CategoryId.sets)
         | throwStratum .invalid m!"element data has no registered category of sets"
+      let known ← Language.operationParameterObjects operation application #[selected]
       let elements ← (sources.zip operands).mapM fun (source, data) => do
-        let operand ← Language.recognize state source sets #[selected] application.getAppArgs
+        let operand ← Language.declaredEndpointObject source sets known application.getAppArgs
         read operand data decoders
       Language.applyFamily operation.declaration sets elements (some carrier)
         (application := some application)
