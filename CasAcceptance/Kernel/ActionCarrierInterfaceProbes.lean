@@ -112,7 +112,8 @@ run_elab do
   let some parameterized := state.functor? FunctorId.modulesFibreInclusion
     | throwError "the accepted action-parameter fixture is absent"
   let moduleSource ← elabTermAndSynthesize
-    (← `(ModuleCat.of $(← exprToSyntax source) ℤ)) none
+    (← `(letI : Ring $(← exprToSyntax sourceCarrier) := $(← exprToSyntax sourceRing)
+         ModuleCat.of $(← exprToSyntax sourceCarrier) $(← exprToSyntax sourceCarrier))) none
   let parameterizedAction ← ObjectPresentation.applyParameters parameterized.declaration #[source]
   let parameterizedResult ← Semantic.objOf parameterizedAction moduleSource
   let parameterPacket := dataNode "opaqueData" #[toJson "retained action parameter"]
