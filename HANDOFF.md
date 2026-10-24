@@ -17,10 +17,10 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `1886a37fb7d2614065dad48e31ff571810018a77` | Complete dependent admission, selected-owner reading, full inherited dispatch, structured execution and independently assessed question records; final coherent verification continues |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `a5dd191fce3c82872739edff4eb349591ad4c111` | Complete dependent admission, selected-owner reading, full inherited dispatch, structured execution and independently assessed question records; final coherent verification continues |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `8c3d106f2f10706a8be1ad5b84cf65d3aea346af` | Checked module-map admission, parameterized finite-order presentations, monoid operations and independently chosen extensions; further generic binding/map interfaces are being completed |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `c6e24107ec84481a8240bb3cae5c31f67a098a71` | Complete category, cartesian-map, construction-field and projection-action codecs/docs, strict failure strata and explicit inventory rules; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4ea82e7cf6f5fd75234fd2ce18255a45ad851379` | Checked module/group-map admissions, parameterized finite-order presentations, monoid operations, selected bindings and full direct image; mathematical proof controls passed |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `80bf36d2131e00e78cba2c8461db7b32d98a86f4` | Complete category, cartesian-map, construction-field and projection-action codecs/docs, whole-domain invocations, strict failure strata and explicit inventory rules; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 | Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `836c15217f6951e698398cacd3b96afdc892909d` | New subtree authored from public interfaces without assertion sources, answers or execution outcomes; its own protocol checks are not mathematical acceptance |
 
@@ -94,6 +94,19 @@ Dedicated differential and infinite-subset framing probes are prepared; they and
 the current reader/runtime changes await the coherent batch. Final source locks,
 the generated public API, same-source permanent/workflow reruns, all ten frozen
 extension trials, and compositional evidence remain required before readiness.
+
+### Independent leaf follow-up boundary
+
+The initial public-only diagnostic leaf remains at local `03a0a3d`, published as
+`836c15217f6951e698398cacd3b96afdc892909d`. During a later follow-up, an agent-inventory
+tool unexpectedly exposed another completed agent's report. That session was stopped.
+Its worktree was still clean at the original checkpoint; no follow-up source was used.
+A fresh session with no inherited conversation received only that unchanged diagnostic
+subtree, the public contract/API and runtime paths. Its instructions prohibit the
+agent-inventory tool and all downstream assertion, implementation and report inputs.
+The incidental exposure is recorded rather than claiming that the interrupted
+follow-up remained wholly blind. The replacement's independently authored changes
+will have their own source and public-input receipt.
 
 Use isolated build outputs under `/tmp` in this environment: workspace synchronization
 restored obsolete generated trace layouts and caused false enum/probe failures; fresh

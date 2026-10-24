@@ -1199,23 +1199,30 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermE
   let refined := { w with form := .object current, presentationIsos := identifications, payload := .ordinary (value) (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
   transportImage trace refined remaining
 
-/-- Canonical request input consumes only exact checked proof-refinement and named
-refinement prefixes. All residual structural edges remain in the admitted source composite. -/
-partial def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
-    TermElabM Wire := do
+/-- Consume exact checked proof-refinement and named-presentation prefixes while
+retaining the complete residual route. A later category-wide operation can then
+apply every residual action without undoing the registered presentation. -/
+partial def canonicalOperationInput (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+    TermElabM (Wire × Array EdgeRef) := do
   let state ← registryState
   match wire.form with
-  | .contextual .. => transportImage trace wire route
+  | .contextual .. => return (← transportImage trace wire route, #[])
   | .proofRefinement _ classifier _ =>
       if route[0]? == some (.classifierForget classifier) then
         let action ← Semantic.edgeFunctor state (.classifierForget classifier)
         let original ← proofRefinementBase trace wire action
-        return ← canonicalOperationReceiver trace original (route.extract 1 route.size)
-      return wire
+        return ← canonicalOperationInput trace original (route.extract 1 route.size)
+      return (wire, route)
   | .object entry =>
       let (_, remaining) := state.transport entry route
-      transport trace wire (route.extract 0 (route.size - remaining.size))
-  | _ => return wire
+      return (← transport trace wire (route.extract 0 (route.size - remaining.size)), remaining)
+  | _ => return (wire, route)
+
+/-- The compatible source-composite request retains every residual action in its
+accepted registration, rather than requiring its input packet to execute it. -/
+def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+    TermElabM Wire := do
+  return (← canonicalOperationInput trace wire route).1
 
 /-- Keep the full mathematical receiver separate from its canonical computational input. -/
 def operationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
@@ -2422,9 +2429,10 @@ def computationalOperationReceiver (h : Harness) (trace : Trace) (operation : St
   let state ← registryState
   let some declared := state.operation? operation
     | throwError "the selected computational operation is no longer registered"
-  -- The general alternative retains arbitrary full Arrow endpoints and action
-  -- data. Named presentation normalization belongs only to the legacy candidate.
-  let transported ← computationalApexReceiver trace (← transportImage trace original route)
+  -- Registered presentation prefixes remain useful to old operation implementations.
+  -- The residual general action also supports arbitrary unnamed Arrow endpoints.
+  let (prepared, remaining) ← canonicalOperationInput trace original route
+  let transported ← computationalApexReceiver trace (← transportImage trace prepared remaining)
   let canonical ← computationalApexReceiver trace canonical
   let fullAddresses := state.inputAddresses declared transported.form
   let sourceAddresses := state.inputAddresses declared canonical.form
@@ -4760,9 +4768,11 @@ def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry
       unless Exception.stratum? error == some .noImplementation do throw error
       let (data, dependencies) ← realizedParameters h trace #[receiver]
       let #[data] := data | throwError "the operation's declared owner lost its parameter data"
-      pure ({ form := .diagrams category,
-        payload := (← combinedPayload receiver data dependencies),
-        categoryContext := some receiverContext } : Wire)
+      let retained : Wire := {
+        form := .diagrams category
+        payload := (← combinedPayload receiver data dependencies)
+        categoryContext := some receiverContext }
+      pure retained
   unless state.accepts (.operation entry) wire.form do
     throwError "the complete operation's owner representation changed its declared category"
   return wire

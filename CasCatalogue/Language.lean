@@ -6651,7 +6651,7 @@ partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
   let state ← registryState
   let some ownerCategory := state.categories.find? (·.id == owner)
     | throwStratum .invalid m!"the operation's owner category is not registered"
-  letI : Inhabited Route :=
+  let _ : Inhabited Route :=
     ⟨{ source := ownerCategory.expression, target := ownerCategory.expression, steps := #[] }⟩
   let mut views : Array Value := #[]
   for source in (← operationSourceValues receiver) do
