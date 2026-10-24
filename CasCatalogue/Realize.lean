@@ -2849,7 +2849,7 @@ product type without demanding a cone computation. Named selected objects and
 previously computed objects keep their exact presentations and live dependencies.
 Only the formal type supplies this structural frame; no backend determines it. -/
 partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
-    (value : Expr) : TermElabM Wire := do
+    (value : Expr) (recoverAction : Bool := true) : TermElabM Wire := do
   let value ← instantiateMVars value
   if let some computed := (← h.results.get)[value]? then return computed
   let node ← trace.node? value
@@ -2863,8 +2863,8 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
     let reduced ← withTransparency .all <| whnf value
     if reduced.isAppOfArity ``Prod 2 then
       let fields := reduced.getAppArgs
-      let first ← realizeEndpoint h trace "the first declared endpoint component" fields[0]!
-      let second ← realizeEndpoint h trace "the second declared endpoint component" fields[1]!
+      let first ← realizeEndpoint h trace "the first declared endpoint component" fields[0]! recoverAction
+      let second ← realizeEndpoint h trace "the second declared endpoint component" fields[1]! recoverAction
       let some category := (← registryState).categories.find? (·.id == CategoryId.sets)
         | throwError "the declared product endpoint has no set category"
       let json := Json.mkObj [("ctor", "objectProduct"),
@@ -2873,6 +2873,8 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
         form := .diagrams category
         payload := (← combinedPayload value json #[first, second]) }
   if node.isNone then discard <| Semantic.recordNamedObject value (some trace)
+  if !recoverAction && (← trace.node? value).isNone then
+    throwStratum .noImplementation "the endpoint has no separately selected computational presentation"
   realize h trace what value
 
 /-- A complete callable supplies an endpoint descriptor even when that exact
@@ -2884,7 +2886,10 @@ partial def realizeCallableEndpoint (h : Harness) (trace : Trace) (wire : Wire)
   let context ← framingContext context wire.categoryContext
   if let some context := context then CategoryContext.checkObject context value
   try
-    let endpoint ← realizeEndpoint h trace "the callable's complete selected endpoint" value
+    -- A complete callable already fixes its anonymous endpoints. Only an exact
+    -- retained or named presentation may replace that public endpoint descriptor;
+    -- unrelated actions with an equal carrier do not select its presentation.
+    let endpoint ← realizeEndpoint h trace "the callable's complete selected endpoint" value false
     if let some context := context then
       discard <| framingContext (some context) endpoint.categoryContext
     return endpoint

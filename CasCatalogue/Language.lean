@@ -3053,9 +3053,18 @@ partial def registeredEdgeMapAt (scope : Scope) (edge : EdgeRef)
         (.contextualRoute context imageContext #[edge] #[action] original false)
   Trace.record (← read).trace result
     (.contextualRoute context imageContext #[edge] #[action] hom true)
+  let endpoint (image : Expr) (original : Value) : M Value := do
+    let value ← objectInContext image imageContext #[original]
+    match value with
+    | .object handle category origin selected _ =>
+        -- The endpoints of a mapped arrow are the same complete object views
+        -- produced by this selected action. Keep its actual prefix and parameters,
+        -- so a later carrier action does not rediscover an unrelated presentation.
+        return .object handle category origin selected
+          (some (#[original], original, #[edge], #[], #[(edge, action.getAppArgs)]))
+    | _ => return value
   morphismInContext result imageSource imageTarget imageContext
-    (← objectInContext imageSource imageContext #[sourceValue],
-      ← objectInContext imageTarget imageContext #[targetValue])
+    (← endpoint imageSource sourceValue, ← endpoint imageTarget targetValue)
 
 partial def structuredParameterView (original : Value) (actual : Expr)
     (category : NamedCategoryEntry) : M Value := do
@@ -6949,6 +6958,30 @@ partial def retainedOperationSelections (entry : ObjectEntry) (named : Expr)
     originals.toList ++ [source]) |>.getD []
   retainedOperationSelections entry named (retained ++ rest) seen found
 
+/-- The already selected complete source category, without acquiring another
+structure from a carrier or elaborating unrelated refinement parameters. -/
+partial def operationSelectionExpression? : Value → Option CategoryExpr
+  | .object _ _ _ (some selected) _ => operationSelectionExpression? selected
+  | .object _ category .. => some category.expression
+  | .derivedObject _ context _ => some context.expression
+  | .element _ object => operationSelectionExpression? object
+  | _ => none
+
+/-- A retained operand selection constrains a named set's lookup when it supplies
+that surface binding. Test the name across all owners: a nearer binding may hide
+an inherited row even though its own complete operation remains applicable. -/
+partial def retainedOperationBinding (state : RegistryState) (retained : Array Value)
+    (demanded : Option (CategoryExpr × String)) : M Bool := do
+  if retained.isEmpty then return false
+  let some (_, name) := demanded | return true
+  let owners := state.operations.filter (·.name == name) |>.map (·.category)
+  for value in retained do
+    let some source := operationSelectionExpression? value | continue
+    for target in state.categories.filter (fun category => owners.contains category.id) do
+      let routes ← routesBetween state source target.expression
+      if routes.any (state.toSemanticState.isFirstOperationBindingRoute name) then return true
+  return false
+
 /-- Complete sources for the registry's selected-operation binding rule. An explicit
 structure or structural view fixes its own source. A named unstructured set may use only
 its declared refinements; an anonymous coordinate uses its supplied constructor context. -/
@@ -6975,7 +7008,7 @@ partial def collectOperationSourceValues (state : RegistryState) (pending : List
             (← typedParamTerms origin.declaration parameters) none
           let retained ← retainedOperationSelections origin named
             (originals.toList ++ [source])
-          unless retained.isEmpty do
+          if ← retainedOperationBinding state retained demanded then
             return ← collectOperationSourceValues state (retained.toList ++ rest)
               seen sources demanded
         let mut refinements : Array Value := #[]
