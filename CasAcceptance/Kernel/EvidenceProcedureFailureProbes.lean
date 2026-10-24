@@ -55,11 +55,13 @@ private def legacyAmbiguity : TacticM Unit := do
   throw (Exception.error failureRef (.tagged `CasCatalogue.throwSemanticAmbiguity
     (.tagged payloadTag "original ambiguity payload")))
 
-run_elab do
+run_elab withOptions
+    (fun options => options.setBool `backward.isDefEq.respectTransparency true) do
   let originalMessages := (← getThe Core.State).messages
   try
     logInfo (MessageData.tagged baselineTag "an existing caller diagnostic")
     let baseline := (← getThe Core.State).messages
+    let callerConversion := (← getOptions).getBool `backward.isDefEq.respectTransparency true
     let checkMessages : TermElabM Unit := do
       let messages := (← getThe Core.State).messages
       unless messages.reported.size == baseline.reported.size &&
@@ -67,6 +69,9 @@ run_elab do
           messages.toList.any (fun message => message.data.hasTag (· == baselineTag)) &&
           !messages.toList.any (fun message => message.data.hasTag (· == transientTag)) do
         throwError "the evidence runner did not restore its caller's message state"
+      unless (← getOptions).getBool `backward.isDefEq.respectTransparency true ==
+          callerConversion do
+        throwError "a failed evidence procedure changed its caller's conversion options"
 
     let goal ← mkFreshExprMVar (mkConst ``True) .syntheticOpaque
     let .error _ ← runProcedure ``ordinaryRejection goal.mvarId!

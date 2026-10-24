@@ -4,6 +4,8 @@ import CasCatalogue.Language
 meta import CasCatalogue.Language
 import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
 meta import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
+import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.ConstructionTests
+meta import LeanCategories.Catalogue.Semantics.Modules.Bilinear.Valued.ConstructionTests
 
 open Lean Meta Elab Term CasCatalogue CasCatalogue.Language
 
@@ -64,11 +66,13 @@ run_elab do
     for (_, node) in (← trace.get).toArray do
       match node with
       | .operationApply id parameters _ _ _ =>
-        if let some entry := state.operations.find? (fun row => row.id == id && row.name == "·") then
+        if let some entry := state.operations.find?
+            (fun row => row.id == id && row.name == "·") then
           let some owner := parameters[parameters.size - 1 - entry.numerals]?
             | throwError "the product lost its complete owner"
           let expectedOwner ← typedParameter (← inferType owner) coordinate
-          unless (← withTransparency .all <| isDefEq (← inferType owner) (← inferType expectedOwner)) &&
+          unless (← withTransparency .all <|
+              isDefEq (← inferType owner) (← inferType expectedOwner)) &&
               (← withTransparency .all <| isDefEq owner expectedOwner) do
             throwError "the product changed its independently selected complete owner"
           productBindings := productBindings + 1
@@ -79,4 +83,35 @@ run_elab do
           throwError "the equivalent operations lost their complete ordered source actions"
       | _ => pure ()
     unless productBindings >= components.size do
-      throwError "the complete product owner controls were not exercised").run { trace := some trace }
+      throwError "the complete product owner controls were not exercised").run
+        { trace := some trace }
+
+/- An enclosing regular-module codomain does not replace the multiplication of
+already typed scalar coordinates by that module's additive monoid operation.
+Check the whole original function before admission, independently of its proof
+presentation, against the already formalized hyperbolic form. -/
+run_elab do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term
+      "((a, b), (c, d)) ↦ a*d + b*c in \
+        BilinearMaps(ℤ, Vec(ℤ, 2), Vec(ℤ, 2), RegularModule(ℤ))"
+    | throwError "the original bilinear expression did not parse"
+  let `(cas_term| $body in $targetSyntax) := parsed
+    | throwError "the original expression lost its selected admission target"
+  (show M Unit from do
+    let target ← carrierObject (← eval {} targetSyntax)
+    let .object _ category .. := target
+      | throwError "the bilinear target is not a selected object"
+    let some (_, endpoint) ← inclusionOut? target
+      | throwError "the selected target lost its declared function interface"
+    let input ← inclusionTargetValue target endpoint category
+    let .morphism arrow .. ← eval {} body none (some input)
+      | throwError "the original bilinear expression lost its whole map"
+    let actual ← liftM <| functionOf arrow
+    let expected ← liftM <| withoutErrToSorry <| elabTermAndSynthesize
+      (← `(fun xy : (Fin 2 → ℤ) × (Fin 2 → ℤ) =>
+        (show (Fin 2 → ℤ) →ₗ[ℤ] (Fin 2 → ℤ) →ₗ[ℤ] ℤ from
+          CasCatalogue.Modules.Bilinear.Valued.ConstructionTests.hyperbolic) xy.1 xy.2)) none
+    unless !actual.hasMVar && !actual.hasLevelMVar && (← isTypeCorrect actual) &&
+        (← withTransparency .all <| isDefEq (← inferType actual) (← inferType expected)) &&
+        (← withTransparency .all <| isDefEq actual expected) do
+      throwError "a codomain changed the complete product of already typed operands").run {}

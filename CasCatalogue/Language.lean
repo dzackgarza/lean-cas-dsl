@@ -1804,7 +1804,13 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
   -- Expanding its supplied objects or dictionaries here can erase the bundled
   -- structure that its own evidence consumes, even when the target stays defeq.
   let goal ← mkFreshExprMVar p .syntheticOpaque
-  match ← runProcedure evidence goal.mvarId! with
+  -- Respect the procedure's conversion scope for complete implicit arguments too.
+  -- Lean's legacy implicit-argument mode otherwise hides definitionally equal
+  -- selected dictionaries even when the registered procedure permits unfolding.
+  let outcome ← withOptions
+    (fun options => options.setBool `backward.isDefEq.respectTransparency false) <|
+    runProcedure evidence goal.mvarId!
+  match outcome with
   | .error message =>
       let detail := if message.length ≤ 300 then message else
         s!"{message.take 300}\n{String.intercalate "\n" ((message.splitOn "\n").reverse.take 8).reverse}"
@@ -5953,17 +5959,19 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   | _, _, _ => throwStratum .invalid m!"`a b`: no registered product, action or application \
       takes these operands"
 
-/-- An independently declared result context supplies the complete product signature before
-a coefficient is read. The signature checks the original operand maps; carrier metadata
-alone neither rejects that candidate nor supplies a different multiplication. Failed
-product readings restore their state before the ordinary action/application reading. -/
+/-- Unresolved numeral syntax can use an independently declared result context's complete
+product signature. Already typed coefficients retain their own operation context. The
+signature checks the original operand maps; carrier metadata alone neither rejects that
+candidate nor supplies another multiplication. Failed product readings restore their state
+before the ordinary action/application reading. -/
 partial def juxtaposeReading (scope : Scope) (coefficient : Syntax) (operand : Value)
     (ambient? : Option Value) : M Value := do
-  if let some ambient := ambient? then
-    let product? ← optionalReading do
-      let coefficient ← eval scope coefficient none (some ambient)
-      applyOperation "·" #[coefficient, operand] ambient
-    if let some product := product? then return product
+  if numeric coefficient then
+    if let some ambient := ambient? then
+      let product? ← optionalReading do
+        let coefficient ← eval scope coefficient none (some ambient)
+        applyOperation "·" #[coefficient, operand] ambient
+      if let some product := product? then return product
   juxtapose (← eval scope coefficient) operand ambient?
 
 /-- The element `declaration params : 1 ⟶ X` of a family of elements, its parameters unified from

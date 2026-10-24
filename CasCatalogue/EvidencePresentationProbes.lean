@@ -8,7 +8,8 @@ open CasCatalogue CasCatalogue.Language
 
 /- The published evidence receives the supplied carrier, not a stuck categorical projection.
 Its result still inhabits the original admission target; a nonunit remains refused. -/
-run_cmd liftTermElabM do
+run_cmd liftTermElabM <| withOptions
+    (fun options => options.setBool `backward.isDefEq.respectTransparency true) do
   let state ← registryState
   let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "ℂ[x]"
     | throwError "the selected polynomial object did not parse"
@@ -25,6 +26,7 @@ run_cmd liftTermElabM do
     | throwError "the published units object is absent"
   let (some admission, some evidence) := (units.admission, units.evidence)
     | throwError "the units row lost its published admission or evidence"
+  let callerConversion := (← getOptions).getBool `backward.isDefEq.respectTransparency true
   for numeral in #[2, 0] do
     withCurrHeartbeats do
       let .element point _ ← (toElement (.nat numeral) target).run {}
@@ -45,6 +47,9 @@ run_cmd liftTermElabM do
         throwError "the supplied polynomial carrier is still hidden by categorical plumbing"
       if numeral == 2 then
         let term ← establish evidence original m!"registered constant-unit admission"
+        unless (← getOptions).getBool `backward.isDefEq.respectTransparency true ==
+            callerConversion do
+          throwError "successful admission changed its caller's conversion options"
         unless !term.hasMVar && !term.hasLevelMVar && !term.hasSorry &&
             (← isTypeCorrect term) &&
             (← withTransparency .all <| isDefEq (← inferType term) original) do
@@ -57,3 +62,6 @@ run_cmd liftTermElabM do
           if (← Outcome.ofException error).kind == "invalid" then pure true else throw error
         unless refused do
           throwError "presenting a carrier admitted the zero constant polynomial as a unit"
+        unless (← getOptions).getBool `backward.isDefEq.respectTransparency true ==
+            callerConversion do
+          throwError "rejected admission changed its caller's conversion options"
