@@ -67,7 +67,9 @@ lean_lib CasGates where
 permanent suite (`tests/acceptance`) is not compiled: `cas-harness` executes it, and
 `scripts/check_acceptance_regression.py` judges a head against its base assertion by assertion. -/
 lean_lib CasAcceptance where
-  globs := #[.andSubmodules `CasAcceptance]
+  -- The stable aggregate retains its full prior inventory. Additive engineering and
+  -- independently supplied extension targets are built explicitly at their own inputs.
+  globs := #[.one `CasAcceptance]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,

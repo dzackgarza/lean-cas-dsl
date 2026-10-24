@@ -420,3 +420,75 @@ the filter); candidate-invariant work is shared. Successful transactional
 recognition retains its checked state once, while invalid speculative readings
 restore state and ambiguity/internal failures propagate. No elaboration budget
 is increased and no mathematical evidence is weakened.
+
+### Reconstruction of complete declared inputs (2026-10-24)
+
+The missing conversation-state work is reconstructed from its source record;
+the original commit bytes are unavailable. The corpus queries
+`forallMetaTelescopeReducing` and `finite function vector tuple` were attempted
+in the cloud container. Both stopped at the corpus API's network access boundary
+(`Operation not permitted`). The existing searches and owners above remain the
+reuse basis. Local source inspection additionally located
+`CasCatalogue.Modules.Operations.zero` and `scalarAction`, the registered ring
+and semiring numeral declarations, and
+`CasCatalogue.Algebra.LinearAlgebra.{empty,cons,vectorComponent,rows}`.
+Mathlib's `ModuleCat`, `PUnit.module`, and finite-function types supply the probe
+objects. No mathematical definition, registry row, or leaf is added.
+
+The reader now compares the original declaration and all ordered arguments
+before comparing an unfolded operation result. In particular, two constant
+functions cannot erase different scalar or module parameters during selected
+operation dispatch. Every complete retained source witness participates, and
+the actual complete declaration source checks the operands before selection.
+This check precedes ambiguity: a polynomial's coefficient ring is retained
+context, but an operation on that ring is inapplicable when the actual operands
+are polynomials. The surviving application retains its already checked value
+and private trace; the reader does not repeat the same elaboration for recording.
+Explicit `•` and juxtaposition consume both registered operations and registered
+morphisms with the action surface; multiple applicable readings remain
+ambiguous. Empty registered calls, raw identifier method fields, and applications
+of already formed expressions pass through the same declared-call machinery.
+
+A point whose actual codomain is the independently fixed declaration endpoint
+may retain that endpoint without replacing its original generalized map. Its
+source context survives. This rule applies at declared inputs and codomains;
+the ordinary full-identity coercion rules are unchanged. When the callable fixes
+its input, that input comes from its actual application signature, including a
+unary tuple or matrix argument. A further dependent structure determined by an
+independently supplied operand keeps the existing operand reading.
+
+An anonymous coordinate may form a numeral from an independently supplied
+complete registered owner. The owner and its full type close before its carrier
+is compared with the coordinate. Candidate numerals compare the full owners
+and the ordered declaration applications; every alias of the same owner is
+retained. A bare coordinate carrier provides no missing ring structure, and the
+coordinate remains anonymous.
+
+Tuple and matrix literals use the actual nondependent `Fin n → A` declaration
+type and its fixed lengths. Applicable registered component maps supply a named
+coordinate context; otherwise the coordinate object remains anonymous and
+retains the declaration's source witnesses. Nested finite-function dimensions
+support rectangular declared matrices through the existing tuple constructors
+and declared-result check. A category family's independent object universe is
+closed only after the actual object's full type has constrained it.
+
+Context traversal expands each exact syntactic witness once. Only duplicates
+with the same registered origins, complete selected objects, ordered parameters,
+routes, and comparison data are coalesced. This avoids repeatedly expanding the
+same retained context while preserving distinct aliases and structures.
+Endpoint recognition also merges the contexts of an exact same selected value:
+its handle, category, constructor identity, ordered parameters, and selected
+structure must match syntactically. Both complete context payloads survive that
+merge. Additional provenance is not a second selection, while a different
+selected structure still participates in the ordinary ambiguity checks.
+`CasAcceptance/Kernel/DependentElaborationProbes.lean` exercises these reader
+mechanisms without changing permanent mathematical assertions or executing a
+leaf. Compilation is a reader-engineering check, not acceptance evidence.
+
+Cloud-container verification passed `CasCatalogue.Language`,
+`CasAcceptance.Kernel.DependentElaborationProbes`, and the unchanged
+`CasAcceptance.DependentReaderProbes` target. The last target retains the selected
+vector, destructured-map, bilinear admission/formed-pairing chain, independent
+variable stage, and repeated matrix application checks. No permanent assertion,
+full suite, leaf execution, or acceptance decision was run or changed by this
+reconstruction.

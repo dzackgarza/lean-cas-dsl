@@ -106,3 +106,54 @@ fields in every arrow of both the source diagram and the dispatched mapped
 diagram, and include their data in ownership composition. Bare graph images do
 not determine their codomain or its selected structure. No mathematical object,
 comparison, graph algorithm, or shape-specific reconstruction is introduced.
+
+### Reconstructed object and whole-morphism presentations (2026-10-24)
+
+This source reconstructs mechanisms described in the conversation record; the
+original commit bytes were unavailable. Direct source inspection located
+`ObjectEntry.functorPresentation`, `ObjectFunctorPresentation.argument`, `.route`
+and `.identification`, the existing object inclusion and power-object membership
+families, and Mathlib's `Iso.hom`, `Iso.inv`, `Iso.symm`, `Iso.trans` and
+`Functor.mapIso`. They own all mathematical objects and comparisons used here.
+`ObjectPresentation` only instantiates and checks those accepted families at
+their complete parameters. It introduces no semantic row or mathematical fact.
+
+The recorded change does not establish that ordinary named objects were eagerly
+executed. The reconstruction therefore keeps their declared descriptor dispatch
+and consumes a functor presentation when its parameters contain actual computed
+data. The selected functor result and every structural action survive; the named
+semantic object remains independently fixed. The accepted comparison is retained
+in both directions as `objectField` data at the original complete parameters.
+Those selectors have the same owner in execution, typed framing and ordinary
+decoding. Inclusions and membership reuse the actual parameter payloads, including
+parameters already cached without a separate reader trace.
+
+Whole-morphism composition uses the inverse domain comparison, the original
+actual callable, and the forward codomain comparison, in that order. The middle
+data are neither evaluated from the formal arrow nor restricted to a finite
+graph. Comparisons whose endpoints happen to be definitionally equal remain
+explicit. Endpoint, callable and selected action parameter dependencies are
+combined through the existing ownership operation; distinct opaque sessions
+remain incompatible. The internal framing marker prevents nested composition
+from applying the same endpoint comparisons twice. Structural actions map both
+comparison directions, and proof-refinement snapshots preserve them.
+
+An unnamed endpoint of a complete callable uses the existing contract's
+`morphismEndpoint` projection. This extracts its declared endpoint as data and
+does not recover a carrier or law from an opaque answer. A complete returned
+construction apex may similarly use an unnamed object descriptor, including a
+product with an actual point inventory different from the formal universal
+object. Framing checks its declared object type and defining-map interfaces;
+it does not equate the returned representation with that formal object. The
+category-wide receiver retains portable computational status or its live owner.
+For a creation wrapper, its declared accepted lift supplies the action that fixes
+the base-category parameters before this framing check. This uses only the
+formal action's type; the returned anonymous apex remains the actual data and is
+never replaced with that action's formal object.
+
+The new engineering fixtures are in `CasAcceptance/Kernel`: they consume the
+accepted units presentation and its inclusion/membership, both directions of the
+accepted nonidentity polynomial comparison with opaque callable data, and an
+anonymous wrong-sized but complete computational apex. They check protocol and
+data flow, never a leaf's mathematical correctness. No permanent acceptance
+assertion is changed.

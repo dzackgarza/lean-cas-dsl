@@ -27,3 +27,5 @@ public import CasAcceptance.StructuredComparisonProbes
 public import CasAcceptance.SemanticProjectionProbes
 public import CasAcceptance.ResolveProbes
 public import CasAcceptance.Standard
+public import CasAcceptance.Kernel.BinderReaderProbes
+public import CasAcceptance.Kernel.StructuredReconstructionProbes

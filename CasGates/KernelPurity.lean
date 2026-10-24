@@ -9,10 +9,11 @@ import all CasCatalogue.Acceptance
 import all CasCatalogue.CarrierProjectionProbes
 import all CasCatalogue.ComputationalActionContextProbes
 import all CasCatalogue.ComputationalData
-import all CasCatalogue.BinderReaderProbes
 import all CasCatalogue.CodecConditionProbes
 import all CasCatalogue.ContextualSubsetProbes
 import all CasCatalogue.ConstructionData
+import all CasCatalogue.ConstrainedPoint
+import all CasCatalogue.ObjectPresentation
 import all CasCatalogue.ConstructionDataProbes
 import all CasCatalogue.ConstructionLegReaderProbes
 import all CasCatalogue.ElementData
@@ -35,7 +36,6 @@ import all CasCatalogue.ProofRefinement
 import all CasCatalogue.ProofRefinementProbes
 import all CasCatalogue.SelectedCarrierProbes
 import all CasCatalogue.ParameterStructureProbes
-import all CasCatalogue.StructuredReconstructionProbes
 import all CasCatalogue.StructuredParameterProbes
 import all CasCatalogue.AcceptanceSyntax
 import all CasCatalogue.Admission
@@ -232,13 +232,7 @@ meta def declarationViolations (env : Environment) (d m : Name) (info : Constant
         found := found.push s!"{d} ({m}) uses {c} of {cm}: only {evidenceRunner} runs a proof \
           procedure, and only a domain's registered evidence"
       continue
-    -- These two acceptance fixtures elaborate upstream mathematical examples. Their
-    -- generated declarations observe those examples, rather than implement kernel
-    -- mathematics. Keep all execution, evaluation and tactic restrictions above; do
-    -- not exempt new modules by naming convention.
-    let observationModule := m == `CasCatalogue.BinderReaderProbes ||
-      m == `CasCatalogue.StructuredReconstructionProbes
-    unless observationModule || allowedInterfaceConstants.contains c ||
+    unless allowedInterfaceConstants.contains c ||
         allowedModules.any (·.isPrefixOf cm) do
       found := found.push s!"{d} ({m}) refers to {c} of {cm}: the kernel carries no mathematics"
   for n in literals do

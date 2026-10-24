@@ -1,6 +1,7 @@
 /- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
 module
 public import CasCatalogue.Semantic
+public import CasCatalogue.ObjectPresentation
 public import CasCatalogue.Language
 public import CasCatalogue.Codec
 public import CasCatalogue.StructuredResult
@@ -208,6 +209,8 @@ partial def endpointKeys (data : Json) : TermElabM (Except String (Option (Array
     let .ok token := token.getStr? | return .error "an opaque token must be a string"
     if token.isEmpty then return .error "an opaque token must be nonempty"
     return .ok none
+  if tag == "morphismEndpoint" then
+    return (Backend.MorphismEndpoint.decode data).map fun _ => none
   if tag == "valueData" then
     let #[actual] := args | return .error "valueData requires one data field"
     return ← endpointKeys actual
@@ -599,6 +602,14 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       return ← validatePort formalField expectedType data
     if tag == "constrainedPoint" then
       return ← validateCallableAt #[] expectedType json
+    if tag == "morphismEndpoint" then
+      let .ok endpoint := Backend.MorphismEndpoint.decode json
+        | return .error "the endpoint projection requires its complete callable and selector"
+      let other ← mkFreshExprMVar expectedType
+      let source := if endpoint.source then formalField else other
+      let target := if endpoint.source then other else formalField
+      let mapType ← mkAppM ``Quiver.Hom #[source, target]
+      return ← validatePort (← mkFreshExprMVar mapType) mapType endpoint.callable
     if tag == "objectPresentation" then
       let #[action, actual] := args
         | return .error "objectPresentation requires its complete action and actual data"
@@ -630,14 +641,18 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let some entry := state.objects.find? (·.id.raw == id)
         | return .error "the object field names no registered object"
       let .ok field := field.getStr? | return .error "an object field name must be a string"
-      let declaration := match field with
-        | "inclusion" => entry.inclusion
-        | "constants" => entry.constants
-        | _ => none
-      let some declaration := declaration
+      let some declaration := ObjectPresentation.fieldDeclaration entry field
         | return .error "the object has no such released callable field"
       let .ok parameters := parameters.getArr?
         | return .error "object field parameters must be ordered data"
+      if field == "presentation" || field == "inversePresentation" then
+        let application ← match ← retainedApplication declaration formalField with
+          | some application => pure application
+          | none => instantiateFresh declaration
+        let arrow ← ObjectPresentation.fieldValue field application
+        unless ← withTransparency .all <| isDefEq (← inferType arrow) expectedType do
+          return .error "the object presentation has incompatible complete endpoints"
+        return ← declarationPorts declaration application (← inferType application) parameters
       return ← declarationPorts declaration formalField expectedType parameters
     if tag == "powerObjectMap" then
       let #[id, field, parameters] := args
@@ -717,12 +732,13 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
     if tag == "objectProduct" then
       let #[leftData, rightData] := args
         | return .error "objectProduct requires two complete object descriptors"
-      let formal ← withTransparency .all <| whnf formalField
-      unless formal.isAppOf ``Prod do
-        return .error "the product descriptor requires its retained formal factor contexts"
-      let fields := formal.getAppArgs
-      let left := fields[fields.size - 2]!
-      let right := fields.back!
+      unless (← whnfR expectedType).isSort do
+        return .error "the product descriptor requires its declared object category"
+      -- A returned apex need not use the formal universal object's representation.
+      -- The factors are data at the declared object type, not values extracted
+      -- from that independently retained universal object.
+      let left ← mkFreshExprMVar expectedType
+      let right ← mkFreshExprMVar expectedType
       for (field, data) in #[(left, leftData), (right, rightData)] do
         match ← validatePort field (← inferType field) data with
         | .error message => return .error message
@@ -875,6 +891,10 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
   let .ok (tag, args) := envelope data
     | return .error "symbolic computational data require a public constructor and ordered fields"
   let state ← registryState
+  if tag == "morphismEndpoint" then
+    let .ok endpoint := Backend.MorphismEndpoint.decode data
+      | return .error "the endpoint projection requires its complete callable and selector"
+    return ← validateCallableData endpoint.callable
   if let some entry := state.objects.find? (·.id.raw == tag) then
     return ← validateDeclaredData entry.declaration args
   if let some entry := state.morphisms.find? (·.id.raw == tag) then
@@ -926,10 +946,7 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
       | return .error "the public field parameters must be ordered data"
     let declaration := if tag == "objectField" then
       (state.objects.find? (·.id.raw == id)).bind fun entry =>
-        match field with
-        | "inclusion" => entry.inclusion
-        | "constants" => entry.constants
-        | _ => none
+        ObjectPresentation.fieldDeclaration entry field
     else
       (state.powerObjects.find? (·.id.raw == id)).bind fun entry =>
         match field with
@@ -1089,7 +1106,6 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
   for datum in args do
     if let .error message ← validatePublicData datum then return .error message
   return .ok ()
-
 
 /-- An element envelope contains the published expression grammar, not arbitrary
 public parameter data. In particular a raw string, scalar or object descriptor
@@ -1458,13 +1474,21 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       let .ok parameters := parameters.getArr? | return .error "the callable field parameters are incomplete"
       let declaration := if tag == "objectField" then
         (state.objects.find? (·.id.raw == id)).bind fun row =>
-          if field == "inclusion" then row.inclusion else if field == "constants" then row.constants else none
+          ObjectPresentation.fieldDeclaration row field
       else (state.powerObjects.find? (·.id.raw == id)).bind fun row =>
         match field with
         | "member" => some row.member | "terminal" => some row.terminal
         | "transpose" => some row.transpose | "image" => some row.image
         | "truth" => some row.truth | _ => none
       let some declaration := declaration | return .error "the owner has no such callable field"
+      if tag == "objectField" && (field == "presentation" || field == "inversePresentation") then
+        let .ok comparison ← interfaceDeclaration objects declaration
+            (← inferType (← instantiateFresh declaration)) parameters
+          | return .error "the object presentation parameters have incompatible declared types"
+        let arrow ← ObjectPresentation.fieldValue field comparison
+        unless ← withTransparency .all <| isDefEq (← inferType arrow) expected do
+          return .error "the object presentation has incompatible complete endpoints"
+        return .ok ()
       return (← interfaceDeclaration objects declaration expected parameters).map fun _ => ()
     | _, _ =>
       -- Construction packets are checked by their complete-result consumers.

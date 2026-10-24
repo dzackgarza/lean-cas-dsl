@@ -9,11 +9,18 @@ permanent assertions, and independent release acceptance are unchanged.
 
 ## Current source combination
 
+The unpublished later container work is missing from the current environment. The
+available conversation record describes changes but does not contain all original
+patch bodies. Work here is reconstruction from that record and surviving published
+source, not byte-for-byte recovery. Reconstruction, builds, and integration run in
+the ChatGPT cloud container. Core2 is not the source of this conversation's container
+transcript and is not the reconstruction workspace.
+
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; integrated checkpoint `8ca2615` | Coherent build and 153 readings pass; construction-data repairs precede the next freeze |
-| lean-categories | `work/kernel-v1-interfaces-20261023`; `dbab309f2ee6a4da2c19e970f4d5d6460d8665a4` | Published necessary registry, series, constructor comparison interfaces and selected-presentation documentation; draft [PR #93](https://github.com/dzackgarza/lean-categories/pull/93) |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6780f9f0e0ac9acb7355d9281993df44f0d13b54` | Public forms, package startup repair, complete Arrow/comparison requests, and integrated mathematical dependency published; fresh API snapshot and declaration documentation published |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `21ae154e7c1219392ab529ee23da3fcba26fd347` | Full endpoint context, checked constrained points and proof syntax compile with their runtime and validator; other reconstructed mechanisms are under integration |
+| lean-categories | `work/kernel-v1-interfaces-20261023`; `045860f4eb69b7ba8abdb11128926456ab3ae1bc` | Independently authored scalar-action/interface reconstruction published; complete catalogue compiles; independent review remains separate |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6deb5eb7dbbf6ee10440d5592fbb2d298dcba5ef` | Reconstructed object-field/constrained-point forms and constructor-path component frames published; exporter executes; final API snapshot awaits integrated source |
 | lean-cas-dsl-leaves | Existing checkout | Existing implementations and manifest unchanged |
 | Diagnostic leaf worktree | `work/v1-contract-diagnostic-20261023` | Additive independent public-contract specimen; no correctness claim from its own tests |
 
@@ -37,10 +44,23 @@ they must not enter source commits or exported API provenance.
 
 Existing `completeRoutes`, `ProofRefinement.construct`, and
 `executePrescribedLift` are retained. Isolated mechanism probes are not the exit
-gate. The coherent build passes. Connected workflows and frozen extension trials still
-have to complete before claiming V1 readiness.
+gate. The combined reconstructed kernel must pass its coherent build, connected
+workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
+
+The reconstruction has freshly verified `CasCatalogue.Language`,
+`CasCatalogue.ComputationalData`, `CasCatalogue.Realize`, and the new constrained-point
+engineering checks. Published kernel, contract, and mathematical source trees were
+fetched back from GitHub and compared to their local trees. The public-interface
+exporter executes against the reconstructed mathematical source. These are preservation
+and focused integration results, not acceptance or completion of the MVP.
+
+### Earlier verification record — rerun required on reconstructed source
+
+The observations below are the retained historical record. They are not current
+verification of the reconstructed combined tree, and their missing unpublished source
+cannot be recovered from these status statements.
 
 The focused dependent comparison, parameter/reindexing, prescribed-lift,
 computational contract, question identity, and structured projection checks pass
