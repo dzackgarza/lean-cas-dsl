@@ -17,10 +17,10 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published core integration `bfc9130565ddebfee38dc225c913ad985d48a7d6` | Generic binding, operation agreement, transport, admission and structured-result repairs; selected core build passes, further combined verification and frozen trials remain |
+| lean-cas-dsl | `work/kernel-v1-20261023`; recent published integration `25d63090ca7ab929ce2d2cc6e933b607f5102b19` | Generic binding, operation agreement, transport, admission and structured-result repairs; the selected reader/staged-data batch requires its combined build and reruns |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `7a413381900a3fc4effdf5f7ce483fae042062c3` | Includes universal operation agreement, additive-monoid operation/action, coordinate-linearity evidence, and definitionally equal selected-module presentations; public declaration signatures are unchanged by the latest evidence repair |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `706b353f6cc58d204cbbd8e47cea038ccaa0a9d3` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `796db9fc8ef18765a8f6770aeab24d08fcc58a3c` | Includes universal operation agreement, additive-monoid operation/action, complete selected linearity/unit evidence, and selected polynomial presentation/normalization; public declaration signatures are unchanged by these evidence repairs |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `23f1e8190ba472fd99f7ee83b78f6e8357530e7f` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 | Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `5b2ce9e5a2da78227d43a01297874667bd6f436e` | Replacement author supplied 66 registrations in the new diagnostic subtree, including generic monoid, additive-monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
 
@@ -188,6 +188,36 @@ kept their expected distinct strata. Every condition preserved the independent
 typed question, but no callable was returned, so session/reuse controls remain
 unmet. These are open integration failures, not passing frozen trials. Their
 complete raw observations and source/artifact provenance are preserved separately.
+
+The next reader batch passes isolated checks for the original scalar-vector
+expression, polynomial-zero admission, full selected owners and genuine reachable
+ambiguity. It applies the existing owner reachability check before elaborating
+irrelevant refinements, connects the existing complete operation-parameter helper
+to operand endpoint reading, and rejects rigid incompatible result types before
+reading a competing family's parameters. Primitive quotient types participate in
+that generic type check; unresolved types and quotient eliminators remain
+inconclusive. The original selected-carrier assertions also pass with separate
+ordinary statement budgets, without increasing production budgets.
+
+Full-context map framing now passes a bundled-Hom control with distinct endpoints,
+actual packet/session retention and swapped-endpoint rejection. The subsequent
+actual-request inspection validates its complete callable and both public
+`morphismEndpoint` descriptors. Separately, it exposes a staged numeral whose
+composition trace was overwritten by a closed-point label. The repair records the
+original numeral before staging, retaining the existing terminal composition and
+wire form; both old-producer named/selected controls reproduce the failure. The
+combined positive run is still required. The diagnostic leaf's public endpoint
+consumer is being reviewed independently against the published protocol only.
+
+The independently authored mathematics at `796db9fc` preserves the exact existing
+unit and nonzero-polynomial obligations. Its new public-source controls and the
+unchanged `EvidenceTests` and `UnitInverseTests` pass. Unit evidence compares the
+complete selected dictionaries locally; polynomial evidence invokes the existing
+catalogue reader and repeats characteristic reduction after normalization. Neither
+repair adds a mathematical domain, changes an admission signature or consumes a
+downstream question or result. All these source checkpoints were fetched back and
+matched against their complete local trees; the final coherent tuple remains to
+be built and exercised.
 
 The local runtime was restored after the former recovery directory disappeared:
 the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and

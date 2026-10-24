@@ -831,25 +831,30 @@ def parameterCategoryCompatible (expected : Expr) (category : NamedCategoryEntry
         unless ← isDefEq actualArgument requiredArgument do return false
     return true
 
-/-- A result type with a rigid function or inductive head cannot become a different
-such type by filling declaration parameters. An unresolved projection or eliminator
+/-- A result type with a rigid function, inductive, or primitive quotient head cannot
+become a different such type by filling declaration parameters. An unresolved projection or eliminator
 is deliberately inconclusive. This checks inapplicability before parameter reading;
 it neither supplies a structure from a carrier nor identifies complete parameters. -/
 def incompatibleTypeShapes (left right : Expr) : M Bool := parameterTrial do
   unless (← isType left) && (← isType right) do return false
   let left ← withTransparency .all <| whnf (← instantiateMVars left)
   let right ← withTransparency .all <| whnf (← instantiateMVars right)
-  let inductiveHead? (value : Expr) : MetaM (Option Name) := do
+  let rigidTypeHead? (value : Expr) : MetaM (Option Name) := do
     let some head := value.getAppFn.constName? | return none
-    let .inductInfo _ ← getConstInfo head | return none
-    return some head
+    match ← getConstInfo head with
+    | .inductInfo _ => return some head
+    | .quotInfo info =>
+        match info.kind with
+        | .type => return some head
+        | _ => return none
+    | _ => return none
   match left, right with
   | .forallE .., .forallE .. | .sort .., .sort .. => return false
   | .forallE .., .sort .. | .sort .., .forallE .. => return true
-  | .forallE .., _ | .sort .., _ => return (← inductiveHead? right).isSome
-  | _, .forallE .. | _, .sort .. => return (← inductiveHead? left).isSome
+  | .forallE .., _ | .sort .., _ => return (← rigidTypeHead? right).isSome
+  | _, .forallE .. | _, .sort .. => return (← rigidTypeHead? left).isSome
   | _, _ =>
-      match ← inductiveHead? left, ← inductiveHead? right with
+      match ← rigidTypeHead? left, ← rigidTypeHead? right with
       | some a, some b => return a != b
       | _, _ => return false
 
@@ -4525,6 +4530,17 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   -- needs it there (it is formed there, `x in D`).
   let operandObjects := elements.filterMap fun | .element _ X => some X | _ => none
   let mut endpointWitnesses := parameters ++ operandObjects ++ target?.toArray
+  -- A selected operation already supplies its complete heterogeneous parameters.
+  -- Retain those objects before reading the operand endpoints; otherwise a scalar
+  -- endpoint can be forced back through an unrelated presentation of its module.
+  if let some selected := operationId then
+    if callableAddress.isNone then
+      let complete ← instantiateMVars (mkAppN constant args)
+      if !complete.hasMVar && !complete.hasLevelMVar then
+        let some entry ← OperationAgreement.selectedEntry state declaration complete
+            elements.size (some selected)
+          | throwStratum .invalid "the selected operation lost its complete declared binding"
+        endpointWitnesses ← operationParameterObjects entry complete endpointWitnesses
   -- The domain's declared inclusion also fixes its ambient object. Keep that actual
   -- endpoint for dependent result parameters rather than recovering an alias from a carrier.
   for X in operandObjects do
@@ -6040,11 +6056,12 @@ partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
       let actualParams := (named.getAppArgs.zip infos).filterMap fun (arg, info) =>
         if info.isExplicit then some arg else none
       Trace.record (some recorder) sourceHandle (.object entry.id actualParams)
+    let point ← homIn (← quoteExpr numeral) one sourceType category
+    Trace.record (some recorder) point (.elementNumeral k sourceType sourceHandle)
     let hom ← withReader (fun context => { context with trace := some recorder }) do
-      staged (← homIn (← quoteExpr numeral) one sourceType category)
+      staged point
     unless !hom.hasMVar && !hom.hasLevelMVar && (← isTypeCorrect hom) do
       throwStratum .invalid m!"the retained source numeral is not a closed typed point"
-    Trace.record (some recorder) hom (.elementNumeral k sourceType sourceHandle)
     candidates := candidates.push (source, route, applications, hom, sourceCarrier)
   let some (source, route, applications, point, sourceCarrier) := candidates[0]? | return none
   let .object sourceHandle sourceCategory .. := source | unreachable!
@@ -6125,9 +6142,10 @@ partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
           -- has closed. Bare carrier equality cannot fill any field of that owner.
           let some numeral ← numeralIn { state with numerals := #[row] }
               k one carrier #[(owner, actual)] | return none
-          let point ← staged (← homIn (← quoteExpr numeral) one carrier category)
+          let closedPoint ← homIn (← quoteExpr numeral) one carrier category
+          Trace.record (some recorder) closedPoint (.elementNumeral k carrier actual)
+          let point ← staged closedPoint
           unless !point.hasMVar && !point.hasLevelMVar && (← isTypeCorrect point) do return none
-          Trace.record (some recorder) point (.elementNumeral k carrier actual)
           return some (supplied, actual, numeral, point, ← recorder.get)
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
@@ -6232,12 +6250,13 @@ partial def registeredNamedNumeral (k : Nat) (X : Value) : M (Option Value) := d
       | none => pure X
     | none => pure X
   let .object oneHandle .. ← oneObject | unreachable!
-  let hom ← staged (← homIn (← quoteExpr numeral) oneHandle x category)
+  let point ← homIn (← quoteExpr numeral) oneHandle x category
   let chosen := match X with
     | .object _ _ _ (some selected) _ => selected
     | _ => X
-  Trace.record (← read).trace hom
+  Trace.record (← read).trace point
     (.elementNumeral k (← semanticObject X) (← semanticObject chosen))
+  let hom ← staged point
   return some (.element hom X)
 
 /-- `v` as an element of the set `X`: an element already, or the element a numeral names: its
@@ -6280,8 +6299,9 @@ partial def toElement (v : Value) (X : Value) : M Value := do
           for point in points do
             unless ← withTransparency .all <| isDefEq point numeral do
               throwSemanticAmbiguity m!"several registered structural numerals give different points"
-          let hom ← staged (← homIn (← quoteExpr numeral) one carrier category)
-          Trace.record (← read).trace hom (.elementNumeral k carrier selected)
+          let point ← homIn (← quoteExpr numeral) one carrier category
+          Trace.record (← read).trace point (.elementNumeral k carrier selected)
+          let hom ← staged point
           return .element hom X
       -- A constructor may fix a selected result with no numeral of its own while
       -- retaining the complete source that supplies its points (for example a regular
