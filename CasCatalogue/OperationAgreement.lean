@@ -456,6 +456,34 @@ partial def bindTemplate (expected actual : Expr) : TermElabM Unit := do
       ((← QuestionIdentity.equivalent expected actual) || (← sameApplication expected actual)) do
     throwStratum .invalid "a selected argument changed a complete universal declaration parameter"
 
+/-- The owner has already been fixed by the complete retained source and its
+ordered route applications. Its full structure may have another transparent
+presentation, such as a named ring and the forgetful image of that same named
+commutative ring. Compare this one rigid owner as a whole; every independent
+declaration parameter still uses the recursive argument-preserving check.
+Neither an operation's returned map nor its operands can determine the owner. -/
+def bindOperationTemplate (entry : OperationEntry) (expected actual : Expr) :
+    TermElabM Unit := do
+  let expected ← instantiateMVars expected
+  let actual ← instantiateMVars actual
+  unless expected.getAppFn.isConstOf entry.declaration &&
+      actual.getAppFn.isConstOf entry.declaration &&
+      expected.getAppNumArgs == actual.getAppNumArgs &&
+      expected.getAppNumArgs > entry.numerals && closed actual &&
+      (← isTypeCorrect actual) && (← isDefEq expected.getAppFn actual.getAppFn) do
+    throwStratum .invalid "an operation instantiation changed its complete registered declaration"
+  let parameters := expected.getAppArgs
+  let arguments := actual.getAppArgs
+  let ownerSlot := parameters.size - 1 - entry.numerals
+  let owner ← instantiateMVars parameters[ownerSlot]!
+  let supplied := arguments[ownerSlot]!
+  unless closed owner && closed supplied &&
+      (← withTransparency .all <|
+        isDefEq (← inferType owner) (← inferType supplied) <&&> isDefEq owner supplied) do
+    throwStratum .invalid "the operation changed its independently fixed complete owner"
+  for index in [:parameters.size] do
+    unless index == ownerSlot do bindTemplate parameters[index]! arguments[index]!
+
 /-- Instantiate only an already checked closed plan. Every complete source,
 ordered edge application, declaration argument and numeral is matched before
 conversion. Shared template parameters must accept both actual presentations;
@@ -484,8 +512,8 @@ def instantiatePlan (plan : FamilyPlan) (leftEntry rightEntry : OperationEntry)
     bindTemplate (instantiateField expected) actual
   for (expected, actual) in plan.rightApplications.zip rightSource.applications do
     bindTemplate (instantiateField expected) actual
-  bindTemplate (instantiateField plan.left) leftApplication
-  bindTemplate (instantiateField plan.right) rightApplication
+  bindOperationTemplate leftEntry (instantiateField plan.left) leftApplication
+  bindOperationTemplate rightEntry (instantiateField plan.right) rightApplication
   let parameters ← parameters.mapM instantiateMVars
   let levels ← levels.mapM instantiateLevelMVars
   unless parameters.all closed && levels.all (fun level => !level.hasMVar) do
@@ -544,7 +572,7 @@ def validateSource (state : RegistryState) (entry : OperationEntry)
       throwStratum .invalid "an operation source changed its complete category dictionary"
     Semantic.objOf action source.receiver
   let actual ← applicationTemplate entry owner (← numeralArguments entry application)
-  bindTemplate actual application
+  bindOperationTemplate entry actual application
   let actual ← instantiateMVars actual
   unless ← sameApplication actual application do
     throwStratum .invalid "an operation candidate changed a complete selected owner or parameter"

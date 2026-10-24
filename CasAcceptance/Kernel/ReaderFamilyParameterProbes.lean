@@ -100,3 +100,18 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     | throwError "reading field parameters dropped the original primitive address"
   unless address == entry.id do
     throwError "reading field parameters changed the original primitive address"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term
+      "(k ↦ 2*k) in (ℤ in Sets) → (ℤ in Sets)"
+    | throwError "the integer-coordinate map did not parse"
+  let trace ← Trace.new
+  let value ← (eval {} parsed).run { trace := some trace }
+  let (hom, source, target, context, _, _) ← (morphismContext value).run {}
+  CategoryContext.checkMorphism context hom source target
+  unless (← trace.get).toArray.any (fun (_, node) => match node with
+      | .operationEquivalence _ _ candidates _ =>
+          candidates.any (·.operation.raw == "op.rings.mul") &&
+            candidates.any (·.operation.raw == "op.monoids.mul")
+      | _ => false) do
+    throwError "the integer-coordinate operation lost its complete inherited binding class"

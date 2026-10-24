@@ -17,12 +17,12 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `546cffae249e1d53c66cc7d62aeba74e426c6592` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `9d2422c9614104ff7adf25c90f5b0bfefcfe447d` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4acd7aff0350c5a84ce695e42eaadfd583ac343d` | Adds the independently specified universal operation-agreement interface and additive-monoid operation/action to the previously checked interfaces |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6cf4cda6eb34169a7c34dba4d269bd0212f78383` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `8f2c53cccc72d374754442e4d6c6b50b2c5aba14` | Replacement author supplied 63 registrations in the new diagnostic subtree, including generic monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `5b2ce9e5a2da78227d43a01297874667bd6f436e` | Replacement author supplied 66 registrations in the new diagnostic subtree, including generic monoid, additive-monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -118,10 +118,29 @@ No native executable or full-suite result is inferred from this module build.
 The independent source review is retained in
 `specs/reviews/kernel-mvp-compositional-source-20261024.md`, including its exact
 inputs, corrected observations and independence qualifications. Its conclusions
-are source-level compositional arguments. Residual universal parameters, short
-element interfaces, opaque created-field projection, installed point-operation
-dependencies, cross-revision question comparison and final combined execution
-are under integration or verification; none is waived as a leaf gap.
+are source-level compositional arguments. The bounded follow-up closes its concrete
+findings in residual universal contexts, opaque created-field projection, retained
+subobject receivers, and complete short/long expression interfaces. Its exact-owner
+and heterogeneous-operand findings produced source repairs, not relaxed checks.
+Cross-revision question comparison and final combined execution remain required.
+
+The subsequent integrated core at local `7a407fc` builds with all typed validator
+repairs. An actual process check verifies unique equivalent-operation dispatch,
+missing/multiple registration strata, and two successive operations passing the
+first returned owned datum into the second request without recomputation. This is
+engineering evidence, not a mathematical-answer oracle. A later coherent core
+build at `f607421` includes declared operand selections, refined object names,
+dependent data-parameter recognition, and closed-point restaging. Its new focused
+controls and the remaining unchanged extension bindings are under verification.
+The original native binaries still belong to the older recorded producer until
+explicitly rebuilt; no newer result is inferred from those binaries.
+
+The independent leaf is pinned at local `d8a24f9`, published `5b2ce9e`, in an
+immutable checkout. Its three added public addresses are additive-monoid addition,
+the additive-group structural action, and its accepted carrier component. The new
+installation profile explicitly selects universal additive/monoid arithmetic
+instead of simultaneously installing two competing requests in an equivalence
+class. This is a manifest selection; the kernel assigns no registration priority.
 
 The refreshed public API candidate records published kernel `546cffae`,
 mathematics `4acd7aff` and contract `a131843a` and contains 607 entries, 326
