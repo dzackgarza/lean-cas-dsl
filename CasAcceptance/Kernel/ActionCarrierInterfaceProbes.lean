@@ -2,6 +2,7 @@
 module
 
 import CasCatalogue.ComputationalData
+import Mathlib.Algebra.Ring.Opposite
 meta import CasCatalogue.ComputationalData
 
 /-! A complete registered object action supplies its carrier interface without
@@ -39,5 +40,88 @@ run_elab do
     throwError "the interface fixture does not distinguish complete selected dictionaries"
   if (← ComputationalData.interfaceCarrier different descriptor).isOk then
     throwError "the action descriptor accepted a different structure on the same carrier"
+
+  let opaqueSource := dataNode "opaqueData" #[toJson "retained structured source"]
+  let retainedDescriptor := dataNode "functorAction" #[
+    dataNode "fun.rings.multiplicative_monoid" #[], opaqueSource]
+  let inputs : ComputationalData.InterfaceObjects := #[(opaqueSource, source)]
+  let .ok retainedCarrier ← ComputationalData.interfaceCarrier selected retainedDescriptor inputs
+    | throwError "the exact retained action source lost its carrier interface"
+  unless ← withTransparency .all <| isDefEq retainedCarrier expected do
+    throwError "the retained action source changed its declared carrier"
+  let pointType ← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, expected]
+  let pointData := dataNode "element" #[retainedDescriptor,
+    dataNode "point" #[dataNode "opaqueData" #[toJson "retained closed point"]]]
+  unless (← ComputationalData.validateCallableAt inputs pointType pointData).isOk do
+    throwError "the nested point validator discarded the retained source interface"
+  let .ok retainedValue ← ComputationalData.interfaceSelectedValue inputs selected retainedDescriptor
+    | throwError "the retained action lost its complete source selection"
+  let .object _ _ _ _ (some (_, retainedSource, route, _, _)) := retainedValue
+    | throwError "the structural action discarded its retained source provenance"
+  let retainedContext ← (Language.objectContext retainedSource).run {}
+  let (sourceBundle, _) ← functorCategoryBundles action
+  unless route == #[edge] && (← withTransparency .all <|
+      isDefEq (← (Language.semanticObject retainedSource).run {}) source <&&>
+        isDefEq retainedContext.bundle sourceBundle) do
+    throwError "the retained action replaced its complete source or selected category"
+  if (← ComputationalData.interfaceCarrier selected retainedDescriptor).isOk then
+    throwError "an unretained source packet selected a mathematical object"
+  if (← ComputationalData.interfaceCarrier different retainedDescriptor inputs).isOk then
+    throwError "the retained action accepted a different complete result on the same carrier"
+  let unknownTarget ← mkFreshExprMVar (← inferType selected)
+  if (← ComputationalData.interfaceCarrier unknownTarget retainedDescriptor inputs).isOk then
+    throwError "the action descriptor supplied the independently expected result"
+  unless (← instantiateMVars unknownTarget).isMVar do
+    throwError "the action image filled an unknown expected result"
+  if (← ComputationalData.interfaceCarrier selected retainedDescriptor
+      #[(opaqueSource, sourceCarrier)]).isOk then
+    throwError "the retained action accepted a source from the wrong complete category"
+
+  let otherSource ← elabTermAndSynthesize (← `(RingCat.of (MulOpposite ℤ))) none
+  let otherCarrier ← withTransparency .all <| mkAppM ``RingCat.carrier #[otherSource]
+  unless (← withTransparency .all <| isDefEq sourceCarrier otherCarrier) &&
+      !(← withTransparency .all <| isDefEq source otherSource) do
+    throwError "the retained-source fixture does not distinguish full dictionaries"
+  if (← ComputationalData.interfaceCarrier selected retainedDescriptor
+      #[(opaqueSource, otherSource)]).isOk then
+    throwError "the action substituted a different full source on the same carrier"
+  for conflicting in #[#[(opaqueSource, source), (opaqueSource, otherSource)],
+      #[(opaqueSource, otherSource), (opaqueSource, source)]] do
+    if (← ComputationalData.interfaceCarrier selected retainedDescriptor conflicting).isOk then
+      throwError "input-table order selected one of two complete retained sources"
+  let unknown ← mkFreshExprMVar (← inferType source)
+  if (← ComputationalData.interfaceCarrier selected retainedDescriptor
+      #[(opaqueSource, unknown)]).isOk then
+    throwError "the action selected an unresolved retained structure"
+  unless (← instantiateMVars unknown).isMVar do
+    throwError "the action filled an unknown source from its requested result"
+  let contradictory := dataNode "functorAction" #[
+    dataNode "fun.rings.multiplicative_monoid" #[], dataNode sourceRow.id.raw #[]]
+  if (← ComputationalData.interfaceCarrier selected contradictory
+      #[(dataNode sourceRow.id.raw #[], otherSource)]).isOk then
+    throwError "a retained packet bypassed its explicit named-source selection"
+
+  let some parameterized := state.functor? FunctorId.modulesFibreInclusion
+    | throwError "the accepted action-parameter fixture is absent"
+  let moduleSource ← elabTermAndSynthesize
+    (← `(ModuleCat.of $(← exprToSyntax source) ℤ)) none
+  let parameterizedAction ← ObjectPresentation.applyParameters parameterized.declaration #[source]
+  let parameterizedResult ← Semantic.objOf parameterizedAction moduleSource
+  let parameterPacket := dataNode "opaqueData" #[toJson "retained action parameter"]
+  let modulePacket := dataNode "opaqueData" #[toJson "retained action source module"]
+  let parameterizedDescriptor := dataNode "functorAction" #[
+    dataNode parameterized.id.raw #[parameterPacket], modulePacket]
+  let parameters : ComputationalData.InterfaceObjects :=
+    #[(parameterPacket, source), (modulePacket, moduleSource)]
+  unless (← ComputationalData.interfaceSelectedValue parameters parameterizedResult
+      parameterizedDescriptor).isOk do
+    throwError "the action discarded its exact retained source and parameter"
+  if (← ComputationalData.interfaceSelectedValue
+      #[(parameterPacket, otherSource), (modulePacket, moduleSource)]
+      parameterizedResult parameterizedDescriptor).isOk then
+    throwError "the action replaced its complete selected parameter on the same carrier"
+  if (← ComputationalData.interfaceSelectedValue #[(modulePacket, moduleSource)]
+      parameterizedResult parameterizedDescriptor).isOk then
+    throwError "the requested result supplied an unretained action parameter"
 
 end

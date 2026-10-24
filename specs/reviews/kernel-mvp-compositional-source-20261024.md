@@ -413,3 +413,48 @@ addition. It covers conflicting retained contexts before and after framing,
 direct and cached endpoint conflicts, compatible packet/owner preservation, and
 refusal to fill an unresolved selected bundle. Only `git diff --check` was run
 for this follow-up; no Lean compilation or execution result is claimed.
+
+## Bounded follow-up: retained action-source interfaces (2026-10-24)
+
+This source review covers `5b173d3ec87c22d56d209f3d22a8bd2441f87969` relative to
+`331463ce7c1c09e4fb050b2d1169e25778b81406`. The carrier change delegates to
+`interfaceSelectedValue` and supplies the existing `InterfaceObjects` table at
+all three callable consumers. For descriptors carrying a complete named source
+or selected action, this validates the entire action image and retains its full
+target bundle; it no longer asks recognition to find a target object name from
+a carrier. The consumers still compare their independently selected complete
+endpoints. Ordinary descriptor failures remain interface errors; there is no
+blanket conversion of interpreter exceptions into successful validation.
+
+A remaining source defect affects a retained opaque structured source. The
+structural-action branch first recovers that exact source through
+`interfaceObject objects originalData`, but then recursively calls
+`interfaceSelectedValue` on its opaque packet. That second call has no selected
+source category and rejects every structured value whose descriptor carries no
+selection, even though the accepted full action fixes its source bundle and the
+interface table fixes the complete original object. This is a missing supported
+retained-input path, not evidence about an executed result.
+
+The separate repair uses the accepted action's complete source bundle and the
+exact retained packet binding for descriptors without selection syntax. Every
+binding of that packet must agree as a complete value; input order cannot select
+one. Named, action and presentation descriptors continue recursive validation,
+including full source-bundle agreement. The source, action parameters and target
+bundle must already be complete. The public carrier helper can also receive an
+unresolved selected object through the input table, so the action branch now
+refuses an unresolved independently expected result before comparing the full
+action image. It cannot fill that result from the returned descriptor. Declared
+invalid or ambiguous source interfaces become interface errors; interpreter
+failures continue to propagate.
+
+The focused source probe covers retained opaque sources through the carrier and
+nested element consumers, complete source context and route retention, missing
+bindings, conflicting bindings in both orders, different full sources and
+results on the same carrier, unresolved sources and expected results, explicit
+named-source contradictions, and retained, missing or incorrect action
+parameters. These controls were authored but not executed in this source task.
+`git diff --check` is the only completed mechanical check; compilation and the
+coordinated consumer verification remain pending. The unchanged registered-edge
+argument reconstruction still uses definitional equality after unfolding; this
+bounded review does not establish retention of declaration parameters erased by
+that unfolding. No execution failure or mathematical acceptance is inferred.
