@@ -286,6 +286,9 @@ partial def bindFunctorSource (F X : Expr) : TermElabM Unit := do
   -- from the supplied structured receiver. Plain category schemas have no such
   -- parameter witness; their already selected action supplies the source.
   if (← selectedFamilyParameter? categoryRealization).isSome then
+    -- A complete selected action can already fix the bundled parameter. Bind that
+    -- witness before comparing carrier projections with an unbundled object type.
+    alignCategoryParameters categoryRealization source
     let schemaCarrier ← mkAppHere ``CategoryTheory.Bundled.α #[realizationType.getAppArgs.back!]
     unless ← withTransparency .all <| isDefEq schemaCarrier (← inferType X) do
       throwError "the supplied receiver has a different complete declared family source type"

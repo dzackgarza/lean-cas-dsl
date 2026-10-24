@@ -1394,11 +1394,12 @@ partial def interfaceAction (objects : InterfaceObjects) (data : Json) :
     let .ok bundle ← interfaceDeclaration objects row.semantics
         (← inferType (← instantiateFresh row.semantics)) parameters
       | return .error "the constructed category arguments have incompatible complete types"
-    let carrier ← withTransparency .all <| whnf (← mkAppM ``CategoryTheory.Bundled.α #[bundle])
+    let carrier ← StructuredProjection.interfaceType
+      (← mkAppM ``CategoryTheory.Bundled.α #[bundle])
     let arrow ← if carrier.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory then
         withLocalDeclD `selected carrier fun value => do
-          withTransparency .all <|
-            whnf (← inferType (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[value]))
+          StructuredProjection.interfaceType
+            (← inferType (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[value]))
       else pure carrier
     unless arrow.isAppOfArity ``CategoryTheory.Arrow 2 do
       return .error "the accepted constructor has no actual Arrow or full-subcategory projection"

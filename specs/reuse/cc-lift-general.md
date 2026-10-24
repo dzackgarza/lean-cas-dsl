@@ -175,8 +175,7 @@ path uses the separate `constructedCellComponent` form and canonical `component:
 retaining every accepted comparison, identity, and composition action. The formal endpoints
 are the individually mapped registered routes, assembled with the accepted constructor
 comparison maps; they are not identified by equal carriers or an assumed strict action.
-The corresponding contract extension is integrated by the kernel/contract owner. These
-are source changes awaiting the assigned targeted compile and engineering probes; no
+The corresponding contract extension is integrated by the kernel/contract owner. No
 permanent assertion, admission record, leaf, or mathematical declaration is changed.
 
 The follow-up context reconstruction preserves each accepted `CategoryExpr` with its
@@ -186,15 +185,35 @@ and its ordered typed arguments; component endpoints, route actions, and general
 composition retain the same context and live data dependencies. The public invocation
 forms are documented in `SPEC.md`, "Registered actions, components, and selected lifts".
 The generic planners and earlier named-context integration compiled at source checkpoint
-`497099a`; the subsequent derived-context changes are an explicitly unverified source
-checkpoint pending a clean private kernel rebuild and engineering probes.
+`497099a`. Derived-context source was checkpointed separately before the clean private
+kernel rebuild recorded below.
 
 The clean `/tmp` verification of `ea336ec` passed `Language`, `Realize`, and
 `ComputationalData`. The first generic probe exposed an unfolded lift action losing
 its accepted declaration application; `7b864e6` retains that full matched application
-and its parameters. The final ordinary-result and family-transport additions remain
-source checkpoints until their focused checks complete. They consume the accepted
+and its parameters. The ordinary-result and family-transport additions consume the accepted
 data-constructor ports, Arrow/full-subcategory projections, family pseudofunctor,
 and Mathlib's `CoGrothendieck.cartesianLift`; no mathematical declarations or laws
 are added. Complete packet projections and projection actions retain full typed
 contexts, both presentation directions and original owner dependencies.
+
+The isolated `/tmp` build through `3a319820` passed
+`CasAcceptance.Kernel.StructuredExecutionProbes` and the unchanged
+`CasAcceptance.ComputationalTransportProbes`, after rebuilding `Language`,
+`ComputationalData`, and `Realize` against contract `86b5a624`.
+`GenericExecutionProbes` passed through `8a8f091`; the subsequent changes only corrected
+ordinary Arrow/full-subcategory projection recognition and its complete identity dictionary.
+These engineering checks cover five base/Arrow/Core comparison paths in both directions,
+direct construction object/map signatures, four retained lift output packets and factor
+domains, complete ordinary construction fields, registered presentation maps into a core
+construction, ordinary subobject fields, and nonidentity family object/map/cartesian actions
+with original owners. They do not claim independent mathematical acceptance or complete
+coverage of all derived inheritance.
+
+The explicit action-selector follow-up reuses accepted `EdgeRef` actions and the existing
+contextual route/map descriptors. It adds whole-map selection for registered functors and
+classifier forgetful actions, retaining their full selected source, target, declaration
+parameters and owners; it preserves the prior named-functor object trace convention.
+The explicit binder also fixes its domain declaration at the exact already selected
+parameter telescope. These additive selector probes and public invocation documentation
+are checkpointed before their next targeted build.

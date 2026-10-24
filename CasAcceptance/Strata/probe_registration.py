@@ -21,7 +21,7 @@ Its answers are chosen by its `--answer` flag:
 
 import sys
 
-from cas_port import serve  # the leaf contract's reference port, on PYTHONPATH
+from cas_port import serve, typed_map  # public protocol helpers, on PYTHONPATH
 
 
 def finite(m):
@@ -86,6 +86,11 @@ def product_wrong_apex(diagram):
 def pullback(diagram):
     """`{(x, y) | f x = g y}` as `Fin(k)`, listed in order, with its two projections."""
     f, g = diagram["args"]
+    # The kernel retains complete endpoints in the published callable frame.
+    # This mock's graph calculation consumes its callable field; all assertions
+    # and the deliberately wrong/malformed reply modes remain the same.
+    f = typed_map(f)[2] if isinstance(f, dict) and f.get("ctor") == "typedMap" else f
+    g = typed_map(g)[2] if isinstance(g, dict) and g.get("ctor") == "typedMap" else g
     f, g = dict((x, y) for x, y in f), dict((x, y) for x, y in g)
     pairs = [(x, y) for x in sorted(f) for y in sorted(g) if f[x] == g[y]]
     fst = [[i, x] for i, (x, _) in enumerate(pairs)]

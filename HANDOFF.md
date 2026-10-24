@@ -18,11 +18,11 @@ transcript and is not the reconstruction workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `21ae154e7c1219392ab529ee23da3fcba26fd347` | Full endpoint context, checked constrained points and proof syntax compile with their runtime and validator; other reconstructed mechanisms are under integration |
-| lean-categories | `work/kernel-v1-interfaces-20261023`; `045860f4eb69b7ba8abdb11128926456ab3ae1bc` | Independently authored scalar-action/interface reconstruction published; complete catalogue compiles; independent review remains separate |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6deb5eb7dbbf6ee10440d5592fbb2d298dcba5ef` | Reconstructed object-field/constrained-point forms and constructor-path component frames published; exporter executes; final API snapshot awaits integrated source |
-| lean-cas-dsl-leaves | Existing checkout | Existing implementations and manifest unchanged |
-| Diagnostic leaf worktree | `work/v1-contract-diagnostic-20261023` | Additive independent public-contract specimen; no correctness claim from its own tests |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `d68f541ec6e25c4b65a802153ed41eeedcc26093` | Integrated generic contexts/actions, structured execution, complete question comparison and interpretation export; aggregate/runtime corrections continue |
+| lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `766fc2c20c0f293f7e5f3151584534f40f7af806` | Additive independently chosen extension modules integrated and compiled; source publication is not release acceptance |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `28e447153c408d531f5552b637f91269247851e5` | Complete category, cartesian-map, construction-field and projection-action codecs/docs published; final generated declaration reference pending |
+| lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -49,12 +49,31 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
-The reconstruction has freshly verified `CasCatalogue.Language`,
-`CasCatalogue.ComputationalData`, `CasCatalogue.Realize`, and the new constrained-point
-engineering checks. Published kernel, contract, and mathematical source trees were
-fetched back from GitHub and compared to their local trees. The public-interface
-exporter executes against the reconstructed mathematical source. These are preservation
-and focused integration results, not acceptance or completion of the MVP.
+Published kernel, contract and mathematical trees were fetched back from GitHub
+and compared with the exact local source trees. The isolated contract build passes.
+A clean 53-case question-comparison build passes the unchanged question/proof probes
+and the new direct-comparison/snapshot checks. Generic execution, result-context and
+product-point framing checks also pass at their recorded individual checkpoints.
+The result-context repair validates the actual previously failing product packet at
+its unchanged question's formal input plan; this is framing evidence, not an answer.
+
+The initial reconstructed interpretation-only export reads all 153 admitted IDs from
+17 unchanged files exactly once, with no interpretation or infrastructure failures.
+It records its actual older source inputs and must be repeated on the final integrated
+candidate. No protected question baseline or expected answer was changed.
+
+The first real-engine reconstruction run passed 13 of the 17 unchanged demonstration
+assertions: arithmetic 8/8, finite pullback 1/2, matrix iteration 0/3 and nonidentity
+F9 presentation transport 4/4. It exposed a missing retained product-factor interface
+and product-point arrays being framed as graphs. Generic repairs preserve actual
+endpoint roles, complete dictionaries, owner dependencies and ordered component data;
+malformed nested wrappers remain rejected. The integrated native rerun is pending.
+
+Use isolated build outputs under `/tmp` in this environment: workspace synchronization
+restored obsolete generated trace layouts and caused false enum/probe failures; fresh
+artifacts removed those failures without source workarounds. Source checkpoints remain
+in the repositories and on GitHub. These engineering observations do not establish
+interpretation migration, frozen extension trials or kernel-MVP completion.
 
 ### Earlier verification record — rerun required on reconstructed source
 
@@ -157,7 +176,7 @@ do not accept an interpretation migration or B0.
 
 ## Remaining integration steps
 
-Re-freeze after the retained-diagram and direct-construction repairs;
+Finish the integrated action/result-interface corrections and generic public selectors;
 run unchanged semantic, integrity, negative, and hostile-result regressions;
 execute at least four useful connected real-engine workflows across at least
 three areas, including structured reuse and nonidentity transport; export the

@@ -116,6 +116,7 @@ structure WireSnapshot where
   liftExecution : Option LiftExecution := none
   endpointPresentation : Option EndpointPresentation := none
   categoryContext : Option CategoryContext := none
+  constructionInputs : Option (Expr × ComputationalData.InterfaceObjects) := none
 
 structure Wire where
   form : Form
@@ -131,6 +132,9 @@ structure Wire where
   proofSources : List WireSnapshot := []
   liftExecution : Option LiftExecution := none
   categoryContext : Option CategoryContext := none
+  /-- Original formal receiver and its complete pre-dispatch constructor input
+  interfaces. Returned fields never populate this table or choose its receiver. -/
+  constructionInputs : Option (Expr × ComputationalData.InterfaceObjects) := none
 
 def Wire.value (wire : Wire) : Expr := match wire.payload with
   | .ordinary value _ | .computed value _ => value
@@ -1020,6 +1024,7 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
     liftExecution := snapshot.liftExecution,
     categoryContext := snapshot.categoryContext,
     endpointPresentation := snapshot.endpointPresentation,
+    constructionInputs := snapshot.constructionInputs,
     proofSources := remaining }
   checkProofRefinementSource original source
   return original
@@ -2317,6 +2322,10 @@ identifying that representation with the formal universal object. The complete
 construction and its independently fixed semantic value remain in `input`. -/
 def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire := do
   let state ← registryState
+  if let some (receiver, _) := input.constructionInputs then
+    unless ← withoutModifyingState <| withTransparency .all <|
+        isDefEq receiver input.value do return input
+  let objects := input.constructionInputs.map Prod.snd |>.getD #[]
   let mut answer := input.json
   let mut apexCategory := input.form.category
   let mut apexShape : Option String := none
@@ -2372,11 +2381,11 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
   -- Preserve any independently fixed category parameters, without identifying
   -- the returned object with the formal universal apex. A created cone can
   -- retain a source-side formal object while its packet is in the base category.
-  if ← withoutModifyingState (isDefEq (← inferType fixed) carrier) then
-    discard <| isDefEq (← inferType fixed) carrier
+  unless ← withoutModifyingState (isDefEq (← inferType fixed) carrier) do return input
+  discard <| isDefEq (← inferType fixed) carrier
   let carrier ← instantiateMVars carrier
   if carrier.hasMVar || carrier.hasLevelMVar then return input
-  if let .error _ ← ComputationalData.validatePort (← mkFreshExprMVar carrier) carrier apexJson then
+  if let .error _ ← ComputationalData.validatePort fixed carrier apexJson objects then
     return input
   let named := state.objects.find? fun entry =>
     (descriptor.getObjValAs? String "ctor").toOption == some entry.id.raw
@@ -3333,7 +3342,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         presentationIsos := original.presentationIsos, objectIso := original.objectIso,
         liftExecution := original.liftExecution,
         categoryContext := original.categoryContext,
-        endpointPresentation := original.endpointPresentation }
+        endpointPresentation := original.endpointPresentation,
+        constructionInputs := original.constructionInputs }
       return {
         form := .proofRefinement target classifier original.form,
         payload := forwardPayload original e original.json,
@@ -3574,7 +3584,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       unless (state.constructors.find? (·.id == constructor)).any
           (·.semantics == `CasCatalogue.Constructors.arrow) do
         throwStratum .invalid "the receiver uses a different registered construction"
-      let arrowType ← whnfR (← inferType receiver)
+      let arrowType ← StructuredProjection.interfaceType (← inferType receiver)
       unless arrowType.isAppOfArity ``CategoryTheory.Arrow 2 do
         throwError "the stored Arrow lost its exact typed category"
       let bundle ← mkAppOptM ``CategoryTheory.Cat.of
@@ -4382,7 +4392,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let scope := match owner with
         | none => ComputationScope.portable
         | some (backend, session) => .owned backend session
-      return { form := form, payload := .construction completed scope }
+      let constructionInputs : ComputationalData.InterfaceObjects :=
+        plan.binders.filterMap fun binding => do
+          if binding.port.isSome then return none
+          let formal ← binding.formalValue
+          let actual ← externalDescriptor binding.index
+          return (actual, formal)
+      return {
+        form := form, payload := .construction completed scope
+        constructionInputs := some (completed.apex, constructionInputs) }
   | .method id route receiver =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let (request, input) ← operationReceiver trace original route

@@ -151,12 +151,26 @@ the comparison to an individual element with `map t along P` or
 `map t back along P`. Empty parameter lists are written `P()`.
 
 A registered functor can be selected explicitly, including when it is not a
-structural inheritance edge:
+structural inheritance edge. An exact registered classifier identifier selects
+that classifier's accepted forgetful action. Both kinds of action have an object
+selector and a whole-map selector:
 
 ```text
 view X along <functor-id>
 view X along <functor-id>(p₁, …, pₙ)
+map f along <functor-id>(p₁, …, pₙ)
+view X along <classifier-id>(p₁, …, pₙ)
+map f along <classifier-id>(p₁, …, pₙ)
 ```
+
+The selected declaration fixes the complete source and target categories and all
+dependent parameters. A map action applies to the original whole morphism and
+both of its exact endpoints. Classifier forgetful actions consume an object or
+morphism of the already formed classifier total category; they supply no new
+property evidence. Explicit parameter lists remain in declaration order, and a
+map selector with no parameters is written with `()`. Applicable functor,
+classifier-forget and construction map declarations participate in the same
+ambiguity check; their registry kind does not assign precedence.
 
 Registered category names and functor identifiers may also occur in an explicit
 parameter slot whose declared type asks for that category or functor. Category

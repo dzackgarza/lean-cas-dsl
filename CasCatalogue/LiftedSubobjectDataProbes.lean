@@ -193,8 +193,14 @@ run_elab do
   for baseData in #[baseData, arrowBase] do
     let baseWire : Realize.Wire := {
       form := .subobject prepared.baseCategory, payload := .ordinary base baseData }
+    -- This executor probe supplies opaque computation inputs directly, just as
+    -- it supplies source/base data above; it does not run the surface reader.
+    -- Keep one data slot for every actual selected evidence parameter.
+    let parameters ← prepared.components.mapM fun component => do
+      let fields ← DirectConstruction.dataArguments component.selection.parameters
+      pure (fields.mapIdx (fun index _ => data s!"selected parameter {index}"), #[])
     let missing ← try
-        discard <| Realize.executePrescribedLift harness trace prepared sourceWire baseWire
+        discard <| Realize.executePrescribedLift harness trace prepared sourceWire baseWire parameters
         pure false
       catch error =>
         if CasCatalogue.Exception.stratum? error == some .noImplementation then pure true

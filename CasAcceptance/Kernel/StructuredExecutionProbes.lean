@@ -163,7 +163,9 @@ run_elab do
   let moduleValue : Value := .object receiver modules none none none
   let baseValue : Value := .morphism base baseSource baseTarget rings none
   for (text, expected) in #[("reindex(M, phi)", image),
-      ("reindex(id(M), phi)", imageMap), ("cartesian(M, phi)", cartesian)] do
+      ("reindex(id(M), phi)", imageMap), ("cartesian(M, phi)", cartesian),
+      (s!"view M along «{plan.entry.id.raw}»(phi)", image),
+      (s!"map id(M) along «{plan.entry.id.raw}»(phi)", imageMap)] do
     let value ← (eval {} (← parse text)).run
       { trace := some trace, bound := [(`M, moduleValue), (`phi, baseValue)] }
     unless ← withTransparency .all <| isDefEq (← valueTerm value) expected do
@@ -178,6 +180,15 @@ run_elab do
   harness.results.modify (·.insert base {
     form := .canonicalMorphism rings
     payload := .computed base (.owned "family-probe" 41 (opaqueField "original nonidentity base map")) })
+  let selectedMap ← Realize.realize harness trace "the explicit complete family map action" imageMap
+  unless selectedMap.owner? == some ("family-probe", 41) do
+    throwError "the explicit functor map discarded its original owners"
+  let .ok ("map", #[descriptor, _]) := ComputationalData.envelope selectedMap.json
+    | throwError "the explicit functor map lost its full public action descriptor"
+  let .ok (id, arguments) := ComputationalData.envelope descriptor
+    | throwError "the selected functor descriptor is incomplete"
+  unless id == plan.entry.id.raw && arguments == #[opaqueField "original nonidentity base map"] do
+    throwError "the explicit action erased its complete original base-morphism parameter"
   for formal in #[cartesian, source, target] do
     let wire ← Realize.realize harness trace "the canonical cartesian selection" formal
     unless wire.owner? == some ("family-probe", 41) do
@@ -191,3 +202,58 @@ run_elab do
     | throwError "the cartesian callable lost its declared full input form"
   unless (state.rejects operation form).isNone do
     throwError "the cartesian operation rejected its complete accepted family invocation"
+
+run_elab do
+  let trace ← Trace.new
+  let receiver ← (eval {} (← parse "Fin(2) in FiniteSets")).run { trace := some trace }
+  let object ← valueTerm receiver
+  let context ← (objectContext receiver).run {}
+  let .total classifier := context.expression
+    | throwError "the accepted proof refinement lost its classifier total category"
+  let edge := EdgeRef.classifierForget classifier
+  let action ← Semantic.edgeFunctor (← registryState) edge
+  let expected ← Semantic.objOf action object
+  let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[object]
+  let expectedMap ← Semantic.mapOf action identity
+  for (written, formal) in #[(s!"view X along «{classifier.raw}»()", expected),
+      (s!"map id(X) along «{classifier.raw}»()", expectedMap)] do
+    let selected ← (eval {} (← parse written)).run
+      { trace := some trace, bound := [(`X, receiver)] }
+    unless ← withTransparency .all <| isDefEq (← valueTerm selected) formal do
+      throwError "the exact classifier selector changed its accepted action"
+  let some category := CategoryContext.named? (← registryState) context.expression
+    | throwError "the accepted proof refinement category is absent"
+  let harness ← Realize.Harness.empty
+  harness.results.modify (·.insert object {
+    form := .diagrams category
+    payload := .computed object (.owned "classifier-probe" 43 (opaqueField "complete classified object"))
+    categoryContext := some context })
+  for formal in #[expected, expectedMap] do
+    let wire ← Realize.realize harness trace "the complete selected classifier action" formal
+    unless wire.owner? == some ("classifier-probe", 43) do
+      throwError "a classifier action discarded its original complete object's owner"
+
+run_elab do
+  let state ← registryState
+  let some row := state.binders.find? (·.id.raw == "bind.sets.real_series")
+    | throwError "the accepted binder is absent"
+  let index ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let operation ← mkAppM row.operation #[index]
+  let some (source, target) := homEnds? (← inferType operation)
+    | throwError "the accepted binder lost its whole family signature"
+  let some sets := state.categories.find? (·.id == row.category)
+    | throwError "the accepted binder category is absent"
+  let family ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
+  let input : Value := .object source sets none none none
+  let whole : Value := .morphism family source source sets (some (input, input))
+  let trace ← Trace.new
+  let result ← (eval {} (← parse s!"binder(«{row.id.raw}»(Fin(2)), A)")).run
+    { trace := some trace, bound := [(`A, whole)] }
+  let (hom, domain, actualTarget, _, _, _) ← (morphismContext result).run {}
+  unless ← isDefEq domain source <&&> isDefEq actualTarget target do
+    throwError "the explicit binder changed its original generalized domain or result"
+  let some (.binder id parameters declaredIndex _ admitted) ← trace.node? hom
+    | throwError "the explicit binder lost its exact accepted family invocation"
+  unless id == row.id && parameters.size == 1 &&
+      (← isDefEq declaredIndex index) && (← isDefEq admitted family) do
+    throwError "the explicit binder changed its selected parameters or complete admitted family"

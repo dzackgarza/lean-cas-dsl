@@ -1672,10 +1672,9 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       selectedCell scope (cell.getId.toString false) parameters.getElems receiver
         (constructors.getElems.map fun constructor => ⟨constructor.getId.toString false⟩) true
   | `(cas_term| view $receiver along $functor:ident) =>
-      registeredFunctorView (← eval scope receiver) functor.getId.toString #[]
+      registeredEdgeView scope receiver (functor.getId.toString false) #[]
   | `(cas_term| view $receiver along $functor:ident($arguments,*)) =>
-      registeredFunctorView (← eval scope receiver) functor.getId.toString
-        (← arguments.getElems.mapM (eval scope ·))
+      registeredEdgeView scope receiver (functor.getId.toString false) arguments.getElems
   | `(cas_term| $n:num) => return .nat n.getNat
   | `(cas_term| $d:scientific) =>
       let (mantissa, _, exponent) := d.getScientific
@@ -2392,17 +2391,21 @@ partial def directConstructionMapAt (scope : Scope) (entry : ConstructionEntry) 
 
 partial def directConstructionMap (scope : Scope) (name : String) (parameters : Array Syntax)
     (morphismSyntax : Syntax) : M Value := do
-  let entries := (← registryState).constructions.filter
-    (fun row => row.name == name || row.id.raw == name)
-  if let #[entry] := entries then
-    return ← directConstructionMapAt scope entry parameters morphismSyntax
-  let applicable ← entries.filterM fun entry => parameterCompatible do
-    discard <| directConstructionMapAt scope entry parameters morphismSyntax
+  let state ← registryState
+  let entries := state.constructions.filter (fun row => row.name == name || row.id.raw == name)
+  let edges := (state.functors.filter (·.id.raw == name)).map (EdgeRef.functor ∘ (·.id)) ++
+    (state.classifiers.filter (·.id.raw == name)).map (EdgeRef.classifierForget ∘ (·.id))
+  let actions := (entries.map fun entry =>
+      directConstructionMapAt scope entry parameters morphismSyntax) ++
+    (edges.map fun edge => registeredEdgeMapAt scope edge parameters morphismSyntax)
+  if let #[action] := actions then return ← action
+  let applicable ← actions.filterM fun action => parameterCompatible do
+    discard action
     pure true
   match applicable with
-  | #[entry] => directConstructionMapAt scope entry parameters morphismSyntax
-  | #[] => throwStratum .invalid "no registered construction map applies to these complete arguments"
-  | _ => throwSemanticAmbiguity "several registered construction maps apply to these complete arguments"
+  | #[action] => action
+  | #[] => throwStratum .invalid "no registered action maps these complete arguments"
+  | _ => throwSemanticAmbiguity "several registered actions map these complete arguments"
 
 /-- Select the whole accepted isomorphism by its declaration, preserving both
 directions for later core constructions and the exact registered endpoints. -/
@@ -2631,69 +2634,107 @@ partial def selectedCell (scope : Scope) (name : String) (parameters : Array Syn
     (← objectInContext source context #[receiverValue],
       ← objectInContext target context #[receiverValue])
 
-/-- The registered object `name` at the numeral parameters `args`. -/
-partial def registeredFunctorView (receiver : Value) (id : String)
-    (parameters : Array Value) : M Value := do
-  if let .derivedObject object context _ := receiver then
-    let state ← registryState
-    let some entry := state.functor? ⟨id⟩
-      | throwStratum .invalid m!"no registered functor has identity {id}"
-    unless context.expression.syntacticEq entry.source do
-      throwStratum .invalid "the selected object differs from the functor's accepted source expression"
-    let application ← DirectConstruction.instantiate entry.declaration
-      (← typedParamTerms entry.declaration parameters)
-    let action ← Semantic.asFunctor application.value
-    let (sourceBundle, _) ← functorCategoryBundles action
-    unless ← withTransparency .all <| isDefEq sourceBundle context.bundle do
-      throwStratum .invalid "the selected functor changed the receiver's complete category bundle"
-    let result ← Semantic.objOf action object
-    let application ← DirectConstruction.close application
-    let action ← Semantic.asFunctor application.value
-    let (_, bundle) ← functorCategoryBundles action
-    let result ← instantiateMVars result
-    Trace.record (← read).trace result (.functor entry.id application.explicit object)
-    return ← objectInContext result { expression := entry.target, bundle } #[receiver]
-  let .object object sourceCategory .. := receiver
-    | throwStratum .invalid m!"a functor view acts on an object"
+/-- Select the complete accepted action at its exact source bundle. Explicit
+parameters belong to the registered declaration; no structural search selects an action. -/
+partial def selectedEdgeAction (scope : Scope) (edge : EdgeRef) (parameters : Array Syntax)
+    (context : CategoryContext) : M (Expr × Array Expr × CategoryContext) := do
   let state ← registryState
-  let some entry := state.functors.find? (·.id.raw == id)
-    | throwStratum .invalid m!"no registered functor has identity {id}"
-  unless sourceCategory.expression.syntacticEq entry.source do
-    throwStratum .invalid m!"the selected object is outside the functor's declared source category"
-  let recorder ← Trace.new
-  let (image, target) ← Semantic.applyRegisteredFunctor entry object
-    (← typedParamTerms entry.declaration parameters) (some recorder)
-  let some (.functor recordedId arguments recordedReceiver) ← recorder.node? image
-    | throwStratum .invalid m!"the functor view has no retained actual application"
-  unless recordedId == entry.id && (← isDefEq recordedReceiver object) do
-    throwStratum .invalid m!"the recorded functor action differs from the selected source"
-  let declared ← instantiateFresh entry.declaration
-  let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
-    xs.mapM (·.fvarId!.getBinderInfo)
-  let explicit := (declared.getAppArgs.zip infos).filterMap fun (arg, info) =>
-    if info.isExplicit then some arg else none
-  unless explicit.size == arguments.size do
-    throwStratum .invalid m!"the functor view lost its full declaration parameters"
-  for (parameter, argument) in explicit.zip arguments do
-    unless ← isDefEq parameter argument do
-      throwStratum .invalid m!"the functor view changed a chosen declaration parameter"
-  let complete ← if (← whnfR (← inferType declared)).isAppOf ``CategoryTheory.Cat.Hom then
-    mkAppM ``CategoryTheory.Cat.Hom.toFunctor #[declared] else pure declared
-  let checked ← Semantic.objOf complete object
-  unless ← isDefEq checked image do
-    throwStratum .invalid m!"the full retained functor action differs from its actual image"
-  let complete ← instantiateMVars complete
-  unless !complete.hasMVar && !complete.hasLevelMVar && (← isTypeCorrect complete) do
-    throwStratum .invalid m!"the full functor action retains unresolved arguments"
-  Trace.record (← read).trace image (.functor entry.id arguments object)
-  let value ← try recognize state image target catch error =>
-    if (CasCatalogue.Exception.interpretationKind error) == .invalid then
-      pure (Value.object image target none none none)
-    else throw error
-  let .object handle category origin selected _ := value | unreachable!
-  let edge := EdgeRef.functor entry.id
-  return .object handle category origin selected
-    (some (#[receiver], receiver, #[edge], #[], #[(edge, complete.getAppArgs)]))
+  let (declaration, target) ← match edge with
+    | .functor id =>
+        let some entry := state.functor? id
+          | throwStratum .invalid "the selected functor is not registered"
+        pure (entry.declaration, entry.target)
+    | .classifierForget id =>
+        let some entry := state.classifier? id
+          | throwStratum .invalid "the selected classifier forgetful action is not registered"
+        pure (entry.declaration, entry.host)
+    | _ => throwStratum .invalid "this selector requires one complete registered action"
+  let application ← DirectConstruction.instantiate declaration
+    (← selectedParameterTerms scope declaration parameters)
+  let action ← match edge with
+    | .classifierForget _ => do
+        let type ← whnfR (← inferType application.value)
+        let classifier ← if type.isAppOf ``LeanCategories.PropertyClassifier then
+            mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[application.value]
+          else if type.isAppOf ``LeanCategories.StructureClassifier then
+            mkAppM ``LeanCategories.StructureClassifier.toClassifier #[application.value]
+          else pure application.value
+        let forgetful ← mkAppM ``LeanCategories.Classifier.forget #[classifier]
+        Semantic.asFunctor forgetful
+    | _ => Semantic.asFunctor application.value
+  let (sourceBundle, _) ← functorCategoryBundles action
+  unless ← parameterTrial (withTransparency .all <| isDefEq sourceBundle context.bundle) do
+    CategoryContext.exposeStructureParameters application.value
+  unless ← withTransparency .all <| isDefEq sourceBundle context.bundle do
+    throwStratum .invalid "the selected action has a different complete source category"
+  let application ← DirectConstruction.close application
+  let action ← instantiateMVars action
+  let (_, bundle) ← functorCategoryBundles action
+  let target ← CategoryContext.presented { expression := target, bundle }
+  return (action, application.explicit, target)
+
+partial def registeredEdgeViewAt (scope : Scope) (edge : EdgeRef)
+    (parameters : Array Syntax) (receiverSyntax : Syntax) : M Value := do
+  let receiver ← eval scope receiverSyntax
+  let object ← semanticObject receiver
+  let context ← objectContext receiver
+  let (action, arguments, target) ← selectedEdgeAction scope edge parameters context
+  let image ← Semantic.objOf action object
+  CategoryContext.checkObject target image
+  -- Preserve the existing named-functor question record. Contextual actions retain
+  -- complete categories for classifier forgetful actions and unnamed derived contexts.
+  if let .functor id := edge then
+    if receiver matches .object .. then
+      if (CategoryContext.named? (← registryState) target.expression).isSome then
+        Trace.record (← read).trace image (.functor id arguments object)
+      else
+        Trace.record (← read).trace image
+          (.contextualRoute context target #[edge] #[action] object false)
+    else
+      Trace.record (← read).trace image
+        (.contextualRoute context target #[edge] #[action] object false)
+  else
+    Trace.record (← read).trace image
+      (.contextualRoute context target #[edge] #[action] object false)
+  let value ← objectInContext image target #[receiver]
+  match value with
+  | .object handle category origin selected _ =>
+      return .object handle category origin selected
+        (some (#[receiver], receiver, #[edge], #[], #[(edge, action.getAppArgs)]))
+  | _ => return value
+
+partial def registeredEdgeView (scope : Scope) (receiver : Syntax) (id : String)
+    (parameters : Array Syntax) : M Value := do
+  let state ← registryState
+  let edges := (state.functors.filter (·.id.raw == id)).map (EdgeRef.functor ∘ (·.id)) ++
+    (state.classifiers.filter (·.id.raw == id)).map (EdgeRef.classifierForget ∘ (·.id))
+  if let #[edge] := edges then return ← registeredEdgeViewAt scope edge parameters receiver
+  let applicable ← edges.filterM fun edge => parameterCompatible do
+    discard <| registeredEdgeViewAt scope edge parameters receiver
+    pure true
+  match applicable with
+  | #[edge] => registeredEdgeViewAt scope edge parameters receiver
+  | #[] => throwStratum .invalid "no registered action accepts this complete selected object"
+  | _ => throwSemanticAmbiguity "several registered actions accept this complete selected object"
+
+partial def registeredEdgeMapAt (scope : Scope) (edge : EdgeRef)
+    (parameters : Array Syntax) (receiverSyntax : Syntax) : M Value := do
+  let receiver ← eval scope receiverSyntax
+  let (hom, source, target, context, sourceValue, targetValue) ← morphismContext receiver
+  let (action, _, imageContext) ← selectedEdgeAction scope edge parameters context
+  let imageSource ← Semantic.objOf action source
+  let imageTarget ← Semantic.objOf action target
+  let result ← Semantic.mapOf action hom
+  CategoryContext.checkMorphism imageContext result imageSource imageTarget
+  for (image, original) in #[(imageSource, source), (imageTarget, target)] do
+    unless image == original do
+      Trace.record (← read).trace image
+        (.contextualRoute context imageContext #[edge] #[action] original false)
+  Trace.record (← read).trace result
+    (.contextualRoute context imageContext #[edge] #[action] hom true)
+  morphismInContext result imageSource imageTarget imageContext
+    (← objectInContext imageSource imageContext #[sourceValue],
+      ← objectInContext imageTarget imageContext #[targetValue])
 
 partial def structuredParameterView (original : Value) (actual : Expr)
     (category : NamedCategoryEntry) : M Value := do
@@ -5162,8 +5203,14 @@ partial def selectedBinder (scope : Scope) (name : String) (parameters : Array S
       if Exception.interpretationKind error == .invalid then
         objectInContext target context known
       else throw error
-  let declaredDomain ← instantiateMVars
-    (mkAppN (← mkConstWithFreshMVarLevels row.domain) application.arguments)
+  let declaredDomain ← instantiateFresh row.domain
+  unless declaredDomain.getAppNumArgs == application.arguments.size do
+    throwStratum .invalid "the binder domain changed its complete parameter telescope"
+  for (argument, selected) in declaredDomain.getAppArgs.zip application.arguments do
+    unless ← withTransparency .all <| isDefEq (← inferType argument) (← inferType selected) <&&>
+        isDefEq argument selected do
+      throwStratum .invalid "the binder domain changed a complete selected parameter"
+  let declaredDomain ← instantiateMVars declaredDomain
   unless !declaredDomain.hasMVar && !declaredDomain.hasLevelMVar &&
       (← isTypeCorrect declaredDomain) do
     throwStratum .invalid "the binder lost its complete declared family domain"

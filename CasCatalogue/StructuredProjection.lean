@@ -9,6 +9,13 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.StructuredProjection
 
+/-- Unfold accepted presentation aliases while retaining the structural interface
+whose public fields are about to be projected. `Arrow` itself is a defined category. -/
+def interfaceType (type : Expr) : MetaM Expr :=
+  withTransparency .all <| whnfHeadPred type fun value =>
+    pure (!(value.isAppOf ``CategoryTheory.Arrow ||
+      value.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory))
+
 structure ArrowPlan where
   receiver : Expr
   context : CategoryContext
@@ -28,13 +35,13 @@ def arrow? (receiver : Expr) (context : CategoryContext) : TermElabM (Option Arr
   let some row := state.constructor? constructor | return none
   unless row.signature == #[ConstructorArgKind.category] do return none
   CategoryContext.checkObject context receiver
-  let receiverType ← withTransparency .all <| whnf (← inferType receiver)
+  let receiverType ← interfaceType (← inferType receiver)
   let subobject := receiverType.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory
   unless subobject || receiverType.isAppOfArity ``CategoryTheory.Arrow 2 do return none
   let arrow ← if subobject then
       mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[receiver]
     else pure receiver
-  let type ← withTransparency .all <| whnf (← inferType arrow)
+  let type ← interfaceType (← inferType arrow)
   unless type.isAppOfArity ``CategoryTheory.Arrow 2 do
     return none
   let bundle ← mkAppOptM ``CategoryTheory.Cat.of
@@ -62,7 +69,7 @@ def ArrowPlan.field (plan : ArrowPlan) (field : String) : TermElabM (Expr × Cat
 selected comparison. No carrier-level comparison substitutes for this map of isomorphisms. -/
 def ArrowPlan.arrowComparison (plan : ArrowPlan) (comparison : Expr) : TermElabM Expr := do
   if !plan.subobject then return comparison
-  let type ← withTransparency .all <| whnf (← inferType plan.receiver)
+  let type ← interfaceType (← inferType plan.receiver)
   unless type.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory do
     throwError "the selected subobject lost its full-subcategory predicate"
   let inclusion ← mkAppM ``CategoryTheory.ObjectProperty.ι #[type.getAppArgs.back!]
@@ -72,24 +79,28 @@ def ArrowPlan.arrowComparison (plan : ArrowPlan) (comparison : Expr) : TermElabM
 bundle. A registered alias is accepted by its actual Arrow/full-subcategory type. -/
 def projectionFunctorOfBundle (bundle : Expr) (field : String) : TermElabM Expr := do
   let carrier ← mkAppM ``CategoryTheory.Bundled.α #[bundle]
-  let carrier ← withTransparency .all <| whnf carrier
+  let carrier ← interfaceType carrier
   let subobject := carrier.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory
   let arrowType ← if subobject then withLocalDeclD `selected carrier fun receiver => do
-      withTransparency .all <|
-        whnf (← inferType (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[receiver]))
+      interfaceType (← inferType (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[receiver]))
     else pure carrier
   unless arrowType.isAppOfArity ``CategoryTheory.Arrow 2 do
     throwStratum .invalid "the selected constructor has no complete Arrow projection interface"
+  let inclusion ← if subobject then
+      pure (some (← mkAppM ``CategoryTheory.ObjectProperty.ι #[carrier.getAppArgs.back!]))
+    else pure none
+  if field == "inclusion" then
+    if let some inclusion := inclusion then return inclusion
+    return ← mkAppOptM ``CategoryTheory.Functor.id
+      #[some carrier, some (← mkAppM ``CategoryTheory.Bundled.str #[bundle])]
   let arguments := #[some arrowType.getAppArgs[0]!, some arrowType.getAppArgs[1]!]
   let projection ← match field with
     | "obj" | "source" => mkAppOptM ``CategoryTheory.Arrow.leftFunc arguments
     | "target" => mkAppOptM ``CategoryTheory.Arrow.rightFunc arguments
-    | "inclusion" => mkAppM ``CategoryTheory.Functor.id #[arrowType]
     | _ => throwStratum .invalid "the structured field is not an object projection functor"
-  if !subobject then return projection
-  let inclusion ← mkAppM ``CategoryTheory.ObjectProperty.ι #[carrier.getAppArgs.back!]
-  if field == "inclusion" then return inclusion
-  mkAppM ``CategoryTheory.Functor.comp #[inclusion, projection]
+  if let some inclusion := inclusion then
+    return ← mkAppM ``CategoryTheory.Functor.comp #[inclusion, projection]
+  return projection
 
 def ArrowPlan.projectionFunctor (plan : ArrowPlan) (field : String) : TermElabM Expr :=
   projectionFunctorOfBundle plan.context.bundle field
