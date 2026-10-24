@@ -79,3 +79,41 @@ cannot satisfy this control. No summation or backend dispatch occurs.
 The actual diagnostic obligation and the independent expected obligation have
 separate complete typed records. `sourceLine` and `source` identify the rejected
 binding even though this negative input deliberately contains no named `test`.
+
+## RX10 fixed-question execution conditions
+
+`CasAcceptance/Kernel/FixedQuestionExecutionControls.lean` reads the original fixed
+question before selecting a computational environment. Its second independent
+reading must preserve the complete typed question, and its actual operands and
+whole reindexed map are compared with the independently supplied formal source.
+It first materializes the complete selected callable and requires the later
+original equality computation to consume the actual returned data.
+
+Select the independent manifest with `CAS_FROZEN_LEAF_MANIFEST` and an output file
+with `CAS_FIXED_QUESTION_REPORT`. `CAS_CONDITION_PROTOCOL_DIR` optionally selects
+the directory containing `probe_reply_conditions.py`. Each of the six observations
+retains the same question and proposition, its selected environment, actual result,
+complete dispatches and returned callable ownership. A reader failure prevents all
+six observations; it is never reported as one of the execution outcomes.
+
+The correct environment is the independent manifest. The missing-registration
+environment removes only registrations of the original generalized operation.
+Unavailable and malformed conditions use an external public-port proxy: one
+disconnects during that invocation, and one supplies invalid result data. The
+wrong-result proxy owns an opaque callable backed by deliberately wrong computation
+data; later requests consume that actual callable in the same process. The host
+does not accept a supplied finite inventory as authority. The internal control
+uses Lean's existing execution resource limit with an outer error handler. No new
+kernel fault hook or leaf-provided internal status is introduced.
+
+After a correct computation, the same selected map is retained inside its complete
+Arrow and a subsequent composition. A second live session and a reconnected session
+must reject the old callable before it crosses the process boundary. A fresh
+realization in the replacement session must preserve the formal arrow and answer
+the same original question. Backend token text may repeat across processes; the
+host-owned connection identity determines ownership.
+
+These are engineering controls of the public interface. The supplied mathematical
+assertion and independent formal source remain the correctness authority. The
+runner fails if any required outcome, actual callable reuse or session boundary is
+missing; source compilation or a proxy's own smoke check is not a completed trial.

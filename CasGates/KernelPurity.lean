@@ -132,13 +132,17 @@ meta def allowedModules : List Name :=
    `CasCatalogue, `CasContract]
 
 /-- These exact schema declarations connect symbolic categories to their independently
-registered realizations. The fibre witness's parameter projection retains the selected
-family data when the consumer aligns endpoints. Their source module also contains
+registered realizations. The fibre witness's parameter and the registered family transport,
+total category and reindexing functor retain the selected family when the consumer aligns
+endpoints or applies its declared action. Their source modules also contain
 domain-specific helpers, so allowing that whole module would admit more than this
 categorical interface. -/
 meta def allowedInterfaceConstants : List Name :=
   [``CasCatalogue.CategoryRealization, ``CasCatalogue.CategoryRealization.familyFibre,
    ``CasCatalogue.CategoryFamilyFibreWitness, ``CasCatalogue.CategoryFamilyFibreWitness.parameter,
+   ``CasCatalogue.CategoryFamilyRealization.transport,
+   ``CasCatalogue.CategoryFamilyRealization.totalCat,
+   ``CasCatalogue.CategoryFamilyRealization.reindexFunctor,
    ``CasCatalogue.FunctorRealization, ``CasCatalogue.FunctorRealization.sourceRealization,
    ``CasCatalogue.FunctorRealization.targetRealization,
    ``CasCatalogue.ClassifierRealization.forgetfulRealization]

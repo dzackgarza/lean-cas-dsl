@@ -665,6 +665,27 @@ partial def namesObject (scope : Scope) (stx : Syntax) : M Bool := do
   | `(cas_term| (ℤ / $_) ^ $_) => return true
   | _ => return stx.getKind == ``casAtom
 
+/-- Select a registered object row from its head without interpreting its parameters.
+Refinement selection needs only the row name; the selected constructor subsequently checks
+every argument against its complete dependent signature. -/
+partial def namedObjectEntry (scope : Scope) (stx : Syntax) : M ObjectEntry := do
+  let state ← registryState
+  match stx with
+  | `(cas_term| ($t)) => namedObjectEntry scope t
+  | `(cas_term| $t in $c:ident) =>
+      let entry ← namedObjectEntry scope t
+      return ← objectNamed state entry.name (some (← categoryNamed state c.getId.toString))
+  | `(cas_term| $x:ident) =>
+      if let some t := scope.get? x.getId then return ← namedObjectEntry scope t
+      return ← objectNamed state x.getId.toString none
+  | `(cas_term| $f:ident($_,*)) => return ← objectNamed state f.getId.toString none
+  | `(cas_term| ℤ / $_) => return ← objectNotation state "ℤ/"
+  | `(cas_term| (ℤ / $_) ^ $_) => return ← objectNotation state "(ℤ/)^"
+  | _ =>
+      match stx.getKind == ``casAtom, stx.find? (·.isAtom) with
+      | true, some atom => return ← objectNamed state atom.getAtomVal none
+      | _, _ => throwStratum .invalid m!"{shown stx} does not name a registered object"
+
 /-- Whether a numeric term is a fraction or a decimal, whose numerals are those of `ℚ`. -/
 partial def fractional (stx : Syntax) : Bool :=
   stx.isOfKind `scientific || (stx.isAtom && stx.getAtomVal == "/") || stx.getArgs.any fractional
@@ -2117,7 +2138,7 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
       let target ← categoryNamed state name.getId.toString
       -- Existing explicitly registered named refinements keep their own identity.
       if ← namesObject scope t then
-        let (entry, _) ← namedObject scope t
+        let entry ← namedObjectEntry scope t
         if state.objects.any (fun row => row.name == entry.name && row.category == target.id) then
           return ← eval scope t (some target) ambient?
       if let .classifierTotal classifier := target.expression then

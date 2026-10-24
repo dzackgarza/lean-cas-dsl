@@ -9,6 +9,21 @@ open CasCatalogue CasCatalogue.Language
 /- Engineering probes only: complete request types, retained source contexts, ambiguity,
 and literal shape. These do not compute answers or modify the permanent assertions. -/
 
+/- A category selection reads the constructor's registered name before its dependent
+arguments. An object parameter cannot be parsed as a numeral by that metadata lookup. -/
+run_cmd liftTermElabM <| withoutErrToSorry do
+  for text in #["Vec(ℤ, 2) in Sets",
+      "PowerSeries(ℤ in CommutativeRings) in HausdorffTopologicalMonoids"] do
+    withCurrHeartbeats do
+      let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+        | throwError "a selected dependent object failed to parse: {text}"
+      let value ← (eval {} parsed).run {}
+      let .object handle _ (some (_, parameters)) _ _ := value
+        | throwError "a selected dependent object lost its registered parameters: {text}"
+      unless !parameters.isEmpty && !handle.hasMVar && !handle.hasLevelMVar &&
+          (← isTypeCorrect handle) do
+        throwError "a selected dependent object has an incomplete type: {text}"
+
 run_cmd liftTermElabM <| withoutErrToSorry do
   for text in #["i()", "id(ℤ)(2)", "2 • ((1, -1) in Vec(ℤ, 2))",
       "(x ↦ x + 1 in ℚ[x])(2)"] do
