@@ -14,6 +14,7 @@ public import CasCatalogue.SelectedLift
 public import CasCatalogue.CellAction
 public import CasCatalogue.CategoryContext
 public import CasCatalogue.OperationAgreement
+public import CasCatalogue.EvidenceOrder
 public import CasCatalogue.StructuredProjection
 public import CasCatalogue.ReindexAction
 public import CasCatalogue.ConstrainedPoint
@@ -499,6 +500,111 @@ partial def Value.declarations : Value → Array Name
   | .element _ set => set.declarations
   | .homSet source target => source.declarations ++ target.declarations
   | _ => #[]
+
+/-- Complete checked presentations, including the source chosen only after validation. -/
+abbrev CheckedParameterView := Value × Value × Array EdgeRef ×
+  Array ParameterPresentation × Array (EdgeRef × Array Expr)
+
+def encodeParameterViewPresentation (encode : Expr → TermElabM Nat)
+    (source : ParameterPresentation) : TermElabM Json := do
+  return Json.arr #[toJson source.source.raw, toJson source.sourceCategory.raw,
+    toJson source.targetCategory.raw, toJson (← source.params.mapM encode),
+    toJson (source.route.map reprStr), toJson (← source.applications.mapM encode),
+    toJson (source.carrierRoute.map reprStr), toJson (source.identifications.map Name.toString),
+    toJson (← encode source.object), toJson (← encode source.image), toJson (← encode source.identity)]
+
+partial def encodeParameterViewQuestion (encode : Expr → TermElabM Nat) :
+    Question → TermElabM Json
+  | .proposition term => return Json.arr #[toJson "proposition", toJson (← encode term)]
+  | .judgement relation terms route declarations types => return Json.arr #[
+      toJson "judgement", toJson relation, toJson (← terms.mapM encode),
+      toJson (route.map Name.toString), toJson (declarations.map Name.toString),
+      toJson (← types.mapM encode)]
+  | .conjunction left right => return Json.arr #[toJson "conjunction",
+      ← encodeParameterViewQuestion encode left, ← encodeParameterViewQuestion encode right]
+  | .negation question => return Json.arr #[toJson "negation",
+      ← encodeParameterViewQuestion encode question]
+
+/-- An ordering record retains constructor boundaries, registered IDs, complete terms,
+and every supplied context/action. Proof syntax is only an artifact: its elaborated
+proposition is retained by the checked complete application containing that argument. -/
+partial def encodeParameterViewValue (encode : Expr → TermElabM Nat) :
+    Value → TermElabM Json
+  | .formalProof _ => return Json.arr #[toJson "proof artifact"]
+  | .nat n => return Json.arr #[toJson "nat", toJson n]
+  | .literal name => return Json.arr #[toJson "literal", toJson name.toString]
+  | .object handle category origin selected data => do
+      let origin ← match origin with
+        | none => pure (Json.arr #[toJson "none"])
+        | some (entry, parameters) => pure (Json.arr #[toJson "some", toJson entry.id.raw,
+            toJson entry.declaration.toString,
+            Json.arr (← parameters.mapM (encodeParameterViewValue encode))])
+      let selected ← match selected with
+        | none => pure (Json.arr #[toJson "none"])
+        | some value => pure (Json.arr #[toJson "some", ← encodeParameterViewValue encode value])
+      let data ← match data with
+        | none => pure (Json.arr #[toJson "none"])
+        | some (originals, source, route, alternatives, applications) =>
+            pure (Json.arr #[toJson "some",
+              Json.arr (← originals.mapM (encodeParameterViewValue encode)),
+              ← encodeParameterViewValue encode source, toJson (route.map reprStr),
+              Json.arr (← alternatives.mapM (encodeParameterViewPresentation encode)),
+              Json.arr (← applications.mapM fun (edge, terms) =>
+                return Json.arr #[toJson (reprStr edge), toJson (← terms.mapM encode)])])
+      return Json.arr #[toJson "object", toJson (← encode handle), toJson category.id.raw,
+        toJson category.declaration.toString, toJson (reprStr category.expression), origin, selected, data]
+  | .morphism hom source target category endpoints => do
+      let endpoints ← match endpoints with
+        | none => pure (Json.arr #[toJson "none"])
+        | some (source, target) => pure (Json.arr #[toJson "some",
+            ← encodeParameterViewValue encode source, ← encodeParameterViewValue encode target])
+      return Json.arr #[toJson "morphism", toJson (← encode hom), toJson (← encode source),
+        toJson (← encode target), toJson category.id.raw, toJson category.declaration.toString,
+        toJson (reprStr category.expression), endpoints]
+  | .derivedObject handle context known => return Json.arr #[toJson "derived object",
+      toJson (← encode handle), toJson (reprStr context.expression), toJson (← encode context.bundle),
+      Json.arr (← known.mapM (encodeParameterViewValue encode))]
+  | .derivedMorphism hom source target context (X, Y) => return Json.arr #[
+      toJson "derived morphism", toJson (← encode hom), toJson (← encode source),
+      toJson (← encode target), toJson (reprStr context.expression), toJson (← encode context.bundle),
+      ← encodeParameterViewValue encode X, ← encodeParameterViewValue encode Y]
+  | .homSet source target => return Json.arr #[toJson "hom set",
+      ← encodeParameterViewValue encode source, ← encodeParameterViewValue encode target]
+  | .element hom object => return Json.arr #[toJson "element", toJson (← encode hom),
+      ← encodeParameterViewValue encode object]
+  | .answer answer => return Json.arr #[toJson "answer", toJson (← encode answer)]
+  | .judged question answer => return Json.arr #[toJson "judged",
+      ← encodeParameterViewQuestion encode question, toJson (← encode answer)]
+
+def encodeCheckedParameterView (encode : Expr → TermElabM Nat)
+    (view : CheckedParameterView) : TermElabM Json := do
+  let (selected, source, route, alternatives, applications) := view
+  return Json.arr #[← encodeParameterViewValue encode selected,
+    ← encodeParameterViewValue encode source, toJson (route.map reprStr),
+    Json.arr (← alternatives.mapM (encodeParameterViewPresentation encode)),
+    Json.arr (← applications.mapM fun (edge, terms) =>
+      return Json.arr #[toJson (reprStr edge), toJson (← terms.mapM encode)])]
+
+/-- Distinct declaration inventories determine their existing primary order without
+printing expression trees. Complete ties use typed DAG keys, sharing one dependent
+local context across the whole checked collection. Keys never choose applicability. -/
+def orderCheckedParameterViews (views : Array CheckedParameterView) :
+    TermElabM (Array CheckedParameterView) := do
+  let context ← IO.mkRef (none : Option EvidenceOrder.Context)
+  QuestionIdentity.orderByCompleteKey
+    (views.map fun view => (reprStr view.1.declarations, view)) fun view => do
+      let shared ← match ← context.get with
+        | some context => pure context
+        | none => do
+            let terms ← IO.mkRef (#[] : Array Expr)
+            for view in views do
+              discard <| encodeCheckedParameterView (fun term => do
+                terms.modify (·.push term)
+                pure 0) view
+            let shared ← EvidenceOrder.Context.ofTerms (← terms.get)
+            context.set (some shared)
+            pure shared
+      shared.key fun encode => encodeCheckedParameterView encode view
 
 /-- A judgement is formed with the operands' full terms and formal identities at reading time. -/
 def judgement (relation : String) (operands : Array Value) (route : Array Name := #[]) : Question :=
@@ -3516,8 +3622,7 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
   unless !checked.isEmpty do
     throwStratum .invalid m!"the parameter has no retained selected sources"
   -- Only serialization order is canonicalized, after every full image was checked.
-  let ordered := checked.qsort fun left right =>
-    reprStr (left.1.declarations, left.1.terms) < reprStr (right.1.declarations, right.1.terms)
+  let ordered ← orderCheckedParameterViews checked
   let some (_, source, route, _, applications) := ordered[0]? | unreachable!
   let alternatives := ordered.flatMap fun (_, _, _, alternatives, _) => alternatives
   return (ordered.map (·.1), source, route, alternatives, applications)
