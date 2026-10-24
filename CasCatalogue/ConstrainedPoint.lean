@@ -63,11 +63,14 @@ structure Result where
   original : Expr
   value : Expr
 
-/-- Build the actual constructor pointwise. Proofs are independent closed Lean terms,
-either generalized over the original domain or constant when the field is constant.
-Unresolved proof requirements remain interpreter obstructions; a proved negation is
-an invalid point. No leaf result participates in this construction. -/
-def construct (target original : Expr) (proofs : Array Expr := #[]) : MetaM Result := do
+/-- Build the actual constructor pointwise, giving each supplied proof reader its
+independently fixed generalized obligation. Proof elaboration cannot choose the
+target, data field, original function, or domain. Every returned proof is checked
+again as a complete closed term at that actual constructor condition. -/
+def constructWith {m : Type → Type} [Monad m] [MonadError m] [MonadMCtx m]
+    [MonadLiftT MetaM m] [MonadControlT MetaM m]
+    (target original : Expr) (proofCount : Nat)
+    (suppliedProof : Nat → Expr → m Expr) : m Result := do
   let some schema ← schema? target
     | throwStratum .invalid "the target has no fixed single-data-field constrained record interface"
   let original ← instantiateMVars original
@@ -94,8 +97,8 @@ def construct (target original : Expr) (proofs : Array Expr := #[]) : MetaM Resu
         unless ← isProp fieldType do
           throwError "the constrained record schema changed its data fields"
         let condition ← mkForallFVars #[point] fieldType
-        let proof ← if let some supplied := proofs[proofIndex]? then do
-            let supplied ← instantiateMVars supplied
+        let proof ← if proofIndex < proofCount then do
+            let supplied ← instantiateMVars (← suppliedProof proofIndex condition)
             unless closed supplied && (← isTypeCorrect supplied) do
               throwStratum .invalid "a constructor proof must be a closed checked term without sorry"
             let proof ← if ← withTransparency .all <|
@@ -113,7 +116,7 @@ def construct (target original : Expr) (proofs : Array Expr := #[]) : MetaM Resu
             throwError "the constructor condition remains unresolved: {condition}"
         value := mkApp value (mkApp proof point)
         proofIndex := proofIndex + 1
-    if proofs.size > proofIndex then
+    if proofCount > proofIndex then
       throwStratum .invalid "too many independent constructor proofs were supplied"
     let completed ← instantiateMVars (← mkLambdaFVars #[point] value)
     let expected ← withLocalDeclD `point domain fun point =>
@@ -122,6 +125,12 @@ def construct (target original : Expr) (proofs : Array Expr := #[]) : MetaM Resu
         (← withTransparency .all <| isDefEq (← inferType completed) expected) do
       throwError "the constructed point changed its complete target or original domain"
     return { schema, domain, original, value := completed }
+
+/-- Build from independently supplied closed Lean terms, either generalized over
+the original domain or constant when the field is constant. Unresolved obligations
+remain interpreter obstructions; a proved negation is an invalid point. -/
+def construct (target original : Expr) (proofs : Array Expr := #[]) : MetaM Result :=
+  constructWith target original proofs.size fun index _ => pure proofs[index]!
 
 /-- The actual data projection of the fixed constructor, at the same original domain. -/
 def project (schema : Schema) (value : Expr) : MetaM Expr := do

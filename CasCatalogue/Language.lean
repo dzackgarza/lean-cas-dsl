@@ -1096,6 +1096,46 @@ partial def transportedStructure (expected : Expr) (value : Value)
     let (image, _) ← checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
     return image
 
+/-- A closed declaration parameter remains closed when read in a binder. Recover
+only the exact global point retained behind the registered terminal precomposition;
+arbitrary generalized points and extensionally constant functions do not qualify. -/
+partial def closedParameterPoint (point target : Expr) : M Expr := do
+  let signature ← inferType point
+  let type ← if signature.isAppOf ``Quiver.Hom then pure signature else whnfR signature
+  unless type.isAppOf ``Quiver.Hom && (← isDefEq type.appArg! target) do
+    throwStratum .invalid "the element parameter does not retain its declared point type"
+  let one ← globalPointSource
+  if ← parameterTrial (isDefEq type.appFn!.appArg! one) then
+    unless ← isDefEq type.appFn!.appArg! one do unreachable!
+    return point
+  let mut composite := point.consumeMData
+  while composite.isAppOfArity ``id 2 do composite := composite.appArg!.consumeMData
+  unless composite.isAppOf ``CategoryTheory.CategoryStruct.comp do
+    throwStratum .invalid "only a closed point of the declared type is an element parameter"
+  let arguments := composite.getAppArgs
+  unless arguments.size ≥ 2 do
+    throwStratum .invalid "the staged element parameter has no retained composition"
+  let first := arguments[arguments.size - 2]!
+  let original := arguments[arguments.size - 1]!
+  let originalType ← inferType original
+  let originalType ← if originalType.isAppOf ``Quiver.Hom then pure originalType
+    else whnfR originalType
+  unless originalType.isAppOf ``Quiver.Hom &&
+      (← isDefEq originalType.appFn!.appArg! one) &&
+      (← isDefEq originalType.appArg! target) do
+    throwStratum .invalid "the staged element parameter has no retained global point"
+  let power ← powerObjectIn (← registryState) CategoryId.sets
+  let terminal ← mkAppM power.terminal #[type.appFn!.appArg!]
+  unless ← withTransparency .all <|
+      isDefEq (← inferType first) (← inferType terminal) <&&>
+      isDefEq first terminal do
+    throwStratum .invalid "the staged element parameter does not use the declared terminal map"
+  let expected ← mkAppM ``CategoryTheory.CategoryStruct.comp #[terminal, original]
+  unless ← withTransparency .all <|
+      isDefEq (← inferType point) (← inferType expected) <&&> isDefEq point expected do
+    throwStratum .invalid "the staged element parameter changed its complete composition"
+  return original
+
 partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
   if let .formalProof proofSyntax := value then
     unless ← isProp expected do
@@ -1115,11 +1155,9 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     unless ← isDefEq (← inferType direct) expected do unreachable!
     return direct
   if let .element point X@(.object target _ _ selected _) := value then
-    let type ← whnfR (← inferType point)
-    unless type.isAppOf ``Quiver.Hom &&
-        (← isDefEq type.appFn!.appArg! (← globalPointSource)) &&
-        (← isDefEq type.appArg! target) && (← isDefEq target expected) do
-      throwStratum .invalid m!"only a closed point of the declared type is an element parameter"
+    unless ← isDefEq target expected do
+      throwStratum .invalid m!"the element parameter has a different declared type"
+    let point ← closedParameterPoint point target
     let scalar ← instantiateMVars (← elabTermAndSynthesize
       (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr point)
         $(← quoteExpr (← globalPoint)))) (some expected))
@@ -6742,7 +6780,7 @@ partial def evalInUsing (scope : Scope) (term targetSyntax : Syntax)
     let proofs ← proofSyntax.mapM fun argument => do
       let .formalProof proofSyntax ← eval scope argument
         | throwStratum .invalid "a constructor proof argument is an independent `proof(...)` term"
-      instantiateMVars (← elabTermAndSynthesize proofSyntax none)
+      pure proofSyntax
     admitConstrainedPoint target value proofs
 
 /-- The actual data field of a fixed unnamed record, retaining all supplied object context. -/
@@ -6753,7 +6791,7 @@ partial def constrainedCarrier? (target : Value) : M (Option Value) := do
   return some (retainObjectContext (.object schema.dataType category none none none) #[target])
 
 /-- Apply the actual fixed constructor at the original generalized-element domain. -/
-partial def admitConstrainedPoint (target value : Value) (proofs : Array Expr := #[]) : M Value := do
+partial def admitConstrainedPoint (target value : Value) (proofs : Array Syntax := #[]) : M Value := do
   let .object type category .. := target
     | throwStratum .invalid "a constrained point requires its complete selected object"
   unless category.id == CategoryId.sets do
@@ -6764,7 +6802,9 @@ partial def admitConstrainedPoint (target value : Value) (proofs : Array Expr :=
     | throwStratum .invalid "a constrained point lost its original generalized domain"
   unless ← withTransparency .all <| isDefEq dataType (← semanticObject source) do
     throwStratum .invalid "a constrained point changed its original data endpoint"
-  let result ← ConstrainedPoint.construct type (← functionOf original) proofs
+  let result ← ConstrainedPoint.constructWith type (← functionOf original) proofs.size
+    fun index condition => do
+      instantiateMVars (← elabTermAndSynthesize proofs[index]! (some condition))
   unless ← withTransparency .all <| isDefEq result.domain domain do
     throwError "the constrained point constructor replaced its original domain"
   let point ← homIn (← quoteExpr result.value) domain type category
@@ -7755,6 +7795,12 @@ partial def carrierMorphism (value : Value) : M Value := do
     | throwSemanticAmbiguity "the generalized map has several directed carrier actions"
   let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
   let (sourceBundle, targetBundle) ← functorCategoryBundles action
+  -- An accepted family may quantify a complete bundle whose projections occur in
+  -- the source category. Expose its fields before matching the independently
+  -- selected whole context; every field must still be fixed by that comparison.
+  unless ← parameterTrial (withTransparency .all <| isDefEq sourceBundle context.bundle) do
+    for application in applications do
+      CategoryContext.exposeStructureParameters application
   unless ← withTransparency .all <| isDefEq sourceBundle context.bundle do
     throwStratum .invalid "the carrier action changed the generalized map's source category"
   let mapped ← instantiateMVars (← Semantic.mapOf action hom)
@@ -7840,6 +7886,9 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
       else do
         let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
         let (sourceBundle, targetBundle) ← functorCategoryBundles action
+        unless ← parameterTrial (withTransparency .all <| isDefEq sourceBundle context.bundle) do
+          for application in applications do
+            CategoryContext.exposeStructureParameters application
         unless ← withTransparency .all <| isDefEq sourceBundle context.bundle do
           throwStratum .invalid "the carrier action changed its actual source category"
         let mapped ← Semantic.mapOf action hom

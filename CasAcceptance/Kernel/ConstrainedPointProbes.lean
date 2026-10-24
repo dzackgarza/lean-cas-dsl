@@ -26,6 +26,20 @@ run_elab do
       constant do
     throwError "a constant proof replaced the original generalized point"
 
+  -- A tactic proof receives the actual universally quantified constructor
+  -- condition before elaboration; it cannot infer or replace that condition.
+  let proofTermSyntax ← `(by intro n; rfl)
+  let fromSyntax ← ConstrainedPoint.constructWith target original 1 fun _ condition => do
+    elabTermAndSynthesize proofTermSyntax (some condition)
+  unless ← isDefEq (← ConstrainedPoint.project fromSyntax.schema fromSyntax.value) original do
+    throwError "expected-type proof elaboration changed the original generalized point"
+  let constantSyntax ← `(Eq.refl (0 : Nat))
+  let constantFromSyntax ← ConstrainedPoint.constructWith constantTarget constant 1
+      fun _ condition => do elabTermAndSynthesize constantSyntax (some condition)
+  unless ← isDefEq
+      (← ConstrainedPoint.project constantFromSyntax.schema constantFromSyntax.value) constant do
+    throwError "a closed constant proof lost its existing constructor interpretation"
+
   let reject (action : MetaM Unit) : TermElabM Unit := do
     let rejected ← try action; pure false catch error =>
       if CasCatalogue.Exception.stratum? error == some .invalid then pure true else throw error
@@ -38,6 +52,9 @@ run_elab do
 
   -- An infinite generalized obligation is not replaced by a proof at one sample point.
   reject do discard <| ConstrainedPoint.construct constantTarget original #[constantProof]
+  reject do
+    discard <| ConstrainedPoint.constructWith constantTarget original 1
+      fun _ _ => pure constantProof
 
   -- Unknown proof obligations remain interpreter errors, distinct from a proved violation.
   let unknown ← try
