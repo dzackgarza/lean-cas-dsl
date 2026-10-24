@@ -147,6 +147,7 @@ term references.
 | `pointView` | Source, target, route, applications, argument |
 | `operationPoint` | Operation ID, parameters, comparison, operation, target, selected element |
 | `operationApply` | Operation ID, parameters, operands, target, selected element |
+| `operationEquivalence` | Representative result term, chosen candidate index, complete candidate records, complete family-comparison records |
 | `presentationApply` | Presentation ID, parameters, inverse flag, source, target, argument |
 | `morphismTransport` | Source category, target category, route, receiver |
 | `functor` | Functor ID, parameters, receiver |
@@ -173,6 +174,79 @@ target category, parameters, route, applications, carrier route,
 identification declaration names, original object, image, and identity, in
 that order. These are complete records, including distinct records that
 share the same initial source/route/parameter key.
+
+### Complete operation-equivalence records
+
+An `operationEquivalence` node has the exact array shape
+`["operationEquivalence", representative, chosen, candidates, comparisons]`.
+`representative` is a term reference in this operation table. `chosen` is a
+zero-based index into `candidates`, not a term reference. It identifies a
+serialization representative of the retained checked class. It does not establish
+agreement, remove alternative sources, or give an operation priority over another.
+
+Every candidate has the following ordered fields:
+
+| Position | Field | Representation |
+| --- | --- | --- |
+| 0 | Operation | Registered operation ID string |
+| 1 | Complete declaration application | Term reference, before its supplied operands |
+| 2 | Result | Term reference |
+| 3 | Sources | Array of complete source records, in retained order |
+
+Every source record has these ordered fields:
+
+| Position | Field | Representation |
+| --- | --- | --- |
+| 0 | Selected category context | `[categoryExpression, bundle]`; expression is a literal representation string and bundle is a term reference |
+| 1 | Receiver | Term reference |
+| 2 | Structural route | Ordered array of literal edge representation strings |
+| 3 | Complete action applications | Ordered array of term references |
+| 4 | Route comparisons | Array of `[cellID, constructors, before, after]` records |
+| 5 | Comparison witnesses | Ordered array of term references |
+
+In a route-comparison record, `cellID` is its registered string ID,
+`constructors` is the ordered array of constructor ID strings, and `before` and
+`after` are the ordered arrays of edge representation strings recording its
+whiskering context. These four fields are literal metadata, not term references.
+The separate typed witnesses remain in field 5 of the enclosing source record.
+
+Every family-comparison record has these ordered fields:
+
+| Position | Field | Representation |
+| --- | --- | --- |
+| 0, 1 | Left and right candidate | Zero-based indices into the enclosing candidate array |
+| 2, 3 | Left and right source | Zero-based indices into those candidates' source arrays |
+| 4 | Actual dependent parameters | Ordered array of term references |
+| 5, 6 | Left and right universal family | Term references |
+| 7, 8 | Complete left and right family type | Term references |
+| 9 | Universal identity | Term reference; a proof retains its complete proposition |
+
+The parameter list instantiates the shared dependent context of the universal
+identity. Comparing only its result at one supplied operand would omit the
+retained universal statement. Candidate/source indices must be interpreted in
+their enclosing arrays; renumbering term-table nodes does not renumber these
+indices. Array order is retained throughout these records.
+
+### Transparent binding marker in term graphs
+
+The term tables can contain the generic administrative constant
+`CasCatalogue.Trace.operationResult`. Its complete definition is:
+
+```lean
+def CasCatalogue.Trace.operationResult (_binding : String)
+    {α : Sort u} (value : α) : α := value
+```
+
+Consequently `Trace.operationResult binding (α := A) value` reduces to the
+same `value` of the same complete type `A`. Its three application arguments are,
+in order, the binding string, implicit type, and value. The string retains an
+operation ID or named callable address so separate registered bindings can have
+separate trace keys even when they use the same declaration. It is not a
+mathematical operation, proof, returned computational answer, or new selected
+structure. The binding marker and the complete associated operation records
+remain in the serialized question. Its transparent value equation alone does
+not justify discarding a route, changing a declaration binding, or equating two
+different operation records during semantic review.
 
 ## Independent comparison
 
