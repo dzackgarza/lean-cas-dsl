@@ -988,7 +988,8 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     unless category.id == CategoryId.sets do
       throwStratum .invalid m!"the map parameter has no selected function carrier at this type"
     let function ← instantiateMVars (← elabTermAndSynthesize
-      (← `(CategoryTheory.ConcreteCategory.hom (C := Type) $(← quoteExpr hom))) none)
+      (← `(fun x => CategoryTheory.ConcreteCategory.hom (C := Type)
+        $(← quoteExpr hom) x)) (some expected))
     unless !function.hasMVar && !function.hasLevelMVar && (← isTypeCorrect function) &&
         (← isDefEq (← inferType function) expected) do
       throwStratum .invalid m!"the closed map parameter is outside its declared function type"
@@ -6065,6 +6066,51 @@ partial def anonymousAdmissionPoint (k : Nat) (X : Value) : M (Option Value) := 
       return some (.element admitted X)
   throwError "an applicable anonymous admission disappeared after selection"
 
+/-- A named set's registered numeral, determined before a numeric token is interpreted as
+an inherited nullary operation. The named refinement fixes the complete numeral owner;
+the token alone may not replace its value with the unit of another structural view. -/
+partial def registeredNamedNumeral (k : Nat) (X : Value) : M (Option Value) := do
+  let .object x category (some (entry, params)) _ _ := X | return none
+  -- An admitted domain obtains its point through its declared inclusion and evidence.
+  if entry.admission.isSome then return none
+  let state ← registryState
+  let one ← semanticObject (← oneObject)
+  let mut refinements : Array (CategoryId × Expr) := #[]
+  let directNumerals := state.numerals.filter fun numeral =>
+    numeral.over.any fun over => state.objects.any fun candidate =>
+      candidate.category == over && refinesObject state candidate entry.id
+  let numeralRows := if directNumerals.isEmpty then state.numerals else directNumerals
+  for numeral in numeralRows do
+    let some over := numeral.over | continue
+    if refinements.any (·.1 == over) then continue
+    let some target := state.categories.find? (·.id == over) | continue
+    let family ← instantiateFresh target.declaration
+    let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+    if ← parameterCompatible (do
+        discard <| typedParameter expected X
+        pure true) then
+      refinements := refinements.push (over, ← typedParameter expected X)
+  let some numeral ← numeralIn { state with numerals := numeralRows }
+      k one (← semanticObject X) refinements | return none
+  let X ← match state.numerals.find? (·.declaration == numeral.getAppFn.constName?.getD .anonymous) with
+    | some numeralRow => match numeralRow.over with
+      | some over => do
+          let some (_, actual) := refinements.find? (·.1 == over) | pure X
+          let some sourceCategory := state.categories.find? (·.id == over) | pure X
+          let selected ← structuredParameterView X actual sourceCategory
+          let .object _ _ _ _ originalView := X | unreachable!
+          pure (Value.object x category (some (entry, params)) (some selected) originalView)
+      | none => pure X
+    | none => pure X
+  let .object oneHandle .. ← oneObject | unreachable!
+  let hom ← staged (← homIn (← quoteExpr numeral) oneHandle x category)
+  let chosen := match X with
+    | .object _ _ _ (some selected) _ => selected
+    | _ => X
+  Trace.record (← read).trace hom
+    (.elementNumeral k (← semanticObject X) (← semanticObject chosen))
+  return some (.element hom X)
+
 /-- `v` as an element of the set `X`: an element already, or the element a numeral names: its
 registered numeral in `X` (`numeralIn`); in a set of constants from its parameter `P` without
 numerals of its own, the image of the numeral of `P`; in a domain `D ↪ B` with an admission
@@ -6114,6 +6160,8 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       -- closed owner may supply a point at that already fixed carrier.
       if let some point ← profileReader "numeral context" (contextualNumeral k X) then
         return point
+      if let some point ← profileReader "numeral registered search" (registeredNamedNumeral k X) then
+        return point
       -- A numeric token can also name a registered nullary operation. Its actual
       -- terminal source must have the accepted global-point comparison; the token
       -- alone never invents a general numeral family on the selected structure.
@@ -6142,58 +6190,18 @@ partial def toElement (v : Value) (X : Value) : M Value := do
           | throwStratum .invalid m!"{entry.name} has an admission and no inclusion"
         let B ← inclusionTargetValue X b category
         return ← admit X (← toElement v B)
-      let one ← semanticObject (← oneObject)
-      let mut refinements : Array (CategoryId × Expr) := #[]
-      -- A named numeral refinement already in a registrar's own category supplies its
-      -- actual selected structure before any additional outgoing numeral routes.
-      let directNumerals := state.numerals.filter fun numeral =>
-        numeral.over.any fun over => state.objects.any fun candidate =>
-          candidate.category == over && refinesObject state candidate entry.id
-      let numeralRows := if directNumerals.isEmpty then state.numerals else directNumerals
-      for numeral in numeralRows do
-        let some over := numeral.over | continue
-        if refinements.any (·.1 == over) then continue
-        let some target := state.categories.find? (·.id == over) | continue
-        let family ← instantiateFresh target.declaration
-        let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
-        if ← parameterCompatible (do
-            discard <| typedParameter expected X
-            pure true) then
-          refinements := refinements.push (over, ← typedParameter expected X)
-      match ← profileReader "numeral registered search"
-          (numeralIn { state with numerals := numeralRows } k one (← semanticObject X) refinements) with
-      | some numeral =>
-          let X ← match state.numerals.find? (·.declaration == numeral.getAppFn.constName?.getD .anonymous) with
-            | some numeralRow => match numeralRow.over with
-              | some over => do
-                  let some (_, actual) := refinements.find? (·.1 == over) | pure X
-                  let some sourceCategory := state.categories.find? (·.id == over) | pure X
-                  let selected ← structuredParameterView X actual sourceCategory
-                  let .object _ _ _ _ originalView := X | unreachable!
-                  pure (Value.object x category (some (entry, params)) (some selected) originalView)
-              | none => pure X
-            | none => pure X
-          let .object oneHandle .. ← oneObject | unreachable!
-          let hom ← staged (← homIn (← quoteExpr numeral) oneHandle x category)
-          let chosen := match X with
-            | .object _ _ _ (some selected) _ => selected
-            | _ => X
-          Trace.record (← read).trace hom
-            (.elementNumeral k (← semanticObject X) (← semanticObject chosen))
-          return .element hom X
-      | none =>
-          -- A set of constants from its parameter `P` without numerals of its own: the image of
-          -- the numeral of `P`.
-          if let (some _, some P@(Value.object ..)) :=
-              (entry.constants, params.find? (· matches .object ..)) then
-            return ← coerceTo (← toElement v P) X
-          -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the
-          -- numeral of `ℕ` along that monomorphism.
-          if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
-            if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
-              let N ← object state "ℕ" #[] none
-              return ← coerceTo (← toElement v N) X
-          throwStratum .invalid m!"no registered numeral lands in {entry.name}"
+      -- A set of constants from its parameter `P` without numerals of its own: the image of
+      -- the numeral of `P`.
+      if let (some _, some P@(Value.object ..)) :=
+          (entry.constants, params.find? (· matches .object ..)) then
+        return ← coerceTo (← toElement v P) X
+      -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the
+      -- numeral of `ℕ` along that monomorphism.
+      if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
+        if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
+          let N ← object state "ℕ" #[] none
+          return ← coerceTo (← toElement v N) X
+      throwStratum .invalid m!"no registered numeral lands in {entry.name}"
   | _ => return v
 
 /-- The explicit arguments of an application of the declaration `declaration`, the

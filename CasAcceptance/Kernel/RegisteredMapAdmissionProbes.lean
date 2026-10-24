@@ -13,8 +13,7 @@ open CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 run_cmd liftTermElabM <| withoutErrToSorry do
   for (termSyntax, projection) in #[
-      ((← `(CasCatalogue.Modules.IntegerResidueModules.integerResidueModule 5 ⟶
-        CasCatalogue.Modules.IntegerResidueModules.integerResidueModule 5)), false),
+      ((← `(ModuleCat.of ℤ ℤ ⟶ ModuleCat.of ℤ ℤ)), false),
       ((← `((ℚ × ℚ) →ₗ[ℚ] ℚ)), true)] do
     let expected ← elabTermAndSynthesize termSyntax none
     let some plan ← DeclaredAdmission.resolve? CategoryId.sets expected projection
@@ -42,7 +41,7 @@ run_cmd liftTermElabM <| withoutErrToSorry do
       throwError "an ordinary map parameter acquired an extra admission condition"
 
 run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
-  let mut scope : Scope := {}
+  let mut scope : Language.Scope := {}
   for (name, text) in #[("R", "ℤ in Rings"), ("M", "RegularModule(R)")] do
     let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
       | throwError "the selected map input did not parse"
@@ -83,19 +82,19 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     | throwError "the parameter no longer has the public single-data-field extraction"
   unless ← withTransparency .all <| isDefEq projected value do
     throwError "the retained point supplies a different complete typed parameter"
-  let opaque := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["declared-map-data"])]
+  let opaquePacket := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["declared-map-data"])]
   let harness ← Harness.empty
   let state ← registryState
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwError "the point parameter has no declared data category"
   let source : Wire := {
     form := .canonicalMorphism sets
-    payload := .computed point (.owned "retained-map-session" 19 opaque) }
+    payload := .computed point (.owned "retained-map-session" 19 opaquePacket) }
   harness.results.modify (·.insert point source)
   let actual ← realize harness trace "the projected actual callable parameter" value
   let .ok ("element", #[_, pointData]) := ComputationalData.envelope actual.json
     | throwError "the projected parameter lost its public element frame"
   let .ok ("point", #[actualSource]) := ComputationalData.envelope pointData
     | throwError "the projected parameter lost its retained point frame"
-  unless actual.owner? == source.owner? && actualSource == opaque do
+  unless actual.owner? == source.owner? && actualSource == opaquePacket do
     throwError "the typed wrapper projection lost its actual opaque data or owner"

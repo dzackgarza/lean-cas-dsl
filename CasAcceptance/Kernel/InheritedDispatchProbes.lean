@@ -67,7 +67,8 @@ run_elab do
       else throw error
     unless ambiguous do
       throwError "overlapping source and target registrations acquired an implicit priority"
-    let some (.functor edge) := route[0]?
+    let firstEdge : Option EdgeRef := route[0]?
+    let some (EdgeRef.functor edge) := firstEdge
       | throwError "the structural action fixture lost its first declared functor"
     let some row := state.functor? edge
       | throwError "the declared structural action is absent"

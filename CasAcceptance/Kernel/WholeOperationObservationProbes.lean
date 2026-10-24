@@ -26,18 +26,14 @@ run_elab do
   let state ← registryState
   let some row := state.operations.find? (·.id == operation)
     | throwError "the recipe's accepted operation is absent"
-  let composition := operationApplicationBody body
-  unless composition.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 do
-    throwError "the recipe lost its original operation application"
-  let declaration := operationApplicationBody composition.getAppArgs[6]!
-  let arguments := declaration.getAppArgs
-  let receiver := arguments[arguments.size - 1 - row.numerals]!
-  unless receiver.isAppOfArity ``Prefunctor.obj 6 do
-    throwError "the selected-owner fixture lost its actual registered object action"
-  let originalOwner := receiver.appArg!
-  let some sourceOwner := state.objects.find? (fun entry =>
-      originalOwner.getAppFn.constName? == some entry.declaration)
-    | throwError "the selected-owner fixture lost its exact declared source object"
+  -- The parser may select a directly named operation owner. Exercise the
+  -- independent parameter action with an explicitly selected accepted functor,
+  -- rather than requiring that incidental elaboration path from this lambda.
+  let some sourceOwner := state.objects.find? (·.id.raw == "obj.commutative_rings.integers")
+    | throwError "the selected-owner fixture lost its declared source object"
+  let originalOwner ← ObjectPresentation.applyParameters sourceOwner.declaration #[]
+  let firstAction ← Semantic.edgeFunctor state (.functor FunctorId.commutativeRingsRings)
+  let receiver ← Semantic.objOf firstAction originalOwner
   let parameterHarness ← Harness.empty
   let parameterTrace ← Trace.new
   let actualOwnerData := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual-owner"])]
@@ -53,7 +49,6 @@ run_elab do
   unless sourceData == actualOwnerData && dependencies.any (fun wire =>
       wire.value == originalOwner && wire.owner? == actualOwner.owner?) do
     throwError "the object action parameter replaced computed source data or dropped its owner"
-  let firstAction := receiver.getAppArgs[4]!.appArg!
   let laterAction ← Semantic.edgeFunctor state (.functor ⟨"fun.rings.multiplicative_monoid"⟩)
   let compositeAction ← mkFunctorComp firstAction laterAction
   let compositeImage ← Semantic.objOf compositeAction originalOwner

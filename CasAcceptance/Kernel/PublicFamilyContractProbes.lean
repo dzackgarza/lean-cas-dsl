@@ -81,15 +81,15 @@ run_elab do
   let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[ambient]
   let identityData := node "identity" #[ambientData, ambientData]
   let fixedImage ← mkAppM power.image #[ambient, ambient, identity]
-  let imageData := fun map => node "powerObjectMap" #[toJson power.id.raw, toJson "image",
-    Json.arr #[ambientData, ambientData, map]]
+  let imageData := fun mapData => node "powerObjectMap" #[toJson power.id.raw, toJson "image",
+    Json.arr #[ambientData, ambientData, mapData]]
   let owned := fun token => node "opaqueData" #[toJson (token : String)]
   let nativeMap := node "typedMap" #[ambientData, ambientData, owned "infinite map"]
   let reply := fun point => node "valueData" #[node "element" #[selectedData,
     node "point" #[point]]]
-  for map in #[identityData, nativeMap] do
+  for mapData in #[identityData, nativeMap] do
     if let .error message ← ComputationalData.validateElementAt selected selectedData fixedImage
-        (reply (imageData map)) then
+        (reply (imageData mapData)) then
       throwError "the complete infinite image response was rejected: {message}"
   let trace ← Trace.new
   let .ok decoded ← decodeArrowData trace sets (imageData identityData)

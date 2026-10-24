@@ -955,7 +955,8 @@ registered action is determined on a fresh symbolic receiver, so equal actual ob
 cannot make unrelated functors look like projections. Opaque fields and their ownership
 remain data. Other accepted actions retain their full functor descriptor. -/
 def projectObjectAction (trace : Trace) (_source : CategoryExpr) (edge : EdgeRef)
-    (action receiver : Expr) (data : Json) : TermElabM (Option Json) := do
+    (action receiver : Expr) (data : Json) (descriptor? : Option Json := none) :
+    TermElabM (Option Json) := do
   -- The exact typed record interface owns these fields, including full
   -- subcategories of arrows whose registered category expression is atomic.
   -- A fresh receiver prevents equal actual fields from selecting a false role.
@@ -984,8 +985,11 @@ def projectObjectAction (trace : Trace) (_source : CategoryExpr) (edge : EdgeRef
     if role == 0 then
       return some (Json.mkObj [("ctor", "arrow"), ("args", Json.arr fields)])
     return fields[role - 1]?
+  let descriptor ← match descriptor? with
+    | some descriptor => pure descriptor
+    | none => edgeDescriptor trace edge action
   return some (Json.mkObj [("ctor", "functorAction"),
-    ("args", Json.arr #[← edgeDescriptor trace edge action, data])])
+    ("args", Json.arr #[descriptor, data])])
 
 /-- Check the complete fixed object context, allowing only a retained full object isomorphism. -/
 def checkProofRefinementSource (wire : Wire) (source : Expr) : TermElabM Unit := do
@@ -1041,9 +1045,20 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
   checkProofRefinementSource original source
   return original
 
+/-- Runtime action encoders retain actual parameter data and its computational dependencies.
+Metadata-only callers use the declaration encoder without inventing runtime ownership. -/
+abbrev ActionEncoder := EdgeRef → Expr → TermElabM (Json × Array Wire)
+
+def encodeAction (trace : Trace) (encoder? : Option ActionEncoder)
+    (step : EdgeRef) (action : Expr) : TermElabM (Json × Array Wire) := do
+  match encoder? with
+  | some encoder => encoder step action
+  | none => return (← edgeDescriptor trace step action, #[])
+
 /-- Retain every residual object action, including its complete instantiated edge data. -/
 def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
-    (applications : Option (Array Expr) := none) : TermElabM Wire := do
+    (applications : Option (Array Expr) := none)
+    (encoder? : Option ActionEncoder := none) : TermElabM Wire := do
   if let some retained := applications then
     unless retained.size == route.size do
       throwError "the retained route has incompatible ordered full applications"
@@ -1075,12 +1090,14 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     let U ← instantiateMVars U
     if U.hasMVar || U.hasLevelMVar || U.hasFVar || U.hasLooseBVars then
       throwError "the retained structural edge application is not closed"
-    let json ← match ← projectObjectAction trace expression step U result.value result.json with
+    let (descriptor, dependencies) ← encodeAction trace encoder? step U
+    let json ← match ← projectObjectAction trace expression step U result.value result.json
+        (some descriptor) with
       | some projected => pure projected
       | none => pure (Json.mkObj [("ctor", "functorAction"),
-          ("args", Json.arr #[← edgeDescriptor trace step U, result.json])])
+          ("args", Json.arr #[descriptor, result.json])])
     let objectIso ← mapObjectComparison U result.value result.objectIso
-    let endpointPresentation ← mapEndpointPresentation U (← edgeDescriptor trace step U)
+    let endpointPresentation ← mapEndpointPresentation U descriptor
       result.endpointPresentation
     result := { result with
       form := match target with
@@ -1091,25 +1108,29 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
       objectIso := objectIso
       endpointPresentation := endpointPresentation
       proofSources := []
-      payload := forwardPayload result value json }
+      payload := (← combinedPayload value json (#[result] ++ dependencies)) }
     expression := edge.target
   return result
 
-partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermElabM Wire := do
-  if w.form.namedCategory?.isNone then return ← transportImage trace w route
+partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef)
+    (encoder? : Option ActionEncoder := none) : TermElabM Wire := do
+  if w.form.namedCategory?.isNone then return ← transportImage trace w route none encoder?
   if w.owner?.isSome || (match w.payload with | .computed .. | .construction .. => true | _ => false) then
-    return ← transportImage trace w route
-  if w.objectIso.isSome then return ← transportImage trace w route
+    return ← transportImage trace w route none encoder?
+  if w.objectIso.isSome then return ← transportImage trace w route none encoder?
   let state ← registryState
   if let .arrow category := w.form then
+    -- Runtime actions preserve every original endpoint and selected parameter;
+    -- the legacy named-arrow optimization is only a metadata presentation path.
+    if encoder?.isSome then return ← transportImage trace w route none encoder?
     unless route.all (fun step => match step with
       | .constructMap constructor (.functor _) =>
           (state.constructors.find? (·.id == constructor)).any
             (·.semantics == `CasCatalogue.Constructors.arrow)
       | _ => false) do
-      return ← transportImage trace w route
+      return ← transportImage trace w route none encoder?
     let some (.arrow _ hom source target) ← (trace.node? w.value : IO _)
-      | return ← transportImage trace w route
+      | return ← transportImage trace w route none encoder?
     let .ok wireArgs := (w.json.getObjVal? "args").bind (·.getArr?)
       | throwError "the recorded arrow has no complete wire fields"
     unless wireArgs.size == 3 do throwError "the recorded arrow has incomplete wire fields"
@@ -1167,9 +1188,9 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermE
       Trace.record (some trace) value (.arrow targetCategory.id currentHom currentSource currentTarget)
       result := { result with form := .arrow targetCategory, presentationIsos := sourceWire.presentationIsos ++ targetWire.presentationIsos, payload := .ordinary (value) (Json.mkObj [("ctor", "arrow"), ("args", Json.arr #[sourceWire.json,targetWire.json,mapped])]) }
     return result
-  let .object entry := w.form | transportImage trace w route
+  let .object entry := w.form | transportImage trace w route none encoder?
   let some (.object _ params) ← (trace.node? w.value : IO _)
-    | return ← transportImage trace w route
+    | return ← transportImage trace w route none encoder?
   let mut current := entry
   let mut remaining := route
   let mut value := w.value
@@ -1194,43 +1215,60 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermE
     current := target
     value := next
     remaining := remaining.extract refinement.route.size remaining.size
-  if current.id == entry.id then return ← transportImage trace w remaining
+  if current.id == entry.id then return ← transportImage trace w remaining none encoder?
+  let context ← match w.categoryContext with
+    | none => pure none
+    | some source => do
+        let some expression := state.formExpression? w.form
+          | throwError "the named presentation source lost its accepted category"
+        unless source.expression.syntacticEq expression do
+          throwError "the named presentation source has a different retained category"
+        CategoryContext.checkObject source w.value
+        let some category := state.categories.find? (·.id == current.category)
+          | throwError "the named presentation target category is not registered"
+        return some (← CategoryContext.ofNamed category value)
   let args := (w.json.getObjVal? "args").toOption.getD (Json.arr #[])
-  let refined := { w with form := .object current, presentationIsos := identifications, payload := .ordinary (value) (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
-  transportImage trace refined remaining
+  let refined := { w with
+    form := .object current, presentationIsos := identifications,
+    categoryContext := context,
+    payload := .ordinary value (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
+  transportImage trace refined remaining none encoder?
 
 /-- Consume exact checked proof-refinement and named-presentation prefixes while
 retaining the complete residual route. A later category-wide operation can then
 apply every residual action without undoing the registered presentation. -/
-partial def canonicalOperationInput (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+partial def canonicalOperationInput (trace : Trace) (wire : Wire) (route : Array EdgeRef)
+    (encoder? : Option ActionEncoder := none) :
     TermElabM (Wire × Array EdgeRef) := do
   let state ← registryState
   match wire.form with
-  | .contextual .. => return (← transportImage trace wire route, #[])
+  | .contextual .. => return (← transportImage trace wire route none encoder?, #[])
   | .proofRefinement _ classifier _ =>
       if route[0]? == some (.classifierForget classifier) then
         let action ← Semantic.edgeFunctor state (.classifierForget classifier)
         let original ← proofRefinementBase trace wire action
-        return ← canonicalOperationInput trace original (route.extract 1 route.size)
+        return ← canonicalOperationInput trace original (route.extract 1 route.size) encoder?
       return (wire, route)
   | .object entry =>
       let (_, remaining) := state.transport entry route
-      return (← transport trace wire (route.extract 0 (route.size - remaining.size)), remaining)
+      return (← transport trace wire (route.extract 0 (route.size - remaining.size)) encoder?, remaining)
   | _ => return (wire, route)
 
 /-- The compatible source-composite request retains every residual action in its
 accepted registration, rather than requiring its input packet to execute it. -/
-def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef)
+    (encoder? : Option ActionEncoder := none) :
     TermElabM Wire := do
-  return (← canonicalOperationInput trace wire route).1
+  return (← canonicalOperationInput trace wire route encoder?).1
 
 /-- Keep the full mathematical receiver separate from its canonical computational input. -/
-def operationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef) :
+def operationReceiver (trace : Trace) (wire : Wire) (route : Array EdgeRef)
+    (encoder? : Option ActionEncoder := none) :
     TermElabM (Wire × Expr) := do
   let state ← registryState
   let image ← if route.isEmpty then pure wire.value else
     Semantic.objOf (← Semantic.routeFunctor state route) wire.value
-  return (← canonicalOperationReceiver trace wire route, image)
+  return (← canonicalOperationReceiver trace wire route encoder?, image)
 
 /-- Decode `j` as a registered named object at its parameters, `{"ctor": <object id>, "args":
 [<numerals, or objects>]}`, elaborated and recorded in `trace`. -/
@@ -2418,44 +2456,6 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
     else .computed input.value (.inline apexJson)
   return { input with form, payload }
 
-/-- Choose an admitted computational representation of the already fixed full
-operation. An exact source-form registration may implement the declared composite
-in one call; a registration at the operation's owner receives every intervening
-object action. Distinct admitted registrations remain peers. A single registration
-address receives the complete transported packet when it accepts that packet.
-No failed backend call selects a different implementation or changes meaning. -/
-def computationalOperationReceiver (h : Harness) (trace : Trace) (operation : String)
-    (original : Wire) (route : Array EdgeRef) (canonical : Wire) : TermElabM Wire := do
-  let state ← registryState
-  let some declared := state.operation? operation
-    | throwError "the selected computational operation is no longer registered"
-  -- Registered presentation prefixes remain useful to old operation implementations.
-  -- The residual general action also supports arbitrary unnamed Arrow endpoints.
-  let (prepared, remaining) ← canonicalOperationInput trace original route
-  let transported ← computationalApexReceiver trace (← transportImage trace prepared remaining)
-  let canonical ← computationalApexReceiver trace canonical
-  let fullAddresses := state.inputAddresses declared transported.form
-  let sourceAddresses := state.inputAddresses declared canonical.form
-  let accepts := fun (input : Wire) (addresses : Array String) (row : Admitted) =>
-    row.registration.operation == operation && addresses.contains row.registration.input &&
-      (input.owner?.isNone || input.owner?.any
-        (fun owner => owner.1 == row.registration.backend))
-  let mut candidates : Array (Wire × Registration) := #[]
-  for row in h.admitted do
-    if accepts transported fullAddresses row then
-      candidates := candidates.push (transported, row.registration)
-    else if accepts canonical sourceAddresses row then
-      candidates := candidates.push (canonical, row.registration)
-  match candidates with
-  | #[(input, _)] => return input
-  | #[] => return transported
-  | _ =>
-      let addresses := candidates.toList.map fun (_, row) =>
-        s!"{row.input} by {row.backend}"
-      throwStratum .ambiguousRealization m!"several admitted registrations compute \
-        the selected composite {operation} ({addresses}); which one is used is a choice \
-        the kernel does not make"
-
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
 set `po.extent X A` that `Language.asObject` forms. -/
 def extentOf? (state : RegistryState) (e : Expr) : Option (PowerObjectEntry × Expr × Expr) := do
@@ -2623,6 +2623,51 @@ partial def realizedEdgeDescriptor (h : Harness) (trace : Trace) (edge : EdgeRef
     | _ => unreachable!
   return (descriptor, dependencies)
 
+/-- Choose an admitted computational representation of the already fixed full
+operation. An exact source-form registration may implement the declared composite
+in one call; a registration at the operation's owner receives every intervening
+object action. Distinct admitted registrations remain peers. A single registration
+address receives the complete transported packet when it accepts that packet.
+No failed backend call selects a different implementation or changes meaning. -/
+partial def computationalOperationReceiver (h : Harness) (trace : Trace) (operation : String)
+    (original : Wire) (route : Array EdgeRef) (canonical : Wire) : TermElabM Wire := do
+  let state ← registryState
+  let some declared := state.operation? operation
+    | throwError "the selected computational operation is no longer registered"
+  -- Registered presentation prefixes remain useful to old operation implementations.
+  -- The residual general action also supports arbitrary unnamed Arrow endpoints.
+  let encoder := realizedEdgeDescriptor h trace
+  let (prepared, remaining) ← canonicalOperationInput trace original route (some encoder)
+  unless canonical.form.id == prepared.form.id &&
+      (← withTransparency .all <| isDefEq canonical.value prepared.value) do
+    throwError "the operation input changed its independently normalized receiver"
+  let transported ← computationalApexReceiver trace
+    (← transportImage trace prepared remaining none (some encoder))
+  -- Reuse the same prefix with its actual action parameters for source-composite
+  -- registrations too; metadata-only callers cannot supply replacement data.
+  let canonical ← computationalApexReceiver trace prepared
+  let fullAddresses := state.inputAddresses declared transported.form
+  let sourceAddresses := state.inputAddresses declared canonical.form
+  let accepts := fun (input : Wire) (addresses : Array String) (row : Admitted) =>
+    row.registration.operation == operation && addresses.contains row.registration.input &&
+      (input.owner?.isNone || input.owner?.any
+        (fun owner => owner.1 == row.registration.backend))
+  let mut candidates : Array (Wire × Registration) := #[]
+  for row in h.admitted do
+    if accepts transported fullAddresses row then
+      candidates := candidates.push (transported, row.registration)
+    else if accepts canonical sourceAddresses row then
+      candidates := candidates.push (canonical, row.registration)
+  match candidates with
+  | #[(input, _)] => return input
+  | #[] => return transported
+  | _ =>
+      let addresses := candidates.toList.map fun (_, row) =>
+        s!"{row.input} by {row.backend}"
+      throwStratum .ambiguousRealization m!"several admitted registrations compute \
+        the selected composite {operation} ({addresses}); which one is used is a choice \
+        the kernel does not make"
+
 /-- A set formed as the extent of a subset literal (`Language.asObject`), where a set is
 expected, is sent as that extent: the power object, its ambient set and the literal. -/
 partial def extentData? (h : Harness) (trace : Trace) (p : Expr) :
@@ -2750,6 +2795,7 @@ partial def realizeObjectPresentation (h : Harness) (trace : Trace) (entry : Obj
   let (image, _) ← Semantic.applyRegisteredFunctor functor presentation.argument #[] (some trace)
   let original ← realize h trace "the registered object presentation" image
   let actual ← transportImage trace original presentation.route (some presentation.applications)
+    (some (realizedEdgeDescriptor h trace))
   unless ← withTransparency .all <| isDefEq actual.value presentation.image do
     throwError "the computed object presentation changed its complete formal image"
   let fieldData := fun (selector : String) => Json.mkObj [("ctor", "objectField"),
@@ -2804,7 +2850,7 @@ partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Ex
       data := Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, data])]
       value ← Semantic.mapOf application value
     else
-      let projected ← projectObjectAction trace currentContext.expression step application value data
+      let projected ← projectObjectAction trace currentContext.expression step application value data (some descriptor)
       data := projected.getD
         (Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[descriptor, data])])
       objectIso ← mapObjectComparison application value objectIso
@@ -3497,7 +3543,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | throwStratum .noImplementation m!"a structural parameter has no named-object presentation"
       unless entry.id == source && entry.category == sourceCategory do
         throwStratum .noImplementation m!"a structural parameter has a different source presentation"
-      let output ← transport trace input route
+      let output ← transport trace input route (some (realizedEdgeDescriptor h trace))
       let image ← if route.isEmpty then pure receiver
         else Semantic.objOf (← Semantic.routeFunctor state route) receiver
       unless ← withoutModifyingState (isDefEq image e) do
@@ -3563,6 +3609,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           throwError "the parameter identity class has no checked full-object identification"
       let input ← realize h trace s!"the accepted source of the parameter in {what}" chosen.object
       let output ← transportImage trace input chosen.route (some chosen.applications)
+        (some (realizedEdgeDescriptor h trace))
       unless ← isDefEq (← inferType output.value) expectedType do
         throwError "the realized parameter identity class has an incompatible structured type"
       return output
@@ -4105,11 +4152,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let form := match target? with
         | some target => imageForm state (.functor id) target
         | none => Form.contextual entry.target input.form
-      let endpointPresentation ← mapEndpointPresentation F
-        (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]) input.endpointPresentation
+      let descriptor := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]
+      let endpointPresentation ← mapEndpointPresentation F descriptor input.endpointPresentation
       let objectIso ← mapObjectComparison F input.value input.objectIso
       if let some projected ← projectObjectAction trace entry.source (.functor id)
-          F receiver input.json then
+          F receiver input.json (some descriptor) then
         return {
           form
           objectIso
@@ -4154,8 +4201,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               (isDefEq application (← Semantic.edgeFunctor state step)) do
             registered := false
             break
-      let result ← if registered then transport trace input route
-        else transportImage trace input route (some applications)
+      let result ← if registered then
+        transport trace input route (some (realizedEdgeDescriptor h trace))
+      else transportImage trace input route (some applications) (some (realizedEdgeDescriptor h trace))
       unless result.form.category == targetCategory &&
           (← withTransparency .all <| isDefEq (← inferType result.value) (← inferType e)) do
         throwError "the retained route changed its full selected target category"
@@ -4172,7 +4220,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let input ← realize h trace s!"the selected structure of {what}" receiver
       unless input.form.category == sourceCategory do
         throwError "the selected structure has the wrong recorded source category"
-      let output ← transport trace input route
+      let output ← transport trace input route (some (realizedEdgeDescriptor h trace))
       unless ← isDefEq (← inferType output.value) (← inferType e) do
         throwError "the selected structure action has an incompatible full structured type"
       if output.form.category == targetCategory then return output
@@ -4350,7 +4398,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           let U ← Semantic.edgeFunctor state lift.edge
           let mapped ← wires.mapM fun wire => do
             match wire.form with
-            | .object _ => transport trace wire #[lift.edge]
+            | .object _ => transport trace wire #[lift.edge] (some (realizedEdgeDescriptor h trace))
             | .graph _ =>
               let value ← Semantic.mapOf U wire.value
               let form := (state.graphLiterals.find? (·.category == category.id)).map Form.graph
@@ -4382,8 +4430,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                       | pure false
                     let sourceWire ← realize h trace "the mapped graph source" source
                     let targetWire ← realize h trace "the mapped graph target" target
-                    let sourceWire ← transport trace sourceWire #[lift.edge]
-                    let targetWire ← transport trace targetWire #[lift.edge]
+                    let sourceWire ← transport trace sourceWire #[lift.edge] (some (realizedEdgeDescriptor h trace))
+                    let targetWire ← transport trace targetWire #[lift.edge] (some (realizedEdgeDescriptor h trace))
                     match ← ComputationalData.endpointKeys sourceWire.json,
                         ← ComputationalData.endpointKeys targetWire.json with
                     | .ok (some domain), .ok codomain =>
@@ -4391,20 +4439,21 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
                     | _, _ => pure false
                 | .error _ => pure false
               else pure false
-              let json ← if unchanged then pure wire.json else
-                pure <| Json.mkObj [("ctor", "map"), ("args", Json.arr #[
-                  ← edgeDescriptor trace lift.edge U, wire.json])]
-              pure { wire with form, payload := forwardPayload wire value json }
+              let (descriptor, dependencies) ← realizedEdgeDescriptor h trace lift.edge U
+              let json := if unchanged then wire.json else
+                Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, wire.json])]
+              pure { wire with form,
+                payload := (← combinedPayload value json (#[wire] ++ dependencies)) }
             | _ =>
               if (Language.homEnds? (← inferType wire.value)).isSome then
                 let value ← Semantic.mapOf U wire.value
-                let json := Json.mkObj [("ctor", "map"), ("args", Json.arr #[
-                  ← edgeDescriptor trace lift.edge U, wire.json])]
+                let (descriptor, dependencies) ← realizedEdgeDescriptor h trace lift.edge U
+                let json := Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, wire.json])]
                 pure { wire with
                   form := .canonicalMorphism category
-                  payload := forwardPayload wire value json }
+                  payload := (← combinedPayload value json (#[wire] ++ dependencies)) }
               else
-                transport trace wire #[lift.edge]
+                transport trace wire #[lift.edge] (some (realizedEdgeDescriptor h trace))
           pure (← mkAppM standard (mapped.map (·.value)), mapped)
       let mut lowerComparison? : Option Expr := none
       if let some liftId := lift? then
@@ -4464,8 +4513,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               | some liftId => do
                   let some lift := state.lifts.find? (·.id == liftId)
                     | throwStratum .noImplementation "the source endpoint has no selected creation lift"
-                  pure (← transport trace source #[lift.edge],
-                    ← transport trace target #[lift.edge])
+                  pure (← transport trace source #[lift.edge] (some (realizedEdgeDescriptor h trace)),
+                    ← transport trace target #[lift.edge] (some (realizedEdgeDescriptor h trace)))
             let json := Json.mkObj [("ctor", "typedMap"),
               ("args", Json.arr #[source.json, target.json, wire.json])]
             let wire := { wire with payload :=
@@ -4609,7 +4658,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         constructionInputs := some (completed.apex, constructionInputs) }
   | .method id route receiver =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-      let (request, input) ← operationReceiver trace original route
+      let (request, input) ← operationReceiver trace original route (some (realizedEdgeDescriptor h trace))
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
         | throwError "{id.raw} has no registered functor"
@@ -4654,7 +4703,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return { result with payload := computedPayload e result.json owner }
   | .methodWithLifts id route lifts receiver =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-      let (request, input) ← operationReceiver trace original route
+      let (request, input) ← operationReceiver trace original route (some (realizedEdgeDescriptor h trace))
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor | unreachable!
       let some target := state.category? functor.target | unreachable!
@@ -5095,7 +5144,7 @@ partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : E
       throwStratum .noImplementation m!"nothing decides {what}: it is not a registered \
         property of a value the realized reading evaluates"
   let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
-  let (request, input) ← operationReceiver trace original route
+  let (request, input) ← operationReceiver trace original route (some (realizedEdgeDescriptor h trace))
   let state ← registryState
   let some property := state.properties.find? (·.id == id)
     | throwError "the recorded property is not registered"
