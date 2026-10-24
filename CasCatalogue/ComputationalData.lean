@@ -905,6 +905,38 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     return ← validateDeclaredData declaration args
   if let some entry := state.functors.find? (·.id.raw == tag) then
     return ← validateDeclaredData entry.declaration args
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  if tag == "category" || tag == "functor" then
+    let #[id, parameters] := args | return .error "a selected dictionary requires its id and ordered parameters"
+    let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
+    let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
+    let declaration := if tag == "category" then
+      (state.categories.find? (·.id.raw == id)).map (·.declaration)
+    else (state.functors.find? (·.id.raw == id)).map (·.declaration)
+    let some declaration := declaration | return .error "the selected dictionary is not registered"
+    return ← validateDeclaredData declaration parameters
+  if tag == "cellComponent" then
+    let .ok component := Backend.CellComponent.decode data
+      | return .error "the cell component omitted its complete public context"
+    let some entry := state.cells.find? (·.id.raw == component.cell)
+      | return .error "the cell component is not registered"
+    unless !component.inverse || entry.invertible do
+      return .error "the selected cell has no accepted inverse"
+    if let .error message ← validateDeclaredData entry.declaration component.parameters then
+      return .error message
+    return ← validatePublicData component.receiver
+  if tag == "constructedCellComponent" then
+    let #[constructors, component] := args
+      | return .error "a constructed component requires its complete constructor path and cell"
+    let .ok constructors := constructors.getArr?
+      | return .error "the constructed comparison path must be ordered"
+    let .ok selected := Backend.CellComponent.decode component
+      | return .error "the constructed comparison omitted its complete selected cell"
+    let address := "component:" ++ (Json.arr #[toJson selected.cell, Json.arr constructors]).compress
+    unless (state.component? address).isSome do
+      return .error "the constructed comparison has no accepted full action path"
+    return ← validatePublicData component
   let mut diagramConstructors : Array Name := #[]
   for row in state.limits do
     if let some constructor ← Semantic.diagramConstructor row then
@@ -1094,11 +1126,13 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     return .ok ()
   let arity := match tag with
     | "true" | "false" | "none" => some 0
-    | "point" | "neg" | "some" | "arrowHom" | "subobjectApex" | "subobjectInclusion" => some 1
+    | "point" | "neg" | "some" | "arrowHom" | "subobjectApex" | "subobjectInclusion" |
+        "coreObject" => some 1
     | "add" | "mul" | "element" | "compose" | "mediator" | "map" |
         "identity" | "zero" | "functorAction" | "objectPresentation" |
         "objectProduct" | "finiteData" | "finiteGraph" => some 2
     | "pointView" | "arrow" | "subobject" => some 3
+    | "coreIso" => some 4
     | _ => none
   let some arity := arity
     | return .error "the symbolic data use no supported released constructor"
@@ -1162,6 +1196,7 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
       let .ok (actionTag, _) := envelope action
         | return .error "a mapped callable requires its selected action descriptor"
       unless state.functors.any (·.id.raw == actionTag) ||
+          state.constructions.any (·.id.raw == actionTag) ||
           #["classifierForget", "constructorMap"].contains actionTag do
         return .error "a mapped callable requires a registered functor or structural edge"
       if let .error message ← validatePublicData action then return .error message
@@ -1182,7 +1217,8 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
   | _, _ =>
       if #["opaqueData", "objectField", "powerObjectMap", "presentation", "pointView",
           "arrowHom", "limitLeg", "constructionLeg", "subobjectInclusion", "identity",
-          "zero", "admittedPoint", "constrainedPoint"].contains tag then
+          "zero", "admittedPoint", "constrainedPoint", "cellComponent",
+          "constructedCellComponent", "coreIso"].contains tag then
         validatePublicData data
       else return .error "an object or scalar descriptor cannot serve as a callable"
 
@@ -1239,6 +1275,11 @@ partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
     let .ok left ← interfaceObject objects left | return .error "the first product factor is incomplete"
     let .ok right ← interfaceObject objects right | return .error "the second product factor is incomplete"
     return .ok (← mkAppM ``Prod #[left, right])
+  if tag == "coreObject" then
+    let #[source] := args | return .error "a core object requires its complete original object"
+    let .ok source ← interfaceObject objects source
+      | return .error "the core object's selected source is incomplete"
+    return .ok (← mkAppM ``CategoryTheory.Core.mk #[source])
   if tag == "finiteData" || tag == "objectPresentation" then
     let #[descriptor, _] := args | return .error "the endpoint wrapper is incomplete"
     return ← interfaceObject objects descriptor
@@ -1257,6 +1298,11 @@ partial def interfaceAction (objects : InterfaceObjects) (data : Json) :
     let expected ← inferType (← instantiateFresh entry.declaration)
     let .ok action ← interfaceDeclaration objects entry.declaration expected args
       | return .error "the action parameters have incompatible declared types"
+    return .ok (← Semantic.asFunctor action)
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    let expected ← inferType (← instantiateFresh entry.declaration)
+    let .ok action ← interfaceDeclaration objects entry.declaration expected args
+      | return .error "the construction parameters have incompatible complete declared types"
     return .ok (← Semantic.asFunctor action)
   if tag == "classifierForget" then
     let #[id, parameters] := args | return .error "the classifier action is incomplete"
@@ -1288,6 +1334,22 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
     TermElabM (Except String Expr) := do
   let expected ← instantiateMVars expected
   if ← isProp expected then return .error "a proof is not computational data"
+  if let .ok (tag, #[id, parameters]) := envelope data then
+    if tag == "category" || tag == "functor" then
+      let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
+      let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
+      let state ← registryState
+      let declaration := if tag == "category" then
+        (state.categories.find? (·.id.raw == id)).map (·.declaration)
+      else (state.functors.find? (·.id.raw == id)).map (·.declaration)
+      let some declaration := declaration | return .error "the selected dictionary is not registered"
+      let resultType ← inferType (← instantiateFresh declaration)
+      let .ok value ← interfaceDeclaration objects declaration resultType parameters
+        | return .error "the selected dictionary has incompatible complete parameters"
+      let value ← if tag == "functor" then Semantic.asFunctor value else pure value
+      unless ← withTransparency .all <| isDefEq (← inferType value) expected do
+        return .error "the selected dictionary has a different complete declared type"
+      return .ok value
   if let some (_, fixed) := objects.find? (·.1 == data) then
     unless ← isDefEq (← inferType fixed) expected do
       return .error "the selected descriptor has a different declared type"
@@ -1299,7 +1361,7 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
   if let .ok (tag, _) := envelope data then
     let state ← registryState
     if state.objects.any (·.id.raw == tag) ||
-        #["objectProduct", "finiteData", "functorAction", "objectPresentation"].contains tag then
+        #["objectProduct", "finiteData", "functorAction", "objectPresentation", "coreObject"].contains tag then
       let .ok object ← interfaceObject objects data
         | return .error "the object parameter has no complete declared interface"
       unless ← withTransparency .all <| isDefEq (← inferType object) expected do
@@ -1329,6 +1391,49 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     match tag, args with
     | "valueData", #[value] => return ← validateCallableAt objects expected value
     | "opaqueData", _ => return (Backend.ComputationalValue.decode data).map fun _ => ()
+    | "coreIso", #[sourceData, targetData, forward, backward] =>
+      let sourceType ← whnfR (← inferType source)
+      let targetType ← whnfR (← inferType target)
+      unless sourceType.isAppOf ``CategoryTheory.Core && targetType.isAppOf ``CategoryTheory.Core do
+        return .error "a core comparison requires the exact selected core endpoints"
+      let source ← mkAppM ``CategoryTheory.Core.of #[source]
+      let target ← mkAppM ``CategoryTheory.Core.of #[target]
+      for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
+        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor
+          | return .error "the core comparison endpoint is incomplete"
+        unless ← withTransparency .all <| isDefEq fixed actual do
+          return .error "the core comparison changes its complete selected endpoint"
+      if let .error message ← validateCallableAt objects
+          (← mkAppM ``Quiver.Hom #[source, target]) forward then return .error message
+      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[target, source]) backward
+    | "cellComponent", _ | "constructedCellComponent", _ =>
+      if let .error message ← validatePublicData data then return .error message
+      let (component, constructors) ← if tag == "cellComponent" then
+        pure (data, (#[] : Array ConstructorId))
+      else do
+        let #[path, base] := args | return .error "the constructed component is incomplete"
+        let .ok path := path.getArr? | return .error "the constructed component path is incomplete"
+        let .ok path := path.mapM fun value => value.getStr?.map ConstructorId.mk
+          | return .error "the constructed component has an invalid constructor id"
+        pure (base, path)
+      let .ok component := Backend.CellComponent.decode component
+        | return .error "the natural component has incomplete data"
+      let some entry := state.cells.find? (·.id.raw == component.cell)
+        | return .error "the natural component is not registered"
+      let declaredType ← inferType (← instantiateFresh entry.declaration)
+      let .ok value ← interfaceDeclaration objects entry.declaration declaredType component.parameters
+        | return .error "the component parameters have different complete declared types"
+      let receiver ← mkFreshExprMVar (← mkFreshTypeMVar)
+      let action ← CellAction.assemble entry { value, arguments := value.getAppArgs, explicit := #[] }
+        constructors component.inverse receiver
+      let .ok actual ← interfaceArgument objects (← inferType receiver) component.receiver
+        | return .error "the component receiver has an incompatible full interface"
+      unless ← withTransparency .all <| isDefEq actual receiver do
+        return .error "the component changed its selected receiver"
+      unless ← withTransparency .all <| isDefEq
+          (← inferType (← CellAction.component action receiver)) expected do
+        return .error "the component changed a complete declared endpoint"
+      return .ok ()
     | "typedMap", #[sourceData, targetData, callable] =>
       for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
         let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor

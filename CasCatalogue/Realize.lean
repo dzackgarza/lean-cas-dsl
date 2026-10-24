@@ -11,6 +11,7 @@ public import CasCatalogue.StructuredResult
 public import CasCatalogue.ConstructionData
 public import CasCatalogue.FunctorActionData
 public import CasCatalogue.LiftedSubobjectData
+public import CasCatalogue.CellAction
 public import CasCatalogue.ElementData
 public import CasCatalogue.QuestionIdentity
 public import CasCatalogue.ComputationalData
@@ -88,6 +89,16 @@ inductive WirePayload where
   | computed (value : Expr) (data : ComputationData)
   | construction (result : StructuredResult.Result) (scope : ComputationScope)
 
+/-- Complete actual lift fields retained with the selected formal computation. Subsequent
+projections and factors reuse this execution, including its enclosing wire's live owner. -/
+structure LiftExecution where
+  selections : Array SelectedLift.Plan
+  actions : Array Json
+  parameters : Array (Array Json)
+  sources : Array Json
+  bases : Array Json
+  outputs : Array (Array Json)
+
 /-- An accepted change from the fixed semantic endpoint to the representation
 used by its actual computational data. Both map descriptors retain their complete
 declaration parameters; the comparison itself comes only from the catalogue. -/
@@ -102,7 +113,9 @@ structure WireSnapshot where
   payload : WirePayload
   presentationIsos : Array Expr
   objectIso : Option Expr
+  liftExecution : Option LiftExecution := none
   endpointPresentation : Option EndpointPresentation := none
+  categoryContext : Option CategoryContext := none
 
 structure Wire where
   form : Form
@@ -116,6 +129,8 @@ structure Wire where
   morphismFramed : Bool := false
   /-- Full source snapshots, restored only by their checked classifier forgetful prefixes. -/
   proofSources : List WireSnapshot := []
+  liftExecution : Option LiftExecution := none
+  categoryContext : Option CategoryContext := none
 
 def Wire.value (wire : Wire) : Expr := match wire.payload with
   | .ordinary value _ | .computed value _ => value
@@ -678,6 +693,21 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
   let value ← instantiateMVars value
   if value.hasMVar || value.hasLevelMVar || value.hasFVar || value.hasLooseBVars then
     throwStratum .noImplementation m!"the exact functor parameter is not closed"
+  let selected := value.consumeMData
+  if let some category := state.categories.find?
+      (fun row => selected.getAppFn.constName? == some row.declaration) then
+    let data : Backend.CategoryParameter := {
+      category := category.id.raw
+      parameters := (← declarationData trace category.declaration selected) }
+    return data.encode
+  let selectedFunctor := if selected.isAppOf ``CategoryTheory.Cat.Hom.toFunctor then
+    selected.appArg! else selected
+  if let some functor := state.functors.find?
+      (fun row => selectedFunctor.getAppFn.constName? == some row.declaration) then
+    let data : Backend.FunctorParameter := {
+      functor := functor.id.raw
+      parameters := (← declarationData trace functor.declaration selectedFunctor) }
+    return data.encode
   if let some (.object id params) ← (trace.node? value : IO _) then
     return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
   -- A numeral point of a selected structure: its element descriptor.
@@ -805,7 +835,7 @@ partial def declarationData (trace : Trace) (declaration : Name) (actual : Expr)
     | throwError "the exact registered functor declaration application was lost"
   let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
     if info.isExplicit then some arg else none
-  params.mapM (parameterData trace)
+  (← DirectConstruction.dataArguments params).mapM (parameterData trace)
 
 /-- Public edge data from the actual instantiated functor, preserving declaration arguments. -/
 partial def edgeDescriptor (trace : Trace) (edge : EdgeRef) (actual : Expr) : TermElabM Json := do
@@ -866,6 +896,14 @@ def imageForm (state : RegistryState) (edge : EdgeRef) (category : NamedCategory
           | some entry => .functorImage entry category.id
           | none => .edgeImage edge category
       | _ => .edgeImage edge category
+
+/-- A local derived context reuses its original complete data address. It claims no
+category identity when the catalogue has no separately named schema. -/
+def contextualForm (state : RegistryState) (context : CategoryContext)
+    (origin : Form) (morphism : Bool := false) : Form :=
+  match CategoryContext.named? state context.expression with
+  | some category => if morphism then .canonicalMorphism category else .diagrams category
+  | none => .contextual context.expression origin
 
 /-- Read complete returned fields of a fixed full subcategory of arrows, including the
 final output of a prescribed reverse lift route. Both public arrow data and its legacy
@@ -972,6 +1010,8 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
   let original : Wire := {
     form := snapshot.form, payload := snapshot.payload,
     presentationIsos := snapshot.presentationIsos, objectIso := snapshot.objectIso,
+    liftExecution := snapshot.liftExecution,
+    categoryContext := snapshot.categoryContext,
     endpointPresentation := snapshot.endpointPresentation,
     proofSources := remaining }
   checkProofRefinementSource original source
@@ -985,16 +1025,15 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
       throwError "the retained route has incompatible ordered full applications"
   if route.isEmpty then return w
   let state ← registryState
-  let some source := state.categories.find? (·.id == w.form.category)
+  let some sourceExpression := state.formExpression? w.form
     | throwError "the reconstructed source image has no accepted category"
-  let mut expression := source.expression
+  let mut expression := sourceExpression
   let mut result := w
   for index in [:route.size] do
     let step := route[index]!
     let some edge := (state.edgesFrom expression).find? (·.ref == step)
       | throwError "the reconstructed image route disagrees with its retained category"
-    let some target := imageCategory? state edge.target
-      | throwStratum .noImplementation m!"the transported image has no unique accepted target schema"
+    let target := imageCategory? state edge.target
     let U ← match applications with
       | some retained => pure retained[index]!
       | none => Semantic.edgeFunctor state step
@@ -1004,6 +1043,11 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
         expression := edge.target
         continue
     let value ← Semantic.objOf U result.value
+    let (sourceBundle, targetBundle) ← functorCategoryBundles (← Semantic.asFunctor U)
+    if let some context := result.categoryContext then
+      unless context.expression.syntacticEq expression &&
+          (← withTransparency .all <| isDefEq sourceBundle context.bundle) do
+        throwError "the route changed the retained complete source category"
     let U ← instantiateMVars U
     if U.hasMVar || U.hasLevelMVar || U.hasFVar || U.hasLooseBVars then
       throwError "the retained structural edge application is not closed"
@@ -1015,7 +1059,11 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     let endpointPresentation ← mapEndpointPresentation U (← edgeDescriptor trace step U)
       result.endpointPresentation
     result := { result with
-      form := imageForm state step target
+      form := match target with
+        | some target => imageForm state step target
+        | none => .contextual edge.target result.form
+      categoryContext := some {
+        expression := edge.target, bundle := (← instantiateMVars targetBundle) }
       objectIso := objectIso
       endpointPresentation := endpointPresentation
       proofSources := []
@@ -1024,6 +1072,7 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
   return result
 
 partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef) : TermElabM Wire := do
+  if w.form.namedCategory?.isNone then return ← transportImage trace w route
   if w.owner?.isSome || (match w.payload with | .computed .. | .construction .. => true | _ => false) then
     return ← transportImage trace w route
   if w.objectIso.isSome then return ← transportImage trace w route
@@ -1132,6 +1181,7 @@ partial def canonicalOperationReceiver (trace : Trace) (wire : Wire) (route : Ar
     TermElabM Wire := do
   let state ← registryState
   match wire.form with
+  | .contextual .. => transportImage trace wire route
   | .proofRefinement _ classifier _ =>
       if route[0]? == some (.classifierForget classifier) then
         let action ← Semantic.edgeFunctor state (.classifierForget classifier)
@@ -2187,7 +2237,10 @@ end
 /-- Execute every selected public lift field on preceding actual data, in reverse route order.
 The formal plan is fixed before dispatch; no reply supplies a semantic term or lift law. -/
 def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectData.Plan)
-    (source base : Wire) : TermElabM (Json × Option (String × Nat)) := do
+    (source base : Wire) (parameters : Array (Array Json × Array Wire)) :
+    TermElabM (Json × Option (String × Nat)) := do
+  unless parameters.size == plan.components.size do
+    throwError "the prescribed lift lost its complete selected evidence parameters"
   let .ok _ := LiftedSubobjectData.subobjectFields base.json
     | throwStratum .malformed "the lift base omitted its complete apex, ambient and inclusion"
   let state ← registryState
@@ -2215,9 +2268,12 @@ def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectD
       | throwError "the fixed lift plan lost its public computation row"
     let some form := state.liftInputForm? row.inputAddress
       | throwError "the public lift request has no unique registered source context"
+    for dependency in parameters[index]!.2 do
+      owner ← mergeOwners owner dependency.owner?
     let mut outputs : Array Json := #[]
     for field in LiftField.all do
-      let request := Json.mkObj [("ctor", "liftInput"), ("args", Json.arr #[
+      let request := Json.mkObj [("ctor", "liftInput"),
+        ("parameters", Json.arr parameters[index]!.1), ("args", Json.arr #[
         toJson row.id.raw, actions[index]!, sources[index]!, currentBase, Json.arr outputs])]
       let input : Wire := { form, payload := dataPayload component.receiver request owner }
       let operation := row.fieldAddress field
@@ -2232,7 +2288,8 @@ def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectD
         | .portable => none
         | .owned backend session => some (backend, session)
       owner ← mergeOwners owner returnedOwner
-    steps := steps.set! index (Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
+    steps := steps.set! index (Json.mkObj [("ctor", "liftStep"),
+      ("parameters", Json.arr parameters[index]!.1), ("args", Json.arr #[
       toJson row.id.raw, actions[index]!, sources[index]!, currentBase, Json.arr outputs])])
     let .ok next := LiftedSubobjectData.nextBase sources[index]! outputs
       | throwError "the completed lift omitted its actual next object or inclusion"
@@ -2368,6 +2425,7 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
   let mut data := #[]
   let mut dependencies := #[]
   for parameter in parameters do
+    if ← isProp (← inferType parameter) then continue
     if let some (extent, wires) ← extentData? h trace parameter then
       data := data.push extent
       dependencies := dependencies ++ wires
@@ -2436,7 +2494,8 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
   let node ← trace.node? value
   let structural := match node with
     | some (.object ..) | some (.parameterTransport ..) | some (.retainedRoute ..) |
-        some (.parameterEquivalence ..) | some (.functor ..) | some (.proofRefinement ..) => false
+        some (.parameterEquivalence ..) | some (.functor ..) | some (.proofRefinement ..) |
+        some (.construction ..) | some (.selectedLift ..) | some (.liftProjection ..) => false
     | _ => true
   if structural && (← whnfR (← inferType value)).isSort then
     let reduced ← withTransparency .all <| whnf value
@@ -2480,7 +2539,8 @@ partial def frameMorphismData (h : Harness) (trace : Trace) (source target : Exp
   let endpoint := fun value selector => do
     try realizeEndpoint h trace "the callable's complete selected endpoint" value
     catch error =>
-      unless CasCatalogue.Exception.stratum? error == some .noImplementation do throw error
+      unless !Exception.hasConflictingStrata error &&
+          CasCatalogue.Exception.stratum? error == some .noImplementation do throw error
       let some category := state.categories.find? (·.id == wire.form.category)
         | throwError "the callable endpoint category is not registered"
       let data := Backend.MorphismEndpoint.encode { callable := wire.json, source := selector }
@@ -2537,6 +2597,313 @@ partial def realizeObjectPresentation (h : Harness) (trace : Trace) (entry : Obj
     payload := (← combinedPayload presentation.object actual.json (dependencies.push actual))
     endpointPresentation := some { comparison, forward, backward } }
 
+/-- Execute exact accepted applications while retaining unnamed category contexts and
+the original data owner. Both object and map actions use the same declared descriptors. -/
+partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Expr)
+    (source target : CategoryContext) (route : Array EdgeRef) (applications : Array Expr)
+    (morphism : Bool) : TermElabM Wire := do
+  unless route.size == applications.size do
+    throwError "the contextual route omitted a complete selected application"
+  let state ← registryState
+  let original ← realize h trace "the contextual action's complete original value" receiver
+  let mut value := receiver
+  let mut data := original.json
+  let mut dependencies := #[original]
+  if morphism then
+    let some (first, second) := Language.homEnds? (← inferType receiver)
+      | throwError "the retained map action lost its original complete endpoints"
+    CategoryContext.checkMorphism source receiver first second
+    let (framed, endpoints) ← frameMorphismData h trace first second original
+    data := framed
+    dependencies := dependencies ++ endpoints
+  else CategoryContext.checkObject source receiver
+  let mut currentContext := source
+  let mut objectIso := original.objectIso
+  let mut endpointPresentation := original.endpointPresentation
+  for (step, application) in route.zip applications do
+    let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state step)
+    unless ← withTransparency .all <| isDefEq accepted application do
+      throwError "the contextual action differs from its exact accepted declaration"
+    let (sourceBundle, targetBundle) ← functorCategoryBundles application
+    unless ← withTransparency .all <| isDefEq sourceBundle currentContext.bundle do
+      throwError "a contextual action changed its complete source bundle"
+    let some targetExpression := state.selectedEdgeTarget? step
+      | throwError "a contextual action has no accepted target expression"
+    let descriptor ← edgeDescriptor trace step application
+    if morphism then
+      data := Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, data])]
+      value ← Semantic.mapOf application value
+    else
+      let projected ← projectObjectAction trace currentContext.expression step application value data
+      data := projected.getD
+        (Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[descriptor, data])])
+      objectIso ← mapObjectComparison application value objectIso
+      endpointPresentation ← mapEndpointPresentation application descriptor endpointPresentation
+      value ← Semantic.objOf application value
+    currentContext := { expression := targetExpression, bundle := (← instantiateMVars targetBundle) }
+  unless ← withTransparency .all <| isDefEq value formal <&&>
+      isDefEq currentContext.bundle target.bundle do
+    throwError "the contextual route changed its fixed result or full target bundle"
+  return {
+    form := contextualForm state target original.form morphism
+    payload := (← combinedPayload formal data dependencies)
+    categoryContext := some target
+    objectIso := if morphism then none else objectIso
+    endpointPresentation := if morphism then none else endpointPresentation }
+
+/-- Generic composition and selected action application retain the original full domain. -/
+partial def contextualComposition (h : Harness) (trace : Trace) (formal : Expr)
+    (context : CategoryContext) (first second source middle target : Expr) : TermElabM Wire := do
+  let state ← registryState
+  CategoryContext.checkMorphism context first source middle
+  CategoryContext.checkMorphism context second middle target
+  CategoryContext.checkMorphism context formal source target
+  unless ← withTransparency .all <| isDefEq formal
+      (← mkAppM ``CategoryTheory.CategoryStruct.comp #[first, second]) do
+    throwError "the contextual composition changed its fixed categorical value"
+  let a ← realize h trace "the complete first contextual map" first
+  let b ← realize h trace "the complete second contextual map" second
+  let (firstData, firstDependencies) ← frameMorphismData h trace source middle a
+  let (secondData, secondDependencies) ← frameMorphismData h trace middle target b
+  let selected ← match ← trace.node? second with
+    | some (.cellComponent id params constructors inverse receiver) => do
+      let some entry := state.cells.find? (·.id == id)
+        | throwError "the selected component is no longer registered"
+      let (parameters, dependencies) ← realizedParameters h trace params
+      let original ← realize h trace "the selected component's complete receiver" receiver
+      let some inputForm := state.componentForm? (entry.componentAddress constructors)
+        | throwError "the selected component has no admitted full input address"
+      pure (some (entry.componentAddress constructors,
+        #[Json.arr parameters, original.json, toJson inverse], dependencies.push original, inputForm))
+    | some (.constructionMap id params _ _ _) => do
+      let some entry := state.constructions.find? (·.id == id)
+        | throwError "the selected construction is no longer registered"
+      let (parameters, dependencies) ← realizedParameters h trace params
+      let some inputForm := state.constructionForm? entry.inputAddress
+        | throwError "the selected construction has no complete input address"
+      pure (some (entry.mapAddress, parameters, dependencies, inputForm))
+    | _ => pure none
+  let dependencies := #[a, b] ++ firstDependencies ++ secondDependencies
+  if let some (operation, parameters, parameterWires, inputForm) := selected then
+    let domainWire ← realizeEndpoint h trace "the contextual map's original domain" source
+    let middleWire ← realizeEndpoint h trace "the contextual map's complete argument target" middle
+    let targetWire ← realizeEndpoint h trace "the contextual map's complete result target" target
+    let invocation : Backend.PointInvocation := {
+      operation, parameters
+      arrow := secondData
+      domain := domainWire.json
+      source := middleWire.json
+      target := targetWire.json
+      argument := firstData }
+    let input : Wire := {
+      form := inputForm
+      payload := (← combinedPayload formal invocation.encode
+        (dependencies ++ parameterWires ++ #[domainWire, middleWire, targetWire])) }
+    let (answer, backend) ← send h operation input (completeRequest := true)
+    let validation ← if ← withTransparency .all <| isDefEq source (← closedElementDomain state) then
+      ComputationalData.validateElementAt target targetWire.json (← pointResultValue state formal) answer
+    else ComputationalData.validateEndpointPort formal domainWire.json targetWire.json answer
+    if let .error message := validation then malformed backend operation answer message
+    let data ← receiveComputationalData h backend operation answer true
+    let returned : Wire := {
+      form := contextualForm state context b.form true
+      payload := .computed formal data
+      morphismFramed := true
+      categoryContext := some context }
+    let owner ← mergeOwners input.owner? returned.owner?
+    return { returned with payload := dataPayload formal returned.json owner }
+  let data := Json.mkObj [("ctor", "compose"), ("args", Json.arr #[firstData, secondData])]
+  return {
+    form := contextualForm state context b.form true
+    payload := (← combinedPayload formal data dependencies)
+    morphismFramed := true
+    categoryContext := some context }
+
+/-- Read the preserved actual fields of a completed lift without rerunning its ports. -/
+partial def retainedLiftExecution (h : Harness) (trace : Trace) (receiver : Expr) :
+    TermElabM (Wire × LiftExecution) := do
+  let wire ← realize h trace "the complete selected lift" receiver
+  let some execution := wire.liftExecution
+    | throwError "the completed lift lost its selected computation and actual four-field outputs"
+  unless !execution.selections.isEmpty &&
+      execution.outputs.size == execution.selections.size &&
+      execution.outputs.all (·.size == 4) do
+    throwError "the selected lift cache omits a required component output"
+  return (wire, execution)
+
+partial def liftProjectionData (execution : LiftExecution) (index : Nat) : TermElabM Json := do
+  let some first := execution.outputs[0]?
+    | throwError "the complete lift cache has no output fields"
+  let some initial := first[index]? | throwError "the lift projection is not a public field"
+  if index < 2 then return initial
+  let mut result := initial
+  for step in List.range (execution.outputs.size - 1) do
+    let next := step + 1
+    let mapped := Json.mkObj [("ctor", "map"),
+      ("args", Json.arr #[execution.actions[next]!, result])]
+    result := Json.mkObj [("ctor", "compose"), ("args", Json.arr
+      (if index == 2 then #[mapped, (execution.outputs[next]!)[2]!]
+        else #[(execution.outputs[next]!)[3]!, mapped]))]
+  let .ok base := LiftedSubobjectData.subobjectFields execution.bases.back!
+    | throwError "the retained lift lost its original complete base"
+  let mut image := first[0]!
+  for action in execution.actions do
+    image := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, image])]
+  return Json.mkObj [("ctor", "typedMap"), ("args", Json.arr
+    (if index == 2 then #[image, base[0]!, result] else #[base[0]!, image, result]))]
+
+/-- Cache the entire output interface at exact formal expressions. In particular the
+object field retains the complete selected suffix, so taking it does not discard lifts. -/
+partial def cacheLiftFields (h : Harness) (execution : LiftExecution)
+    (owner : Option (String × Nat)) : TermElabM Unit := do
+  let state ← registryState
+  for start in [:execution.selections.size] do
+    let suffix : LiftExecution := {
+      selections := execution.selections.extract start execution.selections.size,
+      actions := execution.actions.extract start execution.actions.size,
+      parameters := execution.parameters.extract start execution.parameters.size,
+      sources := execution.sources.extract start execution.sources.size,
+      bases := execution.bases.extract start execution.bases.size,
+      outputs := execution.outputs.extract start execution.outputs.size }
+    for index in [:4] do
+      let formal ← SelectedLift.port suffix.selections index
+      let some selection := if index < 2 then suffix.selections[0]?
+          else suffix.selections.back?
+        | throwError "the complete selected suffix is empty"
+      let context ← SelectedLift.context selection (index >= 2)
+      let some origin := state.liftInputForm? selection.entry.inputAddress
+        | throwError "the cached lift field lost its complete input address"
+      let data ← liftProjectionData suffix index
+      let wire : Wire := {
+        form := contextualForm state context origin (index != 0),
+        payload := dataPayload formal data owner,
+        liftExecution := if index == 0 then some suffix else none
+        categoryContext := some context }
+      h.results.modify (·.insert formal wire)
+
+partial def selectedLiftExecution (h : Harness) (trace : Trace) (plan : SelectedLift.Plan)
+    (formal : Expr) : TermElabM Wire := do
+  let state ← registryState
+  let inner ← SelectedLift.innerEdge state plan.entry
+  let (action, actionWires) ← realizedEdgeDescriptor h trace inner plan.action
+  let source ← realizeEndpoint h trace "the selected lift's original source object" plan.source
+  let inclusion ← realize h trace "the selected lift's complete base inclusion" plan.inclusion
+  let some (baseSource, baseTarget) := Language.homEnds? (← inferType plan.inclusion)
+    | throwError "the selected lift lost its original base inclusion endpoints"
+  let baseSource ← realizeEndpoint h trace "the selected lift's base apex" baseSource
+  let baseTarget ← if (← trace.node? baseTarget).isSome || (← h.results.get).contains baseTarget then
+    realizeEndpoint h trace "the selected lift's exact image ambient" baseTarget
+  else do
+    let context ← SelectedLift.context plan true
+    let data := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, source.json])]
+    pure {
+      form := contextualForm state context source.form
+      payload := (← combinedPayload baseTarget data (#[source] ++ actionWires))
+      categoryContext := some context }
+  let base := Json.mkObj [("ctor", "subobject"),
+    ("args", Json.arr #[baseSource.json, baseTarget.json, inclusion.json])]
+  let (parameters, parameterWires) ← realizedParameters h trace plan.parameters
+  let some form := state.liftInputForm? plan.entry.inputAddress
+    | throwError "the selected lift has no published complete input form"
+  let initial ← combinedPayload formal base
+    (#[source, inclusion, baseSource, baseTarget] ++ parameterWires ++ actionWires)
+  let initial : Wire := { form, payload := initial }
+  let mut owner := initial.owner?
+  let mut outputs := #[]
+  for field in LiftField.all do
+    let invocation : Backend.LiftInput := {
+      originalArrow := false
+      lift := plan.entry.id.raw
+      action
+      source := source.json
+      base, outputs, parameters }
+    let input : Wire := { form, payload := dataPayload formal invocation.encode owner }
+    let operation := plan.entry.fieldAddress field
+    let (answer, backend) ← send h operation input
+    outputs := outputs.push answer
+    match ← LiftedSubobjectData.validateSelectionPrefix plan action source.json base outputs with
+    | .error message => malformed backend operation answer message
+    | .ok () => pure ()
+    let returned ← computationalScope h backend answer
+    owner ← mergeOwners owner (match returned with
+      | .portable => none | .owned backend session => some (backend, session))
+  let context ← SelectedLift.context plan
+  let execution : LiftExecution := {
+    selections := #[plan], actions := #[action], parameters := #[parameters],
+    sources := #[source.json], bases := #[base], outputs := #[outputs] }
+  cacheLiftFields h execution owner
+  return {
+    form := contextualForm state context source.form
+    payload := dataPayload formal outputs[0]! owner
+    liftExecution := some execution
+    categoryContext := some context }
+
+/-- Every stage's actual returned factor becomes the next stage's base map. The formal
+plans supply domain equations; no returned value can choose a lift or certify a factor. -/
+partial def executeLiftFactor (h : Harness) (trace : Trace) (formal receiver baseMap cone proof : Expr) :
+    TermElabM Wire := do
+  let state ← registryState
+  let (liftWire, execution) ← retainedLiftExecution h trace receiver
+  let steps ← SelectedLift.factors execution.selections baseMap cone proof
+  let baseWire ← realize h trace "the factor's original complete base map" baseMap
+  let coneWire ← realize h trace "the factor's original complete source cone" cone
+  let some (domain, _) := Language.homEnds? (← inferType cone)
+    | throwError "the factor cone lost its original generalized domain"
+  let domainWire ← realizeEndpoint h trace "the factor's original generalized domain" domain
+  let .ok originalBase := LiftedSubobjectData.subobjectFields execution.bases.back!
+    | throwError "the factor lost the selected original complete base"
+  let mut domains := #[]
+  let mut cones := #[]
+  let mut currentDomain := domainWire.json
+  let mut currentCone := Json.mkObj [("ctor", "typedMap"),
+    ("args", Json.arr #[currentDomain, execution.sources[0]!, coneWire.json])]
+  for index in [:execution.selections.size] do
+    domains := domains.push currentDomain
+    cones := cones.push currentCone
+    let action := execution.actions[index]!
+    currentDomain := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, currentDomain])]
+    let target := Json.mkObj [("ctor", "functorAction"),
+      ("args", Json.arr #[action, execution.sources[index]!])]
+    currentCone := Json.mkObj [("ctor", "typedMap"), ("args", Json.arr #[currentDomain, target,
+      Json.mkObj [("ctor", "map"), ("args", Json.arr #[action, currentCone])]])]
+  let mut currentBase := Json.mkObj [("ctor", "typedMap"),
+    ("args", Json.arr #[currentDomain, originalBase[0]!, baseWire.json])]
+  let payload ← combinedPayload formal currentBase #[liftWire, baseWire, coneWire, domainWire]
+  let combined : Wire := { form := liftWire.form, payload }
+  let mut owner := combined.owner?
+  for (index, step) in (List.range execution.selections.size).reverse.toArray.zip steps do
+    let some selection := execution.selections[index]? | unreachable!
+    let .ok baseMap := Backend.TypedMap.decode currentBase
+      | throwError "the factor's preceding actual output lost its complete typed map"
+    let .ok cone := Backend.TypedMap.decode cones[index]!
+      | throwError "the factor's actual cone lost its complete original endpoints"
+    let invocation : Backend.LiftFactorInput := {
+      lift := selection.entry.id.raw, action := execution.actions[index]!,
+      source := execution.sources[index]!, base := execution.bases[index]!,
+      outputs := execution.outputs[index]!, parameters := execution.parameters[index]!, baseMap, cone }
+    let some form := state.liftInputForm? selection.entry.inputAddress
+      | throwError "the selected factor has no published complete input form"
+    let input : Wire := { form, payload := dataPayload formal invocation.encode owner }
+    let operation := selection.entry.factorAddress
+    let (answer, backend) ← send h operation input
+    match ← LiftedSubobjectData.validateMap step.factor domains[index]!
+        (execution.outputs[index]!)[0]! answer with
+    | .error message => malformed backend operation answer message
+    | .ok () => pure ()
+    let returned ← computationalScope h backend answer
+    owner ← mergeOwners owner (match returned with
+      | .portable => none | .owned backend session => some (backend, session))
+    currentBase := answer
+  let some last := steps.back? | throwError "the universal factor has no selected final stage"
+  unless ← withTransparency .all <| isDefEq last.factor formal do
+    throwError "the staged universal factor changed its independently fixed formal value"
+  let some selection := execution.selections[0]? | unreachable!
+  let context ← SelectedLift.context selection
+  return {
+    form := contextualForm state context coneWire.form true
+    payload := dataPayload formal currentBase owner
+    categoryContext := some context }
+
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
 admitted registrations. -/
 partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
@@ -2561,6 +2928,202 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one); the term is {e}"
   match node with
+  | .categoryParameter id params =>
+      let some entry := state.categories.find? (·.id == id)
+        | throwError "the selected category parameter is no longer registered"
+      let application ← DirectConstruction.close
+        (← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax))
+      unless ← withTransparency .all <| isDefEq application.value e do
+        throwError "the selected category parameter changed its complete dictionary"
+      let (parameters, dependencies) ← realizedParameters h trace params
+      let data : Backend.CategoryParameter := { category := id.raw, parameters }
+      return { form := .diagrams entry, payload := (← combinedPayload e data.encode dependencies) }
+  | .functorParameter id params =>
+      let some entry := state.functor? id
+        | throwError "the selected functor parameter is no longer registered"
+      let application ← DirectConstruction.close
+        (← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax))
+      unless ← withTransparency .all <| isDefEq (← Semantic.asFunctor application.value) e do
+        throwError "the selected functor parameter changed its complete action"
+      let (parameters, dependencies) ← realizedParameters h trace params
+      let data : Backend.FunctorParameter := { functor := id.raw, parameters }
+      let category ← Semantic.namedCategoryFor state entry.target
+      return { form := .diagrams category, payload := (← combinedPayload e data.encode dependencies) }
+  | .coreObject context object =>
+      CategoryContext.checkObject context object
+      let #[constructor] := state.constructors.filter
+          (·.semantics == `CasCatalogue.Constructors.core)
+        | throwError "the accepted core context is absent or ambiguous"
+      let coreContext ← CategoryContext.construct context constructor.id
+      let value ← mkAppM ``CategoryTheory.Core.mk #[object]
+      unless ← withTransparency .all <| isDefEq value e do
+        throwError "the core object changed its complete underlying source"
+      let original ← realizeEndpoint h trace "the complete original core object" object
+      let data : Backend.CoreObject := { receiver := original.json }
+      return {
+        form := contextualForm state coreContext original.form
+        payload := forwardPayload original e data.encode
+        categoryContext := some coreContext }
+  | .coreIso context source target forward backward =>
+      CategoryContext.checkMorphism context forward source target
+      CategoryContext.checkMorphism context backward target source
+      let #[constructor] := state.constructors.filter
+          (·.semantics == `CasCatalogue.Constructors.core)
+        | throwError "the accepted core context is absent or ambiguous"
+      let coreContext ← CategoryContext.construct context constructor.id
+      CategoryContext.checkMorphism coreContext e
+        (← mkAppM ``CategoryTheory.Core.mk #[source]) (← mkAppM ``CategoryTheory.Core.mk #[target])
+      let comparison ← mkAppM ``CategoryTheory.CoreHom.iso #[e]
+      unless ← withTransparency .all <| isDefEq
+          (← mkAppM ``CategoryTheory.Iso.hom #[comparison]) forward <&&>
+          isDefEq (← mkAppM ``CategoryTheory.Iso.inv #[comparison]) backward do
+        throwError "the complete core map changed an accepted comparison direction"
+      let sourceWire ← realizeEndpoint h trace "the core comparison source" source
+      let targetWire ← realizeEndpoint h trace "the core comparison target" target
+      let forwardWire ← realize h trace "the core comparison forward map" forward
+      let backwardWire ← realize h trace "the core comparison backward map" backward
+      let data : Backend.CoreIso := {
+        source := sourceWire.json
+        target := targetWire.json
+        forward := forwardWire.json
+        backward := backwardWire.json }
+      return {
+        form := contextualForm state coreContext sourceWire.form true
+        payload := (← combinedPayload e data.encode #[sourceWire, targetWire, forwardWire, backwardWire])
+        categoryContext := some coreContext }
+  | .contextualRoute source target route applications receiver morphism =>
+      contextualAction h trace e receiver source target route applications morphism
+  | .contextualComposition context first second source middle target =>
+      contextualComposition h trace e context first second source middle target
+  | .contextualArrow context hom source target =>
+      CategoryContext.checkMorphism context hom source target
+      let #[constructor] := state.constructors.filter
+          (·.semantics == `CasCatalogue.Constructors.arrow)
+        | throwError "the accepted Arrow context is absent or ambiguous"
+      let arrowContext ← CategoryContext.construct context constructor.id
+      unless ← withTransparency .all <| isDefEq e (← mkAppM ``CategoryTheory.Arrow.mk #[hom]) do
+        throwError "the contextual Arrow changed its complete defining morphism"
+      let sourceWire ← realizeEndpoint h trace "the contextual Arrow source" source
+      let targetWire ← realizeEndpoint h trace "the contextual Arrow target" target
+      let homWire ← realize h trace "the contextual Arrow defining map" hom
+      let (homData, dependencies) ← frameMorphismData h trace source target homWire
+      let data := Json.mkObj [("ctor", "arrow"),
+        ("args", Json.arr #[sourceWire.json, targetWire.json, homData])]
+      return {
+        form := contextualForm state arrowContext sourceWire.form
+        payload := (← combinedPayload e data (#[sourceWire, targetWire, homWire] ++ dependencies))
+        categoryContext := some arrowContext }
+  | .construction id params receiver =>
+      let some entry := state.constructions.find? (·.id == id)
+        | throwError "the selected construction is no longer registered"
+      let selected ← DirectConstruction.select entry (← params.mapM exprToSyntax) receiver
+      let expected ← DirectConstruction.obj selected receiver
+      unless ← withTransparency .all <| isDefEq expected e do
+        throwError "the direct construction changed its complete selected formal result"
+      let original ← realize h trace "the construction's complete selected source" receiver
+      let (parameters, parameterWires) ← realizedParameters h trace params
+      let request : Backend.ConstructionInvocation := {
+        construction := id.raw
+        parameters
+        receiver := original.json }
+      let some inputForm := state.constructionForm? entry.inputAddress
+        | throwError "the construction lost its registered complete input form"
+      let some resultForm := state.constructionForm? entry.id.raw
+        | throwError "the construction lost its registered complete result form"
+      let input : Wire := {
+        form := inputForm
+        payload := (← combinedPayload receiver request.encode (#[original] ++ parameterWires)) }
+      let (answer, backend) ← send h id.raw input
+      let checked ← match CategoryContext.named? state selected.target.expression with
+        | some target => validateComputationalObject trace target expected answer
+        | none => ComputationalData.validatePort expected (← inferType expected) answer
+      match checked with
+      | .error message => malformed backend id.raw answer message
+      | .ok () => pure ()
+      let data ← receiveComputationalData h backend id.raw answer true
+      let result : Wire := {
+        form := resultForm
+        payload := .computed e data
+        categoryContext := some selected.target }
+      let owner ← mergeOwners input.owner? result.owner?
+      return { result with payload := dataPayload e result.json owner }
+  | .constructionMap id params source target morphism =>
+      let some entry := state.constructions.find? (·.id == id)
+        | throwError "the selected construction map is no longer registered"
+      let selected ← DirectConstruction.select entry (← params.mapM exprToSyntax) source
+      let expected ← DirectConstruction.map selected source target morphism
+      unless ← withTransparency .all <| isDefEq expected e do
+        throwError "the construction map changed its exact selected action or endpoints"
+      let original ← realize h trace "the complete selected construction source map" morphism
+      let (parameters, parameterWires) ← realizedParameters h trace params
+      let descriptor := Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameters)]
+      let data := Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, original.json])]
+      let some resultForm := state.constructionForm? entry.id.raw
+        | throwError "the construction map lost its registered complete result form"
+      return {
+        form := contextualForm state selected.target resultForm true
+        payload := (← combinedPayload e data (#[original] ++ parameterWires))
+        categoryContext := some selected.target }
+  | .selectedLift id params source inclusion monic =>
+      let some entry := state.lifts.find? (·.id == id)
+        | throwError "the explicitly selected lift is no longer registered"
+      let plan ← SelectedLift.select entry (← params.mapM exprToSyntax) source inclusion monic
+      unless ← withTransparency .all <| isDefEq plan.ports[0]! e do
+        throwError "the explicit lift changed its complete formal object output"
+      selectedLiftExecution h trace plan e
+  | .liftProjection receiver field =>
+      let (original, execution) ← retainedLiftExecution h trace receiver
+      let some index := LiftField.all.findIdx? (·.label == field)
+        | throwError "the selected lift projection is not a public field"
+      let expected ← SelectedLift.port execution.selections index
+      unless ← withTransparency .all <| isDefEq expected e do
+        throwError "the lift projection changed its complete selected formal type"
+      let data ← liftProjectionData execution index
+      let some selection := if index < 2 then execution.selections[0]?
+          else execution.selections.back?
+        | throwError "the retained selected lift is empty"
+      let context ← SelectedLift.context selection (index >= 2)
+      return {
+        form := contextualForm state context original.form (index != 0)
+        payload := forwardPayload original e data
+        liftExecution := if index == 0 then original.liftExecution else none
+        categoryContext := some context }
+  | .liftFactor receiver baseMap cone proof =>
+      executeLiftFactor h trace e receiver baseMap cone proof
+  | .cellComponent id params constructors inverse receiver =>
+      let some entry := state.cells.find? (·.id == id)
+        | throwError "the selected cell is no longer registered"
+      let action ← CellAction.select entry (← params.mapM exprToSyntax) constructors inverse receiver
+      unless ← withTransparency .all <| isDefEq (← CellAction.component action receiver) e do
+        throwError "the selected cell changed its actual full component"
+      let original ← realize h trace "the natural component's complete selected receiver" receiver
+      let (parameters, dependencies) ← realizedParameters h trace params
+      let base : Backend.CellComponent := {
+        cell := id.raw
+        parameters
+        receiver := original.json
+        inverse }
+      let data := if constructors.isEmpty then base.encode else
+        Json.mkObj [("ctor", "constructedCellComponent"), ("args", Json.arr
+          #[toJson (constructors.map (·.raw)), base.encode])]
+      let some form := state.componentForm? (entry.componentAddress constructors)
+        | throwError "the component's complete accepted input form is absent"
+      return {
+        form
+        payload := (← combinedPayload e data (#[original] ++ dependencies))
+        categoryContext := some { expression := action.target, bundle := action.targetBundle } }
+  | .cellEndpoint id params constructors inverse right receiver =>
+      let some entry := state.cells.find? (·.id == id)
+        | throwError "the selected endpoint's cell is no longer registered"
+      let action ← CellAction.select entry (← params.mapM exprToSyntax) constructors inverse receiver
+      let (source, target) ← CellAction.objects action receiver
+      unless ← withTransparency .all <| isDefEq e (if right then target else source) do
+        throwError "the component endpoint changed its exact selected object action"
+      contextualAction h trace e receiver
+        { expression := action.source, bundle := action.sourceBundle }
+        { expression := action.target, bundle := action.targetBundle }
+        (if right then action.rightRoute else action.leftRoute)
+        (if right then action.rightApplications else action.leftApplications) false
   | .callableRecipe categoryId domain target body =>
       let some category := state.categories.find? (·.id == categoryId)
         | throwError "the callable recipe category is not registered"
@@ -2612,6 +3175,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let snapshot : WireSnapshot := {
         form := original.form, payload := original.payload,
         presentationIsos := original.presentationIsos, objectIso := original.objectIso,
+        liftExecution := original.liftExecution,
+        categoryContext := original.categoryContext,
         endpointPresentation := original.endpointPresentation }
       return {
         form := .proofRefinement target classifier original.form,
@@ -2846,14 +3411,19 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return { form := .canonicalMorphism category, payload := forwardPayload wire e json }
   | .arrowProjection receiver =>
       let wire ← realize h trace "the stored arrow object" receiver
-      let some category := state.categories.find? (·.id == wire.form.category)
-        | throwError "the stored arrow category is not registered"
-      let .construct constructor #[.category base] := category.expression
+      let some expression := state.formExpression? wire.form
+        | throwError "the stored Arrow lost its accepted category expression"
+      let .construct constructor #[.category base] := expression
         | throwStratum .invalid "the receiver is not a registered arrow construction"
       unless (state.constructors.find? (·.id == constructor)).any
           (·.semantics == `CasCatalogue.Constructors.arrow) do
         throwStratum .invalid "the receiver uses a different registered construction"
-      let baseCategory ← Semantic.namedCategoryFor state base
+      let arrowType ← whnfR (← inferType receiver)
+      unless arrowType.isAppOfArity ``CategoryTheory.Arrow 2 do
+        throwError "the stored Arrow lost its exact typed category"
+      let bundle ← mkAppOptM ``CategoryTheory.Cat.of
+        #[some arrowType.getAppArgs[0]!, some arrowType.getAppArgs[1]!]
+      let baseContext ← CategoryContext.presented { expression := base, bundle }
       if let some iso := wire.objectIso then
         unless ← withTransparency .all <| isDefEq (← inferType iso)
             (← mkAppM ``CategoryTheory.Iso #[receiver, wire.value]) do
@@ -2867,7 +3437,10 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
             if wire.objectIso.isNone then hom
             else Json.mkObj [("ctor", "arrowHom"), ("args", Json.arr #[wire.json])]
         | _, _ => Json.mkObj [("ctor", "arrowHom"), ("args", Json.arr #[wire.json])]
-      return { form := .canonicalMorphism baseCategory, payload := forwardPayload wire e json }
+      return {
+        form := contextualForm state baseContext wire.form true
+        payload := forwardPayload wire e json
+        categoryContext := some baseContext }
   | .morphismIdentity categoryId object =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
       let endpoint ← realizeEndpoint h trace "the identity endpoint" object
@@ -2898,6 +3471,50 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return { form := .canonicalMorphism category, payload }
   | .morphismComposition categoryId first second source middle target =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
+      let specialized ← match ← (trace.node? second : IO _) with
+        | some (.constructionMap id params _ _ _) => do
+          let some entry := state.constructions.find? (·.id == id)
+            | throwError "the applied construction map is no longer registered"
+          let (parameters, dependencies) ← realizedParameters h trace params
+          pure (some (entry.mapAddress, parameters, dependencies,
+            Form.constructionInput entry categoryId))
+        | some (.cellComponent id params constructors inverse receiver) => do
+          let some entry := state.cells.find? (·.id == id)
+            | throwError "the applied cell is no longer registered"
+          let (parameters, dependencies) ← realizedParameters h trace params
+          let original ← realize h trace "the component's complete selected receiver" receiver
+          pure (some (entry.componentAddress constructors,
+            #[Json.arr parameters, original.json, toJson inverse], dependencies.push original,
+            Form.cellComponent entry constructors categoryId))
+        | _ => pure none
+      if let some (address, parameters, dependencies, inputForm) := specialized then
+        let argument ← realize h trace "the original generalized point of the selected action" first
+        let arrow ← realize h trace "the complete selected callable action" second
+        let domainWire ← realizeEndpoint h trace "the selected action's original generalized domain" source
+        let sourceWire ← realizeEndpoint h trace "the selected action's complete source" middle
+        let targetWire ← realizeEndpoint h trace "the selected action's complete target" target
+        let invocation : Backend.PointInvocation := {
+          operation := address
+          parameters
+          arrow := arrow.json
+          domain := domainWire.json
+          source := sourceWire.json
+          target := targetWire.json
+          argument := argument.json }
+        let input : Wire := {
+          form := inputForm
+          payload := (← combinedPayload e invocation.encode
+            (#[argument, arrow, domainWire, sourceWire, targetWire] ++ dependencies)) }
+        let (answer, backend) ← send h address input (completeRequest := true)
+        let validation ← if ← withTransparency .all <| isDefEq source (← closedElementDomain state) then
+          ComputationalData.validateElementAt target targetWire.json (← pointResultValue state e) answer
+        else ComputationalData.validateEndpointPort e domainWire.json targetWire.json answer
+        match validation with
+        | .error message => malformed backend address answer message
+        | .ok () => pure ()
+        let data ← receiveComputationalData h backend address answer
+        let result : Wire := { form := .canonicalMorphism category, payload := .computed e data }
+        return { result with payload := dataPayload e result.json (← mergeOwners input.owner? result.owner?) }
       let callable ← match ← (trace.node? second : IO _) with
         | some (.namedMorphism id params) => pure (some (id.raw, params))
         | some (.namedCallable address _ params) => pure (some (address, params))
@@ -3120,25 +3737,37 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let image ← Semantic.objOf F input.value
       unless ← isDefEq (← inferType image) (← inferType e) do
         throwError "the recorded functor parameters have incompatible typed endpoints"
-      let target ← Semantic.namedCategoryFor state entry.target
+      let (_, bundle) ← functorCategoryBundles F
+      let context ← CategoryContext.presented { expression := entry.target, bundle }
+      let target? := CategoryContext.named? state entry.target
+      let form := match target? with
+        | some target => imageForm state (.functor id) target
+        | none => Form.contextual entry.target input.form
       let endpointPresentation ← mapEndpointPresentation F
         (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]) input.endpointPresentation
       if let some projected ← projectObjectAction trace entry.source (.functor id)
           F receiver input.json then
         return {
-          form := imageForm state (.functor id) target
+          form
           endpointPresentation := endpointPresentation
+          categoryContext := some context
           payload := (← combinedPayload e projected (#[input] ++ dependencies)) }
       let request := { input with payload := (← combinedPayload input.value (Json.mkObj [("ctor", id.raw),
         ("args", Json.arr args), ("receiver", input.json)]) (#[input] ++ dependencies)) }
       let (answer, backend) ← send h id.raw request
-      match ← validateComputationalObject trace target e answer with
+      let checked ← match target? with
+        | some target => validateComputationalObject trace target e answer
+        | none => ComputationalData.validatePort e (← inferType e) answer
+      match checked with
       | .error message => malformed backend id.raw answer message
       | .ok () => pure ()
       let data ← receiveComputationalData h backend id.raw answer true
-      return {
-        form := imageForm state (.functor id) target, payload := .computed e data
-        endpointPresentation := endpointPresentation }
+      let result : Wire := {
+        form, payload := .computed e data
+        endpointPresentation := endpointPresentation
+        categoryContext := some context }
+      let owner ← mergeOwners request.owner? result.owner?
+      return { result with payload := dataPayload e result.json owner }
   | .retainedRoute _ targetCategory route applications receiver =>
       let input ← realize h trace "the retained structural source" receiver
       -- An exact application of the registered route can use its published
@@ -3591,15 +4220,19 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some method := state.methods.find? (·.id == id) | unreachable!
       let some functor := state.functor? method.functor
         | throwError "{id.raw} has no registered functor"
-      let some target := state.category? functor.target
-        | throwError "the result category of {id.raw} is not registered"
       let F ← registeredFunctorInstance functor
       let acceptedInput ← methodArgument method input
       let expected ← Semantic.objOf F acceptedInput
+      let (_, bundle) ← functorCategoryBundles (← Semantic.asFunctor F)
+      let context ← CategoryContext.presented { expression := functor.target, bundle }
+      let target? := CategoryContext.named? state functor.target
+      let form := match target? with
+        | some target => imageForm state (.functor functor.id) target
+        | none => Form.contextual functor.target request.form
       -- The registered comparisons that identified the recorded route among its competitors.
-      let some receiverCategory := state.categories.find? (·.id == original.form.category)
-        | throwError "the method receiver's category is not registered"
-      let resolution ← match state.resolveMethod receiverCategory.expression method.name with
+      let some receiverExpression := state.formExpression? original.form
+        | throwError "the method receiver lost its complete accepted category expression"
+      let resolution ← match state.resolveMethod receiverExpression method.name with
         | .ok resolution => pure resolution
         | .error error => throwResolutionError state error
       unless resolution.route.refs == route do
@@ -3611,14 +4244,20 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         unless ← withTransparency .all <| isDefEq expected e do
           throwError "the projected method changed its independently retained formal result"
         return {
-          form := imageForm state (.functor functor.id) target
+          form
+          categoryContext := some context
           payload := forwardPayload request e projected }
       let (json, backend) ← send h id.raw (← computationalApexReceiver trace request) comparisons
-      match ← validateComputationalObject trace target expected json with
+      let checked ← match target? with
+        | some target => validateComputationalObject trace target expected json
+        | none => ComputationalData.validatePort expected (← inferType expected) json
+      match checked with
       | .error message => malformed backend id.raw json message
       | .ok () => pure ()
       let data ← receiveComputationalData h backend id.raw json true
-      return { form := imageForm state (.functor functor.id) target, payload := .computed e data }
+      let result : Wire := { form, payload := .computed e data, categoryContext := some context }
+      let owner ← mergeOwners request.owner? result.owner?
+      return { result with payload := dataPayload e result.json owner }
   | .methodWithLifts id route lifts receiver =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let (request, input) ← operationReceiver trace original route
@@ -3631,15 +4270,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let (retainedBase, _) ← Semantic.applyRegisteredFunctor functor acceptedInput #[] (some trace)
       unless ← withTransparency .all <| isDefEq retainedBase expected do
         throwError "the prescribed base action changed its full retained method input"
-      let some sourceCategory := state.categories.find? (·.id == original.form.category)
-        | throwError "the prescribed method has no independently retained source schema"
-      let resolution ← match state.resolveMethod sourceCategory.expression method.name with
+      let some sourceExpression := state.formExpression? original.form
+        | throwError "the prescribed method lost its complete accepted source expression"
+      let resolution ← match state.resolveMethod sourceExpression method.name with
         | .ok resolution => pure resolution
         | .error error => throwResolutionError state error
       unless resolution.route.refs == route && resolution.lifts == lifts do
         throwError "the prescribed operation changed its registered route or ordered lifts"
       discard <| Semantic.validateResolutionComparisons state resolution (some receiver)
-      let .construct arrowConstructor #[source] := sourceCategory.expression
+      let .construct arrowConstructor #[source] := sourceExpression
         | throwError "the prescribed method receiver is not a complete Arrow"
       unless (state.constructors.find? (·.id == arrowConstructor)).any
           (·.semantics == `CasCatalogue.Constructors.arrow) do
@@ -3647,10 +4286,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some constructor := state.constructors.find?
           (·.semantics == `CasCatalogue.Constructors.subobjects)
         | throwError "the prescribed method has no registered subobjects schema"
-      let some category := state.categories.find?
-          (·.expression.syntacticEq (.construct constructor.id #[source]))
-        | throwError "the prescribed lift target has no registered full schema"
-      let prepared ← LiftedSubobjectData.plan (← inferType e) category receiver lifts retainedBase
+      let resultExpression := CategoryExpr.construct constructor.id #[source]
+      let prepared ← LiftedSubobjectData.planIn (← inferType e) resultExpression receiver lifts retainedBase
       let plan ← match prepared with
         | .ok plan => pure plan
         | .error message => throwError "{message}"
@@ -3659,9 +4296,13 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       | .error message => malformed backend id.raw answer message
       | .ok () => pure ()
       let baseData ← receiveComputationalData h backend id.raw answer true
-      let base : Wire := { form := .subobject target, payload := .computed retainedBase baseData }
-      let (liftedJson, owner) ← executePrescribedLift h trace plan original base
-      let some checked ← LiftedSubobjectData.decode (← inferType e) category
+      let receivedBase : Wire := { form := .subobject target, payload := .computed retainedBase baseData }
+      let baseOwner ← mergeOwners request.owner? receivedBase.owner?
+      let base := { receivedBase with payload := dataPayload retainedBase receivedBase.json baseOwner }
+      let parameters ← plan.components.mapM fun component => do
+        realizedParameters h trace (← DirectConstruction.dataArguments component.selection.parameters)
+      let (liftedJson, owner) ← executePrescribedLift h trace plan original base parameters
+      let some checked ← LiftedSubobjectData.decodeIn (← inferType e) resultExpression
           receiver lifts retainedBase liftedJson
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
@@ -3674,7 +4315,35 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let payload := match owner with
         | none => .computed e (.inline packet.data)
         | some (backend, session) => .computed e (.owned backend session packet.data)
-      return { form := .subobject category, payload }
+      let .ok complete := LiftedSubobjectData.fields "liftedSubobject" 4 packet.data
+        | throwError "the completed lift lost its full ordered packet"
+      let .ok steps := complete[3]!.getArr?
+        | throwError "the completed lift lost its ordered component data"
+      let mut actions := #[]
+      let mut sources := #[]
+      let mut bases := #[]
+      for step in steps do
+        let .ok fields := LiftedSubobjectData.fields "liftStep" 5 step
+          | throwError "the completed lift lost a selected step"
+        let .ok sourceFields := LiftedSubobjectData.fields "arrow" 3 fields[2]!
+          | throwError "the completed lift lost its original complete source Arrow"
+        actions := actions.push fields[1]!
+        sources := sources.push sourceFields[0]!
+        bases := bases.push fields[3]!
+      let execution : LiftExecution := {
+        selections := plan.components.map (·.selection), actions,
+        parameters := parameters.map Prod.fst, sources, bases, outputs := packet.outputs }
+      cacheLiftFields h execution owner
+      let some first := execution.selections[0]?
+        | throwError "the completed method lost its selected source lift"
+      let context ← CategoryContext.construct (← SelectedLift.context first) constructor.id
+      unless context.expression.syntacticEq resultExpression do
+        throwError "the completed method changed its accepted constructed result category"
+      return {
+        form := match CategoryContext.named? state resultExpression with
+          | some category => .subobject category
+          | none => .contextual resultExpression original.form
+        payload, liftExecution := some execution, categoryContext := some context }
   | .property id _ _ =>
       throwError "the decision {id.raw} is not a value"
 
@@ -3834,9 +4503,9 @@ partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : E
   let state ← registryState
   let some property := state.properties.find? (·.id == id)
     | throwError "the recorded property is not registered"
-  let some receiverCategory := state.categories.find? (·.id == original.form.category)
-    | throwError "the property receiver has no registered category"
-  let resolution ← match state.resolveProperty receiverCategory.expression property.name with
+  let some receiverExpression := state.formExpression? original.form
+    | throwError "the property receiver lost its accepted category expression"
+  let resolution ← match state.resolveProperty receiverExpression property.name with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
   unless resolution.route.refs == route do
@@ -4306,6 +4975,8 @@ def interpret (scope : Scope) (stx : Syntax)
     | throwError "no pinned mathematical dependency revision"
   let (identity, shown) ← claimQuestion claim
   let afterQuestion ← record "question_construction" afterRead
+  let instantiateContext (context : CategoryContext) : TermElabM CategoryContext := do
+    return { context with bundle := (← instantiateMVars context.bundle) }
   let nodes ← (← trace.get).toArray.mapM fun (term, node) => do
     let term ← instantiateMVars term
     let node : Node ← match node with
@@ -4367,6 +5038,16 @@ def interpret (scope : Scope) (stx : Syntax)
             (← instantiateMVars middle) (← instantiateMVars target))
       | .morphismIdentity category object =>
           pure (.morphismIdentity category (← instantiateMVars object))
+      | .contextualRoute source target route applications receiver morphism =>
+          pure (.contextualRoute (← instantiateContext source) (← instantiateContext target)
+            route (← applications.mapM instantiateMVars) (← instantiateMVars receiver) morphism)
+      | .contextualComposition context first second source middle target =>
+          pure (.contextualComposition (← instantiateContext context)
+            (← instantiateMVars first) (← instantiateMVars second)
+            (← instantiateMVars source) (← instantiateMVars middle) (← instantiateMVars target))
+      | .contextualArrow context hom source target =>
+          pure (.contextualArrow (← instantiateContext context) (← instantiateMVars hom)
+            (← instantiateMVars source) (← instantiateMVars target))
       | .arrowProjection receiver =>
           pure (.arrowProjection (← instantiateMVars receiver))
       | .limitProjection receiver index =>
@@ -4389,6 +5070,33 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.morphismTransport sourceCategory targetCategory route (← instantiateMVars receiver))
       | .functor id params receiver =>
           pure (.functor id (← params.mapM instantiateMVars) (← instantiateMVars receiver))
+      | .categoryParameter id params =>
+          pure (.categoryParameter id (← params.mapM instantiateMVars))
+      | .functorParameter id params =>
+          pure (.functorParameter id (← params.mapM instantiateMVars))
+      | .construction id params receiver =>
+          pure (.construction id (← params.mapM instantiateMVars) (← instantiateMVars receiver))
+      | .constructionMap id params source target morphism =>
+          pure (.constructionMap id (← params.mapM instantiateMVars)
+            (← instantiateMVars source) (← instantiateMVars target) (← instantiateMVars morphism))
+      | .coreObject context object =>
+          pure (.coreObject (← instantiateContext context) (← instantiateMVars object))
+      | .coreIso category source target forward backward =>
+          pure (.coreIso (← instantiateContext category) (← instantiateMVars source) (← instantiateMVars target)
+            (← instantiateMVars forward) (← instantiateMVars backward))
+      | .selectedLift id params source inclusion monic =>
+          pure (.selectedLift id (← params.mapM instantiateMVars) (← instantiateMVars source)
+            (← instantiateMVars inclusion) (← instantiateMVars monic))
+      | .liftProjection receiver field => pure (.liftProjection (← instantiateMVars receiver) field)
+      | .liftFactor receiver baseMap cone proof =>
+          pure (.liftFactor (← instantiateMVars receiver) (← instantiateMVars baseMap)
+            (← instantiateMVars cone) (← instantiateMVars proof))
+      | .cellComponent id params constructors inverse receiver =>
+          pure (.cellComponent id (← params.mapM instantiateMVars) constructors inverse
+            (← instantiateMVars receiver))
+      | .cellEndpoint id params constructors inverse right receiver =>
+          pure (.cellEndpoint id (← params.mapM instantiateMVars) constructors inverse right
+            (← instantiateMVars receiver))
       | .binder id params domain body admitted =>
           pure (.binder id (← params.mapM instantiateMVars) (← instantiateMVars domain)
             (← instantiateMVars body) (← instantiateMVars admitted))
@@ -4416,6 +5124,8 @@ def interpret (scope : Scope) (stx : Syntax)
   let table ← TermTable.new
   let remap ← TermRemap.new sourceTable table
   let encode := remap.encodeTerm
+  let encodeContext (context : CategoryContext) : TermElabM Json := do
+    return Json.arr #[toJson (reprStr context.expression), toJson (← encode context.bundle)]
   let operations ← ordered.mapM fun (_, sourceRoot, _, node) => do
     let root ← remap.encode sourceRoot
     let operation ← match node with
@@ -4500,6 +5210,17 @@ def interpret (scope : Scope) (stx : Syntax)
       | .morphismIdentity category object =>
           pure (Json.arr #[toJson "morphismIdentity", toJson category.raw,
             toJson (← encode object)])
+      | .contextualRoute source target route applications receiver morphism =>
+          pure (Json.arr #[toJson "contextualRoute", ← encodeContext source, ← encodeContext target,
+            toJson (route.map reprStr), toJson (← applications.mapM encode),
+            toJson (← encode receiver), toJson morphism])
+      | .contextualComposition context first second source middle target =>
+          pure (Json.arr #[toJson "contextualComposition", ← encodeContext context,
+            toJson (← encode first), toJson (← encode second), toJson (← encode source),
+            toJson (← encode middle), toJson (← encode target)])
+      | .contextualArrow context hom source target =>
+          pure (Json.arr #[toJson "contextualArrow", ← encodeContext context,
+            toJson (← encode hom), toJson (← encode source), toJson (← encode target)])
       | .arrowProjection receiver =>
           pure (Json.arr #[toJson "arrowProjection", toJson (← encode receiver)])
       | .limitProjection receiver index =>
@@ -4528,6 +5249,40 @@ def interpret (scope : Scope) (stx : Syntax)
       | .functor id params receiver =>
           pure (Json.arr #[toJson "functor", toJson id.raw,
             toJson (← params.mapM encode), toJson (← encode receiver)])
+      | .categoryParameter id params =>
+          pure (Json.arr #[toJson "categoryParameter", toJson id.raw, toJson (← params.mapM encode)])
+      | .functorParameter id params =>
+          pure (Json.arr #[toJson "functorParameter", toJson id.raw, toJson (← params.mapM encode)])
+      | .construction id params receiver =>
+          pure (Json.arr #[toJson "construction", toJson id.raw,
+            toJson (← params.mapM encode), toJson (← encode receiver)])
+      | .constructionMap id params source target morphism =>
+          pure (Json.arr #[toJson "constructionMap", toJson id.raw,
+            toJson (← params.mapM encode), toJson (← encode source),
+            toJson (← encode target), toJson (← encode morphism)])
+      | .coreObject category object =>
+          pure (Json.arr #[toJson "coreObject", ← encodeContext category, toJson (← encode object)])
+      | .coreIso category source target forward backward =>
+          pure (Json.arr #[toJson "coreIso", ← encodeContext category,
+            toJson (← encode source), toJson (← encode target),
+            toJson (← encode forward), toJson (← encode backward)])
+      | .selectedLift id params source inclusion monic =>
+          pure (Json.arr #[toJson "selectedLift", toJson id.raw,
+            toJson (← params.mapM encode), toJson (← encode source),
+            toJson (← encode inclusion), toJson (← encode monic)])
+      | .liftProjection receiver field =>
+          pure (Json.arr #[toJson "liftProjection", toJson (← encode receiver), toJson field])
+      | .liftFactor receiver baseMap cone proof =>
+          pure (Json.arr #[toJson "liftFactor", toJson (← encode receiver),
+            toJson (← encode baseMap), toJson (← encode cone), toJson (← encode proof)])
+      | .cellComponent id params constructors inverse receiver =>
+          pure (Json.arr #[toJson "cellComponent", toJson id.raw,
+            toJson (← params.mapM encode), toJson (constructors.map (·.raw)),
+            toJson inverse, toJson (← encode receiver)])
+      | .cellEndpoint id params constructors inverse right receiver =>
+          pure (Json.arr #[toJson "cellEndpoint", toJson id.raw,
+            toJson (← params.mapM encode), toJson (constructors.map (·.raw)),
+            toJson inverse, toJson right, toJson (← encode receiver)])
       | .binder id params domain body admitted =>
           pure (Json.arr #[toJson "binder", toJson id.raw, toJson (← params.mapM encode),
             toJson (← encode domain), toJson (← encode body),
@@ -4572,6 +5327,7 @@ judgements belong to interpretation; an unexpected semantic exception during eva
 an interpreter defect. -/
 def executionFailure (e : Exception) : TermElabM ExecutionOutcome := do
   let reason ← e.toMessageData.toString
+  if Exception.hasConflictingStrata e then return .internal reason
   return match Exception.stratum? e with
     | some .noImplementation | some .ambiguousRealization => .gap reason
     | some .unavailable => .unavailable reason

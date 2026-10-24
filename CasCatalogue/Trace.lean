@@ -23,6 +23,13 @@ open Lean
 
 namespace CasCatalogue
 
+/-- A local category context derived from accepted actions. The complete selected
+bundle is retained even when the expression has no separately named registry row. -/
+structure CategoryContext where
+  expression : CategoryExpr
+  bundle : Expr
+  deriving Repr
+
 /-- Accepted source presentations of one definitionally identical complete structured value.
 The identity is a kernel-checkable conversion proof of the full image, never its carrier. -/
 structure ParameterPresentation where
@@ -96,6 +103,11 @@ inductive Node
   | productMediator (category : CategoryId) (presentation domain left right : Expr)
   | morphismComposition (category : CategoryId) (first second source middle target : Expr)
   | morphismIdentity (category : CategoryId) (object : Expr)
+  | contextualRoute (source target : CategoryContext) (route : Array EdgeRef)
+      (applications : Array Expr) (receiver : Expr) (morphism : Bool)
+  | contextualComposition (context : CategoryContext)
+      (first second source middle target : Expr)
+  | contextualArrow (context : CategoryContext) (hom source target : Expr)
   /-- The stored map of an object of the registered arrow-category construction. -/
   | arrowProjection (receiver : Expr)
   /-- A defining leg of the exact retained universal construction. -/
@@ -108,6 +120,24 @@ inductive Node
       (route : Array EdgeRef) (receiver : Expr)
   /-- A registered functor's object action at its typed parameters and exact receiver. -/
   | functor (id : FunctorId) (params : Array Expr) (receiver : Expr)
+  /-- A directly selected registered construction, with every declaration parameter. -/
+  | construction (id : ConstructionId) (params : Array Expr) (receiver : Expr)
+  | constructionMap (id : ConstructionId) (params : Array Expr)
+      (source target morphism : Expr)
+  | categoryParameter (id : CategoryId) (params : Array Expr)
+  | functorParameter (id : FunctorId) (params : Array Expr)
+  /-- The actual registered core construction retains its underlying complete object. -/
+  | coreObject (context : CategoryContext) (object : Expr)
+  | coreIso (context : CategoryContext) (source target forward backward : Expr)
+  /-- An explicitly selected lift's four fields share this exact retained application. -/
+  | selectedLift (id : LiftId) (params : Array Expr) (source inclusion monic : Expr)
+  | liftProjection (receiver : Expr) (field : String)
+  | liftFactor (receiver baseMap cone proof : Expr)
+  /-- A component of a registered cell, after its declared constructor actions. -/
+  | cellComponent (id : NaturalTransformationId) (params : Array Expr)
+      (constructors : Array ConstructorId) (inverse : Bool) (receiver : Expr)
+  | cellEndpoint (id : NaturalTransformationId) (params : Array Expr)
+      (constructors : Array ConstructorId) (inverse right : Bool) (receiver : Expr)
   /-- A binder's exact parameters, domain map and independently admitted map. -/
   | binder (id : BinderId) (params : Array Expr) (domain body admitted : Expr)
   /-- A registered arrow-category object, with its defining map and both endpoints. -/

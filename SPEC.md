@@ -107,6 +107,99 @@ assert h(-t) = h(t)
 
 ```
 
+## Registered actions, components, and selected lifts
+
+The following forms consume declarations already registered by `lean-categories`.
+Names in angle brackets below stand for actual registered names or identifiers;
+they are not new declarations. Identifiers containing punctuation can be written
+with Lean's identifier quotes, for example `«the.registered.identifier»`.
+All parameters are supplied in declaration order and are checked against the
+complete dependent signature.
+
+An object construction uses its registered surface name. Its final argument is
+the selected source object; preceding arguments are the construction's explicit
+parameters:
+
+```text
+<construction>(p₁, …, pₙ, X)
+map f along <construction>(p₁, …, pₙ)
+```
+
+The second form is the same construction's map action. Its source and target
+are the construction applied to the exact source and target of `f`. If the
+declaration consumes a category and that argument is omitted, the selected
+object's own complete category context supplies it. For a construction on the
+core category, an accepted invertible presentation or component supplies both
+directions of its isomorphism. A general morphism cannot stand in for that
+isomorphism. Applicable registered meanings are compared together; a construction
+name does not take precedence over another applicable declaration.
+
+A registered functor can be selected explicitly, including when it is not a
+structural inheritance edge:
+
+```text
+view X along <functor-id>
+view X along <functor-id>(p₁, …, pₙ)
+```
+
+Registered category names and functor identifiers may also occur in an explicit
+parameter slot whose declared type asks for that category or functor. Category
+parameters retain their full structure and ordered parameters. A value in an
+accepted constructed category retains that entire category expression and its
+typed bundle even when the registry has no separate name for the expression.
+Subsequent composition, selected action, and inherited method or property
+resolution use this retained context.
+
+A natural cell component fixes the registered cell, all its data parameters,
+the complete receiver, and an ordered constructor path:
+
+```text
+component(<cell-id>(p₁, …, pₙ), X, [])
+component(<cell-id>(p₁, …, pₙ), X, [<outer-constructor-id>, <inner-constructor-id>])
+inverse_component(<cell-id>(p₁, …, pₙ), X, [<constructor-id>])
+```
+
+An empty path selects the base cell. Constructor identifiers run from the outer
+construction to the inner construction; the receiver is an object of that full
+constructed source category. An arrow can be supplied directly when that receiver
+is an object of the arrow category. Each constructor must publish the required
+accepted comparison action. An inverse requires the registered cell to be
+invertible. The result is a typed morphism with both exact endpoints, usable in
+ordinary composition and generalized application. For `f : A → B` and
+`u : D → A`, `f(u)` retains the full original domain `D` and yields `D → B`.
+No restriction to terminal domains or graph presentations is imposed by these
+forms.
+
+An explicit subobject lift selects the registered evidence family as well as its
+original source and base inclusion:
+
+```text
+let L := lift(X) along <lift-id>(p₁, …, pₙ) with m using proof(<monicity-term>)
+L.obj()
+L.hom()
+L.forward()
+L.backward()
+factor(g) through L with f using proof(<compatibility-term>)
+```
+
+For the selected functor `U`, the inclusion has type `m : S → U(X)` and the
+monicity term is checked at `Mono m`. The four projections are the lifted object,
+its defining map to `X`, and the forward and backward maps between its image and
+`S`. A factor call keeps the original generalized domain `D`, with
+`f : D → X`, `g : U(D) → S`, and a checked term of
+`U.map f = g ≫ m`; its result has type `D → L.obj()`.
+The same projections and factor call apply to a method result with prescribed
+lifts. For several prescribed stages, the forward and backward fields use every
+declared functor map and comparison in order, and factorization runs through all
+the selected stages. Taking `.obj()` retains the complete selected lift for later
+field access and factorization.
+
+`proof(<Lean term>)` is a formal input checked at the exact proposition required
+by the declaration. It must be closed and contain no `sorry`. Computational
+answers never supply these proofs or choose a different lift, cell, constructor,
+category, or endpoint. All these forms fix their mathematical meaning before any
+implementation is selected; missing computation is reported separately.
+
 ## Polynomials
 
 A named object can expose a distinguished generator through its mathematical declaration.
