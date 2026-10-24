@@ -514,3 +514,34 @@ is preserved at `/tmp/kernel-action-carrier-fixture-check-4486411-20261024/check
 (SHA-256 `28de4df9d7c5b748e72314eeaaa4d21f5166b3bae3d65b363384f38652265e7a`).
 The replacement follows the independently published signature, not a computed
 answer. This checkpoint is source-reviewed only; its complete probe rerun is pending.
+
+
+### Bounded source review: direct carrier-parameter binding
+
+Reviewed `fa95e20214dec2b48f99ccd7ea1b2cca886df594` (the same 13-line change as
+`21bde906921abfb407d7060718d5595896dc6168`) and the engineering controls at
+`174c0907e3461fa882ffdf893b33634500ed73d1`. No concrete source defect was found
+within this delta. `typedParameter` first obtains the actual argument at the
+parameter's declared type. The new return then requires the parameter itself to
+remain a direct metavariable, its instantiated type to be a resolved `Sort`, and
+the actual term to have no expression or universe metavariables and to be type
+correct. Local rigid parameters remain permitted by their typed context.
+
+For this direct binder, every successful candidate in the old witness loop had
+to satisfy both assignment to that candidate and the final equation with the
+same actual term. Thus all successful candidates were already definitionally
+equal to that supplied carrier; enumeration cannot supply a distinct valid
+choice. A projection such as `MonCat.carrier ?owner`, a composite parameter, or
+a metavariable whose type is a bundled-object type does not enter the new
+branch. Their complete witness comparison and ambiguity paths remain unchanged.
+The change neither traverses nor removes the operand's retained provenance.
+
+The joint source call in `applyFamily` precedes its target-unification stage;
+`callableInput` uses the actual callable and no target argument. This new branch
+therefore introduces no target-driven inference. The controls cover a direct
+rigid type in the presence of another retained type, refusal of conflicting
+uses of one shared binder, nested `Prod` inference, and ambiguity between
+complete monoid owners sharing a carrier. They were inspected as source only.
+The completed `EvidenceOrder` review is unaffected. No Lean process or probe
+execution was used for this follow-up; this is a bounded compositional argument,
+not a compilation result or mathematical acceptance.

@@ -2740,3 +2740,21 @@ original unrelated dirty Language patch still exactly matches its saved baseline
   route. Scratch diagnostic `|ZMod(5) in Rings| = 5` holds with one `meth.cardinality` dispatch on
   `obj.rings.integers_mod` recording `cell.rings.additive_monoid_carrier` and `cmp.rings.carrier`
   (`6452585-dirty-…-targeted-k10.json`); `sets.card.z7`, `sets.card.integers` still hold.
+
+## 2026-10-25 — Complete the unchanged dependent-reader regressions
+
+The actual rebuilt reader at local `174c0907` / published `1b9d5a8` passes the
+entire unchanged `CasAcceptance.DependentReaderProbes` together with the complete-key
+ordering and direct-parameter controls. The 184.313-second run retained the exact
+kernel/mathematics/contract source tuple; peak child RSS was 3,081,756 KiB.
+The log and provenance retain their original `20261024` UTC filenames.
+
+Two measured generic obstructions caused the earlier formed-pairing failures:
+raw expression serialization when ordering validated evidence, and enumeration
+of 24 retained witnesses for a direct carrier type already fixed by its actual
+argument. The repairs use the existing complete question encoder for ordering
+and bind that resolved type directly. Nested/projected parameters preserve the
+complete witness scan and ambiguity checks. Runtime question budgets, cache
+eligibility, semantic reading order and all permanent assertions are unchanged.
+The independent bounded source review found no concrete defect; integrated
+consumer execution and the final frozen extension trials remain separate work.

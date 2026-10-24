@@ -17,7 +17,7 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; integrated candidate `6aad803995aebac18112c8733c471cc8ce3eb444` | Checked mathematical prerequisites compile; construction-source and retained-context consumers await the coherent rerun; the unchanged formed-pairing reader still times out |
+| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `dd7a448ac1a638882e32aea28b7445ddb577e0aa` | Entire unchanged dependent-reader file and its selected controls now pass; action-source binding passes the staged-numeral consumer; combined action-parameter controls and final execution remain under verification |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `82d1370de372a00a86391b74fc2566c9547dfcb6` | Includes checked closed polynomial normalization, cancellation and injective coefficient-map evidence; public declaration signatures are unchanged by these repairs |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `90d7d3f1833cff39b77024dcee2dc43213e623ad` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
@@ -48,6 +48,37 @@ gate. The combined reconstructed kernel must pass its coherent build, connected
 workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
+
+The latest reader build at local `174c0907` / published `1b9d5a8`, mathematics
+`82d1370` and contract `90d7d3f` passes the entire unchanged
+`CasAcceptance.DependentReaderProbes`, `Language`, `EvidenceOrder`,
+`SourceParameterBindingProbes` and `SelectedContextOrderProbes`. The recorded
+run took 184.313 seconds, peaked at 3,081,756 KiB child RSS, and retained the exact
+source tuple. This closes the original selected-vector, destructured-argument,
+formed-pairing and opaque-callable reader failures. The ordinary per-question
+budget and permanent assertion sources are unchanged. Complete-key evidence
+ordering removes the measured raw-expression serialization obstruction; direct
+carrier binding avoids enumerating retained witnesses when the supplied source
+argument already fixes that type. Projected carriers and hidden structured owners
+still use the original complete-witness and ambiguity checks. The independent
+bounded source argument is in the existing compositional review.
+
+The preceding consumer build at local `9e7c036` / published `6031b534` passes
+the source-bound computational interface, `StagedNumeralDataProbes`, original
+`ElementDataProbes` and `QuestionProbes`, the correctly named
+`CasAcceptance.Kernel.BinderReaderProbes`, contextual Hom framing and operation
+agreement controls. Its sole remaining failed target was the newly added action
+interface engineering probe. The original failures are retained: `MulOpposite`
+was incorrectly assumed to preserve the carrier definitionally, a bundled ring
+was passed where `ModuleCat.of` expects its carrier, and a retained module source
+already determined the ring that the fixture incorrectly treated as independent.
+The corrected source uses its exact carrier and the accepted `modulesReindex`
+signature for a genuinely independent base-map control. All wrong-source,
+wrong-parameter, unresolved-target and contradictory-binding negatives remain.
+The combined consumer build is recorded separately; no result is inferred from
+those fixture source corrections. RX10, the complete 134-question extension
+rerun, final 153-question comparison, current native CAS demonstration and final
+public API export remain outstanding at this checkpoint.
 
 Published kernel, contract and mathematical trees were fetched back from GitHub
 and compared with the exact local source trees. The isolated contract build passes.
