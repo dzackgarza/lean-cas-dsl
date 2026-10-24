@@ -594,3 +594,81 @@ dictionary on the same carrier. No mathematical row, permanent assertion or
 production guard changes. This checkpoint has source inspection and
 `git diff --check` only; compilation and execution of the added controls remain
 pending and no mathematical acceptance or runtime outcome is inferred.
+
+### Bounded source review: expected constructor proofs and endpoint context
+
+Reviewed constructor-proof commit `b39d9d9e69a4aa202149ee20c8dd2cdf92399f21`,
+callable-endpoint commit `5b6340a60304d8e8deabec514e5b742f822199d5`, and reader
+commits `14b5dca941a6903b6cdc6b4db2656aa55ece8f83` and
+`9bb26c30f0d8aaa92cca8ce23dd0596b0ebb1b84` as source. No concrete production
+defect was found within these deltas. This review does not consume execution
+outputs or establish their compilation, mathematical acceptance, or extension
+trial results.
+
+`ConstrainedPoint.constructWith` fixes the closed target schema, sole independent
+data-field type, original closed function, and its original domain before invoking
+the supplied-proof reader. It constructs each actual field obligation from the
+partially applied constructor and quantifies over that domain. The callback cannot
+fill target or data-field metavariables: those inputs have already passed the
+existing closedness and type checks. Its result must still be closed, well typed,
+free of `sorry`, and kernel accepted at the complete obligation. A constant proof
+is lifted only when its type is the actual field condition. Lean's existing
+`elabTermAndSynthesize` supplies expected-type guidance without imposing final
+type agreement; the constructor's subsequent checks remain essential and preserve
+that constant-proof path. The old `MetaM construct` delegates with its unchanged
+closed-expression contract.
+
+The Language change retains syntax until that obligation exists. The selected
+target and actual element are evaluated first; no proof chooses an object, field,
+proposition or domain. The resulting function is checked at the original domain,
+and the retained trace still records the original point map. Existing constructor
+controls cover incompatible data/proofs, excess proofs, generalized versus sampled
+obligations, unresolved obligations and excluded schemas. The new callback controls
+cover expected-goal tactics, constant proofs, and refusal of a single-point proof
+for a nonconstant generalized condition. They are source-level coverage here.
+
+Callable endpoint framing now disables only missing-node action recovery while
+attempting its optional separate endpoint presentation. Exact cached or traced
+values and direct registered named objects retain their existing priority. The
+same mode reaches both components of structural products. With no separate
+presentation, the existing `morphismEndpoint` descriptor carries the actual
+callable packet and endpoint selector under the independently fixed endpoint and
+full category context. `framingContext` and object/context checks still run before
+use, and only an unmixed `noImplementation` is caught; incompatible dictionaries,
+unavailable owners and other interpretation failures propagate. Ordinary object
+and parameter recovery keep the default strict action-ambiguity behavior.
+
+The existing full-context framing controls cover conflicting dictionaries,
+cached endpoints, already-framed data and unresolved contexts; the direct reduced
+action controls separately require ambiguity refusal. The new bounded paired
+control reuses that same ambiguity fixture with a complete identity callable. It
+requires the optional endpoint descriptor to retain the callable's exact packet,
+owner, full object and category without inserting a chosen endpoint into the
+result cache. All previous ambiguity and full-dictionary negatives remain intact.
+
+The reader's new reachability check is confined to an unselected named set with
+retained operand context. Explicit selections, nonempty selected action prefixes,
+derived contexts and ordinary unnamed values retain their previous branches. It
+tests the demanded surface name across every registered owner, so a nearer binding
+continues to block replacement by a farther or unrelated refinement. Only when no
+retained source reaches any such binding can the named set use its existing
+registered refinements. This category-expression check only filters eligibility;
+the later complete route, source bundle, declaration parameters, whole-operation
+agreement and ambiguity checks still determine candidates. No carrier equality or
+returned data supplies structure.
+
+`registeredEdgeMapAt` leaves the mapped hom, its two full endpoints and checked
+target context unchanged. For each named endpoint it now retains the same source,
+one-edge prefix and exact application arguments as `registeredEdgeViewAt`, using
+that endpoint's original `Value`. Derived endpoints keep their existing complete
+contexts. A later carrier action therefore sees the selected endpoint action
+instead of trying to reconstruct it from a coincident carrier. Existing selected
+reading controls exercise mapped presentations, original generalized domains,
+selected reindexed modules, nearest-name binding, and additive/multiplicative
+owners on a shared carrier; universal-context controls protect complete action
+parameters and ambiguity. This bounded review adds no new mathematical fixture.
+
+Only source inspection and `git diff --check` were performed for this checkpoint.
+The new paired endpoint control awaits the coordinated build with the reviewed
+production changes. No permanent assertion, mathematical registration, production
+guard or preserved failure record was modified.

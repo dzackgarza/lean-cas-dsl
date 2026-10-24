@@ -146,6 +146,28 @@ run_elab do
   catch error => pure (Exception.stratum? error == some .ambiguousRealization)
   unless directRejected do
     throwError "direct recovery selected one of several retained source actions"
+  -- This ambiguity must not choose the presentation of an anonymous endpoint
+  -- whose complete object and context are already fixed by its actual callable.
+  let some category := state.categories.find? (·.id == CategoryId.rings)
+    | throwError "the callable endpoint fixture has no complete target category"
+  let context ← CategoryContext.ofNamed category actual
+  let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[actual]
+  CategoryContext.checkMorphism context identity actual actual
+  let callable : Wire := {
+    form := .canonicalMorphism category
+    payload := .computed identity (.owned "original-callable" 314
+      (dataNode "opaqueData" #[toJson "the actual complete callable"]))
+    categoryContext := some context }
+  let endpoint ← realizeCallableEndpoint harness trace callable actual true (some context)
+  let expected := Backend.MorphismEndpoint.encode { callable := callable.json, source := true }
+  unless endpoint.value == actual && endpoint.json == expected &&
+      endpoint.owner? == callable.owner? && ((← harness.results.get)[actual]?).isNone do
+    throwError "optional endpoint framing selected an action or lost its actual callable owner"
+  let some endpointContext := endpoint.categoryContext
+    | throwError "optional endpoint framing lost its selected complete context"
+  unless endpointContext.expression.syntacticEq context.expression &&
+      (← withTransparency .all <| isDefEq endpointContext.bundle context.bundle) do
+    throwError "optional endpoint framing changed its complete selected category"
 
 -- Equal carriers cannot stand in for a full selected structure. The ordinary
 -- multiplicative monoid and the additive monoid written multiplicatively have
