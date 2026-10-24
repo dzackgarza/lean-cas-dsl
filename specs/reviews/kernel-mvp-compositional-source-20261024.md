@@ -458,3 +458,26 @@ coordinated consumer verification remain pending. The unchanged registered-edge
 argument reconstruction still uses definitional equality after unfolding; this
 bounded review does not establish retention of declaration parameters erased by
 that unfolding. No execution failure or mathematical acceptance is inferred.
+
+### Construction source correction
+
+The coordinated consumer compilation reported that `ConstructionEntry` has no
+`source` field. The correction follows `Language.constructionSelection` and
+`DirectConstruction.select`: the instantiated accepted declaration's functor
+signature supplies the complete source bundle through `functorCategoryBundles`.
+Named functors and classifier edges retain their declared source expression;
+constructions do not manufacture one. A selection-bearing source descriptor
+still recursively supplies a context whose whole bundle must agree. An opaque
+source instead requires its exact complete retained binding and must inhabit the
+signature's actual source category. Such a construction needs no invented source
+`Language.Value`; its result keeps any independently selected source value that
+is available. Structural edges still require their complete retained source
+value. All source, action-parameter and expected-result completeness checks remain.
+
+A separate engineering control uses the already registered `con.automorphisms`
+construction at its full dependent signature. It checks retention of the actual
+result and target bundle and refusal of an incompatible source, a different full
+source, and a different independently fixed result. Existing structural-action
+and parameter controls are unchanged. This correction has only source inspection
+and `git diff --check`; compilation and probe execution are left to the
+coordinated consumer build.

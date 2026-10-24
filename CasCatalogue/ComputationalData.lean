@@ -2315,11 +2315,11 @@ of an accepted action. Its exact input binding and the action's complete source
 bundle supply that interface; neither a carrier match nor a missing parameter
 can choose it. Named and action descriptors keep their recursive validation. -/
 partial def interfaceActionSource (objects : InterfaceObjects) (original : Expr)
-    (descriptor : Json) (action : Expr) (context : CategoryContext) :
-    TermElabM (Except String Language.Value) := do
+    (descriptor : Json) (action bundle : Expr) (expression : Option CategoryExpr) :
+    TermElabM (Except String (Option Language.Value)) := do
   let original ← instantiateMVars original
   let action ← instantiateMVars action
-  let bundle ← instantiateMVars context.bundle
+  let bundle ← instantiateMVars bundle
   if original.hasMVar || original.hasLevelMVar || action.hasMVar ||
       action.hasLevelMVar || bundle.hasMVar || bundle.hasLevelMVar then
     return .error "the selected action source requires complete independent parameters"
@@ -2329,6 +2329,12 @@ partial def interfaceActionSource (objects : InterfaceObjects) (original : Expr)
         #["functorAction", "objectPresentation", "finiteData"].contains tag
     | .error _ => false
   try
+    unless ← isTypeCorrect bundle do
+      return .error "the action source has no typed complete category bundle"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType original)
+          (← mkAppM ``CategoryTheory.Bundled.α #[bundle])) do
+      return .error "the retained action source differs from its complete declaration signature"
     if !selection then
       let retained := objects.filter (·.1 == descriptor)
       if retained.isEmpty then
@@ -2341,7 +2347,11 @@ partial def interfaceActionSource (objects : InterfaceObjects) (original : Expr)
             isDefEq (← inferType fixed) (← inferType original) <&&>
               isDefEq fixed original) do
           return .error "the action source packet has distinct complete retained inputs"
-      return .ok (← (Language.objectInContext original { context with bundle }).run {})
+      if let some expression := expression then
+        return .ok (some (← (Language.objectInContext original { expression, bundle }).run {}))
+      -- A construction's full dependent signature fixes its source bundle, but
+      -- supplies no source category expression. No registry name is inferred.
+      return .ok none
     let .ok source ← interfaceSelectedValue objects original descriptor
       | return .error "the selected action lost its complete source descriptor"
     let selectedContext ← (Language.objectContext source).run {}
@@ -2351,7 +2361,7 @@ partial def interfaceActionSource (objects : InterfaceObjects) (original : Expr)
     unless ← withoutModifyingState (withTransparency .all <|
         isDefEq selectedBundle bundle) do
       return .error "the retained action source changed its complete selected category"
-    return .ok source
+    return .ok (some source)
   catch error =>
     match CasCatalogue.Exception.interpretationKind error with
     | .invalid | .ambiguous =>
@@ -2390,13 +2400,12 @@ partial def interfaceSelectedValue (objects : InterfaceObjects) (selected : Expr
     let .ok (actionTag, actionArgs) := envelope descriptor
       | return .error "the selected action descriptor is incomplete"
     let source := (state.functors.find? (·.id.raw == actionTag)).map (·.source) <|>
-      (state.constructions.find? (·.id.raw == actionTag)).map (·.source) <|>
       (if actionTag == "classifierForget" then do
         let id ← actionArgs[0]?.bind (·.getStr?.toOption)
         (state.classifiers.find? (·.id.raw == id)).map fun row => .classifierTotal row.id
       else none)
-    let some source := source
-      | return .error "the selected action requires its independently retained source context"
+    if source.isNone && !(state.constructions.any (·.id.raw == actionTag)) then
+      return .error "the selected action requires its independently retained source context"
     let target := (state.functors.find? (·.id.raw == actionTag)).map (·.target) <|>
       (state.constructions.find? (·.id.raw == actionTag)).map (·.target) <|>
       (if actionTag == "classifierForget" then do
@@ -2409,13 +2418,12 @@ partial def interfaceSelectedValue (objects : InterfaceObjects) (selected : Expr
     let bundle ← instantiateMVars bundle
     if bundle.hasMVar || bundle.hasLevelMVar then
       return .error "the selected action has an incomplete independent target context"
-    let .ok source ← interfaceActionSource objects original originalData action
-        { expression := source, bundle := sourceBundle }
+    let .ok source ← interfaceActionSource objects original originalData action sourceBundle source
       | return .error "the selected action lost its full source selection"
     unless ← withTransparency .all <| isDefEq (← Semantic.objOf action original) selected do
       return .error "the selected action changes its full result"
     let context : CategoryContext := { expression := target, bundle }
-    let value ← (Language.objectInContext selected context).run {}
+    let value ← (Language.objectInContext selected context source.toArray).run {}
     let edge := ((state.functors.find? fun row => row.id.raw == actionTag && row.structural).map
         fun row => EdgeRef.functor row.id) <|>
       (if actionTag == "classifierForget" then do
@@ -2423,6 +2431,8 @@ partial def interfaceSelectedValue (objects : InterfaceObjects) (selected : Expr
         (state.classifiers.find? (·.id.raw == id)).map fun row => EdgeRef.classifierForget row.id
       else none)
     if let some edge := edge then
+      let some source := source
+        | return .error "the structural action lost its complete retained source context"
       let registered ← Semantic.edgeFunctor state edge
       unless ← withTransparency .all <| isDefEq (← Semantic.asFunctor registered) action do
         return .error "the selected action changes its registered structural edge"

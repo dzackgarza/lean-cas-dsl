@@ -124,4 +124,41 @@ run_elab do
       parameterizedResult parameterizedDescriptor).isOk then
     throwError "the requested result supplied an unretained action parameter"
 
+run_elab do
+  let state ← registryState
+  let some construction := state.constructions.find? (·.id.raw == "con.automorphisms")
+    | throwError "the accepted dependent construction is absent"
+  let category ← elabTermAndSynthesize (← `(LeanCategories.Foundation.Mathlib.Sets.{0})) none
+  let original ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let other ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 3)) none
+  let source ← mkAppM ``CategoryTheory.Core.mk #[original]
+  let otherSource ← mkAppM ``CategoryTheory.Core.mk #[other]
+  let action ← DirectConstruction.select construction #[← exprToSyntax category] source
+  let selected ← DirectConstruction.obj action source
+  let different ← DirectConstruction.obj action otherSource
+  let categoryPacket := dataNode "opaqueData" #[toJson "retained construction category"]
+  let sourcePacket := dataNode "opaqueData" #[toJson "retained construction source"]
+  let descriptor := dataNode "functorAction" #[
+    dataNode construction.id.raw #[categoryPacket], sourcePacket]
+  let inputs : ComputationalData.InterfaceObjects :=
+    #[(categoryPacket, category), (sourcePacket, source)]
+  let .ok value ← ComputationalData.interfaceSelectedValue inputs selected descriptor
+    | throwError "the construction lost its source from the complete dependent signature"
+  let context ← (Language.objectContext value).run {}
+  let (_, targetBundle) ← functorCategoryBundles action.functor
+  unless ← withTransparency .all <|
+      isDefEq (← (Language.semanticObject value).run {}) selected <&&>
+        isDefEq context.bundle targetBundle do
+    throwError "the construction changed its complete selected result or category"
+  unless (← ComputationalData.interfaceCarrier selected descriptor inputs).isOk do
+    throwError "the construction result lost its declared carrier interface"
+  if (← ComputationalData.interfaceSelectedValue
+      #[(categoryPacket, category), (sourcePacket, original)] selected descriptor).isOk then
+    throwError "the construction accepted a retained source outside its full signature"
+  if (← ComputationalData.interfaceSelectedValue
+      #[(categoryPacket, category), (sourcePacket, otherSource)] selected descriptor).isOk then
+    throwError "the construction replaced its retained source with a different full object"
+  if (← ComputationalData.interfaceSelectedValue inputs different descriptor).isOk then
+    throwError "the construction descriptor changed the independently fixed result"
+
 end
