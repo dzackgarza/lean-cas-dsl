@@ -370,6 +370,9 @@ structure Harness where
   connections : IO.Ref (Std.HashMap String (Except Backend.PortError BackendSession))
   /-- Actual computed results keyed by their exact closed formal terms; no dispatch is fabricated on reuse. -/
   results : IO.Ref (Std.HashMap Expr Wire)
+  /-- Exact parameters currently recovering their source/action data. A scoped harness copy
+  carries this across both callbacks without changing the shared result cache. -/
+  parameterRecovery : Array Expr := #[]
 
 /-- A harness with no leaf installed. -/
 def Harness.empty : IO Harness := return { connections := ← IO.mkRef {}, results := ← IO.mkRef {} }
@@ -749,7 +752,7 @@ def forwardOperationEquivalent (wrapper representative : Expr) (actual : Wire) :
 mutual
 
 /-- Closed parameter data retaining accepted named-object provenance when present. -/
-partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
+partial def parameterData (trace : Trace) (value : Expr) (recovering : Array Expr := #[]) : TermElabM Json := do
   let state ← registryState
   let value ← instantiateMVars value
   if value.hasMVar || value.hasLevelMVar || value.hasFVar || value.hasLooseBVars then
@@ -757,17 +760,17 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
   if let some (.operationEquivalence representative chosen candidates comparisons) ←
       trace.node? value then
     checkOperationEquivalence value representative chosen candidates comparisons
-    return ← parameterData trace representative
+    return ← parameterData trace representative recovering
   let selected := value.consumeMData
   if let some category := state.categories.find?
       (fun row => selected.getAppFn.constName? == some row.declaration) then
     let data : Backend.CategoryParameter := {
       category := category.id.raw
-      parameters := (← declarationData trace category.declaration selected) }
+      parameters := (← declarationData trace category.declaration selected recovering) }
     return data.encode
   if let some constructor := state.constructors.find?
       (fun row => selected.getAppFn.constName? == some row.semantics) then
-    let parameters ← declarationData trace constructor.semantics selected
+    let parameters ← declarationData trace constructor.semantics selected recovering
     unless parameters.size == constructor.signature.size do
       throwError "the constructed category lost its complete ordered declared arguments"
     return Json.mkObj [("ctor", "constructedCategory"),
@@ -778,13 +781,13 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
       (fun row => selectedFunctor.getAppFn.constName? == some row.declaration) then
     let data : Backend.FunctorParameter := {
       functor := functor.id.raw
-      parameters := (← declarationData trace functor.declaration selectedFunctor) }
+      parameters := (← declarationData trace functor.declaration selectedFunctor recovering) }
     return data.encode
   if let some (.object id params) ← (trace.node? value : IO _) then
-    return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
+    return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (fun parameter => parameterData trace parameter recovering)))]
   -- A numeral point of a selected structure: its element descriptor.
   if let some (.elementNumeral n _ selected) ← (trace.node? value : IO _) then
-    return Json.mkObj [("ctor", "element"), ("args", Json.arr #[← parameterData trace selected,
+    return Json.mkObj [("ctor", "element"), ("args", Json.arr #[← parameterData trace selected recovering,
       Json.mkObj [("ctor", "numeral"), ("args", Json.arr #[toJson n])]])]
   if let some (.functor id params receiver) ← (trace.node? value : IO _) then
     if receiver == value then
@@ -799,20 +802,20 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     unless ← Decide.kernelAccepts condition (← mkEqRefl image) do
       throwError "the complete parameter action identification failed its original kernel check"
     return Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
-      Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))],
-      ← parameterData trace receiver])]
+      Json.mkObj [("ctor", id.raw), ("args", Json.arr (← params.mapM (fun parameter => parameterData trace parameter recovering)))],
+      ← parameterData trace receiver recovering])]
   if let some (.retainedRoute _ _ route applications receiver) ← (trace.node? value : IO _) then
     unless route.size == applications.size do
       throwError "the parameter route lost its exact ordered edge applications"
     let mut image := receiver
-    let mut json ← parameterData trace receiver
+    let mut json ← parameterData trace receiver recovering
     for (step, application) in route.zip applications do
       if application.hasMVar || application.hasLevelMVar || application.hasFVar ||
           application.hasLooseBVars then
         throwError "the parameter route has an unresolved selected edge application"
       image ← Semantic.objOf application image
       json := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
-        ← edgeDescriptor trace step application, json])]
+        ← edgeDescriptor trace step application recovering, json])]
     let condition ← mkEq image value
     unless ← withTransparency .all <| isDefEq image value do
       throwError "the retained parameter route changed its complete selected image"
@@ -840,7 +843,7 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
         if application.hasMVar || application.hasLevelMVar || application.hasFVar ||
             application.hasLooseBVars then
           throwError "the parameter identity class has an unresolved selected edge application"
-        discard <| edgeDescriptor trace step application
+        discard <| edgeDescriptor trace step application recovering
         image ← Semantic.objOf application image
       unless (← isDefEq image source.image) && (← isDefEq (← inferType image) expectedType) do
         throwError "the parameter identity class has an incompatible full structured image"
@@ -849,14 +852,14 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     -- A distinct retained child has its own construction and must keep it. Older
     -- identity-class records can be keyed by their representative itself; only
     -- those self-records require direct encoding of the checked named source.
-    if representative != value then return ← parameterData trace representative
+    if representative != value then return ← parameterData trace representative recovering
     -- The chosen source is already a checked registered application. Encoding it directly
     -- avoids following the representative back into its own identity-class trace node.
     let mut json := Json.mkObj [("ctor", chosen.source.raw),
-      ("args", Json.arr (← chosen.params.mapM (parameterData trace)))]
+      ("args", Json.arr (← chosen.params.mapM (fun parameter => parameterData trace parameter recovering)))]
     for (step, application) in chosen.route.zip chosen.applications do
       json := Json.mkObj [("ctor", "functorAction"),
-        ("args", Json.arr #[← edgeDescriptor trace step application, json])]
+        ("args", Json.arr #[← edgeDescriptor trace step application recovering, json])]
     return json
   if let .ok json ← Codec.encode value then return json
   -- `F.obj X` for a registered functor `F`, recognized by its declaration: the action of that
@@ -871,8 +874,14 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
     if let some declaration := head then
       if let some entry := state.functors.find? (·.declaration == declaration) then
         return Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
-          ← edgeDescriptor trace (.functor entry.id) functor,
-          ← parameterData trace stripped.appArg!])]
+          ← edgeDescriptor trace (.functor entry.id) functor recovering,
+          ← parameterData trace stripped.appArg! recovering])]
+  if let some (data, _) ← FunctorActionData.encodeRetainedParameterAction? (Dependency := Unit)
+      trace value
+      (fun source => return (← parameterData trace source (recovering.push value), #[]))
+      (fun edge action => return (← edgeDescriptor trace edge action (recovering.push value), #[]))
+      recovering then
+    return data
   let mut candidates : Array (ObjectEntry × Array Expr) := #[]
   let mut exact : Array (ObjectEntry × Array Expr) := #[]
   for entry in state.objects do
@@ -894,15 +903,16 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
         exact := exact.push (entry, params)
   if let #[(entry, params)] := exact then
     return Json.mkObj [("ctor", entry.id.raw),
-      ("args", Json.arr (← params.mapM (parameterData trace)))]
+      ("args", Json.arr (← params.mapM (fun parameter => parameterData trace parameter recovering)))]
   let #[(entry, params)] := candidates
     | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data \
         presentation: {candidates.size} registered objects ({candidates.map (·.1.id.raw)}) \
         present {value}"
-  return Json.mkObj [("ctor", entry.id.raw), ("args", Json.arr (← params.mapM (parameterData trace)))]
+  return Json.mkObj [("ctor", entry.id.raw), ("args", Json.arr (← params.mapM (fun parameter => parameterData trace parameter recovering)))]
 
 /-- The exact explicitly applied arguments of an accepted declaration inside its actual term. -/
-partial def declarationData (trace : Trace) (declaration : Name) (actual : Expr) : TermElabM (Array Json) := do
+partial def declarationData (trace : Trace) (declaration : Name) (actual : Expr)
+    (recovering : Array Expr := #[]) : TermElabM (Array Json) := do
   let actual ← instantiateMVars actual
   let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
     xs.mapM (·.fvarId!.getBinderInfo)
@@ -911,22 +921,23 @@ partial def declarationData (trace : Trace) (declaration : Name) (actual : Expr)
     | throwError "the exact registered functor declaration application was lost"
   let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
     if info.isExplicit then some arg else none
-  (← DirectConstruction.dataArguments params).mapM (parameterData trace)
+  (← DirectConstruction.dataArguments params).mapM (fun parameter => parameterData trace parameter recovering)
 
 /-- Public edge data from the actual instantiated functor, preserving declaration arguments. -/
-partial def edgeDescriptor (trace : Trace) (edge : EdgeRef) (actual : Expr) : TermElabM Json := do
+partial def edgeDescriptor (trace : Trace) (edge : EdgeRef) (actual : Expr)
+    (recovering : Array Expr := #[]) : TermElabM Json := do
   let state ← registryState
   match edge with
   | .functor id =>
       let some entry := state.functor? id | unreachable!
-      return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← declarationData trace entry.declaration actual))]
+      return Json.mkObj [("ctor", id.raw), ("args", Json.arr (← declarationData trace entry.declaration actual recovering))]
   | .classifierForget id =>
       let some entry := state.classifiers.find? (·.id == id) | unreachable!
       return Json.mkObj [("ctor", "classifierForget"), ("args", Json.arr #[toJson id.raw,
-        Json.arr (← declarationData trace entry.declaration actual)])]
+        Json.arr (← declarationData trace entry.declaration actual recovering)])]
   | .constructMap constructor inner =>
       return Json.mkObj [("ctor", "constructorMap"),
-        ("args", Json.arr #[toJson constructor.raw, ← edgeDescriptor trace inner actual])]
+        ("args", Json.arr #[toJson constructor.raw, ← edgeDescriptor trace inner actual recovering])]
 
 end
 
@@ -2683,7 +2694,20 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
       else if let some (image, wires) ← realizedObjectParameterAction? h trace parameter then
         data := data.push image
         dependencies := dependencies ++ wires
-      else data := data.push (← parameterData trace parameter)
+      else if let some (image, wires) ← FunctorActionData.encodeRetainedParameterAction?
+          trace parameter
+          (fun source => do
+            let scoped := { h with parameterRecovery := h.parameterRecovery.push parameter }
+            let (sources, dependencies) ← realizedParameters scoped trace #[source]
+            let #[source] := sources
+              | throwError "the reduced parameter lost its original complete source data"
+            return (source, dependencies))
+          (realizedEdgeDescriptor
+            { h with parameterRecovery := h.parameterRecovery.push parameter } trace)
+          h.parameterRecovery then
+        data := data.push image
+        dependencies := dependencies ++ wires
+      else data := data.push (← parameterData trace parameter h.parameterRecovery)
   return (data, dependencies)
 
 /-- Encode each actual action parameter through the same dependency-preserving
@@ -3722,7 +3746,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           if application.hasMVar || application.hasLevelMVar || application.hasFVar ||
               application.hasLooseBVars then
             throwError "the parameter identity class has an unresolved selected edge application"
-          discard <| edgeDescriptor trace step application
+          discard <| edgeDescriptor trace step application h.parameterRecovery
           image ← Semantic.objOf application image
         unless (← isDefEq image source.image) && (← isDefEq (← inferType image) expectedType) do
           throwError "the parameter identity class has an incompatible full structured image"
@@ -3881,7 +3905,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           throwError "the retained point action is not its registered edge application"
         image ← Semantic.objOf application image
         targetJson := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
-          ← edgeDescriptor trace edgeRef application, targetJson])]
+          ← edgeDescriptor trace edgeRef application h.parameterRecovery, targetJson])]
         currentCategory := edge.target
       unless ← withTransparency .all <| isDefEq image selected.value do
         throwError "the forward point view disagrees with its full selected structure"
@@ -3918,14 +3942,14 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let encodeInput := fun value => do
         if (← trace.node? value).isSome then
           return .ok (← realize h trace "an input of the defining map" value).json
-        return .ok (← parameterData trace value)
+        return .ok (← parameterData trace value h.parameterRecovery)
       let encodeAction := fun action => do
         let mut descriptors : Array Json := #[]
         for entry in state.functors do
           let descriptor ← withoutModifyingState do
             let registered ← Semantic.asFunctor (← instantiateFresh entry.declaration)
             unless ← withTransparency .all <| isDefEq registered action do return none
-            return some (← edgeDescriptor trace (.functor entry.id) action)
+            return some (← edgeDescriptor trace (.functor entry.id) action h.parameterRecovery)
           if let some descriptor := descriptor then descriptors := descriptors.push descriptor
         let #[descriptor] := descriptors
           | return .error "the defining-map action has no unique registered descriptor"

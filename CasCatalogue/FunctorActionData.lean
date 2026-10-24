@@ -8,6 +8,121 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.FunctorActionData
 
+/-- An accepted action whose original receiver is literally retained inside a reduced
+parameter. This is presentation metadata, not data from another equal result. -/
+structure RetainedParameterAction where
+  receiver : Expr
+  route : Array EdgeRef
+  applications : Array Expr
+
+def closedParameter (value : Expr) : Bool :=
+  !value.hasMVar && !value.hasLevelMVar && !value.hasFVar && !value.hasLooseBVars
+
+/-- Recover only an action of an actual source occurrence in the requested parameter.
+The complete bundled result, the full registered functors, and their ordered parameters
+are checked before any data callback runs. Equal cached objects are never searched.
+
+Different retained actions remain ambiguous even when their values happen to agree at
+this object. Only repeated records of exactly the same source and applications coalesce. -/
+def retainedParameterAction? (trace : Trace) (value : Expr) :
+    TermElabM (Option RetainedParameterAction) := do
+  let value ← instantiateMVars value
+  unless closedParameter value && (← isTypeCorrect value) do
+    throwError "the reduced action parameter is not a closed well-typed value"
+  let state ← registryState
+  let mut selected := value.consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  -- A literal named object supplies its own selected presentation. An action
+  -- recorded elsewhere cannot replace it merely because the full values agree.
+  if state.objects.any (fun row => selected.getAppFn.constName? == some row.declaration) then
+    return none
+  let mut candidates : Array RetainedParameterAction := #[]
+  for (recorded, node) in (← trace.get).toArray do
+    let source? := match node with
+      | .functor _ _ receiver => some receiver
+      | .retainedRoute _ _ _ _ receiver => some receiver
+      | .contextualRoute _ _ _ _ receiver false => some receiver
+      | _ => none
+    let some receiver := source? | continue
+    -- Literal occurrence is the provenance boundary: a definitionally equal
+    -- receiver elsewhere in the trace does not identify this actual child.
+    unless receiver != value && (value.find? (· == receiver)).isSome do continue
+    let sameResult ← withoutModifyingState do
+      unless closedParameter recorded && (← isTypeCorrect recorded) do return false
+      withTransparency .all do
+        isDefEq (← inferType recorded) (← inferType value) <&&> isDefEq recorded value
+    unless sameResult do continue
+    let candidate ← withoutModifyingState do
+      unless closedParameter receiver && (← isTypeCorrect receiver) do
+        throwError "the retained parameter action lost its exact closed source"
+      let (route, applications) ← match node with
+        | .retainedRoute _ _ route applications _ => pure (route, applications)
+        | .contextualRoute _ _ route applications _ false => pure (route, applications)
+        | .functor id parameters _ => do
+          let some entry := state.functor? id
+            | throwError "the retained parameter action is not registered"
+          let declaration ← mkConstWithFreshMVarLevels entry.declaration
+          let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+          let explicit := (arguments.zip infos).filterMap fun (argument, info) =>
+            if info.isExplicit then some argument else none
+          unless explicit.size == parameters.size do
+            throwError "the retained parameter action lost its ordered declaration parameters"
+          for (argument, parameter) in explicit.zip parameters do
+            unless closedParameter parameter && (← isTypeCorrect parameter) &&
+                (← isDefEq (← inferType argument) (← inferType parameter)) &&
+                (← isDefEq argument parameter) do
+              throwError "the retained parameter action changed a complete declaration parameter"
+          let action := mkAppN declaration arguments
+          discard <| Semantic.objOf action receiver
+          pure (#[.functor id], #[← instantiateMVars action])
+        | _ => unreachable!
+      unless !route.isEmpty && route.size == applications.size do
+        throwError "the retained parameter action lost its complete ordered route"
+      let mut image := receiver
+      for (edge, application) in route.zip applications do
+        unless closedParameter application && (← isTypeCorrect application) do
+          throwError "the retained parameter action has unresolved categorical data"
+        let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
+        let actual ← Semantic.asFunctor application
+        unless ← withTransparency .all <| isDefEq accepted actual do
+          throwError "the retained parameter action is not its full registered functor"
+        image ← Semantic.objOf actual image
+      let finalImage ← instantiateMVars image
+      unless closedParameter finalImage && (← isTypeCorrect finalImage) &&
+          (← withTransparency .all <| isDefEq (← inferType finalImage) (← inferType value)) &&
+          (← withTransparency .all <| isDefEq finalImage value) do
+        throwError "the retained action changes the parameter's complete bundled object"
+      unless ← Decide.kernelAccepts (← mkEq finalImage value) (← mkEqRefl finalImage) do
+        throwError "the reduced parameter action failed its complete object identification"
+      return ({ receiver, route, applications } : RetainedParameterAction)
+    unless candidates.any (fun previous => previous.receiver == candidate.receiver &&
+        previous.route == candidate.route && previous.applications == candidate.applications) do
+      candidates := candidates.push candidate
+  match candidates with
+  | #[] => return none
+  | #[candidate] => return some candidate
+  | _ => throwStratum .ambiguousRealization m!"the reduced parameter retains several distinct accepted source actions"
+
+/-- Encode the checked action through its exact source child. The callbacks retain all
+actual computational dependencies, including owners; this helper never reads a cache or
+chooses a presentation according to available implementations. -/
+def encodeRetainedParameterAction? {Dependency : Type} (trace : Trace) (value : Expr)
+    (encodeSource : Expr → TermElabM (Json × Array Dependency))
+    (encodeAction : EdgeRef → Expr → TermElabM (Json × Array Dependency))
+    (recovering : Array Expr := #[]) :
+    TermElabM (Option (Json × Array Dependency)) := do
+  if recovering.contains value then
+    throwStratum .noImplementation m!"the complete parameter action has cyclic data dependencies"
+  let some selected ← retainedParameterAction? trace value | return none
+  let (source, sourceDependencies) ← encodeSource selected.receiver
+  let mut data := source
+  let mut dependencies := sourceDependencies
+  for (edge, action) in selected.route.zip selected.applications do
+    let (descriptor, actionDependencies) ← encodeAction edge action
+    data := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[descriptor, data])]
+    dependencies := dependencies ++ actionDependencies
+  return some (data, dependencies)
+
 /-- Decode an explicitly named accepted functor action and its complete source data.
 The callbacks consume registered edge metadata and selected source data; replies supply no
 semantics or evidence. A direct presentation or lift receiver additionally requires a callback
