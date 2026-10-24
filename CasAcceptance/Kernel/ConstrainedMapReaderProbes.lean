@@ -11,7 +11,7 @@ run_elab do
   let state ← registryState
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwError "the accepted set category is absent"
-  let source := mkConst ``Nat
+  let source := Lean.mkConst ``Nat
   let data : Value := .object source sets none none none
   let targetType ← elabTermAndSynthesize (← `({ n : Nat // n = n })) none
   let target : Value := .object targetType sets none none none
@@ -59,7 +59,7 @@ run_elab do
       throwError "a single-point proof admitted a false whole-function condition"
 
     let wrong : Value := .morphism original source source sets
-      (some (.object (mkConst ``Bool) sets none none none, data))
+      (some (.object (Lean.mkConst ``Bool) sets none none none, data))
     let accepted ← parameterCompatible do
       discard <| admitConstrainedPoint target wrong #[proofSyntax]
       pure true

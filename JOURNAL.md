@@ -2783,3 +2783,22 @@ source trees. The build logs and producer records use the
 `kernel-mvp-combined-context-{consumers,controls}-20261025` prefixes. They are
 module/engineering results, not final interpretation, runtime, native-demo or
 frozen-extension outcomes. Those unchanged consumers run separately.
+
+## 2026-10-25 — Preserve the closed admission-integration failures
+
+The next 33-target consumer build at local `43d8608` / published `b814a19`
+completed with exit 1 after 505.325 seconds and an unchanged source tuple.
+The complete signed-product and exception-identity controls pass. Original
+bilinear and convergence binders regress, and the new constrained-map probe
+needs `Lean.mkConst` disambiguation. The failure record is retained under
+`kernel-mvp-admission-product-consumers-20261025`; it is not a passing build.
+The original target bodies and all mathematical assertions remain unchanged.
+
+The preceding fixed-binding report at `95227b8` contains four failed bindings,
+despite the reporting process exiting zero. The corresponding RX10 attempt
+reached its registered scalar action but stopped on an unsupported public
+callable. A separate leaf author, given only the published contract and its own
+source, completed that protocol interface at published `fa0856d`. Its unchanged
+66 registrations and protocol-only checks carry no mathematical acceptance.
+The next end-to-end consumers use the corrected frozen leaf and fixed questions
+only after the kernel regressions are resolved.

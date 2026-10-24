@@ -17,12 +17,12 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `8ea95e605ad481f61e56673161f6ff84f36263fc` | The combined reader, constructor-proof and callable-endpoint consumers pass all 3,803 selected build jobs; unchanged extension bindings and RX10 execution are being checked on this producer |
+| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `b814a19d7595291018c5b11fac3865b40801c2ae` | Integrated admission, product-context and failure-stratum changes; the 33-target consumer build exposed binder regressions being repaired before the next execution run |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `82d1370de372a00a86391b74fc2566c9547dfcb6` | Includes checked closed polynomial normalization, cancellation and injective coefficient-map evidence; public declaration signatures are unchanged by these repairs |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `90d7d3f1833cff39b77024dcee2dc43213e623ad` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `d33bec4433f39582824f6b2846c4f4ec4b9f7e13` | Public endpoint and callable-reuse consumer repair; the same 66 registrations remain byte-identical; standalone protocol checks are not mathematical acceptance |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `fa0856dfc365c497a25e4a94019a1cb08b79c4d1` | Independently completed the five public power-object callable fields and nested endpoint/session consumers; the same 66 registrations remain byte-identical; standalone protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -48,6 +48,28 @@ gate. The combined reconstructed kernel must pass its coherent build, connected
 workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
+
+The next integrated source at local `43d8608` / published `b814a19`, with
+mathematics `82d1370` and contract `90d7d3f`, completed its 33-target build with
+exit 1 in 505.325 seconds; the source tuple remained unchanged. The new signed
+product-context and evidence-failure controls pass, as do the core language,
+realization, question and purity targets. The unchanged dependent-reader and
+limit-binder files fail, and the new constrained-map probe has a core-name
+ambiguity. Their raw errors remain in
+`/tmp/kernel-mvp-admission-product-consumers-20261025.log`, with its adjacent
+producer record. These are actual regressions, not a green combined candidate.
+
+The preceding `95227b8` unchanged binding diagnostic checked 182 bindings in 14
+files and found four first failures: prescribed-lift `expectedF` exceeded the
+ordinary definitional-equality budget; source-comparison `i0` did not read;
+RX06's complete reindexed map failed admission; RX08's constrained whole map
+failed admission. The process exited zero because it reports failures as data;
+the report is not a pass. RX10 on the same source dispatched the actual scalar
+action once but stopped at a public callable form absent from the old diagnostic
+leaf. Its other four failure kinds and all six question comparisons were
+recorded correctly; returned-data reuse was not reached. The independently
+authored `fa0856d` leaf now consumes those published forms without any new
+registration. The next unchanged RX10 run awaits a green repaired kernel.
 
 The latest combined candidate at local `95227b8` / published `8ea95e6`, mathematics
 `82d1370` and contract `90d7d3f` passes the 28 selected kernel, consumer and public
@@ -79,8 +101,8 @@ public mathematics, including complete universal operation comparisons. Its
 809.869-second exit-one result and unchanged import closure remain distinct from
 the new candidate. The interpretation assessment is in the existing extension
 completion document. The full corrected export and frozen execution trials are
-still required. The unchanged binding diagnostic and RX10 are running against
-`95227b8`; their outcomes must be recorded when those actual runs close.
+still required. The later closed binding and RX10 outcomes are recorded above; no execution
+result is inferred from the subsequent source repairs.
 
 The earlier reader build at local `174c0907` / published `1b9d5a8`, mathematics
 `82d1370` and contract `90d7d3f` passes the entire unchanged
