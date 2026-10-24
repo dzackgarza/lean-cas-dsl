@@ -17,12 +17,12 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; recent published integration `25d63090ca7ab929ce2d2cc6e933b607f5102b19` | Generic binding, operation agreement, transport, admission and structured-result repairs; the selected reader/staged-data batch requires its combined build and reruns |
+| lean-cas-dsl | `work/kernel-v1-20261023`; compiled integration `aeb0b3900a40ffd948b2bda16a36595d977c02ff` | Core/tools compiled; five regression targets failed in the expanded build; subsequent retained-context and carrier-consumer repairs require their focused reruns |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `796db9fc8ef18765a8f6770aeab24d08fcc58a3c` | Includes universal operation agreement, additive-monoid operation/action, complete selected linearity/unit evidence, and selected polynomial presentation/normalization; public declaration signatures are unchanged by these evidence repairs |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `23f1e8190ba472fd99f7ee83b78f6e8357530e7f` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `5b2ce9e5a2da78227d43a01297874667bd6f436e` | Replacement author supplied 66 registrations in the new diagnostic subtree, including generic monoid, additive-monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `d33bec4433f39582824f6b2846c4f4ec4b9f7e13` | Public endpoint and callable-reuse consumer repair; the same 66 registrations remain byte-identical; standalone protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -207,7 +207,13 @@ composition trace was overwritten by a closed-point label. The repair records th
 original numeral before staging, retaining the existing terminal composition and
 wire form; both old-producer named/selected controls reproduce the failure. The
 combined positive run is still required. The diagnostic leaf's public endpoint
-consumer is being reviewed independently against the published protocol only.
+consumer has now been repaired independently against the public protocol and
+candidate API only. Its implementation and complete engineering receipt are
+published as `d33bec4`, and a fresh fetch matches the entire authored source tree.
+The receipt preserves the API snapshots' actual older provenance. Its endpoint,
+generic and completion engineering checks pass; no mathematical acceptance is
+inferred. New immutable manifests change only its entrypoint path, retaining the
+same registration profiles and all earlier failed-run inputs.
 
 The independently authored mathematics at `796db9fc` preserves the exact existing
 unit and nonzero-polynomial obligations. Its new public-source controls and the
@@ -218,6 +224,25 @@ repair adds a mathematical domain, changes an admission signature or consumes a
 downstream question or result. All these source checkpoints were fetched back and
 matched against their complete local trees; the final coherent tuple remains to
 be built and exercised.
+
+The expanded build at local `331463c` (published `aeb0b390`) completed in 910 seconds
+against mathematics `796db9fc` and contract `23f1e819`. Core realization, question
+export, the suite driver and tool modules compiled, as did selected-carrier,
+evidence-presentation, named-field and bundled-Hom controls. Five targets failed:
+element-data multiplication ambiguity; the same polynomial-image admission in
+the question and binder probes; the staged point's unnamed selected-action carrier;
+and dependent-reader timeouts at two requests plus one unclosed typed question.
+The complete failed log and exact producer provenance remain preserved. No full
+build, native tool or final execution pass is inferred from the compiled subset.
+
+Subsequent source repairs retain exact operand selections through successive
+operations, derive carrier interfaces through the already validated complete
+selection, and compare retained versus explicitly supplied complete category
+bundles before framing or cached endpoint reuse. Equal Hom types alone do not
+identify their identity/composition dictionaries. The selected-operation repair
+passes the original element-data block and independent ambiguity controls in an
+isolated diagnostic; its integrated probe is still required. These changes do not
+rank competing operations or replace actual returned packets and their owners.
 
 The local runtime was restored after the former recovery directory disappeared:
 the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and

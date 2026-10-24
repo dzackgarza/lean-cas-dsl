@@ -6763,6 +6763,34 @@ partial def sameOperationApplication (left right : Expr) : M Bool := parameterTr
   withTransparency .all <|
     isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right
 
+/-- Actual operand domains may already select a structure on a named endpoint.
+Follow only retained views of that exact binding, checking every constructor
+argument before its carrier can unfold. All such selections remain candidates;
+unrelated parameters and independently coincident carriers supply no selection. -/
+partial def retainedOperationSelections (entry : ObjectEntry) (named : Expr)
+    (pending : List Value) (seen found : Array Value := #[]) : M (Array Value) := do
+  let current :: rest := pending | return found
+  if seen.any (·.sameSource current) then
+    return ← retainedOperationSelections entry named rest seen found
+  let seen := seen.push current
+  let .object handle category (some (origin, parameters)) selected data := current
+    | return ← retainedOperationSelections entry named rest seen found
+  unless category.id == entry.category && origin.id == entry.id do
+    return ← retainedOperationSelections entry named rest seen found
+  let sameBinding ← parameterCompatible do
+    let actual ← Semantic.object origin (← typedParamTerms origin.declaration parameters) none
+    unless !actual.hasMVar && !actual.hasLevelMVar && (← isTypeCorrect actual) &&
+        (← OperationAgreement.sameApplication named actual) do return false
+    withTransparency .all <| isDefEq (← inferType handle) (← inferType actual) <&&>
+      isDefEq handle actual
+  unless sameBinding do
+    return ← retainedOperationSelections entry named rest seen found
+  if selected.isSome then
+    return ← retainedOperationSelections entry named rest seen (found.push current)
+  let retained := data.map (fun (originals, source, _, _, _) =>
+    originals.toList ++ [source]) |>.getD []
+  retainedOperationSelections entry named (retained ++ rest) seen found
+
 /-- Complete sources for the registry's selected-operation binding rule. An explicit
 structure or structural view fixes its own source. A named unstructured set may use only
 its declared refinements; an anonymous coordinate uses its supplied constructor context. -/
@@ -6784,6 +6812,14 @@ partial def collectOperationSourceValues (state : RegistryState) (pending : List
         if !route.isEmpty then
           return ← collectOperationSourceValues state (source :: rest) seen sources demanded
       if let some (origin, parameters) := origin then
+        if let some (originals, source, _, _, _) := data then
+          let named ← Semantic.object origin
+            (← typedParamTerms origin.declaration parameters) none
+          let retained ← retainedOperationSelections origin named
+            (originals.toList ++ [source])
+          unless retained.isEmpty do
+            return ← collectOperationSourceValues state (retained.toList ++ rest)
+              seen sources demanded
         let mut refinements : Array Value := #[]
         for entry in state.objects.filter (refinesObject state · origin.id) do
           let some category := state.categories.find? (·.id == entry.category) | continue
@@ -7002,7 +7038,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
       operation.name == name && operation.arity == elements.size &&
         operation.numerals == extra.size) do
     let target ← match operation.result with
-      | none => pure X
+      | none => pure receiver
       | some id => match state.objects.find? (·.id == id) with
         | some row => object state row.name #[] none
         | none => throwStratum .invalid m!"an operation's result object is not registered"

@@ -339,3 +339,77 @@ The recovery chain is scoped rather than a mutable global visited set. Harness c
 `CasAcceptance/Kernel/ReducedParameterActionProbes.lean` was inspected as assertion source. It defines a reduced full-object presentation whose receiver remains a literal child, puts deliberately different owned packets at the original-source and equal-action-result keys, and asserts use of the original source packet and owner. It also asserts priority for an exact requested cached result, deduplication of identical records, ambiguity for distinct retained source occurrences, rejection of equal-carrier/different-structure substitution, and rejection of a pre-marked recovery cycle before either callback. None of these assertions was executed or counted as a passing result. The nested callback-chain and named-head arguments above come from their actual source paths, not from assumed probe coverage.
 
 No concrete source correctness blocker was established for the five assigned risks at this checkpoint. The bounded composition argument is: fix an anchored full action plan without computational availability, reject unresolved alternatives, encode the exact source and action parameters while preserving their dependencies, and reject repeated recovery targets within that scoped chain. Actual cached data at an unrelated equal expression are not substituted into that process. All earlier qualifications remain, and this conclusion provides no mathematical acceptance, computational-correctness, B0, V1, or frozen-readiness claim.
+
+## Bounded follow-up: selected context and staged data (2026-10-24)
+
+This follow-up reviews the generic source delta from `d729046e9c7599c831ba0b35bf06eb2b4a0feb0f`
+to local `331463ce7c1c09e4fb050b2d1169e25778b81406`; published commit
+`aeb0b3900a40ffd948b2bda16a36595d977c02ff` has the same tree
+`f5758e59dd125abf0ef8140f9a383cdff289c094`. It is an engineering source argument,
+not mathematical acceptance, a build result, or an execution verdict. No leaf
+source, question files, expected answers, runtime results or other review reports
+were consulted. The focused engineering probes were read only as source.
+
+**Concrete source finding at the reviewed revision.** `Realize.presentMorphism`, `frameMorphismData` and
+`realizeCallableEndpoint` use `explicit.orElse retained` for `CategoryContext`.
+The first two then check only the selected Hom interface; `presentMorphism`
+replaces the retained context even on its already-framed return. A Hom type
+retains the quiver's Hom field, not the category's complete identity and
+composition dictionary. Two complete contexts may therefore share the object
+and Hom types while their full bundles differ. The new explicit context can
+silently replace the one under which the existing packet was framed. The
+`contextualAction` caller provides its trace-selected source but does not compare
+it to the original wire's context; reuse is keyed by the formal expression.
+The minimum compatibility check is equality of both complete bundles before
+selecting the framing context, in a speculative state so missing parameters
+cannot be filled by that comparison. Distinct accepted expression labels need
+not be rejected when their complete bundles agree: the independently supplied
+expression continues to govern the requested route.
+
+The remaining delta has the following bounded compositional justification:
+
+- `incompatibleTypeShapes` restores speculative elaborator state and recognizes
+  only rigid Sort, function, inductive and primitive quotient type heads.
+  Unresolved projections, eliminators and other heads stay inconclusive; matching
+  rigid heads also stay inconclusive. Its rejection cannot select a structure.
+- The early refinement filter and `operationOwnerCandidates` apply the same
+  `completeRoutes` result and `isFirstOperationBindingRoute` predicate to the same
+  category expression. The early test asks only whether any eligible route exists;
+  surviving route classes and full-parameter ambiguities still reach the existing
+  checks. It introduces no route priority.
+- The sole caller supplying `operationId` to `applyFamily` supplies the complete
+  application selected by `selectedOperationApplicationsWithSources`. Every
+  parameter is first matched to that typed application. The new call to
+  `operationParameterObjects` additionally checks the exact accepted ID and arity
+  with `selectedEntry`, and retains the application's full parameter values before
+  endpoint reading. It does not obtain those values from carrier coincidence.
+- At each of the four changed numeral paths the original global point receives
+  `elementNumeral` before `staged` records the terminal-map composition. Existing
+  realization then consumes the closed point and terminal map separately and
+  combines their actual packets and owners. With no stage, the same point remains
+  recorded; with a stage, the composition is no longer overwritten by a numeral
+  record. No computational result is synthesized by this change.
+
+`completeRoutes`, proof refinement, and lift machinery were not changed or
+reaudited. The arguments above do not establish that any probe compiles or passes,
+that a realization answers correctly, or that the kernel MVP is accepted.
+
+**Bounded repair in this follow-up.** `Realize.framingContext` now compares the
+two complete, resolved bundles under `withoutModifyingState` before selecting
+the supplied context. Presentation and framing run that check before the
+already-framed return. Presentation also checks any retained endpoint contexts;
+callable-endpoint reuse checks the returned endpoint's retained context before
+consuming its packet. Context mismatch propagates as declared invalidity, not as
+missing computation. Existing packet composition and owner merging are unchanged.
+This checks compatibility of independently selected contexts; it neither admits
+an expression label nor infers a category from the Hom type. Different accepted
+expression labels may denote definitionally identical full bundles, so the guard
+does not impose an additional syntactic-label equality requirement.
+
+The added source probe uses Mathlib's existing `SingleObj` category instances for
+`Nat` and `Multiplicative Nat`, whose reduced object and Hom types agree but whose
+complete dictionaries differ. This is a local reflection fixture, not a registry
+addition. It covers conflicting retained contexts before and after framing,
+direct and cached endpoint conflicts, compatible packet/owner preservation, and
+refusal to fill an unresolved selected bundle. Only `git diff --check` was run
+for this follow-up; no Lean compilation or execution result is claimed.

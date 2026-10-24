@@ -2215,7 +2215,7 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     | "pointView", #[selectedData, original, domainData] =>
       let .ok domain ← interfaceObject objects domainData | return .error "the point view domain is incomplete"
       let .ok selected ← interfaceObject objects selectedData | return .error "the selected point view is incomplete"
-      let .ok carrier ← interfaceCarrier selected selectedData | return .error "the point view has no declared carrier"
+      let .ok carrier ← interfaceCarrier selected selectedData objects | return .error "the point view has no declared carrier"
       unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target carrier do
         return .error "the point view changes a complete endpoint"
       return ← validateCallableAt objects expected original
@@ -2227,7 +2227,7 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       unless row.arity == 0 do return .error "the operation is not nullary"
       let .ok domain ← interfaceObject objects domainData | return .error "the nullary point domain is incomplete"
       let .ok selected ← interfaceObject objects selectedData | return .error "the nullary selection is incomplete"
-      let .ok carrier ← interfaceCarrier selected selectedData | return .error "the nullary selection has no carrier"
+      let .ok carrier ← interfaceCarrier selected selectedData objects | return .error "the nullary selection has no carrier"
       unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target carrier do
         return .error "the nullary point changes a complete endpoint"
       let operationSource ← mkFreshExprMVar (← inferType target)
@@ -2255,7 +2255,7 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     | "element", #[descriptor, expression] =>
       let .ok selected ← interfaceObject objects descriptor
         | return .error "the nested point lost its selected object"
-      let .ok carrier ← interfaceCarrier selected descriptor
+      let .ok carrier ← interfaceCarrier selected descriptor objects
         | return .error "the nested point has no independently declared carrier"
       unless ← withTransparency .all <| isDefEq source (← Language.globalPointSource.run {}) <&&>
           isDefEq target carrier do
@@ -2300,28 +2300,14 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
         return ← validateConstructionProjection objects expected tag args
   validatePort placeholder expected data
 
-partial def interfaceCarrier (selected : Expr) (descriptor : Json) :
+/-- Use the complete validated selection to obtain its declared carrier. An
+accepted object action need not have a separately registered name at its target. -/
+partial def interfaceCarrier (selected : Expr) (descriptor : Json)
+    (objects : InterfaceObjects := #[]) :
     TermElabM (Except String Expr) := do
   if ← isType selected then return .ok selected
-  let state ← registryState
-  let .ok (tag, _) := envelope descriptor | return .error "a selected object requires its descriptor"
-  let category ← if let some entry := state.objects.find? (·.id.raw == tag) then do
-      let some category := state.categories.find? (·.id == entry.category)
-        | return .error "the selected category is not registered"
-      pure category
-    else if let .ok ("functorAction", #[action, _]) := envelope descriptor then do
-      let .ok (actionTag, actionArgs) := envelope action
-        | return .error "the selected object action is incomplete"
-      let category := (state.functors.find? (·.id.raw == actionTag)).map (·.target) <|>
-        (if actionTag == "classifierForget" then do
-          let id ← actionArgs[0]?.bind (·.getStr?.toOption)
-          (state.classifiers.find? (·.id.raw == id)).map (·.host)
-        else none)
-      let some category := category
-        | return .error "the selected action requires its retained carrier context"
-      Semantic.namedCategoryFor state category
-    else return .error "the selected structured descriptor requires its retained carrier context"
-  let value ← (Language.recognize state selected category).run {}
+  let .ok value ← interfaceSelectedValue objects selected descriptor
+    | return .error "the selected object has no complete declared carrier context"
   return .ok (← (Language.semanticObject (← (Language.carrierObject value).run {})).run {})
 
 /-- Recover the selected interface from the independently fixed descriptor. Its

@@ -2,6 +2,7 @@
 module
 
 import CasCatalogue.Realize
+import Mathlib.CategoryTheory.SingleObj
 meta import CasCatalogue.Realize
 
 /-! Engineering controls for complete Hom representations whose reduced type no
@@ -73,3 +74,68 @@ run_elab do
   catch _ => pure true
   unless wrongPresentation do
     throwError "an already framed Hom bypassed its complete selected endpoint check"
+
+/- A reflection-only boundary fixture from Mathlib's existing SingleObj
+instances. Their object and Hom types reduce to the same types, but the natural
+numbers' multiplicative and additive category dictionaries differ. These local
+contexts register no semantic row and prescribe no computational answer. -/
+run_elab do
+  let state ← registryState
+  let some category := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the framing fixture has no form metadata"
+  let multiplicative ← elabTermAndSynthesize (← `(Cat.of (SingleObj ℕ))) none
+  let additive ← elabTermAndSynthesize
+    (← `(Cat.of (SingleObj (Multiplicative ℕ)))) none
+  let endpoint ← elabTermAndSynthesize (← `(SingleObj.star ℕ)) none
+  let value := mkNatLit 2
+  let retained : CategoryContext := { expression := category.expression, bundle := multiplicative }
+  let different : CategoryContext := { retained with bundle := additive }
+  CategoryContext.checkMorphism retained value endpoint endpoint
+  CategoryContext.checkMorphism different value endpoint endpoint
+  if ← withoutModifyingState (withTransparency .all <|
+      isDefEq retained.bundle different.bundle) then
+    throwError "the framing fixture does not distinguish complete category dictionaries"
+  let endpointWire : Wire := {
+    form := .diagrams category
+    payload := .ordinary endpoint (toJson "retained endpoint")
+    categoryContext := some retained }
+  let input : Wire := {
+    form := .canonicalMorphism category
+    payload := .computed value (.owned "context-framing" 421 (Json.arr #[]))
+    categoryContext := some retained }
+  let reject (label : String) (action : TermElabM Unit) : TermElabM Unit := do
+    let rejected ← try
+      action
+      pure false
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure true else throw error
+    unless rejected do
+      throwError "{label} replaced a complete retained category dictionary"
+  let trace ← Trace.new
+  let harness ← Harness.empty
+  harness.results.modify (·.insert endpoint endpointWire)
+  for framed in #[false, true] do
+    let wire := { input with morphismFramed := framed }
+    reject "whole-map presentation" do
+      discard <| presentMorphism wire endpointWire endpointWire (some different)
+    reject "map-data framing" do
+      discard <| frameMorphismData harness trace endpoint endpoint wire (some different)
+    reject "callable endpoint framing" do
+      discard <| realizeCallableEndpoint harness trace wire endpoint true (some different)
+    reject "retained endpoint presentation" do
+      discard <| presentMorphism wire
+        { endpointWire with categoryContext := some different } endpointWire (some retained)
+    let presented ← presentMorphism wire endpointWire endpointWire
+    unless presented.morphismFramed && presented.json == input.json &&
+        presented.owner? == input.owner? do
+      throwError "compatible framing changed its actual packet or live owner"
+  harness.results.modify (·.insert endpoint
+    { endpointWire with categoryContext := some different })
+  reject "cached callable endpoint" do
+    discard <| realizeCallableEndpoint harness trace input endpoint true (some retained)
+  let unknown ← mkFreshExprMVar (← inferType retained.bundle)
+  reject "incomplete selected context" do
+    discard <| presentMorphism input endpointWire endpointWire
+      (some { retained with bundle := unknown })
+  unless (← instantiateMVars unknown).isMVar do
+    throwError "framing inferred missing category data from a retained context"

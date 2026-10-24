@@ -208,13 +208,32 @@ def combinedPayload (formal : Expr) (json : Json) (dependencies : Array Wire) :
   | some (backend, session) => return .computed formal (.owned backend session json)
   | none => return if computed then .computed formal (.inline json) else .ordinary formal json
 
+/-- A selected framing context may supply an absent context, but may not replace
+an existing complete category dictionary. Accepted expression aliases can share
+the same full bundle; matching only their carriers or Hom types is insufficient.
+The comparison cannot determine missing parameters of either context. -/
+def framingContext (selected retained : Option CategoryContext) :
+    TermElabM (Option CategoryContext) := do
+  if let (some selected, some retained) := (selected, retained) then
+    let selectedBundle ← instantiateMVars selected.bundle
+    let retainedBundle ← instantiateMVars retained.bundle
+    if selectedBundle.hasMVar || selectedBundle.hasLevelMVar ||
+        retainedBundle.hasMVar || retainedBundle.hasLevelMVar then
+      throwStratum .invalid "the callable framing requires complete retained category contexts"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq selectedBundle retainedBundle) do
+      throwStratum .invalid "the callable framing changed its complete retained category context"
+  return selected.orElse fun _ => retained
+
 /-- Transport an entire actual callable through independently accepted endpoint
 presentations. No graph is enumerated, no data are recovered from its formal term,
 and even a comparison with definitionally equal endpoints is retained. -/
 def presentMorphism (input source target : Wire)
     (context : Option CategoryContext := none) : TermElabM Wire := do
-  let context := context.orElse fun _ => input.categoryContext
+  let context ← framingContext context input.categoryContext
   if let some context := context then
+    discard <| framingContext (some context) source.categoryContext
+    discard <| framingContext (some context) target.categoryContext
     CategoryContext.checkMorphism context input.value source.value target.value
   if input.morphismFramed then return { input with categoryContext := context }
   if context.isNone then
@@ -2862,9 +2881,13 @@ this path; malformed values, unavailable owners and internal failures propagate.
 partial def realizeCallableEndpoint (h : Harness) (trace : Trace) (wire : Wire)
     (value : Expr) (source : Bool) (context : Option CategoryContext := none) :
     TermElabM Wire := do
-  let context := context.orElse fun _ => wire.categoryContext
+  let context ← framingContext context wire.categoryContext
   if let some context := context then CategoryContext.checkObject context value
-  try realizeEndpoint h trace "the callable's complete selected endpoint" value
+  try
+    let endpoint ← realizeEndpoint h trace "the callable's complete selected endpoint" value
+    if let some context := context then
+      discard <| framingContext (some context) endpoint.categoryContext
+    return endpoint
   catch error =>
     unless !Exception.hasConflictingStrata error &&
         CasCatalogue.Exception.stratum? error == some .noImplementation do throw error
@@ -2884,7 +2907,7 @@ Named descriptors and already framed or opaque callables keep their existing dat
 partial def frameMorphismData (h : Harness) (trace : Trace) (source target : Expr)
     (wire : Wire) (context : Option CategoryContext := none) :
     TermElabM (Json × Array Wire) := do
-  let context := context.orElse fun _ => wire.categoryContext
+  let context ← framingContext context wire.categoryContext
   if let some context := context then
     CategoryContext.checkMorphism context wire.value source target
   if wire.morphismFramed then return (wire.json, #[])
