@@ -227,6 +227,18 @@ heads and chosen data remain fixed; the same registered evidence procedure runs 
 closed result is checked at the original target, including Type-valued admission witnesses.
 Different structures on one carrier cannot pass the full dictionary equality check.
 
+The reconstructed constrained-point reader inspects the constructor of the independently
+fixed target record through Lean's structure metadata. It accepts exactly one fixed data
+field and proposition-valued remaining fields; it does not select a predicate or infer a
+target from data. `proof(...)` supplies a closed term at the actual declared proposition.
+For generalized points each obligation is quantified over the original domain, and the
+actual constructor is applied pointwise. `ConstrainedPoint` reuses `Codec.conditionProof`
+and `Decide.kernelAccepts`; it adds no mathematical admission rule. The runtime retains the
+original data map and all of its owners in the public `constrainedPoint` descriptor, while
+proof terms remain on the formal side. Unresolved obligations remain interpreter failures,
+distinct from a proof of invalidity. This is a reconstruction from the conversation's
+implementation record, not recovery of the lost source bytes.
+
 Structural traces retain the exact ordered complete edge applications constructed with the
 source and endpoint constraints. Parameter equivalence records every source presentation,
 its complete applications, and its full image identity; replay does not infer new parameters

@@ -8,6 +8,7 @@ public import CasCatalogue.Semantic
 public import CasCatalogue.ProofRefinement
 public import CasCatalogue.EvidencePresentation
 public import CasCatalogue.Admission
+public import CasCatalogue.ConstrainedPoint
 -- The whole pinned semantic release: what the language can say never depends on which leaves are
 -- installed.
 public import LeanCategories.Catalogue
@@ -145,6 +146,10 @@ syntax:65 cas_term:65 " - " cas_term:66 : cas_term
 syntax:70 cas_term:70 " · " cas_term:71 : cas_term
 syntax:75 "-" cas_term:75 : cas_term
 syntax:50 cas_term:51 " in " cas_term:51 : cas_term
+/-- An independently supplied Lean proof, checked at the declaration's actual proposition. -/
+syntax:max (name := casFormalProof) "proof(" term ")" : cas_term
+/-- Independent proofs for the actual proposition fields of a constrained point. -/
+syntax:50 (name := casInProof) cas_term:51 " in " cas_term:51 " using " "(" cas_term,+ ")" : cas_term
 syntax:45 cas_term:46 " ⊆ " cas_term:46 : cas_term
 syntax:45 cas_term:46 " ∈ " cas_term:46 : cas_term
 syntax:35 cas_term:36 " and " cas_term:35 : cas_term
@@ -275,6 +280,8 @@ inductive Question
 
 /-- The value of a term. -/
 inductive Value
+  /-- An explicit proof artifact, elaborated only at an independently fixed obligation. -/
+  | formalProof (proofSyntax : Syntax)
   /-- A numeral: a parameter, or a literal. -/
   | nat (n : Nat)
   /-- An identifier bound to nothing: a literal of the form it is compared with. -/
@@ -315,6 +322,7 @@ def retainObjectContext (value : Value) (known : Array Value) : Value :=
 /-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
 about it. -/
 partial def Value.terms : Value → Array Expr
+  | .formalProof _ => #[]
   | .nat n => #[mkNatLit n]
   | .literal name => #[mkStrLit name.toString]
   | .object handle _ origin selected viewData =>
@@ -743,6 +751,15 @@ partial def transportedStructure (expected : Expr) (value : Value)
     return image
 
 partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
+  if let .formalProof proofSyntax := value then
+    unless ← isProp expected do
+      throwStratum .invalid "an explicit proof supplies a proposition-valued parameter only"
+    let proof ← instantiateMVars (← elabTermAndSynthesize proofSyntax (some expected))
+    let expected ← instantiateMVars expected
+    unless ConstrainedPoint.closed proof && ConstrainedPoint.closed expected &&
+        (← Decide.kernelAccepts expected proof) do
+      throwStratum .invalid "the explicit parameter proof is not a closed proof accepted by Lean"
+    return proof
   let direct ← match value with
     | .nat n => pure (mkNatLit n)
     | .object handle .. | .element handle _ | .morphism handle .. => pure handle
@@ -1452,6 +1469,9 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
     (category? : Option NamedCategoryEntry := none)
     (ambient? : Option Value := none) : M Value := do
   let state ← registryState
+  if stx.getKind == ``casFormalProof then return .formalProof stx[1]
+  if stx.getKind == ``casInProof then
+    return ← evalInUsing scope stx[0] stx[2] stx[5].getSepArgs category?
   match stx with
   | `(cas_term| view $receiver along $functor:ident) =>
       registeredFunctorView (← eval scope receiver) functor.getId.toString #[]
@@ -1817,6 +1837,10 @@ partial def localGeneratorBindings (scope : Scope) (term objectSyntax : Syntax) 
 
 /-- Explicit generator scopes remove only their locally bound occurrences from free variables. -/
 partial def contextualIdentifiers (scope : Scope) (term : Syntax) : M (Array Name) := do
+  if term.getKind == ``casFormalProof then return #[]
+  if term.getKind == ``casInProof then
+    let ordinary ← `(cas_term| $(⟨term[0]⟩) in $(⟨term[2]⟩))
+    return ← contextualIdentifiers scope ordinary
   if term.getKind == ``casRing || term.getKind == ``casSeries || term.getKind == ``casMvRing then
     return looseIdentifiers term
   if term.getKind == ``casBig then
@@ -1898,6 +1922,12 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
     | _ => pure ambient
   let locals ← localGeneratorBindings scope t c X
   withReader (fun context => { context with bound := locals ++ context.bound }) do
+  if let .object _ _ none _ _ := X then
+    if let some dataCarrier ← constrainedCarrier? X then
+      let value ← eval scope t category? (some dataCarrier)
+      if let .element _ source := value then
+        if (← coercionMap source X).isSome then return ← coerceTo value X
+      return ← admitConstrainedPoint X (← toElement value dataCarrier)
   match X with
   | .homSet .. => eval scope t category? (some X)
   | .object _ _ (some (entry, _)) _ _ =>
@@ -4040,6 +4070,8 @@ partial def tupleOf (values : Array Value) (X : Value)
 partial def tuple (scope : Scope) (xs : Array Syntax) (ambient? : Option Value)
     (numerals? : Option (IO.Ref (Std.HashMap Nat Value)) := none) : M Value := do
   if let some target@(.object handle _ none _ _) := ambient? then
+    if let some dataCarrier ← constrainedCarrier? target then
+      return ← admitConstrainedPoint target (← tuple scope xs (some dataCarrier) numerals?)
     let mut actual := handle.consumeMData
     while actual.isAppOfArity ``id 2 do actual := actual.appArg!.consumeMData
     if actual.isAppOf ``CategoryTheory.Limits.Cone.pt && xs.size == 2 then
@@ -5303,6 +5335,48 @@ partial def inclusionTargetValue (D : Value) (endpoint : Expr)
     return .homSet (← declaredEndpointObject reduced.bindingDomain! category known)
       (← declaredEndpointObject reduced.bindingBody! category known)
   declaredEndpointObject endpoint category known
+
+/-- Read explicit independent proofs after fixing the actual constrained target and data type. -/
+partial def evalInUsing (scope : Scope) (term targetSyntax : Syntax)
+    (proofSyntax : Array Syntax) (category? : Option NamedCategoryEntry := none) : M Value := do
+  let target ← carrierObject (← eval scope targetSyntax)
+  let some dataCarrier ← constrainedCarrier? target
+    | throwStratum .invalid "explicit point proofs require the selected constrained record interface"
+  let locals ← localGeneratorBindings scope term targetSyntax dataCarrier
+  withReader (fun context => { context with bound := locals ++ context.bound }) do
+    let value ← toElement (← eval scope term category? (some dataCarrier)) dataCarrier
+    let proofs ← proofSyntax.mapM fun argument => do
+      let .formalProof proofSyntax ← eval scope argument
+        | throwStratum .invalid "a constructor proof argument is an independent `proof(...)` term"
+      instantiateMVars (← elabTermAndSynthesize proofSyntax none)
+    admitConstrainedPoint target value proofs
+
+/-- The actual data field of a fixed unnamed record, retaining all supplied object context. -/
+partial def constrainedCarrier? (target : Value) : M (Option Value) := do
+  let .object type category .. := target | return none
+  unless category.id == CategoryId.sets do return none
+  let some schema ← ConstrainedPoint.schema? type | return none
+  return some (retainObjectContext (.object schema.dataType category none none none) #[target])
+
+/-- Apply the actual fixed constructor at the original generalized-element domain. -/
+partial def admitConstrainedPoint (target value : Value) (proofs : Array Expr := #[]) : M Value := do
+  let .object type category .. := target
+    | throwStratum .invalid "a constrained point requires its complete selected object"
+  unless category.id == CategoryId.sets do
+    throwStratum .invalid "a constrained point constructor acts at its declared set of points"
+  let .element original source := value
+    | throwStratum .invalid "a constrained point requires its original point map"
+  let some (domain, dataType) := homEnds? (← instantiateMVars (← inferType original))
+    | throwStratum .invalid "a constrained point lost its original generalized domain"
+  unless ← withTransparency .all <| isDefEq dataType (← semanticObject source) do
+    throwStratum .invalid "a constrained point changed its original data endpoint"
+  let result ← ConstrainedPoint.construct type (← functionOf original) proofs
+  unless ← withTransparency .all <| isDefEq result.domain domain do
+    throwError "the constrained point constructor replaced its original domain"
+  let point ← homIn (← quoteExpr result.value) domain type category
+  Trace.record (← read).trace point
+    (.constrainedPoint result.schema.constructor category.id domain dataType type original)
+  return .element point target
 
 /-- The element (or map) `v` admitted into the domain `D` by its registered admission
 `∀ params (x : B) (h : P x), 1 ⟶ D params`, the evidence `P x` established when the statement is

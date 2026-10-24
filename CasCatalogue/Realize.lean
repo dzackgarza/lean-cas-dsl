@@ -2491,6 +2491,31 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return {
         form := .canonicalMorphism category
         payload := (← combinedPayload e json dependencies) }
+  | .constrainedPoint constructor categoryId domain source target original =>
+      let some schema ← ConstrainedPoint.schema? target
+        | throwError "the retained constrained point lost its fixed constructor interface"
+      unless schema.constructor == constructor && categoryId == CategoryId.sets &&
+          (← withTransparency .all <| isDefEq schema.dataType source) do
+        throwError "the retained constrained point changed its constructor or original data type"
+      let expected ← mkAppM ``Quiver.Hom #[domain, target]
+      let originalExpected ← mkAppM ``Quiver.Hom #[domain, source]
+      unless (← withTransparency .all <| isDefEq (← inferType e) expected) &&
+          (← withTransparency .all <| isDefEq (← inferType original) originalExpected) do
+        throwError "the retained constrained point changed its complete endpoints"
+      let projected ← ConstrainedPoint.project schema (← Language.functionOf e)
+      unless ← withTransparency .all <| isDefEq projected (← Language.functionOf original) do
+        throwError "the constrained constructor changed the original formal point data"
+      let datum ← realize h trace "the original constrained computational point" original
+      let domainWire ← realizeEndpoint h trace "the constrained point original domain" domain
+      let sourceWire ← realizeEndpoint h trace "the constrained point data-field type" source
+      let targetWire ← realizeEndpoint h trace "the constrained point selected target" target
+      let json := (Backend.ConstrainedPoint.mk constructor.toString domainWire.json
+        sourceWire.json targetWire.json datum.json).encode
+      let some category := state.categories.find? (·.id == categoryId)
+        | throwError "the constrained point category is not registered"
+      return {
+        form := .canonicalMorphism category
+        payload := (← combinedPayload e json #[datum, domainWire, sourceWire, targetWire]) }
   | .admittedPoint id categoryId params original originalCategory originalSource originalTarget =>
       let some entry := state.objects.find? (·.id == id)
         | throwError "the admitted point owner is not registered"
@@ -4100,6 +4125,9 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.admittedPoint id category (← params.mapM instantiateMVars)
             (← instantiateMVars original) originalCategory
             (← instantiateMVars source) (← instantiateMVars target))
+      | .constrainedPoint constructor category domain source target original =>
+          pure (.constrainedPoint constructor category (← instantiateMVars domain)
+            (← instantiateMVars source) (← instantiateMVars target) (← instantiateMVars original))
       | .presentation id params inverse =>
           pure (.presentation id (← params.mapM instantiateMVars) inverse)
       | .generator id params => pure (.generator id (← params.mapM instantiateMVars))
@@ -4206,6 +4234,10 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (Json.arr #[toJson "admittedPoint", toJson id.raw, toJson category.raw,
             toJson (← params.mapM encode), toJson (← encode original),
             toJson originalCategory.raw, toJson (← encode source), toJson (← encode target)])
+      | .constrainedPoint constructor category domain source target original =>
+          pure (Json.arr #[toJson "constrainedPoint", toJson constructor.toString,
+            toJson category.raw, toJson (← encode domain), toJson (← encode source),
+            toJson (← encode target), toJson (← encode original)])
       | .powerObjectMap id field params =>
           pure (Json.arr #[toJson "powerObjectMap", toJson id.raw, toJson field,
             toJson (← params.mapM encode)])

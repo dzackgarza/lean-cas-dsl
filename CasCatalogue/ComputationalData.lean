@@ -467,6 +467,11 @@ def validateGraphAtKeys (formal expectedType : Expr) (data : Json)
   validatePoint (.graph (.keys domain) outputSchema (some domain)) unwrapped
 
 
+/-- The selected objects used only while checking the types of symbolic data. A
+computational callable is represented by a fresh placeholder at its declared type;
+no returned function, object law, admission proof or equality is reconstructed. -/
+abbrev InterfaceObjects := Array (Json × Expr)
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -592,6 +597,8 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
     if tag == "valueData" then
       let #[data] := args | return .error "valueData requires one data field"
       return ← validatePort formalField expectedType data
+    if tag == "constrainedPoint" then
+      return ← validateCallableAt #[] expectedType json
     if tag == "objectPresentation" then
       let #[action, actual] := args
         | return .error "objectPresentation requires its complete action and actual data"
@@ -831,49 +838,8 @@ partial def validateEndpointPort (formal : Expr) (source target data : Json) :
   let .ok codomain ← endpointKeys target
     | return .error "a finite callable has malformed actual codomain data"
   validateGraphAtKeys formal (← inferType formal) data domain codomain
-end
 
-/-- Validate one constructor port with its original binder-role provenance.
-Endpoint representations come only from earlier actual fields or retained input
-roles. The representation callback supplies actual finite point keys; no resolved
-formal-value equality or formal carrier enumeration participates. -/
-def validatePlannedPort (plan : StructuredResult.DataPlan)
-    (port : StructuredResult.DataPort) (seen : Array Json) (data : Json)
-    (externalDescriptor : Nat → Option Json)
-    (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
-    TermElabM (Except String Unit) := do
-  let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
-  if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" &&
-      (port.domainBinder.isSome || port.codomainBinder.isSome) then
-    let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
-    let some source := port.domainBinder.bind resolve
-      | return .error "the typed callable has no actual computational domain descriptor"
-    let some target := port.codomainBinder.bind resolve
-      | return .error "the typed callable has no actual computational codomain descriptor"
-    return ← validateEndpointPort port.formalField source target data
-  let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
-  -- Ordinary scalar/list ports have no callable endpoint roles.
-  unless graph.getArr?.isOk && (port.domainBinder.isSome || port.codomainBinder.isSome) do
-    return ← validatePort port.formalField port.expectedType data
-  let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
-  let some domainBinder := port.domainBinder
-    | return .error "the callable graph has no retained computational domain role"
-  let some domainDescriptor := resolve domainBinder
-    | return .error "the callable graph has no actual computational domain descriptor"
-  let domainKeys ← match ← endpointKeys domainDescriptor with
-    | .error message => return .error message
-    | .ok (some keys) => pure keys
-    | .ok none => return .error "a finite graph requires complete actual domain keys or an opaque callable"
-  let mut codomainKeys := none
-  if let some codomainBinder := port.codomainBinder then
-    let some codomainDescriptor := resolve codomainBinder
-      | return .error "the callable graph has no actual computational codomain descriptor"
-    match ← endpointKeys codomainDescriptor with
-    | .error message => return .error message
-    | .ok keys => codomainKeys := keys
-  validateGraphAtKeys port.formalField port.expectedType data domainKeys codomainKeys
 
-mutual
 /-- Check a public declaration's complete explicit data slots without substituting
 the reply into dependent formal parameters. Closed primitive slot types are
 checked by the existing codec; other slots retain their public data grammar. -/
@@ -1079,6 +1045,14 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     for datum in #[point.domain, point.source, point.target, point.argument] do
       if let .error message ← validatePublicData datum then return .error message
     return .ok ()
+  if tag == "constrainedPoint" then
+    let .ok point := Backend.ConstrainedPoint.decode data
+      | return .error "the constrained point has incomplete public context"
+    let some (.ctorInfo _) := (← getEnv).find? point.constructor.toName
+      | return .error "the constrained point names no actual constructor"
+    for datum in #[point.domain, point.source, point.target, point.argument] do
+      if let .error message ← validatePublicData datum then return .error message
+    return .ok ()
   if tag == "numeral" then
     let #[number] := args | return .error "a numeral requires exactly one natural number"
     return number.getNat?.map fun _ => ()
@@ -1115,9 +1089,7 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
   for datum in args do
     if let .error message ← validatePublicData datum then return .error message
   return .ok ()
-end
 
-mutual
 
 /-- An element envelope contains the published expression grammar, not arbitrary
 public parameter data. In particular a raw string, scalar or object descriptor
@@ -1194,18 +1166,12 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
   | _, _ =>
       if #["opaqueData", "objectField", "powerObjectMap", "presentation", "pointView",
           "arrowHom", "limitLeg", "constructionLeg", "subobjectInclusion", "identity",
-          "zero", "admittedPoint"].contains tag then
+          "zero", "admittedPoint", "constrainedPoint"].contains tag then
         validatePublicData data
       else return .error "an object or scalar descriptor cannot serve as a callable"
 
-end
 
-/-- The selected objects used only while checking the types of symbolic data. A
-computational callable is represented by a fresh placeholder at its declared type;
-no returned function, object law, admission proof or equality is reconstructed. -/
-abbrev InterfaceObjects := Array (Json × Expr)
 
-mutual
 
 /-- Instantiate public signature parameters for type checking. Named descriptors
 refer to accepted declarations; arbitrary data occupy typed placeholders. The
@@ -1387,6 +1353,29 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       let some declaration := (state.objects.find? (·.id.raw == id)).bind (·.generator)
         | return .error "the object has no registered generator"
       return (← interfaceDeclaration objects declaration expected parameters).map fun _ => ()
+    | "constrainedPoint", _ =>
+      let .ok point := Backend.ConstrainedPoint.decode data
+        | return .error "the constrained point omitted its complete interface"
+      if let .error message ← validatePublicData data then return .error message
+      let .ok domain ← interfaceObject objects point.domain
+        | return .error "the constrained point domain is incomplete"
+      let .ok original ← interfaceObject objects point.source
+        | return .error "the constrained point data-field type is incomplete"
+      let .ok selected ← interfaceObject objects point.target
+        | return .error "the constrained point selected target is incomplete"
+      unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target selected do
+        return .error "the constrained point changes a complete endpoint"
+      let some schema ← ConstrainedPoint.schema? target
+        | return .error "the fixed target has no single-data-field constrained record interface"
+      unless schema.constructor.toString == point.constructor &&
+          (← withTransparency .all <| isDefEq schema.dataType original) do
+        return .error "the constrained point changes its actual constructor or data-field type"
+      let checked ← withoutModifyingState <|
+        validateCallableAt objects (← mkAppM ``Quiver.Hom #[domain, original]) point.argument
+      if checked.isOk then return checked
+      unless ← withTransparency .all <| isDefEq domain (← Language.globalPointSource.run {}) do
+        return checked
+      return ← validatePort (← mkFreshExprMVar original) original point.argument
     | "admittedPoint", _ =>
       let .ok admitted := Backend.AdmittedPoint.decode data
         | return .error "the admitted point omitted its complete interface"
@@ -1548,6 +1537,46 @@ partial def validateElementExpressionAt (objects : InterfaceObjects) (selected c
 
 end
 
+/-- Validate one constructor port with its original binder-role provenance.
+Endpoint representations come only from earlier actual fields or retained input
+roles. The representation callback supplies actual finite point keys; no resolved
+formal-value equality or formal carrier enumeration participates. -/
+def validatePlannedPort (plan : StructuredResult.DataPlan)
+    (port : StructuredResult.DataPort) (seen : Array Json) (data : Json)
+    (externalDescriptor : Nat → Option Json)
+    (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String Unit) := do
+  let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" &&
+      (port.domainBinder.isSome || port.codomainBinder.isSome) then
+    let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
+    let some source := port.domainBinder.bind resolve
+      | return .error "the typed callable has no actual computational domain descriptor"
+    let some target := port.codomainBinder.bind resolve
+      | return .error "the typed callable has no actual computational codomain descriptor"
+    return ← validateEndpointPort port.formalField source target data
+  let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
+  -- Ordinary scalar/list ports have no callable endpoint roles.
+  unless graph.getArr?.isOk && (port.domainBinder.isSome || port.codomainBinder.isSome) do
+    return ← validatePort port.formalField port.expectedType data
+  let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
+  let some domainBinder := port.domainBinder
+    | return .error "the callable graph has no retained computational domain role"
+  let some domainDescriptor := resolve domainBinder
+    | return .error "the callable graph has no actual computational domain descriptor"
+  let domainKeys ← match ← endpointKeys domainDescriptor with
+    | .error message => return .error message
+    | .ok (some keys) => pure keys
+    | .ok none => return .error "a finite graph requires complete actual domain keys or an opaque callable"
+  let mut codomainKeys := none
+  if let some codomainBinder := port.codomainBinder then
+    let some codomainDescriptor := resolve codomainBinder
+      | return .error "the callable graph has no actual computational codomain descriptor"
+    match ← endpointKeys codomainDescriptor with
+    | .error message => return .error message
+    | .ok keys => codomainKeys := keys
+  validateGraphAtKeys port.formalField port.expectedType data domainKeys codomainKeys
+
 /-- Frame a returned point at the caller's exact selected object. The formal
 point is supplied independently and is never reconstructed from the answer.
 Symbolic fields remain computational claims, including a different expression
@@ -1557,6 +1586,13 @@ def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Exp
   if selected.hasMVar || selected.hasLevelMVar then
     throwError "the selected element interface has unresolved formal parameters"
   let data := if let .ok ("valueData", #[data]) := envelope answer then data else answer
+  if (data.getObjValAs? String "ctor").toOption == some "constrainedPoint" then
+    let .ok point := Backend.ConstrainedPoint.decode data
+      | return .error "the constrained point omitted its complete interface"
+    unless point.target == selectedData do
+      return .error "the constrained point differs from the exact selected target"
+    return ← withoutModifyingState <|
+      validateCallableAt #[(selectedData, selected)] (← inferType formalPoint) data
   if (data.getObjValAs? String "ctor").toOption == some "element" then
     let .ok (_, #[descriptor, expression]) := envelope data
       | return .error "an element requires its exact selected object and expression"

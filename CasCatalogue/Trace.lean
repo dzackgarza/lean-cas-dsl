@@ -76,6 +76,9 @@ inductive Node
   /-- A formally admitted point retaining its original computational datum and endpoints. -/
   | admittedPoint (object : ObjectId) (category : CategoryId) (params : Array Expr)
       (original : Expr) (originalCategory : CategoryId) (originalSource originalTarget : Expr)
+  /-- The actual checked one-data-field constructor, retaining the original point map. -/
+  | constrainedPoint (constructor : Name) (category : CategoryId)
+      (domain source target original : Expr)
   /-- An accepted presentation comparison, retaining declaration arguments and orientation. -/
   | presentation (id : NaturalTransformationId) (params : Array Expr) (inverse : Bool)
   | generator (id : ObjectId) (params : Array Expr)
