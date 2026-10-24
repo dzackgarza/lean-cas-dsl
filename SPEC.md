@@ -292,6 +292,13 @@ prescribed or explicit lift additionally has the four selected-lift fields above
 Every field remains tied to the whole original result; projecting it supplies no
 universality, monicity, comparison law, or mathematical equality from returned data.
 
+Every complete typed morphism `f : X → Y` also exposes `f.source()` and
+`f.target()`. These select the exact objects `X` and `Y`, with their full category
+and dependent parameters, even when the objects have no separate registered
+names. The selectors use the accepted Arrow constructor and its endpoint
+projections. They retain the original callable and its computational ownership
+when a selected endpoint is used in another operation.
+
 An already admitted whole coefficient family can be supplied directly to a
 registered binder:
 

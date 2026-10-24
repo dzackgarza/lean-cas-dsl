@@ -10,6 +10,9 @@ public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.QuestionSnapshotProbes
 public import CasAcceptance.Kernel.GenericExecutionProbes
+public import CasAcceptance.Kernel.PortableExecutionProbes
+public import CasAcceptance.Kernel.MorphismEndpointProbes
+public import CasAcceptance.Kernel.PortFailureProbes
 public import CasAcceptance.Kernel.StructuredReconstructionProbes
 public import CasAcceptance.Kernel.StructuredExecutionProbes
 

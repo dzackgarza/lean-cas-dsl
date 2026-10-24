@@ -227,3 +227,42 @@ keeps its own comparison semantics. Transparent administrative expression keys k
 those selections and their projected/factor values distinct without introducing a
 mathematical declaration or a new trace/wire schema. The public API is in `SPEC.md`;
 this source checkpoint precedes its focused clean verification.
+
+### Portable result provenance (2026-10-24)
+
+Corpus query `portable computational result provenance` was attempted through the
+existing corpus client; its API was unavailable in the sandbox. Direct source
+searches locate the complete owners in `Realize.WirePayload`, `forwardPayload`,
+`combinedPayload`, `receiveComputationalData`, and `realize`; no mathematical
+declaration is introduced. The kernel already distinguishes formal input data
+from computational replies independently of opaque-session ownership.
+
+Returned portable replies now keep `.computed (.inline ...)` through method,
+construction, callable and binder dispatch, selected-lift field caches and
+factors. Request framing still uses ordinary data when its inputs are ordinary.
+The existing deliberately wrong-answer port specimen checks that one actual
+portable reply survives a second request for the same formal operation without
+re-dispatch or replacement by its mathematical plan. This is a data-flow check,
+not evidence that the specimen's mathematical answer is correct.
+
+Closed operation-expression encoding also consults the retained result cache
+before expanding its formal trace. A cached point keeps its actual inline data
+or opaque token and dependency owner when used inside a later operation.
+
+The full subobject result type is obtained by applying the already registered
+`Constructors.subobjects` to the exact category dictionary retained in its
+`Arrow` input type. Direct source checks locate the owning accepted constructor
+in `LeanCategories/Catalogue/Constructors.lean`; this replaces fresh instance
+search for `Category (Arrow C)` during prescribed-lift planning.
+
+### Exact endpoints of complete morphisms (2026-10-24)
+
+Direct source queries for `Arrow.mk`, `Arrow.left`, `Arrow.right`,
+`MorphismEndpoint` and `structuredField` locate the existing owners in
+Mathlib's `CategoryTheory/Comma/Arrow.lean`, the accepted Arrow constructor,
+`StructuredProjection`, and `CasContract.Port`. The public selectors
+`f.source()` and `f.target()` instantiate that constructor at the retained
+complete category dictionary and project its actual fields. No object row,
+mathematical definition, comparison, new trace node or wire representation is
+introduced. Complete endpoint data and the original callable remain connected
+through the existing Arrow projection path, including unnamed derived contexts.

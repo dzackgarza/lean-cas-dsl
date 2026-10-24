@@ -28,11 +28,21 @@ def sourceArrowType (expected : Expr) : TermElabM Expr := do
     throwError "the fixed subobject category leaves selected arrow data unresolved"
   return type
 
+/-- Apply the registered subobject constructor to the exact base category
+already retained by the complete Arrow type, including its selected dictionary. -/
 def subobjectType (arrowType : Expr) : TermElabM Expr := do
-  withLocalDeclD `arrow arrowType fun arrow => do
-    let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
-    let property ← mkLambdaFVars #[arrow] (← mkAppM ``CategoryTheory.Mono #[inclusion])
-    mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory #[property]
+  let arrowType ← withTransparency .all <| whnfHeadPred arrowType
+    fun type => pure (!type.isAppOf ``CategoryTheory.Arrow)
+  unless arrowType.isAppOfArity ``CategoryTheory.Arrow 2 do
+    throwError "the subobject interface requires a complete accepted Arrow context"
+  let arguments := arrowType.getAppArgs
+  let base ← mkAppOptM ``CategoryTheory.Cat.of
+    #[some arguments[0]!, some arguments[1]!]
+  let #[constructor] := (← registryState).constructors.filter
+      (·.semantics == `CasCatalogue.Constructors.subobjects)
+    | throwError "the subobject interface has no unique accepted constructor"
+  let bundle ← applyConstructorInterface constructor.semantics #[base] #[base]
+  mkAppM ``CategoryTheory.Bundled.α #[bundle]
 
 /-- Pending callable plans retain their formal meaning separately from untrusted data.
 The four formal expressions specify ports; they are not computed outputs. No backend

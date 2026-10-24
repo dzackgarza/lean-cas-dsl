@@ -2523,6 +2523,23 @@ addresses, full endpoint category and original receiver remain in the reading. -
 partial def structuredField (receiver : Value) (name : String) (index : Option Nat := none) :
     M (Option Value) := do
   unless #["obj", "source", "target", "hom", "inclusion", "field"].contains name do return none
+  if ((receiver matches .morphism ..) || (receiver matches .derivedMorphism ..)) &&
+      !(index.isNone && (name == "source" || name == "target")) then return none
+  -- A typed map already fixes both complete objects. Read its endpoints through
+  -- the accepted Arrow construction, retaining the actual callable and category.
+  let receiver ← match receiver with
+    | .morphism .. | .derivedMorphism .. => do
+        let (hom, source, target, context, first, second) ← morphismContext receiver
+        let #[constructor] := (← registryState).constructors.filter
+            (·.semantics == `CasCatalogue.Constructors.arrow)
+          | throwStratum .invalid "the complete Arrow context is absent or ambiguous"
+        let arrowContext ← CategoryContext.construct context constructor.id
+        let arrow ← mkAppOptM ``CategoryTheory.Arrow.mk
+          #[some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
+            some source, some target, some hom]
+        Trace.record (← read).trace arrow (.contextualArrow context hom source target)
+        objectInContext arrow arrowContext #[receiver, first, second]
+    | _ => pure receiver
   let object ← match receiver with
     | .object object .. | .derivedObject object .. => pure object
     | _ => return none

@@ -57,8 +57,9 @@ run_elab do
     payload := .computed apex (.owned "transport-probe" 7 construction) }
   let selected ← Realize.computationalApexReceiver trace direct
   unless selected.form.id == "obj.sets.fin" && selected.json == actualApex &&
-      selected.value == direct.value && selected.owner? == direct.owner? do
-    throwError "a complete direct construction lost its actual apex, formal value or owner"
+      selected.value == direct.value && selected.owner?.isNone &&
+      (selected.payload matches .computed _ (.inline _)) do
+    throwError "a complete portable apex lost its actual data, formal value or computational origin"
   let accepted ← Realize.edgeDescriptor trace (.functor action.id) functor
   -- The unknown descriptor is a preservation control, not a new mathematical registration.
   for descriptor in #[accepted, node "unregistered.transport.probe" #[]] do
