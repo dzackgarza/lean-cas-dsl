@@ -2397,6 +2397,20 @@ partial def interfaceSelectedValue (objects : InterfaceObjects) (selected : Expr
       | return .error "the selected action has no complete declared interface"
     let .ok original ← interfaceObject objects originalData
       | return .error "the selected action lost its complete source"
+    let original ← instantiateMVars original
+    if original.hasMVar || original.hasLevelMVar then
+      return .error "the selected action requires a complete independently fixed source"
+    -- Fresh declaration universes are determined by the independently supplied
+    -- source, before asking for complete category bundles. The expected result
+    -- cannot supply an omitted source or select any action parameter.
+    let actionType ← whnfR (← inferType action)
+    unless actionType.isAppOfArity ``CategoryTheory.Functor 4 do
+      return .error "the selected action has no ordinary functor interface"
+    unless ← withTransparency .all <|
+        isDefEq actionType.getAppArgs[0]! (← inferType original) do
+      return .error "the selected action source differs from its declaration signature"
+    Semantic.bindFunctorSource action original
+    let action ← instantiateMVars action
     let .ok (actionTag, actionArgs) := envelope descriptor
       | return .error "the selected action descriptor is incomplete"
     let source := (state.functors.find? (·.id.raw == actionTag)).map (·.source) <|>
