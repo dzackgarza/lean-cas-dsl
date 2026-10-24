@@ -3084,7 +3084,9 @@ partial def executeLiftFactor (h : Harness) (trace : Trace) (formal receiver bas
   let context ← SelectedLift.context selection
   return {
     form := contextualForm state context coneWire.form true
-    payload := dataPayload formal currentBase owner
+    payload := .computed formal (match owner with
+      | none => .inline currentBase
+      | some (backend, session) => .owned backend session currentBase)
     categoryContext := some context }
 
 /-- Evaluate the recorded term `e`, the value of `what`, to a value of a form, through the
@@ -3097,9 +3099,12 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     if let some wire := (← h.results.get)[e]? then return wire
   let wire ← realizeFresh h trace what e
   if closed then
-    match wire.payload with
-    | .ordinary .. => pure ()
-    | .computed .. | .construction .. => h.results.modify (·.insert e wire)
+    if wire.liftExecution.isSome then
+      h.results.modify (·.insert e wire)
+    else
+      match wire.payload with
+      | .ordinary .. => pure ()
+      | .computed .. | .construction .. => h.results.modify (·.insert e wire)
   return wire
 
 partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :

@@ -250,7 +250,8 @@ field access and factorization.
 For separately selected successive lifts, choose their composition explicitly:
 
 ```text
-let inner := lift(U(X)) along <inner-lift>(…) with m using proof(<monicity-term>)
+let Y := view X along <outer-functor>(…)
+let inner := lift(Y) along <inner-lift>(…) with m using proof(<monicity-term>)
 let outer := lift(X) along <outer-lift>(…) with inner.hom() using proof(<monicity-term>)
 let L := composite_lift(outer)
 L.forward()
@@ -258,8 +259,8 @@ L.backward()
 factor(g) through L with f using proof(<composite-compatibility-term>)
 ```
 
-Here `U(X)` denotes the actual selected outer functor image, obtained by its
-registered `view … along …` form. `composite_lift` follows the retained defining-map
+Here the view uses the actual selected outer functor and all its parameters.
+`composite_lift` follows the retained defining-map
 links and checks each pair of adjacent complete category contexts, selected
 actions, source objects and inclusions. It keeps every stage's already returned
 four-field packet and its owners. The ordinary `outer.forward()` and

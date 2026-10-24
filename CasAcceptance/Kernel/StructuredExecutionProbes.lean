@@ -281,3 +281,20 @@ run_elab do
   unless parameters.size == 3 && (← isDefEq parameters[0]! ring) &&
       (← isDefEq parameters[1]! values) && (← isDefEq parameters[2]! source) do
     throwError "member selection replaced a retained structured parameter by its carrier"
+  let some row := state.morphisms.find?
+      (·.declaration == ``CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.pairing)
+    | throwError "the selected family is absent"
+  let some other := state.morphisms.find? (·.name == "gcd")
+    | throwError "the independent inapplicable family is absent"
+  for rows in #[#[{ other with name := row.name }, row],
+      #[row, { other with name := row.name }]] do
+    let selected ← (invariantNamed { state with morphisms := rows } row.name receiver).run {}
+    unless ← isDefEq (← valueTerm selected) expected do
+      throwError "member family selection depended on declaration order"
+  let competing := { row with id := ⟨"probe.distinct.complete.family"⟩ }
+  for rows in #[#[row, competing], #[competing, row]] do
+    let refused ← try
+      discard <| (invariantNamed { state with morphisms := rows } row.name receiver).run {}
+      pure false
+    catch error => pure (Exception.interpretationKind error == .ambiguous)
+    unless refused do throwError "distinct applicable family declarations lost their ambiguity"

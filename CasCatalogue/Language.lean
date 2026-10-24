@@ -1146,13 +1146,13 @@ def standardDiagram (shape : String) (args : Array Value) : M Term := do
     | .morphism hom .. | .derivedMorphism hom .. => pure hom
     | _ => throwStratum .invalid m!"the diagram of a {shape} is of objects and morphisms"
   let state ← registryState
-  let context? : Option CategoryContext ← match args[0]? with
-    | some (value@(.object ..)) | some (value@(.derivedObject ..)) =>
-        some <$> objectContext value
-    | some (value@(.morphism ..)) | some (value@(.derivedMorphism ..)) => do
+  let context? : Option CategoryContext ← args[0]?.mapM fun (value : Value) => do
+    match value with
+    | .object .. | .derivedObject .. => objectContext value
+    | .morphism .. | .derivedMorphism .. => do
         let (_, _, _, context, _, _) ← morphismContext value
-        pure (some context)
-    | _ => pure none
+        pure context
+    | _ => throwStratum .invalid m!"the diagram of a {shape} requires a complete category context"
   let category? := context?.bind fun context => CategoryContext.named? state context.expression
   if let some category := category? then
     let rows := state.limits.filter fun row => row.shape == shape && row.category == category.id

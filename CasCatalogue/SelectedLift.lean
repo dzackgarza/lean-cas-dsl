@@ -112,6 +112,17 @@ def fromEvidence (entry : LiftEntry) (evidence source inclusion monic : Expr) :
     if info.isExplicit then return some (← exprToSyntax (← instantiateMVars argument)) else pure none
   select entry parameters source inclusion monic
 
+/-- A factor's original generalized domain comes from its complete cone map.
+The image of that domain under a functor need not determine the original object. -/
+def coneDomain (plan : Plan) (cone : Expr) : TermElabM Expr := do
+  let type ← whnfR (← inferType cone)
+  unless type.isAppOfArity ``Quiver.Hom 4 do
+    throwStratum .invalid "the factor cone has no complete categorical domain"
+  let arguments := type.getAppArgs
+  unless ← withTransparency .all <| isDefEq arguments[3]! plan.source do
+    throwStratum .invalid "the factor cone has a different exact selected target"
+  return arguments[2]!
+
 /-- The separate canonical factor port consumes the accepted compatibility equation.
 It creates no additional computation field and assumes no faithful underlying functor. -/
 def factor (plan : Plan) (baseMap cone proof : Expr) : TermElabM Expr := do
@@ -123,9 +134,11 @@ def factor (plan : Plan) (baseMap cone proof : Expr) : TermElabM Expr := do
     (← mkAppM ``CategoryTheory.CategoryStruct.comp #[baseMap, plan.inclusion])
   unless !proof.hasSorry && (← Decide.kernelAccepts equation proof) do
     throwStratum .invalid "the universal factor lacks its checked exact compatibility equation"
+  let domain ← coneDomain plan cone
   let result ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLiftFactorComputation.factor
     (selected.map some ++ #[some plan.evidence, some canonical, some plan.source,
-      none, some plan.inclusion, some plan.monic, none, some baseMap, some cone, some proof])
+      none, some plan.inclusion, some plan.monic, some domain,
+      some baseMap, some cone, some proof])
   let result ← instantiateMVars result
   unless !result.hasMVar && !result.hasLevelMVar && (← isTypeCorrect result) do
     throwStratum .invalid "the universal factor changed its complete declared endpoint types"
@@ -134,9 +147,10 @@ def factor (plan : Plan) (baseMap cone proof : Expr) : TermElabM Expr := do
 /-- The accepted source equation for a following stage of a composite factor. -/
 def factorSourceEquation (plan : Plan) (baseMap cone proof : Expr) : TermElabM Expr := do
   let type ← withTransparency .all <| whnf (← inferType plan.evidence)
+  let domain ← coneDomain plan cone
   let equality ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.factor_hom
     (type.getAppArgs.map some ++ #[some plan.evidence, some plan.source, none,
-      some plan.inclusion, some plan.monic, none, some baseMap, some cone, some proof])
+      some plan.inclusion, some plan.monic, some domain, some baseMap, some cone, some proof])
   mkAppM ``Eq.symm #[equality]
 
 /-- Checked monicity of the selected computation's defining map is an accepted formal law. -/

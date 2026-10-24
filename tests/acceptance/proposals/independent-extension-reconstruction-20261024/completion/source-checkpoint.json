@@ -3,7 +3,7 @@
   "date_utc": "2026-10-24",
   "worktree_branch": "acceptance/complete-independent-extensions-20261024",
   "base_revision": "7df8d13226ae6989343ae0aea7a21a9376ad98c9",
-  "source_revision_before_this_record": "f51fb76f4997b1de6fd91bd5da579497f03a00c2",
+  "source_revision_before_this_record": "80110e30f08eb266b8091654754a1c993ca7fba7",
   "permitted_edit_root": "tests/acceptance/proposals/independent-extension-reconstruction-20261024/completion",
   "mathematical_extension_revision": "766fc2c20c0f293f7e5f3151584534f40f7af806",
   "current_main_mathematical_interfaces_revision": "9508da173de86670c4e0c8a4632e2df7d2335949",
@@ -42,7 +42,8 @@
   },
   "completion_file_sha256": {
     "README.md": "d6e19d0e2f2b884885d39a65164a70ab5e5bc2a1d62a925df3c6d5284745146f",
-    "coverage-and-derivations.md": "a20ad3591dcb631aa5fe95d6a6b2acfc1908f7aaa7836729f7b5220cc1ac4dac",
+    "coordinate-presentations.md": "edc778f9fe0d4430ee5d52c0b7f6dcef2a89ca2ba2a1b29120a07c174f406722",
+    "coverage-and-derivations.md": "01575d24a7441ab666402d3f5284dd5b3abd789a5adbd2e3c910cd6582a9f737",
     "expected-facts.lean": "32ce0128fdad892a33d7b9f9411ae356b1f459c0fc2c80fa9647311ed6384ebc",
     "rx-lift-prescribed-stages.cas": "a5568912e5869e36c60d9450f3bb3c97e0f43e869f820b1da225d16db940746a",
     "rx01-selected-orders.cas": "ad6bad0cf74c7c034cc7b9feee9ce1a7a6ad897a157147238417180eee0bc9ea",
@@ -110,5 +111,19 @@
     "The fixed first-projection lambda must denote exactly LinearMap.fst over the retained canonical rational modules, not a set function or a Vec substitute.",
     "The four carrier-diamond declaration environments and six fixed-question execution conditions remain independently supplied observations; ownership controls are unchanged.",
     "Expected-facts.lean is a mathematical source statement file, not a build or acceptance result."
-  ]
+  ],
+  "coordinate_source_review": {
+    "previous_checkpoint_revision": "05ae5f477935663f14b25b4a8f4d871df4988ffd",
+    "mathematical_source_revision": "766fc2c20c0f293f7e5f3151584534f40f7af806",
+    "note": "coordinate-presentations.md",
+    "cas_sources_and_expected_facts_unchanged": true,
+    "formed_ambient_carrier_module": "ModuleCat.of ℚ (Fin 2 → ℚ)",
+    "vector_set_carrier": "Fin 2 → ℚ",
+    "paired_form_value_module": "ModuleCat.of ℚ (ℚ × ℚ)",
+    "row_map_source": "ModuleCat.of ℚ (Fin 2 → ℚ)",
+    "row_map_target": "ModuleCat.of ℚ ℚ",
+    "additional_vector_to_carrier_comparison_needed": false,
+    "separate_complete_formed_cone_source_comparison_still_required": true,
+    "validation": "Static definitions and declaration signatures only; tuple interpretation remains unverified."
+  }
 }

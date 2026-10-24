@@ -27,6 +27,12 @@ universal negatives. They add no local mathematical definition or registry entry
 Their role is to state and source expected facts; they do not replace public-language
 execution or the full interpretation review.
 
+`coordinate-presentations.md` records the exact upstream carrier reductions for
+RX-08 and RX-LIFT. Their vector domains are `Fin 2 → ℚ`; the paired forms' value
+module has carrier `ℚ × ℚ`. The existing vector bindings and expected values
+remain unchanged, and the separate complete formed cone-source comparison is
+still required.
+
 ## Public specification consumed
 
 `[P07]` is `SPEC.md` at kernel document commit

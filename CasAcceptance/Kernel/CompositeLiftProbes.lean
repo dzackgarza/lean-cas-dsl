@@ -147,7 +147,8 @@ run_elab do
   let factors ← SelectedLift.factors plans baseMap cone proof
   unless factors.size == 2 do throwError "the composed factor omitted a selected stage"
   let some (domain, _) := homEnds? (← inferType cone) | unreachable!
-  let some (actualDomain, target) := homEnds? (← inferType factors.back!.factor) | unreachable!
+  let some final := factors.back? | unreachable!
+  let some (actualDomain, target) := homEnds? (← inferType final.factor) | unreachable!
   unless ← isDefEq actualDomain domain <&&> isDefEq target composedKey do
     throwError "the composed factor changed the original complete cone domain or selected apex"
   for step in factors do

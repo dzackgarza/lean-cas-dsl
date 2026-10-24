@@ -18,7 +18,7 @@ transcript and is not the reconstruction workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `d68f541ec6e25c4b65a802153ed41eeedcc26093` | Integrated generic contexts/actions, structured execution, complete question comparison and interpretation export; aggregate/runtime corrections continue |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `ed1a9ace764caa9ca1c5e2735f919855a37aca5e` | Generic contexts/actions, structured execution, complete question comparison, portable selected-apex ownership and independent extension proposals; aggregate/runtime verification continues |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `766fc2c20c0f293f7e5f3151584534f40f7af806` | Additive independently chosen extension modules integrated and compiled; source publication is not release acceptance |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `28e447153c408d531f5552b637f91269247851e5` | Complete category, cartesian-map, construction-field and projection-action codecs/docs published; final generated declaration reference pending |
@@ -63,11 +63,21 @@ It records its actual older source inputs and must be repeated on the final inte
 candidate. No protected question baseline or expected answer was changed.
 
 The first real-engine reconstruction run passed 13 of the 17 unchanged demonstration
-assertions: arithmetic 8/8, finite pullback 1/2, matrix iteration 0/3 and nonidentity
-F9 presentation transport 4/4. It exposed a missing retained product-factor interface
-and product-point arrays being framed as graphs. Generic repairs preserve actual
-endpoint roles, complete dictionaries, owner dependencies and ordered component data;
-malformed nested wrappers remain rejected. The integrated native rerun is pending.
+assertions. Two later integrated native runs passed 16/17: arithmetic 8/8, finite
+pullback/reuse 1/2, matrix iteration 3/3 and nonidentity F9 presentation transport 4/4.
+The repaired paths retain product-factor interfaces and ordered product-point data.
+The remaining reuse failure was traced to an entirely portable selected apex retaining
+the owner of opaque defining maps in its parent packet. The integrated repair derives
+ownership from the complete selected data and retains the original parent packet for
+later projections. Its focused checks and captured-packet replay pass; the native
+rerun remains pending. The mathematical assertions and old external leaves are unchanged.
+
+The independent extension completion source adds 105 labeled questions and separately
+records exact vector-carrier and product-value-module distinctions. These are fixed
+source proposals, not 105 admitted or executed successes. A read-only composition audit
+also found that portable selected-lift packets could be executed again under their
+retained selection key. The execution author is repairing that cache boundary and
+checking complete two-stage factors before the frozen-candidate trials.
 
 Use isolated build outputs under `/tmp` in this environment: workspace synchronization
 restored obsolete generated trace layouts and caused false enum/probe failures; fresh
