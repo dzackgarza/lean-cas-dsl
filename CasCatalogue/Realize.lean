@@ -16,7 +16,6 @@ public import CasCatalogue.ElementData
 public import CasCatalogue.QuestionIdentity
 public import CasCatalogue.ComputationalData
 public import CasCatalogue.ObjectPresentation
-public import CasCatalogue.OperationAgreement
 public import Mathlib.CategoryTheory.ConcreteCategory.EpiMono
 public import CasContract.Port
 
@@ -702,40 +701,6 @@ recorded in `trace` as the semantic reading records one. -/
 def objectAt (trace : Trace) (entry : ObjectEntry) (params : Array Expr) : TermElabM Expr := do
   Semantic.object entry (← params.mapM exprToSyntax) (some trace)
 
-/-- An operation agreement wraps its selected result without replacing that result's
-original operation trace. The strict syntactic child prevents recursive alias provenance;
-the independent validator checks the complete universal families and every retained source. -/
-def checkOperationEquivalence (wrapper representative : Expr) (chosen : Nat)
-    (candidates : Array OperationCandidate) (comparisons : Array OperationFamilyComparison) :
-    TermElabM Unit := do
-  OperationAgreement.validate representative chosen candidates comparisons
-  let wrapper ← instantiateMVars wrapper
-  let representative ← instantiateMVars representative
-  let mut inner := wrapper.consumeMData
-  let mut retainedChild := false
-  while inner.isAppOfArity ``id 2 do
-    inner := inner.appArg!.consumeMData
-    if inner == representative.consumeMData then
-      retainedChild := true
-      break
-  unless retainedChild && wrapper != representative do
-    throwError "the operation agreement lost its distinct original-result wrapper"
-  unless !wrapper.hasMVar && !wrapper.hasLevelMVar && !wrapper.hasFVar &&
-      !wrapper.hasLooseBVars && (← isTypeCorrect wrapper) &&
-      (← withTransparency .all <| isDefEq (← inferType wrapper) (← inferType representative)) &&
-      (← withTransparency .all <| isDefEq wrapper representative) do
-    throwError "the operation agreement wrapper changed its complete selected value or type"
-
-/-- Reframe only actual data of the already checked representative. All computational
-metadata, including its owner and complete interfaces, stay attached to that same payload. -/
-def forwardOperationEquivalent (wrapper representative : Expr) (actual : Wire) :
-    TermElabM Wire := do
-  unless (← withTransparency .all <|
-      isDefEq (← inferType actual.value) (← inferType representative)) &&
-      (← withTransparency .all <| isDefEq actual.value representative) do
-    throwError "the operation agreement received data for a different complete result"
-  return { actual with payload := forwardPayload actual wrapper actual.json }
-
 mutual
 
 /-- Closed parameter data retaining accepted named-object provenance when present. -/
@@ -744,10 +709,6 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
   let value ← instantiateMVars value
   if value.hasMVar || value.hasLevelMVar || value.hasFVar || value.hasLooseBVars then
     throwStratum .noImplementation m!"the exact functor parameter is not closed"
-  if let some (.operationEquivalence representative chosen candidates comparisons) ←
-      trace.node? value then
-    checkOperationEquivalence value representative chosen candidates comparisons
-    return ← parameterData trace representative
   let selected := value.consumeMData
   if let some category := state.categories.find?
       (fun row => selected.getAppFn.constName? == some row.declaration) then
@@ -2515,9 +2476,6 @@ partial def elementExpression (h : Harness) (trace : Trace) (e : Expr) :
   let some node ← trace.node? e
     | throwStratum .noImplementation m!"the closed element has no retained construction"
   match node with
-  | .operationEquivalence representative chosen candidates comparisons =>
-      checkOperationEquivalence e representative chosen candidates comparisons
-      elementExpression h trace representative
   | .elementNumeral n _ _ =>
       return (Json.mkObj [("ctor", "numeral"), ("args", Json.arr #[toJson n])], #[])
   | .generator id params =>
@@ -2734,7 +2692,6 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
   let structural := match node with
     | some (.object ..) | some (.parameterTransport ..) | some (.retainedRoute ..) |
         some (.parameterEquivalence ..) | some (.functor ..) | some (.proofRefinement ..) |
-        some (.operationEquivalence ..) |
         some (.construction ..) | some (.selectedLift ..) | some (.liftProjection ..) => false
     | _ => true
   if structural && (← whnfR (← inferType value)).isSort then
@@ -3326,10 +3283,6 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one); the term is {e}"
   match node with
-  | .operationEquivalence representative chosen candidates comparisons =>
-      checkOperationEquivalence e representative chosen candidates comparisons
-      let actual ← realize h trace "the checked operation agreement's selected result" representative
-      forwardOperationEquivalent e representative actual
   | .categoryParameter id params =>
       let some entry := state.categories.find? (·.id == id)
         | throwError "the selected category parameter is no longer registered"
@@ -3828,7 +3781,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let wire ← realize h trace "the complete construction defining this leg" receiver
       let .construction result _ := wire.payload
         | throwStratum .noImplementation "the receiver has no retained complete construction"
-      let some (.limit id _ lift) ← (trace.node? receiver : IO _)
+      let some (.limit id _ _) ← (trace.node? receiver : IO _)
         | throwStratum .invalid "the receiver is not a recorded formal construction"
       let value ← result.leg index
       unless ← withTransparency .all <| isDefEq value e do
@@ -3851,29 +3804,10 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let #[descriptor] := descriptors
           | return .error "the defining-map action has no unique registered descriptor"
         return .ok descriptor
-      let json ← match result.packet with
-        | .created liftId sourceDiagram _ =>
-          unless lift.map (·.raw) == some liftId && sourceDiagram == result.diagramJson do
-            throwError "the retained defining leg changed its complete creation context"
-          let indexType ← inferType index
-          let diagramType ← whnfR (← inferType result.diagram)
-          unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 &&
-              (← withTransparency .all <| isDefEq indexType diagramType.getAppArgs[0]!) do
-            throwError "the retained defining leg changed its exact diagram-index type"
-          let .ok indexData ← Codec.encode index
-            | throwStratum .noImplementation "the exact defining-leg index has no public encoding"
-          -- The row's ports are downstairs. Their actual maps remain inside
-          -- the complete created packet; they are not maps of the source
-          -- category merely because the formal creation supplies a leg there.
-          pure (Json.mkObj [("ctor", "constructionLeg"), ("args", Json.arr #[
-            toJson id.raw, result.diagramJson, result.json, indexData])])
-        | .direct answer =>
-          unless lift.isNone do
-            throwError "the retained defining leg omitted its selected creation packet"
-          match ← StructuredResult.projectData row result.diagram answer index
-              encodeInput encodeAction with
-            | .ok data => pure data
-            | .error message => throwStratum .noImplementation message
+      let json ← match ← StructuredResult.projectData row result.diagram result.answer index
+          encodeInput encodeAction with
+        | .ok data => pure data
+        | .error message => throwStratum .noImplementation message
       return { form := .canonicalMorphism category, payload := forwardPayload wire e json }
   | .arrowProjection receiver =>
       let wire ← realize h trace "the stored arrow object" receiver
@@ -5047,17 +4981,6 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
     realizeFresh h trace "the observed complete arrow" formal
   let tag := (wire.json.getObjValAs? String "ctor").toOption
   let actual ← match node with
-    | .operationEquivalence representative chosen candidates comparisons => do
-        checkOperationEquivalence formal representative chosen candidates comparisons
-        -- Use the incoming actual payload at the verified original trace. In particular,
-        -- a returned whole callable does not become its formal recipe when only the
-        -- transparent wrapper is present in the result cache.
-        let input := { wire with payload := forwardPayload wire representative wire.json }
-        let actual ← realizeArrowObservation h trace input
-        match actual.payload with
-        | .ordinary .. => pure ()
-        | _ => h.results.modify (·.insert representative actual)
-        forwardOperationEquivalent formal representative actual
     | .namedMorphism id parameters => do
         -- A cached graph or opaque callable is already actual data. Provenance alone
         -- cannot distinguish it from a descriptor whose parameters were computed.
@@ -5643,18 +5566,10 @@ pin, compared across candidates by `scripts/check_question_permanence.py` (gov-m
 It is never the statement's text, its outcome, or whether it is provable. -/
 def claimQuestion : Claim → TermElabM (String × String)
   | .binding => throwError "a binding has no assertion question"
-  | .judged question proposition expected _ => do
+  | .judged question _ expected _ => do
       let question ← instantiateQuestion question
-      let proposition ← questionTerm proposition
-      unless ← isProp proposition do
-        throwError "the judged claim has no proposition to evaluate"
-      let propositionType ← questionTerm (← inferType proposition)
       let table ← TermTable.new
-      let questionRoot ← encodeQuestion table question
-      let proposition ← table.encode proposition
-      let propositionType ← table.encode propositionType
-      let roots := Json.mkObj [("question", questionRoot),
-        ("proposition", toJson proposition), ("type", toJson propositionType)]
+      let roots ← encodeQuestion table question
       return (s!"judged:{expected}:{← table.finish roots}",
         s!"judged:{expected}: {← showQuestion question}")
   | .implemented value => fingerprint "implemented" value
@@ -5707,33 +5622,6 @@ def orderParameterPresentations (source : TermTable) (presentations : Array Para
     let record ← encodeParameterPresentation remap.encodeTerm presentation
     target.finish record
 
-/-- Complete operation source provenance, including each comparison's constructor
-and whiskering contexts separately from its checked typed witness. -/
-def encodeOperationSource (encode : Expr → TermElabM Nat) (source : OperationSource) :
-    TermElabM Json := do
-  let comparisons := source.comparisons.map fun comparison => Json.arr #[
-    toJson comparison.cell.raw, toJson (comparison.constructors.map (·.raw)),
-    toJson (comparison.before.map reprStr), toJson (comparison.after.map reprStr)]
-  return Json.arr #[
-    Json.arr #[toJson (reprStr source.context.expression), toJson (← encode source.context.bundle)],
-    toJson (← encode source.receiver), toJson (source.route.map reprStr),
-    toJson (← source.applications.mapM encode), Json.arr comparisons,
-    toJson (← source.comparisonWitnesses.mapM encode)]
-
-def encodeOperationCandidate (encode : Expr → TermElabM Nat) (candidate : OperationCandidate) :
-    TermElabM Json := do
-  return Json.arr #[toJson candidate.operation.raw, toJson (← encode candidate.application),
-    toJson (← encode candidate.result),
-    Json.arr (← candidate.sources.mapM (encodeOperationSource encode))]
-
-def encodeOperationFamilyComparison (encode : Expr → TermElabM Nat)
-    (comparison : OperationFamilyComparison) : TermElabM Json := do
-  return Json.arr #[toJson comparison.left, toJson comparison.right,
-    toJson comparison.leftSource, toJson comparison.rightSource,
-    toJson (← comparison.parameters.mapM encode), toJson (← encode comparison.leftFamily),
-    toJson (← encode comparison.rightFamily), toJson (← encode comparison.leftType),
-    toJson (← encode comparison.rightType), toJson (← encode comparison.identity)]
-
 /-- The operation schema has one encoder. Complete tie keys and the final snapshot
 both use this same field traversal; typed terms use the unchanged proof-proposition quotient. -/
 def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
@@ -5759,10 +5647,6 @@ def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
       let data ← sources.mapM (encodeParameterPresentation encode)
       pure (Json.arr #[toJson "parameterEquivalence", toJson (← encode expected),
         toJson (← encode representative), Json.arr data])
-  | .operationEquivalence representative chosen candidates comparisons =>
-      pure (Json.arr #[toJson "operationEquivalence", toJson (← encode representative),
-        toJson chosen, Json.arr (← candidates.mapM (encodeOperationCandidate encode)),
-        Json.arr (← comparisons.mapM (encodeOperationFamilyComparison encode))])
   | .retainedRoute source target route applications receiver =>
       pure (Json.arr #[toJson "retainedRoute", toJson source.raw, toJson target.raw,
         toJson (route.map reprStr), toJson (← applications.mapM encode),
@@ -6002,27 +5886,6 @@ def interpret (scope : Scope) (stx : Syntax)
               identity := ← instantiateMVars source.identity }
           pure (.parameterEquivalence (← instantiateMVars expected)
             (← instantiateMVars representative) sources)
-      | .operationEquivalence representative chosen candidates comparisons => do
-          let candidates ← candidates.mapM fun candidate => do
-            let sources ← candidate.sources.mapM fun source => do
-              return { source with
-                context := ← instantiateContext source.context
-                receiver := ← instantiateMVars source.receiver
-                applications := ← source.applications.mapM instantiateMVars
-                comparisonWitnesses := ← source.comparisonWitnesses.mapM instantiateMVars }
-            return { candidate with
-              application := ← instantiateMVars candidate.application
-              result := ← instantiateMVars candidate.result
-              sources }
-          let comparisons ← comparisons.mapM fun comparison => do
-            return { comparison with
-              parameters := ← comparison.parameters.mapM instantiateMVars
-              leftFamily := ← instantiateMVars comparison.leftFamily
-              rightFamily := ← instantiateMVars comparison.rightFamily
-              leftType := ← instantiateMVars comparison.leftType
-              rightType := ← instantiateMVars comparison.rightType
-              identity := ← instantiateMVars comparison.identity }
-          pure (.operationEquivalence (← instantiateMVars representative) chosen candidates comparisons)
       | .retainedRoute source target route applications receiver =>
           pure (.retainedRoute source target route (← applications.mapM instantiateMVars)
             (← instantiateMVars receiver))

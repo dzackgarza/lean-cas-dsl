@@ -77,11 +77,7 @@ logical equivalence, equal carriers, or coincident endpoints is part of this
 representation.
 
 For the first five claim kinds, `roots` is `[term, type]`. For `judged` claims,
-the complete root is an object with `question`, `proposition`, and `type` fields.
-The latter two are references to the exact execution proposition and its type
-in this same term table. They are retained even when the proposition is `True`
-or `False`; a change to what execution consumes must not be hidden by an
-unchanged displayed judgement. The `question` field is recursively structured:
+it is a recursively structured question:
 
 | Root tag | Remaining fields |
 | --- | --- |
@@ -92,12 +88,6 @@ unchanged displayed judgement. The `question` field is recursively structured:
 
 The expected truth orientation, including an absent optional expectation,
 remains in the `decision` or `judged` prefix.
-
-Earlier producers emitted only the recursive question as a judged root. Their
-source revision identifies that historical representation; it must not be
-silently relabelled as including the execution proposition. The new field does
-not replace the complete original judgement with a truth value and changes no
-protected assertion or historical baseline.
 An expected equality operand remains an operand of the original typed claim;
 it is not replaced by the observed runtime answer.
 
