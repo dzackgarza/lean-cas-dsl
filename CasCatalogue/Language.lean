@@ -1759,9 +1759,20 @@ def runProcedure (procedure : Name) (goal : MVarId) :
       let remaining ← Term.withSynthesize (postpone := .no) <|
         Lean.Elab.Tactic.run goal procedure
       pure (Except.ok remaining : Except String (List MVarId))
-    -- A failed procedure is returned as its failure, which the caller reports.
-    -- not a reading fallback: the failure is returned, never retried
-    catch e => pure (Except.error (← e.toMessageData.toString))
+    -- Ordinary evidence rejection is returned for the caller to report. Internal
+    -- failures and existing failure tags retain their identity and original stage.
+    -- not a reading fallback: a rejected proof is returned, never retried
+    catch error =>
+      match error with
+      | .internal .. =>
+          restore
+          throw error
+      | .error .. =>
+          if Exception.hasConflictingStrata error || Exception.isSemanticAmbiguity error ||
+              (Exception.stratum? error).isSome then
+            restore
+            throw error
+          pure (Except.error (← error.toMessageData.toString))
   let logged := (← getThe Core.State).messages.hasErrors && !messages.hasErrors
   match outcome with
   | .error message =>
