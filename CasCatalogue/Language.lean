@@ -4560,7 +4560,13 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
       if info.isExplicit then some parameter else none).mapM instantiateMVars
     unless fullParameters.all (fun parameter => !parameter.hasMVar && !parameter.hasLevelMVar) do
       throwStratum .invalid m!"the selected callable's full parameters are not determined"
-    Trace.recordCallable (← read).trace operation (.namedCallable address category.id fullParameters)
+    -- A named morphism keeps its independently selected binding kind when its
+    -- complete application is applied to operands. The exact accepted address,
+    -- not a declaration match, determines whether this is a named morphism.
+    if let some entry := state.morphisms.find? (fun entry => entry.id.raw == address) then
+      retainNamedMorphism entry operation
+    else
+      Trace.recordCallable (← read).trace operation (.namedCallable address category.id fullParameters)
   else pure operation
   if elements.isEmpty then
     let source ← instantiateMVars source
