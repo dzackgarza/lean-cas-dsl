@@ -5018,9 +5018,9 @@ partial def tupleOf (values : Array Value) (X : Value)
   return acc
 
 /-- Read an actual nondependent finite-function type without assigning a named alias to its
-coordinate. A named object's declared components may retain a more specific coordinate view. -/
+coordinate. The complete selected object's declared components can retain its coordinate view. -/
 partial def finiteFunctionContext (target : Value) : M (Option (Nat × Value)) := do
-  let .object handle category origin _ _ := target | return none
+  let .object handle category _ _ _ := target | return none
   unless category.id == CategoryId.sets do return none
   -- A declared representation may be a non-reducible type synonym. Read its
   -- actual function shape without inventing an alias or selecting new structure.
@@ -5036,7 +5036,10 @@ partial def finiteFunctionContext (target : Value) : M (Option (Nat × Value)) :
   let coordinate ← instantiateMVars functionType.bindingBody!
   if coordinate.hasMVar || coordinate.hasLevelMVar then
     throwStratum .invalid m!"the declared finite-function coordinate is not determined"
-  if count > 0 && origin.any (fun (entry, _) => entry.components.isSome) then
+  -- The whole selected object can supply a declared component presentation even
+  -- when its carrier has not yet acquired a named origin. Component discovery
+  -- retains that full structure before a coordinate numeral is interpreted.
+  if count > 0 then
     let components? : Option (Array Value) ← optionalReading
       (componentElements (.element (← identityAt target) target) count)
     if let some components := components? then

@@ -145,6 +145,20 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     throwError "the component operation changed the original whole coordinate map"
   unless reprStr before == reprStr (← trace.node? original) do
     throwError "discovering the full component presentation overwrote the original actual source"
+  scope := scope.insert `Y (← parse "DegeneratePlaneTarget()")
+  scope := scope.insert `targetModule (← parse "view Y along «fun.bilin_module.forget»(ℚ, ℚ)")
+  let target ← (eval scope (← parse "targetModule") >>= carrierObject).run { trace := some trace }
+  let some (count, coordinate) ← (finiteFunctionContext target).run { trace := some trace }
+    | throwError "the complete target omitted its declared finite coordinate context"
+  unless count == 2 do throwError "the target changed its declared coordinate count"
+  let .element zero _ ← (toElement (.nat 0) coordinate).run
+      { stage := some source, trace := some trace }
+    | throwError "the declared target coordinate could not form its numeral"
+  let some (domain, endpoint) := homEnds? (← inferType zero)
+    | throwError "the coordinate numeral lost its original stage"
+  unless ← withTransparency .all <| isDefEq domain (← (semanticObject source).run {}) <&&>
+      isDefEq endpoint (← (semanticObject coordinate).run {}) do
+    throwError "the coordinate numeral changed its complete source or selected endpoint"
 
 /-! These immutable fixtures use the accepted public declarations and validators.
 They add no rows to the registry used by the reader or the unchanged inputs. -/
