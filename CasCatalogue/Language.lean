@@ -1800,8 +1800,10 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
   let p ← instantiateMVars p
   if p.hasMVar || p.hasLevelMVar then
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
-  let presented ← evidencePresentation (← registryState) p
-  let goal ← mkFreshExprMVar presented .syntheticOpaque
+  -- The registered procedure owns the presentation of its mathematical target.
+  -- Expanding its supplied objects or dictionaries here can erase the bundled
+  -- structure that its own evidence consumes, even when the target stays defeq.
+  let goal ← mkFreshExprMVar p .syntheticOpaque
   match ← runProcedure evidence goal.mvarId! with
   | .error message =>
       let detail := if message.length ≤ 300 then message else
@@ -6816,8 +6818,17 @@ partial def admitConstrainedPoint (target value : Value) (proofs : Array Syntax 
     | throwStratum .invalid "a constrained point requires its complete selected object"
   unless category.id == CategoryId.sets do
     throwStratum .invalid "a constrained point constructor acts at its declared set of points"
-  let .element original source := value
-    | throwStratum .invalid "a constrained point requires its original point map"
+  let (original, source, mapSource?) ← match value with
+    | .element original source => pure (original, source, none)
+    | .morphism .. | .derivedMorphism .. => do
+        let (original, _, _, context, domainValue, source) ←
+          morphismContext (← carrierMorphism value)
+        let targetContext ← objectContext target
+        unless context.expression.syntacticEq targetContext.expression &&
+            (← withTransparency .all <| isDefEq context.bundle targetContext.bundle) do
+          throwStratum .invalid "a constrained map has a different complete carrier category"
+        pure (original, source, some (domainValue, context))
+    | _ => throwStratum .invalid "a constrained point requires its original point map"
   let some (domain, dataType) := homEnds? (← instantiateMVars (← inferType original))
     | throwStratum .invalid "a constrained point lost its original generalized domain"
   unless ← withTransparency .all <| isDefEq dataType (← semanticObject source) do
@@ -6830,6 +6841,8 @@ partial def admitConstrainedPoint (target value : Value) (proofs : Array Syntax 
   let point ← homIn (← quoteExpr result.value) domain type category
   Trace.record (← read).trace point
     (.constrainedPoint result.schema.constructor category.id domain dataType type original)
+  if let some (domainValue, context) := mapSource? then
+    return ← morphismInContext point domain type context (domainValue, target)
   return .element point target
 
 /-- The element (or map) `v` admitted into the domain `D` by its registered admission
