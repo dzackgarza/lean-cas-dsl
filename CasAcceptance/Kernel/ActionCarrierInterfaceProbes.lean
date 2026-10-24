@@ -129,9 +129,28 @@ run_elab do
       #[(parameterPacket, otherSource), (modulePacket, moduleSource)]
       parameterizedResult parameterizedDescriptor).isOk then
     throwError "the action replaced its complete selected parameter on the same carrier"
+  -- The opaque parameter slot is present. Its ring is already fixed by the
+  -- complete source fibre, before any comparison with the requested result.
+  unless (← ComputationalData.interfaceSelectedValue #[(modulePacket, moduleSource)]
+      parameterizedResult parameterizedDescriptor).isOk do
+    throwError "the action lost the ring parameter fixed by its complete retained source"
+
+  -- Reindexing has signature {R S} (φ : R ⟶ S) : Modules(S) ⥤ Modules(R).
+  -- The same retained source fixes S, but cannot supply the independent φ or R.
+  let some reindex := state.functor? FunctorId.modulesReindex
+    | throwError "the accepted independent action-parameter fixture is absent"
+  let baseMap ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
+  let reindexAction ← ObjectPresentation.applyParameters reindex.declaration #[baseMap]
+  let reindexed ← Semantic.objOf reindexAction moduleSource
+  let mapPacket := dataNode "opaqueData" #[toJson "retained independent base map"]
+  let reindexDescriptor := dataNode "functorAction" #[
+    dataNode reindex.id.raw #[mapPacket], modulePacket]
+  unless (← ComputationalData.interfaceSelectedValue
+      #[(mapPacket, baseMap), (modulePacket, moduleSource)] reindexed reindexDescriptor).isOk do
+    throwError "the reindexing lost its exact retained base map or complete source"
   if (← ComputationalData.interfaceSelectedValue #[(modulePacket, moduleSource)]
-      parameterizedResult parameterizedDescriptor).isOk then
-    throwError "the requested result supplied an unretained action parameter"
+      reindexed reindexDescriptor).isOk then
+    throwError "the requested result supplied an unretained independent base map"
 
 run_elab do
   let state ← registryState

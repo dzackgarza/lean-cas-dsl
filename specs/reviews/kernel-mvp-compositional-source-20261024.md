@@ -481,3 +481,36 @@ source, and a different independently fixed result. Existing structural-action
 and parameter controls are unchanged. This correction has only source inspection
 and `git diff --check`; compilation and probe execution are left to the
 coordinated consumer build.
+
+
+### Source-fixed and independent action parameters
+
+The remaining missing-parameter engineering control had an incorrect premise.
+The descriptor still contained its opaque ring-parameter slot; only its separate
+`InterfaceObjects` binding was absent. `interfaceDeclaration` explicitly treats
+arbitrary computational data as typed placeholders, discarded after framing.
+For `modulesFibreInclusionDeclaration (R : RingCat)`, the complete retained source
+is already in `Modules(R)`, so its accepted dependent signature fixes the full
+ring before any expected-result comparison. This case is now a positive control.
+
+The independent negative uses the already registered `FunctorId.modulesReindex`.
+At mathematical revision `82d1370de372a00a86391b74fc2566c9547dfcb6`,
+`LeanCategories/Catalogue/Semantics/Modules/CatalogueRegistration.lean` declares
+`modulesReindexDeclaration {R S : RingCat} (φ : R ⟶ S)` and registers its source
+as `ModulesAtS` and target as `Modules`. The generic signature in
+`LeanCategories/Catalogue/FamilyFibration.lean` is
+`reindexFunctor φ : fibre S ⥤ fibre R`: the retained source fixes `S`, but not
+`R` or the actual base map `φ`. Contract revision
+`90d7d3f1833cff39b77024dcee2dc43213e623ad`, `api/wire-examples.md`, under
+“Family reindexing and cartesian arrows”, requires that actual map in the ordered
+parameters. The new paired controls retain an existing identity map for the
+positive, then remove only its independent input binding for the negative. The
+fixed complete source and independently selected result cannot fill that map.
+
+No production guard or admitted mathematical assertion changes. The existing
+wrong-full-source, wrong-full-parameter, unresolved-source, unresolved-target,
+duplicate-order and contradictory-name negatives remain. The original failure
+is preserved at `/tmp/kernel-action-carrier-fixture-check-4486411-20261024/check.log`
+(SHA-256 `28de4df9d7c5b748e72314eeaaa4d21f5166b3bae3d65b363384f38652265e7a`).
+The replacement follows the independently published signature, not a computed
+answer. This checkpoint is source-reviewed only; its complete probe rerun is pending.
