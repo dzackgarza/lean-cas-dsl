@@ -225,6 +225,7 @@ syntax:max (name := casSelectedLift) "lift(" cas_term ")" " along " ident
   "(" sepBy(cas_term, ",") ")" " with " cas_term:max " using " cas_term:max : cas_term
 syntax:max (name := casLiftFactor) "factor(" cas_term ")" " through " cas_term:max
   " with " cas_term:max " using " cas_term:max : cas_term
+syntax:max (name := casCompositeLift) "composite_lift(" cas_term ")" : cas_term
 syntax:max (name := casCellComponent) "component(" ident "(" sepBy(cas_term, ",") ")"
   "," cas_term "," "[" ident,* "]" ")" : cas_term
 syntax:max (name := casCellComponentInverse) "inverse_component(" ident
@@ -1663,6 +1664,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       selectedLift scope (selectedName.getId.toString false) parameters.getElems source inclusion proof
   | `(cas_term| factor($baseMap) through $selected with $cone using $proof) =>
       selectedLiftFactor scope selected baseMap cone proof
+  | `(cas_term| composite_lift($selected)) => selectedLiftComposite scope selected
   | `(cas_term| map $morphism along $construction:ident($parameters,*)) =>
       directConstructionMap scope (construction.getId.toString false) parameters.getElems morphism
   | `(cas_term| component($cell:ident($parameters,*), $receiver, [$constructors:ident,*])) =>
@@ -2443,16 +2445,20 @@ partial def selectedPresentation (scope : Scope) (name : String) (parameters : A
 
 partial def retainedLiftPlans (receiver : Expr) : M (Array SelectedLift.Plan) := do
   let some trace := (← read).trace | throwStratum .invalid "the lift has no retained selection"
-  match ← trace.node? receiver with
-  | some (.selectedLift id params source inclusion monic) =>
-    let some entry := (← registryState).lifts.find? (·.id == id)
-      | throwStratum .invalid "the retained lift is not registered"
-    return #[← SelectedLift.select entry (← params.mapM fun value => exprToSyntax value)
-      source inclusion monic]
-  | some (.methodWithLifts id route lifts source) =>
-    SelectedLift.methodPlans id route lifts source
-  | some (.liftProjection original "obj") => retainedLiftPlans original
-  | _ => throwStratum .invalid "the value has no independently selected complete lift"
+  return (← SelectedLift.recorded trace receiver).plans
+
+partial def selectedLiftComposite (scope : Scope) (selected : Syntax) : M Value := do
+  let receiverValue ← eval scope selected
+  let receiver ← semanticObject receiverValue
+  let some trace := (← read).trace | throwStratum .invalid "the lift has no retained selection"
+  let recorded ← SelectedLift.recorded trace receiver true
+  let some first := recorded.plans[0]?
+    | throwStratum .invalid "the composed lift has no selected stage"
+  let context ← SelectedLift.context first
+  let object ← SelectedLift.port recorded.plans 0
+  let result ← SelectedLift.retainSelection object (some receiver)
+  Trace.record (some trace) result (.liftProjection receiver "composed")
+  objectInContext result context #[receiverValue]
 
 partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syntax)
     (sourceSyntax inclusionSyntax proofSyntax : Syntax) : M Value := do
@@ -2471,7 +2477,7 @@ partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syn
   unless context.expression.syntacticEq sourceContext.expression &&
       (← withTransparency .all <| isDefEq context.bundle sourceContext.bundle) do
     throwStratum .invalid "the explicit lift changed the complete selected source context"
-  let object := plan.ports[0]!
+  let object ← SelectedLift.retainSelection plan.ports[0]!
   Trace.record (← read).trace object (.selectedLift entry.id plan.parameters source inclusion monic)
   objectInContext object context #[sourceValue]
 
@@ -2482,7 +2488,8 @@ partial def selectedLiftField (receiver : Value) (name : String) : M (Option Val
     | _ => return none
   let some trace := (← read).trace | return none
   let selected := match ← trace.node? object with
-    | some (.selectedLift ..) | some (.methodWithLifts ..) | some (.liftProjection _ "obj") => true
+    | some (.selectedLift ..) | some (.methodWithLifts ..) |
+        some (.liftProjection _ "obj") | some (.liftProjection _ "composed") => true
     | _ => false
   unless selected do return none
   let plans ← retainedLiftPlans object
@@ -2490,6 +2497,7 @@ partial def selectedLiftField (receiver : Value) (name : String) : M (Option Val
   let some index := LiftField.all.findIdx? (·.label == name) | unreachable!
   let value ← SelectedLift.port plans index
   if name == "obj" && (← isDefEq object value) then return some receiver
+  let value ← StructuredProjection.retainPortValue object value index
   let sourceContext ← SelectedLift.context plan
   Trace.record (← read).trace value (.liftProjection object name)
   if index == 0 then return some (← objectInContext value sourceContext #[receiver])
@@ -2600,8 +2608,9 @@ partial def selectedLiftFactor (scope : Scope) (receiverSyntax baseMapSyntax con
   let targetValue ← objectInContext factorTarget context #[receiverValue]
   unless ← isDefEq factorTarget receiver do
     Trace.record (← read).trace factorTarget (.liftProjection receiver "obj")
-  Trace.record (← read).trace step.factor (.liftFactor receiver baseMap cone proof)
-  morphismInContext step.factor factorDomain factorTarget context (domainValue, targetValue)
+  let factor ← SelectedLift.retainSelection step.factor (some receiver)
+  Trace.record (← read).trace factor (.liftFactor receiver baseMap cone proof)
+  morphismInContext factor factorDomain factorTarget context (domainValue, targetValue)
 
 partial def selectedCell (scope : Scope) (name : String) (parameters : Array Syntax)
     (receiverSyntax : Syntax) (constructors : Array ConstructorId) (inverse : Bool) : M Value := do

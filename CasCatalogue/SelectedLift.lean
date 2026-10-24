@@ -184,6 +184,57 @@ def methodPlans (id : MethodId) (route : Array EdgeRef) (lifts : Array LiftId)
   let base ← Semantic.objOf (← registeredFunctorInstance functor) (← methodArgument method image)
   prescribed state receiver route lifts base
 
+/-- A distinct administrative key for a selected result. Beta reduction gives the
+same mathematical object; the retained invocation is not another output's cache key. -/
+def retainSelection (value : Expr) (origin : Option Expr := none) : MetaM Expr := do
+  if let some origin := origin then
+    return mkApp
+      (mkLambda `selectedLift .default (← inferType origin) (value.liftLooseBVars 0 1)) origin
+  return mkApp (mkLambda `selectedLift .default (← inferType value) (.bvar 0)) value
+
+structure Recorded where
+  /-- Every segment owns its actual already selected output packet. -/
+  segments : Array (Expr × Array Plan)
+
+def Recorded.plans (recorded : Recorded) : Array Plan :=
+  recorded.segments.flatMap (·.2)
+
+/-- Adjacent stages agree as full selected actions and inclusions. A common carrier
+does not join lifts, and no computational output can supply this formal equation. -/
+def checkAdjacent (outer inner : Plan) : TermElabM Unit := do
+  let (_, middle) ← functorCategoryBundles outer.action
+  let (next, _) ← functorCategoryBundles inner.action
+  unless ← withTransparency .all <| isDefEq middle next <&&>
+      isDefEq (← Semantic.objOf outer.action outer.source) inner.source <&&>
+      isDefEq outer.inclusion inner.ports[1]! do
+    throwStratum .invalid "the selected lift stages have different complete adjacent interfaces"
+
+/-- Read a selected result's exact formal stages. Explicit composition follows only
+retained defining-map inputs, so it never chooses another lift by matching its shape. -/
+partial def recorded (trace : Trace) (receiver : Expr) (composed : Bool := false)
+    (visited : Array Expr := #[]) : TermElabM Recorded := do
+  if visited.contains receiver then
+    throwError "the selected lift trace has cyclic defining-map provenance"
+  let visited := visited.push receiver
+  match ← trace.node? receiver with
+  | some (.liftProjection original "obj") => recorded trace original composed visited
+  | some (.liftProjection original "composed") => recorded trace original true visited
+  | some (.methodWithLifts id route lifts source) =>
+      return { segments := #[(receiver, ← methodPlans id route lifts source)] }
+  | some (.selectedLift id parameters source inclusion monic) =>
+      let some entry := (← registryState).lifts.find? (·.id == id)
+        | throwStratum .invalid "the selected lift is no longer registered"
+      let plan ← select entry (← parameters.mapM exprToSyntax) source inclusion monic
+      let selected := { segments := #[(receiver, #[plan])] : Recorded }
+      if !composed then return selected
+      let some (.liftProjection inner "hom") ← trace.node? inclusion | return selected
+      let tail ← recorded trace inner true visited
+      let some next := tail.plans[0]?
+        | throwStratum .invalid "the selected inner lift has no complete stage"
+      checkAdjacent plan next
+      return { segments := selected.segments ++ tail.segments }
+  | _ => throwStratum .invalid "the value has no independently selected complete lift"
+
 /-- Complete comparison of the composed selected lift, using the published functor maps
 and the ordered comparison fields. The deepest base is retained in both directions. -/
 def port (plans : Array Plan) (index : Nat) : TermElabM Expr := do

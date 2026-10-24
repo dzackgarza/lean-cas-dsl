@@ -215,5 +215,15 @@ contextual route/map descriptors. It adds whole-map selection for registered fun
 classifier forgetful actions, retaining their full selected source, target, declaration
 parameters and owners; it preserves the prior named-functor object trace convention.
 The explicit binder also fixes its domain declaration at the exact already selected
-parameter telescope. These additive selector probes and public invocation documentation
-are checkpointed before their next targeted build.
+parameter telescope. `StructuredExecutionProbes` and `GenericExecutionProbes` passed
+these additive selectors at `0d546c5` plus the probe's `classifierTotal` spelling
+correction `7bebace`, including exact nonidentity parameters and original owners.
+
+The explicit `composite_lift` selector follows only retained defining-map links and
+validates every adjacent full accepted interface. It reuses each segment's actual
+cached selections, action and evidence parameters, original sources/bases and four
+outputs, merging owners without rerunning ports. The ordinary outer selection
+keeps its own comparison semantics. Transparent administrative expression keys keep
+those selections and their projected/factor values distinct without introducing a
+mathematical declaration or a new trace/wire schema. The public API is in `SPEC.md`;
+this source checkpoint precedes its focused clean verification.

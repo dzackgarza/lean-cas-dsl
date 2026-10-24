@@ -2852,10 +2852,29 @@ partial def retainedLiftExecution (h : Harness) (trace : Trace) (receiver : Expr
   let some execution := wire.liftExecution
     | throwError "the completed lift lost its selected computation and actual four-field outputs"
   unless !execution.selections.isEmpty &&
+      execution.actions.size == execution.selections.size &&
+      execution.parameters.size == execution.selections.size &&
+      execution.sources.size == execution.selections.size &&
+      execution.bases.size == execution.selections.size &&
       execution.outputs.size == execution.selections.size &&
       execution.outputs.all (·.size == 4) do
     throwError "the selected lift cache omits a required component output"
   return (wire, execution)
+
+/-- A retained packet belongs to the complete formal selection that produced it.
+No equality or selection information is inferred from its returned data. -/
+partial def checkRetainedLiftPlan (expected actual : SelectedLift.Plan) : TermElabM Unit := do
+  unless expected.entry.id == actual.entry.id &&
+      expected.parameters.size == actual.parameters.size &&
+      expected.ports.size == actual.ports.size do
+    throwError "the selected lift packet changed its registered declaration or full arity"
+  let fixed := #[expected.evidence, expected.computation, expected.action,
+    expected.source, expected.inclusion, expected.monic] ++ expected.parameters ++ expected.ports
+  let retained := #[actual.evidence, actual.computation, actual.action,
+    actual.source, actual.inclusion, actual.monic] ++ actual.parameters ++ actual.ports
+  for (left, right) in fixed.zip retained do
+    unless ← withTransparency .all <| isDefEq left right do
+      throwError "the selected lift packet changed its complete formal invocation"
 
 partial def liftProjectionData (execution : LiftExecution) (index : Nat) : TermElabM Json := do
   let some first := execution.outputs[0]?
@@ -2877,6 +2896,40 @@ partial def liftProjectionData (execution : LiftExecution) (index : Nat) : TermE
     image := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, image])]
   return Json.mkObj [("ctor", "typedMap"), ("args", Json.arr
     (if index == 2 then #[image, base[0]!, result] else #[base[0]!, image, result]))]
+
+/-- Explicitly compose retained stages without rerunning their four ports or replacing
+the ordinary outer selection's cache. Only its recorded defining-map links form the chain. -/
+partial def composedLiftExecution (h : Harness) (trace : Trace) (formal receiver : Expr) :
+    TermElabM Wire := do
+  let recorded ← SelectedLift.recorded trace receiver true
+  let mut execution : LiftExecution := {
+    selections := #[], actions := #[], parameters := #[], sources := #[], bases := #[], outputs := #[] }
+  let mut dependencies := #[]
+  for (segment, plans) in recorded.segments do
+    let (wire, retained) ← retainedLiftExecution h trace segment
+    unless retained.selections.size == plans.size do
+      throwError "a composed lift packet changed the number of its selected stages"
+    for (expected, actual) in plans.zip retained.selections do
+      checkRetainedLiftPlan expected actual
+    execution := {
+      selections := execution.selections ++ retained.selections
+      actions := execution.actions ++ retained.actions
+      parameters := execution.parameters ++ retained.parameters
+      sources := execution.sources ++ retained.sources
+      bases := execution.bases ++ retained.bases
+      outputs := execution.outputs ++ retained.outputs }
+    dependencies := dependencies.push wire
+  let some first := execution.selections[0]?
+    | throwError "the composed lift has no complete retained stage"
+  let some original := dependencies[0]? | unreachable!
+  unless ← withTransparency .all <| isDefEq (← SelectedLift.port execution.selections 0) formal do
+    throwError "the composed lift changed its original formal object"
+  let context ← SelectedLift.context first
+  return {
+    form := contextualForm (← registryState) context original.form
+    payload := (← combinedPayload formal (← liftProjectionData execution 0) dependencies)
+    liftExecution := some execution
+    categoryContext := some context }
 
 /-- Cache the entire output interface at exact formal expressions. In particular the
 object field retains the complete selected suffix, so taking it does not discard lifts. -/
@@ -3209,6 +3262,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwError "the explicit lift changed its complete formal object output"
       selectedLiftExecution h trace plan e
   | .liftProjection receiver field =>
+      if field == "composed" then return ← composedLiftExecution h trace e receiver
       let (original, execution) ← retainedLiftExecution h trace receiver
       let some index := LiftField.all.findIdx? (·.label == field)
         | throwError "the selected lift projection is not a public field"
@@ -4393,8 +4447,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | none => ComputationScope.portable
         | some (backend, session) => .owned backend session
       let constructionInputs : ComputationalData.InterfaceObjects :=
-        plan.binders.filterMap fun binding => do
-          if binding.port.isSome then return none
+        plan.binders.filterMap fun binding => if binding.port.isSome then none else do
           let formal ← binding.formalValue
           let actual ← externalDescriptor binding.index
           return (actual, formal)

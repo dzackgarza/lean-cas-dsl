@@ -208,7 +208,7 @@ run_elab do
   let receiver ← (eval {} (← parse "Fin(2) in FiniteSets")).run { trace := some trace }
   let object ← valueTerm receiver
   let context ← (objectContext receiver).run {}
-  let .total classifier := context.expression
+  let .classifierTotal classifier := context.expression
     | throwError "the accepted proof refinement lost its classifier total category"
   let edge := EdgeRef.classifierForget classifier
   let action ← Semantic.edgeFunctor (← registryState) edge

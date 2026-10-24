@@ -790,17 +790,23 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
   let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
   let monic ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.property #[value]
   let sourceCategory ← inferType X
-  let expected ← elabTermAndSynthesize
-    (← `(CategoryTheory.ObjectProperty.FullSubcategory
-      (fun arrow : CategoryTheory.Arrow $(← exprToSyntax sourceCategory) =>
-        CategoryTheory.Mono (CategoryTheory.Arrow.hom arrow)))) none
+  let sourceType ← withTransparency .all <| whnfHeadPred (← inferType receiver)
+    fun type => pure (!type.isAppOf ``CategoryTheory.Arrow)
+  unless sourceType.isAppOfArity ``CategoryTheory.Arrow 2 do
+    throwError "the prescribed lift receiver has no complete accepted Arrow context"
+  let sourceArguments := sourceType.getAppArgs
+  let sourceBundle ← mkAppOptM ``CategoryTheory.Cat.of
+    #[some sourceArguments[0]!, some sourceArguments[1]!]
+  let expectedBundle ← mkAppM ``CasCatalogue.Constructors.subobjects #[sourceBundle]
+  let expected ← mkAppM ``CategoryTheory.Bundled.α #[expectedBundle]
   -- Supply the actual checked monicity evidence directly; never ask instance search
   -- to rediscover it through a fresh local abbreviation of the inclusion.
   let evidenceType ← withTransparency .all <| whnf (← inferType evidence)
   unless evidenceType.isAppOfArity ``CasCatalogue.MonoLift 5 do
     throwError "the prescribed lift does not carry complete accepted category data"
   let selected := evidenceType.getAppArgs
-  unless ← withTransparency .all <| isDefEq selected[0]! sourceCategory do
+  unless ← withTransparency .all <| isDefEq selected[0]! sourceCategory <&&>
+      isDefEq selected[1]! sourceArguments[1]! do
     throwError "the prescribed lift has a different complete source category"
   let ambient ← mkAppM ``CategoryTheory.Arrow.right #[arrow]
   unless ← withTransparency .all <| isDefEq selected[2]! (← inferType ambient) do
@@ -815,7 +821,8 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
     none, some inclusion, some monic]
   let hom ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.hom arguments
   let liftedMono ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.hom_mono arguments
-  let liftedArrow ← mkAppM ``CategoryTheory.Arrow.mk #[hom]
+  let liftedArrow ← mkAppOptM ``CategoryTheory.Arrow.mk
+    #[some selected[0]!, some selected[1]!, none, some X, some hom]
   let constructor ← mkConstWithFreshMVarLevels
     ``CategoryTheory.ObjectProperty.FullSubcategory.mk
   let (fields, _, result) ← forallMetaTelescopeReducing (← inferType constructor)

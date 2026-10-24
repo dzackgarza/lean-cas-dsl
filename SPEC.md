@@ -116,6 +116,16 @@ with Lean's identifier quotes, for example `«the.registered.identifier»`.
 All parameters are supplied in declaration order and are checked against the
 complete dependent signature.
 
+A registered morphism family can also be selected from a complete object with
+`X.<family>()`, then applied with `X.<family>(a, …)`. The reader tries the supplied
+receiver at the declaration's applicable explicit parameter slots. Its complete
+dependent type may determine preceding ring, module, category, or other structure
+parameters. Every such parameter must be completely fixed by that type; equality
+of underlying carriers does not select a structure. Several applicable slots or
+distinct complete readings remain ambiguous. A positional call
+`<family>(p₁, …, pₙ)` still supplies parameters in declaration order; it does not
+skip leading parameters merely because a later argument might determine them.
+
 An object construction uses its registered surface name. Its final argument is
 the selected source object; preceding arguments are the construction's explicit
 parameters:
@@ -236,6 +246,29 @@ lifts. For several prescribed stages, the forward and backward fields use every
 declared functor map and comparison in order, and factorization runs through all
 the selected stages. Taking `.obj()` retains the complete selected lift for later
 field access and factorization.
+
+For separately selected successive lifts, choose their composition explicitly:
+
+```text
+let inner := lift(U(X)) along <inner-lift>(…) with m using proof(<monicity-term>)
+let outer := lift(X) along <outer-lift>(…) with inner.hom() using proof(<monicity-term>)
+let L := composite_lift(outer)
+L.forward()
+L.backward()
+factor(g) through L with f using proof(<composite-compatibility-term>)
+```
+
+Here `U(X)` denotes the actual selected outer functor image, obtained by its
+registered `view … along …` form. `composite_lift` follows the retained defining-map
+links and checks each pair of adjacent complete category contexts, selected
+actions, source objects and inclusions. It keeps every stage's already returned
+four-field packet and its owners. The ordinary `outer.forward()` and
+`outer.backward()` still denote the outer stage's own comparisons. On `L`, these
+fields compose all selected comparison maps with the intervening declared functor
+maps. The composed factor keeps the original full cone domain and consumes the
+accepted factor and source equations at every stage, starting at the deepest
+stage. Taking `L.obj()` retains that complete selection. Unrelated lifts are never
+joined by comparing the shapes or carriers of their results.
 
 A registered universal construction retains its complete accepted presentation,
 apex, returned data and defining legs. For an apex `K`, `K.obj()` is that apex and

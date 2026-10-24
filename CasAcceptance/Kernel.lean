@@ -1,6 +1,7 @@
 module
 
 public import CasAcceptance.Kernel.BinderReaderProbes
+public import CasAcceptance.Kernel.ApexReceiverContextProbes
 public import CasAcceptance.Kernel.AnonymousApexProbes
 public import CasAcceptance.Kernel.ConstrainedPointProbes
 public import CasAcceptance.Kernel.DependentElaborationProbes
