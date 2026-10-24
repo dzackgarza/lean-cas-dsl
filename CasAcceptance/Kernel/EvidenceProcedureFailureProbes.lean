@@ -1,7 +1,9 @@
 module
 
 import CasCatalogue.Language
+import Lean.PrettyPrinter.Basic
 meta import CasCatalogue.Language
+meta import Lean.PrettyPrinter.Basic
 
 open Lean Meta Elab Term Tactic CasCatalogue CasCatalogue.Language
 
@@ -9,10 +11,12 @@ open Lean Meta Elab Term Tactic CasCatalogue CasCatalogue.Language
 proof, supply no mathematical procedure or answer, and register no semantic row. -/
 namespace CasAcceptance.Kernel.EvidenceProcedureFailureProbes
 
-initialize fixtureExceptionId : InternalExceptionId ←
-  registerInternalExceptionId `CasAcceptance.Kernel.EvidenceProcedureFailureProbes.internal
-
 meta section
+
+-- This imported identifier is already initialized. Core's ordinary catch handles
+-- it, and Tactic.run recognizes only abortTacticExceptionId as a tactic abort.
+private def fixtureExceptionId : InternalExceptionId :=
+  Lean.PrettyPrinter.backtrackExceptionId
 
 private def transientTag : Name := `EvidenceProcedureFailureProbes.transient
 private def baselineTag : Name := `EvidenceProcedureFailureProbes.baseline

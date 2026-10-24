@@ -2173,9 +2173,9 @@ partial def evalKinds (scope : Scope) (stx : Syntax) (category? : Option NamedCa
       | some "²" => power scope b 2 ambient?
       | some "³" => power scope b 3 ambient?
       | _ => pure b
-    return ← juxtapose (← eval scope stx[1]) b ambient?
+    return ← juxtaposeReading scope stx[1] b ambient?
   if stx.getKind == ``casTimes then
-    return ← juxtapose (← eval scope stx[0]) (← eval scope stx[2] none ambient?) ambient?
+    return ← juxtaposeReading scope stx[0] (← eval scope stx[2] none ambient?) ambient?
   if stx.getKind == ``casAction then
     return ← registeredAction (← eval scope stx[0])
       (← eval scope stx[2] none ambient?) ambient?
@@ -2219,7 +2219,7 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
     return ← applyNamed state "∫" #[← eval scope stx[1]] ambient?
   if stx.getKind == ``casActed then
     let b ← eval scope (← `(cas_term| $(⟨stx[1]⟩):ident)) none ambient?
-    return ← juxtapose (← eval scope stx[0]) b ambient?
+    return ← juxtaposeReading scope stx[0] b ambient?
   -- `2n`, `3x²`, `2√2`: a numeral times a term.
   if stx.getKind == ``casScaled || stx.getKind == ``casScaledRoot then
     let factor ← if stx.getKind == ``casScaledRoot then `(cas_term| √$(⟨stx[2]⟩)) else
@@ -5953,6 +5953,19 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   | _, _, _ => throwStratum .invalid m!"`a b`: no registered product, action or application \
       takes these operands"
 
+/-- An independently declared result context supplies the complete product signature before
+a coefficient is read. The signature checks the original operand maps; carrier metadata
+alone neither rejects that candidate nor supplies a different multiplication. Failed
+product readings restore their state before the ordinary action/application reading. -/
+partial def juxtaposeReading (scope : Scope) (coefficient : Syntax) (operand : Value)
+    (ambient? : Option Value) : M Value := do
+  if let some ambient := ambient? then
+    let product? ← optionalReading do
+      let coefficient ← eval scope coefficient none (some ambient)
+      applyOperation "·" #[coefficient, operand] ambient
+    if let some product := product? then return product
+  juxtapose (← eval scope coefficient) operand ambient?
+
 /-- The element `declaration params : 1 ⟶ X` of a family of elements, its parameters unified from
 `X` (the zero of `Kⁿ` from `K` and `n`). -/
 partial def zeroElement (declaration : Name) (X : Value) : M Expr := do
@@ -6818,19 +6831,22 @@ partial def admitConstrainedPoint (target value : Value) (proofs : Array Syntax 
     | throwStratum .invalid "a constrained point requires its complete selected object"
   unless category.id == CategoryId.sets do
     throwStratum .invalid "a constrained point constructor acts at its declared set of points"
-  let (original, source, mapSource?) ← match value with
-    | .element original source => pure (original, source, none)
+  let targetContext ← objectContext target
+  let (original, domain, dataType, source, mapSource?) ← match value with
+    | .element original source => do
+        let dataType ← semanticObject source
+        let domain ← CategoryContext.morphismDomain targetContext original dataType
+        pure (original, domain, dataType, source, none)
     | .morphism .. | .derivedMorphism .. => do
-        let (original, _, _, context, domainValue, source) ←
+        let (original, domain, dataType, context, domainValue, source) ←
           morphismContext (← carrierMorphism value)
-        let targetContext ← objectContext target
         unless context.expression.syntacticEq targetContext.expression &&
             (← withTransparency .all <| isDefEq context.bundle targetContext.bundle) do
           throwStratum .invalid "a constrained map has a different complete carrier category"
-        pure (original, source, some (domainValue, context))
+        unless ← withTransparency .all <| isDefEq domain (← semanticObject domainValue) do
+          throwStratum .invalid "a constrained map changed its complete source object"
+        pure (original, domain, dataType, source, some (domainValue, context))
     | _ => throwStratum .invalid "a constrained point requires its original point map"
-  let some (domain, dataType) := homEnds? (← instantiateMVars (← inferType original))
-    | throwStratum .invalid "a constrained point lost its original generalized domain"
   unless ← withTransparency .all <| isDefEq dataType (← semanticObject source) do
     throwStratum .invalid "a constrained point changed its original data endpoint"
   let result ← ConstrainedPoint.constructWith type (← functionOf original) proofs.size
@@ -6838,7 +6854,8 @@ partial def admitConstrainedPoint (target value : Value) (proofs : Array Syntax 
       instantiateMVars (← elabTermAndSynthesize proofs[index]! (some condition))
   unless ← withTransparency .all <| isDefEq result.domain domain do
     throwError "the constrained point constructor replaced its original domain"
-  let point ← homIn (← quoteExpr result.value) domain type category
+  let bundled ← mkAppM ``TypeCat.ofHom #[result.value]
+  let point ← homIn (← quoteExpr bundled) domain type category
   Trace.record (← read).trace point
     (.constrainedPoint result.schema.constructor category.id domain dataType type original)
   if let some (domainValue, context) := mapSource? then
