@@ -1,0 +1,60 @@
+-- RX-03. Complete selected group presentations and the generic Aut action.
+-- The old residue group has public name ZMod(5) in Groups; "Cyclic(5)"
+-- in the mathematical question denotes FiniteGroups.cyclic 5, not a new name.
+let quotientGroup := CyclicQuotient(5) in Groups
+let residueGroup := ZMod(5) in Groups
+let quotientAutomorphisms := Aut(quotientGroup)
+let residueAutomorphisms := Aut(residueGroup)
+let e := presentation(cyclic_quotient_residue(5))
+let eInverse := inverse_presentation(cyclic_quotient_residue(5))
+let conjugate := map e along Aut()
+let conjugateBack := map eInverse along Aut()
+
+test reconstructed_extensions_20261024.complete.rx03.cardinality "[M03] aut_five_cardinal; Aut is taken in Groups":
+  assert quotientAutomorphisms.cardinality() = 4
+
+test reconstructed_extensions_20261024.complete.rx03.presentation_left_inverse "[M03] the actual residueComparison 5, with its full group endpoints":
+  assert eInverse ∘ e = id(quotientGroup)
+
+test reconstructed_extensions_20261024.complete.rx03.presentation_right_inverse "[M03] the actual residueComparison 5, with its full group endpoints":
+  assert e ∘ eInverse = id(residueGroup)
+
+test reconstructed_extensions_20261024.complete.rx03.aut_map_left_inverse "[M04] automorphisms.map_id and map_comp on the actual core isomorphism":
+  assert conjugateBack ∘ conjugate = id(quotientAutomorphisms)
+
+test reconstructed_extensions_20261024.complete.rx03.aut_map_right_inverse "[M04] the inverse core isomorphism is retained, not reconstructed from a carrier":
+  assert conjugate ∘ conjugateBack = id(residueAutomorphisms)
+
+let residueRing := ZMod(5) in Rings
+let residueMonoid := view residueRing along «fun.rings.multiplicative_monoid»
+let unitGroup := Units(residueMonoid) in Groups
+let unitTwo := 2 in unitGroup
+let unitThree := 3 in unitGroup
+let automorphismByUnit := cyclic_quotient_aut_by_unit(5)
+let doubling := automorphismByUnit(unitTwo)
+let tripling := automorphismByUnit(unitThree)
+
+test reconstructed_extensions_20261024.complete.rx03.inverse "[M03] byUnit_two_inverse; Units.ext identifies the admitted unit of value 2 with unitTwo":
+  assert doubling⁻¹ = tripling
+
+test reconstructed_extensions_20261024.complete.rx03.inverse_product "[M03] byUnit_mul and 2*3=1 in ZMod 5; existing group multiplication":
+  assert doubling * tripling = 1 in quotientAutomorphisms
+
+test reconstructed_extensions_20261024.complete.rx03.product_inverse "[M03] byUnit_mul and 3*2=1 in ZMod 5; existing group multiplication":
+  assert tripling * doubling = 1 in quotientAutomorphisms
+
+test reconstructed_extensions_20261024.complete.rx03.fourth_power "[M03] byUnit_two_order; 2^4=1 modulo 5":
+  assert doubling^4 = 1 in quotientAutomorphisms
+
+test reconstructed_extensions_20261024.complete.rx03.second_power_nonidentity "[M03] byUnit_two_order; 2^2=4 differs from 1 modulo 5":
+  assert (doubling^2 = 1 in quotientAutomorphisms) = false
+
+test reconstructed_extensions_20261024.complete.rx03.conjugation_retains_inverse "[M04] Aut(e) is the complete conjugation group homomorphism":
+  assert conjugate(doubling)⁻¹ = conjugate(tripling)
+
+test reconstructed_extensions_20261024.complete.rx03.conjugated_value_reuse "[M03,M04] use the actual result of Aut(e), followed by Aut(e inverse)":
+  assert conjugateBack(conjugate(doubling)) = doubling
+
+-- The full byUnit_coordinate equation and the full conjugation formula remain
+-- required. A public projection/evaluation of an Aut element as its entire
+-- underlying group arrow is needed for their remaining direct observations.

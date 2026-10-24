@@ -797,7 +797,11 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
   let sourceArguments := sourceType.getAppArgs
   let sourceBundle ← mkAppOptM ``CategoryTheory.Cat.of
     #[some sourceArguments[0]!, some sourceArguments[1]!]
-  let expectedBundle ← mkAppM ``CasCatalogue.Constructors.subobjects #[sourceBundle]
+  let #[subobjects] := state.constructors.filter
+      (·.semantics == `CasCatalogue.Constructors.subobjects)
+    | throwError "the prescribed lift has no unique accepted subobject constructor"
+  let expectedBundle ← applyConstructorInterface subobjects.semantics
+    #[sourceBundle] #[sourceBundle]
   let expected ← mkAppM ``CategoryTheory.Bundled.α #[expectedBundle]
   -- Supply the actual checked monicity evidence directly; never ask instance search
   -- to rediscover it through a fresh local abbreviation of the inclusion.

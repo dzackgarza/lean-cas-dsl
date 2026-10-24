@@ -175,8 +175,10 @@ run_elab do
   let check := fun input => do
     let actual ← computationalApexReceiver trace input
     unless actual.form.id == "obj.sets.fin" && actual.json == apexJson &&
-        actual.value == apex && actual.owner? == original.owner? do
-      throwError "apex receiver changed actual form, complete finiteData payload, formal value or ownership"
+        actual.value == apex && actual.owner?.isNone do
+      throwError "apex receiver changed actual form, complete finiteData payload, formal value or portability"
+    unless actual.payload matches .computed _ (.inline _) do
+      throwError "the portable apex stopped being computational data"
   check original
   let descriptor := fun name => wire name #[toJson (6 : Nat)]
   for wrong in #[

@@ -1142,13 +1142,18 @@ def declaredDiagram (row : LimitEntry) (values : Array Value) : M Expr := do
 /-- The standard diagram of the shape `shape` on the values `args` (Mathlib's standard forms). -/
 def standardDiagram (shape : String) (args : Array Value) : M Term := do
   let handle : Value → M Expr
-    | .object handle .. => pure handle
-    | .morphism hom .. => pure hom
+    | .object handle .. | .derivedObject handle .. => pure handle
+    | .morphism hom .. | .derivedMorphism hom .. => pure hom
     | _ => throwStratum .invalid m!"the diagram of a {shape} is of objects and morphisms"
   let state ← registryState
-  let category? := args[0]?.bind fun
-    | .object _ category _ _ _ | .morphism _ _ _ category _ => some category
-    | _ => none
+  let context? : Option CategoryContext ← match args[0]? with
+    | some (value@(.object ..)) | some (value@(.derivedObject ..)) =>
+        some <$> objectContext value
+    | some (value@(.morphism ..)) | some (value@(.derivedMorphism ..)) => do
+        let (_, _, _, context, _, _) ← morphismContext value
+        pure (some context)
+    | _ => pure none
+  let category? := context?.bind fun context => CategoryContext.named? state context.expression
   if let some category := category? then
     let rows := state.limits.filter fun row => row.shape == shape && row.category == category.id
     match rows with
@@ -1166,6 +1171,10 @@ def standardDiagram (shape : String) (args : Array Value) : M Term := do
       if info.isExplicit then some p else none
     unless explicit.size == values.size do
       throwStratum .invalid m!"the registered diagram constructor takes {explicit.size} arguments"
+    if let some context := context? then
+      let (_, target) ← functorCategoryBundles (mkAppN constant parameters)
+      unless ← withTransparency .all <| isDefEq target context.bundle do
+        throwStratum .invalid "the diagram constructor changes its complete selected category"
     for (parameter, value) in explicit.zip values do
       unless ← isDefEq (← inferType parameter) (← inferType value) <&&> isDefEq parameter value do
         throwStratum .invalid m!"a source argument is outside the registered diagram signature"
@@ -2980,8 +2989,8 @@ partial def call (scope : Scope) (t : Syntax) (name : String)
   -- An invariant of the object (`R.dimension()`): a registered family of elements `1 → T`
   -- indexed by the object.
   if !state.methods.any (·.name == name) && !state.properties.any (·.name == name) then
-    if let some entry := state.morphisms.find? (·.name == name) then
-      return ← invariantOf entry receiver
+    if state.morphisms.any (·.name == name) then
+      return ← invariantNamed state name receiver
   let isProperty := state.properties.any (·.name == name) && !state.methods.any (·.name == name)
   if isProperty then return .answer (← Semantic.property name handle category (← read).trace)
   let (value, target) ← Semantic.method name handle category (← read).trace
@@ -4943,29 +4952,40 @@ partial def inCategoryOver (scope : Scope) (t : Syntax) (C : NamedCategoryEntry)
     throwStratum .invalid m!"the selected category family is not fixed by the object's complete type"
   return .object object C (some (refined, params)) none none
 
-/-- The invariant `entry : ∀ A, 1 ⟶ T` of the object `A` (its handle): an element of `T`. -/
+/-- A registered family at its applicable selected receiver binder. Its complete
+dependent application determines the other parameters, before any operands are applied. -/
 partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
   let state ← registryState
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
   -- The application is admitted only at the declared dependent signature (b0-typed-application):
-  -- the family's first explicit parameter takes `A` at its declared type, its other parameters are
-  -- determined, and it is a family of points `1 ⟶ T`.
+  -- the applicable explicit parameter takes `A` at its declared type and all other
+  -- parameters are determined by that complete application.
   let constant ← mkConstWithFreshMVarLevels entry.declaration
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
   let explicit := (args.zip infos).filterMap fun (a, i) => if i.isExplicit then some a else none
-  let mut receiverSlots : Array Nat := #[]
+  let mut receiverSlots : Array (Nat × Expr) := #[]
   for slot in [:explicit.size] do
-    if ← parameterCompatible (bindSelectedReceiver explicit slot A) then
-      receiverSlots := receiverSlots.push slot
+    let candidate ← try parameterTrial do
+      unless ← bindSelectedReceiver explicit slot A do return none
+      synthesizeInstances args infos
+      let application ← instantiateMVars (mkAppN constant args)
+      if application.hasMVar || application.hasLevelMVar || !(← isTypeCorrect application) then
+        return none
+      return some application
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure none else throw error
+    if let some application := candidate then
+      unless ← receiverSlots.anyM (fun (_, previous) =>
+          sameOperationApplication previous application) do
+        receiverSlots := receiverSlots.push (slot, application)
   match receiverSlots.toList with
-  | [slot] => discard <| bindSelectedReceiver explicit slot A
-  | [] =>
-      let some parameter := explicit[0]?
-        | throwStratum .invalid m!"{entry.name} is not a family indexed by objects"
-      let argument ← typedParameter (← inferType parameter) A
-      unless ← isDefEq (← inferType parameter) (← inferType argument) <&&> isDefEq parameter argument do
-        throwStratum .invalid m!"{entry.name} does not take this selected object at its declared type"
-  | _ => throwSemanticAmbiguity m!"several declared parameters accept this selected receiver"
+  | [(slot, application)] =>
+      unless ← bindSelectedReceiver explicit slot A do
+        throwError "the complete selected receiver application changed during commitment"
+      unless ← withTransparency .all <| isDefEq (mkAppN constant args) application do
+        throwError "the committed family differs from its complete selected parameter application"
+  | [] => throwStratum .invalid m!"the complete parameters of {entry.name} are not fixed by this receiver"
+  | _ => throwSemanticAmbiguity m!"several complete declared applications accept this selected receiver"
   synthesizeInstances args infos
   unless ← isTypeCorrect (← instantiateMVars (mkAppN constant args)) do
     throwStratum .invalid m!"an argument of {entry.name} is outside its declared type"
@@ -4995,6 +5015,20 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
     Trace.alias (← read).trace composite hom
     return .element (← staged hom) T
   return .morphism family source target category (some (← endpoint source, T))
+
+/-- Member-family declarations compete by their complete dependent applications;
+their order in the registry does not choose a meaning. -/
+partial def invariantNamed (state : RegistryState) (name : String) (receiver : Value) : M Value := do
+  let rows := state.morphisms.filter (·.name == name)
+  let applicable ← match rows with
+    | #[row] => pure #[row]
+    | _ => rows.filterM fun row => parameterCompatible do
+        discard <| invariantOf row receiver
+        pure true
+  match applicable with
+  | #[row] => invariantOf row receiver
+  | #[] => throwStratum .invalid m!"no complete registered family `{name}` takes this receiver"
+  | _ => throwSemanticAmbiguity m!"several complete registered families `{name}` take this receiver"
 
 /-- Decode an ordinal only at the complete actual diagram-index type. -/
 partial def constructionIndex (indexType : Expr) (ordinal : Nat) : M Expr := do
@@ -5134,29 +5168,39 @@ partial def callWith (scope : Scope) (t : Syntax) (name : String) (args : Array 
       | throwStratum .invalid "the value has no complete registered construction data schema"
     return value
   let state ← registryState
-  let some entry := state.morphisms.find? (·.name == name)
-    | throwStratum .invalid m!"no registered family is named {name}"
-  let some category := state.categories.find? (·.id == entry.category) | unreachable!
+  let rows := state.morphisms.filter (·.name == name)
   let operands ← args.mapM (eval scope ·)
-  match ← eval scope t with
-  | .morphism h .. =>
-      -- A family of maps (`f.m(…)` with `f` its parameter). A family on a domain of maps
-      -- (`C^∞(ℝ)` for `taylor_expansion`) takes an element of that domain: the map is formed
-      -- there first (`f in C^∞`), never admitted because the family needs it.
-      let constant ← mkConstWithFreshMVarLevels entry.declaration
-      let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
-      let mapParams ← (args.zip infos).filterM fun (a, i) =>
-        return i.isExplicit && (← whnfR (← inferType a)).isAppOf ``Quiver.Hom
-      if mapParams.isEmpty then
-        throwStratum .invalid m!"`{name}` takes an element of its domain, not a map: form `{shown t}` \
-          there first (`{shown t} in D`), where its evidence is established"
-      applyFamily entry.declaration category operands (maps := #[h])
-  | v@(.element ..) | v@(.nat _) => applyFamily entry.declaration category (#[v] ++ operands)
-  | receiver@(.object ..) =>
-      let .morphism family .. ← invariantOf entry receiver
-        | throwStratum .invalid m!"the selected object's family does not take operands"
-      applyFamily entry.declaration category operands (application := some family)
-  | _ => throwStratum .invalid m!"`{name}` is called on a map, an element or a selected object"
+  let receiver ← eval scope t
+  let apply (entry : MorphismEntry) : M Value := do
+    let some category := state.categories.find? (·.id == entry.category)
+      | throwStratum .invalid "the selected family has no accepted category"
+    match receiver with
+    | .morphism h .. =>
+        -- A map parameter must already inhabit the declaration's complete Hom type.
+        let constant ← mkConstWithFreshMVarLevels entry.declaration
+        let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+        let mapParams ← (args.zip infos).filterM fun (a, i) =>
+          return i.isExplicit && (← whnfR (← inferType a)).isAppOf ``Quiver.Hom
+        if mapParams.isEmpty then
+          throwStratum .invalid m!"`{name}` takes an element of its domain, not a map: form \
+            `{shown t}` there first (`{shown t} in D`), where its evidence is established"
+        applyFamily entry.declaration category operands (maps := #[h])
+    | v@(.element ..) | v@(.nat _) =>
+        applyFamily entry.declaration category (#[v] ++ operands)
+    | receiver@(.object ..) =>
+        let .morphism family .. ← invariantOf entry receiver
+          | throwStratum .invalid m!"the selected object's family does not take operands"
+        applyFamily entry.declaration category operands (application := some family)
+    | _ => throwStratum .invalid m!"`{name}` is called on a map, an element or a selected object"
+  let applicable ← match rows with
+    | #[row] => pure #[row]
+    | _ => rows.filterM fun row => parameterCompatible do
+        discard <| apply row
+        pure true
+  match applicable with
+  | #[row] => apply row
+  | #[] => throwStratum .invalid m!"no complete registered family `{name}` takes these inputs"
+  | _ => throwSemanticAmbiguity m!"several complete registered families `{name}` take these inputs"
 
 /-- The element `(x, y)` of the product of the sets of `x` and `y` (its registered presentation),
 the mediator of the cone `(x, y)`. -/

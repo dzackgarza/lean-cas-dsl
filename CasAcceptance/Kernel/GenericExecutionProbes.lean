@@ -86,6 +86,24 @@ run_elab do
 
 run_elab do
   let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the accepted category is absent"
+  let object ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let context ← CategoryContext.ofNamed sets object
+  let context ← CategoryContext.construct context ConstructorId.arrow
+  let arrow ← mkAppM ``CategoryTheory.Arrow.mk
+    #[← mkAppM ``CategoryTheory.CategoryStruct.id #[object]]
+  let context ← CategoryContext.construct context ConstructorId.core
+  let object ← mkAppM ``CategoryTheory.Core.mk #[arrow]
+  let receiver : Language.Value := .derivedObject object context #[]
+  let diagramSyntax ← (Language.standardDiagram "product" #[receiver, receiver]).run {}
+  let diagram ← elabTermAndSynthesize diagramSyntax none
+  let (_, actual) ← functorCategoryBundles diagram
+  unless ← withTransparency .all <| isDefEq actual context.bundle do
+    throwError "the registered diagram constructor lost its full derived category context"
+
+run_elab do
+  let state ← registryState
   let some row := state.lifts.find? (·.id.raw == "lift.bilin_module.restrict")
     | throwError "the accepted dependent lift is missing"
   let source ← elabTermAndSynthesize (← `(

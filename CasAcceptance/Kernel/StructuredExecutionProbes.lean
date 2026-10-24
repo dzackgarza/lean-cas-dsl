@@ -257,3 +257,27 @@ run_elab do
   unless id == row.id && parameters.size == 1 &&
       (← isDefEq declaredIndex index) && (← isDefEq admitted family) do
     throwError "the explicit binder changed its selected parameters or complete admitted family"
+
+run_elab do
+  let state ← registryState
+  let some category := state.categories.find? (·.id == CategoryId.bilinModule)
+    | throwError "the accepted dependent category is absent"
+  let source ← elabTermAndSynthesize (← `(
+    LeanCategories.Modules.Bilinear.Valued.BilinModuleCat.ofBilinMap
+      (0 : LinearMap.BilinMap ℚ (ℚ × ℚ) (ℚ × ℚ)))) none
+  let ring ← elabTermAndSynthesize (← `(CommRingCat.of ℚ)) none
+  let values ← elabTermAndSynthesize (← `(ModuleCat.of ℚ (ℚ × ℚ))) none
+  let expected ← mkAppM
+    ``CasCatalogue.Modules.Bilinear.Valued.CatalogueRegistration.pairing #[ring, values, source]
+  let receiver : Value := .object source category none none none
+  let trace ← Trace.new
+  let result ← (eval {} (← parse "X.pairing()")).run
+    { trace := some trace, bound := [(`X, receiver)] }
+  let (family, _, _, _, _, _) ← (morphismContext result).run {}
+  unless ← withTransparency .all <| isDefEq family expected do
+    throwError "member selection changed its complete dependent receiver application"
+  let some (.namedMorphism _ parameters) ← trace.node? family
+    | throwError "the selected family lost its complete declaration parameters"
+  unless parameters.size == 3 && (← isDefEq parameters[0]! ring) &&
+      (← isDefEq parameters[1]! values) && (← isDefEq parameters[2]! source) do
+    throwError "member selection replaced a retained structured parameter by its carrier"

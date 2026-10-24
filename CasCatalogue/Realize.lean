@@ -2392,7 +2392,11 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
   if let some entry := named then
     unless entry.category == apexCategory do return input
   let form := named.map Form.object |>.getD (.diagrams category)
-  let payload := forwardPayload input input.value apexJson
+  -- The complete selected descriptor retains every dependency sent by this
+  -- request. Only its nested opaque data require the parent's live owner;
+  -- unselected owned defining maps remain in the original complete result.
+  let payload := if containsOpaqueData apexJson then forwardPayload input input.value apexJson
+    else .computed input.value (.inline apexJson)
   return { input with form, payload }
 
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the

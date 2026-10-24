@@ -37,16 +37,18 @@ run_elab do
     return none
   let apexData := wire "objectProduct" inputs
   let typed := fun source target token => wire "typedMap" #[source, target, opaqueData token]
-  let answer := wire "cone" #[apexData,
-    typed apexData inputs[0]! "first defining map",
-    typed apexData inputs[1]! "second defining map"]
   let some declaration := diagram.getAppFn.constName?
     | throwError "the independently selected diagram has no public constructor"
   let diagramData := wire (Codec.label declaration) inputs
-  let .ok completed ← StructuredResult.complete row diagram diagramData (.direct answer)
+  let complete := fun selected => do
+    let answer := wire "cone" #[selected,
+      typed selected inputs[0]! "first defining map",
+      typed selected inputs[1]! "second defining map"]
+    StructuredResult.complete row diagram diagramData (.direct answer)
       presentation (fun answer => StructuredResult.validatePlannedData plan answer
         (fun port seen data => ComputationalData.validatePlannedPort plan port seen data external
           ComputationalData.endpointKeys))
+  let .ok completed ← complete apexData
     | throwError "the complete computational fixture failed its original framing"
   let context := #[(inputs[0]!, left), (inputs[1]!, right)]
   let original : Wire := {
@@ -58,6 +60,25 @@ run_elab do
       actual.json == apexData && actual.value == original.value &&
       actual.owner? == original.owner? && actual.constructionInputs == original.constructionInputs do
     throwError "the symbolic apex lost its exact category interface, actual data, formal receiver or owner"
+  let portable := wire "objectProduct" #[wire "obj.sets.fin" #[toJson (2 : Nat)],
+    wire "obj.sets.fin" #[toJson (3 : Nat)]]
+  for (selected, owned) in #[(portable, false), (opaqueData "selected apex", true)] do
+    let .ok completed ← complete selected
+      | throwError "the projected-scope fixture failed its complete original framing"
+    let parent := { original with
+      payload := .construction completed (.owned "engineering-owner" 31)
+      constructionInputs := some (completed.apex, context) }
+    let retainedPacket := parent.json
+    let actual ← computationalApexReceiver trace parent
+    let expectedOwner := if owned then parent.owner? else none
+    unless actual.form.id == (Form.diagrams sets).id && actual.json == selected &&
+        actual.value == parent.value && actual.owner? == expectedOwner do
+      throwError "the selected apex lost an opaque owner or retained an unrelated defining-map owner"
+    unless owned || (actual.payload matches .computed _ (.inline _)) do
+      throwError "the projected portable apex stopped being computational data"
+    unless parent.json == retainedPacket && containsOpaqueData parent.json &&
+        parent.owner? == original.owner? do
+      throwError "projecting the method receiver discarded the complete owned parent result"
   let unchanged := fun candidate => do
     let actual ← computationalApexReceiver trace candidate
     unless actual.form.id == candidate.form.id && actual.form.category == candidate.form.category &&
