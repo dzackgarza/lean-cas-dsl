@@ -545,3 +545,52 @@ complete monoid owners sharing a carrier. They were inspected as source only.
 The completed `EvidenceOrder` review is unaffected. No Lean process or probe
 execution was used for this follow-up; this is a bounded compositional argument,
 not a compilation result or mathematical acceptance.
+
+### Bounded source review: direct reduced selected-object recovery
+
+Reviewed `068f763f076b3f9a512e03159f609ec8933cecaf` relative to
+`5f7f5a2a0b37e7285e1d186caa062952a7ca52b0`. This changes only the absent-node
+branch of `Realize.realizeFresh`. No concrete production defect was found within
+that delta. Its input is the independently selected expression; no answer or
+implementation registration participates in selecting a recovered action.
+
+The existing `FunctorActionData.retainedParameterAction?` requires a closed,
+well-typed full value and a literal, proper source occurrence within it. A named
+object keeps its own presentation. Before any data callback, the helper checks
+the complete recorded result, every ordered closed application against its
+registered functor, the full typed action image, and its kernel-checked reflexive
+identification. It does not search cached results by definitional equality.
+Distinct source/action records remain ambiguous; only exact repeated records
+coalesce. Thus a shared carrier or an equal result elsewhere cannot select this
+object's source packet or dictionary.
+
+The new branch realizes that exact source through `realizeEndpoint` and passes
+the checked applications to `transportImage`. The latter checks each existing
+structural edge and any retained source category bundle, retains the target
+bundle, and maps the existing object and endpoint comparisons. Its runtime
+action encoder includes the actual declaration-parameter dependencies.
+`combinedPayload` merges those dependencies with the source packet and refuses
+different owning sessions; final `forwardPayload` preserves both ownership and
+computed status. The final typed, full-value equality check prevents retagging
+an incompatible image as the independently requested object. This argument uses
+the existing transport contracts and does not add a new presentation inference
+or nondefinitional identification mechanism.
+
+The scoped `parameterRecovery` stack reaches both source realization and action
+parameter encoding. A repeated missing-node recovery fails before its callbacks;
+an exact previously computed cache entry retains priority. Literal source descent
+cannot itself cycle in a finite expression, while the stack guards cycles through
+action-data dependencies. Ambiguity, malformed complete contexts, and unavailable
+owners propagate without retrying another equal cached presentation.
+
+The existing `ReducedParameterActionProbes` fixture already checks the helper,
+metadata encoder and runtime parameter encoder, but none called direct `realize`;
+that left this specific missing integration path untested. The bounded additions
+reuse its original accepted source/action and unchanged negative fixtures through
+direct realization. They check the complete result and target bundle, original
+packet/session rather than a foreign equal cached image, exact-cache priority,
+cyclic recovery, ambiguous retained sources, and refusal of the different full
+dictionary on the same carrier. No mathematical row, permanent assertion or
+production guard changes. This checkpoint has source inspection and
+`git diff --check` only; compilation and execution of the added controls remain
+pending and no mathematical acceptance or runtime outcome is inferred.

@@ -76,6 +76,24 @@ run_elab do
   let combined := { original with payload := ← combinedPayload actual parameter dependencies }
   unless combined.owner? == original.owner? do
     throwError "the complete parameter action dropped its retained source owner"
+  -- Direct realization must use the same retained source/action boundary. The
+  -- parameter encoder above does not exercise realizeFresh's missing-node path.
+  let directCycle ← try
+    discard <| realize { harness with parameterRecovery := #[actual] } trace
+      "the cyclic reduced selected object" actual
+    pure false
+  catch error => pure (Exception.stratum? error == some .noImplementation)
+  unless directCycle && ((← harness.results.get)[actual]?).isNone do
+    throwError "cyclic direct recovery computed or cached a selected object"
+  let direct ← realize harness trace "the reduced selected object" actual
+  unless direct.value == actual && direct.json == parameter &&
+      direct.owner? == original.owner? && direct.owner? != foreign.owner? do
+    throwError "direct recovery changed the complete object, source packet or owner"
+  let some directContext := direct.categoryContext
+    | throwError "direct recovery lost the complete target category context"
+  let (_, targetBundle) ← functorCategoryBundles (← Semantic.asFunctor action)
+  unless ← withTransparency .all <| isDefEq directContext.bundle targetBundle do
+    throwError "direct recovery changed the complete target category dictionary"
   -- If this exact requested child already has actual data, it keeps priority.
   let requested := { original with
     payload := .computed actual (.owned "exact-requested-result" 313
@@ -86,6 +104,9 @@ run_elab do
     | throwError "the exact requested parameter lost its actual dependency"
   unless exactData == #[requested.json] && exactDependency.owner? == requested.owner? do
     throwError "presentation recovery replaced an exact previously computed parameter"
+  let exactDirect ← realize harness trace "the exact cached selected object" actual
+  unless exactDirect.json == requested.json && exactDirect.owner? == requested.owner? do
+    throwError "direct recovery replaced the exact previously computed object"
 
 -- Two literal source occurrences with distinct retained provenance remain
 -- ambiguous. Repeated records of one exact source/action remain one alternative.
@@ -118,6 +139,13 @@ run_elab do
   catch error => pure (Exception.stratum? error == some .ambiguousRealization)
   unless rejected do
     throwError "distinct retained source occurrences were chosen by trace or cache order"
+  let harness ← Harness.empty
+  let directRejected ← try
+    discard <| realize harness trace "the ambiguous reduced selected object" actual
+    pure false
+  catch error => pure (Exception.stratum? error == some .ambiguousRealization)
+  unless directRejected do
+    throwError "direct recovery selected one of several retained source actions"
 
 -- Equal carriers cannot stand in for a full selected structure. The ordinary
 -- multiplicative monoid and the additive monoid written multiplicatively have
@@ -147,5 +175,12 @@ run_elab do
     throwError "the wrong-structure fixture does not distinguish full dictionaries"
   unless (← FunctorActionData.retainedParameterAction? trace different).isNone do
     throwError "parameter recovery selected mathematics from its carrier alone"
+  let harness ← Harness.empty
+  let directRejected ← try
+    discard <| realize harness trace "the incompatible complete selected object" different
+    pure false
+  catch error => pure (Exception.stratum? error == some .noImplementation)
+  unless directRejected do
+    throwError "direct recovery substituted an equal-carrier structure dictionary"
 
 end
