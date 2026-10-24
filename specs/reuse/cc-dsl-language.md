@@ -1,5 +1,34 @@
 # Reuse record: `cc-dsl-language`
 
+## Reconstructed declared endpoint context (2026-10-24)
+
+The conversation's lost-source record identifies the earlier `14b676e` change:
+every result of `declaredEndpointObject` retains its complete supplied inputs.
+Inspection of `Value.viewData`, `sourceParameterValues`, `recognizedEndpoint?`
+and `declaredFieldEndpoint?` locates the existing owner of this interpreter
+context; no mathematical construction is required. `retainObjectContext`
+extends only the original-input list. It preserves the existing source, route,
+parameter comparisons, full action arguments, selected object and declaration.
+An anonymous endpoint remains anonymous. This reconstructs the recorded change
+against the surviving source; the unavailable original commit is not claimed
+to have been recovered.
+
+## Complete family parameters in structural applications (2026-10-20)
+
+Corpus queries `CategoryFamilyFibreWitness` and `structure eta reduction`, followed
+by direct dependency source inspection, locate the owners in
+`LeanCategories/Catalogue/Realization.lean` and Lean's `Meta/Structure.lean`.
+`FunctorRealization.sourceRealization` and `.targetRealization` retain the actual
+category-family fibre witnesses. `CategoryFamilyFibreWitness.parameter` supplies
+the complete selected parameter, including its dictionaries. Lean's existing
+`etaStruct?` reduces a reconstructed record of projections to that same record.
+
+The kernel adds no category, parameter constructor, equality or transport. It
+unifies these published complete parameters before comparing adjacent carriers,
+and uses the declared source category's witness when applying an action to its
+actual typed receiver. Definitional equality checks retain the complete supplied
+data; an equal carrier alone does not identify different selected parameters.
+
 ## b0-selected-structure: full same-carrier observations (2026-10-11)
 
 Searches for `recognize`, `carrierObject`, `Maps`, `BilinModuleCat.ofBilinMap`, and
@@ -198,6 +227,18 @@ heads and chosen data remain fixed; the same registered evidence procedure runs 
 closed result is checked at the original target, including Type-valued admission witnesses.
 Different structures on one carrier cannot pass the full dictionary equality check.
 
+The reconstructed constrained-point reader inspects the constructor of the independently
+fixed target record through Lean's structure metadata. It accepts exactly one fixed data
+field and proposition-valued remaining fields; it does not select a predicate or infer a
+target from data. `proof(...)` supplies a closed term at the actual declared proposition.
+For generalized points each obligation is quantified over the original domain, and the
+actual constructor is applied pointwise. `ConstrainedPoint` reuses `Codec.conditionProof`
+and `Decide.kernelAccepts`; it adds no mathematical admission rule. The runtime retains the
+original data map and all of its owners in the public `constrainedPoint` descriptor, while
+proof terms remain on the formal side. Unresolved obligations remain interpreter failures,
+distinct from a proof of invalidity. This is a reconstruction from the conversation's
+implementation record, not recovery of the lost source bytes.
+
 Structural traces retain the exact ordered complete edge applications constructed with the
 source and endpoint constraints. Parameter equivalence records every source presentation,
 its complete applications, and its full image identity; replay does not infer new parameters
@@ -347,3 +388,107 @@ name from the carrier, change the registered map, or provide missing admission e
 An incompatible result type must still be invalid. Without an explicit context, an anonymous
 result must stay anonymous. The unchanged normalized-primitive binding supplies its own
 `𝒫(ℚ[x])` target; that target, not a guessed polynomial alias, supplies the evaluator for `h(0)`.
+
+## Action-bound source realization (2026-10-20)
+
+Corpus searches `FunctorRealization sourceRealization` and
+`CategoryRealization familyFibre` returned no indexed matches; direct existing
+`LeanCategories/Catalogue/Realization.lean` supplies the complete typed source
+realization, and existing `Semantic.realizedFunctorEndpoints` projects it while
+checking the exact supplied action. The module-kernel diagnostic confirms a
+fresh source schema cannot recover a RingCat bundle from its carrier, whereas
+the existing action-bound realization retains that bundle. The kernel now checks
+the declared source metadata and exact receiver type against this supplied
+realization. Where the named source explicitly supplies a published family-fibre
+witness, existing structured-receiver elaboration and full family-parameter
+alignment still infer omitted parameters before that final action-bound check.
+A plain category schema supplies no such witness. No mathematical constructor,
+source equality, or carrier-based parameter recovery is added.
+
+## V1 registry-driven dependent interpretation (2026-10-23)
+
+The existing Lean dependent telescope, category-family fibre witnesses,
+registered object notation/component fields, and registered terminal point
+own the required constructions. The interpreter consumes those interfaces for
+selected `Vec` parameters, destructured map arguments, quotient notation, and
+closed points. It introduces no object-specific mathematical constructor.
+
+The observed normalized-integration obstruction came from repeating complete
+structured-parameter searches inside the same candidate. Rigid declaration
+filters retain expression metavariables (universe metavariables do not disable
+the filter); candidate-invariant work is shared. Successful transactional
+recognition retains its checked state once, while invalid speculative readings
+restore state and ambiguity/internal failures propagate. No elaboration budget
+is increased and no mathematical evidence is weakened.
+
+### Reconstruction of complete declared inputs (2026-10-24)
+
+The missing conversation-state work is reconstructed from its source record;
+the original commit bytes are unavailable. The corpus queries
+`forallMetaTelescopeReducing` and `finite function vector tuple` were attempted
+in the cloud container. Both stopped at the corpus API's network access boundary
+(`Operation not permitted`). The existing searches and owners above remain the
+reuse basis. Local source inspection additionally located
+`CasCatalogue.Modules.Operations.zero` and `scalarAction`, the registered ring
+and semiring numeral declarations, and
+`CasCatalogue.Algebra.LinearAlgebra.{empty,cons,vectorComponent,rows}`.
+Mathlib's `ModuleCat`, `PUnit.module`, and finite-function types supply the probe
+objects. No mathematical definition, registry row, or leaf is added.
+
+The reader now compares the original declaration and all ordered arguments
+before comparing an unfolded operation result. In particular, two constant
+functions cannot erase different scalar or module parameters during selected
+operation dispatch. Every complete retained source witness participates, and
+the actual complete declaration source checks the operands before selection.
+This check precedes ambiguity: a polynomial's coefficient ring is retained
+context, but an operation on that ring is inapplicable when the actual operands
+are polynomials. The surviving application retains its already checked value
+and private trace; the reader does not repeat the same elaboration for recording.
+Explicit `•` and juxtaposition consume both registered operations and registered
+morphisms with the action surface; multiple applicable readings remain
+ambiguous. Empty registered calls, raw identifier method fields, and applications
+of already formed expressions pass through the same declared-call machinery.
+
+A point whose actual codomain is the independently fixed declaration endpoint
+may retain that endpoint without replacing its original generalized map. Its
+source context survives. This rule applies at declared inputs and codomains;
+the ordinary full-identity coercion rules are unchanged. When the callable fixes
+its input, that input comes from its actual application signature, including a
+unary tuple or matrix argument. A further dependent structure determined by an
+independently supplied operand keeps the existing operand reading.
+
+An anonymous coordinate may form a numeral from an independently supplied
+complete registered owner. The owner and its full type close before its carrier
+is compared with the coordinate. Candidate numerals compare the full owners
+and the ordered declaration applications; every alias of the same owner is
+retained. A bare coordinate carrier provides no missing ring structure, and the
+coordinate remains anonymous.
+
+Tuple and matrix literals use the actual nondependent `Fin n → A` declaration
+type and its fixed lengths. Applicable registered component maps supply a named
+coordinate context; otherwise the coordinate object remains anonymous and
+retains the declaration's source witnesses. Nested finite-function dimensions
+support rectangular declared matrices through the existing tuple constructors
+and declared-result check. A category family's independent object universe is
+closed only after the actual object's full type has constrained it.
+
+Context traversal expands each exact syntactic witness once. Only duplicates
+with the same registered origins, complete selected objects, ordered parameters,
+routes, and comparison data are coalesced. This avoids repeatedly expanding the
+same retained context while preserving distinct aliases and structures.
+Endpoint recognition also merges the contexts of an exact same selected value:
+its handle, category, constructor identity, ordered parameters, and selected
+structure must match syntactically. Both complete context payloads survive that
+merge. Additional provenance is not a second selection, while a different
+selected structure still participates in the ordinary ambiguity checks.
+`CasAcceptance/Kernel/DependentElaborationProbes.lean` exercises these reader
+mechanisms without changing permanent mathematical assertions or executing a
+leaf. Compilation is a reader-engineering check, not acceptance evidence.
+
+Cloud-container verification passed `CasCatalogue.Language`,
+`CasAcceptance.Kernel.DependentElaborationProbes`, and the unchanged
+`CasAcceptance.DependentReaderProbes` target. The last target retains the selected
+vector, destructured-map, bilinear admission/formed-pairing chain, independent
+variable stage, and repeated matrix application checks. No permanent assertion,
+full suite, leaf execution, or acceptance decision was run or changed by this
+reconstruction.

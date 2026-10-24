@@ -1,0 +1,16 @@
+-- RX-01. Source proposal; no execution or admission is claimed.
+-- [M01] FiniteOrders; [M13] the existing set-cardinality operation.
+let ordinaryFive := FinOrder(5)
+let reverseFive := ReverseFinOrder(5)
+
+test reconstructed_extensions_20261024.complete.rx01.ordinary_cardinality "[M01] ordinary_carrier_card 5; selected ordinary order is retained":
+  assert ordinaryFive.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx01.reverse_cardinality "[M01] reverse_carrier_card 5; selected reverse order is retained":
+  assert reverseFive.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx01.ordinary_relation "[M01] ordinary_five_zero_le_one; 0 and 1 are Fin 5 elements":
+  assert 0 ≤ 1 in ordinaryFive
+
+test reconstructed_extensions_20261024.complete.rx01.reverse_relation "[M01] reverse_five_not_zero_le_one; the identical carrier does not identify the order":
+  assert (0 ≤ 1 in reverseFive) = false

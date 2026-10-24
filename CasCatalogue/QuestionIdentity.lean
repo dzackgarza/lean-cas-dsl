@@ -19,6 +19,68 @@ partial def level : Level → Json
 
 abbrev BinderContext := Array (Expr × Option Expr)
 
+/-- Compare typed terms directly, independently of the serialized DAG. Bound variables
+are related by paired local declarations; proof implementations are compared through
+their proposition types. This does not use JSON, node interning, hashes as identities,
+definitional reduction of data, or the serializer's contextual cache. -/
+partial def compareInContext (cache : IO.Ref (Std.HashMap (Expr × Expr) Bool))
+    (left right : Expr) (binders : Array (FVarId × FVarId)) : TermElabM Bool := do
+  let left := left.consumeMData
+  let right := right.consumeMData
+  if let some result := (← cache.get)[(left, right)]? then return result
+  let leftProof ← isProof left
+  let rightProof ← isProof right
+  let result ← if leftProof || rightProof then do
+      unless leftProof && rightProof do return false
+      compareInContext cache (← inferType left) (← inferType right) binders
+    else match left, right with
+    | .fvar a, .fvar b => pure (binders.contains (a, b))
+    | .sort a, .sort b => pure (a == b)
+    | .const a ls, .const b ms => pure (a == b && ls == ms)
+    | .lit a, .lit b => pure (a == b)
+    | .app f x, .app g y =>
+        compareInContext cache f g binders <&&> compareInContext cache x y binders
+    | .lam _ a body info, .lam _ b other otherInfo => do
+        unless info == otherInfo && (← compareInContext cache a b binders) do return false
+        withLocalDecl .anonymous info a fun x =>
+          withLocalDecl .anonymous otherInfo b fun y =>
+            compareInContext cache (body.instantiate1 x) (other.instantiate1 y)
+              (binders.push (x.fvarId!, y.fvarId!))
+    | .forallE _ a body info, .forallE _ b other otherInfo => do
+        unless info == otherInfo && (← compareInContext cache a b binders) do return false
+        withLocalDecl .anonymous info a fun x =>
+          withLocalDecl .anonymous otherInfo b fun y =>
+            compareInContext cache (body.instantiate1 x) (other.instantiate1 y)
+              (binders.push (x.fvarId!, y.fvarId!))
+    | .letE _ a value body nondep, .letE _ b otherValue other otherNondep => do
+        unless nondep == otherNondep && (← compareInContext cache a b binders) &&
+            (← compareInContext cache value otherValue binders) do return false
+        withLetDecl .anonymous a value fun x =>
+          withLetDecl .anonymous b otherValue fun y =>
+            compareInContext cache (body.instantiate1 x) (other.instantiate1 y)
+              (binders.push (x.fvarId!, y.fvarId!))
+    | .proj name index value, .proj other otherIndex otherValue =>
+        if name != other || index != otherIndex then pure false
+        else compareInContext cache value otherValue binders
+    | _, _ => pure false
+  cache.modify (·.insert (left, right) result)
+  return result
+
+/-- Independent structural comparison for the identity quotient implemented by
+`encode`: metadata and binder spelling are ignored, proofs retain their exact
+propositions, and all computational declarations, parameters and dictionaries
+remain significant. A revision label alone is not a term comparison. Cross-revision
+admission still requires independently assessed declarations and accepted inputs. -/
+def equivalent (left right : Expr) : TermElabM Bool := do
+  let left ← instantiateMVars left
+  let right ← instantiateMVars right
+  for term in #[left, right] do
+    if term.hasMVar || term.hasLevelMVar || term.hasFVar || term.hasLooseBVars then
+      throwError "question comparison requires complete closed typed terms"
+    unless ← isTypeCorrect term do
+      throwError "question comparison received an ill-typed expression"
+  compareInContext (← IO.mkRef {}) left right #[]
+
 /-- Encode the unopened syntax alongside its locally opened form. The unopened expression and
 its ordered binder types and let values identify a contextual subterm across fresh local IDs;
 the opened form is used only where Lean must inspect a proof or create another local binder. -/
@@ -102,6 +164,26 @@ def encode (intern : Json → TermElabM Nat)
     (contextual : IO.Ref (Std.HashMap (Expr × BinderContext) Nat))
     (term : Expr) : TermElabM Nat :=
   encodeInContext intern closed contextual term term #[] #[]
+
+/-- Preserve the existing primary order and resolve every tie by a complete canonical
+record key. Equal records retain their multiplicity. The complete key is constructed only
+for colliding primary keys; these strings order serialization, never decide semantic equality. -/
+def orderByCompleteKey {α : Type} (records : Array (String × α))
+    (fullKey : α → TermElabM String) : TermElabM (Array α) := do
+  let sortGroup (group : Array α) : TermElabM (Array α) := do
+    if group.size < 2 then return group
+    let keyed ← group.mapM fun value => return (← fullKey value, value)
+    return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
+  let mut result : Array α := #[]
+  let mut group : Array α := #[]
+  let mut key := ""
+  for (primary, value) in records.qsort (fun left right => left.1 < right.1) do
+    if !group.isEmpty && key != primary then
+      result := result ++ (← sortGroup group)
+      group := #[]
+    key := primary
+    group := group.push value
+  return result ++ (← sortGroup group)
 
 end CasCatalogue.QuestionIdentity
 

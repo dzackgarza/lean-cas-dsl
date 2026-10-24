@@ -50,7 +50,13 @@ def label (ctor : Name) : String :=
   | n => n.toString
 
 /-- The natural number a closed term is. -/
-def nat? (e : Expr) : MetaM (Option Nat) := (evalNat e).run
+def nat? (e : Expr) : MetaM (Option Nat) := do
+  if let some n ← (evalNat e).run then return some n
+  -- A closed numeral reached through casts and bundled maps (`Nat.castRingHom ℕ 2`) unfolds
+  -- definitionally to its literal.
+  let e ← withTransparency .all <| whnf e
+  if let some n := e.rawNatLit? then return some n
+  (evalNat e).run
 
 /-- Synthesize at the actual carrier beneath accepted projection definitions. This changes
 only definitional presentation, never supplies a new instance. -/

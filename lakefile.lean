@@ -42,11 +42,14 @@ lean_lib CasDsl where
 
 /-- The core: resolution, propagation, calls and the language, over the leaf contract
 (`cas_leaf_contracts`) and `lean-categories`' semantic registry (`LeanCategories.Catalogue`), which it
-reads at the pin and never writes (`specs/architecture.md`). It keeps `lean-categories`'
+reads at latest main and never writes (`specs/architecture.md`). It keeps `lean-categories`'
 elaboration options. -/
 @[default_target]
 lean_lib CasCatalogue where
   globs := #[.andSubmodules `CasCatalogue]
+  -- The kernel's generated C is compiled unoptimized: at -O3, clang spent four minutes on
+  -- `CasCatalogue.Realize` alone, and execution time is spent in the natively built toolchain.
+  moreLeancArgs := #["-O0"]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,
@@ -64,7 +67,9 @@ lean_lib CasGates where
 permanent suite (`tests/acceptance`) is not compiled: `cas-harness` executes it, and
 `scripts/check_acceptance_regression.py` judges a head against its base assertion by assertion. -/
 lean_lib CasAcceptance where
-  globs := #[.andSubmodules `CasAcceptance]
+  -- The stable aggregate retains its full prior inventory. Additive engineering and
+  -- independently supplied extension targets are built explicitly at their own inputs.
+  globs := #[.one `CasAcceptance]
   leanOptions := #[
     ⟨`relaxedAutoImplicit, false⟩,
     ⟨`weak.linter.mathlibStandardSet, true⟩,
@@ -74,6 +79,7 @@ lean_lib CasAcceptance where
 /-- The registry exporter and the axiom audit. -/
 lean_lib CasTools where
   globs := #[.submodules `CasTools]
+  moreLeancArgs := #["-O0"]
 
 /-- Export the normalized registry manifest as JSON. -/
 lean_exe «cas-registry-export» where
@@ -83,6 +89,11 @@ lean_exe «cas-registry-export» where
 /-- Run the acceptance suite over a leaves manifest (`CasTools.Harness`). -/
 lean_exe «cas-harness» where
   root := `CasTools.HarnessMain
+  supportInterpreter := true
+
+/-- Export fixed questions without computing their answers (`CasTools.QuestionExport`). -/
+lean_exe «cas-question-export» where
+  root := `CasTools.QuestionExportMain
   supportInterpreter := true
 
 /-- Kernel-axiom audit of the core and the probes; the audit runs while `CasTools.AxiomAudit`

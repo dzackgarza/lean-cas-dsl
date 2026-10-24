@@ -391,8 +391,14 @@ The current phase is construction of B0, including its working development,
 integration, review, and acceptance mechanisms. It is not operation under an
 already accepted B0 substrate.
 
-Kernel construction sessions select and verify work only by the
+Kernel construction sessions follow the generic KM1–KM9 implementation programme
+and the owner's V1 assignment of 2026-10-23, recorded in the
 [kernel construction procedure](computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).
+That assignment authorizes kernel delegation and the targeted upstream, contract,
+execution-surface and publication work needed for a usable V1. It supersedes older
+procedural prohibitions, while preserving mathematical ownership, independent
+acceptance, permanent assertions and leaf blindness. Source integration is not
+acceptance of the author's mathematics or interpretation changes.
 
 A successful compile does not discharge the unchanged positive assertion and its same-candidate
 protected negatives.

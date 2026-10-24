@@ -1,0 +1,55 @@
+-- RX-06. Restrict the regular module along the actual coefficient morphism.
+let R := ℤ in Rings
+let Scommutative := ZMod(5) in CommutativeRings
+let S := view Scommutative along «fun.commutative_rings.ring»()
+let q := map integerCoefficients(Scommutative) along «fun.commutative_rings.ring»()
+let N := RegularModule(S)
+let M := reindex(N, q)
+let namedRestriction := RestrictedRegularModule(R, S, q)
+let selectedCartesian := cartesian(N, q)
+let cartesianCarrier := map selectedCartesian along «fun.modules.underlying»()
+
+test reconstructed_extensions_20261024.complete.rx06.original_dimension "[M08] five_regular_dimension; the dimension is over ZMod 5 before restriction":
+  assert N.dim() = 1
+
+test reconstructed_extensions_20261024.complete.rx06.restricted_cardinality "[M08] five_cardinality; no assertion of freeness or integer dimension one":
+  assert M.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx06.named_restricted_cardinality "[M08] restrictedRegularModule is the same selected reindexing at R,S,q":
+  assert namedRestriction.cardinality() = 5
+
+test reconstructed_extensions_20261024.complete.rx06.cartesian_whole_carrier "[M08] five_cartesian_carrier; the total-category arrow retains its original base q":
+  assert cartesianCarrier = id(ZMod(5) in Sets)
+
+test reconstructed_extensions_20261024.complete.rx06.action_two_three "[M08] five_actions; 2*3=1 modulo 5":
+  assert 2 • 3 = 1 in M
+
+test reconstructed_extensions_20261024.complete.rx06.action_five_one "[M08] five_actions; q(5)=0":
+  assert 5 • 1 = 0 in M
+
+test reconstructed_extensions_20261024.complete.rx06.action_negative_one_two "[M08] five_actions; -2=3 modulo 5":
+  assert (-1) • 2 = 3 in M
+
+-- A typed lambda fixes the whole selected module arrow. Its interpretation
+-- must be ModuleCat.ofHom ((2 : ZMod 5) • LinearMap.id), not a set map.
+let d(m) := 2 • m in N → N
+let restrictedMap := reindex(d, q)
+let expectedRestrictedMap(m) := 2 • m in M → M
+
+test reconstructed_extensions_20261024.complete.rx06.whole_reindexed_map "[M08] reindex_map_apply for every m, action_formula and q(2)=2":
+  assert restrictedMap = expectedRestrictedMap
+
+test reconstructed_extensions_20261024.complete.rx06.reindexed_map_sample "[M08] reindex_double_three; consume the actual returned whole map":
+  assert restrictedMap(3) = 1 in M
+
+let Mtotal := view M along «fun.modules.fibre_inclusion»(R)
+let Mset := view Mtotal along «fun.modules.underlying»()
+let actionDomain := (ℤ in Sets) × Mset
+let observedAction((r, m)) := (r • m in M) in actionDomain → Mset
+let expectedAction((r, m)) := (q(r) * m in S) in actionDomain → Mset
+
+test reconstructed_extensions_20261024.complete.rx06.whole_scalar_action "[M08] action_formula for every integer r and residue m, with the actual q":
+  assert observedAction = expectedAction
+
+-- The cartesian base-projection equality is independently fixed by
+-- five_cartesian_base. No result field is inferred from carrier equality.

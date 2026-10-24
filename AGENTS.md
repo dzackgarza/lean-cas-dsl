@@ -114,13 +114,23 @@ criteria remain fixed. The current controller and development workflow are being
 constructed and corrected; they are not an already accepted substrate whose
 steady-state restrictions govern their own replacement.
 
-**The orchestrator's own session is the kernel session; the kernel is never delegated to a
-subagent or a fresh agent. That session selects, verifies and records work only by the
-[kernel construction procedure](specs/computational-core-plan.md#kernel-construction-procedure-owner-instruction-2026-10-21).**
-Its rules override any other sentence in this repository about what to work on next.
-Subagents are only the formalization, acceptance and leaf authors and the procedure's
-read-only reviewer. Controller, custodian, review, publication and CI work happens only when
-an owner instruction names it.
+**Owner V1 assignment (2026-10-23).** Deliver an integrated, usable kernel MVP,
+its necessary upstream interfaces and public computational contract. The owner
+explicitly authorizes delegation of kernel work and targeted upstream changes,
+superseding older procedural restrictions that would prevent this delivery.
+Select actual generic defects through KM1–KM9 and their dependencies; K1–K14
+remain regression evidence. Implement, integrate, validate and publish the
+working system rather than stopping at an audit or a passing isolated probe.
+
+V1 includes at least four useful connected real-engine workflows across at least
+three mathematical areas, including structured-result reuse and nonidentity
+transport, followed by the ten independent extension trials on frozen source.
+Use the existing CAS/notebook surface and only the invocation repairs necessary
+to demonstrate it. Substantial leaf expansion, broad backend parity and unrelated
+notebook or performance work remain excluded. Mathematical ownership, permanent
+assertions, independent acceptance and the prohibition on leaf-provided authority
+are unchanged. Authorship and source publication do not accept a mathematical
+release, an interpretation migration or B0.
 
 Proceed with the approved B0 work without requesting repeated owner approval.
 In a controller session this includes corrections to custodian code, reviewer prompts,

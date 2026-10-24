@@ -1,0 +1,32 @@
+-- RX-04. Exact comprehension, its selected finite refinement and actual admission.
+let squareBound := IntegerSquareBound(3) in Sets
+let finiteSquareBound := IntegerSquareBound(3) in FiniteSets
+let forgottenFiniteSquareBound := view finiteSquareBound along «clf.sets.finite»()
+let selectedSubset := integer_square_bound_subset(3)
+let admittedSubset := integer_square_bound_admitted(3)
+
+test reconstructed_extensions_20261024.complete.rx04.cardinality "[M05] extent_three_card and finiteIdentification; [M13] finite cardinal seven":
+  assert finiteSquareBound.cardinality() = 7
+
+test reconstructed_extensions_20261024.complete.rx04.finite_classifier "[M05] finiteHolds 3 concerns the original square-bound subtype":
+  assert squareBound.is_finite()
+
+test reconstructed_extensions_20261024.complete.rx04.forgotten_refinement_cardinality "[M05] finiteIdentification retains the original subtype through clf.sets.finite":
+  assert forgottenFiniteSquareBound.cardinality() = 7
+
+test reconstructed_extensions_20261024.complete.rx04.exact_predicate "[M05] squareBound_three; the ambient domain is all integers":
+  assert selectedSubset = {n ∈ ℤ | n^2 ≤ 9}
+
+test reconstructed_extensions_20261024.complete.rx04.exact_members "[M05] squareBound_three_members; no change to the comprehension":
+  assert selectedSubset = {-3, -2, -1, 0, 1, 2, 3} in 𝒫(ℤ)
+
+test reconstructed_extensions_20261024.complete.rx04.ambient_not_finite "[M05] integers_not_finiteHolds; this does not alter the subtype's ambient set":
+  assert ℤ.is_finite() = false
+
+test reconstructed_extensions_20261024.complete.rx04.admission_retains_subset "[M05] admission_retains_subset; comparison in the ambient power set uses the declared FiniteSubsets.inclusion":
+  assert admittedSubset = selectedSubset in 𝒫(ℤ)
+
+-- admittedSubset is the entire registered Fin 1 -> Finset ℤ map obtained by
+-- FiniteSubsets.admit, not a newly generated list. Its original inclusion
+-- equation is the last assertion, whose interpretation must retain the actual
+-- FiniteSubsets.inclusion, both complete points, and their original Fin 1 domain.

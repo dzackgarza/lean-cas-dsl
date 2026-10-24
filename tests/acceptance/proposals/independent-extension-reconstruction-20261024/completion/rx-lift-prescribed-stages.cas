@@ -1,0 +1,162 @@
+-- RX-LIFT. The genuine formed map, scaled kernel, and successive selected lifts.
+-- The ordinary projection and coefficient three of RX-08 are not used here.
+let Q := ℚ in CommutativeRings
+let Qring := view Q along «fun.commutative_rings.ring»()
+let scalarModule := RegularModule(Qring)
+let X := DegeneratePlane()
+let Y := DegeneratePlaneTarget()
+let f := degenerate_plane_map()
+let sourceModule := view X along «fun.bilin_module.forget»(ℚ, ℚ)
+let targetModule := view Y along «fun.bilin_module.forget»(ℚ, ℚ)
+let underlyingF := map f along «fun.bilin_module.forget»(ℚ, ℚ)
+let expectedF((a, b)) := (a + b, 0) in sourceModule → targetModule
+
+test reconstructed_extensions_20261024.complete.lift.formed_arrow_action "[M16a] underlyingMap_apply, with the actual source and target forms":
+  assert underlyingF = expectedF
+
+let vectorSet := Vec(Q, 2) in Sets
+let pairOfVectors := vectorSet × vectorSet
+let sourcePairing((v, w)) := X.pairing(v, w) in pairOfVectors → (ℚ in Sets)
+let imagePairing((v, w)) := Y.pairing(f(v), f(w)) in pairOfVectors → (ℚ in Sets)
+
+test reconstructed_extensions_20261024.complete.lift.whole_formed_equation "[M16a] formedMap preserves the complete pairing on every pair of vectors":
+  assert imagePairing = sourcePairing
+
+-- This is the complete prescribed factor-two module arrow, not a pair
+-- of sampled points or a data term placed in the monicity proof slot.
+let i0(t) := (2*t, -2*t) in scalarModule → sourceModule
+let first := lift(X) along «lift.bilin_module.restrict»(ℚ, ℚ) with i0 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.kernelInclusion_mono)
+let X1 := first.obj()
+let i1 := first.hom()
+let alpha1 := first.forward()
+let beta1 := first.backward()
+let firstCarrier := view X1 along «fun.bilin_module.forget»(ℚ, ℚ)
+let firstUnderlyingInclusion := map i1 along «fun.bilin_module.forget»(ℚ, ℚ)
+
+test reconstructed_extensions_20261024.complete.lift.first_inverse_on_carrier "[M16a] first_inverse_forward_backward; the whole actual range carrier":
+  assert beta1 ∘ alpha1 = id(firstCarrier)
+
+test reconstructed_extensions_20261024.complete.lift.first_inverse_on_scalar "[M16a] first_inverse_backward_forward; retain the selected scalar coordinate":
+  assert alpha1 ∘ beta1 = id(scalarModule)
+
+test reconstructed_extensions_20261024.complete.lift.first_defining_map "[M16a] first_factorization; actual returned defining inclusion":
+  assert firstUnderlyingInclusion = i0 ∘ alpha1
+
+test reconstructed_extensions_20261024.complete.lift.first_backward_action "[M16a] first_defining_map and beta_value, for every scalar":
+  assert firstUnderlyingInclusion ∘ beta1 = i0
+
+let unscaledRaw := (4, -4) in vectorSet
+let unscaled := unscaledRaw in firstCarrier using (proof((CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstPoint 4).property))
+
+test reconstructed_extensions_20261024.complete.lift.first_nonidentity_coordinate "[M16a] alpha_four; the original vector (4,-4) has selected coordinate 2":
+  assert alpha1(unscaled) = 2 in scalarModule
+
+let scalarPairs := (ℚ in Sets) × (ℚ in Sets)
+let firstPaired((s, t)) := X1.pairing(beta1(s), beta1(t)) in scalarPairs → (ℚ in Sets)
+let zeroPairing((s, t)) := 0 in scalarPairs → (ℚ in Sets)
+
+test reconstructed_extensions_20261024.complete.lift.first_full_pairing "[M16a] first_pairing on every rational s,t":
+  assert firstPaired = zeroPairing
+
+let cone := degenerate_plane_cone()
+let mediatorRow := [3/2, -1] in RectangularMatrices(1, 2, Q)
+let g0 := row_linear_map(2, Q, mediatorRow)
+let h1 := factor(g0) through first with cone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)
+let underlyingH1 := map h1 along «fun.bilin_module.forget»(ℚ, ℚ)
+
+test reconstructed_extensions_20261024.complete.lift.first_whole_factorization "[M16c] formedMediator_factorization; actual returned first defining map":
+  assert i1 ∘ h1 = cone
+
+test reconstructed_extensions_20261024.complete.lift.first_factor_comparison "[M16c] formedMediator_comparison; actual returned first factor":
+  assert alpha1 ∘ underlyingH1 = g0
+
+test reconstructed_extensions_20261024.complete.lift.first_factor_sample_one "[M16c] first_observation; evaluate the entire factor at (2,1)":
+  assert i1(h1((2, 1))) = (4, -4) in vectorSet
+
+test reconstructed_extensions_20261024.complete.lift.first_factor_sample_two "[M16c] second_observation; evaluate the entire factor at (1,3)":
+  assert i1(h1((1, 3))) = (-3, 3) in vectorSet
+
+-- The public specification f91870b supplies the composite selector and member
+-- selection at a complete receiver. The value-map lambda is read at the exact
+-- declared LinearMap parameter: LinearMap.fst Q Q Q. Its generic structured
+-- interpretation is still to be checked; it is not an arbitrary set function.
+-- The value carriers are the actual types Q x Q and Q, with the instances
+-- retained by the complete formed objects, not a Vec(Q,2) substitute.
+let Xplus := DegeneratePlaneWithDot()
+let wholePairedCone := degenerate_plane_paired_cone()
+let second := lift(Xplus) along «lift.bilin_module.change_value_restriction»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a)) with i1 using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneLifts.firstInclusion_mono)
+let combined := composite_lift(second)
+let X2 := combined.obj()
+let i2 := combined.hom()
+let alpha2 := combined.forward()
+let beta2 := combined.backward()
+let changedX2 := view X2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let finalCarrier := view changedX2 along «fun.bilin_module.forget»(ℚ, ℚ)
+let changedI2 := map i2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let finalUnderlyingInclusion := map changedI2 along «fun.bilin_module.forget»(ℚ, ℚ)
+let secondForward := second.forward()
+let secondBackward := second.backward()
+let secondForwardModule := map secondForward along «fun.bilin_module.forget»(ℚ, ℚ)
+let secondBackwardModule := map secondBackward along «fun.bilin_module.forget»(ℚ, ℚ)
+
+test reconstructed_extensions_20261024.complete.lift.actual_second_inclusion "[M16a] final_inclusion_is_second; the returned second-stage map is retained":
+  assert i2 = second.hom()
+
+test reconstructed_extensions_20261024.complete.lift.composed_forward "[M16a,M16b] the actual second comparison followed by the actual first comparison":
+  assert alpha2 = alpha1 ∘ secondForwardModule
+
+test reconstructed_extensions_20261024.complete.lift.composed_backward "[M16a,M16b] both actual comparison directions, in the declared functor order":
+  assert beta2 = secondBackwardModule ∘ beta1
+
+test reconstructed_extensions_20261024.complete.lift.final_inverse_on_carrier "[M16a] final_inverse_forward_backward on the complete final carrier":
+  assert beta2 ∘ alpha2 = id(finalCarrier)
+
+test reconstructed_extensions_20261024.complete.lift.final_inverse_on_scalar "[M16a] final_inverse_backward_forward on the selected scalar module":
+  assert alpha2 ∘ beta2 = id(scalarModule)
+
+test reconstructed_extensions_20261024.complete.lift.final_defining_map "[M16a] final_factorization uses the composed functor action on i2":
+  assert finalUnderlyingInclusion = i0 ∘ alpha2
+
+test reconstructed_extensions_20261024.complete.lift.final_backward_action "[M16a] final_defining_map for every rational coordinate":
+  assert finalUnderlyingInclusion ∘ beta2 = i0
+
+-- Selecting the whole family from X2 retains its exact scalar ring and complete
+-- value module. The codomain below only names the set in which its values lie.
+let actualFinalPairing := X2.pairing()
+let valuePairs := (ℚ in Sets) × (ℚ in Sets)
+let finalPaired((s, t)) := actualFinalPairing((beta2(s), beta2(t))) in scalarPairs → valuePairs
+let expectedFinalPairing((s, t)) := (0, 8*s*t) in scalarPairs → valuePairs
+
+test reconstructed_extensions_20261024.complete.lift.final_full_pairing "[M16a] final_pairing on every rational s,t; both ordered components":
+  assert finalPaired = expectedFinalPairing
+
+test reconstructed_extensions_20261024.complete.lift.final_pairing_sample "[M16a] final_pairing_one; the additional selected form survives":
+  assert actualFinalPairing((beta2(1), beta2(1))) = (0, 8) in valuePairs
+
+test reconstructed_extensions_20261024.complete.lift.final_nonzero_inclusion "[M16a] final_defining_map_three_halves; reuse the final returned inclusion":
+  assert finalUnderlyingInclusion(beta2(3/2)) = (3, -3) in vectorSet
+
+-- The whole paired cone retains its complete formed source. The composite
+-- factor builds each intermediate factor at the actual mapped source. This
+-- is not a claim that h1 may be retyped at that source without comparison.
+let h2 := factor(g0) through combined with wholePairedCone using proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)
+let changedH2 := map h2 along «fun.bilin_module.change_value»(ℚ, ℚ × ℚ, ℚ, ((a, b) ↦ a))
+let underlyingH2 := map changedH2 along «fun.bilin_module.forget»(ℚ, ℚ)
+
+test reconstructed_extensions_20261024.complete.lift.final_whole_factorization "[M16c] finalMediator_factorization from the original full paired-cone domain":
+  assert i2 ∘ h2 = wholePairedCone
+
+test reconstructed_extensions_20261024.complete.lift.final_factor_comparison "[M16c] finalMediator_comparison through the actual composed comparison":
+  assert alpha2 ∘ underlyingH2 = g0
+
+test reconstructed_extensions_20261024.complete.lift.final_factor_sample_one "[M16c] first_observation using the actual final factor and inclusion":
+  assert finalUnderlyingInclusion(underlyingH2((2, 1))) = (4, -4) in vectorSet
+
+test reconstructed_extensions_20261024.complete.lift.final_factor_sample_two "[M16c] second_observation using the actual final factor and inclusion":
+  assert finalUnderlyingInclusion(underlyingH2((1, 3))) = (-3, 3) in vectorSet
+
+-- The separate whole-map observation comparing changedH2 with the earlier h1
+-- still requires the existing general ChangeValueLifts.pulledBackIso at
+-- V(pairedConeSource) ≅ zeroSource. The single-stage second.forward() has
+-- different endpoints. See selected-lift-requirements.md; that obligation and
+-- both uniqueness statements are not replaced by these scalar samples.

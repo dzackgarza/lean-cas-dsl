@@ -1,0 +1,13 @@
+-- RX-10. Exactly one fixed question, used unchanged under all six execution
+-- observations and the separate session-ownership engineering controls.
+let R := ℤ in Rings
+let Scommutative := ZMod(5) in CommutativeRings
+let S := view Scommutative along «fun.commutative_rings.ring»()
+let q := map integerCoefficients(Scommutative) along «fun.commutative_rings.ring»()
+let N := RegularModule(S)
+let M := reindex(N, q)
+let d(m) := 2 • m in N → N
+let restrictedMap := reindex(d, q)
+
+test reconstructed_extensions_20261024.complete.rx10.fixed_question "[M08] IntegerResidueModules.reindex_double_three; one unchanged question for every condition":
+  assert restrictedMap(3) = 1 in M
