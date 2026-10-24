@@ -58,6 +58,20 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       (← withTransparency .all <| isDefEq context.bundle selectedContext.bundle) do
     throwError "the lambda replaced its selected full category"
   CategoryContext.checkMorphism context hom source target
+  let representation ← withTransparency .all <| whnf (← inferType hom)
+  let wrapped ← mkExpectedTypeHint hom representation
+  let retainedSource ← CategoryContext.morphismDomain context wrapped target (some source)
+  unless ← withTransparency .all <| isDefEq retainedSource source do
+    throwError "an admitted Hom wrapper changed its independently supplied complete domain"
+  let carried ← (carrierMorphism value).run { trace := some trace }
+  let (plain, _, _, _, _, _) ← (morphismContext carried).run {}
+  let acceptedCarrier ← try
+    discard <| CategoryContext.morphismDomain context plain target (some source)
+    pure true
+  catch error =>
+    if Exception.interpretationKind error == .invalid then pure false else throw error
+  if acceptedCarrier then
+    throwError "a carrier function was mistaken for the original structured Hom"
   unless (← trace.get).toArray.any (fun (_, node) => match node with
       | .admittedPoint _ _ _ original _ _ _ => original != hom
       | _ => false) do

@@ -147,27 +147,48 @@ private def observeCarrierEnvironments : TermElabM Json := do
   let coherentTermsEquivalent ← QuestionIdentity.equivalentTerms normalTerms reversedTerms
   unless coherentMetadataEqual && coherentTermsEquivalent do
     throwError "reordering the same coherent declarations changed the full selected request"
-  -- Keep the already accepted additive-monoid route and its cell. Omitting this
-  -- one carrier cell leaves all three candidates; it does not authorize deleting a route.
+  -- Keep every other accepted route and cell. The historical three-route count
+  -- predates the additive-group -> additive-monoid edge and its carrier comparison.
+  -- The public complete-route inventory determines which candidates must survive;
+  -- this control checks retention and ordering, not a second route enumerator.
   let absent := { state with cells := state.cells.filter (·.id != carrier.id) }
-  let candidates (selected : RegistryState) : TermElabM (Array (Resolution × Array Expr)) := do
-    let .error (.ambiguous _ resolutions) :=
-      selected.resolveMethod rings.expression "cardinality"
-      | throwError "the absent-cell declaration environment did not retain ambiguity"
-    unless resolutions.size == 3 && resolutions.any (·.route.refs == multiplicative) &&
-        resolutions.any (·.route.refs == additive) do
-      throwError "the absent-cell environment lost a complete competing route"
-    resolutions.mapM fun resolution => do
-      return (resolution, ← requestTerms selected receiver resolution)
-  let first ← candidates absent
-  let absentReordered := selectionOrder absent
-  let second ← candidates absentReordered
   let same (left right : Resolution × Array Expr) : TermElabM Bool := do
     unless resolutionKey left.1 == resolutionKey right.1 do return false
     QuestionIdentity.equivalentTerms left.2 right.2
+  let candidateRecord (candidate : Resolution × Array Expr) : TermElabM Json := do
+    let (resolution, terms) := candidate
+    return Json.mkObj [("resolution", resolutionRecord resolution),
+      ("typedRequest", ← termRecord terms (requestLabels resolution))]
+  let candidates (selected : RegistryState) :
+      TermElabM (Array (Resolution × Array Expr) × Array (Resolution × Array Expr)) := do
+    let mut inventory : Array (Resolution × Array Expr) := #[]
+    for method in selected.methods.filter (·.name == "cardinality") do
+      let .ok routes := selected.completeRoutes rings.expression method.owner
+        | throwError "the selected registry's complete route inventory did not close"
+      for route in routes do
+        let resolution : Resolution := { method, route }
+        inventory := inventory.push (resolution, ← requestTerms selected receiver resolution)
+    let .error (.ambiguous _ resolutions) :=
+      selected.resolveMethod rings.expression "cardinality"
+      | throwError "the absent-cell declaration environment did not retain ambiguity"
+    unless resolutions.any (·.route.refs == multiplicative) &&
+        resolutions.any (·.route.refs == additive) do
+      throwError "the absent-cell environment lost a complete competing route"
+    let actual ← resolutions.mapM fun resolution => do
+      return (resolution, ← requestTerms selected receiver resolution)
+    unless ← QuestionIdentity.equivalentUnordered same inventory actual do
+      throwError "the ambiguity did not retain the complete selected-registry candidate inventory"
+    return (actual, inventory)
+  let (first, firstInventory) ← candidates absent
+  let absentReordered := selectionOrder absent
+  let (second, secondInventory) ← candidates absentReordered
   let candidatesEquivalent ← QuestionIdentity.equivalentUnordered same first second
   unless candidatesEquivalent do
     throwError "reordering absent-cell declarations changed the complete ambiguity candidates"
+  let inventoriesEquivalent ←
+    QuestionIdentity.equivalentUnordered same firstInventory secondInventory
+  unless inventoriesEquivalent do
+    throwError "reordering declarations changed the complete applicable registry inventory"
   let receiverRecord : TermElabM Json :=
     termRecord #[receiver, oldRing] #["selectedForgottenRing", "existingResidueRing"]
   let coherentRecord (name : String) (selected : RegistryState)
@@ -178,25 +199,26 @@ private def observeCarrierEnvironments : TermElabM Json := do
       ("resolution", resolutionRecord resolution),
       ("typedRequest", ← termRecord terms (requestLabels resolution))]
   let ambiguousRecord (name : String) (selected : RegistryState)
-      (candidates : Array (Resolution × Array Expr)) : TermElabM Json := do
-    let records ← candidates.mapM fun (resolution, terms) => do
-      return Json.mkObj [("resolution", resolutionRecord resolution),
-        ("typedRequest", ← termRecord terms (requestLabels resolution))]
+      (candidates inventory : Array (Resolution × Array Expr)) : TermElabM Json := do
+    let records ← candidates.mapM candidateRecord
+    let inventory ← inventory.mapM candidateRecord
     return Json.mkObj [
       ("environment", toJson name), ("resolutionKind", "ambiguous"),
       ("selectedInventory", selectedInventory selected), ("typedReceiver", ← receiverRecord),
-      ("candidates", Json.arr records)]
+      ("candidates", Json.arr records), ("registryApplicableCandidates", Json.arr inventory),
+      ("completeRegistryInventoryRetained", toJson true)]
   return Json.mkObj [
     ("control", "RX05"),
     ("environments", Json.arr #[
       ← coherentRecord "present" state normal normalTerms,
       ← coherentRecord "present-reversed" reordered reversed reversedTerms,
-      ← ambiguousRecord "absent" absent first,
-      ← ambiguousRecord "absent-reversed" absentReordered second]),
+      ← ambiguousRecord "absent" absent first firstInventory,
+      ← ambiguousRecord "absent-reversed" absentReordered second secondInventory]),
     ("crossEnvironmentChecks", Json.mkObj [
       ("presentResolutionMetadataEqual", toJson coherentMetadataEqual),
       ("presentCompleteTypedRequestsEquivalent", toJson coherentTermsEquivalent),
-      ("absentCompleteCandidatesEquivalentAsMultisets", toJson candidatesEquivalent)])]
+      ("absentCompleteCandidatesEquivalentAsMultisets", toJson candidatesEquivalent),
+      ("registryApplicableInventoriesEquivalentAsMultisets", toJson inventoriesEquivalent)])]
 
 /-- Inspect expressions in the real diagnostic, including lazily formatted expressions.
 The values come from Lean's typed info nodes, not from matching a printed error string. -/
@@ -317,7 +339,7 @@ run_elab do
   let mut records : Array Json := #[]
   if selected != some "RX09" then
     records := records.push (← observeCarrierEnvironments)
-    logInfo "RX05: both coherent orders retain the exact receiver and comparison request; both absent-cell orders retain the same three complete candidates"
+    logInfo "RX05: both coherent orders retain the exact receiver and comparison request; both absent-cell orders retain the complete registry-derived candidate inventory"
   if selected != some "RX05" then
     records := records.push (← observeRejectedAdmission)
     logInfo "RX09: all four prerequisite bindings elaborate; the unchanged final source binding rejects the exact independently specified summability obligation"

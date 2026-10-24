@@ -91,6 +91,28 @@ def checkMorphism (context : CategoryContext) (value source target : Expr) : Ter
   unless ← withTransparency .all <| isDefEq (← inferType value) (← hom context source target) do
     throwStratum .invalid "the derived morphism changed its full selected category or endpoints"
 
+/-- Read the domain of an actual morphism at an independently selected category
+and target. Preserve a supplied endpoint or the original Hom before reducing its
+type; a bundled Hom representation need not retain the `Quiver.Hom` head. The
+complete category dictionary and both endpoints still determine the check. -/
+def morphismDomain (context : CategoryContext) (value target : Expr)
+    (source? : Option Expr := none) : TermElabM Expr := do
+  checkObject context target
+  let type ← instantiateMVars (← inferType value)
+  let source ← match source? with
+    | some source => pure source
+    | none =>
+      let original := type.consumeMData
+      if original.isAppOfArity ``Quiver.Hom 4 then pure original.getAppArgs[2]!
+      else mkFreshExprMVar (← carrier context)
+  unless ← withTransparency .all <| isDefEq type (← hom context source target) do
+    throwStratum .invalid "the morphism differs from its complete selected category or target"
+  let source ← instantiateMVars source
+  if source.hasMVar || source.hasLevelMVar then
+    throwStratum .invalid "the morphism does not retain its complete source object"
+  checkMorphism context value source target
+  return source
+
 /-- The explicit chosen row, with parameters fixed by this object's own type. -/
 def ofNamed (entry : NamedCategoryEntry) (object : Expr) : TermElabM CategoryContext := do
   let bundle ← instantiateFresh entry.declaration

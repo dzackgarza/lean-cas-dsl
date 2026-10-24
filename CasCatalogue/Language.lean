@@ -2591,11 +2591,12 @@ partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syn
   let sourceValue ← eval scope sourceSyntax
   let source ← semanticObject sourceValue
   let sourceContext ← objectContext sourceValue
-  let (inclusion, _, _, _, _, _) ← morphismContext (← eval scope inclusionSyntax)
+  let (inclusion, domain, _, _, _, _) ← morphismContext (← eval scope inclusionSyntax)
   let monic ← typedParameter (← mkAppM ``CategoryTheory.Mono #[inclusion])
     (← eval scope proofSyntax)
   let plan ← SelectedLift.select entry
     (← selectedParameterTerms scope entry.evidence parameters) source inclusion monic
+    (domain? := some domain)
   let context ← SelectedLift.context plan
   unless context.expression.syntacticEq sourceContext.expression &&
       (← withTransparency .all <| isDefEq context.bundle sourceContext.bundle) do

@@ -18,7 +18,7 @@ Set `CAS_FROZEN_LEAF_MANIFEST` to the independently supplied public manifest and
 `CAS_FIXED_QUESTION_REPORT` to the result path. The default fault-proxy directory is
 `CasAcceptance/Strata`; `CAS_CONDITION_PROTOCOL_DIR` can select an isolated checkout. -/
 
-open Lean Meta Elab Term CategoryTheory CasCatalogue CasCatalogue.Language CasCatalogue.Realize
+open Lean Meta Elab Term Command CategoryTheory CasCatalogue CasCatalogue.Language CasCatalogue.Realize
 
 meta section
 
@@ -51,11 +51,14 @@ private structure FixedQuestion where
   operation : OperationId
   independentOperands : Json
 
-private def readFixedQuestion : TermElabM FixedQuestion := do
+/-- Match the production file reader: each original binding and complete reading
+gets a fresh term-elaboration scope and heartbeat budget. A single engineering
+command must not accumulate the cost of all independent source statements. -/
+private def readFixedQuestion : CommandElabM FixedQuestion := do
   let source := "tests/acceptance/proposals/independent-extension-reconstruction-20261024/" ++
     "completion/rx10-fixed-execution-question.cas"
   let items := itemsWithLocations (← IO.FS.readFile source)
-  let mut scope : Scope := {}
+  let mut scope : Language.Scope := {}
   let mut assertion : Option (String × Syntax × Nat) := none
   for item in items do
     let .ok parsed := Parser.runParserCategory (← getEnv) `cas_item item.text source
@@ -65,66 +68,71 @@ private def readFixedQuestion : TermElabM FixedQuestion := do
         unless assertion.isNone do throwError "the fixed-question input has more than one assertion"
         assertion := some (name.getId.toString, statement, item.line)
     | `(cas_item| $statement:cas_stmt) =>
-        let some (name, term) ← letBinding? statement
+        let some (name, term) ← liftTermElabM <| letBinding? statement
           | throwError "the fixed-question source contains an unexpected unnamed assertion"
         try
-          discard <| (claim scope statement).run {}
+          liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+            let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
+            discard <| (claim scope statement).run { closedTerms := some closedTerms }
         catch error =>
           throwError "the unchanged prerequisite at {source}:{item.line} failed: {item.text}\n{error.toMessageData}"
         scope := scope.insert name term
     | _ => throwError "the fixed-question source changed its public item shape"
   let some (id, statement, line) := assertion
     | throwError "the unchanged fixed-question assertion is absent"
-  let question ← interpret scope statement
-  let independentlyRead ← interpret scope statement
-  unless ← QuestionIdentity.equivalentTypedQuestion question independentlyRead do
-    throwError "independent readings of the original complete question are not equivalent"
-  let .homs left right _ _ _ _ := question.claim
-    | throwError "the fixed equality lost its independently specified actual map operands"
-  let independent := (← getConstInfo
-    ``CasCatalogue.Modules.IntegerResidueModules.reindex_double_three).type
-  let some (_, expectedLeft, expectedRight) := independent.eq?
-    | throwError "the independent source theorem changed its specified equality"
-  let state ← registryState
-  let leftValue ← pointResultValue state left
-  let rightValue ← pointResultValue state right
-  unless ← withTransparency .all <|
-      isDefEq leftValue expectedLeft <&&> isDefEq rightValue expectedRight do
-    throwError "the fixed question changed an independent equality operand"
-  let .ok callableSyntax := Parser.runParserCategory (← getEnv) `cas_term "restrictedMap"
-    | throwError "the independent selected callable name did not parse"
-  let trace ← IO.mkRef question.trace
-  let selected ← (eval scope callableSyntax).run { trace := some trace }
-  let (callable, domain, target, context) ← match selected with
-    | .derivedMorphism value source target context _ => pure (value, source, target, context)
-    | .morphism value source target category _ =>
-        pure (value, source, target, ← CategoryContext.ofNamed category source)
-    | _ => throwError "the independently selected reindexed callable did not remain a whole map"
-  unless question.trace.contains callable do
-    throwError "the original question did not retain its actual selected reindexed map"
-  let expectedCallable ← elabTermAndSynthesize (← `(
-    (CasCatalogue.Modules.CatalogueRegistration.modulesFamilyRealization.reindex
-      (RingCat.ofHom (Int.castRingHom (ZMod 5)))).map
-      (ModuleCat.ofHom
-        (X := CasCatalogue.Modules.CatalogueRegistration.regularModule (RingCat.of (ZMod 5)))
-        (Y := CasCatalogue.Modules.CatalogueRegistration.regularModule (RingCat.of (ZMod 5)))
-        ((2 : ZMod 5) • LinearMap.id)))) none
-  unless ← withTransparency .all <| isDefEq callable expectedCallable do
-    throwError "the selected complete reindexed map changed the independent source's full arrow"
-  let mut operations : Array OperationId := #[]
-  for (value, node) in question.trace.toArray do
-    let .operationApply operation _ _ _ _ := node | continue
-    let some (input, _) := homEnds? (← inferType value) | continue
-    if ← withTransparency .all <| isDefEq input (← closedElementDomain state) then continue
-    unless operations.contains operation do operations := operations.push operation
-  let #[operation] := operations
-    | throwError "the fixed map did not retain one complete generalized registered operation"
-  return {
-    source, line, id, question, independentlyRead, callable, context, domain, target, operation
-    independentOperands := ← typedTerms
-      #[leftValue, expectedLeft, rightValue, expectedRight, callable, expectedCallable]
-      #["actualLeftValue", "independentLeftValue", "actualRightValue", "independentRightValue",
-        "actualCompleteCallable", "independentCompleteCallable"] }
+  let question ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+    interpret scope statement
+  let independentlyRead ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+    interpret scope statement
+  liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+    unless ← QuestionIdentity.equivalentTypedQuestion question independentlyRead do
+      throwError "independent readings of the original complete question are not equivalent"
+    let .homs left right _ _ _ _ := question.claim
+      | throwError "the fixed equality lost its independently specified actual map operands"
+    let independent := (← getConstInfo
+      ``CasCatalogue.Modules.IntegerResidueModules.reindex_double_three).type
+    let some (_, expectedLeft, expectedRight) := independent.eq?
+      | throwError "the independent source theorem changed its specified equality"
+    let state ← registryState
+    let leftValue ← pointResultValue state left
+    let rightValue ← pointResultValue state right
+    unless ← withTransparency .all <|
+        isDefEq leftValue expectedLeft <&&> isDefEq rightValue expectedRight do
+      throwError "the fixed question changed an independent equality operand"
+    let .ok callableSyntax := Parser.runParserCategory (← getEnv) `cas_term "restrictedMap"
+      | throwError "the independent selected callable name did not parse"
+    let trace ← IO.mkRef question.trace
+    let selected ← (eval scope callableSyntax).run { trace := some trace }
+    let (callable, domain, target, context) ← match selected with
+      | .derivedMorphism value source target context _ => pure (value, source, target, context)
+      | .morphism value source target category _ =>
+          pure (value, source, target, ← CategoryContext.ofNamed category source)
+      | _ => throwError "the independently selected reindexed callable did not remain a whole map"
+    unless question.trace.contains callable do
+      throwError "the original question did not retain its actual selected reindexed map"
+    let expectedCallable ← elabTermAndSynthesize (← `(
+      (CasCatalogue.Modules.CatalogueRegistration.modulesFamilyRealization.reindex
+        (RingCat.ofHom (Int.castRingHom (ZMod 5)))).map
+        (ModuleCat.ofHom
+          (X := CasCatalogue.Modules.CatalogueRegistration.regularModule (RingCat.of (ZMod 5)))
+          (Y := CasCatalogue.Modules.CatalogueRegistration.regularModule (RingCat.of (ZMod 5)))
+          ((2 : ZMod 5) • LinearMap.id)))) none
+    unless ← withTransparency .all <| isDefEq callable expectedCallable do
+      throwError "the selected complete reindexed map changed the independent source's full arrow"
+    let mut operations : Array OperationId := #[]
+    for (value, node) in question.trace.toArray do
+      let .operationApply operation _ _ _ _ := node | continue
+      let some (input, _) := homEnds? (← inferType value) | continue
+      if ← withTransparency .all <| isDefEq input (← closedElementDomain state) then continue
+      unless operations.contains operation do operations := operations.push operation
+    let #[operation] := operations
+      | throwError "the fixed map did not retain one complete generalized registered operation"
+    return {
+      source, line, id, question, independentlyRead, callable, context, domain, target, operation
+      independentOperands := ← typedTerms
+        #[leftValue, expectedLeft, rightValue, expectedRight, callable, expectedCallable]
+        #["actualLeftValue", "independentLeftValue", "actualRightValue", "independentRightValue",
+          "actualCompleteCallable", "independentCompleteCallable"] }
 
 private def conditionManifest (base : Manifest) (root directory proxy : System.FilePath)
     (condition : String) (operation : OperationId) : IO Manifest := do
@@ -284,7 +292,9 @@ private def observeCondition (fixed : FixedQuestion) (manifest : Manifest)
   finally
     harness.stop
 
-run_elab do
+-- Each environment is an independent production-sized execution attempt. The
+-- explicit one-heartbeat `internal` fault remains inside observeCondition.
+run_cmd do
   let fixed ← readFixedQuestion
   let some manifestPath ← IO.getEnv "CAS_FROZEN_LEAF_MANIFEST"
     | throwError "CAS_FROZEN_LEAF_MANIFEST must select the independent public leaf manifest"
@@ -301,7 +311,8 @@ run_elab do
   let mut failures : Array String := #[]
   for condition in #["holds", "gap", "unavailable", "malformed", "wrong", "internal"] do
     let selected ← conditionManifest base root directory proxy condition fixed.operation
-    let observed ← observeCondition fixed selected root condition
+    let observed ← liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats <|
+      observeCondition fixed selected root condition
     records := records.push observed
     let actual := (observed.getObjValAs? String "kind").toOption.getD "missing"
     logInfo m!"RX10 fixed question: {condition} environment observed {actual}"

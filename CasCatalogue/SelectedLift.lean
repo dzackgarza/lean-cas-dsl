@@ -48,7 +48,8 @@ def context (plan : Plan) (target : Bool := false) : TermElabM CategoryContext :
 
 /-- Select the declared evidence family using actual supplied parameters and endpoints.
 Monicity is checked on the formal side and never requested from a computation. -/
-def select (entry : LiftEntry) (parameters : Array Term) (source inclusion monic : Expr) :
+def select (entry : LiftEntry) (parameters : Array Term) (source inclusion monic : Expr)
+    (domain? : Option Expr := none) :
     TermElabM Plan := do
   unless entry.kind == .subobjects do
     throwStratum .invalid "the selected lift does not lift subobjects"
@@ -63,12 +64,11 @@ def select (entry : LiftEntry) (parameters : Array Term) (source inclusion monic
   unless ← withTransparency .all <| isDefEq selected[0]! (← inferType source) do
     throwStratum .invalid "the selected lift source has different complete category parameters"
   let image ← Semantic.objOf action source
-  let inclusionType ← whnfR (← inferType inclusion)
-  unless inclusionType.isAppOf ``Quiver.Hom do
-    throwStratum .invalid "the selected base inclusion is not a categorical morphism"
-  let endpoints := inclusionType.getAppArgs
-  unless ← withTransparency .all <| isDefEq endpoints.back! image do
-    throwStratum .invalid "the selected base inclusion does not land at this exact functor image"
+  let some targetExpression := state.selectedEdgeTarget? inner
+    | throwStratum .invalid "the selected lift has no declared target category"
+  let (_, targetBundle) ← functorCategoryBundles action
+  discard <| CategoryContext.morphismDomain
+    { expression := targetExpression, bundle := targetBundle } inclusion image domain?
   let condition ← mkAppM ``CategoryTheory.Mono #[inclusion]
   unless !monic.hasSorry && (← Decide.kernelAccepts condition monic) do
     throwStratum .invalid "the selected base inclusion lacks checked formal monicity"
@@ -115,13 +115,7 @@ def fromEvidence (entry : LiftEntry) (evidence source inclusion monic : Expr) :
 /-- A factor's original generalized domain comes from its complete cone map.
 The image of that domain under a functor need not determine the original object. -/
 def coneDomain (plan : Plan) (cone : Expr) : TermElabM Expr := do
-  let type ← whnfR (← inferType cone)
-  unless type.isAppOfArity ``Quiver.Hom 4 do
-    throwStratum .invalid "the factor cone has no complete categorical domain"
-  let arguments := type.getAppArgs
-  unless ← withTransparency .all <| isDefEq arguments[3]! plan.source do
-    throwStratum .invalid "the factor cone has a different exact selected target"
-  return arguments[2]!
+  CategoryContext.morphismDomain (← context plan) cone plan.source
 
 /-- The separate canonical factor port consumes the accepted compatibility equation.
 It creates no additional computation field and assumes no faithful underlying functor. -/
