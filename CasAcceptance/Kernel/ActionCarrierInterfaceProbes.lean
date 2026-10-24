@@ -2,7 +2,8 @@
 module
 
 import CasCatalogue.ComputationalData
-import Mathlib.Algebra.Ring.Opposite
+import Mathlib.Algebra.Group.Equiv.Basic
+import Mathlib.Algebra.Ring.TransferInstance
 meta import CasCatalogue.ComputationalData
 
 /-! A complete registered object action supplies its carrier interface without
@@ -77,10 +78,17 @@ run_elab do
       #[(opaqueSource, sourceCarrier)]).isOk then
     throwError "the retained action accepted a source from the wrong complete category"
 
-  let otherSource ← elabTermAndSynthesize (← `(RingCat.of (MulOpposite ℤ))) none
+  -- MulOpposite changes the carrier to PreOpposite. Transfer the existing ring
+  -- along negation on this exact carrier instead; its unit becomes the old -1.
+  let sourceRing ← mkAppM ``RingCat.ring #[source]
+  let otherSource ← elabTermAndSynthesize
+    (← `(letI : Ring $(← exprToSyntax sourceCarrier) := $(← exprToSyntax sourceRing)
+         @RingCat.of $(← exprToSyntax sourceCarrier)
+           (Equiv.neg $(← exprToSyntax sourceCarrier)).ring)) none
   let otherCarrier ← withTransparency .all <| mkAppM ``RingCat.carrier #[otherSource]
-  unless (← withTransparency .all <| isDefEq sourceCarrier otherCarrier) &&
-      !(← withTransparency .all <| isDefEq source otherSource) do
+  unless ← withTransparency .all <| isDefEq sourceCarrier otherCarrier do
+    throwError "the retained-source fixture changed the exact source carrier"
+  if ← withTransparency .all <| isDefEq source otherSource then
     throwError "the retained-source fixture does not distinguish full dictionaries"
   if (← ComputationalData.interfaceCarrier selected retainedDescriptor
       #[(opaqueSource, otherSource)]).isOk then
