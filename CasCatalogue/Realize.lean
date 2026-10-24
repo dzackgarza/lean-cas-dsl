@@ -2697,8 +2697,8 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
       else if let some (image, wires) ← FunctorActionData.encodeRetainedParameterAction?
           trace parameter
           (fun source => do
-            let scoped := { h with parameterRecovery := h.parameterRecovery.push parameter }
-            let (sources, dependencies) ← realizedParameters scoped trace #[source]
+            let recoveryHarness := { h with parameterRecovery := h.parameterRecovery.push parameter }
+            let (sources, dependencies) ← realizedParameters recoveryHarness trace #[source]
             let #[source] := sources
               | throwError "the reduced parameter lost its original complete source data"
             return (source, dependencies))
