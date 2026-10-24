@@ -4,6 +4,7 @@ module
 import CasCatalogue.ComputationalData
 meta import CasCatalogue.ComputationalData
 meta import CasCatalogue.Language
+meta import CasCatalogue.CategoryContext
 meta import CasCatalogue.Semantic
 meta import CasCatalogue.StructuredResult
 meta import CasCatalogue.Codec
@@ -18,6 +19,32 @@ private def node (tag : String) (args : Array Json) : Json :=
 
 private def fin (n : Nat) : Json := node "obj.sets.fin" #[toJson n]
 private def token (label : String) : Json := node "opaqueData" #[toJson label]
+
+/-! A full subcategory predicate comes only from the independent selected
+receiver. Its raw computational record supplies data and no membership proof. -/
+run_elab do
+  let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the accepted set category is unavailable"
+  let #[subobjects] := state.constructors.filter
+      (·.semantics == `CasCatalogue.Constructors.subobjects)
+    | throwError "the accepted complete subobject constructor is unavailable"
+  let X ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let context ← CategoryContext.construct (← CategoryContext.ofNamed sets X) subobjects.id
+  withLocalDeclD `fixedSubobject (← CategoryContext.carrier context) fun fixed => do
+    let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[fixed]
+    let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
+    let receiver := node "subobject" #[fin 1, fin 2,
+      node "typedMap" #[fin 1, fin 2, token "actual complete inclusion"]]
+    let data := node "subobjectInclusion" #[receiver]
+    if let .error message ← ComputationalData.validateCallableAt #[] (← inferType inclusion) data then
+      throwError "the retained complete subobject interface was lost: {message}"
+    for bad in #[node "subobject" #[fin 1, fin 2],
+        node "subobject" #[fin 1, fin 2,
+          node "typedMap" #[fin 3, fin 2, token "changed actual source"]]] do
+      let .error _ ← ComputationalData.validateCallableAt #[] (← inferType inclusion)
+          (node "subobjectInclusion" #[bad])
+        | throwError "a complete inclusion accepted a missing field or changed actual endpoint"
 
 run_elab do
   let source ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 1)) none
@@ -117,6 +144,12 @@ run_elab do
   let project := fun data => node "constructionLeg" #[toJson row.id.raw, diagramData, data, indexData]
   if let .error message ← ComputationalData.validateCallableAt #[] (← inferType leg) (project packet) then
     throwError "the complete created leg lost its independently selected interface: {message}"
+  let .ok sourcePlan ← StructuredResult.dataPlan row diagram presentation
+    | throwError "the polymorphic constructor does not expose the independently created source fields"
+  for port in sourcePlan.ports do
+    let field := node "constructionField" #[toJson row.id.raw, diagramData, packet, toJson port.index]
+    if let .error message ← ComputationalData.validatePort port.formalField port.expectedType field then
+      throwError "the complete created field lost its source schema or target packet: {message}"
   for bad in #[lower,
       node "createdCone" #[toJson LiftId.finiteSetsPullbacks.raw,
         node "pair" #[objectData, objectData], lower],
@@ -124,3 +157,68 @@ run_elab do
         node "cone" #[fin 5]]] do
     let .error _ ← ComputationalData.validateCallableAt #[] (← inferType leg) (project bad)
       | throwError "a created projection discarded its lift, source diagram or complete target fields"
+
+/-! The domain of this new coproduct injection contains an earlier presentation
+of the same row. Its position in the expected type cannot select that older cone. -/
+run_elab do
+  let state ← registryState
+  let some row := state.limits.find? (·.id.raw == "colim.sets.coproduct")
+    | throwError "the accepted coproduct interface is unavailable"
+  let X ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let Y ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 3)) none
+  let Z ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 4)) none
+  let oldDiagram ← mkAppM ``CategoryTheory.Limits.pair #[X, Y]
+  let oldPresentation ← Semantic.limitPresentation row oldDiagram
+  let oldCone ← mkAppM ``CategoryTheory.Limits.ColimitCocone.cocone #[oldPresentation]
+  let oldApex ← mkAppM ``CategoryTheory.Limits.Cocone.pt #[oldCone]
+  let diagram ← mkAppM ``CategoryTheory.Limits.pair #[oldApex, Z]
+  let presentation ← Semantic.limitPresentation row diagram
+  let cone ← mkAppM ``CategoryTheory.Limits.ColimitCocone.cocone #[presentation]
+  let maps ← mkAppM ``CategoryTheory.Limits.Cocone.ι #[cone]
+  let index ← elabTermAndSynthesize
+    (← `(CategoryTheory.Discrete.mk CategoryTheory.Limits.WalkingPair.left)) none
+  let leg ← mkAppM ``CategoryTheory.NatTrans.app #[maps, index]
+  let .ok indexData ← Codec.encode index | throwError "the coproduct index is not encodable"
+  let diagramData := node "pair" #[fin 5, fin 4]
+  let packet := node "cocone" #[fin 6,
+    node "typedMap" #[fin 5, fin 6, token "actual outer injection from prior result"],
+    node "typedMap" #[fin 4, fin 6, token "actual outer second injection"]]
+  let projected := node "constructionLeg" #[toJson row.id.raw, diagramData, packet, indexData]
+  if let .error message ← ComputationalData.validateCallableAt #[(fin 5, oldApex)]
+      (← inferType leg) projected then
+    throwError "a prior same-row domain selected the wrong complete construction: {message}"
+
+/-! An opaque cone's whole component-family field must keep its infinite index
+domain. This checks the generic constructor introspection without registering
+new mathematics, supplying a construction law, or forming a backend result. -/
+run_elab do
+  let diagram ← elabTermAndSynthesize
+    (← `(CategoryTheory.Discrete.functor (fun _ : Nat => Fin 2))) none
+  let diagramType ← whnfR (← inferType diagram)
+  unless (← Codec.finiteDomain diagramType.getAppArgs[0]!).isNone do
+    throwError "the whole-family control unexpectedly has finite diagram metadata"
+  let coneType ← mkAppM ``CategoryTheory.Limits.Cone #[diagram]
+  withLocalDeclD `independentCone coneType fun formalCone => do
+    let constructor ← mkConstWithFreshMVarLevels ``CategoryTheory.Limits.Cone.mk
+    let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constructor)
+    unless ← isDefEq conclusion coneType do throwError "the generic cone interface changed"
+    let ports ← (fields.zip infos).filterMapM fun (field, info) => do
+      return if ← StructuredResult.isDataPort field info then some field else none
+    let #[apex, transformation] := ports | throwError "the generic cone has unexpected data ports"
+    let naturalConstructor ← mkConstWithFreshMVarLevels ``CategoryTheory.NatTrans.mk
+    let (naturalFields, naturalInfos, naturalType) ←
+      forallMetaTelescopeReducing (← inferType naturalConstructor)
+    unless ← isDefEq naturalType (← inferType transformation) do
+      throwError "the generic component family changed its source or target functor"
+    let naturalPorts ← (naturalFields.zip naturalInfos).filterMapM fun (field, info) => do
+      return if ← StructuredResult.isDataPort field info then some field else none
+    let #[components] := naturalPorts | throwError "the generic component-family port is absent"
+    unless ← isDefEq transformation (mkAppN naturalConstructor naturalFields) do
+      throwError "the generic constructor failed to retain its complete component family"
+    if let .error message ← StructuredResult.projectFormalDataPorts false diagram
+        (mkAppN constructor fields) formalCone #[apex, components] then
+      throwError "whole-family projection required a finite index enumeration: {message}"
+    let formalMaps ← mkAppM ``CategoryTheory.Limits.Cone.π #[formalCone]
+    let family ← mkAppM ``CategoryTheory.NatTrans.app #[formalMaps]
+    unless ← isDefEq components family do
+      throwError "the recovered component family changed its original domain"

@@ -114,6 +114,7 @@ structure WireSnapshot where
   payload : WirePayload
   presentationIsos : Array Expr
   objectIso : Option Expr
+  callableObserved : Bool := false
   liftExecution : Option LiftExecution := none
   endpointPresentation : Option EndpointPresentation := none
   categoryContext : Option CategoryContext := none
@@ -129,6 +130,9 @@ structure Wire where
   endpointPresentation : Option EndpointPresentation := none
   /-- This callable already consumes its endpoints' retained presentation maps. -/
   morphismFramed : Bool := false
+  /-- The kernel already received this whole callable's computational result.
+  A returned expression can resemble its original recipe without becoming a new request. -/
+  callableObserved : Bool := false
   /-- Full source snapshots, restored only by their checked classifier forgetful prefixes. -/
   proofSources : List WireSnapshot := []
   liftExecution : Option LiftExecution := none
@@ -1082,6 +1086,7 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
   let original : Wire := {
     form := snapshot.form, payload := snapshot.payload,
     presentationIsos := snapshot.presentationIsos, objectIso := snapshot.objectIso,
+    callableObserved := snapshot.callableObserved,
     liftExecution := snapshot.liftExecution,
     categoryContext := snapshot.categoryContext,
     endpointPresentation := snapshot.endpointPresentation,
@@ -3626,6 +3631,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let snapshot : WireSnapshot := {
         form := original.form, payload := original.payload,
         presentationIsos := original.presentationIsos, objectIso := original.objectIso,
+        callableObserved := original.callableObserved,
         liftExecution := original.liftExecution,
         categoryContext := original.categoryContext,
         endpointPresentation := original.endpointPresentation,
@@ -5018,8 +5024,12 @@ def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     payload := (← combinedPayload formal invocation.encode
       (#[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
         parameterWires ++ endpoints)) }
-  return { original := wire, operation := id, input, domain, target,
-    targetData := targetWire.json, materialized := !operationRecipe wire id }
+  return {
+    original := wire
+    operation := id
+    input, domain, target
+    targetData := targetWire.json
+    materialized := wire.callableObserved || !operationRecipe wire id }
 
 /-- Dispatch exactly the already selected request. A failed answer never selects
 another equivalent operation, and returned data are never replaced by a formal value. -/
@@ -5039,7 +5049,7 @@ def executeOperationObservation (h : Harness) (request : OperationObservation) :
     ComputationalData.validateEndpointPort formal invocation.domain request.targetData answer
   if let .error message := checked then malformed backend request.operation.raw answer message
   let data ← receiveComputationalData h backend request.operation.raw answer true
-  let result : Wire := { request.original with payload := .computed formal data }
+  let result : Wire := { request.original with payload := .computed formal data, callableObserved := true }
   let owner ← mergeOwners request.input.owner? result.owner?
   return { result with payload := computedPayload formal result.json owner }
 
@@ -5101,7 +5111,11 @@ def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wire)
       sourceWire.json targetWire.json answer then
     malformed backend address answer message
   let data ← receiveComputationalData h backend address answer true
-  let result : Wire := { wire with payload := .computed formal data, morphismFramed := false }
+  let result : Wire := {
+    wire with
+    payload := .computed formal data
+    morphismFramed := false
+    callableObserved := true }
   let owner ← mergeOwners input.owner? result.owner?
   return { result with payload := computedPayload formal result.json owner }
 
@@ -5112,6 +5126,7 @@ rebuilt from the observed children through the ordinary checked realization path
 retaining their exact endpoint frames, declared actions and session dependencies. -/
 partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) :
     TermElabM Wire := do
+  if wire.callableObserved then return wire
   let formal := wire.value
   let some node ← (trace.node? formal : IO _) | return wire
   let rebuild (children : Array Expr) : TermElabM Wire := do
@@ -5165,12 +5180,12 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
           applicable := applicable ++ registrations.map (fun admitted => (request, admitted.registration))
         let request ← match applicable with
           | #[(request, _)] => pure request
-          | #[] => throwStratum .noImplementation
-              m!"no admitted registration computes the checked operation class {candidates.map (·.operation.raw)}"
-          | _ => throwStratum .ambiguousRealization
-              m!"several admitted registrations compute the checked operation class: \
-                {applicable.map fun (_, registration) =>
-                  (registration.operation, registration.input, registration.backend)}"
+          | #[] => do
+              throwStratum .noImplementation m!"no admitted registration computes the checked operation class {candidates.map (·.operation.raw)}"
+          | _ => do
+              let choices := applicable.map fun (_, registration) =>
+                (registration.operation, registration.input, registration.backend)
+              throwStratum .ambiguousRealization m!"several admitted registered requests compute the checked operation class: {choices}"
         let actual ← executeOperationObservation h request
         match actual.payload with
         | .ordinary .. => pure ()
@@ -5178,7 +5193,7 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
         let framed ← forwardOperationEquivalent formal representative actual
         -- The canonical formal interface is unchanged; only the checked candidate's
         -- actual returned data and owning session cross the equality substitution.
-        let result := { wire with payload := framed.payload }
+        let result := { wire with payload := framed.payload, callableObserved := framed.callableObserved }
         match result.payload with
         | .ordinary .. => pure ()
         | _ => h.results.modify (·.insert representative

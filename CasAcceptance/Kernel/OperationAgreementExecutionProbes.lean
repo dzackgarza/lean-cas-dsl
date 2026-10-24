@@ -49,7 +49,7 @@ run_elab do
     let #[event] ← events.get
       | throwError "the unique equivalent registration was not dispatched exactly once"
     unless (event.getObjValAs? String "operation").toOption == some selected.operation.raw &&
-        actual.value == formal && actual.owner?.isSome do
+        actual.value == formal && actual.owner?.isSome && actual.callableObserved do
       throwError "equivalent dispatch changed the mathematical result or lost its actual owner"
     let .ok request := event.getObjVal? "request"
       | throwError "the actual equivalent dispatch lost its complete request"
@@ -59,7 +59,7 @@ run_elab do
       throwError "the complete invocation lost the actual registered operation address"
     let reused ← realizeArrowObservation harness trace actual
     unless reused.json == actual.json && reused.owner? == actual.owner? &&
-        (← events.get).size == 1 do
+        reused.callableObserved && (← events.get).size == 1 do
       throwError "reusing the complete class result recomputed its formal recipe"
     let some retained ← trace.node? formal
       | throwError "execution discarded the original complete semantic class"

@@ -17,12 +17,12 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `2afd0bb4b7dc48abd19df79dce7c411f62ae9c42` | Complete dependent admission, selected-owner reading, full inherited dispatch, transport ownership and structured execution; final coherent verification continues |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `546cffae249e1d53c66cc7d62aeba74e426c6592` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4ea82e7cf6f5fd75234fd2ce18255a45ad851379` | Checked module/group-map admissions, parameterized finite-order presentations, monoid operations, selected bindings and full direct image; mathematical proof controls passed |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `80bf36d2131e00e78cba2c8461db7b32d98a86f4` | Complete category, cartesian-map, construction-field and projection-action codecs/docs, whole-domain invocations, strict failure strata and explicit inventory rules; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4acd7aff0350c5a84ce695e42eaadfd583ac343d` | Adds the independently specified universal operation-agreement interface and additive-monoid operation/action to the previously checked interfaces |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6cf4cda6eb34169a7c34dba4d269bd0212f78383` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `3486a6b9555348f8a546e9e10765c35e57174ca8` | Public-only replacement author completed whole-domain callable reuse and exact native polynomial metadata in the new subtree; standalone protocol checks are not mathematical acceptance |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `8f2c53cccc72d374754442e4d6c6b50b2c5aba14` | Replacement author supplied 63 registrations in the new diagnostic subtree, including generic monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -81,8 +81,11 @@ be the primary route of the overall inherited cardinality request.
 The fixed extension sources now contain 134 positive questions (105 original plus
 29 independently authored completion questions), with the constant-one negative
 separate. The first export produced 48 complete readings and 86 blocked records.
-All 48 complete meanings were independently reviewed without a new mismatch; the
-86 empty records remain obligations. Initial execution is diagnostic, not a frozen
+All 48 complete meanings were independently reviewed without a new mismatch. A
+second interpretation-only run at local kernel `61550fc` and mathematics `2dbf2f5`
+read 76 of the unchanged 134 questions; 58 remained blocked, including cascading
+binding failures. That producer predates the operation-agreement and subsequent
+typed-boundary repairs. Initial execution is diagnostic, not a frozen
 pass. Generic repairs address typed map admission, rectangular and destructured
 parameters, selected numerals/owners, complete structural transport, and whole-map
 invocation. Upstream inputs now include an explicit selected-operator binding
@@ -97,12 +100,34 @@ the unchanged complete-callable and session-ownership probes. A subsequent
 batch restores named numeral precedence, extracts raw callable parameters at
 their exact demanded type, and preserves actual action parameters and ownership
 through runtime and creation-lift transport. Its source is published as
-`2afd0bb` and fetched back with an identical tree; its compilation is in progress.
+`4923530` and fetched back with an identical tree; its focused transport, ownership,
+whole-callable and dependent-elaboration controls passed at local `61550fc`.
 Incomparable selected operation bindings remain subject to independent
 mathematical comparison, before substituting selected objects or operands.
 Final source locks,
 the generated public API, same-source permanent/workflow reruns, all ten frozen
 extension trials, and compositional evidence remain required before readiness.
+
+The next integrated core at local `abb46bb` compiled `Realize`,
+`QuestionComparison` and `CasTools.QuestionExport` successfully (3,757 jobs),
+using the new mathematical interfaces. The earlier batch's nonexistent
+`CasCatalogue.QuestionExport` target and the following request-layout syntax
+errors are retained as failed logs; the corrected batch is a separate result.
+No native executable or full-suite result is inferred from this module build.
+
+The independent source review is retained in
+`specs/reviews/kernel-mvp-compositional-source-20261024.md`, including its exact
+inputs, corrected observations and independence qualifications. Its conclusions
+are source-level compositional arguments. Residual universal parameters, short
+element interfaces, opaque created-field projection, installed point-operation
+dependencies, cross-revision question comparison and final combined execution
+are under integration or verification; none is waived as a leaf gap.
+
+The refreshed public API candidate records published kernel `546cffae`,
+mathematics `4acd7aff` and contract `a131843a` and contains 607 entries, 326
+operation addresses and 566 input forms. Its complete admission import closure
+was checked in isolated published producer checkouts. The later `6cf4cda6`
+contract checkpoint adds worked documentation and changes no wire schema.
 
 ### Independent leaf follow-up boundary
 
@@ -118,7 +143,13 @@ follow-up remained wholly blind. The replacement's first independently authored
 checkpoint is local `d04b96c`, published as `3486a6b`, with its own public-input
 receipt. A fresh GitHub fetch matched the complete local tree. The candidate API
 it received records published kernel `1dbcaf3`, mathematics `4ea82e7` and contract
-`80bf36d`; it is explicitly a pre-freeze public interface snapshot.
+`80bf36d`; it is explicitly a pre-freeze public interface snapshot. The subsequent
+`818f82d` authoring checkpoint is published as `8f2c53c`. Its receipt records the
+two specifically authorized public automorphism-interface files consulted to
+clarify the product convention; that convention was then incorporated into the
+public contract. No kernel source, fixed questions, expected answers or runtime
+acceptance results were supplied to the replacement author. The next additive
+operation follow-up receives only the refreshed public API and contract.
 
 Use isolated build outputs under `/tmp` in this environment: workspace synchronization
 restored obsolete generated trace layouts and caused false enum/probe failures; fresh

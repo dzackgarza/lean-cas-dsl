@@ -192,3 +192,24 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       | throwError "merging exact callable aliases discarded their independent trace key"
     unless actual == expected do
       throwError "merging named callable aliases changed their accepted address"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let some source := state.categories.find? (·.name == "CommutativeRings")
+    | throwError "the complete constructor-control source category is absent"
+  for constructor in state.constructors do
+    unless constructor.signature == #[ConstructorArgKind.category] &&
+        constructor.functorialAction.isSome do continue
+    let expression := CategoryExpr.construct constructor.id #[.category source.expression]
+    OperationAgreement.withSourceTemplate state expression fun parameters context => do
+      unless context.bundle.getAppFn.isConstOf constructor.semantics &&
+          context.bundle.getAppArgs.any (·.getAppFn.isConstOf source.declaration) do
+        throwError "a universal constructor family replaced its fixed inner expression"
+      let info ← getConstInfo source.declaration
+      let base := Lean.mkConst source.declaration (info.levelParams.map fun _ => Level.zero)
+      let expected ← applyConstructorInterface constructor.semantics #[base] #[base]
+      unless ← withTransparency .all <| isDefEq context.bundle expected do
+        throwError "the complete constructor family changed its accepted base category"
+      let family ← instantiateMVars (← mkLambdaFVars parameters context.bundle)
+      unless OperationAgreement.closed family && (← isTypeCorrect family) do
+        throwError "the fixed constructed source family is incomplete"

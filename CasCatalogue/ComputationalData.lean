@@ -3,6 +3,7 @@ module
 public import CasCatalogue.Semantic
 public import CasCatalogue.ObjectPresentation
 public import CasCatalogue.Language
+public import CasCatalogue.OperationAgreement
 public import CasCatalogue.Codec
 public import CasCatalogue.StructuredResult
 public import CasCatalogue.Admission
@@ -425,7 +426,9 @@ def projectionApplication (declaration : Name) (arity : Nat)
   for (index, argument) in supplied do arguments := arguments.set! index argument
   let application := mkAppN (← instantiateMVars projection) arguments
   let type ← instantiateMVars (← inferType application)
-  if type.hasMVar || type.hasLevelMVar then return none
+  let retained ← supplied.foldlM (fun kept (_, value) => do
+    return kept ++ (← getMVars value)) (#[] : Array MVarId)
+  if type.hasLevelMVar || !(← getMVars type).all retained.contains then return none
   return some application
 
 /-- A public record projection is applicable only at its independently fixed
@@ -436,6 +439,35 @@ def recordProjection (declaration : Name) (receiver : Expr) : TermElabM (Option 
     fun fields _ => pure fields.size
   if arity == 0 then return none
   projectionApplication declaration arity #[(arity - 1, receiver)]
+
+/-- Whole record receivers already present in an independent expected type.
+Only complete projection applications are inspected; a returned packet never
+chooses the record's category, predicate, or field declaration. -/
+def retainedRecordReceivers (expected : Expr) : TermElabM (Array Expr) := do
+  let env ← getEnv
+  let aliases : Array (Name × Nat) ← #[``CategoryTheory.Arrow.left, ``CategoryTheory.Arrow.right,
+      ``CategoryTheory.Arrow.hom, ``CategoryTheory.ObjectProperty.FullSubcategory.obj].mapM
+    fun name => do
+      let arity ← forallTelescopeReducing (← getConstInfo name).type
+        fun fields _ => pure fields.size
+      return (name, arity)
+  let receivers ← IO.mkRef (#[] : Array Expr)
+  expected.forEach fun expression => do
+    let receiver : Option Expr := match expression with
+      | .proj _ _ owner => some owner
+      | _ => do
+        let name ← expression.getAppFn.constName?
+        let projectionArity := (env.getProjectionFnInfo? name).map
+          (fun (info : ProjectionFunctionInfo) => info.numParams + 1)
+        let aliasArity := (aliases.find? (fun item => item.1 == name)).map (fun item => item.2)
+        let arity ← projectionArity <|> aliasArity
+        unless expression.getAppNumArgs == arity do none
+        expression.getAppArgs.back?
+    if let some receiver := receiver then
+      unless receiver.hasLooseBVars do
+        receivers.modify fun previous =>
+          if previous.contains receiver then previous else previous.push receiver
+  receivers.get
 
 /-- The published concrete-category dictionary fixes a point type independently
 of any returned descriptor or inventory. -/
@@ -500,6 +532,7 @@ structure ConstructionInterface where
   inputs : InterfaceObjects
   dataInputs : InterfaceObjects
   answer : Option Json
+  comparison : Option Expr := none
 
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
@@ -662,7 +695,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
     if #["constrainedPoint", "admittedPoint", "arrowHom", "subobjectInclusion"].contains tag then
       return ← validateCallableAt objects expectedType json
     if #["constructionLeg", "constructionField", "limitLeg"].contains tag then
-      return ← validateConstructionProjection objects expectedType tag args
+      return ← validateConstructionProjection objects expectedType tag args (some formalField)
     if tag == "morphismEndpoint" then
       let .ok endpoint := Backend.MorphismEndpoint.decode json
         | return .error "the endpoint projection requires its complete callable and selector"
@@ -1451,21 +1484,30 @@ partial def interfaceDiagram (objects : InterfaceObjects) (row : LimitEntry)
 
 /-- Recover a complete canonical presentation only from the independent expected
 type. The receiver packet itself cannot add a proof or a universal property. -/
-partial def retainedConstruction (row : LimitEntry) (expected : Expr) :
-    TermElabM (Option Expr) := do
+partial def retainedConstructions (row : LimitEntry) (expected : Expr) :
+    TermElabM (Array Expr) := do
   let projection := if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone
+  let arity ← forallTelescopeReducing (← getConstInfo projection).type
+    fun fields _ => pure fields.size
   let presentations ← IO.mkRef (#[] : Array Expr)
   expected.forEach fun expression => do
-    if expression.isAppOf projection then
+    if expression.isAppOfArity projection arity then
       let presentation := expression.getAppArgs.back!
       if (presentation.find? (fun term => term.isAppOf row.declaration)).isSome then
         presentations.modify fun current =>
           if current.contains presentation then current else current.push presentation
-  let presentations ← presentations.get
-  -- The first occurrence is the outer retained presentation. A created limit
-  -- can contain its lower presentation as a proper child.
-  return presentations[0]?
+  presentations.get
+
+/-- A returned diagram mismatch is a framing error. Internal failures of the
+accepted declaration remain internal failures. -/
+partial def interfaceLimitPresentation (row : LimitEntry) (diagram : Expr) :
+    TermElabM (Except String Expr) := do
+  try return .ok (← Semantic.limitPresentation row diagram)
+  catch error =>
+    if CasCatalogue.Exception.interpretationKind error == .invalid then
+      return .error "the diagram is outside the registered presentation's complete interface"
+    throw error
 
 /-- Encode an independently fixed signature parameter, preferring its retained
 actual descriptor. This is metadata for a type check, never a computational
@@ -1504,9 +1546,10 @@ partial def interfaceEdgeEncoding (objects : InterfaceObjects) (edge : EdgeRef) 
       | return .error "the creation action has an incomplete inner parameter interface"
     return .ok (Json.mkObj [("ctor", "constructorMap"),
       ("args", Json.arr #[toJson constructor.raw, inner])])
-  let declaration := match edge with
-    | .functor id => (state.functor? id).map (·.declaration)
-    | .classifierForget id => (state.classifiers.find? (·.id == id)).map (·.declaration)
+  let declaration : Option Name := match edge with
+    | .functor id => (state.functor? id).map (fun (row : FunctorEntry) => row.declaration)
+    | .classifierForget id => (state.classifiers.find? (fun row => row.id == id)).map
+        (fun (row : ClassifierEntry) => row.declaration)
     | _ => none
   let some declaration := declaration | return .error "the creation action is not registered"
   let some application ← retainedApplication declaration (← instantiateMVars action)
@@ -1529,10 +1572,9 @@ partial def interfaceEdgeEncoding (objects : InterfaceObjects) (edge : EdgeRef) 
 lift. Standardization is selected by the registered row's comparison, never by
 the spelling of a diagram shape. -/
 partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry)
-    (expected : Expr) (diagramData : Json) (packet : Option Json) :
+    (diagramData : Json) (packet : Option Json) (retained : Option Expr := none) :
     TermElabM (Except String ConstructionInterface) := do
   let state ← registryState
-  let retained ← retainedConstruction row expected
   let fixedDiagram ← retained.mapM fun presentation =>
     return (← whnfR (← inferType presentation)).getAppArgs.back!
   let family ← instantiateFresh row.declaration
@@ -1573,13 +1615,15 @@ partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry
     | none => pure declaredType
   let .ok (diagram, inputs) ← interfaceDiagram objects row diagramType diagramData fixedDiagram
     | return .error "the construction has no compatible complete retained diagram"
-  let (presentation, dataDiagram, dataPresentation, dataInputs) ← match creation with
+  let (presentation, dataDiagram, dataPresentation, dataInputs, comparison) ← match creation with
     | none =>
-      let presentation ← Semantic.limitPresentation row diagram
-      pure (presentation, diagram, presentation, inputs)
+      let .ok presentation ← interfaceLimitPresentation row diagram
+        | return .error "the source diagram is outside the declared presentation interface"
+      pure (presentation, diagram, presentation, inputs, none)
     | some (lift, action) =>
       let mapped ← withTransparency .all <| mkFunctorComp diagram action
-      let lower ← Semantic.limitPresentation row mapped
+      let .ok lower ← interfaceLimitPresentation row mapped
+        | return .error "the selected creation action has no compatible target presentation"
       let evidence ← instantiateFresh lift.evidence
       let actionType ← whnfR (← inferType action)
       let diagramType ← whnfR (← inferType diagram)
@@ -1598,17 +1642,40 @@ partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry
         if (Language.homEnds? (← inferType formal)).isSome then Semantic.mapOf action formal
         else Semantic.objOf action formal
       let dataDiagram ← mkAppM constructor mappedArguments
-      let dataPresentation ← Semantic.limitPresentation row dataDiagram
+      let comparison ← match row.standardization with
+        | some declaration => mkAppM declaration #[mapped]
+        | none =>
+          unless ← withTransparency .all <| isDefEq mapped dataDiagram do
+            return .error "the creation packet requires a registered diagram standardization comparison"
+          mkAppM ``CategoryTheory.Iso.refl #[mapped]
+      let comparison ← instantiateMVars comparison
+      unless ← withTransparency .all <| isDefEq (← inferType comparison)
+          (← mkAppM ``CategoryTheory.Iso #[mapped, dataDiagram]) do
+        return .error "the registered creation comparison has different complete diagram endpoints"
+      if comparison.hasMVar || comparison.hasLevelMVar || !(← isTypeCorrect comparison) then
+        return .error "the creation comparison has unresolved independent parameters"
+      let .ok dataPresentation ← interfaceLimitPresentation row dataDiagram
+        | return .error "the standardized target diagram has no compatible presentation"
       let .ok descriptor ← interfaceEdgeEncoding (objects ++ inputs) lift.edge action
         | return .error "the selected creation action has incomplete retained parameters"
       let dataInputs ← (inputs.zip mappedArguments).mapM fun ((data, formal), mapped) => do
         let tag := if (Language.homEnds? (← inferType formal)).isSome then "map" else "functorAction"
         return (Json.mkObj [("ctor", toJson tag), ("args", Json.arr #[descriptor, data])], mapped)
-      pure (presentation, dataDiagram, dataPresentation, dataInputs)
+      pure (presentation, dataDiagram, dataPresentation, dataInputs, some comparison)
   if let some retained := retained then
     unless ← withTransparency .all <| isDefEq presentation retained do
       return .error "the packet changes its independently retained complete construction or creation lift"
-  return .ok { row, diagram, presentation, dataDiagram, dataPresentation, inputs, dataInputs, answer }
+  let result : ConstructionInterface := {
+    row := row
+    diagram := diagram
+    presentation := presentation
+    dataDiagram := dataDiagram
+    dataPresentation := dataPresentation
+    inputs := inputs
+    dataInputs := dataInputs
+    answer := answer
+    comparison := comparison }
+  return .ok result
 
 /-- Project a declared input's actual endpoint descriptor. Fallback endpoint
 references retain the complete callable, so an opaque map never invents an
@@ -1694,15 +1761,12 @@ partial def validateConstructionData (objects : InterfaceObjects) (context : Con
 /-- A defining-map descriptor is checked as a projection of the entire accepted
 construction interface. Its computational packet is validated but never used to
 reconstruct a mathematical cone, admission or universal-property proof. -/
-partial def validateConstructionProjection (objects : InterfaceObjects) (expected : Expr)
-    (tag : String) (args : Array Json) : TermElabM (Except String Unit) := do
-  let count := if tag == "limitLeg" then 3 else 4
-  unless args.size == count do return .error "the construction projection omitted its complete receiver or index"
-  let .ok id := args[0]!.getStr? | return .error "the construction projection has no registered id"
-  let some row := (← registryState).limits.find? (·.id.raw == id)
-    | return .error "the construction projection names no registered presentation"
+partial def validateConstructionProjectionAt (objects : InterfaceObjects) (row : LimitEntry)
+    (expected : Expr) (tag : String) (args : Array Json) (retained : Option Expr) :
+    TermElabM (Except String Unit) := do
+  let count := args.size
   let packet := if tag == "limitLeg" then none else some args[2]!
-  let .ok context ← constructionInterface objects row expected args[1]! packet
+  let .ok context ← constructionInterface objects row args[1]! packet retained
     | return .error "the construction projection has no compatible complete retained interface"
   let value ← if tag == "constructionField" then do
       let .ok index := args[3]!.getNat? | return .error "a construction field requires its natural port index"
@@ -1726,6 +1790,34 @@ partial def validateConstructionProjection (objects : InterfaceObjects) (expecte
   if fixed.hasMVar || fixed.hasLevelMVar then
     return .error "the construction projection omitted an independent complete formal input"
   validateConstructionData objects context
+
+/-- Every complete occurrence is considered with its requested projection type.
+Nested constructions of the same row cannot select a source or target merely by
+their traversal order. Validation does not choose a new mathematical witness. -/
+partial def validateConstructionProjection (objects : InterfaceObjects) (expected : Expr)
+    (tag : String) (args : Array Json) (formal : Option Expr := none) :
+    TermElabM (Except String Unit) := do
+  let count := if tag == "limitLeg" then 3 else 4
+  unless args.size == count do
+    return .error "the construction projection omitted its complete receiver or index"
+  let .ok id := args[0]!.getStr? | return .error "the construction projection has no registered id"
+  let some row := (← registryState).limits.find? (·.id.raw == id)
+    | return .error "the construction projection names no registered presentation"
+  let retained ← retainedConstructions row expected
+  let retained ← match formal with
+    | none => pure retained
+    | some value => do
+      let actual ← retainedConstructions row value
+      pure ((retained ++ actual).toList.eraseDups.toArray)
+  let candidates := if retained.isEmpty then #[none] else retained.map some
+  let mut accepted := false
+  let mut failure := "the construction projection has no compatible complete retained interface"
+  for candidate in candidates do
+    match ← withoutModifyingState <|
+        validateConstructionProjectionAt objects row expected tag args candidate with
+    | .ok () => accepted := true
+    | .error message => failure := message
+  return if accepted then .ok () else .error failure
 
 partial def interfaceAction (objects : InterfaceObjects) (data : Json) :
     TermElabM (Except String Expr) := do
@@ -1960,17 +2052,28 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       unless #["arrow", "subobject", "functorAction", "objectPresentation", "liftedSubobject"].contains
           receiverTag do
         return .error "the stored-map receiver has no complete declared Arrow interface"
-      let .ok fixed ← interfaceObject objects receiver
-        | return .error "the stored-map receiver has no independently fixed structured interface"
-      let refined ← recordProjection ``CategoryTheory.ObjectProperty.FullSubcategory.obj fixed
-      if tag == "subobjectInclusion" && refined.isNone then
-        return .error "the inclusion receiver is not a declared full subcategory of Arrow"
-      let arrow := refined.getD fixed
-      let some hom ← recordProjection ``CategoryTheory.Arrow.hom arrow
-        | return .error "the receiver has no complete stored Arrow map"
-      unless ← withTransparency .all <| isDefEq (← inferType hom) expected do
-        return .error "the stored-map projection changes a complete selected endpoint"
-      return ← validatePort fixed (← inferType fixed) receiver objects
+      if tag == "subobjectInclusion" && receiverTag == "arrow" then
+        return .error "the inclusion requires its complete subobject receiver"
+      let mut receivers ← retainedRecordReceivers expected
+      if let .ok fixed ← interfaceObject objects receiver then
+        unless receivers.contains fixed do receivers := receivers.push fixed
+      let mut accepted := false
+      let mut failure := "the stored-map receiver has no independently fixed structured interface"
+      for fixed in receivers do
+        let result ← withoutModifyingState do
+          let refined ← recordProjection ``CategoryTheory.ObjectProperty.FullSubcategory.obj fixed
+          if tag == "subobjectInclusion" && refined.isNone then
+            return .error "the inclusion receiver is not a declared full subcategory of Arrow"
+          let arrow := refined.getD fixed
+          let some hom ← recordProjection ``CategoryTheory.Arrow.hom arrow
+            | return .error "the receiver has no complete stored Arrow map"
+          unless ← withTransparency .all <| isDefEq (← inferType hom) expected do
+            return .error "the stored-map projection changes a complete selected endpoint"
+          return ← validatePort fixed (← inferType fixed) receiver objects
+        match result with
+        | .ok () => accepted := true
+        | .error message => failure := message
+      return if accepted then .ok () else .error failure
     | "coreIso", #[sourceData, targetData, forward, backward] =>
       let sourceType ← whnfR (← inferType source)
       let targetType ← whnfR (← inferType target)
@@ -2221,6 +2324,144 @@ partial def interfaceCarrier (selected : Expr) (descriptor : Json) :
   let value ← (Language.recognize state selected category).run {}
   return .ok (← (Language.semanticObject (← (Language.carrierObject value).run {})).run {})
 
+/-- Recover the selected interface from the independently fixed descriptor. Its
+complete named parameters or accepted action supply structure; a coincident
+carrier cannot introduce a different ring, generator, or operation owner. -/
+partial def interfaceSelectedValue (objects : InterfaceObjects) (selected : Expr)
+    (descriptor : Json) : TermElabM (Except String Language.Value) := do
+  let state ← registryState
+  let .ok (tag, args) := envelope descriptor
+    | return .error "the selected interface requires its complete descriptor"
+  if let some row := state.objects.find? (·.id.raw == tag) then
+    let some category := state.categories.find? (·.id == row.category)
+      | return .error "the selected interface's category is absent"
+    let .ok named ← interfaceDeclaration objects row.declaration
+        (← inferType (← instantiateFresh row.declaration)) args
+      | return .error "the selected name has incomplete dependent parameters"
+    unless ← withTransparency .all <| isDefEq named selected do
+      return .error "the selected descriptor changes the complete named object"
+    return .ok (← (Language.recognize state (← instantiateMVars named) category).run {})
+  if #["objectPresentation", "finiteData"].contains tag then
+    let #[underlying, _] := args | return .error "the selected presentation is incomplete"
+    return ← interfaceSelectedValue objects selected underlying
+  if tag == "functorAction" then
+    let #[descriptor, originalData] := args | return .error "the selected action is incomplete"
+    let .ok action ← interfaceAction objects descriptor
+      | return .error "the selected action has no complete declared interface"
+    let .ok original ← interfaceObject objects originalData
+      | return .error "the selected action lost its complete source"
+    unless ← withTransparency .all <| isDefEq (← Semantic.objOf action original) selected do
+      return .error "the selected action changes its full result"
+    let .ok (actionTag, actionArgs) := envelope descriptor
+      | return .error "the selected action descriptor is incomplete"
+    let target := (state.functors.find? (·.id.raw == actionTag)).map (·.target) <|>
+      (state.constructions.find? (·.id.raw == actionTag)).map (·.target) <|>
+      (if actionTag == "classifierForget" then do
+        let id ← actionArgs[0]?.bind (·.getStr?.toOption)
+        (state.classifiers.find? (·.id.raw == id)).map (·.host)
+      else none)
+    let some target := target
+      | return .error "the selected action requires its independently retained target context"
+    let (_, bundle) ← functorCategoryBundles action
+    let context : CategoryContext := { expression := target, bundle }
+    let value ← (Language.objectInContext selected context).run {}
+    let edge := ((state.functors.find? fun row => row.id.raw == actionTag && row.structural).map
+        fun row => EdgeRef.functor row.id) <|>
+      (if actionTag == "classifierForget" then do
+        let id ← actionArgs[0]?.bind (·.getStr?.toOption)
+        (state.classifiers.find? (·.id.raw == id)).map fun row => EdgeRef.classifierForget row.id
+      else none)
+    if let some edge := edge then
+      let .ok source ← interfaceSelectedValue objects original originalData
+        | return .error "the selected structural action lost its full source selection"
+      let registered ← Semantic.edgeFunctor state edge
+      unless ← withTransparency .all <| isDefEq (← Semantic.asFunctor registered) action do
+        return .error "the selected action changes its registered structural edge"
+      let registered ← instantiateMVars registered
+      if let .object handle category origin selected _ := value then
+        return .ok (.object handle category origin selected
+          (some (#[source], source, #[edge], #[], #[(edge, registered.getAppArgs)])))
+    return .ok value
+  if ← isType selected then
+    let some sets := state.categories.find? (·.id == CategoryId.sets)
+      | return .error "the selected set category is absent"
+    return .ok (.object selected sets none none none)
+  return .error "the expression requires its independently selected complete object context"
+
+/-- Check a short operation's entire registered interface before inspecting any
+operands. The candidates contain whole operation families only; no returned
+operand is substituted into a mathematical result or compared with an answer. -/
+partial def validateShortOperation (selected : Language.Value) (carrier : Expr)
+    (name : String) (arity : Nat) : TermElabM (Except String Unit) := do
+  let state ← registryState
+  let mut candidates : Array OperationCandidate := #[]
+  for row in state.operations.filter (fun row =>
+      row.name == name && row.arity == arity && row.numerals == 0) do
+    for (application, sources) in (← (Language.selectedOperationApplicationsWithSources
+        row.declaration row.category selected #[] (some name)).run {}) do
+      let some (source, target) := Language.homEnds? (← inferType application) | continue
+      unless ← withoutModifyingState <| withTransparency .all <| isDefEq target carrier do continue
+      let inputs ← if arity == 2 then do
+          let source ← withTransparency .all <| whnf source
+          unless source.isAppOfArity ``Prod 2 do continue
+          pure source.getAppArgs
+        else pure #[source]
+      unless inputs.size == arity &&
+          (← inputs.allM fun input => withoutModifyingState <| withTransparency .all <|
+            isDefEq input carrier) do continue
+      let candidate : OperationCandidate := {
+        operation := row.id
+        application := application
+        result := application
+        sources := (← OperationAgreement.orderSources sources) }
+      candidates := candidates.push candidate
+  candidates ← OperationAgreement.orderCandidates candidates
+  let some representative := candidates[0]?
+    | return .error "the short element tag has no registered operation on the selected interface"
+  let mut comparisons : Array OperationFamilyComparison := #[]
+  for right in [:candidates.size] do
+    for left in [:right] do
+      let some leftCandidate := candidates[left]? | unreachable!
+      let some rightCandidate := candidates[right]? | unreachable!
+      if let some comparison ← OperationAgreement.compare left right leftCandidate rightCandidate then
+        comparisons := comparisons.push comparison
+  OperationAgreement.validate representative.result 0 candidates comparisons
+  return .ok ()
+
+/-- Primitive point tags instantiate the existing declared point interface only.
+The temporary signature term is discarded; it is never returned as computed
+data or compared with the independently requested mathematical value. -/
+partial def validateShortTag (objects : InterfaceObjects) (selected carrier : Expr)
+    (tag : String) (args : Array Json) : TermElabM (Except String Unit) := do
+  let some (descriptor, _) := objects.find? (·.2 == selected)
+    | return .error "a short element tag requires its fixed complete selected descriptor"
+  try
+    let .ok value ← interfaceSelectedValue objects selected descriptor
+      | return .error "a short element tag has no complete selected interface"
+    if tag == "add" || tag == "mul" || tag == "neg" then
+      return ← validateShortOperation value carrier
+        (if tag == "add" then "+" else if tag == "mul" then "·" else "-")
+        (if tag == "neg" then 1 else 2)
+    let object ← (Language.carrierObject value).run {}
+    let point ← match tag, args with
+      | "numeral", #[number] =>
+        let .ok number := number.getNat? | return .error "an element numeral requires a natural number"
+        (Language.toElement (.nat number) object).run {}
+      | "generator", #[] => (Language.generatorOf object).run {}
+      | "generator", #[number] =>
+        let .ok number := number.getNat? | return .error "a generator index requires a natural number"
+        (Language.generatorOf object (some number)).run {}
+      | _, _ => return .error "the primitive element tag has the wrong declared parameters"
+    let .element point _ := point | return .error "the primitive tag has no declared point interface"
+    unless ← withTransparency .all <| isDefEq (← inferType point)
+        (← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]) do
+      return .error "the primitive tag changes its complete selected point interface"
+    return .ok ()
+  catch error =>
+    match CasCatalogue.Exception.interpretationKind error with
+    | .invalid | .ambiguous => return .error "the short tag has no unique accepted selected interface"
+    | _ => throw error
+
 partial def validateElementExpressionAt (objects : InterfaceObjects) (selected carrier : Expr)
     (expression : Json) : TermElabM (Except String Unit) := do
   let .ok (tag, args) := envelope expression | return .error "an element requires its expression envelope"
@@ -2228,9 +2469,13 @@ partial def validateElementExpressionAt (objects : InterfaceObjects) (selected c
   | "point", #[arrow] =>
       validateCallableAt objects (← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]) arrow
   | "add", #[left, right] | "mul", #[left, right] =>
+      if let .error message ← validateShortTag objects selected carrier tag args then return .error message
       if let .error message ← validateElementExpressionAt objects selected carrier left then return .error message
       validateElementExpressionAt objects selected carrier right
-  | "neg", #[value] => validateElementExpressionAt objects selected carrier value
+  | "neg", #[value] =>
+      if let .error message ← validateShortTag objects selected carrier tag args then return .error message
+      validateElementExpressionAt objects selected carrier value
+  | "numeral", _ | "generator", _ => validateShortTag objects selected carrier tag args
   | "operationExpression", #[id, parameters, operands] =>
       let state ← registryState
       let .ok id := id.getStr? | return .error "the operation id must be a string"

@@ -1,0 +1,51 @@
+/- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
+module
+
+import CasCatalogue.ComputationalData
+meta import CasCatalogue.ComputationalData
+meta import CasCatalogue.Language
+meta import CasCatalogue.OperationAgreement
+meta import CasCatalogue.Semantic
+
+open Lean Meta Elab Term CasCatalogue
+
+/-! Short tags use the fixed selected interface. These controls check framing,
+not a computational answer's equality to an independently requested result. -/
+
+private def node (tag : String) (args : Array Json) : Json :=
+  Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)]
+
+private def checkTag (id : String) (parameters : Array Term) (arguments : Array Json)
+    (expression : Json) (accepted : Bool) : TermElabM Unit := do
+  let state ← registryState
+  let some row := state.objects.find? (·.id.raw == id)
+    | throwError "the independently registered probe object is absent"
+  let some category := state.categories.find? (·.id == row.category)
+    | throwError "the independently registered probe category is absent"
+  let selected ← Semantic.object row parameters
+  let value ← (Language.recognize state selected category).run {}
+  let carrier ← (Language.semanticObject (← (Language.carrierObject value).run {})).run {}
+  let expected ← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]
+  let descriptor := node row.id.raw arguments
+  let result ← ComputationalData.validateElementAt selected descriptor
+    (← mkFreshExprMVar expected) (node "element" #[descriptor, expression])
+  unless result.isOk == accepted do
+    throwError "short-tag selected-interface control failed for {id}: {repr result}"
+
+run_elab do
+  let numeral := fun (n : Nat) => node "numeral" #[toJson n]
+  let point := node "point" #[node "opaqueData" #[toJson "actual point"]]
+  for expression in #[numeral 73,
+      node "add" #[numeral 100, numeral 200],
+      node "mul" #[numeral 8, numeral 17],
+      node "neg" #[numeral 9]] do
+    checkTag "obj.rings.integers" #[] #[] expression true
+  checkTag "obj.sets.rational_dual_x" #[] #[] (node "generator" #[]) true
+  checkTag "obj.sets.naturals" #[] #[] (node "generator" #[]) false
+  checkTag "obj.sets.rational_dual_x" #[] #[] (node "generator" #[toJson (0 : Nat)]) false
+  for expression in #[node "add" #[point, point], node "mul" #[point, point],
+      node "neg" #[point], node "generator" #[]] do
+    checkTag "obj.sets.fin" #[Syntax.mkNumLit "5"] #[toJson (5 : Nat)] expression false
+  checkTag "obj.sets.fin" #[Syntax.mkNumLit "5"] #[toJson (5 : Nat)] (numeral 4) true
+  checkTag "obj.sets.fin" #[Syntax.mkNumLit "5"] #[toJson (5 : Nat)] (numeral 5) false
+  checkTag "obj.rings.integers" #[] #[] (node "numeral" #[toJson "not a natural"]) false

@@ -11,9 +11,10 @@ public import CasCatalogue.QuestionIdentity
 # Checked agreement of complete routed operation families
 
 This consumes `lean-categories/Catalogue/Registry/operation-agreement.md`.
-The source category's entire dependent telescope and the source object are rigid
-before either registered operation is formed. Numeral parameters remain variables.
-Only a checked equality of those whole families can join different bindings.
+The source category's entire dependent telescope is rigid while the registered
+signatures are formed. The source object, numerals and every independent route or
+declaration parameter are abstracted before the whole families are compared.
+Only a checked equality of those closed universal families can join different bindings.
 The selected object, numeral values and operands enter after that proof exists.
 -/
 
@@ -50,40 +51,124 @@ def sameSource (left right : OperationSource) : TermElabM Bool := withoutModifyi
   unless ← sameApplication left.context.bundle right.context.bundle do return false
   sameApplication left.receiver right.receiver
 
-/-- The registered schema of the complete source category, without choosing any of
-its parameters from a selected object. Derived constructors use their accepted schema. -/
-def sourceSchema (state : RegistryState) (expression : CategoryExpr) :
-    TermElabM (Name × Bool) := do
-  if let some row := CategoryContext.named? state expression then
-    return (row.declaration, false)
-  match expression with
-  | .construct id _ =>
-      let some row := state.constructor? id
-        | throwStratum .invalid "an operation source has no registered category constructor"
-      return (row.semantics, false)
-  | .familyTotal id =>
-      let some row := state.categoryFamily? id
-        | throwStratum .invalid "an operation source has no registered category family"
-      return (row.realization, true)
-  | _ => throwStratum .invalid "an operation source has no complete registered category schema"
-
 def sourceBundle (application : Expr) (total : Bool) : MetaM Expr :=
   if total then mkAppM ``CasCatalogue.CategoryFamilyRealization.totalCat #[application]
   else pure application
 
-/-- Form a whole operation from the supplied rigid owner and numeral parameters.
-Any other dependent argument must be fixed by that complete context; an unresolved
-argument is not universal evidence and cannot be specialized from a selected object. -/
-def applicationAt (entry : OperationEntry) (owner : Expr) (numerals : Array Expr) :
+/-- Instantiate a declaration's entire telescope without selecting any actual
+parameter. Remaining variables will become rigid binders before comparison. -/
+def freshTemplate (declaration : Name) : MetaM Expr := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType constant)
+  return mkAppN constant parameters
+
+/-- Reconstruct the fixed category expression, including every nested constructor
+argument. In particular `K(A(p))` is not replaced by `K(C)` for an arbitrary C.
+Repeated symbolic arguments share their declared context; no selected value enters. -/
+partial def sourceTemplateWith (state : RegistryState)
+    (categories : IO.Ref (Array (CategoryExpr × Expr)))
+    (objects functors : IO.Ref (Std.HashMap String Expr))
+    (expression : CategoryExpr) : TermElabM Expr := do
+  if let some (_, value) := (← categories.get).find? (·.1.syntacticEq expression) then
+    return value
+  let value ← if let some row := CategoryContext.named? state expression then
+      freshTemplate row.declaration
+    else match expression with
+    | .familyTotal id =>
+        let some row := state.categoryFamily? id
+          | throwStratum .invalid "the complete source names an absent category family"
+        sourceBundle (← freshTemplate row.realization) true
+    | .construct id arguments => do
+        let some row := state.constructor? id
+          | throwStratum .invalid "the complete source names an absent category constructor"
+        unless arguments.size == row.signature.size do
+          throwStratum .invalid "the complete source has the wrong constructor signature"
+        let constant ← mkConstWithFreshMVarLevels row.semantics
+        let (parameters, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+        let explicit := (parameters.zip infos).filterMap fun (parameter, info) =>
+          if info.isExplicit then some parameter else none
+        unless explicit.size == arguments.size do
+          throwStratum .invalid "the accepted category constructor lost an argument"
+        let mut bundles : Array Expr := #[]
+        let mut inputs : Array Expr := #[]
+        for ((kind, argument), parameter) in (row.signature.zip arguments).zip explicit do
+          let input ← match kind, argument with
+            | .category, .category inner => do
+                let bundle ← sourceTemplateWith state categories objects functors inner
+                bundles := bundles.push bundle
+                pure bundle
+            | .object, .object name => do
+                if let some object := (← objects.get)[name.raw]? then pure object
+                else
+                  objects.modify (·.insert name.raw parameter)
+                  pure parameter
+            | .functor, .functor id => do
+                if let some action := (← functors.get)[id.raw]? then pure action
+                else
+                  let some entry := state.functor? id
+                    | throwStratum .invalid "the constructor names an absent functor argument"
+                  let action ← freshTemplate entry.declaration
+                  let action ← if ← withoutModifyingState <|
+                      isDefEq (← inferType action) (← inferType parameter) then pure action
+                    else Semantic.asFunctor action
+                  functors.modify (·.insert id.raw action)
+                  pure action
+            | _, _ => throwStratum .invalid "the constructor argument has a different declared kind"
+          unless ← withTransparency .all <|
+              isDefEq (← inferType parameter) (← inferType input) <&&>
+                isDefEq parameter input do
+            throwStratum .invalid "the constructor argument changed its complete dependent type"
+          inputs := inputs.push input
+        -- The accepted interface pins the full category dictionaries and their
+        -- universes, including parameters hidden by a carrier coercion.
+        applyConstructorInterface row.semantics bundles inputs
+    | _ => throwStratum .invalid "the source expression has no accepted complete realization"
+  categories.modify (·.push (expression, value))
+  return value
+
+def sourceTemplate (state : RegistryState) (expression : CategoryExpr) : TermElabM Expr := do
+  let categories ← IO.mkRef (#[] : Array (CategoryExpr × Expr))
+  let objects ← IO.mkRef ({} : Std.HashMap String Expr)
+  let functors ← IO.mkRef ({} : Std.HashMap String Expr)
+  sourceTemplateWith state categories objects functors expression
+
+/-- Abstract a heterogeneous collection of typed templates through one metavariable
+context. Dependencies are introduced before their users; no equation between the
+two operations has been tested while these parameters were assignable. -/
+def abstractTemplates (templates : Array Expr) (levels : Bool := false) : MetaM (Array Expr) := do
+  let templates ← templates.mapM instantiateMVars
+  let initial : AbstractMVars.State := {
+    mctx := ← getMCtx, lctx := ← getLCtx, ngen := ← getNGen, abstractLevels := levels }
+  let (templates, final) := (templates.mapM AbstractMVars.abstractExprMVars).run initial
+  setNGen final.ngen
+  setMCtx final.mctx
+  return templates.map (final.lctx.mkLambda final.fvars)
+
+/-- Source-category parameters are rigid before route or operation signatures can
+constrain them. Constructor contexts retain their fixed inner expression. -/
+def withSourceTemplate {α : Type} (state : RegistryState) (expression : CategoryExpr)
+    (body : Array Expr → CategoryContext → TermElabM α) : TermElabM α := do
+  let #[family] ← abstractTemplates #[← sourceTemplate state expression] | unreachable!
+  lambdaTelescope family fun parameters bundle =>
+    body parameters { expression, bundle }
+
+/-- Form the whole declared operation at its complete owner and numeral context.
+Independent declaration parameters remain explicit template variables: consumers
+must abstract them before comparison or fill them from an exact actual application. -/
+def applicationTemplate (entry : OperationEntry) (owner : Expr) (numerals : Array Expr) :
     TermElabM Expr := do
   let constant ← mkConstWithFreshMVarLevels entry.declaration
-  let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType constant)
   unless arguments.size > entry.numerals && numerals.size == entry.numerals do
     throwStratum .invalid "an operation family has an incomplete dependent telescope"
   let ownerSlot := arguments.size - 1 - entry.numerals
+  let ownerType ← inferType arguments[ownerSlot]!
   for earlier in arguments.extract 0 ownerSlot do
     let earlier ← instantiateMVars earlier
     unless earlier.isMVar do continue
+    -- Only context parameters occurring in the owner's type are exposed to
+    -- recover that complete owner. An independent q stays one whole parameter.
+    unless (ownerType.findMVar? (· == earlier.mvarId!)).isSome do continue
     let expected ← whnfR (← inferType earlier)
     let some typeName := expected.getAppFn.constName? | continue
     unless isStructure (← getEnv) typeName do continue
@@ -103,75 +188,143 @@ def applicationAt (entry : OperationEntry) (owner : Expr) (numerals : Array Expr
     unless (← inferType parameter).isConstOf ``Nat &&
         (← isDefEq parameter numeral) do
       throwStratum .invalid "an operation family lost a rigid numeral parameter"
-  for (argument, info) in arguments.zip infos do
-    unless info.isInstImplicit && (← instantiateMVars argument).isMVar do continue
-    let type ← instantiateMVars (← inferType argument)
-    unless !type.hasMVar do continue
-    if let some instanceValue ← synthInstance? type then
-      discard <| isDefEq argument instanceValue
   let application ← instantiateMVars (mkAppN constant arguments)
-  if application.hasMVar || application.hasLevelMVar || !(← isTypeCorrect application) then
-    throwStratum .invalid "the operation family retains an unresolved declaration parameter"
+  unless ← isTypeCorrect application do
+    throwStratum .invalid "the operation template is outside its complete dependent declaration"
   return application
 
-/-- The exact registered route action, formed before substituting the selected object. -/
-def routedApplication (state : RegistryState) (entry : OperationEntry)
+/-- One exact common route prefix. Sharing this template relates only the same
+ordered structural action from the same rigid source, never coincident actual q's. -/
+structure RouteTemplate where
+  pathPrefix : Array EdgeRef
+  action : Expr
+  applications : Array Expr
+  targetRealization : Option Expr
+
+/-- All fields are functions of the same complete universal telescope. Besides
+the whole maps, the schema retains each category, receiver, numeral and route
+application needed to check the later selected instantiation argument by argument. -/
+structure FamilyPlan where
+  bundle : Expr
+  receiver : Expr
+  numerals : Array Expr
+  left : Expr
+  right : Expr
+  leftApplications : Array Expr
+  rightApplications : Array Expr
+
+def routedTemplate (state : RegistryState) (entry : OperationEntry)
     (context : CategoryContext) (receiver : Expr) (route : Array EdgeRef)
-    (numerals : Array Expr) : TermElabM Expr := do
+    (numerals : Array Expr) (cache : IO.Ref (Array RouteTemplate)) :
+    TermElabM (Expr × Array Expr) := do
   let some owner := state.categories.find? (·.id == entry.category)
     | throwStratum .invalid "an operation family has no registered owner"
   let some steps := state.toSemanticState.routeEdges? context.expression owner.expression route
     | throwStratum .invalid "an operation family has an invalid structural route"
-  let routeDescription : Route :=
-    { source := context.expression, target := owner.expression, steps }
-  unless state.toSemanticState.isFirstOperationBindingRoute entry.name routeDescription do
+  unless state.toSemanticState.isFirstOperationBindingRoute entry.name
+      { source := context.expression, target := owner.expression, steps } do
     throwStratum .invalid "an operation family crosses an earlier explicit binding"
-  let (image, applications) ← if route.isEmpty then pure (receiver, #[]) else do
-    let (action, applications) ← Semantic.routeFunctorWithApplications state route
-    let (source, _) ← functorCategoryBundles action
+  let mut pathPrefix := #[]
+  let mut composite : Option Expr := none
+  let mut applications := #[]
+  let mut previousTarget : Option Expr := none
+  for edge in route do
+    pathPrefix := pathPrefix.push edge
+    if let some retained := (← cache.get).find? (·.pathPrefix == pathPrefix) then
+      composite := some retained.action
+      applications := retained.applications
+      previousTarget := retained.targetRealization
+      continue
+    let application ← Semantic.edgeFunctor state edge
+    let endpoints ← Semantic.edgeEndpoints? state edge application
+    if let some previous := previousTarget then
+      if let some (source, _) := endpoints then Semantic.alignCategoryParameters previous source
+    let action ← Semantic.asFunctor application
+    let next ← match composite with
+      | none => pure action
+      | some previous => mkFunctorComp previous action
+    let (source, _) ← functorCategoryBundles next
     unless ← withTransparency .all <| isDefEq source context.bundle do
-      throwStratum .invalid "an operation family changed its complete source category"
-    pure (← Semantic.objOf action receiver, applications)
-  let application ← applicationAt entry image numerals
-  let applications ← applications.mapM instantiateMVars
-  unless applications.all (fun value => !value.hasMVar && !value.hasLevelMVar) do
-    throwStratum .invalid "an operation family retains an unresolved route parameter"
-  return application
+      throwStratum .invalid "a route template changed the complete rigid source category"
+    applications := applications.push application
+    previousTarget := endpoints.map (·.2)
+    cache.modify (·.push {
+      pathPrefix, action := next, applications, targetRealization := previousTarget })
+    composite := some next
+  let image ← match composite with
+    | none => pure receiver
+    | some action => Semantic.objOf action receiver
+  return (← applicationTemplate entry image numerals, applications)
 
-/-- Introduce every numeral parameter as a rigid local in its declared order. -/
-def withNumerals {α : Type} (count : Nat) (body : Array Expr → TermElabM α) : TermElabM α :=
-  let rec go (remaining : Nat) (parameters : Array Expr) : TermElabM α := do
-    match remaining with
-    | 0 => body parameters
-    | n + 1 =>
-        withLocalDeclD (Name.mkSimple s!"numeral{parameters.size}") (mkConst ``Nat) fun parameter =>
-          go n (parameters.push parameter)
-  go count #[]
-
-/-- Reconstruct both complete families in one shared rigid dependent context.
-No actual selected source, category parameter, or numeral value enters this construction. -/
-def universalFamilies (state : RegistryState) (expression : CategoryExpr)
+/-- Build both universal maps before any selected value is available. Source p
+is rigid first. Every remaining route/declaration q, the source object and all
+numerals are then abstracted together, preserving dependencies and common exact
+route prefixes. Independent slots from unrelated declarations stay independent. -/
+def universalPlan (state : RegistryState) (expression : CategoryExpr)
     (left right : OperationEntry) (leftRoute rightRoute : Array EdgeRef) :
-    TermElabM (Expr × Expr) := do
+    TermElabM FamilyPlan := do
   unless left.name == right.name && left.arity == right.arity &&
       left.numerals == right.numerals && left.result == right.result do
     throwStratum .invalid "the inherited operation families have different complete signatures"
-  let (schema, total) ← sourceSchema state expression
-  let constant ← mkConstWithFreshMVarLevels schema
-  forallTelescopeReducing (← inferType constant) fun parameters _ => do
-    let bundle ← sourceBundle (mkAppN constant parameters) total
-    let context : CategoryContext := { expression, bundle }
-    let carrier ← CategoryContext.carrier context
-    withLocalDeclD `selected carrier fun receiver => do
-      withNumerals left.numerals fun numerals => do
-        let left ← routedApplication state left context receiver leftRoute numerals
-        let right ← routedApplication state right context receiver rightRoute numerals
-        let locals := parameters ++ #[receiver] ++ numerals
-        let left ← instantiateMVars (← mkLambdaFVars locals left)
-        let right ← instantiateMVars (← mkLambdaFVars locals right)
-        unless closed left && closed right do
-          throwStratum .invalid "the operation comparison omitted part of its universal context"
-        return (left, right)
+  withSourceTemplate state expression fun parameters context => do
+    let receiver ← mkFreshExprMVar (some (← CategoryContext.carrier context))
+      (userName := `selected)
+    let numerals ← (List.range left.numerals).toArray.mapM fun index =>
+      mkFreshExprMVar (some (mkConst ``Nat)) (userName := Name.mkSimple s!"numeral{index}")
+    let cache ← IO.mkRef (#[] : Array RouteTemplate)
+    let (leftApplication, leftApplications) ←
+      routedTemplate state left context receiver leftRoute numerals cache
+    let (rightApplication, rightApplications) ←
+      routedTemplate state right context receiver rightRoute numerals cache
+    unless (← instantiateMVars receiver).isMVar &&
+        (← numerals.allM fun numeral => return (← instantiateMVars numeral).isMVar) do
+      throwStratum .invalid "an operation signature specialized a universal source or numeral"
+    -- Visit route and declaration parameters before their dependent source object.
+    -- Every whole application is included even if its returned map ignores q.
+    let leftPrefix := leftApplication.getAppArgs.extract 0
+      (leftApplication.getAppArgs.size - 1 - left.numerals)
+    let rightPrefix := rightApplication.getAppArgs.extract 0
+      (rightApplication.getAppArgs.size - 1 - right.numerals)
+    let ordered := leftApplications ++ rightApplications ++ leftPrefix ++ rightPrefix
+    let payload := #[context.bundle, receiver] ++ numerals ++
+      #[leftApplication, rightApplication] ++ leftApplications ++ rightApplications
+    let all ← abstractTemplates (ordered ++ payload)
+    let all ← all.mapM fun term => do instantiateMVars (← mkLambdaFVars parameters term)
+    -- Universe parameters are also rigid in the checked theorem. Their actual
+    -- levels are retained as explicit Sort terms in its selected instantiation.
+    let all ← abstractTemplates all true
+    unless all.all closed do
+      throwStratum .invalid "the operation comparison omitted part of its universal context"
+    let fields := all.extract ordered.size all.size
+    let some bundle := fields[0]? | unreachable!
+    let some receiver := fields[1]? | unreachable!
+    let numerals := fields.extract 2 (2 + numerals.size)
+    let some left := fields[2 + numerals.size]? | unreachable!
+    let some right := fields[3 + numerals.size]? | unreachable!
+    let routeStart := 4 + numerals.size
+    return {
+      bundle, receiver, numerals, left, right
+      leftApplications := fields.extract routeStart (routeStart + leftApplications.size)
+      rightApplications := fields.extract (routeStart + leftApplications.size) fields.size }
+
+def universalFamilies (state : RegistryState) (expression : CategoryExpr)
+    (left right : OperationEntry) (leftRoute rightRoute : Array EdgeRef) :
+    TermElabM (Expr × Expr) := do
+  let plan ← universalPlan state expression left right leftRoute rightRoute
+  return (plan.left, plan.right)
+
+/-- Synchronous kernel checking for the entire universally quantified family,
+including any independent universe parameters of its declared context. -/
+def kernelAcceptsFamily (equality identity : Expr) : MetaM Bool := do
+  let levels := (collectLevelParams (collectLevelParams {} equality) identity).params.toList
+  if levels.isEmpty then return ← Decide.kernelAccepts equality identity
+  let declaration := Declaration.thmDecl {
+    name := `CasCatalogue.OperationAgreement.checkedFamily
+    levelParams := levels, type := equality, value := identity }
+  return match (← getEnv).addDeclCore (USize.ofNat (Decide.decideBudget * 1000))
+      (USize.ofNat maxRecDepth.defValue) declaration none with
+    | .ok _ => true
+    | .error _ => false
 
 /-- Complete source records use the same typed term quotient and field traversal
 for their ordering keys and final snapshots. Route/cell identities are never erased. -/
@@ -277,23 +430,71 @@ def selectedEntry (state : RegistryState) (declaration : Name) (application : Ex
       return none
   | _ => throwSemanticAmbiguity "several accepted operation IDs share this complete declaration; select the binding"
 
-/-- Recover only the instantiation of an already proved universal family. The complete
-selected bundle is matched as its registered declaration, including every argument. -/
-def selectedParameters (state : RegistryState) (source : OperationSource)
-    (entry : OperationEntry) (application : Expr) : TermElabM (Array Expr) := do
-  let (schema, total) ← sourceSchema state source.context.expression
-  let presented ← CategoryContext.presented source.context
-  let constant ← mkConstWithFreshMVarLevels schema
-  let (parameters, _, _) ← forallMetaTelescopeReducing (← inferType constant)
-  let bundle ← sourceBundle (mkAppN constant parameters) total
-  unless ← withTransparency .all <| isDefEq bundle presented.bundle do
-    throwStratum .invalid "the operation comparison has a different selected category bundle"
-  let bundle ← instantiateMVars bundle
+/-- Match actual parameters of an already proved family before conversion could
+erase them. Constructor/declaration heads are matched recursively, and unresolved
+variables are filled only by the corresponding complete actual typed argument. -/
+partial def bindTemplate (expected actual : Expr) : TermElabM Unit := do
+  let expected ← instantiateMVars expected
+  let actual ← instantiateMVars actual
+  unless closed actual && (← isTypeCorrect actual) do
+    throwStratum .invalid "a universal instantiation contains an incomplete actual argument"
+  if expected.isMVar then
+    unless ← withTransparency .all <|
+        isDefEq (← inferType expected) (← inferType actual) <&&> isDefEq expected actual do
+      throwStratum .invalid "a selected argument is outside its rigid universal parameter type"
+    return
+  if expected == actual then return
+  if expected.getAppFn.constName?.isSome &&
+      expected.getAppFn.constName? == actual.getAppFn.constName? &&
+      expected.getAppArgs.size == actual.getAppArgs.size then
+    unless ← isDefEq expected.getAppFn actual.getAppFn do
+      throwStratum .invalid "a selected declaration changed its universal signature"
+    for (parameter, argument) in expected.getAppArgs.zip actual.getAppArgs do
+      bindTemplate parameter argument
+    return
+  unless closed expected &&
+      ((← QuestionIdentity.equivalent expected actual) || (← sameApplication expected actual)) do
+    throwStratum .invalid "a selected argument changed a complete universal declaration parameter"
+
+/-- Instantiate only an already checked closed plan. Every complete source,
+ordered edge application, declaration argument and numeral is matched before
+conversion. Shared template parameters must accept both actual presentations;
+unrelated q slots remain separate entries in the recorded parameter vector. -/
+def instantiatePlan (plan : FamilyPlan) (leftEntry rightEntry : OperationEntry)
+    (leftSource rightSource : OperationSource) (leftApplication rightApplication : Expr) :
+    TermElabM (Array Expr) := do
+  let names := (collectLevelParams (collectLevelParams {} plan.left) plan.right).params
+  let levels ← names.mapM fun _ => mkFreshLevelMVar
+  let atLevels (term : Expr) := term.instantiateLevelParamsArray names levels
+  let (parameters, _, _) ← lambdaMetaTelescope (atLevels plan.bundle)
+  let instantiateField (term : Expr) := (mkAppN (atLevels term) parameters).headBeta
+  for source in #[leftSource, rightSource] do
+    bindTemplate (instantiateField plan.bundle) source.context.bundle
+    bindTemplate (instantiateField plan.receiver) source.receiver
+  let leftNumerals ← numeralArguments leftEntry leftApplication
+  let rightNumerals ← numeralArguments rightEntry rightApplication
+  unless plan.numerals.size == leftNumerals.size && plan.numerals.size == rightNumerals.size &&
+      plan.leftApplications.size == leftSource.applications.size &&
+      plan.rightApplications.size == rightSource.applications.size do
+    throwStratum .invalid "a universal instantiation omitted an ordered route or numeral parameter"
+  for ((parameter, left), right) in (plan.numerals.zip leftNumerals).zip rightNumerals do
+    bindTemplate (instantiateField parameter) left
+    bindTemplate (instantiateField parameter) right
+  for (expected, actual) in plan.leftApplications.zip leftSource.applications do
+    bindTemplate (instantiateField expected) actual
+  for (expected, actual) in plan.rightApplications.zip rightSource.applications do
+    bindTemplate (instantiateField expected) actual
+  bindTemplate (instantiateField plan.left) leftApplication
+  bindTemplate (instantiateField plan.right) rightApplication
   let parameters ← parameters.mapM instantiateMVars
-  unless closed bundle && parameters.all closed &&
-      (← sameApplication bundle presented.bundle) do
-    throwStratum .invalid "the operation comparison did not retain every selected category parameter"
-  return parameters ++ #[source.receiver] ++ (← numeralArguments entry application)
+  let levels ← levels.mapM instantiateLevelMVars
+  unless parameters.all closed && levels.all (fun level => !level.hasMVar) do
+    throwStratum .invalid "the operation comparison omitted a complete selected universal parameter"
+  let left ← instantiateMVars (instantiateField plan.left)
+  let right ← instantiateMVars (instantiateField plan.right)
+  unless (← sameApplication left leftApplication) && (← sameApplication right rightApplication) do
+    throwStratum .invalid "the universal instantiation changed a complete selected operation"
+  return levels.map Lean.mkSort ++ parameters
 
 /-- Match an exact registered edge application argument by argument, before its functor
 body can erase a selected parameter. Fresh schema parameters must all close. -/
@@ -306,11 +507,7 @@ def checkEdgeApplication (state : RegistryState) (edge : EdgeRef) (actual : Expr
       expected.getAppArgs.size == actual.getAppArgs.size &&
       (← isDefEq expected.getAppFn actual.getAppFn) do
     throwStratum .invalid "an operation route replaced a registered edge declaration"
-  for (parameter, argument) in expected.getAppArgs.zip actual.getAppArgs do
-    unless ← withTransparency .all <|
-        isDefEq (← inferType parameter) (← inferType argument) <&&>
-          isDefEq parameter argument do
-      throwStratum .invalid "an operation route changed an ordered edge parameter"
+  bindTemplate expected actual
   let expected ← instantiateMVars expected
   unless closed expected && (← sameApplication expected actual) do
     throwStratum .invalid "an operation route erased an undetermined edge parameter"
@@ -346,7 +543,9 @@ def validateSource (state : RegistryState) (entry : OperationEntry)
     unless ← withTransparency .all <| isDefEq actualSource source.context.bundle do
       throwStratum .invalid "an operation source changed its complete category dictionary"
     Semantic.objOf action source.receiver
-  let actual ← applicationAt entry owner (← numeralArguments entry application)
+  let actual ← applicationTemplate entry owner (← numeralArguments entry application)
+  bindTemplate actual application
+  let actual ← instantiateMVars actual
   unless ← sameApplication actual application do
     throwStratum .invalid "an operation candidate changed a complete selected owner or parameter"
 
@@ -360,12 +559,14 @@ def compareSources (state : RegistryState) (left right : OperationCandidate)
     | throwStratum .invalid "an operation comparison names an absent left binding"
   let some rightEntry := state.operations.find? (·.id == right.operation)
     | throwStratum .invalid "an operation comparison names an absent right binding"
-  let families ← try
-      some <$> universalFamilies state leftSource.context.expression leftEntry rightEntry
+  let plan ← try
+      some <$> universalPlan state leftSource.context.expression leftEntry rightEntry
         leftSource.route rightSource.route
     catch error =>
       if Exception.interpretationKind error == .invalid then pure none else throw error
-  let some (leftFamily, rightFamily) := families | return none
+  let some plan := plan | return none
+  let leftFamily := plan.left
+  let rightFamily := plan.right
   let leftType ← inferType leftFamily
   let rightType ← inferType rightFamily
   unless closed leftType && closed rightType &&
@@ -373,15 +574,13 @@ def compareSources (state : RegistryState) (left right : OperationCandidate)
         isDefEq leftFamily rightFamily) do return none
   let equality ← mkEq leftFamily rightFamily
   let identity ← mkEqRefl leftFamily
-  unless closed identity && (← Decide.kernelAccepts equality identity) do return none
-  let parameters ← selectedParameters state leftSource leftEntry left.application
-  let otherParameters ← selectedParameters state rightSource rightEntry right.application
-  unless parameters.size == otherParameters.size do return none
-  for (left, right) in parameters.zip otherParameters do
-    unless ← sameApplication left right do return none
-  unless (← sameApplication (mkAppN leftFamily parameters).headBeta left.application) &&
-      (← sameApplication (mkAppN rightFamily parameters).headBeta right.application) do
-    return none
+  unless closed identity && (← kernelAcceptsFamily equality identity) do return none
+  let parameters ← try
+      some <$> instantiatePlan plan leftEntry rightEntry leftSource rightSource
+        left.application right.application
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure none else throw error
+  let some parameters := parameters | return none
   return some {
     left := 0, right := 0, leftSource := 0, rightSource := 0, parameters
     leftFamily, rightFamily, leftType, rightType, identity }
@@ -431,7 +630,7 @@ def validateComparison (state : RegistryState) (candidates : Array OperationCand
       throwStratum .invalid "an operation comparison changed its complete universal family or type"
   let equality ← mkEq comparison.leftFamily comparison.rightFamily
   unless closed comparison.identity && comparison.identity == expected.identity &&
-      (← Decide.kernelAccepts equality comparison.identity) do
+      (← kernelAcceptsFamily equality comparison.identity) do
     throwStratum .invalid "the operation's universal equality is not accepted by Lean"
 
 /-- Validate the full closed equivalence class before computational forwarding.

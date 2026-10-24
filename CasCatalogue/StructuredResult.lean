@@ -168,6 +168,57 @@ def actualData? (plan : DataPlan) (binder : Nat) (seen : Array Json) : Option Js
 
 end DataPlan
 
+/-- Recover data ports from the registered constructor's own direct projection
+identities when an accepted created cone stays opaque. Only the independently
+fixed diagram index type is enumerated. A backend value, a cone law, and an
+identification of computational and formal objects never enter this procedure. -/
+def projectFormalDataPorts (colimit : Bool) (diagram schema formalCone : Expr)
+    (ports : Array Expr) : TermElabM (Except String Unit) := do
+  let directPort := fun expression => do
+    let reduced ← withTransparency .all <| whnfHeadPred expression fun part =>
+      pure (!ports.contains part)
+    return ports.findIdx? (· == reduced)
+  let mut projections : Array (Array Expr) := Array.replicate ports.size #[]
+  let pointName := if colimit then ``CategoryTheory.Limits.Cocone.pt
+    else ``CategoryTheory.Limits.Cone.pt
+  if let some index ← directPort (← mkAppM pointName #[schema]) then
+    let formalPoint ← mkAppM pointName #[formalCone]
+    projections := projections.modify index (·.push formalPoint)
+  let diagramType ← whnfR (← inferType diagram)
+  unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
+    return .error "the data schema has no complete independent diagram category"
+  let transformationName := if colimit then ``CategoryTheory.Limits.Cocone.ι
+    else ``CategoryTheory.Limits.Cone.π
+  let schemaMaps ← mkAppM transformationName #[schema]
+  let formalMaps ← mkAppM transformationName #[formalCone]
+  if let some port ← directPort schemaMaps then
+    projections := projections.modify port (·.push formalMaps)
+  let schemaFamily ← mkAppM ``CategoryTheory.NatTrans.app #[schemaMaps]
+  if let some port ← directPort schemaFamily then
+    let formalFamily ← mkAppM ``CategoryTheory.NatTrans.app #[formalMaps]
+    projections := projections.modify port (·.push formalFamily)
+  -- Whole transformation/family ports keep arbitrary index domains. Enumeration
+  -- is needed only for a schema exposing separate finitely indexed leg slots.
+  if projections.any (·.isEmpty) then
+    if let some indices ← Codec.finiteDomain diagramType.getAppArgs[0]! then
+      for index in indices do
+        let projection ← mkAppM ``CategoryTheory.NatTrans.app #[schemaMaps, index]
+        if let some port ← directPort projection then
+          let formalProjection ← mkAppM ``CategoryTheory.NatTrans.app #[formalMaps, index]
+          projections := projections.modify port (·.push formalProjection)
+  for (port, candidates) in ports.zip projections do
+    let some candidate := candidates[0]?
+      | return .error "the registered constructor has no direct independent projection for a data port"
+    for alternative in candidates do
+      unless ← withoutModifyingState <| withTransparency .all <|
+          isDefEq (← inferType candidate) (← inferType alternative) <&&>
+            isDefEq candidate alternative do
+        return .error "several distinct formal projections address the same data port"
+    unless ← withTransparency .all <|
+        isDefEq (← inferType port) (← inferType candidate) <&&> isDefEq port candidate do
+      return .error "the independent field projection changes its registered dependent type"
+  return .ok ()
+
 /-- Prepare the complete computational dependency plan solely from the independent
 formal construction. No backend field binds a constructor metavariable. -/
 def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
@@ -210,8 +261,13 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   let formalCone ← mkAppM (if row.colimit then
     ``CategoryTheory.Limits.ColimitCocone.cocone else
     ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation]
-  unless ← withTransparency .all <| isDefEq (mkAppN constructor fields) formalCone do
-    return .error "the formal construction does not expose the declared data-port schema"
+  let schema := mkAppN constructor fields
+  if ← withoutModifyingState <| withTransparency .all <| isDefEq schema formalCone then
+    discard <| withTransparency .all <| isDefEq schema formalCone
+  else
+    let .ok () ← projectFormalDataPorts row.colimit diagram schema formalCone
+        (portBinders.map (fields[·]!))
+      | return .error "the formal construction does not expose the declared data-port schema"
   let mut binders : Array DataBinder := #[]
   for index in [:fields.size] do
     let value ← instantiateMVars fields[index]!
