@@ -4,6 +4,8 @@ module
 import CasCatalogue.Realize
 import LeanCategories.Catalogue.Semantics.Limits.Lifts
 meta import CasCatalogue.Realize
+meta import CasCatalogue.CategoryContext
+meta import CasCatalogue.StructuredProjection
 meta import LeanCategories.Catalogue.Semantics.Limits.Lifts
 
 open Lean Meta Elab Term CasCatalogue
@@ -63,6 +65,20 @@ run_elab do
   let again ← Realize.realize harness trace "the reused created defining leg" leg
   unless again.json == wanted && again.owner? == actual.owner? do
     throwError "reusing a created leg replaced its actual computational data"
+  let context ← CategoryContext.ofNamed category result.apex
+  let some projection ← StructuredProjection.construction? result.apex context (some trace)
+    | throwError "the complete creation lost its source data-port interface"
+  let sourcePlan ← projection.dataPlan
+  for port in sourcePlan.ports do
+    let formal ← StructuredProjection.retainPortValue result.apex port.formalField port.index
+    Trace.record (some trace) formal (.structuredProjection result.apex "field" (some port.index))
+    let field ← Realize.realize harness trace "the created data field" formal
+    let expected := node "constructionField" #[toJson row.id.raw, diagramData, packet.json, toJson port.index]
+    unless field.json == expected && field.owner? == actual.owner? do
+      throwError "a created data field dropped its complete packet or original owner"
+    let reused ← Realize.realize harness trace "the reused created data field" formal
+    unless reused.json == expected && reused.owner? == field.owner? do
+      throwError "reusing a created data field expanded its formal recipe again"
   let some (source, target) := Language.homEnds? (← inferType leg)
     | throwError "the created leg lost its full Hom interface"
   let targetIdentity ← mkAppM ``CategoryTheory.CategoryStruct.id #[target]

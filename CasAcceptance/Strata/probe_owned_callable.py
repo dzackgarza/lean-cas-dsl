@@ -16,6 +16,8 @@ process = uuid.uuid4().hex
 serials = itertools.count()
 issued = set()
 materialize_invocation = "--materialize-invocation" in sys.argv[1:]
+require_argument_owner = "--require-argument-owner" in sys.argv[1:]
+argument_calls = 0
 
 
 def fresh():
@@ -41,8 +43,17 @@ def tokens(data):
 
 def implementation(operation):
     def call(argument):
+        global argument_calls
         if isinstance(argument, dict) and argument.get("ctor") == "apply":
-            _, _, arrow, _, _, _, _ = point_invocation(argument, operation)
+            _, _, arrow, _, _, _, supplied = point_invocation(argument, operation)
+            if require_argument_owner:
+                used = list(tokens(supplied))
+                if argument_calls and not used:
+                    raise ValueError("the subsequent operation lost its predecessor's actual result")
+                if any(token not in issued for token in used):
+                    raise ValueError("the operation received another session's result")
+                argument_calls += 1
+                return fresh()
             used = list(tokens(arrow))
             if materialize_invocation and not used:
                 return fresh()

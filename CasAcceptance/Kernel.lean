@@ -1,19 +1,23 @@
 module
 
 public import CasAcceptance.Kernel.BinderReaderProbes
+public import CasAcceptance.Kernel.AdmissionBoundaryProbes
 public import CasAcceptance.Kernel.ApexReceiverContextProbes
 public import CasAcceptance.Kernel.AnonymousApexProbes
 public import CasAcceptance.Kernel.ConstrainedPointProbes
+public import CasAcceptance.Kernel.CreatedProjectionDataProbes
 public import CasAcceptance.Kernel.DependentElaborationProbes
 public import CasAcceptance.Kernel.FileItemProbes
 public import CasAcceptance.Kernel.SessionOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
+public import CasAcceptance.Kernel.ProjectionBoundaryProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.QuestionSnapshotProbes
 public import CasAcceptance.Kernel.GenericExecutionProbes
 public import CasAcceptance.Kernel.PortableExecutionProbes
+public import CasAcceptance.Kernel.ShortElementInterfaceProbes
 public import CasAcceptance.Kernel.MorphismEndpointProbes
 public import CasAcceptance.Kernel.PortFailureProbes
 public import CasAcceptance.Kernel.StructuredReconstructionProbes

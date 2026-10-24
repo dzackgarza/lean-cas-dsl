@@ -49,3 +49,27 @@ run_elab do
   checkTag "obj.sets.fin" #[Syntax.mkNumLit "5"] #[toJson (5 : Nat)] (numeral 4) true
   checkTag "obj.sets.fin" #[Syntax.mkNumLit "5"] #[toJson (5 : Nat)] (numeral 5) false
   checkTag "obj.rings.integers" #[] #[] (node "numeral" #[toJson "not a natural"]) false
+
+/-! An explicit structural view fixes its own operation owner. The retained
+ring parameter supplies the actual action; it cannot restore a binding absent
+from the selected monoid interface. -/
+run_elab do
+  let state ← registryState
+  let some ring := state.objects.find? (·.id.raw == "obj.rings.integers")
+    | throwError "the declared source ring is unavailable"
+  let some functor := state.functor? FunctorId.ringsMultiplicative
+    | throwError "the declared structural view is unavailable"
+  let original ← Semantic.object ring #[]
+  let action ← Semantic.asFunctor (← Semantic.edgeFunctor state (.functor functor.id))
+  let selected ← Semantic.objOf action original
+  let (_, bundle) ← functorCategoryBundles action
+  let value ← (Language.objectInContext selected { expression := functor.target, bundle }).run {}
+  let carrier ← (Language.semanticObject (← (Language.carrierObject value).run {})).run {}
+  let expected ← mkAppM ``Quiver.Hom #[← Language.globalPointSource.run {}, carrier]
+  let descriptor := node "functorAction" #[node functor.id.raw #[], node ring.id.raw #[]]
+  let point := node "point" #[node "opaqueData" #[toJson "actual selected-view operand"]]
+  for (tag, accepted) in #[("mul", true), ("add", false)] do
+    let result ← ComputationalData.validateElementAt selected descriptor
+      (← mkFreshExprMVar expected) (node "element" #[descriptor, node tag #[point, point]])
+    unless result.isOk == accepted do
+      throwError "the short tag borrowed an operation from a different selected owner: {repr result}"

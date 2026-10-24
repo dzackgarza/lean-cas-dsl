@@ -33,8 +33,9 @@ registered literal form (`64`, `ℵ₀` in `Card`). It names no category id, han
 the kernel resolves each call and selects its realization.
 
 Terms:
-* `N` or `N(a, …)`: the registered object named `N` at the numeral parameters `a, …`: the unrefined
-  object of that name, or in an enclosing `in C` its refinement in `C` (`Fin(3) in FiniteSets`);
+* `N` or `N(a, …)`: the registered object named `N` at the numeral parameters `a, …`: its
+  unrefined default when present, otherwise its unique named binding; an enclosing `in C`
+  selects its refinement in `C` (`Fin(3) in FiniteSets`);
 * `ℤ/n` and `(ℤ/n)^k` select the exact families published for those notation tokens;
 * `X × Y`, `X ⊔ Y`: the registered product and coproduct in the category of `X` and `Y`;
 * `m(a, …)`: the registered morphism family named `m` at the numeral parameters `a, …`;
@@ -562,14 +563,23 @@ def categoryNamed (state : RegistryState) (name : String) : TermElabM NamedCateg
     | throwStratum .invalid m!"no registered category is named {name}"
   return entry
 
-/-- The registered object named `name`: in `category` when given (a refinement there), and
-otherwise the unrefined object of that name. -/
+/-- Named bindings keep the existing unrefined default when one is published.
+A separately named refinement is still a binding in its own right; if all rows
+with that name are refined, they remain eligible and ambiguity is checked normally. -/
+def objectBindings (state : RegistryState) (name : String)
+    (category? : Option NamedCategoryEntry) : Array ObjectEntry :=
+  let named := state.objects.filter (·.name == name)
+  match category? with
+  | some category => named.filter (·.category == category.id)
+  | none =>
+      let unrefined := named.filter (·.refines.isNone)
+      if unrefined.isEmpty then named else unrefined
+
+/-- The registered object named `name`, at its explicit category or its admitted
+default binding. A unique separately named refinement needs no repeated category. -/
 def objectNamed (state : RegistryState) (name : String) (category? : Option NamedCategoryEntry) :
     TermElabM ObjectEntry := do
-  let candidates := state.objects.filter fun o =>
-    o.name == name && match category? with
-      | some c => o.category == c.id
-      | none => o.refines.isNone
+  let candidates := objectBindings state name category?
   match candidates with
   | #[object] => return object
   | #[] => throwStratum .invalid m!"no registered object is named {name}{match category? with
@@ -3191,8 +3201,7 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
     if state.objects.any (·.name == base) && !state.objects.any (·.name == name) then
       return ← object state base (#[.nat k] ++ (← args.mapM (eval scope · none))) category?
   let inScope (c : CategoryId) := category?.all (c == ·.id)
-  let objects := state.objects.filter fun o =>
-    o.name == name && inScope o.category && (category?.isSome || o.refines.isNone)
+  let objects := objectBindings state name category?
   let morphisms := state.morphisms.filter fun m => m.name == name && inScope m.category
   let shapes := state.limits.filter (·.shape == name)
   let mut actions : Array (M Value) := #[]
@@ -3292,10 +3301,13 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       -- be supplied by an object value.  In particular, an operand such as `F : R[x]` must not
       -- be speculatively transported through every structured route merely because it is the
       -- first written argument of a family such as `d : ∀ R, R[x] ⟶ Ω¹_R`.
-      -- Category's hom universe is inferred by instance synthesis. AppBuilder
-      -- rejects that still-open universe before synthesis can determine it.
-      let categoryClass := mkApp (← mkConstWithFreshMVarLevels ``CategoryTheory.Category) expected
-      let expectsObject := (← trySynthInstance categoryClass).toOption.isSome
+      -- Ordinary data types can themselves carry categories (for example from
+      -- an order). Only an actual registered category's object schema identifies
+      -- a bundled-object parameter; a typeclass instance is not such a schema.
+      let expectsObject ← if expected.hasExprMVar then pure false else
+        state.categories.anyM fun registered => parameterTrial do
+          let carrier ← categoryCarrierInstance registered
+          withTransparency .all <| isDefEq expected carrier
       if expectsObject && !(value matches .object ..) then
         firstOperand := some value
         break

@@ -2514,6 +2514,46 @@ def extentOf? (state : RegistryState) (e : Expr) : Option (PowerObjectEntry × E
   let #[X, A] := e.getAppArgs | none
   return (po, X, A)
 
+/-- Remove only the reader's administrative expected-type wrappers. The original
+categorical composition and its complete selected argument remain unchanged. -/
+def operationApplicationBody (value : Expr) : Expr := Id.run do
+  let mut value := value.consumeMData
+  while value.isAppOfArity ``id 2 || value.isAppOfArity ``Trace.operationResult 3 do
+    value := value.appArg!.consumeMData
+  return value
+
+/-- Retain the original generalized argument of a staged operation, including
+terminal comparisons. Only categorical composition and administrative wrappers
+are inspected; no mathematical function body or computed result is unfolded. -/
+partial def operationApplicationSpine (value : Expr) : Array Expr × Expr :=
+  let value := operationApplicationBody value
+  if value.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 then
+    let (arguments, operation) := operationApplicationSpine value.getAppArgs[6]!
+    (#[value.getAppArgs[5]!] ++ arguments, operation)
+  else (#[], value)
+
+/-- A complete prepared invocation, whose mathematical choice is already fixed. -/
+structure OperationObservation where
+  original : Wire
+  operation : OperationId
+  input : Wire
+  domain : Expr
+  target : Expr
+  targetData : Json
+  materialized : Bool
+
+def operationRecipeId? (wire : Wire) : Option String :=
+  match ComputationalData.envelope wire.json with
+  | .ok ("element", #[_, expression]) =>
+      match ComputationalData.envelope expression with
+      | .ok ("operationExpression", #[operationId, _, _]) => operationId.getStr?.toOption
+      | _ => none
+  | .ok ("operationPoint", #[operationId, _, _, _, _]) => operationId.getStr?.toOption
+  | _ => none
+
+def operationRecipe (wire : Wire) (id : OperationId) : Bool :=
+  operationRecipeId? wire == some id.raw
+
 mutual
 
 -- Closed element data comes from the formal operation trace, never from carrier matching.
@@ -3316,9 +3356,17 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire := do
   let e ← instantiateMVars e
   let closed := !e.hasMVar && !e.hasLevelMVar && !e.hasFVar && !e.hasLooseBVars
-  if closed then
-    if let some wire := (← h.results.get)[e]? then return wire
-  let wire ← realizeFresh h trace what e
+  let cached ← if closed then pure ((← h.results.get)[e]?) else pure none
+  let wire ← match cached with
+    | some wire => pure wire
+    | none => realizeFresh h trace what e
+  -- An installed operation computes its own result before a later consumer sees
+  -- it. A portable expression remains available when no complete registration
+  -- applies; a failed or ambiguous dispatch is never retried as an expression.
+  let wire ← match ← trace.node? e with
+    | some (.operationApply ..) | some (.operationPoint ..) |
+        some (.operationEquivalence ..) => realizeArrowObservation h trace wire true
+    | _ => pure wire
   if closed then
     if wire.liftExecution.isSome then
       h.results.modify (·.insert e wire)
@@ -3327,6 +3375,16 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       | .ordinary .. => pure ()
       | .computed .. | .construction .. => h.results.modify (·.insert e wire)
   return wire
+
+/-- Prepare a candidate's public recipe without selecting its own registration.
+Operation equivalence checks every retained candidate before a single dispatch.
+Already returned data retain their exact owning session and observed status. -/
+partial def realizeUnobserved (h : Harness) (trace : Trace) (what : String) (e : Expr) :
+    TermElabM Wire := do
+  let e ← instantiateMVars e
+  if !e.hasMVar && !e.hasLevelMVar && !e.hasFVar && !e.hasLooseBVars then
+    if let some wire := (← h.results.get)[e]? then return wire
+  realizeFresh h trace what e
 
 partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire := do
@@ -3339,7 +3397,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   match node with
   | .operationEquivalence representative chosen candidates comparisons =>
       checkOperationEquivalence e representative chosen candidates comparisons
-      let actual ← realize h trace "the checked operation agreement's selected result" representative
+      let actual ← realizeUnobserved h trace "the checked operation agreement's selected result" representative
       forwardOperationEquivalent e representative actual
   | .categoryParameter id params =>
       let some entry := state.categories.find? (·.id == id)
@@ -4133,6 +4191,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         form := .element selectedWire.form
         payload := (← combinedPayload e json #[selectedWire, pointWire]) }
   | .elementNumeral _ target selected | .operationApply _ _ _ target selected =>
+      if let .operationApply _ _ operands _ _ := node then
+        for operand in operands do
+          discard <| realize h trace "the operation's actual constituent" operand
       discard <| Semantic.recordNamedObject selected (some trace)
       let selectedWire ← realize h trace "the selected element structure" selected
       let (expression, dependencies) ← elementExpression h trace e
@@ -4870,29 +4931,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .property id _ _ =>
       throwError "the decision {id.raw} is not a value"
 
-end
-
-/-- Remove only the reader's administrative expected-type wrappers. The original
-categorical composition and its complete selected argument remain unchanged. -/
-def operationApplicationBody (value : Expr) : Expr := Id.run do
-  let mut value := value.consumeMData
-  while value.isAppOfArity ``id 2 || value.isAppOfArity ``Trace.operationResult 3 do
-    value := value.appArg!.consumeMData
-  return value
-
-/-- Retain the original generalized argument of a staged operation, including
-terminal comparisons. Only categorical composition and administrative wrappers
-are inspected; no mathematical function body or computed result is unfolded. -/
-partial def operationApplicationSpine (value : Expr) : Array Expr × Expr :=
-  let value := operationApplicationBody value
-  if value.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 then
-    let (arguments, operation) := operationApplicationSpine value.getAppArgs[6]!
-    (#[value.getAppArgs[5]!] ++ arguments, operation)
-  else (#[], value)
-
 /-- An accepted operation's actual owner is the declaration argument preceding
 its numeral parameters. Its set-valued source and result do not select that owner. -/
-def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry)
+partial def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry)
     (application : Expr) : TermElabM Wire := do
   let state ← registryState
   let arguments := (operationApplicationBody application).getAppArgs
@@ -4916,31 +4957,9 @@ def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry
     throwError "the complete operation's owner representation changed its declared category"
   return wire
 
-/-- A complete prepared invocation, whose mathematical choice is already fixed. -/
-structure OperationObservation where
-  original : Wire
-  operation : OperationId
-  input : Wire
-  domain : Expr
-  target : Expr
-  targetData : Json
-  materialized : Bool
-
-def operationRecipeId? (wire : Wire) : Option String :=
-  match ComputationalData.envelope wire.json with
-  | .ok ("element", #[_, expression]) =>
-      match ComputationalData.envelope expression with
-      | .ok ("operationExpression", #[operationId, _, _]) => operationId.getStr?.toOption
-      | _ => none
-  | .ok ("operationPoint", #[operationId, _, _, _, _]) => operationId.getStr?.toOption
-  | _ => none
-
-def operationRecipe (wire : Wire) (id : OperationId) : Bool :=
-  operationRecipeId? wire == some id.raw
-
 /-- Prepare an operation's actual complete request without dispatching it. This
 also covers nullary and staged operations, using their original typed argument. -/
-def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
+partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     (id : OperationId) (parameters : Array Expr) : TermElabM OperationObservation := do
   if let some actual := operationRecipeId? wire then
     unless actual == id.raw do
@@ -5033,7 +5052,7 @@ def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
 
 /-- Dispatch exactly the already selected request. A failed answer never selects
 another equivalent operation, and returned data are never replaced by a formal value. -/
-def executeOperationObservation (h : Harness) (request : OperationObservation) :
+partial def executeOperationObservation (h : Harness) (request : OperationObservation) :
     TermElabM Wire := do
   if request.materialized then return request.original
   let state ← registryState
@@ -5054,7 +5073,7 @@ def executeOperationObservation (h : Harness) (request : OperationObservation) :
   return { result with payload := computedPayload formal result.json owner }
 
 /-- Materialize a retained generalized operation through its complete public port. -/
-def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
+partial def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     (id : OperationId) (parameters : Array Expr) : TermElabM Wire := do
   if let some actual := operationRecipeId? wire then
     unless actual == id.raw do
@@ -5066,7 +5085,7 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
 the existing public generalized-point interface. The identity argument has that
 same domain; no terminal point or sampled graph replaces the original arrow.
 Presentation directions retain their established comparison-invocation format. -/
-def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wire)
+partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wire)
     (address : String) (parameters : Array Json) (dependencies : Array Wire := #[])
     (inverse : Option Bool := none) : TermElabM Wire := do
   let formal := wire.value
@@ -5124,7 +5143,8 @@ including one used inside a later point invocation, retains its public descripto
 Only this observation demand dispatches that descriptor. Structural composites are
 rebuilt from the observed children through the ordinary checked realization paths,
 retaining their exact endpoint frames, declared actions and session dependencies. -/
-partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) :
+partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
+    (registeredOnly : Bool := false) :
     TermElabM Wire := do
   if wire.callableObserved then return wire
   let formal := wire.value
@@ -5132,7 +5152,7 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
   let rebuild (children : Array Expr) : TermElabM Wire := do
     for child in children do
       let input ← realize h trace "the observed arrow's constituent" child
-      let actual ← realizeArrowObservation h trace input
+      let actual ← realizeArrowObservation h trace input registeredOnly
       -- The recursive observation caches actual returned data. Ordinary descriptors
       -- remain ordinary inputs and are not promoted to computed values by this demand.
       match actual.payload with
@@ -5158,10 +5178,12 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
           unless actual == operationId.raw do
             throwError "the operation class's representative has a different retained recipe"
         unless operationRecipe input operationId do return wire
+        if registeredOnly && !h.admitted.any (fun admitted =>
+            candidates.any (·.operation.raw == admitted.registration.operation)) then return wire
         let mut applicable : Array (OperationObservation × Registration) := #[]
         for candidate in candidates do
           let candidateWire ← if candidate.result == representative then pure input
-            else realize h trace "a checked equivalent operation's complete result" candidate.result
+            else realizeUnobserved h trace "a checked equivalent operation's complete result" candidate.result
           let some candidateNode ← trace.node? candidate.result
             | throwError "a checked equivalent operation lost its retained trace"
           let (id, parameters) ← match candidateNode with
@@ -5178,6 +5200,7 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
               throwStratum .unavailable "the equivalent operation's actual dependency belongs to an expired session"
           let registrations ← admittedRegistrations h id.raw request.input true
           applicable := applicable ++ registrations.map (fun admitted => (request, admitted.registration))
+        if registeredOnly && applicable.isEmpty then return wire
         let request ← match applicable with
           | #[(request, _)] => pure request
           | #[] => do
@@ -5235,8 +5258,13 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
           | throwError "the observed construction map is no longer registered"
         let (parameters, dependencies) ← realizedParameters h trace parameters
         realizeCallableObservation h trace wire entry.mapAddress parameters dependencies
-    | .operationApply id parameters _ _ _ | .operationPoint id parameters .. =>
-        realizeOperationObservation h trace wire id parameters
+    | .operationApply id parameters _ _ _ | .operationPoint id parameters .. => do
+        unless operationRecipe wire id do return wire
+        if registeredOnly && !h.admitted.any (·.registration.operation == id.raw) then return wire
+        let request ← prepareOperationObservation h trace wire id parameters
+        if registeredOnly && (← admittedRegistrations h id.raw request.input true).isEmpty then
+          return wire
+        executeOperationObservation h request
     | .admittedPoint _ _ _ original _ _ _ => rebuild #[original]
     | .constrainedPoint _ _ _ _ _ original => rebuild #[original]
     | .elementValue point _ _ => rebuild #[point]
@@ -5263,6 +5291,8 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
     | .ordinary .. => pure ()
     | _ => h.results.modify (·.insert formal actual)
   return actual
+
+end
 
 /-- Select the equality observation by its declared syntax and complete signature.
 The registered power object supplies the truth-value object. Every candidate is
