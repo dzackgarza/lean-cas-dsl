@@ -17,10 +17,10 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `9d2422c9614104ff7adf25c90f5b0bfefcfe447d` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published integration `263d55d6b2139db2c80afa6f891c988a8f9c2326` | Generic binding, operation agreement, transport, admission and structured-result repairs; further combined verification and frozen trials remain |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4acd7aff0350c5a84ce695e42eaadfd583ac343d` | Adds the independently specified universal operation-agreement interface and additive-monoid operation/action to the previously checked interfaces |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `6cf4cda6eb34169a7c34dba4d269bd0212f78383` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `ae3c76e7a439681ad264a3d1cf113cb55d4f8fcc` | Includes independently specified universal operation agreement, additive-monoid operation/action, and generic coordinate-linearity evidence; public declaration signatures are unchanged by the latest evidence addition |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `89de508622cff4bfd1a457844a1a3a0fccd36405` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 | Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `5b2ce9e5a2da78227d43a01297874667bd6f436e` | Replacement author supplied 66 registrations in the new diagnostic subtree, including generic monoid, additive-monoid and complete callable forms; standalone protocol checks are not mathematical acceptance |
 
@@ -130,8 +130,16 @@ missing/multiple registration strata, and two successive operations passing the
 first returned owned datum into the second request without recomputation. This is
 engineering evidence, not a mathematical-answer oracle. A later coherent core
 build at `f607421` includes declared operand selections, refined object names,
-dependent data-parameter recognition, and closed-point restaging. Its new focused
-controls and the remaining unchanged extension bindings are under verification.
+dependent data-parameter recognition, and closed-point restaging. Its four focused
+controls passed with exact imported-artifact hashes unchanged; all nine unchanged
+series bindings also read. These are scoped engineering/interpretation results,
+not the final combined execution trials. The next source at `e8075df` adds
+complete component-refinement presentation, exact accepted row identity for
+aliases, candidate-local inapplicability, rigid full-owner presentation checks,
+and forwarding of an original computed parameter through its checked named
+presentation. Its coherent build is in progress. The earlier `08051c0` build
+failed only the reader compilation heartbeat budget; the scoped compilation
+allowance is now 800,000, without changing runtime/proof evaluation budgets.
 The original native binaries still belong to the older recorded producer until
 explicitly rebuilt; no newer result is inferred from those binaries.
 

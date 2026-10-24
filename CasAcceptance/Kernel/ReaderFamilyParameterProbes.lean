@@ -145,3 +145,73 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     throwError "the component operation changed the original whole coordinate map"
   unless reprStr before == reprStr (← trace.node? original) do
     throwError "discovering the full component presentation overwrote the original actual source"
+
+/-! These immutable fixtures use the accepted public declarations and validators.
+They add no rows to the registry used by the reader or the unchanged inputs. -/
+
+open CategoryTheory
+
+private noncomputable def vectorAdditiveFixture (R : RingCat.{0}) (n : ℕ) :
+    ((Modules.CatalogueRegistration.modulesFibreInclusionDeclaration.{0, 0} R ⋙
+      Modules.CatalogueRegistration.modulesAdditiveGroupDeclaration.{0, 0} ⋙
+      Algebra.AdditiveOperations.additiveGroupsMonoid.{0}).obj
+        (Algebra.LinearAlgebra.vectorModule R n)) ≅
+      Algebra.LinearAlgebra.additiveVectors (AddMonCat.of R) n :=
+  CategoryTheory.Iso.refl _
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let some vectors := state.objects.find? (·.id.raw == "obj.modules.vectors")
+    | throwError "the declared module vector family is absent"
+  let some additive := state.objects.find? (·.id.raw == "obj.additive_monoids.vectors")
+    | throwError "the declared additive vector family is absent"
+  let base : ObjectEntry := { additive with
+    id := ⟨"fixture.component.structured_base"⟩, name := "ComponentStructuredBase"
+    refines := none }
+  validateObject state base
+  let stateWithBase : RegistryState := { state with objects := state.objects.push base }
+  let unrelated : ObjectEntry := { vectors with
+    id := ⟨"fixture.component.structured_refinement"⟩, name := "ComponentStructuredRefinement"
+    refines := some
+      { base := base.id
+        route := #[.functor FunctorId.modulesFibreInclusion,
+          .functor FunctorId.modulesAdditiveGroup, .functor FunctorId.additiveGroupsMonoid]
+        identification := ``vectorAdditiveFixture } }
+  validateObject stateWithBase unrelated
+  let alternate : ObjectEntry := { vectors with
+    id := ⟨"fixture.component.vector_alias"⟩, name := "ComponentVectorAlias" }
+  validateObject state alternate
+  let ring ← elabTermAndSynthesize (← `(RingCat.of ℤ)) none
+  let actual ← mkAppM vectors.declaration #[ring, mkNatLit 2]
+  let some category := state.categories.find? (·.id == vectors.category)
+    | throwError "the module vector category is absent"
+  for rows in #[#[unrelated, vectors, alternate], #[alternate, vectors, unrelated]] do
+    let fixture : RegistryState := { stateWithBase with
+      objects := rows ++ stateWithBase.objects.filter (·.id != vectors.id) }
+    if (← componentRefinement? fixture unrelated actual).isSome then
+      throwError "a structured base without components became a set presentation"
+    let mut views := #[]
+    for row in #[vectors, alternate] do
+      let some (application, presentedBase, components) ← componentRefinement? fixture row actual
+        | throwError "an inapplicable structured refinement hid a component alias"
+      unless presentedBase.id.raw == "obj.sets.vectors" &&
+          components.projection == ``Algebra.LinearAlgebra.vectorComponent do
+        throwError "a component alias changed its declared whole family"
+      let named ← (recognizeObjectApplication fixture row category application.explicit
+        #[] application.explicit).run {}
+      let .object handle _ (some (retained, parameters)) .. := named
+        | throwError "the complete component alias lost its selected row"
+      unless retained.id == row.id && parameters.size == 2 &&
+          (← withTransparency .all <| isDefEq handle actual) do
+        throwError "the component alias changed its identity or complete application"
+      for (parameter, expected) in parameters.zip application.explicit do
+        let actualParameter ← (typedParameter (← inferType expected) parameter).run {}
+        unless ← withTransparency .all <| isDefEq actualParameter expected do
+          throwError "the component alias changed a complete dependent parameter"
+      views := views.push named
+    let wrapper ← mkAppM ``id #[actual]
+    let (_, _, _, alternatives, _) ← (coalesceSelectedParameterViews
+      (← inferType actual) wrapper views).run {}
+    unless alternatives.size == 2 && alternatives.any (·.source == vectors.id) &&
+        alternatives.any (·.source == alternate.id) && alternatives.all (·.params.size == 2) do
+      throwError "equivalent declaration aliases did not retain both complete presentations"

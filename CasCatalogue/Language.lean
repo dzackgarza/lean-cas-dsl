@@ -1381,6 +1381,27 @@ def setOf (state : RegistryState) (entry : ObjectEntry) : TermElabM ObjectEntry 
     entry := base
   throwStratum .invalid m!"the refinements of {entry.name} do not reach a set"
 
+/-- Check one declared component refinement at the entire supplied structured
+object. A valid row without a set/component presentation is simply inapplicable;
+its unrelated base cannot obstruct another candidate's reading. -/
+def componentRefinement? (state : RegistryState) (row : ObjectEntry) (actual : Expr) :
+    TermElabM (Option (DirectConstruction.Application × ObjectEntry × ObjectComponents)) :=
+  withoutModifyingState do
+    try
+      let application ← DirectConstruction.instantiate row.declaration #[]
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType application.value) (← inferType actual)) do
+        CategoryContext.exposeStructureParameters application.value
+      unless ← withTransparency .all <|
+          isDefEq (← inferType application.value) (← inferType actual) <&&>
+            isDefEq application.value actual do return none
+      let application ← DirectConstruction.close application
+      let base ← setOf state row
+      let some components := base.components | return none
+      return some (application, base, components)
+    catch error =>
+      if Exception.interpretationKind error == .invalid then return none else throw error
+
 /-- The proof of the decidable proposition `p` by evaluating its decision: `decide p` reduces to
 `true`. The one proof the kernel forms itself; it names no mathematics (`p` is a registered
 row's side condition, such as `k < n` for the point `k` of `Fin n`), and a `p` whose decision does
@@ -3658,6 +3679,16 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
       if params.all (!·.hasMVar) then found := found.push (entry, params)
   let #[(entry, params)] := found
     | throwStratum .invalid m!"{x} is not a unique registered object of {category.name}"
+  recognizeObjectApplication state entry category params known fixedParameters
+
+/-- Reconstruct the dependent parameters of one already selected object row.
+The row identity is carried through construction; declaration aliases do not
+trigger a second name/head lookup or replace that independent selection. -/
+partial def recognizeObjectApplication (state : RegistryState) (entry : ObjectEntry)
+    (category : NamedCategoryEntry) (params : Array Expr)
+    (known : Array Value := #[]) (fixedParameters : Array Expr := #[]) : M Value := do
+  unless entry.category == category.id do
+    throwStratum .invalid "the selected object application changed its registered category"
   -- Its parameters: numerals, or sets (`𝒫(ℤ[x])`), recognized in turn.
   let values ← params.mapM fun p => do
     if let some n ← (Meta.evalNat p).run then return Value.nat n
@@ -3754,7 +3785,7 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         | [] => pure (.object p parameterCategory none none none)
         | _ => throwSemanticAmbiguity m!"several retained constructors give this result parameter: \
             {String.intercalate ", " (constructed.toList.map (·.1.name))}"
-  object state entry.name values (some category)
+  registeredObject state entry values
 
 /-- The named set supplied by the exact registered refinement of a structured object.
 The structured value remains the family's parameter; this viewData stages its elements. -/
@@ -7186,20 +7217,8 @@ partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
       (ObjectEntry × Value × Value × Array Expr × Expr × Expr) := #[]
   for row in state.objects do
     unless row.category == category.id && row.refines.isSome do continue
-    let base ← setOf state row
-    let some components := base.components | continue
-    let application? ← optionalReading <| parameterTrial do
-      let application ← DirectConstruction.instantiate row.declaration #[]
-      unless ← parameterTrial (withTransparency .all <|
-          isDefEq (← inferType application.value) (← inferType actual)) do
-        CategoryContext.exposeStructureParameters application.value
-      unless ← withTransparency .all <|
-          isDefEq (← inferType application.value) (← inferType actual) <&&>
-            isDefEq application.value actual do
-        throwStratum .invalid "this component presentation has a different complete selected object"
-      return ← DirectConstruction.close application
-    let some application := application? | continue
-    let named ← recognize state application.value category #[] application.explicit
+    let some (application, base, components) ← componentRefinement? state row actual | continue
+    let named ← recognizeObjectApplication state row category application.explicit #[] application.explicit
     let presented ← carrierObject named
     let .object presentedCarrier _ (some (presentedBase, parameters)) .. := presented
       | throwStratum .invalid "the component refinement omitted its declared base presentation"
