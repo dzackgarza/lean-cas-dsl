@@ -4317,6 +4317,19 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value) : M Bool := 
           unless ← bindSourceParameter argument value do return false
       return ← isDefEq parameter (← semanticObject actual)
   let actualTerm ← typedParameter (← instantiateMVars (← inferType parameter)) actual
+  -- A direct carrier binder is fixed by this already typed actual argument. Its
+  -- context witnesses cannot supply another value: the final source equation
+  -- would require that value to equal this exact carrier. Recovering hidden
+  -- bundled parameters still needs the witness search below; no projection or
+  -- partially determined parameter takes this path.
+  let unresolved ← instantiateMVars parameter
+  if unresolved.isMVar then
+    let expected ← instantiateMVars (← inferType unresolved)
+    let actualTerm ← instantiateMVars actualTerm
+    if !expected.hasMVar && !expected.hasLevelMVar && (← whnfR expected).isSort &&
+        !actualTerm.hasMVar && !actualTerm.hasLevelMVar then
+      unless ← isTypeCorrect actualTerm do return false
+      return ← isDefEq unresolved actualTerm
   for id in ← getMVars parameter do
     let unknownArgument ← instantiateMVars (mkMVar id)
     unless unknownArgument.isMVar do continue
