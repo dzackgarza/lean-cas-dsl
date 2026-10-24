@@ -577,8 +577,8 @@ partial def encodeParameterViewValue (encode : Expr → TermElabM Nat) :
       ← encodeParameterViewQuestion encode question, toJson (← encode answer)]
 
 def encodeCheckedParameterView (encode : Expr → TermElabM Nat)
-    (view : CheckedParameterView) : TermElabM Json := do
-  let (selected, source, route, alternatives, applications) := view
+    (item : CheckedParameterView) : TermElabM Json := do
+  let (selected, source, route, alternatives, applications) := item
   return Json.arr #[← encodeParameterViewValue encode selected,
     ← encodeParameterViewValue encode source, toJson (route.map reprStr),
     Json.arr (← alternatives.mapM (encodeParameterViewPresentation encode)),
@@ -592,19 +592,19 @@ def orderCheckedParameterViews (views : Array CheckedParameterView) :
     TermElabM (Array CheckedParameterView) := do
   let context ← IO.mkRef (none : Option EvidenceOrder.Context)
   QuestionIdentity.orderByCompleteKey
-    (views.map fun view => (reprStr view.1.declarations, view)) fun view => do
+    (views.map fun item => (reprStr item.1.declarations, item)) fun item => do
       let shared ← match ← context.get with
         | some context => pure context
         | none => do
             let terms ← IO.mkRef (#[] : Array Expr)
-            for view in views do
+            for item in views do
               discard <| encodeCheckedParameterView (fun term => do
                 terms.modify (·.push term)
-                pure 0) view
+                pure 0) item
             let shared ← EvidenceOrder.Context.ofTerms (← terms.get)
             context.set (some shared)
             pure shared
-      shared.key fun encode => encodeCheckedParameterView encode view
+      shared.key fun encode => encodeCheckedParameterView encode item
 
 /-- A judgement is formed with the operands' full terms and formal identities at reading time. -/
 def judgement (relation : String) (operands : Array Value) (route : Array Name := #[]) : Question :=

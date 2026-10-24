@@ -29,20 +29,20 @@ partial def collectParameters (ambient : LocalContext) (visited : IO.Ref ExprSet
       let some declaration := ambient.find? id | return
       parameters.modify (·.insert id)
       collectParameters ambient visited parameters declaration.type
-      if let some value := declaration.value? (allowNondep := true) then
+      if let some value := declaration.value? then
         collectParameters ambient visited parameters value
   | .app function argument =>
       collectParameters ambient visited parameters function
       collectParameters ambient visited parameters argument
   | .lam name type body info | .forallE name type body info =>
       collectParameters ambient visited parameters type
-      withLocalDecl name info type fun variable =>
-        collectParameters ambient visited parameters (body.instantiate1 variable)
+      withLocalDecl name info type fun boundTerm =>
+        collectParameters ambient visited parameters (body.instantiate1 boundTerm)
   | .letE name type value body _ =>
       collectParameters ambient visited parameters type
       collectParameters ambient visited parameters value
-      withLetDecl name type value fun variable =>
-        collectParameters ambient visited parameters (body.instantiate1 variable)
+      withLetDecl name type value fun boundTerm =>
+        collectParameters ambient visited parameters (body.instantiate1 boundTerm)
   | .proj _ _ value => collectParameters ambient visited parameters value
   | _ => pure ()
 
@@ -60,14 +60,14 @@ def Context.ofTerms (terms : Array Expr) : TermElabM Context := do
   for term in terms do collectParameters ambient visited required term
   let required ← required.get
   let parameters := ambient.getFVarIds.filter required.contains
-  let mut prefix : Array Expr := #[]
+  let mut preceding : Array Expr := #[]
   let mut binders : QuestionIdentity.BinderContext := #[]
   for parameter in parameters do
     let declaration := ambient.get! parameter
     let type ← instantiateMVars declaration.type
-    let value ← (declaration.value? (allowNondep := true)).mapM instantiateMVars
-    binders := binders.push (type.abstract prefix, value.map (·.abstract prefix))
-    prefix := prefix.push (.fvar parameter)
+    let value ← declaration.value?.mapM instantiateMVars
+    binders := binders.push (type.abstract preceding, value.map (·.abstract preceding))
+    preceding := preceding.push (.fvar parameter)
   return { parameters, binders }
 
 /-- Encode a field in the common typed context. The existing encoder still rejects
@@ -79,23 +79,21 @@ def Context.encode (context : Context) (table : Realize.TermTable) (term : Expr)
     (term.abstract (context.parameters.map Expr.fvar)) term context.parameters context.binders
 
 /-- BinderContext is a cache key, not serialized evidence. Root every complete local
-type, binder kind, and let value explicitly, each in its already established prefix. -/
+type, binder kind, and visible let value in its established preceding. Unknown ambient
+have-bound declarations are ordinary locals; their opaque values need not be well typed. -/
 def Context.encodeBinders (context : Context) (table : Realize.TermTable) :
     TermElabM Json := do
   let ambient ← getLCtx
   let mut records : Array Json := #[]
   for index in [:context.parameters.size] do
     let declaration := ambient.get! context.parameters[index]!
-    let prefix : Context := {
+    let preceding : Context := {
       parameters := context.parameters.extract 0 index
       binders := context.binders.extract 0 index }
-    let type ← prefix.encode table declaration.type
-    let value ← match declaration.value? (allowNondep := true) with
+    let type ← preceding.encode table declaration.type
+    let value ← match declaration.value? with
       | none => pure (Json.arr #[toJson "local"])
-      | some value =>
-          let nondependent := !declaration.isLet
-          pure (Json.arr #[toJson "let", toJson nondependent,
-            toJson (← prefix.encode table value)])
+      | some value => pure (Json.arr #[toJson "let", toJson (← preceding.encode table value)])
     records := records.push (Json.arr #[toJson (reprStr declaration.binderInfo), toJson type, value])
   return Json.arr records
 
