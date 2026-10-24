@@ -4,8 +4,12 @@ import CasCatalogue.Language
 meta import CasCatalogue.Language
 import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 meta import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
+import LeanCategories.Catalogue.Semantics.Modules.IntegerResidueModules
+meta import LeanCategories.Catalogue.Semantics.Modules.IntegerResidueModules
+import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
+meta import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
 
-open Lean Meta Elab Term CasCatalogue CasCatalogue.Language
+open Lean Meta Elab Command Term CasCatalogue CasCatalogue.Language
 
 /- These engineering observations use complete registered declarations. They do not
 compute backend answers or change the independently supplied assertions. -/
@@ -77,3 +81,63 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     | throwError "the structured presentation was not carried by its declared action"
   unless !edges.isEmpty && edges.size == applications.size do
     throwError "the presentation carrier action lost its complete ordered functor applications"
+
+run_cmd liftTermElabM <| withoutErrToSorry do
+  for text in #["assert 1 + 1 = 2 in PrimeResidues(5, proof(by decide))",
+      "assert 1 * 1 = 1 in PrimeResidues(5, proof(by decide))",
+      "assert 2 * generator(F9x in CommutativeRings) = 2 · generator(F9x in CommutativeRings)"] do
+    withCurrHeartbeats do
+      let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt text
+        | throwError "the selected numeric operation did not parse"
+      let trace ← Trace.new
+      let .homs left right _ proposition _ _ ← (claim {} statement).run { trace := some trace }
+        | throwError "the selected numeric operation lost its element comparison"
+      unless !left.hasMVar && !right.hasMVar && (← isProp proposition) &&
+          (← isTypeCorrect left) && (← isTypeCorrect right) do
+        throwError "a selected numeric operation is not a complete typed question"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let mut scope : Language.Scope := {}
+  for text in #["let R := ℤ in Rings",
+      "let Scommutative := ZMod(5) in CommutativeRings",
+      "let S := view Scommutative along «fun.commutative_rings.ring»()",
+      "let q := map integerCoefficients(Scommutative) along «fun.commutative_rings.ring»()",
+      "let N := RegularModule(S)", "let M := reindex(N, q)"] do
+    let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt text
+      | throwError "the selected module context did not parse"
+    let some (name, value) ← letBinding? statement
+      | throwError "the selected module context lost a binding"
+    scope := scope.insert name value
+  let .ok term := Parser.runParserCategory (← getEnv) `cas_term "M"
+    | throwError "the selected module did not parse"
+  let trace ← Trace.new
+  let original ← (eval scope term).run { trace := some trace }
+  let receiver ← (carrierObject original).run { trace := some trace }
+  let state ← registryState
+  let some action := state.operations.find? (·.name == "•")
+    | throwError "the module scalar action is not registered"
+  let #[application] ← (selectedOperationApplications action.declaration action.category
+      receiver #[]).run { trace := some trace }
+    | throwError "the retained old module competed with the selected restricted module"
+  let actual := application.getAppArgs.back!
+  unless ← withTransparency .all <| isDefEq actual (← (semanticObject original).run {}) do
+    throwError "the scalar operation replaced the selected reindexed module"
+  let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt "assert 2 • 3 = 1 in M"
+    | throwError "the selected module scalar question did not parse"
+  discard <| (claim scope statement).run { trace := some trace }
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let .ok term := Parser.runParserCategory (← getEnv) `cas_term "ZMod(5) in Groups"
+    | throwError "the selected group did not parse"
+  let trace ← Trace.new
+  let receiver ← ((eval {} term) >>= carrierObject).run { trace := some trace }
+  let domain ← (semanticObject receiver).run {}
+  let generic ← (identityAt receiver).run { trace := some trace }
+  let .element result _ ← (power {} (.element generic receiver) 2 (some receiver)).run
+      { trace := some trace, stage := some receiver }
+    | throwError "the literal exponent did not consume the registered power family"
+  let some (source, target) := homEnds? (← inferType result)
+    | throwError "the registered power lost its generalized point"
+  unless (← withTransparency .all <| isDefEq source domain <&&> isDefEq target domain) &&
+      !result.hasMVar && !result.hasLevelMVar && (← isTypeCorrect result) do
+    throwError "the literal power replaced its original generalized domain"

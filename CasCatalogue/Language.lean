@@ -9,6 +9,7 @@ public import CasCatalogue.ProofRefinement
 public import CasCatalogue.EvidencePresentation
 public import CasCatalogue.Admission
 public import CasCatalogue.DirectConstruction
+public import CasCatalogue.DeclaredAdmission
 public import CasCatalogue.SelectedLift
 public import CasCatalogue.CellAction
 public import CasCatalogue.CategoryContext
@@ -1783,8 +1784,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
   | `(cas_term| $x³) => power scope (← eval scope x none ambient?) 3 ambient?
   | `(cas_term| 𝒫($x)) => powerSetOf (← asObject (← eval scope x))
   | `(cas_term| $a → $b) =>
-      return .homSet (← carrierObject (← asObject (← eval scope a)))
-        (← carrierObject (← asObject (← eval scope b)))
+      return .homSet (← asObject (← eval scope a)) (← asObject (← eval scope b))
   | `(cas_term| $t:ident ↦ $e) =>
       match ambient? with
       | some (.homSet X Y) => lambda scope t.getId e X Y
@@ -2176,7 +2176,7 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
     | _ => pure ambient
   let locals ← localGeneratorBindings scope t c X
   withReader (fun context => { context with bound := locals ++ context.bound }) do
-  if let .object _ _ none _ _ := X then
+  if let .object _ _ none none _ := X then
     if let some dataCarrier ← constrainedCarrier? X then
       let value ← eval scope t category? (some dataCarrier)
       if let .element _ source := value then
@@ -2274,6 +2274,37 @@ partial def evalNotation (scope : Scope) (stx : Syntax) : M (Option Value) := do
     return some (← applyNamed state "coefficient" #[← eval scope stx[3], .nat n])
   return none
 
+/-- A lambda supplied to a dependent declaration is read at that declaration's
+complete function type or registered admission interface. No carrier chooses a
+new structured morphism, and the original admitted computational point survives
+the public codec's single-data-field wrapper projections. -/
+partial def selectedTypedParameter (scope : Scope) (expected : Expr)
+    (written : Syntax) : M Expr := do
+  if let `(cas_term| ($body)) := written then
+    return ← selectedTypedParameter scope expected body
+  let isLambda := written.getKind == ``casPatternLambda ||
+    (match written with | `(cas_term| $_:ident ↦ $_) => true | _ => false)
+  unless isLambda do return ← typedParameter expected (← eval scope written)
+  let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwStratum .invalid "a typed map parameter requires its registered category of sets"
+  if let some plan ← DeclaredAdmission.resolve? CategoryId.sets expected true then
+    let domain ← recognize state plan.application.value sets #[] plan.application.explicit
+    let some (_, endpoint) ← inclusionOut? domain
+      | throwStratum .invalid "the registered typed map admission has no underlying data inclusion"
+    let ambient ← inclusionTargetValue domain endpoint sets
+    let admitted ← admit domain (← eval scope written none (some ambient))
+    let value ← typedParameter plan.application.value admitted
+    let projected ← DeclaredAdmission.project plan value
+    Trace.alias (← read).trace value projected
+    return projected
+  let type ← whnfR expected
+  unless type.isForall && !type.bindingBody!.hasLooseBVars do
+    throwStratum .invalid "the typed map parameter has no registered complete admission"
+  let source ← declaredEndpointObject type.bindingDomain! sets #[]
+  let target ← declaredEndpointObject type.bindingBody! sets #[]
+  typedParameter expected (← eval scope written none (some (.homSet source target)))
+
 /-- Explicit category and functor parameters name accepted complete declarations. All other
 parameters use the language's ordinary dependent parameter reader, including formal proofs. -/
 partial def selectedParameterTerms (scope : Scope) (declaration : Name)
@@ -2284,6 +2315,13 @@ partial def selectedParameterTerms (scope : Scope) (declaration : Name)
     throwStratum .invalid "the selected declaration has too many explicit parameters"
   let mut terms := #[]
   for (argument, written) in application.explicit.zip writtenArguments do
+    for parameter in application.arguments do
+      let parameter ← instantiateMVars parameter
+      unless parameter.isMVar do continue
+      let type ← instantiateMVars (← inferType parameter)
+      if !type.hasMVar && (← isClass? type).isSome then
+        if let some instanceValue := (← trySynthInstance type).toOption then
+          discard <| isDefEq parameter instanceValue
     let expected ← instantiateMVars (← inferType argument)
     let named? := match written with
       | `(cas_term| $name:ident) => some (name.getId.toString false, (#[] : Array Syntax))
@@ -2309,7 +2347,7 @@ partial def selectedParameterTerms (scope : Scope) (declaration : Name)
             selected := some value
     let supplied ← match selected with
       | some value => pure value
-      | none => typedParameter expected (← eval scope written)
+      | none => selectedTypedParameter scope expected written
     unless ← isDefEq argument supplied do
       throwStratum .invalid "the selected parameter differs from its dependent declaration slot"
     terms := terms.push (← quoteExpr (← instantiateMVars supplied))
@@ -5542,14 +5580,17 @@ partial def registeredAction (a b : Value) (ambient? : Option Value := none) : M
 action `•` of `a` on `b` (`(6x + 1) dx`), else the registered application of `a` (`M v`). -/
 partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   let sets := #[a, b].filterMap fun | .element _ X => some X | _ => none
-  if let .element .. := a then
+  if #[a, b].all (fun | .element .. | .nat _ => true | _ => false) then
     let inAmbient ← match ambient? with
       | some X => do
           if ← sets.allM fun Y => return (← coercionMap Y X).isSome then pure (some X) else pure none
       | none => pure none
     let common ← match inAmbient with
       | some X => pure (some X)
-      | none => commonSet? sets
+      | none =>
+          if sets.isEmpty then
+            some <$> notationObject "literal.integral.domain"
+          else commonSet? sets
     if let some X := common then
       if ← parameterCompatible (do
           discard <| applyOperation "·" #[← coerceTo a X, ← coerceTo b X] X
@@ -5914,7 +5955,7 @@ partial def forwardNumeralSources (target value : Value) :
 the complete numeral owner. Close that owner before comparing its carrier with the fixed
 coordinate target. All aliases of the same full owner remain in the result's context. -/
 partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
-  let .object carrier category none none _ := X | return none
+  let .object carrier category none _ _ := X | return none
   if carrier.hasMVar || carrier.hasLevelMVar then return none
   let state ← registryState
   let one ← semanticObject (← oneObject)
@@ -6023,8 +6064,6 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       let .object _ category .. := X | unreachable!
       if let some point ← profileReader "numeral forward" (forwardNumeral k X) then
         return point
-      if let some point ← profileReader "numeral context" (contextualNumeral k X) then
-        return point
       -- A complete selected structure supplies a numeral directly, or through an actual
       -- structural action to its registered numeral owner. A matching carrier never supplies
       -- missing structure. Competing inherited numeral constructions must agree as points.
@@ -6055,25 +6094,32 @@ partial def toElement (v : Value) (X : Value) : M Value := do
           let hom ← staged (← homIn (← quoteExpr numeral) one carrier category)
           Trace.record (← read).trace hom (.elementNumeral k carrier selected)
           return .element hom X
-      -- A nullary registered operation can name a point of an anonymous selected structure.
-      -- Its actual terminal source must already be the admitted global-point source.
-      if k == 0 then
-        if ← profileReader "numeral zero operation trial" (parameterCompatible do
-            let result ← applyOperation "0" #[] X
-            return result matches .element ..) then
-          return ← applyOperation "0" #[] X
-        if let some zero := state.morphisms.find? fun morphism =>
-            morphism.name == "0" && morphism.category == category.id then
-          if let .object _ _ (some (_, parameters)) _ _ := X then
-            if ← profileReader "numeral zero family trial" (parameterCompatible do
-                let result ← applyFamily zero.declaration category #[] (some X)
-                  (parameters := parameters)
-                return result matches .element ..) then
-              return ← applyFamily zero.declaration category #[] (some X)
+      -- A constructor may fix a selected result with no numeral of its own while
+      -- retaining the complete source that supplies its points (for example a regular
+      -- module and its scalar ring). Keep the selected result; only an independently
+      -- closed owner may supply a point at that already fixed carrier.
+      if let some point ← profileReader "numeral context" (contextualNumeral k X) then
+        return point
+      -- A numeric token can also name a registered nullary operation. Its actual
+      -- terminal source must have the accepted global-point comparison; the token
+      -- alone never invents a general numeral family on the selected structure.
+      let pointName := toString k
+      if ← profileReader "numeral nullary operation trial" (parameterCompatible do
+          let result ← applyOperation pointName #[] X
+          return result matches .element ..) then
+        return ← applyOperation pointName #[] X
+      if let some point := state.morphisms.find? fun morphism =>
+          morphism.name == pointName && morphism.category == category.id then
+        if let .object _ _ (some (_, parameters)) _ _ := X then
+          if ← profileReader "numeral nullary family trial" (parameterCompatible do
+              let result ← applyFamily point.declaration category #[] (some X)
                 (parameters := parameters)
-          if ← familyLandsIn zero.declaration X then
-            let hom ← zeroElement zero.declaration X
-            return .element (← staged hom) X
+              return result matches .element ..) then
+            return ← applyFamily point.declaration category #[] (some X)
+              (parameters := parameters)
+        if ← familyLandsIn point.declaration X then
+          let hom ← zeroElement point.declaration X
+          return .element (← staged hom) X
       if let some point ← anonymousAdmissionPoint k X then return point
       let .object x category (some (entry, params)) _ _ := X
         | throwStratum .invalid m!"a numeral is an element of a named set"
@@ -6382,6 +6428,22 @@ partial def inclusionTargetValue (D : Value) (endpoint : Expr)
 partial def evalInUsing (scope : Scope) (term targetSyntax : Syntax)
     (proofSyntax : Array Syntax) (category? : Option NamedCategoryEntry := none) : M Value := do
   let target ← carrierObject (← eval scope targetSyntax)
+  if let .object _ category (some (entry, _)) _ _ := target then
+    if entry.admission.isSome then
+      let ambient ← match ← inclusionOut? target with
+        | some (_, endpoint) => some <$> inclusionTargetValue target endpoint category
+        | none => pure none
+      let locals ← localGeneratorBindings scope term targetSyntax (ambient.getD target)
+      return ← withReader (fun context => { context with bound := locals ++ context.bound }) do
+        let value ← eval scope term category? ambient
+        let value ← match ambient, value with
+          | some source, .nat _ => toElement value source
+          | _, _ => pure value
+        let proofs ← proofSyntax.mapM fun argument => do
+          let proof@(.formalProof _) ← eval scope argument
+            | throwStratum .invalid "an admission proof argument is an independent `proof(...)` term"
+          pure proof
+        admit target value proofs
   let some dataCarrier ← constrainedCarrier? target
     | throwStratum .invalid "explicit point proofs require the selected constrained record interface"
   let locals ← localGeneratorBindings scope term targetSyntax dataCarrier
@@ -6428,7 +6490,7 @@ explicit binders after it, each a proposition or data with at most one value (th
 rule): the evidence builds a proof, or the data (`Invertible x`, the inverse of a unit), and the
 admission takes the term it built. An element at a stage (a variable) has no such evidence:
 `t ↦ 1/t` on `ℝ` is not a map, whatever `t` is. -/
-partial def admit (D : Value) (v : Value) : M Value := do
+partial def admit (D : Value) (v : Value) (proofs : Array Value := #[]) : M Value := do
   let .object d category (some (entry, _)) _ _ := D
     | throwStratum .invalid m!"a domain is a named set"
   let some admission := entry.admission
@@ -6479,9 +6541,15 @@ partial def admit (D : Value) (v : Value) : M Value := do
   unless ← isDefEq args[xi]! x do
     throwStratum .invalid m!"the value is not in the set {entry.name} is included in"
   synthesizeInstances args infos
-  for i in hypotheses do
+  unless proofs.size <= hypotheses.size do
+    throwStratum .invalid "too many independent admission proofs were supplied"
+  for index in [:hypotheses.size] do
+    let i := hypotheses[index]!
     let obligation ← instantiateMVars (← inferType args[i]!)
-    unless ← isDefEq args[i]! (← establish evidence obligation m!"not an element of {entry.name}") do
+    let proof ← match proofs[index]? with
+      | some supplied => typedParameter obligation supplied
+      | none => establish evidence obligation m!"not an element of {entry.name}"
+    unless ← isDefEq args[i]! proof do
       throwStratum .invalid m!"the evidence of {entry.name} does not apply"
   let admitted ← instantiateMVars (mkAppN c args)
   if admitted.hasMVar then
@@ -6523,41 +6591,45 @@ partial def sameOperationApplication (left right : Expr) : M Bool := parameterTr
   withTransparency .all <|
     isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right
 
-/-- Instantiate an operation from every complete supplied source at its actual explicit binder.
-All expanded structure fields close before ordinary instance and obligation elaboration. -/
+/-- Instantiate the operation at the owner binder validated by the registry. A selected
+receiver fixes that whole owner; retained constructor parameters may not replace it with a
+different structure on the same carrier. Anonymous declaration-owned coordinates may still
+obtain their owner from their complete supplied context. -/
 partial def selectedOperationApplications (declaration : Name) (owner : CategoryId)
     (receiver : Value) (numerals : Array Nat) : M (Array Expr) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
-  let explicit := (args.zip infos).filterMap fun (arg, info) =>
-    if info.isExplicit then some arg else none
+  let ownerSlot := args.size - 1 - numerals.size
+  let sources := match receiver with
+    | .object _ category origin selected _ =>
+        if selected.isSome || category.id != CategoryId.sets || origin.isSome then #[receiver]
+        else sourceParameterValues receiver
+    | _ => sourceParameterValues receiver
   let mut applications : Array Expr := #[]
-  for source in sourceParameterValues receiver do
-    for slot in [:explicit.size] do
-      let candidate ← try parameterTrial do
-        unless ← bindSelectedReceiver explicit slot source (some owner) do return none
-        let numberParameters ← explicit.filterM fun parameter => do
-          let parameter ← instantiateMVars parameter
-          return parameter.isMVar && (← inferType parameter).isConstOf ``Nat
-        unless numberParameters.size == numerals.size do return none
-        for (parameter, number) in numberParameters.zip numerals do
-          unless ← isDefEq parameter (mkNatLit number) do return none
-        synthesizeInstances args infos
-        for parameter in args do
-          let parameter ← instantiateMVars parameter
-          unless parameter.isMVar do continue
-          let expected ← instantiateMVars (← inferType parameter)
-          unless ← isProp expected do continue
-          let some proof ← decideObligation expected | return none
-          unless ← isDefEq parameter proof do return none
-        let application ← instantiateMVars (mkAppN constant args)
-        if application.hasMVar || application.hasLevelMVar || !(← isTypeCorrect application) then return none
-        return some application
-      catch error =>
-        if (CasCatalogue.Exception.interpretationKind error) == .invalid then pure none else throw error
-      if let some application := candidate then
-        unless ← applications.anyM (sameOperationApplication application) do
-          applications := applications.push application
+  for source in sources do
+    let candidate ← try parameterTrial do
+      unless ← bindSelectedReceiver args ownerSlot source (some owner) do return none
+      let numberParameters := args.extract (ownerSlot + 1) args.size
+      unless numberParameters.size == numerals.size do return none
+      for (parameter, number) in numberParameters.zip numerals do
+        unless (← inferType parameter).isConstOf ``Nat &&
+            (← isDefEq parameter (mkNatLit number)) do return none
+      synthesizeInstances args infos
+      for parameter in args do
+        let parameter ← instantiateMVars parameter
+        unless parameter.isMVar do continue
+        let expected ← instantiateMVars (← inferType parameter)
+        unless ← isProp expected do continue
+        let some proof ← decideObligation expected | return none
+        unless ← isDefEq parameter proof do return none
+      let application ← instantiateMVars (mkAppN constant args)
+      if application.hasMVar || application.hasLevelMVar || !(← isTypeCorrect application) then return none
+      return some application
+    catch error =>
+      if (CasCatalogue.Exception.interpretationKind error) == .invalid then pure none else throw error
+    if let some application := candidate then
+      unless ← applications.anyM (sameOperationApplication application) do
+        applications := applications.push application
   return applications
 
 /-- A selected operation without supplied operands still requires a unique complete application.
@@ -6756,7 +6828,8 @@ partial def member (po : PowerObjectEntry) (X : Value) (x A : Value) : M Value :
 /-- The negation of a decision (`∉`): the negated proposition. -/
 partial def negate (a : Expr) : M Value := return .answer (mkNot a)
 
-/-- `x^k`: the registered power operation with its numeral exponent. -/
+/-- `x^k`: either the registered literal-parameter power or the registered binary
+power family with its exponent supplied at that family's declared coordinate. -/
 partial def power (scope : Scope) (base : Value) (k : Nat) (ambient? : Option Value) : M Value := do
   let _ := scope
   -- `Xⁿ` of a set: its `n`-tuples.
@@ -6767,7 +6840,12 @@ partial def power (scope : Scope) (base : Value) (k : Nat) (ambient? : Option Va
     | .element _ X, _ => pure X
     | _, some X => pure X
     | _, none => notationObject "literal.integral.domain"
-  applyOperation "^" #[← toElement base X] X #[.nat k]
+  let base ← toElement base X
+  if ← parameterCompatible (do
+      discard <| applyOperation "^" #[base] X #[.nat k]
+      pure true) then
+    return ← applyOperation "^" #[base] X #[.nat k]
+  applyNamed (← registryState) "^" #[base, .nat k] (some X)
 
 /-- The identity `X → X`: the generic element of `X` at the stage `X`. -/
 partial def identityAt (X : Value) : M Expr := do
@@ -6867,6 +6945,57 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
             else throw error
         let targetValue := retainObjectContext targetValue (#[X] ++ parameters)
         applyTo (← quoteExpr projection) #[value] targetValue
+  -- An independently supplied complete carrier may already be the domain of a
+  -- published component family. Instantiate only that family's complete type;
+  -- no object name or extra mathematical structure is assigned to the carrier.
+  let mut componentFamilies : Array (Expr × Expr × MorphismEntry) := #[]
+  for entry in state.objects do
+    unless entry.category == category.id do continue
+    let some components := entry.components | continue
+    let candidate ← try parameterTrial do
+      let application ← DirectConstruction.instantiate entry.declaration #[]
+      unless ← withTransparency .all <| isDefEq application.value objectHandle do return none
+      let application ← DirectConstruction.close application
+      let parameters ← application.explicit.mapM quoteExpr
+      let arity ← instantiateMVars (← elabTermAndSynthesize
+        (← `($(mkCIdent components.arity) $parameters*)) none)
+      let family ← instantiateMVars (← elabTermAndSynthesize
+        (← `($(mkCIdent components.projection) $parameters*)) none)
+      if arity.hasMVar || arity.hasLevelMVar || family.hasMVar || family.hasLevelMVar then
+        return none
+      let some row := state.morphisms.find? fun row =>
+          row.declaration == components.projection && row.category == category.id
+        | throwStratum .invalid "the declared component family has no public morphism row"
+      return some (arity, family, row)
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure none else throw error
+    if let some candidate := candidate then
+      let same ← componentFamilies.anyM fun previous => parameterTrial do
+        withTransparency .all <| isDefEq previous.1 candidate.1 <&&>
+          isDefEq (← inferType previous.2.1) (← inferType candidate.2.1) <&&>
+          isDefEq previous.2.1 candidate.2.1
+      unless same do componentFamilies := componentFamilies.push candidate
+  unless componentFamilies.isEmpty do
+    let #[(arity, family, row)] := componentFamilies
+      | throwSemanticAmbiguity "several complete declared component families act on this domain"
+    let some actualCount ← (Meta.evalNat (← withTransparency .all <| whnf arity)).run
+      | throwStratum .invalid "the declared component arity is not determined"
+    unless actualCount == count do
+      throwStratum .invalid m!"the argument has {actualCount} components, but its pattern has {count}"
+    let signature ← whnfR (← inferType family)
+    unless signature.isForall do
+      throwStratum .invalid "the declared component family lost its finite index"
+    return ← (List.range count).toArray.mapM fun ordinal => do
+      let index ← constructionIndex signature.bindingDomain! ordinal
+      let projection ← instantiateMVars (mkApp family index)
+      let some (source, target) := homEnds? (← inferType projection)
+        | throwStratum .invalid "the declared component is not a complete morphism"
+      unless !projection.hasMVar && !projection.hasLevelMVar && (← isTypeCorrect projection) &&
+          (← withTransparency .all <| isDefEq source objectHandle) do
+        throwStratum .invalid "the declared component changed its complete supplied source"
+      Semantic.namedMorphism row projection (← read).trace
+      let targetValue ← declaredEndpointObject target category #[X]
+      applyTo (← quoteExpr projection) #[value] targetValue
   let mut apex := objectHandle.consumeMData
   while apex.isAppOfArity ``id 2 do apex := apex.appArg!.consumeMData
   unless apex.isAppOf ``CategoryTheory.Limits.Cone.pt do
@@ -6903,29 +7032,56 @@ partial def bindPattern (pattern : Syntax) (value : Value) : M (List (Name × Va
       let components ← componentElements value patterns.size
       return (← (patterns.zip components).mapM fun (pattern, value) => bindPattern pattern value).toList.flatten
 
+/-- Form a requested complete morphism through its registered function admission.
+The original endpoints determine the full Hom type; their carriers do not choose a
+new category, scalar action, or proof procedure. -/
+partial def declaredMap (source target original : Value) : M Value := do
+  let sourceContext ← objectContext source
+  let targetContext ← objectContext target
+  unless sourceContext.expression.syntacticEq targetContext.expression &&
+      (← parameterTrial (withTransparency .all <|
+        isDefEq sourceContext.bundle targetContext.bundle)) do return original
+  let sourceObject ← semanticObject source
+  let targetObject ← semanticObject target
+  let expected ← CategoryContext.hom sourceContext sourceObject targetObject
+  let some plan ← DeclaredAdmission.resolve? CategoryId.sets expected | return original
+  let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwStratum .invalid "a declared map admission requires its registered category of sets"
+  let domain ← recognize state plan.application.value sets #[source, target]
+    plan.application.explicit
+  let admitted ← admit domain original
+  let value ← typedParameter expected admitted
+  morphismInContext value sourceObject targetObject sourceContext (source, target)
+
 /-- A map with a destructured domain argument. Its body is read at the one original stage;
 the component variables are its projections, so compositions retain their common domain. -/
 partial def patternMap (scope : Scope) (pattern body : Syntax) (X Y : Value) : M Value := do
   let names := patternNames pattern
   unless names.toList.eraseDups.length == names.size do
     throwStratum .invalid m!"a map argument binds each component name once"
-  let bindings ← bindPattern pattern (.element (← identityAt X) X)
+  let sourceValue ← carrierObject X
+  let targetValue ← carrierObject Y
+  let bindings ← bindPattern pattern (.element (← identityAt sourceValue) sourceValue)
   let result ← withReader (fun ctx =>
-      { ctx with stage := some X, bound := bindings ++ ctx.bound }) do
-    declaredResult (← eval scope body none (some Y)) Y
+      { ctx with stage := some sourceValue, bound := bindings ++ ctx.bound }) do
+    declaredResult (← eval scope body none (some targetValue)) targetValue
   let .element hom target := result
     | throwStratum .invalid m!"the body of a destructured map is not an element of its codomain"
-  let (.object source category .., .object destination ..) := (X, target) | unreachable!
+  let (.object source category .., .object destination ..) := (sourceValue, target) | unreachable!
   let hom ← callableMap category source destination hom
-  return .morphism hom source destination category (some (X, target))
+  declaredMap X Y (.morphism hom source destination category (some (sourceValue, target)))
 
 /-- The map `t ↦ e : X → Y`. -/
 partial def lambda (scope : Scope) (t : Name) (e : Syntax) (X Y : Value) : M Value := do
-  let .element body Y' ← declaredResult (← atStage scope t X e (some Y)) Y
+  let sourceValue ← carrierObject X
+  let targetValue ← carrierObject Y
+  let .element body Y' ← declaredResult
+      (← atStage scope t sourceValue e (some targetValue)) targetValue
     | throwStratum .invalid m!"the body of `{t} ↦ …` is an element of `{shown e}`'s set"
-  let (.object x category _ _ _, .object y _ _ _ _) := (X, Y') | unreachable!
+  let (.object x category _ _ _, .object y _ _ _ _) := (sourceValue, Y') | unreachable!
   let body ← callableMap category x y body
-  return .morphism body x y category (some (X, Y'))
+  declaredMap X Y (.morphism body x y category (some (sourceValue, Y')))
 
 /-- The input object of an element's registered application, after its actual callable
 object fixes the dependent parameters. An inclusion may supply that callable object. -/

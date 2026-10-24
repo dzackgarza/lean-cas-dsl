@@ -3948,8 +3948,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let globalPoint ← Language.globalPoint.run {}
       let action ← Language.functionOf point
       let value := mkApp action globalPoint
-      unless (← withTransparency .all <| isDefEq (← inferType value) target) &&
-          (← withTransparency .all <| isDefEq value e) do
+      unless ← withTransparency .all <| isDefEq (← inferType value) target do
+        throwError "the closed parameter lost its independently selected point carrier"
+      let some projected ← DeclaredAdmission.projectedValue? value (← inferType e)
+        | throwError "the closed parameter has no declared single-data-field extraction"
+      unless ← withTransparency .all <| isDefEq projected e do
         throwError "the closed parameter lost its independently selected point and carrier"
       discard <| Semantic.recordNamedObject selected (some trace)
       let selectedWire ← realize h trace "the selected parameter structure" selected
@@ -4829,12 +4832,15 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
         pure { wire with payload := .computed formal data }
     | .operationApply id parameters _ _ _ =>
         realizeOperationObservation h trace wire id parameters
+    | .admittedPoint _ _ _ original _ _ _ => rebuild #[original]
+    | .constrainedPoint _ _ _ _ _ original => rebuild #[original]
+    | .elementValue point _ _ => rebuild #[point]
     | .morphismComposition _ first second source _ _ => do
         unless tag == some "compose" do return wire
         -- A closed-point composition is already an `apply` invocation. Its returned
         -- datum can itself be a callable and must not be replaced by its formal plan.
         if ← withTransparency .all <| isDefEq source (← closedElementDomain (← registryState)) then
-          return wire
+          return ← rebuild #[second]
         rebuild #[first, second]
     | .morphismTransport _ _ _ receiver => do
         unless tag == some "map" do return wire
