@@ -11,7 +11,7 @@ run_elab do
   let .ok parsed := Parser.runParserCategory (← getEnv) `cas_stmt
     "assert |Sym(3) in Groups| = 6"
     | throwError "the inherited request fixture did not parse"
-  let question ← Language.interpret {} parsed
+  let question ← interpret {} parsed
   let trace ← IO.mkRef question.trace
   let state ← registryState
   let empty ← Harness.empty

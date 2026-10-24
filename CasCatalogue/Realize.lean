@@ -2519,10 +2519,10 @@ partial def realizedObjectParameterAction? (h : Harness) (trace : Trace) (value 
       (state.functors.map fun row => (EdgeRef.functor row.id, row.declaration)) ++
       (state.classifiers.map fun row => (EdgeRef.classifierForget row.id, row.declaration)) do
     unless (action.find? (·.isConstOf declaration)).isSome do continue
-    let matches ← withoutModifyingState do
+    let sameAction ← withoutModifyingState do
       let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
       withTransparency .all <| isDefEq accepted action
-    if matches then candidates := candidates.push edge
+    if sameAction then candidates := candidates.push edge
   let edge ← match candidates with
     | #[] => return none
     | #[edge] => pure edge
@@ -4743,6 +4743,30 @@ def operationApplicationBody (value : Expr) : Expr := Id.run do
   while value.isAppOfArity ``id 2 do value := value.appArg!.consumeMData
   return value
 
+/-- An accepted operation's actual owner is the declaration argument preceding
+its numeral parameters. Its set-valued source and result do not select that owner. -/
+def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry)
+    (application : Expr) : TermElabM Wire := do
+  let state ← registryState
+  let arguments := (operationApplicationBody application).getAppArgs
+  let some receiver := arguments[arguments.size - 1 - entry.numerals]?
+    | throwError "the complete operation lost its declared owner parameter"
+  let some category := state.categories.find? (·.id == entry.category)
+    | throwError "the complete operation lost its accepted owner category"
+  let receiverContext ← CategoryContext.ofNamed category receiver
+  let wire ← try
+      realizeEndpoint h trace "the operation's exact declared owner" receiver
+    catch error =>
+      unless Exception.stratum? error == some .noImplementation do throw error
+      let (data, dependencies) ← realizedParameters h trace #[receiver]
+      let #[data] := data | throwError "the operation's declared owner lost its parameter data"
+      pure ({ form := .diagrams category,
+        payload := (← combinedPayload receiver data dependencies),
+        categoryContext := some receiverContext } : Wire)
+  unless state.accepts (.operation entry) wire.form do
+    throwError "the complete operation's owner representation changed its declared category"
+  return wire
+
 /-- Materialize a retained generalized operation through its existing complete
 callable interface. The source is the original composition argument, not a point
 invented at the terminal object or a recipe recovered from the returned value. -/
@@ -4787,26 +4811,7 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
   unless ← withTransparency .all <| isDefEq originalSource source <&&>
       isDefEq resultDomain domain <&&> isDefEq resultTarget target do
     throwError "the complete operation recipe changed its original composition endpoints"
-  -- The accepted operation signature fixes the owner at the last object binder,
-  -- before its declared numeral parameters. The result's carrier is not its owner:
-  -- an operation on a ring or module is itself a map of underlying sets.
-  let arguments := application.getAppArgs
-  let some receiver := arguments[arguments.size - 1 - entry.numerals]?
-    | throwError "the complete operation recipe lost its declared owner parameter"
-  let some category := state.categories.find? (·.id == entry.category)
-    | throwError "the complete operation recipe lost its accepted owner category"
-  let receiverContext ← CategoryContext.ofNamed category receiver
-  let receiverWire ← try
-      realizeEndpoint h trace "the operation's exact declared owner" receiver
-    catch error =>
-      unless Exception.stratum? error == some .noImplementation do throw error
-      let (data, dependencies) ← realizedParameters h trace #[receiver]
-      let #[data] := data | throwError "the operation's declared owner lost its parameter data"
-      pure { form := .diagrams category,
-        payload := (← combinedPayload receiver data dependencies),
-        categoryContext := some receiverContext : Wire }
-  unless state.accepts (.operation entry) receiverWire.form do
-    throwError "the complete operation's owner representation changed its declared category"
+  let receiverWire ← realizedOperationOwner h trace entry application
   let (parameterData, parameterWires) ← realizedParameters h trace parameters
   let callable : Wire := {
     form := wire.form
@@ -4840,6 +4845,59 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
   let owner ← mergeOwners input.owner? result.owner?
   return { result with payload := computedPayload formal result.json owner }
 
+/-- Materialize an entire declared callable on its own complete domain through
+the existing public generalized-point interface. The identity argument has that
+same domain; no terminal point or sampled graph replaces the original arrow.
+Presentation directions retain their established comparison-invocation format. -/
+def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wire)
+    (address : String) (parameters : Array Json) (dependencies : Array Wire := #[])
+    (inverse : Option Bool := none) : TermElabM Wire := do
+  let formal := wire.value
+  let signature ← inferType formal
+  let (source, target) ← match Language.homEnds? signature with
+    | some endpoints => pure endpoints
+    | none => do
+      let signature ← whnfR signature
+      unless signature.isForall && !signature.bindingBody!.hasLooseBVars do
+        throwError "the complete callable has no fixed full source and target"
+      pure (signature.bindingDomain!, signature.bindingBody!)
+  let state ← registryState
+  let some operation := state.operation? address
+    | throwError "the complete callable has no published operation address"
+  let sourceWire ← realizeCallableEndpoint h trace wire source true
+  let targetWire ← realizeCallableEndpoint h trace wire target false
+  let (arrow, endpoints) ← frameMorphismData h trace source target wire
+  let identity := Json.mkObj [("ctor", "identity"),
+    ("args", Json.arr #[sourceWire.json, sourceWire.json])]
+  let invocation ← match inverse with
+    | some inverse => pure (Backend.PresentationInvocation.encode {
+        parameters, inverse, source := sourceWire.json,
+        target := targetWire.json, argument := identity })
+    | none => pure (Backend.PointInvocation.encode {
+        operation := address, parameters, arrow,
+        domain := sourceWire.json, source := sourceWire.json,
+        target := targetWire.json, argument := identity })
+  let receiver ← match operation with
+    | .operation entry => do
+      let some (.namedCallable _ _ arguments) ← trace.node? formal
+        | throwError "the observed operation lost its complete declaration arguments"
+      let application ← elabTermAndSynthesize
+        (← `($(mkCIdent entry.declaration) $(← arguments.mapM exprToSyntax)*)) none
+      realizedOperationOwner h trace entry application
+    | _ => pure sourceWire
+  let input : Wire := {
+    form := receiver.form
+    payload := (← combinedPayload formal invocation
+      (#[wire, receiver, sourceWire, targetWire] ++ dependencies ++ endpoints)) }
+  let (answer, backend) ← send h address input (completeRequest := true)
+  if let .error message ← ComputationalData.validateEndpointPort formal
+      sourceWire.json targetWire.json answer then
+    malformed backend address answer message
+  let data ← receiveComputationalData h backend address answer true
+  let result : Wire := { wire with payload := .computed formal data, morphismFramed := false }
+  let owner ← mergeOwners input.owner? result.owner?
+  return { result with payload := computedPayload formal result.json owner }
+
 /-- Demand the computational value of an entire arrow. Merely forming a named arrow,
 including one used inside a later point invocation, retains its public descriptor.
 Only this observation demand dispatches that descriptor. Structural composites are
@@ -4863,24 +4921,42 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
     realizeFresh h trace "the observed complete arrow" formal
   let tag := (wire.json.getObjValAs? String "ctor").toOption
   let actual ← match node with
-    | .namedMorphism id _ => do
+    | .namedMorphism id parameters => do
         -- A cached graph or opaque callable is already actual data. Provenance alone
         -- cannot distinguish it from a descriptor whose parameters were computed.
         unless tag == some id.raw do return wire
-        let (answer, backend) ← send h id.raw wire
-        match ← ComputationalData.validatePort formal (← inferType formal) answer with
-        | .error message => malformed backend id.raw answer message
-        | .ok () => pure ()
-        let data ← receiveComputationalData h backend id.raw answer true
-        pure { wire with payload := .computed formal data }
-    | .namedCallable address _ _ => do
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        realizeCallableObservation h trace wire id.raw parameters dependencies
+    | .namedCallable address _ parameters => do
         unless tag == some address do return wire
-        let (answer, backend) ← send h address wire
-        match ← ComputationalData.validatePort formal (← inferType formal) answer with
-        | .error message => malformed backend address answer message
-        | .ok () => pure ()
-        let data ← receiveComputationalData h backend address answer true
-        pure { wire with payload := .computed formal data }
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        realizeCallableObservation h trace wire address parameters dependencies
+    | .presentation id parameters inverse => do
+        unless tag == some "presentation" do return wire
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        realizeCallableObservation h trace wire id.raw parameters dependencies (some inverse)
+    | .cellComponent id parameters constructors inverse receiver => do
+        unless tag == some "cellComponent" || tag == some "constructedCellComponent" do return wire
+        let some entry := (← registryState).cells.find? (·.id == id)
+          | throwError "the observed component is no longer registered"
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        let original ← realize h trace "the complete component's actual receiver" receiver
+        realizeCallableObservation h trace wire (entry.componentAddress constructors)
+          #[Json.arr parameters, original.json, toJson inverse] (dependencies.push original)
+    | .cartesian id parameters _ receiver "hom" => do
+        unless tag == some "cartesianMap" do return wire
+        let some entry := (← registryState).functor? id
+          | throwError "the observed cartesian map is no longer registered"
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        let original ← realize h trace "the complete cartesian map's actual receiver" receiver
+        realizeCallableObservation h trace wire entry.cartesianAddress
+          #[Json.arr parameters, original.json] (dependencies.push original)
+    | .constructionMap id parameters _ _ _ => do
+        unless tag == some "map" do return wire
+        let some entry := (← registryState).constructions.find? (·.id == id)
+          | throwError "the observed construction map is no longer registered"
+        let (parameters, dependencies) ← realizedParameters h trace parameters
+        realizeCallableObservation h trace wire entry.mapAddress parameters dependencies
     | .operationApply id parameters _ _ _ =>
         realizeOperationObservation h trace wire id parameters
     | .admittedPoint _ _ _ original _ _ _ => rebuild #[original]

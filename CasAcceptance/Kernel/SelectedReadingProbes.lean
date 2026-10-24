@@ -141,3 +141,58 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   unless (← withTransparency .all <| isDefEq source domain <&&> isDefEq target domain) &&
       !result.hasMVar && !result.hasLevelMVar && (← isTypeCorrect result) do
     throwError "the literal power replaced its original generalized domain"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let some ringProduct := state.operations.find? fun row =>
+      row.name == "·" && row.category == CategoryId.rings
+    | throwError "the explicit ring product is not registered"
+  let some monoidProduct := state.operations.find? fun row =>
+      row.name == "·" && row.category == CategoryId.monoids
+    | throwError "the inherited monoid product is not registered"
+  let .ok term := Parser.runParserCategory (← getEnv) `cas_term "ℤ in Rings"
+    | throwError "the selected ring did not parse"
+  let trace ← Trace.new
+  let receiver ← ((eval {} term) >>= carrierObject).run { trace := some trace }
+  let ringBindings ← (selectedOperationApplications ringProduct.declaration ringProduct.category
+    receiver #[] (some "·")).run { trace := some trace }
+  let fartherBindings ← (selectedOperationApplications monoidProduct.declaration monoidProduct.category
+    receiver #[] (some "·")).run { trace := some trace }
+  unless ringBindings.size == 1 && fartherBindings.isEmpty do
+    throwError "operation lookup crossed an explicit registered binding on its structural path"
+  let mut selected : Array Expr := #[]
+  for text in #["view (ℤ in Rings) along «fun.rings.multiplicative_monoid»()",
+      "view (view (view (ℤ in Rings) along «fun.rings.additive_group»()) along «fun.additive_groups.to_groups»()) along «fun.groups.monoid»()"] do
+    let .ok term := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "an independently selected operation port did not parse"
+    let receiver ← ((eval {} term) >>= carrierObject).run { trace := some trace }
+    let #[application] ← (selectedOperationApplications monoidProduct.declaration
+      monoidProduct.category receiver #[] (some "·")).run { trace := some trace }
+      | throwError "the explicit monoid port did not retain one whole operation"
+    selected := selected.push application
+  if ← (sameOperationApplication selected[0]! selected[1]!).run {} then
+    throwError "different additive and multiplicative ports were identified by their shared carrier"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let .ok term := Parser.runParserCategory (← getEnv) `cas_term
+      "(s ↦ {rev(5)(x) | x ∈ s}) in 𝒫(Fin(5)) → 𝒫(Fin(5))"
+    | throwError "the generalized direct-image map did not parse"
+  let trace ← Trace.new
+  let value ← (eval {} term).run { trace := some trace }
+  let (arrow, source, target, context, _, _) ← (morphismContext value).run {}
+  let .ok expectedTerm := Parser.runParserCategory (← getEnv) `cas_term "𝒫(Fin(5))"
+    | throwError "the direct-image domain did not parse"
+  let expected ← ((eval {} expectedTerm) >>= semanticObject).run {}
+  unless context.expression.syntacticEq (.atom CategoryId.sets) &&
+      (← withTransparency .all <| isDefEq source expected <&&> isDefEq target expected) &&
+      !arrow.hasMVar && !arrow.hasLevelMVar && (← isTypeCorrect arrow) do
+    throwError "the direct image lost its original full subset domain"
+  let state ← registryState
+  let some power := state.powerObjects.find? (·.directImage.isSome)
+    | throwError "the declared direct-image role is absent"
+  let some row := state.morphisms.find? (fun row => some row.declaration == power.directImage)
+    | throwError "the direct-image role has no public callable signature"
+  unless (← trace.get).toArray.any (fun (_, node) => match node with
+      | .namedMorphism id parameters => id == row.id && parameters.size == 3
+      | _ => false) do
+    throwError "the direct image omitted its complete declared map parameter"

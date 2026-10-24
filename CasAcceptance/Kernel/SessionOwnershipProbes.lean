@@ -54,7 +54,7 @@ run_elab do
     backends := #[{
       name := "session-probe"
       command := "python3"
-      args := #["probe_owned_callable.py", row.id.raw] }]
+      args := #["probe_owned_callable.py", "--materialize-invocation", row.id.raw] }]
     registrations := #[{ operation := row.id.raw, input := row.id.raw, backend := "session-probe" }] }
   let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
     ("CasAcceptance" / "Strata" : System.FilePath).toString

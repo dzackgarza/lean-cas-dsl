@@ -588,8 +588,21 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .morphism entry => if entry.category == form.category then none else notResolved
     | .application entry => if entry.category == form.category then none else notResolved
     | .binder entry => if entry.category == form.category then none else notResolved
-    | .presentation _ | .liftField .. | .liftFactor .. | .construction .. |
-        .cellComponent .. | .cartesian .. => notResolved
+    | .cellComponent entry constructors =>
+        let target := constructors.foldr (fun constructor target =>
+          CategoryExpr.construct constructor #[.category target]) entry.target
+        match state.formExpression? form with
+        | some actual => if actual.syntacticEq target then none else notResolved
+        | none => notResolved
+    | .cartesian entry =>
+        match entry.expression.registrationKind with
+        | .familyReindex family =>
+            match state.formExpression? form with
+            | some actual =>
+                if actual.syntacticEq (.familyTotal family) then none else notResolved
+            | none => notResolved
+        | _ => notResolved
+    | .presentation _ | .liftField .. | .liftFactor .. | .construction .. => notResolved
     | .functor entry =>
         match form with
         | .contextual expression _ =>
@@ -668,6 +681,7 @@ def RegistryState.pointInputAddresses (state : RegistryState) (operation : Opera
     | .binder entry => some (.binder entry)
     | .construction entry _ => state.constructionForm? entry.inputAddress
     | .cellComponent entry constructors => state.componentForm? (entry.componentAddress constructors)
+    | .cartesian entry => state.cartesianForm? entry.cartesianAddress
     | _ => none
   if let some request := request then
     if state.accepts operation request && !addresses.contains request.id then

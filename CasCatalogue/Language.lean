@@ -1806,7 +1806,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
         let P ← powerSetOf base
         return ← applyOperation "∩" #[A, ← comprehension scope t.getId base p] P
       comprehension scope t.getId (← asObject A) p
-  | `(cas_term| {$e | $t:ident ∈ $X}) => imageOf scope e t.getId (← asObject (← eval scope X))
+  | `(cas_term| {$e | $t:ident ∈ $X}) => imageOf scope e t.getId (← eval scope X)
   | `(cas_term| ($f)($args,*)) => apply scope (← eval scope f category?) args.getElems
   | `(cas_term| $x + $y) =>
       -- `p + Y` for a named set `Y` of constants: the coset `{p + c | c ∈ Y}`.
@@ -6605,20 +6605,111 @@ partial def sameOperationApplication (left right : Expr) : M Bool := parameterTr
   withTransparency .all <|
     isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right
 
+/-- Complete sources for the registry's selected-operation binding rule. An explicit
+structure or structural view fixes its own source. A named unstructured set may use only
+its declared refinements; an anonymous coordinate uses its supplied constructor context. -/
+partial def collectOperationSourceValues (state : RegistryState) (pending : List Value)
+    (seen sources : Array Value) : M (Array Value) := do
+  let current :: rest := pending | return sources
+  if seen.any (·.sameSource current) then return ← collectOperationSourceValues state rest seen sources
+  let seen := seen.push current
+  match current with
+  | .object _ _ _ (some selected) _ => collectOperationSourceValues state (selected :: rest) seen sources
+  | .object _ category _ _ _ =>
+      if category.id != CategoryId.sets then
+        return ← collectOperationSourceValues state rest seen (sources.push current)
+      let .object _ _ origin _ data := current | unreachable!
+      if let some (_, source, route, _, _) := data then
+        if !route.isEmpty then return ← collectOperationSourceValues state (source :: rest) seen sources
+      if let some (origin, parameters) := origin then
+        let mut refinements : Array Value := #[]
+        for entry in state.objects.filter (refinesObject state · origin.id) do
+          let some category := state.categories.find? (·.id == entry.category) | continue
+          let candidate ← optionalReading do
+            let value ← Semantic.object entry (← typedParamTerms entry.declaration parameters)
+              (← read).trace
+            unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) do
+              throwStratum .invalid m!"an operation refinement is not completely determined"
+            return Value.object value category (some (entry, parameters)) none none
+          if let some value := candidate then refinements := refinements.push value
+        return ← collectOperationSourceValues state rest seen (sources ++ refinements)
+      if let some (originals, source, _, _, _) := data then
+        return ← collectOperationSourceValues state (originals.toList ++ (source :: rest)) seen sources
+      collectOperationSourceValues state rest seen (sources.push current)
+  | .derivedObject .. => collectOperationSourceValues state rest seen (sources.push current)
+  | .element _ object => collectOperationSourceValues state (object :: rest) seen sources
+  | _ => collectOperationSourceValues state rest seen sources
+
+partial def operationSourceValues (receiver : Value) : M (Array Value) := do
+  collectOperationSourceValues (← registryState) [receiver] #[] #[]
+
+/-- The complete owner images at the first binding on each structural path. The
+upstream registry fixes where name lookup stops; its accepted comparison cells still
+govern route coherence. No carrier equality or category ordering selects a binding. -/
+partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
+    (receiver : Value) : M (Array Value) := do
+  let state ← registryState
+  let some ownerCategory := state.categories.find? (·.id == owner)
+    | throwStratum .invalid m!"the operation's owner category is not registered"
+  letI : Inhabited Route :=
+    ⟨{ source := ownerCategory.expression, target := ownerCategory.expression, steps := #[] }⟩
+  let mut views : Array Value := #[]
+  for source in (← operationSourceValues receiver) do
+    let sourceContext ← objectContext source
+    let original ← semanticObject source
+    let routes := (← routesBetween state sourceContext.expression ownerCategory.expression).filter
+      (state.toSemanticState.isFirstOperationBindingRoute surfaceName)
+    if routes.isEmpty then continue
+    let classes := state.classify routes (fun _ => owner.raw) (fun route => route)
+    let #[selected] := classes
+      | throwSemanticAmbiguity m!"several routes determine this selected operation owner"
+    unless selected.ambiguities.isEmpty do
+      throwSemanticAmbiguity m!"several comparisons determine this selected operation owner"
+    discard <| Semantic.validateRouteComparisons state selected.comparisonWitnesses (some original)
+    let #[route] := selected.sources
+      | throwSemanticAmbiguity m!"the operation owner has no unique directed source route"
+    if route.steps.isEmpty then
+      match source with
+      | .object .. => views := views.push source
+      | _ =>
+          views := views.push (.object original ownerCategory none none
+            (some (#[source], source, #[], #[], #[])))
+      continue
+    let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
+    let (sourceBundle, targetBundle) ← functorCategoryBundles action
+    unless ← withTransparency .all <| isDefEq sourceBundle sourceContext.bundle do
+      throwStratum .invalid m!"the operation route changed its complete selected source"
+    let image ← instantiateMVars (← Semantic.objOf action original)
+    let targetContext : CategoryContext :=
+      { expression := ownerCategory.expression, bundle := (← instantiateMVars targetBundle) }
+    CategoryContext.checkObject targetContext image
+    let applications ← applications.mapM instantiateMVars
+    unless !image.hasMVar && !image.hasLevelMVar &&
+        applications.all (fun value => !value.hasMVar && !value.hasLevelMVar) do
+      throwStratum .invalid m!"the operation route retains incomplete selected parameters"
+    Trace.record (← read).trace image
+      (.contextualRoute sourceContext targetContext route.refs applications original false)
+    views := views.push (.object image ownerCategory none none
+      (some (#[source], source, route.refs, #[],
+        route.refs.zip (applications.map (·.getAppArgs)))))
+  return views
+
 /-- Instantiate the operation at the owner binder validated by the registry. A selected
 receiver fixes that whole owner; retained constructor parameters may not replace it with a
 different structure on the same carrier. Anonymous declaration-owned coordinates may still
 obtain their owner from their complete supplied context. -/
 partial def selectedOperationApplications (declaration : Name) (owner : CategoryId)
-    (receiver : Value) (numerals : Array Nat) : M (Array Expr) := do
+    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) : M (Array Expr) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
   let ownerSlot := args.size - 1 - numerals.size
-  let sources := match receiver with
-    | .object _ category origin selected _ =>
-        if selected.isSome || category.id != CategoryId.sets || origin.isSome then #[receiver]
-        else sourceParameterValues receiver
-    | _ => sourceParameterValues receiver
+  let sources ← match surfaceName with
+    | some name => operationOwnerViews name owner receiver
+    | none => pure <| match receiver with
+      | .object _ category origin selected _ =>
+          if selected.isSome || category.id != CategoryId.sets || origin.isSome then #[receiver]
+          else sourceParameterValues receiver
+      | _ => sourceParameterValues receiver
   let mut applications : Array Expr := #[]
   for source in sources do
     let candidate ← try parameterTrial do
@@ -6680,7 +6771,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         | some row => object state row.name #[] none
         | none => throwStratum .invalid m!"an operation's result object is not registered"
     for application in (← selectedOperationApplications operation.declaration
-        operation.category receiver numerals) do
+        operation.category receiver numerals (some name)) do
       let candidate? ← try parameterTrial do
         let recorder ← Trace.new
         let value ← withReader (fun context => { context with trace := some recorder }) do
@@ -6970,7 +7061,7 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
       let application ← DirectConstruction.instantiate entry.declaration #[]
       unless ← withTransparency .all <| isDefEq application.value objectHandle do return none
       let application ← DirectConstruction.close application
-      let parameters ← application.explicit.mapM quoteExpr
+      let parameters ← (application.explicit.mapM quoteExpr : TermElabM _)
       let arity ← instantiateMVars (← elabTermAndSynthesize
         (← `($(mkCIdent components.arity) $parameters*)) none)
       let family ← instantiateMVars (← elabTermAndSynthesize
@@ -7361,8 +7452,31 @@ partial def throughTerminal (S : Value) (hom : Expr) : M Expr := do
       (.morphismComposition CategoryId.sets terminal hom s one target)
   return composite
 
-/-- `{e | t ∈ X}`, the image of `t ↦ e`. -/
-partial def imageOf (scope : Scope) (e : Syntax) (t : Name) (X : Value) : M Value := do
+/-- `{e | t ∈ X}`, the image of the complete map `t ↦ e`. For a subset varying
+over an outer stage, use its power object's declared direct-image action and compose
+with the original subset map; a generalized subset is never treated as a global point. -/
+partial def imageOf (scope : Scope) (e : Syntax) (t : Name) (domain : Value) : M Value := do
+  if let some (power, X) ← powerSetOf? domain then
+    let some directImage := power.directImage
+      | throwStratum .invalid m!"the registered power object has no declared direct-image action"
+    let .object source category .. := X
+      | throwStratum .invalid m!"the subset's declared ambient is not an object"
+    let .element f Y ← atStage scope t X e none
+      | throwStratum .invalid m!"`{shown e}` is an element"
+    let .object target targetCategory .. := Y
+      | throwStratum .invalid m!"the direct image has no fixed object codomain"
+    unless category.id == targetCategory.id &&
+        (← withTransparency .all <| isDefEq (← inferType f)
+          (← mkAppM ``Quiver.Hom #[source, target])) do
+      throwStratum .invalid m!"the image body is not a whole map on its declared bound carrier"
+    let state ← registryState
+    unless state.morphisms.any (fun row =>
+        row.declaration == directImage && row.category == category.id) do
+      throwStratum .invalid m!"the direct-image action has no registered callable signature"
+    let imageMap := Value.morphism f source target category (some (X, Y))
+    return ← applyFamily directImage category #[domain] (some (← powerSetOf Y))
+      (parameters := #[X, Y, imageMap])
+  let X ← asObject domain
   let .element f Y ← atStage scope t X e none
     | throwStratum .invalid m!"`{shown e}` is an element"
   imageOfMap f X Y

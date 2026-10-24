@@ -9,20 +9,20 @@ permanent assertions, and independent release acceptance are unchanged.
 
 ## Current source combination
 
-The unpublished later container work is missing from the current environment. The
-available conversation record describes changes but does not contain all original
-patch bodies. Work here is reconstruction from that record and surviving published
-source, not byte-for-byte recovery. Reconstruction, builds, and integration run in
-the ChatGPT cloud container. Core2 is not the source of this conversation's container
-transcript and is not the reconstruction workspace.
+The previously unpublished patch bodies remain missing. The current source is
+reconstruction from the surviving record and published checkpoints, followed by
+new integration fixes. It is not described as byte-for-byte recovery. Source,
+builds and real-engine checks remain in the ChatGPT cloud container; Core2 is not
+the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `ed1a9ace764caa9ca1c5e2735f919855a37aca5e` | Generic contexts/actions, structured execution, complete question comparison, portable selected-apex ownership and independent extension proposals; aggregate/runtime verification continues |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `1886a37fb7d2614065dad48e31ff571810018a77` | Complete dependent admission, selected-owner reading, full inherited dispatch, structured execution and independently assessed question records; final coherent verification continues |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `766fc2c20c0f293f7e5f3151584534f40f7af806` | Additive independently chosen extension modules integrated and compiled; source publication is not release acceptance |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `28e447153c408d531f5552b637f91269247851e5` | Complete category, cartesian-map, construction-field and projection-action codecs/docs published; final generated declaration reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `8c3d106f2f10706a8be1ad5b84cf65d3aea346af` | Checked module-map admission, parameterized finite-order presentations, monoid operations and independently chosen extensions; further generic binding/map interfaces are being completed |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `c6e24107ec84481a8240bb3cae5c31f67a098a71` | Complete category, cartesian-map, construction-field and projection-action codecs/docs, strict failure strata and explicit inventory rules; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `836c15217f6951e698398cacd3b96afdc892909d` | New subtree authored from public interfaces without assertion sources, answers or execution outcomes; its own protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -62,22 +62,38 @@ The initial reconstructed interpretation-only export reads all 153 admitted IDs 
 It records its actual older source inputs and must be repeated on the final integrated
 candidate. No protected question baseline or expected answer was changed.
 
-The first real-engine reconstruction run passed 13 of the 17 unchanged demonstration
-assertions. Two later integrated native runs passed 16/17: arithmetic 8/8, finite
-pullback/reuse 1/2, matrix iteration 3/3 and nonidentity F9 presentation transport 4/4.
-The repaired paths retain product-factor interfaces and ordered product-point data.
-The remaining reuse failure was traced to an entirely portable selected apex retaining
-the owner of opaque defining maps in its parent packet. The integrated repair derives
-ownership from the complete selected data and retains the original parent packet for
-later projections. Its focused checks and captured-packet replay pass; the native
-rerun remains pending. The mathematical assertions and old external leaves are unchanged.
+The four unchanged connected real-engine workflows now pass 17/17 assertions,
+with 54 actual dispatches: arithmetic 8/8, finite pullback/product reuse 2/2,
+successive matrix applications 3/3, and nonidentity F9 presentation transport 4/4.
+This precedes the current generic completion batch and must be rerun at the final
+freeze. The portable apex fix retains the complete parent result and derives
+ownership from the selected actual data. Existing leaves and assertions are unchanged.
 
-The independent extension completion source adds 105 labeled questions and separately
-records exact vector-carrier and product-value-module distinctions. These are fixed
-source proposals, not 105 admitted or executed successes. A read-only composition audit
-also found that portable selected-lift packets could be executed again under their
-retained selection key. The execution author is repairing that cache boundary and
-checking complete two-stage factors before the frozen-candidate trials.
+Independent review covers all 153 permanent readings, including all 11 formerly
+unreadable statements. All 142 retained historical statement meanings agree.
+The review checks closed typed graphs and 16,207 metadata references; it is scoped
+to the recorded producer, not final release acceptance. The separate RX05 four-state
+resolver records and RX09 constant-one admission rejection are also independently
+assessed. RX05's third additive-commutative-monoid route remains explicit: the
+comparison's designated multiplicative source is retained, but is not claimed to
+be the primary route of the overall inherited cardinality request.
+
+The fixed extension sources now contain 134 positive questions (105 original plus
+29 independently authored completion questions), with the constant-one negative
+separate. The first export produced 48 complete readings and 86 blocked records.
+All 48 complete meanings were independently reviewed without a new mismatch; the
+86 empty records remain obligations. Initial execution is diagnostic, not a frozen
+pass. Generic repairs address typed map admission, rectangular and destructured
+parameters, selected numerals/owners, complete structural transport, and whole-map
+invocation. Upstream inputs now include an explicit selected-operator binding
+contract, generalized powerset image action and checked group-map admission.
+
+The public request-family audit is in `specs/computational-contract-audit.md`.
+Known fixed-key omissions in explicit nested graph inventories are now rejected.
+Dedicated differential and infinite-subset framing probes are prepared; they and
+the current reader/runtime changes await the coherent batch. Final source locks,
+the generated public API, same-source permanent/workflow reruns, all ten frozen
+extension trials, and compositional evidence remain required before readiness.
 
 Use isolated build outputs under `/tmp` in this environment: workspace synchronization
 restored obsolete generated trace layouts and caused false enum/probe failures; fresh
