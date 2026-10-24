@@ -1,7 +1,7 @@
 /- Copyright (c) 2026 Dzack Garza. Released under Apache 2.0 license. -/
 module
 
-public import CasCatalogue.Language
+public import CasCatalogue.Realize
 public import CasCatalogue.QuestionIdentity
 
 @[expose] public section
@@ -58,5 +58,270 @@ partial def equivalentQuestion (left right : Language.Question) : TermElabM Bool
       equivalentQuestion first otherFirst <&&> equivalentQuestion second otherSecond
   | .negation question, .negation other => equivalentQuestion question other
   | _, _ => return false
+
+/-- Ordered complete typed data, with no supplied type list or serialization. -/
+def equivalentTerms (left right : Array Expr) : TermElabM Bool :=
+  equivalentOperands left right #[] #[]
+
+/-- Compare finite unordered records by an equivalence comparison, retaining multiplicities.
+Hash-map iteration order and the order of alternative parameter presentations have no meaning;
+the routes, arguments and fields inside each record still have their declared order. -/
+def equivalentUnordered {α : Type} (same : α → α → TermElabM Bool)
+    (left right : Array α) : TermElabM Bool := do
+  unless left.size == right.size do return false
+  let mut remaining := right
+  for first in left do
+    let mut found := false
+    let mut rest : Array α := #[]
+    for second in remaining do
+      if found then rest := rest.push second
+      else if ← same first second then found := true
+      else rest := rest.push second
+    unless found do return false
+    remaining := rest
+  return true
+
+/-- A selected parameter retains every complete source presentation, including its
+full structural applications, carrier route and proposition of identification. -/
+def equivalentParameterPresentation (left right : ParameterPresentation) : TermElabM Bool := do
+  unless left.source == right.source && left.sourceCategory == right.sourceCategory &&
+      left.targetCategory == right.targetCategory && left.route == right.route &&
+      left.carrierRoute == right.carrierRoute && left.identifications == right.identifications do
+    return false
+  equivalentTerms left.params right.params <&&>
+    equivalentTerms left.applications right.applications <&&>
+    equivalentTerms #[left.object, left.image, left.identity]
+      #[right.object, right.image, right.identity]
+
+/-- Compare the retained operation itself, independently of its encoded snapshot.
+The outer match is exhaustive: a new trace constructor needs an explicit comparison.
+No argument is erased on the basis of a field name such as `identity` or `admitted`. -/
+def equivalentNode (left right : Node) : TermElabM Bool := do
+  match left with
+  | .object id params =>
+      let .object other otherParams := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams
+  | .parameterTransport source sourceCategory targetCategory route receiver =>
+      let .parameterTransport other otherSource otherTarget otherRoute otherReceiver := right
+        | return false
+      unless source == other && sourceCategory == otherSource &&
+          targetCategory == otherTarget && route == otherRoute do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .structureTransport source target route receiver =>
+      let .structureTransport otherSource otherTarget otherRoute otherReceiver := right
+        | return false
+      unless source == otherSource && target == otherTarget && route == otherRoute do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .retainedRoute source target route applications receiver =>
+      let .retainedRoute otherSource otherTarget otherRoute otherApplications otherReceiver := right
+        | return false
+      unless source == otherSource && target == otherTarget && route == otherRoute do return false
+      equivalentTerms applications otherApplications <&&>
+        equivalentTerms #[receiver] #[otherReceiver]
+  | .proofRefinement classifier sourceCategory targetCategory source action identity =>
+      let .proofRefinement other otherSource otherTarget
+          otherObject otherAction otherIdentity := right
+        | return false
+      unless classifier == other && sourceCategory == otherSource &&
+          targetCategory == otherTarget do return false
+      equivalentTerms #[source, action, identity] #[otherObject, otherAction, otherIdentity]
+  | .parameterEquivalence expected representative sources =>
+      let .parameterEquivalence otherExpected otherRepresentative otherSources := right
+        | return false
+      equivalentTerms #[expected, representative] #[otherExpected, otherRepresentative] <&&>
+        equivalentUnordered equivalentParameterPresentation sources otherSources
+  | .namedMorphism id params =>
+      let .namedMorphism other otherParams := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams
+  | .namedInclusion id category params source target =>
+      let .namedInclusion other otherCategory otherParams otherSource otherTarget := right
+        | return false
+      unless id == other && category == otherCategory do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[source, target] #[otherSource, otherTarget]
+  | .objectField object field category params =>
+      let .objectField other otherField otherCategory otherParams := right | return false
+      unless object == other && field == otherField && category == otherCategory do return false
+      equivalentTerms params otherParams
+  | .powerObjectMap object field params =>
+      let .powerObjectMap other otherField otherParams := right | return false
+      unless object == other && field == otherField do return false
+      equivalentTerms params otherParams
+  | .namedCallable address category params =>
+      let .namedCallable other otherCategory otherParams := right | return false
+      unless address == other && category == otherCategory do return false
+      equivalentTerms params otherParams
+  | .callableRecipe category domain target body =>
+      let .callableRecipe other otherDomain otherTarget otherBody := right | return false
+      unless category == other do return false
+      equivalentTerms #[domain, target, body] #[otherDomain, otherTarget, otherBody]
+  | .admittedPoint object category params original originalCategory source target =>
+      let .admittedPoint other otherCategory otherParams otherOriginal otherOriginalCategory
+          otherSource otherTarget := right | return false
+      unless object == other && category == otherCategory &&
+          originalCategory == otherOriginalCategory do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[original, source, target] #[otherOriginal, otherSource, otherTarget]
+  | .constrainedPoint constructor category domain source target original =>
+      let .constrainedPoint other otherCategory
+          otherDomain otherSource otherTarget otherOriginal := right
+        | return false
+      unless constructor == other && category == otherCategory do return false
+      equivalentTerms #[domain, source, target, original]
+        #[otherDomain, otherSource, otherTarget, otherOriginal]
+  | .presentation id params inverse =>
+      let .presentation other otherParams otherInverse := right | return false
+      unless id == other && inverse == otherInverse do return false
+      equivalentTerms params otherParams
+  | .generator id params =>
+      let .generator other otherParams := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams
+  | .presentationApply id params inverse source target argument =>
+      let .presentationApply other otherParams otherInverse
+          otherSource otherTarget otherArgument := right
+        | return false
+      unless id == other && inverse == otherInverse do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[source, target, argument] #[otherSource, otherTarget, otherArgument]
+  | .operationApply id params operands target selected =>
+      let .operationApply other otherParams otherOperands otherTarget otherSelected := right
+        | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&> equivalentTerms operands otherOperands <&&>
+        equivalentTerms #[target, selected] #[otherTarget, otherSelected]
+  | .operationPoint id params comparison operation target selected =>
+      let .operationPoint other otherParams
+          otherComparison otherOperation otherTarget otherSelected := right
+        | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[comparison, operation, target, selected]
+          #[otherComparison, otherOperation, otherTarget, otherSelected]
+  | .elementNumeral value target selected =>
+      let .elementNumeral other otherTarget otherSelected := right | return false
+      unless value == other do return false
+      equivalentTerms #[target, selected] #[otherTarget, otherSelected]
+  | .elementValue point target selected =>
+      let .elementValue other otherTarget otherSelected := right | return false
+      equivalentTerms #[point, target, selected] #[other, otherTarget, otherSelected]
+  | .productMediator category presentation domain first second =>
+      let .productMediator other otherPresentation otherDomain otherLeft otherRight := right
+        | return false
+      unless category == other do return false
+      equivalentTerms #[presentation, domain, first, second]
+        #[otherPresentation, otherDomain, otherLeft, otherRight]
+  | .morphismComposition category first second source middle target =>
+      let .morphismComposition other otherFirst otherSecond
+          otherSource otherMiddle otherTarget := right
+        | return false
+      unless category == other do return false
+      equivalentTerms #[first, second, source, middle, target]
+        #[otherFirst, otherSecond, otherSource, otherMiddle, otherTarget]
+  | .morphismIdentity category object =>
+      let .morphismIdentity other otherObject := right | return false
+      unless category == other do return false
+      equivalentTerms #[object] #[otherObject]
+  | .arrowProjection receiver =>
+      let .arrowProjection other := right | return false
+      equivalentTerms #[receiver] #[other]
+  | .limitProjection receiver index =>
+      let .limitProjection other otherIndex := right | return false
+      equivalentTerms #[receiver, index] #[other, otherIndex]
+  | .pointView source target route applications argument =>
+      let .pointView otherSource otherTarget otherRoute otherApplications otherArgument := right
+        | return false
+      unless route == otherRoute do return false
+      equivalentTerms applications otherApplications <&&>
+        equivalentTerms #[source, target, argument] #[otherSource, otherTarget, otherArgument]
+  | .morphismTransport source target route receiver =>
+      let .morphismTransport otherSource otherTarget otherRoute otherReceiver := right
+        | return false
+      unless source == otherSource && target == otherTarget && route == otherRoute do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .functor id params receiver =>
+      let .functor other otherParams otherReceiver := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&> equivalentTerms #[receiver] #[otherReceiver]
+  | .binder id params domain body admitted =>
+      let .binder other otherParams otherDomain otherBody otherAdmitted := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[domain, body, admitted] #[otherDomain, otherBody, otherAdmitted]
+  | .arrow category morphism source target =>
+      let .arrow other otherMorphism otherSource otherTarget := right | return false
+      unless category == other do return false
+      equivalentTerms #[morphism, source, target] #[otherMorphism, otherSource, otherTarget]
+  | .literal form literal =>
+      let .literal other otherLiteral := right | return false
+      unless form == other do return false
+      equivalentTerms #[literal] #[otherLiteral]
+  | .method id route receiver =>
+      let .method other otherRoute otherReceiver := right | return false
+      unless id == other && route == otherRoute do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .methodWithLifts id route lifts receiver =>
+      let .methodWithLifts other otherRoute otherLifts otherReceiver := right | return false
+      unless id == other && route == otherRoute && lifts == otherLifts do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .property id route receiver =>
+      let .property other otherRoute otherReceiver := right | return false
+      unless id == other && route == otherRoute do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .limit id diagram lift =>
+      let .limit other otherDiagram otherLift := right | return false
+      unless id == other && lift == otherLift do return false
+      equivalentTerms #[diagram] #[otherDiagram]
+
+/-- Compare every retained keyed operation; neither hashes nor encoded node strings
+serve as the identity, and no operation can disappear because its key was proof-irrelevant. -/
+def equivalentTrace (left right : Std.HashMap Expr Node) : TermElabM Bool :=
+  equivalentUnordered (fun (term, node) (otherTerm, otherNode) =>
+    equivalentTerms #[term] #[otherTerm] <&&> equivalentNode node otherNode)
+    left.toArray right.toArray
+
+/-- Surface spelling is not a selected category's meaning. Its declared expression,
+realization and refinement witness still form part of the retained selection. -/
+def equivalentCategory (left right : NamedCategoryEntry) : Bool :=
+  left.id == right.id && left.declaration == right.declaration &&
+    left.expression.syntacticEq right.expression && left.realization == right.realization &&
+    left.refinementRealization == right.refinementRealization
+
+/-- Compare the assertion that is actually evaluated, including expected decisions and
+the typed data consumed by each computational branch. Display text and the literal form's
+proof procedure do not alter its denotation. A binding is not an assertion question. -/
+def equivalentClaim (left right : Language.Claim) : TermElabM Bool := do
+  match left with
+  | .binding => throwError "a binding has no assertion question to compare"
+  | .judged question prop expected _ =>
+      let .judged other otherProp otherExpected _ := right | return false
+      unless expected == otherExpected do return false
+      equivalentQuestion question other <&&> equivalentTerms #[prop] #[otherProp]
+  | .implemented value =>
+      let .implemented other := right | return false
+      equivalentTerms #[value] #[other]
+  | .literal value category form literal prop _ _ =>
+      let .literal other otherCategory otherForm otherLiteral otherProp _ _ := right | return false
+      unless equivalentCategory category otherCategory && form.id == otherForm.id &&
+          form.category == otherForm.category && form.type == otherForm.type &&
+          form.denotation == otherForm.denotation do return false
+      equivalentTerms #[value, literal, prop] #[other, otherLiteral, otherProp]
+  | .homs first second category prop _ _ =>
+      let .homs otherFirst otherSecond otherCategory otherProp _ _ := right | return false
+      unless equivalentCategory category otherCategory do return false
+      equivalentTerms #[first, second, prop] #[otherFirst, otherSecond, otherProp]
+  | .decision prop expected _ =>
+      let .decision other otherExpected _ := right | return false
+      unless expected == otherExpected do return false
+      equivalentTerms #[prop] #[other]
+
+/-- Independent comparison of the complete prepared request. Neither cached identity,
+display strings, runtime answers nor revision labels participate. This comparison is in
+the current Lean environment; assessing a declaration's meaning across mathematical
+revisions remains an independent obligation and cannot be discharged by a revision label. -/
+def equivalentTypedQuestion (left right : Realize.TypedQuestion) : TermElabM Bool :=
+  equivalentClaim left.claim right.claim <&&> equivalentTrace left.trace right.trace
 
 end CasCatalogue.QuestionIdentity

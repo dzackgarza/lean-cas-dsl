@@ -107,6 +107,20 @@ assert h(-t) = h(t)
 
 ```
 
+## Explicit proof parameters
+
+A proposition-valued parameter of a registered declaration can be supplied as
+`proof(p)`, where `p` is a closed Lean theorem or proof term. The reader checks it
+against that declaration's complete proposition, including its selected parameters.
+This syntax supplies formal input; a computational result does not supply a proof.
+
+For a fixed record type with one data field and proposition-valued remaining fields,
+`t in X using (proof(p), ...)` supplies the constructor's obligations in field order.
+The target `X` and its data-field type must already be determined. A generalized point
+keeps its original domain, and each proof must cover that entire domain rather than
+one sample point. The actual data map remains available for subsequent computations.
+No proof term is sent through the computational port.
+
 ## Polynomials
 
 A named object can expose a distinguished generator through its mathematical declaration.

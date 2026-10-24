@@ -5,6 +5,7 @@ public import CasAcceptance.Kernel.AnonymousApexProbes
 public import CasAcceptance.Kernel.ConstrainedPointProbes
 public import CasAcceptance.Kernel.DependentElaborationProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
+public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.StructuredReconstructionProbes
 
 /- Engineering checks of the generic kernel. Independent extension fixtures are
