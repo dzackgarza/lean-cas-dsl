@@ -1,5 +1,18 @@
 # Reuse record: `cc-dsl-language`
 
+## Reconstructed declared endpoint context (2026-10-24)
+
+The conversation's lost-source record identifies the earlier `14b676e` change:
+every result of `declaredEndpointObject` retains its complete supplied inputs.
+Inspection of `Value.viewData`, `sourceParameterValues`, `recognizedEndpoint?`
+and `declaredFieldEndpoint?` locates the existing owner of this interpreter
+context; no mathematical construction is required. `retainObjectContext`
+extends only the original-input list. It preserves the existing source, route,
+parameter comparisons, full action arguments, selected object and declaration.
+An anonymous endpoint remains anonymous. This reconstructs the recorded change
+against the surviving source; the unavailable original commit is not claimed
+to have been recovered.
+
 ## Complete family parameters in structural applications (2026-10-20)
 
 Corpus queries `CategoryFamilyFibreWitness` and `structure eta reduction`, followed

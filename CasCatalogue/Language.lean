@@ -298,6 +298,20 @@ inductive Value
   | judged (question : Question) (answer : Expr)
   deriving Inhabited
 
+/-- Keep the complete supplied arguments of a declared endpoint. This is context
+retention only: it does not change the object, its selected structure, or any
+existing comparison and action data. -/
+def retainObjectContext (value : Value) (known : Array Value) : Value :=
+  if known.isEmpty then value else
+  match value with
+  | .object handle category origin selected viewData =>
+      let retained := match viewData with
+        | none => (known, value, #[], #[], #[])
+        | some (original, source, route, alternatives, applications) =>
+            (original ++ known, source, route, alternatives, applications)
+      .object handle category origin selected (some retained)
+  | _ => value
+
 /-- The terms a value is (its object, morphism, element or answer), for the question of a judgement
 about it. -/
 partial def Value.terms : Value → Array Expr
@@ -5255,7 +5269,8 @@ partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEn
       throwStratum .invalid m!"the declared product endpoint differs from its registered construction"
     Trace.alias (← read).trace presentation apex
     let source := Value.object apex category none none none
-    return .object apex category none none (some (#[first, second], source, #[], #[], #[]))
+    return retainObjectContext
+      (.object apex category none none (some (#[first, second], source, #[], #[], #[]))) known
   -- An explicit product in the declaration already supplies its construction. There is
   -- no unknown whole structure to discover by repeatedly trying every component carrier.
   -- A selected object's carrier is recognized first unless the endpoint itself is a product.
@@ -5264,15 +5279,16 @@ partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEn
   if category.id == CategoryId.sets && direct.isAppOf ``Prod then
     return ← productEndpoint direct
   if category.id == CategoryId.sets then
-    if let some projected ← declaredFieldEndpoint? state endpoint known then return projected
+    if let some projected ← declaredFieldEndpoint? state endpoint known then
+      return retainObjectContext projected known
   if let some recognized ← recognizedEndpoint? state endpoint category known fixedParameters then
-    return recognized
+    return retainObjectContext recognized known
   let reduced ← whnfR endpoint
   if category.id == CategoryId.sets && reduced.isAppOf ``Prod then
     return ← productEndpoint reduced
   unless ← isTypeCorrect endpoint do
     throwStratum .invalid m!"the declared endpoint is outside its actual type"
-  return .object endpoint category none none none
+  return retainObjectContext (.object endpoint category none none none) known
 
 /-- The target of an actual declared inclusion. A function-space target supplies its exact
 map domain and codomain; it never borrows a named presentation from a matching carrier. -/
