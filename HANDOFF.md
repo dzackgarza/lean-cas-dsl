@@ -17,7 +17,7 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `dd7a448ac1a638882e32aea28b7445ddb577e0aa` | Entire unchanged dependent-reader file and its selected controls now pass; action-source binding passes the staged-numeral consumer; combined action-parameter controls and final execution remain under verification |
+| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `8ea95e605ad481f61e56673161f6ff84f36263fc` | The combined reader, constructor-proof and callable-endpoint consumers pass all 3,803 selected build jobs; unchanged extension bindings and RX10 execution are being checked on this producer |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `82d1370de372a00a86391b74fc2566c9547dfcb6` | Includes checked closed polynomial normalization, cancellation and injective coefficient-map evidence; public declaration signatures are unchanged by these repairs |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `90d7d3f1833cff39b77024dcee2dc43213e623ad` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
@@ -49,7 +49,40 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
-The latest reader build at local `174c0907` / published `1b9d5a8`, mathematics
+The latest combined candidate at local `95227b8` / published `8ea95e6`, mathematics
+`82d1370` and contract `90d7d3f` passes the 28 selected kernel, consumer and public
+mathematical-import targets (3,803 jobs). Its actual core rebuild at `b75dd8f`
+took 347.084 seconds, with peak child RSS 3,227,704 KiB; the regression-only
+follow-up took 9.449 seconds. Both source tuples remained unchanged. The logs
+are `/tmp/kernel-mvp-combined-context-consumers-20261025.log` and
+`/tmp/kernel-mvp-combined-context-controls-20261025.log`, with adjacent complete
+producer records. The ordinary dependent-reader file, constructor-proof controls,
+selected-context and staged-data probes, and strict ambiguity/complete-callable
+endpoint controls all pass. No current native-executable or full-suite outcome
+is inferred from these module builds.
+
+The integrated reader retains closed data parameters through terminal
+precomposition, exposes the actual carrier action's unresolved structure
+parameters, preserves both mapped endpoint views, and limits retained operand
+selections by the requested operation's reachable binding. Constructor proof
+syntax is elaborated at the actual generalized obligation. For an already
+complete callable, an anonymous endpoint may use that callable's public
+`morphismEndpoint` descriptor; ordinary realization still rejects multiple
+distinct retained actions. These mechanisms retain all full-type and ownership
+checks. The additive controls and independent bounded source arguments are in
+the existing compositional review and probe files.
+
+The last complete extension interpretation export, at `5f7f5a2`, produced 94
+complete readings and 40 empty records out of 134 unchanged questions. All 94
+present meanings were independently assessed against the fixed questions and
+public mathematics, including complete universal operation comparisons. Its
+809.869-second exit-one result and unchanged import closure remain distinct from
+the new candidate. The interpretation assessment is in the existing extension
+completion document. The full corrected export and frozen execution trials are
+still required. The unchanged binding diagnostic and RX10 are running against
+`95227b8`; their outcomes must be recorded when those actual runs close.
+
+The earlier reader build at local `174c0907` / published `1b9d5a8`, mathematics
 `82d1370` and contract `90d7d3f` passes the entire unchanged
 `CasAcceptance.DependentReaderProbes`, `Language`, `EvidenceOrder`,
 `SourceParameterBindingProbes` and `SelectedContextOrderProbes`. The recorded

@@ -2758,3 +2758,28 @@ complete witness scan and ambiguity checks. Runtime question budgets, cache
 eligibility, semantic reading order and all permanent assertions are unchanged.
 The independent bounded source review found no concrete defect; integrated
 consumer execution and the final frozen extension trials remain separate work.
+
+## 2026-10-25 — Integrate dependent contexts and complete callable endpoints
+
+The combined reader, constructor-proof and callable-endpoint source at local
+`b75dd8f` / published `81f63d0`, with mathematics `82d1370` and contract `90d7d3f`,
+passes all 28 selected targets and 3,803 build jobs. The actual run took 347.084
+seconds, with peak child RSS 3,227,704 KiB and no source-tuple change. The
+regression-only follow-up at local `95227b8` / published `8ea95e6` also passes
+the selected target set in 9.449 seconds. It strengthens both mapped endpoint
+checks and prevents a vacuous empty-source operation-binding comparison.
+
+The production changes preserve selected carrier source parameters and mapped
+endpoints, recover original closed declaration data through exact terminal
+precomposition, and retain the applicable named operation binding without
+changing explicit selections. Constructor proof syntax receives its full
+generalized condition before elaboration. An anonymous endpoint of a complete
+callable uses that callable's existing public descriptor when it has no exact
+independent presentation; ordinary action-recovery ambiguity remains an error.
+The original dependent-reader assertions and all prior negative controls remain.
+
+Both GitHub checkpoints were fetched afresh and compared with their entire local
+source trees. The build logs and producer records use the
+`kernel-mvp-combined-context-{consumers,controls}-20261025` prefixes. They are
+module/engineering results, not final interpretation, runtime, native-demo or
+frozen-extension outcomes. Those unchanged consumers run separately.
