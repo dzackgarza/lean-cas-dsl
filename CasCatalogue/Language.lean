@@ -2176,12 +2176,16 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
     | _ => pure ambient
   let locals ← localGeneratorBindings scope t c X
   withReader (fun context => { context with bound := locals ++ context.bound }) do
-  if let .object _ _ none none _ := X then
-    if let some dataCarrier ← constrainedCarrier? X then
-      let value ← eval scope t category? (some dataCarrier)
-      if let .element _ source := value then
-        if (← coercionMap source X).isSome then return ← coerceTo value X
-      return ← admitConstrainedPoint X (← toElement value dataCarrier)
+  if let .object _ _ none none data := X then
+    -- An explicit structural view still supplies its original point interpretation,
+    -- even after reaching Sets. Unfolding its carrier into a record must not replace
+    -- the retained source's registered numerals with that record's data field.
+    if !(data.any fun (_, _, route, _, _) => !route.isEmpty) then
+      if let some dataCarrier ← constrainedCarrier? X then
+        let value ← eval scope t category? (some dataCarrier)
+        if let .element _ source := value then
+          if (← coercionMap source X).isSome then return ← coerceTo value X
+        return ← admitConstrainedPoint X (← toElement value dataCarrier)
   match X with
   | .homSet .. => eval scope t category? (some X)
   | .object _ _ (some (entry, _)) _ _ =>
@@ -2288,6 +2292,21 @@ partial def selectedTypedParameter (scope : Scope) (expected : Expr)
   let state ← registryState
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid "a typed map parameter requires its registered category of sets"
+  let type ← whnfR expected
+  if type.isForall && !type.bindingBody!.hasLooseBVars then
+    let source ← declaredEndpointObject type.bindingDomain! sets #[]
+    let target ← declaredEndpointObject type.bindingBody! sets #[]
+    return ← typedParameter expected
+      (← eval scope written none (some (.homSet source target)))
+  if let some (source, target) := homEnds? expected then
+    if (← isType source) && (← isType target) then
+      let context ← CategoryContext.ofNamed sets source
+      if ← parameterTrial (withTransparency .all <|
+          isDefEq (← CategoryContext.hom context source target) expected) then
+        let source ← declaredEndpointObject source sets #[]
+        let target ← declaredEndpointObject target sets #[]
+        return ← typedParameter expected
+          (← eval scope written none (some (.homSet source target)))
   if let some plan ← DeclaredAdmission.resolve? CategoryId.sets expected true then
     let domain ← recognize state plan.application.value sets #[] plan.application.explicit
     let some (_, endpoint) ← inclusionOut? domain
@@ -2298,12 +2317,7 @@ partial def selectedTypedParameter (scope : Scope) (expected : Expr)
     let projected ← DeclaredAdmission.project plan value
     Trace.alias (← read).trace value projected
     return projected
-  let type ← whnfR expected
-  unless type.isForall && !type.bindingBody!.hasLooseBVars do
-    throwStratum .invalid "the typed map parameter has no registered complete admission"
-  let source ← declaredEndpointObject type.bindingDomain! sets #[]
-  let target ← declaredEndpointObject type.bindingBody! sets #[]
-  typedParameter expected (← eval scope written none (some (.homSet source target)))
+  throwStratum .invalid "the typed map parameter has no registered complete admission"
 
 /-- Explicit category and functor parameters name accepted complete declarations. All other
 parameters use the language's ordinary dependent parameter reader, including formal proofs. -/

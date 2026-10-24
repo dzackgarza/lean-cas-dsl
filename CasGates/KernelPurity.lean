@@ -16,6 +16,7 @@ import all CasCatalogue.ConstrainedPoint
 import all CasCatalogue.CategoryContext
 import all CasCatalogue.CellAction
 import all CasCatalogue.DirectConstruction
+import all CasCatalogue.DeclaredAdmission
 import all CasCatalogue.SelectedLift
 import all CasCatalogue.ReindexAction
 import all CasCatalogue.StructuredProjection

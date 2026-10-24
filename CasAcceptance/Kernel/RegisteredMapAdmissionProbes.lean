@@ -23,6 +23,23 @@ run_cmd liftTermElabM <| withoutErrToSorry do
         !plan.application.value.hasMVar && !plan.application.value.hasLevelMVar &&
         plan.projections.isEmpty == !projection do
       throwError "the admission planner lost its exact full type or declared data projection"
+  let pair ← elabTermAndSynthesize (← `(((1 : ℤ), (2 : ℤ)))) none
+  let scalar ← elabTermAndSynthesize (← `(ℤ)) none
+  if (← DeclaredAdmission.projectedValue? pair scalar).isSome then
+    throwError "a multi-field record supplied an unchosen data projection"
+
+run_cmd liftTermElabM <| withoutErrToSorry do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "x ↦ x"
+    | throwError "the ordinary typed parameter did not parse"
+  for termSyntax in #[(← `(ℤ → ℤ)), (← `((ℤ : Type) ⟶ (ℤ : Type)))] do
+    let expected ← elabTermAndSynthesize termSyntax none
+    let trace ← Trace.new
+    let value ← (selectedTypedParameter {} expected parsed).run { trace := some trace }
+    unless ← withTransparency .all <| isDefEq (← inferType value) expected do
+      throwError "the ordinary map parameter changed its demanded signature"
+    if (← trace.get).toArray.any (fun (_, node) => match node with
+        | .admittedPoint .. => true | _ => false) then
+      throwError "an ordinary map parameter acquired an extra admission condition"
 
 run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   let mut scope : Scope := {}

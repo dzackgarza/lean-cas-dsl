@@ -2411,6 +2411,43 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
     else .computed input.value (.inline apexJson)
   return { input with form, payload }
 
+/-- Choose an admitted computational representation of the already fixed full
+operation. An exact source-form registration may implement the declared composite
+in one call; a registration at the operation's owner receives every intervening
+object action. Distinct admitted registrations remain peers. A single registration
+address receives the complete transported packet when it accepts that packet.
+No failed backend call selects a different implementation or changes meaning. -/
+def computationalOperationReceiver (h : Harness) (trace : Trace) (operation : String)
+    (original : Wire) (route : Array EdgeRef) (canonical : Wire) : TermElabM Wire := do
+  let state ← registryState
+  let some declared := state.operation? operation
+    | throwError "the selected computational operation is no longer registered"
+  -- The general alternative retains arbitrary full Arrow endpoints and action
+  -- data. Named presentation normalization belongs only to the legacy candidate.
+  let transported ← computationalApexReceiver trace (← transportImage trace original route)
+  let canonical ← computationalApexReceiver trace canonical
+  let fullAddresses := state.inputAddresses declared transported.form
+  let sourceAddresses := state.inputAddresses declared canonical.form
+  let accepts := fun (input : Wire) (addresses : Array String) (row : Admitted) =>
+    row.registration.operation == operation && addresses.contains row.registration.input &&
+      (input.owner?.isNone || input.owner?.any
+        (fun owner => owner.1 == row.registration.backend))
+  let mut candidates : Array (Wire × Registration) := #[]
+  for row in h.admitted do
+    if accepts transported fullAddresses row then
+      candidates := candidates.push (transported, row.registration)
+    else if accepts canonical sourceAddresses row then
+      candidates := candidates.push (canonical, row.registration)
+  match candidates with
+  | #[(input, _)] => return input
+  | #[] => return transported
+  | _ =>
+      let addresses := candidates.toList.map fun (_, row) =>
+        s!"{row.input} by {row.backend}"
+      throwStratum .ambiguousRealization m!"several admitted registrations compute \
+        the selected composite {operation} ({addresses}); which one is used is a choice \
+        the kernel does not make"
+
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
 set `po.extent X A` that `Language.asObject` forms. -/
 def extentOf? (state : RegistryState) (e : Expr) : Option (PowerObjectEntry × Expr × Expr) := do
@@ -4062,13 +4099,25 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | none => Form.contextual entry.target input.form
       let endpointPresentation ← mapEndpointPresentation F
         (Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]) input.endpointPresentation
+      let objectIso ← mapObjectComparison F input.value input.objectIso
       if let some projected ← projectObjectAction trace entry.source (.functor id)
           F receiver input.json then
         return {
           form
+          objectIso
           endpointPresentation := endpointPresentation
           categoryContext := some context
           payload := (← combinedPayload e projected (#[input] ++ dependencies)) }
+      if entry.structural then
+        let (action, actionDependencies) ← realizedEdgeDescriptor h trace (.functor id) F
+        return {
+          form
+          objectIso
+          endpointPresentation := endpointPresentation
+          categoryContext := some context
+          payload := (← combinedPayload e
+            (Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, input.json])])
+            (#[input] ++ dependencies ++ actionDependencies)) }
       let request := { input with payload := (← combinedPayload input.value (Json.mkObj [("ctor", id.raw),
         ("args", Json.arr args), ("receiver", input.json)]) (#[input] ++ dependencies)) }
       let (answer, backend) ← send h id.raw request
@@ -4583,7 +4632,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           form
           categoryContext := some context
           payload := forwardPayload request e projected }
-      let (json, backend) ← send h id.raw (← computationalApexReceiver trace request) comparisons
+      let request ← computationalOperationReceiver h trace id.raw original route request
+      let (json, backend) ← send h id.raw request comparisons
       let checked ← match target? with
         | some target => validateComputationalObject trace target expected json
         | none => ComputationalData.validatePort expected (← inferType expected) json
@@ -4627,6 +4677,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let plan ← match prepared with
         | .ok plan => pure plan
         | .error message => throwError "{message}"
+      let request ← computationalOperationReceiver h trace id.raw original route request
       let (answer, backend) ← send h id.raw request resolution.comparisons
       match ← validateComputationalObject trace target expected answer with
       | .error message => malformed backend id.raw answer message
@@ -4976,7 +5027,8 @@ partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : E
   let classifier ← classifierInstance classifier
   discard <| elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
     $(← exprToSyntax classifier) $(← exprToSyntax input))) none
-  call h id.raw (← computationalApexReceiver trace request)
+  let request ← computationalOperationReceiver h trace id.raw original route request
+  call h id.raw request
     (mkApp (mkConst ``Option [0]) (mkConst ``Bool)) resolution.comparisons
 
 /-- Whether two closed values of a type with decidable equality are equal: the kernel accepts
