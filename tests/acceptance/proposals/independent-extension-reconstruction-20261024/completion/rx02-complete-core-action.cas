@@ -1,0 +1,44 @@
+-- RX-02 supplement. The complete original Fin 5 and specified reversal.
+-- Sources: [M02], CoreIsomorphisms.finRevIso / finRevCore, and
+-- Independent.InterfaceCompletionTests.twoSubsets_reversal_extent.
+-- No general set map is silently treated as a core arrow.
+let existingFive := Fin(5) in Sets
+let twoElementSubsets := TwoSubsets(existingFive)
+let reversal := presentation(fin_reversal(5))
+let reversalInverse := inverse_presentation(fin_reversal(5))
+let reversalCore := core_rev(5)
+let reverseSubsets := map reversalCore along «fun.core_sets.two_subsets»()
+let twiceCore := reversalCore ∘ reversalCore
+let twiceSubsets := map twiceCore along «fun.core_sets.two_subsets»()
+
+test reconstructed_extensions_20261024.addition.rx02.actual_forward "CoreIsomorphisms.finRevIso_hom: the accepted forward is exactly the old rev(5)":
+  assert reversal = rev(5)
+
+test reconstructed_extensions_20261024.addition.rx02.actual_backward "CoreIsomorphisms.finRevIso_inv: the accepted inverse is the same involution, at the exact endpoints":
+  assert reversalInverse = rev(5)
+
+test reconstructed_extensions_20261024.addition.rx02.nonidentity_input "Fin.rev sends 0 to 4 in Fin 5; this separates the chosen bijection from identity":
+  assert reversal(0) = 4 in existingFive
+
+test reconstructed_extensions_20261024.addition.rx02.core_map_composition "[M02] onCore.map_comp on the actual specified reversal twice":
+  assert twiceSubsets = reverseSubsets ∘ reverseSubsets
+
+test reconstructed_extensions_20261024.addition.rx02.core_identity_action "CoreIsomorphisms.finRevCore_comp and [M02] onCore.map_id, on the entire two-subset object":
+  assert twiceSubsets = id(twoElementSubsets)
+
+test reconstructed_extensions_20261024.addition.rx02.full_inverse_action "Independent.InterfaceCompletionTests.twoSubsets_reversal_twice; both actual map uses are retained":
+  assert reverseSubsets ∘ reverseSubsets = id(twoElementSubsets)
+
+-- The declared object inclusion is the actual Subtype.val into Finset(Fin 5).
+-- This codomain annotation must use that inclusion. The further annotation
+-- uses FiniteSubsets.inclusion into the original power set.
+let forgetCardinality(s) := s in twoElementSubsets → 𝒫_fin(existingFive)
+let extent(s) := forgetCardinality(s) in twoElementSubsets → 𝒫(existingFive)
+let expectedExtent(s) := {reversal(x) | x ∈ extent(s)} in twoElementSubsets → 𝒫(existingFive)
+
+test reconstructed_extensions_20261024.addition.rx02.whole_direct_image "[M02] map_extent for every two-subset, with the complete chosen bijection and original inclusion":
+  assert extent ∘ reverseSubsets = expectedExtent
+
+-- Interpretation retains both actual object inclusions and all ten inputs.
+-- An arbitrary map into Finset, or sampled subset images alone, does not
+-- discharge the original inclusion/direct-image requirement.

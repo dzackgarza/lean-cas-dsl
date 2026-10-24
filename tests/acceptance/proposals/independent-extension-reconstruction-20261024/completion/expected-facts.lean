@@ -8,6 +8,7 @@ public-language computation. This source is not a permanent assertion inventory.
 -/
 import LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 import LeanCategories.Catalogue.Semantics.Foundation.TwoSubsets
+import LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds
 import LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 import LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
 import LeanCategories.Catalogue.Semantics.Algebra.PolynomialPresentations
@@ -18,6 +19,14 @@ open CasCatalogue.Foundation
 open CasCatalogue.Algebra
 open CasCatalogue.Modules
 open CasCatalogue.Modules.Bilinear.Valued
+
+-- The selected second-stage target is definitionally the original source.
+-- Make the already proved monicity available at that exact displayed type.
+local instance : Mono
+    (show DegeneratePlaneLifts.firstObject ⟶
+      (changeValue ℚ (ℚ × ℚ) (LinearMap.fst ℚ ℚ ℚ)).obj
+        DegeneratePlaneLifts.pairedSource from DegeneratePlaneLifts.firstInclusion) :=
+  DegeneratePlaneLifts.firstInclusion_mono
 
 -- RX-01: cardinality forgets the order; the selected relations stay distinct.
 example : Cardinal.mk (PowerSets.linearOrdersForget.toFunctor.obj
@@ -85,7 +94,7 @@ example : ¬ CasCatalogue.Classifier.Holds
 example {R S : RingCat} (f : R ⟶ S) (x : R) :
     LeanCategories.Algebra.ringCarrierMultiplicative.map f x = f.hom x ∧
       LeanCategories.Algebra.ringCarrierAdditive.map f x = f.hom x :=
-  PrimeResidueFields.carrier_routes_map f x
+  ⟨rfl, rfl⟩
 
 example (z : ZMod 5) :
     (LeanCategories.Algebra.ringCarrierComparison.app

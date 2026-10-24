@@ -266,3 +266,35 @@ complete category dictionary and project its actual fields. No object row,
 mathematical definition, comparison, new trace node or wire representation is
 introduced. Complete endpoint data and the original callable remain connected
 through the existing Arrow projection path, including unnamed derived contexts.
+
+Arrow execution first obtains the actual callable. It retains an existing exact
+endpoint computation when available; otherwise the published `MorphismEndpoint`
+descriptor supplies that endpoint from the same callable and owning session.
+Only a missing-computation failure permits this descriptor path. Full hom checks
+retain the original map's category dictionary rather than synthesizing a new one.
+The named and contextual Arrow paths share this rule. The integrated
+`MorphismEndpointProbes` passed, including a map in an unnamed derived Arrow
+context whose endpoint has no separately registered object presentation.
+
+### Actual staged lift dispatch (2026-10-24)
+
+`CompositeLiftProbes` now also executes the public port against the independently
+published scalar-and-form fixture, using `probe_lift_protocol.py` as protocol-only
+scaffolding. Its opaque tokens are arbitrary data-flow witnesses and carry no
+mathematical correctness claim. The selected mathematical objects, complete
+actions, generalized cone domain and compatibility proofs come from the fixture.
+
+The check observes all eight ordered calls for two selected lifts. Each request
+contains the exact preceding returned field prefix and every explicit non-proof
+evidence-family parameter. The second lift consumes the first lift's actual
+object and defining map. Explicit composition retains both completed packets
+without another field call. The two universal-factor calls run from the deepest
+stage outward, passing the first actual reply as the second stage's base map;
+the final typed map retains the original generalized domain, selected final apex
+and live session owner. Reusing the final factor causes no additional dispatch.
+
+The focused execution completed against mathematical fixture `a1e04b78` and
+public contract `8397df1`. The ordinary structured-result, generic-execution,
+computational-transport and portable-reply probes also passed against that
+contract. These are mechanism checks, separate from permanent mathematical
+acceptance and the frozen independent extension trials.

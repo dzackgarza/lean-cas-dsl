@@ -3,6 +3,8 @@ module
 
 import CasContract.Port
 meta import CasContract.Port
+import Lean.Elab.Term
+public meta import Lean.Elab.Term.TermElabM
 
 /-! Actual subprocess checks of transport failures. The fixture supplies no mathematics. -/
 

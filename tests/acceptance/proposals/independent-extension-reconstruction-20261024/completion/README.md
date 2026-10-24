@@ -54,8 +54,10 @@ catalogue:
 ```text
 LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders
 LeanCategories.Catalogue.Semantics.Foundation.TwoSubsets
+LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds
 LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients
 LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions
+LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests
 ```
 
 Imports select mathematics; they are not implementation registrations. The original
