@@ -2455,6 +2455,49 @@ partial def elementExpression (h : Harness) (trace : Trace) (e : Expr) :
       let point ← realize h trace "a point of a closed element" e
       return (Json.mkObj [("ctor", "point"), ("args", Json.arr #[point.json])], #[point])
 
+/-- Retain an exact declared object action even when it occurs only as a parameter
+term. Computed source data and action parameters remain dependencies; a syntactic
+composite is encoded in its original order rather than selecting an inner edge. -/
+partial def realizedObjectParameterAction? (h : Harness) (trace : Trace) (value : Expr) :
+    TermElabM (Option (Json × Array Wire)) := do
+  let mut selected := (← instantiateMVars value).consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  unless selected.isAppOfArity ``Prefunctor.obj 6 do return none
+  let prefunctor := selected.getAppArgs[4]!.consumeMData
+  unless prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 do return none
+  let action := prefunctor.appArg!.consumeMData
+  let source := selected.appArg!
+  if action.isAppOf ``CategoryTheory.Functor.comp then
+    let arguments := action.getAppArgs
+    let intermediate ← Semantic.objOf arguments[arguments.size - 2]! source
+    let nested ← Semantic.objOf arguments.back! intermediate
+    unless ← withTransparency .all <| isDefEq nested value do
+      throwError "the parameter composition changed its original complete object action"
+    let (data, dependencies) ← realizedParameters h trace #[nested]
+    let #[data] := data | throwError "the composed object parameter lost its complete data"
+    return some (data, dependencies)
+  let state ← registryState
+  let mut candidates : Array EdgeRef := #[]
+  for (edge, declaration) in
+      (state.functors.map fun row => (EdgeRef.functor row.id, row.declaration)) ++
+      (state.classifiers.map fun row => (EdgeRef.classifierForget row.id, row.declaration)) do
+    unless (action.find? (·.isConstOf declaration)).isSome do continue
+    let matches ← withoutModifyingState do
+      let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
+      withTransparency .all <| isDefEq accepted action
+    if matches then candidates := candidates.push edge
+  let edge ← match candidates with
+    | #[] => return none
+    | #[edge] => pure edge
+    | _ => throwError "the complete object parameter names several accepted actions"
+  let (descriptor, actionDependencies) ← realizedEdgeDescriptor h trace edge action
+  let (sources, sourceDependencies) ← realizedParameters h trace #[source]
+  let #[sourceData] := sources | throwError "the object parameter lost its original source data"
+  unless ← withTransparency .all <| isDefEq (← Semantic.objOf action source) value do
+    throwError "the object parameter changed its exact declared action"
+  return some (Json.mkObj [("ctor", "functorAction"),
+    ("args", Json.arr #[descriptor, sourceData])], actionDependencies ++ sourceDependencies)
+
 partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array Expr) :
     TermElabM (Array Json × Array Wire) := do
   let mut data := #[]
@@ -2494,6 +2537,9 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
             throwError "the constructed category lost a declared ordered argument"
         data := data.push (Json.mkObj [("ctor", toJson tag),
           ("args", Json.arr #[toJson id, Json.arr arguments])])
+        dependencies := dependencies ++ wires
+      else if let some (image, wires) ← realizedObjectParameterAction? h trace parameter then
+        data := data.push image
         dependencies := dependencies ++ wires
       else data := data.push (← parameterData trace parameter)
   return (data, dependencies)
@@ -4669,6 +4715,8 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     throwError "the complete operation recipe changed its accepted declaration"
   let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun arguments _ =>
     arguments.mapM (·.fvarId!.getBinderInfo)
+  unless application.getAppNumArgs == infos.size do
+    throwError "the complete operation recipe lost its full declaration application"
   let actualParameters := (application.getAppArgs.zip infos).filterMap fun (value, info) =>
     if info.isExplicit then some value else none
   unless actualParameters.size == parameters.size do
@@ -4685,6 +4733,26 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
   unless ← withTransparency .all <| isDefEq originalSource source <&&>
       isDefEq resultDomain domain <&&> isDefEq resultTarget target do
     throwError "the complete operation recipe changed its original composition endpoints"
+  -- The accepted operation signature fixes the owner at the last object binder,
+  -- before its declared numeral parameters. The result's carrier is not its owner:
+  -- an operation on a ring or module is itself a map of underlying sets.
+  let arguments := application.getAppArgs
+  let some receiver := arguments[arguments.size - 1 - entry.numerals]?
+    | throwError "the complete operation recipe lost its declared owner parameter"
+  let some category := state.categories.find? (·.id == entry.category)
+    | throwError "the complete operation recipe lost its accepted owner category"
+  let receiverContext ← CategoryContext.ofNamed category receiver
+  let receiverWire ← try
+      realizeEndpoint h trace "the operation's exact declared owner" receiver
+    catch error =>
+      unless Exception.stratum? error == some .noImplementation do throw error
+      let (data, dependencies) ← realizedParameters h trace #[receiver]
+      let #[data] := data | throwError "the operation's declared owner lost its parameter data"
+      pure { form := .diagrams category,
+        payload := (← combinedPayload receiver data dependencies),
+        categoryContext := some receiverContext : Wire }
+  unless state.accepts (.operation entry) receiverWire.form do
+    throwError "the complete operation's owner representation changed its declared category"
   let (parameterData, parameterWires) ← realizedParameters h trace parameters
   let callable : Wire := {
     form := wire.form
@@ -4704,9 +4772,10 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     target := targetWire.json
     argument := argumentData }
   let input : Wire := {
-    form := match wire.form with | .element selected => selected | other => other
+    form := receiverWire.form
     payload := (← combinedPayload formal invocation.encode
-      (#[callable, argumentWire, domainWire, sourceWire, targetWire] ++ parameterWires ++ endpoints)) }
+      (#[receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
+        parameterWires ++ endpoints)) }
   let (answer, backend) ← send h id.raw input (completeRequest := true)
   let checked ← if ← withTransparency .all <| isDefEq domain (← closedElementDomain state) then
     ComputationalData.validateElementAt target targetWire.json (← pointResultValue state formal) answer

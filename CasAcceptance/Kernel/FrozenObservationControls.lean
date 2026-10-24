@@ -270,7 +270,11 @@ private def observeRejectedAdmission : TermElabM Json := do
   unless nonSummable.isAppOfArity ``Not 1 && noAdmission.isAppOfArity ``Not 1 do
     throwError "the independently published negative theorems changed their propositions"
   let expected := nonSummable.getAppArgs[0]!
-  let expectedFunction := expected.getAppArgs.back!
+  -- Summable's final argument is its selected summation filter. The complete
+  -- family immediately precedes that filter; it is not the final argument.
+  unless expected.isAppOfArity ``Summable 6 do
+    throwError "the independent nonsummability theorem has a different complete signature"
+  let expectedFunction := expected.getAppArgs[4]!
   let existential := noAdmission.getAppArgs[0]!
   unless existential.isAppOfArity ``Exists 2 do
     throwError "the independent admission theorem no longer fixes its exact domain"

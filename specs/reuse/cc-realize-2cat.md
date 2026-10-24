@@ -157,3 +157,24 @@ accepted nonidentity polynomial comparison with opaque callable data, and an
 anonymous wrong-sized but complete computational apex. They check protocol and
 data flow, never a leaf's mathematical correctness. No permanent acceptance
 assertion is changed.
+
+### Generalized operation observation
+
+Registry `validateOperation` fixes the owning object at the declaration's last
+object argument before its declared numeral parameters. Whole-callable observation
+uses that exact actual argument and its accepted complete category to select the
+computational registration. The operation's result carrier does not replace that
+owner: a ring or module operation has an underlying map of sets. Original parameter
+data, generalized domain, input pairing and target remain the complete existing
+`PointInvocation`, with all actual dependencies retained. The default engineering
+probe uses an infinite-domain map and a real opaque process reply, so a finite
+graph fallback or formal recipe alone cannot satisfy materialization.
+
+An owner can occur only as a parameter of that operation, without a standalone
+trace node. The shared parameter encoder retains its actual registered object
+action and ordered composition. Its source and each action parameter pass through
+the same computed-data lookup before formal descriptor encoding. This supplies
+the owner request without demanding a separate observation of the functor image,
+and preserves live ownership contributed by an actual computed source. The
+engineering control separately checks that an untraced action contains its cached
+source data and owner instead of reconstructing the source's formal descriptor.

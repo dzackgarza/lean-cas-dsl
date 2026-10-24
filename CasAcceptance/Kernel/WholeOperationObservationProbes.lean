@@ -26,6 +26,48 @@ run_elab do
   let state ← registryState
   let some row := state.operations.find? (·.id == operation)
     | throwError "the recipe's accepted operation is absent"
+  let composition := operationApplicationBody body
+  unless composition.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 do
+    throwError "the recipe lost its original operation application"
+  let declaration := operationApplicationBody composition.getAppArgs[6]!
+  let arguments := declaration.getAppArgs
+  let receiver := arguments[arguments.size - 1 - row.numerals]!
+  unless receiver.isAppOfArity ``Prefunctor.obj 6 do
+    throwError "the selected-owner fixture lost its actual registered object action"
+  let originalOwner := receiver.appArg!
+  let some sourceOwner := state.objects.find? (fun entry =>
+      originalOwner.getAppFn.constName? == some entry.declaration)
+    | throwError "the selected-owner fixture lost its exact declared source object"
+  let parameterHarness ← Harness.empty
+  let parameterTrace ← Trace.new
+  let actualOwnerData := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual-owner"])]
+  let actualOwner : Wire := {
+    form := .object sourceOwner
+    payload := .computed originalOwner (.owned "retained-source-session" 17 actualOwnerData) }
+  parameterHarness.results.modify (·.insert originalOwner actualOwner)
+  let (parameterData, dependencies) ← realizedParameters parameterHarness parameterTrace #[receiver]
+  let #[parameterData] := parameterData
+    | throwError "the untraced owner parameter lost its complete descriptor"
+  let .ok ("functorAction", #[_, sourceData]) := ComputationalData.envelope parameterData
+    | throwError "the untraced owner parameter erased its declared action"
+  unless sourceData == actualOwnerData && dependencies.any (fun wire =>
+      wire.value == originalOwner && wire.owner? == actualOwner.owner?) do
+    throwError "the object action parameter replaced computed source data or dropped its owner"
+  let firstAction := receiver.getAppArgs[4]!.appArg!
+  let laterAction ← Semantic.edgeFunctor state (.functor ⟨"fun.rings.multiplicative_monoid"⟩)
+  let compositeAction ← mkFunctorComp firstAction laterAction
+  let compositeImage ← Semantic.objOf compositeAction originalOwner
+  let (compositeData, compositeDependencies) ←
+    realizedParameters parameterHarness parameterTrace #[compositeImage]
+  let #[compositeData] := compositeData
+    | throwError "the composite owner parameter lost its whole data"
+  let .ok ("functorAction", #[_, inner]) := ComputationalData.envelope compositeData
+    | throwError "the composite parameter erased its second declared action"
+  let .ok ("functorAction", #[_, original]) := ComputationalData.envelope inner
+    | throwError "the composite parameter erased its first declared action"
+  unless original == actualOwnerData && compositeDependencies.any (fun wire =>
+      wire.value == originalOwner && wire.owner? == actualOwner.owner?) do
+    throwError "the composed parameter changed its actual source data or session owner"
   unless operands.size == row.arity && operands.size == 2 do
     throwError "the generalized recipe lost its complete original operands"
   unless !(← withTransparency .all <| isDefEq domain (← closedElementDomain state)) do
@@ -55,6 +97,8 @@ run_elab do
       throwError "materialization changed the original complete formal map"
     let #[sent] ← observations.get
       | throwError "the one generalized operation was not actually dispatched exactly once"
+    unless (sent.getObjValAs? String "registrationInput").toOption == some row.category.raw do
+      throwError "the generalized operation did not use its declared owner's generic registration"
     let .ok request := sent.getObjVal? "request" | throwError "the dispatch lost its request"
     let .ok invocation := Backend.PointInvocation.decode request
       | throwError "the complete operation did not use the existing public PointInvocation"

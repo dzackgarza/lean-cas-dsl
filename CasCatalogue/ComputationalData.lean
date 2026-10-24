@@ -365,6 +365,9 @@ partial def validatePoint (schema : PointSchema) (json : Json) :
           if seen.contains point then return .error "a computational point inventory repeats a key"
           seen := seen.push point
           if let .error message ← validatePoint domain point then return .error message
+        if let some fixed := independentKeys then
+          unless points.size == fixed.size && fixed.all points.contains do
+            return .error "the callable inventory differs from its independently fixed domain"
         pure (some points, graph)
       else pure (independentKeys, json)
     let .ok pairs := graph.getArr? | return .error "a computational function field requires a graph"

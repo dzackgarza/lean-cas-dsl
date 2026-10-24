@@ -9,6 +9,23 @@ open CasCatalogue CasCatalogue.Language
 /- Engineering probes only: complete request types, retained source contexts, ambiguity,
 and literal shape. These do not compute answers or modify the permanent assertions. -/
 
+run_cmd liftTermElabM <| withoutErrToSorry do
+  for text in #["let identity(x) := x in ℤ → ℤ",
+      "let first((a, b)) := a in (ℤ × ℤ) → ℤ",
+      "let last(((a, b), c)) := c in ((ℤ × ℤ) × ℤ) → ℤ",
+      "let first(a, b) := a in (ℤ × ℤ) → ℤ"] do
+    withCurrHeartbeats do
+      let .ok statement := Parser.runParserCategory (← getEnv) `cas_stmt text
+        | throwError "a function binding pattern failed to parse: {text}"
+      let some (_, term) ← letBinding? statement
+        | throwError "the function binding lost its complete argument pattern: {text}"
+      let trace ← Trace.new
+      let value ← (eval {} term).run { trace := some trace }
+      let .morphism hom .. := value
+        | throwError "the function binding failed to form its whole map: {text}"
+      unless !hom.hasMVar && !hom.hasLevelMVar && (← isTypeCorrect hom) do
+        throwError "the function binding has an incomplete declared map: {text}"
+
 /- A category selection reads the constructor's registered name before its dependent
 arguments. An object parameter cannot be parsed as a numeral by that metadata lookup. -/
 run_cmd liftTermElabM <| withoutErrToSorry do
@@ -117,9 +134,11 @@ run_cmd liftTermElabM <| withoutErrToSorry do
   let scalar ← (object state "ℤ" #[] (some rings)).run {}
   let vector ← elabTermAndSynthesize (← `(Fin 2 → ℤ)) none
   let matrix ← elabTermAndSynthesize (← `(Fin 2 → Fin 3 → ℤ)) none
+  let namedMatrix ← elabTermAndSynthesize (← `(Matrix (Fin 1) (Fin 2) ℤ)) none
   for (type, positive, negative) in #[
       (vector, "(1, -2)", "(1, -2, 3)"),
-      (matrix, "[1, 2, 3; 4, 5, 6]", "[1, 2; 3, 4]")] do
+      (matrix, "[1, 2, 3; 4, 5, 6]", "[1, 2; 3, 4]"),
+      (namedMatrix, "[1, 0]", "[1]")] do
     let target := retainObjectContext (.object type sets none none none) #[scalar]
     withCurrHeartbeats do
       let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term positive

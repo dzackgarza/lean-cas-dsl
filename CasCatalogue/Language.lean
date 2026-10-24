@@ -285,7 +285,7 @@ declare_syntax_cat cas_stmt
 syntax "let " ident " := " cas_term : cas_stmt
 syntax "let " ident " : " cas_term " := " cas_term : cas_stmt
 /-- `let f(t) := e in X → Y`: `let f := t ↦ e in X → Y`. -/
-syntax "let " ident noWs "(" ident ")" " := " cas_term : cas_stmt
+syntax (name := casLetPattern) "let " ident noWs "(" cas_term ")" " := " cas_term : cas_stmt
 syntax (name := casLetArgs) "let " ident noWs "(" ident ", " ident,+ ")" " := " cas_term : cas_stmt
 syntax (priority := high) "assert " &"implemented " cas_term : cas_stmt
 syntax "assert " cas_term : cas_stmt
@@ -1659,6 +1659,14 @@ mutual
 partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategoryEntry := none)
     (ambient? : Option Value := none) : M Value := do
   let ctx ← read
+  -- Accepted comparisons and selected constructions are semantic inputs even when
+  -- the caller does not request an execution trace. Keep their local records in
+  -- an isolated reading; a speculative caller's trace and cache remain untouched.
+  if ctx.trace.isNone then
+    let trace ← Trace.new
+    return ← withReader (fun context =>
+      { context with trace := some trace, closedTerms := none })
+      (eval scope stx category? ambient?)
   let cache? := if category?.isNone && ambient?.isNone && ctx.stage.isNone &&
       ctx.bound.isEmpty then ctx.closedTerms else none
   if let some cache := cache? then
@@ -4869,9 +4877,11 @@ coordinate. A named object's declared components may retain a more specific coor
 partial def finiteFunctionContext (target : Value) : M (Option (Nat × Value)) := do
   let .object handle category origin _ _ := target | return none
   unless category.id == CategoryId.sets do return none
-  let functionType ← whnfR handle
+  -- A declared representation may be a non-reducible type synonym. Read its
+  -- actual function shape without inventing an alias or selecting new structure.
+  let functionType ← withTransparency .all <| whnf handle
   unless functionType.isForall && !functionType.bindingBody!.hasLooseBVars do return none
-  let indexType ← whnfR functionType.bindingDomain!
+  let indexType ← withTransparency .all <| whnf functionType.bindingDomain!
   unless indexType.isAppOfArity ``Fin 1 do return none
   let length ← instantiateMVars indexType.appArg!
   if length.hasMVar || length.hasLevelMVar then
@@ -6949,6 +6959,49 @@ partial def callableInput (declaration : Name) (category : NamedCategoryEntry)
     throwStratum .invalid m!"the selected callable does not determine its complete input object"
   declaredEndpointObject input category #[owner]
 
+/-- The actual carrier action on a complete selected morphism. This supplies its
+function action on a generalized set-valued input without changing its structure. -/
+partial def carrierMorphism (value : Value) : M Value := do
+  let (hom, source, target, context, sourceValue, targetValue) ← morphismContext value
+  let sourceCarrier ← carrierObject sourceValue
+  let targetCarrier ← carrierObject targetValue
+  let .object sourceObject sets .. := sourceCarrier
+    | throwStratum .invalid "a generalized map needs its declared source carrier"
+  let .object targetObject targetSets .. := targetCarrier
+    | throwStratum .invalid "a generalized map needs its declared target carrier"
+  unless sets.id == targetSets.id do
+    throwStratum .invalid "the generalized map has different carrier categories"
+  if context.expression.syntacticEq sets.expression then return value
+  let state ← registryState
+  let routes ← routesBetween state context.expression sets.expression
+  let classes :=
+    letI : Inhabited Route :=
+      ⟨{ source := context.expression, target := sets.expression, steps := #[] }⟩
+    state.classify routes (fun _ => sets.id.raw) (fun route => route)
+  let #[cls] := classes
+    | throwSemanticAmbiguity "the generalized map has no unique accepted carrier action"
+  unless cls.ambiguities.isEmpty do
+    throwSemanticAmbiguity "the generalized map's carrier action has unresolved comparisons"
+  discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some source)
+  let #[route] := cls.sources
+    | throwSemanticAmbiguity "the generalized map has several directed carrier actions"
+  let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
+  let (sourceBundle, targetBundle) ← functorCategoryBundles action
+  unless ← withTransparency .all <| isDefEq sourceBundle context.bundle do
+    throwStratum .invalid "the carrier action changed the generalized map's source category"
+  let mapped ← instantiateMVars (← Semantic.mapOf action hom)
+  let targetContext : CategoryContext := {
+    expression := sets.expression, bundle := (← instantiateMVars targetBundle) }
+  CategoryContext.checkMorphism targetContext mapped sourceObject targetObject
+  unless ← withTransparency .all <|
+      isDefEq (← Semantic.objOf action source) sourceObject <&&>
+      isDefEq (← Semantic.objOf action target) targetObject do
+    throwStratum .invalid "the carrier action changed the generalized map's complete endpoints"
+  Trace.record (← read).trace mapped
+    (.contextualRoute context targetContext route.refs
+      (← applications.mapM instantiateMVars) hom true)
+  return .morphism mapped sourceObject targetObject sets (some (sourceCarrier, targetCarrier))
+
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
   -- A complete categorical map can be applied to an original generalized map.
@@ -6964,7 +7017,22 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
       if let some argument := candidate then
         if (argument matches .morphism ..) || (argument matches .derivedMorphism ..) then
-          let (second, middle, target, context, _, targetValue) ← morphismContext f
+          let (_, _, _, functionContext, _, _) ← morphismContext f
+          let (_, _, _, argumentContext, _, _) ← morphismContext argument
+          let (function, argument) ←
+            if functionContext.expression.syntacticEq argumentContext.expression then
+              pure (f, argument)
+            else do
+              let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+                | throwStratum .invalid "the registered set category is absent"
+              unless functionContext.expression.syntacticEq sets.expression ||
+                  argumentContext.expression.syntacticEq sets.expression do
+                throwStratum .invalid "the complete maps have different selected composition categories"
+              let function ← carrierMorphism f
+              let argument ← withReader (fun context => { context with trace := some temporary })
+                (carrierMorphism argument)
+              pure (function, argument)
+          let (second, middle, target, context, _, targetValue) ← morphismContext function
           let (first, source, actualMiddle, sourceContext, sourceValue, _) ← morphismContext argument
           unless context.expression.syntacticEq sourceContext.expression &&
               (← withTransparency .all <| isDefEq context.bundle sourceContext.bundle) &&
@@ -7383,9 +7451,27 @@ def comparands (scope : Scope) (l r : Syntax) : M (Value × Value) := do
       else pure (left, right)
   | _, _ => pure (left, right)
 
+/-- Bind one original argument, possibly destructured, through the ordinary map reader. -/
+partial def patternAbstraction (pattern body : Syntax) : TermElabM (TSyntax `cas_term) := do
+  let body : TSyntax `cas_term := ⟨body⟩
+  match pattern with
+  | `(cas_term| $name:ident) => `(cas_term| $name:ident ↦ $body)
+  | `(cas_term| ($inner)) => patternAbstraction inner body
+  | _ =>
+      unless pattern.getKind == ``casTuple do
+        throwStratum .invalid "a map argument pattern contains only names and component tuples"
+      return ⟨mkNode ``casPatternLambda (pattern.getArgs ++ #[mkAtom "↦", body.raw])⟩
+
 /-- The name and term a `let` binds: `let x := t`; `let x : T := t` binds `t in T`;
 `let f(t) := e in X → Y` binds `(t ↦ e) in X → Y`. -/
 def letBinding? (stx : Syntax) : TermElabM (Option (Name × Syntax)) := do
+  if stx.getKind == ``casLetPattern then
+    let function := stx[1].getId
+    let pattern := stx[3]
+    let expression : TSyntax `cas_term := ⟨stx[6]⟩
+    if let `(cas_term| $body in $target) := expression then
+      return some (function, ← `(cas_term| $(← patternAbstraction pattern body) in $target))
+    return some (function, ← patternAbstraction pattern expression)
   if stx.getKind == ``casLetArgs then
     let function := stx[1].getId
     let first : TSyntax `ident := ⟨stx[3]⟩
@@ -7402,10 +7488,6 @@ def letBinding? (stx : Syntax) : TermElabM (Option (Name × Syntax)) := do
   match stx with
   | `(cas_stmt| let $x:ident := $t) => return some (x.getId, t)
   | `(cas_stmt| let $x:ident : $T := $t) => return some (x.getId, ← `(cas_term| $t in $T))
-  | `(cas_stmt| let $f:ident($t:ident) := $e) =>
-      match e with
-      | `(cas_term| $body in $T) => return some (f.getId, ← `(cas_term| ($t:ident ↦ $body) in $T))
-      | _ => return some (f.getId, ← `(cas_term| $t:ident ↦ $e))
   | _ => return none
 
 /-- The variables a term binds (`t` in `t ↦ e`, `{t ∈ X | P}`, `{e | t ∈ X}`, `∑_{t ∈ A} e`). -/
@@ -7542,6 +7624,14 @@ def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
   let state ← registryState
   let (left, right) ← comparands scope l r
   match left, right with
+  | value@(.element ..), .literal decision =>
+      let expected ← match decision with
+        | `true => pure (some true)
+        | `false => pure (some false)
+        | `unknown => pure none
+        | _ => throwStratum .invalid m!"a decision is `true`, `false` or `unknown`"
+      let answer ← asAnswer value
+      return .judged (value.question answer) answer expected s!"{shown l} = {shown r}"
   | .element f (.object _ category _ _ _), .element g _
   | .morphism f _ _ category _, .morphism g _ _ _ _ =>
       unless ← withTransparency .all <| isDefEq (← inferType f) (← inferType g) do

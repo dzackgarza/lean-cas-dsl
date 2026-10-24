@@ -142,9 +142,20 @@ run_cmd liftTermElabM do
     Json.arr #[toJson (1 : Nat), row]]
   let .ok () ← ComputationalData.validatePoint schema retained
     | throwError "a nested callable lost its permitted opaque computational representation"
+  let completeRow := node "finiteGraph" #[Json.arr #[toJson (1 : Nat), toJson (0 : Nat)], row]
+  let completeMatrix := Json.arr #[Json.arr #[toJson (0 : Nat), completeRow],
+    Json.arr #[toJson (1 : Nat), completeRow]]
+  let .ok () ← ComputationalData.validatePoint schema completeMatrix
+    | throwError "an explicit complete row inventory changed its fixed matrix domain"
   for bad in #[Json.arr #[Json.arr #[toJson (0 : Nat), row]],
       Json.arr #[Json.arr #[toJson (0 : Nat), row], Json.arr #[toJson (0 : Nat), row]],
       Json.arr #[Json.arr #[toJson (0 : Nat), node "opaqueData" #[toJson ""]],
+        Json.arr #[toJson (1 : Nat), row]],
+      node "finiteGraph" #[Json.arr #[toJson (0 : Nat)],
+        Json.arr #[Json.arr #[toJson (0 : Nat), row]]],
+      Json.arr #[Json.arr #[toJson (0 : Nat),
+        node "finiteGraph" #[Json.arr #[toJson (0 : Nat)],
+          Json.arr #[Json.arr #[toJson (0 : Nat), toJson (11 : Int)]]]],
         Json.arr #[toJson (1 : Nat), row]]] do
     let .error _ ← ComputationalData.validatePoint schema bad
       | throwError "malformed nested callable data were accepted"
