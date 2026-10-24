@@ -139,3 +139,95 @@ run_elab do
       packet apex leg wrongMod] do
     let .error _ ← check changed
       | throwError "actual primitive codec bounds, inventory or complete graph checks were bypassed"
+
+/- A returned symbolic product can reuse independently retained computational
+objects. Its factors and legs are interface data, never evidence of the product law. -/
+run_elab do
+  let state ← registryState
+  let some row := state.limits.find? (·.id.raw == "lim.sets.product")
+    | throwError "missing released product"
+  let action ← Semantic.edgeFunctor state (.classifierForget ClassifierId.setsFinite)
+  let first ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.FiniteObjects.finiteFin 2)) none
+  let second ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.FiniteObjects.finiteFin 3)) none
+  let left ← Semantic.objOf action first
+  let right ← Semantic.objOf action second
+  let formal ← mkAppM row.declaration #[left, right]
+  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[formal]
+  let diagram := (← whnfR (← inferType cone)).getAppArgs.back!
+  let .ok plan ← StructuredResult.dataPlan row diagram formal
+    | throwError "the reused product has no complete data plan"
+  let wire := fun tag args => Json.mkObj [("ctor", toJson (tag : String)), ("args", Json.arr args)]
+  let opaqueData := fun token => wire "opaqueData" #[toJson (token : String)]
+  let edge := wire "classifierForget" #[toJson ClassifierId.setsFinite.raw, Json.arr #[]]
+  let input := #[wire "functorAction" #[edge, opaqueData "first retained object"],
+    wire "functorAction" #[edge, opaqueData "second retained object"]]
+  for (fixed, data) in #[(left, input[0]!), (right, input[1]!)] do
+    if let .error message ← ComputationalData.validatePort fixed (← inferType fixed) data then
+      throwError "the original fixed object interface failed framing: {message}"
+  let external := fun binder => Id.run do
+    let some binding := plan.binders[binder]? | return none
+    for role in binding.inputRoles do
+      if let .argument index := role then return input[index]?
+    return none
+  let typed := fun source target data => wire "typedMap" #[source, target, data]
+  let packet := fun apex => wire "cone" #[apex,
+    typed apex input[0]! (opaqueData "first defining map"),
+    typed apex input[1]! (opaqueData "second defining map")]
+  let check := fun selected answer => StructuredResult.validatePlannedData plan answer
+    fun port seen data => ComputationalData.validatePlannedPort plan port seen data selected
+      ComputationalData.endpointKeys
+  let apex := wire "objectProduct" input
+  for object in #[apex, wire "objectProduct" #[input[0]!, input[0]!],
+      wire "objectProduct" #[apex, input[1]!], input[0]!] do
+    if let .error message ← check external (packet object) then
+      throwError "complete reused object data or actual defining-map roles rejected: {message}"
+  let .error _ ← check (fun _ => none) (packet apex)
+    | throwError "a symbolic product invented its missing retained receiver context"
+  let missing := wire "functorAction" #[edge, opaqueData "unretained object"]
+  let foreign := wire "obj.groups.symmetric" #[toJson (3 : Nat)]
+  for changed in #[
+      packet (wire "objectProduct" #[missing, input[1]!]),
+      packet (wire "objectProduct" #[input[0]!]),
+      packet (wire "objectProduct" #[wire "functorAction" #[edge, foreign], input[1]!]),
+      packet (wire "objectProduct" #[wire "objectProduct"
+        #[foreign, wire "obj.sets.fin" #[toJson (2 : Nat)]], input[1]!])] do
+    let .error _ ← check external changed
+      | throwError "missing object context or a malformed nested factor category was accepted"
+  let wrap := fun data => wire "valueData" #[data]
+  let secondLeg := typed apex input[1]! (opaqueData "second defining map")
+  let firstLeg := typed apex input[0]! (opaqueData "first defining map")
+  if let .error message ← check external (wire "cone" #[apex, wrap (wrap firstLeg), secondLeg]) then
+    throwError "transparent envelopes changed a complete valid callable interface: {message}"
+  for wrong in #[typed apex input[1]! (opaqueData "first defining map"),
+      typed input[0]! input[0]! (opaqueData "first defining map"), wire "valueData" #[]] do
+    for leg in #[wrong, wrap wrong, wrap (wrap wrong)] do
+      let .error _ ← check external (wire "cone" #[apex, leg, secondLeg])
+        | throwError "transparent envelopes bypassed complete actual endpoint roles or framing"
+  logInfo "PASS: retained product interfaces, noncanonical apex data, and endpoint-role rejection"
+
+/- Computational reuse does not let another retained semantic dictionary replace
+the independently selected complete context. -/
+run_elab do
+  let state ← registryState
+  let some sets := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "missing released set category"
+  let some groups := state.categories.find? (·.id == CategoryId.groups)
+    | throwError "missing released group category"
+  let closed := fun declaration => do
+    let info ← getConstInfo declaration
+    pure (mkConst declaration (info.levelParams.map fun _ => Level.zero))
+  let first ← closed sets.declaration
+  let second ← closed groups.declaration
+  unless ← withoutModifyingState <| isDefEq (← inferType first) (← inferType second) do
+    throwError "the dictionary negative no longer has the same declared dictionary type"
+  let descriptor := Json.mkObj [("ctor", toJson "category"),
+    ("args", Json.arr #[toJson groups.id.raw, Json.arr #[]])]
+  let wrapped := Json.mkObj [("ctor", toJson "valueData"), ("args", Json.arr #[descriptor])]
+  let twice := Json.mkObj [("ctor", toJson "valueData"), ("args", Json.arr #[wrapped])]
+  for data in #[descriptor, wrapped, twice] do
+    let retained := #[(data, second)]
+    let .ok () ← ComputationalData.validatePort second (← inferType second) data retained
+      | throwError "the original complete retained dictionary was rejected"
+    let .error _ ← ComputationalData.validatePort first (← inferType first) data retained
+      | throwError "a retained dictionary replaced the independently selected full context"
+  logInfo "PASS: retained data cannot replace the selected complete semantic dictionary"

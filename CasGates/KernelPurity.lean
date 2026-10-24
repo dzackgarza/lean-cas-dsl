@@ -13,6 +13,12 @@ import all CasCatalogue.CodecConditionProbes
 import all CasCatalogue.ContextualSubsetProbes
 import all CasCatalogue.ConstructionData
 import all CasCatalogue.ConstrainedPoint
+import all CasCatalogue.CategoryContext
+import all CasCatalogue.CellAction
+import all CasCatalogue.DirectConstruction
+import all CasCatalogue.SelectedLift
+import all CasCatalogue.ReindexAction
+import all CasCatalogue.StructuredProjection
 import all CasCatalogue.ObjectPresentation
 import all CasCatalogue.ConstructionDataProbes
 import all CasCatalogue.ConstructionLegReaderProbes

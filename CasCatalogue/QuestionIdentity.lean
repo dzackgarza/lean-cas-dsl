@@ -165,6 +165,26 @@ def encode (intern : Json → TermElabM Nat)
     (term : Expr) : TermElabM Nat :=
   encodeInContext intern closed contextual term term #[] #[]
 
+/-- Preserve the existing primary order and resolve every tie by a complete canonical
+record key. Equal records retain their multiplicity. The complete key is constructed only
+for colliding primary keys; these strings order serialization, never decide semantic equality. -/
+def orderByCompleteKey {α : Type} (records : Array (String × α))
+    (fullKey : α → TermElabM String) : TermElabM (Array α) := do
+  let sortGroup (group : Array α) : TermElabM (Array α) := do
+    if group.size < 2 then return group
+    let keyed ← group.mapM fun value => return (← fullKey value, value)
+    return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
+  let mut result : Array α := #[]
+  let mut group : Array α := #[]
+  let mut key := ""
+  for (primary, value) in records.qsort (fun left right => left.1 < right.1) do
+    if !group.isEmpty && key != primary then
+      result := result ++ (← sortGroup group)
+      group := #[]
+    key := primary
+    group := group.push value
+  return result ++ (← sortGroup group)
+
 end CasCatalogue.QuestionIdentity
 
 namespace CasCatalogue.Realize

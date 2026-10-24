@@ -829,22 +829,24 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
   return lifted
 
 /-- The value of the method `name` on the object `X` of `category`, and the category it is in. -/
-def method (name : String) (X : Expr) (category : NamedCategoryEntry)
-    (trace? : Option Trace := none) : TermElabM (Expr × NamedCategoryEntry) := do
+def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
+    (trace? : Option Trace := none) : TermElabM (Expr × CategoryContext) := do
   let state ← registryState
-  let resolution ← match state.resolveMethod category.expression name #[] with
+  let resolution ← match state.resolveMethod expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
   discard <| validateResolutionComparisons state resolution (some X)
   let some functor := state.functor? resolution.method.functor
     | throwStratum .invalid m!"`{name}` has no registered functor"
-  let some target := state.category? functor.target
-    | throwStratum .invalid m!"the result category of `{name}` is not a registered category"
   let image ← if resolution.route.steps.isEmpty then pure X else do
     objOf (← routeFunctor state (resolution.route.steps.map (·.ref))) X
   let F ← registeredFunctorInstance functor
   let input ← methodArgument resolution.method image
   let value ← objOf F input
+  let (_, targetBundle) ← functorCategoryBundles (← asFunctor F)
+  let target : CategoryContext := {
+    expression := functor.target
+    bundle := (← instantiateMVars targetBundle) }
   let (value, target) ← if resolution.lifts.isEmpty then pure (value, target) else do
     let mut receivers : Array Expr := #[]
     let mut before := X
@@ -857,7 +859,7 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry)
     for (id, receiver) in resolution.lifts.reverse.zip receivers.reverse do
       let some entry := state.lifts.find? (·.id == id) | unreachable!
       lifted ← liftSubobject state entry receiver lifted
-    let .construct arrowConstructor args := category.expression
+    let .construct arrowConstructor args := expression
       | throwError "a subobject-returning lifted method is not on an arrow category"
     unless (state.constructors.find? (·.id == arrowConstructor)).any
         (·.semantics == `CasCatalogue.Constructors.arrow) do
@@ -866,19 +868,30 @@ def method (name : String) (X : Expr) (category : NamedCategoryEntry)
         (·.semantics == `CasCatalogue.Constructors.subobjects)
       | throwError "the subobject constructor is not registered"
     let resultCategory := CategoryExpr.construct subobjects.id args
-    let some target := state.categories.find? (·.expression.syntacticEq resultCategory)
-      | throwStratum .invalid m!"the lifted subobject category has no named declaration"
-    pure (lifted, target)
+    let sourceType ← whnfR (← inferType X)
+    unless sourceType.isAppOfArity ``CategoryTheory.Arrow 2 do
+      throwError "the lifted result lost its actual Arrow source category"
+    let sourceArguments := sourceType.getAppArgs
+    let sourceBundle ← mkAppOptM ``CategoryTheory.Cat.of
+      #[some sourceArguments[0]!, some sourceArguments[1]!]
+    let bundle ← applyConstructorInterface subobjects.semantics #[sourceBundle] #[sourceBundle]
+    pure (lifted, { expression := resultCategory, bundle := (← instantiateMVars bundle) })
   Trace.record trace? value (if resolution.lifts.isEmpty then
     .method resolution.method.id resolution.route.refs X else
     .methodWithLifts resolution.method.id resolution.route.refs resolution.lifts X)
   return (value, target)
 
+/-- The named-category entry point uses the same expression-based method reading. -/
+def method (name : String) (X : Expr) (category : NamedCategoryEntry)
+    (trace? : Option Trace := none) : TermElabM (Expr × NamedCategoryEntry) := do
+  let (value, context) ← methodIn name X category.expression trace?
+  return (value, ← namedCategoryFor (← registryState) context.expression)
+
 /-- The proposition that the property `name` holds of the object `X` of `category`. -/
-def property (name : String) (X : Expr) (category : NamedCategoryEntry)
+def propertyIn (name : String) (X : Expr) (expression : CategoryExpr)
     (trace? : Option Trace := none) : TermElabM Expr := do
   let state ← registryState
-  let resolution ← match state.resolveProperty category.expression name #[] with
+  let resolution ← match state.resolveProperty expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
   discard <| validatePropertyResolutionComparisons state resolution (some X)
@@ -890,6 +903,10 @@ def property (name : String) (X : Expr) (category : NamedCategoryEntry)
   let holds ← instantiateMVars holds
   Trace.record trace? holds (.property resolution.property.id resolution.route.refs X)
   return holds
+
+def property (name : String) (X : Expr) (category : NamedCategoryEntry)
+    (trace? : Option Trace := none) : TermElabM Expr :=
+  propertyIn name X category.expression trace?
 
 end Semantic
 

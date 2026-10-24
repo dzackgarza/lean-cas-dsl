@@ -63,6 +63,12 @@ partial def equivalentQuestion (left right : Language.Question) : TermElabM Bool
 def equivalentTerms (left right : Array Expr) : TermElabM Bool :=
   equivalentOperands left right #[] #[]
 
+/-- A derived category retains its exact symbolic expression and selected typed bundle;
+an unnamed context cannot be identified merely by its endpoints or printed name. -/
+def equivalentCategoryContext (left right : CategoryContext) : TermElabM Bool := do
+  unless left.expression.syntacticEq right.expression do return false
+  equivalentTerms #[left.bundle] #[right.bundle]
+
 /-- Compare finite unordered records by an equivalence comparison, retaining multiplicities.
 Hash-map iteration order and the order of alternative parameter presentations have no meaning;
 the routes, arguments and fields inside each record still have their declared order. -/
@@ -224,12 +230,38 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       let .morphismIdentity other otherObject := right | return false
       unless category == other do return false
       equivalentTerms #[object] #[otherObject]
+  | .contextualRoute source target route applications receiver morphism =>
+      let .contextualRoute otherSource otherTarget otherRoute
+          otherApplications otherReceiver otherMorphism := right | return false
+      unless route == otherRoute && morphism == otherMorphism do return false
+      equivalentCategoryContext source otherSource <&&>
+        equivalentCategoryContext target otherTarget <&&>
+        equivalentTerms applications otherApplications <&&>
+        equivalentTerms #[receiver] #[otherReceiver]
+  | .contextualComposition context first second source middle target =>
+      let .contextualComposition otherContext otherFirst otherSecond
+          otherSource otherMiddle otherTarget := right | return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[first, second, source, middle, target]
+          #[otherFirst, otherSecond, otherSource, otherMiddle, otherTarget]
+  | .contextualArrow context hom source target =>
+      let .contextualArrow otherContext otherHom otherSource otherTarget := right | return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[hom, source, target] #[otherHom, otherSource, otherTarget]
+  | .contextualIdentity context object =>
+      let .contextualIdentity otherContext otherObject := right | return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[object] #[otherObject]
   | .arrowProjection receiver =>
       let .arrowProjection other := right | return false
       equivalentTerms #[receiver] #[other]
   | .limitProjection receiver index =>
       let .limitProjection other otherIndex := right | return false
       equivalentTerms #[receiver, index] #[other, otherIndex]
+  | .structuredProjection receiver field index =>
+      let .structuredProjection otherReceiver otherField otherIndex := right | return false
+      unless field == otherField && index == otherIndex do return false
+      equivalentTerms #[receiver] #[otherReceiver]
   | .pointView source target route applications argument =>
       let .pointView otherSource otherTarget otherRoute otherApplications otherArgument := right
         | return false
@@ -244,6 +276,66 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
   | .functor id params receiver =>
       let .functor other otherParams otherReceiver := right | return false
       unless id == other do return false
+      equivalentTerms params otherParams <&&> equivalentTerms #[receiver] #[otherReceiver]
+  | .construction id params receiver =>
+      let .construction other otherParams otherReceiver := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&> equivalentTerms #[receiver] #[otherReceiver]
+  | .constructionMap id params source target morphism =>
+      let .constructionMap other otherParams otherSource otherTarget otherMorphism := right
+        | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[source, target, morphism] #[otherSource, otherTarget, otherMorphism]
+  | .categoryParameter id params =>
+      let .categoryParameter other otherParams := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams
+  | .functorParameter id params =>
+      let .functorParameter other otherParams := right | return false
+      unless id == other do return false
+      equivalentTerms params otherParams
+  | .cartesian id params baseMorphism receiver field =>
+      let .cartesian other otherParams otherBase otherReceiver otherField := right | return false
+      unless id == other && field == otherField do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[baseMorphism, receiver] #[otherBase, otherReceiver]
+  | .coreObject context object =>
+      let .coreObject otherContext otherObject := right | return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[object] #[otherObject]
+  | .coreIso context source target forward backward =>
+      let .coreIso otherContext otherSource otherTarget otherForward otherBackward := right
+        | return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[source, target, forward, backward]
+          #[otherSource, otherTarget, otherForward, otherBackward]
+  | .selectedLift id params source inclusion monic =>
+      let .selectedLift other otherParams otherSource otherInclusion otherMonic := right
+        | return false
+      unless id == other do return false
+      equivalentTerms params otherParams <&&>
+        equivalentTerms #[source, inclusion, monic] #[otherSource, otherInclusion, otherMonic]
+  | .liftProjection receiver field =>
+      let .liftProjection otherReceiver otherField := right | return false
+      unless field == otherField do return false
+      equivalentTerms #[receiver] #[otherReceiver]
+  | .liftFactor receiver baseMap cone proof =>
+      let .liftFactor otherReceiver otherBaseMap otherCone otherProof := right | return false
+      equivalentTerms #[receiver, baseMap, cone, proof]
+        #[otherReceiver, otherBaseMap, otherCone, otherProof]
+  | .cellComponent id params constructors inverse receiver =>
+      let .cellComponent other otherParams otherConstructors otherInverse otherReceiver := right
+        | return false
+      unless id == other && constructors == otherConstructors && inverse == otherInverse do
+        return false
+      equivalentTerms params otherParams <&&> equivalentTerms #[receiver] #[otherReceiver]
+  | .cellEndpoint id params constructors inverse isRight receiver =>
+      let .cellEndpoint other otherParams otherConstructors
+          otherInverse otherRight otherReceiver := right
+        | return false
+      unless id == other && constructors == otherConstructors && inverse == otherInverse &&
+          isRight == otherRight do return false
       equivalentTerms params otherParams <&&> equivalentTerms #[receiver] #[otherReceiver]
   | .binder id params domain body admitted =>
       let .binder other otherParams otherDomain otherBody otherAdmitted := right | return false

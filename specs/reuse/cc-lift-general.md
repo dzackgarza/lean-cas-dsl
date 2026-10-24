@@ -135,3 +135,66 @@ four-field lift packet endpoints. Their supplied inventories frame callable data
 the public primitive codecs retain scalar representation and bounds. No formal
 product carrier is substituted for an actual computational apex, and no new
 mathematical construction or role-cache calculus is introduced.
+
+### Restored explicit selection and universal factors (2026-10-24)
+
+Queries attempted through the corpus script were `MonoLift factorComputation factor_comp`,
+`Functor mapIso Core mapArrow natural isomorphism`, and
+`ConstructionEntry dependent functor parameters`. The sandbox refused the API connection
+(`Operation not permitted`); direct searches of the supplied dependency sources found the
+actual owners. `LeanCategories/Catalogue/Lift.lean` publishes `MonoLiftComputation`,
+`MonoLift.factorComputation`, `MonoLiftFactorComputation.factor`, `factor_hom`, and
+`factor_comp`. The contract's `tools/export_declared_ports.lean` already exports the
+canonical separate factor port; `CasContract/Port.lean` owns its complete seven-field
+request and the independent selected-evidence parameter list.
+
+`SelectedLift` instantiates those declarations at the complete selected evidence family,
+original source, actual base inclusion, and checked formal domain conditions. It does not
+restrict selection to structural graph edges or infer the evidence family from the functor.
+All four ports remain separate from the universal factor. `DirectConstruction` consumes
+the registered dependent functor and Mathlib's `Functor.obj` and `Functor.map`; `CellAction`
+consumes accepted `ConstructorEntry.comparisonAction` and Mathlib's `NatTrans.app`.
+These modules assemble and check existing applications. They add no mathematical
+declarations, backend-dependent domains, or leaf proof obligations. Targeted integration
+and engineering-probe validation are recorded with the source integration, not inferred
+from the existence of these helpers.
+
+The reconstructed execution retains selected-evidence parameters separately from action
+parameters in every prescribed and explicit lift request. The complete four output arrays,
+source/base descriptors, actual actions, and owning session are cached at their exact formal
+applications. Projection through any selected suffix and composition of its forward/backward
+maps reuse those arrays. A universal factor runs deepest-first using the accepted
+`factor_hom` equation for the next formal stage and the preceding actual factor reply for
+the next computational base map. No reply supplies the domain equation or monicity.
+
+Direct construction object/map requests use the already published construction addresses,
+`category`, `functor`, `coreObject`, and `coreIso` forms. Core maps keep both directed maps of
+the accepted isomorphism. Generalized point dispatch retains its exact original domain.
+Base natural components use the published four-field `CellComponent` form. A constructor
+path uses the separate `constructedCellComponent` form and canonical `component:` address,
+retaining every accepted comparison, identity, and composition action. The formal endpoints
+are the individually mapped registered routes, assembled with the accepted constructor
+comparison maps; they are not identified by equal carriers or an assumed strict action.
+The corresponding contract extension is integrated by the kernel/contract owner. These
+are source changes awaiting the assigned targeted compile and engineering probes; no
+permanent assertion, admission record, leaf, or mathematical declaration is changed.
+
+The follow-up context reconstruction preserves each accepted `CategoryExpr` with its
+actual complete `Cat` bundle. It introduces no synthetic named category or carrier-only
+identification. Constructed category parameters use the accepted constructor declaration
+and its ordered typed arguments; component endpoints, route actions, and generalized
+composition retain the same context and live data dependencies. The public invocation
+forms are documented in `SPEC.md`, "Registered actions, components, and selected lifts".
+The generic planners and earlier named-context integration compiled at source checkpoint
+`497099a`; the subsequent derived-context changes are an explicitly unverified source
+checkpoint pending a clean private kernel rebuild and engineering probes.
+
+The clean `/tmp` verification of `ea336ec` passed `Language`, `Realize`, and
+`ComputationalData`. The first generic probe exposed an unfolded lift action losing
+its accepted declaration application; `7b864e6` retains that full matched application
+and its parameters. The final ordinary-result and family-transport additions remain
+source checkpoints until their focused checks complete. They consume the accepted
+data-constructor ports, Arrow/full-subcategory projections, family pseudofunctor,
+and Mathlib's `CoGrothendieck.cartesianLift`; no mathematical declarations or laws
+are added. Complete packet projections and projection actions retain full typed
+contexts, both presentation directions and original owner dependencies.

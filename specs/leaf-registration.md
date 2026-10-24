@@ -222,6 +222,12 @@ keep the question file, inventory and selected mathematical source fixed and sup
 manifest and report path. A manifest contains only the public backend declarations and
 operation/input registrations above; it carries no interpretation or expected answer.
 
+For independently supplied mathematical extensions, repeat `--import Fully.Qualified.Module`
+to load their already compiled catalogue modules alongside the standard catalogue. The selected
+module list is part of the mathematical environment and stays fixed when comparing computational
+implementations. This uses the same built harness and kernel; adding a mathematical module does
+not require editing their source. A leaf still ships no Lean and cannot choose these imports.
+
 The JSON report retains `id`, `question`, `proposition`, `kind`, `detail`, `fails` and the actual
 `dispatches` for each assertion. `question` includes the complete typed claim and its operation
 trace; `proposition` is a readable display. A comparison of environments must retain the same

@@ -49,6 +49,15 @@ def envelope (json : Json) : Except String (String × Array Json) := do
   let args ← (json.getObjVal? "args").bind (·.getArr?)
   return (tag, args)
 
+/-- Open only transparent computational-value envelopes before choosing an
+interface check. The public decoder owns their framing; nesting cannot hide a
+typed callable or a selected point from its actual endpoint checks. -/
+partial def valuePayload (json : Json) : Except String Json := do
+  unless (json.getObjValAs? String "ctor").toOption == some "valueData" do return json
+  let .inline actual ← Backend.ComputationalValue.decode json
+    | throw "a transparent computational value requires its inline payload"
+  valuePayload actual
+
 /-- Find a complete retained public declaration application without unfolding it. -/
 def retainedApplication (declaration : Name) (formal : Expr) : TermElabM (Option Expr) := do
   let arity ← forallTelescopeReducing (← getConstInfo declaration).type
@@ -461,7 +470,9 @@ def validateGraphAtKeys (formal expectedType : Expr) (data : Json)
     else pointSchema body
   let some outputSchema := outputSchema
     | return .error "the callable's point types require their released data representation"
-  let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  let unwrapped ← match valuePayload data with
+    | .ok actual => pure actual
+    | .error message => return .error message
   if let .ok ("finiteGraph", #[inventory, _]) := envelope unwrapped then
     let .ok declared := inventory.getArr?
       | return .error "a finite callable inventory requires an array"
@@ -479,7 +490,7 @@ mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
 partial def declarationPorts (declaration : Name) (formal expected : Expr)
-    (args : Array Json) : TermElabM (Except String Unit) := do
+    (args : Array Json) (objects : InterfaceObjects := #[]) : TermElabM (Except String Unit) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (fields, infos, conclusion) ← forallMetaTelescopeReducing (← inferType constant)
   unless ← isDefEq conclusion expected do
@@ -517,21 +528,32 @@ partial def declarationPorts (declaration : Name) (formal expected : Expr)
     let type ← instantiateMVars (← inferType field)
     if type.hasMVar || type.hasLevelMVar then
       return .error "the computational descriptor lacks an independent dependent parameter context"
-    match ← validatePort field type data with
+    match ← validatePort field type data objects with
     | .error message => return .error message
     | .ok () => pure ()
   return .ok ()
 
 /-- Released named, classifier and constructor actions retain their actual
 parameters and selected inner edge from the independent formal expression. -/
-partial def validateAction (formal : Expr) (json : Json) : TermElabM (Except String Unit) := do
+partial def validateAction (formal : Expr) (json : Json) (objects : InterfaceObjects := #[]) :
+    TermElabM (Except String Unit) := do
   let state ← registryState
   let .ok (tag, args) := envelope json
     | return .error "the selected action has no complete declaration descriptor"
+  if tag == "structuredProjectionAction" then
+    let .ok action ← interfaceAction objects json
+      | return .error "the structured projection action has no complete accepted interface"
+    unless ← withTransparency .all <| isDefEq action formal do
+      return .error "the structured projection changed its independently selected complete action"
+    return .ok ()
   if let some entry := state.functors.find? (·.id.raw == tag) then
     let some selected ← fixedFunctorApplication entry.declaration formal
       | return .error "the action descriptor differs from the retained selected edge"
-    return ← declarationPorts entry.declaration selected (← inferType selected) args
+    return ← declarationPorts entry.declaration selected (← inferType selected) args objects
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    let some selected ← fixedFunctorApplication entry.declaration formal
+      | return .error "the action descriptor differs from the retained complete construction"
+    return ← declarationPorts entry.declaration selected (← inferType selected) args objects
   if tag == "classifierForget" then
     let #[id, parameters] := args
       | return .error "classifierForget requires its registered classifier and parameters"
@@ -542,7 +564,7 @@ partial def validateAction (formal : Expr) (json : Json) : TermElabM (Except Str
       | return .error "the classifier is not registered"
     let some selected ← retainedApplication entry.declaration formal
       | return .error "the action descriptor differs from the retained classifier"
-    return ← declarationPorts entry.declaration selected (← inferType selected) parameters
+    return ← declarationPorts entry.declaration selected (← inferType selected) parameters objects
   if tag == "constructorMap" then
     let #[id, inner] := args
       | return .error "constructorMap requires its registered constructor and inner edge"
@@ -559,15 +581,40 @@ partial def validateAction (formal : Expr) (json : Json) : TermElabM (Except Str
       if info.isExplicit then some field else none
     let some source := explicit.back?
       | return .error "the published constructor action has no selected inner edge"
-    return ← validateAction source inner
+    return ← validateAction source inner objects
   return .error "the selected action descriptor is not a released registered edge"
 
 /-- Validate a computational port without producing a semantic value or evidence.
+`objects` contains only independently retained input data and already validated
+earlier ports. Reusing their exact descriptors retains an interface, never an
+identification of their computed values with the accompanying formal terms.
 Opaque owners are checked by the live-session consumer, outside this framing check. -/
-partial def validatePort (formalField expectedType : Expr) (json : Json) :
+partial def validatePort (formalField expectedType : Expr) (json : Json)
+    (objects : InterfaceObjects := #[]) :
     TermElabM (Except String Unit) := do
   if ← isProp expectedType then
     return .error "a proposition is not a computational data port"
+  if let .ok ("valueData", args) := envelope json then
+    let #[actual] := args | return .error "valueData requires one data field"
+    let opened := objects ++ objects.filterMap fun (retained, fixed) =>
+      if retained == json then some (actual, fixed) else none
+    return ← validatePort formalField expectedType actual opened
+  -- Semantic dictionaries remain the independently selected context, even when
+  -- the same descriptor is available among other retained computational inputs.
+  if let .ok (tag, _) := envelope json then
+    if tag == "category" || tag == "constructedCategory" || tag == "functor" then
+      let .ok selected ← interfaceArgument objects expectedType json
+        | return .error "the selected dictionary does not have its full declared interface"
+      let formal ← if tag == "functor" then Semantic.asFunctor formalField else pure formalField
+      unless ← withTransparency .all <| isDefEq selected formal do
+        return .error "the computational dictionary changed the independently fixed full context"
+      return .ok ()
+  let retained := objects.filter (·.1 == json)
+  unless retained.isEmpty do
+    if ← retained.anyM (fun (_, fixed) => withoutModifyingState do
+        withTransparency .all <| isDefEq (← inferType fixed) expectedType) then
+      return .ok ()
+    return .error "the retained computational datum has a different complete declared type"
   let state ← registryState
   if let .ok (tag, args) := envelope json then
     if tag == "opaqueData" then
@@ -578,7 +625,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
     if tag == "finiteData" then
       let #[descriptor, inventory] := args
         | return .error "finiteData requires its complete object descriptor and point inventory"
-      if let .error message ← validatePort formalField expectedType descriptor then
+      if let .error message ← validatePort formalField expectedType descriptor objects then
         return .error message
       let .ok declaredKeys ← endpointKeys descriptor
         | return .error "the finite object has a malformed actual descriptor"
@@ -597,11 +644,8 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         unless points.size == keys.size && keys.all points.contains do
           return .error "the point inventory differs from its declared computational representation"
       return .ok ()
-    if tag == "valueData" then
-      let #[data] := args | return .error "valueData requires one data field"
-      return ← validatePort formalField expectedType data
     if tag == "constrainedPoint" then
-      return ← validateCallableAt #[] expectedType json
+      return ← validateCallableAt objects expectedType json
     if tag == "morphismEndpoint" then
       let .ok endpoint := Backend.MorphismEndpoint.decode json
         | return .error "the endpoint projection requires its complete callable and selector"
@@ -609,31 +653,31 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let source := if endpoint.source then formalField else other
       let target := if endpoint.source then other else formalField
       let mapType ← mkAppM ``Quiver.Hom #[source, target]
-      return ← validatePort (← mkFreshExprMVar mapType) mapType endpoint.callable
+      return ← validatePort (← mkFreshExprMVar mapType) mapType endpoint.callable objects
     if tag == "objectPresentation" then
       let #[action, actual] := args
         | return .error "objectPresentation requires its complete action and actual data"
       unless (action.getObjValAs? String "ctor").toOption == some "functorAction" do
         return .error "objectPresentation requires its selected action descriptor"
-      match ← validatePort formalField expectedType action with
+      match ← validatePort formalField expectedType action objects with
       | .error message => return .error message
-      | .ok () => return ← validatePort formalField expectedType actual
+      | .ok () => return ← validatePort formalField expectedType actual objects
     if tag == "functorAction" then
       let #[edge, receiver] := args
         | return .error "functorAction requires an action descriptor and receiver"
       let .ok (functor, source) ← actionContext formalField edge
         | return .error "the action requires its independently retained formal receiver context"
-      match ← validateAction functor edge with
+      match ← validateAction functor edge objects with
       | .error message => return .error message
-      | .ok () => return ← validatePort source (← inferType source) receiver
+      | .ok () => return ← validatePort source (← inferType source) receiver objects
     if let some entry := state.objects.find? (·.id.raw == tag) then
-      return ← declarationPorts entry.declaration formalField expectedType args
+      return ← declarationPorts entry.declaration formalField expectedType args objects
     if let some entry := state.morphisms.find? (·.id.raw == tag) then
-      return ← declarationPorts entry.declaration formalField expectedType args
+      return ← declarationPorts entry.declaration formalField expectedType args objects
     if let some entry := state.inclusions.find? (·.id.raw == tag) then
-      return ← declarationPorts entry.declaration formalField expectedType args
+      return ← declarationPorts entry.declaration formalField expectedType args objects
     if let some (declaration, _) := state.callable? tag then
-      return ← declarationPorts declaration formalField expectedType args
+      return ← declarationPorts declaration formalField expectedType args objects
     if tag == "objectField" then
       let #[id, field, parameters] := args
         | return .error "objectField requires its object id, public field and ordered parameters"
@@ -652,8 +696,8 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         let arrow ← ObjectPresentation.fieldValue field application
         unless ← withTransparency .all <| isDefEq (← inferType arrow) expectedType do
           return .error "the object presentation has incompatible complete endpoints"
-        return ← declarationPorts declaration application (← inferType application) parameters
-      return ← declarationPorts declaration formalField expectedType parameters
+        return ← declarationPorts declaration application (← inferType application) parameters objects
+      return ← declarationPorts declaration formalField expectedType parameters objects
     if tag == "powerObjectMap" then
       let #[id, field, parameters] := args
         | return .error "powerObjectMap requires its power object id, public field and ordered parameters"
@@ -672,7 +716,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         | return .error "the power object has no such released callable field"
       let .ok parameters := parameters.getArr?
         | return .error "power-object field parameters must be ordered data"
-      return ← declarationPorts declaration formalField expectedType parameters
+      return ← declarationPorts declaration formalField expectedType parameters objects
     if tag == "typedMap" then
       let .ok typed := Backend.TypedMap.decode json
         | return .error "typedMap requires its complete source, target and callable"
@@ -683,9 +727,9 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let source := fields[fields.size - 2]!
       let target := fields.back!
       for (field, data) in #[(source, typed.source), (target, typed.target)] do
-        if let .error message ← validatePort field (← inferType field) data then
+        if let .error message ← validatePort field (← inferType field) data objects then
           return .error message
-      return ← validateEndpointPort formalField typed.source typed.target typed.callable
+      return ← validateEndpointPort formalField typed.source typed.target typed.callable objects
     if tag == "map" then
       let #[action, sourceData] := args
         | return .error "map requires its selected action and source map"
@@ -697,9 +741,9 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
         if info.isExplicit then some field else none
       let #[functor, source] := explicit
         | return .error "the public functor-map interface has changed"
-      match ← validateAction functor action with
+      match ← validateAction functor action objects with
       | .error message => return .error message
-      | .ok () => return ← validatePort source (← inferType source) sourceData
+      | .ok () => return ← validatePort source (← inferType source) sourceData objects
     if tag == "compose" then
       let #[firstData, secondData] := args
         | return .error "compose requires two ordered maps"
@@ -709,7 +753,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let first := fields[fields.size - 2]!
       let second := fields.back!
       for (field, data) in #[(first, firstData), (second, secondData)] do
-        match ← validatePort field (← inferType field) data with
+        match ← validatePort field (← inferType field) data objects with
         | .error message => return .error message
         | .ok () => pure ()
       return .ok ()
@@ -723,7 +767,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let source := fields[fields.size - 2]!
       let target := fields.back!
       for (field, data) in #[(source, sourceData), (target, targetData)] do
-        match ← validatePort field (← inferType field) data with
+        match ← validatePort field (← inferType field) data objects with
         | .error message => return .error message
         | .ok () => pure ()
       if tag == "identity" && sourceData != targetData then
@@ -735,12 +779,12 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       unless (← whnfR expectedType).isSort do
         return .error "the product descriptor requires its declared object category"
       -- A returned apex need not use the formal universal object's representation.
-      -- The factors are data at the declared object type, not values extracted
-      -- from that independently retained universal object.
-      let left ← mkFreshExprMVar expectedType
-      let right ← mkFreshExprMVar expectedType
-      for (field, data) in #[(left, leftData), (right, rightData)] do
-        match ← validatePort field (← inferType field) data with
+      -- Resolve each factor's declared interface through retained data or its
+      -- public descriptor, not through the formal universal object's factors.
+      for data in #[leftData, rightData] do
+        let .ok field ← interfaceArgument objects expectedType data
+          | return .error "the product factor lacks its complete retained object interface"
+        match ← validatePort field expectedType data objects with
         | .error message => return .error message
         | .ok () => pure ()
       return .ok ()
@@ -760,10 +804,10 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
       let some mapField ← recordProjection ``CategoryTheory.Arrow.hom arrow
         | return .error "Arrow data require their independently declared defining-map projection"
       for (field, data) in #[(sourceField, source), (targetField, target)] do
-        match ← validatePort field (← inferType field) data with
+        match ← validatePort field (← inferType field) data objects with
         | .error message => return .error message
         | .ok () => pure ()
-      if let .error message ← validateEndpointPort mapField source target definingMap then
+      if let .error message ← validateEndpointPort mapField source target definingMap objects then
         return .error message
       if refined.isSome then
         if let some presentation := (json.getObjVal? "presentation").toOption then
@@ -774,7 +818,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
             let .ok data := presentation.getObjVal? key
               | return .error "the supplied computational presentation omitted a comparison map"
             let placeholder ← mkFreshExprMVar mapType
-            match ← validateEndpointPort placeholder source source data with
+            match ← validateEndpointPort placeholder source source data objects with
             | .error message => return .error message
             | .ok () => pure ()
       return .ok ()
@@ -833,17 +877,20 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
 
 /-- A finite map is complete at its actual supplied domain. Inventories are
 computational data, never an enumeration of the requested formal construction. -/
-partial def validateEndpointPort (formal : Expr) (source target data : Json) :
+partial def validateEndpointPort (formal : Expr) (source target data : Json)
+    (objects : InterfaceObjects := #[]) :
     TermElabM (Except String Unit) := do
-  let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  let unwrapped ← match valuePayload data with
+    | .ok actual => pure actual
+    | .error message => return .error message
   if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" then
     let .ok typed := Backend.TypedMap.decode unwrapped
       | return .error "typedMap requires its complete source, target and callable"
     unless typed.source == source && typed.target == target do
       return .error "the callable's complete endpoint descriptors differ from its selected computational endpoints"
-    return ← validateEndpointPort formal source target typed.callable
+    return ← validateEndpointPort formal source target typed.callable objects
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
-  unless graph.getArr?.isOk do return ← validatePort formal (← inferType formal) data
+  unless graph.getArr?.isOk do return ← validatePort formal (← inferType formal) data objects
   let .ok (some domain) ← endpointKeys source
     | return .error "a finite callable requires its actual computational domain point inventory"
   if let .ok ("finiteGraph", #[inventory, _]) := envelope unwrapped then
@@ -891,6 +938,26 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
   let .ok (tag, args) := envelope data
     | return .error "symbolic computational data require a public constructor and ordered fields"
   let state ← registryState
+  if tag == "cartesianMap" then
+    let #[id, parameters, receiver] := args
+      | return .error "the cartesian map requires its selected reindexing, parameters and receiver"
+    let .ok id := id.getStr? | return .error "the reindexing id must be a string"
+    let some entry := state.functor? ⟨id⟩ | return .error "the reindexing is not registered"
+    unless entry.expression.registrationKind matches .familyReindex .. do
+      return .error "the selected functor has no accepted family cartesian map"
+    let .ok parameters := parameters.getArr? | return .error "reindexing parameters must be ordered"
+    if let .error message ← validateDeclaredData entry.declaration parameters then
+      return .error message
+    return ← validatePublicData receiver
+  if tag == "structuredProjectionAction" then
+    let #[category, field] := args | return .error "the structured projection action is incomplete"
+    let .ok field := field.getStr? | return .error "the structured field must be a string"
+    unless #["source", "target", "inclusion"].contains field do
+      return .error "the selected field has no declared object projection action"
+    let .ok ("constructedCategory", _) := envelope category
+      | return .error "the structured projection requires its complete constructed category"
+    if let .error message ← validatePublicData category then return .error message
+    return (← interfaceAction #[] data).map fun _ => ()
   if tag == "morphismEndpoint" then
     let .ok endpoint := Backend.MorphismEndpoint.decode data
       | return .error "the endpoint projection requires its complete callable and selector"
@@ -905,6 +972,44 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     return ← validateDeclaredData declaration args
   if let some entry := state.functors.find? (·.id.raw == tag) then
     return ← validateDeclaredData entry.declaration args
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    return ← validateDeclaredData entry.declaration args
+  if tag == "category" || tag == "constructedCategory" || tag == "functor" then
+    let #[id, parameters] := args | return .error "a selected dictionary requires its id and ordered parameters"
+    let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
+    let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
+    let declaration := if tag == "category" then
+      (state.categories.find? (·.id.raw == id)).map (·.declaration)
+    else if tag == "constructedCategory" then
+      (state.constructors.find? (·.id.raw == id)).map (·.semantics)
+    else (state.functors.find? (·.id.raw == id)).map (·.declaration)
+    let some declaration := declaration | return .error "the selected dictionary is not registered"
+    if tag == "constructedCategory" then
+      let some constructor := state.constructor? ⟨id⟩ | unreachable!
+      unless parameters.size == constructor.signature.size do
+        return .error "the constructed category changed its declared argument count"
+    return ← validateDeclaredData declaration parameters
+  if tag == "cellComponent" then
+    let .ok component := Backend.CellComponent.decode data
+      | return .error "the cell component omitted its complete public context"
+    let some entry := state.cells.find? (·.id.raw == component.cell)
+      | return .error "the cell component is not registered"
+    unless !component.inverse || entry.invertible do
+      return .error "the selected cell has no accepted inverse"
+    if let .error message ← validateDeclaredData entry.declaration component.parameters then
+      return .error message
+    return ← validatePublicData component.receiver
+  if tag == "constructedCellComponent" then
+    let #[constructors, component] := args
+      | return .error "a constructed component requires its complete constructor path and cell"
+    let .ok constructors := constructors.getArr?
+      | return .error "the constructed comparison path must be ordered"
+    let .ok selected := Backend.CellComponent.decode component
+      | return .error "the constructed comparison omitted its complete selected cell"
+    let address := "component:" ++ (Json.arr #[toJson selected.cell, Json.arr constructors]).compress
+    unless (state.component? address).isSome do
+      return .error "the constructed comparison has no accepted full action path"
+    return ← validatePublicData component
   let mut diagramConstructors : Array Name := #[]
   for row in state.limits do
     if let some constructor ← Semantic.diagramConstructor row then
@@ -1007,13 +1112,16 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     for datum in #[ambient, subset] do
       if let .error message ← validatePublicData datum then return .error message
     return .ok ()
-  if #["limitApex", "limitLeg", "constructionApex", "constructionLeg"].contains tag then
-    let count := if tag == "limitApex" then 2 else if tag == "constructionLeg" then 4 else 3
+  if #["limitApex", "limitLeg", "constructionApex", "constructionLeg", "constructionField"].contains tag then
+    let count := if tag == "limitApex" then 2 else
+      if tag == "constructionLeg" || tag == "constructionField" then 4 else 3
     unless args.size == count do
       return .error "the construction projection omitted part of its complete receiver or index"
     let .ok id := args[0]!.getStr? | return .error "a construction id must be a string"
     unless state.limits.any (·.id.raw == id) do
       return .error "the construction is not registered"
+    if tag == "constructionField" && !args[3]!.getNat?.isOk then
+      return .error "the construction data-port index must be a natural number"
     for datum in args.extract 1 args.size do
       if let .error message ← validatePublicData datum then return .error message
     return .ok ()
@@ -1094,11 +1202,13 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     return .ok ()
   let arity := match tag with
     | "true" | "false" | "none" => some 0
-    | "point" | "neg" | "some" | "arrowHom" | "subobjectApex" | "subobjectInclusion" => some 1
+    | "point" | "neg" | "some" | "arrowHom" | "subobjectApex" | "subobjectInclusion" |
+        "coreObject" => some 1
     | "add" | "mul" | "element" | "compose" | "mediator" | "map" |
         "identity" | "zero" | "functorAction" | "objectPresentation" |
         "objectProduct" | "finiteData" | "finiteGraph" => some 2
     | "pointView" | "arrow" | "subobject" => some 3
+    | "coreIso" => some 4
     | _ => none
   let some arity := arity
     | return .error "the symbolic data use no supported released constructor"
@@ -1162,7 +1272,8 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
       let .ok (actionTag, _) := envelope action
         | return .error "a mapped callable requires its selected action descriptor"
       unless state.functors.any (·.id.raw == actionTag) ||
-          #["classifierForget", "constructorMap"].contains actionTag do
+          state.constructions.any (·.id.raw == actionTag) ||
+          #["classifierForget", "constructorMap", "structuredProjectionAction"].contains actionTag do
         return .error "a mapped callable requires a registered functor or structural edge"
       if let .error message ← validatePublicData action then return .error message
       validateCallableData arrow
@@ -1181,8 +1292,9 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
       validateCallableData comparison
   | _, _ =>
       if #["opaqueData", "objectField", "powerObjectMap", "presentation", "pointView",
-          "arrowHom", "limitLeg", "constructionLeg", "subobjectInclusion", "identity",
-          "zero", "admittedPoint", "constrainedPoint"].contains tag then
+          "arrowHom", "limitLeg", "constructionLeg", "constructionField", "subobjectInclusion", "identity",
+          "zero", "admittedPoint", "constrainedPoint", "cellComponent",
+          "constructedCellComponent", "coreIso", "cartesianMap"].contains tag then
         validatePublicData data
       else return .error "an object or scalar descriptor cannot serve as a callable"
 
@@ -1238,7 +1350,15 @@ partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
     let #[left, right] := args | return .error "a product endpoint requires both factors"
     let .ok left ← interfaceObject objects left | return .error "the first product factor is incomplete"
     let .ok right ← interfaceObject objects right | return .error "the second product factor is incomplete"
+    unless (← whnfR (← inferType left)).isSort && (← whnfR (← inferType right)).isSort &&
+        !(← isProp left) && !(← isProp right) do
+      return .error "the product factors require their declared set-object interfaces"
     return .ok (← mkAppM ``Prod #[left, right])
+  if tag == "coreObject" then
+    let #[source] := args | return .error "a core object requires its complete original object"
+    let .ok source ← interfaceObject objects source
+      | return .error "the core object's selected source is incomplete"
+    return .ok (← mkAppM ``CategoryTheory.Core.mk #[source])
   if tag == "finiteData" || tag == "objectPresentation" then
     let #[descriptor, _] := args | return .error "the endpoint wrapper is incomplete"
     return ← interfaceObject objects descriptor
@@ -1246,6 +1366,12 @@ partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
     let #[action, source] := args | return .error "an object action requires its selected source"
     let .ok action ← interfaceAction objects action | return .error "the endpoint action is incomplete"
     let .ok source ← interfaceObject objects source | return .error "the endpoint source is incomplete"
+    let actionType ← whnfR (← inferType action)
+    unless actionType.isAppOf ``CategoryTheory.Functor do
+      return .error "the endpoint action has no declared functor interface"
+    unless ← withoutModifyingState <| withTransparency .all <|
+        isDefEq (← inferType source) actionType.getAppArgs[0]! do
+      return .error "the endpoint receiver differs from the action's complete source category"
     return .ok (← Semantic.objOf action source)
   return .error "the symbolic endpoint requires its independently selected object context"
 
@@ -1253,10 +1379,39 @@ partial def interfaceAction (objects : InterfaceObjects) (data : Json) :
     TermElabM (Except String Expr) := do
   let .ok (tag, args) := envelope data | return .error "the action requires a public descriptor"
   let state ← registryState
+  if tag == "structuredProjectionAction" then
+    let #[category, field] := args | return .error "the structured projection action is incomplete"
+    let .ok field := field.getStr? | return .error "the structured field must be a string"
+    unless #["source", "target", "inclusion"].contains field do
+      return .error "the structured field has no accepted projection functor"
+    let .ok ("constructedCategory", #[id, parameters]) := envelope category
+      | return .error "the structured projection has no complete constructed category"
+    let .ok id := id.getStr? | return .error "the category constructor id must be a string"
+    let .ok parameters := parameters.getArr? | return .error "constructor arguments must be ordered"
+    let some row := state.constructor? ⟨id⟩ | return .error "the category constructor is not registered"
+    unless row.signature == #[ConstructorArgKind.category] && parameters.size == 1 do
+      return .error "the selected constructor has no unary category projection interface"
+    let .ok bundle ← interfaceDeclaration objects row.semantics
+        (← inferType (← instantiateFresh row.semantics)) parameters
+      | return .error "the constructed category arguments have incompatible complete types"
+    let carrier ← withTransparency .all <| whnf (← mkAppM ``CategoryTheory.Bundled.α #[bundle])
+    let arrow ← if carrier.isAppOf ``CategoryTheory.ObjectProperty.FullSubcategory then
+        withLocalDeclD `selected carrier fun value => do
+          withTransparency .all <|
+            whnf (← inferType (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[value]))
+      else pure carrier
+    unless arrow.isAppOfArity ``CategoryTheory.Arrow 2 do
+      return .error "the accepted constructor has no actual Arrow or full-subcategory projection"
+    return .ok (← StructuredProjection.projectionFunctorOfBundle bundle field)
   if let some entry := state.functors.find? (·.id.raw == tag) then
     let expected ← inferType (← instantiateFresh entry.declaration)
     let .ok action ← interfaceDeclaration objects entry.declaration expected args
       | return .error "the action parameters have incompatible declared types"
+    return .ok (← Semantic.asFunctor action)
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    let expected ← inferType (← instantiateFresh entry.declaration)
+    let .ok action ← interfaceDeclaration objects entry.declaration expected args
+      | return .error "the construction parameters have incompatible complete declared types"
     return .ok (← Semantic.asFunctor action)
   if tag == "classifierForget" then
     let #[id, parameters] := args | return .error "the classifier action is incomplete"
@@ -1288,6 +1443,28 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
     TermElabM (Except String Expr) := do
   let expected ← instantiateMVars expected
   if ← isProp expected then return .error "a proof is not computational data"
+  if let .ok (tag, #[id, parameters]) := envelope data then
+    if tag == "category" || tag == "constructedCategory" || tag == "functor" then
+      let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
+      let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
+      let state ← registryState
+      let declaration := if tag == "category" then
+        (state.categories.find? (·.id.raw == id)).map (·.declaration)
+      else if tag == "constructedCategory" then
+        (state.constructors.find? (·.id.raw == id)).map (·.semantics)
+      else (state.functors.find? (·.id.raw == id)).map (·.declaration)
+      let some declaration := declaration | return .error "the selected dictionary is not registered"
+      if tag == "constructedCategory" then
+        let some constructor := state.constructor? ⟨id⟩ | unreachable!
+        unless parameters.size == constructor.signature.size do
+          return .error "the constructed category changed its complete argument count"
+      let resultType ← inferType (← instantiateFresh declaration)
+      let .ok value ← interfaceDeclaration objects declaration resultType parameters
+        | return .error "the selected dictionary has incompatible complete parameters"
+      let value ← if tag == "functor" then Semantic.asFunctor value else pure value
+      unless ← withTransparency .all <| isDefEq (← inferType value) expected do
+        return .error "the selected dictionary has a different complete declared type"
+      return .ok value
   if let some (_, fixed) := objects.find? (·.1 == data) then
     unless ← isDefEq (← inferType fixed) expected do
       return .error "the selected descriptor has a different declared type"
@@ -1299,7 +1476,7 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
   if let .ok (tag, _) := envelope data then
     let state ← registryState
     if state.objects.any (·.id.raw == tag) ||
-        #["objectProduct", "finiteData", "functorAction", "objectPresentation"].contains tag then
+        #["objectProduct", "finiteData", "functorAction", "objectPresentation", "coreObject"].contains tag then
       let .ok object ← interfaceObject objects data
         | return .error "the object parameter has no complete declared interface"
       unless ← withTransparency .all <| isDefEq (← inferType object) expected do
@@ -1307,7 +1484,7 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
       return .ok object
   if ← plainType expected then return ← Codec.decode expected data
   let placeholder ← mkFreshExprMVar expected
-  let .ok () ← validatePort placeholder expected data
+  let .ok () ← validatePort placeholder expected data objects
     | return .error "the symbolic parameter has no supported declared data representation"
   return .ok placeholder
 
@@ -1327,8 +1504,91 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     if let some declaration := declaration then
       return (← interfaceDeclaration objects declaration expected args).map fun _ => ()
     match tag, args with
+    | "cartesianMap", #[id, parameters, receiverData] =>
+      let .ok id := id.getStr? | return .error "the cartesian reindexing id must be a string"
+      let some entry := state.functor? ⟨id⟩ | return .error "the family reindexing is not registered"
+      let .familyReindex familyId := entry.expression.registrationKind
+        | return .error "the selected functor has no accepted cartesian-map interface"
+      let some family := state.categoryFamily? familyId
+        | return .error "the reindexing has no accepted family realization"
+      let .ok parameters := parameters.getArr? | return .error "reindexing parameters must be ordered"
+      let .ok selected ← interfaceDeclaration objects entry.declaration
+          (← inferType (← instantiateFresh entry.declaration)) parameters
+        | return .error "the cartesian map has incompatible complete declaration parameters"
+      let action ← Semantic.asFunctor selected
+      let (sourceBundle, _) ← functorCategoryBundles action
+      let .ok receiver ← interfaceArgument objects
+          (← mkAppM ``CategoryTheory.Bundled.α #[sourceBundle]) receiverData
+        | return .error "the cartesian map receiver has a different complete selected fibre"
+      let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type
+        fun fields _ => fields.mapM (·.fvarId!.getBinderInfo)
+      let mut matchingCount := 0
+      for (argument, info) in selected.getAppArgs.zip infos do
+        unless info.isExplicit do continue
+        let some (baseSource, baseTarget) := Language.homEnds? (← inferType argument)
+          | continue
+        let compatible ← withoutModifyingState do
+          let realization ← mkConstWithFreshMVarLevels family.realization
+          let canonicalFamily ← mkAppM ``CasCatalogue.CategoryFamilyRealization.reindexFunctor #[realization]
+          let (arguments, _, _) ← forallMetaTelescopeReducing (← inferType canonicalFamily)
+          let some base := arguments.back? | return false
+          unless ← withTransparency .all <| isDefEq (← inferType base) (← inferType argument) <&&>
+              isDefEq base argument <&&> isDefEq (mkAppN canonicalFamily arguments) action do return false
+          let transport ← mkAppM ``CasCatalogue.CategoryFamilyRealization.transport #[realization]
+          let value ← withTransparency .all <|
+            mkAppOptM ``CategoryTheory.Pseudofunctor.CoGrothendieck.cartesianLift
+              #[none, none, some transport, some baseSource, some baseTarget,
+                some receiver, some argument]
+          withTransparency .all <| isDefEq (← inferType value) expected
+        if compatible then matchingCount := matchingCount + 1
+      unless matchingCount == 1 do
+        return .error "the cartesian map does not retain one exact base-map signature and full endpoints"
+      return .ok ()
     | "valueData", #[value] => return ← validateCallableAt objects expected value
     | "opaqueData", _ => return (Backend.ComputationalValue.decode data).map fun _ => ()
+    | "coreIso", #[sourceData, targetData, forward, backward] =>
+      let sourceType ← whnfR (← inferType source)
+      let targetType ← whnfR (← inferType target)
+      unless sourceType.isAppOf ``CategoryTheory.Core && targetType.isAppOf ``CategoryTheory.Core do
+        return .error "a core comparison requires the exact selected core endpoints"
+      let source ← mkAppM ``CategoryTheory.Core.of #[source]
+      let target ← mkAppM ``CategoryTheory.Core.of #[target]
+      for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
+        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor
+          | return .error "the core comparison endpoint is incomplete"
+        unless ← withTransparency .all <| isDefEq fixed actual do
+          return .error "the core comparison changes its complete selected endpoint"
+      if let .error message ← validateCallableAt objects
+          (← mkAppM ``Quiver.Hom #[source, target]) forward then return .error message
+      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[target, source]) backward
+    | "cellComponent", _ | "constructedCellComponent", _ =>
+      if let .error message ← validatePublicData data then return .error message
+      let (component, constructors) ← if tag == "cellComponent" then
+        pure (data, (#[] : Array ConstructorId))
+      else do
+        let #[path, base] := args | return .error "the constructed component is incomplete"
+        let .ok path := path.getArr? | return .error "the constructed component path is incomplete"
+        let .ok path := path.mapM fun value => value.getStr?.map ConstructorId.mk
+          | return .error "the constructed component has an invalid constructor id"
+        pure (base, path)
+      let .ok component := Backend.CellComponent.decode component
+        | return .error "the natural component has incomplete data"
+      let some entry := state.cells.find? (·.id.raw == component.cell)
+        | return .error "the natural component is not registered"
+      let declaredType ← inferType (← instantiateFresh entry.declaration)
+      let .ok value ← interfaceDeclaration objects entry.declaration declaredType component.parameters
+        | return .error "the component parameters have different complete declared types"
+      let receiver ← mkFreshExprMVar (← mkFreshTypeMVar)
+      let action ← CellAction.assemble entry { value, arguments := value.getAppArgs, explicit := #[] }
+        constructors component.inverse receiver
+      let .ok actual ← interfaceArgument objects (← inferType receiver) component.receiver
+        | return .error "the component receiver has an incompatible full interface"
+      unless ← withTransparency .all <| isDefEq actual receiver do
+        return .error "the component changed its selected receiver"
+      unless ← withTransparency .all <| isDefEq
+          (← inferType (← CellAction.component action receiver)) expected do
+        return .error "the component changed a complete declared endpoint"
+      return .ok ()
     | "typedMap", #[sourceData, targetData, callable] =>
       for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
         let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor
@@ -1494,7 +1754,7 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       -- Construction packets are checked by their complete-result consumers.
       -- Their stored computational apex must not be substituted for the fixed
       -- formal projection's type here (a wrong but framed apex is still data).
-      if #["constructionLeg", "limitLeg", "arrowHom", "subobjectInclusion"].contains tag then
+      if #["constructionLeg", "constructionField", "limitLeg", "arrowHom", "subobjectInclusion"].contains tag then
         return ← validateCallableData data
   validatePort placeholder expected data
 
@@ -1570,20 +1830,27 @@ def validatePlannedPort (plan : StructuredResult.DataPlan)
     (externalDescriptor : Nat → Option Json)
     (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
     TermElabM (Except String Unit) := do
-  let unwrapped := if let .ok ("valueData", #[actual]) := envelope data then actual else data
+  let resolve : Nat → Option Json := fun binder =>
+    (plan.actualData? binder seen).orElse fun _ => externalDescriptor binder
+  let objects : InterfaceObjects := plan.binders.filterMap fun binding => do
+    let formal ← binding.formalValue
+    let actual ← if binding.port.isSome then plan.actualData? binding.index seen
+      else externalDescriptor binding.index
+    return (actual, formal)
+  let unwrapped ← match valuePayload data with
+    | .ok actual => pure actual
+    | .error message => return .error message
   if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" &&
       (port.domainBinder.isSome || port.codomainBinder.isSome) then
-    let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
     let some source := port.domainBinder.bind resolve
       | return .error "the typed callable has no actual computational domain descriptor"
     let some target := port.codomainBinder.bind resolve
       | return .error "the typed callable has no actual computational codomain descriptor"
-    return ← validateEndpointPort port.formalField source target data
+    return ← validateEndpointPort port.formalField source target data objects
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
   -- Ordinary scalar/list ports have no callable endpoint roles.
   unless graph.getArr?.isOk && (port.domainBinder.isSome || port.codomainBinder.isSome) do
-    return ← validatePort port.formalField port.expectedType data
-  let resolve := fun binder => plan.actualData? binder seen |>.orElse fun _ => externalDescriptor binder
+    return ← validatePort port.formalField port.expectedType data objects
   let some domainBinder := port.domainBinder
     | return .error "the callable graph has no retained computational domain role"
   let some domainDescriptor := resolve domainBinder
@@ -1609,7 +1876,9 @@ def validateElementAt (selected : Expr) (selectedData : Json) (formalPoint : Exp
     (answer : Json) : TermElabM (Except String Unit) := do
   if selected.hasMVar || selected.hasLevelMVar then
     throwError "the selected element interface has unresolved formal parameters"
-  let data := if let .ok ("valueData", #[data]) := envelope answer then data else answer
+  let data ← match valuePayload answer with
+    | .ok actual => pure actual
+    | .error message => return .error message
   if (data.getObjValAs? String "ctor").toOption == some "constrainedPoint" then
     let .ok point := Backend.ConstrainedPoint.decode data
       | return .error "the constrained point omitted its complete interface"

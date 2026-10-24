@@ -4,6 +4,7 @@ module
 public import CasCatalogue.Semantic
 public import CasCatalogue.StructuredResult
 public import CasCatalogue.ComputationalData
+public import CasCatalogue.SelectedLift
 
 @[expose] public section
 
@@ -38,6 +39,7 @@ The four formal expressions specify ports; they are not computed outputs. No bac
 map is converted into a law-bearing morphism or isomorphism. -/
 structure Component where
   lift : LiftId
+  selection : SelectedLift.Plan
   action : Expr
   receiver : Expr
   base : Expr
@@ -64,12 +66,12 @@ structure Packet extends Plan where
   data : Json
 
 /-- Fix the entire reverse-route computation before consulting any returned data. -/
-def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
+def planIn (expected : Expr) (sourceExpression : CategoryExpr)
     (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) :
     TermElabM (Except String Plan) := do
   if prescribed.isEmpty then return .error "a prescribed lift requires a nonempty route"
   let state ← registryState
-  let .construct subobjects #[.category source] := sourceCategory.expression
+  let .construct subobjects #[.category source] := sourceExpression
     | return .error "a lifted result has no exact registered subobject constructor context"
   unless (state.constructor? subobjects).any
       (·.semantics == `CasCatalogue.Constructors.subobjects) do
@@ -86,7 +88,7 @@ def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
   unless ← withTransparency .all <| isDefEq (← inferType fixedSource) sourceType do
     return .error "the independently retained source has different complete arrow parameters"
   unless ← withTransparency .all <| isDefEq
-      (← categoryCarrierInstance sourceCategory) expected do
+      (← subobjectType (← inferType fixedSource)) expected do
     return .error "the descriptor context has different complete result parameters"
   let mut current := originalSource
   let mut receiver := fixedSource
@@ -168,9 +170,10 @@ def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
       discard <| StructuredResult.checkReconstruction port
       unless ← isTypeCorrect port do throwError "the selected lift has an ill-typed public port"
       pure port
+    let selection ← SelectedLift.fromEvidence row (← instantiateMVars evidence) X inclusion monic
     reverseComponents := reverseComponents.push {
       lift := row.id, action := (← instantiateMVars action), receiver := saved,
-      base := formalResult, routeIndex := index, ports }
+      base := formalResult, routeIndex := index, ports, selection }
     formalResult := next
   unless ← withTransparency .all <| isDefEq (← inferType formalResult) expected do
     return .error "the formal lift has a different complete selected result category"
@@ -179,6 +182,14 @@ def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
     formalResult := closed, fixedSource, fixedBase,
     components := reverseComponents.reverse,
     sourceCategory := originalSource, baseCategory }
+
+/-- Named entry point retains its independent complete category check. -/
+def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
+    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) :
+    TermElabM (Except String Plan) := do
+  unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
+    return .error "the named lift context changes the complete selected result parameters"
+  planIn expected sourceCategory.expression fixedSource prescribed fixedBase
 
 /-- Complete fields remain computational data, never reconstructed mathematical objects. -/
 def fields (tag : String) (count : Nat) (data : Json) : Except String (Array Json) := do
@@ -231,17 +242,15 @@ def validateMap (formal : Expr) (source target data : Json) :
         return .error message
   ComputationalData.validateEndpointPort formal args[0]! args[1]! args[2]!
 
-/-- Validate all four outputs against actual earlier fields and the fixed public types. -/
-def validatePrefix (component : Component) (action source base : Json)
+/-- Validate all four outputs at the actual source object, without manufacturing an Arrow. -/
+def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base : Json)
     (outputs : Array Json) : TermElabM (Except String Unit) := do
-  unless !outputs.isEmpty && outputs.size <= 4 && component.ports.size == 4 do
+  unless !outputs.isEmpty && outputs.size <= 4 && selection.ports.size == 4 do
     return .error "a lift requires an ordered prefix of its four public outputs"
-  let .ok sourceFields := fields "arrow" 3 source
-    | return .error "the lift source omitted its complete original Arrow data"
   let .ok baseFields := subobjectFields base
     | return .error "the lift base omitted its complete actual subobject data"
-  let .ok () ← ComputationalData.validatePort component.ports[0]!
-      (← inferType component.ports[0]!) outputs[0]!
+  let .ok () ← ComputationalData.validatePort selection.ports[0]!
+      (← inferType selection.ports[0]!) outputs[0]!
     | return .error "the lift object output has malformed framing"
   let mapped := Json.mkObj [("ctor", "functorAction"),
     ("args", Json.arr #[action, outputs[0]!])]
@@ -249,10 +258,10 @@ def validatePrefix (component : Component) (action source base : Json)
   let mut baseEndpoint := baseFields[0]!
   for index in #[1, 2, 3] do
     if index >= outputs.size then continue
-    let (domain, codomain) := if index == 1 then (outputs[0]!, sourceFields[0]!)
+    let (domain, codomain) := if index == 1 then (outputs[0]!, source)
       else if index == 2 then (mappedEndpoint, baseEndpoint)
       else (baseEndpoint, mappedEndpoint)
-    match ← validateMap component.ports[index]! domain codomain outputs[index]! with
+    match ← validateMap selection.ports[index]! domain codomain outputs[index]! with
     | .error message => return .error message
     | .ok () => pure ()
     if index == 2 then
@@ -261,6 +270,13 @@ def validatePrefix (component : Component) (action source base : Json)
       mappedEndpoint := actual[0]!
       baseEndpoint := actual[1]!
   return .ok ()
+
+/-- Prescribed lift execution additionally retains the entire original Arrow. -/
+def validatePrefix (component : Component) (action source base : Json)
+    (outputs : Array Json) : TermElabM (Except String Unit) := do
+  let .ok sourceFields := fields "arrow" 3 source
+    | return .error "the lift source omitted its complete original Arrow data"
+  validateSelectionPrefix component.selection action sourceFields[0]! base outputs
 
 /-- Advance with this step's actual object and defining map, not the original base packet. -/
 def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
@@ -272,7 +288,7 @@ def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
 
 /-- Only completed packets with every actual output count as prescribed lifted data.
 Source packets and selected action descriptors are supplied by the kernel's fixed route. -/
-def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
+def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (json : Json)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
     (validateBase : NamedCategoryEntry → Expr → Json → TermElabM (Except String Unit)) :
@@ -284,7 +300,7 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     let .ok ids := args[2]!.getArr? | return .error "the lift ids are absent"
     unless ids == prescribed.map (fun id => toJson id.raw) do
       return .error "the completed packet changes the exact prescribed lift ids"
-    let .ok prepared ← plan expected sourceCategory fixedSource prescribed fixedBase
+    let .ok prepared ← planIn expected sourceExpression fixedSource prescribed fixedBase
       | return .error "the completed packet has no full fixed lift plan"
     let .ok () ← validateSource prepared.sourceCategory fixedSource args[1]!
       | return .error "the computational source changed its complete fixed context"
@@ -324,5 +340,16 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
       outputs := outputs.set! index data
     return .ok { prepared with sourceData := args[1]!, baseData := args[0]!, outputs, data := json }
   return some (← work)
+
+def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
+    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (json : Json)
+    (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
+    (validateBase : NamedCategoryEntry → Expr → Json → TermElabM (Except String Unit)) :
+    TermElabM (Option (Except String Packet)) := do
+  unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
+  unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
+    return some (.error "the named lift context changes its complete selected result parameters")
+  decodeIn expected sourceCategory.expression fixedSource prescribed fixedBase json
+    validateSource validateBase
 
 end CasCatalogue.LiftedSubobjectData

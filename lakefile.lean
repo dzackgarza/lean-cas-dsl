@@ -91,6 +91,11 @@ lean_exe «cas-harness» where
   root := `CasTools.HarnessMain
   supportInterpreter := true
 
+/-- Export fixed questions without computing their answers (`CasTools.QuestionExport`). -/
+lean_exe «cas-question-export» where
+  root := `CasTools.QuestionExportMain
+  supportInterpreter := true
+
 /-- Kernel-axiom audit of the core and the probes; the audit runs while `CasTools.AxiomAudit`
 elaborates. -/
 lean_exe «cas-axiom-audit» where

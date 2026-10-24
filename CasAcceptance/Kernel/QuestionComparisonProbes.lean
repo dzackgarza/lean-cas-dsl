@@ -119,15 +119,82 @@ run_cmd withoutModifyingEnv <| liftTermElabM do
   unless ← QuestionIdentity.equivalentTypedQuestion first second do
     throwError "two complete readings of the same selected request compare differently"
 
+/- The extended trace schema carries derived category bundles, selected construction
+arguments and every chosen lift/cell component. These inert records exercise retention,
+not the mathematics or execution of any registered construction. -/
+run_cmd liftTermElabM do
+  let zero := mkNatLit 0
+  let one := mkNatLit 1
+  let two := mkNatLit 2
+  let proof ← instantiateMVars (← elabTermAndSynthesize (← `(Eq.refl (0 : Nat))) none)
+  let alternate ← instantiateMVars
+    (← elabTermAndSynthesize (← `(Eq.symm (Eq.refl (0 : Nat)))) none)
+  let different ← instantiateMVars (← elabTermAndSynthesize (← `(Eq.refl (1 : Nat))) none)
+  let context : CategoryContext := {
+    expression := .construct ⟨"comparison.context"⟩ #[.category (.atom ⟨"comparison.base"⟩)]
+    bundle := mkConst ``Nat }
+  let otherBundle := { context with bundle := mkConst ``Int }
+  let otherExpression := { context with expression := .atom ⟨"comparison.base"⟩ }
+  let route : Array EdgeRef := #[.functor ⟨"comparison.route"⟩]
+  let constructors : Array ConstructorId := #[⟨"comparison.first"⟩, ⟨"comparison.second"⟩]
+  let retainedLift := Node.selectedLift ⟨"comparison.lift"⟩ #[zero] one two proof
+  unless ← QuestionIdentity.equivalentNode retainedLift
+      (.selectedLift ⟨"comparison.lift"⟩ #[zero] one two alternate) do
+    throwError "a selected lift retained the implementation of the same proof"
+  let changes : Array (Node × Node) := #[
+    (.contextualRoute context context route #[zero] one false,
+      .contextualRoute otherBundle context route #[zero] one false),
+    (.contextualRoute context context route #[zero] one false,
+      .contextualRoute context context route #[zero] one true),
+    (.contextualComposition context zero one zero one two,
+      .contextualComposition otherExpression zero one zero one two),
+    (.contextualComposition context zero one zero one two,
+      .contextualComposition context zero one zero two two),
+    (.contextualArrow context zero one two, .contextualArrow context zero two one),
+    (.contextualIdentity context zero, .contextualIdentity otherBundle zero),
+    (.structuredProjection zero "leg" none, .structuredProjection zero "leg" (some 0)),
+    (.structuredProjection zero "leg" (some 0), .structuredProjection zero "leg" (some 1)),
+    (.construction ⟨"comparison.construction"⟩ #[zero] one,
+      .construction ⟨"comparison.construction"⟩ #[one] one),
+    (.constructionMap ⟨"comparison.construction"⟩ #[zero] one two zero,
+      .constructionMap ⟨"comparison.construction"⟩ #[zero] two one zero),
+    (.categoryParameter ⟨"comparison.category"⟩ #[zero],
+      .categoryParameter ⟨"comparison.category"⟩ #[one]),
+    (.functorParameter ⟨"comparison.functor"⟩ #[zero],
+      .functorParameter ⟨"comparison.functor"⟩ #[one]),
+    (.cartesian ⟨"comparison.transport"⟩ #[zero] one two "hom",
+      .cartesian ⟨"comparison.transport"⟩ #[one] one two "hom"),
+    (.cartesian ⟨"comparison.transport"⟩ #[zero] one two "hom",
+      .cartesian ⟨"comparison.transport"⟩ #[zero] two two "hom"),
+    (.cartesian ⟨"comparison.transport"⟩ #[zero] one two "source",
+      .cartesian ⟨"comparison.transport"⟩ #[zero] one two "target"),
+    (.coreObject context zero, .coreObject otherBundle zero),
+    (.coreIso context zero one one two, .coreIso context zero one two one),
+    (retainedLift, .selectedLift ⟨"comparison.lift"⟩ #[one] one two proof),
+    (retainedLift, .selectedLift ⟨"comparison.lift"⟩ #[zero] one two different),
+    (.liftProjection zero "inclusion", .liftProjection zero "object"),
+    (.liftFactor zero one two proof, .liftFactor zero two two proof),
+    (.liftFactor zero one two proof, .liftFactor zero one two different),
+    (.cellComponent ⟨"comparison.cell"⟩ #[zero] constructors false one,
+      .cellComponent ⟨"comparison.cell"⟩ #[zero] constructors.reverse false one),
+    (.cellComponent ⟨"comparison.cell"⟩ #[zero] constructors false one,
+      .cellComponent ⟨"comparison.cell"⟩ #[zero] constructors true one),
+    (.cellEndpoint ⟨"comparison.cell"⟩ #[zero] constructors false false one,
+      .cellEndpoint ⟨"comparison.cell"⟩ #[zero] constructors false true one)]
+  for (before, after) in changes do
+    if ← QuestionIdentity.equivalentNode before after then
+      throwError "a derived context, selected construction, lift or cell field was erased"
+
 /- Failure labels are stage data, not a precedence over tags nested in diagnostics. -/
 run_cmd liftTermElabM do
   for outer in Stratum.all do
     for inner in Stratum.all do
       let failure : TermElabM Unit :=
         throwStratum outer (MessageData.tagged inner.tag "nested cause")
-      let (kind, conflicts) ← tryCatchRuntimeEx
-        (failure *> pure (InterpretationFailureKind.invalid, false))
-        fun error => pure (Exception.interpretationKind error, Exception.hasConflictingStrata error)
+      let (kind, conflicts, execution) ← tryCatchRuntimeEx
+        (failure *> pure (InterpretationFailureKind.invalid, false, ExecutionOutcome.holds))
+        fun error => return (Exception.interpretationKind error,
+          Exception.hasConflictingStrata error, ← executionFailure error)
       if outer == inner then
         let expected := match outer with
           | .invalid => InterpretationFailureKind.invalid
@@ -135,8 +202,15 @@ run_cmd liftTermElabM do
           | _ => .internal
         unless kind == expected && !conflicts do
           throwError "repeated context tags changed the original failure kind"
+        let executionKind := match outer with
+          | .noImplementation | .ambiguousRealization => "gap"
+          | .unavailable => "unavailable"
+          | .malformed => "malformed"
+          | _ => "internal"
+        unless execution.toOutcome.kind == executionKind do
+          throwError "execution accepted a semantic label or changed a computational stratum"
       else
-        unless kind == .internal && conflicts do
+        unless kind == .internal && conflicts && execution.toOutcome.kind == "internal" do
           throwError "conflicting failure tags were resolved by tag precedence"
   let legacy : TermElabM Unit := throwSemanticAmbiguity
     (MessageData.tagged Stratum.semanticAmbiguity.tag "same semantic ambiguity")
@@ -155,3 +229,11 @@ run_cmd liftTermElabM do
     fun error => pure (Exception.interpretationKind error)
   unless kind == .internal do
     throwError "diagnostic text was mistaken for a mathematical invalidity judgment"
+  let mixed : Language.M Bool := throwStratum .noImplementation
+    (MessageData.tagged Stratum.invalid.tag "nested semantic cause")
+  for trial in #[parameterCompatible mixed,
+      (do discard <| optionalReading mixed; pure false)] do
+    let propagated ← tryCatchRuntimeEx (trial.run {} *> pure false)
+      fun error => pure (Exception.interpretationKind error == .internal)
+    unless propagated do
+      throwError "a speculative reader swallowed a mixed-stage error as inapplicability"
