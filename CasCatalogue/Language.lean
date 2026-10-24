@@ -7058,9 +7058,13 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         let sources ← OperationAgreement.orderSources sources
         applicable := applicable.push ({ operation := operation.id, application, result, sources },
           value, records)
-  let keyed ← applicable.mapM fun candidate =>
-    return (← OperationAgreement.candidateKey candidate.1, candidate)
-  applicable := (keyed.qsort fun left right => left.1 < right.1).map (·.2)
+  -- A singleton has no serialization order to choose. In particular, an
+  -- intermediate operation may retain a rigid local owner before its enclosing
+  -- question closes; final snapshot encoding still requires closed terms.
+  if applicable.size > 1 then
+    let keyed ← applicable.mapM fun candidate =>
+      return (← OperationAgreement.candidateKey candidate.1, candidate)
+    applicable := (keyed.qsort fun left right => left.1 < right.1).map (·.2)
   let some (representative, value, _) := applicable[0]?
     | throwStratum .invalid m!"the selected structure has no registered operation `{name}`"
   let candidates := applicable.map (·.1)

@@ -355,11 +355,13 @@ def candidateKey (candidate : OperationCandidate) : TermElabM String := do
   table.finish (← encodeCandidate table.encode candidate)
 
 def orderSources (sources : Array OperationSource) : TermElabM (Array OperationSource) := do
+  if sources.size <= 1 then return sources
   let keyed ← sources.mapM fun source => return (← sourceKey source, source)
   return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
 
 def orderCandidates (candidates : Array OperationCandidate) :
     TermElabM (Array OperationCandidate) := do
+  if candidates.size <= 1 then return candidates
   let keyed ← candidates.mapM fun candidate => return (← candidateKey candidate, candidate)
   return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
 
