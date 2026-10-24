@@ -116,8 +116,9 @@ meta def readFile (path : System.FilePath) : CommandElabM Export := do
         pure (.ok ({
           file, id, sourceLine := sourceItem.line, question := question.identity.1,
           proposition := question.identity.2 } : Reading)))
-        (fun error => return .error
-          (atSource (← failure file id "interpretation" error (← stages.get))))
+        (fun error => do
+          let problem ← failure file id "interpretation" error (← stages.get)
+          return .error (atSource problem))
     match interpreted with
     | .ok reading => result := { result with readings := result.readings.push reading }
     | .error problem => result := { result with

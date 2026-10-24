@@ -44,19 +44,35 @@ run_elab do
         external ComputationalData.endpointKeys) then
     throwError "the anonymous complete computational apex was rejected: {message}"
   let full := node "constructionApex" #[toJson row.id.raw, node "pair" objects, answer]
-  let check := fun (formal : Expr) (form : Form) (full : Json) => do
-    for owner in #[none, some ("anonymous-apex-fixture", 27)] do
-      let payload := match owner with
-        | none => Realize.WirePayload.computed formal (.inline full)
-        | some (backend, session) => .computed formal (.owned backend session full)
-      let input : Realize.Wire := { form, payload }
-      let actual ← Realize.computationalApexReceiver trace input
-      unless actual.form.id == row.category.raw && actual.json == actualApex &&
-          actual.value == input.value && actual.owner? == input.owner? do
-        throwError "anonymous apex dispatch changed its complete data, formal request or ownership"
-      unless actual.payload matches .computed .. do
-        throwError "a portable computed apex became ordinary formal input"
-  check apex (.limitApex row) full
+  let check := fun (formal : Expr) (form : Form) (full expectedApex : Json)
+      (owner expectedOwner : Option (String × Nat)) => do
+    let payload := match owner with
+      | none => Realize.WirePayload.computed formal (.inline full)
+      | some (backend, session) => .computed formal (.owned backend session full)
+    let input : Realize.Wire := { form, payload }
+    let actual ← Realize.computationalApexReceiver trace input
+    unless actual.form.id == row.category.raw && actual.json == expectedApex &&
+        actual.value == input.value && actual.owner? == expectedOwner do
+      throwError "anonymous apex dispatch changed its complete data, formal request or ownership"
+    unless actual.payload matches .computed .. do
+      throwError "a portable computed apex became ordinary formal input"
+  let owner := some ("anonymous-apex-fixture", 27)
+  -- An enclosing session does not make a fully portable selected object opaque.
+  for parentOwner in #[none, owner] do
+    check apex (.limitApex row) full actualApex parentOwner none
+  -- Actual opaque apex data, in contrast, must retain their original owner.
+  let opaqueDatum := fun token => node "opaqueData" #[toJson (token : String)]
+  let ownedApex := opaqueDatum "actual returned apex"
+  let typedMap := fun source target callable => node "typedMap" #[source, target, callable]
+  let ownedAnswer := node "cone" #[ownedApex,
+    typedMap ownedApex (fin 1) (opaqueDatum "actual first leg"),
+    typedMap ownedApex (fin 2) (opaqueDatum "actual second leg")]
+  if let .error message ← StructuredResult.validatePlannedData plan ownedAnswer
+      (fun port seen data => ComputationalData.validatePlannedPort plan port seen data
+        external ComputationalData.endpointKeys) then
+    throwError "the complete opaque computational apex was rejected: {message}"
+  let ownedFull := node "constructionApex" #[toJson row.id.raw, node "pair" objects, ownedAnswer]
+  check apex (.limitApex row) ownedFull ownedApex owner owner
   -- The accepted creation lift retains a formal object in its source category
   -- while the actual complete packet remains framed in the base category.
   let some finite := state.objects.find? (·.id.raw == "obj.finite_sets.fin")
@@ -76,4 +92,5 @@ run_elab do
   let sourceData := node "cospan" #[sourceArrow, sourceArrow]
   let packet := node "createdCone" #[toJson LiftId.finiteSetsPullbacks.raw, sourceData, answer]
   let complete := node "constructionApex" #[toJson pullback.id.raw, sourceData, packet]
-  check sourceApex (.createdApex pullback finite.category) complete
+  for parentOwner in #[none, owner] do
+    check sourceApex (.createdApex pullback finite.category) complete actualApex parentOwner none

@@ -1,11 +1,13 @@
 """Engineering checks for the public port reference implementation, not CAS answers.
 
 Usage: python3 scripts/test_contract_protocol.py /path/to/contracts/python/cas_port.py
+Discovery uses CAS_LEAF_CONTRACT_PATH or the checkout selected in lake-manifest.json.
 """
 
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -13,7 +15,25 @@ import unittest
 from unittest.mock import patch
 
 
-contract_path = Path(sys.argv.pop(1)).resolve(strict=True)
+def helper_path():
+    # A unittest discovery argument is not a contract path. Direct invocation
+    # retains its explicit source selection; discovery uses the built tuple.
+    if __name__ == "__main__" and len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        return Path(sys.argv.pop(1))
+    if selected := os.environ.get("CAS_LEAF_CONTRACT_PATH"):
+        return Path(selected) / "python" / "cas_port.py"
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((root / "lake-manifest.json").read_text(encoding="utf-8"))
+    entry = next(row for row in manifest["packages"] if row["name"] == "cas_leaf_contracts")
+    if entry["type"] == "path":
+        directory = root / entry["dir"]
+    else:
+        directory = root / manifest.get("packagesDir", ".lake/packages") / entry["name"]
+        directory /= entry.get("subDir") or ""
+    return directory / "python" / "cas_port.py"
+
+
+contract_path = helper_path().resolve(strict=True)
 spec = importlib.util.spec_from_file_location("cas_contract_port_under_test", contract_path)
 port = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(port)

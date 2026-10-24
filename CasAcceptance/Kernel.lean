@@ -6,6 +6,7 @@ public import CasAcceptance.Kernel.AnonymousApexProbes
 public import CasAcceptance.Kernel.ConstrainedPointProbes
 public import CasAcceptance.Kernel.DependentElaborationProbes
 public import CasAcceptance.Kernel.FileItemProbes
+public import CasAcceptance.Kernel.SessionOwnershipProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
