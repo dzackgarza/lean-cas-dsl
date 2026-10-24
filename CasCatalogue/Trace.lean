@@ -107,11 +107,19 @@ inductive Node
       (applications : Array Expr) (receiver : Expr) (morphism : Bool)
   | contextualComposition (context : CategoryContext)
       (first second source middle target : Expr)
+  | contextualIdentity (context : CategoryContext) (object : Expr)
   | contextualArrow (context : CategoryContext) (hom source target : Expr)
   /-- The stored map of an object of the registered arrow-category construction. -/
   | arrowProjection (receiver : Expr)
   /-- A defining leg of the exact retained universal construction. -/
   | limitProjection (receiver index : Expr)
+  /-- A field of the complete accepted Arrow/subobject or universal-construction schema.
+  An optional index is an actual registered data-constructor port, never a value lookup. -/
+  | structuredProjection (receiver : Expr) (field : String) (index : Option Nat)
+  /-- The canonical cartesian map and its endpoints, fixed by a registered family
+  reindexing, its complete parameters, original base map and selected fibre object. -/
+  | cartesian (id : FunctorId) (params : Array Expr) (baseMorphism receiver : Expr)
+      (field : String)
   /-- Forward point identification along a checked carrier-preserving structural view. -/
   | pointView (source target : Expr) (route : Array EdgeRef)
       (applications : Array Expr) (argument : Expr)

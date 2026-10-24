@@ -134,6 +134,22 @@ directions of its isomorphism. A general morphism cannot stand in for that
 isomorphism. Applicable registered meanings are compared together; a construction
 name does not take precedence over another applicable declaration.
 
+Select a whole registered presentation map, with all its declaration parameters,
+using these forms:
+
+```text
+let e := presentation(<presentation-name-or-id>(p₁, …, pₙ))
+let e_inv := inverse_presentation(<presentation-name-or-id>(p₁, …, pₙ))
+map e along <construction>(q₁, …, qₘ)
+map e_inv along <construction>(q₁, …, qₘ)
+```
+
+Each selector returns the corresponding directed map while retaining the original
+accepted isomorphism and both its directions. This is the complete input needed
+by a construction whose source is a core category. It is distinct from applying
+the comparison to an individual element with `map t along P` or
+`map t back along P`. Empty parameter lists are written `P()`.
+
 A registered functor can be selected explicitly, including when it is not a
 structural inheritance edge:
 
@@ -149,6 +165,15 @@ accepted constructed category retains that entire category expression and its
 typed bundle even when the registry has no separate name for the expression.
 Subsequent composition, selected action, and inherited method or property
 resolution use this retained context.
+
+Family reindexing has the public form `reindex(X, baseMap)`. The registered family
+determines variance and all dependent parameters. For a module family with
+restriction of scalars, a base map `φ : R → S` consumes an object of the fibre over
+`S` and returns an object of the fibre over `R`. A cartesian map exposed as a
+registered morphism uses that morphism's ordinary call syntax
+`<registered-morphism-name>(p₁, …, pₙ)` with the ordered arguments of its declared
+signature. There is no generic `cartesian(...)` selector: reindexing an object does
+not itself introduce a callable cartesian-map registration.
 
 A natural cell component fixes the registered cell, all its data parameters,
 the complete receiver, and an ordered constructor path:
@@ -193,6 +218,33 @@ lifts. For several prescribed stages, the forward and backward fields use every
 declared functor map and comparison in order, and factorization runs through all
 the selected stages. Taking `.obj()` retains the complete selected lift for later
 field access and factorization.
+
+A registered universal construction retains its apex and defining legs. For an
+apex `K`, `K.leg(i)` selects its defining leg at the declared diagram index `i`.
+The index is checked against that diagram's actual index type. A kernel returned
+as an apex is already the kernel object; its defining inclusion is the relevant
+leg. A kernel returned by a registered subobject-valued method is a complete
+subobject. Its registered `inclusion()` method, when published for that category,
+returns the complete arrow, and `.hom()` reads that arrow's stored map. The lift
+projections above are available when the result carries a prescribed or explicit
+selected lift. Field access uses these declared operations and complete retained
+results; it does not expose computational packet fields as new mathematical
+operations.
+
+An already admitted whole coefficient family can be supplied directly to a
+registered binder:
+
+```text
+let a := rawFamily in <declared-family-object> using (proof(<condition-term>))
+binder(<binder-id>(p₁, …, pₙ), a)
+```
+
+The explicit parameters are the binder operation's ordered declaration
+parameters. The last argument is one whole element of its exact admitted input
+object, or a complete generalized map into that object. The selector uses the
+given admission and preserves the original generalized domain. Binding notation
+such as `∑_{i ∈ A} body` remains the separate form that constructs and admits a
+body family before applying its registered operation.
 
 `proof(<Lean term>)` is a formal input checked at the exact proposition required
 by the declaration. It must be closed and contain no `sorry`. Computational

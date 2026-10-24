@@ -270,7 +270,7 @@ def RegistryState.liftInputForm? (state : RegistryState) (id : String) : Option 
     row.inputAddress == id && row.kind == .subobjects && row.computation.isSome)
   let expression ← state.selectedEdgeSource? entry.edge
   let candidates := state.categories.filter (·.expression.syntacticEq expression)
-  let source := match candidates with
+  let source : Option NamedCategoryEntry := match candidates with
     | #[source] => some source
     | _ => do
       let .construct _ #[.category base] := expression | none

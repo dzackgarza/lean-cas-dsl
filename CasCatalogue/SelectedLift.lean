@@ -78,7 +78,9 @@ def select (entry : LiftEntry) (parameters : Array Term) (source inclusion monic
   let application ← DirectConstruction.close application
   let evidence := application.value
   let selected ← selected.mapM instantiateMVars
-  let action ← instantiateMVars action
+  -- Retain the accepted declaration application as well as its equality to the
+  -- evidence's action. Unfolding the latter must not erase ordered edge parameters.
+  let action ← instantiateMVars accepted
   let computation ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.computation
     (selected.map some ++ #[some evidence])
   let some declaration := entry.computation

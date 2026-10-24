@@ -86,7 +86,7 @@ def assemble (entry : CellEntry) (application : DirectConstruction.Application)
       else pure comparison))
     else pure none
   let transformation ← match isomorphism with
-    | some comparison => mkAppM ``CategoryTheory.Iso.hom #[comparison]
+    | some selectedIso => mkAppM ``CategoryTheory.Iso.hom #[selectedIso]
     | none => pure comparison
   let component ← mkAppM ``CategoryTheory.NatTrans.app #[transformation, receiver]
   let transformation ← instantiateMVars transformation

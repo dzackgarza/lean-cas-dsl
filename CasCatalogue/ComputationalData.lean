@@ -532,6 +532,10 @@ partial def validateAction (formal : Expr) (json : Json) : TermElabM (Except Str
     let some selected ← fixedFunctorApplication entry.declaration formal
       | return .error "the action descriptor differs from the retained selected edge"
     return ← declarationPorts entry.declaration selected (← inferType selected) args
+  if let some entry := state.constructions.find? (·.id.raw == tag) then
+    let some selected ← fixedFunctorApplication entry.declaration formal
+      | return .error "the action descriptor differs from the retained complete construction"
+    return ← declarationPorts entry.declaration selected (← inferType selected) args
   if tag == "classifierForget" then
     let #[id, parameters] := args
       | return .error "classifierForget requires its registered classifier and parameters"
@@ -570,6 +574,13 @@ partial def validatePort (formalField expectedType : Expr) (json : Json) :
     return .error "a proposition is not a computational data port"
   let state ← registryState
   if let .ok (tag, args) := envelope json then
+    if tag == "category" || tag == "constructedCategory" || tag == "functor" then
+      let .ok selected ← interfaceArgument #[] expectedType json
+        | return .error "the selected dictionary does not have its full declared interface"
+      let formal ← if tag == "functor" then Semantic.asFunctor formalField else pure formalField
+      unless ← withTransparency .all <| isDefEq selected formal do
+        return .error "the computational dictionary changed the independently fixed full context"
+      return .ok ()
     if tag == "opaqueData" then
       let #[token] := args | return .error "opaqueData requires one token"
       let .ok token := token.getStr? | return .error "an opaque token must be a string"
@@ -907,14 +918,20 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
     return ← validateDeclaredData entry.declaration args
   if let some entry := state.constructions.find? (·.id.raw == tag) then
     return ← validateDeclaredData entry.declaration args
-  if tag == "category" || tag == "functor" then
+  if tag == "category" || tag == "constructedCategory" || tag == "functor" then
     let #[id, parameters] := args | return .error "a selected dictionary requires its id and ordered parameters"
     let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
     let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
     let declaration := if tag == "category" then
       (state.categories.find? (·.id.raw == id)).map (·.declaration)
+    else if tag == "constructedCategory" then
+      (state.constructors.find? (·.id.raw == id)).map (·.semantics)
     else (state.functors.find? (·.id.raw == id)).map (·.declaration)
     let some declaration := declaration | return .error "the selected dictionary is not registered"
+    if tag == "constructedCategory" then
+      let some constructor := state.constructor? ⟨id⟩ | unreachable!
+      unless parameters.size == constructor.signature.size do
+        return .error "the constructed category changed its declared argument count"
     return ← validateDeclaredData declaration parameters
   if tag == "cellComponent" then
     let .ok component := Backend.CellComponent.decode data
@@ -1335,14 +1352,20 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
   let expected ← instantiateMVars expected
   if ← isProp expected then return .error "a proof is not computational data"
   if let .ok (tag, #[id, parameters]) := envelope data then
-    if tag == "category" || tag == "functor" then
+    if tag == "category" || tag == "constructedCategory" || tag == "functor" then
       let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
       let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
       let state ← registryState
       let declaration := if tag == "category" then
         (state.categories.find? (·.id.raw == id)).map (·.declaration)
+      else if tag == "constructedCategory" then
+        (state.constructors.find? (·.id.raw == id)).map (·.semantics)
       else (state.functors.find? (·.id.raw == id)).map (·.declaration)
       let some declaration := declaration | return .error "the selected dictionary is not registered"
+      if tag == "constructedCategory" then
+        let some constructor := state.constructor? ⟨id⟩ | unreachable!
+        unless parameters.size == constructor.signature.size do
+          return .error "the constructed category changed its complete argument count"
       let resultType ← inferType (← instantiateFresh declaration)
       let .ok value ← interfaceDeclaration objects declaration resultType parameters
         | return .error "the selected dictionary has incompatible complete parameters"

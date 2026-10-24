@@ -700,6 +700,13 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
       category := category.id.raw
       parameters := (← declarationData trace category.declaration selected) }
     return data.encode
+  if let some constructor := state.constructors.find?
+      (fun row => selected.getAppFn.constName? == some row.semantics) then
+    let parameters ← declarationData trace constructor.semantics selected
+    unless parameters.size == constructor.signature.size do
+      throwError "the constructed category lost its complete ordered declared arguments"
+    return Json.mkObj [("ctor", "constructedCategory"),
+      ("args", Json.arr #[toJson constructor.id.raw, Json.arr parameters])]
   let selectedFunctor := if selected.isAppOf ``CategoryTheory.Cat.Hom.toFunctor then
     selected.appArg! else selected
   if let some functor := state.functors.find?
@@ -2434,7 +2441,33 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
       data := data.push wire.json
       dependencies := dependencies.push wire
     else
-      data := data.push (← parameterData trace parameter)
+      let selected := (← instantiateMVars parameter).consumeMData
+      let selectedFunctor := if selected.isAppOf ``CategoryTheory.Cat.Hom.toFunctor then
+        selected.appArg! else selected
+      let state ← registryState
+      let declaration? :=
+        (state.categories.find? (fun row => selected.getAppFn.constName? == some row.declaration)).map
+          (fun row => ("category", row.id.raw, row.declaration, selected)) <|>
+        (state.constructors.find? (fun row => selected.getAppFn.constName? == some row.semantics)).map
+          (fun row => ("constructedCategory", row.id.raw, row.semantics, selected)) <|>
+        (state.functors.find? (fun row => selectedFunctor.getAppFn.constName? == some row.declaration)).map
+          (fun row => ("functor", row.id.raw, row.declaration, selectedFunctor))
+      if let some (tag, id, declaration, application) := declaration? then
+        let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun fields _ =>
+          fields.mapM (·.fvarId!.getBinderInfo)
+        unless application.getAppNumArgs == infos.size do
+          throwError "the selected dictionary lost its complete declaration application"
+        let arguments := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+          if info.isExplicit then some argument else none
+        let (arguments, wires) ← realizedParameters h trace arguments
+        if tag == "constructedCategory" then
+          let some constructor := state.constructor? ⟨id⟩ | unreachable!
+          unless arguments.size == constructor.signature.size do
+            throwError "the constructed category lost a declared ordered argument"
+        data := data.push (Json.mkObj [("ctor", toJson tag),
+          ("args", Json.arr #[toJson id, Json.arr arguments])])
+        dependencies := dependencies ++ wires
+      else data := data.push (← parameterData trace parameter)
   return (data, dependencies)
 
 /-- Encode each actual action parameter through the same dependency-preserving
@@ -2629,7 +2662,8 @@ partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Ex
       throwError "a contextual action changed its complete source bundle"
     let some targetExpression := state.selectedEdgeTarget? step
       | throwError "a contextual action has no accepted target expression"
-    let descriptor ← edgeDescriptor trace step application
+    let (descriptor, parameterWires) ← realizedEdgeDescriptor h trace step application
+    dependencies := dependencies ++ parameterWires
     if morphism then
       data := Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, data])]
       value ← Semantic.mapOf application value
@@ -2644,6 +2678,8 @@ partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Ex
   unless ← withTransparency .all <| isDefEq value formal <&&>
       isDefEq currentContext.bundle target.bundle do
     throwError "the contextual route changed its fixed result or full target bundle"
+  unless currentContext.expression.syntacticEq target.expression do
+    throwError "the contextual route changed its accepted target category expression"
   return {
     form := contextualForm state target original.form morphism
     payload := (← combinedPayload formal data dependencies)
@@ -2995,6 +3031,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       contextualAction h trace e receiver source target route applications morphism
   | .contextualComposition context first second source middle target =>
       contextualComposition h trace e context first second source middle target
+  | .contextualIdentity context object =>
+      CategoryContext.checkMorphism context e object object
+      let expected ← mkAppM ``CategoryTheory.CategoryStruct.id #[object]
+      unless ← withTransparency .all <| isDefEq e expected do
+        throwError "the contextual identity changed its independently fixed formal map"
+      let original ← realizeEndpoint h trace "the contextual identity's complete object" object
+      return {
+        form := contextualForm state context original.form true
+        payload := forwardPayload original e (Json.mkObj [("ctor", "identity"),
+          ("args", Json.arr #[original.json, original.json])])
+        categoryContext := some context }
   | .contextualArrow context hom source target =>
       CategoryContext.checkMorphism context hom source target
       let #[constructor] := state.constructors.filter
@@ -3819,6 +3866,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | throwError "the admitted binder input lost its generalized point endpoints"
       unless ← withTransparency .all <| isDefEq admittedTarget source do
         throwError "the admitted binder input changed the published callable source"
+      unless ← withTransparency .all <| isDefEq e
+          (← mkAppM ``CategoryTheory.CategoryStruct.comp #[input.value, arrow]) do
+        throwError "the selected binder changed its independently fixed complete result"
       for object in #[domain, source, target] do
         if (← trace.node? object).isNone then
           discard <| Semantic.recordNamedObject object (some trace)
@@ -3835,13 +3885,17 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         form := input.form
         payload := (← combinedPayload arrow invocation.encode (#[input, domainWire, sourceWire, targetWire] ++ parameterWires)) }
       let (answer, backend) ← send h operation request (completeRequest := true)
-      match ← ComputationalData.validateElementAt target targetWire.json
-          (← pointResultValue state e) answer with
+      let checked ← if ← withTransparency .all <| isDefEq domain (← closedElementDomain state) then
+        ComputationalData.validateElementAt target targetWire.json (← pointResultValue state e) answer
+      else ComputationalData.validateEndpointPort e domainWire.json targetWire.json answer
+      match checked with
       | .error message => malformed backend operation answer message
       | .ok () => pure ()
       let data ← receiveComputationalData h backend operation answer
       let some category := state.categories.find? (·.id == entry.category) | unreachable!
-      return { form := .canonicalMorphism category, payload := .computed e data }
+      let result : Wire := { form := .canonicalMorphism category, payload := .computed e data }
+      let owner ← mergeOwners request.owner? result.owner?
+      return { result with payload := dataPayload e result.json owner }
   | .arrow category morphism source target =>
       let some recorded := state.categories.find? (·.id == category)
         | throwError "the recorded arrow context is not registered"
@@ -5045,6 +5099,8 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.contextualComposition (← instantiateContext context)
             (← instantiateMVars first) (← instantiateMVars second)
             (← instantiateMVars source) (← instantiateMVars middle) (← instantiateMVars target))
+      | .contextualIdentity context object =>
+          pure (.contextualIdentity (← instantiateContext context) (← instantiateMVars object))
       | .contextualArrow context hom source target =>
           pure (.contextualArrow (← instantiateContext context) (← instantiateMVars hom)
             (← instantiateMVars source) (← instantiateMVars target))
@@ -5218,6 +5274,9 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (Json.arr #[toJson "contextualComposition", ← encodeContext context,
             toJson (← encode first), toJson (← encode second), toJson (← encode source),
             toJson (← encode middle), toJson (← encode target)])
+      | .contextualIdentity context object =>
+          pure (Json.arr #[toJson "contextualIdentity", ← encodeContext context,
+            toJson (← encode object)])
       | .contextualArrow context hom source target =>
           pure (Json.arr #[toJson "contextualArrow", ← encodeContext context,
             toJson (← encode hom), toJson (← encode source), toJson (← encode target)])

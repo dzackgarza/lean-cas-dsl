@@ -227,6 +227,12 @@ syntax:max (name := casCellComponent) "component(" ident "(" sepBy(cas_term, ","
   "," cas_term "," "[" ident,* "]" ")" : cas_term
 syntax:max (name := casCellComponentInverse) "inverse_component(" ident
   "(" sepBy(cas_term, ",") ")" "," cas_term "," "[" ident,* "]" ")" : cas_term
+syntax:max (name := casSelectedPresentation) "presentation(" ident
+  "(" sepBy(cas_term, ",") ")" ")" : cas_term
+syntax:max (name := casSelectedPresentationInverse) "inverse_presentation(" ident
+  "(" sepBy(cas_term, ",") ")" ")" : cas_term
+syntax:max (name := casSelectedBinder) "binder(" ident
+  "(" sepBy(cas_term, ",") ")" "," cas_term ")" : cas_term
 /-- `(a)x`, `(a)x²`: a parenthesized coefficient times a variable (or its square or cube). -/
 syntax:max (name := casCoefficient) "(" cas_term ")" noWs ident (noWs ("²" <|> "³"))? : cas_term
 /-- `a dx`, `f dx`: juxtaposition, the product in a set both are in, else the registered action
@@ -677,6 +683,7 @@ def objectContext (value : Value) : M CategoryContext := do
 
 def objectInContext (object : Expr) (context : CategoryContext)
     (known : Array Value := #[]) : M Value := do
+  let context ← CategoryContext.presented context
   CategoryContext.checkObject context object
   if let some category := CategoryContext.named? (← registryState) context.expression then
     return retainObjectContext (.object object category none none none) known
@@ -684,6 +691,7 @@ def objectInContext (object : Expr) (context : CategoryContext)
 
 def morphismInContext (value source target : Expr) (context : CategoryContext)
     (endpoints : Value × Value) : M Value := do
+  let context ← CategoryContext.presented context
   CategoryContext.checkMorphism context value source target
   if let some category := CategoryContext.named? (← registryState) context.expression then
     return .morphism value source target category (some endpoints)
@@ -1643,6 +1651,12 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
   if stx.getKind == ``casInProof then
     return ← evalInUsing scope stx[0] stx[2] stx[5].getSepArgs category?
   match stx with
+  | `(cas_term| presentation($selectedName:ident($parameters,*))) =>
+      selectedPresentation scope selectedName.getId.toString parameters.getElems false
+  | `(cas_term| inverse_presentation($selectedName:ident($parameters,*))) =>
+      selectedPresentation scope selectedName.getId.toString parameters.getElems true
+  | `(cas_term| binder($selectedName:ident($parameters,*), $family)) =>
+      selectedBinder scope selectedName.getId.toString parameters.getElems family
   | `(cas_term| lift($source) along $selectedName:ident($parameters,*) with $inclusion using $proof) =>
       selectedLift scope selectedName.getId.toString parameters.getElems source inclusion proof
   | `(cas_term| factor($baseMap) through $selected with $cone using $proof) =>
@@ -1800,20 +1814,22 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       let `(cas_term| $s → $t) := st | throwStratum .invalid m!"a graph is a map `X → Y`"
       graph scope pairs.getElems s t category?
   | `(cas_term| $f ∘ $g) =>
-      let .morphism f' b c category fSets ← eval scope f category?
-        | throwStratum .invalid m!"`∘` composes morphisms"
-      let .morphism g' a b' category' gSets ← eval scope g (some category)
-        | throwStratum .invalid m!"`∘` composes morphisms"
-      unless category.id == category'.id && (← isDefEq b b') do
+      let second ← eval scope f category?
+      let (f', b, c, context, _, targetValue) ← morphismContext second
+      let category? := CategoryContext.named? state context.expression
+      let first ← eval scope g category?
+      let (g', a, b', sourceContext, sourceValue, _) ← morphismContext first
+      unless context.expression.syntacticEq sourceContext.expression &&
+          (← withTransparency .all <| isDefEq context.bundle sourceContext.bundle) &&
+          (← isDefEq b b') do
         throwStratum .invalid m!"`{shown f} ∘ {shown g}`: the target of {shown g} is not the \
           source of {shown f}"
-      let sets := match gSets, fSets with
-        | some (X, _), some (_, Z) => some (X, Z)
-        | _, _ => none
       let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[g', f']
-      Trace.record (← read).trace composite
-        (.morphismComposition category.id g' f' a b c)
-      return .morphism composite a c category sets
+      let node := match category? with
+        | some category => Node.morphismComposition category.id g' f' a b c
+        | none => Node.contextualComposition context g' f' a b c
+      Trace.record (← read).trace composite node
+      return ← morphismInContext composite a c context (sourceValue, targetValue)
   | `(cas_term| |$t|) =>
       -- `|x|` of an element is its absolute value; of an object, its cardinality.
       match ← eval scope t category? ambient? with
@@ -2266,13 +2282,18 @@ partial def constructionSelection (scope : Scope) (entry : ConstructionEntry)
   let context ← objectContext receiver
   let application ← DirectConstruction.instantiate entry.declaration
     (← selectedParameterTerms scope entry.declaration parameters)
-  let selectedCategory := context.bundle
-  for argument in application.explicit do
-    if (← instantiateMVars argument).isMVar then
-      if ← parameterTrial (isDefEq (← inferType argument) (← inferType selectedCategory)) then
-        unless ← isDefEq argument selectedCategory do
-          throwStratum .invalid "the construction requires a different selected category"
   let functor ← Semantic.asFunctor application.value
+  let (declaredSource, _) ← functorCategoryBundles functor
+  let direct ← parameterTrial (withTransparency .all <| isDefEq declaredSource context.bundle)
+  if direct then
+    unless ← withTransparency .all <| isDefEq declaredSource context.bundle do unreachable!
+  else
+    let selectedCategory := context.bundle
+    for argument in application.explicit do
+      if (← instantiateMVars argument).isMVar then
+        if ← parameterTrial (isDefEq (← inferType argument) (← inferType selectedCategory)) then
+          unless ← isDefEq argument selectedCategory do
+            throwStratum .invalid "the construction requires a different selected category"
   let type ← whnfR (← inferType functor)
   unless type.isAppOf ``CategoryTheory.Functor do
     throwStratum .invalid "the selected construction has no complete functor source"
@@ -2323,6 +2344,7 @@ partial def constructionCoreMap (morphism source target : Expr) : M (Expr × Exp
         constructors inverse receiver
       CellAction.componentIso action receiver
     | .morphismIdentity _ object => mkAppM ``CategoryTheory.Iso.refl #[object]
+    | .contextualIdentity _ object => mkAppM ``CategoryTheory.Iso.refl #[object]
     | _ => throwStratum .invalid "the selected morphism has no accepted inverse data"
   let forward ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
   let backward ← mkAppM ``CategoryTheory.Iso.inv #[comparison]
@@ -2341,11 +2363,8 @@ partial def constructionCoreMap (morphism source target : Expr) : M (Expr × Exp
     #[none, none, some coreSource, some coreTarget, some comparison]
   return (arrow, forward, backward)
 
-partial def directConstructionMap (scope : Scope) (name : String) (parameters : Array Syntax)
+partial def directConstructionMapAt (scope : Scope) (entry : ConstructionEntry) (parameters : Array Syntax)
     (morphismSyntax : Syntax) : M Value := do
-  let state ← registryState
-  let #[entry] := state.constructions.filter (fun row => row.name == name || row.id.raw == name)
-    | throwStratum .invalid "the selected construction is absent or ambiguous"
   let morphismValue ← eval scope morphismSyntax
   let (morphism, source, target, context, sourceValue, targetValue) ← morphismContext morphismValue
   let (action, actualSource) ← constructionSelection scope entry parameters sourceValue
@@ -2368,6 +2387,49 @@ partial def directConstructionMap (scope : Scope) (name : String) (parameters : 
   morphismInContext result imageSource imageTarget action.target
     (← objectInContext imageSource action.target #[sourceValue],
       ← objectInContext imageTarget action.target #[targetValue])
+
+partial def directConstructionMap (scope : Scope) (name : String) (parameters : Array Syntax)
+    (morphismSyntax : Syntax) : M Value := do
+  let entries := (← registryState).constructions.filter
+    (fun row => row.name == name || row.id.raw == name)
+  if let #[entry] := entries then
+    return ← directConstructionMapAt scope entry parameters morphismSyntax
+  let applicable ← entries.filterM fun entry => parameterCompatible do
+    discard <| directConstructionMapAt scope entry parameters morphismSyntax
+    pure true
+  match applicable with
+  | #[entry] => directConstructionMapAt scope entry parameters morphismSyntax
+  | #[] => throwStratum .invalid "no registered construction map applies to these complete arguments"
+  | _ => throwSemanticAmbiguity "several registered construction maps apply to these complete arguments"
+
+/-- Select the whole accepted isomorphism by its declaration, preserving both
+directions for later core constructions and the exact registered endpoints. -/
+partial def selectedPresentation (scope : Scope) (name : String) (parameters : Array Syntax)
+    (inverse : Bool) : M Value := do
+  let state ← registryState
+  let #[entry] := state.presentations.filter (fun row => row.name == name || row.id.raw == name)
+    | throwStratum .invalid "the selected presentation is absent or ambiguous"
+  let application ← DirectConstruction.instantiate entry.declaration
+    (← selectedParameterTerms scope entry.declaration parameters)
+  let application ← DirectConstruction.close application
+  let arrow ← Semantic.presentationArrow entry application.value inverse (← read).trace
+  let some (source, target) := homEnds? (← inferType arrow)
+    | throwStratum .invalid "the selected presentation lost its complete map endpoints"
+  let sourceId := if inverse then entry.target else entry.source
+  let targetId := if inverse then entry.source else entry.target
+  let some sourceRow := state.objects.find? (·.id == sourceId)
+    | throwStratum .invalid "the selected presentation source is not registered"
+  let some targetRow := state.objects.find? (·.id == targetId)
+    | throwStratum .invalid "the selected presentation target is not registered"
+  let some category := state.categories.find? (·.id == sourceRow.category)
+    | throwStratum .invalid "the selected presentation category is not registered"
+  unless targetRow.category == category.id do
+    throwStratum .invalid "the selected presentation has different endpoint categories"
+  let sourceValue ← recognize state source category
+  let targetValue ← recognize state target category
+  discard <| Semantic.recordNamedObject source (← read).trace
+  discard <| Semantic.recordNamedObject target (← read).trace
+  return .morphism arrow source target category (some (sourceValue, targetValue))
 
 partial def retainedLiftPlans (receiver : Expr) : M (Array SelectedLift.Plan) := do
   let some trace := (← read).trace | throwStratum .invalid "the lift has no retained selection"
@@ -2873,11 +2935,16 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
   if name == "id" then
     let #[x] := args | throwStratum .invalid m!"`id(X)` is the identity of an object `X`"
     let X ← eval scope x category?
-    let .object a category _ _ _ := X
-      | throwStratum .invalid m!"`id(X)` is the identity of an object `X`"
-    let hom ← homIn (← `(CategoryTheory.CategoryStruct.id _)) a a category
-    Trace.record (← read).trace hom (.morphismIdentity category.id a)
-    return .morphism hom a a category (some (X, X))
+    let a ← semanticObject X
+    let context ← objectContext X
+    let hom ← elabTermAndSynthesize
+      (← `(CategoryTheory.CategoryStruct.id $(← exprToSyntax a)))
+      (some (← CategoryContext.hom context a a))
+    let node := match CategoryContext.named? state context.expression with
+      | some category => Node.morphismIdentity category.id a
+      | none => Node.contextualIdentity context a
+    Trace.record (← read).trace hom node
+    return ← morphismInContext hom a a context (X, X)
   -- `Mat₂(ℚ)`: a subscript is the leading numeral parameter.
   if let some (base, k) := subscripted? name then
     if state.objects.any (·.name == base) && !state.objects.any (·.name == name) then
@@ -3437,7 +3504,10 @@ partial def carrierObject (value : Value) : M Value := do
     let some sets := state.categories.find? (·.id == CategoryId.sets)
       | throwStratum .invalid "the registered set category is absent"
     let routes ← routesBetween state context.expression sets.expression
-    let classes := state.classify routes (fun _ => sets.id.raw) (fun route => route)
+    let classes :=
+      letI : Inhabited Route :=
+        ⟨{ source := context.expression, target := sets.expression, steps := #[] }⟩
+      state.classify routes (fun _ => sets.id.raw) (fun route => route)
     let #[cls] := classes
       | throwSemanticAmbiguity "the derived object has no unique accepted carrier route"
     unless cls.ambiguities.isEmpty do
@@ -4962,6 +5032,63 @@ partial def pairOf (x y : Value) : M Value := do
       ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[hx, hy]]
   return .element (← mkExpectedTypeHint lift (← mkAppM ``Quiver.Hom #[one, apex]))
     (.object apex category none none none)
+
+/-- Apply a selected binder to an already admitted complete family. The accepted
+operation fixes its full source and result; admission is not replayed or inferred
+from computational data. The original generalized point domain is retained. -/
+partial def selectedBinder (scope : Scope) (name : String) (parameters : Array Syntax)
+    (familySyntax : Syntax) : M Value := do
+  let state ← registryState
+  let some row := state.binders.find? (·.id.raw == name)
+    | throwStratum .invalid "the selected binder is not registered"
+  let some category := state.categories.find? (·.id == row.category)
+    | throwStratum .invalid "the selected binder has no registered category"
+  let family ← eval scope familySyntax
+  let (admitted, inputObject, asElement) ← match family with
+    | .element point object => pure (point, object, true)
+    | .morphism .. | .derivedMorphism .. => do
+        let (hom, _, _, _, _, target) ← morphismContext family
+        pure (hom, target, false)
+    | _ => throwStratum .invalid "an explicit binder consumes an already admitted complete family"
+  let application ← DirectConstruction.instantiate row.operation
+    (← selectedParameterTerms scope row.operation parameters)
+  let some (source, target) := homEnds? (← inferType application.value)
+    | throwStratum .invalid "the selected binder operation is not a complete categorical map"
+  let actualSource ← semanticObject inputObject
+  unless ← withTransparency .all <| isDefEq source actualSource do
+    throwStratum .invalid "the family does not inhabit this binder's exact declared source"
+  let application ← DirectConstruction.close application
+  let source ← instantiateMVars source
+  let target ← instantiateMVars target
+  let some (domain, _) := homEnds? (← inferType admitted)
+    | throwStratum .invalid "the admitted family lost its original generalized domain"
+  let context ← CategoryContext.ofNamed category source
+  CategoryContext.checkMorphism context admitted domain source
+  let result ← mkAppM ``CategoryTheory.CategoryStruct.comp #[admitted, application.value]
+  CategoryContext.checkMorphism context result domain target
+  let known := #[family, inputObject]
+  let targetValue ← try recognize state target category known application.explicit
+    catch error =>
+      if Exception.interpretationKind error == .invalid then
+        objectInContext target context known
+      else throw error
+  let declaredDomain ← instantiateMVars
+    (mkAppN (← mkConstWithFreshMVarLevels row.domain) application.arguments)
+  unless !declaredDomain.hasMVar && !declaredDomain.hasLevelMVar &&
+      (← isTypeCorrect declaredDomain) do
+    throwStratum .invalid "the binder lost its complete declared family domain"
+  let original ← match (← read).trace with
+    | some trace => do
+        match ← trace.node? admitted with
+        | some (.constrainedPoint _ _ _ _ _ original) => pure original
+        | some (.admittedPoint _ _ _ original _ _ _) => pure original
+        | _ => pure admitted
+    | none => pure admitted
+  Trace.record (← read).trace result
+    (.binder row.id application.explicit declaredDomain original admitted)
+  if asElement then return .element result targetValue
+  let (_, _, _, _, domainValue, _) ← morphismContext family
+  morphismInContext result domain target context (domainValue, targetValue)
 
 /-- Prepare a registered binding operation. Surface arguments occupy its last explicit
 object or morphism parameters. The declaration fixes the domain; the body's codomain supplies
@@ -6631,7 +6758,10 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
       let targetObject ← semanticObject targetCarrier
       let state ← registryState
       let routes ← routesBetween state context.expression sets.expression
-      let classes := state.classify routes (fun _ => sets.id.raw) (fun route => route)
+      let classes :=
+        letI : Inhabited Route :=
+          ⟨{ source := context.expression, target := sets.expression, steps := #[] }⟩
+        state.classify routes (fun _ => sets.id.raw) (fun route => route)
       let #[cls] := classes
         | throwSemanticAmbiguity "the derived map has no unique accepted carrier action"
       unless cls.ambiguities.isEmpty do
