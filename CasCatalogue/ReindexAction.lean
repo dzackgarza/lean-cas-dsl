@@ -97,24 +97,34 @@ def object (plan : Plan) (receiver : Expr) : TermElabM Expr := do
   CategoryContext.checkObject plan.target result
   return result
 
-def map (plan : Plan) (receiver : Expr) : TermElabM Expr := do
-  let type ← whnfR (← inferType receiver)
-  unless type.isAppOf ``Quiver.Hom && type.getAppArgs.size >= 2 do
-    throwStratum .invalid "reindexing a whole map requires its complete categorical endpoints"
-  let source := type.getAppArgs[type.getAppArgs.size - 2]!
-  let target := type.getAppArgs.back!
+def map (plan : Plan) (receiver : Expr)
+    (endpoints : Option (Expr × Expr) := none) : TermElabM Expr := do
+  let (source, target) ← match endpoints with
+    | some endpoints => pure endpoints
+    | none => do
+      -- Preserve an explicit categorical Hom before reducing its implementation.
+      -- Reduction can erase selected endpoints into a concrete map type.
+      let original ← inferType receiver
+      let type ← if original.isAppOf ``Quiver.Hom then pure original else whnfR original
+      unless type.isAppOf ``Quiver.Hom && type.getAppArgs.size >= 2 do
+        throwStratum .invalid "reindexing a whole map requires its complete categorical endpoints"
+      pure (type.getAppArgs[type.getAppArgs.size - 2]!, type.getAppArgs.back!)
   CategoryContext.checkMorphism plan.source receiver source target
+  let receiver ← mkExpectedTypeHint receiver (← CategoryContext.hom plan.source source target)
   let result ← Semantic.mapOf plan.action receiver
-  CategoryContext.checkMorphism plan.target result
-    (← object plan source) (← object plan target)
-  return result
+  let imageSource ← object plan source
+  let imageTarget ← object plan target
+  CategoryContext.checkMorphism plan.target result imageSource imageTarget
+  return ← mkExpectedTypeHint result (← CategoryContext.hom plan.target imageSource imageTarget)
 
 /-- The accepted pseudofunctor fixes the entire canonical cartesian map. No
 computational output, carrier comparison or per-family rule enters its construction. -/
 def cartesian (plan : Plan) (receiver : Expr) : TermElabM (Expr × Expr × Expr) := do
   CategoryContext.checkObject plan.source receiver
   let transport ← mkAppM ``CasCatalogue.CategoryFamilyRealization.transport #[plan.realization]
-  let baseType ← whnfR (← inferType plan.baseMorphism)
+  let originalBaseType ← inferType plan.baseMorphism
+  let baseType ← if originalBaseType.isAppOf ``Quiver.Hom then pure originalBaseType
+    else whnfR originalBaseType
   unless baseType.isAppOf ``Quiver.Hom && baseType.getAppArgs.size >= 2 do
     throwStratum .invalid "the selected base map has no complete categorical endpoints"
   let baseSource := baseType.getAppArgs[baseType.getAppArgs.size - 2]!
@@ -123,7 +133,8 @@ def cartesian (plan : Plan) (receiver : Expr) : TermElabM (Expr × Expr × Expr)
     #[none, none, some transport, some baseSource, some baseTarget,
       some receiver, some plan.baseMorphism]
   let value ← instantiateMVars value
-  let type ← whnfR (← inferType value)
+  let originalType ← inferType value
+  let type ← if originalType.isAppOf ``Quiver.Hom then pure originalType else whnfR originalType
   unless type.isAppOf ``Quiver.Hom && type.getAppArgs.size >= 2 do
     throwStratum .invalid "the accepted cartesian lift lost its complete total-category type"
   let source := type.getAppArgs[type.getAppArgs.size - 2]!

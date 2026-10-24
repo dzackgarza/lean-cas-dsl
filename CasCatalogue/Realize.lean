@@ -459,11 +459,10 @@ def Harness.stop (h : Harness) : IO Unit := do
   for (_, connection) in connections.toList do
     if let .ok c := connection then Backend.abort c.connection.child
 
-/-- Send the value `input` to the admitted registration of `operation` on its form, and read the
-answer: untrusted JSON, with the backend that gave it. -/
-def send (h : Harness) (operation : String) (input : Wire)
-    (comparisons : Array NaturalTransformationId := #[]) (completeRequest : Bool := false) :
-    TermElabM (Json × String) := do
+/-- The complete applicable registration set, before starting a process. Exact
+and category-wide forms and all eligible backends retain equal standing. -/
+def admittedRegistrations (h : Harness) (operation : String) (input : Wire)
+    (completeRequest : Bool := false) : TermElabM (Array Admitted) := do
   let state ← registryState
   let some declared := state.operation? operation
     | throwError "the requested computational operation is no longer registered"
@@ -480,9 +479,16 @@ def send (h : Harness) (operation : String) (input : Wire)
       unless invocation.operation == operation do
         throwError "a complete callable request changed its declared operation"
       addresses := state.pointInputAddresses declared input.form
-  let registrations := h.admitted.filter fun a =>
+  return h.admitted.filter fun a =>
     a.registration.operation == operation && addresses.contains a.registration.input &&
       (input.owner?.isNone || input.owner?.any (fun owner => owner.1 == a.registration.backend))
+
+/-- Send the value `input` to the admitted registration of `operation` on its form, and read the
+answer: untrusted JSON, with the backend that gave it. -/
+def send (h : Harness) (operation : String) (input : Wire)
+    (comparisons : Array NaturalTransformationId := #[]) (completeRequest : Bool := false) :
+    TermElabM (Json × String) := do
+  let registrations ← admittedRegistrations h operation input completeRequest
   let registration ← match registrations with
     | #[r] => pure r.registration
     | #[] => throwStratum .noImplementation m!"no admitted registration computes {operation} on \
@@ -4864,8 +4870,19 @@ end
 categorical composition and its complete selected argument remain unchanged. -/
 def operationApplicationBody (value : Expr) : Expr := Id.run do
   let mut value := value.consumeMData
-  while value.isAppOfArity ``id 2 do value := value.appArg!.consumeMData
+  while value.isAppOfArity ``id 2 || value.isAppOfArity ``Trace.operationResult 3 do
+    value := value.appArg!.consumeMData
   return value
+
+/-- Retain the original generalized argument of a staged operation, including
+terminal comparisons. Only categorical composition and administrative wrappers
+are inspected; no mathematical function body or computed result is unfolded. -/
+partial def operationApplicationSpine (value : Expr) : Array Expr × Expr :=
+  let value := operationApplicationBody value
+  if value.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 then
+    let (arguments, operation) := operationApplicationSpine value.getAppArgs[6]!
+    (#[value.getAppArgs[5]!] ++ arguments, operation)
+  else (#[], value)
 
 /-- An accepted operation's actual owner is the declaration argument preceding
 its numeral parameters. Its set-valued source and result do not select that owner. -/
@@ -4893,27 +4910,40 @@ def realizedOperationOwner (h : Harness) (trace : Trace) (entry : OperationEntry
     throwError "the complete operation's owner representation changed its declared category"
   return wire
 
-/-- Materialize a retained generalized operation through its existing complete
-callable interface. The source is the original composition argument, not a point
-invented at the terminal object or a recipe recovered from the returned value. -/
-def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
-    (id : OperationId) (parameters : Array Expr) : TermElabM Wire := do
-  let .ok ("element", #[_, expression]) := ComputationalData.envelope wire.json
-    | return wire
-  let .ok ("operationExpression", #[operationId, _, _]) := ComputationalData.envelope expression
-    | return wire
-  unless operationId == toJson id.raw do
-    throwError "the retained operation recipe changed its accepted operation"
+/-- A complete prepared invocation, whose mathematical choice is already fixed. -/
+structure OperationObservation where
+  original : Wire
+  operation : OperationId
+  input : Wire
+  domain : Expr
+  target : Expr
+  targetData : Json
+  materialized : Bool
+
+def operationRecipeId? (wire : Wire) : Option String :=
+  match ComputationalData.envelope wire.json with
+  | .ok ("element", #[_, expression]) =>
+      match ComputationalData.envelope expression with
+      | .ok ("operationExpression", #[operationId, _, _]) => operationId.getStr?.toOption
+      | _ => none
+  | .ok ("operationPoint", #[operationId, _, _, _, _]) => operationId.getStr?.toOption
+  | _ => none
+
+def operationRecipe (wire : Wire) (id : OperationId) : Bool :=
+  operationRecipeId? wire == some id.raw
+
+/-- Prepare an operation's actual complete request without dispatching it. This
+also covers nullary and staged operations, using their original typed argument. -/
+def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
+    (id : OperationId) (parameters : Array Expr) : TermElabM OperationObservation := do
+  if let some actual := operationRecipeId? wire then
+    unless actual == id.raw do
+      throwError "the retained operation recipe changed its accepted operation"
   let state ← registryState
   let some entry := state.operations.find? (·.id == id)
     | throwError "the retained operation is no longer registered"
   let formal := wire.value
-  let composition := operationApplicationBody formal
-  unless composition.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 do
-    throwStratum .noImplementation
-      "the complete operation recipe has no retained generalized composition argument"
-  let argument := composition.getAppArgs[5]!
-  let operation := composition.getAppArgs[6]!
+  let (arguments, operation) := operationApplicationSpine formal
   let application := operationApplicationBody operation
   unless application.getAppFn.constName? == some entry.declaration do
     throwError "the complete operation recipe changed its accepted declaration"
@@ -4930,6 +4960,30 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
       throwError "the complete operation recipe changed a selected declaration parameter"
   let some (source, target) := Language.homEnds? (← inferType operation)
     | throwError "the accepted operation lost its complete callable signature"
+  let some dataCategory := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the point invocation's declared data category is absent"
+  let dataContext ← CategoryContext.ofNamed dataCategory source
+  CategoryContext.checkMorphism dataContext operation source target
+  let argument ← match arguments[0]? with
+    | none => do
+      let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
+      Trace.record (some trace) identity (.contextualIdentity dataContext source)
+      pure identity
+    | some first => do
+      let mut argument := first
+      for next in arguments.extract 1 arguments.size do
+        let some (domain, middle) := Language.homEnds? (← inferType argument)
+          | throwError "the operation's staged argument lost its complete source"
+        let some (nextSource, target) := Language.homEnds? (← inferType next)
+          | throwError "the operation's staged argument lost its complete target"
+        unless ← withTransparency .all <| isDefEq middle nextSource do
+          throwError "the operation's staged argument changed a selected intermediate endpoint"
+        let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, next]
+        CategoryContext.checkMorphism dataContext composite domain target
+        Trace.record (some trace) composite
+          (.contextualComposition dataContext argument next domain middle target)
+        argument := composite
+      pure argument
   let some (domain, originalSource) := Language.homEnds? (← inferType argument)
     | throwError "the retained operation argument lost its original generalized domain"
   let some (resultDomain, resultTarget) := Language.homEnds? (← inferType formal)
@@ -4937,6 +4991,9 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
   unless ← withTransparency .all <| isDefEq originalSource source <&&>
       isDefEq resultDomain domain <&&> isDefEq resultTarget target do
     throwError "the complete operation recipe changed its original composition endpoints"
+  unless ← withTransparency .all <|
+      isDefEq formal (← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, operation]) do
+    throwError "the complete operation recipe changed its original typed composition"
   let receiverWire ← realizedOperationOwner h trace entry application
   let (parameterData, parameterWires) ← realizedParameters h trace parameters
   let callable : Wire := {
@@ -4959,17 +5016,41 @@ def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
   let input : Wire := {
     form := receiverWire.form
     payload := (← combinedPayload formal invocation.encode
-      (#[receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
+      (#[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
         parameterWires ++ endpoints)) }
-  let (answer, backend) ← send h id.raw input (completeRequest := true)
-  let checked ← if ← withTransparency .all <| isDefEq domain (← closedElementDomain state) then
-    ComputationalData.validateElementAt target targetWire.json (← pointResultValue state formal) answer
-  else ComputationalData.validateEndpointPort formal domainWire.json targetWire.json answer
-  if let .error message := checked then malformed backend id.raw answer message
-  let data ← receiveComputationalData h backend id.raw answer true
-  let result : Wire := { wire with payload := .computed formal data }
-  let owner ← mergeOwners input.owner? result.owner?
+  return { original := wire, operation := id, input, domain, target,
+    targetData := targetWire.json, materialized := !operationRecipe wire id }
+
+/-- Dispatch exactly the already selected request. A failed answer never selects
+another equivalent operation, and returned data are never replaced by a formal value. -/
+def executeOperationObservation (h : Harness) (request : OperationObservation) :
+    TermElabM Wire := do
+  if request.materialized then return request.original
+  let state ← registryState
+  let formal := request.original.value
+  let (answer, backend) ← send h request.operation.raw request.input (completeRequest := true)
+  let checked ← if ← withTransparency .all <|
+      isDefEq request.domain (← closedElementDomain state) then
+    ComputationalData.validateElementAt request.target request.targetData
+      (← pointResultValue state formal) answer
+  else
+    let .ok invocation := Backend.PointInvocation.decode request.input.json
+      | throwError "the prepared operation lost its complete invocation"
+    ComputationalData.validateEndpointPort formal invocation.domain request.targetData answer
+  if let .error message := checked then malformed backend request.operation.raw answer message
+  let data ← receiveComputationalData h backend request.operation.raw answer true
+  let result : Wire := { request.original with payload := .computed formal data }
+  let owner ← mergeOwners request.input.owner? result.owner?
   return { result with payload := computedPayload formal result.json owner }
+
+/-- Materialize a retained generalized operation through its complete public port. -/
+def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
+    (id : OperationId) (parameters : Array Expr) : TermElabM Wire := do
+  if let some actual := operationRecipeId? wire then
+    unless actual == id.raw do
+      throwError "the retained operation recipe changed its accepted operation"
+  unless operationRecipe wire id do return wire
+  executeOperationObservation h (← prepareOperationObservation h trace wire id parameters)
 
 /-- Materialize an entire declared callable on its own complete domain through
 the existing public generalized-point interface. The identity argument has that
@@ -5053,11 +5134,56 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
         -- a returned whole callable does not become its formal recipe when only the
         -- transparent wrapper is present in the result cache.
         let input := { wire with payload := forwardPayload wire representative wire.json }
-        let actual ← realizeArrowObservation h trace input
+        let some representativeNode ← trace.node? representative
+          | throwError "the checked operation class lost its selected trace"
+        let operationId ← match representativeNode with
+          | .operationApply id .. | .operationPoint id .. => pure id
+          | _ => throwError "the checked operation class has no complete operation trace"
+        if let some actual := operationRecipeId? input then
+          unless actual == operationId.raw do
+            throwError "the operation class's representative has a different retained recipe"
+        unless operationRecipe input operationId do return wire
+        let mut applicable : Array (OperationObservation × Registration) := #[]
+        for candidate in candidates do
+          let candidateWire ← if candidate.result == representative then pure input
+            else realize h trace "a checked equivalent operation's complete result" candidate.result
+          let some candidateNode ← trace.node? candidate.result
+            | throwError "a checked equivalent operation lost its retained trace"
+          let (id, parameters) ← match candidateNode with
+            | .operationApply id parameters .. | .operationPoint id parameters .. =>
+                pure (id, parameters)
+            | _ => throwError "a checked equivalent operation lost its exact callable address"
+          unless id == candidate.operation do
+            throwError "a checked equivalent operation changed its accepted address"
+          let request ← prepareOperationObservation h trace candidateWire id parameters
+          if let some (backend, identity) := request.input.owner? then
+            let some (.ok session) := (← h.connections.get)[backend]?
+              | throwStratum .unavailable "the equivalent operation's actual dependency lost its owning session"
+            unless session.identity == identity do
+              throwStratum .unavailable "the equivalent operation's actual dependency belongs to an expired session"
+          let registrations ← admittedRegistrations h id.raw request.input true
+          applicable := applicable ++ registrations.map (fun admitted => (request, admitted.registration))
+        let request ← match applicable with
+          | #[(request, _)] => pure request
+          | #[] => throwStratum .noImplementation
+              m!"no admitted registration computes the checked operation class {candidates.map (·.operation.raw)}"
+          | _ => throwStratum .ambiguousRealization
+              m!"several admitted registrations compute the checked operation class: \
+                {applicable.map fun (_, registration) =>
+                  (registration.operation, registration.input, registration.backend)}"
+        let actual ← executeOperationObservation h request
         match actual.payload with
         | .ordinary .. => pure ()
-        | _ => h.results.modify (·.insert representative actual)
-        forwardOperationEquivalent formal representative actual
+        | _ => h.results.modify (·.insert request.original.value actual)
+        let framed ← forwardOperationEquivalent formal representative actual
+        -- The canonical formal interface is unchanged; only the checked candidate's
+        -- actual returned data and owning session cross the equality substitution.
+        let result := { wire with payload := framed.payload }
+        match result.payload with
+        | .ordinary .. => pure ()
+        | _ => h.results.modify (·.insert representative
+            { result with payload := forwardPayload result representative result.json })
+        pure result
     | .namedMorphism id parameters => do
         -- A cached graph or opaque callable is already actual data. Provenance alone
         -- cannot distinguish it from a descriptor whose parameters were computed.
@@ -5094,7 +5220,7 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
           | throwError "the observed construction map is no longer registered"
         let (parameters, dependencies) ← realizedParameters h trace parameters
         realizeCallableObservation h trace wire entry.mapAddress parameters dependencies
-    | .operationApply id parameters _ _ _ =>
+    | .operationApply id parameters _ _ _ | .operationPoint id parameters .. =>
         realizeOperationObservation h trace wire id parameters
     | .admittedPoint _ _ _ original _ _ _ => rebuild #[original]
     | .constrainedPoint _ _ _ _ _ original => rebuild #[original]
@@ -5710,21 +5836,12 @@ def orderParameterPresentations (source : TermTable) (presentations : Array Para
 /-- Complete operation source provenance, including each comparison's constructor
 and whiskering contexts separately from its checked typed witness. -/
 def encodeOperationSource (encode : Expr → TermElabM Nat) (source : OperationSource) :
-    TermElabM Json := do
-  let comparisons := source.comparisons.map fun comparison => Json.arr #[
-    toJson comparison.cell.raw, toJson (comparison.constructors.map (·.raw)),
-    toJson (comparison.before.map reprStr), toJson (comparison.after.map reprStr)]
-  return Json.arr #[
-    Json.arr #[toJson (reprStr source.context.expression), toJson (← encode source.context.bundle)],
-    toJson (← encode source.receiver), toJson (source.route.map reprStr),
-    toJson (← source.applications.mapM encode), Json.arr comparisons,
-    toJson (← source.comparisonWitnesses.mapM encode)]
+    TermElabM Json :=
+  OperationAgreement.encodeSource encode source
 
 def encodeOperationCandidate (encode : Expr → TermElabM Nat) (candidate : OperationCandidate) :
-    TermElabM Json := do
-  return Json.arr #[toJson candidate.operation.raw, toJson (← encode candidate.application),
-    toJson (← encode candidate.result),
-    Json.arr (← candidate.sources.mapM (encodeOperationSource encode))]
+    TermElabM Json :=
+  OperationAgreement.encodeCandidate encode candidate
 
 def encodeOperationFamilyComparison (encode : Expr → TermElabM Nat)
     (comparison : OperationFamilyComparison) : TermElabM Json := do

@@ -2680,7 +2680,7 @@ partial def reindexValue (receiver baseValue : Value) (cartesian : Bool) : M Val
         ← objectInContext target plan.total #[receiver, baseValue])
   if (receiver matches .morphism ..) || (receiver matches .derivedMorphism ..) then
     let (hom, source, target, _, sourceValue, targetValue) ← morphismContext receiver
-    let value ← ReindexAction.map plan hom
+    let value ← ReindexAction.map plan hom (some (source, target))
     let sourceImage ← ReindexAction.object plan source
     let targetImage ← ReindexAction.object plan target
     for (formal, original) in #[(sourceImage, source), (targetImage, target)] do
@@ -3315,7 +3315,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       (eval scope · none))
     return ← applyFamily entry.declaration category
       elements
-      (parameters := parameters)
+      (parameters := parameters) (callableAddress := some entry.id.raw)
   let arity ← forallTelescopeReducing (← inferType declaration) fun xs _ => pure xs.size
   unless arity ≤ args.size do
     throwStratum .invalid m!"{entry.name} takes {arity} parameters"
@@ -3326,7 +3326,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
     throwStratum .invalid m!"the morphism parameters of {entry.name} are not determined"
   unless ← isTypeCorrect semantic do
     throwStratum .invalid m!"a morphism parameter is outside its declared dependent signature"
-  Semantic.namedMorphism entry semantic (← read).trace
+  let semantic ← retainNamedMorphism entry semantic
   let type ← instantiateMVars (← inferType semantic)
   let some (source, target) := match type.getAppFn.constName?, type.getAppArgs with
       | some ``Quiver.Hom, #[_, _, x, y] => some (x, y)
@@ -3362,13 +3362,14 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
         | throwStratum .invalid m!"a leading family parameter is a numeral"
       return n
     return ← applyFamily entry.declaration category elements (some targetValue) (numerals := numerals)
+      (callableAddress := some entry.id.raw)
   let .object b _ _ _ _ := targetValue
     | throwStratum .invalid m!"the target of {entry.name} is not an object"
   let sourceValue ← declaredEndpointObject source category known
   let .object a _ _ _ _ := sourceValue
     | throwStratum .invalid m!"the source of {entry.name} is not an object"
   let hom ← homIn (← quoteExpr semantic) a b category
-  Semantic.namedMorphism entry hom (← read).trace
+  let hom ← retainNamedMorphism entry hom
   if category.id == CategoryId.sets then
     let one ← globalPointSource
     if ← isDefEq a one then return .element (← staged hom) targetValue
@@ -3894,14 +3895,14 @@ partial def applyNamed (state : RegistryState) (name : String) (elements : Array
         for entry in rows do
           let some category := state.categories.find? (·.id == entry.category) | continue
           if ← parameterCompatible (do
-              discard <| applyFamily entry.declaration category elements target?
+              discard <| applyFamily entry.declaration category elements target? (callableAddress := some entry.id.raw)
               pure true) then candidates := candidates.push entry
         match candidates with
         | #[entry] => pure entry
         | #[] => throwStratum .invalid m!"no registered function named {name} takes these elements"
         | _ => throwSemanticAmbiguity m!"several complete registered functions named {name} take these elements"
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
-  applyFamily entry.declaration category elements target?
+  applyFamily entry.declaration category elements target? (callableAddress := some entry.id.raw)
 
 /-- Select a registered structured parameter through its actual structured forgetful image. -/
 partial def registeredStructuredParameter (expected : Expr) (operand : Value) : M (Option Expr) := do
@@ -4088,7 +4089,7 @@ partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
     if let some (identity, _) := identities[0]? then
       unless ← parameterTrial (withTransparency .all <| isDefEq arrow identity) do
         throwSemanticAmbiguity m!"a registered map and the identity have these selected endpoints"
-    Semantic.namedMorphism entry arrow (← read).trace
+    let arrow ← retainNamedMorphism entry arrow
     return some arrow
   if let some (_, category) := identities[0]? then
     return some (← identityAt (.object source category none none none))
@@ -4200,19 +4201,60 @@ partial def retainStructuredParameterSources (value : Value) (known : Array Valu
       if (← Trace.node? trace actual).isSome then continue
       discard <| selectedParameterFromWitnesses state actual category known
 
+/-- An independently selected callable kind and address ends binding lookup. A
+generic declaration-only consumer must instead have one compatible accepted
+binding across its callable kinds; aliases never acquire storage-order priority. -/
+partial def familyBinding (state : RegistryState) (declaration : Name) (category : CategoryId)
+    (application : Expr) (arity : Nat) (operationId : Option OperationId)
+    (callableAddress : Option String) : M (Option OperationEntry × Option String) := do
+  if let some address := callableAddress then
+    unless operationId.isNone do
+      throwStratum .invalid "an application selected two different callable kinds"
+    let some (registeredDeclaration, registeredCategory) := state.callable? address
+      | throwStratum .invalid "the selected application has no registered callable address"
+    unless registeredDeclaration == declaration && registeredCategory == category do
+      throwStratum .invalid "the selected callable is outside its declared category or signature"
+    return (none, some address)
+  let operation ← OperationAgreement.selectedEntry state declaration application arity operationId
+  if operationId.isSome then return (operation, none)
+  let morphisms := state.morphisms.filter fun row =>
+    row.declaration == declaration && row.category == category
+  unless operation.isNone || morphisms.isEmpty do
+    throwSemanticAmbiguity "this declaration has distinct operation and morphism bindings; select its callable kind"
+  match morphisms with
+  | #[] => return (operation, none)
+  | #[entry] => return (none, some entry.id.raw)
+  | _ => throwSemanticAmbiguity "several accepted morphism IDs share this declaration; select the binding"
+
+/-- Tag the already selected named morphism with its accepted address. Its full
+declaration arguments remain the recorded parameters. -/
+partial def retainNamedMorphism (entry : MorphismEntry) (value : Expr) : M Expr := do
+  let mut application := (← instantiateMVars value).consumeMData
+  while application.isAppOfArity ``id 2 || application.isAppOfArity ``Trace.operationResult 3 do
+    application := application.appArg!.consumeMData
+  unless application.getAppFn.isConstOf entry.declaration &&
+      (← withTransparency .all <| isDefEq (← inferType application) (← inferType value)) do
+    throwStratum .invalid "the selected morphism lost its full declared application"
+  let params ← explicitArguments entry.declaration application
+  Trace.recordCallable (← read).trace value (.namedMorphism entry.id params)
+
 /-- The family of morphisms `declaration` of `category` applied to elements. Its parameters are
 unified from the sets of the operands and from `target?`, the set it is to land in (`deg` on
 `ℤ[x]` is `deg ℤ`); a numeral operand is an element of the set the family then takes there. -/
 partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     (elements : Array Value) (target? : Option Value := none) (numerals : Array Nat := #[])
     (maps : Array Expr := #[]) (parameters : Array Value := #[])
-    (application : Option Expr := none) (callableAddress : Option String := none) : M Value := do
+    (application : Option Expr := none) (callableAddress : Option String := none)
+    (operationId : Option OperationId := none) : M Value := do
   let state ← registryState
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
   let some (source, target) := homEnds? type
     | throwStratum .invalid m!"{declaration} is not a family of morphisms"
   if let some supplied := application then
+    let mut supplied := supplied.consumeMData
+    while supplied.isAppOfArity ``id 2 || supplied.isAppOfArity ``Trace.operationResult 3 do
+      supplied := supplied.appArg!.consumeMData
     unless supplied.getAppFn.constName? == some declaration && supplied.getAppArgs.size == args.size do
       throwStratum .invalid m!"the supplied application is not this registered declaration"
     if supplied.hasMVar then
@@ -4461,18 +4503,15 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   -- parameters and supplied maps; elaborating only explicit arguments can change the reading.
   unless ← isTypeCorrect operation do
     throwStratum .invalid m!"an argument of {declaration} is outside its declared type"
-  if let some entry := state.morphisms.find? (·.declaration == declaration) then
-    Semantic.namedMorphism entry operation (← read).trace
-  if let some address := callableAddress then
-    let some (registeredDeclaration, registeredCategory) := state.callable? address
-      | throwStratum .invalid m!"the selected application has no registered callable address"
-    unless registeredDeclaration == declaration && registeredCategory == category.id do
-      throwStratum .invalid m!"the selected callable is outside its declared category or signature"
+  let (operationEntry, callableAddress) ←
+    familyBinding state declaration category.id operation elements.size operationId callableAddress
+  let operation ← if let some address := callableAddress then do
     let fullParameters ← ((args.zip infos).filterMap fun (parameter, info) =>
       if info.isExplicit then some parameter else none).mapM instantiateMVars
     unless fullParameters.all (fun parameter => !parameter.hasMVar && !parameter.hasLevelMVar) do
       throwStratum .invalid m!"the selected callable's full parameters are not determined"
-    Trace.record (← read).trace operation (.namedCallable address category.id fullParameters)
+    Trace.recordCallable (← read).trace operation (.namedCallable address category.id fullParameters)
+  else pure operation
   if elements.isEmpty then
     let source ← instantiateMVars source
     let target ← instantiateMVars target
@@ -4482,14 +4521,15 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     if category.id == CategoryId.sets then
       if ← parameterTrial (isDefEq source (← semanticObject (← oneObject))) then
         let result ← staged operation
-        if let some entry := state.operations.find? (·.declaration == declaration) then
+        if let some entry := operationEntry then
           let actualParameters := (operation.getAppArgs.zip infos).filterMap fun (argument, info) =>
             if info.isExplicit then some argument else none
           let chosen := match targetValue with
             | .object _ _ _ (some selected) _ => selected
             | _ => targetValue
-          Trace.record (← read).trace result
+          let result ← Trace.recordOperation (← read).trace result
             (.operationApply entry.id actualParameters #[] target (← semanticObject chosen))
+          return .element result targetValue
         else Trace.alias (← read).trace operation result
         return .element result targetValue
       if let some comparison ← operationPointComparison source then
@@ -4500,14 +4540,15 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
         Trace.record (← read).trace composite
           (.morphismComposition category.id comparison operation (← globalPointSource) source target)
         let result ← staged composite
-        if let some entry := state.operations.find? (·.declaration == declaration) then
+        if let some entry := operationEntry then
           let actualParameters := (operation.getAppArgs.zip infos).filterMap fun (argument, info) =>
             if info.isExplicit then some argument else none
           let chosen := match targetValue with
             | .object _ _ _ (some selected) _ => selected
             | _ => targetValue
-          Trace.record (← read).trace result
+          let result ← Trace.recordOperation (← read).trace result
             (.operationPoint entry.id actualParameters comparison operation target (← semanticObject chosen))
+          return .element result targetValue
         else Trace.alias (← read).trace composite result
         return .element result targetValue
     let sourceValue ← declaredEndpointObject source category endpointWitnesses (← args.mapM instantiateMVars)
@@ -4517,8 +4558,8 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     | some T => pure T
     | none => declaredEndpointObject (← instantiateMVars target) category endpointWitnesses (← args.mapM instantiateMVars)
   let result ← applyTo family elements target
-  if let some entry := state.operations.find? (·.declaration == declaration) then
-    let .element resultMap _ := result | unreachable!
+  if let some entry := operationEntry then
+    let .element resultMap resultTarget := result | unreachable!
     let operands ← elements.mapM fun
       | .element hom _ => pure hom
       | _ => throwStratum .invalid m!"an operation operand has no element map"
@@ -4527,9 +4568,10 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let chosen := match target with
       | .object _ _ _ (some selected) _ => selected
       | _ => target
-    Trace.record (← read).trace resultMap
+    let resultMap ← Trace.recordOperation (← read).trace resultMap
       (.operationApply entry.id actualParameters operands
         (← semanticObject target) (← semanticObject chosen))
+    return .element resultMap resultTarget
   return result
 
 /-- The registered application of the set of the element `f`, its category and the set's
@@ -5097,7 +5139,7 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
   let some (source, _) := homEnds? (← instantiateMVars type)
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let family ← instantiateMVars (mkAppN constant args)
-  Semantic.namedMorphism entry family (← read).trace
+  let family ← retainNamedMorphism entry family
   let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let endpoint (term : Expr) : M Value := do
@@ -5287,13 +5329,13 @@ partial def callWith (scope : Scope) (t : Syntax) (name : String) (args : Array 
         if mapParams.isEmpty then
           throwStratum .invalid m!"`{name}` takes an element of its domain, not a map: form \
             `{shown t}` there first (`{shown t} in D`), where its evidence is established"
-        applyFamily entry.declaration category operands (maps := #[h])
+        applyFamily entry.declaration category operands (maps := #[h]) (callableAddress := some entry.id.raw)
     | v@(.element ..) | v@(.nat _) =>
-        applyFamily entry.declaration category (#[v] ++ operands)
+        applyFamily entry.declaration category (#[v] ++ operands) (callableAddress := some entry.id.raw)
     | receiver@(.object ..) =>
         let .morphism family .. ← invariantOf entry receiver
           | throwStratum .invalid m!"the selected object's family does not take operands"
-        applyFamily entry.declaration category operands (application := some family)
+        applyFamily entry.declaration category operands (application := some family) (callableAddress := some entry.id.raw)
     | _ => throwStratum .invalid m!"`{name}` is called on a map, an element or a selected object"
   let applicable ← match rows with
     | #[row] => pure #[row]
@@ -5539,6 +5581,7 @@ partial def binder (scope : Scope) (token : String) (boundName : Name)
   let admitted ← admit M bodyMap
   let .object _ category _ _ _ := Y | unreachable!
   let result ← applyFamily row.operation category #[admitted] (some Y) (application := some operation)
+    (callableAddress := some row.id.raw)
   let .morphism body domain _ _ _ := bodyMap | unreachable!
   let .element admittedMap _ := admitted | unreachable!
   let .element resultMap _ := result | unreachable!
@@ -5582,7 +5625,7 @@ partial def registeredAction (a b : Value) (ambient? : Option Value := none) : M
   for row in state.morphisms.filter (·.name == "•") do
     let some category := state.categories.find? (·.id == row.category) | continue
     if ← parameterCompatible (do
-        discard <| applyFamily row.declaration category #[a, b] target?
+        discard <| applyFamily row.declaration category #[a, b] target? (callableAddress := some row.id.raw)
         pure true) then
       morphisms := morphisms.push row
   if operationApplies && !morphisms.isEmpty || morphisms.size > 1 then
@@ -5590,7 +5633,7 @@ partial def registeredAction (a b : Value) (ambient? : Option Value := none) : M
   if operationApplies then return ← applyOperation "•" #[a, b] target?.get!
   if let some row := morphisms[0]? then
     let some category := state.categories.find? (·.id == row.category) | unreachable!
-    return ← applyFamily row.declaration category #[a, b] target?
+    return ← applyFamily row.declaration category #[a, b] target? (callableAddress := some row.id.raw)
   throwStratum .invalid m!"no registered action takes these complete operands"
 
 /-- The juxtaposition `a b`: their product in a set both are in (`(1/2)x²`), else the registered
@@ -5720,7 +5763,7 @@ partial def derivativeAt (g : Value) : M Value := do
   let some entry := state.morphisms.find? (·.name == "derivative")
     | throwStratum .invalid m!"no registered derivative"
   let h ← homIn (← `($(mkCIdent entry.declaration) $(← typedParamTerms entry.declaration params)*)) p p category
-  Trace.record (← read).trace h (.namedMorphism entry.id (← explicitArguments entry.declaration h))
+  let h ← retainNamedMorphism entry h
   return .morphism h p p category (some (P, P))
 
 /-- `a / b`: the registered division `M × Mˣ → M`, `(a, u) ↦ a u⁻¹`, in the enclosing set `M`,
@@ -6177,10 +6220,10 @@ partial def toElement (v : Value) (X : Value) : M Value := do
         if let .object _ _ (some (_, parameters)) _ _ := X then
           if ← profileReader "numeral nullary family trial" (parameterCompatible do
               let result ← applyFamily point.declaration category #[] (some X)
-                (parameters := parameters)
+                (parameters := parameters) (callableAddress := some point.id.raw)
               return result matches .element ..) then
             return ← applyFamily point.declaration category #[] (some X)
-              (parameters := parameters)
+              (parameters := parameters) (callableAddress := some point.id.raw)
         if ← familyLandsIn point.declaration X then
           let hom ← zeroElement point.declaration X
           return .element (← staged hom) X
@@ -6210,7 +6253,8 @@ partial def toElement (v : Value) (X : Value) : M Value := do
 parameters a trace node retains. -/
 partial def explicitArguments (declaration : Name) (application : Expr) : M (Array Expr) := do
   let mut e := application.consumeMData
-  while e.isAppOfArity ``id 2 do e := e.appArg!.consumeMData
+  while e.isAppOfArity ``id 2 || e.isAppOfArity ``Trace.operationResult 3 do
+    e := e.appArg!.consumeMData
   let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
     xs.mapM (·.fvarId!.getBinderInfo)
   return ((e.getAppArgs.zip infos).filterMap fun (arg, info) =>
@@ -6762,12 +6806,13 @@ partial def selectedOperationApplicationsWithSources (declaration : Name) (owner
       for index in [:applications.size] do
         let some (previous, sources) := applications[index]? | unreachable!
         unless ← sameOperationApplication previous application do continue
-        let sources := match provenance with
-          | some source =>
-              if sources.any (OperationAgreement.sameSourceData · source) then sources
-              else sources.push source
-          | none => sources
-        let representative := if application.lt previous then application else previous
+        let sources ← match provenance with
+          | some source => do
+              if ← sources.anyM (OperationAgreement.sameSourceData · source) then pure sources
+              else pure (sources.push source)
+          | none => pure sources
+        let representative := if (← Realize.termIdentity application) <
+            (← Realize.termIdentity previous) then application else previous
         applications := applications.set! index (representative, sources)
         retained := true
         break
@@ -6818,18 +6863,19 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
         let recorder ← Trace.new
         let value ← withReader (fun context => { context with trace := some recorder }) do
           applyFamily operation.declaration sets elements (some target)
-            (application := some application)
+            (application := some application) (operationId := some operation.id)
         return some (value, ← recorder.get)
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
       if let some (value, records) := candidate? then
         let .element result _ := value
           | throwStratum .invalid "a registered element operation did not produce its declared point"
-        let sources := sources.qsort fun left right =>
-          OperationAgreement.sourceKey left < OperationAgreement.sourceKey right
+        let sources ← OperationAgreement.orderSources sources
         applicable := applicable.push ({ operation := operation.id, application, result, sources },
           value, records)
-  applicable := applicable.qsort fun left right => OperationAgreement.candidateLess left.1 right.1
+  let keyed ← applicable.mapM fun candidate =>
+    return (← OperationAgreement.candidateKey candidate.1, candidate)
+  applicable := (keyed.qsort fun left right => left.1 < right.1).map (·.2)
   let some (representative, value, _) := applicable[0]?
     | throwStratum .invalid m!"the selected structure has no registered operation `{name}`"
   let candidates := applicable.map (·.1)
@@ -7101,9 +7147,11 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
       let signature ← whnfR (← inferType family)
       unless signature.isForall do
         throwStratum .invalid m!"the registered components have no finite index"
-      let some row := state.morphisms.find? fun row =>
-          row.declaration == components.projection && row.category == category.id
-        | throwStratum .invalid m!"the registered component projection has no callable morphism row"
+      let row ← match state.morphisms.filter (fun row =>
+          row.declaration == components.projection && row.category == category.id) with
+        | #[row] => pure row
+        | #[] => throwStratum .invalid "the registered component projection has no callable morphism row"
+        | _ => throwSemanticAmbiguity "the component declaration has several accepted callable addresses"
       return ← (List.range count).toArray.mapM fun ordinal => do
         let index ← constructionIndex signature.bindingDomain! ordinal
         let projection ← instantiateMVars (mkApp family index)
@@ -7113,7 +7161,7 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
           | throwStratum .invalid m!"the registered component is not a morphism"
         unless ← isDefEq source objectHandle do
           throwStratum .invalid m!"the component belongs to a different selected object"
-        Semantic.namedMorphism row projection (← read).trace
+        let projection ← retainNamedMorphism row projection
         let targetValue ← try recognize state target category parameters
           catch error =>
             if Exception.interpretationKind error == .invalid then
@@ -7139,9 +7187,11 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
         (← `($(mkCIdent components.projection) $parameters*)) none)
       if arity.hasMVar || arity.hasLevelMVar || family.hasMVar || family.hasLevelMVar then
         return none
-      let some row := state.morphisms.find? fun row =>
-          row.declaration == components.projection && row.category == category.id
-        | throwStratum .invalid "the declared component family has no public morphism row"
+      let row ← match state.morphisms.filter (fun row =>
+          row.declaration == components.projection && row.category == category.id) with
+        | #[row] => pure row
+        | #[] => throwStratum .invalid "the declared component family has no public morphism row"
+        | _ => throwSemanticAmbiguity "the component declaration has several accepted callable addresses"
       return some (arity, family, row)
     catch error =>
       if Exception.interpretationKind error == .invalid then pure none else throw error
@@ -7169,7 +7219,7 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
       unless !projection.hasMVar && !projection.hasLevelMVar && (← isTypeCorrect projection) &&
           (← withTransparency .all <| isDefEq source objectHandle) do
         throwStratum .invalid "the declared component changed its complete supplied source"
-      Semantic.namedMorphism row projection (← read).trace
+      let projection ← retainNamedMorphism row projection
       let targetValue ← declaredEndpointObject target category #[X]
       applyTo (← quoteExpr projection) #[value] targetValue
   let mut apex := objectHandle.consumeMData
@@ -7457,53 +7507,29 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
           let input ← callableInput application category f
           declaredResult (← tuple scope args (some input)) input
     return ← applyFamily application category #[f, v] (callableAddress := some address)
-  let .morphism h _ _ category (some (X, Y)) := f
+  let .morphism _ _ _ _ (some _) := f
     | throwStratum .invalid m!"only a map `X → Y` is applied"
   if args.isEmpty then throwStratum .invalid m!"a map `X → Y` takes its domain argument"
-  let sourceCarrier ← carrierObject X
-  let targetCarrier ← carrierObject Y
-  let .object source sets .. := sourceCarrier | unreachable!
-  let .object target targetSets .. := targetCarrier | unreachable!
-  unless sets.id == targetSets.id do
-    throwStratum .invalid m!"the map endpoints have different registered carrier categories"
-  let state ← registryState
-  letI : Inhabited Route :=
-    ⟨{ source := category.expression, target := sets.expression, steps := #[] }⟩
-  do
-    let routes := (← routesBetween state category.expression sets.expression)
-    let classes := state.classify routes (fun _ => sets.id.raw) (fun route => route)
-    let cls ← match classes.toList with
-      | [entry] => pure entry
-      | _ => throwSemanticAmbiguity m!"the map has no unique registered carrier interpretation"
-    unless cls.ambiguities.isEmpty do
-      throwSemanticAmbiguity m!"the map carrier interpretation has unresolved comparisons"
-    discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses
-      (some (← semanticObject X))
-    let route ← match cls.sources.toList with
-      | [entry] => pure entry
-      | _ => throwSemanticAmbiguity m!"the map has several directed carrier interpretations"
-    let mapped ← if route.steps.isEmpty then pure h else
-      elabTermAndSynthesize (← `(CategoryTheory.Functor.map
-        $(← quoteExpr (← Semantic.routeFunctor state route.refs)) $(← quoteExpr h))) none
-    unless route.steps.isEmpty do
-      Trace.record (← read).trace mapped
-        (.morphismTransport category.id sets.id route.refs h)
-    let v ← match args with
-      | #[arg] => eval scope arg none (some sourceCarrier)
-      | _ => tuple scope args (some sourceCarrier)
-    -- A map applied to its whole carrier domain is its image.
-    if let .object .. := v then return ← imageOfMap mapped sourceCarrier targetCarrier
-    let .element x _ ← declaredResult v sourceCarrier
-      | throwStratum .invalid m!"a map is applied to an element"
-    let result ← mkAppM ``CategoryTheory.CategoryStruct.comp #[x, mapped]
-    unless ← isTypeCorrect result do
-      throwStratum .invalid m!"the element is outside the map's exact registered carrier domain"
-    let pointType ← inferType x
-    let some (pointSource, _) := homEnds? pointType
-      | throwStratum .invalid m!"the argument is not a typed generalized element"
-    Trace.record (← read).trace result
-      (.morphismComposition sets.id x mapped pointSource source target)
-    return .element result targetCarrier
+  -- Reuse the complete selected action: its source dictionary fixes every route
+  -- parameter before mapping the original arrow, and the trace retains them all.
+  let .morphism mapped source target sets (some (sourceCarrier, targetCarrier)) ← carrierMorphism f
+    | throwStratum .invalid "the map has no complete declared carrier action"
+  let v ← match args with
+    | #[arg] => eval scope arg none (some sourceCarrier)
+    | _ => tuple scope args (some sourceCarrier)
+  -- A map applied to its whole carrier domain is its image.
+  if let .object .. := v then return ← imageOfMap mapped sourceCarrier targetCarrier
+  let .element x _ ← declaredResult v sourceCarrier
+    | throwStratum .invalid m!"a map is applied to an element"
+  let result ← mkAppM ``CategoryTheory.CategoryStruct.comp #[x, mapped]
+  unless ← isTypeCorrect result do
+    throwStratum .invalid m!"the element is outside the map's exact registered carrier domain"
+  let pointType ← inferType x
+  let some (pointSource, _) := homEnds? pointType
+    | throwStratum .invalid m!"the argument is not a typed generalized element"
+  Trace.record (← read).trace result
+    (.morphismComposition sets.id x mapped pointSource source target)
+  return .element result targetCarrier
 /-- The image `f(X) ∈ 𝒫 Y` of a map `f : X → Y`. -/
 partial def imageOfMap (f : Expr) (X Y : Value) : M Value := do
   let state ← registryState

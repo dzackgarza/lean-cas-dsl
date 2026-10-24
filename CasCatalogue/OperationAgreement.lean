@@ -3,6 +3,7 @@ module
 
 public import CasCatalogue.CategoryContext
 public import CasCatalogue.Decide
+public import CasCatalogue.QuestionIdentity
 
 @[expose] public section
 
@@ -172,24 +173,56 @@ def universalFamilies (state : RegistryState) (expression : CategoryExpr)
           throwStratum .invalid "the operation comparison omitted part of its universal context"
         return (left, right)
 
-/-- Stable serialization keys are consulted only after the entire class is checked.
-They have no role in applicability, mathematical equality, or computational availability. -/
-def candidateLess (left right : OperationCandidate) : Bool :=
-  if left.operation == right.operation then left.application.lt right.application
-  else left.operation.raw < right.operation.raw
+/-- Complete source records use the same typed term quotient and field traversal
+for their ordering keys and final snapshots. Route/cell identities are never erased. -/
+def encodeSource (encode : Expr → TermElabM Nat) (source : OperationSource) :
+    TermElabM Json := do
+  let comparisons := source.comparisons.map fun comparison => Json.arr #[
+    toJson comparison.cell.raw, toJson (comparison.constructors.map (·.raw)),
+    toJson (comparison.before.map reprStr), toJson (comparison.after.map reprStr)]
+  return Json.arr #[
+    Json.arr #[toJson (reprStr source.context.expression), toJson (← encode source.context.bundle)],
+    toJson (← encode source.receiver), toJson (source.route.map reprStr),
+    toJson (← source.applications.mapM encode), Json.arr comparisons,
+    toJson (← source.comparisonWitnesses.mapM encode)]
 
-def sourceKey (source : OperationSource) : String :=
-  reprStr source.context.expression ++ ":" ++ reprStr source.context.bundle ++ ":" ++
-    reprStr source.receiver ++ ":" ++ reprStr source.route ++ ":" ++ reprStr source.applications ++
-    ":" ++ reprStr source.comparisons ++ ":" ++ reprStr source.comparisonWitnesses
+def encodeCandidate (encode : Expr → TermElabM Nat) (candidate : OperationCandidate) :
+    TermElabM Json := do
+  return Json.arr #[toJson candidate.operation.raw, toJson (← encode candidate.application),
+    toJson (← encode candidate.result), Json.arr (← candidate.sources.mapM (encodeSource encode))]
 
-/-- Exact duplicate provenance may be shared; different routes or comparison witnesses
-remain separate even when they produce the same complete owner application. -/
-def sameSourceData (left right : OperationSource) : Bool :=
-  left.context.expression.syntacticEq right.context.expression &&
-    left.context.bundle == right.context.bundle && left.receiver == right.receiver &&
-    left.route == right.route && left.applications == right.applications &&
-    left.comparisons == right.comparisons && left.comparisonWitnesses == right.comparisonWitnesses
+/-- These finished complete-record keys order retained evidence only. They never
+decide applicability, mathematical agreement, or computational availability. -/
+def sourceKey (source : OperationSource) : TermElabM String := do
+  let table ← Realize.TermTable.new
+  table.finish (← encodeSource table.encode source)
+
+def candidateKey (candidate : OperationCandidate) : TermElabM String := do
+  let table ← Realize.TermTable.new
+  table.finish (← encodeCandidate table.encode candidate)
+
+def orderSources (sources : Array OperationSource) : TermElabM (Array OperationSource) := do
+  let keyed ← sources.mapM fun source => return (← sourceKey source, source)
+  return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
+
+def orderCandidates (candidates : Array OperationCandidate) :
+    TermElabM (Array OperationCandidate) := do
+  let keyed ← candidates.mapM fun candidate => return (← candidateKey candidate, candidate)
+  return (keyed.qsort fun left right => left.1 < right.1).map (·.2)
+
+/-- Duplicate provenance is shared only under the existing typed alpha/proof-
+proposition quotient. All complete dictionaries, routes, applications and witness
+propositions still participate; changing proof implementation cannot alter multiplicity. -/
+def sameSourceData (left right : OperationSource) : TermElabM Bool := do
+  unless left.context.expression.syntacticEq right.context.expression &&
+      left.route == right.route && left.comparisons == right.comparisons &&
+      left.applications.size == right.applications.size &&
+      left.comparisonWitnesses.size == right.comparisonWitnesses.size do return false
+  for (a, b) in #[(left.context.bundle, right.context.bundle), (left.receiver, right.receiver)] ++
+      left.applications.zip right.applications ++
+      left.comparisonWitnesses.zip right.comparisonWitnesses do
+    unless ← QuestionIdentity.equivalent a b do return false
+  return true
 
 /-- The complete declaration suffix reserved by the public operation signature. -/
 def numeralArguments (entry : OperationEntry) (application : Expr) : TermElabM (Array Expr) := do
@@ -205,6 +238,44 @@ def numeralArguments (entry : OperationEntry) (application : Expr) : TermElabM (
     unless closed numeral && (← inferType numeral).isConstOf ``Nat do
       throwStratum .invalid "an operation candidate has an incomplete numeral parameter"
   return numerals
+
+/-- Resolve the exact accepted operation address at a complete application. A
+declaration may have several accepted bindings; its first row is never an address.
+The explicit consumer supplies the chosen ID. Generic callers must have a unique
+binding with this complete owner, declaration and operand signature. -/
+def selectedEntry (state : RegistryState) (declaration : Name) (application : Expr)
+    (arity : Nat) (selected : Option OperationId := none) :
+    TermElabM (Option OperationEntry) := do
+  unless !application.hasMVar && !application.hasLevelMVar &&
+      !application.hasLooseBVars && application.getAppFn.isConstOf declaration &&
+      (← isTypeCorrect application) do
+    throwStratum .invalid "an operation address requires its complete typed declaration"
+  let rows := state.operations.filter fun row =>
+    row.declaration == declaration && (selected.isNone || selected == some row.id)
+  if selected.isSome && rows.size != 1 then
+    throwStratum .invalid "the selected operation ID does not name this declaration"
+  let mut applicable : Array OperationEntry := #[]
+  for row in rows do
+    let accepts ← withoutModifyingState do
+      if row.arity != arity then return false
+      let arguments := application.getAppArgs
+      unless arguments.size > row.numerals do return false
+      let some category := state.categories.find? (·.id == row.category)
+        | throwStratum .invalid "the selected operation's owner category is absent"
+      try
+        discard <| numeralArguments row application
+        discard <| CategoryContext.ofNamed category arguments[arguments.size - 1 - row.numerals]!
+        return true
+      catch error =>
+        if Exception.interpretationKind error == .invalid then pure false else throw error
+    if accepts then applicable := applicable.push row
+  match applicable with
+  | #[row] => return some row
+  | #[] =>
+      if selected.isSome then
+        throwStratum .invalid "the selected operation has a different complete owner or operand signature"
+      return none
+  | _ => throwSemanticAmbiguity "several accepted operation IDs share this complete declaration; select the binding"
 
 /-- Recover only the instantiation of an already proved universal family. The complete
 selected bundle is matched as its registered declaration, including every argument. -/
@@ -379,7 +450,7 @@ def validate (representative : Expr) (chosen : Nat)
     let some candidate := candidates[index]? | unreachable!
     if index > 0 then
       let some previous := candidates[index - 1]? | unreachable!
-      if candidateLess candidate previous then
+      if (← candidateKey candidate) < (← candidateKey previous) then
         throwStratum .invalid "the checked operation class is not canonically ordered"
     let some entry := state.operations.find? (·.id == candidate.operation)
       | throwStratum .invalid "the operation class contains an absent binding"
@@ -388,7 +459,13 @@ def validate (representative : Expr) (chosen : Nat)
         (← isTypeCorrect candidate.result) do
       throwStratum .invalid "the operation class contains an incomplete typed candidate"
     discard <| numeralArguments entry candidate.application
+    let mut previousSource : Option String := none
     for source in candidate.sources do
+      let key ← sourceKey source
+      if let some previous := previousSource then
+        if key < previous then
+          throwStratum .invalid "the operation's complete sources are not canonically ordered"
+      previousSource := some key
       validateSource state entry candidate.application source
   for comparison in comparisons do validateComparison state candidates comparison
   let mut reached := Array.replicate candidates.size false

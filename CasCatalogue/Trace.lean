@@ -209,6 +209,11 @@ inductive Node
 /-- The records of one statement's semantic reading. -/
 abbrev Trace := IO.Ref (Std.HashMap Expr Node)
 
+/-- A binding keeps its own trace key even when another accepted registry row uses
+the same declaration and produces the same map. The tag is retained syntax only;
+the whole value and its type are unchanged by this transparent definition. -/
+def Trace.operationResult (_binding : String) {α : Sort u} (value : α) : α := value
+
 def Trace.new : IO Trace := IO.mkRef {}
 
 /-- Record that `value` was formed by `node`, when a trace is being kept. -/
@@ -216,6 +221,27 @@ def Trace.record (trace? : Option Trace) (value : Expr) (node : Node) : IO Unit 
   match trace? with
   | some trace => trace.modify (·.insert value node)
   | none => pure ()
+
+/-- Record an operation at a key containing its exact accepted binding. Separate
+rows sharing a declaration therefore survive the union of candidate traces. -/
+def Trace.recordOperation (trace? : Option Trace) (value : Expr) (node : Node) : Meta.MetaM Expr := do
+  let binding ← match node with
+    | .operationApply id .. | .operationPoint id .. => pure id.raw
+    | _ => throwError "an operation trace key requires an operation node"
+  let result ← Meta.mkAppM ``Trace.operationResult #[toExpr binding, value]
+  Trace.record trace? result node
+  return result
+
+/-- Exact named callable addresses have independent trace/cache keys for the same
+reason as element operations: accepted aliases may share a Lean declaration. -/
+def Trace.recordCallable (trace? : Option Trace) (value : Expr) (node : Node) : Meta.MetaM Expr := do
+  let binding ← match node with
+    | .namedMorphism id .. => pure id.raw
+    | .namedCallable address .. => pure address
+    | _ => throwError "a callable trace key requires an exact callable node"
+  let result ← Meta.mkAppM ``Trace.operationResult #[toExpr binding, value]
+  Trace.record trace? result node
+  return result
 
 /-- Record `derived` as formed the way `value` was (the apex of a recorded limit, say). -/
 def Trace.alias (trace? : Option Trace) (value derived : Expr) : IO Unit := do
