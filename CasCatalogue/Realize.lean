@@ -846,8 +846,12 @@ partial def parameterData (trace : Trace) (value : Expr) : TermElabM Json := do
         throwError "the parameter identity class has an incompatible full structured image"
       unless ← Decide.kernelAccepts (← mkEq source.image representative) source.identity do
         throwError "the parameter identity class has no checked full-object identification"
+    -- A distinct retained child has its own construction and must keep it. Older
+    -- identity-class records can be keyed by their representative itself; only
+    -- those self-records require direct encoding of the checked named source.
+    if representative != value then return ← parameterData trace representative
     -- The chosen source is already a checked registered application. Encoding it directly
-    -- also avoids following the representative back into its own identity-class trace node.
+    -- avoids following the representative back into its own identity-class trace node.
     let mut json := Json.mkObj [("ctor", chosen.source.raw),
       ("args", Json.arr (← chosen.params.mapM (parameterData trace)))]
     for (step, application) in chosen.route.zip chosen.applications do
@@ -3724,6 +3728,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           throwError "the parameter identity class has an incompatible full structured image"
         unless ← Decide.kernelAccepts (← mkEq source.image representative) source.identity do
           throwError "the parameter identity class has no checked full-object identification"
+      if representative != e then
+        let actual ← realize h trace s!"the retained actual parameter in {what}" representative
+        unless ← withTransparency .all <| isDefEq (← inferType actual.value) expectedType do
+          throwError "the retained parameter result changed its complete selected type"
+        return { actual with payload := forwardPayload actual e actual.json }
       let input ← realize h trace s!"the accepted source of the parameter in {what}" chosen.object
       let output ← transportImage trace input chosen.route (some chosen.applications)
         (some (realizedEdgeDescriptor h trace))

@@ -115,3 +115,33 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
             candidates.any (·.operation.raw == "op.monoids.mul")
       | _ => false) do
     throwError "the integer-coordinate operation lost its complete inherited binding class"
+
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let parse (text : String) : TermElabM Syntax := do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the full structured component input did not parse"
+    return parsed
+  let mut scope : Language.Scope := {}
+  for (name, text) in #[("X", "DegeneratePlane()"),
+      ("sourceModule", "view X along «fun.bilin_module.forget»(ℚ, ℚ)")] do
+    scope := scope.insert name.toName (← parse text)
+  let trace ← Trace.new
+  let selected ← (eval scope (← parse "sourceModule")).run { trace := some trace }
+  let original ← (semanticObject selected).run {}
+  let before ← trace.node? original
+  let source ← (carrierObject selected).run { trace := some trace }
+  let point ← (identityAt source).run { trace := some trace }
+  let components ← (componentElements (.element point source) 2).run
+    { stage := some source, trace := some trace }
+  let .element _ target := components[0]! | throwError "the declared component is not an element"
+  let .element result _ ← (applyOperation "+" components target).run
+      { stage := some source, trace := some trace }
+    | throwError "the complete component operation is not an element"
+  let expected ← elabTermAndSynthesize
+    (← `(TypeCat.ofHom (fun v : Fin 2 → ℚ => v 0 + v 1))) none
+  unless !result.hasMVar && !result.hasLevelMVar && (← isTypeCorrect result) &&
+      (← withTransparency .all <| isDefEq (← inferType result) (← inferType expected) <&&>
+        isDefEq result expected) do
+    throwError "the component operation changed the original whole coordinate map"
+  unless reprStr before == reprStr (← trace.node? original) do
+    throwError "discovering the full component presentation overwrote the original actual source"

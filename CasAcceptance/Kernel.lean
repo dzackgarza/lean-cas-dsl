@@ -26,3 +26,4 @@ public import CasAcceptance.Kernel.StructuredExecutionProbes
 /- Engineering checks of the generic kernel. Independent extension fixtures are
 built separately against their explicitly supplied mathematical inputs. -/
 import CasAcceptance.Kernel.GlobalStageProbes
+import CasAcceptance.Kernel.ParameterResultReuseProbes

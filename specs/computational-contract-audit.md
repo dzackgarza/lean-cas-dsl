@@ -2,31 +2,45 @@
 
 ## Exact status and ownership
 
-This is the kernel-side source audit of the dated downstream contract gaps.
-It is not a completed acceptance report. The source inspection below is now
-supplemented by the focused integration checks recorded in this document.
-Final same-source validation and the generated release API remain with the
-integration owner after the kernel and mathematics freeze.
+This source audit was refreshed for final public-contract preparation on
+2026-10-24. The documented B0 request/reply families have public representations,
+parameter order, complete endpoint and ownership rules, and corresponding generic
+validator paths. No additional executable wire form or public-guide change was
+found necessary in this pass. This is documentation and source coverage, not a
+kernel-readiness, frozen-build, or mathematical-correctness conclusion.
 
-The contract clone is `/tmp/kernel-v1-contract-completion-20261024`, branch
-`work/kernel-v1-contract-release-20261024`, at local commit `aa8477de`.
-Its exact tree is published as `80bf36d2131e00e78cba2c8461db7b32d98a86f4`.
-Its dependency lock pins the independently published mathematics commit
-`4ea82e7cf6f5fd75234fd2ce18255a45ad851379`, including complete map admissions,
-selected operation bindings and direct image. The executable `CasContract/Port.lean` is unchanged
-from the published `7abe31a85ac03e8b5ce13887fc7c1d6efdc54051` source.
+The contract clone is `/tmp/kernel-v1-contract-completion-20261024`, clean at local
+`3a5014096bc67f952f9fc444787b3a2aafe34282`, tree
+`04f2f04ca8b5622f703b1bef7e7384a0bc72f66c`. The public contract is
+`89de508622cff4bfd1a457844a1a3a0fccd36405`. Its `Port.lean`, Python helpers,
+wire guide, API guide and dependency lock were compared byte-for-byte with that
+public commit. The lock selects mathematical source
+`ae3c76e7a439681ad264a3d1cf113cb55d4f8fcc`. The independent mathematical owner
+reports that its added generic coordinate-linearity evidence changes no public
+registration inventory or signature and introduces no wire form; no mathematical
+assertion outcome or leaf implementation was read for this audit.
 
-The dated leaf report inspected was `lean-cas-dsl-leaves/DEFECTS.md` at checkout
+The generic consumer source inspected was clean kernel
+`fdc3a9c7568184477a8231160131e56e5125fb54`. The five audited files remained
+byte-identical at the next checkpoint
+`08051c0fa4b233e70173aa6a37dd38dccadc0ab1`; their digests appear below. These
+are source-review checkpoints, not an asserted final compiled producer tuple.
+No Lean compilation or new API export was run in this preparation pass.
+
+The dated boundary report used by the original audit was `DEFECTS.md` at
 `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252`, blob
-`e0855333b55b172a87088e7c328ea0ab7ba3969a`. Its active request-family questions
-are under the 2026-10-20 review and the 2026-10-21 number-system/polynomial/binder
-section. Leaf checks and self-reports provide no mathematical correctness evidence.
+`e0855333b55b172a87088e7c328ea0ab7ba3969a`. Its request families are retained
+below without reopening downstream source or results. Existing control references
+below record earlier source inspection; they were not rerun or reinterpreted as
+same-source passing evidence in this pass. Leaf self-reports establish no
+mathematical correctness.
 
-This document belongs in the kernel repository, not the public contract package:
-the latter must not name downstream acceptance or engineering probes to leaf authors.
-The leaf-visible counterpart is already `api/wire-examples.md`, especially
-“Compatibility with earlier boundary reports.” No permanent assertion or old leaf
-implementation was changed.
+This audit belongs in kernel documentation. The leaf-visible counterpart remains
+`api/wire-examples.md`, including “Compatibility with earlier boundary reports.”
+The public contract contains no downstream assertion or engineering-probe names.
+No permanent assertion, old leaf implementation, or executable contract source was
+changed. Both the authoritative old API snapshot and the separately labelled
+public candidate were left unchanged.
 
 ## Shared request and result path
 
@@ -280,35 +294,107 @@ Metadata commits `55ae64f` and `469f5d9` add reproducible published math locks,
 producer/publication revision guidance and explicit returned-product reuse
 documentation. They change no executable Port code.
 
-## Outstanding followup, stated precisely
+## Final-preparation source reconciliation
 
-1. The integration owner must attach final same-source build and focused-run
-   evidence. This audit turn did not rerun Lean or claim all modules passed.
-2. Dedicated coordinate-differential and infinite image/transpose response
-   validators have passed their focused integration checks. Their framing/type
-   evidence remains separate from mathematical answers and final frozen trials.
-3. The inventory distinction has now been resolved against both validators and
-   the public endpoint specification: a function-valued record field may supply
-   its otherwise unknown inventory, whereas a structured map must agree with
-   its actual source object's existing inventory. The matrix section now states
-   this explicitly. The nested-field validator's separate bug allowing an
-   explicit inventory to omit known indices was corrected; the updated hostile
-   probes passed in `CasAcceptance.ComputationalContractProbes`.
-4. Final `api/declared-ports.json` has not been regenerated. The extension snapshot
-   `/tmp/kernel-mvp-public-extension-api-candidate-20261024.json` validates
-   323 operation addresses and 563 input forms; it is not the final frozen API.
-   Generate only after final kernel/math inputs settle. `api/README.md` records
-   the procedure: clean committed producer checkouts, exact package overrides,
-   existing compiled dependencies, source/digest verification, atomic output.
-   The snapshot records those producer commits. A later commit containing the
-   snapshot is its publication revision and must not be substituted back into
-   its own recorded producer tuple.
+The public source now covers the generic families introduced after the original
+boundary report, in addition to every family mapped above:
 
-The candidate API records published producers kernel `1dbcaf3`, mathematics
-`4ea82e7` and contract `80bf36d`. Its SHA-256 is
-`7bccaf5e7bcfaa682f14ce429bcae158d9c899a66daec214e5ac5a9ad885d615`.
-This candidate was supplied to the independent public-only diagnostic author;
-it is not relabelled as the eventual release freeze.
+| Generic family | Public reference and exact framing | Generic consumer or validator |
+| --- | --- | --- |
+| Ordinary, whole-domain and terminal-point invocations | Seven ordered `apply` fields; whole map uses the original source and `identity(X,X)`; a nullary operation retains its actual terminal-source comparison | `Backend.PointInvocation.decode`; `Admission.pointInputAddresses`; `Realize` common invocations; `validateElementAt` or `validateEndpointPort` according to the original domain |
+| Full element expressions and selected parameters | `element`, `operationExpression`, `point`, `operationPoint`, `pointView`; a declaration arrow contains parameters, while an expression also contains operands | `interfaceDeclaration`, `interfaceArgument`, `validateCallableAt`, `validateElementExpressionAt`; exact selected-owner checks remain in the generic operation branch |
+| Complete admissions and constrained data | `admittedPoint` has six ordered fields; `constrainedPoint` has five and retains the exact constructor, data type, target and domain | Public Lean/Python framing helpers; `admissionInterface`, `ConstrainedPoint.schema?`, `validateCallableAt` |
+| Selected category, constructor, functor and core data | `category`, `constructedCategory`, `functor`, `coreObject`, complete two-direction `coreIso`, direct object request and `#map` invocation | `interfaceArgument`, `interfaceAction`, `validateAction`, `validatePort`, `validateCallableAt`; complete selected dictionaries precede dispatch |
+| Ordinary and constructor-induced natural components | `cellComponent`; `constructedCellComponent` with an outermost-first path; parameters `[declarationParameters,receiver,inverse]`; canonical dynamic address grammar | Public helpers; `Admission.component?` and `componentForm?`; `CellAction.assemble` and exact endpoint checks in `validateCallableAt` |
+| Family reindexing and cartesian maps | `cartesianMap(reindex,functorParameters,receiver)`; common parameters `[functorParameters,receiver]` | `Backend.CartesianMap.decode`, `Admission.cartesianForm?`, registered family action and callable validation |
+| Group/module hom objects, monoid/additive operations and direct image | Ordinary complete declarations, existing admission/application and operation packets; direct image is the ordinary `mor.sets.direct_image` arrow | Existing declaration/object-field/application/operation paths; no new tag, proof packet or private map-evaluation address |
+| Truth-value observations and stratified failures | JSON boolean at the public truth target for the registered global-point domain; full callable for other domains; distinct unsupported, error, malformed and connection-loss outcomes | `Codec`/`PointSchema`, `validateElementAt`/`validateEndpointPort`, `Backend.PortError.stratum`; no answer becomes formal evidence |
+| Returned structured data and source/target selection | Complete Arrow, cone/cocone, retained `constructionField`/`constructionLeg`, `morphismEndpoint`, four lift fields and separate factor; source diagrams remain attached through creation | `StructuredResult.dataPlan` and `validatePlannedData`; `validatePlannedPort`, `validateConstructionData`, `validateConstructionProjection`; existing lift execution and projection paths |
+| Actual result reuse and sessions | Computed inline values remain actual results; nested opaque dependencies retain their original live connection | `Realize.computedPayload`, `forwardPayload`, `combinedPayload`, `containsOpaqueData`, `computationalScope`, `receiveComputationalData`, `mergeOwners` |
+
+The former explicit-inventory follow-up is resolved in the public description.
+There are two different interfaces. A function-valued record field with no fixed
+primitive inventory may supply its own `finiteGraph` inventory; `validatePoint`
+checks point shapes, distinctness and exact graph coverage. A complete structured
+map instead has already selected actual source and target descriptors;
+`validateEndpointPort` requires the source inventory, normally via `finiteData`
+when no primitive codec supplies one. An inner `finiteGraph` must agree with
+that source inventory. It cannot choose a different source. An owned or symbolic
+callable covers a source without usable finite inventory. The matrix section of
+the public guide states this distinction, and the inspected source implements it.
+No relaxation of endpoint validation is required by this clarified contract.
+
+The public guide already says that returned symbolic `objectProduct(X,Y)` is
+an actual apex with both complete typed projections. Its coverage is not limited
+to a callable-source annotation. `validatePort` validates both retained factor
+interfaces; constructor-port validation ties both projection sources to the
+actual earlier apex field and each target to its retained request role.
+
+### Checks performed in this preparation pass
+
+- Parsed all 27 public Python code blocks and all seven JSON values across five
+  JSON code blocks. Schematic variables remain explicit supplied inputs; this is
+  syntax/framing validation, not execution of mathematical examples.
+- Parsed the complete square-root request through the public helper, checked
+  whole-map identity retention and the documented map/endpoint/comparison helper
+  envelopes, and rejected three incomplete or mistyped envelopes. These checks
+  use only the public protocol and no mathematical answers.
+- Verified that all eight binder IDs in the existing public candidate occur in
+  the guide's parameter-order table.
+- Re-ran the Python address-consistency validator on the existing candidate:
+  607 entries, 326 operation addresses and 566 input forms. Every concrete
+  lift/construction/cell/cartesian port has its exported operation and input,
+  with complete category context. Dynamic constructor-path components remain
+  governed by the published grammar.
+- Verified the public contract files named above against public `89de508`, and
+  confirmed the authoring clone remains clean. No executable file changed.
+
+The unchanged candidate is
+`/tmp/kernel-mvp-public-api-candidate-546cffae-20261024.json`, SHA-256
+`eecf444f9a3f007684c2c494085b02cbe6945b1add5ea90db2da5ad9a33c7612`.
+Its actual producers remain kernel
+`546cffae249e1d53c66cc7d62aeba74e426c6592`, mathematical catalogue
+`4acd7aff0350c5a84ce695e42eaadfd583ac343d`, and protocol
+`a131843a8c4cd8222814ca3949a27dc41dd7a29e`. The later contract documentation
+and dependency lock do not relabel that candidate as a new export or final API.
+
+### Reviewed source digests
+
+| Source at kernel `08051c0` (unchanged from `fdc3a9c`) | SHA-256 |
+| --- | --- |
+| `CasCatalogue/Admission.lean` | `14af9de07036bd0f11000e2bd88a6dfed7edc6bf47690b1fa49b3f97e00d19c3` |
+| `CasCatalogue/Codec.lean` | `b58ae05563beebd24b19faaea7d5b8af098f9972cc02ec696252b979b642d27b` |
+| `CasCatalogue/ComputationalData.lean` | `3ac2f4910591c7dc8d0a598c65d93fab8fc9fc628efa033981a9b6551af720f9` |
+| `CasCatalogue/StructuredResult.lean` | `75e493d48a4408588a6f0dcdd4879955d485013e77538cfd782f20312c099442` |
+| `CasCatalogue/Realize.lean` | `4adbaa97339bb74b4fdeb04c0d1a777838a55dc16180e4a47e505d1f46b9e73a` |
+
+Contract `CasContract/Port.lean` SHA-256 is
+`1d2093178736f4c8c76bb578e8ee1ab5846da0f916f4b5e50d11752903266be3`;
+`python/cas_port.py` is
+`5f2c330047725cd429eec42ac0dbf0ca6f5933b723857d44859f1954a7e98e19`.
+The authoritative stored `api/declared-ports.json` was left at SHA-256
+`f3a17fd1d2fa98d72513fbe9ac333834f64b6b160a9ccd5206b97a5991802b19`.
+
+## Remaining release actions, with evidence limits preserved
+
+1. The integration owner must attach the final same-source build and execution
+   evidence. No compile, connected mathematical workflow, frozen extension trial,
+   or assertion outcome was examined or rerun in this preparation pass.
+2. Coordinate-differential and infinite image/transpose response branches have
+   inspected generic source coverage. This audit still supplies no dedicated
+   newly executed family-specific validator result for them. The final evidence
+   must retain that limit or attach the owner's concrete focused validation.
+3. Final `api/declared-ports.json` awaits the owner's exact coherent frozen
+   producer tuple. Reuse the documented export procedure with clean committed
+   producer checkouts, exact package overrides, already compiled matching source,
+   both declaration/admission probes, the same five extension imports, source
+   and configuration checks, and atomic output. Producer and later publication
+   revisions remain distinct; never write a self-referential producer revision.
+
+The public documentation and framing portion is ready for that release step.
+This conclusion does not substitute for integration or mathematical acceptance.
+
+## Earlier focused integration evidence
 
 The focused checks above used core modules compiled from local kernel
 `85396b7c014c4f276b09f6ea1260d64081573951`, mathematics

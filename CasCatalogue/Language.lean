@@ -1665,7 +1665,7 @@ def graphOf (a b : Value) (pairs : Array (Nat × Nat)) : M Value := do
 
 -- Compilation of this mutually recursive reader needs additional reduction work as its
 -- provenance payload grows. This local option does not alter caller/probe interpretation budgets.
-set_option maxHeartbeats 400000 in
+set_option maxHeartbeats 800000 in
 mutual
 
 /-- Reuse closed readings only within this question's unchanged context. -/
@@ -7177,6 +7177,75 @@ partial def atStage (scope : Scope) (t : Name) (X : Value) (e : Syntax)
 
 /-- The exact declared components of an element. Named families publish their finite
 coordinate maps; constructed products retain their accepted cone and its defining legs. -/
+partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
+  let .object carrier sets _ (some selected@(.object actual category ..)) data := X
+    | return none
+  if category.id == CategoryId.sets then return none
+  let state ← registryState
+  let mut candidates : Array
+      (ObjectEntry × Value × Value × Array Expr × Expr × Expr) := #[]
+  for row in state.objects do
+    unless row.category == category.id && row.refines.isSome do continue
+    let base ← setOf state row
+    let some components := base.components | continue
+    let application? ← optionalReading <| parameterTrial do
+      let application ← DirectConstruction.instantiate row.declaration #[]
+      unless ← parameterTrial (withTransparency .all <|
+          isDefEq (← inferType application.value) (← inferType actual)) do
+        CategoryContext.exposeStructureParameters application.value
+      unless ← withTransparency .all <|
+          isDefEq (← inferType application.value) (← inferType actual) <&&>
+            isDefEq application.value actual do
+        throwStratum .invalid "this component presentation has a different complete selected object"
+      return ← DirectConstruction.close application
+    let some application := application? | continue
+    let named ← recognize state application.value category #[] application.explicit
+    let presented ← carrierObject named
+    let .object presentedCarrier _ (some (presentedBase, parameters)) .. := presented
+      | throwStratum .invalid "the component refinement omitted its declared base presentation"
+    unless presentedBase.id == base.id &&
+        (← withTransparency .all <| isDefEq presentedCarrier carrier) do
+      throwStratum .invalid "the full component refinement changed its actual carrier"
+    let arity ← instantiateMVars (← elabTermAndSynthesize
+      (← `($(mkCIdent components.arity) $(← typedParamTerms components.arity parameters)*)) none)
+    let family ← instantiateMVars (← elabTermAndSynthesize
+      (← `($(mkCIdent components.projection)
+        $(← typedParamTerms components.projection parameters)*)) none)
+    unless !arity.hasMVar && !arity.hasLevelMVar && !family.hasMVar &&
+        !family.hasLevelMVar && (← isTypeCorrect arity) && (← isTypeCorrect family) do
+      throwStratum .invalid "the full component presentation has undetermined parameters"
+    candidates := candidates.push (row, named, presented, application.explicit, arity, family)
+  let some first := candidates[0]? | return none
+  let (_, _, _, firstParameters, firstArity, firstFamily) := first
+  for (_, _, _, parameters, arity, family) in candidates do
+    unless parameters.size == firstParameters.size do
+      throwSemanticAmbiguity "the selected object has distinct complete component presentations"
+    for (left, right) in firstParameters.zip parameters do
+      unless ← withTransparency .all <|
+          isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right do
+        throwSemanticAmbiguity "the component presentations have different complete parameters"
+    unless ← withTransparency .all <|
+        isDefEq (← inferType firstArity) (← inferType arity) <&&>
+        isDefEq firstArity arity <&&>
+        isDefEq (← inferType firstFamily) (← inferType family) <&&>
+        isDefEq firstFamily family do
+      throwSemanticAmbiguity "the selected object has different whole component families"
+  -- The original actual source remains an independent child. A fresh wrapper
+  -- retains every checked full presentation without overwriting its trace/cache.
+  let ordered := candidates.qsort (fun left right => left.1.id.raw < right.1.id.raw)
+  let some representative := ordered[0]? | unreachable!
+  let wrapper ← mkAppM ``id #[actual]
+  let expected ← inferType actual
+  let views := #[selected] ++ ordered.map (·.2.1)
+  let evidence ← coalesceSelectedParameterViews expected wrapper views
+  let (_, _, _, alternatives, _) := evidence
+  Trace.record (← read).trace wrapper (.parameterEquivalence expected actual alternatives)
+  let source := Value.object wrapper category none none (some evidence)
+  let .object _ _ origin .. := representative.2.2.1 | unreachable!
+  return some (.object carrier sets origin (some source) data)
+
+/-- Read components through their complete declared presentation. A refinement
+may supply that presentation only after its entire structured object matches. -/
 partial def componentElements (value : Value) (count : Nat) : M (Array Value) := do
   let .element _ X@(.object objectHandle category origin _ _) := value
     | throwStratum .invalid m!"a component pattern binds an element of its declared domain"
@@ -7218,6 +7287,9 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
             else throw error
         let targetValue := retainObjectContext targetValue (#[X] ++ parameters)
         applyTo (← quoteExpr projection) #[value] targetValue
+  if let some presented ← refinedComponentPresentation? X then
+    let .element point _ := value | unreachable!
+    return ← componentElements (.element point presented) count
   -- An independently supplied complete carrier may already be the domain of a
   -- published component family. Instantiate only that family's complete type;
   -- no object name or extra mathematical structure is assigned to the carrier.
