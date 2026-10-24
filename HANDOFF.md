@@ -17,10 +17,10 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; compiled integration `aeb0b3900a40ffd948b2bda16a36595d977c02ff` | Core/tools compiled; five regression targets failed in the expanded build; subsequent retained-context and carrier-consumer repairs require their focused reruns |
+| lean-cas-dsl | `work/kernel-v1-20261023`; integrated candidate `6aad803995aebac18112c8733c471cc8ce3eb444` | Checked mathematical prerequisites compile; construction-source and retained-context consumers await the coherent rerun; the unchanged formed-pairing reader still times out |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `796db9fc8ef18765a8f6770aeab24d08fcc58a3c` | Includes universal operation agreement, additive-monoid operation/action, complete selected linearity/unit evidence, and selected polynomial presentation/normalization; public declaration signatures are unchanged by these evidence repairs |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `23f1e8190ba472fd99f7ee83b78f6e8357530e7f` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
+| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `82d1370de372a00a86391b74fc2566c9547dfcb6` | Includes checked closed polynomial normalization, cancellation and injective coefficient-map evidence; public declaration signatures are unchanged by these repairs |
+| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `90d7d3f1833cff39b77024dcee2dc43213e623ad` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
 | Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `d33bec4433f39582824f6b2846c4f4ec4b9f7e13` | Public endpoint and callable-reuse consumer repair; the same 66 registrations remain byte-identical; standalone protocol checks are not mathematical acceptance |
 
@@ -243,6 +243,34 @@ identify their identity/composition dictionaries. The selected-operation repair
 passes the original element-data block and independent ambiguity controls in an
 isolated diagnostic; its integrated probe is still required. These changes do not
 rank competing operations or replace actual returned packets and their owners.
+
+The reader-only build at local `5f4d029` (published `aa904f14`) passes in
+79.387 seconds, including singleton source/candidate ordering without serializing
+open local owners. The following consumer build at local `52bf07e` (published
+`20bfe8f`) fails at an invalid `ConstructionEntry.source` field access. The
+integrated correction reads a construction's complete source bundle from its
+instantiated dependent signature and adds a registered-construction control.
+Complete selected-source and target checks remain in place. Its affected consumers
+have not yet been rerun; neither source publication nor the prerequisite build
+establishes that result.
+
+The independent mathematical repair at `82d1370` passes its 18 positive public
+controls, six separately established zero cases and corresponding refusals,
+plus the unchanged presentation and evidence suites. It uses Mathlib polynomial
+normalization and constant-polynomial laws without new hypotheses or changed
+admission. The exact checked source blobs, commands and log hashes are recorded
+in the owning mathematical complaint. The aligned prerequisite build at local
+`a43bd2a` (published `6aad803`) passes in 7.325 seconds against this mathematics
+and contract `90d7d3`; its exact source tuple is unchanged before and after.
+
+The unchanged formed-pairing phase diagnostic at compiled reader `5f4d029`
+reproduces the ordinary 200000-heartbeat timeout naturally in 110.768 seconds.
+It stops while discovering the first tuple's selected component context,
+before literal reading or final composition. Direct sampled peak Lean RSS is
+7,083,728 KiB; imported artifacts are unchanged and no memory guard fired.
+The earlier diagnostic namespace error and all previous failures remain separate
+records. The reader obstruction, combined consumer build and actual frozen
+execution trials remain open.
 
 The local runtime was restored after the former recovery directory disappeared:
 the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and
