@@ -1216,7 +1216,7 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef)
     value := next
     remaining := remaining.extract refinement.route.size remaining.size
   if current.id == entry.id then return ← transportImage trace w remaining none encoder?
-  let context ← match w.categoryContext with
+  let context : Option CategoryContext ← match w.categoryContext with
     | none => pure none
     | some source => do
         let some expression := state.formExpression? w.form
@@ -1226,7 +1226,7 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef)
         CategoryContext.checkObject source w.value
         let some category := state.categories.find? (·.id == current.category)
           | throwError "the named presentation target category is not registered"
-        return some (← CategoryContext.ofNamed category value)
+        pure (some (← CategoryContext.ofNamed category value))
   let args := (w.json.getObjVal? "args").toOption.getD (Json.arr #[])
   let refined := { w with
     form := .object current, presentationIsos := identifications,
@@ -4442,7 +4442,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
               let (descriptor, dependencies) ← realizedEdgeDescriptor h trace lift.edge U
               let json := if unchanged then wire.json else
                 Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, wire.json])]
-              pure { wire with form,
+              pure { wire with
+                form := form
                 payload := (← combinedPayload value json (#[wire] ++ dependencies)) }
             | _ =>
               if (Language.homEnds? (← inferType wire.value)).isSome then

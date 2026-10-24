@@ -17,12 +17,12 @@ the reconstruction or integration workspace.
 
 | Repository | Branch / checkpoint | State |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `a5dd191fce3c82872739edff4eb349591ad4c111` | Complete dependent admission, selected-owner reading, full inherited dispatch, structured execution and independently assessed question records; final coherent verification continues |
+| lean-cas-dsl | `work/kernel-v1-20261023`; published reconstruction `2afd0bb4b7dc48abd19df79dce7c411f62ae9c42` | Complete dependent admission, selected-owner reading, full inherited dispatch, transport ownership and structured execution; final coherent verification continues |
 | lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
 | Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `4ea82e7cf6f5fd75234fd2ce18255a45ad851379` | Checked module/group-map admissions, parameterized finite-order presentations, monoid operations, selected bindings and full direct image; mathematical proof controls passed |
 | lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `80bf36d2131e00e78cba2c8461db7b32d98a86f4` | Complete category, cartesian-map, construction-field and projection-action codecs/docs, whole-domain invocations, strict failure strata and explicit inventory rules; final generated reference pending |
 | lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `836c15217f6951e698398cacd3b96afdc892909d` | New subtree authored from public interfaces without assertion sources, answers or execution outcomes; its own protocol checks are not mathematical acceptance |
+| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `3486a6b9555348f8a546e9e10765c35e57174ca8` | Public-only replacement author completed whole-domain callable reuse and exact native polynomial metadata in the new subtree; standalone protocol checks are not mathematical acceptance |
 
 The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
 retaining the integrated PR #65 architecture and the surviving obligations of
@@ -89,9 +89,18 @@ invocation. Upstream inputs now include an explicit selected-operator binding
 contract, generalized powerset image action and checked group-map admission.
 
 The public request-family audit is in `specs/computational-contract-audit.md`.
-Known fixed-key omissions in explicit nested graph inventories are now rejected.
-Dedicated differential and infinite-subset framing probes are prepared; they and
-the current reader/runtime changes await the coherent batch. Final source locks,
+Known fixed-key omissions in explicit nested graph inventories are now rejected;
+the updated contract probe passed. Dedicated differential and infinite-subset
+response validators also passed, with malformed parameter, endpoint and arity
+controls. The successful core build at local `85396b7` additionally supports
+the unchanged complete-callable and session-ownership probes. A subsequent
+batch restores named numeral precedence, extracts raw callable parameters at
+their exact demanded type, and preserves actual action parameters and ownership
+through runtime and creation-lift transport. Its source is published as
+`2afd0bb` and fetched back with an identical tree; its compilation is in progress.
+Incomparable selected operation bindings remain subject to independent
+mathematical comparison, before substituting selected objects or operands.
+Final source locks,
 the generated public API, same-source permanent/workflow reruns, all ten frozen
 extension trials, and compositional evidence remain required before readiness.
 
@@ -105,8 +114,11 @@ A fresh session with no inherited conversation received only that unchanged diag
 subtree, the public contract/API and runtime paths. Its instructions prohibit the
 agent-inventory tool and all downstream assertion, implementation and report inputs.
 The incidental exposure is recorded rather than claiming that the interrupted
-follow-up remained wholly blind. The replacement's independently authored changes
-will have their own source and public-input receipt.
+follow-up remained wholly blind. The replacement's first independently authored
+checkpoint is local `d04b96c`, published as `3486a6b`, with its own public-input
+receipt. A fresh GitHub fetch matched the complete local tree. The candidate API
+it received records published kernel `1dbcaf3`, mathematics `4ea82e7` and contract
+`80bf36d`; it is explicitly a pre-freeze public interface snapshot.
 
 Use isolated build outputs under `/tmp` in this environment: workspace synchronization
 restored obsolete generated trace layouts and caused false enum/probe failures; fresh

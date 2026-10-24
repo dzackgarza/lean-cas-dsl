@@ -3,17 +3,17 @@
 ## Exact status and ownership
 
 This is the kernel-side source audit of the dated downstream contract gaps.
-It is not a completed validation report or an acceptance claim. The source
-inspection below was completed; no additional Lean compile was run in this
-contract-release turn. Final family-specific validation and the generated API
-remain with the integration owner after the kernel and mathematics freeze.
+It is not a completed acceptance report. The source inspection below is now
+supplemented by the focused integration checks recorded in this document.
+Final same-source validation and the generated release API remain with the
+integration owner after the kernel and mathematics freeze.
 
 The contract clone is `/tmp/kernel-v1-contract-completion-20261024`, branch
-`work/kernel-v1-contract-release-20261024`, at local commit `469f5d9`.
-The integration owner reports its exact tree published as `235eb7f`.
+`work/kernel-v1-contract-release-20261024`, at local commit `aa8477de`.
+Its exact tree is published as `80bf36d2131e00e78cba2c8461db7b32d98a86f4`.
 Its dependency lock pins the independently published mathematics commit
-`2efe6e546d6932882d8e19242e567074aa0598fb`, including the public
-`CommutativeRings` name repair. The executable `CasContract/Port.lean` is unchanged
+`4ea82e7cf6f5fd75234fd2ce18255a45ad851379`, including complete map admissions,
+selected operation bindings and direct image. The executable `CasContract/Port.lean` is unchanged
 from the published `7abe31a85ac03e8b5ce13887fc7c1d6efdc54051` source.
 
 The dated leaf report inspected was `lean-cas-dsl-leaves/DEFECTS.md` at checkout
@@ -108,11 +108,12 @@ Implementation: this is the shared registered-morphism/composition path:
 `interfaceDeclaration`, and `validateElementAt`. Exact types and parameters come
 from the accepted coordinate declaration. Opaque data use the common live owner.
 
-Evidence limit: generic declared-arrow, point-composition and changed-endpoint
-hostile controls were located and inspected. No dedicated coordinate-differential
-response-validator case was located or newly executed in this turn. The final
-audit must keep that distinction or attach the integration owner's actual focused
-validation; it cannot claim family-specific execution from a tag inventory.
+Focused validation: `CasAcceptance/Kernel/PublicFamilyContractProbes.lean`
+passes the complete coordinate-differential reply through the production
+response validator and decodes the complete coordinate declaration. It rejects
+a missing ring, a changed selected ring, the reversed coordinate map, and a
+nonconstant coordinate map used as a global differential. This verifies the
+declared framing and selected types; it supplies no derivative answer or law.
 
 ### Matrices
 
@@ -151,9 +152,12 @@ complete type. `validatePort` handles native data without enumerating carriers.
 Existing controls: `CasAcceptance/Kernel/ObjectPresentationProbes.lean` checks a
 membership map at a retained computed ambient object, including the actual unnamed
 endpoint and sole owning session. Shared callable/point controls check incompatible
-endpoints and incomplete parameters. Evidence limit: no dedicated infinite
-`image`/`transpose` response-validator execution was located or newly run in this
-turn. Final evidence must state that limit or include a concrete focused run.
+endpoints and incomplete parameters. The executed `PublicFamilyContractProbes`
+also validates image replies with an exact infinite-domain identity and an
+owned typed callable, decodes the declared image, and validates an owned
+predicate transpose. It rejects missing parameters, swapped map types and an
+undeclared field. No finite sampling or enumeration is used as evidence for
+the infinite maps.
 
 ### Binder maps and requests
 
@@ -280,19 +284,19 @@ documentation. They change no executable Port code.
 
 1. The integration owner must attach final same-source build and focused-run
    evidence. This audit turn did not rerun Lean or claim all modules passed.
-2. Dedicated coordinate-differential and infinite image/transpose response paths
-   have source-level generic coverage but no newly executed family-specific check
-   in this turn. Preserve that distinction in the final audit.
+2. Dedicated coordinate-differential and infinite image/transpose response
+   validators have passed their focused integration checks. Their framing/type
+   evidence remains separate from mathematical answers and final frozen trials.
 3. The inventory distinction has now been resolved against both validators and
    the public endpoint specification: a function-valued record field may supply
    its otherwise unknown inventory, whereas a structured map must agree with
    its actual source object's existing inventory. The matrix section now states
    this explicitly. The nested-field validator's separate bug allowing an
-   explicit inventory to omit known indices was corrected; its new hostile
-   probes await the integrated batch described below.
+   explicit inventory to omit known indices was corrected; the updated hostile
+   probes passed in `CasAcceptance.ComputationalContractProbes`.
 4. Final `api/declared-ports.json` has not been regenerated. The extension snapshot
-   `/tmp/kernel-mvp-public-extension-api-20261024.json` previously validated
-   318 operation addresses and 558 input forms; it is not the final frozen API.
+   `/tmp/kernel-mvp-public-extension-api-candidate-20261024.json` validates
+   323 operation addresses and 563 input forms; it is not the final frozen API.
    Generate only after final kernel/math inputs settle. `api/README.md` records
    the procedure: clean committed producer checkouts, exact package overrides,
    existing compiled dependencies, source/digest verification, atomic output.
@@ -300,12 +304,24 @@ documentation. They change no executable Port code.
    snapshot is its publication revision and must not be substituted back into
    its own recorded producer tuple.
 
-No additional review, build or API export was performed after root requested
-this immediate checkpoint. The detailed audit still needs incorporation into
-the owning kernel documentation and final evidence reconciliation.
+The candidate API records published producers kernel `1dbcaf3`, mathematics
+`4ea82e7` and contract `80bf36d`. Its SHA-256 is
+`7bccaf5e7bcfaa682f14ce429bcae158d9c899a66daec214e5ac5a9ad885d615`.
+This candidate was supplied to the independent public-only diagnostic author;
+it is not relabelled as the eventual release freeze.
+
+The focused checks above used core modules compiled from local kernel
+`85396b7c014c4f276b09f6ea1260d64081573951`, mathematics
+`2dbf2f576ef5a4a406294d083fc52666c0010282` and contract
+`aa8477de4aebc83823b88ac4885225e8fc13d9c5`. Probe syntax corrections are
+recorded in `747c8a7`. Both dedicated public-family cases and the full
+computational-contract probe completed successfully. Their raw logs are
+`PublicFamilyContractProbes-baseline2.log` and
+`CasAcceptance.ComputationalContractProbes.log` in the focused integration
+evidence directory. Later reader/runtime changes require a final coherent rerun.
 
 ## Explicit graph inventories — integration correction
 
 The function-field and structured-endpoint paths have different independently supplied inputs. A function-valued record field can use its own explicit `finiteGraph` inventory when no independent keys exist. A structured map has an actual selected source object; its graph must agree with that object’s existing inventory (for example, `finiteData(source,keys)`). An endpoint wrapper alone supplies no inventory, so it requires an owned or symbolic callable. The public matrix section now states this distinction explicitly.
 
-A concrete bug in the nested function-field validator allowed `finiteGraph` to replace an independently fixed `Fin n` inventory. The integration patch rejects that replacement whenever keys are already fixed, while accepting a permutation of the complete inventory. The focused contract probe includes partial outer and inner matrix inventories. This paragraph records the implemented correction; execution of the updated probe is pending the integrated batch.
+A concrete bug in the nested function-field validator allowed `finiteGraph` to replace an independently fixed `Fin n` inventory. The integration patch rejects that replacement whenever keys are already fixed, while accepting a permutation of the complete inventory. The updated computational-contract probe passed, including partial outer and inner matrix inventories. This is validation evidence for the declared matrix representation, separate from native matrix arithmetic.
