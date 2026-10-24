@@ -3469,7 +3469,22 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   let state ← registryState
   let e ← instantiateMVars e
   let some node ← (trace.node? e : IO _)
-    | throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
+    | do
+      -- Reduction can remove the surface action from a complete selected object.
+      -- Recover only its literal original child and already checked full action;
+      -- an equal result elsewhere in the cache cannot supply this presentation.
+      if h.parameterRecovery.contains e then
+        throwStratum .noImplementation m!"the complete selected object action has cyclic data dependencies"
+      if let some selected ← FunctorActionData.retainedParameterAction? trace e then
+        let h := { h with parameterRecovery := h.parameterRecovery.push e }
+        let source ← realizeEndpoint h trace "the reduced selected object's retained source" selected.receiver
+        let image ← transportImage trace source selected.route (some selected.applications)
+          (some (realizedEdgeDescriptor h trace))
+        unless ← withTransparency .all <|
+            isDefEq (← inferType image.value) (← inferType e) <&&> isDefEq image.value e do
+          throwError "the recovered action changed the complete selected object"
+        return { image with payload := forwardPayload image e image.json }
+      throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one); the term is {e}"
   match node with
