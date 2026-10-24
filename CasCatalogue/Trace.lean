@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 module
 
 public import LeanCategories.Catalogue.Registry.Entry
+public import CasCatalogue.Resolve
 public import Std.Data.HashMap
 
 @[expose] public section
@@ -43,6 +44,42 @@ structure ParameterPresentation where
   identifications : Array Name
   object : Expr
   image : Expr
+  identity : Expr
+  deriving Repr
+
+/-- One complete selected source of a routed operation. Accepted route comparisons
+retain their exact constructor and whiskering contexts and the checked typed witnesses. -/
+structure OperationSource where
+  context : CategoryContext
+  receiver : Expr
+  route : Array EdgeRef
+  applications : Array Expr
+  comparisons : Array RouteComparison := #[]
+  comparisonWitnesses : Array Expr := #[]
+  deriving Repr
+
+/-- One surviving registered binding, before any equivalence-class representative is
+chosen. The complete declaration application precedes its actual supplied operands. -/
+structure OperationCandidate where
+  operation : OperationId
+  application : Expr
+  result : Expr
+  sources : Array OperationSource
+  deriving Repr
+
+/-- A checked equality of universally abstracted complete routed operation families.
+The indices refer to the retained candidates and their complete source witnesses.
+`parameters` instantiates that shared dependent context only after the identity is checked. -/
+structure OperationFamilyComparison where
+  left : Nat
+  right : Nat
+  leftSource : Nat
+  rightSource : Nat
+  parameters : Array Expr
+  leftFamily : Expr
+  rightFamily : Expr
+  leftType : Expr
+  rightType : Expr
   identity : Expr
   deriving Repr
 
@@ -95,6 +132,10 @@ inductive Node
   | operationApply (id : OperationId) (params operands : Array Expr) (target selected : Expr)
   | operationPoint (id : OperationId) (params : Array Expr)
       (comparison operation target selected : Expr)
+  /-- The entire checked class of inherited operations. `chosen` is a deterministic
+  serialization representative inside that class, never an operation-priority rule. -/
+  | operationEquivalence (representative : Expr) (chosen : Nat)
+      (candidates : Array OperationCandidate) (comparisons : Array OperationFamilyComparison)
   | elementNumeral (value : Nat) (target selected : Expr)
   /-- The value of a closed point at the registered terminal point, used as a dependent
   declaration parameter while retaining its complete selected computational source. -/

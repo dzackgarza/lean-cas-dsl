@@ -99,6 +99,37 @@ def equivalentParameterPresentation (left right : ParameterPresentation) : TermE
     equivalentTerms #[left.object, left.image, left.identity]
       #[right.object, right.image, right.identity]
 
+/-- An operation's selected source retains its whole dictionary, ordered actions,
+and every accepted comparison with its exact constructor and whiskering context. -/
+def equivalentOperationSource (left right : OperationSource) : TermElabM Bool := do
+  unless left.route == right.route && left.comparisons == right.comparisons do return false
+  equivalentCategoryContext left.context right.context <&&>
+    equivalentTerms #[left.receiver] #[right.receiver] <&&>
+    equivalentTerms left.applications right.applications <&&>
+    equivalentTerms left.comparisonWitnesses right.comparisonWitnesses
+
+/-- Source order is part of a checked class's canonical indexing, not a lookup
+priority. Keeping that order preserves the universal comparison's source indices. -/
+def equivalentOperationCandidate (left right : OperationCandidate) : TermElabM Bool := do
+  unless left.operation == right.operation && left.sources.size == right.sources.size do
+    return false
+  unless ← equivalentTerms #[left.application, left.result] #[right.application, right.result] do
+    return false
+  for (first, second) in left.sources.zip right.sources do
+    unless ← equivalentOperationSource first second do return false
+  return true
+
+/-- The complete universal families, their full dependent types and checked proof
+remain visible alongside the exact ordered post-proof instantiation parameters. -/
+def equivalentOperationFamilyComparison (left right : OperationFamilyComparison) :
+    TermElabM Bool := do
+  unless left.left == right.left && left.right == right.right &&
+      left.leftSource == right.leftSource && left.rightSource == right.rightSource do
+    return false
+  equivalentTerms left.parameters right.parameters <&&>
+    equivalentTerms #[left.leftFamily, left.rightFamily, left.leftType, left.rightType, left.identity]
+      #[right.leftFamily, right.rightFamily, right.leftType, right.rightType, right.identity]
+
 /-- Compare the retained operation itself, independently of its encoded snapshot.
 The outer match is exhaustive: a new trace constructor needs an explicit comparison.
 No argument is erased on the basis of a field name such as `identity` or `admitted`. -/
@@ -206,6 +237,19 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       equivalentTerms params otherParams <&&>
         equivalentTerms #[comparison, operation, target, selected]
           #[otherComparison, otherOperation, otherTarget, otherSelected]
+  | .operationEquivalence representative chosen candidates comparisons =>
+      let .operationEquivalence otherRepresentative otherChosen otherCandidates otherComparisons := right
+        | return false
+      OperationAgreement.validate representative chosen candidates comparisons
+      OperationAgreement.validate otherRepresentative otherChosen otherCandidates otherComparisons
+      unless chosen == otherChosen && candidates.size == otherCandidates.size &&
+          comparisons.size == otherComparisons.size do return false
+      unless ← equivalentTerms #[representative] #[otherRepresentative] do return false
+      for (candidate, other) in candidates.zip otherCandidates do
+        unless ← equivalentOperationCandidate candidate other do return false
+      for (comparison, other) in comparisons.zip otherComparisons do
+        unless ← equivalentOperationFamilyComparison comparison other do return false
+      return true
   | .elementNumeral value target selected =>
       let .elementNumeral other otherTarget otherSelected := right | return false
       unless value == other do return false

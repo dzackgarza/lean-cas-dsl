@@ -433,33 +433,68 @@ structure LimitResolution where
   lift : Option LiftId := none
   deriving Repr, BEq
 
+/-- Formation failure and ambiguity of complete registered construction choices
+are different interpretation outcomes. Each ambiguous choice retains both its
+presentation and its optional creation lift. -/
+inductive LimitResolutionError
+  | unregisteredCategory (category : CategoryId)
+  | missing (category : CategoryId) (shape : String) (colimit : Bool)
+  | ambiguous (category : CategoryId) (shape : String) (colimit : Bool)
+      (candidates : Array LimitResolution)
+  deriving Repr, BEq
+
+def LimitResolutionError.message : LimitResolutionError → String
+  | .unregisteredCategory category => s!"{category.raw} is not a registered category"
+  | .missing category shape colimit =>
+      if colimit then s!"no {shape} colimit is registered in {category.raw}"
+      else s!"no {shape} limit is registered in {category.raw} or returned to it along a registered lift"
+  | .ambiguous category shape colimit candidates =>
+      let orientation := if colimit then "colimit" else "limit"
+      let descriptions := candidates.toList.map fun candidate =>
+        match candidate.lift with
+        | none => candidate.limit.raw
+        | some lift => s!"{candidate.limit.raw} returned along {lift.raw}"
+      s!"{shape} {orientation} in {category.raw} has several accepted presentations: \
+        {String.intercalate "; " descriptions}"
+
 /-- Resolve a limit (or, with `colimit`, a colimit) of shape `shape` in `category`: its own
 registered presentation, else, for a limit, the unique registered creation lift of `shape` limits
-out of `category` into a category with one. -/
-def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String)
-    (colimit : Bool := false) : Except String LimitResolution := do
+out of `category` and the unique applicable target presentation. Enumerating a lift
+does not select the first target presentation from storage order. -/
+def RegistryState.resolveLimitDetailed (state : RegistryState) (category : CategoryId)
+    (shape : String) (colimit : Bool := false) : Except LimitResolutionError LimitResolution := do
+  let some entry := state.categories.find? (·.id == category)
+    | throw (.unregisteredCategory category)
   let direct := state.limits.filter fun l =>
     l.colimit == colimit && l.category == category && l.shape == shape
   if let some l := direct[0]? then
-    if direct.size > 1 then throw s!"{category.raw} has {direct.size} registered {shape} limits"
+    if direct.size > 1 then
+      throw (.ambiguous category shape colimit (direct.map fun row => { limit := row.id }))
     return { limit := l.id }
-  let some entry := state.categories.find? (·.id == category)
-    | throw s!"{category.raw} is not a registered category"
   -- Creation lifts return limits only.
-  if colimit then
-    throw s!"no {shape} colimit is registered in {category.raw}"
-  let returned := state.lifts.filterMap fun lift => do
-    guard (lift.kind == .createsLimits shape)
-    let edge ← state.structuralEdge? lift.edge
-    guard (edge.source.syntacticEq entry.expression)
-    let target ← state.category? edge.target
-    let limit ← state.limits.find? fun l => !l.colimit && l.category == target.id && l.shape == shape
-    pure ({ limit := limit.id, lift := some lift.id } : LimitResolution)
+  if colimit then throw (.missing category shape colimit)
+  let returned := state.lifts.flatMap fun lift =>
+    if lift.kind != .createsLimits shape then #[] else
+    match state.structuralEdge? lift.edge with
+    | none => #[]
+    | some edge =>
+        if !edge.source.syntacticEq entry.expression then #[] else
+        match state.category? edge.target with
+        | none => #[]
+        | some target =>
+            (state.limits.filter fun row =>
+              !row.colimit && row.category == target.id && row.shape == shape).map fun row =>
+                ({ limit := row.id, lift := some lift.id } : LimitResolution)
   match returned.toList with
   | [r] => return r
-  | [] => throw s!"no {shape} limit is registered in {category.raw} or returned to it along a \
-      registered lift"
-  | _ => throw s!"{shape} limits in {category.raw} are returned along several lifts"
+  | [] => throw (.missing category shape colimit)
+  | _ => throw (.ambiguous category shape colimit returned)
+
+/-- Compatibility display interface; production interpretation consumes the structured
+error from `resolveLimitDetailed` so ambiguity is never collapsed into invalid input. -/
+def RegistryState.resolveLimit (state : RegistryState) (category : CategoryId) (shape : String)
+    (colimit : Bool := false) : Except String LimitResolution :=
+  (state.resolveLimitDetailed category shape colimit).mapError (·.message)
 
 /-- Resolve the property query `receiver.name` (CC-PROP): a property row with this name (an
 alias only on its own receiver), and the unique route to its classifier's host. -/

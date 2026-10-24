@@ -13,6 +13,7 @@ public import CasCatalogue.DeclaredAdmission
 public import CasCatalogue.SelectedLift
 public import CasCatalogue.CellAction
 public import CasCatalogue.CategoryContext
+public import CasCatalogue.OperationAgreement
 public import CasCatalogue.StructuredProjection
 public import CasCatalogue.ReindexAction
 public import CasCatalogue.ConstrainedPoint
@@ -3245,8 +3246,8 @@ partial def named (scope : Scope) (name : String) (args : Array Syntax)
         let category ← match (values[0]? : Option Value) with
           | some (.object _ c _ _ _) | some (.morphism _ _ _ c _) => pure c
           | _ => throwStratum .invalid m!"a {name} is of objects or morphisms"
-        match state.resolveLimit category.id name row.colimit with
-        | .error message => throwStratum .invalid m!"{message}"
+        match state.resolveLimitDetailed category.id name row.colimit with
+        | .error error => liftM (Semantic.limitResolutionFailure error)
         | .ok _ => pure ()
         let presentation ← limitIn row.colimit name (← standardDiagram name values) category
         let apex ← apexOf row.colimit presentation
@@ -5202,8 +5203,9 @@ partial def constructionLeg (scope : Scope) (term indexSyntax : Syntax) : M Valu
             part.getAppFn.constName? == some row.declaration)).isSome) else direct
         let mut identified : Array (LimitId × Option LiftId) := #[]
         for row in candidates do
-          let resolution ← match state.resolveLimit category.id row.shape colimit with
+          let resolution ← match state.resolveLimitDetailed category.id row.shape colimit with
             | .ok resolution => pure resolution
+            | .error error@(.ambiguous ..) => liftM (Semantic.limitResolutionFailure error)
             | .error _ => continue
           unless resolution.limit == row.id do continue
           if ← parameterCompatible (do
@@ -5221,9 +5223,9 @@ partial def constructionLeg (scope : Scope) (term indexSyntax : Syntax) : M Valu
   let actualDiagram := (← instantiateMVars (← inferType presentation)).appArg!
   unless ← isDefEq actualDiagram diagram do
     throwStratum .invalid m!"the retained construction names a different actual diagram"
-  let resolution ← match state.resolveLimit category.id row.shape colimit with
+  let resolution ← match state.resolveLimitDetailed category.id row.shape colimit with
     | .ok resolution => pure resolution
-    | .error message => throwStratum .invalid m!"{message}"
+    | .error error => liftM (Semantic.limitResolutionFailure error)
   unless resolution.limit == id && resolution.lift == lift do
     throwStratum .invalid m!"the retained construction has a different registered creation lift"
   let accepted ← Semantic.limit colimit row.shape diagram category.id.raw none
@@ -6654,14 +6656,14 @@ partial def operationSourceValues (receiver : Value) : M (Array Value) := do
 /-- The complete owner images at the first binding on each structural path. The
 upstream registry fixes where name lookup stops; its accepted comparison cells still
 govern route coherence. No carrier equality or category ordering selects a binding. -/
-partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
-    (receiver : Value) : M (Array Value) := do
+partial def operationOwnerCandidates (surfaceName : String) (owner : CategoryId)
+    (receiver : Value) : M (Array (Value × OperationSource)) := do
   let state ← registryState
   let some ownerCategory := state.categories.find? (·.id == owner)
     | throwStratum .invalid m!"the operation's owner category is not registered"
   let _ : Inhabited Route :=
     ⟨{ source := ownerCategory.expression, target := ownerCategory.expression, steps := #[] }⟩
-  let mut views : Array Value := #[]
+  let mut views : Array (Value × OperationSource) := #[]
   for source in (← operationSourceValues receiver) do
     let sourceContext ← objectContext source
     let original ← semanticObject source
@@ -6673,15 +6675,18 @@ partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
       | throwSemanticAmbiguity m!"several routes determine this selected operation owner"
     unless selected.ambiguities.isEmpty do
       throwSemanticAmbiguity m!"several comparisons determine this selected operation owner"
-    discard <| Semantic.validateRouteComparisons state selected.comparisonWitnesses (some original)
+    let comparisonWitnesses ←
+      Semantic.validateRouteComparisons state selected.comparisonWitnesses (some original)
     let #[route] := selected.sources
       | throwSemanticAmbiguity m!"the operation owner has no unique directed source route"
     if route.steps.isEmpty then
-      match source with
-      | .object .. => views := views.push source
-      | _ =>
-          views := views.push (.object original ownerCategory none none
-            (some (#[source], source, #[], #[], #[])))
+      let ownerView := match source with
+        | .object .. => source
+        | _ => .object original ownerCategory none none
+            (some (#[source], source, #[], #[], #[]))
+      views := views.push (ownerView, {
+        context := sourceContext, receiver := original, route := #[], applications := #[]
+        comparisons := selected.comparisonWitnesses, comparisonWitnesses })
       continue
     let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
     let (sourceBundle, targetBundle) ← functorCategoryBundles action
@@ -6697,29 +6702,41 @@ partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
       throwStratum .invalid m!"the operation route retains incomplete selected parameters"
     Trace.record (← read).trace image
       (.contextualRoute sourceContext targetContext route.refs applications original false)
-    views := views.push (.object image ownerCategory none none
+    let ownerView := Value.object image ownerCategory none none
       (some (#[source], source, route.refs, #[],
-        route.refs.zip (applications.map (·.getAppArgs)))))
+        route.refs.zip (applications.map (·.getAppArgs))))
+    views := views.push (ownerView, {
+      context := sourceContext, receiver := original, route := route.refs, applications
+      comparisons := selected.comparisonWitnesses, comparisonWitnesses })
   return views
+
+partial def operationOwnerViews (surfaceName : String) (owner : CategoryId)
+    (receiver : Value) : M (Array Value) := do
+  return (← operationOwnerCandidates surfaceName owner receiver).map (·.1)
 
 /-- Instantiate the operation at the owner binder validated by the registry. A selected
 receiver fixes that whole owner; retained constructor parameters may not replace it with a
 different structure on the same carrier. Anonymous declaration-owned coordinates may still
 obtain their owner from their complete supplied context. -/
-partial def selectedOperationApplications (declaration : Name) (owner : CategoryId)
-    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) : M (Array Expr) := do
+partial def selectedOperationApplicationsWithSources (declaration : Name) (owner : CategoryId)
+    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) :
+    M (Array (Expr × Array OperationSource)) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
   let ownerSlot := args.size - 1 - numerals.size
-  let sources ← match surfaceName with
-    | some name => operationOwnerViews name owner receiver
-    | none => pure <| match receiver with
-      | .object _ category origin selected _ =>
-          if selected.isSome || category.id != CategoryId.sets || origin.isSome then #[receiver]
-          else sourceParameterValues receiver
-      | _ => sourceParameterValues receiver
-  let mut applications : Array Expr := #[]
-  for source in sources do
+  let sources : Array (Value × Option OperationSource) ← match surfaceName with
+    | some name => do
+        let selected ← operationOwnerCandidates name owner receiver
+        pure (selected.map fun (value, source) => (value, some source))
+    | none => do
+        let values := match receiver with
+          | .object _ category origin selected _ =>
+              if selected.isSome || category.id != CategoryId.sets || origin.isSome then #[receiver]
+              else sourceParameterValues receiver
+          | _ => sourceParameterValues receiver
+        pure (values.map fun value => (value, none))
+  let mut applications : Array (Expr × Array OperationSource) := #[]
+  for (source, provenance) in sources do
     let candidate ← try parameterTrial do
       unless ← bindSelectedReceiver args ownerSlot source (some owner) do return none
       let numberParameters := args.extract (ownerSlot + 1) args.size
@@ -6741,9 +6758,26 @@ partial def selectedOperationApplications (declaration : Name) (owner : Category
     catch error =>
       if (CasCatalogue.Exception.interpretationKind error) == .invalid then pure none else throw error
     if let some application := candidate then
-      unless ← applications.anyM (sameOperationApplication application) do
-        applications := applications.push application
+      let mut retained := false
+      for index in [:applications.size] do
+        let some (previous, sources) := applications[index]? | unreachable!
+        unless ← sameOperationApplication previous application do continue
+        let sources := match provenance with
+          | some source =>
+              if sources.any (OperationAgreement.sameSourceData · source) then sources
+              else sources.push source
+          | none => sources
+        let representative := if application.lt previous then application else previous
+        applications := applications.set! index (representative, sources)
+        retained := true
+        break
+      unless retained do applications := applications.push (application, provenance.toArray)
   return applications
+
+partial def selectedOperationApplications (declaration : Name) (owner : CategoryId)
+    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) : M (Array Expr) := do
+  return (← selectedOperationApplicationsWithSources declaration owner receiver numerals surfaceName).map
+    (·.1)
 
 /-- A selected operation without supplied operands still requires a unique complete application.
 The generic caller checks declared inputs before applying this same full-argument comparison. -/
@@ -6769,7 +6803,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
     | _ => throwStratum .invalid m!"an operation's extra parameter is a numeral"
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid m!"an element operation has no registered category of sets"
-  let mut applicable : Array (OperationEntry × Expr × Value × Std.HashMap Expr Node) := #[]
+  let mut applicable : Array (OperationCandidate × Value × Std.HashMap Expr Node) := #[]
   for operation in state.operations.filter (fun operation =>
       operation.name == name && operation.arity == elements.size &&
         operation.numerals == extra.size) do
@@ -6778,7 +6812,7 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
       | some id => match state.objects.find? (·.id == id) with
         | some row => object state row.name #[] none
         | none => throwStratum .invalid m!"an operation's result object is not registered"
-    for application in (← selectedOperationApplications operation.declaration
+    for (application, sources) in (← selectedOperationApplicationsWithSources operation.declaration
         operation.category receiver numerals (some name)) do
       let candidate? ← try parameterTrial do
         let recorder ← Trace.new
@@ -6789,15 +6823,44 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
       if let some (value, records) := candidate? then
-        applicable := applicable.push (operation, application, value, records)
-  let some (operation, application, value, records) := applicable[0]?
+        let .element result _ := value
+          | throwStratum .invalid "a registered element operation did not produce its declared point"
+        let sources := sources.qsort fun left right =>
+          OperationAgreement.sourceKey left < OperationAgreement.sourceKey right
+        applicable := applicable.push ({ operation := operation.id, application, result, sources },
+          value, records)
+  applicable := applicable.qsort fun left right => OperationAgreement.candidateLess left.1 right.1
+  let some (representative, value, _) := applicable[0]?
     | throwStratum .invalid m!"the selected structure has no registered operation `{name}`"
-  for (other, otherApplication, _, _) in applicable do
-    unless operation.id == other.id && (← sameOperationApplication application otherApplication) do
+  let candidates := applicable.map (·.1)
+  let mut comparisons : Array OperationFamilyComparison := #[]
+  for right in [:candidates.size] do
+    for left in [:right] do
+      let some leftCandidate := candidates[left]? | unreachable!
+      let some rightCandidate := candidates[right]? | unreachable!
+      if let some comparison ← OperationAgreement.compare left right leftCandidate rightCandidate then
+        comparisons := comparisons.push comparison
+  if candidates.size > 1 then
+    let mut reached := (Array.replicate candidates.size false).set! 0 true
+    for _ in [:candidates.size] do
+      for comparison in comparisons do
+        if reached[comparison.left]! || reached[comparison.right]! then
+          reached := (reached.set! comparison.left true).set! comparison.right true
+    unless reached.all id do
       throwSemanticAmbiguity m!"several complete registered operations `{name}` take these declared inputs"
+    OperationAgreement.validate representative.result 0 candidates comparisons
   if let some trace := (← read).trace then
-    trace.modify fun current => records.fold
-      (fun result term node => result.insert term node) current
+    for (_, _, records) in applicable do
+      trace.modify fun current => records.fold
+        (fun result term node => result.insert term node) current
+  if candidates.size > 1 then
+    let .element _ target := value | unreachable!
+    let wrapper ← mkAppM ``id #[representative.result]
+    if wrapper == representative.result then
+      throwError "the operation equivalence wrapper did not retain a distinct child"
+    Trace.record (← read).trace wrapper
+      (.operationEquivalence representative.result 0 candidates comparisons)
+    return .element wrapper target
   return value
 
 /-- `f ∘ ⟨x₁, x₂⟩` (or `f ∘ x₁`): the semantic morphism `semantic : A₁ × A₂ → B` (or `A₁ → B`),
@@ -7112,7 +7175,26 @@ partial def componentElements (value : Value) (count : Nat) : M (Array Value) :=
   let mut apex := objectHandle.consumeMData
   while apex.isAppOfArity ``id 2 do apex := apex.appArg!.consumeMData
   unless apex.isAppOf ``CategoryTheory.Limits.Cone.pt do
-    throwStratum .invalid m!"the selected object declares no component maps"
+    -- A complete selected carrier can reduce to a declared product without retaining
+    -- the cone's syntax. Reconstruct that existing universal presentation, preserving
+    -- the original whole point and its selected source as context for every component.
+    let endpoint ← withTransparency .all <| whnf objectHandle
+    -- The component types are fixed by that product itself. Retain X after obtaining
+    -- its legs; its unrelated parameters must not choose a structure on a component
+    -- merely because one of their carrier types is definitionally equal to it.
+    let presented ← declaredEndpointObject endpoint category #[]
+    let .object handle .. := presented
+      | throwStratum .invalid m!"the selected object declares no component maps"
+    let mut candidate := handle.consumeMData
+    while candidate.isAppOfArity ``id 2 do candidate := candidate.appArg!.consumeMData
+    unless candidate.isAppOf ``CategoryTheory.Limits.Cone.pt &&
+        (← withTransparency .all <| isDefEq handle objectHandle) do
+      throwStratum .invalid m!"the selected object declares no component maps"
+    let .element point _ := value | unreachable!
+    let components ← componentElements (.element point presented) count
+    return components.map fun
+      | .element component target => .element component (retainObjectContext target #[X])
+      | component => component
   let cone := apex.appArg!
   let projections ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
   let app ← mkAppM ``CategoryTheory.NatTrans.app #[projections]

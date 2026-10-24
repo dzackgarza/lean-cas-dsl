@@ -721,6 +721,12 @@ def reindex (X : Expr) (_source : NamedCategoryEntry) (baseMorphism : Expr)
   Trace.record trace? value (.functor entry.id params X)
   return (value, target)
 
+/-- Preserve semantic ambiguity separately from missing or invalid construction inputs. -/
+def limitResolutionFailure {α : Type} (error : LimitResolutionError) : TermElabM α :=
+  match error with
+  | .ambiguous .. => throwSemanticAmbiguity m!"{error.message}"
+  | _ => throwStratum .invalid m!"{error.message}"
+
 /-- The registered limit (colimit) of `shape` at the diagram `D` of the category `category`: its
 presentation, returned along the registered creation lift when it is computed elsewhere. -/
 def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
@@ -728,9 +734,9 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
   let state ← registryState
   let some entry := state.categories.find? (·.id.raw == category)
     | throwStratum .invalid m!"no registered category {category}"
-  let resolution ← match state.resolveLimit entry.id shape colimit with
+  let resolution ← match state.resolveLimitDetailed entry.id shape colimit with
     | .ok resolution => pure resolution
-    | .error message => throwStratum .invalid m!"{message}"
+    | .error error => limitResolutionFailure error
   let some row := state.limits.find? (·.id == resolution.limit) | unreachable!
   let presentationAt := limitPresentation row
   let presentation ← match resolution.lift.bind fun id => state.lifts.find? (·.id == id) with

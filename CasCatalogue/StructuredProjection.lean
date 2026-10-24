@@ -178,7 +178,10 @@ def construction? (receiver : Expr) (context : CategoryContext) (trace? : Option
     else
       unless (presentation.find? (fun part =>
         part.getAppFn.constName? == some row.declaration)).isSome do continue
-    let .ok resolution := state.resolveLimit category.id row.shape colimit | continue
+    let resolution ← match state.resolveLimitDetailed category.id row.shape colimit with
+      | .ok resolution => pure resolution
+      | .error error@(.ambiguous ..) => Semantic.limitResolutionFailure error
+      | .error _ => continue
     unless resolution.limit == row.id do continue
     let accepted ← Semantic.limit colimit row.shape diagram category.id.raw none
     unless ← withoutModifyingState (withTransparency .all <| isDefEq accepted presentation) do continue
