@@ -15,6 +15,13 @@ from cas_port import opaque_data, point_invocation, serve, value_data
 process = uuid.uuid4().hex
 serials = itertools.count()
 issued = set()
+materialize_invocation = "--materialize-invocation" in sys.argv[1:]
+
+
+def fresh():
+    token = f"{process}:{next(serials)}"
+    issued.add(token)
+    return opaque_data(token)
 
 
 def tokens(data):
@@ -37,6 +44,8 @@ def implementation(operation):
         if isinstance(argument, dict) and argument.get("ctor") == "apply":
             _, _, arrow, _, _, _, _ = point_invocation(argument, operation)
             used = list(tokens(arrow))
+            if materialize_invocation and not used:
+                return fresh()
             if not used or any(token not in issued for token in used):
                 raise ValueError("the request did not consume this process's returned callable")
             return value_data(0)
@@ -44,9 +53,7 @@ def implementation(operation):
             raise ValueError("a whole-callable request lost its declared operation")
         if not isinstance(argument.get("args"), list):
             raise ValueError("a whole-callable request lost its ordered parameters")
-        token = f"{process}:{next(serials)}"
-        issued.add(token)
-        return opaque_data(token)
+        return fresh()
 
     return call
 
@@ -54,4 +61,5 @@ def implementation(operation):
 if __name__ == "__main__":
     serve("session-probe", "0", "0.1.0", {
         operation: implementation(operation) for operation in sys.argv[1:]
+        if not operation.startswith("--")
     })

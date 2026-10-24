@@ -18,7 +18,9 @@ The `question` string contains two complete JSON term tables:
 ```
 
 Claim kinds are `literal`, `homs`, `implemented`, `decision:true`,
-`decision:false`, `judged:true`, and `judged:false`. Parse each JSON value as
+`decision:false`, and `judged:<expected>`. The latter retains Lean's existing
+`Option Bool` display: `(some true)`, `(some false)`, or `none`, rather than
+flattening an optional expectation to a Boolean. Parse each JSON value as
 JSON; do not split strings that occur inside it. Each table is an object with
 `roots` and `terms`. A term reference is a zero-based index into that table's
 `terms` array. The two tables have separate index spaces. They contain the
@@ -84,7 +86,8 @@ it is a recursively structured question:
 | `and` | Left question, right question |
 | `not` | Negated question |
 
-The expected truth orientation remains in the `decision` or `judged` prefix.
+The expected truth orientation, including an absent optional expectation,
+remains in the `decision` or `judged` prefix.
 An expected equality operand remains an operand of the original typed claim;
 it is not replaced by the observed runtime answer.
 

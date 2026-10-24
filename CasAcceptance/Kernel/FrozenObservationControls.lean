@@ -60,14 +60,52 @@ private def requestTerms (state : RegistryState) (receiver : Expr)
   discard <| QuestionIdentity.questionTypes terms #[]
   return terms
 
-private def termRecord (terms : Array Expr) : TermElabM Json := do
+private def termRecord (terms : Array Expr) (labels : Array String := #[]) : TermElabM Json := do
+  unless labels.isEmpty || labels.size == terms.size do
+    throwError "the typed-term observation labels do not match its ordered values"
   let table ← Realize.TermTable.new
   let types ← QuestionIdentity.questionTypes terms #[]
   let values ← terms.mapM table.encode
   let types ← types.mapM table.encode
-  let text ← table.finish (Json.mkObj [("values", toJson values), ("types", toJson types)])
+  let text ← table.finish (Json.mkObj [
+    ("values", toJson values), ("types", toJson types), ("labels", toJson labels)])
   let .ok result := Json.parse text | throwError "the typed-term observation failed to encode"
   return result
+
+private def requestLabels (resolution : Resolution) : Array String :=
+  #["receiver", "routeFunctor"] ++
+    resolution.route.steps.zipIdx.map (fun (step, index) => s!"routeStep[{index}]:{step.ref.label}") ++
+    #["routeImage", "operationFunctor", "operationInput", "operationResult"] ++
+    resolution.comparisonWitnesses.zipIdx.flatMap (fun (witness, index) =>
+      #[s!"comparison[{index}]:{witness.cell.raw}", s!"forwardComponent[{index}]",
+        s!"inverseComponent[{index}]"])
+
+private def resolutionRecord (resolution : Resolution) : Json :=
+  Json.mkObj [
+    ("method", toJson (reprStr resolution.method)),
+    ("source", toJson (reprStr resolution.route.source)),
+    ("target", toJson (reprStr resolution.route.target)),
+    ("steps", Json.arr (resolution.route.steps.map fun step => Json.mkObj [
+      ("ref", toJson (reprStr step.ref)), ("source", toJson (reprStr step.source)),
+      ("target", toJson (reprStr step.target)), ("expression", toJson (reprStr step.expression))])),
+    ("comparisons", toJson (resolution.comparisons.map (·.raw))),
+    ("comparisonWitnesses", Json.arr (resolution.comparisonWitnesses.map fun witness =>
+      Json.mkObj [("cell", toJson witness.cell.raw),
+        ("constructors", toJson (witness.constructors.map (·.raw))),
+        ("before", toJson (witness.before.map reprStr)),
+        ("after", toJson (witness.after.map reprStr))])),
+    ("lifts", toJson (resolution.lifts.map (·.raw)))]
+
+private def selectedInventory (state : RegistryState) : Json :=
+  Json.mkObj [
+    ("rows", Json.arr (state.registryEntries.toArray.map fun row => Json.mkObj [
+      ("id", toJson row.stableId), ("declarations", toJson (row.declarations.map Name.toString)),
+      ("completeMetadata", toJson (reprStr row))])),
+    ("cells", Json.arr (state.cells.map fun cell => Json.mkObj [
+      ("id", toJson cell.id.raw), ("declaration", toJson cell.declaration.toString),
+      ("source", toJson (reprStr cell.source)), ("target", toJson (reprStr cell.target)),
+      ("left", toJson (cell.left.map reprStr)), ("right", toJson (cell.right.map reprStr)),
+      ("invertible", toJson cell.invertible)]))]
 
 private def observeCarrierEnvironments : TermElabM Json := do
   let state ← registryState
@@ -103,9 +141,11 @@ private def observeCarrierEnvironments : TermElabM Json := do
       throwError "the cardinality request lost the complete actual carrier-cell witness"
     return (resolution, ← requestTerms selected receiver resolution)
   let (normal, normalTerms) ← coherent state
-  let (reversed, reversedTerms) ← coherent (selectionOrder state)
-  unless resolutionKey normal == resolutionKey reversed &&
-      (← QuestionIdentity.equivalentTerms normalTerms reversedTerms) do
+  let reordered := selectionOrder state
+  let (reversed, reversedTerms) ← coherent reordered
+  let coherentMetadataEqual := resolutionKey normal == resolutionKey reversed
+  let coherentTermsEquivalent ← QuestionIdentity.equivalentTerms normalTerms reversedTerms
+  unless coherentMetadataEqual && coherentTermsEquivalent do
     throwError "reordering the same coherent declarations changed the full selected request"
   -- Keep the already accepted additive-monoid route and its cell. Omitting this
   -- one carrier cell leaves all three candidates; it does not authorize deleting a route.
@@ -120,22 +160,43 @@ private def observeCarrierEnvironments : TermElabM Json := do
     resolutions.mapM fun resolution => do
       return (resolution, ← requestTerms selected receiver resolution)
   let first ← candidates absent
-  let second ← candidates (selectionOrder absent)
+  let absentReordered := selectionOrder absent
+  let second ← candidates absentReordered
   let same (left right : Resolution × Array Expr) : TermElabM Bool := do
     unless resolutionKey left.1 == resolutionKey right.1 do return false
     QuestionIdentity.equivalentTerms left.2 right.2
-  unless ← QuestionIdentity.equivalentUnordered same first second do
+  let candidatesEquivalent ← QuestionIdentity.equivalentUnordered same first second
+  unless candidatesEquivalent do
     throwError "reordering absent-cell declarations changed the complete ambiguity candidates"
-  let candidateRecords ← first.mapM fun (resolution, terms) => do
-    return Json.mkObj [("resolution", toJson (resolutionKey resolution)),
-      ("typedRequest", ← termRecord terms)]
+  let receiverRecord : TermElabM Json :=
+    termRecord #[receiver, oldRing] #["selectedForgottenRing", "existingResidueRing"]
+  let coherentRecord (name : String) (selected : RegistryState)
+      (resolution : Resolution) (terms : Array Expr) : TermElabM Json := do
+    return Json.mkObj [
+      ("environment", toJson name), ("resolutionKind", "resolved"),
+      ("selectedInventory", selectedInventory selected), ("typedReceiver", ← receiverRecord),
+      ("resolution", resolutionRecord resolution),
+      ("typedRequest", ← termRecord terms (requestLabels resolution))]
+  let ambiguousRecord (name : String) (selected : RegistryState)
+      (candidates : Array (Resolution × Array Expr)) : TermElabM Json := do
+    let records ← candidates.mapM fun (resolution, terms) => do
+      return Json.mkObj [("resolution", resolutionRecord resolution),
+        ("typedRequest", ← termRecord terms (requestLabels resolution))]
+    return Json.mkObj [
+      ("environment", toJson name), ("resolutionKind", "ambiguous"),
+      ("selectedInventory", selectedInventory selected), ("typedReceiver", ← receiverRecord),
+      ("candidates", Json.arr records)]
   return Json.mkObj [
-    ("control", "RX05"), ("kind", "holds"),
-    ("environments", toJson #["present", "present-reversed", "absent", "absent-reversed"]),
-    ("receiver", ← termRecord #[receiver, oldRing]),
-    ("coherentResolution", toJson (resolutionKey normal)),
-    ("coherentRequest", ← termRecord normalTerms),
-    ("ambiguousCandidates", Json.arr candidateRecords)]
+    ("control", "RX05"),
+    ("environments", Json.arr #[
+      ← coherentRecord "present" state normal normalTerms,
+      ← coherentRecord "present-reversed" reordered reversed reversedTerms,
+      ← ambiguousRecord "absent" absent first,
+      ← ambiguousRecord "absent-reversed" absentReordered second]),
+    ("crossEnvironmentChecks", Json.mkObj [
+      ("presentResolutionMetadataEqual", toJson coherentMetadataEqual),
+      ("presentCompleteTypedRequestsEquivalent", toJson coherentTermsEquivalent),
+      ("absentCompleteCandidatesEquivalentAsMultisets", toJson candidatesEquivalent)])]
 
 /-- Inspect expressions in the real diagnostic, including lazily formatted expressions.
 The values come from Lean's typed info nodes, not from matching a printed error string. -/
@@ -238,8 +299,11 @@ private def observeRejectedAdmission : TermElabM Json := do
     ("control", "RX09"), ("kind", "invalid"), ("stage", "admission"),
     ("file", toJson source), ("sourceLine", toJson item.line), ("source", toJson item.text),
     ("prerequisites", toJson 4), ("dispatches", Json.arr #[]),
-    ("actualAttempt", ← termRecord #[hom, sourceObject, targetObject, function, domain, actualObligation]),
-    ("independentObligation", ← termRecord #[expectedFunction, expectedDomain, expected]),
+    ("actualAttempt", ← termRecord #[hom, sourceObject, targetObject, function, domain, actualObligation]
+      #["originalMap", "originalDomain", "originalCodomain", "familyFunction", "admissionDomain",
+        "actualDiagnosticObligation"]),
+    ("independentObligation", ← termRecord #[expectedFunction, expectedDomain, expected]
+      #["independentFamily", "independentAdmissionDomain", "independentSummabilityObligation"]),
     ("detail", toJson (← error.toMessageData.toString))]
 
 run_elab do

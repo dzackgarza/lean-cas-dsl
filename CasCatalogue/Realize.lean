@@ -4636,6 +4636,87 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
 
 end
 
+/-- Remove only the reader's administrative expected-type wrappers. The original
+categorical composition and its complete selected argument remain unchanged. -/
+def operationApplicationBody (value : Expr) : Expr := Id.run do
+  let mut value := value.consumeMData
+  while value.isAppOfArity ``id 2 do value := value.appArg!.consumeMData
+  return value
+
+/-- Materialize a retained generalized operation through its existing complete
+callable interface. The source is the original composition argument, not a point
+invented at the terminal object or a recipe recovered from the returned value. -/
+def realizeOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
+    (id : OperationId) (parameters : Array Expr) : TermElabM Wire := do
+  let .ok ("element", #[_, expression]) := ComputationalData.envelope wire.json
+    | return wire
+  let .ok ("operationExpression", #[operationId, _, _]) := ComputationalData.envelope expression
+    | return wire
+  unless operationId == toJson id.raw do
+    throwError "the retained operation recipe changed its accepted operation"
+  let state ← registryState
+  let some entry := state.operations.find? (·.id == id)
+    | throwError "the retained operation is no longer registered"
+  let formal := wire.value
+  let composition := operationApplicationBody formal
+  unless composition.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 do
+    throwStratum .noImplementation
+      "the complete operation recipe has no retained generalized composition argument"
+  let argument := composition.getAppArgs[5]!
+  let operation := composition.getAppArgs[6]!
+  let application := operationApplicationBody operation
+  unless application.getAppFn.constName? == some entry.declaration do
+    throwError "the complete operation recipe changed its accepted declaration"
+  let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun arguments _ =>
+    arguments.mapM (·.fvarId!.getBinderInfo)
+  let actualParameters := (application.getAppArgs.zip infos).filterMap fun (value, info) =>
+    if info.isExplicit then some value else none
+  unless actualParameters.size == parameters.size do
+    throwError "the complete operation recipe changed its ordered declaration parameters"
+  for (actual, retained) in actualParameters.zip parameters do
+    unless ← withTransparency .all <| isDefEq actual retained do
+      throwError "the complete operation recipe changed a selected declaration parameter"
+  let some (source, target) := Language.homEnds? (← inferType operation)
+    | throwError "the accepted operation lost its complete callable signature"
+  let some (domain, originalSource) := Language.homEnds? (← inferType argument)
+    | throwError "the retained operation argument lost its original generalized domain"
+  let some (resultDomain, resultTarget) := Language.homEnds? (← inferType formal)
+    | throwError "the complete operation result lost its original typed endpoints"
+  unless ← withTransparency .all <| isDefEq originalSource source <&&>
+      isDefEq resultDomain domain <&&> isDefEq resultTarget target do
+    throwError "the complete operation recipe changed its original composition endpoints"
+  let (parameterData, parameterWires) ← realizedParameters h trace parameters
+  let callable : Wire := {
+    form := wire.form
+    payload := (← combinedPayload operation
+      (Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameterData)]) parameterWires) }
+  let argumentWire ← realize h trace "the operation's original generalized argument" argument
+  let domainWire ← realizeCallableEndpoint h trace argumentWire domain true
+  let sourceWire ← realizeCallableEndpoint h trace callable source true
+  let targetWire ← realizeCallableEndpoint h trace callable target false
+  let (argumentData, endpoints) ← frameMorphismData h trace domain source argumentWire
+  let invocation : Backend.PointInvocation := {
+    operation := id.raw
+    parameters := parameterData
+    arrow := callable.json
+    domain := domainWire.json
+    source := sourceWire.json
+    target := targetWire.json
+    argument := argumentData }
+  let input : Wire := {
+    form := match wire.form with | .element selected => selected | other => other
+    payload := (← combinedPayload formal invocation.encode
+      (#[callable, argumentWire, domainWire, sourceWire, targetWire] ++ parameterWires ++ endpoints)) }
+  let (answer, backend) ← send h id.raw input (completeRequest := true)
+  let checked ← if ← withTransparency .all <| isDefEq domain (← closedElementDomain state) then
+    ComputationalData.validateElementAt target targetWire.json (← pointResultValue state formal) answer
+  else ComputationalData.validateEndpointPort formal domainWire.json targetWire.json answer
+  if let .error message := checked then malformed backend id.raw answer message
+  let data ← receiveComputationalData h backend id.raw answer true
+  let result : Wire := { wire with payload := .computed formal data }
+  let owner ← mergeOwners input.owner? result.owner?
+  return { result with payload := computedPayload formal result.json owner }
+
 /-- Demand the computational value of an entire arrow. Merely forming a named arrow,
 including one used inside a later point invocation, retains its public descriptor.
 Only this observation demand dispatches that descriptor. Structural composites are
@@ -4669,6 +4750,16 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
         | .ok () => pure ()
         let data ← receiveComputationalData h backend id.raw answer true
         pure { wire with payload := .computed formal data }
+    | .namedCallable address _ _ => do
+        unless tag == some address do return wire
+        let (answer, backend) ← send h address wire
+        match ← ComputationalData.validatePort formal (← inferType formal) answer with
+        | .error message => malformed backend address answer message
+        | .ok () => pure ()
+        let data ← receiveComputationalData h backend address answer true
+        pure { wire with payload := .computed formal data }
+    | .operationApply id parameters _ _ _ =>
+        realizeOperationObservation h trace wire id parameters
     | .morphismComposition _ first second source _ _ => do
         unless tag == some "compose" do return wire
         -- A closed-point composition is already an `apply` invocation. Its returned
@@ -4679,6 +4770,12 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire) 
     | .morphismTransport _ _ _ receiver => do
         unless tag == some "map" do return wire
         rebuild #[receiver]
+    | .contextualRoute _ _ route _ receiver true => do
+        unless tag == some "map" || route.isEmpty do return wire
+        rebuild #[receiver]
+    | .contextualComposition _ first second _ _ _ => do
+        unless tag == some "compose" do return wire
+        rebuild #[first, second]
     | .callableRecipe _ _ _ body => rebuild #[body]
     | _ => pure wire
   if !formal.hasMVar && !formal.hasLevelMVar && !formal.hasFVar && !formal.hasLooseBVars then
