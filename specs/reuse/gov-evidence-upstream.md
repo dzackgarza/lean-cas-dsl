@@ -66,3 +66,13 @@ exception transport, mathematical declaration, or leaf protocol. The existing re
 outcome remains `ambiguous`; a semantic exception during execution remains an interpreter
 error. Ownership follows architecture's interpretation stage and AGENTS's distinction
 between ambiguity, invalidity, and backend failures.
+
+## Transparent trace markers at the decision boundary (2026-10-25)
+
+`Trace.operationResult` is the kernel's existing typed identity wrapper for retaining
+distinct registered bindings as trace keys. `Lean.Meta.deltaExpand` already supplies
+selective unfolding of that transparent definition. Reuse it only on the residual
+proposition passed to the existing proof acquisition in `Realize.evaluatedDecides`.
+The retained question, selected operation records, registered evaluator, and final
+kernel check against the complete original proposition remain unchanged. This adds
+no mathematical normalization rule, decision instance, provider retry, or budget.
