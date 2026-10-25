@@ -1,5 +1,31 @@
 # Journal
 
+## 2026-10-25 — Validate the existing portable extent interface
+
+The frozen independent source/target trial reached an actual source-leaf
+underlying-object reply and exposed a generic typed-data gap before the target
+leaf was called: `finiteData(extent(...), inventory)` had a published public
+format, but the typed object validator did not handle `extent`. The failed
+trial is preserved; its process exit alone is not a successful workflow.
+
+The kernel now reuses the registered power-object and subset-literal signatures
+to check the complete actual ambient descriptor and subset data. Its interface
+expression leaves the subset as a typed placeholder, so computed members do
+not replace the fixed formal object or provide membership evidence. Finite keys
+and inventories describe the actual returned representation. Opaque subset
+inventories use the ambient point codec, rather than the original formal
+construction's carrier. Anonymous representations inside transparent wrappers
+require an exact retained input binding before they can serve as action inputs.
+
+The focused portable-extent controls and the unchanged projection-boundary and
+action-carrier controls pass with unchanged imported sources and artifacts.
+They cover function-valued points, whole-map endpoints, malformed data, and
+well-framed different computed values. The initial control attempt failed only
+while constructing its identity functor without the full explicit category
+dictionary; that attempt is preserved and the control now supplies the selected
+dictionary. These are boundary checks, not independent mathematical acceptance;
+the unchanged two-leaf trial must still be rerun on the integrated source.
+
 ## 2026-10-25 — Ground shared execution in the previously implemented mechanisms
 
 Issue69 AddendumIV and the cited current Sage-category adapters, selected-action
@@ -11,6 +37,56 @@ current integrated acceptance. The separating regressions include distinct
 selected structures, composite actions, lifecycle retention, universal maps and
 the rejection of changed mathematical provenance even with a plausible answer.
 Private lateral leaf imports remain permitted and carry no semantic authority.
+
+## 2026-10-25 — Follow the actual complete carrier action to components
+
+The reader now obtains the actual route and full applications from its existing
+checked carrier computation. A complete intermediate image may supply registered
+components only when its whole structured value matches the existing declaration,
+its declared carrier suffix is the original suffix, and every typed application
+agrees. Both original action segments and the full selected source remain attached;
+no trace entry or bare carrier determines the presentation.
+
+Selected factors also retain the complete original base map and cone alongside
+the receiver on their unchanged endpoints. Retaining these inputs alone exposed
+an endpoint ambiguity in the fixed factor; the exact component-action prototype
+then read the original tuple while retaining every competing input. Optional
+controls cover trace independence, the original source/action records, distinct
+complete scalar actions on the same carrier, and the public factor's input context.
+The focused build passed in 207.314 seconds, including the unchanged original
+registered-map admission controls. Source/configuration guards remained stable,
+with 14 isolated kernel artifact changes and no dependency artifact changes.
+The original first/final factor samples at lines 73, 76, 152 and 155 still exhaust
+the unchanged 200000-heartbeat option during semantic reading. Their full
+production run closed in 95.232 seconds with no source or artifact changes; the
+component and input-context checks do not establish these whole-question reads.
+
+## 2026-10-25 — Retain the original defining-map context of a lift
+
+Explicit lift selection now keeps the entire supplied inclusion value alongside
+the original receiver. Previously it retained the typed inclusion expression in
+the trace but omitted that value's endpoint and selected-parameter context from
+the result. A later backward field could therefore have the exact regular-module
+source while losing the independently supplied scalar owner of that source.
+Selection, proof checking, the complete Hom endpoints and actual applications are
+unchanged; no structure is recovered from a bare carrier.
+
+The optional engineering control follows the actual supplied map, full domain and
+scalar owner through the selected backward field and its registered numeral. It
+also checks the unchanged original expressions in the existing lift trace. The
+candidate workflow explicitly builds this control against its independent fixture.
+The original final-inclusion reading and factor readings remain separate production
+verification obligations at the unchanged normal budget.
+
+The new input-retention control and unchanged composite-packet, complete-source,
+closed-reading and exporter controls pass. The original numeral `3` at the final
+backward field's exact source now reads in 3793 heartbeats. The unchanged `3/2`
+then exposes distinct complete source witnesses; the full inclusion reports that
+ambiguity at 184901 heartbeats. This is not a completed fixed-question repair.
+The original factor samples still exceed the production budget. A factor-input
+retention prototype also preserves its endpoint ambiguity; a separate exact
+carrier-prefix/suffix prototype reads its tuple while retaining all original
+inputs. Neither result authorizes discarding a competing selected structure.
 
 ## 2026-10-25 — Share exact syntax during question canonicalization
 

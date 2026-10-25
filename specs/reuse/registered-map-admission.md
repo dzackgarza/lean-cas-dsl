@@ -14,6 +14,12 @@ their exact Hom type, the reader uses that admission and checks its independent
 proof obligations. The source category bundle includes its actual dictionary,
 so equal underlying carriers cannot select a different scalar action or category.
 
+An explicit lift retains its original complete defining-map value alongside its
+selected receiver. Its actual Hom expression and proof remain unchanged in the
+existing lift record; its source and target values also remain available when a
+later lift field or composed selection supplies a coordinate. A full scalar owner
+therefore comes from the original supplied map context, never from its bare carrier.
+
 An ordinary function or map of sets used as a declaration parameter is read at
 its given signature directly. Adding a constrained-function domain to the
 registry cannot introduce a new condition on that ordinary parameter.
@@ -36,6 +42,21 @@ domain may determine all parameters of a registered component family even when
 the domain has no separate named object row. The reader checks its arity and
 every projection's exact source. It retains the original domain rather than
 giving it the component family's object name.
+
+An intermediate whole object on the actual carrier route can supply an existing
+component presentation. The reader replays both segments using the original
+ordered edge arguments. It requires the component declaration's exact remaining
+route and compares every full typed application with the original suffix. The
+whole intermediate object, complete parameters, arity and projection family must
+already pass the existing refinement checks. The original selected object and
+carrier expression remain primary, with every intermediate presentation retained.
+Distinct complete presentations stay ambiguous. Optional trace records do not
+decide this lookup; the existing checked carrier computation returns its actual
+route and applications directly.
+
+A selected factor likewise retains its original receiver, base map and cone at
+both exact endpoints after the original full factorization checks. These original
+inputs remain available without selecting among them by carrier equality.
 
 ## Explicit proofs
 
@@ -61,6 +82,15 @@ File bindings resolve an exact scoped name first and then the written file name.
 Stage-bound names keep their exact lexical identity. A quoted name is not a Lean
 declaration lookup. Because printed source omits macro scopes, the closed-reading
 cache does not reuse scoped syntax under a printed-source key.
+
+The 2026-10-25 component-context searches `carrier component projection functor`
+and `retained functor composition object action` returned polynomial-functor tree
+and path implementations, not a replacement for the accepted component metadata.
+Upstream `ObjectEntry.components`, refinements, registered route edges and functor
+object actions own the mathematics. The existing `retainedActions`,
+`checkedRouteAction`, `componentRefinement?`, and complete selected-view comparison
+own replay and checking. The new wrappers expose those same checked actions and
+retain their original inputs; they add no category, functor or component family.
 
 ## Computational reuse
 

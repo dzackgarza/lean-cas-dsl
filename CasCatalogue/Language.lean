@@ -1107,8 +1107,8 @@ partial def typedParamTerms (declaration : Name) (values : Array Value) : M (Arr
 
 /-- Transport one already selected structured object at a declared object type. Every candidate
 is an actual registered structural composite, and only admitted comparisons identify routes. -/
-partial def transportedStructure (expected : Expr) (value : Value)
-    (demandedCategory : Option CategoryId := none) : M Expr := do
+partial def transportedStructureWithAction (expected : Expr) (value : Value)
+    (demandedCategory : Option CategoryId := none) : M (Expr × Array EdgeRef × Array Expr) := do
   let .object receiver sourceCategory _ _ _ := value
     | throwStratum .invalid m!"a selected structural parameter is an object"
   let state ← registryState
@@ -1144,8 +1144,13 @@ partial def transportedStructure (expected : Expr) (value : Value)
       | #[] => throwStratum .invalid m!"the selected object has no registered structure at this type"
       | _ => throwSemanticAmbiguity m!"several routes give the selected object this structure \
           (source {sourceCategory.id.raw}, demanded type {expected}, receiver {receiver})"
-    let (image, _) ← checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
-    return image
+    let (image, applications) ←
+      checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
+    return (image, route.refs, applications)
+
+partial def transportedStructure (expected : Expr) (value : Value)
+    (demandedCategory : Option CategoryId := none) : M Expr := do
+  return (← transportedStructureWithAction expected value demandedCategory).1
 
 /-- A closed declaration parameter remains closed when read in a binder. Recover
 only the exact global point retained behind the registered terminal precomposition;
@@ -2954,7 +2959,8 @@ partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syn
   let sourceValue ← eval scope sourceSyntax
   let source ← semanticObject sourceValue
   let sourceContext ← objectContext sourceValue
-  let (inclusion, domain, _, _, _, _) ← morphismContext (← eval scope inclusionSyntax)
+  let inclusionValue ← eval scope inclusionSyntax
+  let (inclusion, domain, _, _, _, _) ← morphismContext inclusionValue
   let monic ← typedParameter (← mkAppM ``CategoryTheory.Mono #[inclusion])
     (← eval scope proofSyntax)
   let plan ← SelectedLift.select entry
@@ -2966,7 +2972,7 @@ partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syn
     throwStratum .invalid "the explicit lift changed the complete selected source context"
   let object ← SelectedLift.retainSelection plan.ports[0]!
   Trace.record (← read).trace object (.selectedLift entry.id plan.parameters source inclusion monic)
-  objectInContext object context #[sourceValue]
+  objectInContext object context #[sourceValue, inclusionValue]
 
 partial def selectedLiftField (receiver : Value) (name : String) : M (Option Value) := do
   unless #["obj", "hom", "forward", "backward"].contains name do return none
@@ -3096,8 +3102,10 @@ partial def selectedLiftFactor (scope : Scope) (receiverSyntax baseMapSyntax con
   let receiverValue ← eval scope receiverSyntax
   let receiver ← semanticObject receiverValue
   let plans ← retainedLiftPlans receiver
-  let (baseMap, _, _, _, _, _) ← morphismContext (← eval scope baseMapSyntax)
-  let (cone, domain, _, context, domainValue, _) ← morphismContext (← eval scope coneSyntax)
+  let baseMapValue ← eval scope baseMapSyntax
+  let coneValue ← eval scope coneSyntax
+  let (baseMap, _, _, _, _, _) ← morphismContext baseMapValue
+  let (cone, domain, _, context, domainValue, _) ← morphismContext coneValue
   let mut mapped := cone
   for plan in plans do mapped ← Semantic.mapOf plan.action mapped
   let some last := plans.back? | throwStratum .invalid "a factor requires a nonempty selected lift"
@@ -3109,7 +3117,9 @@ partial def selectedLiftFactor (scope : Scope) (receiverSyntax baseMapSyntax con
     | throwStratum .invalid "the factor has no complete categorical result type"
   unless ← isDefEq factorDomain domain do
     throwStratum .invalid "the factor changed its original generalized domain"
-  let targetValue ← objectInContext factorTarget context #[receiverValue]
+  let originalInputs := #[receiverValue, baseMapValue, coneValue]
+  let domainValue := retainObjectContext domainValue originalInputs
+  let targetValue ← objectInContext factorTarget context originalInputs
   unless ← isDefEq factorTarget receiver do
     Trace.record (← read).trace factorTarget (.liftProjection receiver "obj")
   let factor ← SelectedLift.retainSelection step.factor (some receiver)
@@ -4188,7 +4198,7 @@ partial def recognizeObjectApplication (state : RegistryState) (entry : ObjectEn
 
 /-- The named set supplied by the exact registered refinement of a structured object.
 The structured value remains the family's parameter; this viewData stages its elements. -/
-partial def carrierObject (value : Value) : M Value := do
+partial def carrierObjectWithAction (value : Value) : M (Value × Array EdgeRef × Array Expr) := do
   if let .derivedObject handle context _ := value then
     let state ← registryState
     let some sets := state.categories.find? (·.id == CategoryId.sets)
@@ -4220,7 +4230,8 @@ partial def carrierObject (value : Value) : M Value := do
     unless image == handle do
       Trace.record (← read).trace image
         (.contextualRoute context targetContext route.refs applications handle false)
-    return retainObjectContext (.object image sets none none none) #[value]
+    return (retainObjectContext (.object image sets none none none) #[value],
+      route.refs, applications)
   let .object handle category origin selected viewData := value
     | throwStratum .invalid m!"a carrier belongs to a selected structured object"
   let state ← registryState
@@ -4239,18 +4250,18 @@ partial def carrierObject (value : Value) : M Value := do
             | unreachable!
           unless ← withTransparency .all <| isDefEq sourceHandle handle do
             throwStratum .invalid m!"the supplied source does not have this declared carrier"
-          return .object handle category sourceOrigin sourceSelected viewData
-    return value
+          return (.object handle category sourceOrigin sourceSelected viewData, #[], #[])
+    return (value, #[], #[])
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwStratum .invalid m!"no registered category of sets"
   let family ← instantiateFresh sets.declaration
   let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
   let declaredRoute ← retainedCarrierRoute state value
-  let image ← match declaredRoute with
-    | none => transportedStructure expected value (some sets.id)
+  let (image, route, applications) ← match declaredRoute with
+    | none => transportedStructureWithAction expected value (some sets.id)
     | some route => do
-        let (image, _) ← checkedRouteAction state category.id sets.id route handle expected
-        pure image
+        let (image, applications) ← checkedRouteAction state category.id sets.id route handle expected
+        pure (image, route, applications)
   let carrierOrigin ← match origin with
     | some (entry, parameters) => do
         -- A named structured object need not separately name its carrier. Its actual
@@ -4284,7 +4295,10 @@ partial def carrierObject (value : Value) : M Value := do
               unless ← isDefEq exactCarrier image <&&> isDefEq exactCarrier sourceHandle do
                 throwStratum .invalid m!"the declared carrier identification does not give this endpoint"
               pure sourceCarrierOrigin
-  return .object image sets carrierOrigin (some value) viewData
+  return (.object image sets carrierOrigin (some value) viewData, route, applications)
+
+partial def carrierObject (value : Value) : M Value := do
+  return (← carrierObjectWithAction value).1
 
 /-- Constrain an ordered dependent telescope from a complete selected receiver.
 Only earlier structured object parameters are expanded; their carrier and every structure field
@@ -7940,7 +7954,8 @@ partial def atStage (scope : Scope) (t : Name) (X : Value) (e : Syntax)
 
 /-- The exact declared components of an element. Named families publish their finite
 coordinate maps; constructed products retain their accepted cone and its defining legs. -/
-partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
+partial def directComponentPresentation? (X : Value)
+    (requiredAction : Option (Array EdgeRef × Array Expr) := none) : M (Option Value) := do
   let .object carrier sets _ (some selected@(.object actual category ..)) data := X
     | return none
   if category.id == CategoryId.sets then return none
@@ -7949,9 +7964,28 @@ partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
       (ObjectEntry × Value × Value × Array Expr × Expr × Expr) := #[]
   for row in state.objects do
     unless row.category == category.id && row.refines.isSome do continue
+    if let some (requiredRoute, _) := requiredAction then
+      unless (declaredCarrierRoute state row).any (fun (route, _) => route == requiredRoute) do
+        continue
     let some (application, base, components) ← componentRefinement? state row actual | continue
     let named ← recognizeObjectApplication state row category application.explicit #[] application.explicit
-    let presented ← carrierObject named
+    if let some (requiredRoute, requiredApplications) := requiredAction then
+      -- A rejected complete action contributes no speculative trace records.
+      let agrees ← parameterCompatible do
+        let (_, route, applications) ← carrierObjectWithAction named
+        unless route == requiredRoute && applications.size == requiredApplications.size do
+          return false
+        for (original, candidate) in requiredApplications.zip applications do
+          let original ← instantiateMVars original
+          let candidate ← instantiateMVars candidate
+          if original.hasMVar || original.hasLevelMVar ||
+              candidate.hasMVar || candidate.hasLevelMVar then return false
+          unless ← withTransparency .all <|
+              isDefEq (← inferType original) (← inferType candidate) <&&>
+                isDefEq original candidate do return false
+        return true
+      unless agrees do continue
+    let (presented, _, _) ← carrierObjectWithAction named
     let .object presentedCarrier _ (some (presentedBase, parameters)) .. := presented
       | throwStratum .invalid "the component refinement omitted its declared base presentation"
     unless presentedBase.id == base.id &&
@@ -7994,6 +8028,66 @@ partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
   let source := Value.object wrapper category none none (some evidence)
   let .object _ _ origin .. := representative.2.2.1 | unreachable!
   return some (.object carrier sets origin (some source) data)
+
+/-- A complete structural image on the actual carrier route may publish the
+coordinate family. Replay both original action segments, preserving the original
+selected object and every full edge application; a carrier match alone is insufficient. -/
+partial def refinedComponentPresentation? (X : Value) : M (Option Value) := do
+  if let some direct ← directComponentPresentation? X then return some direct
+  let .object carrier sets _ (some selected@(.object actual category ..)) data := X
+    | return none
+  if sets.id != CategoryId.sets || category.id == CategoryId.sets then return none
+  let state ← registryState
+  let (originalCarrier, route, applications) ← carrierObjectWithAction selected
+  let originalHandle ← semanticObject originalCarrier
+  unless ← withTransparency .all <|
+      isDefEq (← inferType originalHandle) (← inferType carrier) <&&>
+        isDefEq originalHandle carrier do
+    throwStratum .invalid "the component source has a different complete actual carrier"
+  unless route.size == applications.size do
+    throwStratum .invalid "the component source lost an actual carrier application"
+  let some edges := state.routeEdges? category.expression sets.expression route
+    | throwStratum .invalid "the component source has no accepted complete carrier route"
+  let mut candidates : Array Value := #[]
+  for length in [1:route.size] do
+    let some edge := edges[length - 1]?
+      | throwStratum .invalid "the component source lost an actual structural edge"
+    let intermediateCategories := state.categories.filter fun entry =>
+      entry.expression.syntacticEq edge.target &&
+        state.objects.any (fun row => row.category == entry.id && row.refines.isSome)
+    for intermediateCategory in intermediateCategories do
+      let routePrefix := route.extract 0 length
+      let prefixArguments := routePrefix.zip ((applications.extract 0 length).map Expr.getAppArgs)
+      let (image, prefixApplications) ← retainedActions state actual routePrefix prefixArguments
+      unless !image.hasMVar && !image.hasLevelMVar && (← isTypeCorrect image) do
+        throwStratum .invalid "the intermediate component object is not completely determined"
+      let intermediate := Value.object image intermediateCategory none none
+        (some (#[], selected, routePrefix, #[], prefixArguments))
+      let suffix := route.extract length route.size
+      let suffixApplications := applications.extract length applications.size
+      let suffixArguments := suffix.zip (suffixApplications.map Expr.getAppArgs)
+      let (actualCarrier, _) ← retainedActions state image suffix suffixArguments
+      unless ← withTransparency .all <|
+          isDefEq (← inferType actualCarrier) (← inferType carrier) <&&>
+            isDefEq actualCarrier carrier do
+        throwStratum .invalid "the retained component actions changed the original carrier"
+      let intermediateCarrier := Value.object actualCarrier sets none (some intermediate)
+        (some (#[], intermediate, suffix, #[], suffixArguments))
+      let some presented ← directComponentPresentation? intermediateCarrier
+          (some (suffix, suffixApplications)) | continue
+      unless image == actual do
+        Trace.record (← read).trace image
+          (.retainedRoute category.id intermediateCategory.id routePrefix prefixApplications actual)
+      let .object _ _ origin .. := presented | unreachable!
+      candidates := candidates.push (retainObjectContext
+        (.object carrier sets origin (some selected) data) #[X, presented])
+  let some first := candidates[0]? | return none
+  let mut result := first
+  for candidate in candidates.extract 1 candidates.size do
+    unless first.sameSelection candidate do
+      throwSemanticAmbiguity "the actual carrier route has distinct complete component presentations"
+    result := retainObjectContext result #[candidate]
+  return some result
 
 /-- Read components through their complete declared presentation. A refinement
 may supply that presentation only after its entire structured object matches. -/

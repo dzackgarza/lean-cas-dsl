@@ -237,6 +237,24 @@ partial def endpointKeys (data : Json) : TermElabM (Except String (Option (Array
       return .ok (some (left.flatMap fun x => right.map fun y => Json.arr #[x, y]))
     | _, _ => return .ok none
   let state ← registryState
+  if tag == "extent" then
+    let #[id, _, subset] := args
+      | return .error "extent requires its power object, ambient object and subset data"
+    let .ok id := id.getStr? | return .error "the extent power-object id must be a string"
+    let some power := state.powerObjects.find? (·.id.raw == id)
+      | return .error "the extent names no registered power object"
+    let some literal := state.subsetLiterals.find? (·.powerObject == power.id)
+      | return .ok none
+    -- Finset's released representation is its list of members. These are
+    -- actual computational keys, not the original formal extent's members.
+    unless literal.type == ``Finset do return .ok none
+    let .ok actual := valuePayload subset | return .error "the subset data wrapper is malformed"
+    let .ok points := actual.getArr? | return .ok none
+    let mut seen := #[]
+    for point in points do
+      if seen.contains point then return .error "a finite subset representation repeats a key"
+      seen := seen.push point
+    return .ok (some points)
   if tag == "functorAction" then
     let #[action, source] := args | return .error "functorAction requires its action and source"
     let .ok (sourceTag, _) := envelope source | return .error "the action source has no object descriptor"
@@ -707,6 +725,12 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let .ok token := token.getStr? | return .error "an opaque token must be a string"
       if token.isEmpty then return .error "an opaque token must be nonempty"
       return .ok ()
+    if tag == "extent" then
+      let .ok actual ← interfaceExtent objects args
+        | return .error "the extent has no complete published data interface"
+      unless ← withTransparency .all <| isDefEq (← inferType actual) expectedType do
+        return .error "the extent belongs to a different declared object category"
+      return .ok ()
     if tag == "finiteData" then
       let #[descriptor, inventory] := args
         | return .error "finiteData requires its complete object descriptor and point inventory"
@@ -715,7 +739,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let .ok declaredKeys ← endpointKeys descriptor
         | return .error "the finite object has a malformed actual descriptor"
       let schema ← if let some keys := declaredKeys then pure (some (PointSchema.keys keys))
-        else objectPointSchema formalField
+        else interfacePointSchema objects descriptor
       let some schema := schema
         | return .error "the finite object requires its released concrete point-data interface"
       let .ok points := inventory.getArr?
@@ -1419,6 +1443,58 @@ partial def interfaceDeclaration (objects : InterfaceObjects)
     return .error "the symbolic declaration has incompatible complete endpoints"
   return .ok (← instantiateMVars (mkAppN constant fields))
 
+/-- Point slots follow the actual public object representation. An extent keeps
+its ambient point codec; its membership condition remains an unchecked part of
+the computation and never becomes a proof or a replacement formal carrier. -/
+partial def interfacePointSchema (objects : InterfaceObjects) (data : Json) :
+    TermElabM (Option PointSchema) := do
+  if let .ok ("extent", #[_, ambient, _]) := envelope data then
+    let .ok ambientObject ← interfaceObject objects ambient | return none
+    return ← objectPointSchema ambientObject
+  let .ok object ← interfaceObject objects data | return none
+  objectPointSchema object
+
+/-- Check an extent through its published power-object and subset-literal
+interfaces. The subset occupies a fresh typed placeholder: no returned members,
+membership proof or denotation is substituted into the formal construction. -/
+partial def interfaceExtent (objects : InterfaceObjects) (args : Array Json) :
+    TermElabM (Except String Expr) := do
+  let #[id, ambient, subset] := args
+    | return .error "extent requires its power object, ambient object and subset data"
+  let .ok id := id.getStr? | return .error "the extent power-object id must be a string"
+  let state ← registryState
+  let some power := state.powerObjects.find? (·.id.raw == id)
+    | return .error "the extent names no registered power object"
+  let .ok ambientObject ← interfaceObject objects ambient
+    | return .error "the extent requires its complete ambient object interface"
+  let constant ← mkConstWithFreshMVarLevels power.extent
+  let (fields, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
+  let explicit ← (fields.zip infos).filterMapM fun (field, info) => do
+    if info.isExplicit && !(← isProp (← inferType field)) then return some field
+    return none
+  let #[ambientField, subsetField] := explicit
+    | return .error "the published extent has no complete ambient-and-subset interface"
+  unless ← withTransparency .all <| isDefEq (← inferType ambientObject) (← inferType ambientField) do
+    return .error "the extent ambient object has a different declared category"
+  unless ← withTransparency .all <| isDefEq ambientField ambientObject do
+    return .error "the extent ambient object has incompatible complete parameters"
+  let subsetType ← instantiateMVars (← inferType subsetField)
+  let .ok actual := valuePayload subset
+    | return .error "the extent subset has a malformed data wrapper"
+  if actual.getArr?.isOk then
+    let some literal := state.subsetLiterals.find? (·.powerObject == power.id)
+      | return .error "the power object publishes no subset-literal data interface"
+    let literalType ← mkAppM literal.type #[ambientObject]
+    let some schema ← pointSchema literalType
+      | return .error "the subset literal requires its complete point-data interface"
+    if let .error message ← validatePoint schema actual then return .error message
+    if let .error message ← endpointKeys (Json.mkObj [("ctor", toJson "extent"),
+        ("args", Json.arr args)]) then return .error message
+  else
+    if let .error message ← validateCallableAt objects subsetType subset then
+      return .error message
+  return .ok (← instantiateMVars (mkAppN constant fields))
+
 partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
     TermElabM (Except String Expr) := do
   if let some (_, fixed) := objects.find? (·.1 == data) then return .ok fixed
@@ -1428,6 +1504,7 @@ partial def interfaceObject (objects : InterfaceObjects) (data : Json) :
   if let some entry := state.objects.find? (·.id.raw == tag) then
     let expected ← inferType (← instantiateFresh entry.declaration)
     return ← interfaceDeclaration objects entry.declaration expected args
+  if tag == "extent" then return ← interfaceExtent objects args
   if tag == "objectProduct" then
     let #[left, right] := args | return .error "a product endpoint requires both factors"
     let .ok left ← interfaceObject objects left | return .error "the first product factor is incomplete"
@@ -1953,7 +2030,7 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
   if let .ok (tag, _) := envelope data then
     let state ← registryState
     if state.objects.any (·.id.raw == tag) ||
-        #["objectProduct", "finiteData", "functorAction", "objectPresentation", "coreObject"].contains tag then
+        #["objectProduct", "finiteData", "extent", "functorAction", "objectPresentation", "coreObject"].contains tag then
       let .ok object ← interfaceObject objects data
         | return .error "the object parameter has no complete declared interface"
       unless ← withTransparency .all <| isDefEq (← inferType object) expected do
@@ -2342,6 +2419,16 @@ partial def interfaceCarrier (selected : Expr) (descriptor : Json)
     | return .error "the selected object has no complete declared carrier context"
   return .ok (← (Language.semanticObject (← (Language.carrierObject value).run {})).run {})
 
+/-- Transparent computational wrappers do not turn an anonymous representation
+into a selected mathematical object. Only the enclosed named/action descriptor
+can supply selection syntax; anonymous data require an exact retained binding. -/
+partial def hasSelectedObjectDescriptor (state : RegistryState) (descriptor : Json) : Bool :=
+  match envelope descriptor with
+  | .ok ("finiteData", #[underlying, _]) |
+      .ok ("objectPresentation", #[underlying, _]) => hasSelectedObjectDescriptor state underlying
+  | .ok (tag, _) => state.objects.any (·.id.raw == tag) || tag == "functorAction"
+  | .error _ => false
+
 /-- A packet without selection syntax can retain an independently fixed source
 of an accepted action. Its exact input binding and the action's complete source
 bundle supply that interface; neither a carrier match nor a missing parameter
@@ -2356,10 +2443,7 @@ partial def interfaceActionSource (objects : InterfaceObjects) (original : Expr)
       action.hasLevelMVar || bundle.hasMVar || bundle.hasLevelMVar then
     return .error "the selected action source requires complete independent parameters"
   let state ← registryState
-  let selection := match envelope descriptor with
-    | .ok (tag, _) => state.objects.any (·.id.raw == tag) ||
-        #["functorAction", "objectPresentation", "finiteData"].contains tag
-    | .error _ => false
+  let selection := hasSelectedObjectDescriptor state descriptor
   try
     unless ← isTypeCorrect bundle do
       return .error "the action source has no typed complete category bundle"

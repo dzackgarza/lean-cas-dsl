@@ -94,6 +94,7 @@ jobs:
               CasCatalogue.FunctorActionDataProbes \
               CasAcceptance.Kernel.ReducedParameterActionProbes \
               CasAcceptance.Kernel.ActionCarrierInterfaceProbes \
+              CasAcceptance.Kernel.PortableExtentDataProbes \
               CasAcceptance.Kernel.FunctorActionExecutionProbes \
               CasAcceptance.Kernel.DerivedActionExecutionProbes \
               CasAcceptance.Kernel.StagedNumeralDataProbes \
@@ -111,6 +112,8 @@ jobs:
               CasAcceptance.Kernel.DeclaredProductContextProbes \
               CasCatalogue.EvidencePresentationProbes CasGates.KernelPurity \
               CasGates.KernelPurityProbes CasAcceptance.Kernel.PrescribedLiftActionDataProbes \
+              CasAcceptance.Kernel.SelectedLiftInputContextProbes \
+              CasAcceptance.Kernel.InheritedComponentContextProbes \
               CasCatalogue CasGates CasAcceptance CasAcceptance.Kernel CasTools CasDsl CasDslTests
       - name: Build native tools and the existing notebook surface
         run: |
