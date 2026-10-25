@@ -83,3 +83,27 @@ separate stage-tagged interpretation diagnostics without constructing a computat
 evaluating a claim, editing the fixed inventory or admitting a reading. Lean module loading
 and the existing parser/serializer own interpretation; this tool adds invocation and reporting
 only. Actual imported source/build provenance must accompany each export.
+
+## Retained method and property comparisons (2026-10-26)
+
+The corpus searches `isoWhiskerLeft` and `Expr serialization` were executed before
+this repair. The former returns existing uses of Mathlib's natural-isomorphism
+whiskering in TauCeti and Poly; the latter returns a lossy experimental Redis
+expression codec. Neither owns this kernel's retained typed operation record.
+Mathlib still owns the isomorphisms and their whiskering. `Resolve.RouteComparison`
+owns the exact accepted cell, constructor path and surrounding route context;
+`Semantic.validateResolutionComparisons` and its property counterpart already
+produce and check the full selected comparison terms. `OperationAgreement` owns
+their existing context encoder, and `QuestionIdentity` owns typed term encoding
+and comparison.
+
+The method and property trace nodes now retain those already checked terms with
+their existing contexts instead of discarding them. Snapshot encoding and the
+independent typed comparator traverse every field. Execution compares the current
+validated resolution with the original retained contexts and complete typed values
+before dispatch. No route, cell orientation, selected receiver, mathematical
+declaration, expected answer or resolution priority changes. The engineering probe
+checks retained actual data, missing records, changed whiskering context and wrong
+typed values. Existing consumer probes receive only the new exhaustive-pattern
+field; their original assertions remain intact. This repair does not settle a
+separate fixed designated-route requirement or admit an interpretation migration.

@@ -17,7 +17,7 @@ run_elab do
   let trace ← Trace.new
   discard <| (eval {} parsed).run { trace := some trace }
   let candidates := (← trace.get).toArray.filter fun (_, node) => match node with
-    | .method id _ _ => id.raw == "meth.cardinality"
+    | .method id _ _ _ => id.raw == "meth.cardinality"
     | _ => false
   let #[(formal, _)] := candidates
     | throwError "the portable-reply probe lost its unique declared operation"

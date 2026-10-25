@@ -587,6 +587,19 @@ def validatePropertyResolutionComparisons (state : RegistryState) (resolution : 
     throwError "the property resolution lost its accepted comparison provenance"
   validateRouteComparisons state resolution.comparisonWitnesses receiver?
 
+/-- Execution checks the full comparison data retained by the original reading.
+The resolver cannot replace a recorded cell application or any of its selected fields. -/
+def checkRecordedRouteComparisons (contexts : Array RouteComparison) (current : Array Expr)
+    (recorded : Array (RouteComparison × Expr)) : TermElabM Unit := do
+  unless contexts.size == current.size && current.size == recorded.size do
+    throwError "the operation changed its retained route-comparison inventory"
+  for ((context, actual), (originalContext, original)) in (contexts.zip current).zip recorded do
+    unless context == originalContext do
+      throwError "the operation changed a retained comparison's complete route context"
+    unless ← withoutModifyingState <| withTransparency .all <|
+        isDefEq (← inferType actual) (← inferType original) <&&> isDefEq actual original do
+      throwError "the operation changed a retained comparison's complete typed value"
+
 /-- The registered object `entry` at the parameters `params`. Recorded with its explicit
 parameters (the declaration's explicit arguments). -/
 def object (entry : ObjectEntry) (params : Array Term) (trace? : Option Trace := none) :
@@ -875,7 +888,7 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
   let resolution ← match state.resolveMethod expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
-  discard <| validateResolutionComparisons state resolution (some X)
+  let comparisons ← validateResolutionComparisons state resolution (some X)
   let some functor := state.functor? resolution.method.functor
     | throwStratum .invalid m!"`{name}` has no registered functor"
   let image ← if resolution.route.steps.isEmpty then pure X else do
@@ -917,8 +930,10 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
     let bundle ← applyConstructorInterface subobjects.semantics #[sourceBundle] #[sourceBundle]
     pure (lifted, { expression := resultCategory, bundle := (← instantiateMVars bundle) })
   Trace.record trace? value (if resolution.lifts.isEmpty then
-    .method resolution.method.id resolution.route.refs X else
-    .methodWithLifts resolution.method.id resolution.route.refs resolution.lifts X)
+    .method resolution.method.id resolution.route.refs X
+      (resolution.comparisonWitnesses.zip comparisons) else
+    .methodWithLifts resolution.method.id resolution.route.refs resolution.lifts X
+      (resolution.comparisonWitnesses.zip comparisons))
   return (value, target)
 
 /-- The named-category entry point uses the same expression-based method reading. -/
@@ -934,14 +949,15 @@ def propertyIn (name : String) (X : Expr) (expression : CategoryExpr)
   let resolution ← match state.resolveProperty expression name #[] with
     | .ok resolution => pure resolution
     | .error error => throwResolutionError state error
-  discard <| validatePropertyResolutionComparisons state resolution (some X)
+  let comparisons ← validatePropertyResolutionComparisons state resolution (some X)
   let image ← if resolution.route.steps.isEmpty then pure X else do
     objOf (← routeFunctor state (resolution.route.steps.map (·.ref))) X
   let classifier ← classifierInstance resolution.classifier
   let holds ← elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
     $(← exprToSyntax classifier) $(← exprToSyntax image))) none
   let holds ← instantiateMVars holds
-  Trace.record trace? holds (.property resolution.property.id resolution.route.refs X)
+  Trace.record trace? holds (.property resolution.property.id resolution.route.refs X
+    (resolution.comparisonWitnesses.zip comparisons))
   return holds
 
 def property (name : String) (X : Expr) (category : NamedCategoryEntry)

@@ -70,8 +70,8 @@ run_elab do
     let mut checked := false
     for (value, node) in question.trace.toArray do
       let operation ← match node with
-        | .method id route receiver => pure (some (id.raw, route, receiver, false))
-        | .property id route receiver => pure (some (id.raw, route, receiver, true))
+        | .method id route receiver _ => pure (some (id.raw, route, receiver, false))
+        | .property id route receiver _ => pure (some (id.raw, route, receiver, true))
         | _ => pure none
       let some (id, route, receiver, isProperty) := operation | continue
       let original ← realize harness trace "the actual operation receiver" receiver

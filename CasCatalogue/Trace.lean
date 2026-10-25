@@ -194,13 +194,16 @@ inductive Node
   /-- The denotation of the literal `literal` of the registered literal form `form` (a morphism
   of its graph, a finite subset of its elements). -/
   | literal (form : LiteralId) (literal : Expr)
-  /-- The method `id`, applied to `receiver` after the structural route `route`. -/
+  /-- The method `id` after its selected route, retaining every checked comparison
+  with its complete constructor and whiskering context. -/
   | method (id : MethodId) (route : Array EdgeRef) (receiver : Expr)
+      (comparisons : Array (RouteComparison × Expr))
   /-- A method whose result has prescribed lifts back along its route. -/
   | methodWithLifts (id : MethodId) (route : Array EdgeRef) (lifts : Array LiftId)
-      (receiver : Expr)
+      (receiver : Expr) (comparisons : Array (RouteComparison × Expr))
   /-- The property `id`, decided of `receiver` after the structural route `route`. -/
   | property (id : PropertyId) (route : Array EdgeRef) (receiver : Expr)
+      (comparisons : Array (RouteComparison × Expr))
   /-- The registered limit `id` at the diagram `diagram`, returned along the registered creation
   lift `lift` when it is computed in another category. -/
   | limit (id : LimitId) (diagram : Expr) (lift : Option LiftId)

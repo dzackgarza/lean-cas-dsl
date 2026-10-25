@@ -2490,7 +2490,7 @@ partial def decodeObjectAt (trace : Trace) (category : NamedCategoryEntry)
   let state ← registryState
   let tag := (json.getObjValAs? String "ctor").toOption
   if tag == some "liftedSubobject" then
-    let some (.methodWithLifts id route lifts receiver) ← trace.node? fixed
+    let some (.methodWithLifts id route lifts receiver _) ← trace.node? fixed
       | return .error "the lifted child has no independently retained prescribed operation"
     let some method := state.methods.find? (·.id == id)
       | return .error "the lifted child operation is not registered"
@@ -5200,7 +5200,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       return {
         form := form, payload := .construction completed scope
         constructionInputs := some (completed.apex, constructionInputs) }
-  | .method id route receiver =>
+  | .method id route receiver recordedComparisons =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let (request, input) ← operationReceiver trace original route (some (realizedEdgeDescriptor h trace))
       let some method := state.methods.find? (·.id == id) | unreachable!
@@ -5223,7 +5223,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .error error => throwResolutionError state error
       unless resolution.route.refs == route do
         throwError "the recorded route of {id.raw} is not the route its resolution selects"
-      discard <| Semantic.validateResolutionComparisons state resolution (some receiver)
+      let comparisonTerms ← Semantic.validateResolutionComparisons state resolution (some receiver)
+      Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses
+        comparisonTerms recordedComparisons
       let comparisons := resolution.comparisons
       if let some projected ← projectObjectAction trace functor.source (.functor functor.id)
           F acceptedInput request.json then
@@ -5245,7 +5247,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let result : Wire := { form, payload := .computed e data, categoryContext := some context }
       let owner ← mergeOwners request.owner? result.owner?
       return { result with payload := computedPayload e result.json owner }
-  | .methodWithLifts id route lifts receiver =>
+  | .methodWithLifts id route lifts receiver recordedComparisons =>
       let original ← realize h trace s!"the receiver of {id.raw} in {what}" receiver
       let (request, input) ← operationReceiver trace original route (some (realizedEdgeDescriptor h trace))
       let some method := state.methods.find? (·.id == id) | unreachable!
@@ -5264,7 +5266,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .error error => throwResolutionError state error
       unless resolution.route.refs == route && resolution.lifts == lifts do
         throwError "the prescribed operation changed its registered route or ordered lifts"
-      discard <| Semantic.validateResolutionComparisons state resolution (some receiver)
+      let comparisonTerms ← Semantic.validateResolutionComparisons state resolution (some receiver)
+      Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses
+        comparisonTerms recordedComparisons
       let .construct arrowConstructor #[source] := sourceExpression
         | throwError "the prescribed method receiver is not a complete Arrow"
       unless (state.constructors.find? (·.id == arrowConstructor)).any
@@ -5335,7 +5339,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
           | some category => .subobject category
           | none => .contextual resultExpression original.form
         payload, liftExecution := some execution, categoryContext := some context }
-  | .property id _ _ =>
+  | .property id _ _ _ =>
       throwError "the decision {id.raw} is not a value"
 
 /-- An accepted operation's actual owner is the declaration argument preceding
@@ -5786,7 +5790,7 @@ route. -/
 partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : Expr) :
     TermElabM (Expr × Json) := do
   let p ← instantiateMVars p
-  let some (.property id route receiver) ← (trace.node? p : IO _)
+  let some (.property id route receiver recordedComparisons) ← (trace.node? p : IO _)
     | do
       -- `¬ q` (`x ∉ A`) is the negated decision of `q`.
       if let some q := p.not? then
@@ -5815,7 +5819,9 @@ partial def realizeDecision (h : Harness) (trace : Trace) (what : String) (p : E
     | .error error => throwResolutionError state error
   unless resolution.route.refs == route do
     throwError "the recorded property changed its full registered route"
-  discard <| Semantic.validatePropertyResolutionComparisons state resolution (some receiver)
+  let comparisonTerms ← Semantic.validatePropertyResolutionComparisons state resolution (some receiver)
+  Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses
+    comparisonTerms recordedComparisons
   let some classifier := state.classifier? property.classifier
     | throwError "the recorded property's classifier is not registered"
   -- Check the full selected domain without requiring an encoding of every intermediate image.
@@ -6322,6 +6328,9 @@ def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
     (node : Node) : TermElabM Json := do
   let encodeContext (context : CategoryContext) : TermElabM Json := do
     return Json.arr #[toJson (reprStr context.expression), toJson (← encode context.bundle)]
+  let encodeComparisons (comparisons : Array (RouteComparison × Expr)) : TermElabM Json := do
+    return Json.arr (← comparisons.mapM fun (context, value) => do
+      pure <| Json.arr #[OperationAgreement.encodeRouteComparison context, toJson (← encode value)])
   match node with
   | .object id parameters =>
       pure (Json.arr #[toJson "object", toJson id.raw, toJson (← parameters.mapM encode)])
@@ -6491,15 +6500,16 @@ def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
         toJson (← encode target)])
   | .literal form literal =>
       pure (Json.arr #[toJson "literal", toJson form.raw, toJson (← encode literal)])
-  | .method id route receiver =>
+  | .method id route receiver recordedComparisons =>
       pure (Json.arr #[toJson "method", toJson id.raw, toJson (route.map reprStr),
-        toJson (← encode receiver)])
-  | .methodWithLifts id route lifts receiver =>
+        toJson (← encode receiver), ← encodeComparisons recordedComparisons])
+  | .methodWithLifts id route lifts receiver recordedComparisons =>
       pure (Json.arr #[toJson "methodWithLifts", toJson id.raw, toJson (route.map reprStr),
-        toJson (lifts.map (·.raw)), toJson (← encode receiver)])
-  | .property id route receiver =>
+        toJson (lifts.map (·.raw)), toJson (← encode receiver),
+        ← encodeComparisons recordedComparisons])
+  | .property id route receiver recordedComparisons =>
       pure (Json.arr #[toJson "property", toJson id.raw, toJson (route.map reprStr),
-        toJson (← encode receiver)])
+        toJson (← encode receiver), ← encodeComparisons recordedComparisons])
   | .limit id diagram lift =>
       pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← encode diagram),
         toJson (lift.map (·.raw))])
@@ -6563,6 +6573,9 @@ def interpret (scope : Scope) (stx : Syntax)
   let afterQuestion ← record "question_construction" afterRead
   let instantiateContext (context : CategoryContext) : TermElabM CategoryContext := do
     return { context with bundle := (← instantiateMVars context.bundle) }
+  let instantiateComparisons (comparisons : Array (RouteComparison × Expr)) :=
+    comparisons.mapM fun (context, value) => do
+      pure (context, ← instantiateMVars value)
   let nodes ← (← trace.get).toArray.mapM fun (term, node) => do
     let term ← instantiateMVars term
     let node : Node ← match node with
@@ -6718,10 +6731,15 @@ def interpret (scope : Scope) (stx : Syntax)
           pure (.arrow category (← instantiateMVars morphism) (← instantiateMVars source)
             (← instantiateMVars target))
       | .literal form literal => pure (.literal form (← instantiateMVars literal))
-      | .method id route receiver => pure (.method id route (← instantiateMVars receiver))
-      | .methodWithLifts id route lifts receiver =>
-          pure (.methodWithLifts id route lifts (← instantiateMVars receiver))
-      | .property id route receiver => pure (.property id route (← instantiateMVars receiver))
+      | .method id route receiver recordedComparisons =>
+          pure (.method id route (← instantiateMVars receiver)
+            (← instantiateComparisons recordedComparisons))
+      | .methodWithLifts id route lifts receiver recordedComparisons =>
+          pure (.methodWithLifts id route lifts (← instantiateMVars receiver)
+            (← instantiateComparisons recordedComparisons))
+      | .property id route receiver recordedComparisons =>
+          pure (.property id route (← instantiateMVars receiver)
+            (← instantiateComparisons recordedComparisons))
       | .limit id diagram lift => pure (.limit id (← instantiateMVars diagram) lift)
     return (term, node)
   discard <| record "trace_instantiation" afterQuestion

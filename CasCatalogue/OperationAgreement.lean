@@ -326,13 +326,16 @@ def kernelAcceptsFamily (equality identity : Expr) : MetaM Bool := do
     | .ok _ => true
     | .error _ => false
 
+/-- The complete accepted cell application, including its ordered surrounding context. -/
+def encodeRouteComparison (comparison : RouteComparison) : Json :=
+  Json.arr #[toJson comparison.cell.raw, toJson (comparison.constructors.map (·.raw)),
+    toJson (comparison.before.map reprStr), toJson (comparison.after.map reprStr)]
+
 /-- Complete source records use the same typed term quotient and field traversal
 for their ordering keys and final snapshots. Route/cell identities are never erased. -/
 def encodeSource (encode : Expr → TermElabM Nat) (source : OperationSource) :
     TermElabM Json := do
-  let comparisons := source.comparisons.map fun comparison => Json.arr #[
-    toJson comparison.cell.raw, toJson (comparison.constructors.map (·.raw)),
-    toJson (comparison.before.map reprStr), toJson (comparison.after.map reprStr)]
+  let comparisons := source.comparisons.map encodeRouteComparison
   return Json.arr #[
     Json.arr #[toJson (reprStr source.context.expression), toJson (← encode source.context.bundle)],
     toJson (← encode source.receiver), toJson (source.route.map reprStr),

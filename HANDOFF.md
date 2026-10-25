@@ -12,6 +12,75 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
+### Current owner steering: executable functor-action isolation
+
+The owner supplied `Pasted text(20261025-190504).txt` during this continuation.
+The remaining computational transport work now prioritizes a shared executor for
+the already registered object and morphism actions, including deferred materialization,
+retained images, complete defining maps and actual session ownership. An unrelated
+operation on the target category must receive its declared computational form;
+it must not learn a new source category, source functor or private representation
+tag. Reuse the existing action registration/port machinery and the Sage/CAP and
+sage-categories prior art. A contract extension requires an actual missing primitive.
+Do not duplicate the mathematical categorical machinery or treat category-specific
+consumer wrapper repairs as independent kernel features.
+
+The decisive integration is a frozen two-leaf experiment: source leaf A supplies
+only the newly selected category's primitive actions, while target leaf B remains
+byte-identical. Execute object images, a complete mapped morphism, composition and
+the defining map of a constructed result through the same boundary. Preserve formal
+meaning under wrong/malformed replacement actions and report an explicit gap for
+an unavailable cross-process representation bridge. The attached architectural
+assessment is direction for this work, not evidence that its source claims have
+already been verified against the final candidate. Reader/admission/identity repairs
+and all earlier fixed MVP obligations remain active.
+
+### Latest checked continuation checkpoints
+
+The published `d7cfafccefb069c92cca1b04030fcbfd81ef43c9` tree integrates the
+complete construction, proof-source and declared-context repairs below. Its
+selected native consumer build passed in 423.334 seconds with unchanged sources,
+including Language, Realize, question tools, original endpoint/parameter controls,
+cas-harness, the notebook worker and all six fixed mathematical imports. This is
+not a replacement for the final full aggregate build.
+
+The four original workflows and actual notebook were then run against the public
+leaf `865df49ad0b0b133d5bcfd282f380aa213eb5fff`. Both finite-pullback assertions
+hold; arithmetic/matrix requests stop at complete callable endpoint checks and
+presentation transport reports competing complete object presentations. A read-only
+trace preserves the cause: an outer integer-set endpoint contains an element whose
+actual target is still a deferred functorAction. The unchanged RX10 controls also
+stop at complete scalar-target checks in holds/wrong conditions. All guards remain
+unchanged. These failures are preserved and do not close the execution obligations.
+
+This source retains every already-validated method/property route comparison in
+the trace, complete snapshot and independent question comparator. Execution checks
+those original contexts and typed terms before dispatch. The corrected source at
+`0300c4aebb81adcf6df139f0da9f627ae72e2f10` passes its scoped consumers, new
+missing/changed-context/changed-term controls, unchanged resolution controls and
+purity targets. The first probe syntax failure and a later mistyped-target invocation
+remain failed records. The directed route-selection algorithm is unchanged; the
+independent RX05 designated-source qualification is not declared resolved.
+
+Reader checkpoint `15ee9264a4b0d6dea591b97eb192a6ae3b0c9a27` is also integrated.
+It reuses fully closed bound readings and retains the already selected full
+member-family target. Its unchanged first-pairing binding and complete production
+question read in 144910 and 172662 heartbeats at the original 200000 limit. The
+focused endpoint/context and purity controls pass. Later factor/final-pairing
+questions remain assigned work. The combined source needs its own build.
+
+The minimal general functor-map contract is published as
+`b805eda94aec95a7962da486c8eaeec14d34f2b2`, tree
+`d87ca1ed7e18cf81373ba835a8a1e54c926f6236`. Its library, audit, framing controls
+and declaration-export adapter pass. It reuses existing wire forms and derives
+`#map`/`#input` addresses; compatible admission export and the final exact-built API
+inventory are still pending. Existing target consumer sage-set-limits and its
+90d contract dependency were frozen before a separate public-only source-action
+leaf author started. Shared action execution, actual endpoint images, construction
+maps and the two-leaf isolation run remain active work.
+
+### Existing producer evidence
+
 The last completely built implementation is `cedfad6664a2301b7b360e17055523a47e479bd5`,
 tree `15cb779812f162e16f21e452bcb7eaa3403832e3`, fetched back and compared as a
 complete tree. Named-object recovery was subsequently published as

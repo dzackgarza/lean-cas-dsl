@@ -126,7 +126,7 @@ run_cmd liftTermElabM do
     throwError "the value is not the method's functor applied"
   if (value.find? fun sub => sub == .lit (.strVal "cardinality")).isSome then
     throwError "the semantic value contains a string-keyed method call"
-  let some (.method id route receiver) ← (trace.node? value : IO _)
+  let some (.method id route receiver _) ← (trace.node? value : IO _)
     | throwError "the call is not recorded as the method after its route"
   unless id.raw == "meth.cardinality" && route.isEmpty && receiver == three do
     throwError "recorded as {id.raw} after {route.size} steps"

@@ -1621,6 +1621,21 @@ partial def looseIdentifiers (stx : Syntax) : Array Name :=
         looseIdentifiers domain ++ (looseIdentifiers body).filter (· != bound.getId)
     | _ => if stx.isIdent then #[stx.getId] else stx.getArgs.flatMap looseIdentifiers
 
+/-- Whether a term depends on an actual bound value, including through file bindings.
+Cycles remain dependent; exact lexical names and the existing field/differential roots
+govern this check just as they govern the parameter reader. -/
+partial def usesBoundNames (scope : Scope) (bound : List (Name × Value))
+    (term : Syntax) (seen : Array Name := #[]) : Bool :=
+  (looseIdentifiers term).any fun name =>
+    if (bound.lookup name).isSome || (bound.lookup name.getRoot).isSome ||
+        (differentialOf? name.getRoot).any (fun boundName =>
+          (bound.lookup boundName).isSome) then true
+    else
+      let binding := if scope.hasBinding name then name else name.getRoot
+      match scope.binding? binding with
+      | none => false
+      | some body => seen.contains binding || usesBoundNames scope bound body (seen.push binding)
+
 /-- `N₂₃` as `N` and `23`. -/
 def subscripted? (s : String) : Option (String × Nat) :=
   let digits := "₀₁₂₃₄₅₆₇₈₉".toList
@@ -2006,6 +2021,13 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
     | .object .. | .element .. =>
         if value.terms.all (fun term => !term.hasMVar && !term.hasLevelMVar) then
           cache.modify (·.insert (shown stx) value)
+    | .morphism .. | .derivedObject .. | .derivedMorphism .. =>
+        -- A map's endpoint provenance can contain more than its Hom term. Reuse
+        -- it only when every complete retained source is closed as well.
+        if (sourceParameterValues value).all (fun source => source.terms.all
+            (fun term => !term.hasMVar && !term.hasLevelMVar &&
+              !term.hasFVar && !term.hasLooseBVars)) then
+          cache.modify (·.insert (shown stx) value)
     | _ => pure ()
   return value
 
@@ -2161,6 +2183,15 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       if let some v := (← read).bound.lookup x.getId then return ← restage v
       if let some t := scope.binding? x.getId then
         let rings ← ringBindings scope t
+        let context ← read
+        -- A file binding independent of every actual stage variable has the same
+        -- global reading used for closed declaration parameters. Reuse that full
+        -- reading, then restage its original point in the caller's exact domain.
+        if context.stage.isSome && rings.isEmpty && category?.isNone && ambient?.isNone &&
+            !usesBoundNames scope context.bound t then
+          let globalValue ← withReader (fun ctx => { ctx with stage := none, bound := [] })
+            (eval scope t)
+          return ← restage globalValue
         return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
           restage (← eval scope t category? ambient?)
       let name := x.getId.toString
@@ -3644,17 +3675,6 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       return ← applyFamily entry.declaration category #[]
         (application := some application.value) (callableAddress := some entry.id.raw)
     let context ← read
-    let rec usesBound (term : Syntax) (seen : Array Name) : Bool :=
-      (looseIdentifiers term).any fun name =>
-        if (context.bound.lookup name).isSome ||
-            (context.bound.lookup name.getRoot).isSome ||
-            (differentialOf? name.getRoot).any (fun boundName =>
-              (context.bound.lookup boundName).isSome) then true
-        else
-          let binding := if scope.hasBinding name then name else name.getRoot
-          match scope.binding? binding with
-          | none => false
-          | some body => seen.contains binding || usesBound body (seen.push binding)
     let mut parameters : Array Value := #[]
     let mut firstOperand : Option Value := none
     for parameter in explicit do
@@ -3663,7 +3683,7 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
       -- Retain its global point for parameter extraction; if the signature instead
       -- consumes it as an operand, stage that same point below. Expressions using
       -- bound variables, including through earlier bindings, keep their full stage.
-      let value ← if context.stage.isSome && !usesBound argumentSyntax #[] then
+      let value ← if context.stage.isSome && !usesBoundNames scope context.bound argumentSyntax then
           withReader (fun ctx => { ctx with stage := none, bound := [] })
             (eval scope argumentSyntax)
         else eval scope argumentSyntax
@@ -5884,9 +5904,13 @@ partial def callWith (scope : Scope) (t : Syntax) (name : String) (args : Array 
     | v@(.element ..) | v@(.nat _) =>
         applyFamily entry.declaration category (#[v] ++ operands) (callableAddress := some entry.id.raw)
     | receiver@(.object ..) =>
-        let .morphism family .. ← invariantOf entry receiver
+        let .morphism family _ _ _ (some (_, target)) ← invariantOf entry receiver
           | throwStratum .invalid m!"the selected object's family does not take operands"
-        applyFamily entry.declaration category operands (application := some family) (callableAddress := some entry.id.raw)
+        -- The complete selected family has already checked this result object.
+        -- Keep its original owner and full endpoint through the ordinary application
+        -- checks instead of reconstructing a second reading from operand carriers.
+        applyFamily entry.declaration category operands (target? := some target)
+          (application := some family) (callableAddress := some entry.id.raw)
     | _ => throwStratum .invalid m!"`{name}` is called on a map, an element or a selected object"
   let applicable ← match rows with
     | #[row] => pure #[row]

@@ -17,7 +17,7 @@ run_elab do
   let empty ← Harness.empty
   let mut checked := false
   for (_, node) in question.trace.toArray do
-    let .method id route receiver := node | continue
+    let .method id route receiver _ := node | continue
     unless !route.isEmpty do throwError "the inherited request fixture lost its route"
     let initial ← realize empty trace "the selected source" receiver
     let some source := state.categories.find? (·.id == initial.form.category)

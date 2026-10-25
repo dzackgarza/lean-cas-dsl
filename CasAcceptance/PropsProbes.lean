@@ -76,7 +76,7 @@ run_cmd liftTermElabM do
   let holds ← Semantic.property "is_finite" Z sets (some trace)
   unless holds.isAppOf ``CasCatalogue.Classifier.Holds do
     throwError "the property is not `Classifier.Holds`"
-  let some (.property id route _) ← (trace.node? holds : IO _)
+  let some (.property id route _ _) ← (trace.node? holds : IO _)
     | throwError "the property is not recorded"
   unless id.raw == "prop.is_finite" && route.isEmpty do
     throwError "recorded as {id.raw} after {route.size} steps"

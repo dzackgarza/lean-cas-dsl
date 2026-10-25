@@ -1,5 +1,39 @@
 # Journal
 
+## 2026-10-25 — Retain the complete validated resolution comparisons
+
+Method, lifted-method and property readings now retain their already-validated
+comparison contexts and complete typed terms. Snapshots and independent question
+comparison preserve that inventory, including constructor and whiskering context.
+Execution checks its recomputed resolution against the originally retained data
+before dispatch. This closes an omission in the public meaning record without
+changing the selected route or the mathematical comparison machinery.
+
+The corrected MethodComparisonRetentionProbes rejects a missing comparison,
+changed whiskering context and different typed term. Selected consumer, snapshot,
+dispatch, resolution, property and purity targets pass at the unchanged local
+0300c4a source. The initial probe layout error and later incorrect target names
+are retained as separate failed attempts. No independent interpretation migration,
+RX05 designated-source acceptance or computational result is inferred.
+
+## 2026-10-25 — Reuse complete closed readings and selected family results
+
+Independent file bindings reuse their complete global reading and restage the original
+point through the existing terminal map. The existing transitive bound-name analysis
+keeps direct, indirect, and lexical dependencies in their actual context; closed maps
+are cached only with every retained endpoint/source expression closed. Member-family
+application also keeps the selected family's already-checked full target instead of
+reconstructing that endpoint from the operand carriers.
+
+The new owner/domain and closed-binding controls and the unchanged endpoint/context
+controls pass. At the original 200000-heartbeat budget, the frozen first-pairing binding
+reads in 144910 heartbeats and its complete original assertion reads in 172662, including
+production question construction and trace processing. Factor and final-pairing readings
+remain open; stage diagnostics expose a separate anonymous coordinate-numeral gap below
+the first factor timeout. No fixed source, assertion, inventory, mathematical row, or
+budget changed. All attempts and closed source/artifact guards remain in
+`runtime-verification/fixed-readings-repair-cedfad6/` outside this repository.
+
 ## 2026-10-25 — Recover complete literal constructions and retain actual endpoints
 
 Execution can recover a literal object projection from a unique accepted whole

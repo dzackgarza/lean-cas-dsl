@@ -609,3 +609,38 @@ handles a category alias such as `Cat`, whose full `Bundled Category` fields
 are then constrained by the original whole functor. Exposure itself leaves the
 fields unresolved; it supplies no carrier or category dictionary. The existing
 automorphism construction supplies the complete-action control for this case.
+
+### Reuse of independent closed file bindings (2026-10-25)
+
+Corpus searches `Lean Syntax free identifiers macro scopes` and
+`Lean Expr metavariables cache` locate syntax traversal and expression cache
+facilities, but no dependency owns this DSL's selected file scope and stage.
+The reader already had transitive bound-name analysis for closed declaration
+arguments. That same analysis is shared with file bindings: only a binding
+independent of every actual bound name, with no requested category, ambient,
+or ring-generator binding, can use its original global reading. The original
+global point is then restaged through the existing terminal map. Direct and
+transitive stage dependencies keep their original evaluation context.
+
+The existing per-question, per-trace cache also retains closed complete maps and
+derived objects. Every retained endpoint/source context must be closed before a
+map is cached. The existing exact-scope guard, speculative rollback, selected
+structures, original arrows, and full Hom endpoints remain in force. No new
+mathematical construction, ambient inference, question, or elaboration budget
+is introduced. Engineering controls retain the exact global point and selected
+target, preserve transitive bound variables under changed bindings, and check
+that closed maps keep their full provenance.
+
+The complete result endpoint returned by `invariantOf` is also passed to the
+existing `applyFamily` target check. This retains the selected family owner's
+context while avoiding a second reconstruction from operand carriers. The
+original full application, operand source, result type, and callable-address
+checks still run. A field-valued family control checks the original generalized
+domain and complete selected result context. Stage-only measurements isolated
+this duplicate endpoint reading; those measurements are localization evidence,
+not successful fixed-question exports.
+
+The exact unchanged first-pairing binding and full assertion now read within
+the original 200000-heartbeat limit (144910 and 172662 respectively). Remaining
+factor/final readings are separate open defects; neither stage measurements nor
+this focused source checkpoint are full fixed-export or mathematical acceptance.

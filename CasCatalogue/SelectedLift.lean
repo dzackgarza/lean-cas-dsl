@@ -227,7 +227,7 @@ partial def recorded (trace : Trace) (receiver : Expr) (composed : Bool := false
   match ← trace.node? receiver with
   | some (.liftProjection original "obj") => recorded trace original composed visited
   | some (.liftProjection original "composed") => recorded trace original true visited
-  | some (.methodWithLifts id route lifts source) =>
+  | some (.methodWithLifts id route lifts source _) =>
       return { segments := #[(receiver, ← methodPlans id route lifts source)] }
   | some (.selectedLift id parameters source inclusion monic) =>
       let some entry := (← registryState).lifts.find? (·.id == id)

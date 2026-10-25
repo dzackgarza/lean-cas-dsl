@@ -108,6 +108,15 @@ def equivalentOperationSource (left right : OperationSource) : TermElabM Bool :=
     equivalentTerms left.applications right.applications <&&>
     equivalentTerms left.comparisonWitnesses right.comparisonWitnesses
 
+/-- Compare the retained exact cell applications and their independently typed values. -/
+def equivalentRouteComparisons (left right : Array (RouteComparison × Expr)) :
+    TermElabM Bool := do
+  unless left.size == right.size do return false
+  for ((firstContext, first), (secondContext, second)) in left.zip right do
+    unless firstContext == secondContext do return false
+    unless ← equivalentTerms #[first] #[second] do return false
+  return true
+
 /-- Source order is part of a checked class's canonical indexing, not a lookup
 priority. Keeping that order preserves the universal comparison's source indices. -/
 def equivalentOperationCandidate (left right : OperationCandidate) : TermElabM Bool := do
@@ -394,18 +403,22 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       let .literal other otherLiteral := right | return false
       unless form == other do return false
       equivalentTerms #[literal] #[otherLiteral]
-  | .method id route receiver =>
-      let .method other otherRoute otherReceiver := right | return false
+  | .method id route receiver comparisons =>
+      let .method other otherRoute otherReceiver otherComparisons := right | return false
       unless id == other && route == otherRoute do return false
-      equivalentTerms #[receiver] #[otherReceiver]
-  | .methodWithLifts id route lifts receiver =>
-      let .methodWithLifts other otherRoute otherLifts otherReceiver := right | return false
+      equivalentTerms #[receiver] #[otherReceiver] <&&>
+        equivalentRouteComparisons comparisons otherComparisons
+  | .methodWithLifts id route lifts receiver comparisons =>
+      let .methodWithLifts other otherRoute otherLifts otherReceiver otherComparisons := right
+        | return false
       unless id == other && route == otherRoute && lifts == otherLifts do return false
-      equivalentTerms #[receiver] #[otherReceiver]
-  | .property id route receiver =>
-      let .property other otherRoute otherReceiver := right | return false
+      equivalentTerms #[receiver] #[otherReceiver] <&&>
+        equivalentRouteComparisons comparisons otherComparisons
+  | .property id route receiver comparisons =>
+      let .property other otherRoute otherReceiver otherComparisons := right | return false
       unless id == other && route == otherRoute do return false
-      equivalentTerms #[receiver] #[otherReceiver]
+      equivalentTerms #[receiver] #[otherReceiver] <&&>
+        equivalentRouteComparisons comparisons otherComparisons
   | .limit id diagram lift =>
       let .limit other otherDiagram otherLift := right | return false
       unless id == other && lift == otherLift do return false
