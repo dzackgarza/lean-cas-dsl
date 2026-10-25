@@ -534,6 +534,43 @@ structure ConstructionInterface where
   answer : Option Json
   comparison : Option Expr := none
 
+/-- A completed lift retains every evidence-family data slot. Dependent slot
+interfaces require the separately fixed selected plan; this traversal preserves
+the public packets, including opaque and computed parameters. -/
+def validateLiftParameters (entry : LiftEntry) (data : Json)
+    (validate : Json → TermElabM (Except String Unit)) : TermElabM (Except String Unit) := do
+  let .ok parameters := (data.getObjVal? "parameters").bind (·.getArr?)
+    | return .error "a completed lift step requires its ordered selected evidence parameters"
+  let declaration ← mkConstWithFreshMVarLevels entry.evidence
+  let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+  let slots ← (arguments.zip infos).filterMapM fun (argument, info) => do
+    if info.isExplicit && !(← isProp (← inferType argument)) then return some argument
+    return none
+  unless parameters.size == slots.size do
+    return .error "a completed lift step omitted or added selected evidence parameters"
+  for parameter in parameters do
+    if let .error message ← validate parameter then return .error message
+  return .ok ()
+
+/-- Complete construction context for the existing creation and restriction tags. -/
+def validateLiftContext (tag : String) (args : Array Json) (data : Json)
+    (validate : Json → TermElabM (Except String Unit)) : TermElabM (Except String Unit) := do
+  unless args.size == (if tag == "createdCone" then 3 else 5) do
+    return .error "the prescribed lift omitted its complete construction context"
+  let .ok id := args[0]!.getStr? | return .error "a lift id must be a string"
+  let some entry := (← registryState).lifts.find? (·.id.raw == id)
+    | return .error "the selected lift is not registered"
+  if tag == "liftStep" then
+    if let .error message ← validateLiftParameters entry data validate then
+      return .error message
+    let .ok fields := args[4]!.getArr?
+      | return .error "a completed lift step requires all four ordered component outputs"
+    unless fields.size == 4 do
+      return .error "a completed lift step requires all four ordered component outputs"
+  for datum in args.extract 1 args.size do
+    if let .error message ← validate datum then return .error message
+  return .ok ()
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -1181,18 +1218,7 @@ partial def validatePublicData (data : Json) : TermElabM (Except String Unit) :=
       if let .error message ← validatePublicData datum then return .error message
     return .ok ()
   if tag == "createdCone" || tag == "liftStep" then
-    unless args.size == (if tag == "createdCone" then 3 else 5) do
-      return .error "the prescribed lift omitted its complete construction context"
-    let .ok id := args[0]!.getStr? | return .error "a lift id must be a string"
-    unless state.lifts.any (·.id.raw == id) do return .error "the selected lift is not registered"
-    if tag == "liftStep" then
-      let .ok fields := args[4]!.getArr?
-        | return .error "a completed lift step requires all four ordered component outputs"
-      unless fields.size == 4 do
-        return .error "a completed lift step requires all four ordered component outputs"
-    for datum in args.extract 1 args.size do
-      if let .error message ← validatePublicData datum then return .error message
-    return .ok ()
+    return ← validateLiftContext tag args data validatePublicData
   if tag == "liftedSubobject" then
     let #[base, source, ids, steps] := args
       | return .error "a completed lifted subobject requires its base, source, route and complete steps"

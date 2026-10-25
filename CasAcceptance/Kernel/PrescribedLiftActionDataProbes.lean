@@ -127,6 +127,35 @@ run_elab do
         stepFields[3]! == baseData &&
         retainedParameters == Json.arr parameters[0]!.1 do
       throwError "the completed stage replaced actual action or evidence parameters"
+    let decodePacket json := do
+      LiftedSubobjectData.decode (← inferType expected) sourceCategory
+        receiver #[row.id] base json
+        (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
+        (fun _ formal data objects => do
+          ComputationalData.validatePort formal (← inferType formal) data objects)
+        (some (parameters.map (·.1)))
+    let some checked ← decodePacket packet
+      | throwError "the actual completed packet was not recognized"
+    let checked ← match checked with
+      | .ok checked => pure checked
+      | .error message =>
+        throwError "the actual owned parameters failed completed-packet validation: {message}"
+    unless checked.data == packet && checked.outputs == #[outputs] do
+      throwError "completed-packet validation replaced actual parameters or outputs"
+    -- An unrelated opaque source cannot supply the remembered forgetful image.
+    -- Change both recorded base positions so this tests the retained interface,
+    -- rather than merely the equality of the duplicated packet fields.
+    let changedBase := envelope "subobject" #[opaqueField "actual base apex",
+      envelope "functorAction" #[action, opaqueField "unrelated source object"],
+      opaqueField "actual base inclusion"]
+    let changedStep := Json.mkObj [("ctor", "liftStep"),
+      ("parameters", retainedParameters),
+      ("args", Json.arr (stepFields.set! 3 changedBase))]
+    let changedPacket := envelope "liftedSubobject"
+      ((packetFields.set! 0 changedBase).set! 3 (Json.arr #[changedStep]))
+    let some invalid ← decodePacket changedPacket
+      | throwError "a changed actual base interface was not recognized"
+    if invalid.isOk then throwError "an unrelated source supplied a retained lift base image"
     let calls ← observations.get
     unless calls.size == 4 && outputs.size == 4 do
       throwError "the prescribed lift did not execute its four ordered fields"
@@ -174,6 +203,27 @@ run_elab do
         throwError "comparison reuse discarded its actual action parameters or owner"
     unless (← observations.get).size == 4 do
       throwError "retained field reuse reran a prescribed computation"
+    -- Parameter dependencies carry the same live owner as the completed packet.
+    -- A matching token cannot stand in for a different backend or session.
+    for (dependencyOwner, expectedStratum) in #[
+        (owner, Stratum.noImplementation),
+        (some ("lift-probe", session.identity + 1), Stratum.unavailable),
+        (some ("foreign-lift-probe", session.identity), Stratum.unavailable)] do
+      let empty ← Realize.Harness.empty
+      let dispatches ← IO.mkRef #[]
+      let empty := { empty with dispatches := some dispatches }
+      let dependency : Realize.Wire := {
+        form := .object parameterForm
+        payload := Realize.computedPayload fixedParameters[0]! actualParameter dependencyOwner }
+      let refused ← try
+        discard <| Realize.executePrescribedLift empty trace prepared sourceWire baseWire
+          #[(parameters[0]!.1, #[dependency])]
+        pure false
+      catch error =>
+        if CasCatalogue.Exception.stratum? error == some expectedStratum then pure true
+        else throw error
+      unless refused && (← dispatches.get).isEmpty && (← empty.connections.get).isEmpty do
+        throwError "the evidence-parameter owner preflight changed dispatch or failure meaning"
     -- Remove evidence-parameter dependencies to isolate the action-owner preflight.
     for (dependencyOwner, expectedStratum) in #[
         (owner, Stratum.noImplementation),

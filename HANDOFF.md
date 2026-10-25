@@ -10,90 +10,93 @@ Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f27
 
 Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
 
-## Current continuation state — 2026-10-25
+## Current continuation state — 2026-10-26
 
-The recovered source was published as `da6af543a8e71e9400f5438ee40a4e395af2f299`,
-including the missing public `LeanCategories.Catalogue.FamilyFibration` import.
-The unchanged strict purity gate and its positive/rejection controls pass. The
-import owner is FamilyFibration; no namespace was renamed and no exemption widened.
+The published carrier-view checkpoint is `49b0442e8adeab2bbbae671901e3eb7284182276`,
+tree `f83947df832d388ec0b585291af7e2a1ff96a3de`; it was fetched back and compared
+as a complete tree. It retains the earlier complete inclusion and literal owned
+functor-action repairs from `f3545ac`. Its unchanged parameter-structure,
+inclusion-selection, selected-carrier and source-parameter controls pass.
 
-The following published checkpoint, `691f94f5614acecfe8ae55bc3d3a2e28e9a582a3`
-(tree `8033a083f9d39a4dd7391f3eba84a618b1eb246b`), adds reproducible CI over the
-exact committed dependency manifest. Its complete consumer build, four native
-kernel tools, existing notebook worker/surface, protected assertion checks and
-axiom audit all pass at unchanged source in [run 40194280154](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40194280154).
-That is an engineering build result, not mathematical acceptance or a final freeze.
-The verified CI artifact digest is
-`58cf5dd614e0b4a380725a3bd8d39eb47916dc7c17e19bb04a8f0ad749ad7213`.
+This checkpoint integrates four completed kernel repair branches without changing
+protected questions, mathematical inputs, registration tables or interpretation
+resource budgets:
 
-Published `f3545ac64e288f08baed079cf393972ad5441f0b` added two generic repairs after that build. Inclusion selection
-now checks complete dependent paths, obligations and whole-map agreement, and
-power-structure readers require a unique matching row. Literal functor actions
-now retain their exact receiver and actual declaration parameters through either
-public object projection, composed actions and direct realization. Existing
-reduced ambiguity and owner controls remain; new controls exercise nested actions
-and an ignored earlier parameter packet. Both repairs have focused successful
-engineering checks. The complete merged build then exposed two existing
-`ParameterStructureProbes` failures: a witnessed forward carrier view and constants
-from that coefficient view were rejected. This checkpoint corrects only the final
-carrier comparison after the complete selected structures and actual forward route
-have already checked. Strict full endpoint-parameter comparison remains in place
-for carriers without that retained witness. The unchanged parameter-structure, inclusion-selection, selected-carrier and
-source-parameter controls all pass. The complete merged consumers and fixed trials
-still require a new successful run.
+- Complete declared carrier/parameter readings, demanded-type elaboration of
+  ordinary family lambdas, and actual retained formal evidence for explicit
+  factor proofs. The independently fixed source-comparison file now reads all
+  28 bindings and all eight original assertions on that branch, with no
+  diagnostics. Closed original propositions and proofs are still kernel-checked.
+- Reader reuse within an unchanged complete context: private closed-term caches,
+  preserved differential dependencies, exact ordinary-argument reuse, and repeated
+  closed product factors. Both original pairing bindings read through production
+  `Language.claim` at 200000 heartbeats; full-question readings are still required.
+- Required completed-lift parameter metadata. Runtime decoding compares the actual
+  ordered request vectors verbatim, including opaque tokens and `valueData`.
+- Retained validated source/image interfaces for a lift's actual mapped base.
+  The actual four-request packet now passes complete reuse without replacement
+  of its source, base, maps, parameters or owner. Hostile-base, malformed-parameter
+  and foreign/expired-owner controls reject at the exact focused candidate.
 
-At published `da6af543`, all **153 permanent questions** exported with no reading
-failures. The fresh independent reviewer assessed all 153 complete typed readings
-and found that every one matches its required mathematical meaning. The per-ID
-ledger, source citations and payload hashes are preserved. This is interpretation
-only; it establishes no computational, admission, migration or release verdict.
-The supplementary `Init.olean` digest was recorded after export and is not relabelled
-as a historical before/after measurement. Final changed source needs a new complete
-export and assessment. The full positive extension export read
-**96 of 134 questions**; 38 required IDs remain unreadable, with 89 binding or
-interpretation diagnostics. The current failing sites are the two lift files,
-RX06 scalar-action binding, RX08 pairing binding, and two assertion-level resource
-failures. No question, expected value, registration or resource budget changed.
+These results are scoped branch results. The combined checkpoint still requires
+its own full consumer build, fixed interpretation/execution runs and independent
+final meaning assessment. The two previously reported
+`RegisteredMapAdmissionProbes` failures must be attributed on the combined source;
+no branch report is used as a substitute for that gate.
 
-The unchanged RX10 control at `da6af543` reached its expected missing-registration,
-unavailable, malformed and resource-failure outcomes. Its positive and wrong-answer
-conditions stopped after the scalar-action reply with reduced-source ambiguity.
-The literal-action repair lets both conditions return and reuse the actual callable;
-they then stop after three dispatches with a backend rejection of the mapped source
-descriptor. Packet review found that the complete base map, both endpoints, ordered
-outer actions and the original live owners agree with the public contract. The
-specific leaf implementation branch has not been inferred from that error alone.
-A separate public-only leaf author completed repairs through the published public
-interfaces, without fixed questions or these runtime findings. The result is
-published as `51e0e6ebd25a2f2a88097ae3081a3c34970cc29d`, tree
-`90257682b956045e28a97d19e23e43aeabbda2bd`, fetched back and completely tree-checked.
-Both registration manifests are byte-identical. The changes preserve actual
-returned values, complete endpoints and session ownership; they add no operation,
-registration, wire form or native mathematical algorithm. The author's framing
-checks are engineering information, not mathematical acceptance. Fixed execution
-against this published implementation remains required.
+The local native/tool/notebook build completed at unchanged `da6af543`
+(1672.420 seconds, complete recorded source tuple unchanged). The actual native
+and notebook demonstrations then executed and exposed failures: the two finite
+pullback assertions hold, while the remaining 15 of 17 stop at absent ring
+operation registrations or an ambiguous exact vector/map parameter presentation.
+Both reports retain the complete actual calls. The notebook worker executed its
+cell; the computational report failed its existing checker. These are failed
+intermediate-candidate runs, not four completed workflows. Rerun after integration
+and repair any remaining generic owner; preserve ordinary leaf gaps as such.
 
-Work remains in `/workspace/scratch/735f437b0adf`. The exact Lean 4.33.0 toolchain,
-127 pinned engine distributions, selected mathematical and contract dependencies,
-and notebook environment are restored. The local native/tool/notebook build
-completed successfully at the unchanged `da6af543` base (7,717 jobs, 1,672.420
-seconds, unchanged source). Actual native and notebook workflow runs are now
-underway; later source fixes require their consumers and executables to rebuild. The selected notebook
-revision is `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker` subdirectory).
-A fresh 6,160,534-byte public API was generated from published, built `da6af543`
-with exact provenance; the final API must be regenerated after the final freeze.
+At the same intermediate producer, all 153 permanent readings exported and an
+isolated independent reviewer matched every complete typed meaning to its required
+mathematics. The assessment is not execution, admission, migration or release
+approval. Its supplementary `Init.olean` digest was recorded after export and is
+not relabelled as a historical before/after measurement. The earlier full positive
+extension export read 96/134 IDs; later branch work closes specific unreadable
+bindings and assertions, but only a fresh complete export can establish combined
+coverage. Original RX08 `.ker()` remains the ambiguity control, separate from the
+independently assessed `.kernel()` positive clarification.
 
-The separately preserved evidence archive retains its original recovered records
-and producer identities. Version 29 of
-`libfile_94b086b3c1308191b67e0c34e0d4c364` contains the closed local restoration,
-build, RX10 and binding records, complete permanent readings and independent
-assessment, full positive-extension interpretation diagnostics, the generated
-public API, base CI evidence and the published leaf provenance
-(29,285,961 bytes; SHA-256
-`404334fb1f085dd8215ae6ab98dcd4c5ea549f126737342c5cdad493bae30be7`).
-New runs use fresh output paths; a running or failed record is never relabelled as
-successful. Public source, independent readings and execution evidence remain
-separate. The remaining work below is required; this checkpoint is not MVP completion.
+The public-only leaf repair is published at
+`51e0e6ebd25a2f2a88097ae3081a3c34970cc29d`, tree
+`90257682b956045e28a97d19e23e43aeabbda2bd`, fetched back and tree-verified.
+Its two registration manifests are byte-identical to `fa0856d`. It retains actual
+returned data, full endpoints and session ownership; it adds no operation,
+registration, public wire form or native mathematical algorithm. Its engineering
+checks do not establish mathematical correctness. The original leaf snapshot and
+question/inventory records remain unchanged; the new execution plan changes only
+the selected leaf source and executable path prefixes.
+
+The complete public-form audit found the advertised encodings present, with the
+two completed-lift consumer defects repaired here. It separately identifies old
+ordinary adapter limits: legacy division packets, a limit-ID projection convention,
+and field/ring/carrier slot confusion in span encoding. No contract is weakened to
+accommodate them. The API currently committed in the contract repository has stale
+producer metadata; the independently generated 6160534-byte `da6af543` export is
+also intermediate. Generate and publish the final API from final built source.
+
+The exact restored dependencies, Lean 4.33.0, real engines and notebook adapter
+remain selected as recorded below. Base CI run `40194280154` at `691f94f` passed the
+complete consumer, native and notebook-worker builds and axiom audit. The `f3545ac`
+local consumer run failed the two witnessed-carrier controls subsequently repaired
+by `49b0442`. Neither result establishes the combined checkpoint's status.
+
+Evidence is preserved separately under
+`libfile_94b086b3c1308191b67e0c34e0d4c364`. The last confirmed replacement is version29,
+29285961 bytes, SHA256
+`404334fb1f085dd8215ae6ab98dcd4c5ea549f126737342c5cdad493bae30be7`.
+It retains the recovered records, complete permanent assessment, interpretation
+diagnostics, API export, base CI and source provenance. The closed binding v6,
+reader-reuse and contract-form repair packages are being appended without replacing
+or relabelling older attempts. No required generic V1 stub is accepted. The work
+below remains the full task, and this checkpoint is not MVP completion.
 
 ## 2. Completion conditions
 
@@ -101,15 +104,15 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 
 | Required result | Acceptance condition | Current evidence and open work |
 | --- | --- | --- |
-| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Published `691f94f` passes the complete CI build and engineering gates. This checkpoint adds subsequent generic repairs; final merged-source verification remains required. |
+| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Published `691f94f` passes the base complete CI build. This checkpoint integrates the later binding, reader-reuse and completed-lift repairs; its full merged verification remains required. |
 | Registry-derived interpretation | Mathematical choices come from accepted declarations. Dependent parameters, selected structures, tuple/destructured binders, closed maps, refinements, and admission use generic paths. Preserve genuine ambiguity. | Substantial implementation and earlier passing reader checks exist. Current full consumers and fixed extension readings remain to be established. |
 | Compositional resolution | New objects acquire old applicable operations; new generic operations reach old objects. Object and morphism actions preserve comparisons, actual parameters, reindexing, and refinements. | Generic machinery exists. Final independent trials and compositional arguments remain required. |
 | Computational transport | Nonidentity transport, symbolic and opaque callables, successive computations, exact endpoints, and session ownership work with actual returned data. | Earlier connected runs passed. Latest candidate requires reruns, including RX10. |
 | Complete structured results | Computed kernels, cokernels, subobjects, limits, and lifts expose their required defining maps and permit later operations. Creation comparisons work through accepted general data. | Prescribed-lift action-data repair is integrated. Its scoped checks pass in the record. Full fixed structured-result and successive-lift trials remain open. |
-| Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | A fresh API exists from published, built `da6af543`; final API publication and independent public-only sufficiency remain open. |
+| Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | The complete public-form audit and independent public-only adapter work are recorded; final built-source API publication and fixed execution remain required. |
 | Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 readings exported at `da6af543` and independently matched to their required meanings. Final source needs complete export and assessment again. |
 | Correct failures | Distinguish invalid mathematics, ambiguity, absent implementation, unavailable backend, malformed reply, well-formed wrong answer, and internal/resource failure. A change of leaf must not change the question. | Earlier RX10 exposed real defects. Final fixed-question conditions, successful callable return, and session/reuse controls remain open. |
-| Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | Earlier demonstration passed at an older source. Current native binaries, notebook output, and final demonstration need verification. |
+| Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | The da6 native and notebook runs execute but only 2/17 questions hold. Final four connected workflows remain required after the generic repairs and appropriate published leaf selection. |
 | Independent extensibility | Freeze kernel and contract; execute every required extension trial against independently fixed mathematics and questions. Extend only through permitted public interfaces. Any required generic patch demands a new freeze and rerun. | Not complete. Partial readings, bindings, and protocol checks do not close this condition. |
 | Delivery | Publish integrated source, reproducible examples and evidence, a current public contract/API, and exact source provenance. State genuine limits of V1 while preserving full-B0 obligations. | Pending final integration and execution. |
 
@@ -190,7 +193,7 @@ All repositories below are under `https://github.com/dzackgarza/`.
 
 | Repository / role | Branch | Selected source or labelled provenance |
 | --- | --- | --- |
-| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `f3545ac64e288f08baed079cf393972ad5441f0b` |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `49b0442e8adeab2bbbae671901e3eb7284182276` |
 | `lean-categories`: historical base-interface provenance; not the selected package | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
 | `lean-categories`: mathematical extensions and evidence repairs used by recent consumers | `work/kernel-v1-independent-extensions-20261023` | `82d1370de372a00a86391b74fc2566c9547dfcb6` |
 | `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `90d7d3f1833cff39b77024dcee2dc43213e623ad` |

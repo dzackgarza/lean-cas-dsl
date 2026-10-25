@@ -34,6 +34,56 @@ def suppliedHomPresentation (state : RegistryState) (p : Expr) : MetaM Expr :=
       throwError "closed Hom action changed its supplied value"
     return .done normalized) (skipConstInApp := true)
 
+/-- Expose the actual field of an allowed supplied record, without unfolding the
+mathematical value returned by that field. -/
+def storedProjection? (allowed : Name → Bool) (e : Expr) : MetaM (Option Expr) := do
+  let (structureName, index, object, arguments) ← match e.getAppFn with
+    | .proj structureName index object => pure (structureName, index, object, e.getAppArgs)
+    | .const name _ => do
+        let some info ← getProjectionFnInfo? name | return none
+        let args := e.getAppArgs
+        unless args.size > info.numParams do return none
+        let ctor ← getConstInfoCtor info.ctorName
+        pure (ctor.induct, info.i, args[info.numParams]!,
+          args.extract (info.numParams + 1) args.size)
+    | _ => return none
+  unless allowed structureName do return none
+  let ctor := getStructureCtor (← getEnv) structureName
+  let object ← withTransparency .default <| whnf object
+  unless object.isAppOfArity ctor.name (ctor.numParams + ctor.numFields) &&
+      index < ctor.numFields do return none
+  let value := (mkAppN (object.getArg! (ctor.numParams + index)) arguments).headBeta
+  return if value == e then none else some value
+
+/-- Read stored type-valued categorical projections without unfolding the mathematical
+type returned by the field. In particular a lambda's domain or a coordinate type can be
+the object of a supplied functor or cone. -/
+def categoricalTypeProjection? (e : Expr) : MetaM (Option Expr) := do
+  unless ← isType e do return none
+  if e.getAppFn.isConstOf ``CategoryTheory.ToType then
+    return ← unfoldDefinition? e
+  storedProjection? (fun structureName =>
+    structureName == ``Prefunctor || structureName == ``CategoryTheory.Functor ||
+      structureName == ``CategoryTheory.Limits.Cone ||
+      structureName == ``CategoryTheory.Limits.Cocone) e
+
+/-- A formal parameter may refer to a returned factor through its public callable
+record. Expose that stored field so Lean can infer the original evidence argument
+from the factor term, keeping both its mathematical value and complete target. -/
+def formalParameterPresentation (p : Expr) : MetaM Expr := do
+  -- An explicit proof may itself determine unresolved declaration parameters.
+  -- Preserve that elaboration path until its original expected type is closed.
+  if p.hasMVar || p.hasLevelMVar then return p
+  let presented ← Meta.transform p (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    if let some value ← storedProjection?
+        (· == ``CasCatalogue.MonoLiftFactorComputation) e then return .done value
+    return .continue) (skipConstInApp := true)
+  unless !presented.hasMVar && !presented.hasLevelMVar && (← isTypeCorrect presented) &&
+      (← withTransparency .all <| isDefEq presented p) do
+    throwError "the public callable field presentation changed the complete formal target"
+  return presented
+
 /-- Present actual stored fields of supplied closed registered objects. Forwarding through the
 same structure projection retains the original selected parameter context; fields supplied through
 another structure expose their stored descriptions. Named and primitive projections use Lean's
@@ -87,6 +137,7 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     return value
   let presented ← Meta.transform p (post := fun e => do
     if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    if let some value ← categoricalTypeProjection? e then return .visit value
     if let .proj struct index object := e then
       if let some value ← field struct index object then return .visit value
       return .continue

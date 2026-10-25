@@ -1149,7 +1149,32 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
   if let .formalProof proofSyntax := value then
     unless ← isProp expected do
       throwStratum .invalid "an explicit proof supplies a proposition-valued parameter only"
-    let proof ← instantiateMVars (← elabTermAndSynthesize proofSyntax (some expected))
+    -- The selected inputs already carry the monicity witnesses used in their
+    -- formal factor laws. Retain only checked proposition-valued instances, and
+    -- close their local declarations before checking the original full target.
+    let mut facts : Array (Expr × Expr) := #[]
+    if let some trace := (← read).trace then
+      for (_, node) in (← trace.get).toArray do
+        if let .selectedLift _ _ _ inclusion monic := node then
+          let condition ← mkAppM ``CategoryTheory.Mono #[inclusion]
+          unless ConstrainedPoint.closed condition && ConstrainedPoint.closed monic &&
+              (← isProp condition) && (← isClass? condition).isSome &&
+              (← Decide.kernelAccepts condition monic) do
+            throwStratum .invalid "a retained formal input has no checked complete instance"
+          unless facts.any (fun fact => fact.1 == condition) do
+            facts := facts.push (condition, monic)
+    let rec elaborate : List (Expr × Expr) → TermElabM Expr
+      | [] => do
+          withOptions
+            (fun options => options.setBool `backward.isDefEq.respectTransparency false) do
+            let presented ← formalParameterPresentation expected
+            let proof ← elabTermAndSynthesize proofSyntax (some presented)
+            instantiateMVars proof
+      | (condition, proof) :: rest => do
+          let name ← mkFreshUserName `_retainedFormalInstance
+          mapLetDeclZeta name condition proof fun instanceVar => do
+            withLocalInstances [← instanceVar.fvarId!.getDecl] (elaborate rest)
+    let proof ← elaborate facts.toList
     let expected ← instantiateMVars expected
     unless ConstrainedPoint.closed proof && ConstrainedPoint.closed expected &&
         (← Decide.kernelAccepts expected proof) do
@@ -1950,8 +1975,9 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
   -- an isolated reading; a speculative caller's trace and cache remain untouched.
   if ctx.trace.isNone then
     let trace ← Trace.new
+    let closedTerms ← IO.mkRef ({} : Std.HashMap String Value)
     return ← withReader (fun context =>
-      { context with trace := some trace, closedTerms := none })
+      { context with trace := some trace, closedTerms := some closedTerms })
       (eval scope stx category? ambient?)
   let cache? := if category?.isNone && ambient?.isNone && ctx.stage.isNone &&
       ctx.bound.isEmpty then ctx.closedTerms else none
@@ -2628,7 +2654,8 @@ partial def selectedParameterTerms (scope : Scope) (declaration : Name)
       unless parameter.isMVar do continue
       let type ← instantiateMVars (← inferType parameter)
       if !type.hasMVar && (← isClass? type).isSome then
-        if let some instanceValue := (← trySynthInstance type).toOption then
+        let presented ← evidencePresentation state type
+        if let some instanceValue := (← trySynthInstance presented).toOption then
           discard <| isDefEq parameter instanceValue
     let expected ← instantiateMVars (← inferType argument)
     let named? := match written with
@@ -3589,11 +3616,43 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
     let (declarationArgs, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
     let explicit := (declarationArgs.zip infos).filterMap fun (arg, info) =>
       if info.isExplicit then some arg else none
+    let rec suppliedLambda (written : Syntax) : Bool :=
+      match written with
+      | `(cas_term| ($body)) => suppliedLambda body
+      | `(cas_term| $_:ident ↦ $_) => true
+      | _ => written.getKind == ``casPatternLambda
+    -- A complete explicit telescope fixes a lambda's demanded type before any
+    -- operand reading. Keep that exact application and its original full endpoints.
+    if args.size == explicit.size && args.any suppliedLambda then
+      let terms ← selectedParameterTerms scope entry.declaration args
+      let application ← DirectConstruction.close
+        (← DirectConstruction.instantiate entry.declaration terms)
+      return ← applyFamily entry.declaration category #[]
+        (application := some application.value) (callableAddress := some entry.id.raw)
+    let context ← read
+    let rec usesBound (term : Syntax) (seen : Array Name) : Bool :=
+      (looseIdentifiers term).any fun name =>
+        if (context.bound.lookup name).isSome ||
+            (context.bound.lookup name.getRoot).isSome ||
+            (differentialOf? name.getRoot).any (fun boundName =>
+              (context.bound.lookup boundName).isSome) then true
+        else
+          let binding := if scope.contains name then name else name.getRoot
+          match scope.get? binding with
+          | none => false
+          | some body => seen.contains binding || usesBound body (seen.push binding)
     let mut parameters : Array Value := #[]
     let mut firstOperand : Option Value := none
     for parameter in explicit do
       let some argumentSyntax := args[parameters.size]? | break
-      let value ← eval scope argumentSyntax
+      -- A closed declaration argument is fixed before any generic-element stage.
+      -- Retain its global point for parameter extraction; if the signature instead
+      -- consumes it as an operand, stage that same point below. Expressions using
+      -- bound variables, including through earlier bindings, keep their full stage.
+      let value ← if context.stage.isSome && !usesBound argumentSyntax #[] then
+          withReader (fun ctx => { ctx with stage := none, bound := [] })
+            (eval scope argumentSyntax)
+        else eval scope argumentSyntax
       let expected ← instantiateMVars (← inferType parameter)
       -- A parameter whose declared type is the object type of a registered category can only
       -- be supplied by an object value.  In particular, an operand such as `F : R[x]` must not
@@ -3607,12 +3666,12 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
           let carrier ← categoryCarrierInstance registered
           withTransparency .all <| isDefEq expected carrier
       if expectsObject && !(value matches .object ..) then
-        firstOperand := some value
+        firstOperand := some (← restage value)
         break
       unless ← parameterCompatible (do
           let term ← typedParameter expected value
           isDefEq parameter term) do
-        firstOperand := some value
+        firstOperand := some (← restage value)
         break
       let term ← typedParameter expected value
       discard <| isDefEq parameter term
@@ -3708,7 +3767,9 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
       | throwStratum .invalid m!"a selected parameter view is an object"
     unless !handle.hasMVar && (← isTypeCorrect handle) &&
         (← isDefEq (← inferType handle) expected) &&
-        (← withTransparency .all <| isDefEq handle actual) do
+        (← withTransparency .all <| isDefEq
+          (← withTransparency .default <| whnf handle)
+          (← withTransparency .default <| whnf actual)) do
       throwSemanticAmbiguity m!"distinct full structures supply a declaration parameter"
     let (source, route, alternatives, applications) := match data with
       | some (_, source, route, alternatives, applications) =>
@@ -3738,7 +3799,7 @@ partial def coalesceSelectedParameterViews (expected actual : Expr)
           throwStratum .invalid m!"a retained source differs from its registered declaration"
         let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
           if info.isExplicit then some arg else none
-        let identity ← mkEqRefl actual
+        let identity ← mkEqRefl (← withTransparency .default <| whnf actual)
         unless (← isTypeCorrect identity) &&
             (← withTransparency .all <| isDefEq (← inferType identity) (← mkEq handle actual)) do
           throwStratum .invalid m!"a full selected structure identity failed kernel conversion"
@@ -3830,7 +3891,11 @@ partial def recognize (state : RegistryState) (x : Expr) (category : NamedCatego
         row.category == category.id && some row.declaration == x.getAppFn.constName?)
       if !declared.isEmpty && !origin.any (fun (entry, _) => declared.any (·.id == entry.id)) then
         continue
-      if ← parameterTrial (withTransparency .all <| isDefEq handle x) then
+      -- Compare the complete stored objects, not their richer projection owners.
+      -- Their original handles remain the selected values and retained provenance.
+      if ← parameterTrial (withTransparency .all <| isDefEq
+          (← withTransparency .default <| whnf handle)
+          (← withTransparency .default <| whnf x)) then
         if let some index := matchedValues.findIdx? (·.sameSelection candidate) then
           matchedValues := matchedValues.set! index
             (retainObjectContext matchedValues[index]! #[candidate])
@@ -6147,19 +6212,25 @@ partial def juxtapose (a b : Value) (ambient? : Option Value) : M Value := do
   | _, _, _ => throwStratum .invalid m!"`a b`: no registered product, action or application \
       takes these operands"
 
-/-- Unresolved numeral syntax can use an independently declared result context's complete
-product signature. Already typed coefficients retain their own operation context. The
+/-- An unresolved numeral or a coefficient already in the selected result context can use
+that context's complete product signature. Other typed coefficients keep their own context. The
 signature checks the original operand maps; carrier metadata alone neither rejects that
 candidate nor supplies another multiplication. Failed product readings restore their state
 before the ordinary action/application reading. -/
 partial def juxtaposeReading (scope : Scope) (coefficient : Syntax) (operand : Value)
     (ambient? : Option Value) : M Value := do
-  if numeric coefficient then
-    if let some ambient := ambient? then
-      let product? ← optionalReading do
-        let coefficient ← eval scope coefficient none (some ambient)
-        applyOperation "·" #[coefficient, operand] ambient
-      if let some product := product? then return product
+  if let some ambient := ambient? then
+    let product? ← optionalReading do
+      let numericCoefficient := numeric coefficient
+      let value ← eval scope coefficient none
+        (if numericCoefficient then some ambient else none)
+      unless numericCoefficient do
+        let .element _ source := value
+          | throwStratum .invalid "a product coefficient is not an element"
+        unless (← coercionMap source ambient).isSome do
+          throwStratum .invalid "the coefficient has a different selected product context"
+      applyOperation "·" #[value, operand] ambient
+    if let some product := product? then return product
   juxtapose (← eval scope coefficient) operand ambient?
 
 /-- The element `declaration params : 1 ⟶ X` of a family of elements, its parameters unified from
@@ -6940,7 +7011,21 @@ partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEn
   let productEndpoint (product : Expr) : M Value := do
     let #[left, right] := product.getAppArgs | unreachable!
     let first ← declaredEndpointObject left category known fixedParameters
-    let second ← declaredEndpointObject right category known fixedParameters
+    let closed := fun (term : Expr) =>
+      !term.hasMVar && !term.hasLevelMVar && !term.hasFVar && !term.hasLooseBVars
+    let sameFactor ← if left == right && closed left && fixedParameters.all closed then do
+        -- Only this call shares the already checked complete factor. Traverse the
+        -- full retained descriptors, including comparison applications and map
+        -- endpoints; no unresolved context may make the second reading different.
+        let complete ← IO.mkRef true
+        for value in known.push first do
+          discard <| encodeParameterViewValue (fun term => do
+            unless closed term do complete.set false
+            pure 0) value
+        complete.get
+      else pure false
+    let second ← if sameFactor then pure first
+      else declaredEndpointObject right category known fixedParameters
     let diagram ← standardDiagram "product" #[first, second]
     let presentation ← limitIn false "product" diagram category
     let apex ← apexOf false presentation
@@ -7729,9 +7814,11 @@ partial def declaredResult (value target : Value) : M Value := do
       throwStratum .invalid m!"the original generalized point is not completely typed"
     let some (_, actualEndpoint) := homEnds? (← inferType arrow)
       | throwStratum .invalid m!"a function body has no categorical target"
-    unless ← isDefEq actualEndpoint (← semanticObject source) do
+    let actualType ← withTransparency .default <| whnf actualEndpoint
+    unless ← isDefEq actualType
+        (← withTransparency .default <| whnf (← semanticObject source)) do
       throwStratum .invalid m!"a function body differs from its retained target"
-    if ← isDefEq actualEndpoint endpoint then
+    if ← isDefEq actualType (← withTransparency .default <| whnf endpoint) then
       return .element arrow (retainObjectContext target #[source])
   toElement value target
 
@@ -8090,10 +8177,21 @@ partial def carrierMorphism (value : Value) : M Value := do
 
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
+  let mut argumentRead? : Option (Value × Value × Std.HashMap Expr Node) := none
+  let context ← read
+  let boundElement : Bool := match args with
+    | #[argument] => match argument with
+      | `(cas_term| $name:ident) =>
+          (context.bound.lookup name.getId).any (· matches .element ..)
+      | _ => false
+    | _ => false
+  -- Restaging a bound element preserves its value kind. Its actual application
+  -- still checks the complete carrier and domain below; no map trial is needed.
+  let generalizedArgs := if boundElement then #[] else args
   -- A complete categorical map can be applied to an original generalized map.
   -- This branch preserves that original domain rather than treating it as a global point.
   if (f matches .morphism ..) || (f matches .derivedMorphism ..) then
-    if let #[argumentSyntax] := args then
+    if let #[argumentSyntax] := generalizedArgs then
       let temporary ← Trace.new
       let (_, _, _, _, originalSource, _) ← morphismContext f
       let argumentContext ← carrierObject originalSource
@@ -8134,6 +8232,8 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
           Trace.record (← read).trace result
             (.contextualComposition context first second source middle target)
           return ← morphismInContext result source target context (sourceValue, targetValue)
+        if argument matches .element .. then
+          argumentRead? := some (argumentContext, argument, ← temporary.get)
     if let .derivedMorphism hom source target context (X, Y) := f then
       let sourceCarrier ← carrierObject X
       let targetCarrier ← carrierObject Y
@@ -8205,7 +8305,19 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   let .morphism mapped source target sets (some (sourceCarrier, targetCarrier)) ← carrierMorphism f
     | throwStratum .invalid "the map has no complete declared carrier action"
   let v ← match args with
-    | #[arg] => eval scope arg none (some sourceCarrier)
+    | #[arg] =>
+        match argumentRead? with
+        | some (initialContext, argument, records) =>
+            -- The map trial has already read this exact operand in this complete
+            -- context. Preserve its original operation records instead of repeating
+            -- the whole declaration, admission and route construction.
+            if initialContext.sameSource sourceCarrier then
+              if let some trace := (← read).trace then
+                for (value, node) in records.toArray do
+                  trace.modify (·.insert value node)
+              pure argument
+            else eval scope arg none (some sourceCarrier)
+        | none => eval scope arg none (some sourceCarrier)
     | _ => tuple scope args (some sourceCarrier)
   -- A map applied to its whole carrier domain is its image.
   if let .object .. := v then return ← imageOfMap mapped sourceCarrier targetCarrier

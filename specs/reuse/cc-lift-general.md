@@ -1,5 +1,32 @@
 # Reuse record: `cc-lift-general`
 
+### Completed lift parameter framing (2026-10-25)
+
+The corpus query `MonoLiftComputation evidence family parameters` could not reach
+the corpus API in the sandbox. Direct source searches locate the existing owners
+in `LeanCategories/Catalogue/Lift.lean` (`MonoLiftComputation`, `MonoLift`) and
+`Registry/Entry.lean` (`LiftEntry`), together with `CasContract.Port`'s completed
+`liftStep` framing. No mathematical declaration or law is added.
+
+The decoder requires every selected evidence data slot and validates its fixed
+interface. Execution additionally supplies its actual ordered request packets
+for exact comparison; opaque tokens and `valueData` wrappers are retained, never
+re-encoded from the formal selection. Formal-reference decoding explicitly has
+no request history and makes only the framing claim. Live session ownership stays
+on the realizer's containing wire and parameter dependencies. Engineering probes
+exercise malformed metadata and owner rejection without altering mathematical
+assertions or interpreting returned claims as proofs.
+
+The same completed-consumer control exposed a reduced formal base that no
+longer syntactically retained its forgetful preimage. Validation now carries
+the already checked original Arrow endpoints and prescribed images as the
+existing `ComputationalData.InterfaceObjects` context. Their formal interfaces
+come only from the fixed plan, and their actual descriptors remain unchanged.
+The base checker need not invert a forgetful functor or reconstruct a native
+object. A control changes both copies of the base ambient to an unrelated
+source image and requires rejection, while actual four-request packets and
+their original session remain reusable.
+
 Current production boundary: backend answers do not supply reconstructed cones,
 subobjects, isomorphisms, or their laws. The older comparison helpers described
 below are formal-side tools, not obligations imposed on a computational answer.

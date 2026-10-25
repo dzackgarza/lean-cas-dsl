@@ -2260,14 +2260,19 @@ mutual
 
 /-- Check a prescribed computational packet against its independently fixed operation.
 The returned expression is the formal plan, not a reconstruction of backend data; in
-particular, no comparison or monomorphism law is obtained from the packet. -/
+particular, no comparison or monomorphism law is obtained from the packet. This
+formal-reference path has no runtime request history: parameter checks concern
+framing and fixed interfaces only, and establish no equality to unseen requests.
+Runtime execution supplies its actual request parameters directly to `decodeIn`. -/
 partial def decodeLiftedAt (_trace : Trace) (category : NamedCategoryEntry) (expected : Expr)
     (context : LiftReplayContext) (json : Json) :
     TermElabM (Except String (Expr × Option Expr)) := do
   let some checked ← LiftedSubobjectData.decode expected category context.fixedSource
       context.prescribed context.fixedBase json
       (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
-      (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
+      (fun _ formal data objects => do
+        ComputationalData.validatePort formal (← inferType formal) data objects)
+      none
     | return .error "the prescribed result requires a complete liftedSubobject packet"
   match checked with
   | .error message => return .error message
@@ -5006,7 +5011,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some checked ← LiftedSubobjectData.decodeIn (← inferType e) resultExpression
           receiver lifts retainedBase liftedJson
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
-          (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)
+          (fun _ formal data objects => do
+            ComputationalData.validatePort formal (← inferType formal) data objects)
+          (some (parameters.map (·.1)))
         | throwError "the prescribed method has no complete computational lift packet"
       let packet ← match checked with
         | .ok packet => pure packet

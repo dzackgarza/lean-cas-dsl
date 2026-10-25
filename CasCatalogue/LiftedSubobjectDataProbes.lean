@@ -113,16 +113,23 @@ run_elab do
       enriched.set! 3 (typedMap baseB mappedA (data "different base inventory"))] do
     let .error _ ← LiftedSubobjectData.validatePrefix component action sourceData baseData changed
       | throwError "the inverse comparison changed a previously returned endpoint inventory"
-  let step fields := Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
-    toJson row.id.raw, action, sourceData, baseData, Json.arr fields])]
-  let envelope fields := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
-    baseData, sourceData, toJson #[row.id.raw], Json.arr #[step fields]])]
+  let selectedParameters ← (← DirectConstruction.dataArguments component.selection.parameters).mapM
+    (Realize.parameterData trace)
+  let stepWith (parameters? : Option Json) fields := Json.mkObj (
+    [("ctor", toJson "liftStep"), ("args", Json.arr #[
+      toJson row.id.raw, action, sourceData, baseData, Json.arr fields])] ++
+    parameters?.toList.map (fun parameters => ("parameters", parameters)))
+  let step fields := stepWith (some (Json.arr selectedParameters)) fields
+  let envelopeWith step := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
+    baseData, sourceData, toJson #[row.id.raw], Json.arr #[step]])]
+  let envelope fields := envelopeWith (step fields)
   let validateSource (_ : CategoryExpr) (fixed : Expr) (data : Json) := do
     ComputationalData.validatePort fixed (← inferType fixed) data
-  let validateBase (_ : NamedCategoryEntry) (fixed : Expr) (data : Json) := do
-    ComputationalData.validatePort fixed (← inferType fixed) data
-  let decode json := LiftedSubobjectData.decode expectedType sourceCategory receiver
-    #[row.id] base json validateSource validateBase
+  let validateBase (_ : NamedCategoryEntry) (fixed : Expr) (data : Json) objects := do
+    ComputationalData.validatePort fixed (← inferType fixed) data objects
+  let decodeWith requested json := LiftedSubobjectData.decode expectedType sourceCategory receiver
+    #[row.id] base json validateSource validateBase requested
+  let decode := decodeWith (some #[selectedParameters])
   let checked ← decode (envelope outputs)
   let packet ← match checked with
     | some (.ok packet) => pure packet
@@ -132,6 +139,44 @@ run_elab do
     throwError "a complete lift discarded or replaced an actual returned field"
   unless ← withTransparency .all <| isDefEq packet.formalResult expectedLifted do
     throwError "computational claims changed the independently fixed formal result"
+  -- The published metadata is mandatory even in the formal-reference framing path.
+  if let .error message ← ComputationalData.validatePublicData packet.data then
+    throwError "a complete public lift packet was rejected: {message}"
+  for metadata in #[none, some Json.null, some (Json.arr #[]),
+      some (Json.arr (selectedParameters.push (data "extra parameter")))] do
+    let invalid := envelopeWith (stepWith metadata outputs)
+    let some result ← decodeWith none invalid
+      | throwError "malformed parameter metadata was not recognized"
+    if result.isOk then throwError "the framing decoder omitted required evidence parameters"
+    if (← ComputationalData.validatePublicData invalid).isOk then
+      throwError "the public grammar omitted required evidence parameters"
+  let illTyped := selectedParameters.set! 0 (toJson true)
+  let some checked ← decodeWith none
+      (envelopeWith (stepWith (some (Json.arr illTyped)) outputs))
+    | throwError "changed selected parameter framing was not recognized"
+  if checked.isOk then throwError "selected parameter data lost its independently fixed interface"
+  -- Two different actual packets make reordering observable even when the formal
+  -- parameters coincide. They remain data; no canonical parameter is substituted.
+  unless selectedParameters.size == 2 do
+    throwError "the selected evidence fixture changed its complete data arity"
+  let wrapped := data "actual second parameter"
+  let actualParameters := #[data "actual first parameter",
+    Json.mkObj [("ctor", "valueData"), ("args", Json.arr #[wrapped])]]
+  let actualPacket := envelopeWith (stepWith (some (Json.arr actualParameters)) outputs)
+  let some (.ok actual) ← decodeWith (some #[actualParameters]) actualPacket
+    | throwError "retained actual parameter packets were replaced by their formal recipe"
+  unless actual.data == actualPacket && actual.outputs == packet.outputs do
+    throwError "parameter validation replaced an actual packet or construction output"
+  for changed in #[actualParameters.reverse,
+      actualParameters.set! 0 (data "changed opaque parameter"),
+      actualParameters.set! 1 wrapped] do
+    let some result ← decodeWith (some #[actualParameters])
+        (envelopeWith (stepWith (some (Json.arr changed)) outputs))
+      | throwError "changed actual parameters were not recognized"
+    if result.isOk then throwError "a completed step changed its actual ordered request parameters"
+  let some omittedRequest ← decodeWith (some #[]) actualPacket
+    | throwError "an incomplete retained request vector was not recognized"
+  if omittedRequest.isOk then throwError "a component without its retained request data was accepted"
   let .ok next := LiftedSubobjectData.nextBase sourceData outputs
     | throwError "the actual completed fields could not advance the reverse route"
   let .ok fields := LiftedSubobjectData.fields "subobject" 3 next
@@ -172,7 +217,8 @@ run_elab do
   let .ok baseFields := LiftedSubobjectData.subobjectFields baseData
     | throwError "the original complete subobject lost its defining Arrow"
   let arrowBase := Json.mkObj [("ctor", "arrow"), ("args", Json.arr baseFields)]
-  let arrowStep := Json.mkObj [("ctor", "liftStep"), ("args", Json.arr #[
+  let arrowStep := Json.mkObj [("ctor", "liftStep"),
+    ("parameters", Json.arr selectedParameters), ("args", Json.arr #[
     toJson row.id.raw, action, sourceData, arrowBase, Json.arr outputs])]
   let arrowPacket := Json.mkObj [("ctor", "liftedSubobject"), ("args", Json.arr #[
     arrowBase, sourceData, toJson #[row.id.raw], Json.arr #[arrowStep]])]

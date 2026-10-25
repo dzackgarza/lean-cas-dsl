@@ -296,12 +296,67 @@ def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
   return Json.mkObj [("ctor", "subobject"),
     ("args", Json.arr #[inclusion[0]!, inclusion[1]!, inclusion[2]!])]
 
+/-- Evidence-family metadata is required independently of the action's parameters.
+When actual request data is retained, compare that ordered data verbatim: its opaque
+tokens and `valueData` wrappers are not interchangeable with a formal recipe.
+Without request data this checks only the independently selected slot interfaces;
+it does not establish equality to requests that this decoder has not received. -/
+def validateParameters (selection : SelectedLift.Plan) (step : Json)
+    (requested? : Option (Array Json)) : TermElabM (Except String Unit) := do
+  let .ok parameters := (step.getObjVal? "parameters").bind (·.getArr?)
+    | return .error "a completed lift step requires its ordered selected evidence parameters"
+  let fixed ← DirectConstruction.dataArguments selection.parameters
+  unless parameters.size == fixed.size do
+    return .error "a completed lift step omitted or added selected evidence parameters"
+  if let some requested := requested? then
+    unless parameters == requested do
+      return .error "a completed lift step changes its actual ordered request parameters"
+  for (parameter, data) in fixed.zip parameters do
+    if let .error message ← ComputationalData.validatePort parameter (← inferType parameter) data then
+      return .error message
+  return .ok ()
+
+/-- Retain the validated original source and its prescribed images as input
+interfaces. A reduced base object need not remember a forgetful action's source.
+Only the fixed plan supplies these formal interfaces; descriptors supply no
+mathematical identity, action, inverse or construction law. -/
+def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json) :
+    TermElabM (Except String ComputationalData.InterfaceObjects) := do
+  let mut current := source
+  let mut objects : ComputationalData.InterfaceObjects := #[]
+  for (component, stepData) in prepared.components.zip steps do
+    let .ok step := fields "liftStep" 5 stepData
+      | return .error "a component omits its selected action, source, base or outputs"
+    unless step[2]! == current do
+      return .error "a component changes the original or preceding actual transported source"
+    if let .error message ← ComputationalData.validateAction component.action step[1]! then
+      return .error message
+    let .ok endpoints := fields "arrow" 3 current
+      | return .error "a component has incomplete source Arrow data"
+    for (projection, index) in #[(``CategoryTheory.Arrow.left, 0),
+        (``CategoryTheory.Arrow.right, 1)] do
+      let formal ← mkAppM projection #[component.receiver]
+      objects := objects.push (endpoints[index]!, formal)
+      let image ← Semantic.objOf component.action formal
+      let descriptor := Json.mkObj [("ctor", "functorAction"),
+        ("args", Json.arr #[step[1]!, endpoints[index]!])]
+      objects := objects.push (descriptor, image)
+    let .ok next := mapArrowData step[1]! current
+      | return .error "a component has incomplete source Arrow data"
+    current := next
+  return .ok objects
+
 /-- Only completed packets with every actual output count as prescribed lifted data.
-Source packets and selected action descriptors are supplied by the kernel's fixed route. -/
+Source packets and selected action descriptors are supplied by the kernel's fixed route.
+Execution must supply its retained request parameters; an explicit `none` is reserved
+for formal-reference framing without a runtime request history. Session ownership
+belongs to the containing wire and is preserved and checked by the realizer. -/
 def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (json : Json)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
-    (validateBase : NamedCategoryEntry → Expr → Json → TermElabM (Except String Unit)) :
+    (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
+      TermElabM (Except String Unit))
+    (requestParameters? : Option (Array (Array Json))) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   let work : TermElabM (Except String Packet) := do
@@ -314,11 +369,16 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
       | return .error "the completed packet has no full fixed lift plan"
     let .ok () ← validateSource prepared.sourceCategory fixedSource args[1]!
       | return .error "the computational source changed its complete fixed context"
-    let .ok () ← validateBase prepared.baseCategory fixedBase args[0]!
-      | return .error "the computational base changed its complete fixed context"
     let .ok steps := args[3]!.getArr? | return .error "the component output array is absent"
     unless steps.size == prepared.components.size do
       return .error "the completed packet omits a prescribed component"
+    if let some requested := requestParameters? then
+      unless requested.size == steps.size do
+        return .error "the retained requests omit a prescribed component's parameters"
+    let .ok objects ← sourceInterfaces prepared steps args[1]!
+      | return .error "the completed packet changes its retained original source or selected action"
+    if let .error message ← validateBase prepared.baseCategory fixedBase args[0]! objects then
+      return .error s!"the computational base changed its complete fixed context: {message}"
     let mut base := args[0]!
     let mut outputs := Array.replicate steps.size #[]
     for index in (List.range steps.size).reverse do
@@ -326,6 +386,9 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
         | return .error "the completed route lost a fixed component"
       let .ok step := fields "liftStep" 5 steps[index]!
         | return .error "a component omits its selected action, source, base or outputs"
+      if let .error message ← validateParameters component.selection steps[index]!
+          (requestParameters?.map (·[index]!)) then
+        return .error message
       unless step[0]!.getStr?.toOption == some component.lift.raw && step[3]! == base do
         return .error "a component changes the exact reverse-route base or selected lift"
       if index == 0 && step[2]! != args[1]! then
@@ -354,12 +417,14 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
 def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (json : Json)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
-    (validateBase : NamedCategoryEntry → Expr → Json → TermElabM (Except String Unit)) :
+    (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
+      TermElabM (Except String Unit))
+    (requestParameters? : Option (Array (Array Json))) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
     return some (.error "the named lift context changes its complete selected result parameters")
   decodeIn expected sourceCategory.expression fixedSource prescribed fixedBase json
-    validateSource validateBase
+    validateSource validateBase requestParameters?
 
 end CasCatalogue.LiftedSubobjectData
