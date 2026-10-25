@@ -8298,12 +8298,19 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   -- This branch preserves that original domain rather than treating it as a global point.
   if (f matches .morphism ..) || (f matches .derivedMorphism ..) then
     if let #[argumentSyntax] := generalizedArgs then
-      let temporary ← Trace.new
+      -- The trial sees this question's already checked values and their original
+      -- records. Separate references keep every speculative write isolated.
+      let temporary ← match context.trace with
+        | some existing => IO.mkRef (← existing.get)
+        | none => Trace.new
+      let temporaryCache ← if context.trace.isSome then
+          context.closedTerms.mapM fun cache => do IO.mkRef (← cache.get)
+        else pure none
       let (_, _, _, _, originalSource, _) ← morphismContext f
       let argumentContext ← carrierObject originalSource
       let candidate ← try
         pure (some (← withReader (fun context =>
-          { context with trace := some temporary, closedTerms := none })
+          { context with trace := some temporary, closedTerms := temporaryCache })
           (eval scope argumentSyntax none (some argumentContext))))
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error

@@ -6771,15 +6771,22 @@ def realizeClaim (h : Harness) (trace : Trace) (claim : Claim) : TermElabM Execu
 /-- Representation-only normalization: metadata and bound-variable spelling carry no
 mathematical identity. Operations, constants, routes, parameters and logical constructors
 remain intact; there is no reduction by truth, provability or logical equivalence. -/
-partial def canonicalTerm : Expr → Expr
-  | .mdata _ term => canonicalTerm term
-  | .app fn arg => .app (canonicalTerm fn) (canonicalTerm arg)
-  | .lam _ type body info => .lam .anonymous (canonicalTerm type) (canonicalTerm body) info
-  | .forallE _ type body info => .forallE .anonymous (canonicalTerm type) (canonicalTerm body) info
-  | .letE _ type value body nondep =>
-      .letE .anonymous (canonicalTerm type) (canonicalTerm value) (canonicalTerm body) nondep
-  | .proj type index term => .proj type index (canonicalTerm term)
-  | term => term
+partial def canonicalTerm (term : Expr) : Expr :=
+  Id.run (MonadStateCacheT.run (visit term))
+where
+  /-- Share only exact syntax within this traversal. Binder annotations and all
+  data remain significant; neither reduction nor proof irrelevance is a cache key. -/
+  visit (term : Expr) : MonadStateCacheT ExprStructEq Expr Id Expr :=
+    checkCache (ExprStructEq.mk term) fun _ => do
+      match term with
+      | .mdata _ child => visit child
+      | .app fn arg => return .app (← visit fn) (← visit arg)
+      | .lam _ type body info => return .lam .anonymous (← visit type) (← visit body) info
+      | .forallE _ type body info => return .forallE .anonymous (← visit type) (← visit body) info
+      | .letE _ type value body nondep =>
+          return .letE .anonymous (← visit type) (← visit value) (← visit body) nondep
+      | .proj type index child => return .proj type index (← visit child)
+      | term => return term
 
 def questionTerm (term : Expr) : TermElabM Expr := do
   let term ← instantiateMVars term

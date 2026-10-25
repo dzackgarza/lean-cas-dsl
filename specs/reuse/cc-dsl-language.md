@@ -669,6 +669,15 @@ and retained. If primitive projection reduction passes an intact handle, absence
 of an exact match also uses the unchanged fallback. No positional interpretation
 of general retained context or equality of bare carriers selects a factor.
 
+The generalized-map argument trial forks the current question's accepted trace
+and closed-reading cache into separate references. Cached values therefore keep
+their original operation records, and independent nested declarations need not
+be rebuilt in an empty context. Speculative writes remain isolated; the existing
+successful-trial trace merge and invalid-reading fallback are unchanged. Cache
+entries obey the same full-context closure, stage, ambient and lexical guards,
+and the temporary cache is never substituted for the caller's cache. Without an
+existing trace, the trial starts with the existing empty-context behavior.
+
 The exact unchanged first-pairing binding and full assertion now read within
 the original 200000-heartbeat limit (125062 and 152825 respectively). Remaining
 factor/final readings are separate open defects; neither stage measurements nor

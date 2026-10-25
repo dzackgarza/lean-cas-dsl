@@ -24,6 +24,12 @@ duplicate keys` and `stable sort secondary key`. The returned compiler partition
 and Lisp sorting code does not own this snapshot schema. Lean `Array.qsort` supplies
 ordering; the kernel supplies the complete retained-record keys.
 
+The 2026-10-25 traversal repair searched for `expression DAG traversal memoization`
+and `MonadStateCacheT`. The corpus returns a memoized expression substitution
+traversal and a Lean expression visitor using `checkCache`. Lean already supplies
+the cache and exact expression equality needed here; no mathematical construction
+or identity quotient is added.
+
 ## Owner
 
 - Lean `Expr.abstract` and `instantiateRev` own conversion between local free variables
@@ -36,6 +42,9 @@ ordering; the kernel supplies the complete retained-record keys.
 - Upstream `CategoryExpr.syntacticEq` owns exact symbolic category comparison.
 - Lean `Array.qsort` owns sorting. `QuestionIdentity.orderByCompleteKey` preserves the
   previous primary order and requests full canonical keys only for colliding groups.
+- Lean `MonadStateCacheT`, `checkCache`, and `ExprStructEq` own per-call sharing by
+  complete syntax, including binder annotations. `Realize.canonicalTerm` retains its
+  existing metadata and binder-name normalization and does not inspect term types.
 - `Language.Claim`, `CasCatalogue.Node` and `CasCatalogue.ParameterPresentation` own the existing
   retained reading data; `QuestionComparison` compares every field they preserve.
 
@@ -45,6 +54,12 @@ Cache contextual encoding by the unopened expression and its binder context, so
 fresh local IDs from repeated openings do not force another traversal. Retain
 the existing canonical node descriptions, proof proposition types, and full
 question identity.
+
+Canonicalization now walks the existing expression DAG once per exact subterm,
+using a fresh local cache for each root. It returns exactly the same syntax as
+the former recursive tree walk. No constant, level, binder annotation, let value,
+projection, selected dictionary, proof term, or computational argument is omitted.
+The serializer and independent comparison remain unchanged.
 
 Directly compare the complete prepared claim and its retained operations, including
 expected decisions, selected parameters, actual structural applications, defining

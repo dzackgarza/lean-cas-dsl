@@ -129,6 +129,15 @@ computational choice or construction request supplies no proof that the original
 computed correctly. Independent fixed mathematical verification and all existing authority
 boundaries remain unchanged.
 
+The owner's [issue 69 Addendum IV](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6402830212)
+makes the earlier `sage-categories` and `research` repairs, CAP's derived-method
+machinery, GATlab's explicit models, and the existing Catlab/`homotopy-core`
+adapters explicit inputs to this work. The [source-based reuse record](reuse/cross-repository-execution-prior-art.md)
+distinguishes implemented mechanisms, historical tests and remaining integrated
+obligations. Reuse their ownership, retention and dependency lessons through the
+existing Lean declarations; do not add another semantic graph or transplant the
+older projects' leaf import restrictions.
+
 ## Invariants
 
 * **Single semantic authority.** One ontology, in `lean-categories`. No shadow graph,

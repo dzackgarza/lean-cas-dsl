@@ -1,5 +1,66 @@
 # Journal
 
+## 2026-10-25 — Ground shared execution in the previously implemented mechanisms
+
+Issue69 AddendumIV and the cited current Sage-category adapters, selected-action
+retention, reopened TODO entries, research constructor design, CAP derivations
+and GATlab models are now explicit architecture inputs. The reuse record maps
+those mechanisms to existing Lean owners and preserves their limitations.
+Historical tests, pure preparation controls and source publication do not imply
+current integrated acceptance. The separating regressions include distinct
+selected structures, composite actions, lifecycle retention, universal maps and
+the rejection of changed mathematical provenance even with a plausible answer.
+Private lateral leaf imports remain permitted and carry no semantic authority.
+
+## 2026-10-25 — Share exact syntax during question canonicalization
+
+Question canonicalization now memoizes complete syntactic subterms within each
+call. Its output remains the existing metadata-free, anonymously bound syntax;
+all binder annotations, types, values, dictionaries and actual applications remain
+unchanged. The cache uses Lean's exact structural equality, with no reduction or
+proof quotient in its key. Serialization and the independent comparator are unchanged.
+
+Stage attribution of the unchanged final-pairing assertion found 111487 heartbeats
+and 21.737 seconds in the old repeated traversal, compared with 206 heartbeats and
+14 milliseconds for the memoized traversal. Their full syntax, encoded question
+and display bytes agree. Two initial pure-action timing attempts evaluated outside
+their measured closures; those zero-cost numbers are retained but are not evidence
+of traversal cost. The corrected measurement reads the input inside each stage.
+These stage measurements leave the normal fixed-question budget unchanged and do
+not establish a full final-pairing or full lift-export success.
+
+The unchanged question, dependent-proof, Type-valued witness, snapshot and exporter
+controls pass. Full production reading now completes for the original first pairing,
+final pairing and final pairing sample with the configured 200000-heartbeat limit
+unchanged. Their measured totals are 138386, 205225 and 207666, respectively; these
+totals are reported as observed, not claimed to be below the configured limit. The
+first pairing's complete identity/display match the prior successful export, and
+the final pairing's claim identity/display match the saved original stage output.
+The full lift inventory and separate inclusion/factor defects remain open.
+
+## 2026-10-25 — Preserve checked context in isolated argument trials
+
+Generalized-map argument trials now start from separate snapshots of the current
+question's accepted trace and closed-reading cache. Their writes remain isolated,
+while each reused complete value retains its original records. Successful trace
+merging, failure fallback, full endpoint checks, bound-name rules and cache closure
+guards are unchanged; no temporary cache replaces the caller's cache.
+
+After the construction-endpoint repair, stage attribution of the original nested
+`beta2` applications isolated 181386 heartbeats in the empty trial context versus
+27944 with the already checked context. The original factor, pairing and inclusion
+statements still require production checks at their unchanged single budget; this
+measurement alone is not a fixed-question success.
+
+The unchanged admission, lexical, closed-reading and context-continuity controls
+pass. At the original production budget, the final-pairing binding reads in
+176623 heartbeats and the first full pairing reads in 151557. The final full
+pairing, pairing sample and final factor sample now finish semantic reading but
+still time out in later question construction. The final nonzero inclusion
+instead exposes an invalid unnamed-set numeral at 142497 heartbeats; the first
+factor sample still times out. These remaining failures stay explicit. No full
+lift export or new acceptance result is claimed.
+
 ## 2026-10-25 — Reuse actual declared family and construction endpoints
 
 Selected families now retain all their already checked complete object parameters
