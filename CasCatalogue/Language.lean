@@ -620,6 +620,15 @@ def Value.question (value : Value) (prop : Expr) : Question :=
 binding whose computation is a gap is itself a gap. -/
 abbrev Scope := Std.HashMap Name Syntax
 
+/-- File bindings are names of the DSL, not Lean declarations. A quoted reference may
+carry Lean macro scopes; an exact scoped binding takes precedence, then its written
+file name is resolved. Stage-bound variables retain their exact lexical identity. -/
+def Scope.binding? (scope : Scope) (name : Name) : Option Syntax :=
+  scope[name]? <|> if name.hasMacroScopes then scope[name.eraseMacroScopes]? else none
+
+def Scope.hasBinding (scope : Scope) (name : Name) : Bool :=
+  (scope.binding? name).isSome
+
 /-- The context of an evaluation: its stage `S`, when the elements being handled are generalized
 elements `S → X` (inside `t ↦ e` or `{t ∈ S | P}`, where `t` is `𝟙 S`) rather than global ones
 `1 → X`. A term is read one way, for its mathematics alone (`CasCatalogue.Semantic`): objects are
@@ -785,7 +794,7 @@ partial def namesObject (scope : Scope) (stx : Syntax) : M Bool := do
   | `(cas_term| $t in $_:ident) => namesObject scope t
   | `(cas_term| $x:ident) =>
       if ((← read).bound.lookup x.getId).isSome then return false
-      if let some t := scope.get? x.getId then return ← namesObject scope t
+      if let some t := scope.binding? x.getId then return ← namesObject scope t
       return state.objects.any (·.name == x.getId.toString)
   | `(cas_term| $f:ident($_,*)) => return state.objects.any (·.name == f.getId.toString)
   | `(cas_term| ℤ / $_) => return true
@@ -803,7 +812,7 @@ partial def namedObjectEntry (scope : Scope) (stx : Syntax) : M ObjectEntry := d
       let entry ← namedObjectEntry scope t
       return ← objectNamed state entry.name (some (← categoryNamed state c.getId.toString))
   | `(cas_term| $x:ident) =>
-      if let some t := scope.get? x.getId then return ← namedObjectEntry scope t
+      if let some t := scope.binding? x.getId then return ← namedObjectEntry scope t
       return ← objectNamed state x.getId.toString none
   | `(cas_term| $f:ident($_,*)) => return ← objectNamed state f.getId.toString none
   | `(cas_term| ℤ / $_) => return ← objectNotation state "ℤ/"
@@ -1575,7 +1584,7 @@ partial def ringsIn (scope : Scope) (seen : Array Name) (stx : Syntax) :
   else if stx.isIdent then
     -- `p.m` is the method `m` of `p`.
     let x := stx.getId.getRoot
-    match scope.get? x with
+    match scope.binding? x with
     | some t => if seen.contains x then #[] else ringsIn scope (seen.push x) t
     | none => #[]
   else stx.getArgs.flatMap (ringsIn scope seen)
@@ -1979,8 +1988,12 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
     return ← withReader (fun context =>
       { context with trace := some trace, closedTerms := some closedTerms })
       (eval scope stx category? ambient?)
+  -- Printed source does not include quotation scopes. Distinct exact file bindings
+  -- can therefore share that spelling; scoped syntax is read without this cache.
   let cache? := if category?.isNone && ambient?.isNone && ctx.stage.isNone &&
-      ctx.bound.isEmpty then ctx.closedTerms else none
+      ctx.bound.isEmpty &&
+      (stx.find? (fun token => token.isIdent && token.getId.hasMacroScopes)).isNone then
+    ctx.closedTerms else none
   if let some cache := cache? then
     if let some value := (← cache.get)[shown stx]? then return value
   let value ← if profiler.get (← getOptions) then
@@ -2145,7 +2158,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
   | `(cas_term| ℵ₀) => return .literal `«ℵ₀»
   | `(cas_term| $x:ident) =>
       if let some v := (← read).bound.lookup x.getId then return ← restage v
-      if let some t := scope.get? x.getId then
+      if let some t := scope.binding? x.getId then
         let rings ← ringBindings scope t
         return ← withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) do
           restage (← eval scope t category? ambient?)
@@ -2166,7 +2179,7 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
           else call scope (← `(cas_term| $(mkIdent receiver):ident)) method category?
       -- `x.m(a, …)` lexes as the identifier `x.m` applied to `a, …`.
       | .str receiver method, false =>
-          if !receiver.isAnonymous && (scope.contains receiver ||
+          if !receiver.isAnonymous && (scope.hasBinding receiver ||
               ((← read).bound.lookup receiver).isSome) then
             return ← callWith scope (← `(cas_term| $(mkIdent receiver):ident)) method args.getElems
           applyIdentifier scope f args.getElems category?
@@ -2346,10 +2359,10 @@ partial def evalAnalysis (scope : Scope) (stx : Syntax) (category? : Option Name
 named `f`. -/
 partial def applyIdentifier (scope : Scope) (f : Ident) (args : Array Syntax)
     (category? : Option NamedCategoryEntry) : M Value := do
-  if ((← read).bound.lookup f.getId).isSome || scope.contains f.getId then
+  if ((← read).bound.lookup f.getId).isSome || scope.hasBinding f.getId then
     return ← apply scope (← eval scope (← `(cas_term| $f:ident)) category?) args
   if let .str receiver method := f.getId then
-    if !receiver.isAnonymous && (scope.contains receiver ||
+    if !receiver.isAnonymous && (scope.hasBinding receiver ||
         ((← read).bound.lookup receiver).isSome) then
       let receiver ← `(cas_term| $(mkIdent receiver):ident)
       if args.isEmpty then return ← call scope receiver method category?
@@ -2374,7 +2387,7 @@ partial def localGeneratorBindings (scope : Scope) (term objectSyntax : Syntax) 
   -- aliases for one generator, and never replace an externally supplied binding.
   let mut written : List (Name × Value) := []
   for (name, ring, index) in ringsIn scope #[] objectSyntax do
-    if scope.contains name || (context.bound.lookup name).isSome then continue
+    if scope.hasBinding name || (context.bound.lookup name).isSome then continue
     let object ← carrierObject (← eval scope ring)
     let .object handle _ (some (source, sourceParameters)) _ _ := object | continue
     if source.id != entry.id then continue
@@ -2394,7 +2407,7 @@ partial def localGeneratorBindings (scope : Scope) (term objectSyntax : Syntax) 
     written := written ++ [(name, ← generatorOf X index)]
   if !written.isEmpty then return written
   let names := (looseIdentifiers term).filter fun name =>
-    name.isAtomic && !scope.contains name && (context.bound.lookup name).isNone &&
+    name.isAtomic && !scope.hasBinding name && (context.bound.lookup name).isNone &&
       !state.objects.any (·.name == name.toString) &&
       !state.morphisms.any (·.name == name.toString) &&
       !state.categories.any (·.name == name.toString) &&
@@ -3637,8 +3650,8 @@ partial def morphism (state : RegistryState) (entry : MorphismEntry) (args : Arr
             (differentialOf? name.getRoot).any (fun boundName =>
               (context.bound.lookup boundName).isSome) then true
         else
-          let binding := if scope.contains name then name else name.getRoot
-          match scope.get? binding with
+          let binding := if scope.hasBinding name then name else name.getRoot
+          match scope.binding? binding with
           | none => false
           | some body => seen.contains binding || usesBound body (seen.push binding)
     let mut parameters : Array Value := #[]
@@ -5131,7 +5144,7 @@ partial def ringBindings (scope : Scope) (stx : Syntax) : M (List (Name × Value
   let mut done : Array Name := #[]
   for (v, _, _) in rings do
     let used := loose.contains v || loose.any (differentialOf? · == some v)
-    if done.contains v || !used || scope.contains v || (ctx.bound.lookup v).isSome then
+    if done.contains v || !used || scope.hasBinding v || (ctx.bound.lookup v).isSome then
       continue
     done := done.push v
     -- The rings the statement writes itself come before those of the bindings it uses.
@@ -6378,7 +6391,7 @@ partial def namedObject (scope : Scope) (stx : Syntax) : M (ObjectEntry × Array
         | throwStratum .invalid m!"no registered category is named {c.getId}"
       return (← objectNamed state entry.name (some category), params)
   | `(cas_term| $x:ident) =>
-      if let some t := scope.get? x.getId then return ← namedObject scope t
+      if let some t := scope.binding? x.getId then return ← namedObject scope t
       return (← objectNamed state x.getId.toString none, #[])
   | `(cas_term| $f:ident($args,*)) =>
       return (← objectNamed state f.getId.toString none, ← numerals args.getElems)
@@ -8466,7 +8479,7 @@ partial def explicitlyTypedSetElement (scope : Scope) (stx : Syntax) : M Bool :=
       return !(← registryState).categories.any (·.name == name.getId.toString)
     return true
   if let `(cas_term| $name:ident) := stx then
-    if let some t := scope.get? name.getId then
+    if let some t := scope.binding? name.getId then
       return ← explicitlyTypedSetElement scope t
   return false
 
@@ -8779,7 +8792,7 @@ def withFreeVariables {α : Type} (scope : Scope) (stx : Syntax) (k : M α) : M 
       state.categories.any (·.name == s) || state.methods.any (·.name == s) ||
       state.properties.any (·.name == s) || state.limits.any (·.shape == s)
   let free := (← contextualIdentifiers scope stx).filter fun n =>
-    n.isAtomic && !bound.contains n && !scope.contains n && (ctx.bound.lookup n).isNone &&
+    n.isAtomic && !bound.contains n && !scope.hasBinding n && (ctx.bound.lookup n).isNone &&
       !keywords.contains n && !named n &&
       -- `dv`, the differential of a bound symbol `v`.
       !((differentialOf? n).any fun v => (ctx.bound.lookup v).isSome)

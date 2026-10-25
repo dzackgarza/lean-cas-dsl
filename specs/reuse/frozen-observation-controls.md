@@ -22,8 +22,9 @@ resolution result. The inventory preserves the selected row order, every row's
 stable identifier, referenced declarations and complete metadata; `cells` also
 exposes each actual cell's endpoints, ordered sides and direction explicitly.
 The cell-absent records retain all other accepted rows, including the additional
-additive-commutative-monoid carrier route and its comparison. They therefore retain
-three complete ambiguity candidates.
+additive-commutative-monoid carrier route and its comparison. The current selected registry therefore
+retains four complete ambiguity candidates. The runner uses the actual applicable
+inventory; this observed count is not a limit on future accepted routes.
 
 A coherent record has `resolutionKind: "resolved"`, a full `resolution`, and its
 own `typedRequest`. An incoherent record has `resolutionKind: "ambiguous"` and its

@@ -12,6 +12,7 @@ public import CasAcceptance.Kernel.SessionOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
+public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
 public import CasAcceptance.Kernel.ProjectionBoundaryProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.QuestionSnapshotProbes
@@ -24,6 +25,7 @@ public import CasAcceptance.Kernel.StructuredReconstructionProbes
 public import CasAcceptance.Kernel.StructuredExecutionProbes
 public import CasAcceptance.Kernel.DeclaredProductContextProbes
 public import CasAcceptance.Kernel.ReaderContextContinuityProbes
+public import CasAcceptance.Kernel.DeclaredParameterEndpointProbes
 public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasAcceptance.Kernel.SourceParameterBindingProbes
 public import CasAcceptance.Kernel.InclusionSelectionProbes

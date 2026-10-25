@@ -86,6 +86,7 @@ jobs:
               CasCatalogue.QuestionComparison CasTools.QuestionExport CasCatalogue.TestSuite \
               CasTools.Harness CasTools.ExportFull \
               CasAcceptance.Kernel.ConstrainedPointProbes \
+              CasAcceptance.Kernel.RegisteredMapAdmissionProbes \
               CasAcceptance.Kernel.ReaderContextContinuityProbes \
               CasAcceptance.DependentReaderProbes CasCatalogue.ElementDataProbes \
               CasAcceptance.Kernel.SourceParameterBindingProbes \

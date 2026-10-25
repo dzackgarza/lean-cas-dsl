@@ -49,6 +49,19 @@ The existing unnamed constrained-record constructor path remains available for
 complete targets without a named admission. A named admitted family is not
 reinterpreted as an anonymous record because its implementation unfolds to one.
 
+## Queries and existing owners
+
+The reuse searches `morphismEndpoint`, `morphism endpoint`, and `eraseMacroScopes`
+find no new mathematical obligation here. The contract already publishes complete
+callable endpoint data (`CasContract.Port`, `Backend.MorphismEndpoint`), consumed
+by `Realize.realizeCallableEndpoint`. Lean's `Name.eraseMacroScopes` owns quotation
+scope removal. The kernel changes only those mechanisms' consumers.
+
+File bindings resolve an exact scoped name first and then the written file name.
+Stage-bound names keep their exact lexical identity. A quoted name is not a Lean
+declaration lookup. Because printed source omits macro scopes, the closed-reading
+cache does not reuse scoped syntax under a printed-source key.
+
 ## Computational reuse
 
 The original map remains attached to the admitted point through the existing
@@ -57,6 +70,15 @@ already omits proposition fields and unwraps records with one data field. A
 checked projection through those wrappers therefore retains the same actual
 computational data and its owning session. It does not reconstruct a proof from
 the backend's value or replace that value with a formal representative.
+
+When the full selected object is the independently checked point target, its
+actual callable also supplies the existing `morphismEndpoint(..., "target")`
+descriptor. The point is realized first, so a cached opaque result can retain
+that endpoint even if one of its exact structured parameters has no separately
+named object presentation. A separately supplied actual endpoint is preserved.
+Only full object and type equality permits this route; an equal underlying
+carrier never replaces a different selected structure. The endpoint and point
+retain their original session, and incompatible owners remain unavailable.
 
 Observing a complete callable follows this retained point to its original map.
 The existing complete operation request materializes that map, and the result is
@@ -70,6 +92,13 @@ session-owned data.
 ordinary function parameters without extra conditions, exact category retention,
 typed destructured parameters, rejection of arbitrary multi-field projections,
 and reuse of the actual cached opaque point through a projected parameter.
+
+`DeclaredParameterEndpointProbes.lean` adds exact scoped-name precedence,
+distinct lexical scope and shared-cache controls, actual unnamed-endpoint reuse,
+retention of a separately supplied endpoint, foreign-owner rejection, and
+preservation of a structured selection on the same carrier. Candidate CI
+explicitly runs the original `RegisteredMapAdmissionProbes` in addition to the
+aggregate's endpoint controls.
 
 `WholeOperationObservationProbes.lean` exercises the actual process interface for
 complete operation materialization. `FixedQuestionExecutionControls.lean` uses

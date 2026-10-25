@@ -2924,3 +2924,19 @@ The exact committed production file, without a copied helper or output-artifact
 writes, then elaborated successfully in 2.703 seconds; all 115 imported artifacts
 and both source worktrees remained unchanged. No proof logic or control changed.
 The corrected source is published before resuming the full integrated build.
+
+## 2026-10-25 — Retain the complete coordinate of symbolic points
+
+Callable framing now carries a closed symbolic element's complete selected
+coordinate separately from its original arithmetic-owner envelope, using the
+existing public typed-map form. The same rule applies to symbolic components of
+closed product points. Actual returned data, owning sessions, selected category
+dictionaries and accepted endpoint comparisons remain attached. The complete
+formal endpoint check also applies to already framed callables.
+
+The added engineering controls cover symbolic and owned whole maps, wrong
+intermediate endpoints, distinct forms with one carrier, and literals whose
+scalar owner differs from their selected coordinate. Existing presentation,
+product-point, staged-numeral and full-Hom controls retain their requirements.
+The unchanged RX10 execution observation remains a separate recorded run; this
+source change supplies no mathematical answer or independent acceptance.

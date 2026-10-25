@@ -2902,42 +2902,50 @@ partial def realizeCallableEndpoint (h : Harness) (trace : Trace) (wire : Wire)
     let data := Backend.MorphismEndpoint.encode { callable := wire.json, source }
     return { form, payload := forwardPayload wire value data, categoryContext := context }
 
-/-- A bare graph has no chosen structured endpoints of its own. Retain those exact
-objects in the public typed-map frame before placing it in another map expression.
-Named descriptors and already framed or opaque callables keep their existing data. -/
+/-- Retain the independently selected complete endpoints of a callable before
+placing it in another map expression. A symbolic point's scalar owner need not be
+its selected coordinate, and an owned callable supplies data rather than a new
+endpoint choice. The public typed-map frame keeps that original data unchanged. -/
 partial def frameMorphismData (h : Harness) (trace : Trace) (source target : Expr)
     (wire : Wire) (context : Option CategoryContext := none) :
     TermElabM (Json × Array Wire) := do
   let context ← framingContext context wire.categoryContext
   if let some context := context then
     CategoryContext.checkMorphism context wire.value source target
+  if context.isNone then
+    let type ← whnfR (← inferType wire.value)
+    unless type.isAppOfArity ``Quiver.Hom 4 do
+      throwError "the callable lost its independently selected complete hom signature"
+    let arguments := type.getAppArgs
+    unless ← withTransparency .all <|
+        isDefEq arguments[2]! source <&&> isDefEq arguments[3]! target do
+      throwError "the callable changed its independently selected complete endpoints"
+  -- This flag records already applied endpoint presentations. Check the complete
+  -- formal signature even on reuse, then preserve the already framed data.
   if wire.morphismFramed then return (wire.json, #[])
   let graph := wire.json.getArr?.isOk ||
     (wire.json.getObjValAs? String "ctor").toOption == some "finiteGraph"
   let state ← registryState
+  let coordinatePoint ← if (wire.json.getObjValAs? String "ctor").toOption ==
+      some "element" then
+    withTransparency .all <| withoutModifyingState
+      (isDefEq source (← closedElementDomain state))
+  else pure false
   let needsPresentation := fun endpoint => do
     if let some actual := (← h.results.get)[endpoint]? then
       if actual.endpointPresentation.isSome then return true
     if let some (.object id _) ← trace.node? endpoint then
       return (state.objects.find? (·.id == id)).any (·.functorPresentation.isSome)
     return false
-  unless graph || (← needsPresentation source) || (← needsPresentation target) do
-    return (wire.json, #[])
-  if context.isNone then
-    let type ← whnfR (← inferType wire.value)
-    unless type.isAppOfArity ``Quiver.Hom 4 do
-      throwError "the graph lost its independently selected complete hom signature"
-    let arguments := type.getAppArgs
-    unless ← withTransparency .all <|
-        isDefEq arguments[2]! source <&&> isDefEq arguments[3]! target do
-      throwError "the graph changed its independently selected complete endpoints"
+  unless coordinatePoint || graph || (← needsPresentation source) ||
+      (← needsPresentation target) do return (wire.json, #[])
   for object in #[source, target] do
     if (← trace.node? object).isNone then
       discard <| Semantic.recordNamedObject object (some trace)
   let sourceWire ← realizeCallableEndpoint h trace wire source true context
   let targetWire ← realizeCallableEndpoint h trace wire target false context
   let presented ← presentMorphism wire sourceWire targetWire context
-  if !graph then return (presented.json, #[sourceWire, targetWire])
+  if !graph && !coordinatePoint then return (presented.json, #[sourceWire, targetWire])
   return (Json.mkObj [("ctor", "typedMap"),
     ("args", Json.arr #[sourceWire.json, targetWire.json, presented.json])], #[sourceWire, targetWire])
 
@@ -4124,7 +4132,19 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       unless ← withTransparency .all <| isDefEq (← inferType e)
           (← mkAppM ``Quiver.Hom #[domain, apex]) do
         throwError "the product point changed its independently fixed formal type"
-      let payload ← combinedPayload e (Json.arr #[first.json, second.json]) #[first, second]
+      -- A symbolic element retains its arithmetic owner, which may differ from
+      -- this component's complete coordinate. Keep both in the existing public
+      -- callable frame. Actual returned point data keep their original encoding.
+      let framePoint (wire : Wire) : TermElabM (Json × Array Wire) := do
+        unless (wire.json.getObjValAs? String "ctor").toOption == some "element" do
+          return (wire.json, #[])
+        let some (_, endpoint) := Language.homEnds? (← inferType wire.value)
+          | throwError "the product's symbolic point lost its complete endpoint"
+        frameMorphismData h trace domain endpoint wire
+      let (firstData, firstEndpoints) ← framePoint first
+      let (secondData, secondEndpoints) ← framePoint second
+      let payload ← combinedPayload e (Json.arr #[firstData, secondData])
+        (#[first, second] ++ firstEndpoints ++ secondEndpoints)
       -- This array is the product point's two ordered components, not a graph
       -- over its generalized domain. Apply the complete endpoint presentations
       -- here so later callable framing preserves the released point encoding.
@@ -4304,8 +4324,16 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       unless ← withTransparency .all <| isDefEq projected e do
         throwError "the closed parameter lost its independently selected point and carrier"
       discard <| Semantic.recordNamedObject selected (some trace)
-      let selectedWire ← realize h trace "the selected parameter structure" selected
       let pointWire ← realize h trace "the closed computational parameter" point
+      let selectedWire ← if ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType selected) (← inferType target) <&&>
+            isDefEq selected target) then
+        -- The actual complete point already fixes this exact endpoint. Its public
+        -- endpoint frame also works when a dependent structured parameter has no
+        -- separately named presentation. A different structure on the same carrier
+        -- still needs its own selected descriptor below.
+        realizeCallableEndpoint h trace pointWire selected false
+      else realize h trace "the selected parameter structure" selected
       let json := Json.mkObj [("ctor", "element"), ("args", Json.arr #[selectedWire.json,
         Json.mkObj [("ctor", "point"), ("args", Json.arr #[pointWire.json])]])]
       return {
