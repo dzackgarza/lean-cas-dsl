@@ -1,0 +1,131 @@
+name: Kernel V1 candidate
+
+'on':
+  push:
+    branches:
+      - work/kernel-v1-20261023
+    paths-ignore:
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Integrated candidate at its committed source tuple
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      LEAN_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Restore the exact committed dependency manifest
+        run: |
+          python3 scripts/ci_kernel_candidate.py prepare \
+            --protected-base 29d3d60500cf1e4d2b49de0355ec8017eaa836bd
+      - name: Preserve kernel and permanent assertion boundaries
+        run: |
+          python3 scripts/ci_kernel_candidate.py run --name no-leaves-selftest -- \
+            python3 scripts/check_no_leaves.py --self-test
+          python3 scripts/ci_kernel_candidate.py run --name no-leaves -- \
+            python3 scripts/check_no_leaves.py
+          python3 scripts/ci_kernel_candidate.py run --name permanent-assertions -- \
+            python3 scripts/check_acceptance_permanent.py
+      - name: Install the committed Lean toolchain
+        uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596
+        with:
+          auto-config: 'false'
+          build: 'false'
+          test: 'false'
+          lint: 'false'
+          use-mathlib-cache: 'false'
+          use-github-cache: 'false'
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+      - name: Install the fixed computational engines
+        run: |
+          runtime="$RUNNER_TEMP/kernel-v1-candidate"
+          uv venv --python 3.12.14 "$runtime/engines"
+          python3 scripts/ci_kernel_candidate.py run --name engine-install -- \
+            uv pip install --default-index https://pypi.org/simple \
+              --only-binary=:all: --require-hashes --strict \
+              --python "$runtime/engines/bin/python" \
+              --requirements examples/kernel-v1/requirements-passagemath-py312-linux-x86_64.txt
+          {
+            echo "CAS_SAGE_PYTHON=$runtime/engines/bin/python"
+            echo "CAS_GAP_PYTHON=$runtime/engines/bin/python"
+            echo "CAS_LEAF_CONTRACT_PATH=$runtime/dependencies/cas_leaf_contracts"
+            echo "PYTHONPATH=$runtime/dependencies/cas_leaf_contracts/python"
+            echo "DOT_SAGE=$runtime/sage-state"
+            echo "MPLCONFIGDIR=$runtime/matplotlib-state"
+            echo "MATHLIB_CACHE_DIR=$runtime/mathlib-cache"
+          } >> "$GITHUB_ENV"
+      - name: Record the actual computation engine versions
+        run: |
+          "$CAS_SAGE_PYTHON" - <<'PY' > "$RUNNER_TEMP/kernel-v1-candidate/evidence/engines.json"
+          import importlib.metadata, json, platform
+          import sage.all
+          from sage.libs.gap.libgap import libgap
+          import sage.version
+          print(json.dumps({
+              "python": platform.python_version(), "sage": sage.version.version,
+              "gap": str(libgap.eval("GAPInfo.Version")),
+              "packages": {d.metadata["Name"]: d.version for d in importlib.metadata.distributions()}
+          }, indent=2))
+          PY
+      - name: Restore the selected Mathlib import closure
+        run: python3 scripts/ci_kernel_candidate.py cache
+      - name: Build the complete current consumer family
+        run: |
+          python3 scripts/ci_kernel_candidate.py run --name consumers -- \
+            bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" build \
+              CasCatalogue.ConstrainedPoint CasCatalogue.Language CasCatalogue.Realize \
+              CasCatalogue.QuestionComparison CasTools.QuestionExport CasCatalogue.TestSuite \
+              CasTools.Harness CasTools.ExportFull \
+              CasAcceptance.Kernel.ConstrainedPointProbes \
+              CasAcceptance.Kernel.ReaderContextContinuityProbes \
+              CasAcceptance.DependentReaderProbes CasCatalogue.ElementDataProbes \
+              CasAcceptance.Kernel.SourceParameterBindingProbes \
+              CasCatalogue.SelectedContextOrderProbes CasCatalogue.QuestionProbes \
+              CasCatalogue.FunctorActionDataProbes \
+              CasAcceptance.Kernel.ReducedParameterActionProbes \
+              CasAcceptance.Kernel.ActionCarrierInterfaceProbes \
+              CasAcceptance.Kernel.StagedNumeralDataProbes \
+              CasAcceptance.Kernel.ContextualHomFramingProbes \
+              CasAcceptance.Kernel.OperationAgreementExecutionProbes \
+              CasAcceptance.Kernel.BinderReaderProbes \
+              LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders \
+              LeanCategories.Catalogue.Semantics.Foundation.TwoSubsets \
+              LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds \
+              LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients \
+              LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions \
+              LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests \
+              CasAcceptance.Kernel.EvidenceProcedureFailureProbes \
+              CasAcceptance.Kernel.ConstrainedMapReaderProbes \
+              CasAcceptance.Kernel.DeclaredProductContextProbes \
+              CasCatalogue.EvidencePresentationProbes CasGates.KernelPurity \
+              CasGates.KernelPurityProbes CasAcceptance.Kernel.PrescribedLiftActionDataProbes \
+              CasCatalogue CasGates CasAcceptance CasAcceptance.Kernel CasTools CasDsl CasDslTests
+      - name: Build native tools and the existing notebook surface
+        run: |
+          python3 scripts/ci_kernel_candidate.py run --name native -- \
+            bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" build \
+              cas-registry-export cas-axiom-audit cas-harness cas-question-export \
+              nbdsl_worker CasDsl.Notebook
+      - name: Run the existing kernel axiom audit
+        run: |
+          python3 scripts/ci_kernel_candidate.py run --name axiom-audit -- \
+            bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" exe cas-axiom-audit
+      - name: Record final source stability and built products
+        if: always()
+        run: python3 scripts/ci_kernel_candidate.py verify
+      - name: Upload candidate engineering records
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kernel-v1-candidate-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/kernel-v1-candidate/evidence
+          if-no-files-found: error
