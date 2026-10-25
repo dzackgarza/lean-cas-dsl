@@ -59,13 +59,15 @@ complete target after one registered evidence call. The existing polynomial-head
 engineering assertion is restored, with all original positive/negative and
 option-scope controls retained. The full integrated consumer build is pending.
 
-A separate bounded execution review found a remaining production call to the
-pure action encoder inside `executePrescribedLift`. Its evidence parameters
-already use actual cached data, but the nested action parameters can still be
-rebuilt from formal expressions. The owning correction must use the existing
-realized action encoder and retain its dependencies through the ordered lift
-packet. This is a source-level computational-data defect; no new mathematical
-row or current end-to-end workflow failure is asserted from the review alone.
+The prescribed-lift executor now consumes the existing realized action encoder,
+so its nested action parameters retain actual cached computational data. Action
+dependency owners are merged before any field dispatch. The additive engineering
+control executes all four fields through the unchanged protocol-only helper and
+checks the observed requests, preceding outputs, completed step, retained object
+and comparison fields, and owner rejection before dispatch. An exact copied-helper
+check passes with all 442 shared kernel artifacts unchanged; two probe elaboration
+failures and an initial execution-environment refusal remain preserved. The
+integrated consumer build and actual frozen mathematical questions remain pending.
 
 The earlier source checkpoint `3983ce2` contains the numeric-only ambient
 product correction and scoped implicit-argument conversion. Both are retained.

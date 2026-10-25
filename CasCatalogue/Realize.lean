@@ -2412,9 +2412,11 @@ partial def decodeObjectAt (trace : Trace) (category : NamedCategoryEntry)
 end
 
 /-- Execute every selected public lift field on preceding actual data, in reverse route order.
-The formal plan is fixed before dispatch; no reply supplies a semantic term or lift law. -/
+The formal plan is fixed before dispatch; no reply supplies a semantic term or lift law.
+Action data and their owners are fixed by the supplied encoder before any field dispatch. -/
 def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectData.Plan)
-    (source base : Wire) (parameters : Array (Array Json × Array Wire)) :
+    (source base : Wire) (parameters : Array (Array Json × Array Wire))
+    (encoder? : Option ActionEncoder := none) :
     TermElabM (Json × Option (String × Nat)) := do
   unless parameters.size == plan.components.size do
     throwError "the prescribed lift lost its complete selected evidence parameters"
@@ -2424,19 +2426,21 @@ def executePrescribedLift (h : Harness) (trace : Trace) (plan : LiftedSubobjectD
   let mut sources : Array Json := #[]
   let mut actions : Array Json := #[]
   let mut currentSource := source.json
+  let mut owner ← sharedOwner source base
   for component in plan.components do
     let some row := state.lifts.find? (·.id == component.lift)
       | throwError "the fixed lift plan lost its registered row"
     let .constructMap _ inner := row.edge
       | throwError "the fixed lift plan lost its selected inner action"
-    let action ← edgeDescriptor trace inner component.action
+    let (action, dependencies) ← encodeAction trace encoder? inner component.action
+    for dependency in dependencies do
+      owner ← mergeOwners owner dependency.owner?
     sources := sources.push currentSource
     actions := actions.push action
     let .ok next := LiftedSubobjectData.mapArrowData action currentSource
       | throwStratum .malformed "the prescribed lift source omitted complete Arrow fields"
     currentSource := next
   let mut currentBase := base.json
-  let mut owner ← sharedOwner source base
   let mut steps := Array.replicate plan.components.size Json.null
   for index in (List.range plan.components.size).reverse do
     let some component := plan.components[index]?
@@ -4989,6 +4993,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let parameters ← plan.components.mapM fun component => do
         realizedParameters h trace (← DirectConstruction.dataArguments component.selection.parameters)
       let (liftedJson, owner) ← executePrescribedLift h trace plan original base parameters
+        (some (realizedEdgeDescriptor h trace))
       let some checked ← LiftedSubobjectData.decodeIn (← inferType e) resultExpression
           receiver lifts retainedBase liftedJson
           (fun _ formal data => do ComputationalData.validatePort formal (← inferType formal) data)

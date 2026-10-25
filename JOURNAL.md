@@ -2850,3 +2850,23 @@ insufficient candidates and the scratch layout failure remain preserved.
 The existing polynomial-head engineering assertion is restored without changing
 its mathematical controls or any permanent question. Source integration now
 requires the combined consumer build and unchanged execution trials.
+
+## 2026-10-25 — Retain actual action data through prescribed lifts
+
+`executePrescribedLift` retains its ordered public four-field execution and now
+accepts the existing optional action encoder. Production supplies the realized
+encoder, matching the neighboring transport paths. All action dependencies merge
+into the selected owner before dispatch; the exact actual actions persist in
+mapped source descriptors and completed steps. The static default remains for
+existing formal-only engineering fixtures.
+
+The additive kernel control reuses the accepted one-stage dependent lift and the
+existing unchanged protocol-only helper. It observes all four requests and their
+actual evidence/action parameters, preceding result prefixes, complete retained
+packet, cached object/comparison fields and owners. It checks same-owner dispatch
+selection and refuses different sessions or backends before dispatch. No packet
+is treated as a mathematical answer or law. A fresh-name exact-helper check passes
+with all 442 shared imported artifacts unchanged. The environment refusal and two
+probe syntax/type failures are separately preserved; the production correction
+was unchanged through those checks. The integrated build and fixed mathematical
+execution are the next consumer checks.
