@@ -26,6 +26,32 @@ heartbeats, respectively. The exact final-pairing binding, full assertion, scala
 sample and nonzero inclusion still hit the unchanged limit; they remain open
 rather than being counted as successes from the stage measurements.
 
+## 2026-10-25 — Execute canonical classifier and nested constructor actions
+
+The shared action executor now accepts canonical object/map/input projections
+of the existing recursive edge identity for classifier forgetful actions and
+constructor-induced actions. Every referenced row and constructor action must
+already be published; named functors retain their own addresses. Requests carry
+one complete nested action descriptor with its original ordered parameters,
+actual source data and independently materialized image endpoints. Strict
+parameter encoding follows the declaration occurrence checked against the whole
+selected action, so an ignored earlier occurrence cannot supply data or an owner.
+
+The existing public `coreObject` form now validates its original object through
+the independently selected `Core.of` projection. The original complete child
+interface remains mandatory. The new process controls cover classifier, Arrow,
+nested Core/Arrow and parameterized actions, exact canonical admission, owned
+image/map retention, repeated-image reuse and malformed Core interfaces. The
+earlier functor controls and unchanged projection controls also compile. No
+mathematical row, fixed question, budget, expected answer or public leaf changes.
+
+The first executor build exposed the normal compiler heartbeat limit in the
+large mutual block. Factoring nonrecursive helpers outside that block resolved
+it without a budget change. All original diagnostic attempts are preserved.
+These engineering checks close the missing derived-address path; they do not
+close the general leaf-facing computational service, the independent frozen
+two-leaf trial, or the complete native/fixed execution experiments.
+
 ## 2026-10-25 — Retain actual image endpoints around an unframed map result
 
 The first action checkpoint's focused controls passed, then a bounded review

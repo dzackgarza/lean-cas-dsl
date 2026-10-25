@@ -875,6 +875,12 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
         | .error message => return .error message
         | .ok () => pure ()
       return .ok ()
+    if tag == "coreObject" then
+      let #[original] := args
+        | return .error "a core object requires its complete original object"
+      let some field ← recordProjection ``CategoryTheory.Core.of formalField
+        | return .error "core data require their independently declared original-object projection"
+      return ← validatePort field (← inferType field) original objects
     if tag == "arrow" || tag == "subobject" then
       let #[source, target, definingMap] := args
         | return .error "an Arrow record requires source, target and defining map"

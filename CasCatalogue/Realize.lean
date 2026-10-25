@@ -546,6 +546,24 @@ def Harness.stop (h : Harness) : IO Unit := do
   for (_, connection) in connections.toList do
     if let .ok c := connection then Backend.abort c.connection.child
 
+/-- Recover the already registered identity of a complete action descriptor.
+The selected formal action independently checks its actual parameters. -/
+partial def descriptorEdge? (state : RegistryState) (json : Json) : Option EdgeRef := do
+  let tag ← (json.getObjValAs? String "ctor").toOption
+  let args ← ((json.getObjVal? "args").bind (·.getArr?)).toOption
+  if let some entry := state.functors.find? (·.id.raw == tag) then
+    return .functor entry.id
+  match tag, args with
+  | "classifierForget", #[id, _] =>
+      let id ← id.getStr?.toOption
+      let entry ← state.classifiers.find? (·.id.raw == id)
+      some (.classifierForget entry.id)
+  | "constructorMap", #[id, inner] =>
+      let id ← id.getStr?.toOption
+      let entry ← state.constructors.find? (·.id.raw == id)
+      some (.constructMap entry.id (← descriptorEdge? state inner))
+  | _, _ => none
+
 /-- The complete applicable registration set, before starting a process. Exact
 and category-wide forms and all eligible backends retain equal standing. -/
 def admittedRegistrations (h : Harness) (operation : String) (input : Wire)
@@ -556,9 +574,14 @@ def admittedRegistrations (h : Harness) (operation : String) (input : Wire)
   let mut addresses := state.inputAddresses declared input.form
   if completeRequest then
     match declared with
-    | .functor _ | .construction _ false =>
-      let .ok _ := Backend.ConstructionInvocation.decode operation input.json
+    | .functor _ | .construction _ false | .edgeAction _ false =>
+      let .ok invocation := Backend.ConstructionInvocation.decode operation input.json
         | throwError "a complete object action lost its selected public request framing"
+      if let .edgeAction edge false := declared then
+        let #[descriptor] := invocation.parameters
+          | throwError "a derived object action lost its complete selected action parameter"
+        unless descriptorEdge? state descriptor == some edge do
+          throwError "a derived object request changed its selected registered edge"
       addresses := state.objectActionInputAddresses declared input.form
     | .presentation _ =>
       let .ok _ := Backend.PresentationInvocation.decode input.json
@@ -578,6 +601,14 @@ def admittedRegistrations (h : Harness) (operation : String) (input : Wire)
           throwError "a functor map request changed its complete selected declaration"
         let .ok _ := Backend.TypedMap.decode original
           | throwError "a functor map request lost its actual source map endpoint fields"
+      if let .edgeAction edge true := declared then
+        let .ok ("map", #[descriptor, original]) := ComputationalData.envelope invocation.arrow
+          | throwError "a derived map request lost its full selected action and original map"
+        unless invocation.parameters == #[descriptor] &&
+            descriptorEdge? state descriptor == some edge do
+          throwError "a derived map request changed its selected edge or complete action parameters"
+        let .ok _ := Backend.TypedMap.decode original
+          | throwError "a derived map request lost its actual source map endpoint fields"
       addresses := state.pointInputAddresses declared input.form
   return h.admitted.filter fun a =>
     a.registration.operation == operation && addresses.contains a.registration.input &&
@@ -1694,22 +1725,6 @@ partial def decodeObject (trace : Trace) (j : Json) :
         if info.isExplicit then some arg else none
       Trace.record (some trace) value (.object entry.id params)
       return .ok (entry, value)
-
-partial def descriptorEdge? (state : RegistryState) (json : Json) : Option EdgeRef := do
-  let tag ← (json.getObjValAs? String "ctor").toOption
-  let args ← ((json.getObjVal? "args").bind (·.getArr?)).toOption
-  if let some entry := state.functors.find? (·.id.raw == tag) then
-    return .functor entry.id
-  match tag, args with
-  | "classifierForget", #[id, _] =>
-      let id ← id.getStr?.toOption
-      let entry ← state.classifiers.find? (·.id.raw == id)
-      some (.classifierForget entry.id)
-  | "constructorMap", #[id, inner] =>
-      let id ← id.getStr?.toOption
-      let entry ← state.constructors.find? (·.id.raw == id)
-      some (.constructMap entry.id (← descriptorEdge? state inner))
-  | _, _ => none
 
 /-- Recover ordered application arguments beneath elaborator type hints. -/
 def actualApplicationArguments (application : Expr) : Array Expr := Id.run do
@@ -2906,6 +2921,99 @@ def operationRecipeId? (wire : Wire) : Option String :=
 def operationRecipe (wire : Wire) (id : OperationId) : Bool :=
   operationRecipeId? wire == some id.raw
 
+/-- Read the literal inner action from the constructor's published interface,
+after the whole selected action has been checked independently. -/
+def constructorActionArgument (state : RegistryState) (constructor : ConstructorId)
+    (actual : Expr) : TermElabM Expr := do
+  let some name := (state.constructor? constructor).bind (·.functorialAction)
+    | throwError "the selected constructor has no complete action on functors"
+  let mut application := (← instantiateMVars actual).consumeMData.headBeta
+  while application.isAppOfArity ``id 2 do
+    application := application.appArg!.consumeMData.headBeta
+  unless application.getAppFn.isConstOf name do
+    throwError "the selected constructor lost its original complete action application"
+  let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
+    fields.mapM (·.fvarId!.getBinderInfo)
+  let explicit := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+  let #[original] := explicit
+    | throwError "the selected constructor changed its complete inner functor interface"
+  return original
+
+/-- Preserve the selected declaration's own parameter occurrences. A strict
+execution demand uses the existing whole-action checker, never traversal order. -/
+def actionDeclarationParameters (state : RegistryState) (edge : EdgeRef)
+    (actual : Expr) (strict : Bool) : TermElabM (Array Expr) := do
+  let declaration ← match edge with
+    | .functor id =>
+      let some entry := state.functor? id | throwError "the selected action is not registered"
+      pure entry.declaration
+    | .classifierForget id =>
+      let some entry := state.classifiers.find? (·.id == id)
+        | throwError "the selected classifier is not registered"
+      pure entry.declaration
+    | _ => throwError "a constructed action requires its complete inner descriptor"
+  let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun fields _ =>
+    fields.mapM (·.fvarId!.getBinderInfo)
+  let actual ← instantiateMVars actual
+  let application ← if strict then do
+    let some selected ← FunctorActionData.registeredAction? state actual
+      | throwError "the executable descriptor lost its whole selected action application"
+    unless selected.edge == edge do
+      throwError "the executable descriptor selected a different registered edge"
+    pure selected.declarationApplication
+  else do
+    let some application := actual.find? fun term =>
+        term.getAppFn.constName? == some declaration && term.getAppNumArgs == infos.size
+      | throwError "the complete selected action application was lost"
+    pure application
+  return (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+
+/-- Both projections use the same whole registered action check. -/
+def checkExecutableEdgeAction (state : RegistryState) (edge : EdgeRef) (action : Expr) :
+    TermElabM Unit := do
+  unless FunctorActionData.closedParameter action && (← isTypeCorrect action) do
+    throwError "the executable edge requires its complete selected action"
+  match edge with
+  | .functor _ | .classifierForget _ =>
+    let some selected ← FunctorActionData.registeredAction? state action
+      | throwError "the executable action lost its complete registered declaration"
+    unless selected.edge == edge do
+      throwError "the executable action differs from its complete selected declaration"
+  | .constructMap .. =>
+    let expected ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
+    unless ← withTransparency .all <|
+        isDefEq (← inferType expected) (← inferType action) <&&> isDefEq expected action do
+      throwError "the executable constructor action changed its full accepted declaration"
+
+/-- Named functors keep their existing parameter vector; derived addresses carry
+the complete already public nested action as their single framing parameter. -/
+def edgeActionInvocation (state : RegistryState) (edge : EdgeRef) (descriptor : Json)
+    (morphismAction : Bool) : TermElabM (String × Array Json) := do
+  match edge with
+  | .functor id =>
+    let some entry := state.functor? id | throwError "the selected functor is no longer registered"
+    let .ok parameters := (descriptor.getObjVal? "args").bind (·.getArr?)
+      | throwError "the executable action lost its complete ordered parameters"
+    pure ((if morphismAction then entry.mapAddress else id.raw), parameters)
+  | _ => pure ((if morphismAction then edgeActionMapAddress edge else edgeActionAddress edge),
+      #[descriptor])
+
+/-- Retain independently supplied actual endpoints around an unframed whole
+reply. The original callable and every nested opaque owner remain intact. -/
+def retainMapImageEndpoints (received source target : Wire) : TermElabM Wire := do
+  if (Backend.TypedMap.decode received.json).isOk then return received
+  let framed := Backend.TypedMap.encode {
+    source := source.json, target := target.json, callable := received.json }
+  let mut owner := received.owner?
+  for endpoint in #[source, target] do
+    if containsOpaqueData endpoint.json then
+      let some endpointOwner := endpoint.owner?
+        | throwStratum .unavailable "a mapped callable lost an actual endpoint's opaque owner"
+      owner ← mergeOwners owner (some endpointOwner)
+  return { received with payload := computedPayload received.value framed owner }
+
 mutual
 
 -- Closed element data comes from the formal operation trace, never from carrier matching.
@@ -3076,26 +3184,12 @@ partial def realizedEdgeDescriptor (h : Harness) (trace : Trace) (edge : EdgeRef
     (actual : Expr) : TermElabM (Json × Array Wire) := do
   let state ← registryState
   if let .constructMap constructor inner := edge then
-    let (descriptor, dependencies) ← realizedEdgeDescriptor h trace inner actual
+    let original ← if h.demandObjectActions then constructorActionArgument state constructor actual
+      else pure actual
+    let (descriptor, dependencies) ← realizedEdgeDescriptor h trace inner original
     return (Json.mkObj [("ctor", "constructorMap"),
       ("args", Json.arr #[toJson constructor.raw, descriptor])], dependencies)
-  let declaration ← match edge with
-    | .functor id =>
-        let some entry := state.functor? id | throwError "the selected action is not registered"
-        pure entry.declaration
-    | .classifierForget id =>
-        let some entry := state.classifiers.find? (·.id == id)
-          | throwError "the selected classifier is not registered"
-        pure entry.declaration
-    | _ => unreachable!
-  let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun fields =>
-    fun _ => fields.mapM (·.fvarId!.getBinderInfo)
-  let actual ← instantiateMVars actual
-  let some application := actual.find? fun term =>
-      term.getAppFn.constName? == some declaration && term.getAppNumArgs == infos.size
-    | throwError "the complete selected action application was lost"
-  let parameters := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
-    if info.isExplicit then some argument else none
+  let parameters ← actionDeclarationParameters state edge actual h.demandObjectActions
   let (data, dependencies) ← realizedParameters h trace parameters
   let descriptor := match edge with
     | .functor id => Json.mkObj [("ctor", id.raw), ("args", Json.arr data)]
@@ -3137,6 +3231,10 @@ partial def executeObjectAction (h : Harness) (trace : Trace) (operation : Strin
     | .construction entry false =>
       let some form := state.constructionForm? entry.inputAddress
         | throwError "the construction lost its complete request input"
+      pure form
+    | .edgeAction edge false =>
+      let some form := state.edgeActionInputForm? (edgeActionInputAddress edge)
+        | throwError "the derived object action lost its complete request input"
       pure form
     | _ => throwError "the executable object action does not name a functor projection"
   let invocation : Backend.ConstructionInvocation := {
@@ -3195,19 +3293,7 @@ partial def executeObjectEdge (h : Harness) (trace : Trace) (edge : EdgeRef)
   let state ← registryState
   discard <| Semantic.objOf action original.value
   let action ← instantiateMVars (← Semantic.asFunctor action)
-  unless FunctorActionData.closedParameter action && (← isTypeCorrect action) do
-    throwError "the executable edge requires its complete selected action"
-  match edge with
-  | .functor _ | .classifierForget _ =>
-    let some selected ← FunctorActionData.registeredAction? state action
-      | throwError "the executable action lost its complete registered declaration"
-    unless selected.edge == edge do
-      throwError "the executable action differs from its complete selected declaration"
-  | .constructMap .. =>
-    let expected ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
-    unless ← withTransparency .all <|
-        isDefEq (← inferType expected) (← inferType action) <&&> isDefEq expected action do
-      throwError "the executable constructor action changed its full accepted declaration"
+  checkExecutableEdgeAction state edge action
   let original ← realizeObjectObservation h trace original
   if let .proofRefinement _ classifier _ := original.form then
     if edge == .classifierForget classifier then return ← proofRefinementBase trace original action
@@ -3218,12 +3304,8 @@ partial def executeObjectEdge (h : Harness) (trace : Trace) (edge : EdgeRef)
     unless (projected.getObjValAs? String "ctor").toOption == some "functorAction" do
       return { template with payload := (← combinedPayload template.value projected
         (#[original] ++ dependencies)), objectObserved := true }
-  let .functor id := edge
-    | throwStratum .noImplementation
-        "the registered classifier or constructor action has no published object-action address"
-  let .ok parameters := (descriptor.getObjVal? "args").bind (·.getArr?)
-    | throwError "the executable action omitted its complete ordered parameters"
-  executeObjectAction h trace id.raw action original template parameters dependencies
+  let (operation, parameters) ← edgeActionInvocation state edge descriptor false
+  executeObjectAction h trace operation action original template parameters dependencies
 
 /-- Execute a prescribed composite in categorical order, retaining and reusing
 each actual intermediate image. No failed primitive chooses a different route. -/
@@ -3321,6 +3403,10 @@ partial def executeMapAction (h : Harness) (trace : Trace) (operation : String)
       let some form := state.constructionForm? entry.inputAddress
         | throwError "the executable construction map lost its complete request input"
       pure form
+    | .edgeAction edge true =>
+      let some form := state.edgeActionInputForm? (edgeActionInputAddress edge)
+        | throwError "the derived map action lost its complete request input"
+      pure form
     | _ => throwError "the executable map does not name a registered functor projection"
   let request : Wire := {
     form := inputForm
@@ -3338,16 +3424,7 @@ partial def executeMapAction (h : Harness) (trace : Trace) (operation : String)
   -- endpoints. Retain those exact actual packets on this occurrence before
   -- another action can inspect it; the formal result cache is not an endpoint
   -- presentation table. The original returned callable remains unchanged.
-  let result ← if (Backend.TypedMap.decode received.json).isOk then pure received else do
-    let framed := Backend.TypedMap.encode {
-      source := imageSource.json, target := imageTarget.json, callable := received.json }
-    let mut owner := received.owner?
-    for endpoint in images do
-      if containsOpaqueData endpoint.json then
-        let some endpointOwner := endpoint.owner?
-          | throwStratum .unavailable "a mapped callable lost an actual endpoint's opaque owner"
-        owner ← mergeOwners owner (some endpointOwner)
-    pure { received with payload := computedPayload template.value framed owner }
+  let result ← retainMapImageEndpoints received imageSource imageTarget
   retainActionResult h {
     operation, action, input := original, parameters, parameterInputs := parametersInputs
     imageEndpoints := images, result }
@@ -3362,23 +3439,19 @@ partial def executeMapRoute (h : Harness) (trace : Trace) (original : Wire)
   let state ← registryState
   let mut result := original
   for (edge, action) in route.zip applications do
-    let .functor id := edge
-      | throwStratum .noImplementation
-          "the registered classifier or constructor action has no published map-action address"
-    let some entry := state.functor? id | throwError "the selected functor map is no longer registered"
     discard <| Semantic.mapOf action result.value
     let action ← instantiateMVars (← Semantic.asFunctor action)
-    let some selected ← FunctorActionData.registeredAction? state action
-      | throwError "the executable map lost its complete registered functor"
-    unless selected.edge == edge do
-      throwError "the executable map differs from its complete selected functor"
+    checkExecutableEdgeAction state edge action
+    let some sourceExpression := state.selectedEdgeSource? edge
+      | throwError "the executable map lost its complete registered source"
+    let some targetExpression := state.selectedEdgeTarget? edge
+      | throwError "the executable map lost its complete registered target"
     let (sourceBundle, targetBundle) ← functorCategoryBundles action
-    let source : CategoryContext := { expression := entry.source, bundle := sourceBundle }
-    let target : CategoryContext := { expression := entry.target, bundle := targetBundle }
+    let source : CategoryContext := { expression := sourceExpression, bundle := sourceBundle }
+    let target : CategoryContext := { expression := targetExpression, bundle := targetBundle }
     let (descriptor, dependencies) ← realizedEdgeDescriptor
       { h with demandObjectActions := true } trace edge action
-    let .ok parameters := (descriptor.getObjVal? "args").bind (·.getArr?)
-      | throwError "the executable map lost its complete ordered parameters"
+    let (operation, parameters) ← edgeActionInvocation state edge descriptor true
     let formal ← Semantic.mapOf action result.value
     let template : Wire := {
       form := contextualForm state target result.form true
@@ -3386,7 +3459,7 @@ partial def executeMapRoute (h : Harness) (trace : Trace) (original : Wire)
         (Json.mkObj [("ctor", "map"), ("args", Json.arr #[descriptor, result.json])])
         (#[result] ++ dependencies))
       categoryContext := some target }
-    result ← executeMapAction h trace entry.mapAddress action source target result template
+    result ← executeMapAction h trace operation action source target result template
       descriptor parameters dependencies (executeObjectEdge h trace edge action)
   return result
 

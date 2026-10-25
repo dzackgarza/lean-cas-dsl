@@ -7,6 +7,8 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 |---|---|
 | `CatCommSq hComp pasting composition squares` | mathlib4 `CategoryTheory/CatCommSq.lean` (`hComp`, `hComp'`) |
 | `CategoryTheory Functor obj map composition` (2026-10-25) | Existing Mathlib `Functor.obj`, `Functor.map`, `Functor.comp`; no new mathematical declaration needed |
+| `mapArrowFunctor` (2026-10-25) | Mathlib `CategoryTheory/Comma/Arrow.lean`, `Functor.mapArrowFunctor`; the registered constructor already uses `Functor.mapArrow` |
+| `coreComp` (2026-10-25) | Mathlib `CategoryTheory/Core.lean`, `Functor.coreComp`; the registered constructor already uses `Functor.core` |
 
 ## Owner
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
@@ -84,7 +86,8 @@ session. Registered comparison endpoints reuse their selected object actions;
 they do not search equal cached objects. The existing full-field projection and
 proof-refinement restoration paths remain intrinsic. A general classifier or
 constructor-induced action still needs the separately identified public address
-projection; this first checkpoint does not close that interface gap.
+projection; the first checkpoint left that interface gap open. The derived
+projection below supplies it without adding mathematical rows.
 
 `FunctorActionExecutionProbes` launches two arbitrary protocol processes and
 checks actual packets, ordered parameters, selected action identity, image
@@ -98,3 +101,40 @@ actual representations. A bare returned owned callable retains those selected
 image packets inside the existing typed-map form before the next action runs.
 The original callable data and every opaque endpoint owner remain intact; the
 expression-keyed result cache cannot merge the two endpoint occurrences.
+
+## Derived registered edge actions — 2026-10-25
+
+`Admission.edgeImageDescriptor` already supplies the recursive identity for a
+functor, classifier forgetful action, or constructor-induced action. The public
+`Semantic.edgeFunctor` and `applyConstructorFunctor` interfaces supply their
+full selected mathematical functors. The executor now projects canonical
+object/map/input addresses from that existing identity for non-functor roots.
+Every constructor must already publish its functorial action. Bare functors keep
+their original identifiers and ordered parameter vectors.
+
+The derived invocation carries the complete existing action descriptor as its
+single framing parameter. The object and map executors share their whole-action,
+category, endpoint, owner and result checks with named functors. Strict descriptor
+encoding uses the exact declaration application selected by
+`FunctorActionData.registeredAction?`; an ignored earlier occurrence cannot
+substitute its parameter packet or owner. Nested constructors recover their
+literal inner action through the published constructor declaration before
+recursively encoding it. No category-specific decoder or mathematical action is
+introduced.
+
+The existing public `coreObject` packet had an interface reconstruction path but
+no corresponding port-validation branch. Validation now projects the selected
+formal object's `Core.of` field using the existing checked record-projection
+helper, then validates its original complete object recursively. Malformed,
+missing, or unrelated child interfaces remain rejected. Nonrecursive request
+helpers are outside the large realization mutual block so its normal compiler
+heartbeat budget is unchanged.
+
+`DerivedActionExecutionProbes` checks a classifier, Arrow of a registered functor,
+Core of that Arrow action, and a parameterized action with an ignored earlier
+parameter occurrence. Its arbitrary protocol process returns owned images and
+bare owned maps. Controls retain actual source data, full nested descriptors,
+exact image endpoints and owners, and reuse the actual image without replay.
+Canonical admission and malformed Core inputs have independent negative checks.
+These controls do not supply mathematical outcomes or close the separate
+leaf-facing computational service and frozen-leaf integration experiments.

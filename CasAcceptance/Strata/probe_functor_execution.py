@@ -1,6 +1,7 @@
 """Arbitrary protocol witnesses for action execution; no mathematical answers."""
 
 import itertools
+import json
 import sys
 import uuid
 
@@ -37,11 +38,38 @@ def fresh():
     return opaque_data(token)
 
 
+def action_identity(action):
+    tag, args = action.get("ctor"), action.get("args")
+    if not isinstance(tag, str) or not isinstance(args, list):
+        raise ValueError("the selected action has no complete descriptor")
+    if tag == "classifierForget":
+        if len(args) != 2 or not isinstance(args[0], str) or not isinstance(args[1], list):
+            raise ValueError("the classifier action omitted its ordered parameters")
+        return {"classifierForget": args[0]}
+    if tag == "constructorMap":
+        if len(args) != 2 or not isinstance(args[0], str):
+            raise ValueError("the constructor action omitted its complete inner action")
+        return {"constructorMap": [args[0], action_identity(args[1])]}
+    return {"functor": tag}
+
+
+def selected_action(parameters):
+    if operation.startswith("action:"):
+        if len(parameters) != 1:
+            raise ValueError("the derived action lost its single complete action parameter")
+        action = parameters[0]
+        if action_identity(action) != json.loads(operation.removeprefix("action:")):
+            raise ValueError("the actual action differs from its selected derived address")
+        return action
+    return node(operation, *parameters)
+
+
 def object_action(request):
     if request.get("ctor") != operation or not isinstance(request.get("args"), list):
         raise ValueError("object action changed its selected declaration")
     if "receiver" not in request:
         raise ValueError("object action omitted its complete source")
+    selected_action(request["args"])
     if any(token not in issued for token in tokens(request)):
         raise ValueError("object action received a foreign source owner")
     if "--first-opaque" in options and not images or "--opaque-objects" in options:
@@ -61,7 +89,7 @@ def map_action(request):
     if arrow.get("ctor") != "map" or len(arrow.get("args", [])) != 2:
         raise ValueError("map action lost its original source map")
     action, original = arrow["args"]
-    if action != node(operation, *parameters):
+    if action != selected_action(parameters):
         raise ValueError("map action changed its selected complete parameters")
     if original.get("ctor") != "typedMap" or len(original.get("args", [])) != 3:
         raise ValueError("map action discarded a complete source endpoint")

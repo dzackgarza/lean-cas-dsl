@@ -170,11 +170,37 @@ session. A target-only consumer receives the actual target packet; the internal
 action receipt does not require it to decode source routes or source data.
 
 Checked projections from actual complete Arrow/subobject fields and restoration
-of a retained proof-refinement source remain intrinsic. At this checkpoint,
-other classifier-forget and constructor-induced actions still lack general
-public executable addresses and report that specific missing implementation.
-That address gap is distinct from an unavailable representation bridge between
-two live processes; neither is filled by changing a target consumer's decoder.
+of a retained proof-refinement source remain intrinsic. Other classifier-forget
+and constructor-induced actions use the same executor through a canonical
+derived address. Write `E` for the existing structured edge identity:
+
+```text
+E = {"functor": id}
+  | {"classifierForget": id}
+  | {"constructorMap": [constructorId, E]}
+```
+
+For a non-functor root, the object address is `action:` followed by the canonical
+compact JSON spelling of `E`; its map and input projections append `#map` and
+`#input`. Every referenced row must exist, and every constructor must publish its
+action on functors. A bare functor root retains its existing public identifier;
+alternate JSON spellings are not aliases. The recursive family includes nested
+registered constructors and therefore is not a finite list of new operations.
+
+Both requests carry the existing complete action descriptor as their single
+framing parameter. It retains the ordered actual parameters inside every nested
+action. The object request retains its actual receiver. The map request uses
+that same descriptor in `map(action, typedMap(X_actual, Y_actual, f_actual))`
+and retains the actual image endpoints fixed before dispatch. An implementation
+at one derived input cannot supply a different edge's action. The kernel checks
+the whole selected formal action separately from these framing checks.
+
+The existing `coreObject(original)` data form is checked through the independently
+selected `Core.of` field and its original complete object interface. Missing or
+unrelated data cannot select that field. An absent admitted primitive action
+reports a computational gap; an unavailable representation bridge between live
+processes remains distinct. Neither is filled by changing a target consumer's
+decoder.
 
 ## A registration is data
 
