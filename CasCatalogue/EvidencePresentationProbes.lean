@@ -6,7 +6,7 @@ meta import CasCatalogue.Language
 open Lean Meta Elab Command Term
 open CasCatalogue CasCatalogue.Language
 
-/- Stored structures can be exposed without expanding the supplied carrier expression.
+/- Stored fields expose the supplied polynomial type through its selected structures.
 The published evidence still inhabits the original target; a nonunit remains refused. -/
 run_cmd liftTermElabM <| withOptions
     (fun options => options.setBool `backward.isDefEq.respectTransparency true) do
@@ -42,8 +42,9 @@ run_cmd liftTermElabM <| withOptions
       unless presented.getAppFn == original.getAppFn && (← isTypeCorrect presented) &&
           (← withTransparency .all <| isDefEq presented original) do
         throwError "presenting the carrier changed the original predicate or chosen data"
-      unless presented.getAppArgs[0]! == original.getAppArgs[0]! do
-        throwError "presenting stored structures changed the supplied carrier context"
+      let carrier ← whnfR presented.getAppArgs[0]!
+      unless carrier.isAppOf ``Polynomial do
+        throwError "the supplied polynomial carrier is still hidden by categorical plumbing"
       if numeral == 2 then
         let term ← establish evidence original m!"registered constant-unit admission"
         unless (← getOptions).getBool `backward.isDefEq.respectTransparency true ==

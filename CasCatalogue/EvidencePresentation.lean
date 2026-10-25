@@ -34,11 +34,12 @@ def suppliedHomPresentation (state : RegistryState) (p : Expr) : MetaM Expr :=
       throwError "closed Hom action changed its supplied value"
     return .done normalized) (skipConstInApp := true)
 
-/-- Present the stored structures of supplied closed registered objects without expanding their
-carrier expressions. Carrier projections retain the selected object context needed by registered
-evidence. Only an actual constructor field is exposed, using Lean's projection metadata. A class
-dictionary may use an ordinary instance only when its entire type and data are definitionally equal
-to the supplied dictionary. No predicate, proof procedure, or mathematical value is selected here. -/
+/-- Present actual stored fields of supplied closed registered objects. Forwarding through the
+same structure projection retains the original selected parameter context; fields supplied through
+another structure expose their stored descriptions. Named and primitive projections use Lean's
+constructor metadata. Ordinary class instances are used only when their complete types and data
+are definitionally equal to the supplied dictionaries. No mathematical or proof-procedure case is
+selected, and the complete original target is checked after presentation. -/
 def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
   let objectTypes ← IO.mkRef ({} : Std.HashMap Expr Bool)
   let isObject (object : Expr) : MetaM Bool := do
@@ -59,6 +60,19 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
         break
     unless type.hasMVar || type.hasLevelMVar do objectTypes.modify (·.insert type found)
     return found
+  -- Forwarding the same stored projection retains its selected object context.
+  -- A field supplied by a different structure can expose its actual stored data.
+  let isSameForwardedProjection (struct : Name) (index : Nat) (value : Expr) : MetaM Bool := do
+    let value := value.consumeMData
+    if let .proj forwardedStruct forwardedIndex object := value then
+      unless forwardedStruct == struct && forwardedIndex == index do return false
+      return ← isObject object
+    let .const name _ := value.getAppFn | return false
+    let some info ← getProjectionFnInfo? name | return false
+    unless value.getAppNumArgs == info.numParams + 1 do return false
+    let ctor ← getConstInfoCtor info.ctorName
+    unless ctor.induct == struct && info.i == index do return false
+    isObject value.appArg!
   let field (struct : Name) (index : Nat) (object : Expr) : MetaM (Option Expr) := do
     unless ← isObject object do return none
     let object ← withTransparency .default <| whnf object
@@ -68,7 +82,8 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
     unless object.isAppOfArity ctor.name (ctor.numParams + ctor.numFields) do return none
     if index ≥ ctor.numFields then return none
     let value := object.getArg! (ctor.numParams + index)
-    if ← isType value then return none
+    if ← isType value then
+      if ← isSameForwardedProjection struct index value then return none
     return value
   let presented ← Meta.transform p (post := fun e => do
     if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
@@ -97,8 +112,7 @@ def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
       return some candidate
     match candidate? with
     | none => return .continue
-    | some candidate =>
-        return .done candidate) (skipConstInApp := true)
+    | some candidate => return .done candidate) (skipConstInApp := true)
   unless !presented.hasMVar && !presented.hasLevelMVar && (← isTypeCorrect presented) &&
       (← withTransparency .all <| isDefEq presented p) do
     throwError "the field presentation changed the complete target"

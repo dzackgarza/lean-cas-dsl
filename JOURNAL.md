@@ -2827,3 +2827,26 @@ positive/negative and option-scope controls remain. The corrected bilinear
 admission still rejects in 11.466 seconds, with the complete original map and
 type independently checked. This is an unfinished source checkpoint, not a
 passing integrated candidate; no combined build or frozen-trial pass is inferred.
+
+## 2026-10-25 — Preserve selected projection contexts during admission
+
+The bounded carrier-field isolation identified the missing distinction. On the
+unchanged corrected bilinear function, exposing the regular module's stored ring
+field alone establishes the original obligation, while exposing the earlier
+reindexed module's same module field alone had caused rejection. The generic
+presentation therefore retains forwarding through the same authoritative
+structure projection and field index; it exposes fields supplied through other
+structures. It contains no predicate, operation, backend or mathematical-name
+case, and it invokes no proof procedure of its own.
+
+The exact candidate passes the five original admission obligations and the
+polynomial unit positive/negative controls in 24.228 seconds with unchanged
+imported artifacts. Every accepted proof is closed, free of sorry, and checked
+at the original complete target. The compiled reader retains the independent
+whole hyperbolic function and its complete type, rejects the erroneous additive
+reading, and records both ring products. Full Term/Meta/Core state is isolated
+between diagnostic variants; the raw bilinear control still rejects. The prior
+insufficient candidates and the scratch layout failure remain preserved.
+The existing polynomial-head engineering assertion is restored without changing
+its mathematical controls or any permanent question. Source integration now
+requires the combined consumer build and unchanged execution trials.

@@ -1800,8 +1800,8 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
   let p ← instantiateMVars p
   if p.hasMVar || p.hasLevelMVar then
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
-  -- Expose only definitionally identical stored structures, retaining carrier
-  -- expressions and their selected object context. The registered procedure runs
+  -- Expose only definitionally identical stored fields, retaining the selected
+  -- context of a forwarded same-structure projection. The registered procedure runs
   -- once on this uniform presentation, and its result must inhabit the original p.
   let presented ← evidencePresentation (← registryState) p
   let goal ← mkFreshExprMVar presented .syntheticOpaque

@@ -49,9 +49,27 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
-The subsequent source checkpoint `3983ce2` contains the numeric-only ambient
+The next admission repair preserves forwarding through the same structure
+projection, using Lean's authoritative structure name and field index, while
+exposing actual fields supplied through different structures. Its isolated
+24.228-second check proves the two exact limits, both reindexed-map obligations,
+the corrected whole bilinear map, and the constant-polynomial unit 2; unit 0
+still rejects. Every successful result is a closed typed proof at the original
+complete target after one registered evidence call. The existing polynomial-head
+engineering assertion is restored, with all original positive/negative and
+option-scope controls retained. The full integrated consumer build is pending.
+
+A separate bounded execution review found a remaining production call to the
+pure action encoder inside `executePrescribedLift`. Its evidence parameters
+already use actual cached data, but the nested action parameters can still be
+rebuilt from formal expressions. The owning correction must use the existing
+realized action encoder and retain its dependencies through the ordered lift
+packet. This is a source-level computational-data defect; no new mathematical
+row or current end-to-end workflow failure is asserted from the review alone.
+
+The earlier source checkpoint `3983ce2` contains the numeric-only ambient
 product correction and scoped implicit-argument conversion. Both are retained.
-The current admission presentation is an unfinished candidate: it exposes actual
+Checkpoint `717ecd2` had an unfinished admission presentation: it exposed actual
 stored non-type fields and definitionally identical class dictionaries while
 preserving carrier expressions. Isolated checks prove both unchanged limit
 obligations and both reindexed-module obligations (13.820 seconds), and preserve
@@ -65,8 +83,8 @@ exterior carrier of the reindexed module by its stored carrier alone makes its
 registered evidence reject, while three other actual stored fields individually
 retain a proof. These diagnostics restore complete Term/Meta/Core state between
 attempts. Earlier variants changed projection metadata and dictionary synthesis
-together, so their differences did not establish a dictionary defect. The next
-repair must supply one uniform presentation for both consumers, without changing
+together, so their differences did not establish a dictionary defect. The repair
+above supplies one uniform presentation for both consumers without changing
 the questions or retrying evidence after rejection. Complete raw diagnostics,
 including failures and interrupted runs, are preserved separately.
 
