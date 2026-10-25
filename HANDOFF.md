@@ -12,123 +12,126 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
-The previous integrated publication is `7c87f0c310a4ee70de8cd908d54bf4ab992406dd`,
-tree `edd462792cf6c04e4e469eccd96e4b2504903f89`, fetched back and compared as a
-complete tree. It retains the complete inclusion/carrier, typed binding, reader
-reuse, literal owned action and completed-lift parameter/source-context repairs.
-Its full consumer build closed with exit 1 after 841.960 seconds, with unchanged
-sources and exactly one failed module: `RegisteredMapAdmissionProbes`. A separate
-reader/execution-consumer build, including all six fixed mathematical imports,
-passed in 9.228 seconds. That scoped success does not close the full gate.
+The current built implementation is `cedfad6664a2301b7b360e17055523a47e479bd5`,
+tree `15cb779812f162e16f21e452bcb7eaa3403832e3`, fetched back and compared as a
+complete tree. This progress checkpoint changes the handoff only; it does not
+relabel the producer of any completed build or experiment.
 
-This checkpoint combines two subsequent generic repairs:
+The complete consumer build at `cedfad6` passed in 731.420 seconds with every
+selected source unchanged. It includes the original RegisteredMapAdmissionProbes,
+the new declared-parameter and callable-coordinate controls, the kernel aggregate,
+purity gates, language/tools and all six fixed mathematical imports. The subsequent
+native build passed in 34.965 seconds at the same unchanged source tuple. It builds
+cas-registry-export, cas-axiom-audit, cas-harness, cas-question-export, nbdsl_worker,
+CasDsl.Notebook and the fixed suite/imports. These are build results, not mathematical
+acceptance or completion of the remaining execution obligations.
 
-- Quoted DSL file names resolve their exact scoped binding first, then their
-  written file name. Bound variables keep their exact lexical identity. Scoped
-  syntax is excluded from the printed-source cache after a new control exposed
-  a collision between distinct names with the same printed spelling.
-- A projected typed parameter consumes its actual point first. When the complete
-  selected object and its type agree with the independently checked target, its
-  existing `morphismEndpoint` supplies the actual endpoint without requiring a
-  separate named presentation. Different structures on one carrier keep their
-  own descriptors. Actual packets, endpoint directions and owners are preserved.
-- Closed symbolic points retain their complete coordinate endpoints as well as
-  their arithmetic-owner expression when composed or placed in a product. This
-  uses the existing `typedMap` contract. Full formal endpoint checks precede the
-  already-framed reuse path; existing presentation and owned-callable envelopes
-  retain their data.
+The published implementation retains the earlier inclusion/carrier, typed binding,
+reader reuse, literal owned action and completed-lift parameter/source-context work.
+Its most recent integrated repairs preserve exact scoped file bindings, exclude
+macro-scoped syntax from the printed-source cache, recover actual projected point
+endpoints, and frame symbolic callable coordinates using the existing typedMap form.
+The unchanged admission probe and the focused endpoint, product, context and purity
+controls pass. No protected question, expected answer, registry row or resource
+budget was changed. The earlier full build failure at `7c87f0c` is retained separately.
 
-The unchanged admission probe and the added lexical/endpoint countercontrols
-pass on their exact isolated candidate, along with GlobalStage, contextual Hom
-framing and purity controls. Seven focused coordinate-framing consumers pass on
-the other isolated candidate. Both new control modules are in the kernel aggregate;
-candidate CI explicitly selects the original admission probe as well. No protected
-question, expected mathematical answer, registry row or resource budget changed.
-The combined source still needs its own complete consumer/native verification.
+At `7c87f0c310a4ee70de8cd908d54bf4ab992406dd`, all 153 permanent readings exported
+with unchanged source, artifact and input guards. Independent assessment has now
+matched every complete reading to its required mathematics. Of the full encodings,
+135 are unchanged from the earlier assessed export; 18 were assessed explicitly:
+11 parameter-comparison proof propositions, five Type-valued inverse witnesses,
+and two containments retaining their canonical inclusion maps and ordered composites.
+The inverse witnesses were assessed using their exact types and subsingleton result,
+not discarded as proposition proofs. The assessment supplies no computational,
+admission, migration or release verdict. A final producer export and review remain
+required after the active generic repairs.
 
-At `7c87f0c`, all 153 permanent meanings exported in 377.140 seconds with unchanged
-source, compiled-artifact and input guards. There are no unreadable permanent IDs.
-Eighteen complete question encodings and five printed proposition encodings differ
-from the earlier `da6af543` export. An isolated mathematical reviewer is assessing
-every ID, including those differences; no implementation author approves a meaning
-change. The current export records `Init.olean` and `bin/lean` before and after.
-The earlier assessment's later-recorded Init digest remains a historical limitation.
-The full 134-question extension export and 113-question general computation run
-remain active at unchanged `7c87f0c`; their final reports must be consumed.
+The complete 134-question extension export at `7c87f0c` closed in 1541.279 seconds:
+124 complete readings and ten unreadable IDs. The missing readings involve a lifted
+point's selected carrier, complete receiver selection and deterministic 200000-
+heartbeat failures in lifted-factor/pairing and additive-map interpretation. All
+original inputs, diagnostics and producer guards are preserved. The general suite
+executed all 113 fixed IDs in one shared harness, closing in 1577.866 seconds with
+10 holds, 86 gaps, 12 internal failures and five unavailable outcomes; three binding
+failures are separately retained. No IDs were dropped or duplicated. These results
+do not close the kernel: required generic representability and interpretation defects
+remain active repair work. Missing ordinary leaf registrations are tracked separately.
+
+All four inheritance and all 17 F9 questions were also executed at `7c87f0c`; each
+is recorded as a gap. Competing implementation selections in those original manifests
+are preserved in the reports. A prepared explicit selection keeps the existing Fin
+cardinality implementation without the competing generic row, and uses the connected
+demo's existing 21-registration selector for F9. This is a computational configuration,
+not a registry priority rule or a change to the questions. Do not shard the 113-question
+general run by file: its one production harness deliberately shares actual returned
+data, backend connections and failure/session state across the sorted files.
 
 The unchanged observation controls at `7c87f0c` establish:
 
 - RX05: both coherent registry orders preserve the complete typed requests and
-  resolution metadata. Both comparison-absent orders retain all four actual
-  candidates, including the additive-commutative-monoid route. Actual comparison
-  directions and component terms are retained, not replaced by a two-route model.
-- RX09: all four prerequisites elaborate; the original constant-one family is
-  rejected as invalid at admission. The actual closed Summable obligation is
-  checked against the independent theorem's exact proposition, with zero dispatches.
-- Original RX08: eight prerequisites succeed, then `projection.ker()` remains
-  ambiguous between the module and inherited group kernel. The independently
-  assessed `.kernel()` positive is separate and unchanged.
+  resolution metadata. Both comparison-absent orders retain all four actual routes,
+  including the additive-commutative-monoid route, with their actual components.
+- RX09: four prerequisites elaborate, then the original constant-one family is
+  invalid at admission. Its actual closed Summable obligation matches the independently
+  supplied proposition, with zero backend dispatches.
+- Original RX08: eight prerequisites succeed; projection.ker() remains ambiguous
+  between module and inherited group kernels. The independently assessed .kernel()
+  positive is a separate unchanged input.
 
-RX10 at `7c87f0c` preserved the exact typed question and reused its returned callable,
-but the holds/wrong conditions failed at a mismatched complete source descriptor.
-The isolated coordinate-framing repair removes that error. Its unchanged RX10 run
-then reaches an equality `NoImplementation` gap in both conditions after three
-dispatches; the remaining path is under investigation. Gap, unavailable, malformed
-and internal conditions have their expected strata. Session controls have not yet
-completed. These are failed intermediate runs, not fixed-question completion.
+The isolated coordinate-framing repair removed RX10's original mapped-source
+descriptor mismatch. Its unchanged fixed question then reaches an equality
+NoImplementation gap after three dispatches, retaining the returned callable and
+complete question. Gap, unavailable, malformed and internal conditions have their
+expected strata; holds/wrong and session controls are not complete. The later failure
+is in consumption of function-valued element data by the selected adapter. Preserve
+this failed attempt; do not claim the successful failure strata establish RX10.
 
-All four inheritance and all 17 F9 questions were executed on the original selected
-manifests at `7c87f0c`; every ID is recorded and none holds. Some failures are explicit
-competing implementation selections; others are adapter declines. A new execution
-selection retains the existing Fin cardinality implementation without its competing
-generic cardinality row, and uses the connected demo's existing 21-registration
-selector for F9. Original manifests and failed reports are preserved. This is an
-explicit computational choice, not a kernel priority rule or a question change.
+The real native workflows and the actual notebook were rerun at `cedfad6` with the
+published public leaf `1c41aa80993cc4b799893bd3165ddb64d9f80939`. The two finite-
+pullback assertions hold; fifteen of seventeen stop at a complete-callable-target
+check. The notebook code cell executed and the unchanged report checker failed.
+Both runs retain unchanged source/artifact guards. A read-only exception trace of
+the original first arithmetic question records different morphismEndpoint descriptors
+for the same formal intermediate carrier. Complete endpoint recovery is being repaired
+in an isolated kernel worktree; the original scalar owner and actual data must survive.
 
-The native/tool/notebook build at `da6af543` completed, but its actual native and
-notebook demonstrations failed: the two finite-pullback assertions hold; the other
-15 of 17 stop at registered adapters declining ring-operation requests or an
-ambiguous vector/map parameter presentation. The ring registrations were present
-and selected. The notebook cell executed and failed the existing report checker.
-Rebuild the actual tools and rerun all four workflows and the notebook after the
-current integration; an old binary or these partial results cannot establish V1.
+The public V1 leaf at `1c41aa8`, tree `859ad6112a127f939e6875c6a09d95d3db7f2396`,
+was fetched back and tree-verified. Its 143 public-only engineering requests cover
+the existing 19 V1 pairs without adding registrations or changing native algorithms.
+A separate public-only review of the existing 66 extension pairs has closed its
+synthesized interface/data-form cases and is completing literal public-documentation
+examples. Those examples independently exposed a V1 selected-ring/carrier reader
+mismatch now being repaired by that author. Neither public-only author receives
+fixed questions, expected answers, kernel source or execution findings. No unfinished
+leaf change is described here as a published or integrated result.
 
-The public-only V1 adapter repair is now published at
-`1c41aa80993cc4b799893bd3165ddb64d9f80939`, tree
-`859ad6112a127f939e6875c6a09d95d3db7f2396`, fetched back and tree-verified. It preserves
-all manifests, the 19 V1 registration pairs and the entire earlier extension
-specimen at `51e0e6e`. It repairs existing public packet framing, callable and
-structured-field consumption, returned-data reuse and nested ownership. Its 143
-independently authored engineering requests assert interface/error behavior only,
-not mathematical answers. A separate public-only sufficiency review of all 66
-existing extension pairs has started. Neither author receives fixed questions,
-expected answers, kernel code or execution findings.
+Active isolated kernel work owns (1) exact carrier/receiver reading and measured
+proof-bearing-value reuse failures, and (2) complete object/parameter realization and
+whole-callable observation. Generic required behavior is not deferred as a leaf gap.
+Publish coherent checked repairs, fetch them back and compare the complete trees,
+integrate them, then rerun affected fixed trials at a new coherent freeze.
 
-The public-form audit and source-grounded composition account retain their exact
-hypotheses: complete selected actions and ordered parameters, accepted comparison
-and refinement evidence, actual-data ownership, recoverable structured schemas,
-and the declared simple-route enclosure. They do not certify arbitrary backend
-correctness or replace fixed experiments. The two completed-lift consumer defects
-are repaired; ordinary older adapter limitations remain separately identified.
-The committed API snapshot and the `da6af543` export are intermediate. Generate and
-publish the final API from the final published, built kernel and exact dependencies.
+The source-grounded composition account is refreshed through `cedfad6`. It preserves
+its hypotheses about complete actions and ordered parameters, accepted comparison
+and refinement evidence, actual-data ownership, recoverable structured schemas and
+the declared simple-route enclosure. It does not certify arbitrary backend behavior.
+The committed API snapshot and the da6af543-generated export remain intermediate;
+generate and publish the final API from the final published, built source combination.
 
-The restored mathematical/contract/Mathlib/notebook revisions and real engines
-remain selected as recorded below. Base CI `40194280154` at `691f94f` passed its
-consumer/native/notebook-worker builds and axiom audit; the `7c87f0c` candidate run
-`40214606657` is still active at this checkpoint. Custodian review `40214609228`
-returned **inputs unavailable**, not a semantic verdict: `rev-parse FETCH_HEAD^{commit}`
-failed in its isolated base checkout. This is noticed but not worked; no independent
-review is replaced or self-approved.
+The selected mathematical/contract/Mathlib/notebook revisions and hash-pinned real
+engines remain unchanged. Base candidate CI 40194280154 at 691f94f passed its builds
+and axiom audit. The cedfad6 candidate CI 40217953880 was still running at the last
+check. Its Custodian review 40217955626 returned inputs unavailable: rev-parse
+FETCH_HEAD^{commit} failed while materializing its isolated base snapshot. This is
+not a semantic verdict; no independent review is replaced or self-approved.
 
-Evidence is preserved separately under
-`libfile_94b086b3c1308191b67e0c34e0d4c364`. The last confirmed replacement is version31,
-35831328 bytes, SHA256
-`a67b72c01356b36a90ad1fb6124799ef8d1f932eb62100ba98619de637b41080`.
-It preserves every earlier attempt and the closed integrated/scoped build receipts
-and composition account. Later closed observations, readings, public-adapter work
-and isolated repairs are ready for the next append. No required generic V1 stub is
-accepted. The complete task below remains active; this is not MVP completion.
+Evidence is preserved separately under libfile_94b086b3c1308191b67e0c34e0d4c364.
+The last confirmed replacement is version34, 45336325 bytes, SHA256
+98150908d1b2e520e1536353aca431b209b6825fedb7c03670aa6eaed852e490.
+It preserves every earlier attempt plus the closed full exports, computational
+reports, native/notebook runs, independent 153-reading assessment and composition
+account. The full task below remains active. This checkpoint is not MVP completion.
+
 
 ## 2. Completion conditions
 
@@ -136,15 +139,15 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 
 | Required result | Acceptance condition | Current evidence and open work |
 | --- | --- | --- |
-| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | The `7c87f0c` full build reproduced the admission failure. This checkpoint includes the scoped verified admission and coordinate-framing repairs; full combined and native verification remains required. |
-| Registry-derived interpretation | Mathematical choices come from accepted declarations. Dependent parameters, selected structures, tuple/destructured binders, closed maps, refinements, and admission use generic paths. Preserve genuine ambiguity. | Substantial implementation and earlier passing reader checks exist. Current full consumers and fixed extension readings remain to be established. |
+| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Complete cedfad6 consumer and native/tool/notebook-worker builds pass at unchanged sources. Active generic repairs will require new integrated verification. |
+| Registry-derived interpretation | Mathematical choices come from accepted declarations. Dependent parameters, selected structures, tuple/destructured binders, closed maps, refinements, and admission use generic paths. Preserve genuine ambiguity. | The full cedfad6 consumers pass. The 7c87f0c extension export has 124/134 complete readings; ten remaining interpretation failures are under generic repair. |
 | Compositional resolution | New objects acquire old applicable operations; new generic operations reach old objects. Object and morphism actions preserve comparisons, actual parameters, reindexing, and refinements. | Generic machinery exists. Final independent trials and compositional arguments remain required. |
 | Computational transport | Nonidentity transport, symbolic and opaque callables, successive computations, exact endpoints, and session ownership work with actual returned data. | Earlier connected runs passed. Latest candidate requires reruns, including RX10. |
 | Complete structured results | Computed kernels, cokernels, subobjects, limits, and lifts expose their required defining maps and permit later operations. Creation comparisons work through accepted general data. | Prescribed-lift action-data repair is integrated. Its scoped checks pass in the record. Full fixed structured-result and successive-lift trials remain open. |
 | Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | The complete public-form audit and independent public-only adapter work are recorded; final built-source API publication and fixed execution remain required. |
-| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 readings exported at `da6af543` and independently matched to their required meanings. Final source needs complete export and assessment again. |
+| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 complete 7c87f0c readings are independently assessed, including 18 changed encodings. The final producer needs a fresh complete export and assessment. |
 | Correct failures | Distinguish invalid mathematics, ambiguity, absent implementation, unavailable backend, malformed reply, well-formed wrong answer, and internal/resource failure. A change of leaf must not change the question. | Earlier RX10 exposed real defects. Final fixed-question conditions, successful callable return, and session/reuse controls remain open. |
-| Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | The da6 native and notebook runs execute but only 2/17 questions hold. Final four connected workflows remain required after the generic repairs and appropriate published leaf selection. |
+| Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | The cedfad6 native binaries and actual notebook were exercised with leaf1c41. Two pullback assertions hold; fifteen callable-target failures remain. All four workflows require a final successful rerun. |
 | Independent extensibility | Freeze kernel and contract; execute every required extension trial against independently fixed mathematics and questions. Extend only through permitted public interfaces. Any required generic patch demands a new freeze and rerun. | Not complete. Partial readings, bindings, and protocol checks do not close this condition. |
 | Delivery | Publish integrated source, reproducible examples and evidence, a current public contract/API, and exact source provenance. State genuine limits of V1 while preserving full-B0 obligations. | Pending final integration and execution. |
 
