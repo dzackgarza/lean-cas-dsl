@@ -12,51 +12,80 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-25
 
-The published restart source was fetched and verified at `29d3d60500cf1e4d2b49de0355ec8017eaa836bd`.
-The old cloud checkout was inspected before automatic scratch cleanup removed it.
-Its clean local integrated tree matched that published checkpoint. A surviving clean
-repair commit `a290701b016f1682de56c4f6de01cf45aa36a9d1` supplied the missing public
-`LeanCategories.Catalogue.FamilyFibration` import in `KernelPurityProbes`.
-That one-line source correction is reconstructed in this commit with its ownership
-record. The purity predicate and every positive and rejection control are unchanged.
-The names have not moved: Realization owns the transport field and domain helper;
-FamilyFibration owns `totalCat` and `reindexFunctor` and publicly imports Realization.
-The gate's private import closure did not export those names to the probe.
+The recovered source was published as `da6af543a8e71e9400f5438ee40a4e395af2f299`,
+including the missing public `LeanCategories.Catalogue.FamilyFibration` import.
+The unchanged strict purity gate and its positive/rejection controls pass. The
+import owner is FamilyFibration; no namespace was renamed and no exemption widened.
 
-The earlier `integrated-consumers-29d3d60.log` continues past the probe failure and
-ends with `fatal library error, lookup self`. Its stale `status: running` record
-is not a successful or active build. No matching process survived inspection.
-No post-import-repair build or RX10 execution was recovered.
+The following published checkpoint, `691f94f5614acecfe8ae55bc3d3a2e28e9a582a3`
+(tree `8033a083f9d39a4dd7391f3eba84a618b1eb246b`), adds reproducible CI over the
+exact committed dependency manifest. Its complete consumer build, four native
+kernel tools, existing notebook worker/surface, protected assertion checks and
+axiom audit all pass at unchanged source in [run 40194280154](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40194280154).
+That is an engineering build result, not mathematical acceptance or a final freeze.
+The verified CI artifact digest is
+`58cf5dd614e0b4a380725a3bd8d39eb47916dc7c17e19bb04a8f0ad749ad7213`.
 
-Work now uses `/workspace/scratch/735f437b0adf/lean-cas-dsl`, with toolchain and
-packages restored in the same cloud workspace. The latest independently saved
-evidence archive, Library `libfile_94b086b3c1308191b67e0c34e0d4c364` version 25,
-was recovered intact (22,722,153 bytes; 863 ZIP members) and extracted beneath
-`evidence-archive/restored`. Existing records are retained with their original
-paths and producer identities; new runs use separate output paths. Runtime-only
-path rebinding changes no mathematical input, registration, or expected outcome.
-The selected notebook revision in the committed package manifest is
-`4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker` subdirectory).
+This checkpoint adds two generic repairs after that build. Inclusion selection
+now checks complete dependent paths, obligations and whole-map agreement, and
+power-structure readers require a unique matching row. Literal functor actions
+now retain their exact receiver and actual declaration parameters through either
+public object projection, composed actions and direct realization. Existing
+reduced ambiguity and owner controls remain; new controls exercise nested actions
+and an ignored earlier parameter packet. Both repairs have focused successful
+engineering checks. Their merged consumers and fixed trials must run again.
 
-This source checkpoint does not discharge the completion conditions below.
-The next checks are the explicit-import probe, coherent consumers and native
-execution surfaces, the unchanged RX10 and fixed mathematical inputs, then the
-final API, connected workflows, independent assessments and frozen trials.
+At published `da6af543`, all **153 permanent questions** exported with no reading
+failures. Independent mathematical review is in progress against those exact
+payloads and source/artifact receipts. The full positive extension export read
+**96 of 134 questions**; 38 required IDs remain unreadable, with 89 binding or
+interpretation diagnostics. The current failing sites are the two lift files,
+RX06 scalar-action binding, RX08 pairing binding, and two assertion-level resource
+failures. No question, expected value, registration or resource budget changed.
 
+The unchanged RX10 control at `da6af543` reached its expected missing-registration,
+unavailable, malformed and resource-failure outcomes. Its positive and wrong-answer
+conditions stopped after the scalar-action reply with reduced-source ambiguity.
+The literal-action repair lets both conditions return and reuse the actual callable;
+they then stop after three dispatches with a backend rejection of the mapped source
+descriptor. Packet review found that the complete base map, both endpoints, ordered
+outer actions and the original live owners agree with the public contract. The
+specific leaf implementation branch has not been inferred from that error alone.
+A separate public-only leaf author is assessing the existing adapter through its
+public interfaces, without fixed questions or these runtime findings.
+
+Work remains in `/workspace/scratch/735f437b0adf`. The exact Lean 4.33.0 toolchain,
+127 pinned engine distributions, selected mathematical and contract dependencies,
+and notebook environment are restored. The local native build is running at the
+unchanged `da6af543` base to prepare actual container execution; later source fixes
+require the affected consumers and executables to rebuild. The selected notebook
+revision is `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker` subdirectory).
+A fresh 6,160,534-byte public API was generated from published, built `da6af543`
+with exact provenance; the final API must be regenerated after the final freeze.
+
+The separately preserved evidence archive retains its original recovered records
+and producer identities. Version 28 of
+`libfile_94b086b3c1308191b67e0c34e0d4c364` contains the closed local restoration,
+build, RX10 and binding records plus independent reference preparation
+(23,293,591 bytes; SHA-256
+`57f8b411fa0ba526282073596dd6de4fb48fbb5358dfc2a137e482ff2224688b`).
+New runs use fresh output paths; a running or failed record is never relabelled as
+successful. Public source, independent readings and execution evidence remain
+separate. The remaining work below is required; this checkpoint is not MVP completion.
 
 ## 2. Completion conditions
 
 All rows must be discharged at a coherent final source combination. Earlier observations identify what to preserve and rerun; they do not establish results for the latest candidate.
 
-| Required result | Acceptance condition | State at interruption |
+| Required result | Acceptance condition | Current evidence and open work |
 | --- | --- | --- |
-| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Latest published kernel is `29d3d605`; its consumer build has a concrete purity-probe failure. No complete green final build. |
+| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Published `691f94f` passes the complete CI build and engineering gates. This checkpoint adds subsequent generic repairs; final merged-source verification remains required. |
 | Registry-derived interpretation | Mathematical choices come from accepted declarations. Dependent parameters, selected structures, tuple/destructured binders, closed maps, refinements, and admission use generic paths. Preserve genuine ambiguity. | Substantial implementation and earlier passing reader checks exist. Current full consumers and fixed extension readings remain to be established. |
 | Compositional resolution | New objects acquire old applicable operations; new generic operations reach old objects. Object and morphism actions preserve comparisons, actual parameters, reindexing, and refinements. | Generic machinery exists. Final independent trials and compositional arguments remain required. |
 | Computational transport | Nonidentity transport, symbolic and opaque callables, successive computations, exact endpoints, and session ownership work with actual returned data. | Earlier connected runs passed. Latest candidate requires reruns, including RX10. |
 | Complete structured results | Computed kernels, cokernels, subobjects, limits, and lifts expose their required defining maps and permit later operations. Creation comparisons work through accepted general data. | Prescribed-lift action-data repair is integrated. Its scoped checks pass in the record. Full fixed structured-result and successive-lift trials remain open. |
-| Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | Contract source exists. Final API generation and sufficiency checks against the final source combination remain open. |
-| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | Earlier complete permanent reading/review exists. Final candidate export and independent assessment remain required. |
+| Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | A fresh API exists from published, built `da6af543`; final API publication and independent public-only sufficiency remain open. |
+| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 readings exported at `da6af543`; independent review is in progress. Final source needs complete export and assessment again. |
 | Correct failures | Distinguish invalid mathematics, ambiguity, absent implementation, unavailable backend, malformed reply, well-formed wrong answer, and internal/resource failure. A change of leaf must not change the question. | Earlier RX10 exposed real defects. Final fixed-question conditions, successful callable return, and session/reuse controls remain open. |
 | Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | Earlier demonstration passed at an older source. Current native binaries, notebook output, and final demonstration need verification. |
 | Independent extensibility | Freeze kernel and contract; execute every required extension trial against independently fixed mathematics and questions. Extend only through permitted public interfaces. Any required generic patch demands a new freeze and rerun. | Not complete. Partial readings, bindings, and protocol checks do not close this condition. |
@@ -73,47 +102,41 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 
 ## 3. Next work, in order
 
-### A. Recover the actual source and close the interrupted build
+### A. Integrate current source and verify the final build
 
-Recovery of the surviving source and archive is recorded above. Preserve that recovered state and inspect only newly relevant source or processes before editing. Read `INTENT.md`, `AGENTS.md`, `CONTRIBUTING.md`, and applicable source/style guidance. Fetch the active branches and check their current tips; the SHAs in this handoff are verified restart anchors, not permission to overwrite newer work.
+Recovery and the formerly failing purity import are closed as recorded above.
+Do not repeat the obsolete namespace diagnosis or read removed scratch paths.
+The published build reference is `691f94f5614acecfe8ae55bc3d3a2e28e9a582a3` on
+`work/kernel-v1-20261023`; this source includes the reviewed inclusion and literal
+action repairs beyond it. Preserve newer branch work when publishing, then fetch
+back and compare the complete tree.
 
-The latest kernel checkpoint verified on GitHub is:
-
-```text
-branch: work/kernel-v1-20261023
-commit: 29d3d60500cf1e4d2b49de0355ec8017eaa836bd
-tree:   84c7cf4f61c7057a9bc6dc905a1cc2ffc3de168c
-```
-
-Inspect `kernel-verification-20261025/integrated-consumers-29d3d60.log` in the old cloud workspace if it survives. Its last recorded output reports that `CasGates.KernelPurity` built, followed by these failures in `CasGates/KernelPurityProbes.lean`:
-
-```text
-48:6 Unknown constant CasCatalogue.CategoryFamilyRealization.transport
-49:6 Unknown constant CasCatalogue.CategoryFamilyRealization.totalCat
-50:6 Unknown constant CasCatalogue.CategoryFamilyRealization.reindexFunctor
-53:4 Unknown constant CasCatalogue.CategoryFamilyRealization.canonicalDiscreteCommRingTransport
-57:0 the kernel-purity gate accepts ...domainTransport
-     (carries no mathematics expected): []
-```
-
-The current published probe still has these references. Diagnose their declaration visibility and ownership against the selected upstream `LeanCategories/Catalogue/CategoryFamily.lean`, its module exports, and the gate's imports. The final conversation described former-namespace references, but the recorded searches also show the `CasCatalogue.CategoryFamilyRealization` namespace in upstream uses. A namespace rename is therefore not an established repair. Find the actual exported declarations and repair the probe's access to them.
-
-Preserve the distinction the probe checks: registered categorical plumbing is allowed; a domain-specific commutative-ring transport helper remains forbidden. Retain the rejection controls. Do not loosen the purity predicate, expand exemptions, or drop the failing control. Check whether the final `domainTransport` error follows from the unresolved declaration before treating it as a separate gate defect.
-
-Finish all consumers of the repaired candidate and then the required native/tool/notebook build. Record the full source combination and unchanged source state for each run. If the old build is still active, do not mutate its inputs. Use isolated source/build locations for a new candidate.
+Finish the independently isolated generic binding repairs and integrate them
+without changing mathematical sources or assertions. Build all affected consumers,
+the unchanged stable aggregates and protected controls, and all four native tools
+plus the notebook worker/surface at one exact source combination. Use the explicit
+selected contract path for the purity gate; an absent historical fallback path is
+an environment failure, not permission to weaken the gate. Keep build sources
+unchanged while a provenance-recorded run is active.
 
 ### B. Run the unchanged bindings and complete interpretation exports
 
 Use the fixed inputs and reconstructed drivers described below. Read their reports, not just their process exit status. A diagnostic may exit successfully after writing failed bindings.
 
-The most recent complete binding diagnostic recorded these unresolved consumers on an older candidate:
+The complete binding diagnostic at `da6af543` recorded four first failures:
 
-- Prescribed-lift `expectedF`: ordinary definitional-equality budget exceeded.
-- Source-comparison `i0`: interpretation failed.
-- RX06: the complete reindexed map failed admission.
-- RX08: the constrained whole map failed admission.
+- Prescribed-lift `expectedF` at line 12: definitional-equality resource failure.
+- Source-comparison `i0` at line 9: the full registered linearity obligation was not established.
+- RX06 `expectedAction` at line 49: the staged scalar product did not resolve.
+- RX08 `observedPairing` at line 43: a fixed matrix parameter was treated as a vector operand.
 
-Later admission, context, endpoint, and refinement repairs exist. Rerun the same expressions before deciding which defects remain. Repair generic owners; do not change the fixed questions to fit the implementation.
+The complete extension export additionally found resource failures in RX05
+`complete.rx05.additive_map_sample` and RX08 `complete.rx08.restricted_pairing_one`.
+Earlier full reindexed-map and constrained-map bindings now pass; do not relabel
+these later failures as their old defects. Repair the generic selected-object,
+proof-presentation and staged-parameter owners, with original obligations checked
+at the end. Rerun all fixed bindings and assertions; neither raising budgets nor
+changing questions closes these failures.
 
 Export complete typed readings for the fixed extension inputs and the permanent corpus. Separate original RX08 spelling from its independently assessed positive clarification. The original `projection.ker()` remains an ambiguity control. The additive positive selects `kernel()` under the published clarification, with the same mathematical questions. It does not authorize changing the original source or approving an interpretation migration.
 

@@ -26,6 +26,7 @@ public import CasAcceptance.Kernel.DeclaredProductContextProbes
 public import CasAcceptance.Kernel.ReaderContextContinuityProbes
 public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasAcceptance.Kernel.SourceParameterBindingProbes
+public import CasAcceptance.Kernel.InclusionSelectionProbes
 
 /- Engineering checks of the generic kernel. Independent extension fixtures are
 built separately against their explicitly supplied mathematical inputs. -/

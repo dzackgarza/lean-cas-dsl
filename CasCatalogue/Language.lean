@@ -700,6 +700,15 @@ def objectNotation (state : RegistryState) (surfaceForm : String) : TermElabM Ob
   | #[] => throwStratum .invalid m!"no registered object owns the notation {surfaceForm}"
   | _ => throwSemanticAmbiguity m!"several registered objects own the notation {surfaceForm}"
 
+/-- A complete public selector must identify one power-object structure. Independent rows
+remain ambiguous even when they share an object, truth-value family, or extent declaration. -/
+def selectedPowerObject? (state : RegistryState) (accepts : PowerObjectEntry → Bool)
+    (description : MessageData) : TermElabM (Option PowerObjectEntry) := do
+  match state.powerObjects.filter accepts with
+  | #[] => return none
+  | #[entry] => return some entry
+  | _ => throwSemanticAmbiguity m!"several registered power objects have {description}"
+
 /-- Power-object structure is selected by its registered category, never by row order. -/
 def powerObjectIn (state : RegistryState) (category : CategoryId) : TermElabM PowerObjectEntry := do
   let rows := state.powerObjects.filter fun power =>
@@ -1409,8 +1418,8 @@ def standardDiagram (shape : String) (args : Array Value) : M Term := do
   | #[] => throwStratum .invalid m!"a {shape} of {args.size} arguments has no registered diagram"
   | _ => throwSemanticAmbiguity m!"several registered constructions form this {shape} diagram"
 
-/-- Whether a chain of registered inclusions leads from the object `sub` to `super` (at the same
-parameters), or they are the same object. -/
+/-- Family-level reachability is only a cheap candidate precheck. It supplies no inclusion,
+parameter agreement, proof obligation or mathematical judgment. -/
 def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
   let mut reached : Array ObjectId := #[sub]
   let mut frontier : Array ObjectId := #[sub]
@@ -1421,17 +1430,69 @@ def includes (state : RegistryState) (sub super : ObjectId) : Bool := Id.run do
     frontier := next
   return reached.contains super
 
-/-- The registered inclusions `sub ↪ … ↪ super`, shortest first; `#[]` when they are the same. -/
-def inclusionChain (state : RegistryState) (sub super : ObjectId) :
-    Option (Array InclusionEntry) := Id.run do
-  let mut paths : Array (ObjectId × Array InclusionEntry) := #[(sub, #[])]
-  for _ in [0:state.inclusions.size + 1] do
-    for (o, path) in paths do
-      if o == super then return some path
-    let next := paths.flatMap fun (o, path) =>
-      (state.inclusions.filter (·.sub == o)).map fun e => (e.super, path.push e)
-    paths := paths ++ next.filter fun (o, _) => !paths.any (·.1 == o)
-  return none
+/-- Bind complete endpoint applications before conversion can erase declaration arguments.
+The same family head compares every ordered parameter. Unresolved parameters may be constrained
+from either endpoint while a whole inclusion path is prepared. -/
+partial def bindInclusionEndpoint (expected actual : Expr) : TermElabM Unit := do
+  let expected ← instantiateMVars expected
+  let actual ← instantiateMVars actual
+  if expected == actual then return
+  let expectedType ← instantiateMVars (← inferType expected)
+  let actualType ← instantiateMVars (← inferType actual)
+  if (← isProp expectedType) && (← isProp actualType) then
+    -- The full proposition is selected data; the implementation of its proof is not.
+    bindInclusionEndpoint expectedType actualType
+    unless ← isDefEq expected actual do
+      throwStratum .invalid "an inclusion proof is outside its complete selected proposition"
+    return
+  if expected.getAppFn.constName?.isSome &&
+      expected.getAppFn.constName? == actual.getAppFn.constName? &&
+      expected.getAppArgs.size == actual.getAppArgs.size then
+    unless ← isDefEq expected.getAppFn actual.getAppFn do
+      throwStratum .invalid "an inclusion endpoint changed its declaration signature"
+    for (parameter, argument) in expected.getAppArgs.zip actual.getAppArgs do
+      bindInclusionEndpoint parameter argument
+    return
+  unless ← withTransparency .all <|
+      isDefEq (← inferType expected) (← inferType actual) <&&> isDefEq expected actual do
+    throwStratum .invalid "an inclusion is outside its complete selected endpoint parameters"
+
+/-- Compare fixed complete endpoints by the same argument-preserving rule used to bind them.
+Transparent presentations may agree, while failed trials cannot assign outside parameters. -/
+def sameInclusionEndpoint (left right : Expr) : TermElabM Bool := withoutModifyingState do
+  try
+    bindInclusionEndpoint left right
+    return true
+  catch error =>
+    if Exception.interpretationKind error == .invalid then return false else throw error
+
+/-- A prepared inclusion keeps its whole dependent telescope until both ends of the complete
+path have constrained it. A later endpoint may determine an earlier parameter. -/
+structure InclusionTemplate where
+  entry : InclusionEntry
+  constant : Expr
+  parameters : Array Expr
+  infos : Array BinderInfo
+  source : Expr
+  target : Expr
+
+/-- Agreement is checked by Lean's kernel on whole typed maps in the fixed local context.
+No sample value, family ID or carrier equality identifies different maps. Kernel resource and
+interpreter failures propagate; they never become a negative mathematical comparison. -/
+def sameInclusionMap (left right : Expr) : TermElabM Bool := withoutModifyingState do
+  if left.hasMVar || left.hasLevelMVar || right.hasMVar || right.hasLevelMVar then return false
+  let environment ← getEnv
+  let context ← getLCtx
+  let leftType ← ofExceptKernelException <| Kernel.check environment context left
+  let rightType ← ofExceptKernelException <| Kernel.check environment context right
+  let (#[_, _, leftSource, leftTarget], #[_, _, rightSource, rightTarget]) :=
+      (leftType.getAppArgs, rightType.getAppArgs) | return false
+  unless leftType.isAppOf ``Quiver.Hom && rightType.isAppOf ``Quiver.Hom &&
+      (← sameInclusionEndpoint leftSource rightSource) &&
+      (← sameInclusionEndpoint leftTarget rightTarget) do return false
+  unless ← ofExceptKernelException <| Kernel.isDefEq environment context leftType rightType do
+    return false
+  ofExceptKernelException <| Kernel.isDefEq environment context left right
 
 /-- The ends of a morphism type `x ⟶ y`. -/
 def homEnds? (type : Expr) : Option (Expr × Expr) :=
@@ -1951,13 +2012,20 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       -- the order of the Boolean algebra `𝒫(X)`.
       unless (← namesObject scope x) && (← namesObject scope y) do
         return ← operate scope "⊆" #[x, y] ambient?
-      let (sub, subParams) ← namedObject scope x
-      let (super, superParams) ← namedObject scope y
-      unless subParams == superParams do
-        throwStratum .invalid m!"`⊆` relates named sets at the same parameters"
-      if let some route := inclusionChain state sub.id super.id then
-        return ← decided (judgement "⊆" #[← eval scope x, ← eval scope y] (route.map (·.declaration)))
-      throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
+      let source ← eval scope x
+      let target ← eval scope y
+      let .object targetObject _ (some (super, _)) _ _ := target
+        | throwStratum .invalid "`⊆` requires a complete named target"
+      if let .object sourceObject _ (some (sub, _)) _ _ := source then
+        if sub.id == super.id && (← parameterCompatible do
+            bindInclusionEndpoint sourceObject targetObject
+            pure true) then
+          bindInclusionEndpoint sourceObject targetObject
+          return ← decided (judgement "⊆" #[source, target])
+      if let some (route, _) ← selectedInclusion? state source super.id
+          (some (← semanticObject target)) then
+        return ← decided (judgement "⊆" #[source, target] (route.map (·.declaration)))
+      throwStratum .invalid m!"no registered inclusion reaches the complete selected target {super.name}"
   | `(cas_term| $x ∈ $y) =>
       let Y ← eval scope y
       if let some (po, X) ← powerSetOf? Y then return ← member po X (← eval scope x none (some X)) Y
@@ -1971,12 +2039,14 @@ partial def evalUncached (scope : Scope) (stx : Syntax)
       match x' with
       | .element _ (.object a _ (some (sub, _)) _ _) =>
           -- The same family: the same set, at the same parameters.
-          if sub.id == super.id then
-            if ← withTransparency .all <| isDefEq a y then
-              return ← decided (judgement "∈" #[x', Y])
-            throwStratum .invalid m!"`{shown x}` is an element of another {sub.name}"
-          if let some route := inclusionChain state sub.id super.id then
-            return ← decided (judgement "∈" #[x', Y] (route.map (·.declaration)))
+          if sub.id == super.id && (← parameterCompatible do
+              bindInclusionEndpoint a y
+              pure true) then
+            bindInclusionEndpoint a y
+            return ← decided (judgement "∈" #[x', Y])
+          if let .element _ source := x' then
+            if let some (route, _) ← selectedInclusion? state source super.id (some y) then
+              return ← decided (judgement "∈" #[x', Y] (route.map (·.declaration)))
           -- `Y` included in the set `Z` of `x` (`ℕ ⊆ ℤ`, `Mˣ ↪ M`): membership in its image.
           if let .element _ Z := x' then
             let v := x'
@@ -4611,15 +4681,10 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     let rows := state.objects.filter fun row =>
       row.category == category.id && some row.declaration == head
     if let [row] := rows.toList then
-      if let some chain := inclusionChain state origin.id row.id then
-        if ← parameterCompatible (do
-            let inclusion ← inclusionMap chain A
-            let some (_, endpoint) := homEnds? (← inferType inclusion) | return false
-            unless ← isDefEq set endpoint do return false
-            isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
-          let inclusion ← inclusionMap chain A
-          let some (_, endpoint) := homEnds? (← inferType inclusion) | continue
-          discard <| isDefEq set endpoint
+      if ← parameterCompatible (do
+          let some _ ← selectedInclusion? state A row.id (some set) | return false
+          isTypeCorrect (← instantiateMVars (mkAppN constant args))) then
+        discard <| selectedInclusion? state A row.id (some set)
   for parameter in explicit do
     if !(← instantiateMVars parameter).isMVar then continue
     if (source.findMVar? (· == parameter.mvarId!)).isNone then continue
@@ -5064,7 +5129,12 @@ partial def identityCarrierView (Y X : Value) : M Bool := do
     | some (left, _), some (right, _) => left.id == right.id
     | none, none => true
     | _, _ => false
-  return sameSelection && sameOrigin && (y == x || (← isDefEq y x))
+  unless sameSelection && sameOrigin do return false
+  unless ← parameterCompatible (do
+      bindInclusionEndpoint y x
+      pure true) do return false
+  bindInclusionEndpoint y x
+  return true
 
 /-- How the elements of the set `Y` are elements of the set `X`: `some none` if they are the same
 set, `some (some ι)` along `ι : Y ⟶ X`, the registered constants of `X` from its parameter `Y`
@@ -5095,10 +5165,9 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
                 (.morphismComposition category.id ι₀ ι y p x)
               pure composite
           | none => pure ι))
-  if let (some (sub, _), some (super, _)) := (yOrigin, xOrigin) then
-    if let some chain := inclusionChain state sub.id super.id then
-      unless chain.isEmpty do
-        return some (some (← inclusionMap chain Y (some X)))
+  if let (some _, some (super, _)) := (yOrigin, xOrigin) then
+    if let some (chain, arrow) ← selectedInclusion? state Y super.id (some x) then
+      unless chain.isEmpty do return some (some arrow)
   -- A domain's inclusion `Y ↪ B` (`Mˣ ↪ M`), then `B` into `X`.
   if let some (ι, b) ← inclusionOut? Y then
     let B ← inclusionTargetValue Y b category
@@ -5118,55 +5187,160 @@ partial def coercionMap (Y X : Value) : M (Option (Option Expr)) := do
         | none => pure ι))
   return none
 
-/-- The composite `Y ↪ … ↪ X` of a chain of registered inclusions out of `Y`. -/
-partial def inclusionMap (chain : Array InclusionEntry) (Y : Value)
-    (target? : Option Value := none) : M Expr := do
+/-- Unify the full path signature without requiring its parameters or obligations to be
+closed yet. Failure here is an incompatible path; a compatible unfinished path may be constrained
+by later arrows or by its independently selected final target. -/
+partial def inclusionTemplates (chain : Array InclusionEntry) (Y : Value)
+    (target? : Option Expr := none) : M (Array InclusionTemplate × Expr) := do
   let .object original category _ _ _ := Y
-    | throwStratum .invalid m!"an inclusion starts at a selected object"
-  let mut source := original
-  let mut composite ← identityAt Y
-  Trace.record (← read).trace composite (.morphismIdentity category.id original)
-  for (entry, i) in chain.zipIdx do
+    | throwStratum .invalid "an inclusion starts at a selected object"
+  let mut endpoint := original
+  let mut prepared : Array InclusionTemplate := #[]
+  for entry in chain do
+    unless entry.category == category.id do
+      throwStratum .invalid "an inclusion changes its complete selected category"
     let constant ← mkConstWithFreshMVarLevels entry.declaration
-    let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
-    let some (declaredSource, declaredTarget) := homEnds? type
-      | throwStratum .invalid m!"a registered inclusion is not a morphism"
-    unless ← isDefEq declaredSource source do
-      throwStratum .invalid m!"an inclusion is outside its registered source parameters"
-    if i + 1 == chain.size then
-      if let some target := target? then
-        unless ← isDefEq declaredTarget (← semanticObject target) do
-          throwStratum .invalid m!"an inclusion is outside its registered target parameters"
-    synthesizeInstances args infos
-    for arg in args do
-      if !(← instantiateMVars arg).isMVar then continue
-      let obligation ← instantiateMVars (← inferType arg)
+    let (parameters, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
+    let some (source, target) := homEnds? type
+      | throwStratum .invalid "a registered inclusion is not a morphism"
+    bindInclusionEndpoint source endpoint
+    prepared := prepared.push { entry, constant, parameters, infos, source, target }
+    endpoint := target
+  if let some target := target? then bindInclusionEndpoint endpoint target
+  return (prepared, endpoint)
+
+/-- Close and check the already constrained path, then record only its complete actual maps. -/
+partial def completeInclusionMap (prepared : Array InclusionTemplate) (Y : Value)
+    (endpoint : Expr) (target? : Option Expr := none) : M Expr := do
+  let .object original category _ _ _ := Y
+    | throwStratum .invalid "an inclusion starts at a selected object"
+  -- Instance and proposition synthesis sees the constraints of the whole path.
+  for step in prepared do
+    synthesizeInstances step.parameters step.infos
+    for parameter in step.parameters do
+      if !(← instantiateMVars parameter).isMVar then continue
+      let obligation ← instantiateMVars (← inferType parameter)
       unless ← isProp obligation do continue
       let some proof ← decideObligation obligation
-        | throwStratum .invalid m!"the registered inclusion's obligation is not established"
-      unless ← isDefEq arg proof do
-        throwStratum .invalid m!"the inclusion's proof is outside its declared obligation"
-    let arrow ← instantiateMVars (mkAppN constant args)
-    if arrow.hasMVar then
-      throwStratum .invalid m!"the registered inclusion's parameters are not determined"
-    unless ← isTypeCorrect arrow do
-      throwStratum .invalid m!"the registered inclusion is outside its dependent signature"
-    let target ← instantiateMVars declaredTarget
-    let parameters ← ((args.zip infos).filterMap fun (arg, info) =>
-      if info.isExplicit then some arg else none).mapM instantiateMVars
-    unless !arrow.hasLevelMVar && !source.hasMVar && !source.hasLevelMVar &&
-        !target.hasMVar && !target.hasLevelMVar do
-      throwStratum .invalid m!"the registered inclusion retains unresolved endpoints"
+        | throwStratum .invalid "the registered inclusion's obligation is not established"
+      unless ← isDefEq parameter proof do
+        throwStratum .invalid "the inclusion's proof is outside its declared obligation"
+  let mut composite ← identityAt Y
+  Trace.record (← read).trace composite (.morphismIdentity category.id original)
+  for step in prepared do
+    let arrow ← instantiateMVars (mkAppN step.constant step.parameters)
+    let source ← instantiateMVars step.source
+    let target ← instantiateMVars step.target
+    unless !arrow.hasMVar && !arrow.hasLevelMVar &&
+        !source.hasMVar && !source.hasLevelMVar && !target.hasMVar && !target.hasLevelMVar do
+      throwStratum .invalid "the registered inclusion retains undetermined parameters or endpoints"
+    check arrow
+    let parameters ← ((step.parameters.zip step.infos).filterMap fun (parameter, info) =>
+      if info.isExplicit then some parameter else none).mapM instantiateMVars
     Trace.record (← read).trace arrow
-      (.namedInclusion entry.id entry.category parameters source target)
+      (.namedInclusion step.entry.id step.entry.category parameters source target)
     let previous := composite
     composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[previous, arrow]
-    unless ← isTypeCorrect composite do
-      throwStratum .invalid m!"the inclusion composite is outside its dependent signature"
+    check composite
     Trace.record (← read).trace composite
       (.morphismComposition category.id previous arrow original source target)
-    source := target
-  return composite
+  let complete ← instantiateMVars composite
+  let original ← instantiateMVars original
+  let completeEndpoint ← instantiateMVars endpoint
+  unless !complete.hasMVar && !complete.hasLevelMVar &&
+      !original.hasMVar && !original.hasLevelMVar &&
+      !completeEndpoint.hasMVar && !completeEndpoint.hasLevelMVar do
+    throwStratum .invalid "the complete inclusion retains an undetermined selected object"
+  check complete
+  if let some target := target? then
+    let target ← instantiateMVars target
+    unless !target.hasMVar && !target.hasLevelMVar do
+      throwStratum .invalid "the complete inclusion does not determine its selected target"
+  return complete
+
+/-- The composite `Y ↪ … ↪ X` of a fully applicable chain. Every adjacent and final endpoint
+constrains the entire telescope before its parameters and proof obligations must be closed. -/
+partial def inclusionMap (chain : Array InclusionEntry) (Y : Value)
+    (target? : Option Expr := none) : M Expr := do
+  let (prepared, endpoint) ← inclusionTemplates chain Y target?
+  completeInclusionMap prepared Y endpoint target?
+
+/-- Select only after all concrete inclusion paths agree as whole typed maps. Repeated family
+IDs do not truncate dependent paths. Search closes only when no path remains, or when an already
+seen complete endpoint and whole composite repeat. Unclosed search uses the host's ordinary
+resource failure; it never becomes mathematical inapplicability. A second distinct applicable
+map can establish ambiguity immediately. Trials isolate all parameter/proof assignments and trace.
+-/
+partial def selectedInclusion? (state : RegistryState) (Y : Value) (targetId : ObjectId)
+    (target? : Option Expr := none) : M (Option (Array InclusionEntry × Expr)) := do
+  let .object _ _ (some (origin, _)) _ _ := Y | return none
+  for term in Y.terms do
+    let term ← instantiateMVars term
+    let type ← instantiateMVars (← inferType term)
+    unless !term.hasMVar && !term.hasLevelMVar && !type.hasMVar && !type.hasLevelMVar do
+      throwStratum .invalid "an inclusion requires a complete independently selected source"
+  unless includes state origin.id targetId do return none
+  let mut frontier : Array (ObjectId × Array InclusionEntry) := #[(origin.id, #[])]
+  let mut seen : Array (ObjectId × Expr) := #[]
+  let mut chosen : Option (Array InclusionEntry × Expr) := none
+  while !frontier.isEmpty do
+    let mut next : Array (ObjectId × Array InclusionEntry) := #[]
+    -- Traversal order fixes only the representative of equal prefixes. Sharing below
+    -- still requires complete endpoint and whole-map agreement; distinct paths survive.
+    let ordered := frontier.qsort fun left right =>
+      (toJson (left.2.map (·.id.raw))).compress < (toJson (right.2.map (·.id.raw))).compress
+    for (current, path) in ordered do
+      checkSystem "registered inclusion paths"
+      if current == targetId then
+        let applicable? ← try
+          some <$> parameterTrial (inclusionMap path Y target?)
+        catch error =>
+          if Exception.interpretationKind error == .invalid then pure none else throw error
+        if let some arrow := applicable? then
+          if let some (previousPath, previous) := chosen then
+            unless ← sameInclusionMap previous arrow do
+              throwSemanticAmbiguity m!"several registered inclusion paths reach the complete \
+                selected target with different maps: \
+                {previousPath.map (·.id.raw)} and {path.map (·.id.raw)}"
+            -- This orders only representatives whose whole-map agreement was checked above.
+            if (toJson (path.map (·.id.raw))).compress <
+                (toJson (previousPath.map (·.id.raw))).compress then
+              chosen := some (path, arrow)
+          else chosen := some (path, arrow)
+      let prefixStatus ← try
+        parameterTrial (do
+          let (prepared, endpoint) ← inclusionTemplates path Y
+          try
+            return some (some (← completeInclusionMap prepared Y endpoint))
+          catch error =>
+            unless Exception.interpretationKind error == .invalid do throw error
+            let endpoint ← instantiateMVars endpoint
+            let endpointType ← instantiateMVars (← inferType endpoint)
+            -- The source is rigid. If this endpoint is also closed, an appended arrow
+            -- cannot supply the failed independent parameter or proof obligation.
+            if !endpoint.hasMVar && !endpoint.hasLevelMVar &&
+                !endpointType.hasMVar && !endpointType.hasLevelMVar then return none
+            return some none)
+      catch error =>
+        if Exception.interpretationKind error == .invalid then pure none else throw error
+      -- A rigid signature conflict cannot be repaired by appending a path. Unresolved
+      -- parameters or obligations can, and therefore remain in the frontier.
+      let some prefix? := prefixStatus | continue
+      if let some prefixMap := prefix? then
+        let some (_, endpoint) := homEnds? (← inferType prefixMap) | unreachable!
+        let repeated ← seen.anyM fun (family, previous) => do
+          unless family == current do return false
+          let some (_, previousEndpoint) := homEnds? (← inferType previous) | return false
+          unless ← sameInclusionEndpoint previousEndpoint endpoint do return false
+          sameInclusionMap previous prefixMap
+        if repeated then continue
+        seen := seen.push (current, prefixMap)
+      for entry in state.inclusions.filter (·.sub == current) do
+        if includes state entry.super targetId then
+          next := next.push (entry.super, path.push entry)
+    frontier := next
+  let some (path, _) := chosen | return none
+  return some (path, ← inclusionMap path Y target?)
 
 /-- `v` as an element of `X`: a numeral's element there, or an element carried along the inclusion
 of its set in `X` (`coercionMap`). -/
@@ -6098,10 +6272,10 @@ partial def complementOf (X Y : Value) : M Value := do
   let .object _ category (some (super, _)) _ _ := X
     | throwStratum .invalid m!"a complement is of named sets"
   let .object _ _ (some (sub, _)) _ _ := Y | throwStratum .invalid m!"a complement is of named sets"
-  let some chain := inclusionChain state sub.id super.id
-    | throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name}"
+  let some (_, inclusion) ← selectedInclusion? state Y super.id (some (← semanticObject X))
+    | throwStratum .invalid m!"no registered inclusion of {sub.name} in {super.name} at these parameters"
   let po ← powerObjectIn state CategoryId.sets
-  let image ← imageOfMap (← inclusionMap chain Y) Y X
+  let image ← imageOfMap inclusion Y X
   let P ← powerSetOf X
   let .object p _ _ _ _ := P | unreachable!
   let .object one _ _ _ _ ← oneObject | unreachable!
@@ -6554,7 +6728,7 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       -- A set that `ℕ` is registered to include into (`ℕ ↪ ℕ ∪ {-∞}`): the image of the
       -- numeral of `ℕ` along that monomorphism.
       if let some naturals := state.objects.find? (fun o => o.name == "ℕ" && o.refines.isNone) then
-        if params.isEmpty && (inclusionChain state naturals.id entry.id).isSome then
+        if params.isEmpty && includes state naturals.id entry.id then
           let N ← object state "ℕ" #[] none
           return ← coerceTo (← toElement v N) X
       throwStratum .invalid m!"no registered numeral lands in {entry.name}"
@@ -7404,7 +7578,8 @@ partial def asAnswer (v : Value) : M Expr := do
       let some (.object ω category _ _ _) := some Ω | unreachable!
       let .object _ _ (some (entry, _)) _ _ := Ω
         | throwStratum .invalid m!"a decision is a property or a truth value"
-      let some po := state.powerObjects.find? (·.omega == entry.id)
+      let some po ← selectedPowerObject? state (·.omega == entry.id)
+          m!"the selected truth-value object {entry.id.raw}"
         | throwStratum .invalid m!"a decision is a property or a truth value"
       let .object one _ _ _ _ ← oneObject | unreachable!
       let truth ← homIn (mkCIdent po.truth) one ω category
@@ -7425,7 +7600,8 @@ partial def oneObject : M Value := do
 /-- The registered power object whose family `𝒫` the set `P` is a value of, and its `X`. -/
 partial def powerOf? (P : Value) : M (Option (PowerObjectEntry × Value)) := do
   let .object _ _ (some (entry, #[X])) _ _ := P | return none
-  return (← registryState).powerObjects.find? (·.object == entry.id) |>.map (·, X)
+  return (← selectedPowerObject? (← registryState) (·.object == entry.id)
+    m!"the selected power-object family {entry.id.raw}").map (·, X)
 
 /-- For an element of a power set `𝒫(X)`: the power object and `X`. -/
 partial def powerSetOf? (v : Value) : M (Option (PowerObjectEntry × Value)) := do

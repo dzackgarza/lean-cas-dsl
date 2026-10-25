@@ -18,10 +18,114 @@ structure RetainedParameterAction where
 def closedParameter (value : Expr) : Bool :=
   !value.hasMVar && !value.hasLevelMVar && !value.hasFVar && !value.hasLooseBVars
 
+/-- Read the literal full action and receiver of an object projection. The two
+public functor projections have the same selected data; neither is reduced to a
+carrier, and transparent wrappers around the whole value do not change its child. -/
+def objectAction? (value : Expr) : Option (Expr × Expr) := Id.run do
+  let mut selected := value.consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  if selected.isAppOfArity ``CategoryTheory.Functor.obj 6 then
+    return some (selected.getAppArgs[4]!.consumeMData, selected.appArg!)
+  if selected.isAppOfArity ``Prefunctor.obj 6 then
+    let prefunctor := selected.getAppArgs[4]!.consumeMData
+    if prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 then
+      return some (prefunctor.appArg!.consumeMData, selected.appArg!)
+  return none
+
+/-- A whole accepted action together with the literal declaration application
+that supplies its exact parameters. Fresh unification never replaces that child. -/
+structure RegisteredAction where
+  edge : EdgeRef
+  declarationApplication : Expr
+  application : Expr
+
+/-- A directly named action fixes its own presentation before nested occurrences
+are considered. Beta reduction, public action projections and outer identity wrappers
+preserve the selected declaration arguments as literal source expressions. -/
+def directActionDeclaration? (state : RegistryState) (action : Expr) : Option Expr := Id.run do
+  let mut selected := action.consumeMData.headBeta
+  while true do
+    if state.functors.any (fun row => selected.getAppFn.constName? == some row.declaration) ||
+        state.classifiers.any (fun row => selected.getAppFn.constName? == some row.declaration) then
+      return some selected
+    if selected.isAppOfArity ``id 2 ||
+        selected.isAppOf ``CategoryTheory.Cat.Hom.toFunctor ||
+        selected.isAppOf ``LeanCategories.Classifier.forget ||
+        selected.isAppOf ``LeanCategories.PropertyClassifier.toClassifier ||
+        selected.isAppOf ``LeanCategories.StructureClassifier.toClassifier then
+      selected := selected.appArg!.consumeMData.headBeta
+    else return none
+  return none
+
+/-- Identify a declared whole action by a literal complete declaration application.
+Every surviving occurrence is checked against the entire functor, not its action
+at one object. Distinct parameter presentations are never chosen by traversal order. -/
+def registeredAction? (state : RegistryState) (action : Expr) :
+    TermElabM (Option RegisteredAction) := do
+  let direct := directActionDeclaration? state action
+  let mut candidates : Array RegisteredAction := #[]
+  for (edge, declaration) in
+      (state.functors.map fun row => (EdgeRef.functor row.id, row.declaration)) ++
+      (state.classifiers.map fun row => (EdgeRef.classifierForget row.id, row.declaration)) do
+    let arity ← forallTelescopeReducing (← getConstInfo declaration).type
+      fun fields _ => pure fields.size
+    let applications ← IO.mkRef (#[] : Array Expr)
+    let collect := fun expression => do
+      if expression.getAppFn.constName? == some declaration &&
+          expression.getAppNumArgs == arity && closedParameter expression &&
+          !(← applications.get).contains expression then
+        applications.modify (·.push expression)
+    if let some direct := direct then collect direct
+    else action.forEach collect
+    for declarationApplication in ← applications.get do
+      let accepted ← withoutModifyingState do
+        unless ← isTypeCorrect declarationApplication do return none
+        let application ← match edge with
+          | .functor _ => Semantic.asFunctor declarationApplication
+          | .classifierForget _ => do
+            let mut classifier := declarationApplication
+            let type ← whnf (← inferType classifier)
+            if type.isAppOf ``LeanCategories.PropertyClassifier then
+              classifier ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[classifier]
+            else if type.isAppOf ``LeanCategories.StructureClassifier then
+              classifier ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[classifier]
+            Semantic.asFunctor (← mkAppM ``LeanCategories.Classifier.forget #[classifier])
+          | _ => unreachable!
+        let sameAction ← withTransparency .all do
+            isDefEq (← inferType application) (← inferType action) <&&>
+              isDefEq application action
+        unless sameAction do return none
+        let application ← instantiateMVars application
+        unless closedParameter application && (← isTypeCorrect application) do return none
+        return some application
+      if let some application := accepted then
+        candidates := candidates.push { edge, declarationApplication, application }
+  match candidates with
+  | #[] => return none
+  | #[candidate] => return some candidate
+  | _ =>
+      throwStratum .ambiguousRealization m!"the complete object parameter names several accepted actions"
+
+/-- Decompose a literal composite in its declared order. Each component keeps its
+original complete application and parameters; no equality at an object selects it. -/
+partial def registeredComposite? (state : RegistryState) (action : Expr) :
+    TermElabM (Option (Array RegisteredAction)) := do
+  let mut selected := action.consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  if selected.isAppOfArity ``CategoryTheory.Functor.comp 8 then
+    let fields := selected.getAppArgs
+    let some first ← registeredComposite? state fields[6]! | return none
+    let some second ← registeredComposite? state fields[7]! | return none
+    return some (first ++ second)
+  let some accepted ← registeredAction? state selected | return none
+  return some #[accepted]
+
 /-- Recover only an action of an actual source occurrence in the requested parameter.
 The complete bundled result, the full registered functors, and their ordered parameters
 are checked before any data callback runs. Equal cached objects are never searched.
 
+An explicit object projection fixes its exact receiver and whole action. Other
+literal descendants with an equal final carrier are not alternative sources for it.
 Different retained actions remain ambiguous even when their values happen to agree at
 this object. Only repeated records of exactly the same source and applications coalesce. -/
 def retainedParameterAction? (trace : Trace) (value : Expr) :
@@ -36,6 +140,7 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
   -- recorded elsewhere cannot replace it merely because the full values agree.
   if state.objects.any (fun row => selected.getAppFn.constName? == some row.declaration) then
     return none
+  let explicitAction := objectAction? value
   let mut candidates : Array RetainedParameterAction := #[]
   for (recorded, node) in (← trace.get).toArray do
     let source? := match node with
@@ -47,6 +152,8 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
     -- Literal occurrence is the provenance boundary: a definitionally equal
     -- receiver elsewhere in the trace does not identify this actual child.
     unless receiver != value && (value.find? (· == receiver)).isSome do continue
+    if let some (_, selectedReceiver) := explicitAction then
+      unless receiver == selectedReceiver do continue
     let sameResult ← withoutModifyingState do
       unless closedParameter recorded && (← isTypeCorrect recorded) do return false
       withTransparency .all do
@@ -95,6 +202,13 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
       unless ← Decide.kernelAccepts (← mkEq finalImage value) (← mkEqRefl finalImage) do
         throwError "the reduced parameter action failed its complete object identification"
       return ({ receiver, route, applications } : RetainedParameterAction)
+    if let some (selectedAction, _) := explicitAction then
+      let sameAction ← withoutModifyingState do
+        let composite ← Semantic.compositeOfApplications candidate.applications
+        withTransparency .all do
+          isDefEq (← inferType composite) (← inferType selectedAction) <&&>
+            isDefEq composite selectedAction
+      unless sameAction do continue
     unless candidates.any (fun previous => previous.receiver == candidate.receiver &&
         previous.route == candidate.route && previous.applications == candidate.applications) do
       candidates := candidates.push candidate

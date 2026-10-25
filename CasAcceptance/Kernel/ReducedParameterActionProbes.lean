@@ -133,6 +133,17 @@ run_elab do
     throwError "duplicate records changed the original selected source"
   Trace.record (some trace) second
     (.retainedRoute row.category CategoryId.rings #[edge] #[action] wrapped)
+  -- The literal full action already selects its exact source occurrence. The
+  -- inner source must not compete merely because its image has the same value.
+  let explicit ← mkAppM ``CategoryTheory.Functor.obj #[action, wrapped]
+  for selected in #[explicit, second] do
+    let some recovered ← FunctorActionData.retainedParameterAction? trace selected
+      | throwError "a literal object action lost its selected retained source"
+    unless recovered.receiver == wrapped && recovered.route == #[edge] &&
+        recovered.applications == #[action] do
+      throwError "a literal object action selected an equal nested source instead"
+  unless (← parameterData trace explicit) == (← parameterData trace second) do
+    throwError "the public functor projections changed the selected parameter data"
   let rejected ← try
     discard <| FunctorActionData.retainedParameterAction? trace actual
     pure false
@@ -204,5 +215,85 @@ run_elab do
   catch error => pure (Exception.stratum? error == some .noImplementation)
   unless directRejected do
     throwError "direct recovery substituted an equal-carrier structure dictionary"
+
+-- Both public object projections retain nested and composed actions even without
+-- an exact trace key. The actual source packet must survive every action.
+run_elab do
+  let state ← registryState
+  let some row := state.objects.find? (·.id.raw == "obj.commutative_rings.integers_mod")
+    | throwError "the complete nested-action source is absent"
+  let trace ← Trace.new
+  let source ← objectAt trace row #[mkNatLit 5]
+  let firstEdge := EdgeRef.functor FunctorId.commutativeRingsRings
+  let secondEdge := EdgeRef.functor ⟨"fun.rings.multiplicative_monoid"⟩
+  let first ← Semantic.asFunctor (← Semantic.edgeFunctor state firstEdge)
+  let middle ← Semantic.objOf first source
+  let second ← Semantic.asFunctor (← Semantic.edgeFunctor state secondEdge)
+  let nested ← Semantic.objOf second middle
+  let first ← instantiateMVars first
+  let second ← instantiateMVars second
+  Trace.record (some trace) nested
+    (.retainedRoute row.category ⟨"cat.monoids"⟩ #[firstEdge, secondEdge]
+      #[first, second] source)
+  let explicit ← mkAppM ``CategoryTheory.Functor.obj #[second, middle]
+  let composed ← mkAppM ``CategoryTheory.Functor.obj
+    #[← Semantic.compositeOfApplications #[first, second], source]
+  unless (← trace.node? explicit).isNone && (← trace.node? composed).isNone do
+    throwError "the nested-action control unexpectedly has an exact trace key"
+  let original : Wire := {
+    form := .object row
+    payload := .computed source (.owned "nested-action-original" 315
+      (dataNode "opaqueData" #[toJson "the original complete nested source"])) }
+  let harness ← Harness.empty
+  harness.results.modify (·.insert source original)
+  let expected := dataNode "functorAction" #[
+    dataNode "fun.rings.multiplicative_monoid" #[],
+    dataNode "functorAction" #[dataNode FunctorId.commutativeRingsRings.raw #[], original.json]]
+  for selected in #[explicit, composed] do
+    let actual ← realize harness trace "the literal nested selected action" selected
+    unless actual.value == selected && actual.json == expected &&
+        actual.owner? == original.owner? do
+      throwError "literal action recovery changed its source, whole action or original owner"
+
+-- A literal parameter presentation remains selected even when an equal earlier
+-- occurrence appears in an ignored beta argument. No cached equal parameter is substituted.
+run_elab do
+  let state ← registryState
+  let some row := state.objects.find? (·.id.raw == "obj.rings.integers_mod")
+    | throwError "the declared-action parameter source is absent"
+  let some edge := state.functors.find? (·.id.raw == "fun.modules.fibre_inclusion")
+    | throwError "the parameterized declared action is absent"
+  let trace ← Trace.new
+  let source ← objectAt trace row #[mkNatLit 5]
+  let wrapped ← mkAppM ``id #[source]
+  let declaration := Lean.mkConst edge.declaration
+    ((← getConstInfo edge.declaration).levelParams.map fun _ => Level.zero)
+  let first := mkApp declaration source
+  let second := mkApp declaration wrapped
+  let actionType ← inferType first
+  let chooseSecond ← withLocalDeclD `ignored actionType fun ignored =>
+    withLocalDeclD `selected actionType fun selected =>
+      mkLambdaFVars #[ignored, selected] selected
+  let beta := mkAppN chooseSecond #[first, second]
+  let original : Wire := {
+    form := .object row
+    payload := .computed source (.owned "ignored-parameter" 316
+      (dataNode "opaqueData" #[toJson "the ignored parameter packet"])) }
+  let selected : Wire := { original with
+    payload := .computed wrapped (.owned "selected-parameter" 317
+      (dataNode "opaqueData" #[toJson "the selected parameter packet"])) }
+  let harness ← Harness.empty
+  harness.results.modify (fun cache => (cache.insert source original).insert wrapped selected)
+  for action in #[second, beta] do
+    let some accepted ← FunctorActionData.registeredAction? state action
+      | throwError "the literal complete declared application was lost"
+    unless accepted.edge == .functor edge.id && accepted.declarationApplication == second do
+      throwError "declared action selection substituted a different parameter occurrence"
+    let (data, dependencies) ← realizedEdgeDescriptor harness trace accepted.edge
+      accepted.declarationApplication
+    unless data == dataNode edge.id.raw #[selected.json] &&
+        dependencies.any (·.owner? == selected.owner?) &&
+        !dependencies.any (·.owner? == original.owner?) do
+      throwError "the declaration descriptor changed the actual selected parameter owner"
 
 end

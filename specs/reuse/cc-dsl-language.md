@@ -1,5 +1,58 @@
 # Reuse record: `cc-dsl-language`
 
+## Complete inclusion paths and selected power structures (2026-10-25)
+
+Corpus searches `monomorphism composition` and `CategoryTheory CategoryStruct comp`, followed by
+source inspection, locate the mathematical owners in Mathlib's categorical identity/composition
+and `lean-categories/Catalogue/Registry/Semantic.lean` (`validateInclusion`). The existing
+`InclusionEntry` carries its actual arrow, endpoint families, shared or dependent parameterization,
+and the upstream proof that that arrow is monic. The concrete controls use the published
+`NumberSystems.finIntegersMod`, `RealLimits.puncturedUnits`, finite points/reversal, identity maps,
+and their existing proof data. No mathematical definition, theorem, global registration, permanent
+assertion or leaf changes.
+
+The former `inclusionChain` kept the first shortest family-level route. Membership and named subset
+judgments used that graph result without instantiating the arrow; a route `Fin(n) → ZMod(n)` could
+therefore decide membership at different actual values of `n`. Conditional inclusions could likewise
+lose their premise. Coercion, complement and dependent-parameter inference used the same first route.
+
+The reader now supplies a complete independently selected source, enumerates candidate paths without
+an ObjectId visited rule, and constrains every adjacent and final endpoint before closing the whole
+path's parameters and proof obligations. Matching declaration heads compare every ordered computational argument
+before conversion can erase one. Proof arguments retain their complete proposition while their
+incidental proof implementation is irrelevant. Transparent endpoint presentations use that same
+binding rule before whole-map equality. Target metavariables may be determined from that fixed source;
+failed trials cannot assign the caller's metavariables or write trace entries. The selected path is
+replayed once to commit its actual parameters and complete inclusion/composition trace.
+
+Repeated families may denote different concrete parameters and remain in the search. An incompatible
+signature ends only that branch. A failed independent parameter or proof cannot be repaired after
+both its source and intermediate endpoint are closed; a genuinely unresolved endpoint remains
+expandable. A repeated prefix closes only after its complete endpoint application and whole composite
+map agree. The current installed inclusion graph is finite and acyclic; cyclic extensions are not
+silently truncated. An unclosed search reaches the existing host resource failure, while two distinct
+applicable maps establish ambiguity immediately. Lean's kernel checks complete map types and equality
+in the existing local context; a point sample or equal carrier is never agreement. Kernel exceptions
+propagate instead of being interpreted as invalidity or mathematical ambiguity. A deterministic
+representative is chosen only inside a class whose whole maps agree. Deterministic breadth-first
+frontier ordering also keeps shared intermediate prefixes independent of registry storage order. Explicit reflexivity remains at
+the membership, named-subset and coercion caller boundaries; the path selector grants identity no
+priority over a different applicable same-family map.
+
+`validatePowerObject` permits independent structures sharing an object family, truth-value family or
+extent declaration. The remaining first-row reads in `powerOf?`, `asAnswer` and `Realize.extentOf?`
+now use explicit unique selection, matching `powerObjectIn`. `validateSubsetLiteral` already enforces
+one form per power-object ID, so that separately justified lookup is unchanged.
+
+`InclusionSelectionProbes` checks same/different concrete parameters, membership, subset, coercion,
+complement, target inference, exact trace arguments and isolated failed trials. Its immutable local
+rows only specialize existing upstream maps/proofs. They cover both declaration orders, signature
+and closed-premise cycles, same-family paths through different parameters, delayed earlier-parameter
+binding from the final endpoint, distinct whole maps, identical-map and transparent-endpoint aliases,
+proof irrelevance, committed identity inference, unrelated unfinished locals, and all three formerly
+first-match power selectors. Original controls and fixed questions
+remain unchanged.
+
 ## Complete member applicability before result construction (2026-10-25)
 
 The corpus query `dependent telescope application elaboration` returned other elaborator

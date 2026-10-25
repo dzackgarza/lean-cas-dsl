@@ -905,20 +905,20 @@ partial def parameterData (trace : Trace) (value : Expr) (recovering : Array Exp
         ("args", Json.arr #[← edgeDescriptor trace step application recovering, json])]
     return json
   if let .ok json ← Codec.encode value then return json
-  -- `F.obj X` for a registered functor `F`, recognized by its declaration: the action of that
-  -- functor on the presentation of `X`.
-  let stripped := value.consumeMData
-  if stripped.isAppOfArity ``Prefunctor.obj 6 then
-    let prefunctor := stripped.getAppArgs[4]!.consumeMData
-    let functor := if prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 then
-      prefunctor.appArg! else prefunctor
-    let head := (functor.find? fun term =>
-      state.functors.any fun entry => term.isConstOf entry.declaration).bind (·.constName?)
-    if let some declaration := head then
-      if let some entry := state.functors.find? (·.declaration == declaration) then
-        return Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
-          ← edgeDescriptor trace (.functor entry.id) functor recovering,
-          ← parameterData trace stripped.appArg! recovering])]
+  -- Preserve the complete literal action in either public projection form.
+  -- A composite is encoded in its declared order, never by an inner declaration.
+  if let some (action, source) := FunctorActionData.objectAction? value then
+    if action.isAppOf ``CategoryTheory.Functor.comp then
+      let arguments := action.getAppArgs
+      let intermediate ← Semantic.objOf arguments[arguments.size - 2]! source
+      let nested ← Semantic.objOf arguments.back! intermediate
+      unless ← withTransparency .all <| isDefEq nested value do
+        throwError "the parameter composition changed its original complete object action"
+      return ← parameterData trace nested recovering
+    if let some selected ← FunctorActionData.registeredAction? state action then
+      return Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[
+        ← edgeDescriptor trace selected.edge selected.declarationApplication recovering,
+        ← parameterData trace source recovering])]
   if let some (data, _) ← FunctorActionData.encodeRetainedParameterAction? (Dependency := Unit)
       trace value
       (fun source => return (← parameterData trace source (recovering.push value), #[]))
@@ -2570,11 +2570,14 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
 
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
 set `po.extent X A` that `Language.asObject` forms. -/
-def extentOf? (state : RegistryState) (e : Expr) : Option (PowerObjectEntry × Expr × Expr) := do
+def extentOf? (state : RegistryState) (e : Expr) :
+    TermElabM (Option (PowerObjectEntry × Expr × Expr)) := do
   let e := e.consumeMData
-  let po ← state.powerObjects.find? (e.isAppOf ·.extent)
-  let #[X, A] := e.getAppArgs | none
-  return (po, X, A)
+  let some po ← Language.selectedPowerObject? state (e.isAppOf ·.extent)
+      m!"the selected extent declaration {e.getAppFn}"
+    | return none
+  let #[X, A] := e.getAppArgs | return none
+  return some (po, X, A)
 
 /-- Remove only the reader's administrative expected-type wrappers. The original
 categorical composition and its complete selected argument remain unchanged. -/
@@ -2660,13 +2663,8 @@ term. Computed source data and action parameters remain dependencies; a syntacti
 composite is encoded in its original order rather than selecting an inner edge. -/
 partial def realizedObjectParameterAction? (h : Harness) (trace : Trace) (value : Expr) :
     TermElabM (Option (Json × Array Wire)) := do
-  let mut selected := (← instantiateMVars value).consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
-  unless selected.isAppOfArity ``Prefunctor.obj 6 do return none
-  let prefunctor := selected.getAppArgs[4]!.consumeMData
-  unless prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 do return none
-  let action := prefunctor.appArg!.consumeMData
-  let source := selected.appArg!
+  let some (action, source) := FunctorActionData.objectAction? (← instantiateMVars value)
+    | return none
   if action.isAppOf ``CategoryTheory.Functor.comp then
     let arguments := action.getAppArgs
     let intermediate ← Semantic.objOf arguments[arguments.size - 2]! source
@@ -2677,20 +2675,9 @@ partial def realizedObjectParameterAction? (h : Harness) (trace : Trace) (value 
     let #[data] := data | throwError "the composed object parameter lost its complete data"
     return some (data, dependencies)
   let state ← registryState
-  let mut candidates : Array EdgeRef := #[]
-  for (edge, declaration) in
-      (state.functors.map fun row => (EdgeRef.functor row.id, row.declaration)) ++
-      (state.classifiers.map fun row => (EdgeRef.classifierForget row.id, row.declaration)) do
-    unless (action.find? (·.isConstOf declaration)).isSome do continue
-    let sameAction ← withoutModifyingState do
-      let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
-      withTransparency .all <| isDefEq accepted action
-    if sameAction then candidates := candidates.push edge
-  let edge ← match candidates with
-    | #[] => return none
-    | #[edge] => pure edge
-    | _ => throwError "the complete object parameter names several accepted actions"
-  let (descriptor, actionDependencies) ← realizedEdgeDescriptor h trace edge action
+  let some selected ← FunctorActionData.registeredAction? state action | return none
+  let (descriptor, actionDependencies) ← realizedEdgeDescriptor h trace selected.edge
+    selected.declarationApplication
   let (sources, sourceDependencies) ← realizedParameters h trace #[source]
   let #[sourceData] := sources | throwError "the object parameter lost its original source data"
   unless ← withTransparency .all <| isDefEq (← Semantic.objOf action source) value do
@@ -2841,7 +2828,7 @@ expected, is sent as that extent: the power object, its ambient set and the lite
 partial def extentData? (h : Harness) (trace : Trace) (p : Expr) :
     TermElabM (Option (Json × Array Wire)) := do
   let some (.literal _ _) ← (trace.node? p : IO _) | return none
-  let some (po, X, element) := extentOf? (← registryState) p | return none
+  let some (po, X, element) ← extentOf? (← registryState) p | return none
   let ambient ← realize h trace "the ambient set of an extent" X
   let literal ← realize h trace "the literal of an extent" element
   return some (Json.mkObj [("ctor", "extent"),
@@ -3484,6 +3471,28 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       -- an equal result elsewhere in the cache cannot supply this presentation.
       if h.parameterRecovery.contains e then
         throwStratum .noImplementation m!"the complete selected object action has cyclic data dependencies"
+      -- Literal projections select their exact source and action parameters even
+      -- when a different projection spelling has no exact trace node. Recurse
+      -- through that child before considering genuinely reduced presentations.
+      if let some (action, receiver) := FunctorActionData.objectAction? e then
+        if let some selected ← FunctorActionData.registeredComposite? state action then
+          let h := { h with parameterRecovery := h.parameterRecovery.push e }
+          let source ← realizeEndpoint h trace "the literal action's selected source" receiver
+          let image ← transportImage trace source (selected.map (·.edge))
+            (some (selected.map (·.application)))
+            (some fun edge application => do
+              let components := selected.filter fun candidate =>
+                candidate.edge == edge && candidate.application == application
+              let some component := components[0]?
+                | throwError "the literal action lost its exact declared parameter presentation"
+              unless components.all (fun candidate =>
+                  candidate.declarationApplication == component.declarationApplication) do
+                throwError "the literal action has distinct retained parameter presentations"
+              realizedEdgeDescriptor h trace edge component.declarationApplication)
+          unless ← withTransparency .all <|
+              isDefEq (← inferType image.value) (← inferType e) <&&> isDefEq image.value e do
+            throwError "the literal action changed the complete selected object"
+          return { image with payload := forwardPayload image e image.json }
       if let some selected ← FunctorActionData.retainedParameterAction? trace e then
         let h := { h with parameterRecovery := h.parameterRecovery.push e }
         let source ← realizeEndpoint h trace "the reduced selected object's retained source" selected.receiver
