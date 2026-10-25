@@ -22,6 +22,10 @@ public import CasAcceptance.Kernel.MorphismEndpointProbes
 public import CasAcceptance.Kernel.PortFailureProbes
 public import CasAcceptance.Kernel.StructuredReconstructionProbes
 public import CasAcceptance.Kernel.StructuredExecutionProbes
+public import CasAcceptance.Kernel.DeclaredProductContextProbes
+public import CasAcceptance.Kernel.ReaderContextContinuityProbes
+public import CasAcceptance.Kernel.SelectedCarrierProbes
+public import CasAcceptance.Kernel.SourceParameterBindingProbes
 
 /- Engineering checks of the generic kernel. Independent extension fixtures are
 built separately against their explicitly supplied mathematical inputs. -/

@@ -23,7 +23,7 @@ public import CasCatalogue.ImageFormProbes
 public import CasCatalogue.LiftedSubobjectData
 public import CasCatalogue.LiftedSubobjectDataProbes
 public import CasCatalogue.PresentationReaderProbes
-public import CasCatalogue.SelectedCarrierProbes
+public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasCatalogue.ParameterStructureProbes
 public import Lean.Util.CollectAxioms
 
