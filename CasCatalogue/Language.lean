@@ -5130,6 +5130,12 @@ partial def identityCarrierView (Y X : Value) : M Bool := do
     | none, none => true
     | _, _ => false
   unless sameSelection && sameOrigin do return false
+  if ySelected.isSome && xSelected.isSome then
+    -- The complete selected structures were compared above, including the actual
+    -- forward route witness when structure is forgotten. Their carriers may be
+    -- written with different functors; comparing those functor arguments as if
+    -- they were independent endpoint parameters would discard this checked view.
+    return ← withTransparency .all <| isDefEq y x
   unless ← parameterCompatible (do
       bindInclusionEndpoint y x
       pure true) do return false

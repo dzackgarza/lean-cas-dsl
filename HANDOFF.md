@@ -26,18 +26,30 @@ That is an engineering build result, not mathematical acceptance or a final free
 The verified CI artifact digest is
 `58cf5dd614e0b4a380725a3bd8d39eb47916dc7c17e19bb04a8f0ad749ad7213`.
 
-This checkpoint adds two generic repairs after that build. Inclusion selection
+Published `f3545ac64e288f08baed079cf393972ad5441f0b` added two generic repairs after that build. Inclusion selection
 now checks complete dependent paths, obligations and whole-map agreement, and
 power-structure readers require a unique matching row. Literal functor actions
 now retain their exact receiver and actual declaration parameters through either
 public object projection, composed actions and direct realization. Existing
 reduced ambiguity and owner controls remain; new controls exercise nested actions
 and an ignored earlier parameter packet. Both repairs have focused successful
-engineering checks. Their merged consumers and fixed trials must run again.
+engineering checks. The complete merged build then exposed two existing
+`ParameterStructureProbes` failures: a witnessed forward carrier view and constants
+from that coefficient view were rejected. This checkpoint corrects only the final
+carrier comparison after the complete selected structures and actual forward route
+have already checked. Strict full endpoint-parameter comparison remains in place
+for carriers without that retained witness. The unchanged parameter-structure, inclusion-selection, selected-carrier and
+source-parameter controls all pass. The complete merged consumers and fixed trials
+still require a new successful run.
 
 At published `da6af543`, all **153 permanent questions** exported with no reading
-failures. Independent mathematical review is in progress against those exact
-payloads and source/artifact receipts. The full positive extension export read
+failures. The fresh independent reviewer assessed all 153 complete typed readings
+and found that every one matches its required mathematical meaning. The per-ID
+ledger, source citations and payload hashes are preserved. This is interpretation
+only; it establishes no computational, admission, migration or release verdict.
+The supplementary `Init.olean` digest was recorded after export and is not relabelled
+as a historical before/after measurement. Final changed source needs a new complete
+export and assessment. The full positive extension export read
 **96 of 134 questions**; 38 required IDs remain unreadable, with 89 binding or
 interpretation diagnostics. The current failing sites are the two lift files,
 RX06 scalar-action binding, RX08 pairing binding, and two assertion-level resource
@@ -51,24 +63,34 @@ they then stop after three dispatches with a backend rejection of the mapped sou
 descriptor. Packet review found that the complete base map, both endpoints, ordered
 outer actions and the original live owners agree with the public contract. The
 specific leaf implementation branch has not been inferred from that error alone.
-A separate public-only leaf author is assessing the existing adapter through its
-public interfaces, without fixed questions or these runtime findings.
+A separate public-only leaf author completed repairs through the published public
+interfaces, without fixed questions or these runtime findings. The result is
+published as `51e0e6ebd25a2f2a88097ae3081a3c34970cc29d`, tree
+`90257682b956045e28a97d19e23e43aeabbda2bd`, fetched back and completely tree-checked.
+Both registration manifests are byte-identical. The changes preserve actual
+returned values, complete endpoints and session ownership; they add no operation,
+registration, wire form or native mathematical algorithm. The author's framing
+checks are engineering information, not mathematical acceptance. Fixed execution
+against this published implementation remains required.
 
 Work remains in `/workspace/scratch/735f437b0adf`. The exact Lean 4.33.0 toolchain,
 127 pinned engine distributions, selected mathematical and contract dependencies,
-and notebook environment are restored. The local native build is running at the
-unchanged `da6af543` base to prepare actual container execution; later source fixes
-require the affected consumers and executables to rebuild. The selected notebook
+and notebook environment are restored. The local native/tool/notebook build
+completed successfully at the unchanged `da6af543` base (7,717 jobs, 1,672.420
+seconds, unchanged source). Actual native and notebook workflow runs are now
+underway; later source fixes require their consumers and executables to rebuild. The selected notebook
 revision is `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker` subdirectory).
 A fresh 6,160,534-byte public API was generated from published, built `da6af543`
 with exact provenance; the final API must be regenerated after the final freeze.
 
 The separately preserved evidence archive retains its original recovered records
-and producer identities. Version 28 of
+and producer identities. Version 29 of
 `libfile_94b086b3c1308191b67e0c34e0d4c364` contains the closed local restoration,
-build, RX10 and binding records plus independent reference preparation
-(23,293,591 bytes; SHA-256
-`57f8b411fa0ba526282073596dd6de4fb48fbb5358dfc2a137e482ff2224688b`).
+build, RX10 and binding records, complete permanent readings and independent
+assessment, full positive-extension interpretation diagnostics, the generated
+public API, base CI evidence and the published leaf provenance
+(29,285,961 bytes; SHA-256
+`404334fb1f085dd8215ae6ab98dcd4c5ea549f126737342c5cdad493bae30be7`).
 New runs use fresh output paths; a running or failed record is never relabelled as
 successful. Public source, independent readings and execution evidence remain
 separate. The remaining work below is required; this checkpoint is not MVP completion.
@@ -85,7 +107,7 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 | Computational transport | Nonidentity transport, symbolic and opaque callables, successive computations, exact endpoints, and session ownership work with actual returned data. | Earlier connected runs passed. Latest candidate requires reruns, including RX10. |
 | Complete structured results | Computed kernels, cokernels, subobjects, limits, and lifts expose their required defining maps and permit later operations. Creation comparisons work through accepted general data. | Prescribed-lift action-data repair is integrated. Its scoped checks pass in the record. Full fixed structured-result and successive-lift trials remain open. |
 | Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | A fresh API exists from published, built `da6af543`; final API publication and independent public-only sufficiency remain open. |
-| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 readings exported at `da6af543`; independent review is in progress. Final source needs complete export and assessment again. |
+| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | All 153 readings exported at `da6af543` and independently matched to their required meanings. Final source needs complete export and assessment again. |
 | Correct failures | Distinguish invalid mathematics, ambiguity, absent implementation, unavailable backend, malformed reply, well-formed wrong answer, and internal/resource failure. A change of leaf must not change the question. | Earlier RX10 exposed real defects. Final fixed-question conditions, successful callable return, and session/reuse controls remain open. |
 | Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | Earlier demonstration passed at an older source. Current native binaries, notebook output, and final demonstration need verification. |
 | Independent extensibility | Freeze kernel and contract; execute every required extension trial against independently fixed mathematics and questions. Extend only through permitted public interfaces. Any required generic patch demands a new freeze and rerun. | Not complete. Partial readings, bindings, and protocol checks do not close this condition. |
@@ -166,21 +188,19 @@ Any needed generic repair invalidates the affected frozen-trial result. Repair i
 
 All repositories below are under `https://github.com/dzackgarza/`.
 
-| Repository / role | Branch | Restart revision |
+| Repository / role | Branch | Selected source or labelled provenance |
 | --- | --- | --- |
-| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | `29d3d60500cf1e4d2b49de0355ec8017eaa836bd` |
-| `lean-categories`: independently supplied base interfaces | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `f3545ac64e288f08baed079cf393972ad5441f0b` |
+| `lean-categories`: historical base-interface provenance; not the selected package | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
 | `lean-categories`: mathematical extensions and evidence repairs used by recent consumers | `work/kernel-v1-independent-extensions-20261023` | `82d1370de372a00a86391b74fc2566c9547dfcb6` |
 | `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `90d7d3f1833cff39b77024dcee2dc43213e623ad` |
 | `lean-cas-dsl-leaves`: existing workflow specimen | `work/v1-contract-diagnostic-20261023` | `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` |
-| `lean-cas-dsl-leaves`: independent callable-form specimen | `work/kernel-v1-independent-leaf-20261024` | `fa0856dfc365c497a25e4a94019a1cb08b79c4d1` |
+| `lean-cas-dsl-leaves`: independent callable-form specimen | `work/kernel-v1-independent-leaf-20261024` | `51e0e6ebd25a2f2a88097ae3081a3c34970cc29d` (original `fa0856d` retained separately) |
 | `lean-jupyter-kernel`: existing notebook worker | Read selected package lock and runtime override | `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker`) |
 
-The kernel, both mathematical branches, contract, and independent leaf tips above were checked live during handoff preparation. The workflow-specimen revision comes from the published handoff and demonstration documentation. Verify its actual selected tree before running.
+Every run records its exact selected source commits, complete trees and unchanged working state. The current mathematical package is `82d1370d`, the compiled protocol is `90d7d3f`, and the workflow specimen is `2c8b904`. Source publication does not install an independently accepted mathematical release.
 
 `lean-cas-dsl/main` remains `6e67b1e1dd118811c8cb443cc558221095e98573` at inspection. The active work branch contains the substantive implementation. The source integrates that main with `b0/kernel` at `4bcd912`, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale.
-
-`HANDOFF.md` at the current kernel tip has useful evidence references but an obsolete opening source table and accumulated older runtime/status paragraphs. Prefer exact source and producer records for present state. In particular, its opening kernel `b814a19` entry is older than the verified tip.
 
 Recent source that must survive integration:
 
@@ -387,6 +407,12 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- The `f3545ac` custodian review did not produce a verdict. Run `40197923885`,
+  job `121182701288`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
+  `git -c core.hooksPath=/dev/null -C /tmp/custodian-review-ct_kwx98/base rev-parse
+  FETCH_HEAD^{commit}` exited 128. This is an unavailable review input, not a
+  semantic rejection or approval. No authority check has been bypassed or
+  self-approved; unaffected construction continues under the existing mandate.
 - The unchanged original leaf manifest contains overlapping exact/category and
   own-request/source registrations. These correctly remain ambiguous. Runtime
   demonstrations use an explicit configuration selecting registrations; the
