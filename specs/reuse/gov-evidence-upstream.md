@@ -85,3 +85,15 @@ acquisition in `Realize.evaluatedDecides`. The retained question, selected opera
 records, registered evaluator, and final kernel check against the complete original
 proposition remain unchanged. No gate allowance, mathematical normalization rule,
 decision instance, provider retry, or budget change is introduced.
+
+## Explicit imports for family-interface rejection controls (2026-10-25)
+
+`CategoryFamilyRealization.transport` and
+`CategoryFamilyRealization.canonicalDiscreteCommRingTransport` are declared in
+`LeanCategories.Catalogue.Realization`; `totalCat` and `reindexFunctor` are declared
+in `LeanCategories.Catalogue.FamilyFibration`, which publicly imports Realization.
+The gate's private `import all` closure does not export these declarations to its
+probe. The probe therefore publicly imports their existing owner. The three
+categorical-interface acceptance checks and the domain-specific helper rejection
+remain unchanged, as does the purity predicate. No namespace rename, added
+allowance, mathematical definition, or proof procedure is needed.

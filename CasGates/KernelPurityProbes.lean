@@ -6,6 +6,7 @@ module
 
 public import CasGates.KernelPurity
 public meta import CasGates.KernelPurity
+public import LeanCategories.Catalogue.FamilyFibration
 public import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 public import Mathlib.CategoryTheory.Category.Basic
 public meta import Lean

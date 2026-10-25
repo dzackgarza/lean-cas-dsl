@@ -1,574 +1,366 @@
-# V1 kernel MVP: integration handoff
+# V1 kernel MVP: authoritative integration handoff
 
-The owner assignment of 2026-10-23 governs this work. The implementation queue is
-KM1–KM9 in [the computational-core plan](specs/computational-core-plan.md), organized
-by generic mechanisms. K1–K14 remain regression evidence. The owner authorizes
-parallel kernel work, necessary upstream interfaces, the public contract, and the
-invocation repairs needed for connected real-CAS workflows. Mathematical ownership,
-permanent assertions, and independent release acceptance are unchanged.
+## 1. The task
 
-## Current source combination
+Finish the usable V1 kernel of `dzackgarza/lean-cas-dsl`, including the mathematical interfaces and computational contracts it needs. Deliver a working computer algebra system whose supported extension mechanisms let a new leaf author implement registered operations through the public contract. Ordinary leaf work must not require repeated repairs to generic kernel infrastructure.
 
-The previously unpublished patch bodies remain missing. The current source is
-reconstruction from the surviving record and published checkpoints, followed by
-new integration fixes. It is not described as byte-for-byte recovery. Source,
-builds and real-engine checks remain in the ChatGPT cloud container; Core2 is not
-the reconstruction or integration workspace.
+The assignment includes implementation, integration, actual computation, independent extension experiments, and delivery. Continue beyond the interrupted build and beyond passing isolated probes. The completion conditions below define the whole task.
 
-| Repository | Branch / checkpoint | State |
+Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f270-83ea-ac4d-bcb9911c54d8). This handoff was prepared on 2026-10-25 from the conversation's user instructions, its attached mandate as printed in tool output, its active-branch interruption record, and current GitHub source. The final recorded activity was an integrated consumer build and investigation of `CasGates.KernelPurityProbes`. No final successful build or MVP completion appears at that boundary.
+
+Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
+
+## Current continuation state — 2026-10-25
+
+The published restart source was fetched and verified at `29d3d60500cf1e4d2b49de0355ec8017eaa836bd`.
+The old cloud checkout was inspected before automatic scratch cleanup removed it.
+Its clean local integrated tree matched that published checkpoint. A surviving clean
+repair commit `a290701b016f1682de56c4f6de01cf45aa36a9d1` supplied the missing public
+`LeanCategories.Catalogue.FamilyFibration` import in `KernelPurityProbes`.
+That one-line source correction is reconstructed in this commit with its ownership
+record. The purity predicate and every positive and rejection control are unchanged.
+The names have not moved: Realization owns the transport field and domain helper;
+FamilyFibration owns `totalCat` and `reindexFunctor` and publicly imports Realization.
+The gate's private import closure did not export those names to the probe.
+
+The earlier `integrated-consumers-29d3d60.log` continues past the probe failure and
+ends with `fatal library error, lookup self`. Its stale `status: running` record
+is not a successful or active build. No matching process survived inspection.
+No post-import-repair build or RX10 execution was recovered.
+
+Work now uses `/workspace/scratch/735f437b0adf/lean-cas-dsl`, with toolchain and
+packages restored in the same cloud workspace. The latest independently saved
+evidence archive, Library `libfile_94b086b3c1308191b67e0c34e0d4c364` version 25,
+was recovered intact (22,722,153 bytes; 863 ZIP members) and extracted beneath
+`evidence-archive/restored`. Existing records are retained with their original
+paths and producer identities; new runs use separate output paths. Runtime-only
+path rebinding changes no mathematical input, registration, or expected outcome.
+The selected notebook revision in the committed package manifest is
+`4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker` subdirectory).
+
+This source checkpoint does not discharge the completion conditions below.
+The next checks are the explicit-import probe, coherent consumers and native
+execution surfaces, the unchanged RX10 and fixed mathematical inputs, then the
+final API, connected workflows, independent assessments and frozen trials.
+
+
+## 2. Completion conditions
+
+All rows must be discharged at a coherent final source combination. Earlier observations identify what to preserve and rerun; they do not establish results for the latest candidate.
+
+| Required result | Acceptance condition | State at interruption |
 | --- | --- | --- |
-| lean-cas-dsl | `work/kernel-v1-20261023`; integrated source `b814a19d7595291018c5b11fac3865b40801c2ae` | Integrated admission, product-context and failure-stratum changes; the 33-target consumer build exposed binder regressions being repaired before the next execution run |
-| lean-categories | `work/kernel-v1-interfaces-20261023`; `9508da173de86670c4e0c8a4632e2df7d2335949` | Independently authored scalar-action, complete module-kernel interfaces and comparison laws; source published and compiled |
-| Independent mathematics | `work/kernel-v1-independent-extensions-20261023`; `82d1370de372a00a86391b74fc2566c9547dfcb6` | Includes checked closed polynomial normalization, cancellation and injective coefficient-map evidence; public declaration signatures are unchanged by these repairs |
-| lean-cas-dsl-leaf-contracts | `work/kernel-v1-contract-20261023`; `90d7d3f1833cff39b77024dcee2dc43213e623ad` | Complete public forms and worked terminal-source/whole-callable invocations; actual-data and session guidance; latest change only aligns the mathematical lock; final generated reference pending |
-| lean-cas-dsl-leaves | `work/v1-contract-diagnostic-20261023`; `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` | Existing leaves and additive independent diagnostic specimen unchanged during reconstruction |
-| Independent diagnostic leaf | `work/kernel-v1-independent-leaf-20261024`; `fa0856dfc365c497a25e4a94019a1cb08b79c4d1` | Independently completed the five public power-object callable fields and nested endpoint/session consumers; the same 66 registrations remain byte-identical; standalone protocol checks are not mathematical acceptance |
+| Integrated kernel | Kernel, contract, mathematical dependencies, relevant probes, gates, tools, native executables, and notebook surface build together. Preserve applicable PR #63/#64 behavior within the PR #65-derived implementation. | Latest published kernel is `29d3d605`; its consumer build has a concrete purity-probe failure. No complete green final build. |
+| Registry-derived interpretation | Mathematical choices come from accepted declarations. Dependent parameters, selected structures, tuple/destructured binders, closed maps, refinements, and admission use generic paths. Preserve genuine ambiguity. | Substantial implementation and earlier passing reader checks exist. Current full consumers and fixed extension readings remain to be established. |
+| Compositional resolution | New objects acquire old applicable operations; new generic operations reach old objects. Object and morphism actions preserve comparisons, actual parameters, reindexing, and refinements. | Generic machinery exists. Final independent trials and compositional arguments remain required. |
+| Computational transport | Nonidentity transport, symbolic and opaque callables, successive computations, exact endpoints, and session ownership work with actual returned data. | Earlier connected runs passed. Latest candidate requires reruns, including RX10. |
+| Complete structured results | Computed kernels, cokernels, subobjects, limits, and lifts expose their required defining maps and permit later operations. Creation comparisons work through accepted general data. | Prescribed-lift action-data repair is integrated. Its scoped checks pass in the record. Full fixed structured-result and successive-lift trials remain open. |
+| Stable public contract | Every advertised V1 form has complete requests, replies, dependent parameters, validators, ownership rules, and worked examples. A leaf author can implement it from public material alone. | Contract source exists. Final API generation and sufficiency checks against the final source combination remain open. |
+| Permanent mathematical meaning | Independently compare every admitted question's complete typed meaning. Keep revision provenance separate from meaning. Preserve protected assertions and the independent migration/admission boundary. | Earlier complete permanent reading/review exists. Final candidate export and independent assessment remain required. |
+| Correct failures | Distinguish invalid mathematics, ambiguity, absent implementation, unavailable backend, malformed reply, well-formed wrong answer, and internal/resource failure. A change of leaf must not change the question. | Earlier RX10 exposed real defects. Final fixed-question conditions, successful callable return, and session/reuse controls remain open. |
+| Useful CAS | Run connected real-engine workflows through the existing execution surface. Reuse intermediate values and structured outputs; include nonidentity transport and inherited operations. Verify notebook execution where used. | Earlier demonstration passed at an older source. Current native binaries, notebook output, and final demonstration need verification. |
+| Independent extensibility | Freeze kernel and contract; execute every required extension trial against independently fixed mathematics and questions. Extend only through permitted public interfaces. Any required generic patch demands a new freeze and rerun. | Not complete. Partial readings, bindings, and protocol checks do not close this condition. |
+| Delivery | Publish integrated source, reproducible examples and evidence, a current public contract/API, and exact source provenance. State genuine limits of V1 while preserving full-B0 obligations. | Pending final integration and execution. |
 
-The kernel merge reconciles `main` at `6e67b1e` with `b0/kernel` at `4bcd912`,
-retaining the integrated PR #65 architecture and the surviving obligations of
-PRs #63 and #64. Local dependency path overrides are build-environment data;
-they must not enter source commits or exported API provenance.
+| Fixed scope quantity | Requirement or recorded inventory |
+| --- | --- |
+| Useful connected workflows | At least 4, spanning at least 3 mathematical areas |
+| Mandatory workflow mechanisms | Structured output followed by reuse; nonidentity transport or comparison |
+| Permanent assertion inventory | 153 admitted questions |
+| Fixed positive extension inventory | 134 questions in 14 files: 105 original and 29 completion questions |
+| Independent extension trials | RX-01 through RX-10, with the additional RX-LIFT obligations |
+| Permitted completion stubs | None for required generic V1 behavior; precisely reported absent leaf implementations remain permitted |
 
-## Mechanisms implemented or under final integration
+## 3. Next work, in order
 
-- Registry-derived singleton/point, quotient notation, diagram constructors,
-  selected parameters, vector components, and power-series parameter object.
-- Complete coherent route resolution and return-lift enumeration, including
-  dependent constructor comparisons and exact retained parameter applications.
-- Computational dependency ownership, declared morphism actions, nonidentity
-  element transport, actual returned-data caching, and complete point dispatch.
-- Registry-derived cone/cocone schemas and defining-map projections, generic
-  creation comparisons, and complete prescribed-lift computational packets.
-- Public typed callable/result forms, strict framing and failure strata,
-  independent typed-question comparison, and separate revision provenance.
+### A. Recover the actual source and close the interrupted build
 
-Existing `completeRoutes`, `ProofRefinement.construct`, and
-`executePrescribedLift` are retained. Isolated mechanism probes are not the exit
-gate. The combined reconstructed kernel must pass its coherent build, connected
-workflows and frozen extension trials before claiming V1 readiness.
+Recovery of the surviving source and archive is recorded above. Preserve that recovered state and inspect only newly relevant source or processes before editing. Read `INTENT.md`, `AGENTS.md`, `CONTRIBUTING.md`, and applicable source/style guidance. Fetch the active branches and check their current tips; the SHAs in this handoff are verified restart anchors, not permission to overwrite newer work.
 
-## Current verification boundary
+The latest kernel checkpoint verified on GitHub is:
 
-The first full native build at local `5cc198a` / published `38cf1a2` found a
-helper-visibility error in the actual public module. It was stopped after
-117.885 seconds with the source tuple unchanged. Removing the helper's `private`
-keyword follows the module's existing public-section convention. The exact
-corrected production file then elaborated directly in 2.703 seconds with exit
-zero and all 115 imported artifacts unchanged. The full build is resumed from
-this corrected source; the stopped build is not counted as a pass.
+```text
+branch: work/kernel-v1-20261023
+commit: 29d3d60500cf1e4d2b49de0355ec8017eaa836bd
+tree:   84c7cf4f61c7057a9bc6dc905a1cc2ffc3de168c
+```
 
-The proof-refinement constructor now exposes closed non-proposition type inputs
-before matching existing class or Decidable instances. The exact helper passes
-the unchanged finite-product positive while retaining the complete supplied
-source, result type and kernel-checked original identity. The infinite-source
-and missing-chosen-structure negatives still reject, and all seven registered
-admission controls retain their required outcomes. The bounded comparison exits
-zero in 27.516 seconds with 1,135 imported artifacts unchanged. Conversion-option
-changes alone were separately tested and did not fix this instance-matching
-obstruction. Registered evidence procedures and their selected projection
-contexts are unchanged by this correction. The next check is the combined full
-library, consumer, native-tool and notebook-worker build.
+Inspect `kernel-verification-20261025/integrated-consumers-29d3d60.log` in the old cloud workspace if it survives. Its last recorded output reports that `CasGates.KernelPurity` built, followed by these failures in `CasGates/KernelPurityProbes.lean`:
 
-The combined 34-target consumer build at local `0eeec39` / published `ac8a31e`
-completed with exit 1 in 622.608 seconds, with its complete source tuple unchanged.
-The repaired language and realization modules, unchanged dependent and binder
-readers, and the other completed consumer targets compiled. Five targets failed:
-two additive probe wrappers terminated a multiline `withOptions` application,
-two protocol probes lacked the explicit contract path for the external package
-override, and the unchanged finite-product proof-refinement positive was refused.
-The wrapper corrections preserve every non-whitespace byte and every control.
-The runtime invocation will supply its selected contract path. That build identified the
-generic refinement obstruction addressed above; its repaired integrated consumer
-and fixed execution checks remain required. The raw build and producer record are preserved under
-`kernel-verification-20261025/admission-lift-consumers-ac8a31e` outside the source.
+```text
+48:6 Unknown constant CasCatalogue.CategoryFamilyRealization.transport
+49:6 Unknown constant CasCatalogue.CategoryFamilyRealization.totalCat
+50:6 Unknown constant CasCatalogue.CategoryFamilyRealization.reindexFunctor
+53:4 Unknown constant CasCatalogue.CategoryFamilyRealization.canonicalDiscreteCommRingTransport
+57:0 the kernel-purity gate accepts ...domainTransport
+     (carries no mathematics expected): []
+```
 
-The integrated admission repair preserves forwarding through the same structure
-projection, using Lean's authoritative structure name and field index, while
-exposing actual fields supplied through different structures. Its isolated
-24.228-second check proves the two exact limits, both reindexed-map obligations,
-the corrected whole bilinear map, and the constant-polynomial unit 2; unit 0
-still rejects. Every successful result is a closed typed proof at the original
-complete target after one registered evidence call. The existing polynomial-head
-engineering assertion is restored, with all original positive/negative and
-option-scope controls retained. The full integrated consumer build is pending.
+The current published probe still has these references. Diagnose their declaration visibility and ownership against the selected upstream `LeanCategories/Catalogue/CategoryFamily.lean`, its module exports, and the gate's imports. The final conversation described former-namespace references, but the recorded searches also show the `CasCatalogue.CategoryFamilyRealization` namespace in upstream uses. A namespace rename is therefore not an established repair. Find the actual exported declarations and repair the probe's access to them.
 
-The prescribed-lift executor now consumes the existing realized action encoder,
-so its nested action parameters retain actual cached computational data. Action
-dependency owners are merged before any field dispatch. The additive engineering
-control executes all four fields through the unchanged protocol-only helper and
-checks the observed requests, preceding outputs, completed step, retained object
-and comparison fields, and owner rejection before dispatch. An exact copied-helper
-check passes with all 442 shared kernel artifacts unchanged; two probe elaboration
-failures and an initial execution-environment refusal remain preserved. The
-integrated consumer build and actual frozen mathematical questions remain pending.
+Preserve the distinction the probe checks: registered categorical plumbing is allowed; a domain-specific commutative-ring transport helper remains forbidden. Retain the rejection controls. Do not loosen the purity predicate, expand exemptions, or drop the failing control. Check whether the final `domainTransport` error follows from the unresolved declaration before treating it as a separate gate defect.
 
-The earlier source checkpoint `3983ce2` contains the numeric-only ambient
-product correction and scoped implicit-argument conversion. Both are retained.
-Checkpoint `717ecd2` had an unfinished admission presentation: it exposed actual
-stored non-type fields and definitionally identical class dictionaries while
-preserving carrier expressions. Isolated checks prove both unchanged limit
-obligations and both reindexed-module obligations (13.820 seconds), and preserve
-the constant-polynomial unit/nonunit controls (5.369 seconds). The paired
-corrected bilinear function still fails admission (11.466 seconds), despite
-matching the independent whole hyperbolic function and retaining its original
-complete type. No combined build or readiness claim applies to this candidate.
+Finish all consumers of the repaired candidate and then the required native/tool/notebook build. Record the full source combination and unchanged source state for each run. If the old build is still active, do not mutate its inputs. Use isolated source/build locations for a new candidate.
 
-Controlled projection diagnostics isolated the context loss: replacing the
-exterior carrier of the reindexed module by its stored carrier alone makes its
-registered evidence reject, while three other actual stored fields individually
-retain a proof. These diagnostics restore complete Term/Meta/Core state between
-attempts. Earlier variants changed projection metadata and dictionary synthesis
-together, so their differences did not establish a dictionary defect. The repair
-above supplies one uniform presentation for both consumers without changing
-the questions or retrying evidence after rejection. Complete raw diagnostics,
-including failures and interrupted runs, are preserved separately.
+### B. Run the unchanged bindings and complete interpretation exports
 
-The next integrated source at local `43d8608` / published `b814a19`, with
-mathematics `82d1370` and contract `90d7d3f`, completed its 33-target build with
-exit 1 in 505.325 seconds; the source tuple remained unchanged. The new signed
-product-context and evidence-failure controls pass, as do the core language,
-realization, question and purity targets. The unchanged dependent-reader and
-limit-binder files fail, and the new constrained-map probe has a core-name
-ambiguity. Their raw errors remain in
-`/tmp/kernel-mvp-admission-product-consumers-20261025.log`, with its adjacent
-producer record. These are actual regressions, not a green combined candidate.
+Use the fixed inputs and reconstructed drivers described below. Read their reports, not just their process exit status. A diagnostic may exit successfully after writing failed bindings.
 
-The preceding `95227b8` unchanged binding diagnostic checked 182 bindings in 14
-files and found four first failures: prescribed-lift `expectedF` exceeded the
-ordinary definitional-equality budget; source-comparison `i0` did not read;
-RX06's complete reindexed map failed admission; RX08's constrained whole map
-failed admission. The process exited zero because it reports failures as data;
-the report is not a pass. RX10 on the same source dispatched the actual scalar
-action once but stopped at a public callable form absent from the old diagnostic
-leaf. Its other four failure kinds and all six question comparisons were
-recorded correctly; returned-data reuse was not reached. The independently
-authored `fa0856d` leaf now consumes those published forms without any new
-registration. The next unchanged RX10 run awaits a green repaired kernel.
+The most recent complete binding diagnostic recorded these unresolved consumers on an older candidate:
 
-The latest combined candidate at local `95227b8` / published `8ea95e6`, mathematics
-`82d1370` and contract `90d7d3f` passes the 28 selected kernel, consumer and public
-mathematical-import targets (3,803 jobs). Its actual core rebuild at `b75dd8f`
-took 347.084 seconds, with peak child RSS 3,227,704 KiB; the regression-only
-follow-up took 9.449 seconds. Both source tuples remained unchanged. The logs
-are `/tmp/kernel-mvp-combined-context-consumers-20261025.log` and
-`/tmp/kernel-mvp-combined-context-controls-20261025.log`, with adjacent complete
-producer records. The ordinary dependent-reader file, constructor-proof controls,
-selected-context and staged-data probes, and strict ambiguity/complete-callable
-endpoint controls all pass. No current native-executable or full-suite outcome
-is inferred from these module builds.
+- Prescribed-lift `expectedF`: ordinary definitional-equality budget exceeded.
+- Source-comparison `i0`: interpretation failed.
+- RX06: the complete reindexed map failed admission.
+- RX08: the constrained whole map failed admission.
 
-The integrated reader retains closed data parameters through terminal
-precomposition, exposes the actual carrier action's unresolved structure
-parameters, preserves both mapped endpoint views, and limits retained operand
-selections by the requested operation's reachable binding. Constructor proof
-syntax is elaborated at the actual generalized obligation. For an already
-complete callable, an anonymous endpoint may use that callable's public
-`morphismEndpoint` descriptor; ordinary realization still rejects multiple
-distinct retained actions. These mechanisms retain all full-type and ownership
-checks. The additive controls and independent bounded source arguments are in
-the existing compositional review and probe files.
+Later admission, context, endpoint, and refinement repairs exist. Rerun the same expressions before deciding which defects remain. Repair generic owners; do not change the fixed questions to fit the implementation.
 
-The last complete extension interpretation export, at `5f7f5a2`, produced 94
-complete readings and 40 empty records out of 134 unchanged questions. All 94
-present meanings were independently assessed against the fixed questions and
-public mathematics, including complete universal operation comparisons. Its
-809.869-second exit-one result and unchanged import closure remain distinct from
-the new candidate. The interpretation assessment is in the existing extension
-completion document. The full corrected export and frozen execution trials are
-still required. The later closed binding and RX10 outcomes are recorded above; no execution
-result is inferred from the subsequent source repairs.
+Export complete typed readings for the fixed extension inputs and the permanent corpus. Separate original RX08 spelling from its independently assessed positive clarification. The original `projection.ker()` remains an ambiguity control. The additive positive selects `kernel()` under the published clarification, with the same mathematical questions. It does not authorize changing the original source or approving an interpretation migration.
 
-The earlier reader build at local `174c0907` / published `1b9d5a8`, mathematics
-`82d1370` and contract `90d7d3f` passes the entire unchanged
-`CasAcceptance.DependentReaderProbes`, `Language`, `EvidenceOrder`,
-`SourceParameterBindingProbes` and `SelectedContextOrderProbes`. The recorded
-run took 184.313 seconds, peaked at 3,081,756 KiB child RSS, and retained the exact
-source tuple. This closes the original selected-vector, destructured-argument,
-formed-pairing and opaque-callable reader failures. The ordinary per-question
-budget and permanent assertion sources are unchanged. Complete-key evidence
-ordering removes the measured raw-expression serialization obstruction; direct
-carrier binding avoids enumerating retained witnesses when the supplied source
-argument already fixes that type. Projected carriers and hidden structured owners
-still use the original complete-witness and ambiguity checks. The independent
-bounded source argument is in the existing compositional review.
+Obtain independent interpretation assessment for every completed reading, including newly readable statements. Check the full typed terms, selected structures, parameters, maps, relations, and comparison components. Equal printed expressions or equal scalar answers do not establish equal questions.
 
-The preceding consumer build at local `9e7c036` / published `6031b534` passes
-the source-bound computational interface, `StagedNumeralDataProbes`, original
-`ElementDataProbes` and `QuestionProbes`, the correctly named
-`CasAcceptance.Kernel.BinderReaderProbes`, contextual Hom framing and operation
-agreement controls. Its sole remaining failed target was the newly added action
-interface engineering probe. The original failures are retained: `MulOpposite`
-was incorrectly assumed to preserve the carrier definitionally, a bundled ring
-was passed where `ModuleCat.of` expects its carrier, and a retained module source
-already determined the ring that the fixture incorrectly treated as independent.
-The corrected source uses its exact carrier and the accepted `modulesReindex`
-signature for a genuinely independent base-map control. All wrong-source,
-wrong-parameter, unresolved-target and contradictory-binding negatives remain.
-The combined consumer build is recorded separately; no result is inferred from
-those fixture source corrections. RX10, the complete 134-question extension
-rerun, final 153-question comparison, current native CAS demonstration and final
-public API export remain outstanding at this checkpoint.
+### C. Execute the fixed extension questions and failure controls
 
-Published kernel, contract and mathematical trees were fetched back from GitHub
-and compared with the exact local source trees. The isolated contract build passes.
-A clean 53-case question-comparison build passes the unchanged question/proof probes
-and the new direct-comparison/snapshot checks. Generic execution, result-context and
-product-point framing checks also pass at their recorded individual checkpoints.
-The result-context repair validates the actual previously failing product packet at
-its unchanged question's formal input plan; this is framing evidence, not an answer.
+Run RX10 early after the repaired consumers build. It reaches the actual public callable/session path and has exposed remaining integration defects. Use the independently repaired leaf at `fa0856d`, with unchanged registrations and fixed expected outcomes. Verify all execution conditions and subsequent callable use. Then run the complete fixed positive extension inventory, RX05 environment/order controls, RX09 exact admission rejection, and the structured/lift observations.
 
-The initial reconstructed interpretation-only export reads all 153 admitted IDs from
-17 unchanged files exactly once, with no interpretation or infrastructure failures.
-It records its actual older source inputs and must be repeated on the final integrated
-candidate. No protected question baseline or expected answer was changed.
+Repair a missing public encoding in the kernel/contract. Repair an implementation that fails an already complete public encoding in the leaf, with independent public-only authorship where required. Keep a well-formed wrong result distinct from a malformed packet. Never turn an answer into a proof or replace returned computational data with a canonical formal plan.
 
-The four unchanged connected real-engine workflows now pass 17/17 assertions,
-with 54 actual dispatches: arithmetic 8/8, finite pullback/product reuse 2/2,
-successive matrix applications 3/3, and nonidentity F9 presentation transport 4/4.
-This precedes the current generic completion batch and must be rerun at the final
-freeze. The portable apex fix retains the complete parent result and derives
-ownership from the selected actual data. Existing leaves and assertions are unchanged.
+### D. Complete the public API and useful user session
 
-Independent review covers all 153 permanent readings, including all 11 formerly
-unreadable statements. All 142 retained historical statement meanings agree.
-The review checks closed typed graphs and 16,207 metadata references; it is scoped
-to the recorded producer, not final release acceptance. The separate RX05 four-state
-resolver records and RX09 constant-one admission rejection are also independently
-assessed. RX05's third additive-commutative-monoid route remains explicit: the
-comparison's designated multiplicative source is retained, but is not claimed to
-be the primary route of the overall inherited cardinality request.
+Generate the contract API from the final published, built source combination. The existing preparatory exporter requires an explicit published kernel SHA and a successful matching build record. Inspect and update stale runtime paths before use; do not reuse the old API's provenance for new output.
 
-The fixed extension sources now contain 134 positive questions (105 original plus
-29 independently authored completion questions), with the constant-one negative
-separate. The first export produced 48 complete readings and 86 blocked records.
-All 48 complete meanings were independently reviewed without a new mismatch. A
-second interpretation-only run at local kernel `61550fc` and mathematics `2dbf2f5`
-read 76 of the unchanged 134 questions; 58 remained blocked, including cascading
-binding failures. That producer predates the operation-agreement and subsequent
-typed-boundary repairs. Initial execution is diagnostic, not a frozen
-pass. Generic repairs address typed map admission, rectangular and destructured
-parameters, selected numerals/owners, complete structural transport, and whole-map
-invocation. Upstream inputs now include an explicit selected-operator binding
-contract, generalized powerset image action and checked group-map admission.
+Audit each dated leaf-contract complaint against current encoding, decoding, validation, and actual consumers. Demonstrate existing adequate forms instead of reimplementing them. Publish worked request/reply and malformed-reply examples for the advertised forms.
 
-The public request-family audit is in `specs/computational-contract-audit.md`.
-Known fixed-key omissions in explicit nested graph inventories are now rejected;
-the updated contract probe passed. Dedicated differential and infinite-subset
-response validators also passed, with malformed parameter, endpoint and arity
-controls. The successful core build at local `85396b7` additionally supports
-the unchanged complete-callable and session-ownership probes. A subsequent
-batch restores named numeral precedence, extracts raw callable parameters at
-their exact demanded type, and preserves actual action parameters and ownership
-through runtime and creation-lift transport. Its source is published as
-`4923530` and fetched back with an identical tree; its focused transport, ownership,
-whole-callable and dependent-elaboration controls passed at local `61550fc`.
-Incomparable selected operation bindings remain subject to independent
-mathematical comparison, before substituting selected objects or operands.
-Final source locks,
-the generated public API, same-source permanent/workflow reruns, all ten frozen
-extension trials, and compositional evidence remain required before readiness.
+Rebuild the actual executables and run the existing connected demonstration and notebook surface with real engines. Cover the structured defining-map and universal-data obligations through the fixed extension tests as well; pullback cardinality alone does not establish complete result reuse.
 
-The next integrated core at local `abb46bb` compiled `Realize`,
-`QuestionComparison` and `CasTools.QuestionExport` successfully (3,757 jobs),
-using the new mathematical interfaces. The earlier batch's nonexistent
-`CasCatalogue.QuestionExport` target and the following request-layout syntax
-errors are retained as failed logs; the corrected batch is a separate result.
-No native executable or full-suite result is inferred from this module build.
+### E. Freeze, finish independent trials, and deliver
 
-The independent source review is retained in
-`specs/reviews/kernel-mvp-compositional-source-20261024.md`, including its exact
-inputs, corrected observations and independence qualifications. Its conclusions
-are source-level compositional arguments. The bounded follow-up closes its concrete
-findings in residual universal contexts, opaque created-field projection, retained
-subobject receivers, and complete short/long expression interfaces. Its exact-owner
-and heterogeneous-operand findings produced source repairs, not relaxed checks.
-Cross-revision question comparison and final combined execution remain required.
+Freeze the kernel, contract, public API, mathematical inputs, and selected computational registrations. Complete the independent extension requirements and the compositional correctness argument for each supported generic mechanism. Preserve the one-way information boundary when assigning independent authors/reviewers.
 
-The subsequent integrated core at local `7a407fc` builds with all typed validator
-repairs. An actual process check verifies unique equivalent-operation dispatch,
-missing/multiple registration strata, and two successive operations passing the
-first returned owned datum into the second request without recomputation. This is
-engineering evidence, not a mathematical-answer oracle. A later coherent core
-build at `f607421` includes declared operand selections, refined object names,
-dependent data-parameter recognition, and closed-point restaging. Its four focused
-controls passed with exact imported-artifact hashes unchanged; all nine unchanged
-series bindings also read. These are scoped engineering/interpretation results,
-not the final combined execution trials. The next source at `e8075df` adds
-complete component-refinement presentation, exact accepted row identity for
-aliases, candidate-local inapplicability, rigid full-owner presentation checks,
-and forwarding of an original computed parameter through its checked named
-presentation. Its coherent module build passed 3,763 jobs. Seven focused controls
-passed with 1,482 imported artifacts unchanged, including actual parameter-packet
-and session reuse. The earlier `08051c0` build
-failed only the reader compilation heartbeat budget; the scoped compilation
-allowance is now 800,000, without changing runtime/proof evaluation budgets.
-The original native binaries still belong to the older recorded producer until
-explicitly rebuilt; no newer result is inferred from those binaries.
+Any needed generic repair invalidates the affected frozen-trial result. Repair its owner, publish a new candidate, and rerun affected trials with the fixed questions and expectations preserved. Complete final integrated checks on the delivered source combination. Publish the source, usable examples, contract, and evidence. The final report should give exact revisions and actual outcomes, with any remaining functionality outside V1 clearly identified.
 
-The unchanged `e8075df` binding run checked 173 bindings across 14 extension files
-and retained four failures. Later source repairs supply a complete component
-context for numerals and check admitted lift maps at their selected categorical
-endpoints. The independently authored mathematical repair at `7a413381` handles
-definitionally equal module instances locally inside the existing linearity
-procedure: six universal presentation controls and the affine, noncentral and
-different-selected-action negatives pass. No mathematical signature or object is
-changed. The selected core containing these changes builds; the combined
-downstream interpretation and execution reruns remain outstanding.
+## 4. Source combination and owning repositories
 
-The remaining source ambiguity in `projection.ker()` is independently assessed
-in the additive RX08 clarification under `completion/clarifications/`: the public
-name `kernel()` selects the already specified complete module kernel. The original
-source remains unchanged and remains an ambiguity control. A separate positive
-selection uses the independently proposed spelling, with the same seven question
-IDs and propositions. This is not admission or interpretation-migration approval.
+All repositories below are under `https://github.com/dzackgarza/`.
 
-The original RX05/RX10 driver failures are preserved. RX05 now checks the complete
-accepted four-route inventory, and RX10 uses the production statement-scoped
-elaboration budgets without increasing them. RX05 and RX09 pass their scoped
-reruns. The initial RX10 run reached all six execution conditions but exposed a
-real missing parameter-presentation path before dispatch. The later generic
-repair follows exact retained object actions, checks their complete parameters
-and result, and forwards actual source packets with their owning sessions. It
-does not use a definitionally equal cache peer or infer structure from a carrier.
+| Repository / role | Branch | Restart revision |
+| --- | --- | --- |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | `29d3d60500cf1e4d2b49de0355ec8017eaa836bd` |
+| `lean-categories`: independently supplied base interfaces | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
+| `lean-categories`: mathematical extensions and evidence repairs used by recent consumers | `work/kernel-v1-independent-extensions-20261023` | `82d1370de372a00a86391b74fc2566c9547dfcb6` |
+| `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `90d7d3f1833cff39b77024dcee2dc43213e623ad` |
+| `lean-cas-dsl-leaves`: existing workflow specimen | `work/v1-contract-diagnostic-20261023` | `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` |
+| `lean-cas-dsl-leaves`: independent callable-form specimen | `work/kernel-v1-independent-leaf-20261024` | `fa0856dfc365c497a25e4a94019a1cb08b79c4d1` |
+| `lean-jupyter-kernel`: existing notebook worker | Read selected package lock and runtime override | `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker`) |
 
-The corrected core at local `d729046e`, published with the exact same tree as
-`bfc91305`, passed all 3,781 selected build jobs against mathematics `7a413381`
-and contract `706b353f`. This includes the runtime parameter recovery path and
-the exact named-morphism binding repair. The earlier expanded build's reserved
-word error, reader/admission failures and dependent-reader exit 137 remain in
-their original failed log; that build was interrupted before completing native
-dependencies. The corrected selected build is not a full gate/native build.
+The kernel, both mathematical branches, contract, and independent leaf tips above were checked live during handoff preparation. The workflow-specimen revision comes from the published handoff and demonstration documentation. Verify its actual selected tree before running.
 
-RX10 then executed at this corrected tuple with 906 imported artifacts unchanged.
-The original parameter gap was removed and actual dispatch occurred. The holds
-and wrong conditions both stopped at an `objectProduct` framing error from the
-backend; the missing-implementation condition exposed retained-map endpoint loss
-as an internal failure. Unavailable, malformed and intentional internal conditions
-kept their expected distinct strata. Every condition preserved the independent
-typed question, but no callable was returned, so session/reuse controls remain
-unmet. These are open integration failures, not passing frozen trials. Their
-complete raw observations and source/artifact provenance are preserved separately.
+`lean-cas-dsl/main` remains `6e67b1e1dd118811c8cb443cc558221095e98573` at inspection. The active work branch contains the substantive implementation. The source integrates that main with `b0/kernel` at `4bcd912`, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale.
 
-The next reader batch passes isolated checks for the original scalar-vector
-expression, polynomial-zero admission, full selected owners and genuine reachable
-ambiguity. It applies the existing owner reachability check before elaborating
-irrelevant refinements, connects the existing complete operation-parameter helper
-to operand endpoint reading, and rejects rigid incompatible result types before
-reading a competing family's parameters. Primitive quotient types participate in
-that generic type check; unresolved types and quotient eliminators remain
-inconclusive. The original selected-carrier assertions also pass with separate
-ordinary statement budgets, without increasing production budgets.
+`HANDOFF.md` at the current kernel tip has useful evidence references but an obsolete opening source table and accumulated older runtime/status paragraphs. Prefer exact source and producer records for present state. In particular, its opening kernel `b814a19` entry is older than the verified tip.
 
-Full-context map framing now passes a bundled-Hom control with distinct endpoints,
-actual packet/session retention and swapped-endpoint rejection. The subsequent
-actual-request inspection validates its complete callable and both public
-`morphismEndpoint` descriptors. Separately, it exposes a staged numeral whose
-composition trace was overwritten by a closed-point label. The repair records the
-original numeral before staging, retaining the existing terminal composition and
-wire form; both old-producer named/selected controls reproduce the failure. The
-combined positive run is still required. The diagnostic leaf's public endpoint
-consumer has now been repaired independently against the public protocol and
-candidate API only. Its implementation and complete engineering receipt are
-published as `d33bec4`, and a fresh fetch matches the entire authored source tree.
-The receipt preserves the API snapshots' actual older provenance. Its endpoint,
-generic and completion engineering checks pass; no mathematical acceptance is
-inferred. New immutable manifests change only its entrypoint path, retaining the
-same registration profiles and all earlier failed-run inputs.
+Recent source that must survive integration:
 
-The independently authored mathematics at `796db9fc` preserves the exact existing
-unit and nonzero-polynomial obligations. Its new public-source controls and the
-unchanged `EvidenceTests` and `UnitInverseTests` pass. Unit evidence compares the
-complete selected dictionaries locally; polynomial evidence invokes the existing
-catalogue reader and repeats characteristic reduction after normalization. Neither
-repair adds a mathematical domain, changes an admission signature or consumes a
-downstream question or result. All these source checkpoints were fetched back and
-matched against their complete local trees; the final coherent tuple remains to
-be built and exercised.
+| Source area | Existing change to retain |
+| --- | --- |
+| Admission presentation | Preserve forwarding through the same structure projection using Lean's structure name and field index. Expose actual fields supplied through different structures. Keep original complete obligations and one registered evidence invocation. |
+| Generic proof refinement | Expose closed non-proposition type inputs before existing class/Decidable acquisition. Retain the original source/result and final kernel check. The public helper visibility repair is already present. |
+| Prescribed-lift action execution | Use the existing realized action encoder. Retain cached computational parameter data and merge dependency owners before field dispatch. |
+| Member applicability | Check the full dependent application before constructing competing results; preserve real ambiguity and existing budgets. |
+| Complete callable materialization | Retain selected external domain and target, actual packets, and their owners. |
+| Residual decision | Expose only the kernel-owned `operationResult` marker at the registered evaluator's residual proposition. Keep the original question and final proof check. |
+| Strict purity | `29d3d605` uses `Lean.Core.transform` for marker traversal, removing the tactic dependency. Keep complete callable application spines. |
+| Engineering fixtures | Domain fixtures moved into `CasAcceptance.Kernel`; retain aggregate and axiom-audit coverage. Use their current module names. |
 
-The expanded build at local `331463c` (published `aeb0b390`) completed in 910 seconds
-against mathematics `796db9fc` and contract `23f1e819`. Core realization, question
-export, the suite driver and tool modules compiled, as did selected-carrier,
-evidence-presentation, named-field and bundled-Hom controls. Five targets failed:
-element-data multiplication ambiguity; the same polynomial-image admission in
-the question and binder probes; the staged point's unnamed selected-action carrier;
-and dependent-reader timeouts at two requests plus one unclosed typed question.
-The complete failed log and exact producer provenance remain preserved. No full
-build, native tool or final execution pass is inferred from the compiled subset.
+## 5. Full mechanism scope
 
-Subsequent source repairs retain exact operand selections through successive
-operations, derive carrier interfaces through the already validated complete
-selection, and compare retained versus explicitly supplied complete category
-bundles before framing or cached endpoint reuse. Equal Hom types alone do not
-identify their identity/composition dictionaries. The selected-operation repair
-passes the original element-data block and independent ambiguity controls in an
-isolated diagnostic; its integrated probe is still required. These changes do not
-rank competing operations or replace actual returned packets and their owners.
+The implementation queue is KM1–KM9 in `specs/computational-core-plan.md`. K1–K14 are regression assertions, not a replacement implementation queue.
 
-The reader-only build at local `5f4d029` (published `aa904f14`) passes in
-79.387 seconds, including singleton source/candidate ordering without serializing
-open local owners. The following consumer build at local `52bf07e` (published
-`20bfe8f`) fails at an invalid `ConstructionEntry.source` field access. The
-integrated correction reads a construction's complete source bundle from its
-instantiated dependent signature and adds a registered-construction control.
-Complete selected-source and target checks remain in place. Its affected consumers
-have not yet been rerun; neither source publication nor the prerequisite build
-establishes that result.
+| Mechanism | Required behavior to finish or verify |
+| --- | --- |
+| KM1: compatible implementation | One coherent kernel, contract, mathematical API, tools, probes, and runtime. Preserve generic binder behavior and full creation-lift/defining-map behavior. |
+| KM2: mathematical choices | Resolve terminal/global-point, quotient, power-object, literal-domain, equality/observation, and diagram constructions through applicable unique registry data. Verify second presentations/structures, reordered rows, missing rows, and competing rows. |
+| KM3: dependent reading | Generic typed parameters, family application, elements, multi-variable/destructured maps, selected vectors and base rings, closed operands, binding operators, and actual admission evidence. |
+| KM4: closure and comparisons | Consume `Resolve.completeRoutes` and `ProofRefinement.construct`. Preserve complete functor actions, constructor-induced comparison actions, refinements, selected structures, and reindexing through execution. |
+| KM5: point/map transport | Support nonidentity transport, symbolic/opaque callables, exact generalized-point domains, endpoint checks, and ownership. Demonstrate successive operations on actual returned data. |
+| KM6: structured reuse | Complete computational projections, defining maps, universal data, creation comparisons beyond a special shape, and successive prescribed lifts. A formal apex or copied downstairs plan is insufficient. |
+| KM7: public forms | Resolve every relevant contract complaint: rational/irrational points, bottom-valued degree, differentials, matrices, infinite subsets/spans, binder callables, product apices/projections, and points in composition/mediators. |
+| KM8: question permanence | Preserve typed semantic identity independently of implementation, incidental proof terms, and mathematical revision labels. Keep every failure stage distinct. Repair measured runtime obstructions to required operations. |
+| KM9: independent extension | Finish frozen extension trials and mechanism-specific compositional arguments. New ordinary extensions must not require edits to frozen kernel/contract or existing mathematical objects/leaves. |
 
-The independent mathematical repair at `82d1370` passes its 18 positive public
-controls, six separately established zero cases and corresponding refusals,
-plus the unchanged presentation and evidence suites. It uses Mathlib polynomial
-normalization and constant-polynomial laws without new hypotheses or changed
-admission. The exact checked source blobs, commands and log hashes are recorded
-in the owning mathematical complaint. The aligned prerequisite build at local
-`a43bd2a` (published `6aad803`) passes in 7.325 seconds against this mathematics
-and contract `90d7d3`; its exact source tuple is unchanged before and after.
+The already formalized power-series object's registration and constructor-induced comparison-cell actions belong to `lean-categories`. Their independent mathematical interfaces are consumed by the kernel. Preserve `completeRoutes`, `ProofRefinement.construct`, and `executePrescribedLift`; complete their consumers rather than replacing them.
 
-The unchanged formed-pairing phase diagnostic at compiled reader `5f4d029`
-reproduces the ordinary 200000-heartbeat timeout naturally in 110.768 seconds.
-It stops while discovering the first tuple's selected component context,
-before literal reading or final composition. Direct sampled peak Lean RSS is
-7,083,728 KiB; imported artifacts are unchanged and no memory guard fired.
-The earlier diagnostic namespace error and all previous failures remain separate
-records. The reader obstruction, combined consumer build and actual frozen
-execution trials remain open.
+## 6. Independent questions and observers
 
-The local runtime was restored after the former recovery directory disappeared:
-the exact Lean 4.33.0 toolchain, pinned dependency sources and artifacts, and
-hash-pinned passagemath 10.8.13/GAP 4.16.1 environment are available under
-`/tmp/kernel-runtime-20261024`. Its `lake.sh`, `packages.json`, and `engines.sh`
-select the local environment. Do not use the vanished recovery paths or infer a
-new result from the older native executables. Source and raw verification records
-are backed up separately; final source-tuple verification remains outstanding.
+Set `P = tests/acceptance/proposals/independent-extension-reconstruction-20261024/` in the kernel checkout when reading the paths below.
 
-The independent leaf is pinned at local `d8a24f9`, published `5b2ce9e`, in an
-immutable checkout. Its three added public addresses are additive-monoid addition,
-the additive-group structural action, and its accepted carrier component. The new
-installation profile explicitly selects universal additive/monoid arithmetic
-instead of simultaneously installing two competing requests in an equivalence
-class. This is a manifest selection; the kernel assigns no registration priority.
+Start with `P/questions.md`, `P/observation-controls.md`, and `P/completion/README.md`. Read the completion coverage, interface derivations, expected-fact sources, coordinate presentations, selected-lift requirements, and clarification assessment. These define mathematical requirements independently of execution.
 
-The refreshed public API candidate records published kernel `546cffae`,
-mathematics `4acd7aff` and contract `a131843a` and contains 607 entries, 326
-operation addresses and 566 input forms. Its complete admission import closure
-was checked in isolated published producer checkouts. The later `6cf4cda6`
-contract checkpoint adds worked documentation and changes no wire schema.
+| Trial | Mathematical question / required observation |
+| --- | --- |
+| RX-01 | New selected finite order inherits existing cardinality; preserve distinct selected order structures. |
+| RX-02 | Two-subsets of an existing finite set; include the complete core-action requirements. |
+| RX-03 | Actual automorphism group of a cyclic quotient; include complete automorphism arrows, not only its cardinality. |
+| RX-04 | Finite square-bound comprehension and its classifier/refinement. |
+| RX-05 | Actual ring-carrier diamond at `PrimeResidues(5, proof)`; retain actual comparison components and complete routes under registration permutation and comparison omission. |
+| RX-06 | Regular residue module reindexed along the actual quotient; retain complete selected module action and map. |
+| RX-07 | F9 transport in both directions, followed by successive computations. |
+| RX-08 | Ordinary projection with restricted form `[3]`; preserve its complete kernel question and defining maps. Keep original ambiguity and clarified positive separate. |
+| RX-09 | Entire successor family with genuine series admission; separately reject the exact constant-one nonsummable family. |
+| RX-10 | One fixed true question under successful, wrong, missing, unavailable, malformed, and internal execution conditions; preserve the question and check returned-data/session reuse. |
+| RX-LIFT | Separate genuine formed-arrow example with successive prescribed lifts and nonzero factorization at each stage. Do not substitute it for RX-08. |
 
-### Independent leaf follow-up boundary
+Concrete owners:
 
-The initial public-only diagnostic leaf remains at local `03a0a3d`, published as
-`836c15217f6951e698398cacd3b96afdc892909d`. During a later follow-up, an agent-inventory
-tool unexpectedly exposed another completed agent's report. That session was stopped.
-Its worktree was still clean at the original checkpoint; no follow-up source was used.
-A fresh session with no inherited conversation received only that unchanged diagnostic
-subtree, the public contract/API and runtime paths. Its instructions prohibit the
-agent-inventory tool and all downstream assertion, implementation and report inputs.
-The incidental exposure is recorded rather than claiming that the interrupted
-follow-up remained wholly blind. The replacement's first independently authored
-checkpoint is local `d04b96c`, published as `3486a6b`, with its own public-input
-receipt. A fresh GitHub fetch matched the complete local tree. The candidate API
-it received records published kernel `1dbcaf3`, mathematics `4ea82e7` and contract
-`80bf36d`; it is explicitly a pre-freeze public interface snapshot. The subsequent
-`818f82d` authoring checkpoint is published as `8f2c53c`. Its receipt records the
-two specifically authorized public automorphism-interface files consulted to
-clarify the product convention; that convention was then incorporated into the
-public contract. No kernel source, fixed questions, expected answers or runtime
-acceptance results were supplied to the replacement author. The next additive
-operation follow-up receives only the refreshed public API and contract.
+- `CasAcceptance/Kernel/FrozenObservationControls.lean`: RX05 and RX09 observations.
+- `CasAcceptance/Kernel/FixedQuestionExecutionControls.lean`: RX10 execution observations.
+- `specs/reuse/frozen-observation-controls.md`: runner variables, report schema, and interpretation of the observations.
+- `P/completion/clarifications/rx08-module-kernel-name-assessment.md` and `rx08-ordinary-module-kernel.cas.proposal`: independently assessed positive spelling.
+- `P/completion/permanent-interpretation-assessment.md`, `initial-extension-interpretation-assessment.md`, and the RX05/RX09 assessments: earlier independently reviewed meanings, scoped to their recorded producers.
 
-Use isolated build outputs under `/tmp` in this environment: workspace synchronization
-restored obsolete generated trace layouts and caused false enum/probe failures; fresh
-artifacts removed those failures without source workarounds. Source checkpoints remain
-in the repositories and on GitHub. These engineering observations do not establish
-interpretation migration, frozen extension trials or kernel-MVP completion.
+RX05 must use each environment's own actual resolution. The comparison-absent environments preserve other accepted rows and the additional additive-commutative-monoid route; do not simplify the candidate set to an invented two-route model. Compare complete typed requests, including actual comparison components and designated source, allowing only enumeration-order differences where specified.
 
-### Earlier verification record — rerun required on reconstructed source
+RX09 must reach the intended admission obligation after its prerequisites elaborate. Its typed rejected `Summable` proposition must match the independently specified theorem. A parser error, unrelated type error, missing implementation, or internal exception does not satisfy the negative.
 
-The observations below are the retained historical record. They are not current
-verification of the reconstructed combined tree, and their missing unpublished source
-cannot be recovered from these status statements.
+The proposal and leaf records disclose an incidental agent-inventory exposure during earlier independent work. Preserve that disclosure and use a fresh suitably isolated reviewer for independence or acceptance judgments. A public-only leaf author must not receive this implementation handoff, kernel source, fixed answers, or runtime acceptance results. Give that author only the authorized public API/contract, specimen subtree, and runtime information.
 
-The focused dependent comparison, parameter/reindexing, prescribed-lift,
-computational contract, question identity, and structured projection checks pass
-at ordinary budgets. Complete production interpretation of the normalized integral
-question passes: 82 retained operations and 29,947 identity bytes, with 25,086 ms
-for semantic reading and 887 ms for the remaining measured stages. Changing only
-the recorded mathematical dependency revision leaves the question identity unchanged.
-The complete bilinear admission, selected callable endpoint, and subsequent
-formed-pairing chain pass without increasing the per-request budget. Repeated
-matrix bindings now use the same statement-local closed-term cache as assertions.
+## 7. Runtime and recovery
 
-The new transport engineering module passes complete cokernel projection/codomain
-reuse for both public Arrow spellings, subsequent defining-map projection, opaque
-composition and parameter transport, residual nonidentity-action retention, and
-ownership contributed by equality endpoints. These checks supply no mathematical
-answer or construction-law evidence. Strict protocol checks pass six groups, and
-package resolution/startup checks pass twelve actual resolver/helper cases.
+These paths are from the interrupted Pro container. Their existence was recorded in the source conversation, not verified on the machine preparing this handoff. A new Pro container may have a different root.
 
-Real Sage execution passes all four unchanged F9 presentation assertions and all
-four observations in the independently fixed forward/square/inverse/source-square
-chain. The complete product-cone packet also reaches its generic result validator.
-The three unchanged matrix application assertions and all three unchanged finite-map
-composition/application assertions pass through real Sage computation. Three successive
-applications of an independently chosen 3×3 matrix also pass, each consuming its
-preceding computed vector. Bare graph composition now retains its complete selected
-endpoints. A declared callable product endpoint uses its existing structural descriptor
-without demanding a limit computation. Final observation checks preserve the distinction
-between returned data and the formal plan, including hostile values behind type aliases.
+```text
+old root: /workspace/scratch/08e8d69f9eb1
 
-The upstream registry now exposes uniquely owned default integral, fractional, and finite-subset
-literal-domain selectors, independently authored from the public specification.
-The final reader checks also preserve dependent polynomial parameters and read
-the original inverse and irrational-root questions. The response validator now
-checks symbolic callable endpoints recursively, including nested point,
-composition, mediator, typed-map and selected-operation forms. Wrong-but-well-framed
-construction data remain computational answers, not malformed merely because they
-disagree with the formal canonical plan. Both complete `arrow` and legacy
-`subobject` packets pass through prescribed-lift execution.
+lean-cas-dsl/
+kernel-integrated-20261025/
+kernel-runtime-20261025/
+  lean-4.33.0-linux/
+  lake.sh
+  packages.json
+  run_coordinated_build.py
+  run_focused_diagnostic.py
+  run_current_rx10.py
+  kernel-build-binding.json
+kernel-dependencies-20261025/
+  lean_categories/
+  cas_leaf_contracts/
+kernel-computational-runtime-20261025/engines.sh
+kernel-verification-20261025/
+kernel-mvp-frozen-trials-20261025/
+kernel-fixed-execution-prep-20261025/
+kernel-public-api-20261025/
+kernel-mvp-evidence-restored-20261025/
+kernel-mvp-verification-evidence-20261024.zip
+```
 
-The dated leaf contract complaints were audited against the current public forms
-and their consumers. Rational, bottom-valued degree, differential, matrix,
-infinite subset/span, binder, complete product, and closed-point forms are
-documented. The rational dual-number presentation's existing formulas are now
-declaration docstrings so the public export can expose them. The exported API
-snapshot was regenerated from published kernel `9630f544f0b82581ba0083f7bbd49831ef5967e2`
-and mathematics `dbab309f2ee6a4da2c19e970f4d5d6460d8665a4`. Its SHA-256 is
-`f3a17fd1d2fa98d72513fbe9ac333834f64b6b160a9ccd5206b97a5991802b19`.
-The exporter loads Lean server metadata for public docstrings while preserving module visibility. A blind diagnostic author completed the specimen's consumption of already published wrappers and selected
-scalar descriptors; no execution outcomes or expected answers were supplied. The additive
-specimen is published at `5a9e82377007689547f3532955e3803a93b08b5b`.
+Read the build binding and package overrides to locate the actual build producer; do not assume every listed worktree is the same source. Preserve dirty work and source from isolated repair worktrees before integration.
 
-Four unchanged independently specified workflows, an existing-surface notebook,
-and a strict execution/report runner are prepared under `examples/kernel-v1`,
-`notebooks/kernel-v1.ipynb`, and `scripts/run_kernel_v1_demo.py`. The strict integrated
-run passes all eight arithmetic, all three successive matrix, all four F9, and
-the first finite pullback observation. A subsequent complete-consumer repair
-exposed missing endpoint descriptors in retained diagram arrows. The kernel now
-retains source/target fields through the public typedMap form, including the
-original and mapped diagrams and their computational ownership. The old finite
-set adapter is being independently checked against that public callable form,
-without assertions or execution outcomes. The runner launches the built `cas-harness`
-with its existing interpreter support. Sixteen of seventeen is not the V1 exit gate.
+The evidence archive was saved in ChatGPT Library under:
 
-Independent mathematical workflow specifications and independent additive
-upstream extensions have been prepared separately from implementations. The
-initial kernel source checkpoint `9630f54` and public contract `ba8b91a` remain
-immutable preparation inputs. The retained-diagram repair requires a new freeze;
-no completed frozen extension trial is claimed. Four independently authored
-additive mathematical modules are published at `6ca8586a1e17e7cd1ebb14cd98f5b6c14f0909cc`,
-without changing existing objects or registry schemas. Direct category-sensitive
-ConstructionEntry application is also missing from the surface reader and public
-operation admission; the fixed generic-construction trial requires its completion.
+```text
+file: kernel-mvp-verification-evidence-20261024.zip
+library_file_id: libfile_94b086b3c1308191b67e0c34e0d4c364
+last observed version receipt: 25
+```
 
+Retrieve the latest available version through the Library connector if it is absent locally. Inspect `members.json`, recorded hashes, original paths, and producer records. Version 25 was associated with preserving the closed integrated-consumer build, strict-purity finding, and published structural traversal repair. It does not establish that the still-running final consumer build later succeeded. Older archive hashes in the conversation refer to older versions.
 
-The coherent build completed successfully across 7,548 jobs, including
-CasCatalogue, CasAcceptance, CasGates, CasTools, CasDsl, both native executables,
-and the upstream literal-domain probes. The complete 153-question run has 153
-typed readings, no invalid/ambiguous/internal interpretations, and 153 correctly
-classified gaps with no leaves installed. Independent question review covers all
-153 IDs in `tests/acceptance/kernel-v1-question-review.md`: 116 identical records,
-35 revisited metadata changes, and two newly readable questions. Existing
-assertion sources and protected baselines remain unchanged. These observations
-do not accept an interpretation migration or B0.
+| Runtime component | Recorded version |
+| --- | --- |
+| Lean | 4.33.0 |
+| Mathlib | v4.33.0, with exact selected dependency data in the package records |
+| Computational Python | CPython 3.12 |
+| Sage/passagemath | 10.8.13 |
+| Native GAP | 4.16.1 |
+
+Restore engines from `examples/kernel-v1/requirements-passagemath-py312-linux-x86_64.txt` when needed. This is the existing hash-pinned package input. `CAS_SAGE_PYTHON` is an executable interpreter path, not a shell command.
+
+Keep local dependency overrides outside committed source and use the same selection for build and execution. Check exact revisions and trees rather than trusting `@ main` declarations or an old native binary. The earlier workspace had generated-artifact synchronization problems; retain isolated, coherent build outputs and verify source/artifact ownership. Reuse valid caches instead of repeatedly rebuilding unrelated dependencies.
+
+Prepared fixed drivers in `kernel-verification-20261025/`:
+
+```text
+KernelFixedBindingReconstructed20261025.lean
+FrozenQuestionReadingsReconstructed20261025.lean
+reconstructed-diagnostics-preparation-20261025.json
+permanent-fixed-inputs.json
+```
+
+The recorded binding and extension-reading invocation shape was:
+
+```bash
+bash /workspace/scratch/08e8d69f9eb1/kernel-runtime-20261025/lake.sh \
+  env lean /workspace/scratch/08e8d69f9eb1/kernel-verification-20261025/KernelFixedBindingReconstructed20261025.lean
+
+bash /workspace/scratch/08e8d69f9eb1/kernel-runtime-20261025/lake.sh \
+  env lean /workspace/scratch/08e8d69f9eb1/kernel-verification-20261025/FrozenQuestionReadingsReconstructed20261025.lean
+```
+
+Inspect the drivers and current project recipes before execution. Select fresh report paths and preserve their inputs. `CAS_FIXED_BINDING_INPUTS` and `CAS_FIXED_BINDING_REPORT` select the original-input diagnostic variant. The preparation record explicitly says a zero exit can mean that failure data was written. Check every failure field.
+
+The restored fixed-input directory contains `inventory.json`, `positive-original-inputs.json`, `positive-clarified-inputs.json`, and runtime manifests. Recorded manifest names include `manifest-f9.json`, `manifest-general-public-callables-fa0856d.json`, and `manifest-inheritance-public-callables-fa0856d.json`. Path rebinding may change executable locations only; retain selected registrations and all fixed mathematical inputs.
+
+`run_current_rx10.py` was reconstructed from the archived `kernel-mvp-rx10-parameter-recovery-20261024/run-current-closure.py` and its `next-public-endpoints-run-plan.json`. Check those references and current paths before running. Preparation or script compilation alone is not an executed trial.
+
+If the Library archive cannot be obtained, recover the published source and fixed proposal files, then reconstruct the missing runners from their documented contracts. Mark reconstructed material accurately and rerun it. Do not claim that absent historical patch bodies, diagnostics, or outputs have been recovered.
+
+## 8. Evidence limits and final execution surface
+
+The record already contains useful results. Preserve them with their producer revisions and use them to avoid reopening solved problems. They require fresh confirmation where the final source or dependency closure has changed.
+
+| Recorded evidence | Scope and remaining requirement |
+| --- | --- |
+| Connected real-engine demonstration | Earlier run: 17/17 assertions and 54 dispatches. Reexecute on the final candidate. |
+| Permanent interpretation | Earlier export/review: 153 questions; review includes 11 previously unreadable statements and agreement for 142 retained historical meanings. Final producer export and assessment remain required. |
+| Complete extension export at `5f7f5a2` | 94 complete readings and 40 empty records from 134 questions. Completed readings were assessed; this remains an incomplete export. |
+| Binding diagnostic at local `95227b8` | 182 bindings across 14 files; retained 4 failures. Its zero exit was report production, not success. |
+| Consumer build at published `8ea95e6` | Selected consumers passed, before later repairs. It does not establish current native or full-suite results. |
+| Admission correction | Focused original limits, reindexed-map obligations, whole bilinear map, and polynomial unit/nonunit controls have recorded outcomes. Finish their integrated consumers and fixed questions. |
+| Prescribed-lift correction | Recorded action-data and owner checks pass. Mathematical frozen lift questions remain separate. |
+| Latest purity result | `CasGates.KernelPurity` built at the final recorded consumer run; `KernelPurityProbes` failed as described above. |
+
+Existing demonstration files:
+
+```text
+examples/kernel-v1.md
+examples/kernel-v1/01-selected-arithmetic.cas
+examples/kernel-v1/02-finite-pullback.cas
+examples/kernel-v1/03-matrix-iteration.cas
+examples/kernel-v1/04-presentation-transport.cas
+scripts/run_kernel_v1_demo.py
+notebooks/kernel-v1.ipynb
+```
+
+The workflows exercise exact integer/rational/modular arithmetic, finite pullback/product reuse, successive matrix applications, and F9 presentation transport. Keep their independently fixed expectations. Complete projection, whole-map, universal-property, and lift observations through their owning tests rather than inferring them from counts or sample evaluations.
+
+Use `examples/kernel-v1.md` for the actual runner contract. Its build consumers include `cas-harness` and `CasDsl.Notebook`. The runner supports explicit `--packages`, `--contract`, `--sage-python`, `--lake`, and leaf manifest selections. Read the current arguments before invocation. Run the existing notebook integration as a connected user session; a notebook without executed outputs is only a prepared artifact.
+
+## 9. Authority, scope, and delivery rules
+
+`lean-categories` owns mathematical definitions, structures, functors, comparisons, admissions, and formal properties. The kernel interprets and executes against those accepted interfaces. Leaves provide computational implementations with no mathematical authority. Returned data may be invalid or wrong; it cannot determine meaning or certify itself.
+
+The original assignment permits necessary cross-repository fixes and parallel kernel work. It supersedes earlier procedural limits on kernel delegation, upstream edits, and work selection exclusively by K1–K14. It preserves mathematical correctness, protected assertions, independent acceptance, and public-only leaf authorship. Delegate only with information boundaries suitable to each role.
+
+Preserve exact selected structures, complete maps and parameters, comparison directions, generalized-point domains, actual returned values, and their session owners. Equal underlying carriers or Hom types do not identify different structures. Registration order is not a semantic priority rule. A real unresolved ambiguity stays ambiguous.
+
+Use existing Mathlib and project mathematics. Submit necessary mathematical work to its owner with independent justification. Keep independent mathematical admission and interpretation-migration decisions separate from implementation authorship. Do not rewrite protected baselines to approve the new implementation.
+
+Scope excludes bulk production-leaf registration, backend parity campaigns, unrelated notebook features, unrelated repository backlogs, and broad performance or style work. Fix measured runtime defects that prevent required V1 behavior. No substantial generic defect in an advertised V1 mechanism can be deferred as a leaf gap.
+
+Keep all user-authored and previously existing work. Do not reset, clean, discard, or overwrite it. Commit and push coherent changes periodically; preserve source and diagnostic records before container interruption. Keep exact source-tree verification distinct from successful mathematical execution.
+
+Deliver the working system and its runnable examples, not another assessment or plan. Stop only when the completion conditions are established, or when a genuine external decision or unavailable input prevents further authorized work. Keep the remaining required work in the authoritative handoff if such a boundary is reached.
+
+## Source links
+
+- [Conversation](https://chatgpt.com/c/6adc8d51-f270-83ea-ac4d-bcb9911c54d8)
+- [Verified kernel checkpoint](https://github.com/dzackgarza/lean-cas-dsl/commit/29d3d60500cf1e4d2b49de0355ec8017eaa836bd)
+- [Computational-core plan at that checkpoint](https://github.com/dzackgarza/lean-cas-dsl/blob/29d3d60500cf1e4d2b49de0355ec8017eaa836bd/specs/computational-core-plan.md)
+- [Repository handoff inspected for earlier evidence](https://github.com/dzackgarza/lean-cas-dsl/blob/29d3d60500cf1e4d2b49de0355ec8017eaa836bd/HANDOFF.md)
+- [Fixed extension questions](https://github.com/dzackgarza/lean-cas-dsl/blob/29d3d60500cf1e4d2b49de0355ec8017eaa836bd/tests/acceptance/proposals/independent-extension-reconstruction-20261024/questions.md)
+- [Frozen observation controls](https://github.com/dzackgarza/lean-cas-dsl/blob/29d3d60500cf1e4d2b49de0355ec8017eaa836bd/specs/reuse/frozen-observation-controls.md)
+- [Connected demonstration](https://github.com/dzackgarza/lean-cas-dsl/blob/29d3d60500cf1e4d2b49de0355ec8017eaa836bd/examples/kernel-v1.md)
+
 
 ## Noticed, not worked
 
@@ -580,16 +372,6 @@ do not accept an interpretation migration or B0.
   registration, broad backend parity, and unrelated notebook development remain
   outside this assignment.
 
-## Remaining integration steps
-
-Finish the integrated action/result-interface corrections and generic public selectors;
-run unchanged semantic, integrity, negative, and hostile-result regressions;
-execute at least four useful connected real-engine workflows across at least
-three areas, including structured reuse and nonidentity transport; export the
-public API with exact source provenance; freeze candidate commits and execute
-all ten independent extension trials without changing frozen components. Repair
-and refreeze any generic deficiency before repeating affected trials. Publish
-the source, evidence, and runnable existing-surface demonstration.
 
 ## Independent acceptance boundary
 
