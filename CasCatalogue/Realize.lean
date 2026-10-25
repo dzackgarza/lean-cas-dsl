@@ -792,6 +792,52 @@ def forwardOperationEquivalent (wrapper representative : Expr) (actual : Wire) :
     throwError "the operation agreement received data for a different complete result"
   return { actual with payload := forwardPayload actual wrapper actual.json }
 
+/-- Accepted presentations of a complete closed object. A literal declaration keeps
+its exact ordered arguments. Recovery otherwise checks both the full object type
+and its whole value; equal carriers do not identify structure dictionaries. This is
+execution metadata and never participates in reading the mathematical question. -/
+def completeNamedObjectPresentations (value : Expr) :
+    TermElabM (Array (ObjectEntry × Array Expr)) := do
+  let value ← instantiateMVars value
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return #[]
+  let state ← registryState
+  let mut selected := value.consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let direct := state.objects.filter fun entry =>
+    selected.getAppFn.constName? == some entry.declaration
+  let mut candidates := #[]
+  for entry in (if direct.isEmpty then state.objects else direct) do
+    let candidate ← withoutModifyingState do
+      let application ← if direct.isEmpty then instantiateFresh entry.declaration
+        else pure selected
+      unless ← withTransparency .all <|
+          isDefEq (← inferType application) (← inferType value) <&&>
+            isDefEq application value do return none
+      let application ← instantiateMVars application
+      unless FunctorActionData.closedParameter application &&
+          (← isTypeCorrect application) do return none
+      let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
+        xs.mapM (·.fvarId!.getBinderInfo)
+      unless application.getAppNumArgs == infos.size do return none
+      unless ← Decide.kernelAccepts (← mkEq application value) (← mkEqRefl application) do
+        throwError "the complete named-object presentation failed its original kernel check"
+      return some ((application.getAppArgs.zip infos).filterMap fun (arg, info) =>
+        if info.isExplicit then some arg else none)
+    if let some parameters := candidate then candidates := candidates.push (entry, parameters)
+  return candidates
+
+/-- Retain a uniquely checked complete named presentation on the execution trace.
+No equal cached object is searched or substituted for the selected value. -/
+def recordCompleteNamedObject (trace : Trace) (value : Expr) : TermElabM Bool := do
+  let candidates ← completeNamedObjectPresentations value
+  match candidates with
+  | #[] => return false
+  | #[(entry, parameters)] =>
+      Trace.record (some trace) value (.object entry.id parameters)
+      return true
+  | _ => throwStratum .ambiguousRealization m!"the complete selected object has several accepted \
+      data presentations: {candidates.map (·.1.id.raw)}"
+
 mutual
 
 /-- Closed parameter data retaining accepted named-object provenance when present. -/
@@ -925,28 +971,7 @@ partial def parameterData (trace : Trace) (value : Expr) (recovering : Array Exp
       (fun edge action => return (← edgeDescriptor trace edge action (recovering.push value), #[]))
       recovering then
     return data
-  let mut candidates : Array (ObjectEntry × Array Expr) := #[]
-  let mut exact : Array (ObjectEntry × Array Expr) := #[]
-  for entry in state.objects do
-    let candidate ← withoutModifyingState do
-      let application ← instantiateFresh entry.declaration
-      unless ← isDefEq application value do return none
-      let application ← instantiateMVars application
-      if application.hasMVar || application.hasLevelMVar then return none
-      let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
-        xs.mapM (·.fvarId!.getBinderInfo)
-      return some ((application.getAppArgs.zip infos).filterMap fun (arg, info) =>
-        if info.isExplicit then some arg else none)
-    if let some params := candidate then
-      candidates := candidates.push (entry, params)
-      -- Definitional equality may recognize several upstream presentations. A
-      -- literal occurrence of the registered declaration supplies its own
-      -- selected identity; no transparent alias is chosen by catalogue order.
-      if value.getAppFn.constName? == some entry.declaration then
-        exact := exact.push (entry, params)
-  if let #[(entry, params)] := exact then
-    return Json.mkObj [("ctor", entry.id.raw),
-      ("args", Json.arr (← params.mapM (fun parameter => parameterData trace parameter recovering)))]
+  let candidates ← completeNamedObjectPresentations value
   let #[(entry, params)] := candidates
     | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data \
         presentation: {candidates.size} registered objects ({candidates.map (·.1.id.raw)}) \
@@ -2870,7 +2895,16 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
         payload := (← combinedPayload value json #[first, second]) }
   if node.isNone then discard <| Semantic.recordNamedObject value (some trace)
   if !recoverAction && (← trace.node? value).isNone then
-    throwStratum .noImplementation "the endpoint has no separately selected computational presentation"
+    -- A reduced endpoint can still be one uniquely accepted complete named
+    -- object. Retained action provenance has priority, including ambiguity;
+    -- this optional path must not choose between those source presentations.
+    let hasRetainedAction ← try
+      pure (← FunctorActionData.retainedParameterAction? trace value).isSome
+    catch error =>
+      if Exception.stratum? error == some .ambiguousRealization then pure true
+      else throw error
+    unless !hasRetainedAction && (← recordCompleteNamedObject trace value) do
+      throwStratum .noImplementation "the endpoint has no separately selected computational presentation"
   realize h trace what value
 
 /-- A complete callable supplies an endpoint descriptor even when that exact
@@ -3515,6 +3549,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
             isDefEq (← inferType image.value) (← inferType e) <&&> isDefEq image.value e do
           throwError "the recovered action changed the complete selected object"
         return { image with payload := forwardPayload image e image.json }
+      if ← recordCompleteNamedObject trace e then
+        return ← realizeFresh h trace what e
       throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one); the term is {e}"
@@ -3774,7 +3810,11 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some entry := state.objects.find? (·.id == id) | unreachable!
       let (args, dependencies) ← realizedParameters h trace params
       if let some presented ← realizeObjectPresentation h trace entry params args dependencies then
-        return presented
+        unless ← withTransparency .all <|
+            isDefEq (← inferType presented.value) (← inferType e) <&&>
+              isDefEq presented.value e do
+          throwError "the named-object presentation changed its complete selected result"
+        return { presented with payload := forwardPayload presented e presented.json }
       let json := Json.mkObj [("ctor", id.raw), ("args", Json.arr args)]
       return { form := .object entry, payload := (← combinedPayload e json dependencies) }
   | .parameterTransport source sourceCategory targetCategory route receiver =>

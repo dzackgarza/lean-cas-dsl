@@ -1,5 +1,23 @@
 # Journal
 
+## 2026-10-25 — Recover complete named objects during execution
+
+The unchanged extension execution exposed a difference between parameter
+encoding and endpoint realization: the former could uniquely present `Nat` and
+`RingCat.of` the rational carrier, while the latter rejected those same complete
+objects. Execution now shares that recovery, checking the full type and value
+and retaining literal declaration arguments. Retained object actions keep
+priority and ambiguity; optional callable endpoints do not choose among those
+actions. Actual data under the exact selected expression and all parameter
+owners remain intact. The original element envelope is retained when its scalar
+owner differs from its set coordinate.
+
+`CompleteNamedDataProbes` checks recovered descriptors, unrelated equal cache
+entries, exact returned owners, dependent parameter data and shared integer
+coordinates. It and the unchanged `ReducedParameterActionProbes` pass at the
+ordinary budget. This is a generic engineering checkpoint; remaining construction,
+whole-callable and ordinary backend gaps are not closed by this source change.
+
 ## 2026-10-20 — Match binder engineering probes to production question scope
 
 The integrated `3e0f982` build timed out in the first `BinderReaderProbes`

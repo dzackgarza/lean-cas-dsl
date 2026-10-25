@@ -14,8 +14,10 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 The current built implementation is `cedfad6664a2301b7b360e17055523a47e479bd5`,
 tree `15cb779812f162e16f21e452bcb7eaa3403832e3`, fetched back and compared as a
-complete tree. This progress checkpoint changes the handoff only; it does not
-relabel the producer of any completed build or experiment.
+complete tree. This checkpoint adds complete named-object recovery, independently
+checked at author commit 8020ce15241dc30d2af309cded1152084595d501. Its focused
+consumers pass; the combined checkpoint still requires its own build. Historical
+build and experiment producers below are not relabeled.
 
 The complete consumer build at `cedfad6` passed in 731.420 seconds with every
 selected source unchanged. It includes the original RegisteredMapAdmissionProbes,
@@ -34,6 +36,16 @@ endpoints, and frame symbolic callable coordinates using the existing typedMap f
 The unchanged admission probe and the focused endpoint, product, context and purity
 controls pass. No protected question, expected answer, registry row or resource
 budget was changed. The earlier full build failure at `7c87f0c` is retained separately.
+
+Complete named-object recovery now shares the existing parameter-presentation
+selection with execution. It checks the full object type and value, keeps literal
+ordered parameters, preserves actual cached packets and owners, and gives retained
+action provenance priority. Separate callables at the same exact named coordinate
+therefore retain a common endpoint descriptor. CompleteNamedDataProbes, existing
+reduced-action controls and the matching scoped consumers pass at the author source.
+The unchanged first arithmetic question confirms that the conflicting endpoint
+wrappers are repaired; its later adapter scalar-owner mismatch is retained as a
+separate failed intermediate result. The complete typed question is unchanged.
 
 At `7c87f0c310a4ee70de8cd908d54bf4ab992406dd`, all 153 permanent readings exported
 with unchanged source, artifact and input guards. Independent assessment has now
@@ -95,19 +107,23 @@ the original first arithmetic question records different morphismEndpoint descri
 for the same formal intermediate carrier. Complete endpoint recovery is being repaired
 in an isolated kernel worktree; the original scalar owner and actual data must survive.
 
-The public V1 leaf at `1c41aa8`, tree `859ad6112a127f939e6875c6a09d95d3db7f2396`,
-was fetched back and tree-verified. Its 143 public-only engineering requests cover
-the existing 19 V1 pairs without adding registrations or changing native algorithms.
-A separate public-only review of the existing 66 extension pairs has closed its
-synthesized interface/data-form cases and is completing literal public-documentation
-examples. Those examples independently exposed a V1 selected-ring/carrier reader
-mismatch now being repaired by that author. Neither public-only author receives
-fixed questions, expected answers, kernel source or execution findings. No unfinished
-leaf change is described here as a published or integrated result.
+The latest public leaf is 4382c4c50e617c47ece8be4a745360b84c4a7e18, tree
+59002c0549bc9b8315f466f5b6d3097f787b38c0, fetched back and tree-verified. The
+public-only author preserved all seven manifests and existing native algorithms.
+The closed source-matched runs contain 1,486 request/reply pairs across all 66
+existing extension pairs, focused forms, framing, retained-data/ownership reuse,
+existing engineering examples, eight verbatim public examples and directly affected
+V1 controls. The public examples independently exposed and closed the selected-ring
+versus supplied-carrier reader defect. Illustrative unissued opaque tokens correctly
+remain unavailable; the kernel functor's native morphism action remains an explicit
+ordinary unsupported routine. These are interface assertions, not mathematical
+answers. The author received no fixed questions, expected answers, kernel source,
+execution findings or other authors' work. Final fixed execution at this leaf is
+still required; prior runs selected earlier published leaves.
 
 Active isolated kernel work owns (1) exact carrier/receiver reading and measured
-proof-bearing-value reuse failures, and (2) complete object/parameter realization and
-whole-callable observation. Generic required behavior is not deferred as a leaf gap.
+proof-bearing-value reuse failures, and (2) retained construction/action-prefix parameter recovery and
+whole-callable observation. Complete named-object recovery is integrated above. Generic required behavior is not deferred as a leaf gap.
 Publish coherent checked repairs, fetch them back and compare the complete trees,
 integrate them, then rerun affected fixed trials at a new coherent freeze.
 

@@ -13,6 +13,7 @@ public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
+public import CasAcceptance.Kernel.CompleteNamedDataProbes
 public import CasAcceptance.Kernel.ProjectionBoundaryProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.QuestionSnapshotProbes
