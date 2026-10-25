@@ -49,6 +49,18 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
+The proof-refinement constructor now exposes closed non-proposition type inputs
+before matching existing class or Decidable instances. The exact helper passes
+the unchanged finite-product positive while retaining the complete supplied
+source, result type and kernel-checked original identity. The infinite-source
+and missing-chosen-structure negatives still reject, and all seven registered
+admission controls retain their required outcomes. The bounded comparison exits
+zero in 27.516 seconds with 1,135 imported artifacts unchanged. Conversion-option
+changes alone were separately tested and did not fix this instance-matching
+obstruction. Registered evidence procedures and their selected projection
+contexts are unchanged by this correction. The next check is the combined full
+library, consumer, native-tool and notebook-worker build.
+
 The combined 34-target consumer build at local `0eeec39` / published `ac8a31e`
 completed with exit 1 in 622.608 seconds, with its complete source tuple unchanged.
 The repaired language and realization modules, unchanged dependent and binder
@@ -57,9 +69,9 @@ two additive probe wrappers terminated a multiline `withOptions` application,
 two protocol probes lacked the explicit contract path for the external package
 override, and the unchanged finite-product proof-refinement positive was refused.
 The wrapper corrections preserve every non-whitespace byte and every control.
-The runtime invocation will supply its selected contract path. The remaining
-generic refinement failure must be repaired before the next consumer build and
-fixed execution trials. The raw build and producer record are preserved under
+The runtime invocation will supply its selected contract path. That build identified the
+generic refinement obstruction addressed above; its repaired integrated consumer
+and fixed execution checks remain required. The raw build and producer record are preserved under
 `kernel-verification-20261025/admission-lift-consumers-ac8a31e` outside the source.
 
 The integrated admission repair preserves forwarding through the same structure

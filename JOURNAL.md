@@ -2888,3 +2888,27 @@ evidence-path defect to diagnose and repair without changing its positive or
 negative assertions. No green combined build or frozen-trial pass is inferred.
 The existing 18 Python regression tests and four source-integrity checks pass on
 this source with unchanged worktrees; they do not discharge the failed Lean gate.
+
+## 2026-10-25 — Present type inputs for generic proof refinement
+
+The finite-product failure arises before instance matching: Lean's instance
+search fixes its own instances transparency, leaving a semireducible composed
+categorical object action hidden. A bounded comparison ruled out both a scoped
+conversion option and a whole-constructor option change. The owning constructor
+now uniformly exposes closed non-proposition type inputs with existing Lean
+WHNF/transformation APIs, checking every replacement and the whole original
+obligation. It still acquires one proof, kernel-checks it at the original target,
+refuses missing chosen data and retains the full original source and action.
+No mathematical name or predicate case is introduced, and the registered
+procedure presentation remains unchanged.
+
+The exact copied constructor passes the unchanged finite-product positive and
+retains a closed typed result, complete source and accepted original identity.
+Both required negatives reject; all seven actual registered-admission controls
+retain their outcomes and caller options. The comparison completes in 27.516
+seconds with 1,135 imported artifacts unchanged. The unsuccessful option-only
+comparison and initial scratch parsing failure are preserved separately. The
+four direct probes previously blocked by layout or contract-path configuration
+also pass against the compiled kernel with no imported-artifact changes. The
+next integrated build includes the full existing libraries, original consumers,
+native tools and notebook worker at one published source combination.

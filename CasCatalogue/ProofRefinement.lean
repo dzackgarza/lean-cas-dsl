@@ -15,6 +15,28 @@ structure Result where
   action : Expr
   identity : Expr
 
+/-- Expose closed type inputs before matching existing instances for a proof-only obligation.
+Predicate heads and value-level expressions are not reduced. Each replacement and the complete
+target must remain definitionally equal; the returned proof is checked at the original obligation. -/
+private def proofInputPresentation (p : Expr) : MetaM Expr := do
+  let presented ← Meta.transform p (pre := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    unless ← isType e do return .continue
+    if ← isProp e then return .continue
+    let originalType ← inferType e
+    let reduced ← withTransparency .default <| whnf e
+    if reduced == e then return .continue
+    unless !reduced.hasMVar && !reduced.hasLevelMVar && !reduced.hasFVar &&
+        !reduced.hasLooseBVars && (← isTypeCorrect reduced) &&
+        (← withTransparency .all <| isDefEq (← inferType reduced) originalType) &&
+        (← withTransparency .all <| isDefEq reduced e) do
+      throwError "the proof input presentation changed its complete supplied type"
+    return .visit reduced) (skipConstInApp := true)
+  unless !presented.hasMVar && !presented.hasLevelMVar && (← isTypeCorrect presented) &&
+      (← withTransparency .all <| isDefEq presented p) do
+    throwError "the proof input presentation changed its complete original obligation"
+  return presented
+
 /-- Elaborate the public constructor of an actual classifier total under its full forgetful
 image constraint. Remaining fields must be propositions established by existing class or
 Decidable instances; this never chooses missing structure from its carrier. -/
@@ -50,6 +72,7 @@ def construct (state : RegistryState) (classifier : ClassifierId)
     unless ← isProp obligation do
       throwStratum .invalid m!"the classifier requires additional chosen data: {obligation}"
     let presented ← Language.evidencePresentation state obligation
+    let presented ← proofInputPresentation presented
     let proof? ← match ← isClass? presented with
       | some _ => synthInstance? presented
       | none => Decide.decisionProof presented

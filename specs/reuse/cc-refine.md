@@ -45,3 +45,25 @@ from existing class or Decidable instances; kernel-check them; refuse remaining 
 nonproof data. It retains the original full object, action, identification and complete
 computational source payload, and consumes only the exact checked forgetful prefix.
 No category, predicate, lemma, proof procedure, or mathematical admission is authored here.
+
+## Closed type inputs at proof acquisition (2026-10-25)
+
+The live corpus queries `Meta.transform whnf` (20 files, 85 matches) and
+`synthInstance type arguments` (64 files, 3672 matches) locate existing expression
+transformation and instance APIs; no new mathematical construction is needed.
+Direct inspection of the installed Lean 4.33 sources confirms that
+`Meta.synthInstanceCore?` selects `.instances` transparency internally before
+instance matching. An outer conversion option or transparency scope does not
+expose a semireducible categorical object action for that matching. Lean's
+`Meta.transform`, `whnf`, `isType`, `isProp`, and `isDefEq` own the required
+presentation operations; `Decide.kernelAccepts` retains the original proof check.
+
+The existing constructor now presents closed non-proposition type expressions
+before its single class/Decidable acquisition. Pre-order `.visit` traverses the
+newly exposed type arguments. Every changed input and the whole obligation are
+checked for complete definitional equality; no predicate or value-level reduction
+is requested. The constructor still binds the original full source, rejects
+missing chosen data, and checks the resulting proof against the original
+obligation. Registered evidence procedures retain their separate stored-field
+presentation and its same-projection context rule. No mathematical name, case,
+lemma, instance, tactic, evidence retry, or budget change is introduced.
