@@ -55,8 +55,8 @@ private def legacyAmbiguity : TacticM Unit := do
   throw (Exception.error failureRef (.tagged `CasCatalogue.throwSemanticAmbiguity
     (.tagged payloadTag "original ambiguity payload")))
 
-run_elab withOptions
-    (fun options => options.setBool `backward.isDefEq.respectTransparency true) do
+run_elab withOptions (fun options =>
+    options.setBool `backward.isDefEq.respectTransparency true) do
   let originalMessages := (← getThe Core.State).messages
   try
     logInfo (MessageData.tagged baselineTag "an existing caller diagnostic")

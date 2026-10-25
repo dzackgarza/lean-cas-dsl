@@ -8,8 +8,8 @@ open CasCatalogue CasCatalogue.Language
 
 /- Stored fields expose the supplied polynomial type through its selected structures.
 The published evidence still inhabits the original target; a nonunit remains refused. -/
-run_cmd liftTermElabM <| withOptions
-    (fun options => options.setBool `backward.isDefEq.respectTransparency true) do
+run_cmd liftTermElabM <| withOptions (fun options =>
+    options.setBool `backward.isDefEq.respectTransparency true) do
   let state ← registryState
   let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "ℂ[x]"
     | throwError "the selected polynomial object did not parse"

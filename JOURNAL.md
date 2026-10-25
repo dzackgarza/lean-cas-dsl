@@ -2870,3 +2870,21 @@ with all 442 shared imported artifacts unchanged. The environment refusal and tw
 probe syntax/type failures are separately preserved; the production correction
 was unchanged through those checks. The integrated build and fixed mathematical
 execution are the next consumer checks.
+
+## 2026-10-25 — Integrated consumer build and remaining refinement
+
+The combined 34-target build at local `0eeec39` / published `ac8a31e` completed
+with exit 1 after 622.608 seconds; all three selected source worktrees remained
+unchanged. Language, realization, question exports, the unchanged dependent and
+binder readers, and the other completed consumers compiled. The five failed
+targets comprise two additive probe application-layout errors, two protocol
+helper startup failures from the missing external contract path, and the unchanged
+positive `(Fin(2) × ℤ/3) in FiniteSets` in `ProofRefinementProbes`.
+
+Both layout corrections move the line break into the options lambda and preserve
+all non-whitespace bytes and controls. The next invocation must carry the explicit
+selected contract path. The finite-product refinement is a remaining generic
+evidence-path defect to diagnose and repair without changing its positive or
+negative assertions. No green combined build or frozen-trial pass is inferred.
+The existing 18 Python regression tests and four source-integrity checks pass on
+this source with unchanged worktrees; they do not discharge the failed Lean gate.

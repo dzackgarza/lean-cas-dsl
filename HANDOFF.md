@@ -49,7 +49,20 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
-The next admission repair preserves forwarding through the same structure
+The combined 34-target consumer build at local `0eeec39` / published `ac8a31e`
+completed with exit 1 in 622.608 seconds, with its complete source tuple unchanged.
+The repaired language and realization modules, unchanged dependent and binder
+readers, and the other completed consumer targets compiled. Five targets failed:
+two additive probe wrappers terminated a multiline `withOptions` application,
+two protocol probes lacked the explicit contract path for the external package
+override, and the unchanged finite-product proof-refinement positive was refused.
+The wrapper corrections preserve every non-whitespace byte and every control.
+The runtime invocation will supply its selected contract path. The remaining
+generic refinement failure must be repaired before the next consumer build and
+fixed execution trials. The raw build and producer record are preserved under
+`kernel-verification-20261025/admission-lift-consumers-ac8a31e` outside the source.
+
+The integrated admission repair preserves forwarding through the same structure
 projection, using Lean's authoritative structure name and field index, while
 exposing actual fields supplied through different structures. Its isolated
 24.228-second check proves the two exact limits, both reindexed-map obligations,
