@@ -1,5 +1,34 @@
 # Reuse record: `cc-lift-general`
 
+### Deferred universal-service preparation (2026-10-25)
+
+The corpus queries `MonoLiftComputation` and `LimitCone` were attempted through
+the existing corpus client; sandbox network access was unavailable. Direct
+accepted-source searches locate `LimitEntry`, `LiftEntry`, `MonoLift`,
+`MonoLiftComputation` and `MonoLiftFactorComputation` upstream, and the existing
+`Semantic.limitPresentation`, `StructuredResult`, `SelectedLift`,
+`LiftedSubobjectData` and `StructuredProjection` consumers in the kernel.
+`UniversalServiceRequest` adds only typed service preparation over those owners.
+It defines no mathematical construction, law, category or selection rule.
+
+The registered diagram telescope fixes a limit's complete formal presentation
+before dispatch. Existing constructor-slot plans validate every actual returned
+field and retain input-role metadata for later defining-map projections. Selected
+lift requests retain their actual evidence parameters, source, subobject and
+preceding output prefix. Subobject monicity is projected from the independently
+typed formal input, and factor compatibility is obtained only from the original
+formal context or independent kernel checking. Neither is read from service JSON.
+
+The source-design precedents are CAP's existing derived-operation dependencies
+and derivation provenance, and research's constructor ownership, identity-owned
+implementation registration and lifting of retained universal data, documented at
+`d5b8b78d2a003e10939e5490a13c52f91c686d07:docs/constructor-architecture.md`.
+They motivate reuse of the existing shared execution boundary; historical source
+and tests do not establish current integrated acceptance. No weighted computation
+selection chooses mathematical meaning, and no private leaf import policy is
+introduced.
+
+
 ### Completed lift parameter framing (2026-10-25)
 
 The corpus query `MonoLiftComputation evidence family parameters` could not reach

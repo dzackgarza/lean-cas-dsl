@@ -95,6 +95,9 @@ jobs:
               CasAcceptance.Kernel.ReducedParameterActionProbes \
               CasAcceptance.Kernel.ActionCarrierInterfaceProbes \
               CasAcceptance.Kernel.PortableExtentDataProbes \
+              CasAcceptance.Kernel.WholeFamilyParameterDataProbes \
+              CasAcceptance.Kernel.DeclarationDerivedTransportProbes \
+              CasAcceptance.Kernel.UniversalServiceRequestProbes \
               CasAcceptance.Kernel.FunctorActionExecutionProbes \
               CasAcceptance.Kernel.DerivedActionExecutionProbes \
               CasAcceptance.Kernel.StagedNumeralDataProbes \

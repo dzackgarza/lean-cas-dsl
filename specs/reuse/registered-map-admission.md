@@ -58,6 +58,14 @@ A selected factor likewise retains its original receiver, base map and cone at
 both exact endpoints after the original full factorization checks. These original
 inputs remain available without selecting among them by carrier equality.
 
+Within one map application, the same already checked carrier can serve its
+argument trial and subsequent actual map action. Reuse requires the exact whole
+closed `Value.sameSource`, including every original, selected structure, full
+application and comparison context. The table belongs only to this call in its
+existing trace. It does not cross lexical contexts, speculative readers or later
+calls. The actual carrier-map function still checks the full category dictionary,
+complete accepted functor action and both mapped endpoints.
+
 ## Explicit proofs
 
 For `value in Domain using (proof(...))`, a named registered domain uses its own
@@ -91,6 +99,13 @@ object actions own the mathematics. The existing `retainedActions`,
 `checkedRouteAction`, `componentRefinement?`, and complete selected-view comparison
 own replay and checking. The new wrappers expose those same checked actions and
 retain their original inputs; they add no category, functor or component family.
+
+The exact-carrier reuse search `memoize complete typed expression` returned
+unrelated ACL2 prompt-context memoization. The earlier expression-memoization
+search found Lean's existing state-cache traversal. Here no general cache or
+mathematical abstraction is needed: `carrierObject` supplies the checked result,
+`Value.sameSource` fixes its complete input, and one local table shares that
+unchanged result inside `apply`. The functor and endpoint owners are unchanged.
 
 ## Computational reuse
 

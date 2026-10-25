@@ -1,5 +1,46 @@
 # Journal
 
+## 2026-10-25 — Select the published typed-service contract for integration
+
+The combined candidate now selects published leaf contract `9167e4c` for its
+typed deferred-request vocabulary. It integrates the closed service execution,
+exact retained projections, complete parameter-family recovery, declaration-derived
+transport controls and per-application carrier reuse. The candidate workflow also
+builds the independent declaration-derived and universal preparation modules
+explicitly. No permanent assertion or mathematical declaration changes.
+
+Each component has its recorded focused checks; the combined consumer build,
+unchanged frozen source/target workflow, native workflows and final independent
+reading review remain separate obligations. In particular, nested descriptor
+completion and additional reader repairs remain active kernel work. Selecting
+and publishing this source tuple does not close those obligations.
+
+## 2026-10-25 — Recover complete parameters from their original published family
+
+After the portable extent repair, the unchanged independent leaf trial computes
+both original object images. Whole-map execution next exposes a missing data
+presentation for the exact ring parameter in a registered matrix map's source.
+The full vector-module endpoint is known, but reverse unification cannot recover
+the modulus from its ring expression; all four ordinary transparency settings
+fail. The kernel then supplies a public callable-endpoint projection, which the
+bounded source specimen does not implement. That failed process run is preserved.
+
+Complete named data recovery now also compares an exact published object family
+already occurring inside the original parameter. It substitutes fresh typed
+parameters, checks equality of the entire structured family, restores the exact
+original arguments, and checks the closed full equality with the kernel. An
+agreement only at one value or carrier does not authorize the presentation.
+Nothing searches an equal cached object, invents an argument, or changes the
+selected formal expression. Existing actual data and action provenance retain
+priority; distinct recovered parameter occurrences remain distinct.
+
+The new whole-family controls and the unchanged complete-named-data,
+reduced-parameter-action, and declared-parameter-endpoint controls pass with
+unchanged imported source and artifacts. The earlier syntax and incomplete-fixture
+attempts remain recorded. These checks do not establish a successful cross-leaf
+workflow or mathematical correctness; the original trial still requires a run
+against the combined source.
+
 ## 2026-10-25 — Validate the existing portable extent interface
 
 The frozen independent source/target trial reached an actual source-leaf
@@ -37,6 +78,28 @@ current integrated acceptance. The separating regressions include distinct
 selected structures, composite actions, lifecycle retention, universal maps and
 the rejection of changed mathematical provenance even with a plausible answer.
 Private lateral leaf imports remain permitted and carry no semantic authority.
+## 2026-10-25 — Share an exact checked carrier inside one application
+
+The original first factor sample still exhausted its ordinary reading budget.
+Stage attribution measured 15,814 heartbeats for the outer source carrier and
+44,897 for the later complete carrier-map computation, which recomputed that
+same source; the nested application repeated the same pattern. The trial and
+actual source were exactly `sameSource`, with no context equivalence required.
+
+One application now reuses its own completed carrier result only for the exact
+same closed source value. The table stays inside that call and its original
+trace; speculative argument readers and subsequent calls receive no shared
+table. The complete functor, category dictionary and both mapped endpoints keep
+their existing checks. Full fixed-question measurements remain separate from
+this attribution and the focused source/endpoint controls.
+
+The focused build passed in 206.835 seconds with unchanged source/configuration,
+four isolated artifact changes and no dependency artifact changes. The original
+first sample at line 73 now reads under the unchanged 200000-heartbeat option;
+its measured total is 211,222, since checks are not continuous through pure work.
+The samples at lines 76, 152 and 155 still time out during semantic reading. That
+full production attempt closed in 92.441 seconds with no artifact changes. No
+success for the remaining samples or the complete lift export is asserted.
 
 ## 2026-10-25 — Follow the actual complete carrier action to components
 
@@ -3290,3 +3353,59 @@ scalar owner differs from their selected coordinate. Existing presentation,
 product-point, staged-numeral and full-Hom controls retain their requirements.
 The unchanged RX10 execution observation remains a separate recorded run; this
 source change supplies no mathematical answer or independent acceptance.
+
+
+## 2026-10-25 — Execute typed deferred computational dependencies
+
+The common action executor now underlies a leaf-facing deferred request graph.
+Existing published declarations and request forms determine each node's formal
+application; ordinary admission and dispatch determine its supplier. Pure
+preparers cover the current operation families, including component, cartesian,
+presentation, universal and selected-lift requests. The runtime retains exact
+Wire occurrences, raw replies, original caller meaning, complete parameters and
+live child ownership. Nested public object/map actions execute before independent
+target consumption. Self-contained results remain portable while the internal
+execution record retains every original dependency and failed scope's completed
+children. No mathematical registration, route policy, fixed input, expectation,
+budget, native implementation or public leaf source is changed.
+
+The isolated service runtime and fifteen process controls passed with source and
+configuration guards unchanged. These include same-formal/different-packet reuse
+through ordinary methods; actual child ownership; exact asymmetric endpoint
+projection through the shared universal adapter; intended malformed-reference,
+wrong-type, endpoint and backend-selector failures; mixed-owner and recursive
+request unavailability; nested scopes; owned-source/portable-result completion;
+whole nonidentity maps; and ordinary production installation. Existing object
+presentation, parameter reuse, functor-action and derived-action controls also
+passed. Earlier syntax/elaboration attempts, an incorrectly framed engineering
+cardinal reply, and the reproduced premature category-parameter closure are
+preserved; the latter now binds the complete expected type before closure.
+
+The scoped checkpoint does not close the independent frozen-leaf/native workflow
+or mathematical acceptance gates. Further public structured template projection
+coverage remains explicit kernel work where a typed branch is absent. It is not
+silently counted as a missing leaf, and no validator placeholder is promoted to
+mathematical input. The shared runtime endpoint convention is true=source and
+false=target; the universal preparer's initial opposite local convention was
+corrected and checked through the actual runtime callback.
+
+## 2026-10-25 — Project exact retained service data
+
+Nested released endpoint, Arrow/subobject and universal-result projection
+descriptors now reach the existing typed runtime projection paths. Complete
+registered row, original diagram, selected category and actual returned packet
+remain attached; no computational cone is treated as a formal proof-bearing
+cone. Direct portable fields drop only unrelated session requirements, while
+opaque fields retain their supplying process and the complete parent remains
+recorded. Copied parent data cannot merge distinct complete formal contexts or
+action occurrences; explicit result references remain exact. Named context
+construction no longer silently discards failures.
+
+Three focused runtime projection controls passed with source/configuration
+guards unchanged, alongside a fresh unchanged fifteen-case service run. The
+controls cover asymmetric endpoints, actual owner retention, exact universal
+ports and diagram indices, wrong selectors/refinements/owners/diagrams, and
+same-packet distinct selected occurrences. Earlier control layout errors and
+an incompletely framed arbitrary cone were preserved. This is a checked kernel
+increment, not independent mathematical acceptance or completion of the remaining
+released service data roles.

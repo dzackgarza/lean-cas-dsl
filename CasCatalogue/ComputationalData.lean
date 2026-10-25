@@ -2407,7 +2407,7 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     | _, _ =>
       if #["constructionLeg", "constructionField", "limitLeg"].contains tag then
         return ← validateConstructionProjection objects expected tag args
-  validatePort placeholder expected data
+  validatePort placeholder expected data objects
 
 /-- Use the complete validated selection to obtain its declared carrier. An
 accepted object action need not have a separately registered name at its target. -/

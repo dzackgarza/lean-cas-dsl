@@ -20,6 +20,15 @@ and the actual action executor. The mathematical operations are the existing
 Mathlib category composition and natural-transformation components; no second
 categorical calculus is needed.
 
+The bounded declaration-derived regression also inspects the live registry's
+`edgesFrom`, `routes` and `isFirstOperationBindingRoute`, the exact applications
+from `Semantic.routeFunctorWithApplications`, and the existing
+`selectedOperationApplicationsWithSources` and `retainedActionResult?` consumers.
+The 2026-10-25 formalization-corpus queries `Functor.comp` and `IsIsofibration`
+could not reach the corpus endpoint in the execution sandbox. Direct searches of
+the accepted catalogue at `82d1370` and its existing functor/lift controls provide
+the reuse sources; no substitute mathematical definition is authored.
+
 ## Owner
 
 `lean-categories` remains the sole mathematical authority. Its checked
@@ -77,6 +86,16 @@ the mathematical owner. Engineering controls of source retention and protocol
 framing supplement, and do not replace, independently grounded mathematical
 assertions and their independent reading review.
 
+**Composite-isofibration interface dependency.** The inspected published
+catalogue supplies structural functor flags, separate `MonoLift`/limit-creation
+interfaces, and `FibrationEntry` evidence for `IsFibered` or `IsCofibered`.
+It does not expose a composite-isofibration classification interface to this
+consumer. Consuming that formal classification remains an upstream-interface
+dependency of the composite-inheritance obligation above. Neither a structural
+flag, a composed `MonoLift`, an `IsFibered` proof nor a successful computation is
+substituted for it. The bounded engineering regression tests complete selected
+action composition only.
+
 ## New code and current limits
 
 The published action boundary at `4fb1aa9` supplies actual object and whole-map
@@ -104,3 +123,26 @@ The service adds computational orchestration around the existing owners. It
 accepts no caller-selected result type, backend selector, Lean proof, equality
 claim or new mathematical declaration. A well-framed wrong answer remains a
 wrong computation against the original question.
+
+`CasAcceptance.Kernel.DeclarationDerivedTransportProbes` adds an optional pure
+engineering control. It discovers closed registered object and morphism
+declarations and routes from the loaded registry, retains complete inferred
+action parameters, separates shared-carrier monoid images and operation owners,
+and checks ordered two-action framing and exact actual-data reuse keys. Its
+separate cardinality control obtains its literal codec and closed source objects
+from the live declarations, validates an arbitrary numerical reply at the full
+published result interface, and requires ordinary result reuse to retain the
+original method owner, receiver, route and accepted comparisons. It asserts no
+mathematical equality between that numeral and the formal result. Its
+optional report comes from the same discovered cases and is never an input.
+The module fails when no separating case exists. Arbitrary packets witness
+retention only; no backend is started, no packet is treated as a mathematical
+answer, and neither process-level anti-bypass nor extension acceptance follows
+from this control.
+
+Formal two-action checks apply to every discovered closed case in this bounded
+slice. Packet framing additionally needs the existing complete parameter data.
+When a fixed parameter has no portable named presentation and requires an actual
+supplier, the pure control records that explicit dependency, keeps the formal
+check, and does not fabricate a replacement parameter. At least one separating
+complete packet case must still succeed; missing all such cases is a failure.

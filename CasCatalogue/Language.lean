@@ -8326,12 +8326,13 @@ partial def callableInput (declaration : Name) (category : NamedCategoryEntry)
     throwStratum .invalid m!"the selected callable does not determine its complete input object"
   declaredEndpointObject input category #[owner]
 
-/-- The actual carrier action on a complete selected morphism. This supplies its
-function action on a generalized set-valued input without changing its structure. -/
-partial def carrierMorphism (value : Value) : M Value := do
+/-- The actual carrier action on a complete selected morphism. The reader may reuse
+a carrier it has already checked for this exact whole source in the current call;
+the complete action, category and both mapped endpoints are still checked here. -/
+partial def carrierMorphismWith (value : Value) (readCarrier : Value → M Value) : M Value := do
   let (hom, source, target, context, sourceValue, targetValue) ← morphismContext value
-  let sourceCarrier ← carrierObject sourceValue
-  let targetCarrier ← carrierObject targetValue
+  let sourceCarrier ← readCarrier sourceValue
+  let targetCarrier ← readCarrier targetValue
   let .object sourceObject sets .. := sourceCarrier
     | throwStratum .invalid "a generalized map needs its declared source carrier"
   let .object targetObject targetSets .. := targetCarrier
@@ -8375,10 +8376,24 @@ partial def carrierMorphism (value : Value) : M Value := do
       (← applications.mapM instantiateMVars) hom true)
   return .morphism mapped sourceObject targetObject sets (some (sourceCarrier, targetCarrier))
 
+partial def carrierMorphism (value : Value) : M Value :=
+  carrierMorphismWith value carrierObject
+
 /-- `f(x, …)`: a map applied to elements (composition), or to a set (its image). -/
 partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value := do
   let mut argumentRead? : Option (Value × Value × Std.HashMap Expr Node) := none
   let context ← read
+  -- This call owns these completed readings and their records in its existing
+  -- trace. Only a syntactically identical complete closed source is reused;
+  -- no other selected value, lexical scope, trial or later call shares the table.
+  let carriers ← IO.mkRef (#[] : Array (Value × Value))
+  let readCarrier := fun value => do
+    if let some (_, carrier) := (← carriers.get).find? (fun (source, _) =>
+        source.sameSource value) then return carrier
+    let carrier ← carrierObject value
+    if value.closedReading && carrier.closedReading then
+      carriers.modify (·.push (value, carrier))
+    return carrier
   let boundElement : Bool := match args with
     | #[argument] => match argument with
       | `(cas_term| $name:ident) =>
@@ -8401,7 +8416,7 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
           context.closedTerms.mapM fun cache => do IO.mkRef (← cache.get)
         else pure none
       let (_, _, _, _, originalSource, _) ← morphismContext f
-      let argumentContext ← carrierObject originalSource
+      let argumentContext ← readCarrier originalSource
       let candidate ← try
         pure (some (← withReader (fun context =>
           { context with trace := some temporary, closedTerms := temporaryCache })
@@ -8421,7 +8436,7 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
               unless functionContext.expression.syntacticEq sets.expression ||
                   argumentContext.expression.syntacticEq sets.expression do
                 throwStratum .invalid "the complete maps have different selected composition categories"
-              let function ← carrierMorphism f
+              let function ← carrierMorphismWith f readCarrier
               let argument ← withReader (fun context => { context with trace := some temporary })
                 (carrierMorphism argument)
               pure (function, argument)
@@ -8442,8 +8457,8 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
         if argument matches .element .. then
           argumentRead? := some (argumentContext, argument, ← temporary.get)
     if let .derivedMorphism hom source target context (X, Y) := f then
-      let sourceCarrier ← carrierObject X
-      let targetCarrier ← carrierObject Y
+      let sourceCarrier ← readCarrier X
+      let targetCarrier ← readCarrier Y
       let .object sourceObject sets .. := sourceCarrier
         | throwStratum .invalid "the selected map has no accepted carrier context"
       let targetObject ← semanticObject targetCarrier
@@ -8509,7 +8524,8 @@ partial def apply (scope : Scope) (f : Value) (args : Array Syntax) : M Value :=
   if args.isEmpty then throwStratum .invalid m!"a map `X → Y` takes its domain argument"
   -- Reuse the complete selected action: its source dictionary fixes every route
   -- parameter before mapping the original arrow, and the trace retains them all.
-  let .morphism mapped source target sets (some (sourceCarrier, targetCarrier)) ← carrierMorphism f
+  let .morphism mapped source target sets (some (sourceCarrier, targetCarrier)) ←
+      carrierMorphismWith f readCarrier
     | throwStratum .invalid "the map has no complete declared carrier action"
   let v ← match args with
     | #[arg] =>
