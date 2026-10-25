@@ -6,6 +6,7 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 | query | hits used |
 |---|---|
 | `CatCommSq hComp pasting composition squares` | mathlib4 `CategoryTheory/CatCommSq.lean` (`hComp`, `hComp'`) |
+| `CategoryTheory Functor obj map composition` (2026-10-25) | Existing Mathlib `Functor.obj`, `Functor.map`, `Functor.comp`; no new mathematical declaration needed |
 
 ## Owner
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
@@ -51,3 +52,49 @@ controls exercise both public projection spellings, nested and composed actions
 without exact trace keys, and an ignored earlier parameter packet followed by the
 actually selected owned parameter. These are data-flow and source-preservation
 checks, not mathematical acceptance or fixed-question execution verdicts.
+
+## Shared executable action boundary — 2026-10-25
+
+`FunctorEntry`, `ConstructionEntry`, `Semantic.edgeFunctor`,
+`Semantic.compositeOfApplications`, `DirectConstruction`, `CellAction` and
+`CategoryContext` already own selection and the complete mathematical actions.
+The executor reuses them to check full category dictionaries, parameters, object
+images and Hom endpoints. It introduces no mathematical functor, comparison,
+categorical law or route-selection rule.
+
+The additional code is runtime orchestration: admission of a registered
+functor's map/input projections, execution of its object and whole-map ports,
+and retention of actual intermediate images. The existing `ConstructionInvocation`,
+`PointInvocation` and `TypedMap` forms supply the frames. The cache key includes
+the complete selected action, exact actual source packets and owners, ordered
+parameter dependencies and actual image endpoints. No equality of carrier types
+or values selects a computational presentation.
+
+The image-retention pattern was checked against the read-only
+`sage-categories/kernel/functor_cache.py` design: object results are retained by
+their actual source and map results by their already computed image endpoints
+and original morphism. Its class mutation and semantic authority are not copied.
+Here all authority remains in the accepted Lean declarations, while every
+backend result remains untrusted data.
+
+The executor retains an internal source/action receipt separately from the
+actual output's ownership. A self-contained returned target packet can be used
+by an independent target-only process. Nested opaque data retain their original
+session. Registered comparison endpoints reuse their selected object actions;
+they do not search equal cached objects. The existing full-field projection and
+proof-refinement restoration paths remain intrinsic. A general classifier or
+constructor-induced action still needs the separately identified public address
+projection; this first checkpoint does not close that interface gap.
+
+`FunctorActionExecutionProbes` launches two arbitrary protocol processes and
+checks actual packets, ordered parameters, selected action identity, image
+reuse, endpoint mismatch, source/result ownership, expired sessions and target
+isolation. Its optional JSONL receipt contains exact requests, responses and
+internal action records. It asserts no mathematical result and is separate from
+the independent two-leaf experiment.
+
+A chained control uses the same formal endomorphism endpoint with two distinct
+actual representations. A bare returned owned callable retains those selected
+image packets inside the existing typed-map form before the next action runs.
+The original callable data and every opaque endpoint owner remain intact; the
+expression-keyed result cache cannot merge the two endpoint occurrences.

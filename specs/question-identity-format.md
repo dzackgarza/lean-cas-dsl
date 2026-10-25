@@ -165,8 +165,8 @@ term references.
 | `binder` | Binder ID, parameters, original domain, entire body, admitted family |
 | `arrow` | Category, actual morphism, source, target |
 | `literal` | Form ID, literal term |
-| `method`, `property` | ID, route, receiver |
-| `methodWithLifts` | Method ID, route, ordered lift IDs, receiver |
+| `method`, `property` | ID, route, receiver, retained comparison records |
+| `methodWithLifts` | Method ID, route, ordered lift IDs, receiver, retained comparison records |
 | `limit` | Limit ID, complete diagram, optional lift ID |
 
 Each parameter-presentation record contains source ID, source category,
@@ -174,6 +174,29 @@ target category, parameters, route, applications, carrier route,
 identification declaration names, original object, image, and identity, in
 that order. These are complete records, including distinct records that
 share the same initial source/route/parameter key.
+
+### Complete method and property comparison records
+
+At producer `841091d` and subsequent sources retaining this field, each method,
+lifted-method and property record ends with the ordered array of comparisons
+validated for that resolution. Each element is `[context, term]`, where `term`
+is a reference in the same enclosing operation table. It retains the complete
+typed comparison value under the term-table rules above; it is not a digest,
+display string or reference into a separate table.
+
+`context` has exactly `[cellID, constructors, before, after]`. The cell ID and
+ordered constructor IDs are literal strings. `before` and `after` are ordered
+edge representation strings retaining the full whiskering context, using the
+same route-comparison encoding described for operation-source records below.
+No field is inferred from the selected route or omitted when several comparisons
+participate. The receiver remains the record's original complete typed receiver.
+Retaining a comparison does not replace the separately recorded selected route
+or choose that cell's source as the method receiver.
+
+Earlier producer formats end at the receiver and do not contain this field.
+Their existing payloads and independent assessments are not relabelled. A schema
+description supplies decoding information only; it does not authorize a meaning
+migration or accept a changed interpretation.
 
 ### Complete operation-equivalence records
 

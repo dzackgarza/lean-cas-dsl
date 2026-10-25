@@ -1,5 +1,82 @@
 # Journal
 
+## 2026-10-25 — Reuse actual declared family and construction endpoints
+
+Selected families now retain all their already checked complete object parameters
+as endpoint witnesses. A value-module projection therefore keeps that supplied
+module, including its scalar action, instead of rediscovering it from the whole
+formed receiver. The existing endpoint preference and fallback remain intact.
+
+Defining construction legs reuse an intact supplied endpoint reached by reducing
+the actual diagram/index projection after the original cone and full typed leg
+checks. Exact matching selections retain all their context payloads; different
+selected structures sharing a handle keep the original ambiguity-preserving
+fallback. No original arrow, endpoint expression, diagram, index, or trace node
+is replaced. Stage attribution isolated 57,076 heartbeats in field discovery and
+about 33,300 in recognition per product leg; exact supplied reuse reduced the
+two-component stage from 182,332 to 1,866 heartbeats. These stage resets are
+localization evidence, not a full fixed-question pass. Focused controls cover the
+complete supplied value module, actual factor/cone retention, additional context,
+and distinct full ring structures on a shared carrier. Fixed inputs and the
+ordinary 200000-heartbeat budget remain unchanged.
+
+The focused source/owner/ambiguity and continuity controls compile. The original
+first-pairing binding and full production assertion read in 125062 and 152825
+heartbeats, respectively. The exact final-pairing binding, full assertion, scalar
+sample and nonzero inclusion still hit the unchanged limit; they remain open
+rather than being counted as successes from the stage measurements.
+
+## 2026-10-25 — Retain actual image endpoints around an unframed map result
+
+The first action checkpoint's focused controls passed, then a bounded review
+identified a remaining composition case: a bare returned callable did not carry
+its selected actual endpoints into the next action. When both endpoints had
+the same formal expression, the result cache could substitute the target's
+representation for both. The added chained process control reproduced that
+failure on the unchanged executor before the repair.
+
+The executor now retains an otherwise unframed whole callable in the existing
+typed-map form at its exact independently supplied image endpoints. Its original
+returned packet remains the callable field, and opaque endpoint fields retain
+their own owner. The new control distinguishes equal formal endpoints with
+different actual data; the parameterized control also covers opaque image
+endpoints and an unframed owned return. No mathematical answer is asserted.
+
+## 2026-10-25 — Execute registered object and whole-map actions at one boundary
+
+`FunctorEntry` gains derived map/input addresses for its existing mathematical
+action. One runtime executor now materializes object images and whole mapped
+callables, including the existing dependent-construction ports. Each mapped
+request retains its actual source arrow, all ordered action parameters and the
+already computed image endpoints. Composites reuse these actual intermediate
+results. Registered comparison components obtain their endpoints through the
+same checked action routes, without searching equal cached objects.
+
+The internal receipt keeps original source data and owners. Actual portable
+target data can cross to an independent target-only process; nested opaque
+tokens keep the supplying live session. Expired cached tokens remain
+unavailable. Production execution demands action data while interpretation can
+keep deferred recipes. No mathematical row, route policy, fixed question,
+expected answer or public leaf implementation changes.
+
+The process controls cover portable and owned images, exact complete map
+framing, parameter retention, source/callable reuse, wrong endpoint rejection,
+different whole actions, changed actual packets and an independent target-only
+consumer. They supply arbitrary protocol data and make no mathematical
+acceptance claim. The classifier/constructor-induced executable address gap and
+the independent frozen two-leaf integration experiment remain open.
+
+## 2026-10-25 — Check every retained cache-context expression
+
+The complete-map cache guard now traverses retained comparison applications and
+already judged questions, including their typed operands. The previous guard
+used the question-operand accessor, which intentionally omits those two kinds
+of context. The existing complete evidence encoder supplies an independent
+coverage check; new engineering negatives place expression metavariables,
+universe metavariables, free locals, and loose binders behind otherwise closed
+map endpoints. Closed complete contexts remain eligible. Question operands,
+identity, fixed sources, budgets, and selected structures are unchanged.
+
 ## 2026-10-25 — Retain the complete validated resolution comparisons
 
 Method, lifted-method and property readings now retain their already-validated

@@ -94,6 +94,7 @@ jobs:
               CasCatalogue.FunctorActionDataProbes \
               CasAcceptance.Kernel.ReducedParameterActionProbes \
               CasAcceptance.Kernel.ActionCarrierInterfaceProbes \
+              CasAcceptance.Kernel.FunctorActionExecutionProbes \
               CasAcceptance.Kernel.StagedNumeralDataProbes \
               CasAcceptance.Kernel.ContextualHomFramingProbes \
               CasAcceptance.Kernel.OperationAgreementExecutionProbes \

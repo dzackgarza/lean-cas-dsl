@@ -74,6 +74,12 @@ def ConstructionEntry.inputAddress (entry : ConstructionEntry) : String :=
 def ConstructionEntry.mapAddress (entry : ConstructionEntry) : String :=
   entry.id.raw ++ "#map"
 
+/-- The complete object/map request of the existing selected functor. These
+addresses expose its two projections; they add no mathematical row. -/
+def FunctorEntry.inputAddress (entry : FunctorEntry) : String := entry.id.raw ++ "#input"
+
+def FunctorEntry.mapAddress (entry : FunctorEntry) : String := entry.id.raw ++ "#map"
+
 def FunctorEntry.cartesianAddress (entry : FunctorEntry) : String :=
   entry.id.raw ++ "#cartesian"
 
@@ -96,6 +102,7 @@ inductive Form
   | liftInput (entry : LiftEntry) (category : CategoryId)
   | constructionInput (entry : ConstructionEntry) (category : CategoryId)
   | constructionImage (entry : ConstructionEntry) (category : CategoryId)
+  | functorInput (entry : FunctorEntry) (category : CategoryId)
   | cellComponent (entry : CellEntry) (constructors : Array ConstructorId) (category : CategoryId)
   | cartesian (entry : FunctorEntry) (category : CategoryId)
   | literal (entry : LiteralEntry)
@@ -152,6 +159,7 @@ def Form.id : Form → String
   | .liftInput entry _ => entry.inputAddress
   | .constructionInput entry _ => entry.inputAddress
   | .constructionImage entry _ => entry.id.raw
+  | .functorInput entry _ => entry.inputAddress
   | .cellComponent entry constructors _ => entry.componentAddress constructors
   | .cartesian entry _ => entry.cartesianAddress
   | .literal entry => entry.id.raw
@@ -180,6 +188,7 @@ def Form.category : Form → CategoryId
   | .proofRefinement category _ _ => category.id
   | .liftInput _ category => category
   | .constructionInput _ category | .constructionImage _ category => category
+  | .functorInput _ category => category
   | .cellComponent _ _ category => category
   | .cartesian _ category => category
   | .literal entry => entry.category
@@ -295,6 +304,12 @@ def RegistryState.constructionForm? (state : RegistryState) (id : String) : Opti
   return .contextual entry.target (if id == entry.inputAddress then
     .constructionInput entry ⟨""⟩ else .constructionImage entry ⟨""⟩)
 
+def RegistryState.functorInputForm? (state : RegistryState) (id : String) : Option Form := do
+  let entry ← state.functors.find? (fun row => row.inputAddress == id)
+  if let #[source] := state.categories.filter (·.expression.syntacticEq entry.source) then
+    return .functorInput entry source.id
+  return .contextual entry.source (.functorInput entry ⟨""⟩)
+
 def RegistryState.component? (state : RegistryState) (id : String) :
     Option (CellEntry × Array ConstructorId) := do
   if let some entry := state.cells.find? (fun row => row.componentAddress == id) then
@@ -334,6 +349,7 @@ def RegistryState.cartesianForm? (state : RegistryState) (id : String) : Option 
 def RegistryState.form? (state : RegistryState) (id : String) : Option Form :=
   state.liftInputForm? id <|>
   state.constructionForm? id <|>
+  state.functorInputForm? id <|>
   state.componentForm? id <|>
   state.cartesianForm? id <|>
   (state.literals.find? (·.id.raw == id) |>.map .literal) <|>
@@ -385,6 +401,7 @@ inductive Operation
   | application (entry : ObjectEntry)
   | binder (entry : BinderEntry)
   | functor (entry : FunctorEntry)
+  | functorMap (entry : FunctorEntry)
   | presentation (entry : PresentationComparisonEntry)
 
 def Operation.id : Operation → String
@@ -401,6 +418,7 @@ def Operation.id : Operation → String
   | .application entry => entry.applicationAddress
   | .binder entry => entry.id.raw
   | .functor entry => entry.id.raw
+  | .functorMap entry => entry.mapAddress
   | .presentation entry => entry.id.raw
 
 /-- The operation `id` names. -/
@@ -424,6 +442,7 @@ def RegistryState.operation? (state : RegistryState) (id : String) : Option Oper
       entry.applicationAddress == id) |>.map .application) <|>
   (state.binders.find? (·.id.raw == id) |>.map .binder) <|>
   (state.functors.find? (·.id.raw == id) |>.map .functor) <|>
+  (state.functors.find? (fun entry => entry.mapAddress == id) |>.map .functorMap) <|>
   (state.presentations.find? (·.id.raw == id) |>.map .presentation)
 
 /-- The actual public callable declaration and category at a concrete address. Consumers
@@ -472,6 +491,16 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
     | .cartesian entry => if entry.id == input.id then none else
         some s!"{operation.id} requires its own complete cartesian-map request"
     | _ => some s!"{operation.id} is not this accepted cartesian map"
+  else if let .functorInput input _ := form then
+    match operation with
+    | .functor entry | .functorMap entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete selected functor request"
+    | _ => some s!"{operation.id} is not this registered functor action"
+  else if let .contextual _ (.functorInput input _) := form then
+    match operation with
+    | .functor entry | .functorMap entry => if entry.id == input.id then none else
+        some s!"{operation.id} requires its own complete selected functor request"
+    | _ => some s!"{operation.id} is not this registered functor action"
   else if let .contextual _ (.cartesian input _) := form then
     match operation with
     | .cartesian entry => if entry.id == input.id then none else
@@ -602,7 +631,8 @@ def RegistryState.rejects (state : RegistryState) (operation : Operation) (form 
                 if actual.syntacticEq (.familyTotal family) then none else notResolved
             | none => notResolved
         | _ => notResolved
-    | .presentation _ | .liftField .. | .liftFactor .. | .construction .. => notResolved
+    | .presentation _ | .liftField .. | .liftFactor .. | .construction .. |
+        .functorMap _ => notResolved
     | .functor entry =>
         match form with
         | .contextual expression _ =>
@@ -680,8 +710,23 @@ def RegistryState.pointInputAddresses (state : RegistryState) (operation : Opera
     | .application entry => some (.application entry)
     | .binder entry => some (.binder entry)
     | .construction entry _ => state.constructionForm? entry.inputAddress
+    | .functorMap entry => state.functorInputForm? entry.inputAddress
     | .cellComponent entry constructors => state.componentForm? (entry.componentAddress constructors)
     | .cartesian entry => state.cartesianForm? entry.cartesianAddress
+    | _ => none
+  if let some request := request then
+    if state.accepts operation request && !addresses.contains request.id then
+      addresses := addresses.push request.id
+  return addresses
+
+/-- A complete object-action frame also inhabits its selected functor's own
+request address. Existing source-form registrations remain equal peers. -/
+def RegistryState.objectActionInputAddresses (state : RegistryState) (operation : Operation)
+    (source : Form) : Array String := Id.run do
+  let mut addresses := state.inputAddresses operation source
+  let request := match operation with
+    | .functor entry => state.functorInputForm? entry.inputAddress
+    | .construction entry false => state.constructionForm? entry.inputAddress
     | _ => none
   if let some request := request then
     if state.accepts operation request && !addresses.contains request.id then

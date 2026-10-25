@@ -437,6 +437,38 @@ partial def collectSourceParameterValues (pending : List Value) (found : Array V
 def sourceParameterValues (value : Value) : Array Value :=
   collectSourceParameterValues [value] #[]
 
+/-- A closed expression has no context that a later reading could instantiate or capture. -/
+def closedReadingTerm (term : Expr) : Bool :=
+  !term.hasMVar && !term.hasLevelMVar && !term.hasFVar && !term.hasLooseBVars
+
+/-- Questions retained in context carry their typed operands even when their answer is closed. -/
+partial def Question.closedReading : Question → Bool
+  | .proposition term => closedReadingTerm term
+  | .judgement _ terms _ _ types => terms.all closedReadingTerm && types.all closedReadingTerm
+  | .conjunction left right => left.closedReading && right.closedReading
+  | .negation question => question.closedReading
+
+/-- Cache eligibility checks every retained expression, not only a value's question operands.
+The source traversal shares exact complete children, while each node checks its own fields. -/
+def Value.closedReading (value : Value) : Bool :=
+  (sourceParameterValues value).all fun source =>
+    match source with
+    | .object handle _ _ _ data =>
+        closedReadingTerm handle && (data.all fun (_, _, _, alternatives, applications) =>
+          (alternatives.all fun presentation =>
+            presentation.params.all closedReadingTerm &&
+            presentation.applications.all closedReadingTerm &&
+            #[presentation.object, presentation.image, presentation.identity].all closedReadingTerm) &&
+          applications.all (fun (_, terms) => terms.all closedReadingTerm))
+    | .morphism hom source target _ _ => #[hom, source, target].all closedReadingTerm
+    | .derivedObject handle context _ => #[handle, context.bundle].all closedReadingTerm
+    | .derivedMorphism hom source target context _ =>
+        #[hom, source, target, context.bundle].all closedReadingTerm
+    | .element hom _ => closedReadingTerm hom
+    | .answer result => closedReadingTerm result
+    | .judged question result => question.closedReading && closedReadingTerm result
+    | .formalProof _ | .nat _ | .literal _ | .homSet .. => true
+
 /-- Keep the complete supplied arguments of a declared endpoint. This is context
 retention only: it does not change the object, its selected structure, or any
 existing comparison and action data. -/
@@ -2024,9 +2056,7 @@ partial def eval (scope : Scope) (stx : Syntax) (category? : Option NamedCategor
     | .morphism .. | .derivedObject .. | .derivedMorphism .. =>
         -- A map's endpoint provenance can contain more than its Hom term. Reuse
         -- it only when every complete retained source is closed as well.
-        if (sourceParameterValues value).all (fun source => source.terms.all
-            (fun term => !term.hasMVar && !term.hasLevelMVar &&
-              !term.hasFVar && !term.hasLooseBVars)) then
+        if value.closedReading then
           cache.modify (·.insert (shown stx) value)
     | _ => pure ()
   return value
@@ -5707,6 +5737,19 @@ partial def invariantApplication (entry : MorphismEntry) (A : Value) :
 /-- Read the selected complete family, retaining its declared parameters and endpoint contexts. -/
 partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
   let (category, family, parameters) ← invariantApplication entry A
+  let state ← registryState
+  let mut known := #[A]
+  for parameter in parameters do
+    if parameter.hasMVar || parameter.hasLevelMVar then continue
+    let applicable ← state.categories.filterM fun candidate => parameterCompatible do
+      let context ← CategoryContext.ofNamed candidate parameter
+      return !context.bundle.hasMVar && !context.bundle.hasLevelMVar
+    match applicable with
+    | #[parameterCategory] =>
+        let value := Value.object parameter parameterCategory none none none
+        unless known.any (·.sameSource value) do known := known.push value
+    | #[] => pure ()
+    | _ => throwSemanticAmbiguity "a complete declared parameter has several object categories"
   let .object one _ _ _ _ ← oneObject | unreachable!
   let some (source, _) := homEnds? (← inferType family)
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
@@ -5714,7 +5757,10 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
   let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let endpoint (term : Expr) : M Value := do
-    declaredEndpointObject term category #[A] parameters
+    -- These are the actual complete arguments of this checked declaration. Keep
+    -- them all available: endpointWitnesses selects occurring owners per endpoint
+    -- and retries the remaining supplied witnesses if a preferred owner fails.
+    declaredEndpointObject term category known parameters
   let T ← endpoint target
   if ← isDefEq source one then
     let .object t .. := T | unreachable!
@@ -5860,6 +5906,28 @@ partial def constructionLeg (scope : Scope) (term indexSyntax : Syntax) : M Valu
     | throwStratum .invalid m!"the defining leg is not a morphism"
   let endpoint (value : Expr) : M Value := do
     if ← isDefEq value apex then return receiver
+    -- The checked diagram/index can project an endpoint already supplied whole.
+    -- Stop at its exact handle, before reducing its selected structure to a carrier.
+    let supplied := (sourceParameterValues receiver).filter fun candidate => match candidate with
+      | .object _ candidateCategory .. => candidateCategory.id == category.id
+      | _ => false
+    let exact ← whnfHeadPred value (fun current => pure <| !supplied.any fun candidate =>
+      match candidate with
+      | .object actual .. => actual == current
+      | _ => false)
+    let candidates := supplied.filter fun candidate => match candidate with
+      | .object actual .. => actual == exact
+      | _ => false
+    if let some first := candidates[0]? then
+      if candidates.all (·.sameSelection first) then
+        unless ← withTransparency .all <|
+            isDefEq (← inferType exact) (← inferType value) <&&> isDefEq exact value do
+          throwStratum .invalid "the supplied endpoint differs from the complete defining leg"
+        let retained := candidates.foldl (fun result candidate =>
+          retainObjectContext result #[candidate]) first
+        return retainObjectContext retained #[receiver]
+    -- Different complete selections, or a projection that did not reach an
+    -- intact supplied handle, use the original endpoint and ambiguity checks.
     declaredEndpointObject value category #[receiver]
   if let some trace := (← read).trace then
     let entries ← recorder.get

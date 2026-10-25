@@ -10,6 +10,7 @@ public import CasAcceptance.Kernel.DependentElaborationProbes
 public import CasAcceptance.Kernel.FileItemProbes
 public import CasAcceptance.Kernel.SessionOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
+public import CasAcceptance.Kernel.FunctorActionExecutionProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.CallableCoordinateFramingProbes

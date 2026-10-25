@@ -631,6 +631,17 @@ is introduced. Engineering controls retain the exact global point and selected
 target, preserve transitive bound variables under changed bindings, and check
 that closed maps keep their full provenance.
 
+Cache closure uses a dedicated complete-context traversal. The existing
+`Value.terms` accessor remains the question-operand boundary: it intentionally
+does not enumerate every retained application or an already judged question.
+`sourceParameterValues` shares exact complete children, and the closure guard
+checks each child's direct expressions, including full comparison applications,
+question operands and types, and derived category bundles. Controls compare the
+guard with the existing complete evidence encoder and reject metavariables,
+universe metavariables, free locals, and loose binders hidden behind otherwise
+closed map endpoints. This changes eligibility for reuse, not question identity
+or mathematical equivalence.
+
 The complete result endpoint returned by `invariantOf` is also passed to the
 existing `applyFamily` target check. This retains the selected family owner's
 context while avoiding a second reconstruction from operand carriers. The
@@ -640,7 +651,25 @@ domain and complete selected result context. Stage-only measurements isolated
 this duplicate endpoint reading; those measurements are localization evidence,
 not successful fixed-question exports.
 
+Complete family parameters also remain endpoint witnesses after the declaration
+has been checked. Their actual full types determine the registered categories;
+the original receiver and every full parameter remain available. The existing
+`endpointWitnesses` preference and retry path chooses among these supplied
+witnesses separately for each product factor. No parameter is discarded merely
+because it occurs inside a preferred complete owner.
+
+For an already checked defining construction leg, Lean's existing
+`Meta.whnfHeadPred` can reduce its diagram/index projection until it reaches an
+exact supplied endpoint handle. At that boundary the reader reuses the original
+complete value. The same `sameSelection`/`retainObjectContext` rule already used
+by `recognize` keeps every additional context payload; different full selections
+fall back to the original endpoint and ambiguity checks. The original cone,
+registered presentation, diagram, index, typed hom, and trace node remain checked
+and retained. If primitive projection reduction passes an intact handle, absence
+of an exact match also uses the unchanged fallback. No positional interpretation
+of general retained context or equality of bare carriers selects a factor.
+
 The exact unchanged first-pairing binding and full assertion now read within
-the original 200000-heartbeat limit (144910 and 172662 respectively). Remaining
+the original 200000-heartbeat limit (125062 and 152825 respectively). Remaining
 factor/final readings are separate open defects; neither stage measurements nor
 this focused source checkpoint are full fixed-export or mathematical acceptance.

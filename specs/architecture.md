@@ -106,6 +106,29 @@ non-documentation changes; `lean-categories`' totality gate runs in its own buil
 Constructor applications and family parameters are typed mathematical data, never strings such as
 `"Modules(QQ)"`. Otherwise a backend's spelling can leak into semantic identity.
 
+**Owner clarification (2026-10-25): constructor services and implementation irrelevance.**
+The one-way boundary governs mathematical authority and evidence, not the direction of runtime
+calls. A leaf may request any published constructor or computation through the kernel without
+choosing or knowing its implementation. The kernel checks the declared interface, composes the
+required actions and retains the actual result, selected comparisons, maps and dependencies.
+Callbacks or typed deferred computation requests may implement this service. Missing computation
+or a representation bridge remains a computational failure and cannot change mathematical
+availability. A deferred request is executed by the shared runtime before its target consumer
+needs the result; it does not require that consumer to interpret another category's recipe.
+
+Leaves may import other leaves or share private code for implementation convenience. Those
+dependencies are optional, have no semantic standing and impose no new obligations on another
+implementation. The kernel depends on published interfaces and returned computations, not the
+internal dependency graph. Freezing an independent target leaf is an interoperability test,
+not a prohibition on lateral imports or sufficient evidence for the complete service boundary.
+
+Published constructors are the interoperability interface: a producer can construct an image
+using an existing target-category presentation instead of exporting its private native object.
+Object and morphism actions retain the actual selected comparison and image endpoints; a
+computational choice or construction request supplies no proof that the original operation was
+computed correctly. Independent fixed mathematical verification and all existing authority
+boundaries remain unchanged.
+
 ## Invariants
 
 * **Single semantic authority.** One ontology, in `lean-categories`. No shadow graph,

@@ -129,6 +129,53 @@ edge and target schema; its actual ordered declaration parameters remain in the 
 and wire data. A short classifier or constructor identifier resolves only when the registry
 contains exactly one matching edge and target. Competing edges require the complete image key.
 
+## Executable registered actions
+
+A `FunctorEntry` already supplies a complete mathematical functor. Its existing
+identifier names the object action; `<id>#map` names its morphism action and
+`<id>#input` names the complete request form. These are projections of that row,
+not additional mathematical operations. Existing object-action registrations at
+source forms remain peers of the complete request form. An ambiguous choice of
+admitted implementations remains ambiguous.
+
+One executor demands object images and whole morphism images from these ports.
+An object request contains the actual source and all ordered explicit action
+parameters. A whole-map request uses the existing `apply` frame, with
+`map(action, typedMap(X_actual, Y_actual, f_actual))` as its arrow. Its source and
+target are the already executed `F(X)` and `F(Y)` packets. Its generalized domain
+is that actual image source and its argument is the identity on that domain.
+Returned `typedMap` endpoints must equal those exact supplied image packets.
+An unframed whole callable is retained inside that same `typedMap` frame, with
+its original returned data unchanged. Later actions read the occurrence's actual
+endpoint fields even when its two formal endpoints are the same expression.
+This validates the interface; it neither proves the functor laws nor checks the
+mathematical answer by substituting a canonical result.
+
+Composites execute their selected primitive applications in order. The cache
+retains the full action, actual original data and owners, complete parameters,
+and both actual image endpoints for a map. Carrier equality, coincidence at one
+object, and a definitionally equal cached name do not choose a different source
+or action. A registered comparison's component reuses the images of its already
+checked left and right routes even when its Hom type reduces their expressions.
+Existing dependent constructions use this same object/map boundary at their
+published construction addresses.
+
+Production execution demands these actions before an unrelated target operation
+consumes their result; interpretation may retain deferred recipes. The action
+receipt preserves the source, complete action and parameter owners internally.
+A complete returned packet with no nested opaque token is portable. A token
+anywhere in a returned packet keeps the supplying process and session, including
+when it is nested in a typed map. A cached owned result cannot cross an expired
+session. A target-only consumer receives the actual target packet; the internal
+action receipt does not require it to decode source routes or source data.
+
+Checked projections from actual complete Arrow/subobject fields and restoration
+of a retained proof-refinement source remain intrinsic. At this checkpoint,
+other classifier-forget and constructor-induced actions still lack general
+public executable addresses and report that specific missing implementation.
+That address gap is distinct from an unavailable representation bridge between
+two live processes; neither is filled by changing a target consumer's decoder.
+
 ## A registration is data
 
 A leaf package is a manifest, `leaves.json` at the root of the package, plus the programs it

@@ -108,3 +108,52 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
         (← isDefEq domain (← (semanticObject source).run context)) &&
         (← isDefEq codomain (← (semanticObject target).run context)) do
       throwError "member-family application changed its original domain or selected target"
+
+/- A closed map cannot hide open context in comparison applications or judged questions. -/
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term "Fin(2) in Sets"
+    | throwError "the complete-context control did not parse"
+  let target ← (eval {} parsed).run {}
+  let .object objectHandle category (some (entry, _)) .. := target
+    | throwError "the complete-context control has no named finite object"
+  let identity ← (identityAt target).run {}
+  let equation ← mkEqRefl objectHandle
+  let mapWith (witness : Value) : Value :=
+    .morphism identity objectHandle objectHandle category
+      (some (retainObjectContext target #[witness], target))
+  let comparisonWith (application : Expr) : Value :=
+    let presentation : ParameterPresentation := {
+      source := entry.id, sourceCategory := category.id, targetCategory := category.id
+      params := #[], route := #[], applications := #[application]
+      carrierRoute := #[], identifications := #[]
+      object := objectHandle, image := objectHandle, identity := equation }
+    .object objectHandle category none none
+      (some (#[], target, #[], #[presentation], #[]))
+  let check (label : String) (value : Value) (expected : Bool) : TermElabM Unit := do
+    let complete ← IO.mkRef true
+    discard <| encodeParameterViewValue (fun term => do
+      unless closedReadingTerm term do complete.set false
+      pure 0) value
+    unless (← complete.get) == expected && value.closedReading == expected do
+      throwError "the complete cache-context guard disagrees with full retained evidence: {label}"
+  check "closed comparison application" (mapWith (comparisonWith identity)) true
+  check "closed judged question"
+    (mapWith (.judged (.judgement "equal" #[objectHandle] #[] #[] #[← inferType objectHandle])
+      (mkConst ``Bool.true))) true
+  let rejectsHidden (openTerm : Expr) : TermElabM Unit := do
+    let candidates := #[
+      mapWith (comparisonWith openTerm),
+      mapWith (.judged (.proposition openTerm) (mkConst ``Bool.true)),
+      mapWith (.judged (.negation (.conjunction
+        (.judgement "equal" #[openTerm])
+        (.judgement "equal" #[objectHandle] #[] #[] #[openTerm]))) (mkConst ``Bool.true))]
+    for candidate in candidates do
+      -- These fields are deliberately absent from the judgement-operand accessor.
+      unless (sourceParameterValues candidate).all (fun source =>
+          source.terms.all closedReadingTerm) do
+        throwError "the negative control does not isolate hidden retained context"
+      check "open context behind closed Hom endpoints" candidate false
+  rejectsHidden (← mkFreshExprMVar (mkConst ``Nat))
+  rejectsHidden (mkSort (← mkFreshLevelMVar))
+  rejectsHidden (.bvar 0)
+  withLocalDeclD `localContext (mkConst ``Nat) rejectsHidden

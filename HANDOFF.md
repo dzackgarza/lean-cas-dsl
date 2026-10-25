@@ -12,6 +12,43 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
+### Latest owner steering: constructor-centric computational service
+
+The later attachments `Pasted text(20261025-193945).txt` and
+`Pasted text(20261025-200835).txt` clarify and extend the active computational
+requirement. A leaf must be able to invoke any published constructor or computation
+through the kernel, without selecting its supplier or depending on its installation.
+Callbacks or typed deferred requests are permitted implementation choices. The
+shared executor owns their admission, composition and actual results. A producer
+can construct its target image through an existing target-category constructor,
+retaining the selected comparison and coherent morphism action, rather than
+requiring another implementation to interpret private source representations.
+
+Optional lateral leaf imports and shared private code are permitted and have no
+semantic standing. The one-way restriction concerns mathematical authority and
+evidence, not runtime call direction. The frozen-target diagnostic below tests
+the absence of a required implementation dependency; it is not a ban on imports
+and does not discharge the broader service requirement. Existing single-owner
+payloads and isolated request/reply serving do not yet supply that service.
+The architectural owning documents now record this explicit clarification.
+
+Closed shared-action checkpoints `766b268` and `25d00a0` are integrated here,
+including actual object images, whole maps, exact image endpoints and returned
+ownership. Their clean author builds and guarded process controls pass; final
+combined execution remains separate. Complete reader cache/context checkpoints
+`cc563705` and `237666f` are also integrated. The first full pairing now reads in
+152825 heartbeats at the unchanged limit; later final/factor readings remain open.
+The independent public module action specimen is published as `2f352448` on the
+leaf work branch, preserving all original source and manifests. It has public
+interface checks only, no mathematical or two-leaf acceptance claim.
+
+The intermediate RX05 independent review at `841091d` assesses all 13 readings:
+12 match and one remains qualified. The formerly missing complete comparison
+context is retained; the fixed designated multiplicative source still differs
+from the protected directed-chain representative U3. Neither requirement was
+changed. The current narrow schema documentation is supplied separately without
+rewriting the assessed payload or historical receipt.
+
 ### Current owner steering: executable functor-action isolation
 
 The owner supplied `Pasted text(20261025-190504).txt` during this continuation.

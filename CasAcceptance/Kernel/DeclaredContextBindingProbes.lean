@@ -127,3 +127,83 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       (← withTransparency .all <| isDefEq (← inferType parameter) (← inferType expected) <&&>
         isDefEq parameter expected) do
     throwError "the full action replaced the category's actual dictionary"
+
+/- A family endpoint names its complete supplied value module, even on the scalar carrier. -/
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let state ← registryState
+  let some category := state.categories.find? (·.id == CategoryId.bilinModule)
+    | throwError "the complete family control has no formed category"
+  let #[entry] := state.morphisms.filter (·.name == "pairing")
+    | throwError "the complete family control has no unique declared pairing"
+  let valueModule ← elabTermAndSynthesize (← `(ModuleCat.of ℚ ℚ)) none
+  let expected ← elabTermAndSynthesize
+    (← `(LeanCategories.Modules.Bilinear.Valued.BilinModuleCat
+      (CommRingCat.of ℚ) (ModuleCat.of ℚ ℚ))) none
+  withLocalDeclD `actualForm expected fun owner => do
+    let trace ← Trace.new
+    let selected := Value.object owner category none none none
+    let .morphism hom _ _ _ (some (_, target)) ←
+        (invariantOf entry selected).run { trace := some trace }
+      | throwError "the complete family lost its declared morphism endpoints"
+    let .object _ _ _ (some (.object actual moduleCategory ..)) _ := target
+      | throwError "the family endpoint lost its complete supplied module"
+    unless moduleCategory.id == CategoryId.modulesR &&
+        (← withTransparency .all <| isDefEq (← inferType actual) (← inferType valueModule) <&&>
+          isDefEq actual valueModule) && (← isTypeCorrect hom) do
+      throwError "the family endpoint replaced its supplied module with a scalar carrier"
+    unless (sourceParameterValues target).any (·.sameSource selected) do
+      throwError "the full family endpoint discarded its original receiver"
+
+/- Defining legs reuse complete factors; a shared bare handle does not choose their structures. -/
+run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
+  let parse (text : String) : TermElabM Syntax := do
+    let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term text
+      | throwError "the complete construction endpoint control did not parse"
+    return parsed
+  let state ← registryState
+  let some rings := state.categories.find? (·.id == CategoryId.rings)
+    | throwError "the complete construction endpoint control has no ring category"
+  let standard ← elabTermAndSynthesize (← `(RingCat.of ℚ)) none
+  let changed ← elabTermAndSynthesize (← `(@RingCat.of ℚ (Equiv.neg ℚ).ring)) none
+  unless !(← withTransparency .all <| isDefEq standard changed) do
+    throwError "the construction control does not distinguish complete ring structures"
+  let trace ← Trace.new
+  let first ← (carrierObject (.object standard rings none none none)).run { trace := some trace }
+  let second ← (carrierObject (.object changed rings none none none)).run { trace := some trace }
+  let first := retainObjectContext first #[.nat 7]
+  let productSyntax ← parse "firstEndpoint × secondEndpoint"
+  let receiverSyntax ← parse "receiver"
+  let formProduct (left right : Value) : TermElabM Value :=
+    (eval {} productSyntax).run {
+      trace := some trace, bound := [(`firstEndpoint, left), (`secondEndpoint, right)] }
+  let product ← formProduct first second
+  let apex ← (semanticObject product).run {}
+  for (ordinal, expected) in #[(0, first), (1, second)] do
+    let .morphism hom _ _ _ (some (actualSource, actualTarget)) ←
+        (constructionLeg {} receiverSyntax (← parse (toString ordinal))).run {
+          trace := some trace, bound := [(`receiver, product)] }
+      | throwError "the exact construction leg lost its complete endpoints"
+    unless actualSource.sameSource product && actualTarget.sameSelection expected &&
+        (sourceParameterValues actualTarget).any (·.sameSource product) &&
+        (← isTypeCorrect hom) do
+      throwError "the defining leg replaced its original complete factor or cone"
+    let some (.limitProjection original _) ← trace.node? hom
+      | throwError "the defining leg lost its original construction trace"
+    unless original == apex do throwError "the defining leg changed its actual cone"
+    if ordinal == 0 && !(sourceParameterValues actualTarget).any (·.sameSource (.nat 7)) then
+      throwError "coalescing an exact factor discarded its additional retained context"
+  let (.object carrier sets _ (some firstStructure) _,
+       .object _ _ _ (some secondStructure) _) := (first, second)
+    | throwError "the construction control lost its actual selected ring structures"
+  let bareCarrier ← withTransparency .all <| whnf carrier
+  let ambiguous ← formProduct
+    (.object bareCarrier sets none (some firstStructure) none)
+    (.object bareCarrier sets none (some secondStructure) none)
+  let rejected ← try
+      discard <| (constructionLeg {} receiverSyntax (← parse "0")).run {
+        trace := some trace, bound := [(`receiver, ambiguous)] }
+      pure false
+    catch error =>
+      if Exception.interpretationKind error == .ambiguous then pure true else throw error
+  unless rejected do
+    throwError "a shared carrier handle selected one of two different complete structures"
