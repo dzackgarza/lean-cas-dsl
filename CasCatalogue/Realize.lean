@@ -5592,10 +5592,10 @@ def presentationEvaluationsOf (trace : Trace) (p : Expr) : TermElabM (Array Name
 evaluations `evaluations` and decision: the goal `p` is given to each evaluation in turn, through
 the one sanctioned runner (`Language.runProcedure`, LC-18). A closed remainder uses the existing
 structural decision (`Codec.conditionProof`), retaining its complete declared types while
-normalizing their presentation. Kernel-owned trace markers are unfolded only in this proof
+normalizing their presentation. Kernel-owned trace markers are removed only in this proof
 presentation, so they cannot obstruct a registered literal's decision instance; the original
-question and its operation records retain them. Ordinary `mkDecideProof` remains available for a residue with
-local hypotheses. The assembled proof is checked against the original `p` by Lean's kernel,
+question and its operation records retain them. Ordinary `mkDecideProof` remains available for
+a residue with local hypotheses. The assembled proof is checked against the original `p` by Lean's kernel,
 synchronously within `decideBudget`. Failure to construct or check a proof decides nothing. -/
 def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := do
   let attempt : TermElabM Bool := do
@@ -5612,7 +5612,13 @@ def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := d
     | [] => pure ()
     | [residue] => residue.withContext do
         let condition ← instantiateMVars (← residue.getDecl).type
-        let condition ← deltaExpand condition fun name => name == ``Trace.operationResult
+        let condition ← Core.transform condition (post := fun term => do
+          let args := term.getAppArgs
+          if term.isAppOf ``Trace.operationResult && args.size >= 3 then
+            -- The marker's arguments are its binding, complete type, and value.
+            -- A wrapped callable may have further arguments on the same spine.
+            return .visit (mkAppN args[2]! (args.extract 3 args.size))
+          return .done term)
         let structural ← if condition.hasFVar || condition.hasMVar || condition.hasLevelMVar then
           pure none else Codec.conditionProof condition
         let proof ← match structural with

@@ -70,9 +70,18 @@ between ambiguity, invalidity, and backend failures.
 ## Transparent trace markers at the decision boundary (2026-10-25)
 
 `Trace.operationResult` is the kernel's existing typed identity wrapper for retaining
-distinct registered bindings as trace keys. `Lean.Meta.deltaExpand` already supplies
-selective unfolding of that transparent definition. Reuse it only on the residual
-proposition passed to the existing proof acquisition in `Realize.evaluatedDecides`.
-The retained question, selected operation records, registered evaluator, and final
-kernel check against the complete original proposition remain unchanged. This adds
-no mathematical normalization rule, decision instance, provider retry, or budget.
+distinct registered bindings as trace keys. The initial selective `deltaExpand` call
+was rejected by the unchanged purity gate because its owner is `Lean.Meta.Tactic.Delta`.
+Reuse `Lean.Core.transform` from `Lean.Meta.Transform` for structural traversal instead.
+Its post-order callback sees the complete application spine after visiting its children:
+the marker's first three arguments are the binding, implicit complete type, and value.
+Replace that full prefix by its value and reapply any remaining arguments, revisiting
+the assembled expression so newly exposed full markers are handled too. Partial marker
+applications with fewer than three arguments remain unchanged. The kernel's recording
+functions create full marker applications; this traversal is not arbitrary delta reduction.
+
+This presentation is confined to the residual proposition passed to existing proof
+acquisition in `Realize.evaluatedDecides`. The retained question, selected operation
+records, registered evaluator, and final kernel check against the complete original
+proposition remain unchanged. No gate allowance, mathematical normalization rule,
+decision instance, provider retry, or budget change is introduced.
