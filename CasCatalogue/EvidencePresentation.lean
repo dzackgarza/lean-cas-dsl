@@ -34,83 +34,74 @@ def suppliedHomPresentation (state : RegistryState) (p : Expr) : MetaM Expr :=
       throwError "closed Hom action changed its supplied value"
     return .done normalized) (skipConstInApp := true)
 
-/-- Expose only supplied closed data presentations. A class dictionary may use the ordinary
-instance presentation only when its complete data are definitionally identical to the supplied
-package. Predicate heads, binders and chosen data remain the same original typed statement. -/
+/-- Present the stored structures of supplied closed registered objects without expanding their
+carrier expressions. Carrier projections retain the selected object context needed by registered
+evidence. Only an actual constructor field is exposed, using Lean's projection metadata. A class
+dictionary may use an ordinary instance only when its entire type and data are definitionally equal
+to the supplied dictionary. No predicate, proof procedure, or mathematical value is selected here. -/
 def evidencePresentation (state : RegistryState) (p : Expr) : MetaM Expr := do
   let objectTypes ← IO.mkRef ({} : Std.HashMap Expr Bool)
-  let expose (p : Expr) : MetaM Expr :=
-    Meta.transform p (post := fun e => do
-      if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) || (← isProp e) then
-        return .continue
-      let type ← inferType e
-      let classData := (← isClass? type).isSome
-      let carrierAlias := !e.isConst && (← isType e) && !(← isProp e)
-      let mut objectData := false
-      unless classData || carrierAlias do
-        if let some cached := (← objectTypes.get).get? type then
-          objectData := cached
-        else
-          for category in state.categories do
-            if ← withoutModifyingState do
-                try
-                  let family ← instantiateFresh category.declaration
-                  let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
-                  withTransparency .all <| isDefEq expected type
-                catch _ => pure false then
-              objectData := true
-              break
-          unless type.hasMVar || type.hasLevelMVar do
-            objectTypes.modify (·.insert type objectData)
-      if objectData || classData || carrierAlias then
-        let normalized ← if carrierAlias && !objectData && !classData then
-          whnfR e
-        else withTransparency .all <| whnf e
-        unless ← withTransparency .all <| isDefEq normalized e do
-          throwError "a supplied data presentation changed its complete object"
-        return .done normalized
-      return .continue) (skipConstInApp := true)
-  let presented ← expose (← expose p)
+  let isObject (object : Expr) : MetaM Bool := do
+    let type ← inferType object
+    if let some cached := (← objectTypes.get).get? type then return cached
+    let mut found := false
+    for category in state.categories do
+      if ← withoutModifyingState do
+          try
+            let family ← instantiateFresh category.declaration
+            let expected ← mkAppM ``CategoryTheory.Bundled.α #[family]
+            withTransparency .all <| isDefEq expected type
+          catch error =>
+            match error with
+            | .internal .. => throw error
+            | .error .. => pure false then
+        found := true
+        break
+    unless type.hasMVar || type.hasLevelMVar do objectTypes.modify (·.insert type found)
+    return found
+  let field (struct : Name) (index : Nat) (object : Expr) : MetaM (Option Expr) := do
+    unless ← isObject object do return none
+    let object ← withTransparency .default <| whnf object
+    let env ← getEnv
+    unless (getStructureInfo? env struct).isSome do return none
+    let ctor := getStructureCtor env struct
+    unless object.isAppOfArity ctor.name (ctor.numParams + ctor.numFields) do return none
+    if index ≥ ctor.numFields then return none
+    let value := object.getArg! (ctor.numParams + index)
+    if ← isType value then return none
+    return value
+  let presented ← Meta.transform p (post := fun e => do
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
+    if let .proj struct index object := e then
+      if let some value ← field struct index object then return .visit value
+      return .continue
+    let .const name _ := e.getAppFn | return .continue
+    if let some info ← getProjectionFnInfo? name then
+      if e.getAppNumArgs == info.numParams + 1 then
+        let ctor ← getConstInfoCtor info.ctorName
+        if let some value ← field ctor.induct info.i e.appArg! then
+          return .visit value
+    return .continue) (skipConstInApp := true)
   let presented ← Meta.transform presented (post := fun e => do
-    if e.hasMVar || e.hasLevelMVar || e.hasFVar || (← isProof e) then return .continue
+    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars || (← isProof e) then
+      return .continue
     let type ← inferType e
     unless (← isClass? type).isSome do return .continue
     let candidate? ← withoutModifyingState do
-      try
-        let candidate ← instantiateMVars (← synthInstance type)
-        if candidate.hasMVar || candidate.hasLevelMVar || candidate.hasSorry ||
-            !(← isTypeCorrect candidate) then return none
-        unless ← withTransparency .all <| isDefEq candidate e do return none
-        return some candidate
-      catch _ => return none
+      let .some candidate ← trySynthInstance type | return none
+      let candidate ← instantiateMVars candidate
+      if candidate.hasMVar || candidate.hasLevelMVar || candidate.hasSorry ||
+          !(← isTypeCorrect candidate) then return none
+      unless ← withTransparency .all <| isDefEq (← inferType candidate) type <&&>
+          isDefEq candidate e do return none
+      return some candidate
     match candidate? with
     | none => return .continue
     | some candidate =>
-        unless ← withTransparency .all <| isDefEq (← inferType candidate) type do
-          throwError "a supplied dictionary presentation changed its complete type"
         return .done candidate) (skipConstInApp := true)
-  let presented ← Core.betaReduce presented
-  let presented ← suppliedHomPresentation state presented
-  -- Finish only stuck, closed carrier projections after dictionary presentation. Expanding
-  -- all type expressions earlier would also expose the value's function-wrapper dictionaries.
-  let presented ← Meta.transform presented (post := fun e => do
-    if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
-    unless (← isType e) && !(← isProp e) do return .continue
-    let reduced ← whnfR e
-    unless reduced.getAppFn.isProj do return .continue
-    -- A carrier projection can itself be a function applied to its supplied object.
-    -- Reducing a *closed type projection* is elaboration of a supplied carrier,
-    -- not a tactic or a proof procedure.  Do not invoke Lean.Meta.Tactic.Delta:
-    -- that machinery belongs exclusively to the registered evidence runner.
-    let normalized ← withTransparency .all <| whnf reduced
-    unless ← withTransparency .all <| isDefEq normalized e do
-      throwError "presenting the carrier changed its complete type"
-    return .done normalized) (skipConstInApp := true)
-  unless !presented.hasMVar && !presented.hasLevelMVar &&
-      (← isTypeCorrect presented) &&
+  unless !presented.hasMVar && !presented.hasLevelMVar && (← isTypeCorrect presented) &&
       (← withTransparency .all <| isDefEq presented p) do
-    throwError "the evidence presentation is not the original complete target"
+    throwError "the field presentation changed the complete target"
   return presented
-
 
 end CasCatalogue.Language

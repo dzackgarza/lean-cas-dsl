@@ -1800,10 +1800,11 @@ def establish (evidence : Name) (p : Expr) (what : MessageData) : TermElabM Expr
   let p ← instantiateMVars p
   if p.hasMVar || p.hasLevelMVar then
     throwStratum .invalid m!"{what}: the hypothesis {p} is not determined"
-  -- The registered procedure owns the presentation of its mathematical target.
-  -- Expanding its supplied objects or dictionaries here can erase the bundled
-  -- structure that its own evidence consumes, even when the target stays defeq.
-  let goal ← mkFreshExprMVar p .syntheticOpaque
+  -- Expose only definitionally identical stored structures, retaining carrier
+  -- expressions and their selected object context. The registered procedure runs
+  -- once on this uniform presentation, and its result must inhabit the original p.
+  let presented ← evidencePresentation (← registryState) p
+  let goal ← mkFreshExprMVar presented .syntheticOpaque
   -- Respect the procedure's conversion scope for complete implicit arguments too.
   -- Lean's legacy implicit-argument mode otherwise hides definitionally equal
   -- selected dictionaries even when the registered procedure permits unfolding.

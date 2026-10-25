@@ -2802,3 +2802,28 @@ source, completed that protocol interface at published `fa0856d`. Its unchanged
 66 registrations and protocol-only checks carry no mathematical acceptance.
 The next end-to-end consumers use the corrected frozen leaf and fixed questions
 only after the kernel regressions are resolved.
+
+## 2026-10-25 — Isolate admission presentation without changing its question
+
+The corrected typed-factor reader retains the whole independently specified
+hyperbolic map, while scoped implicit-argument conversion allows the registered
+limit and reindexed-module evidence to prove their original complete targets.
+A remaining bilinear admission requires a compatible uniform presentation.
+
+Controlled diagnostics restore complete Lean Term/Meta/Core state between
+attempts and invoke registered evidence once. They isolate expansion of one
+exterior reindexed carrier projection as a sufficient cause of rejection;
+three other stored-field changes individually preserve a proof. The initial
+comparison had changed both projection metadata and canonical dictionaries, so
+its earlier attribution to dictionaries was not established. Every failed,
+interrupted, and compilation-only diagnostic remains preserved.
+
+The checkpointed non-type-field presentation proves both limits and both
+reindexed obligations in 13.820 seconds, preserving typed closed proofs of the
+original statements. Its constant-polynomial unit and nonunit controls pass in
+5.369 seconds; the engineering probe therefore checks the retained original
+carrier rather than requiring that this candidate expand it. All mathematical
+positive/negative and option-scope controls remain. The corrected bilinear
+admission still rejects in 11.466 seconds, with the complete original map and
+type independently checked. This is an unfinished source checkpoint, not a
+passing integrated candidate; no combined build or frozen-trial pass is inferred.

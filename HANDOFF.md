@@ -49,6 +49,27 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
+The subsequent source checkpoint `3983ce2` contains the numeric-only ambient
+product correction and scoped implicit-argument conversion. Both are retained.
+The current admission presentation is an unfinished candidate: it exposes actual
+stored non-type fields and definitionally identical class dictionaries while
+preserving carrier expressions. Isolated checks prove both unchanged limit
+obligations and both reindexed-module obligations (13.820 seconds), and preserve
+the constant-polynomial unit/nonunit controls (5.369 seconds). The paired
+corrected bilinear function still fails admission (11.466 seconds), despite
+matching the independent whole hyperbolic function and retaining its original
+complete type. No combined build or readiness claim applies to this candidate.
+
+Controlled projection diagnostics isolated the context loss: replacing the
+exterior carrier of the reindexed module by its stored carrier alone makes its
+registered evidence reject, while three other actual stored fields individually
+retain a proof. These diagnostics restore complete Term/Meta/Core state between
+attempts. Earlier variants changed projection metadata and dictionary synthesis
+together, so their differences did not establish a dictionary defect. The next
+repair must supply one uniform presentation for both consumers, without changing
+the questions or retrying evidence after rejection. Complete raw diagnostics,
+including failures and interrupted runs, are preserved separately.
+
 The next integrated source at local `43d8608` / published `b814a19`, with
 mathematics `82d1370` and contract `90d7d3f`, completed its 33-target build with
 exit 1 in 505.325 seconds; the source tuple remained unchanged. The new signed
