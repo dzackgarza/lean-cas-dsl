@@ -49,6 +49,14 @@ workflows and frozen extension trials before claiming V1 readiness.
 
 ## Current verification boundary
 
+The first full native build at local `5cc198a` / published `38cf1a2` found a
+helper-visibility error in the actual public module. It was stopped after
+117.885 seconds with the source tuple unchanged. Removing the helper's `private`
+keyword follows the module's existing public-section convention. The exact
+corrected production file then elaborated directly in 2.703 seconds with exit
+zero and all 115 imported artifacts unchanged. The full build is resumed from
+this corrected source; the stopped build is not counted as a pass.
+
 The proof-refinement constructor now exposes closed non-proposition type inputs
 before matching existing class or Decidable instances. The exact helper passes
 the unchanged finite-product positive while retaining the complete supplied

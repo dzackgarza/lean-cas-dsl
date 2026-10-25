@@ -18,7 +18,7 @@ structure Result where
 /-- Expose closed type inputs before matching existing instances for a proof-only obligation.
 Predicate heads and value-level expressions are not reduced. Each replacement and the complete
 target must remain definitionally equal; the returned proof is checked at the original obligation. -/
-private def proofInputPresentation (p : Expr) : MetaM Expr := do
+def proofInputPresentation (p : Expr) : MetaM Expr := do
   let presented ← Meta.transform p (pre := fun e => do
     if e.hasMVar || e.hasLevelMVar || e.hasFVar || e.hasLooseBVars then return .continue
     unless ← isType e do return .continue

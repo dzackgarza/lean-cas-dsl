@@ -2912,3 +2912,15 @@ four direct probes previously blocked by layout or contract-path configuration
 also pass against the compiled kernel with no imported-artifact changes. The
 next integrated build includes the full existing libraries, original consumers,
 native tools and notebook worker at one published source combination.
+
+## 2026-10-25 — Check the actual refinement module visibility
+
+The full native build at local `5cc198a` / published `38cf1a2` rejected the new
+helper's private name inside the existing public section. The copied-helper
+comparison had not tested that changed visibility wrapper. The failed broad
+build was stopped after 117.885 seconds with unchanged sources. A one-keyword
+visibility correction makes the helper follow the surrounding module convention.
+The exact committed production file, without a copied helper or output-artifact
+writes, then elaborated successfully in 2.703 seconds; all 115 imported artifacts
+and both source worktrees remained unchanged. No proof logic or control changed.
+The corrected source is published before resuming the full integrated build.
