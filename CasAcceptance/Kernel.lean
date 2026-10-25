@@ -14,6 +14,8 @@ public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
 public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
 public import CasAcceptance.Kernel.CompleteNamedDataProbes
+public import CasAcceptance.Kernel.RetainedConstructionDataProbes
+public import CasAcceptance.Kernel.CompleteConstructionDataProbes
 public import CasAcceptance.Kernel.ProjectionBoundaryProbes
 public import CasAcceptance.Kernel.QuestionComparisonProbes
 public import CasAcceptance.Kernel.QuestionSnapshotProbes
@@ -28,6 +30,7 @@ public import CasAcceptance.Kernel.DeclaredProductContextProbes
 public import CasAcceptance.Kernel.ReaderContextContinuityProbes
 public import CasAcceptance.Kernel.DeclaredParameterEndpointProbes
 public import CasAcceptance.Kernel.ProofSourceIdentityProbes
+public import CasAcceptance.Kernel.DeclaredContextBindingProbes
 public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasAcceptance.Kernel.SourceParameterBindingProbes
 public import CasAcceptance.Kernel.InclusionSelectionProbes

@@ -582,3 +582,30 @@ source comparison and repeatedly expand its retained context. The engineering
 probe checks reflexivity, lexical separation, repeated full-context retention,
 and the Type-valued-data boundary; the frozen RX05 export keeps its original
 input, inventory, and ordinary per-statement heartbeat budget.
+
+### Fixed data fields and complete family source binding (2026-10-25)
+
+The same corpus queries above and direct source inspection identify the existing
+owners: `ConstrainedPoint.schema?` fixes every record data field,
+`declaredResult` checks an original point at an independently fixed endpoint,
+and `CategoryContext.exposeStructureParameters` exposes all fields of a fresh
+full structure parameter. The constrained reader now uses that existing endpoint
+check before the unchanged actual constructor and proof checks. It preserves
+the original point map and generalized domain; it does not add an ordinary
+coercion or choose a named presentation from a shared carrier.
+
+The structure exposure helper moves to `Semantic`, with the existing
+`CategoryContext` name forwarding to it, so the complete family-source binder
+can use the same operation. Only unresolved parameters of the already selected
+realization are exposed, and the original full receiver and actual action-source
+comparisons still have to succeed. Mathlib's existing `Equiv.ring` transfer
+supplies the same-carrier/different-structure negative control. No dictionary,
+mathematical declaration, registry row, proof obligation, or selected action is
+replaced.
+
+Structure-parameter type inspection unfolds the actual type with full
+transparency before identifying its existing structure constructor. This also
+handles a category alias such as `Cat`, whose full `Bundled Category` fields
+are then constrained by the original whole functor. Exposure itself leaves the
+fields unresolved; it supplies no carrier or category dictionary. The existing
+automorphism construction supplies the complete-action control for this case.

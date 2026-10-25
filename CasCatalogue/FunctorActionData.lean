@@ -122,7 +122,8 @@ partial def registeredComposite? (state : RegistryState) (action : Expr) :
 
 /-- Recover only an action of an actual source occurrence in the requested parameter.
 The complete bundled result, the full registered functors, and their ordered parameters
-are checked before any data callback runs. Equal cached objects are never searched.
+are checked before any data callback runs. A complete intermediate image retains its
+already selected route prefix. Equal cached objects are never searched.
 
 An explicit object projection fixes its exact receiver and whole action. Other
 literal descendants with an equal final carrier are not alternative sources for it.
@@ -154,12 +155,8 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
     unless receiver != value && (value.find? (· == receiver)).isSome do continue
     if let some (_, selectedReceiver) := explicitAction then
       unless receiver == selectedReceiver do continue
-    let sameResult ← withoutModifyingState do
-      unless closedParameter recorded && (← isTypeCorrect recorded) do return false
-      withTransparency .all do
-        isDefEq (← inferType recorded) (← inferType value) <&&> isDefEq recorded value
-    unless sameResult do continue
-    let candidate ← withoutModifyingState do
+    let prefixes ← withoutModifyingState do
+      unless closedParameter recorded && (← isTypeCorrect recorded) do return #[]
       unless closedParameter receiver && (← isTypeCorrect receiver) do
         throwError "the retained parameter action lost its exact closed source"
       let (route, applications) ← match node with
@@ -186,7 +183,8 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
       unless !route.isEmpty && route.size == applications.size do
         throwError "the retained parameter action lost its complete ordered route"
       let mut image := receiver
-      for (edge, application) in route.zip applications do
+      let mut prefixes : Array RetainedParameterAction := #[]
+      for ((edge, application), index) in (route.zip applications).zipIdx do
         unless closedParameter application && (← isTypeCorrect application) do
           throwError "the retained parameter action has unresolved categorical data"
         let accepted ← Semantic.asFunctor (← Semantic.edgeFunctor state edge)
@@ -194,24 +192,36 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
         unless ← withTransparency .all <| isDefEq accepted actual do
           throwError "the retained parameter action is not its full registered functor"
         image ← Semantic.objOf actual image
+        if ← withTransparency .all <|
+            isDefEq (← inferType image) (← inferType value) <&&> isDefEq image value then
+          let prefixImage ← instantiateMVars image
+          unless closedParameter prefixImage && (← isTypeCorrect prefixImage) &&
+              (← Decide.kernelAccepts (← mkEq prefixImage value) (← mkEqRefl prefixImage)) do
+            throwError "the retained prefix failed its complete object identification"
+          prefixes := prefixes.push {
+            receiver
+            route := route.extract 0 (index + 1)
+            applications := applications.extract 0 (index + 1) }
+      if prefixes.isEmpty then return #[]
       let finalImage ← instantiateMVars image
       unless closedParameter finalImage && (← isTypeCorrect finalImage) &&
-          (← withTransparency .all <| isDefEq (← inferType finalImage) (← inferType value)) &&
-          (← withTransparency .all <| isDefEq finalImage value) do
-        throwError "the retained action changes the parameter's complete bundled object"
-      unless ← Decide.kernelAccepts (← mkEq finalImage value) (← mkEqRefl finalImage) do
-        throwError "the reduced parameter action failed its complete object identification"
-      return ({ receiver, route, applications } : RetainedParameterAction)
-    if let some (selectedAction, _) := explicitAction then
-      let sameAction ← withoutModifyingState do
-        let composite ← Semantic.compositeOfApplications candidate.applications
-        withTransparency .all do
-          isDefEq (← inferType composite) (← inferType selectedAction) <&&>
-            isDefEq composite selectedAction
-      unless sameAction do continue
-    unless candidates.any (fun previous => previous.receiver == candidate.receiver &&
-        previous.route == candidate.route && previous.applications == candidate.applications) do
-      candidates := candidates.push candidate
+          (← withTransparency .all <| isDefEq (← inferType finalImage) (← inferType recorded)) &&
+          (← withTransparency .all <| isDefEq finalImage recorded) do
+        throwError "the retained route changed its complete originally recorded result"
+      unless ← Decide.kernelAccepts (← mkEq finalImage recorded) (← mkEqRefl finalImage) do
+        throwError "the retained route failed its complete original object identification"
+      return prefixes
+    for candidate in prefixes do
+      if let some (selectedAction, _) := explicitAction then
+        let sameAction ← withoutModifyingState do
+          let composite ← Semantic.compositeOfApplications candidate.applications
+          withTransparency .all do
+            isDefEq (← inferType composite) (← inferType selectedAction) <&&>
+              isDefEq composite selectedAction
+        unless sameAction do continue
+      unless candidates.any (fun previous => previous.receiver == candidate.receiver &&
+          previous.route == candidate.route && previous.applications == candidate.applications) do
+        candidates := candidates.push candidate
   match candidates with
   | #[] => return none
   | #[candidate] => return some candidate

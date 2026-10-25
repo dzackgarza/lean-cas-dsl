@@ -838,6 +838,179 @@ def recordCompleteNamedObject (trace : Trace) (value : Expr) : TermElabM Bool :=
   | _ => throwStratum .ambiguousRealization m!"the complete selected object has several accepted \
       data presentations: {candidates.map (·.1.id.raw)}"
 
+/-- A complete accepted declaration at an already fixed value or whole functor.
+Literal arguments retain priority; otherwise every structure field must be fixed
+by the full typed comparison. No class, dictionary or data argument is defaulted. -/
+def completeDeclarationApplication? (declaration : Name) (value : Expr)
+    (asFunctor : Bool := false) : TermElabM (Option (Expr × Array Expr)) :=
+    withoutModifyingState do
+  let value ← instantiateMVars value
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
+  let mut literal := value.consumeMData
+  while literal.isAppOfArity ``id 2 ||
+      (asFunctor && literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor) do
+    literal := literal.appArg!.consumeMData
+  let application ← if literal.getAppFn.constName? == some declaration then pure literal
+    else instantiateFresh declaration
+  let compared ← if asFunctor then Semantic.asFunctor application else pure application
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType compared) (← inferType value) <&&> isDefEq compared value) do
+    CategoryContext.exposeStructureParameters application
+  unless ← withTransparency .all <|
+      isDefEq (← inferType compared) (← inferType value) <&&> isDefEq compared value do
+    return none
+  let application ← instantiateMVars application
+  let compared ← instantiateMVars compared
+  unless FunctorActionData.closedParameter application && (← isTypeCorrect application) do
+    return none
+  let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
+    fields.mapM (·.fvarId!.getBinderInfo)
+  unless application.getAppNumArgs == infos.size do return none
+  unless ← Decide.kernelAccepts (← mkEq compared value) (← mkEqRefl compared) do
+    throwError "the complete declaration presentation failed its original kernel check"
+  return some (application, (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none)
+
+/-- Registered presentations of the entire category bundle, including its Hom,
+identity and composition dictionary. A shared carrier is never a match. -/
+def completeNamedCategoryPresentations (value : Expr) :
+    TermElabM (Array (NamedCategoryEntry × Array Expr)) := do
+  let state ← registryState
+  let value ← instantiateMVars value
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return #[]
+  let categoryType ← mkConstWithFreshMVarLevels ``CategoryTheory.Cat
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType value) categoryType) do return #[]
+  let mut selected := value.consumeMData
+  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let direct := state.categories.filter fun entry =>
+    selected.getAppFn.constName? == some entry.declaration
+  let mut candidates := #[]
+  for entry in (if direct.isEmpty then state.categories else direct) do
+    if let some (_, parameters) ← completeDeclarationApplication? entry.declaration value then
+      candidates := candidates.push (entry, parameters)
+  return candidates
+
+def recordCompleteNamedCategory (trace : Trace) (value : Expr) : TermElabM Bool := do
+  let candidates ← completeNamedCategoryPresentations value
+  match candidates with
+  | #[] => return false
+  | #[(entry, parameters)] =>
+      Trace.record (some trace) value (.categoryParameter entry.id parameters)
+      return true
+  | _ => throwStratum .ambiguousRealization m!"the complete category dictionary has several \
+      accepted data presentations: {candidates.map (·.1.id.raw)}"
+
+/-- A literal core object retains its own underlying object. Its category comes
+only from the selected construction's full source bundle, independently checked
+against the accepted core constructor, never from the object's carrier alone. -/
+def recordConstructionCoreSource (trace : Trace) (action : DirectConstruction.Action)
+    (receiver : Expr) : TermElabM Unit := do
+  if (← trace.node? receiver).isSome then return
+  let literal := receiver.consumeMData
+  unless literal.isAppOf ``CategoryTheory.Core.mk do return
+  let state ← registryState
+  let #[constructor] := state.constructors.filter (·.semantics == `CasCatalogue.Constructors.core)
+    | return
+  let (source, _) ← functorCategoryBundles action.functor
+  let some (_, #[bundle]) ← completeDeclarationApplication? constructor.semantics source
+    | return
+  let candidates ← completeNamedCategoryPresentations bundle
+  let #[(entry, _)] := candidates
+    | if candidates.isEmpty then return
+      else
+        throwStratum .ambiguousRealization
+          "the construction's complete core source has several accepted category presentations"
+  let context : CategoryContext := { expression := entry.expression, bundle }
+  let original := literal.appArg!
+  CategoryContext.checkObject context original
+  let coreContext ← CategoryContext.construct context constructor.id
+  unless ← withTransparency .all <| isDefEq coreContext.bundle source do
+    throwError "the literal core receiver changed the selected complete source category"
+  CategoryContext.checkObject coreContext receiver
+  let expected ← mkAppM ``CategoryTheory.Core.mk #[original]
+  unless ← Decide.kernelAccepts (← mkEq expected receiver) (← mkEqRefl expected) do
+    throwError "the literal core receiver changed its original underlying object"
+  Trace.record (some trace) receiver (.coreObject context original)
+
+/-- Recover a literal object action only from a unique complete registered
+construction. Agreement at a single receiver never selects an action. -/
+def completeLiteralConstruction? (value : Expr) : TermElabM (Option DirectConstruction.Action) := do
+  let value ← instantiateMVars value
+  let some (functor, receiver) := FunctorActionData.objectAction? value | return none
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
+  let state ← registryState
+  let mut literal := functor.consumeMData
+  while literal.isAppOfArity ``id 2 || literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor do
+    literal := literal.appArg!.consumeMData
+  let direct := state.constructions.filter fun entry =>
+    literal.getAppFn.constName? == some entry.declaration
+  let mut candidates : Array DirectConstruction.Action := #[]
+  for entry in (if direct.isEmpty then state.constructions else direct) do
+    let some (_, parameters) ← completeDeclarationApplication? entry.declaration functor true
+      | continue
+    let action ← DirectConstruction.select entry (← parameters.mapM exprToSyntax) receiver
+    let image ← DirectConstruction.obj action receiver
+    unless ← withTransparency .all <|
+        isDefEq (← inferType image) (← inferType value) <&&> isDefEq image value do
+      throwError "the complete construction changed the original selected object action"
+    unless ← Decide.kernelAccepts (← mkEq image value) (← mkEqRefl image) do
+      throwError "the complete construction failed its original object identification"
+    candidates := candidates.push action
+  match candidates with
+  | #[] => return none
+  | #[action] => return some action
+  | _ =>
+      throwStratum .ambiguousRealization
+        "the complete literal action has several accepted construction presentations"
+
+def recordCompleteConstruction (trace : Trace) (value : Expr) : TermElabM Bool := do
+  let some action ← completeLiteralConstruction? value | return false
+  let some (_, receiver) := FunctorActionData.objectAction? value | unreachable!
+  recordConstructionCoreSource trace action receiver
+  Trace.record (some trace) value (.construction action.entry.id action.parameters receiver)
+  return true
+
+/-- Recover a recorded construction only from the same literal receiver and the
+same complete functor. The original occurrence remains the data source, including
+any returned packet and owner; equality of results at one object is insufficient. -/
+def retainedConstructionResult? (trace : Trace) (value : Expr) :
+    TermElabM (Option Expr) := do
+  let value ← instantiateMVars value
+  let some (action, receiver) := FunctorActionData.objectAction? value | return none
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
+  let state ← registryState
+  let mut candidates : Array Expr := #[]
+  for (recorded, node) in (← trace.get).toArray do
+    let .construction id parameters original := node | continue
+    unless original == receiver && recorded != value do continue
+    let same ← withoutModifyingState do
+      unless FunctorActionData.closedParameter recorded && (← isTypeCorrect recorded) do
+        return false
+      let some entry := state.constructions.find? (·.id == id)
+        | throwError "the retained construction is no longer registered"
+      let selected ← DirectConstruction.select entry (← parameters.mapM exprToSyntax) original
+      unless ← withTransparency .all <|
+          isDefEq (← inferType selected.functor) (← inferType action) <&&>
+            isDefEq selected.functor action do return false
+      let image ← DirectConstruction.obj selected original
+      unless ← withTransparency .all <|
+          isDefEq (← inferType image) (← inferType recorded) <&&> isDefEq image recorded do
+        throwError "the retained construction changed its complete original result"
+      unless ← withTransparency .all <|
+          isDefEq (← inferType image) (← inferType value) <&&> isDefEq image value do
+        throwError "the selected construction changed its complete object action"
+      unless ← Decide.kernelAccepts (← mkEq image value) (← mkEqRefl image) do
+        throwError "the selected construction failed its original object identification"
+      return true
+    if same && !candidates.contains recorded then candidates := candidates.push recorded
+  match candidates with
+  | #[] => return none
+  | #[original] => return some original
+  | _ =>
+      throwStratum .ambiguousRealization
+        "the complete construction retains several distinct original data occurrences"
+
 mutual
 
 /-- Closed parameter data retaining accepted named-object provenance when present. -/
@@ -971,6 +1144,14 @@ partial def parameterData (trace : Trace) (value : Expr) (recovering : Array Exp
       (fun edge action => return (← edgeDescriptor trace edge action (recovering.push value), #[]))
       recovering then
     return data
+  let categories ← completeNamedCategoryPresentations value
+  if let #[(entry, parameters)] := categories then
+    let data : Backend.CategoryParameter := {
+      category := entry.id.raw
+      parameters := (← parameters.mapM (fun parameter => parameterData trace parameter recovering)) }
+    return data.encode
+  unless categories.isEmpty do
+    throwStratum .ambiguousRealization "the complete parameter category has several accepted presentations"
   let candidates ← completeNamedObjectPresentations value
   let #[(entry, params)] := candidates
     | throwStratum .noImplementation m!"the exact functor parameter has no unique accepted data \
@@ -2771,6 +2952,21 @@ partial def realizedParameters (h : Harness) (trace : Trace) (parameters : Array
           h.parameterRecovery then
         data := data.push image
         dependencies := dependencies ++ wires
+      else if let some original ← retainedConstructionResult? trace parameter then
+        if h.parameterRecovery.contains parameter then
+          throwStratum .noImplementation "the selected construction has cyclic data dependencies"
+        let actual ← realize { h with parameterRecovery := h.parameterRecovery.push parameter }
+          trace "the original complete parameter construction" original
+        data := data.push actual.json
+        dependencies := dependencies.push actual
+      else if (← recordCompleteConstruction trace parameter) ||
+          (← recordCompleteNamedCategory trace parameter) then
+        if h.parameterRecovery.contains parameter then
+          throwStratum .noImplementation "the selected complete declaration has cyclic data dependencies"
+        let actual ← realize { h with parameterRecovery := h.parameterRecovery.push parameter }
+          trace "the complete selected parameter declaration" parameter
+        data := data.push actual.json
+        dependencies := dependencies.push actual
       else data := data.push (← parameterData trace parameter h.parameterRecovery)
   return (data, dependencies)
 
@@ -2870,7 +3066,8 @@ product type without demanding a cone computation. Named selected objects and
 previously computed objects keep their exact presentations and live dependencies.
 Only the formal type supplies this structural frame; no backend determines it. -/
 partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
-    (value : Expr) (recoverAction : Bool := true) : TermElabM Wire := do
+    (value : Expr) (recoverAction : Bool := true) (recoverNamed : Bool := true) :
+    TermElabM Wire := do
   let value ← instantiateMVars value
   if let some computed := (← h.results.get)[value]? then return computed
   let node ← trace.node? value
@@ -2884,8 +3081,10 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
     let reduced ← withTransparency .all <| whnf value
     if reduced.isAppOfArity ``Prod 2 then
       let fields := reduced.getAppArgs
-      let first ← realizeEndpoint h trace "the first declared endpoint component" fields[0]! recoverAction
-      let second ← realizeEndpoint h trace "the second declared endpoint component" fields[1]! recoverAction
+      let first ← realizeEndpoint h trace "the first declared endpoint component"
+        fields[0]! recoverAction recoverNamed
+      let second ← realizeEndpoint h trace "the second declared endpoint component"
+        fields[1]! recoverAction recoverNamed
       let some category := (← registryState).categories.find? (·.id == CategoryId.sets)
         | throwError "the declared product endpoint has no set category"
       let json := Json.mkObj [("ctor", "objectProduct"),
@@ -2895,6 +3094,8 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
         payload := (← combinedPayload value json #[first, second]) }
   if node.isNone then discard <| Semantic.recordNamedObject value (some trace)
   if !recoverAction && (← trace.node? value).isNone then
+    unless recoverNamed do
+      throwStratum .noImplementation "the actual callable retains its own anonymous endpoint"
     -- A reduced endpoint can still be one uniquely accepted complete named
     -- object. Retained action provenance has priority, including ambiguity;
     -- this optional path must not choose between those source presentations.
@@ -2919,7 +3120,11 @@ partial def realizeCallableEndpoint (h : Harness) (trace : Trace) (wire : Wire)
     -- A complete callable already fixes its anonymous endpoints. Only an exact
     -- retained or named presentation may replace that public endpoint descriptor;
     -- unrelated actions with an equal carrier do not select its presentation.
-    let endpoint ← realizeEndpoint h trace "the callable's complete selected endpoint" value false
+    -- Actual returned data fixes its own anonymous presentation. A newly found
+    -- definitionally equal name cannot replace that computational endpoint.
+    let recoverNamed := match wire.payload with | .ordinary .. => true | _ => false
+    let endpoint ← realizeEndpoint h trace "the callable's complete selected endpoint"
+      value false recoverNamed
     if let some context := context then
       discard <| framingContext (some context) endpoint.categoryContext
     return endpoint
@@ -3549,6 +3754,12 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
             isDefEq (← inferType image.value) (← inferType e) <&&> isDefEq image.value e do
           throwError "the recovered action changed the complete selected object"
         return { image with payload := forwardPayload image e image.json }
+      if let some original ← retainedConstructionResult? trace e then
+        let actual ← realize { h with parameterRecovery := h.parameterRecovery.push e }
+          trace "the original complete selected construction" original
+        return { actual with payload := forwardPayload actual e actual.json }
+      if (← recordCompleteConstruction trace e) || (← recordCompleteNamedCategory trace e) then
+        return ← realizeFresh h trace what e
       if ← recordCompleteNamedObject trace e then
         return ← realizeFresh h trace what e
       throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
@@ -3562,20 +3773,24 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
   | .categoryParameter id params =>
       let some entry := state.categories.find? (·.id == id)
         | throwError "the selected category parameter is no longer registered"
-      let application ← DirectConstruction.close
-        (← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax))
-      unless ← withTransparency .all <| isDefEq application.value e do
+      let application ← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax)
+      unless ← withTransparency .all <|
+          isDefEq (← inferType application.value) (← inferType e) <&&>
+            isDefEq application.value e do
         throwError "the selected category parameter changed its complete dictionary"
+      let _ ← DirectConstruction.close application
       let (parameters, dependencies) ← realizedParameters h trace params
       let data : Backend.CategoryParameter := { category := id.raw, parameters }
       return { form := .diagrams entry, payload := (← combinedPayload e data.encode dependencies) }
   | .functorParameter id params =>
       let some entry := state.functor? id
         | throwError "the selected functor parameter is no longer registered"
-      let application ← DirectConstruction.close
-        (← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax))
-      unless ← withTransparency .all <| isDefEq (← Semantic.asFunctor application.value) e do
+      let application ← DirectConstruction.instantiate entry.declaration (← params.mapM exprToSyntax)
+      let functor ← Semantic.asFunctor application.value
+      unless ← withTransparency .all <|
+          isDefEq (← inferType functor) (← inferType e) <&&> isDefEq functor e do
         throwError "the selected functor parameter changed its complete action"
+      let _ ← DirectConstruction.close application
       let (parameters, dependencies) ← realizedParameters h trace params
       let data : Backend.FunctorParameter := { functor := id.raw, parameters }
       let category ← Semantic.namedCategoryFor state entry.target

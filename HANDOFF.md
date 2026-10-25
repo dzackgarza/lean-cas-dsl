@@ -21,8 +21,8 @@ complete tree. Named-object recovery was subsequently published as
 selected ambient endpoint, and disk exhaustion corrupted several generated
 artifacts. The failure record is retained. Superseded generated linker temporaries
 were removed only after confirming that no process held them open; the installed
-Sage and GAP engines still load. The endpoint regression is under repair against
-the unchanged probe. Historical producers below are not relabeled.
+Sage and GAP engines still load. The endpoint regression is repaired in this
+checkpoint against the unchanged probe. Historical producers below are not relabeled.
 
 This checkpoint also integrates the exact-proof-source identity repair from
 `e2aadb0aecb10f0077de984e6ec4fe585707c655`. Exact Lean syntax now compares
@@ -32,6 +32,32 @@ exporter and purity build passed in 59.861 seconds at that author source. The
 original RX05 file then exported all 13 complete questions in 14.865 seconds with
 zero diagnostics and the unchanged 200000-heartbeat per-statement budget.
 The integrated source still requires its own successful build and fixed reruns.
+
+The subsequent reader checkpoint `72ed3e14dd5350d45db9664a0b19c5a5860363b1`
+retains the original complete point at a constrained data field and exposes every
+field of a full selected family structure before comparing its receiver. The
+original lifted-point admission and first nonidentity-coordinate question now read
+within the ordinary budget. The later pairing/factor readings still time out;
+normal-budget interpretation performance remains active work.
+
+Retained construction/action prefixes and unique complete literal construction
+recovery are integrated from `0122f7fb6b4ecb377461fd653bad81d38395f511` and
+`361ae61d37f541b2bf0da335eaf751c6fce13151`. The complete supplied functor type,
+value, category dictionary and ordered arguments select the action, never equality
+at one receiver. Actual computed callables retain their opaque selected endpoints.
+The matching clean author build passed in 10.506 seconds with Language, Realize,
+TestSuite, both unchanged endpoint/parameter regressions, all focused recovery
+controls and all six fixed mathematical imports. The integration differs from
+that checked source only in JOURNAL.md and this handoff; native/fixed execution
+still requires a newly verified producer.
+
+The unchanged first RX03 assertion at `361ae61` then closed in 31.437 seconds
+against the original public leaf `51e`: its generic automorphism-object recovery
+failure is gone. The actual construction returns an opaque object and the next
+request retains that exact packet and live owner. Two dispatches reach the ordinary
+absent routine mor.groups.automorphism_backward. The complete question and
+proposition are unchanged from the earlier exports; every source/artifact/input
+guard remained stable. This is one focused execution, not the full RX03 trial.
 
 The complete consumer build at `cedfad6` passed in 731.420 seconds with every
 selected source unchanged. It includes the original RegisteredMapAdmissionProbes,
@@ -82,6 +108,17 @@ executed all 113 fixed IDs in one shared harness, closing in 1577.866 seconds wi
 failures are separately retained. No IDs were dropped or duplicated. These results
 do not close the kernel: required generic representability and interpretation defects
 remain active repair work. Missing ordinary leaf registrations are tracked separately.
+
+Independent mathematical review of that exact 134-row export is now complete:
+123 complete readings match their fixed requirements; one is qualified; ten
+unreadable entries remain unassessed. All 25 complete lift readings preserve their
+fixed selected data, maps and directions. For complete.rx05.inherited_cardinality,
+the cardinality equation matches, but the exported operation context omits the
+required comparison routes and selects the third additive-monoid route rather
+than cmp.rings.carrier's designated multiplicative source. Its complete record
+and the public cells' orientations are retained in the independent review.
+Do not resolve this qualification by altering a fixed requirement or silently
+changing the separately protected global directed-chain resolution behavior.
 
 All four inheritance and all 17 F9 questions were also executed at `7c87f0c`; each
 is recorded as a gap. Competing implementation selections in those original manifests
@@ -143,10 +180,12 @@ answers. The author received no fixed questions, expected answers, kernel source
 execution findings or other authors' work. Final fixed execution at this leaf is
 still required; prior runs selected earlier published leaves.
 
-Active isolated kernel work owns (1) constrained carrier/receiver and full-family
-reading, and (2) the opaque-ambient regression, retained construction/action-prefix
-parameter recovery and whole-callable observation. Exact proof source identity is
-integrated above. Generic required behavior is not deferred as a leaf gap.
+Active isolated kernel work owns (1) the remaining ordinary-budget lift/factor
+reading failures and (2) whole-callable observation and the anonymous constructed
+module parameter. Complete interpretation-record retention is being inspected
+separately from route choice. Exact source identity, complete family binding and
+construction recovery are integrated above. Generic required behavior is not
+deferred as a leaf gap.
 Publish coherent checked repairs, fetch them back and compare the complete trees,
 integrate them, then rerun affected fixed trials at a new coherent freeze.
 
@@ -159,14 +198,14 @@ generate and publish the final API from the final published, built source combin
 
 The selected mathematical/contract/Mathlib/notebook revisions and hash-pinned real
 engines remain unchanged. Base candidate CI 40194280154 at 691f94f passed its builds
-and axiom audit. The cedfad6 candidate CI 40217953880 was still running at the last
-check. Its Custodian review 40217955626 returned inputs unavailable: rev-parse
+and axiom audit. The cedfad6 candidate CI 40217953880 has completed successfully.
+Its Custodian review 40217955626 returned inputs unavailable: rev-parse
 FETCH_HEAD^{commit} failed while materializing its isolated base snapshot. This is
 not a semantic verdict; no independent review is replaced or self-approved.
 
 Evidence is preserved separately under libfile_94b086b3c1308191b67e0c34e0d4c364.
-The last confirmed replacement is version35, 46166486 bytes, SHA256
-aba5b8d744f0e844ea2967398ed11e61c73371b4e1a5bd058a469c6f0e70d25e.
+The last confirmed replacement is version36, 47786058 bytes, SHA256
+ff33439da0d0154c6b47c2649b832ad7b5babda0af1f052a9e7fdd9bd5eee1b9.
 It preserves every earlier attempt plus the closed full exports, computational
 reports, native/notebook runs, independent 153-reading assessment and composition
 account. The full task below remains active. This checkpoint is not MVP completion.

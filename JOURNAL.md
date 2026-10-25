@@ -1,5 +1,43 @@
 # Journal
 
+## 2026-10-25 — Recover complete literal constructions and retain actual endpoints
+
+Execution can recover a literal object projection from a unique accepted whole
+construction, with every category field and ordered parameter fixed by its full
+functor type and value. A coincident result at one receiver selects nothing.
+The exact core receiver is framed from that independently selected complete
+source category. Registered category and functor parameters now bind their full
+selected type and value before closing declaration universes. This consumes the
+shared full-structure exposure helper and supplies no dictionary defaults.
+
+Actual computed callables keep their anonymous endpoint descriptors; a newly
+found equal named carrier does not replace an opaque selected presentation.
+The unchanged `ObjectPresentationProbes` and `ParameterResultReuseProbes` pass,
+as do the complete named, retained construction and new complete construction
+controls. They cover a different category dictionary on the same carrier,
+coincidence at one object, exact underlying core data and its original owner.
+The fixed RX03 assertion remains a separately guarded engineering observation;
+these source controls claim no mathematical answer. Whole-callable observation
+and the anonymous constructed value-module parameter remain separate work.
+
+
+## 2026-10-25 — Recover retained construction data and complete route prefixes
+
+Execution can now recover the complete intermediate object of a route already
+selected by the reader. It validates the entire retained route and each full
+action, then retains the matching prefix and the original source data. This
+addresses a reduced `MonCat.of` parameter without inferring its monoid from a
+carrier. A literal construction projection can also recover its original trace
+occurrence when the exact receiver and the entire functor agree. The original
+returned packet and owner survive that public projection spelling difference.
+
+`RetainedConstructionDataProbes` passes with actual-owner fixtures, an unrelated
+equal cached image, distinct full actions and ambiguous original occurrences.
+The unchanged `ReducedParameterActionProbes` and `CompleteNamedDataProbes` also
+pass. These controls inspect data flow and selection, not mathematical answers.
+Whole-callable observation and the anonymous constructed value-module parameter
+remain separate execution gaps at this checkpoint.
+
 ## 2026-10-25 — Recover complete named objects during execution
 
 The unchanged extension execution exposed a difference between parameter
@@ -17,6 +55,16 @@ entries, exact returned owners, dependent parameter data and shared integer
 coordinates. It and the unchanged `ReducedParameterActionProbes` pass at the
 ordinary budget. This is a generic engineering checkpoint; remaining construction,
 whole-callable and ordinary backend gaps are not closed by this source change.
+
+## 2026-10-25 — Bind complete family sources and fixed record data fields
+
+Constrained inputs reuse the existing declared-endpoint check with their original whole point.
+The existing structure-field exposure helper moves to Semantic and unfolds actual type aliases;
+full receiver/action comparisons still reject different selected structures on the same carrier.
+Fixed-endpoint, missing-proof, whole-category, same-carrier negative, and family controls pass.
+The exact frozen lift admission and coordinate question now read at their original budget.
+First/final pairing and factor readings still time out; normal-budget performance remains open.
+Closed receipts and both failed probe-fixture attempts are in `runtime-verification/fixed-readings-repair-cedfad6/` outside the repository. This is a generic source checkpoint, not full export success or acceptance.
 
 ## 2026-10-25 — Preserve exact proof-bearing source identity
 

@@ -113,4 +113,25 @@ run_elab do
   unless endpoint.value == target && endpoint.json == framedData.target do
     throwError "complete endpoint recovery depends on the enclosing callable"
 
+-- An actual callable keeps its anonymous computational endpoint even when its
+-- formal carrier has a unique definitionally equal named presentation.
+run_elab do
+  let state ← registryState
+  let some category := state.categories.find? (·.id == CategoryId.sets)
+    | throwError "the complete callable category is absent"
+  let target := Lean.mkConst ``Int
+  let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[target]
+  let portable := node "identity"
+    #[node "obj.sets.integers" #[], node "obj.sets.integers" #[]]
+  let token := node "opaqueData" #[toJson "actual anonymous callable"]
+  for payload in #[WirePayload.computed identity (.inline portable),
+      WirePayload.computed identity (.owned "anonymous-callable-owner" 413 token)] do
+    let actual : Wire := { form := .canonicalMorphism category, payload }
+    let trace ← Trace.new
+    let endpoint ← realizeCallableEndpoint (← Harness.empty) trace actual target false
+    unless endpoint.value == target && endpoint.owner? == actual.owner? &&
+        endpoint.json == Backend.MorphismEndpoint.encode
+          { callable := actual.json, source := false } do
+      throwError "complete named fallback replaced an actual anonymous endpoint"
+
 end

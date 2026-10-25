@@ -253,6 +253,23 @@ def namedCategoryFor (state : RegistryState) (expression : CategoryExpr) :
       else throwSemanticAmbiguity m!"the selected result family has multiple named schemas"
   return entry
 
+/-- Expose all fields of unresolved structure parameters of an already selected
+declaration. Subsequent unification must determine every field from the actual
+typed input; this neither chooses a dictionary nor supplies missing data. -/
+def exposeStructureParameters (application : Expr) : MetaM Unit := do
+  for argument in application.getAppArgs do
+    let argument ← instantiateMVars argument
+    unless argument.isMVar do continue
+    let type ← withTransparency .all <| whnf (← inferType argument)
+    let .const name _ := type.getAppFn | continue
+    unless isStructure (← getEnv) name do continue
+    let constructor ← mkConstWithFreshMVarLevels (getStructureCtor (← getEnv) name).name
+    let (fields, _, resultType) ← forallMetaTelescopeReducing (← inferType constructor)
+    unless ← withTransparency .all <| isDefEq resultType type do
+      throwError "the selected structure parameter has an incompatible constructor"
+    unless ← isDefEq argument (mkAppN constructor fields) do
+      throwError "the selected structure parameter cannot retain all its fields"
+
 /-- Use the source row's complete family witness to infer bundled action parameters.
 The named source is supplied by the action's metadata, not selected by carrier equality. -/
 partial def bindFunctorSource (F X : Expr) : TermElabM Unit := do
@@ -290,6 +307,9 @@ partial def bindFunctorSource (F X : Expr) : TermElabM Unit := do
     -- witness before comparing carrier projections with an unbundled object type.
     alignCategoryParameters categoryRealization source
     let schemaCarrier ← mkAppHere ``CategoryTheory.Bundled.α #[realizationType.getAppArgs.back!]
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq schemaCarrier (← inferType X)) do
+      exposeStructureParameters categoryRealization
     unless ← withTransparency .all <| isDefEq schemaCarrier (← inferType X) do
       throwError "the supplied receiver has a different complete declared family source type"
     alignCategoryParameters categoryRealization source

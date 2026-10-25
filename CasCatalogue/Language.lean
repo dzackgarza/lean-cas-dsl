@@ -2519,7 +2519,7 @@ partial def evalIn (scope : Scope) (t c : Syntax) (category? : Option NamedCateg
         let value ← eval scope t category? (some dataCarrier)
         if let .element _ source := value then
           if (← coercionMap source X).isSome then return ← coerceTo value X
-        return ← admitConstrainedPoint X (← toElement value dataCarrier)
+        return ← admitConstrainedPoint X (← declaredResult value dataCarrier)
   match X with
   | .homSet .. => eval scope t category? (some X)
   | .object _ _ (some (entry, _)) _ _ =>
@@ -7106,7 +7106,7 @@ partial def evalInUsing (scope : Scope) (term targetSyntax : Syntax)
     | throwStratum .invalid "explicit point proofs require the selected constrained record interface"
   let locals ← localGeneratorBindings scope term targetSyntax dataCarrier
   withReader (fun context => { context with bound := locals ++ context.bound }) do
-    let value ← toElement (← eval scope term category? (some dataCarrier)) dataCarrier
+    let value ← declaredResult (← eval scope term category? (some dataCarrier)) dataCarrier
     let proofs ← proofSyntax.mapM fun argument => do
       let .formalProof proofSyntax ← eval scope argument
         | throwStratum .invalid "a constructor proof argument is an independent `proof(...)` term"
