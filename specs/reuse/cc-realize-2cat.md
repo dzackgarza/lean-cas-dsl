@@ -170,6 +170,25 @@ data, generalized domain, input pairing and target remain the complete existing
 probe uses an infinite-domain map and a real opaque process reply, so a finite
 graph fallback or formal recipe alone cannot satisfy materialization.
 
+`prepareOperationObservation` retains the original complete result's external
+domain and target presentations. Stripping administrative wrappers identifies the
+accepted operation declaration and its internal signature; an endpoint from that
+signature can be definitionally equal to the original endpoint while lacking its
+selected named or computed descriptor. The original generalized argument supplies
+the domain data, the original complete result supplies the target data, and the
+stripped declaration supplies the internal operation source. Full signature,
+parameter and composition checks remain in place. Argument framing and reply
+validation use the retained external endpoints, with every actual owner combined
+through the existing dependency operation.
+
+The 2026-10-25 diagnostic of the unchanged `WholeOperationObservationProbes`
+isolated a target-presentation mismatch: the operation and domain matched, but a
+selected endpoint became a `morphismEndpoint` of the stripped declaration. A
+bounded check of the exact repaired helper passed every original control through
+the existing dispatcher and result cache, with no imported artifact changes.
+That copied-helper check does not test the integrated automatic dispatch path;
+the unchanged production consumer remains the coordinated build check.
+
 An owner can occur only as a parameter of that operation, without a standalone
 trace node. The shared parameter encoder retains its actual registered object
 action and ordered composition. Its source and each action parameter pass through

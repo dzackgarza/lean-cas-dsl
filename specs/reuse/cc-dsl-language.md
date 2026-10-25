@@ -1,5 +1,24 @@
 # Reuse record: `cc-dsl-language`
 
+## Complete member applicability before result construction (2026-10-25)
+
+The corpus query `dependent telescope application elaboration` returned other elaborator
+implementations, not a mathematical construction needed here. Direct source searches locate the
+existing owners in Lean's `forallMetaTelescopeReducing`, `instantiateMVars`, and `inferType`, and
+the reader's `bindSelectedReceiver`, `parameterTrial`, and `invariantOf`.
+
+The unchanged structured-execution probe exposed a deterministic timeout while checking both
+declaration orders and ambiguity. Stage measurements attribute about 48,600 of a member reading's
+52,500 heartbeats to constructing its source and target endpoint values. The old applicability
+trial repeated that result construction for every candidate before constructing the selected
+result again.
+
+`invariantApplication` factors the existing complete dependent binding and type checks from
+`invariantOf`. Competing declarations are checked by those same full applications; the selected
+family still constructs its actual endpoints, parameters, and trace through `invariantOf`.
+Both declaration orders and distinct applicable declarations retain their existing meaning.
+No mathematical row, assertion, conversion, cache, or heartbeat limit changes.
+
 ## Reconstructed declared endpoint context (2026-10-24)
 
 The conversation's lost-source record identifies the earlier `14b676e` change:

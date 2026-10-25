@@ -5381,9 +5381,10 @@ partial def inCategoryOver (scope : Scope) (t : Syntax) (C : NamedCategoryEntry)
     throwStratum .invalid m!"the selected category family is not fixed by the object's complete type"
   return .object object C (some (refined, params)) none none
 
-/-- A registered family at its applicable selected receiver binder. Its complete
-dependent application determines the other parameters, before any operands are applied. -/
-partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
+/-- Determine a registered family's complete dependent application at its selected receiver.
+Applicability is established before constructing the selected result's endpoint values. -/
+partial def invariantApplication (entry : MorphismEntry) (A : Value) :
+    M (NamedCategoryEntry × Expr × Array Expr) := do
   let state ← registryState
   let some category := state.categories.find? (·.id == entry.category) | unreachable!
   -- The application is admitted only at the declared dependent signature (b0-typed-application):
@@ -5420,15 +5421,21 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
     throwStratum .invalid m!"an argument of {entry.name} is outside its declared type"
   if (← explicit.mapM instantiateMVars).any (·.hasMVar) then
     throwStratum .invalid m!"the parameters of {entry.name} are not determined by the selected object"
+  unless (homEnds? (← instantiateMVars type)).isSome do
+    throwStratum .invalid m!"{entry.name} is not an invariant of objects"
+  return (category, ← instantiateMVars (mkAppN constant args), ← args.mapM instantiateMVars)
+
+/-- Read the selected complete family, retaining its declared parameters and endpoint contexts. -/
+partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
+  let (category, family, parameters) ← invariantApplication entry A
   let .object one _ _ _ _ ← oneObject | unreachable!
-  let some (source, _) := homEnds? (← instantiateMVars type)
+  let some (source, _) := homEnds? (← inferType family)
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
-  let family ← instantiateMVars (mkAppN constant args)
   let family ← retainNamedMorphism entry family
   let some (_, target) := homEnds? (← instantiateMVars (← inferType family))
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   let endpoint (term : Expr) : M Value := do
-    declaredEndpointObject term category #[A] (← args.mapM instantiateMVars)
+    declaredEndpointObject term category #[A] parameters
   let T ← endpoint target
   if ← isDefEq source one then
     let .object t .. := T | unreachable!
@@ -5452,7 +5459,7 @@ partial def invariantNamed (state : RegistryState) (name : String) (receiver : V
   let applicable ← match rows with
     | #[row] => pure #[row]
     | _ => rows.filterM fun row => parameterCompatible do
-        discard <| invariantOf row receiver
+        discard <| invariantApplication row receiver
         pure true
   match applicable with
   | #[row] => invariantOf row receiver

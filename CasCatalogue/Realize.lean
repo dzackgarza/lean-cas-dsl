@@ -5134,10 +5134,12 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
     payload := (← combinedPayload operation
       (Json.mkObj [("ctor", toJson id.raw), ("args", Json.arr parameterData)]) parameterWires) }
   let argumentWire ← realize h trace "the operation's original generalized argument" argument
-  let domainWire ← realizeCallableEndpoint h trace argumentWire domain true
+  -- The original complete result retains the reader's selected endpoint presentations.
+  -- The stripped declaration supplies the internal callable signature checked above.
+  let domainWire ← realizeCallableEndpoint h trace argumentWire resultDomain true
   let sourceWire ← realizeCallableEndpoint h trace callable source true
-  let targetWire ← realizeCallableEndpoint h trace callable target false
-  let (argumentData, endpoints) ← frameMorphismData h trace domain source argumentWire
+  let targetWire ← realizeCallableEndpoint h trace wire resultTarget false
+  let (argumentData, endpoints) ← frameMorphismData h trace resultDomain source argumentWire
   let invocation : Backend.PointInvocation := {
     operation := id.raw
     parameters := parameterData
@@ -5154,7 +5156,9 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
   return {
     original := wire
     operation := id
-    input, domain, target
+    input
+    domain := resultDomain
+    target := resultTarget
     targetData := targetWire.json
     materialized := wire.callableObserved || !operationRecipe wire id }
 
