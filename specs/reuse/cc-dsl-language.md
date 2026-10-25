@@ -564,3 +564,21 @@ vector, destructured-map, bilinear admission/formed-pairing chain, independent
 variable stage, and repeated matrix application checks. No permanent assertion,
 full suite, leaf execution, or acceptance decision was run or changed by this
 reconstruction.
+
+### Exact identity of proof-bearing source inputs (2026-10-25)
+
+The existing `Value.sameSource` context traversal and Lean's exact `Syntax`
+comparison own repeated source identity. The corpus searches for
+`Lean Meta isDefEq transparency`, `CategoryRealization family fibre`, and
+`Subtype constrained point` and direct source inspection found no additional
+mathematical owner or construction required. Exact explicit proof syntax now
+participates in source comparison, just as each original constructor parameter
+does. The whole object, category, selected structure, ordered arguments, routes,
+and comparison data still have to match; different syntax or lexical macro
+scopes are not identified. No proposition is erased or replaced, and
+`typedParameter` still rejects proof syntax at a Type-valued parameter such as
+`Invertible`. The omission had made a proof-bearing constructor fail reflexive
+source comparison and repeatedly expand its retained context. The engineering
+probe checks reflexivity, lexical separation, repeated full-context retention,
+and the Type-valued-data boundary; the frozen RX05 export keeps its original
+input, inventory, and ordinary per-statement heartbeat budget.

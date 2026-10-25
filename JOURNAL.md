@@ -18,6 +18,16 @@ coordinates. It and the unchanged `ReducedParameterActionProbes` pass at the
 ordinary budget. This is a generic engineering checkpoint; remaining construction,
 whole-callable and ordinary backend gaps are not closed by this source change.
 
+## 2026-10-25 — Preserve exact proof-bearing source identity
+
+`Value.sameSource` now compares explicit proof inputs with exact Lean syntax equality.
+Full objects, types, selected structures, routes, and lexical scopes remain distinct.
+The unchanged RX05 file exports all 13 questions in 14.865s at its ordinary budget;
+the previously failing additive sample had exhausted 200000 heartbeats.
+Proof identity, lexical separation, Type-valued inverse-data rejection, selected-carrier
+controls, exporter, and purity targets pass (focused build 59.861s).
+The typo/ENOSPC attempt and closed receipts remain in `runtime-verification/fixed-readings-repair-cedfad6/` outside this repository. No fixed input, budget, mathematical source, or acceptance decision changed.
+
 ## 2026-10-20 — Match binder engineering probes to production question scope
 
 The integrated `3e0f982` build timed out in the first `BinderReaderProbes`

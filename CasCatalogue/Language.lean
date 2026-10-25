@@ -355,6 +355,7 @@ partial def Value.sameSource (left right : Value) : Bool :=
   let sameValues := fun (left right : Array Value) =>
     left.size == right.size && (left.zip right).all (fun (a, b) => a.sameSource b)
   match left, right with
+  | .formalProof a, .formalProof b => a == b
   | .nat a, .nat b => a == b
   | .literal a, .literal b => a == b
   | .object a ac ao asel av, .object b bc bo bsel bv =>

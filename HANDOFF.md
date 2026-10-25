@@ -12,12 +12,26 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
-The current built implementation is `cedfad6664a2301b7b360e17055523a47e479bd5`,
+The last completely built implementation is `cedfad6664a2301b7b360e17055523a47e479bd5`,
 tree `15cb779812f162e16f21e452bcb7eaa3403832e3`, fetched back and compared as a
-complete tree. This checkpoint adds complete named-object recovery, independently
-checked at author commit 8020ce15241dc30d2af309cded1152084595d501. Its focused
-consumers pass; the combined checkpoint still requires its own build. Historical
-build and experiment producers below are not relabeled.
+complete tree. Named-object recovery was subsequently published as
+`825fa63f8fb40b1b88f73c6d7f6bf61c4407d3ae`, tree
+`df3cd29437c5342c7a0309b6c375d67d5d2e90d6`. Its combined build failed after
+343.644 seconds: the original ObjectPresentationProbes exposed loss of an opaque
+selected ambient endpoint, and disk exhaustion corrupted several generated
+artifacts. The failure record is retained. Superseded generated linker temporaries
+were removed only after confirming that no process held them open; the installed
+Sage and GAP engines still load. The endpoint regression is under repair against
+the unchanged probe. Historical producers below are not relabeled.
+
+This checkpoint also integrates the exact-proof-source identity repair from
+`e2aadb0aecb10f0077de984e6ec4fe585707c655`. Exact Lean syntax now compares
+reflexively within a complete source context, without erasing propositions,
+lexical scopes, or Type-valued data. The focused controls, selected-carrier,
+exporter and purity build passed in 59.861 seconds at that author source. The
+original RX05 file then exported all 13 complete questions in 14.865 seconds with
+zero diagnostics and the unchanged 200000-heartbeat per-statement budget.
+The integrated source still requires its own successful build and fixed reruns.
 
 The complete consumer build at `cedfad6` passed in 731.420 seconds with every
 selected source unchanged. It includes the original RegisteredMapAdmissionProbes,
@@ -98,6 +112,14 @@ expected strata; holds/wrong and session controls are not complete. The later fa
 is in consumption of function-valued element data by the selected adapter. Preserve
 this failed attempt; do not claim the successful failure strata establish RX10.
 
+The later unchanged RX10 run at `cedfad6` with published leaf `4382c4c` closed in
+115.751 seconds with all guards unchanged. Holds and wrong both stop after one
+dispatch at an element-callable target descriptor check, before callable reuse.
+Gap, EOF-unavailable, malformed and zero-budget internal conditions retain their
+expected strata; session controls are not complete. This is a distinct failed
+attempt, not confirmation of the earlier three-dispatch behavior. No downstream
+findings from either attempt were supplied to the public-only leaf author.
+
 The real native workflows and the actual notebook were rerun at `cedfad6` with the
 published public leaf `1c41aa80993cc4b799893bd3165ddb64d9f80939`. The two finite-
 pullback assertions hold; fifteen of seventeen stop at a complete-callable-target
@@ -121,9 +143,10 @@ answers. The author received no fixed questions, expected answers, kernel source
 execution findings or other authors' work. Final fixed execution at this leaf is
 still required; prior runs selected earlier published leaves.
 
-Active isolated kernel work owns (1) exact carrier/receiver reading and measured
-proof-bearing-value reuse failures, and (2) retained construction/action-prefix parameter recovery and
-whole-callable observation. Complete named-object recovery is integrated above. Generic required behavior is not deferred as a leaf gap.
+Active isolated kernel work owns (1) constrained carrier/receiver and full-family
+reading, and (2) the opaque-ambient regression, retained construction/action-prefix
+parameter recovery and whole-callable observation. Exact proof source identity is
+integrated above. Generic required behavior is not deferred as a leaf gap.
 Publish coherent checked repairs, fetch them back and compare the complete trees,
 integrate them, then rerun affected fixed trials at a new coherent freeze.
 
@@ -142,8 +165,8 @@ FETCH_HEAD^{commit} failed while materializing its isolated base snapshot. This 
 not a semantic verdict; no independent review is replaced or self-approved.
 
 Evidence is preserved separately under libfile_94b086b3c1308191b67e0c34e0d4c364.
-The last confirmed replacement is version34, 45336325 bytes, SHA256
-98150908d1b2e520e1536353aca431b209b6825fedb7c03670aa6eaed852e490.
+The last confirmed replacement is version35, 46166486 bytes, SHA256
+aba5b8d744f0e844ea2967398ed11e61c73371b4e1a5bd058a469c6f0e70d25e.
 It preserves every earlier attempt plus the closed full exports, computational
 reports, native/notebook runs, independent 153-reading assessment and composition
 account. The full task below remains active. This checkpoint is not MVP completion.

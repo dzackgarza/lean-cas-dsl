@@ -27,6 +27,7 @@ public import CasAcceptance.Kernel.StructuredExecutionProbes
 public import CasAcceptance.Kernel.DeclaredProductContextProbes
 public import CasAcceptance.Kernel.ReaderContextContinuityProbes
 public import CasAcceptance.Kernel.DeclaredParameterEndpointProbes
+public import CasAcceptance.Kernel.ProofSourceIdentityProbes
 public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasAcceptance.Kernel.SourceParameterBindingProbes
 public import CasAcceptance.Kernel.InclusionSelectionProbes
