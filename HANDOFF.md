@@ -12,47 +12,96 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
-### Restored source and current integration repairs
+### Published source and current integration
 
-The current continuation restored published kernel `8d49d33434cc938865b942d8a98afe6af598b3cb`,
-mathematics `82d1370de372a00a86391b74fc2566c9547dfcb6`, and contract
-`9167e4cb4db80028d2ceefefeab8ec70b9a77129` in the Pro cloud container.
-The complete committed dependency manifest, Lean 4.33.0, and the pinned
-PassageMath/GAP engines are restored. Evidence archive version 39 is recovered
-with its member hashes verified. The fixed original and clarified 14-file inputs
-and 134-question inventory match the archived hashes; no question was changed.
+The previous published kernel is `5ab0edf4ab17ad321a0f1ee556e84d8effd810a3`,
+tree `63e2d5d178015c8c4b51dc1605d5332ae10dfd8f`, on
+`work/kernel-v1-20261023`. Its full native build recorded the original series
+reader regression and the injected comparison-owner fixture failure. Both source
+repairs are integrated here; the original assertions remain unchanged.
 
-The published candidate's CI run `40236817619` fails four consumers: operation
-agreement execution, structured endpoint recognition, action-context finite data,
-and lifted comparison finite data. This checkpoint repairs the last two. The
-original `ComputationalActionContextProbes` and `LiftedSubobjectDataProbes`, plus
-`PortableExtentDataProbes` with additive rejection controls, build successfully.
-Actual extent codecs remain authoritative. Independently fixed point interfaces
-are retained for opaque data; unresolved proof predicates no longer hide fixed
-data slots, while unresolved scalar bounds remain unsupported. The initial failed
-repair and the additive test elaboration correction are retained in the evidence.
+This checkpoint combines complete-request preparation and exact completed-apex
+reuse (`83b749b`), checked computational derivation execution (`394487f`), source
+actions for inferred family endpoints (`72b66b1`), complete structural record
+validation (`d498ad2`), exact retained field and operation-endpoint projection
+(`a694c4d`), and completed point interfaces with selected matrix rows (`5a0d441`).
+All full types, dependent parameters, action selections, callable directions,
+actual packets and individual supplying occurrences remain attached. A structural
+projection is inspected on a fresh receiver; equal actual carriers or JSON never
+choose it. Whole opaque records stay opaque. The public data grammar and fixed
+mathematical assertions are unchanged.
 
-Reader and shared-execution repairs continue in isolated worktrees. Fresh reader
-localization at `8d49d334` already reads the unchanged RX-LIFT lines 127, 130 and
-133 within the ordinary budget; line 136 reaches a complete-source-witness
-ambiguity. Full export and independent interpretation assessment remain required.
-The current public-contract audit also identifies a mixed-owner assembly defect,
-a direct-construction map example mismatch, and the stale generated API. Deferred
-program execution alone does not implement the owner's requested generic
-computational derivation closure; that remains kernel work.
+The individual focused controls pass. The record/endpoint Realize compile took
+53.573 seconds and its unchanged whole-operation controls 4.460 seconds. The
+point/matrix author checkpoint passes the original matrix workflow (3/3, 36
+actual dispatches) and presentation transport (4/4, 14 dispatches). The prior
+complete-request checkpoint passed 11/17 original connected assertions, including
+both finite construction/reuse assertions and all four presentation assertions.
+These isolated checks do not substitute for the combined native build or final
+unchanged 17-assertion run. The rational workflow still requires the full selected
+numeral-owner reader repair; a named-only prototype is explicitly insufficient.
 
-A fresh independent requirements-only RX05 assessment distinguishes the selected
-comparison cell's multiplicative source from the global inherited call's directed
-representative. It finds these compatible in the full retained diagram, while
-explicitly preserving any stronger primary-route requirement and the separate
-protected fixture-count scope. It accepts no candidate or interpretation change.
-The earlier review qualification remains historical evidence pending final typed
-export and independent assessment.
+The source manifest now selects mathematics
+`ac9bb80be1e55c43f4104d4fe8486e7715ea7cc5`, tree
+`ec0fc569dee02b4cdb72c68c6dcb35a802fda8db`, and contract
+`3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5`, tree
+`3f1b3a79e1fada93c4d69557d0f9876f075dc2e4`. Both were published, fetched and
+compared by complete tree. The mathematical source includes the reviewed full
+comparison direction/import scope correction and the separately reviewed Monic
+admission normalization. The latter reuses existing catalogue evidence and
+normalization before the unchanged complete Monic goal. Independent source
+review found no blocking mathematical or scope defect; ordinary Lean declaration
+checking, not `Evidence.establish` alone, checks the resulting proof. Original
+Monic binding and three original observations now read at unchanged budgets.
+Neither source review is complete candidate interpretation acceptance.
 
-These are integration checkpoints. Complete consumers/native tools, the unchanged
-two-leaf experiment, RX10 and all fixed extension executions, the connected real
-engine workflows and notebook, final API, freeze and independent reviews remain
-the completion conditions below.
+The public primitive leaf source is published at
+`aedbbde1350a11f5f802c77b9672b08c543028dd`, tree
+`6f2c7dd8ac9a77d4e239c8f278238ab8acc32760`, with two object actions and
+monoid multiplication. The actual isolated trial adopts its exposed structural
+records and sends the multiplication request with their exact carrier fields;
+its unsupported reply is retained as a gap. Further public-only codec and
+observer work is isolated from kernel outcomes and fixed assertions. The final
+generated API and primitive execution trial still require one coherent built
+producer and the final independently authored leaf checkpoint.
+
+### Fixed evidence and remaining completion work
+
+All 17 permanent files retain their recorded hashes and 153 questions; all 14
+extension files retain 134 positive questions. Baseline pure exports read
+146/153 permanent and 131/134 extension questions with unchanged inputs and
+artifacts. The series repair closes its original controls and eight final
+RX-LIFT samples; the Monic repair closes its original binding and observations.
+Three earlier full-import RX-LIFT readings remain the assigned performance
+repair until the complete fixed export runs successfully. No assertion, expected
+answer, import inventory, or heartbeat budget has been weakened.
+
+The current evidence archive is version 42 of
+`libfile_94b086b3c1308191b67e0c34e0d4c364`, SHA-256
+`1a4c8e0b9f003501ae3db960164b9a203c52e965612dd4af2a4cdf6f8ccbb857`.
+All earlier members were preserved byte-for-byte. Newer closed record, Monic,
+point/matrix and retrieval repairs must be appended without replacing or
+relabelling failed results. Runtime remains Lean 4.33.0 with the recorded 14
+packages, PassageMath 10.8.13, GAP 4.16.1 and the restored notebook environment
+in the Pro cloud container. No rack build is used.
+
+The review snapshot retrieval repair is integrated as `077c9ce`. It permits
+fetching the exact expected commit from an existing shallow checkout; it keeps
+no-execution extraction, hostile-link/filter protections and the SHA guard.
+The unchanged controls plus the real depth-one positive and moved-reference
+negative pass in 0.526 seconds with stable source. This is construction source
+only: it does not install a replacement authoritative judge or supply a review
+verdict. The earlier independent CI review still has no verdict because its
+trusted input operation failed.
+
+Remaining completion work is the combined native and axiom checks, complete
+fixed computation, RX05/RX09/RX10 and binding observations, the remaining reader
+closures, all four connected real-engine workflows and executed notebook, final
+public API, independent complete meaning review, and frozen public-only extension
+trials. No advertised generic interface defect may be deferred as an absent leaf.
+
+The following dated checkpoints preserve historical requirements and producer
+observations. Their earlier statuses do not supersede this current section.
 
 ### Latest owner steering: constructor-centric computational service
 

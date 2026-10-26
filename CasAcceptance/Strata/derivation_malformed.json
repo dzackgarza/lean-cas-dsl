@@ -1,0 +1,10 @@
+{
+  "mode": "replace",
+  "operation": "op.monoids.mul",
+  "value": {"ctor": "notAPublishedDatum", "args": []},
+  "delegate": {
+    "command": "python3",
+    "args": ["probe_owned_callable.py", "--require-argument-owner", "fun.rings.semiring", "fun.semirings.monoid", "op.monoids.mul"],
+    "root": "."
+  }
+}

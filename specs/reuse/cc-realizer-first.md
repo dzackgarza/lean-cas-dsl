@@ -15,6 +15,57 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Proof-bearing computational derivation closure — 2026-10-26
+
+Corpus searches `computation derivation dependency closure` and `Functor.comp`
+were run through the upstream formalization-corpus client. The first returned
+unrelated mathematical derivations and closure constructions; the second
+confirmed existing functor composition. Direct source searches located
+`Semantic.recordNamedObject`, `Semantic.recordRegisteredMorphism`,
+`Language.applyFamily`, `Trace.recordOperation`, `Trace.recordCallable`,
+`ServiceRequest.Prepared`, `prepareServiceRequest`, and `executeServiceRequest`.
+The existing CAP derived-method comparison is recorded in
+`cross-repository-execution-prior-art.md`; no second categorical calculus or
+backend expression evaluator is needed.
+
+The independently authored upstream interface owns each complete published
+family, its typed primitive slots, its ordinary Lean plan and its whole-family
+correctness proof. The kernel's new responsibility is limited to compiling
+those accepted expressions into its existing operation/action records and
+closing their computational dependencies. The existing typed service and
+scoped `Wire` mechanisms own request framing, dispatch, result validation and
+actual intermediate suppliers. Availability may choose among proved
+implementations of one fixed family; it never chooses the mathematical family,
+its selected parameters, endpoints or the question being answered.
+
+`ComputationDerivation` now specializes the upstream checked whole-family
+identity at the request's exact declaration, universes and complete dependent
+telescope. Its compiler recognizes the existing structural expression forms and
+exact published primitive slots, then records ordinary reader operations and
+actions. A finite least fixed point computes family support; the execution
+stack additionally rejects a recursive family whose actual form has no direct
+primitive, even when its arguments change. Alternative proved plans remain
+available after structural gaps. A dispatched unsupported, malformed or failed
+reply cannot trigger a different plan.
+
+The typed service retains separate occurrence keys for the original operands
+without changing their actual `Wire` payloads, structured results or suppliers.
+Every prerequisite runs through ordinary admission, action execution and result
+validation. Shared closed-point completion uses the same original result
+interface as the ordinary operation observer. The retained identity concerns
+formal expressions only; an incorrect computational packet remains incorrect.
+
+Focused engineering controls pass for a primitive-only ring operation through
+two nested proved plans, registration-order reversal, an exact-form-inapplicable
+alternative, finite cyclic and missing support, changed recursive arguments,
+full-family binding refusals, retained ownership, result reuse, and wrong,
+malformed and unsupported replies. The original deferred-service, mixed-owner,
+operation-agreement and whole-operation controls also pass unchanged. These
+checks use arbitrary protocol fixtures and supply no independent mathematical
+acceptance. Arbitrary Lean plan bodies, separately published method-map actions
+and prescribed-lift compilation remain explicit unsupported cases. Final
+combined native and public-leaf integration remain separate obligations.
+
 ## Original argument endpoint during operation preparation — 2026-10-26
 
 The unchanged `OperationAgreementExecutionProbes` exposed two accepted named
@@ -434,3 +485,134 @@ now retain the complete evidence vector and the real supplying connection while
 leaving registrations empty. Only one evidence or action-argument supplier changes
 per case. A live supplier reaches the intended missing implementation; stale or
 absent suppliers remain unavailable, with zero extra dispatches or replies.
+
+## Complete requests and actual creation images — 2026-10-26
+
+The architecture's existing fused-realization rule permits an installed complete
+operation to execute its already selected composite. `realizeFresh`, callable
+parameter preparation and operation preparation now use the existing local
+`demandObjectActions` control to build that full request. Actual result caches are
+shared; explicit action observers still request their own complete computations.
+This restores the distinction between request preparation and demanded execution
+without adding a new primitive or changing semantic route selection.
+
+Creation image reuse remains owned by `StructuredResult`, `computationalApexReceiver`
+and the exact registered `LiftEntry.edge`. The cache records the completed packet
+at its actual formal apex expression. The exact creating action can then project
+the supplied lower cone after checking the whole action type and value and the
+whole expected image. Existing scoped fragment projection retains every supplier.
+This is data reuse through accepted creation mathematics, not a new theorem,
+equality search, carrier reconstruction or selection by registration order.
+
+The focused original deferred-service/whole-operation checks and the original
+17-assertion real-engine workflow run distinguish this repair from the earlier
+unnecessary primitive demands. Eleven assertions now hold; the six remaining
+generic framing/parameter failures stay recorded and assigned. No acceptance
+input, expected answer, public registration or heartbeat budget was changed.
+
+## Released records with opaque fields — 2026-10-26
+
+Corpus search `"getStructureInfo" "mkProjection"` returned existing structural
+projection use in Mathlib's `Tactic/Simps/Basic.lean` (and other corpus projects).
+Search `"validatePort" "record"` returned no indexed match; that is not evidence
+of mathematical absence. Direct inspection locates the existing owners in Lean's
+`Structure` metadata and `Meta/AppBuilder.mkProjection`, this kernel's
+`ComputationalData.validatePort`, and the public contract's ordered record codec.
+No mathematical declaration or proof is introduced.
+
+The old point-schema path intentionally cannot synthesize a point schema for a
+record whose fields include types and dependent functions. A separate structural
+traversal now projects each field from the independently fixed formal receiver,
+skips propositions, and validates the reply's ordered data at those complete
+field types. It follows the existing single-field elision rule. The reply never
+supplies a formal constructor, proof, selected dictionary or later field's type;
+returned fields are not indexed by equal JSON as new formal inputs. Whole opaque
+records retain their existing interface, and live-session ownership remains the
+consumer's separate check.
+
+The small traversal takes the existing validator as a callback outside its large
+recursive compiler group. The unchanged compiler budget then suffices. Focused
+arbitrary-record controls separate complete nested records, missing/extra fields,
+empty opaque tokens, unsupported private carriers and different full record types.
+Those packets establish no algebraic laws or mathematical answers. Original
+portable-extent and mixed-session ownership controls remain required regressions;
+actual primitive execution is a separate integrated consumer.
+
+## Exact structural fields and operation endpoints — 2026-10-26
+
+The same existing Lean structure metadata and `mkProjection` APIs now read a
+selected action on a fresh symbolic receiver. The resulting data-only plan
+contains field positions and record assembly, with proposition fields omitted
+according to the public codec. It cannot select a field by equal actual values,
+evaluate arithmetic or closed constants, reconstruct proofs, or open a whole
+opaque record, including an opaque single-field record. Inline wrappers and
+nested arrays project their original ownership paths; structurally exposed
+fields may supply another already selected structure without a redundant call.
+
+The complete declared operation is likewise applied to a fresh owner at the
+original full type, replacing only its declared owner argument. Its independently
+fixed Hom endpoints may then project retained carrier fields or products of
+those fields. Point requests and whole-callable requests use those actual
+packets; other representations retain the existing callable endpoint path.
+No new public tag, mathematical row, carrier-equality search, canonical answer,
+or registration priority is introduced.
+
+The added structural controls retain three different suppliers for equal opaque
+bytes, check projection order and inline wrappers, and refuse constants, wrong
+array arity and unexposed opaque fields. The unchanged functor-action and
+whole-operation controls pass. A first whole-operation rerun without the public
+protocol path was unavailable before execution; the explicit-dependency rerun
+passes with stable source. The actual public primitive trial reaches its
+multiplication request with the returned carrier packet at both declared
+endpoints. Its unsupported leaf reply remains an execution gap, not a passing
+mathematical assertion. All earlier failed runs remain separately recorded.
+
+## Completed point interfaces and original matrix rows — 2026-10-26
+
+The original connected workflow retained an actual returned integer point as raw
+data inside a later composition. A point completion and a whole-callable
+completion can have identical bytes, so neither JSON shape nor the original
+formal answer can decide which interface was returned. `ServiceRequest` now
+records the point-result role selected by its existing completion validator.
+`Realize` retains that role with the complete original domain, target and their
+actual scoped packets, including ordinary operation, service, binder and
+presentation completions. Whole-map consumers use the existing public
+`typedMap` and `finiteGraph` interfaces at the boundary. Point arguments retain
+their existing data form, including the original ordered-product fixture.
+
+`ServiceRequest.closedElementDomain`, `Backend.PointInvocation`,
+`ComputationalData.endpointKeys` and `DataOwnership.Data` remain the owners. The
+actual singleton key is projected from its supplied inventory, with exact
+wrapper, factor and subset positions. A registered primitive codec supplies only
+its ordinary portable keys. No formal answer, carrier enumeration, new public
+tag or fixed singleton code is introduced. Domain keys and returned points
+retain independent occurrence suppliers even when their bytes coincide. The
+original complete Hom checks precede framing, and missing inventories remain an
+explicit implementation gap. Proof snapshots and action reuse retain the same
+point-role metadata.
+
+The corpus searches `"Function.const" "Subsingleton"` and
+`"Functor.obj" "isDefEq"` found existing mathematical declarations but no owner
+for this runtime provenance conversion. No mathematical helper was introduced.
+The implementation reuses the existing public point, callable and scoped-data
+interfaces instead.
+
+The matrix defect was earlier: `Language.matrix` reduced an explicitly selected
+`Mat(n,K)` to an anonymous nested finite-function carrier before its existing
+named-matrix branch. That lost the independently selected `Vec(K,n)` row object
+and made later vector-versus-map parameter reading ambiguous. The original
+selected-matrix branch now runs first, retaining its actual coefficient object
+and registered row construction. Anonymous declared finite-function matrices
+keep their existing path; no equal-carrier alias or registry order chooses a
+row presentation.
+
+The original three matrix assertions hold with 36 real dispatches, and all four
+original presentation assertions hold with 14 real dispatches. Added point-role
+controls preserve exact endpoint/key/value suppliers and reject missing
+inventory or changed complete targets. The unchanged ordered-product, whole
+operation, deferred-service and computation-derivation controls pass. The
+corrected full mathematical import separately exposes the rational reader's
+Ring-versus-Semiring numeral-owner ambiguity before execution. That issue is
+preserved for a separate reader increment; this point repair alone does not
+claim those three rational assertions or final integrated acceptance. Fixed
+inputs, expectations, registrations and ordinary budgets are unchanged.

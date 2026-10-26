@@ -21,6 +21,7 @@ public import CasCatalogue.OperationAgreement
 public import CasCatalogue.SimpleServiceRequest
 public import CasCatalogue.StructuredServiceRequest
 public import CasCatalogue.UniversalServiceRequest
+public import CasCatalogue.ComputationDerivation
 public import Mathlib.CategoryTheory.ConcreteCategory.EpiMono
 public import CasContract.Port
 
@@ -137,6 +138,16 @@ def EndpointPresentation.forwardFragment (presentation : EndpointPresentation) :
 def EndpointPresentation.backwardFragment (presentation : EndpointPresentation) : DataOwnership.Data :=
   { json := presentation.backward, ownership := presentation.backwardOwnership }
 
+/-- The complete computational endpoints at which an actual closed-point reply
+was checked. Point data and whole callable data can have identical JSON; only
+the independently fixed invocation records which interface was completed. -/
+structure PointDataInterface where
+  domain : Expr
+  target : Expr
+  domainData : DataOwnership.Data
+  targetData : DataOwnership.Data
+  deriving BEq
+
 /-- A complete kernel-owned source snapshot for a proof-only refinement. -/
 structure WireSnapshot where
   form : Form
@@ -153,6 +164,7 @@ structure WireSnapshot where
   /-- Exact runtime operand occurrences retained for nested computational service
   requests. These indices carry no mathematical interpretation or dispatch policy. -/
   serviceHandles : Array Nat := #[]
+  pointDataInterface : Option PointDataInterface := none
 
 structure Wire where
   form : Form
@@ -179,6 +191,7 @@ structure Wire where
   constructionInputs : Option (Expr × ComputationalData.InterfaceObjects) := none
   constructionInputOwnership : Array DataOwnership.Table := #[]
   serviceHandles : Array Nat := #[]
+  pointDataInterface : Option PointDataInterface := none
 
 /-- Runtime provenance of one executed complete action. Source data and owners
 remain here even when the actual returned target packet is self-contained.
@@ -223,6 +236,19 @@ structure ServiceExecution where
   owner : Option (String × Nat) := none
   ownership : DataOwnership.Table := #[]
   completed : Bool := false
+
+/-- A proved family expansion retains its exact original request and actual
+primitive results. This is execution provenance, never evidence about a leaf. -/
+structure DerivationExecution where
+  derivation : ComputationDerivationId
+  target : ComputationRef
+  application : Expr
+  original : Expr
+  identity : Expr
+  input : Wire
+  prerequisites : Array ComputationDerivation.Call
+  steps : Array Wire := #[]
+  result : Option Wire := none
 
 def Wire.value (wire : Wire) : Expr := match wire.payload with
   | .ordinary value _ | .computed value _ => value
@@ -388,6 +414,7 @@ def combinedPayload (formal : Expr) (data : DataOwnership.Data) (dependencies : 
 values for equality. Distinct actual packets and live owners remain distinct. -/
 def sameActionOperand (left right : Wire) : Bool :=
   left.value == right.value && left.json == right.json && left.ownership == right.ownership &&
+    left.pointDataInterface == right.pointDataInterface &&
     left.objectIso == right.objectIso &&
     left.endpointPresentation.map (·.comparison) == right.endpointPresentation.map (·.comparison) &&
     left.endpointPresentation.map (·.forward) == right.endpointPresentation.map (·.forward) &&
@@ -539,21 +566,96 @@ def alignedArrowHom (arrow : Expr) (comparison : Option Expr) : TermElabM Expr :
 
 /-- Closed arithmetic elements use the registered singleton domain of their formal reading. -/
 def closedElementDomain (_state : RegistryState) : TermElabM Expr := do
-  let object ← Language.oneObject.run {}
-  (Language.semanticObject object).run {}
+  ServiceRequest.closedElementDomain
 
 /-- The independently fixed result interface of a point invocation. Closed points use
 the registry's selected global point; generalized maps retain their complete map type. -/
-def pointResultValue (state : RegistryState) (point : Expr) : TermElabM Expr := do
-  let some (domain, target) := Language.homEnds? (← inferType point)
-    | throwError "the requested point result lost its complete categorical endpoints"
-  unless ← withTransparency .all <| isDefEq domain (← closedElementDomain state) do
-    return point
-  let action ← Language.functionOf point
-  let value := mkApp action (← Language.globalPoint.run {})
-  unless ← withTransparency .all <| isDefEq (← inferType value) target do
-    throwError "the requested point result changed its declared target"
-  return value
+def pointResultValue (_state : RegistryState) (point : Expr) : TermElabM Expr := do
+  ServiceRequest.pointResultValue point
+
+/-- Retain the actual endpoint packets only for the independently selected
+closed-point result interface. This does not inspect an answer to infer its role. -/
+def pointDataInterfaceAt (domain target : Expr)
+    (domainData targetData : DataOwnership.Data) : TermElabM (Option PointDataInterface) := do
+  unless ← withoutModifyingState <| withTransparency .all <|
+      isDefEq domain (← ServiceRequest.closedElementDomain) do return none
+  return some { domain, target, domainData, targetData }
+
+/-- A complete point invocation already positions both result endpoints. Keep
+their exact occurrence scopes after the point reply has passed its validator. -/
+def pointInvocationInterface (formal : Expr) (request : DataOwnership.Data) :
+    TermElabM (Option PointDataInterface) := do
+  let some (domain, target) := Language.homEnds? (← inferType formal)
+    | throwError "a completed point invocation lost its complete result signature"
+  let .ok _ := Backend.PointInvocation.decode request.json
+    | throwError "a completed point invocation lost its complete request framing"
+  pointDataInterfaceAt domain target
+    (← checkedFragment (request.project #[.field "args", .index 3]))
+    (← checkedFragment (request.project #[.field "args", .index 5]))
+
+/-- Retain the exact occurrence scopes of the inventory accepted by the public
+endpoint codec. Wrapper and product paths follow that codec; only a registered
+primitive codec introduces portable keys. Equal JSON never chooses an owner. -/
+partial def endpointInventoryFragment (data : DataOwnership.Data) :
+    TermElabM DataOwnership.Data := do
+  discard <| checkedFragment data.validate
+  let .ok (some keys) ← ComputationalData.endpointKeys data.json
+    | throwStratum .noImplementation
+        "a closed point needs its actual singleton-domain inventory when used as a whole callable"
+  let .ok (tag, _) := ComputationalData.envelope data.json
+    | throwError "the validated endpoint inventory lost its complete descriptor"
+  let inventory ← if tag == "finiteData" then
+      checkedFragment (data.project #[.field "args", .index 1])
+    else if tag == "valueData" then
+      endpointInventoryFragment (← checkedFragment (data.project #[.field "args", .index 0]))
+    else if tag == "objectPresentation" || tag == "functorAction" then
+      endpointInventoryFragment (← checkedFragment (data.project #[.field "args", .index 1]))
+    else if tag == "objectProduct" then do
+      let left ← endpointInventoryFragment
+        (← checkedFragment (data.project #[.field "args", .index 0]))
+      let right ← endpointInventoryFragment
+        (← checkedFragment (data.project #[.field "args", .index 1]))
+      let .ok leftKeys := left.json.getArr?
+        | throwError "the validated left inventory is not an array"
+      let .ok rightKeys := right.json.getArr?
+        | throwError "the validated right inventory is not an array"
+      let mut pairs := #[]
+      for i in [:leftKeys.size] do
+        let first ← checkedFragment (left.project #[.index i])
+        for j in [:rightKeys.size] do
+          let second ← checkedFragment (right.project #[.index j])
+          pairs := pairs.push (DataOwnership.Data.array #[first, second])
+      pure (DataOwnership.Data.array pairs)
+    else if tag == "extent" then do
+      let mut actual ← checkedFragment (data.project #[.field "args", .index 2])
+      while (actual.json.getObjValAs? String "ctor").toOption == some "valueData" do
+        actual ← checkedFragment (actual.project #[.field "args", .index 0])
+      pure actual
+    else checkedFragment (DataOwnership.Data.portable (Json.arr keys))
+  unless inventory.json == Json.arr keys do
+    throwError "the scoped endpoint inventory differs from the validated public inventory"
+  return inventory
+
+/-- Embed actual point data as a callable only when a consumer needs a map.
+The singleton key comes from the supplied domain's existing inventory; no
+formal point, carrier enumeration, or mathematical answer is evaluated here. -/
+def pointCallableFragment (wire : Wire) (source target : Expr)
+    (selected : PointDataInterface) : TermElabM DataOwnership.Data := do
+  unless ← withoutModifyingState <| withTransparency .all <|
+      isDefEq (← inferType selected.domain) (← inferType source) <&&>
+        isDefEq selected.domain source <&&>
+        isDefEq (← inferType selected.target) (← inferType target) <&&>
+        isDefEq selected.target target do
+    throwError "the retained point data changed its complete selected endpoints"
+  let inventory ← endpointInventoryFragment selected.domainData
+  let .arr #[_] := inventory.json
+    | throwStratum .noImplementation
+        "the actual domain inventory does not supply one closed-point input"
+  let key ← checkedFragment (inventory.project #[.index 0])
+  let graph := DataOwnership.Data.array
+    #[DataOwnership.Data.array #[key, wire.fragment]]
+  let callable ← scopedNode "finiteGraph" #[inventory, graph]
+  scopedNode "typedMap" #[selected.domainData, selected.targetData, callable]
 
 /-- Recover the endpoints through the complete independently selected Hom interface.
 The original `Quiver.Hom` syntax retains priority. A bundled Hom representation may
@@ -612,10 +714,17 @@ structure Harness where
   actions : IO.Ref (Array ActionExecution)
   replies : IO.Ref (Array ReplyExecution)
   services : IO.Ref (Array ServiceExecution)
+  derivations : IO.Ref (Array DerivationExecution)
+  /-- A dispatched failure cannot be mistaken for a missing structural leaf and
+  retried through a different proved plan, including an `unsupported` reply. -/
+  portFailures : IO.Ref Nat
   serviceOperands : IO.Ref (Array Wire)
   /-- Installed by the ordinary computation boundary and available to direct
   harness consumers through the same public installer. -/
   deferred : Option (String → Wire → ComputationalReply → TermElabM ComputationalReply) := none
+  /-- Used only after exact ordinary admission finds no implementation. Its
+  input is the same complete request; no computational reply can install it. -/
+  derivation : Option (String → Wire → Bool → TermElabM ComputationalReply) := none
   /-- Exact parameters currently recovering their source/action data. A scoped harness copy
   carries this across both callbacks without changing the shared result cache. -/
   parameterRecovery : Array Expr := #[]
@@ -626,7 +735,9 @@ structure Harness where
 /-- A harness with no leaf installed. -/
 def Harness.empty : IO Harness := return {
   connections := ← IO.mkRef {}, results := ← IO.mkRef {}, actions := ← IO.mkRef #[]
-  replies := ← IO.mkRef #[], services := ← IO.mkRef #[], serviceOperands := ← IO.mkRef #[] }
+  replies := ← IO.mkRef #[], services := ← IO.mkRef #[], derivations := ← IO.mkRef #[]
+  portFailures := ← IO.mkRef 0
+  serviceOperands := ← IO.mkRef #[] }
 
 /-- The harness of the manifest `manifest`, at the directory `root`. -/
 def Harness.ofManifest (root : System.FilePath) (manifest : Manifest) : CoreM Harness := do
@@ -634,7 +745,31 @@ def Harness.ofManifest (root : System.FilePath) (manifest : Manifest) : CoreM Ha
   return { admitted := admission.admitted, rejected := admission.rejected
            backends := manifest.backends, root, connections := ← IO.mkRef {},
            results := ← IO.mkRef {}, actions := ← IO.mkRef #[],
-           replies := ← IO.mkRef #[], services := ← IO.mkRef #[], serviceOperands := ← IO.mkRef #[] }
+           replies := ← IO.mkRef #[], services := ← IO.mkRef #[], derivations := ← IO.mkRef #[]
+           portFailures := ← IO.mkRef 0
+           serviceOperands := ← IO.mkRef #[] }
+
+/-- Installed primitive families seed a finite support calculation. An admitted
+family is only a possible leaf here: exact form, ownership and ambiguity remain
+the ordinary dispatcher's responsibility at each complete request. -/
+def derivationSupport (h : Harness) (entries : Array ComputationDerivationEntry)
+    (blocked : Array ComputationRef := #[]) : CoreM (Array ComputationRef) := do
+  let state ← registryState
+  let direct := h.admitted.filterMap fun registration =>
+    (state.operation? registration.registration.operation).bind ComputationDerivation.reference?
+  return ComputationDerivation.grounded entries direct.contains blocked
+
+/-- Whether an ordinary observation has any finitely supported proved plan.
+This does not admit a request or select a mathematical operation. -/
+def hasGroundedDerivation (h : Harness) (operation : String) : CoreM Bool := do
+  if h.derivation.isNone then return false
+  let state ← registryState
+  let some reference := (state.operation? operation).bind ComputationDerivation.reference?
+    | return false
+  let entries ← computationDerivations
+  let support ← derivationSupport h entries #[reference]
+  return entries.any fun entry => entry.target == reference &&
+    entry.prerequisites.all support.contains
 
 /-- Preserve occurrences without an expression-keyed lookup or an equality-based
 presentation choice. A request stores the returned indices as runtime metadata. -/
@@ -723,6 +858,8 @@ def Harness.stop (h : Harness) : IO Unit := do
   h.actions.set #[]
   h.replies.set #[]
   h.services.set #[]
+  h.derivations.set #[]
+  h.portFailures.set 0
   h.serviceOperands.set #[]
   -- A backend is killed, not asked to exit: nothing it does is waited on or believed, and
   -- closing its input cannot be relied on while other references to the handle are alive.
@@ -822,6 +959,11 @@ def sendData (h : Harness) (operation : String) (input : Wire)
     TermElabM ComputationalReply := do
   checkDataOwners h input.fragment
   let registrations ← admittedRegistrations h operation input completeRequest
+  if registrations.isEmpty then
+    if let some derive := h.derivation then
+      let result ← derive operation input completeRequest
+      checkDataOwners h result.data
+      return result
   let registration ← match registrations with
     | #[r] => pure r.registration
     | #[] => throwStratum .noImplementation m!"no admitted registration computes {operation} on \
@@ -882,6 +1024,7 @@ def sendData (h : Harness) (operation : String) (input : Wire)
                 ("completedOwnership", toJson completed.data.ownership)]))
       return completed
   | .error e =>
+      h.portFailures.modify (· + 1)
       if let some observations := h.dispatches then
         if let some index := observedIndex then
           observations.modify fun entries =>
@@ -1685,6 +1828,10 @@ def projectObjectFragment (trace : Trace) (_source : CategoryExpr) (edge : EdgeR
     (descriptor? : Option DataOwnership.Data := none) (checkOwnership : Bool := true) :
     TermElabM (Option DataOwnership.Data) := do
   if checkOwnership then discard <| checkedFragment data.validate
+  let structural ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
+    ComputationalData.recordProjectionPlan? symbolic (← Semantic.objOf action symbolic)
+  if let some plan := structural then
+    if let some projected := plan.apply? data then return some projected
   -- The exact typed record interface owns these fields, including full
   -- subcategories of arrows whose registered category expression is atomic.
   -- A fresh receiver prevents equal actual fields from selecting a false role.
@@ -1786,6 +1933,7 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
     constructionInputs := snapshot.constructionInputs,
     constructionInputOwnership := snapshot.constructionInputOwnership,
     serviceHandles := snapshot.serviceHandles,
+    pointDataInterface := snapshot.pointDataInterface,
     proofSources := remaining }
   checkProofRefinementSource original source
   return original
@@ -3350,7 +3498,7 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
   -- Other defining maps remain in the original complete construction.
   let apex ← checkedFragment (input.fragment.project
     (answerPath ++ #[.field "args", .index 0]))
-  let payload ← scopedPayload input.value apex
+  let payload ← scopedPayload fixed apex
   return { input with form, payload }
 
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
@@ -3367,20 +3515,13 @@ def extentOf? (state : RegistryState) (e : Expr) :
 /-- Remove only the reader's administrative expected-type wrappers. The original
 categorical composition and its complete selected argument remain unchanged. -/
 def operationApplicationBody (value : Expr) : Expr := Id.run do
-  let mut value := value.consumeMData
-  while value.isAppOfArity ``id 2 || value.isAppOfArity ``Trace.operationResult 3 do
-    value := value.appArg!.consumeMData
-  return value
+  return ComputationDerivation.applicationBody value
 
 /-- Retain the original generalized argument of a staged operation, including
 terminal comparisons. Only categorical composition and administrative wrappers
 are inspected; no mathematical function body or computed result is unfolded. -/
 partial def operationApplicationSpine (value : Expr) : Array Expr × Expr :=
-  let value := operationApplicationBody value
-  if value.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 then
-    let (arguments, operation) := operationApplicationSpine value.getAppArgs[6]!
-    (#[value.getAppArgs[5]!] ++ arguments, operation)
-  else (#[], value)
+  ComputationDerivation.applicationSpine value
 
 /-- A complete prepared invocation, whose mathematical choice is already fixed. -/
 structure OperationObservation where
@@ -3391,6 +3532,29 @@ structure OperationObservation where
   target : Expr
   targetData : Json
   materialized : Bool
+
+/-- The declaration, applied to a fresh owner at the original complete type,
+determines whether its endpoints are exposed fields of that owner's record.
+Actual equal carriers cannot choose a projection. Other representations keep
+the ordinary complete callable endpoint interface. -/
+def operationRecordEndpointData (entry : OperationEntry) (application : Expr)
+    (receiver : Wire) : TermElabM (Option DataOwnership.Data × Option DataOwnership.Data) := do
+  let application := operationApplicationBody application
+  let arguments := application.getAppArgs
+  let index := arguments.size - 1 - entry.numerals
+  let some original := arguments[index]? | return (none, none)
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType original) (← inferType receiver.value) <&&>
+        isDefEq original receiver.value) do
+    throwError "the operation endpoint changed its complete declared record owner"
+  discard <| checkedFragment receiver.fragment.validate
+  withLocalDeclD `recordOwner (← inferType original) fun symbolic => do
+    let selected := mkAppN application.getAppFn (arguments.set! index symbolic)
+    unless ← isTypeCorrect selected do return (none, none)
+    let some (source, target) := Language.homEnds? (← inferType selected)
+      | return (none, none)
+    return (← ComputationalData.recordEndpointData? symbolic source receiver.fragment,
+      ← ComputationalData.recordEndpointData? symbolic target receiver.fragment)
 
 def operationRecipeId? (wire : Wire) : Option String :=
   match ComputationalData.envelope wire.json with
@@ -3623,7 +3787,9 @@ partial def executeOperationObservation (h : Harness) (request : OperationObserv
     ComputationalData.validateEndpointPort formal invocation.domain request.targetData answer
   if let .error message := checked then malformed backend request.operation.raw answer message
   let data ← receiveReplyData h request.operation.raw reply true
-  let result : Wire := { request.original with payload := .computed formal data, callableObserved := true }
+  let result : Wire := { request.original with
+    payload := .computed formal data, callableObserved := true
+    pointDataInterface := (← pointInvocationInterface formal request.input.fragment) }
   return result
 
 /-- Execute the object projection of an already selected complete functor.
@@ -4391,6 +4557,26 @@ partial def executeObjectEdge (h : Harness) (trace : Trace) (edge : EdgeRef)
     if edge == .classifierForget classifier then return ← proofRefinementBase trace original action
   let (template, descriptor, dependencies) ← objectActionTemplate h trace edge action original
   let some source := state.selectedEdgeSource? edge | unreachable!
+  -- A completed creation already retains the actual lower cone. Applying its
+  -- exact creating functor reuses that supplied image; it is not another
+  -- primitive computation or an identification of arbitrary equal carriers.
+  if let .construction result _ := original.payload then
+    if let .created liftId _ _ := result.packet then
+      let some creation := state.lifts.find? (·.id.raw == liftId)
+        | throwError "the completed construction lost its registered creation"
+      if creation.edge == edge then
+        let selected ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
+        if ← withoutModifyingState (withTransparency .all <|
+            isDefEq (← inferType action) (← inferType selected) <&&> isDefEq action selected) then
+          let image ← computationalApexReceiver trace original
+          unless ← withoutModifyingState (withTransparency .all <|
+              isDefEq (← inferType image.value) (← inferType template.value) <&&>
+                isDefEq image.value template.value) do
+            throwError "the retained creation image changed its complete selected target"
+          return { template with
+            payload := (← combinedPayload template.value image.fragment
+              (#[original, image] ++ dependencies))
+            objectObserved := true }
   if let some projected ← projectObjectFragment trace source edge action original.value
       original.fragment (some descriptor) then
     unless (projected.json.getObjValAs? String "ctor").toOption == some "functorAction" do
@@ -4694,7 +4880,7 @@ placing it in another map expression. A symbolic point's scalar owner need not b
 its selected coordinate, and an owned callable supplies data rather than a new
 endpoint choice. The public typed-map frame keeps that original data unchanged. -/
 partial def frameMorphismFragment (h : Harness) (trace : Trace) (source target : Expr)
-    (wire : Wire) (context : Option CategoryContext := none) :
+    (wire : Wire) (context : Option CategoryContext := none) (pointAsMap : Bool := false) :
     TermElabM (DataOwnership.Data × Array Wire) := do
   let context ← framingContext context wire.categoryContext
   if let some context := context then
@@ -4707,6 +4893,9 @@ partial def frameMorphismFragment (h : Harness) (trace : Trace) (source target :
     unless ← withTransparency .all <|
         isDefEq arguments[2]! source <&&> isDefEq arguments[3]! target do
       throwError "the callable changed its independently selected complete endpoints"
+  if pointAsMap then
+    if let some selected := wire.pointDataInterface then
+      return (← pointCallableFragment wire source target selected, #[])
   -- This flag records already applied endpoint presentations. Check the complete
   -- formal signature even on reuse, then preserve the already framed data.
   if wire.morphismFramed then return (wire.fragment, #[])
@@ -4799,7 +4988,7 @@ partial def contextualAction (h : Harness) (trace : Trace) (formal receiver : Ex
   let mut dependencies := #[original]
   if morphism then
     let (first, second) ← contextualMorphismEndpoints source receiver
-    let (framed, endpoints) ← frameMorphismFragment h trace first second original (some source)
+    let (framed, endpoints) ← frameMorphismFragment h trace first second original (some source) true
     data := framed
     dependencies := dependencies ++ endpoints
   else CategoryContext.checkObject source receiver
@@ -4854,8 +5043,8 @@ partial def contextualComposition (h : Harness) (trace : Trace) (formal : Expr)
     throwError "the contextual composition changed its fixed categorical value"
   let a ← realize h trace "the complete first contextual map" first
   let b ← realize h trace "the complete second contextual map" second
-  let (firstData, firstDependencies) ← frameMorphismFragment h trace source middle a
-  let (secondData, secondDependencies) ← frameMorphismFragment h trace middle target b
+  let (firstData, firstDependencies) ← frameMorphismFragment h trace source middle a (pointAsMap := true)
+  let (secondData, secondDependencies) ← frameMorphismFragment h trace middle target b (pointAsMap := true)
   let selected ← match ← trace.node? second with
     | some (.cellComponent id params constructors inverse receiver) => do
       let some entry := state.cells.find? (·.id == id)
@@ -4922,6 +5111,7 @@ partial def contextualComposition (h : Harness) (trace : Trace) (formal : Expr)
       form := contextualForm state context b.form true
       payload := .computed formal data
       morphismFramed := true
+      pointDataInterface := (← pointInvocationInterface formal input.fragment)
       categoryContext := some context }
     return returned
   let data ← scopedNode "compose" #[firstData, secondData]
@@ -5224,6 +5414,15 @@ partial def realize (h : Harness) (trace : Trace) (what : String) (e : Expr) :
       if h.demandObjectActions then realizeArrowObservation h trace wire else pure wire
     | _ => pure wire
   let wire ← if h.demandObjectActions then realizeObjectObservation h trace wire else pure wire
+  -- A completed construction supplies its own exact apex expression. Its
+  -- checked presentation can differ syntactically from the reader's original
+  -- limit expression, and a subsequent selected action is applied to this
+  -- actual apex. Retain that precise occurrence with its complete packet and
+  -- owners; never reconstruct it by searching for an equal carrier or JSON.
+  if let .construction .. := wire.payload then
+    let apex := wire.value
+    unless apex.hasMVar || apex.hasLevelMVar || apex.hasFVar || apex.hasLooseBVars do
+      h.results.modify (·.insert apex wire)
   if closed then
     if wire.liftExecution.isSome then
       h.results.modify (·.insert e wire)
@@ -5245,6 +5444,11 @@ partial def realizeUnobserved (h : Harness) (trace : Trace) (what : String) (e :
 
 partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire := do
+  -- Building a complete public request does not itself demand every action
+  -- occurring in a selected parameter. A direct port may implement that fixed
+  -- composite. Shared caches still supply every already computed occurrence;
+  -- the outer observer and explicit action executors demand their own results.
+  let h := { h with demandObjectActions := false }
   let state ← registryState
   let e ← instantiateMVars e
   let some node ← (trace.node? e : IO _)
@@ -5590,7 +5794,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         endpointPresentation := original.endpointPresentation,
         constructionInputs := original.constructionInputs,
         constructionInputOwnership := original.constructionInputOwnership,
-        serviceHandles := original.serviceHandles }
+        serviceHandles := original.serviceHandles,
+        pointDataInterface := original.pointDataInterface }
       return {
         form := .proofRefinement target classifier original.form,
         payload := forwardPayload original e original.json,
@@ -5979,7 +6184,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         | .error message => malformed backend address answer message
         | .ok () => pure ()
         let data ← receiveReplyData h address reply
-        let result : Wire := { form := .canonicalMorphism category, payload := .computed e data }
+        let result : Wire := {
+          form := .canonicalMorphism category, payload := .computed e data
+          pointDataInterface := (← pointInvocationInterface e input.fragment) }
         return result
       let callable ← match ← (trace.node? second : IO _) with
         | some (.namedMorphism id params) => pure (some (id.raw, params))
@@ -6007,6 +6214,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let targetWire ← realizeEndpoint h trace "the applied operation target" target
         let operationWire ← realize h trace "the complete applied operation" second
         let (arrow, operationEndpoints) ← frameMorphismFragment h trace middle target operationWire
+          (pointAsMap := true)
         let (argumentData, argumentEndpoints) ← frameMorphismFragment h trace source middle argument
         let requestData ← pointInvocationData address parameters arrow domainWire.fragment
           sourceWire.fragment targetWire.fragment argumentData
@@ -6028,6 +6236,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let data ← receiveReplyData h address reply
         return {
           form := .canonicalMorphism category, payload := .computed e data
+          pointDataInterface := (← pointInvocationInterface e request.fragment)
           morphismFramed := true }
       let a ← realize h trace "the first composed map" first
       let b ← realize h trace "the second composed map" second
@@ -6037,8 +6246,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwError "the second computed arrow changed its fixed endpoints"
       let value ← mkAppM ``CategoryTheory.CategoryStruct.comp #[a.value, b.value]
       discard <| StructuredResult.checkReconstruction value
-      let (firstData, firstEndpoints) ← frameMorphismFragment h trace source middle a
-      let (secondData, secondEndpoints) ← frameMorphismFragment h trace middle target b
+      let (firstData, firstEndpoints) ← frameMorphismFragment h trace source middle a (pointAsMap := true)
+      let (secondData, secondEndpoints) ← frameMorphismFragment h trace middle target b (pointAsMap := true)
       let json ← scopedNode "compose" #[firstData, secondData]
       let payload ← combinedPayload e json (#[a, b] ++ firstEndpoints ++ secondEndpoints)
       return { form := .canonicalMorphism category, payload, morphismFramed := true }
@@ -6182,7 +6391,13 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       | .error message => malformed backend id.raw answer message
       | .ok () => pure ()
       let data ← receiveReplyData h id.raw reply true
-      return { form := .element targetWire.form, payload := .computed e data }
+      let some (domain, _) := Language.homEnds? (← inferType e)
+        | throwError "the completed presentation point lost its original domain"
+      let domainWire ← realizeCallableEndpoint h trace argumentWire domain true
+      return {
+        form := .element targetWire.form, payload := .computed e data
+        pointDataInterface := (← pointDataInterfaceAt domain target
+          domainWire.fragment targetWire.fragment) }
 
   | .morphismTransport sourceCategory targetCategory route receiver =>
       let input ← realize h trace "the map before structural transport" receiver
@@ -6191,6 +6406,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       let some (source, target) := Language.homEnds? (← inferType receiver)
         | throwError "the structural map has no complete selected endpoints"
       let (inputData, endpointDependencies) ← frameMorphismFragment h trace source target input
+        (pointAsMap := true)
       let mut value := input.value
       let mut json := inputData
       let mut dependencies := #[input] ++ endpointDependencies
@@ -6345,7 +6561,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       | .ok () => pure ()
       let data ← receiveReplyData h operation reply
       let some category := state.categories.find? (·.id == entry.category) | unreachable!
-      let result : Wire := { form := .canonicalMorphism category, payload := .computed e data }
+      let result : Wire := {
+        form := .canonicalMorphism category, payload := .computed e data
+        pointDataInterface := (← pointInvocationInterface e request.fragment) }
       return result
   | .arrow category morphism source target =>
       let some recorded := state.categories.find? (·.id == category)
@@ -6610,6 +6828,7 @@ partial def realizedOperationOwner (h : Harness) (trace : Trace) (entry : Operat
 also covers nullary and staged operations, using their original typed argument. -/
 partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     (id : OperationId) (parameters : Array Expr) : TermElabM OperationObservation := do
+  let h := { h with demandObjectActions := false }
   if let some actual := operationRecipeId? wire then
     unless actual == id.raw do
       throwError "the retained operation recipe changed its accepted operation"
@@ -6669,6 +6888,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
       isDefEq formal (← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, operation]) do
     throwError "the complete operation recipe changed its original typed composition"
   let receiverWire ← realizedOperationOwner h trace entry application
+  let (recordSource, recordTarget) ← operationRecordEndpointData entry application receiverWire
   let (parameterData, parameterWires) ← realizedParameterData h trace parameters
   let callable : Wire := {
     form := wire.form
@@ -6681,8 +6901,18 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
   -- The argument's actual target supplies the selected input presentation. The
   -- declaration may expose only a reduced carrier with several accepted names;
   -- its complete equality with this original endpoint was checked above.
-  let sourceWire ← realizeCallableEndpoint h trace argumentWire originalSource false
-  let targetWire ← realizeCallableEndpoint h trace wire resultTarget false
+  let sourceWire ← match recordSource with
+    | some data => pure {
+        form := .diagrams dataCategory
+        payload := (← combinedPayload originalSource data #[receiverWire])
+        categoryContext := some dataContext }
+    | none => realizeCallableEndpoint h trace argumentWire originalSource false
+  let targetWire ← match recordTarget with
+    | some data => pure {
+        form := .diagrams dataCategory
+        payload := (← combinedPayload resultTarget data #[receiverWire])
+        categoryContext := some dataContext }
+    | none => realizeCallableEndpoint h trace wire resultTarget false
   let (argumentData, endpoints) ← frameMorphismFragment h trace resultDomain originalSource argumentWire
   let invocation ← pointInvocationData id.raw parameterData callable.fragment
     domainWire.fragment sourceWire.fragment targetWire.fragment argumentData
@@ -6722,6 +6952,26 @@ partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wir
   let state ← registryState
   let some operation := state.operation? address
     | throwError "the complete callable has no published operation address"
+  let (recordOwner, recordSource, recordTarget) ← match operation with
+    | .operation entry => do
+      let some (.namedCallable _ _ arguments) ← trace.node? formal
+        | throwError "the observed operation lost its complete declaration arguments"
+      let application ← elabTermAndSynthesize
+        (← `($(mkCIdent entry.declaration) $(← arguments.mapM exprToSyntax)*)) none
+      let owner ← realizedOperationOwner { h with demandObjectActions := false } trace entry application
+      let (source, target) ← operationRecordEndpointData entry application owner
+      pure (some owner, source, target)
+    | _ => pure (none, none, none)
+  let endpoint := fun value data isSource => do
+    if let some owner := recordOwner then
+      if let some data := data then
+        let some category := state.categories.find? (·.id == CategoryId.sets)
+          | throwError "the operation's declared data category is absent"
+        return {
+          form := .diagrams category
+          payload := (← combinedPayload value data #[owner])
+          categoryContext := some (← CategoryContext.ofNamed category value) }
+    realizeCallableEndpoint { h with demandObjectActions := false } trace wire value isSource
   -- A registered comparison fixes its two full actions independently of how
   -- the component's Hom type reduces. Demand those selected images through the
   -- same executor, never by searching equal cached endpoint values.
@@ -6751,9 +7001,10 @@ partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wir
   let (sourceWire, targetWire) ← match selectedEndpoints with
     | some endpoints => pure endpoints
     | none => pure (
-        ← realizeCallableEndpoint h trace wire source true,
-        ← realizeCallableEndpoint h trace wire target false)
-  let (arrow, endpoints) ← frameMorphismFragment h trace source target wire
+        ← endpoint source recordSource true,
+        ← endpoint target recordTarget false)
+  let (arrow, endpoints) ← frameMorphismFragment
+    { h with demandObjectActions := false } trace source target wire (pointAsMap := true)
   let identity ← scopedNode "identity" #[sourceWire.fragment, sourceWire.fragment]
   let invocation ← match inverse with
     | some inverse =>
@@ -6762,14 +7013,7 @@ partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wir
     | none =>
       pointInvocationData address parameters arrow sourceWire.fragment
         sourceWire.fragment targetWire.fragment identity
-  let receiver ← match operation with
-    | .operation entry => do
-      let some (.namedCallable _ _ arguments) ← trace.node? formal
-        | throwError "the observed operation lost its complete declaration arguments"
-      let application ← elabTermAndSynthesize
-        (← `($(mkCIdent entry.declaration) $(← arguments.mapM exprToSyntax)*)) none
-      realizedOperationOwner h trace entry application
-    | _ => pure sourceWire
+  let receiver := recordOwner.getD sourceWire
   let input : Wire := {
     form := receiver.form
     payload := (← combinedPayload formal invocation
@@ -6831,8 +7075,11 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
             throwError "the operation class's representative has a different retained recipe"
         unless operationRecipe input operationId do return wire
         if registeredOnly && !h.admitted.any (fun admitted =>
-            candidates.any (·.operation.raw == admitted.registration.operation)) then return wire
+            candidates.any (·.operation.raw == admitted.registration.operation)) then
+          unless ← candidates.anyM (fun candidate => hasGroundedDerivation h candidate.operation.raw) do
+            return wire
         let mut applicable : Array (OperationObservation × Registration) := #[]
+        let mut requests : Array OperationObservation := #[]
         for candidate in candidates do
           let candidateWire ← if candidate.result == representative then pure input
             else realizeUnobserved h trace "a checked equivalent operation's complete result" candidate.result
@@ -6845,19 +7092,37 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
           unless id == candidate.operation do
             throwError "a checked equivalent operation changed its accepted address"
           let request ← prepareOperationObservation h trace candidateWire id parameters
+          requests := requests.push request
           checkDataOwners h request.input.fragment
           let registrations ← admittedRegistrations h id.raw request.input true
           applicable := applicable ++ registrations.map (fun admitted => (request, admitted.registration))
-        if registeredOnly && applicable.isEmpty then return wire
-        let request ← match applicable with
-          | #[(request, _)] => pure request
-          | #[] => do
-              throwStratum .noImplementation m!"no admitted registration computes the checked operation class {candidates.map (·.operation.raw)}"
+        let mut selected : Option (OperationObservation × Wire) := none
+        let mut gaps : Array String := #[]
+        match applicable with
+          | #[(request, _)] =>
+              selected := some (request, ← executeOperationObservation h request)
+          | #[] =>
+              -- The whole-family operation agreement was checked above. A
+              -- proved plan computes one of these fixed meanings; it cannot
+              -- create another route or hide an ambiguous direct registration.
+              for request in requests.qsort (fun left right => left.operation.raw < right.operation.raw) do
+                unless ← hasGroundedDerivation h request.operation.raw do continue
+                let failures ← h.portFailures.get
+                try
+                  selected := some (request, ← executeOperationObservation h request)
+                  break
+                catch error =>
+                  unless !Exception.hasConflictingStrata error &&
+                      Exception.stratum? error == some .noImplementation &&
+                      (← h.portFailures.get) == failures do throw error
+                  gaps := gaps.push (← error.toMessageData.toString)
           | _ => do
               let choices := applicable.map fun (_, registration) =>
                 (registration.operation, registration.input, registration.backend)
               throwStratum .ambiguousRealization m!"several admitted registered requests compute the checked operation class: {choices}"
-        let actual ← executeOperationObservation h request
+        let some (request, actual) := selected
+          | if registeredOnly then return wire else
+            throwStratum .noImplementation m!"no admitted registration or applicable proved plan computes the checked operation class {candidates.map (·.operation.raw)}; {gaps}"
         match actual.payload with
         | .ordinary .. => pure ()
         | _ => h.results.modify (·.insert request.original.value actual)
@@ -6874,11 +7139,13 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
         -- A cached graph or opaque callable is already actual data. Provenance alone
         -- cannot distinguish it from a descriptor whose parameters were computed.
         unless tag == some id.raw do return wire
-        let (parameters, dependencies) ← realizedParameterData h trace parameters
+        let (parameters, dependencies) ← realizedParameterData
+          { h with demandObjectActions := false } trace parameters
         realizeCallableObservation h trace wire id.raw parameters dependencies
     | .namedCallable address _ parameters => do
         unless tag == some address do return wire
-        let (parameters, dependencies) ← realizedParameterData h trace parameters
+        let (parameters, dependencies) ← realizedParameterData
+          { h with demandObjectActions := false } trace parameters
         realizeCallableObservation h trace wire address parameters dependencies
     | .presentation id parameters inverse => do
         unless tag == some "presentation" do return wire
@@ -6942,11 +7209,20 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
           descriptor.ownership (DataOwnership.Data.array parameters).ownership
     | .operationApply id parameters _ _ _ | .operationPoint id parameters .. => do
         unless operationRecipe wire id do return wire
-        if registeredOnly && !h.admitted.any (·.registration.operation == id.raw) then return wire
+        let derived ← hasGroundedDerivation h id.raw
+        if registeredOnly && !derived &&
+            !h.admitted.any (·.registration.operation == id.raw) then return wire
         let request ← prepareOperationObservation h trace wire id parameters
-        if registeredOnly && (← admittedRegistrations h id.raw request.input true).isEmpty then
+        if registeredOnly && !derived &&
+            (← admittedRegistrations h id.raw request.input true).isEmpty then
           return wire
-        executeOperationObservation h request
+        let failures ← h.portFailures.get
+        try executeOperationObservation h request
+        catch error =>
+          if registeredOnly && !Exception.hasConflictingStrata error &&
+              Exception.stratum? error == some .noImplementation &&
+              (← h.portFailures.get) == failures then return wire
+          throw error
     | .admittedPoint _ _ _ original _ _ _ => rebuild #[original]
     | .constrainedPoint _ _ _ _ _ original => rebuild #[original]
     | .elementValue point _ _ => rebuild #[point]
@@ -7017,7 +7293,13 @@ def legacyLiftRecovery (h : Harness) (dependencies : Array Wire) : TermElabM Har
   let results ← IO.mkRef (← h.results.get)
   for dependency in supplied do
     results.modify (·.insert dependency.value dependency)
-  return { h with results, admitted := #[], backends := #[], deferred := none, dispatches := none }
+  return { h with
+    results := results
+    admitted := #[]
+    backends := #[]
+    deferred := none
+    derivation := none
+    dispatches := none }
 
 /-- Raw inspection compatibility only. Production uses `executePrescribedLiftData`.
 The old result can retain at most one supplying session, so a multi-supplier
@@ -7235,6 +7517,10 @@ structure ServiceScope where
   known : Array Wire
   operands : IO.Ref (Array Wire)
   backend : String
+  /-- A formal derivation gives each original runtime operand its own transparent
+  expression key before building dependent applications. Ordinary service calls
+  keep their existing keys. Equal formal values never merge actual suppliers. -/
+  operandBinding : Option String := none
 
 partial def serviceContainsRef (data : Json) : Bool :=
   if (data.getObjValAs? String "ctor").toOption == some "resultRef" then true
@@ -7246,18 +7532,30 @@ partial def serviceContainsRef (data : Json) : Bool :=
 def checkServiceOwner (h : Harness) (wire : Wire) : TermElabM Unit := do
   checkDataOwners h wire.fragment
 
+/-- A compiler key denotes one retained operand occurrence. The actual Wire is
+kept unchanged, including structured packets and their authoritative fields. -/
+def serviceOperandValue (scope : ServiceScope) (handle : Nat) (value : Expr) :
+    TermElabM Expr := do
+  match scope.operandBinding with
+  | none => return value
+  | some binding =>
+    return ← mkAppM ``Trace.operationResult #[toExpr s!"{binding}:operand:{handle}", value]
+
 def serviceRegister (scope : ServiceScope) (wire : Wire) : TermElabM ServiceRequest.Operand := do
   checkServiceOwner scope.harness wire
   let handle ← scope.operands.modifyGet fun values => (values.size, values.push wire)
+  let value ← serviceOperandValue scope handle wire.value
+  if value != wire.value then Trace.alias (some scope.trace) wire.value value
   return {
-    value := wire.value, data := wire.json, handle
+    value := value, data := wire.json, handle
     ownership := wire.ownership
     form := some wire.form, context := wire.categoryContext }
 
 def serviceWire (scope : ServiceScope) (operand : ServiceRequest.Operand) : TermElabM Wire := do
   let some wire := (← scope.operands.get)[operand.handle]?
     | throwError "a typed service operand lost its retained occurrence handle"
-  unless wire.value == operand.value && wire.json == operand.data &&
+  unless (← serviceOperandValue scope operand.handle wire.value) == operand.value &&
+      wire.json == operand.data &&
       wire.ownership == operand.ownership do
     throwError "a typed service operand changed its retained occurrence"
   checkServiceOwner scope.harness wire
@@ -8083,6 +8381,8 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
           let data ← receiveReplyData h operation reply true
           pure { template with
             payload := .computed prepared.result data
+            pointDataInterface := (← if prepared.pointResult then
+              pointInvocationInterface prepared.result prepared.fragment else pure none)
             objectObserved := prepared.objectResult, callableObserved := prepared.callableResult }
   checkServiceOwner h result
   return { operation, input := input.id, request, dependencies, result }
@@ -8134,10 +8434,134 @@ partial def completeServiceReply (h : Harness) (trace : Trace)
       completed := true }
   return { data := result, backend := owner.map Prod.fst |>.getD backend }
 
-/-- Install the same typed service boundary for production claims and direct
-public Harness clients. Installation creates no second registry or selector. -/
+/-- Retain only full category contexts supplied by the original typed operands.
+An equal carrier or another registry object's declaration supplies no context. -/
+def derivationContexts (wires : Array (Expr × Wire)) :
+    TermElabM (Array CategoryContext × Array Language.Value) := do
+  let state ← registryState
+  let mut contexts : Array CategoryContext := #[]
+  let mut objects : Array Language.Value := #[]
+  for (key, wire) in wires do
+    let some category := state.categories.find? (·.id == wire.form.category) | continue
+    let candidate ← withoutModifyingState do
+      try
+        let context ← match wire.categoryContext with
+          | some context => pure context
+          | none => CategoryContext.ofNamed category wire.value
+        CategoryContext.checkObject context key
+        return some context
+      catch error =>
+        if Exception.interpretationKind error == .invalid then return none else throw error
+    if let some context := candidate then
+      unless contexts.any (· == context) do contexts := contexts.push context
+      if context.expression.syntacticEq category.expression then
+        objects := objects.push (.object key category none none none)
+  return (contexts, objects)
+
+/-- Execute a checked mathematical derivation using the ordinary typed readers,
+actions, operation observations and service executor. The complete input fixes
+the family application before the plan is specialized. All result data remain
+untrusted; the retained family proof relates formal expressions only.
+
+The finite family support graph rules out ungrounded cycles before expansion.
+A revisit can still terminate at a directly applicable primitive, because the
+ordinary dispatcher runs before this callback. Otherwise it is an explicit gap,
+even when a cyclic plan changes its arguments on every recursive call. -/
+partial def executeDerivedRequest (h : Harness) (trace : Trace)
+    (stack : Array ComputationRef) (operation : String) (input : Wire)
+    (_completeRequest : Bool) : TermElabM ComputationalReply := do
+  let state ← registryState
+  let some reference := (state.operation? operation).bind ComputationDerivation.reference?
+    | throwStratum .noImplementation m!"no admitted registration or published derivation computes {operation} on {input.form.id}"
+  if stack.contains reference then
+    throwStratum .noImplementation m!"cyclic computational derivation has no applicable primitive at {operation}; family path {stack.map ComputationDerivation.address}"
+  let entries ← computationDerivations
+  let support ← derivationSupport h entries (stack.push reference)
+  let candidates := (entries.filter fun entry => entry.target == reference &&
+    entry.prerequisites.all support.contains).qsort fun left right => left.id.raw < right.id.raw
+  if candidates.isEmpty then
+    let requested := entries.filter (·.target == reference)
+    let missing := requested.map fun entry => (entry.id.raw,
+      entry.prerequisites.filter (!support.contains ·) |>.map ComputationDerivation.address)
+    throwStratum .noImplementation m!"no finite primitive-supported computational derivation computes {operation} on {input.form.id}; missing or cyclic prerequisites {missing}"
+  let known ← serviceKnownInputs h input
+  let mut gaps : Array String := #[]
+  for entry in candidates do
+    let failures ← h.portFailures.get
+    try
+      let privateTrace ← IO.mkRef (← trace.get)
+      let operands ← IO.mkRef #[]
+      let binding ← mkFreshUserName `_computationalDerivation
+      let scope : ServiceScope := {
+        harness := h, trace := privateTrace, references := #[], known, operands
+        backend := s!"derivation:{entry.id.raw}", operandBinding := some binding.toString }
+      let prepared ← prepareServiceRequest scope operation input.form input.json
+      let some application := prepared.familyApplication
+        | throwStratum .noImplementation "the published request preparer does not retain a whole family application"
+      let checked ← validateComputationDerivation state.toSemanticState entry
+      let expansion ← ComputationDerivation.instantiate checked
+        (← instantiateMVars application) (← instantiateMVars prepared.result)
+      let originals ← (← operands.get).mapIdxM fun index wire => do
+        return (← serviceOperandValue scope index wire.value, wire)
+      let (contexts, knownObjects) ← derivationContexts originals
+      let calls ← IO.mkRef #[]
+      let compiler : ComputationDerivation.Compiler := {
+        trace := privateTrace, slots := expansion.slots
+        known := originals.map (·.1), knownObjects, contexts, calls }
+      let compiled ← ComputationDerivation.compile compiler expansion.expanded
+      ComputationDerivation.same expansion.expanded compiled
+      let calls ← calls.get
+      let index ← h.derivations.modifyGet fun records => (records.size, records.push {
+        derivation := entry.id, target := entry.target, application := expansion.application
+        original := expansion.original, identity := expansion.identity, input, prerequisites := calls })
+      let results ← IO.mkRef (originals.foldl
+        (fun cache (key, wire) => cache.insert key wire) ({} : Std.HashMap Expr Wire))
+      let active := { h with
+        results := results
+        demandObjectActions := true
+        derivation := some (executeDerivedRequest h privateTrace (stack.push reference)) }
+      let active := { active with deferred := some (completeServiceReply active privateTrace #[]) }
+      for call in calls do
+        let actual ← realize active privateTrace "the formal derivation's published prerequisite" call.result
+        let actual ← match call.reference with
+          | .operation _ | .morphism _ => realizeArrowObservation active privateTrace actual
+          | _ =>
+            if (Language.homEnds? (← inferType call.result)).isSome then
+              realizeArrowObservation active privateTrace actual
+            else realizeObjectObservation active privateTrace actual
+        checkServiceOwner active actual
+        results.modify (·.insert call.result actual)
+        h.derivations.modify fun records => records.modify index fun record =>
+          { record with steps := record.steps.push actual }
+      let result ← realize active privateTrace "the complete proved derivation" compiled
+      let result ← if prepared.callableResult then
+          realizeArrowObservation active privateTrace result
+        else if prepared.objectResult then realizeObjectObservation active privateTrace result
+        else pure result
+      checkServiceOwner active result
+      if let .error message ← prepared.complete result.json then
+        throwStratum .malformed m!"the completed derivation changes its original result interface: {message}"
+      let retained := { result with
+        payload := forwardPayload result expansion.original result.json
+        categoryContext := prepared.resultContext.orElse fun _ => result.categoryContext }
+      h.derivations.modify fun records => records.modify index fun record =>
+        { record with result := some retained }
+      let owner := match DataOwnership.owners result.ownership with
+        | #[owner] => some owner
+        | _ => none
+      return { data := result.fragment, backend := owner.map Prod.fst |>.getD scope.backend }
+    catch error =>
+      unless !Exception.hasConflictingStrata error &&
+          Exception.stratum? error == some .noImplementation &&
+          (← h.portFailures.get) == failures do throw error
+      gaps := gaps.push s!"{entry.id.raw}: {← error.toMessageData.toString}"
+  throwStratum .noImplementation m!"no applicable proved computational derivation computes {operation} on {input.form.id}; {gaps}"
+
+/-- Install the same typed service and derivation boundary for production claims
+and direct public Harness clients. No new mathematical selector is installed. -/
 def enableService (h : Harness) (trace : Trace) : Harness :=
-  { h with deferred := some (completeServiceReply h trace #[]) }
+  let active := { h with derivation := some (executeDerivedRequest h trace #[]) }
+  { active with deferred := some (completeServiceReply active trace #[]) }
 
 
 /-- Whether two closed values of a type with decidable equality are equal: the kernel accepts

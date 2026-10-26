@@ -45,12 +45,19 @@ run_elab do
     let opaqueData := fun token => Backend.ComputationalValue.encode (.opaque token)
     let sourceBackward := opaqueData "retained domain comparison"
     let targetForward := opaqueData "retained target comparison"
+    -- Each injected comparison fragment has the same explicit fixture supplier
+    -- as the component points. Equal token bytes never recover an absent owner.
+    let ownership := fun data => DataOwnership.capture data ("engineering-owner", 23)
     let source := { source with endpointPresentation := some {
       comparison := (← mkAppM ``CategoryTheory.Iso.refl #[domain]),
-      forward := opaqueData "domain inverse", backward := sourceBackward } }
+      forward := opaqueData "domain inverse", backward := sourceBackward
+      forwardOwnership := ownership (opaqueData "domain inverse")
+      backwardOwnership := ownership sourceBackward } }
     let target := { target with endpointPresentation := some {
       comparison := (← mkAppM ``CategoryTheory.Iso.refl #[apex]),
-      forward := targetForward, backward := opaqueData "target inverse" } }
+      forward := targetForward, backward := opaqueData "target inverse"
+      forwardOwnership := ownership targetForward
+      backwardOwnership := ownership (opaqueData "target inverse") } }
     let cold ← Harness.empty
     cold.results.modify (·.insert left first |>.insert right second
       |>.insert domain source |>.insert apex target)
@@ -65,4 +72,4 @@ run_elab do
     checked := true
     break
   unless checked do throwError "the probe did not exercise a typed product mediator"
-  logInfo "PASS: ordered product-point data, live ownership and complete endpoint presentations"
+  logInfo "PASS: ordered product-point data, retained ownership and complete endpoint presentations"

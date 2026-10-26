@@ -49,7 +49,7 @@ with that requirement.
 
 | Inspected mechanism | Applicable lesson and current kernel use | What the source does not establish |
 | --- | --- | --- |
-| CAP derivations record prerequisites, category getters, implementation functions, saturation and derivation trees. | Computational availability can follow the dependencies of a fixed operation. The service evaluates typed requests against existing published addresses and can report the missing dependency. | Computational weights cannot choose a mathematical route or replace its proof of applicability. The new deferred graph is not a claim that CAP's full saturation machinery has been implemented. |
+| CAP derivations record prerequisites, category getters, implementation functions, saturation and derivation trees. | The checked upstream computation catalogue now supplies whole-family plans and exact prerequisites. The kernel computes finite family support, compiles supported structural plans into existing reader records, and executes their transitive dependencies through ordinary typed requests. | Computational weights cannot choose a mathematical route or replace its proof of applicability. This finite support mechanism does not import CAP code or claim its complete derivation optimization machinery. |
 | GATlab makes a complete model explicit even when distinct models share native carriers. | `CategoryContext` retains the selected category dictionary; complete object and Hom checks use it. The cartesian-service control requires composition with this explicit dictionary. | A carrier type, native class, equal packet, or method name cannot identify the intended mathematical structure. |
 | `FunctorImageCache` retains the actual image of a selected source; selected transport initializes target computation with actual action data. | The shared action executor retains the original action, ordered parameters, actual source occurrence, image endpoints and supplier. Equal formal endpoints with different actual packets remain separate. | Historical selected-transport tests and a surviving implementation do not establish current combined acceptance. The current upstream TODO explicitly reopens that obligation. |
 | The Catlab adapter materializes identity/composite functors and executable natural-transformation composition, whiskering and horizontal composition. | The Lean runtime reuses its existing selected actions and `CellAction` component applications. Actual component computations must connect the retained images. | A retained formal natural isomorphism alone does not execute a conversion. No Catlab semantic registry is imported into the Lean kernel. |
@@ -98,6 +98,38 @@ action composition only.
 
 ## New code and current limits
 
+### Proof-bearing derivation closure checkpoint — 2026-10-26
+
+The independent mathematical owner supplies each target family, typed primitive
+slots, ordinary Lean plan and complete family identity. The kernel specializes
+that identity only at the original complete application. Its structural compiler
+reuses `Language.applyFamily`, `Semantic` actions and `Trace` records; it does not
+evaluate arbitrary Lean programs or infer a proof from returned data. The
+existing service prepares each exact request and preserves the actual scoped
+`Wire` occurrences, including structured results and their original suppliers.
+
+Finite family support and a family recursion guard close nested dependencies
+without relying only on request-value keys. Missing and cyclic prerequisites
+remain explicit gaps. Direct request admission still checks the actual form and
+owner. When one proved plan has an inapplicable prerequisite, another grounded
+plan may compute the same fixed family. A dispatched failure, including a leaf's
+unsupported reply, keeps its original failure instead of choosing another plan.
+
+The focused engineering module executes the ring multiplication plan using
+only the two forgetful action ports and the monoid multiplication port. It checks
+both nested identities, actual ownership and result reuse; reversed registration
+order gives the same calls. Separate controls cover full-family binding,
+alternative applicability, missing support, cycles with changed arguments, and
+wrong, malformed and unsupported replies. Existing deferred-service,
+mixed-ownership, operation-agreement and whole-operation controls pass unchanged.
+These arbitrary protocol processes establish runtime behavior, not mathematical
+correctness or independent acceptance. The public native primitive trial and
+the complete combined workflow remain separate integration evidence. Unsupported
+plan syntax and unavailable prescribed-lift/method-map compilation are reported
+as gaps, not supplied by an invented evaluator.
+
+### Earlier action and deferred-service checkpoints
+
 The published action boundary at `4fb1aa9` supplies actual object and whole-map
 execution, derived classifier/constructor action addresses, retained images and
 supplier-aware data. Its focused process controls and combined consumer build
@@ -115,9 +147,10 @@ executed the complete runtime service.
 
 Runtime DAG execution, actual cross-process ownership and bridge handling,
 declaration-derived regressions, the independent frozen source/target trial,
-connected real-engine workflows and the full unchanged fixed-question runs are
-still integration obligations. The old historical positives, the new source
-checks and a source push must not be reported as satisfying those obligations.
+connected real-engine workflows and the full unchanged fixed-question runs were
+integration obligations at that checkpoint. Their combined current verdict
+requires the corresponding runs; the historical positives, new source checks
+and a source push must not be reported as satisfying those obligations.
 
 The service adds computational orchestration around the existing owners. It
 accepts no caller-selected result type, backend selector, Lean proof, equality

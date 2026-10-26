@@ -795,3 +795,69 @@ These measurements use the complete original preceding scope and a fresh trace
 and closed-term cache for each statement. They close the remaining measured
 reader failures; full typed export, real execution and independent mathematical
 acceptance are separate obligations.
+
+## Inferred family endpoints retain their actual object-action sources (2026-10-26)
+
+### Queries
+
+The corpus queries `functor object forgetful carrier identity` and `Functor.obj forget`,
+and local searches for `completeParameterObjects`, `structuredParameterView`,
+`selectedParameterFromWitnesses`, `retainedCarrierRoute`, `identityCarrierView`,
+`recognizeObjectApplication`, and `Semantic.objOf` identify the existing owners.
+No new mathematical map, carrier identification, or proof procedure is required.
+
+### Owner
+
+Upstream registered morphism families determine their complete dependent parameters.
+`Semantic.objOf` elaborates an actual object action as an explicit `Prefunctor.obj`
+application. The language's `recognize` retains an already supplied complete parameter;
+`selectedParameterFromWitnesses` checks that same whole parameter against the supplied
+sources and retains its actual structural action when a source view is still missing.
+`coalesceSelectedParameterViews` preserves every checked source presentation. The
+ordinary carrier and coercion readers consume the resulting retained data.
+
+### New code
+
+When a family must reconstruct its result endpoint, `completeParameterObjects` now
+reuses those readers for explicit object-action parameters before adding a bare
+parameter witness. Previously it discarded the actual ring-to-monoid action after
+the variable-exponent family had already selected its complete monoid. Its result
+carrier therefore lost the named power-series origin, and the original series binder
+could not pass that summand to its independently specified target.
+
+A complete result target supplied by the caller already retains its own endpoint
+context. `applyFamily` keeps that value and the original parameter-witness path.
+Other complete bundled parameters also retain their ordinary endpoint reading. A
+profile of the unchanged RX-LIFT pairing finds `CommRingCat.of` and `ModuleCat.mk`
+parameters reconstructed from the supplied category fields; trying to discover new
+source views for those fixed bundles adds unnecessary work. The actual object-action
+boundary distinguishes these cases without naming a question, operation, or category.
+
+The repair retains every original supplied context and fixes the complete structure
+before checking its source actions. It leaves `identityCarrierView`, `coercionMap`,
+accepted comparisons, and ambiguity controls unchanged. Rejected broader prototypes
+produced determinant ambiguity or ordinary-budget timeouts; their exact measured
+sources and failed logs remain in the separate engineering evidence archive.
+
+The unchanged `DependentReaderProbes`, `ParameterStructureProbes`,
+`SelectedCarrierProbes`, `DeclaredContextBindingProbes`, `ClosedBindingReadingProbes`,
+and `ReaderContextContinuityProbes` pass. The exact original power-series expression
+also passes its narrow reproduction. All eight original final RX-LIFT readings pass
+with their complete preceding scope, a fresh trace and cache for each statement,
+and the ordinary 200000-heartbeat limit:
+
+| Original line | Heartbeats |
+|---|---:|
+| 127 | 166254 |
+| 130 | 176210 |
+| 133 | 180540 |
+| 136 | 135329 |
+| 146 | 119391 |
+| 149 | 133742 |
+| 152 | 192521 |
+| 155 | 192526 |
+
+These are isolated reader engineering checks. They preserve the original questions,
+selected structures, complete contexts, expectations, and budgets. Full native
+integration, typed question export, execution, and independent mathematical acceptance
+remain separate observations.

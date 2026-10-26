@@ -13,6 +13,25 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.ServiceRequest
 
+/-- Closed point invocations use the singleton domain selected by the registry. -/
+def closedElementDomain : TermElabM Expr := do
+  let object ← Language.oneObject.run {}
+  (Language.semanticObject object).run {}
+
+/-- The original formal point fixes its result interface before any reply. A
+generalized map keeps its full Hom type; a closed point uses the already selected
+global point. This is shared with the ordinary operation observer. -/
+def pointResultValue (point : Expr) : TermElabM Expr := do
+  let some (domain, target) := Language.homEnds? (← inferType point)
+    | throwError "the requested point result lost its complete categorical endpoints"
+  unless ← withTransparency .all <| isDefEq domain (← closedElementDomain) do
+    return point
+  let action ← Language.functionOf point
+  let value := mkApp action (← Language.globalPoint.run {})
+  unless ← withTransparency .all <| isDefEq (← inferType value) target do
+    throwError "the requested point result changed its declared target"
+  return value
+
 /-- A typed operand supplied by the runtime. `handle` identifies its exact retained
 Wire occurrence; this module neither owns nor reconstructs backend/session data. -/
 structure Operand where
@@ -90,6 +109,9 @@ structure Prepared where
   requestValue : Expr
   request : Json
   result : Expr
+  /-- Exact complete declaration application selected before any execution.
+  A proof-bearing derivation may specialize only this family occurrence. -/
+  familyApplication : Option Expr := none
   resultForm : Form
   dependencies : Array Operand
   /-- Suppliers at the exact positions of the assembled public `request`. -/
@@ -97,6 +119,9 @@ structure Prepared where
   resultContext : Option CategoryContext := none
   objectResult : Bool := false
   callableResult : Bool := false
+  /-- This preparer's completion validates a datum at the selected closed-point
+  target, rather than a whole callable. Runtime reuse retains that exact role. -/
+  pointResult : Bool := false
   action : Option ActionPlan := none
   /-- Existing semantic execution can own method/property routing and prescribed
   lifts. The runtime seeds this private trace with the exact retained operands. -/

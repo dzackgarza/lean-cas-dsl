@@ -1,5 +1,67 @@
 # Journal
 
+## 2026-10-26 — Prepare complete requests and reuse completed creation images
+
+Complete operation preparation now preserves the selected public composite without
+requiring a separate implementation for every structural parameter action. The
+outer observers and explicit executors retain their action demands and shared
+actual-result cache. Completed creations are also retained at their exact actual
+apex. Their exact registered creating functor projects the actual supplied lower
+cone with complete action, type and target checks and original occurrence owners.
+No selected structure is recovered from equal carriers or equal reply bytes.
+
+The focused compile and unchanged deferred-service and whole-operation controls
+pass. The original four connected workflows produce 11 holds and 6 gaps across
+17 unchanged assertions, with 39 dispatches; finite construction/reuse and all
+four F9 transport assertions hold. The remaining rational-composition and matrix
+parameter defects are still assigned. The earlier 3/17 run and unsuccessful
+cache-only attempt remain recorded. This checkpoint does not claim final native,
+notebook, independent meaning or V1 acceptance.
+
+## 2026-10-26 — Retain ownership in injected product comparisons
+
+The full native build found an engineering fixture that constructed opaque
+endpoint-comparison packets without recording their supplier. The fixture now
+assigns every comparison occurrence the same explicit fixture owner as its
+component points. Its original ordered data, exactly-once endpoint composition,
+formal value, framing and owner assertions are unchanged and pass against the
+published runtime. This pure framing check establishes no live backend result;
+its log now states retained ownership accurately. The native failure is preserved,
+and the separate original power-series reader failure remains assigned work.
+
+## 2026-10-26 — Validate public structural records at fixed field types
+
+The public record codec permits carrier and callable data fields, but the scalar
+point-schema path could not validate those complete records. A generic traversal
+now uses Lean's existing structure metadata and projections of the independently
+fixed receiver. It checks every ordered non-proposition field recursively, keeping
+single-field elision and rejecting missing/extra data. Returned packets never
+construct a formal value, proof, selected structure, or another field's type.
+Opaque occurrences retain their independent live-session ownership checks.
+
+The focused compiler and malformed-record checks pass at the unchanged budget.
+The original portable extent and mixed-session ownership controls pass. The
+first mixed-owner invocation lacked the restored public Python helper path; a
+second passed but its source guard caught a concurrent documentation update. Both
+records are retained. The final rerun passes with the explicit contract path and
+unchanged source state. Actual public primitive execution remains a separate
+integration obligation. Failed compiler/probe attempts are preserved and no
+acceptance assertion was changed.
+
+## 2026-10-26 — Retrieve exact review inputs from shallow source checkouts
+
+The independent review's trusted input helper could not snapshot a shallow local
+checkout: Git returned success from fetch while rejecting the shallow boundary,
+leaving FETCH_HEAD absent. Retrieval now accepts that boundary with the existing
+fetch operation. The exact event SHA, complete regular-file tree validation,
+hook/filter isolation and no-candidate-execution rules remain unchanged.
+
+The original hostile-link/filter/moved-reference controls and a new depth-one
+source check both pass. The new check verifies exact bytes and HEAD, and retains
+rejection of a different expected SHA before exposing candidate data. This is an
+input-availability repair only. It supplies no review verdict and does not install
+a replacement evaluator or change independent acceptance authority.
+
 ## 2026-10-26 — Close the remaining original final reader samples
 
 The two remaining final factor samples exceeded the ordinary reader budget
@@ -3478,3 +3540,99 @@ same-packet distinct selected occurrences. Earlier control layout errors and
 an incompletely framed arbitrary cone were preserved. This is a checked kernel
 increment, not independent mathematical acceptance or completion of the remaining
 released service data roles.
+
+## 2026-10-26 — Execute checked computational derivation closure
+
+The kernel now consumes the independently authored upstream computation
+catalogue's complete family plans and correctness identities. A finite support
+calculation and family recursion guard reject missing or cyclic dependencies;
+the compiler records supported structural plans through the existing reader and
+action owners. Exact request preparation fixes the declaration, universes,
+parameters and endpoints before specialization. Original operand occurrences
+retain their unchanged actual Wires, structured packets and live suppliers.
+Every primitive uses ordinary admission and validation. A dispatched failure
+cannot select another plan, and a wrong packet is not replaced by the formal
+identity. Shared closed-point service completion now uses the existing point
+result interface.
+
+The isolated focused engineering checks pass for nested primitive-only
+execution, registration-order reversal, an alternative after exact-form
+inapplicability, missing/cyclic support, changed recursive parameters, complete
+family binding refusals, actual ownership, result reuse, and wrong, malformed
+and unsupported replies. Original deferred-service, mixed-data-ownership,
+operation-agreement and whole-operation controls pass unchanged. The public
+primitive trial remains separate engineering evidence for integration; no
+independent mathematical acceptance or complete native workflow is claimed.
+Unsupported plan syntax and unavailable prescribed-lift/method-map compilation
+remain explicit gaps. Fixed mathematical questions, expectations and ordinary
+budgets were not changed.
+
+## 2026-10-26 — Retain source actions for inferred family endpoints
+
+A family result whose complete parameter is an actual object-action image now retains
+its supplied source and structural route through the existing checked parameter-view
+owners. The original variable-exponent power-series summand had lost that route when
+the full selected monoid was stored as a bare parameter. The ordinary carrier reader
+can now recover its declared named carrier from the retained full source action.
+Explicit complete targets and other fixed bundled parameters keep their existing
+endpoint path, avoiding redundant structural searches in dependent formed maps.
+
+The unchanged full dependent-reader, parameter-structure, selected-carrier,
+declared-context, closed-binding, and context-continuity probes pass. All eight original
+final RX-LIFT readings retain their complete preceding scope and fit the unchanged
+200000-heartbeat budget (maximum 192526). Broader rejected prototypes and their original
+determinant/timeout failures are preserved in the engineering evidence archive. No
+mathematical definition, fixed question, expected answer, selected structure, ambiguity
+control, caller budget, or shared dependency is changed by this reader repair.
+
+This closes the concrete native-build reader regression and its focused existing
+controls. Full native integration, typed export, execution, and independent acceptance
+are maintained separately by the integration owner.
+
+## 2026-10-26 — Reuse exact exposed records and their operation endpoints
+
+Selected structural actions can now project or assemble the actual fields of
+an already returned public record. Inspection uses a fresh symbolic receiver,
+so coincident actual fields cannot choose a projection. Complete point and
+whole-callable operation requests use the same declaration-derived projection
+for exposed endpoint carriers and their products. Opaque whole records stay
+opaque, and every projected occurrence retains its original supplying session.
+There is no new public data grammar, mathematical declaration, interpretation
+rule, canonical answer, or carrier-equality fallback.
+
+The structural projection and ownership controls pass, including equal opaque
+bytes from three suppliers, malformed arrays and an opaque single-field record.
+Original functor-action and whole-operation controls pass under unchanged
+budgets. The final Realize compile took 53.573 seconds and the last whole-operation
+run 4.460 seconds with unchanged source. An earlier rerun omitted its public
+protocol environment and is retained as unavailable. The public-only primitive
+trial now reaches a multiplication request whose complete source and target
+contain the actual returned carrier fields; its unsupported reply remains open
+execution work. No fixed mathematical input or expected answer changed.
+
+## 2026-10-26 — Preserve completed point roles and selected matrix rows
+
+Completed point replies now retain their independently fixed complete endpoints
+and exact scoped endpoint packets. A later whole-map consumer embeds that
+actual datum through the released typed-map/finite-graph interface using the
+supplied singleton inventory. Exact inventory projections retain key owners
+independently of equal returned-point bytes. Ordinary point arguments and the
+original ordered-product presentation remain unchanged. Missing inventories and
+changed complete targets are refused; no mathematical answer is substituted.
+
+The existing selected `Mat(n,K)` reader branch now precedes anonymous
+finite-function inspection, preserving the selected `Vec(K,n)` row presentation
+and coefficient object through parameter execution. All three original matrix
+assertions hold with 36 actual dispatches. All four original presentation
+assertions hold with 14 actual dispatches. New role/ownership controls and the
+unchanged product-point, whole-operation, deferred-service and derivation
+controls pass under the ordinary budgets in the isolated corrected-mathematics
+environment. One compile whose source guard changed was invalidated and retained
+as failed evidence; the final compile and controls have stable source guards.
+
+The three original rational composition assertions still stop earlier at a
+separate complete numeral-owner ambiguity with the wider corrected catalogue.
+Its exact Ring and inherited Semiring candidates were captured without changing
+selection or assertions and are assigned to the next reader increment. This is
+implementation evidence, not independent mathematical acceptance or complete V1
+integration. No protected input, expectation, registration or leaf source changed.

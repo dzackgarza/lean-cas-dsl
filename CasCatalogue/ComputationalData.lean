@@ -595,6 +595,133 @@ def validateLiftContext (tag : String) (args : Array Json) (data : Json)
     if let .error message ← validate datum then return .error message
   return .ok ()
 
+/-- Inspect a released record through the independently fixed receiver. The
+callback checks only data framing at those complete projection types; no reply
+field is used to choose another field's type or reconstruct a proof. Keeping this
+structural traversal outside the recursive validator also avoids enlarging its
+compiler group. -/
+def validateRecordPortWith (formal expected : Expr) (json : Json)
+    (objects : InterfaceObjects)
+    (validate : Expr → Expr → Json → InterfaceObjects → TermElabM (Except String Unit)) :
+    TermElabM (Option (Except String Unit)) := do
+  let shape ← withTransparency .all <| whnf expected
+  let some name := shape.getAppFn.constName? | return none
+  let some info := getStructureInfo? (← getEnv) name | return none
+  let mut fields := #[]
+  for field in info.fieldNames do
+    let projection ← withTransparency .all <| mkProjection formal field
+    let type ← instantiateMVars (← inferType projection)
+    unless ← isProp type do fields := fields.push (projection, type)
+  let data ← if fields.size == 1 then pure #[json]
+    else match json.getArr? with
+      | .ok data => pure data
+      | .error _ => return some (.error "computational record fields require an array")
+  unless data.size == fields.size do
+    return some (.error "the computational record omitted or added data fields")
+  for ((projection, type), data) in fields.zip data do
+    if let .error message ← validate projection type data objects then
+      return some (.error message)
+  return some (.ok ())
+
+/-- A structural field step records its position among data fields and the
+complete number of such fields. Proof fields are never computational slots. -/
+abbrev RecordFieldPath := Array (Nat × Nat)
+
+/-- A public structural action may project retained fields or assemble another
+record from those fields. This plan contains only data positions, never a formal
+value, proof, evaluator, or mathematical operation. -/
+inductive RecordProjectionPlan where
+  | input (path : RecordFieldPath)
+  | record (fields : Array RecordProjectionPlan)
+
+/-- Read a projection chain on a fresh symbolic receiver. Equal actual field
+values cannot make a different projection match this chain. -/
+partial def recordFieldPath? (receiver selected : Expr) :
+    TermElabM (Option RecordFieldPath) := do
+  let selected ← withTransparency .all <| whnf selected
+  if selected == receiver then return some #[]
+  let .proj name index parent := selected | return none
+  let some initial ← recordFieldPath? receiver parent | return none
+  let some info := getStructureInfo? (← getEnv) name | return none
+  let mut count := 0
+  let mut position := none
+  for offset in [:info.fieldNames.size] do
+    let field ← withTransparency .all <| mkProjection parent info.fieldNames[offset]!
+    unless ← isProp (← inferType field) do
+      if offset == index then position := some count
+      count := count + 1
+  let some selectedPosition := position | return none
+  return some (initial.push (selectedPosition, count))
+
+/-- Compile only the structural field part of an independently selected action.
+Every output data field must be a projection of the original receiver. No closed
+constant, arithmetic application, proof, or arbitrary Lean body is evaluated. -/
+partial def recordProjectionPlan? (receiver selected : Expr)
+    (seen : Array Expr := #[]) : TermElabM (Option RecordProjectionPlan) := do
+  let selected ← withTransparency .all <| whnf selected
+  if let some path ← recordFieldPath? receiver selected then return some (.input path)
+  if seen.contains selected then return none
+  let type ← withTransparency .all <| whnf (← inferType selected)
+  let some name := type.getAppFn.constName? | return none
+  let some info := getStructureInfo? (← getEnv) name | return none
+  let mut fields := #[]
+  for field in info.fieldNames do
+    let projection ← withTransparency .all <| mkProjection selected field
+    unless ← isProp (← inferType projection) do
+      let some plan ← recordProjectionPlan? receiver projection (seen.push selected)
+        | return none
+      fields := fields.push plan
+  return some (.record fields)
+
+/-- Open only the public inline envelope, retaining its exact occurrence path. -/
+partial def recordPayload? (data : DataOwnership.Data) : Option DataOwnership.Data := do
+  if (data.json.getObjValAs? String "ctor").toOption == some "valueData" then
+    let args ← ((data.json.getObjVal? "args").bind (·.getArr?)).toOption
+    unless args.size == 1 do none
+    return ← recordPayload? (← (data.project #[.field "args", .index 0]).toOption)
+  return data
+
+/-- Apply a structural plan to actual public record data. A symbolic descriptor
+or a whole opaque record has no exposed fields; its usual action port remains
+necessary. Nested fields retain their individual supplying sessions. -/
+partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
+    (data : DataOwnership.Data) : Option DataOwnership.Data := do
+  match plan with
+  | .input path =>
+    let mut selected := data
+    for (index, count) in path do
+      selected ← recordPayload? selected
+      if (selected.json.getObjValAs? String "ctor").toOption == some "opaqueData" then none
+      if count == 1 then
+        unless index == 0 do none
+      else
+        let fields ← selected.json.getArr?.toOption
+        unless fields.size == count do none
+        selected ← (selected.project #[.index index]).toOption
+    return selected
+  | .record fields =>
+    let fields ← fields.mapM (fun field => field.apply? data)
+    if fields.size == 1 then return fields[0]!
+    return DataOwnership.Data.array fields
+
+/-- A complete callable signature can expose its selected record's carrier or
+products of those carriers. Preserve the supplied field packets rather than
+recovering another presentation from an equal formal carrier. -/
+partial def recordEndpointData? (receiver endpoint : Expr) (data : DataOwnership.Data) :
+    TermElabM (Option DataOwnership.Data) := do
+  if let some plan ← recordProjectionPlan? receiver endpoint then
+    if let some result := plan.apply? data then return some result
+  let endpoint ← withTransparency .all <| whnf endpoint
+  if endpoint.isAppOfArity ``Prod 2 then
+    let fields := endpoint.getAppArgs
+    let some left ← recordEndpointData? receiver fields[0]! data | return none
+    let some right ← recordEndpointData? receiver fields[1]! data | return none
+    let fields := DataOwnership.Data.array #[left, right]
+    return some {
+      json := Json.mkObj [("ctor", toJson "objectProduct"), ("args", fields.json)]
+      ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+  return none
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -1003,6 +1130,14 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       if let some literal := inlineLiteralData? json then
         return (← Codec.decode expectedType literal).map fun _ => ()
     return .ok ()
+  -- A released structural record may contain types and dependent callable
+  -- fields. Its independently fixed formal receiver supplies each projection's
+  -- complete type; the reply supplies only data in the published field order.
+  -- No constructor or proof is reconstructed from that data. In particular an
+  -- opaque carrier cannot select the types or laws of later record fields.
+  if let some result ← validateRecordPortWith formalField expectedType json objects
+      (fun formal type data inputs => validatePort formal type data inputs) then
+    return result
   return .error "the computational port has no supported released data representation"
 
 /-- A finite map is complete at its actual supplied domain. Inventories are

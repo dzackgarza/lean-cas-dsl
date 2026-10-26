@@ -14,11 +14,14 @@ public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.FunctorActionExecutionProbes
 public import CasAcceptance.Kernel.DerivedActionExecutionProbes
 public import CasAcceptance.Kernel.DeferredServiceProbes
+public import CasAcceptance.Kernel.ComputationDerivationProbes
 public import CasAcceptance.Kernel.MixedDataOwnershipProbes
 public import CasAcceptance.Kernel.ServiceProjectionProbes
 public import CasAcceptance.Kernel.StructuredServiceRequestProbes
+public import CasAcceptance.Kernel.StructuredRecordDataProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
+public import CasAcceptance.Kernel.ComputedPointFramingProbes
 public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
 public import CasAcceptance.Kernel.CompleteNamedDataProbes
 public import CasAcceptance.Kernel.RetainedConstructionDataProbes

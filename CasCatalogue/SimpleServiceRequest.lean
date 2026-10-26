@@ -34,6 +34,11 @@ def completePort (formal : Expr) (dependencies : Array Operand) (answer : Json) 
 def completeMap (formal : Expr) (source target : Json)
     (dependencies : Array Operand) (answer : Json) :
     TermElabM (Except String (Option StructuredResult.Result)) := do
+  let some (domain, endpoint) := Language.homEnds? (← inferType formal)
+    | throwError "the prepared callable lost its complete original Hom type"
+  if ← withTransparency .all <| isDefEq domain (← ServiceRequest.closedElementDomain) then
+    return (← ComputationalData.validateElementAt endpoint target
+      (← ServiceRequest.pointResultValue formal) answer).map fun _ => none
   return (← ComputationalData.validateEndpointPort formal source target answer
     (dependencies.map fun operand => (operand.data, operand.value))).map fun _ => none
 
@@ -179,6 +184,7 @@ def objectAction (decoder : Decoder) (operation : Operation) (input : Form)
   let dependencies := selected.dependencies.push original
   return {
     requestValue := original.value, request, requestOwnership, result := formal
+    familyApplication := selected.declarations[0]?.map (·.value)
     resultForm := formFor (← registryState) target input
     dependencies, resultContext := some target, objectResult := true
     action := some (.object selected.value original parameters selected.dependencies)
@@ -244,8 +250,11 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     argument.ownership == argsOwnership #[imageSourceData.ownership, imageSourceData.ownership]
   return {
     requestValue := formal, request, requestOwnership, result := formal
+    familyApplication := selected.declarations[0]?.map (·.value)
     resultForm := formFor (← registryState) target input true
     dependencies, resultContext := some target, callableResult := true
+    pointResult := (← withoutModifyingState <| withTransparency .all <|
+      isDefEq domain.value (← ServiceRequest.closedElementDomain))
     action := if whole then some (.wholeMap selected.value source target original
       selected.descriptor parameters selected.dependencies imageSourceData imageTargetData)
       else none
@@ -293,8 +302,11 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
   let dependencies := application.operands ++ #[sourceData, targetData, arrow, domain, argument]
   return {
     requestValue := formal, request, requestOwnership, result := formal
+    familyApplication := some formalArrow
     resultForm := formFor state context input true
     dependencies, resultContext := some context, callableResult := true
+    pointResult := (← withoutModifyingState <| withTransparency .all <|
+      isDefEq domain.value (← ServiceRequest.closedElementDomain))
     complete := completeMap formal domain.data targetData.data dependencies }
 
 /-- Methods and properties retain the existing semantic route and ordinary
@@ -310,8 +322,11 @@ def semanticRequest (decoder : Decoder) (operation : Operation) (input : Form)
   | .method entry =>
     let (result, context) ← Semantic.methodIn entry.name original.value expression (some trace)
     let result ← checkClosed result
+    let familyApplication := (FunctorActionData.objectAction? result).bind fun (action, _) =>
+      FunctorActionData.directActionDeclaration? state action
     return {
       requestValue := original.value, request := original.data, result
+      familyApplication
       requestOwnership := original.ownership
       resultForm := formFor state context input
       dependencies := #[original], resultContext := some context

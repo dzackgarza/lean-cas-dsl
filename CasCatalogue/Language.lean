@@ -5017,6 +5017,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   let mut endpointWitnesses := parameters ++ operandObjects ++ target?.toArray
   if operationId.isNone then
     endpointWitnesses ← completeParameterObjects (← args.mapM instantiateMVars) endpointWitnesses
+      (retainActionSources := target?.isNone)
   -- A selected operation already supplies its complete heterogeneous parameters.
   -- Retain those objects before reading the operand endpoints; otherwise a scalar
   -- endpoint can be forced back through an unrelated presentation of its module.
@@ -5741,20 +5742,25 @@ set its entries are in. -/
 partial def matrix (scope : Scope) (rows : Array (Array Syntax)) (ambient? : Option Value) :
     M Value := do
   let n := rows.size
-  if let some target := ambient? then
-    if let some (rowCount, rowObject) ← finiteFunctionContext target then
-      let some (columnCount, _) ← finiteFunctionContext rowObject
-        | throwStratum .invalid m!"a declared matrix has two finite-function dimensions"
-      unless rowCount == n && rows.all (·.size == columnCount) do
-        throwStratum .invalid m!"the declared matrix has {rowCount} rows and {columnCount} columns"
-      let rowValues ← rows.mapM fun row => tuple scope row (some rowObject)
-      return ← declaredResult (← tupleOf rowValues rowObject) target
-  unless rows.all (·.size == n) do
-    throwStratum .invalid m!"a matrix `[…; …]` is square: {n} rows of {n} entries"
   let K? := match ambient? with
     | some (.object _ _ (some (entry, #[.nat m, K])) _ _) =>
         if entry.name == "Mat" && m == n then some K else none
     | _ => none
+  -- An explicitly selected matrix already supplies its complete coefficient
+  -- object and registered row construction. Preserve that existing path before
+  -- inspecting an anonymous finite-function carrier, which loses the selected
+  -- row presentation when the matrix is reduced to nested function types.
+  if K?.isNone then
+    if let some target := ambient? then
+      if let some (rowCount, rowObject) ← finiteFunctionContext target then
+        let some (columnCount, _) ← finiteFunctionContext rowObject
+          | throwStratum .invalid m!"a declared matrix has two finite-function dimensions"
+        unless rowCount == n && rows.all (·.size == columnCount) do
+          throwStratum .invalid m!"the declared matrix has {rowCount} rows and {columnCount} columns"
+        let rowValues ← rows.mapM fun row => tuple scope row (some rowObject)
+        return ← declaredResult (← tupleOf rowValues rowObject) target
+  unless rows.all (·.size == n) do
+    throwStratum .invalid m!"a matrix `[…; …]` is square: {n} rows of {n} entries"
   let rowAmbient ← match K? with
     | some K => some <$> object (← registryState) "Vec" #[K, .nat n] none
     | none => pure none
@@ -5845,7 +5851,7 @@ partial def invariantApplication (entry : MorphismEntry) (A : Value) :
 /-- Complete declaration parameters are endpoint witnesses in their actual registered
 categories. All original supplied context remains available beside these full values. -/
 partial def completeParameterObjects (parameters : Array Expr)
-    (known : Array Value) : M (Array Value) := do
+    (known : Array Value) (retainActionSources : Bool := true) : M (Array Value) := do
   let state ← registryState
   let mut known := known
   for parameter in parameters do
@@ -5855,7 +5861,19 @@ partial def completeParameterObjects (parameters : Array Expr)
       return !context.bundle.hasMVar && !context.bundle.hasLevelMVar
     match applicable with
     | #[parameterCategory] =>
-        let value := Value.object parameter parameterCategory none none none
+        let plain := Value.object parameter parameterCategory none none none
+        -- `Semantic.objOf` supplies the actual action expression. Keep its source
+        -- view when the family fixes that full image; other complete parameters
+        -- keep their ordinary endpoint reading without a new structural search.
+        let value ← if retainActionSources && parameter.consumeMData.isAppOf ``Prefunctor.obj then do
+            let recognized ← optionalReading
+              (recognize state parameter parameterCategory known parameters)
+            match recognized with
+            | some value => pure value
+            | none =>
+                let selected ← selectedParameterFromWitnesses state parameter parameterCategory known
+                pure (selected.getD plain)
+          else pure plain
         unless known.any (·.sameSource value) do known := known.push value
     | #[] => pure ()
     | _ => throwSemanticAmbiguity "a complete declared parameter has several object categories"
