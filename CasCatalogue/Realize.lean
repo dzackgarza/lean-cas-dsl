@@ -5079,8 +5079,8 @@ partial def contextualComposition (h : Harness) (trace : Trace) (formal : Expr)
     throwError "the contextual composition changed its fixed categorical value"
   let a ← realize h trace "the complete first contextual map" first
   let b ← realize h trace "the complete second contextual map" second
-  let (firstData, firstDependencies) ← frameMorphismFragment h trace source middle a (pointAsMap := true)
-  let (secondData, secondDependencies) ← frameMorphismFragment h trace middle target b (pointAsMap := true)
+  let (firstData, firstDependencies) ← frameMorphismFragment h trace source middle a (some context) (pointAsMap := true)
+  let (secondData, secondDependencies) ← frameMorphismFragment h trace middle target b (some context) (pointAsMap := true)
   let selected ← match ← trace.node? second with
     | some (.cellComponent id params constructors inverse receiver) => do
       let some entry := state.cells.find? (·.id == id)
@@ -6177,6 +6177,13 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       presentMorphism point source target
   | .morphismComposition categoryId first second source middle target =>
       let some category := state.categories.find? (·.id == categoryId) | unreachable!
+      -- The recorded composition, not a child data form, selects this full
+      -- category. A point in a declared Hom object can carry a reduced bundled
+      -- map type while still being exactly this independently selected arrow.
+      let context ← CategoryContext.ofNamed category source
+      CategoryContext.checkMorphism context first source middle
+      CategoryContext.checkMorphism context second middle target
+      CategoryContext.checkMorphism context e source target
       let specialized ← match ← (trace.node? second : IO _) with
         | some (.constructionMap id params _ _ _) => do
           if h.demandObjectActions then pure none
@@ -6222,6 +6229,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let data ← receiveReplyData h address reply
         let result : Wire := {
           form := .canonicalMorphism category, payload := .computed e data
+          categoryContext := some context
           pointDataInterface := (← pointInvocationInterface e input.fragment) }
         return result
       let callable ← match ← (trace.node? second : IO _) with
@@ -6250,8 +6258,8 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let targetWire ← realizeEndpoint h trace "the applied operation target" target
         let operationWire ← realize h trace "the complete applied operation" second
         let (arrow, operationEndpoints) ← frameMorphismFragment h trace middle target operationWire
-          (pointAsMap := true)
-        let (argumentData, argumentEndpoints) ← frameMorphismFragment h trace source middle argument
+          (some context) (pointAsMap := true)
+        let (argumentData, argumentEndpoints) ← frameMorphismFragment h trace source middle argument (some context)
         let requestData ← pointInvocationData address parameters arrow domainWire.fragment
           sourceWire.fragment targetWire.fragment argumentData
         let payload ← combinedPayload e requestData
@@ -6272,6 +6280,7 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         let data ← receiveReplyData h address reply
         return {
           form := .canonicalMorphism category, payload := .computed e data
+          categoryContext := some context
           pointDataInterface := (← pointInvocationInterface e request.fragment)
           morphismFramed := true }
       let a ← realize h trace "the first composed map" first
@@ -6282,11 +6291,15 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         throwError "the second computed arrow changed its fixed endpoints"
       let value ← mkAppM ``CategoryTheory.CategoryStruct.comp #[a.value, b.value]
       discard <| StructuredResult.checkReconstruction value
-      let (firstData, firstEndpoints) ← frameMorphismFragment h trace source middle a (pointAsMap := true)
-      let (secondData, secondEndpoints) ← frameMorphismFragment h trace middle target b (pointAsMap := true)
+      let (firstData, firstEndpoints) ← frameMorphismFragment h trace source middle a (some context) (pointAsMap := true)
+      let (secondData, secondEndpoints) ← frameMorphismFragment h trace middle target b (some context) (pointAsMap := true)
       let json ← scopedNode "compose" #[firstData, secondData]
       let payload ← combinedPayload e json (#[a, b] ++ firstEndpoints ++ secondEndpoints)
-      return { form := .canonicalMorphism category, payload, morphismFramed := true }
+      return {
+        form := .canonicalMorphism category
+        payload
+        morphismFramed := true
+        categoryContext := some context }
   | .presentation id params inverse =>
       let some entry := state.presentations.find? (·.id == id) | unreachable!
       let (args, dependencies) ← realizedParameterData h trace params

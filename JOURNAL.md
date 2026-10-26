@@ -1,5 +1,19 @@
 # Journal
 
+## 2026-10-26 — Carry the recorded full category through composition framing
+
+A complete bundled map supplied as a Hom-object point retained a Sets data form,
+while the enclosing composition had already selected its actual Group category.
+The executor now validates and carries that independently selected full context
+through both original map frames and the result. The contextual composition path
+uses its existing checked context. No carrier-based category recovery is added.
+
+The isolated compiler and two original control modules pass after a preserved
+record-layout syntax failure. The entire original 14-ID RX03 run has unchanged
+question bytes and stable guards. Both internal framing errors become explicit
+missing-callable results, leaving 11 gap and 3 unavailable; exit zero does not
+mean those questions hold. Full combined tuple validation remains pending.
+
 ## 2026-10-26 — Prepare complete requests and reuse completed creation images
 
 Complete operation preparation now preserves the selected public composite without
