@@ -157,14 +157,17 @@ run_elab do
     catch _ => pure true
     unless wrongEnds do
       throwError "whole-arrow transport accepted a comparison at different complete endpoints"
-    let foreign := { targetWire with
+    let relabeledPortable := { targetWire with
       payload := .computed target (.owned "foreign-presentation" 92 targetWire.json) }
-    let failure ← try
-      discard <| Realize.presentMorphism input sourceWire foreign
-      pure none
-    catch error => pure (CasCatalogue.Exception.stratum? error)
-    unless failure == some .unavailable do
-      throwError "whole-arrow transport combined distinct opaque owning sessions"
+    unless relabeledPortable.ownership.isEmpty do
+      throwError "a portable endpoint acquired a supplier from its wrapper label"
+    let replayed ← Realize.presentMorphism input sourceWire relabeledPortable
+    unless replayed.fragment == transported.fragment && replayed.value == transported.value do
+      throwError "a portable endpoint label changed whole-arrow transport"
+    let callable ← Realize.checkedFragment (replayed.fragment.project
+      #[.field "args", .index 0, .field "args", .index 1])
+    unless callable == input.fragment do
+      throwError "whole-arrow transport changed the exact retained callable occurrence"
 
 -- A selected action can carry the only live dependency. Its complete parameter
 -- is encoded from the cached computation, not regenerated from the formal ring.

@@ -80,26 +80,32 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     throwError "the endpoint frame changed the direction, actual packet, owner or formal parameter"
   -- A separately supplied complete target takes precedence and participates in ownership.
   let actualTarget := Json.mkObj [("ctor", "opaqueData"), ("args", Json.arr #["actual target"])]
-  for foreign in #[false, true] do
+  for separate in #[false, true] do
     let harness ← Harness.empty
     let targetWire : Wire := {
       form := .diagrams sets
       payload := .computed selected
-        (.owned "actual-parameter" (if foreign then 44 else 43) actualTarget) }
+        (.owned (if separate then "actual-target" else "actual-parameter")
+          (if separate then 44 else 43) actualTarget) }
     harness.results.modify fun cache => (cache.insert point supplied).insert selected targetWire
-    if foreign then
-      let rejected ← try
-        discard <| realize harness trace "the foreign selected target" value
-        pure false
-      catch error =>
-        if Exception.stratum? error == some .unavailable then pure true else throw error
-      unless rejected do throwError "a projected parameter combined different owning sessions"
+    let actual ← realize harness trace "the actual selected target" value
+    let .ok ("element", #[selectedData, _]) := ComputationalData.envelope actual.json
+      | throwError "the independently supplied target lost its element frame"
+    let targetFragment ← checkedFragment
+      (actual.fragment.project #[.field "args", .index 0])
+    let pointFragment ← checkedFragment
+      (actual.fragment.project #[.field "args", .index 1, .field "args", .index 0])
+    unless selectedData == actualTarget && actual.value == value &&
+        targetFragment == targetWire.fragment && pointFragment == supplied.fragment do
+      throwError "the projected parameter changed its complete target or retained point occurrence"
+    unless (DataOwnership.owners actual.ownership).size == (if separate then 2 else 1) do
+      throwError "the projected parameter collapsed or invented a supplier"
+    if separate then
+      unless actual.owner?.isNone do
+        throwError "a two-supplier parameter claimed one aggregate owner"
     else
-      let actual ← realize harness trace "the actual selected target" value
-      let .ok ("element", #[selectedData, _]) := ComputationalData.envelope actual.json
-        | throwError "the independently supplied target lost its element frame"
-      unless selectedData == actualTarget && actual.owner? == supplied.owner? do
-        throwError "the endpoint fallback replaced a supplied complete target"
+      unless actual.owner? == supplied.owner? do
+        throwError "the single-supplier parameter changed its retained owner"
 
 run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   let .ok ring := Parser.runParserCategory (← getEnv) `cas_term "ℤ in Rings"

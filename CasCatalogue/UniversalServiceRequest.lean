@@ -14,18 +14,30 @@ open SimpleServiceRequest (node sameValue checkClosed)
 
 /-- Preserve an already complete map packet, or frame its actual callable with
 the two retained endpoint operands. No endpoint is recovered from a carrier. -/
-def mapPacket (decoder : Decoder) (operand : Operand) :
-    TermElabM (Json × Operand × Operand) := do
+def mapFragment (decoder : Decoder) (operand : Operand) :
+    TermElabM (DataOwnership.Data × Operand × Operand) := do
   let source ← decoder.endpoint operand true
   let target ← decoder.endpoint operand false
   let packet ← match Backend.TypedMap.decode operand.data with
     | .ok complete =>
         unless complete.source == source.data && complete.target == target.data do
           throwStratum .malformed "a service map changes its actual retained endpoint packets"
-        pure operand.data
-    | .error _ => pure (Backend.TypedMap.encode {
-        source := source.data, target := target.data, callable := operand.data })
+        unless DataOwnership.project #[.field "args", .index 0] operand.ownership == source.ownership &&
+            DataOwnership.project #[.field "args", .index 1] operand.ownership == target.ownership do
+          throwStratum .malformed "a service map changes its actual retained endpoint ownership"
+        pure operand.fragment
+    | .error _ => pure {
+        json := Backend.TypedMap.encode {
+          source := source.data, target := target.data, callable := operand.data }
+        ownership := argsOwnership #[source.ownership, target.ownership, operand.ownership] }
   return (packet, source, target)
+
+/-- Observational compatibility wrapper. Runtime assembly uses `mapFragment` so
+the complete packet's occurrence scopes remain available. -/
+def mapPacket (decoder : Decoder) (operand : Operand) :
+    TermElabM (Json × Operand × Operand) := do
+  let (packet, source, target) ← mapFragment decoder operand
+  return (packet.json, source, target)
 
 /-- Prepare a registered complete (co)limit from its published diagram telescope.
 All returned ports remain data; the universal presentation is fixed beforehand. -/
@@ -46,25 +58,38 @@ def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
     | .ok plan => pure plan
     | .error message => throwStratum .noImplementation m!"the registered construction has no complete data plan: {message}"
   let mut dependencies := selected.operands
-  let mut roles : Array (Json × Option Json × Option Json) := #[]
+  let mut roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
+    Option DataOwnership.Data) := #[]
   for operand in selected.operands do
     if (Language.homEnds? (← inferType operand.value)).isSome then
-      let (packet, source, target) ← mapPacket decoder operand
+      let (packet, source, target) ← mapFragment decoder operand
       dependencies := dependencies ++ #[source, target]
-      roles := roles.push (packet, some source.data, some target.data)
+      roles := roles.push (packet, some source.fragment, some target.fragment)
     else
-      roles := roles.push (operand.data, none, none)
-  let request := node tag (roles.map (·.1))
-  let resolveRole : StructuredResult.InputRole → Option Json := fun role => do
+      roles := roles.push (operand.fragment, none, none)
+  let request := node tag (roles.map (·.1.json))
+  let requestOwnership := argsOwnership (roles.map (·.1.ownership))
+  let resolveRole : StructuredResult.InputRole → Option DataOwnership.Data := fun role => do
     match role with
     | .argument position => return (← roles[position]?).1
     | .source position => (← roles[position]?).2.1
     | .target position => (← roles[position]?).2.2
-  let external : Nat → Option Json := fun binder => do
+  let externalFragment : Nat → Option DataOwnership.Data := fun binder => do
     let binding ← plan.binders[binder]?
     let role ← binding.inputRoles[0]?
     let data ← resolveRole role
     if binding.inputRoles.all (fun other => resolveRole other == some data) then some data else none
+  let external : Nat → Option Json := fun binder => do
+    let binding ← plan.binders[binder]?
+    let role ← binding.inputRoles[0]?
+    let data ← resolveRole role
+    if binding.inputRoles.all (fun other => (resolveRole other).map (·.json) == some data.json) then
+      some data.json else none
+  -- The existing data-plan role agreement cannot choose a supplier merely
+  -- because distinct sessions happened to return the same token bytes.
+  for binding in plan.binders do
+    if (external binding.index).isSome && (externalFragment binding.index).isNone then
+      throwStratum .malformed "a repeated universal input changes its actual opaque ownership"
   let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
     else ``CategoryTheory.Limits.LimitCone.cone) #[presentation]
   let apex ← checkClosed (← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
@@ -72,16 +97,20 @@ def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
   let some category := state.categories.find? (·.id == row.category)
     | throwError "the accepted universal construction lost its registered category"
   let context ← CategoryContext.ofNamed category apex
-  let constructionInputs : ComputationalData.InterfaceObjects :=
+  let scopedInputs : Array (DataOwnership.Data × Expr) :=
     plan.binders.filterMap fun binding => if binding.port.isSome then none else do
       let formal ← binding.formalValue
-      let actual ← external binding.index
+      let actual ← externalFragment binding.index
       return (actual, formal)
+  let constructionInputs : ComputationalData.InterfaceObjects :=
+    scopedInputs.map fun (actual, formal) => (actual.json, formal)
+  let constructionInputOwnership := scopedInputs.map (·.1.ownership)
   return {
-    requestValue := diagram, request, result := apex
+    requestValue := diagram, request, requestOwnership, result := apex
     resultForm := .limitApex row, dependencies
     resultContext := some context, objectResult := true
     constructionInputs := some (apex, constructionInputs)
+    constructionInputOwnership
     validateTemplate := some fun check template => do
       let .ok template := ComputationalData.valuePayload template
         | throwStratum .malformed "the universal template has a malformed value envelope"
@@ -110,6 +139,8 @@ structure Selection where
   baseObject : Operand
   outputs : Array Operand
   dependencies : Array Operand
+  actionOwnership : DataOwnership.Table := #[]
+  parameterOwnership : DataOwnership.Table := #[]
 
 /-- Instantiate only the registered evidence family. Monicity is projected from
 the independently typed formal subobject, never decoded from a packet field. -/
@@ -160,7 +191,9 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
       throwStratum .malformed m!"the service lift changes its preceding complete output data: {message}"
   return {
     plan, action := selected.descriptor, parameters := declared.operands.map (·.data)
-    original, source, base, baseObject, outputs := actual, dependencies }
+    original, source, base, baseObject, outputs := actual, dependencies
+    actionOwnership := selected.descriptorOwnership
+    parameterOwnership := operandArrayOwnership declared.operands }
 
 /-- Parse only fixed framing before resolving data slots. A whole typed source,
 base or preceding output can itself be a scoped reference. -/
@@ -198,13 +231,16 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
     originalArrow, lift := entry.id.raw, action := selected.action
     source := selected.original.data, base := selected.base.data
     outputs := selected.outputs.map (·.data), parameters := selected.parameters }
+  let requestOwnership := DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
+    argsOwnership #[#[], selected.actionOwnership, selected.original.ownership,
+      selected.base.ownership, operandArrayOwnership selected.outputs]
   let .ok _ := Backend.LiftInput.decode invocation.encode operation
     | throwStratum .malformed "the resolved service lift lost its complete public framing"
   let some index := LiftField.all.findIdx? (· == field) | unreachable!
   let formal ← checkClosed selected.plan.ports[index]!
   let context ← SelectedLift.context selected.plan (index >= 2)
   return {
-    requestValue := formal, request := invocation.encode, result := formal
+    requestValue := formal, request := invocation.encode, requestOwnership, result := formal
     resultForm := formFor (← registryState) context input (index != 0)
     dependencies := selected.dependencies, resultContext := some context
     objectResult := index == 0, callableResult := index != 0
@@ -227,10 +263,10 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     | throwStratum .malformed "the service factor omitted its selected evidence parameters"
   let selected ← selection decoder entry parameters action source base outputs false
   let cone ← decoder.arrow cone
-  let (coneData, domain, coneTarget) ← mapPacket decoder cone
+  let (coneData, domain, coneTarget) ← mapFragment decoder cone
   sameValue coneTarget.value selected.source.value "factor cone target"
   let baseMap ← decoder.arrow baseMap
-  let (baseData, baseDomain, baseTarget) ← mapPacket decoder baseMap
+  let (baseData, baseDomain, baseTarget) ← mapFragment decoder baseMap
   sameValue baseTarget.value selected.baseObject.value "factor base target"
   sameValue baseDomain.value (← Semantic.objOf selected.plan.action domain.value) "factor image domain"
   let equation ← mkEq (← Semantic.mapOf selected.plan.action cone.value)
@@ -239,17 +275,25 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
   unless !proof.hasSorry && (← Decide.kernelAccepts equation proof) do
     throwStratum .malformed "the service factor lacks its independently checked compatibility equation"
   let formal ← checkClosed (← SelectedLift.factor selected.plan baseMap.value cone.value proof)
-  let .ok baseMapData := Backend.TypedMap.decode baseData | unreachable!
-  let .ok coneMapData := Backend.TypedMap.decode coneData | unreachable!
+  let .ok baseMapData := Backend.TypedMap.decode baseData.json | unreachable!
+  let .ok coneMapData := Backend.TypedMap.decode coneData.json | unreachable!
   let invocation : Backend.LiftFactorInput := {
     lift := entry.id.raw, action := selected.action, source := selected.source.data
     base := selected.base.data, outputs := selected.outputs.map (·.data)
     parameters := selected.parameters, baseMap := baseMapData, cone := coneMapData }
+  -- `TypedMap.encode` retains exactly the three fields under `args`; any other
+  -- envelope fields are not part of the re-encoded occurrence.
+  let mapOwnership := fun data : DataOwnership.Data =>
+    DataOwnership.prefix #[.field "args"] (DataOwnership.project #[.field "args"] data.ownership)
+  let requestOwnership := DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
+    argsOwnership #[#[], selected.actionOwnership, selected.source.ownership,
+      selected.base.ownership, operandArrayOwnership selected.outputs,
+      mapOwnership baseData, mapOwnership coneData]
   let .ok _ := Backend.LiftFactorInput.decode invocation.encode entry.factorAddress
     | throwStratum .malformed "the resolved service factor lost its complete public framing"
   let context ← SelectedLift.context selected.plan
   return {
-    requestValue := formal, request := invocation.encode, result := formal
+    requestValue := formal, request := invocation.encode, requestOwnership, result := formal
     resultForm := formFor (← registryState) context input true
     dependencies := selected.dependencies ++ #[cone, domain, coneTarget, baseMap, baseDomain, baseTarget]
     resultContext := some context, callableResult := true

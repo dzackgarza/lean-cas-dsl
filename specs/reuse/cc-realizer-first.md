@@ -15,6 +15,45 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Original argument endpoint during operation preparation — 2026-10-26
+
+The unchanged `OperationAgreementExecutionProbes` exposed two accepted named
+presentations of a stripped declaration's set carrier. The original argument
+already retained the selected `F9x` coordinate, including its actual point data;
+re-reading the declaration carrier discarded that selected presentation.
+
+`prepareOperationObservation` now reuses the argument's original complete target
+as its invocation source. Its existing full endpoint, type and composition
+checks establish that this is the declared callable source before any data are
+framed or dispatched. `realizeCallableEndpoint` and `frameMorphismData` remain
+the owners of that framing. No global named candidates are deduplicated, no
+equal cached object is selected, and no operation or route is reprioritized.
+The original operation-class controls and complete-named/whole-family controls
+remain the regression requirements. This is execution provenance, with no new
+mathematical definition or equality.
+
+## Actual endpoints of composed construction inputs — 2026-10-26
+
+The reconstructed two-leaf engineering consumer exposed limit preparation
+re-reading the formal endpoints of an already computed map. Its actual
+`typedMap` fields survived inside `compose`, but the old preparation discarded
+them before sending the complete diagram. An alternate public functor-object
+projection then attempted an unrelated metadata reconstruction.
+
+`ComputationalData.interfaceEndpointEncoding` already owns endpoint projection
+through complete callable envelopes. Its composition case now follows the
+independently retained `CategoryStruct.comp` application and selects the first
+source or second target in order. `actionMapEndpoint` reuses this owner, checks
+the full selected endpoint and category, and retains the actual packet.
+Limit preparation uses that existing map-data path. Anonymous callable fallback
+and all mathematical route selection are unchanged; no leaf-specific decoder,
+carrier enumeration, or new mathematical definition is introduced.
+
+The added action control separates distinct actual outer packets even when
+their formal endpoints coincide and a different packet is cached under that
+formal object. It also requires the independently fixed signature to agree.
+The original action and complete-named controls remain required regressions.
+
 ## Exact retained service projections — 2026-10-25
 
 The service decoder now routes the released `morphismEndpoint`, `arrowHom`,
@@ -223,8 +262,10 @@ The runtime saves every raw reply, exact request, child Wire, parameter dependen
 and supplier session. Incomplete service scopes retain completed children when
 later preparation or result assembly fails. A completed self-contained target
 packet is portable; opaque fields keep their original live owner. A child owner's
-name is never replaced by the enclosing supplier. Mixed-owner assembly remains
-unavailable without an actual bridge. Final template references are checked at
+name is never replaced by the enclosing supplier. Independently live suppliers
+remain separate through assembly; a missing compatible bridge is a computational
+gap when another operation consumes those data. An expired supplier is
+unavailable. Final template references are checked at
 complete declared data roles before substitution, then the ordinary result
 interface checks the assembled packet. The enclosing caller keeps its original
 formal construction even when a child's well-framed data are mathematically wrong.
@@ -251,7 +292,7 @@ source/tests and these engineering controls are not current integrated acceptanc
 `DeferredServiceProbes` uses three arbitrary public-protocol processes. Its
 controls cover exact occurrence reuse through ordinary methods, full dictionary
 closure, original caller meaning, child ownership and session expiry, nested
-reference scopes, mixed-owner refusal, malformed references and hidden fields,
+reference scopes, malformed references and hidden fields,
 forbidden backend selection, recursive requests, whole nonidentity maps, exact
 image endpoint rejection, the production installer, and nested action
 materialization before an independent target consumer. Returned witnesses are
@@ -267,3 +308,129 @@ they are not reclassified as missing leaf implementations. A valid anonymous or
 opaque packet without any retained independently derived mathematical operand
 cannot invent one through an interface validator's fresh placeholder. Whole
 retained result references remain the supported bridge in those cases.
+
+## Occurrence ownership through complete execution — 2026-10-26
+
+The public service contract requires an assembled result to retain independently
+live dependencies. The earlier single-owner merge rejected such an assembly
+before a consumer was selected. That is a kernel defect: incompatibility at
+consumption and expiry of a supplier have different meanings. The original
+`mixed-owners` protocol response is unchanged and is now a positive assembly
+control in `MixedDataOwnershipProbes`; the old early-refusal expectation is
+removed from the engineering negative loop for this contract reason.
+
+Direct owner searches covered `WirePayload`, `ComputationScope`,
+`combinedPayload`, `forwardPayload`, the public `ConstructionInvocation`,
+`PointInvocation`, `MorphismEndpoint`, `TypedMap`, and retained result encoders,
+plus every request preparer and the registered `StructuredResult.DataProjection`
+renderer. The execution call-site inventory records all 102 original assembly,
+forwarding, and capture sites. The existing formal selections, packet grammars,
+and typed port validators remain their owners. Lean's `Json`, `Array`, and
+`Except` supply the data containers; no dependency supplies the kernel's live
+process identities or these occurrence-specific runtime bindings.
+
+`DataOwnership` carries a private table from exact JSON field/index paths to the
+actual backend/session pair. It checks complete coverage, duplicate or conflicting
+bindings, and stale paths. Capturing a fresh response uses its actual process;
+array/object/constructor assembly prefixes child paths, and projection strips
+only the selected path prefix. Equal JSON bytes never locate or identify a
+supplier. This table changes no public encoding or mathematical interface.
+
+The existing parameter, element, action, endpoint-framing, comparison, lift, and
+construction builders now carry fragments with that table. Flat dependency lists
+remain execution provenance and do not assign owners to a synthesized payload.
+Parent service operands come only from the request's explicitly retained handles;
+global cache entries with matching JSON are not discovered as input occurrences.
+Accepted comparison maps retain their own scopes even when their actual object
+packet is portable. A complete construction scopes its input diagram and returned
+packet separately inside the original `constructionApex` envelope. A selected
+field retains only its own suppliers; siblings and the complete parent remain in
+the execution ledger.
+
+`StructuredResult.DataProjection.encodeWith` injects only the fragment renderer
+into the already selected formal projection. Its schema, data-port order, and
+diagram-index checks are unchanged. The original JSON inspection interface
+delegates to that same renderer. All service preparers emit exact request-field
+scopes, including repeated parameters and original constructor inputs.
+
+`sendData` keeps a response and its table together through nested deferred
+completion. It validates each supplier's live session before admission. Action
+reuse, service operands, repeated framing fields, and recursive-request keys
+compare complete scopes. The raw `send` and existing JSON inspection wrappers
+remain available to engineering consumers; production adoption uses the scoped
+boundary. Portable data keep their computed provenance without acquiring a
+sibling's owner.
+
+The pure helper's 46 standalone controls cover equal bytes from different owners,
+exact nesting, portable and repeated-reference projections, missing/conflicting
+bindings, and changed session identities. The integrated runtime controls add
+two actual supplying processes, exact typed-map endpoints, retained raw replies,
+and refusal before starting an incompatible consumer. These are protocol and
+data-flow checks; arbitrary tokens provide no mathematical correctness evidence.
+Integrated Lean and unchanged-consumer verification is recorded with the closed
+source checkpoint, not inferred from the helper's isolated checks.
+
+Engineering callers that assemble a framed parameter now use the corresponding
+fragment interface; their exact endpoint, packet, and original-supplier assertions
+remain in place. The old `ComputationalReuseProbes` control had assigned an owner
+to a portable string and required independent owners to fail at assembly. It now
+uses actual opaque envelopes, checks both exact supplier positions, and verifies
+projection of the original fragment. `ContextualHomFramingProbes` explicitly keeps
+its callable graph portable while retaining each owned endpoint at its own field.
+These corrections change runtime bookkeeping expectations, not permanent
+mathematical questions, answers, or interpretation requirements.
+
+## Closed occurrence-ownership consumers and integration follow-up — 2026-10-26
+
+The protocol controls now exercise the original `mixed-owners` response plus two
+additive cases. They retain two actual live sessions through equal token bytes,
+repeated result references, a portable sibling, exact asymmetric typed-map
+endpoints, and independent projections. All three modes pass. A missing compatible
+consumer is `noImplementation` before any additional dispatch; a missing, changed,
+or conflicting supplier binding is unavailable. The child session can expire
+without expiring an independent outer occurrence or a portable field.
+
+The nested repeated-reference case also exposed a port-validation defect. An
+`objectProduct` factor already has its independently fixed type, but the previous
+factor decoder tried to recover a semantic product from fresh opaque children.
+The recursive port validator now uses that fixed type to inspect the complete
+nested field shape. Its temporary value is internal to validation; no returned
+data becomes a semantic operand. Missing factors and non-object factors are
+rejected. Formal service object reconstruction is unchanged.
+
+The scoped builders enlarged Lean's recursive compiler group beyond the ordinary
+200000-heartbeat compiler budget. Independent lift/rendering helpers and the
+existing operation observation helper now compile outside that group. Object/map
+action execution and the unchanged limit branch receive their recursive calls as
+explicit callbacks. The branch bodies, validation order and ordinary budget are
+unchanged. Production `Realize` then compiles under the original limit.
+
+The frozen `ReconstructedTwoLeafConsumerV2.lean` has SHA-256
+`9766c7e3896481a545009652e74bcd5c2f0f550a6e9b1255ded8d23cb25d58ed`.
+At `ae9b253bd8a5ab152b3a9bb1de4dd85de4c68568` it completes 17 actual
+requests/replies and 14 action receipts through the unchanged public source
+`2f35244884649c9268567bb9968840a34559a11c` and frozen target
+`865df49ad0b0b133d5bcfd282f380aa213eb5fff`. The original matrix, complete
+mapped endpoints, composition, target pullback/cardinality, actual kernel and
+its defining-map projections reach later consumers. Exact whole-map reuse adds
+no dispatch. Source, artifact and configuration change lists are empty.
+
+This is the explicitly labelled reconstructed engineering consumer based on the
+public author's unchanged declared operands. No later original driver exists in
+the recovered v39 archive. Its successful run is neither a claim to have replayed
+that missing archive nor evidence about independent mathematical correctness.
+The final combined reader/native closure remains recorded separately.
+
+Four old engineering negatives had assigned ownership labels to portable target
+packets or demanded early failure of independently owned point/target assembly.
+Their replacement controls inspect the exact retained fragments and occurrence
+paths. The declaration-derived portable diamond now reuses despite an irrelevant
+wrapper owner label; its genuinely opaque composite still rejects a changed
+supplier. Wrong endpoint, action, parameter, and image controls remain intact.
+
+The original positive prescribed-lift raw call, four actual outputs, complete
+packet checks, and later field projections pass unchanged. Its preflight negatives
+now retain the complete evidence vector and the real supplying connection while
+leaving registrations empty. Only one evidence or action-argument supplier changes
+per case. A live supplier reaches the intended missing implementation; stale or
+absent suppliers remain unavailable, with zero extra dispatches or replies.

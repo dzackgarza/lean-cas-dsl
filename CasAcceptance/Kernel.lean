@@ -9,10 +9,12 @@ public import CasAcceptance.Kernel.CreatedProjectionDataProbes
 public import CasAcceptance.Kernel.DependentElaborationProbes
 public import CasAcceptance.Kernel.FileItemProbes
 public import CasAcceptance.Kernel.SessionOwnershipProbes
+public import CasAcceptance.Kernel.DataOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
 public import CasAcceptance.Kernel.FunctorActionExecutionProbes
 public import CasAcceptance.Kernel.DerivedActionExecutionProbes
 public import CasAcceptance.Kernel.DeferredServiceProbes
+public import CasAcceptance.Kernel.MixedDataOwnershipProbes
 public import CasAcceptance.Kernel.ServiceProjectionProbes
 public import CasAcceptance.Kernel.StructuredServiceRequestProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes

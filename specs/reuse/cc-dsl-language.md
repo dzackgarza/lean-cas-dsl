@@ -682,3 +682,116 @@ The exact unchanged first-pairing binding and full assertion now read within
 the original 200000-heartbeat limit (125062 and 152825 respectively). Remaining
 factor/final readings are separate open defects; neither stage measurements nor
 this focused source checkpoint are full fixed-export or mathematical acceptance.
+
+### Complete endpoint and point-source ownership (2026-10-26)
+
+The corpus searches `Lean Meta profileitM isDefEq retained expression` and
+`Lean Syntax cache scoped expression`, together with the existing reuse record
+above, identify the reader's own complete-value and projection machinery as the
+owner. Lean's existing projection metadata and `unfoldDefinition?` expose a
+declared projection path while stopping at an exact supplied whole object.
+`endpointWitnesses` uses that path when several complete parameters occur in an
+endpoint: a parameter in a projection's implicit type does not replace the
+actual projected owner. Ordinary field discovery keeps its existing transparency;
+only this exact-owner check unfolds intervening declaration wrappers. Complete
+same-carrier selections without an owned projection keep the ambiguity checks.
+
+The existing `contextualNumeral` construction now retains the original point
+together with its checked complete source, using the same `Value.element`
+context representation already used by `forwardNumeral`. Identity carrier views
+retain the source and target contexts. Source binding may reuse that exact
+point's independently selected owner through its registered structural action;
+it does not identify points by their computed values or choose a structure from
+carrier equality. All original declaration parameters, point maps, selected
+targets and admission obligations remain checked. Unresolved numeral operands
+are formed only after the other supplied points fix a complete typed family.
+The accepted whole parameter transport is replayed into an isolated family
+recorder. Only a closed, type-correct whole application publishes those records;
+the exact original receiver and every actual registered edge application remain
+in the parameter's trace. Failed source trials publish no speculative actions.
+
+`completeParameterObjects` shares the existing `invariantOf` parameter reading
+with ordinary named-family applications. Each complete argument is retained in
+its actual registered category before dependent endpoints are reconstructed;
+the original supplied contexts remain alongside it. This avoids rediscovering a
+fully supplied monoid while constructing its declared unit object. A directly
+recognized inclusion target also retains its original complete domain context,
+as the other endpoint paths already do. Literal
+admission also reuses the existing global-point/restaging boundary: the original
+numeral is admitted with its full proof, then precomposed with the actual stage's
+terminal map. A variable never gains that numeral-specific admission.
+
+`DeclaredContextBindingProbes` now checks the original scalar-module fraction
+globally and at a stage, including the complete ring source and actual structural
+actions in the division parameter's trace. Its existing same-carrier controls,
+`ClosedBindingReadingProbes`, and `ReaderContextContinuityProbes` pass. A focused
+reader extraction of the unchanged final structured-family block also preserves
+both registry orders and the distinct-family ambiguity controls.
+
+The first owner-repair checkpoint reads the unchanged original final statements
+at lines 127, 130, 133 and 136 of `rx-lift-prescribed-stages.cas` in 175305, 185257,
+189594 and 153349 heartbeats respectively under the ordinary 200000 limit.
+Each starts with the complete
+original preceding scope and its own trace and cache. The final factorization
+and comparison at lines 146 and 149 also read (128402 and 151743). The additional
+final factor samples at lines 152 and 155 still reach the same ordinary limit
+inside `isDefEq` at that checkpoint. These are reader engineering
+checks, not complete typed exports, real execution, or mathematical acceptance.
+
+### Closed carrier actions within a declared endpoint (2026-10-26)
+
+The remaining original final factor samples expose repeated reconstruction of
+the same complete ring and module carriers while reading a typed function
+parameter. A narrow production-reader profile attributes 14542 of the parameter's
+21374 heartbeats to its declared function coordinate. Failed whole-endpoint
+recognition rebuilds the same full supplied carriers before the function's
+domain and codomain rebuild two of them again. The actual registered action,
+full category checks and second telescope elaboration are not the hotspot.
+
+The existing owners are `carrierObjectWithAction`, `Value.sameSource`, the
+complete `Value.closedReading` traversal, `optionalReading` rollback and the
+per-application carrier table already recorded above. One inclusion endpoint
+read now owns a local table of these completed views. Exact source comparison
+includes all original contexts, selections, declaration arguments, actions and
+comparison witnesses. Stage or bound-variable contexts and trace-free trials
+use their ordinary reading. No table is shared with a later independent endpoint request.
+
+A reusable view retains only closed object-action records, with their complete
+receiver, edge applications and category bundles. Its trace delta is replayed
+only when every record required by its original reading is still present
+unchanged. Missing or changed prior records cause ordinary reconstruction.
+`Node` record comparison is syntactic, including complete bundles and accepted
+binding IDs; it supplies no mathematical equality. Failed endpoint trials keep
+their normal trace rollback, while a later successful use of the same complete
+view restores exactly its checked action records. Other newly recorded constructions
+and open retained inputs prevent reuse by this table.
+
+The new engineering controls retain both complete modules and their actual
+carrier actions after unsuccessful whole-function recognition. A failed trial
+publishes no action, a retry recovers the original full ring action, and different
+complete rings on the same carrier remain non-coercible in either direction.
+No mathematical source, fixed question, expected answer, input context or caller
+heartbeat budget changes.
+
+The final source passes `DeclaredContextBindingProbes` (including the new trace
+and failure-isolation controls), `ClosedBindingReadingProbes`,
+`ReaderContextContinuityProbes`, and the unchanged `SelectedCarrierProbes`.
+The unchanged final structured-family reader block also passes in both registry
+orders with its distinct-family ambiguity controls. All eight original final
+readings now fit the ordinary 200000-heartbeat budget:
+
+| Original line | Heartbeats |
+|---|---:|
+| 127 | 166209 |
+| 130 | 176163 |
+| 133 | 180497 |
+| 136 | 135292 |
+| 146 | 119347 |
+| 149 | 133704 |
+| 152 | 191861 |
+| 155 | 192278 |
+
+These measurements use the complete original preceding scope and a fresh trace
+and closed-term cache for each statement. They close the remaining measured
+reader failures; full typed export, real execution and independent mathematical
+acceptance are separate obligations.

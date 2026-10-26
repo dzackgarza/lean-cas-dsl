@@ -164,14 +164,15 @@ run_elab do
     original route prepared
   unless selected.owner? == parameter.owner? && containsData selected.json parameter.json do
     throwError "the residual parameterized action lost its actual parameter data or sole owner"
-  let foreign := { original with
+  let relabeledPortable := { original with
     payload := .computed source (.owned "foreign-transport" 32 original.json) }
-  let rejected ← try
-    discard <| computationalOperationReceiver harness trace "meth.cardinality"
-      foreign route foreign
-    pure false
-  catch error => pure (Exception.stratum? error == some .unavailable)
-  unless rejected do
-    throwError "the residual action combined source and parameter data from foreign sessions"
+  unless relabeledPortable.ownership.isEmpty do
+    throwError "a portable original module acquired a supplier from its wrapper label"
+  let retained ← computationalOperationReceiver harness trace "meth.cardinality"
+    relabeledPortable route relabeledPortable
+  unless retained.fragment == selected.fragment && retained.owner? == parameter.owner? do
+    throwError "a portable source label changed the selected action's actual parameter dependency"
+  unless ← withTransparency .all <| isDefEq retained.value selected.value do
+    throwError "portable source relabelling changed the independently fixed transported receiver"
 
 end

@@ -42,13 +42,13 @@ run_elab do
     categoryContext := some context }
   let graph : Wire := {
     form := .canonicalMorphism category
-    payload := .computed actual (.owned "hom-framing" 419 (Json.arr #[])) }
+    payload := .computed actual (.inline (Json.arr #[])) }
   let trace ← Trace.new
   let harness ← Harness.empty
   harness.results.modify fun cache =>
     ((cache.insert source sourceWire).insert target targetWire).insert actual graph
-  let (framed, dependencies) ← frameMorphismData harness trace source target graph (some context)
-  let .ok typed := Backend.TypedMap.decode framed
+  let (framed, dependencies) ← frameMorphismFragment harness trace source target graph (some context)
+  let .ok typed := Backend.TypedMap.decode framed.json
     | throwError "the complete selected Hom did not retain the public typedMap frame"
   unless typed.source == sourceWire.json && typed.target == targetWire.json &&
       typed.callable == graph.json && dependencies.any (·.value == source) &&
@@ -56,8 +56,11 @@ run_elab do
     throwError "the complete Hom frame changed an actual endpoint or callable packet"
   let combined : Wire := { graph with
     payload := ← combinedPayload actual framed (dependencies.push graph) }
-  unless combined.owner? == graph.owner? do
-    throwError "the full Hom frame discarded the original live ownership"
+  unless combined.owner? == sourceWire.owner? &&
+      DataOwnership.project #[.field "args", .index 0] combined.ownership == sourceWire.ownership &&
+      DataOwnership.project #[.field "args", .index 1] combined.ownership == targetWire.ownership &&
+      (DataOwnership.project #[.field "args", .index 2] combined.ownership).isEmpty do
+    throwError "the full Hom frame lost an endpoint supplier or assigned one to its portable callable"
   let presented ← presentMorphism graph sourceWire targetWire (some context)
   unless presented.morphismFramed && presented.json == graph.json &&
       presented.owner? == graph.owner? && presented.categoryContext.isSome do

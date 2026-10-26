@@ -231,27 +231,59 @@ run_elab do
       Json.mkObj [("ctor", "cone"), ("args", Json.arr baseFields)]] do
     if (LiftedSubobjectData.subobjectFields invalid).isOk then
       throwError "an incomplete or different construction supplied a subobject Arrow"
-  -- The production executor must demand registered execution for the public fields.
-  let harness ← Realize.Harness.empty
-  let sourceWire : Realize.Wire := {
-    form := .arrow (← Semantic.namedCategoryFor state prepared.sourceCategory),
-    payload := .ordinary receiver sourceData }
-  for baseData in #[baseData, arrowBase] do
-    let baseWire : Realize.Wire := {
-      form := .subobject prepared.baseCategory, payload := .ordinary base baseData }
-    -- This executor probe supplies opaque computation inputs directly, just as
-    -- it supplies source/base data above; it does not run the surface reader.
-    -- Keep one data slot for every actual selected evidence parameter.
+  -- Valid live inputs still require an admitted implementation of the public fields.
+  let operations := LiftField.all.map row.fieldAddress
+  let harness ← Realize.Harness.ofManifest ("CasAcceptance" / "Strata") {
+    backends := #[{
+      name := "lift-probe"
+      command := "python3"
+      args := #["probe_lift_protocol.py"] ++ operations }]
+    registrations := #[] }
+  let dispatches ← IO.mkRef (#[] : Array Json)
+  let harness := { harness with dispatches := some dispatches }
+  unless harness.admitted.isEmpty && harness.rejected.isEmpty do
+    throwError "the absent-implementation fixture unexpectedly installed a registration"
+  try
+    let .ok session ← harness.connection "lift-probe"
+      | throwError "the existing protocol-only fixture did not start"
+    let owner := some ("lift-probe", session.identity)
+    let sourceWire : Realize.Wire := {
+      form := .arrow (← Semantic.namedCategoryFor state prepared.sourceCategory)
+      payload := Realize.computedPayload receiver sourceData owner }
     let parameters ← prepared.components.mapM fun component => do
-      let fields ← DirectConstruction.dataArguments component.selection.parameters
-      pure (fields.mapIdx (fun index _ => data s!"selected parameter {index}"), #[])
-    let missing ← try
-        discard <| Realize.executePrescribedLift harness trace prepared sourceWire baseWire parameters
-        pure false
-      catch error =>
-        if CasCatalogue.Exception.stratum? error == some .noImplementation then pure true
-        else throw error
-    unless missing do throwError "the executor claimed a completed lift without registered execution"
+      Realize.realizedParameters harness trace
+        (← DirectConstruction.dataArguments component.selection.parameters)
+    let (actualAction, actionDependencies) ← Realize.realizedEdgeDescriptor harness trace
+      inner component.action
+    let encoder : Realize.ActionEncoder := fun edge selectedAction => do
+      unless edge == inner && selectedAction == component.action do
+        throwError "the missing-implementation control changed its fixed selected action"
+      return (actualAction, actionDependencies)
+    for baseData in #[baseData, arrowBase] do
+      let baseWire : Realize.Wire := {
+        form := .subobject prepared.baseCategory
+        payload := Realize.computedPayload base baseData owner }
+      let missing ← try
+          discard <| Realize.executePrescribedLift harness trace prepared
+            sourceWire baseWire parameters (some encoder)
+          pure false
+        catch error =>
+          unless CasCatalogue.Exception.stratum? error == some .noImplementation do throw error
+          -- Attribute the failure to the first public field, not parameter recovery.
+          let message ← error.toMessageData.toString
+          unless (message.splitOn
+              s!"no admitted registration computes {operations[0]!}").length > 1 do throw error
+          pure true
+      unless missing do
+        throwError "the executor claimed a completed lift without registered execution"
+      let connections ← harness.connections.get
+      let some (.ok retainedSession) := connections["lift-probe"]?
+        | throwError "the missing-implementation control discarded its real supplying session"
+      unless connections.size == 1 && retainedSession.identity == session.identity &&
+          (← dispatches.get).isEmpty && (← harness.replies.get).isEmpty do
+        throwError "the missing-implementation control dispatched or changed its process inventory"
+  finally
+    harness.stop
 
 run_elab do
   let formal ← elabTermAndSynthesize (← `(fun x : Fin 2 => x)) none

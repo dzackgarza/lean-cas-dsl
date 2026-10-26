@@ -1,5 +1,74 @@
 # Journal
 
+## 2026-10-26 — Close the remaining original final reader samples
+
+The two remaining final factor samples exceeded the ordinary reader budget
+because typed function parameters repeatedly reconstructed the same complete
+ring and module carriers. One inclusion endpoint read now reuses those exact
+closed views through the existing full-source and closure checks. The original
+trace must still be present unchanged before its closed action records are
+replayed. Stage, bound-variable and trace-free readings keep their existing path;
+failed endpoint trials still roll back every speculative trace entry.
+
+All eight unchanged original final readings now pass under the 200000-heartbeat
+limit. The formerly failing factor samples use 191861 and 192278 heartbeats.
+The complete endpoint, failed-trial replay and distinct same-carrier controls
+pass, as do four context/carrier probe targets and the unchanged structured-family
+reader block with both declaration orders and its ambiguity controls. The earlier
+timeouts remain recorded; no input, expected answer, mathematical source or
+caller budget changes. These are reader engineering results, while full typed
+export, real execution and independent mathematical acceptance remain separate.
+
+## 2026-10-26 — Retain complete endpoint and point owners in the reader
+
+The final inclusion's scalar fraction exposed a lost complete point source:
+the numeral had a checked ring owner, but its declared module coordinate and a
+subsequent identity view discarded that source. Generic source inference then
+competed with the module's additive structure. The reader now retains the
+original point's complete owner and reuses its checked registered action when
+binding a family. The whole accepted parameter action remains in the trace;
+failed family trials publish neither assignments nor speculative records.
+
+Declared endpoint projections now identify their actual supplied whole owner
+through the existing field reader. An implicit type parameter that merely occurs
+in the projection no longer competes with that owner. Named families share the
+existing complete-parameter endpoint reader, and directly recognized inclusion
+targets retain their domain context. Literal admission retains its original
+global proof before restaging the admitted point. All mathematics, fixed
+questions, original contexts, ordinary budgets and ambiguity rules are unchanged.
+
+The four assigned original final readings pass under 200000 heartbeats, including
+the final fraction inclusion at 153349. The global and staged full-action control,
+three complete binding/context probe targets, and the unchanged structured-family
+reader block pass. The final whole factorization and comparison also read. The
+two additional final factor samples still time out in `isDefEq` at the ordinary
+budget and remain reader work. These checks establish the focused source repair;
+full typed export, real execution and independent mathematical acceptance remain
+separate obligations.
+
+## 2026-10-26 — Retain independently fixed computational point interfaces
+
+Restoring the current published candidate and inspecting its failed aggregate CI
+exposed two finite-inventory regressions. The portable extent repair had removed
+the independently fixed point interface from opaque and projected action data.
+The validator now uses the actual representation's codec when available, retaining
+the fixed port interface where that descriptor needs independent context. Extents
+continue to use their actual ambient codec, never the original formal carrier.
+
+The remaining action case revealed a separate structural inspection issue: a
+fresh homomorphism placeholder occurred only in a kernel subtype's membership
+predicate, but the old whole-type metavariable check rejected its fixed ambient
+data fields. The existing constructor traversal now skips proof predicates and
+checks each data slot recursively. Scalar codecs with unresolved bounds still
+fail; inventories provide no membership, homomorphism or inverse-law proof.
+
+The original action-context and lifted comparison inventory controls, together
+with the original portable extent controls and additive opaque/predicate/bound
+separations, pass in one local consumer build. The first incomplete repair and
+one test-only Lean API invocation correction remain recorded. No protected
+assertion, mathematical declaration, heartbeat budget, or leaf implementation
+changed. Full combined execution and the remaining MVP obligations are separate.
+
 ## 2026-10-25 — Select the published typed-service contract for integration
 
 The combined candidate now selects published leaf contract `9167e4c` for its

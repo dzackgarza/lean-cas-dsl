@@ -230,11 +230,12 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
 /-- Encode the checked action through its exact source child. The callbacks retain all
 actual computational dependencies, including owners; this helper never reads a cache or
 chooses a presentation according to available implementations. -/
-def encodeRetainedParameterAction? {Dependency : Type} (trace : Trace) (value : Expr)
-    (encodeSource : Expr → TermElabM (Json × Array Dependency))
-    (encodeAction : EdgeRef → Expr → TermElabM (Json × Array Dependency))
+def encodeRetainedParameterWith? {Data Dependency : Type} (trace : Trace) (value : Expr)
+    (encodeSource : Expr → TermElabM (Data × Array Dependency))
+    (encodeAction : EdgeRef → Expr → TermElabM (Data × Array Dependency))
+    (assemble : Data → Data → TermElabM Data)
     (recovering : Array Expr := #[]) :
-    TermElabM (Option (Json × Array Dependency)) := do
+    TermElabM (Option (Data × Array Dependency)) := do
   if recovering.contains value then
     throwStratum .noImplementation m!"the complete parameter action has cyclic data dependencies"
   let some selected ← retainedParameterAction? trace value | return none
@@ -243,9 +244,20 @@ def encodeRetainedParameterAction? {Dependency : Type} (trace : Trace) (value : 
   let mut dependencies := sourceDependencies
   for (edge, action) in selected.route.zip selected.applications do
     let (descriptor, actionDependencies) ← encodeAction edge action
-    data := Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[descriptor, data])]
+    data ← assemble descriptor data
     dependencies := dependencies ++ actionDependencies
   return some (data, dependencies)
+
+/-- The metadata interface uses the same selected action traversal. Runtime
+callers supply an assembly function that also retains exact data ownership. -/
+def encodeRetainedParameterAction? {Dependency : Type} (trace : Trace) (value : Expr)
+    (encodeSource : Expr → TermElabM (Json × Array Dependency))
+    (encodeAction : EdgeRef → Expr → TermElabM (Json × Array Dependency))
+    (recovering : Array Expr := #[]) :
+    TermElabM (Option (Json × Array Dependency)) :=
+  encodeRetainedParameterWith? trace value encodeSource encodeAction
+    (fun descriptor data => pure (Json.mkObj [("ctor", "functorAction"),
+      ("args", Json.arr #[descriptor, data])])) recovering
 
 /-- Decode an explicitly named accepted functor action and its complete source data.
 The callbacks consume registered edge metadata and selected source data; replies supply no

@@ -74,7 +74,8 @@ private def selectedProduct (entry : OperationEntry) (image : Expr)
 
 -- Equal returned packets never select a whole action, source occurrence or endpoint.
 -- The portable marker is a deliberately untrusted valueData payload, not an answer.
-private def checkReuse (record : ActionExecution) (otherAction : Expr) : TermElabM Unit := do
+private def checkReuse (record : ActionExecution) (otherAction : Expr)
+    (opaqueInput : Bool) : TermElabM Unit := do
   let harness ← Harness.empty
   retainActionResult harness record
   let find (action : Expr) (input : Wire) (parameters : Array Json)
@@ -91,9 +92,20 @@ private def checkReuse (record : ActionExecution) (otherAction : Expr) : TermEla
   let foreignPayload := WirePayload.computed record.input.value
     (.owned "different-original-session" 92 record.input.json)
   let foreign := { record.input with payload := foreignPayload }
-  unless (← find record.action foreign record.parameters
-      record.parameterInputs record.imageEndpoints).isNone do
-    throwError "the action receipt ignored the original supplier occurrence"
+  let reused ← find record.action foreign record.parameters
+    record.parameterInputs record.imageEndpoints
+  if opaqueInput then
+    unless !record.input.ownership.isEmpty && foreign.ownership != record.input.ownership do
+      throwError "the opaque action-reuse fixture lost its distinct supplier occurrences"
+    unless reused.isNone do
+      throwError "the action receipt ignored the original opaque supplier occurrence"
+  else
+    unless record.input.ownership.isEmpty && foreign.ownership.isEmpty do
+      throwError "the portable action-reuse fixture acquired an opaque supplier"
+    let some actual := reused
+      | throwError "an irrelevant wrapper label prevented reuse of portable input data"
+    unless actual.value == record.result.value && actual.fragment == record.result.fragment do
+      throwError "portable action reuse changed the original result or exact data"
   let changed := { record.input with
     payload := .computed record.input.value (.inline (toJson "a different actual input packet")) }
   unless (← find record.action changed record.parameters
@@ -183,7 +195,7 @@ private def diamond : TermElabM Unit := do
         checkReuse {
           operation, action := ← Semantic.asFunctor last, input, parameters
           parameterInputs := dependencies, result := output }
-          (← Semantic.compositeOfApplications right.applications)
+          (← Semantic.compositeOfApplications right.applications) false
         -- The computational result is deliberately arbitrary. Installing it cannot
         -- turn the farther multiplication into the original ring's selected owner.
         harness.results.modify (·.insert left.image output)
@@ -339,7 +351,7 @@ private def composites : TermElabM Unit := do
           operation, action := ← Semantic.asFunctor applications[1]!, input, parameters
           parameterInputs := dependencies ++ #[beforeSource, beforeTarget]
           imageEndpoints := #[afterSource, afterTarget], result }
-          (← Semantic.asFunctor applications[0]!)
+          (← Semantic.asFunctor applications[0]!) true
         separated := true
         report "two-selected-actions" [
           ("morphism", toJson row.id.raw), ("declaration", toJson row.declaration.toString),

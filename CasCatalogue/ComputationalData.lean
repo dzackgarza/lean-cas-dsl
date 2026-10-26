@@ -5,6 +5,7 @@ public import CasCatalogue.ObjectPresentation
 public import CasCatalogue.Language
 public import CasCatalogue.OperationAgreement
 public import CasCatalogue.Codec
+public import CasCatalogue.DataOwnership
 public import CasCatalogue.StructuredResult
 public import CasCatalogue.Admission
 public import CasContract.Port
@@ -316,9 +317,14 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
     TermElabM (Option PointSchema) := do
   let fuel + 1 := fuel | return none
   let type ← withTransparency .all <| whnf type
-  if type.hasMVar || type.hasLevelMVar || type.hasLooseBVars then return none
+  if type.hasLevelMVar || type.hasLooseBVars then return none
   if type.isSort || (← isProp type) then return none
-  if ← plainType type then return some (.plain type)
+  if ← plainType type then
+    if type.hasMVar then return none
+    return some (.plain type)
+  -- A placeholder in a proposition does not change the record's data slots.
+  -- Inspect those slots independently below; an unresolved data type still
+  -- fails its own recursive check, including a scalar codec's selected bounds.
   if type.isAppOf ``List || type.isAppOf ``Array then
     return (← pointSchema type.appArg! fuel).map PointSchema.list
   if type.isAppOf ``Quot then return ← pointSchema type.getAppArgs[0]! fuel
@@ -739,7 +745,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let .ok declaredKeys ← endpointKeys descriptor
         | return .error "the finite object has a malformed actual descriptor"
       let schema ← if let some keys := declaredKeys then pure (some (PointSchema.keys keys))
-        else interfacePointSchema objects descriptor
+        else interfacePointSchema objects descriptor (some formalField)
       let some schema := schema
         | return .error "the finite object requires its released concrete point-data interface"
       let .ok points := inventory.getArr?
@@ -893,7 +899,14 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       -- Resolve each factor's declared interface through retained data or its
       -- public descriptor, not through the formal universal object's factors.
       for data in #[leftData, rightData] do
-        let .ok field ← interfaceArgument objects expectedType data
+        -- A nested product has the same already checked object category.
+        -- Its fresh opaque children need no reconstructed semantic product:
+        -- this placeholder is used only by recursive port validation below.
+        let selected ← if (data.getObjValAs? String "ctor").toOption ==
+            some "objectProduct" then do
+          pure (.ok (← mkFreshExprMVar expectedType))
+        else interfaceArgument objects expectedType data
+        let .ok field := selected
           | return .error "the product factor lacks its complete retained object interface"
         match ← validatePort field expectedType data objects with
         | .error message => return .error message
@@ -1445,14 +1458,29 @@ partial def interfaceDeclaration (objects : InterfaceObjects)
 
 /-- Point slots follow the actual public object representation. An extent keeps
 its ambient point codec; its membership condition remains an unchecked part of
-the computation and never becomes a proof or a replacement formal carrier. -/
-partial def interfacePointSchema (objects : InterfaceObjects) (data : Json) :
+the computation and never becomes a proof or a replacement formal carrier.
+After validating the descriptor, an opaque or context-dependent representation
+may retain its independently fixed point interface. This supplies data slots,
+never the requested object's members. An available actual interface always wins,
+even when its point codec is unsupported. -/
+partial def interfacePointSchema (objects : InterfaceObjects) (data : Json)
+    (validatedContext : Option Expr := none) :
     TermElabM (Option PointSchema) := do
+  if let .ok ("valueData", #[actual]) := envelope data then
+    return ← interfacePointSchema objects actual validatedContext
+  if let .ok ("finiteData", #[descriptor, _]) := envelope data then
+    return ← interfacePointSchema objects descriptor validatedContext
+  if let .ok ("objectPresentation", #[_, actual]) := envelope data then
+    return ← interfacePointSchema objects actual validatedContext
   if let .ok ("extent", #[_, ambient, _]) := envelope data then
     let .ok ambientObject ← interfaceObject objects ambient | return none
     return ← objectPointSchema ambientObject
-  let .ok object ← interfaceObject objects data | return none
-  objectPointSchema object
+  match ← interfaceObject objects data with
+  | .ok object => objectPointSchema object
+  | .error _ =>
+    match validatedContext with
+    | some fixed => objectPointSchema fixed
+    | none => return none
 
 /-- Check an extent through its published power-object and subset-literal
 interfaces. The subset occupies a fresh typed placeholder: no returned members,
@@ -1786,29 +1814,59 @@ partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry
     comparison := comparison }
   return .ok result
 
-/-- Project a declared input's actual endpoint descriptor. Fallback endpoint
-references retain the complete callable, so an opaque map never invents an
-enumeration of its formal carrier. -/
-partial def interfaceEndpointEncoding (objects : InterfaceObjects) (formal : Expr)
-    (data : Json) (source : Bool) : TermElabM (Except String Json) := do
-  let .ok data := valuePayload data | return .error "the input callable envelope is incomplete"
-  match envelope data with
+/-- Project a declared input's endpoint while retaining exact data occurrences.
+This shared traversal also serves metadata-only validation: it does not invent
+suppliers when the caller has no runtime table. Runtime callers validate complete
+coverage before and after projection. A computed anonymous callable uses its
+own endpoint reference rather than reconstructing a formal named object. -/
+partial def interfaceEndpointData (objects : InterfaceObjects) (formal : Expr)
+    (data : DataOwnership.Data) (source : Bool) (recoverFormal : Bool := true) :
+    TermElabM (Except String DataOwnership.Data) := do
+  let fieldData := fun (data : DataOwnership.Data) (json : Json) (index : Nat) =>
+    ({ json, ownership := DataOwnership.project #[.field "args", .index index]
+        data.ownership } : DataOwnership.Data)
+  if (data.json.getObjValAs? String "ctor").toOption == some "valueData" then
+    let .ok (.inline child) := Backend.ComputationalValue.decode data.json
+      | return .error "the input callable envelope is incomplete"
+    return ← interfaceEndpointData objects formal (fieldData data child 0) source recoverFormal
+  match envelope data.json with
   | .ok ("typedMap", #[left, right, _]) | .ok ("arrow", #[left, right, _]) =>
-    return .ok (if source then left else right)
+    return .ok (fieldData data (if source then left else right) (if source then 0 else 1))
   | .ok ("identity", #[left, right]) | .ok ("zero", #[left, right]) =>
-    return .ok (if source then left else right)
+    return .ok (fieldData data (if source then left else right) (if source then 0 else 1))
+  | .ok ("compose", #[first, second]) =>
+    let some application ← retainedApplication ``CategoryTheory.CategoryStruct.comp formal
+      | return .error "the composed input has no independently retained complete components"
+    let fields := application.getAppArgs
+    return ← interfaceEndpointData objects
+      (if source then fields[fields.size - 2]! else fields.back!)
+      (fieldData data (if source then first else second) (if source then 0 else 1)) source recoverFormal
   | .ok ("map", #[action, original]) =>
     let some application ← retainedApplication ``CategoryTheory.Functor.map formal
       | return .error "the mapped input has no independently retained complete action"
-    let .ok endpoint ← interfaceEndpointEncoding objects application.getAppArgs.back! original source
+    let .ok endpoint ← interfaceEndpointData objects application.getAppArgs.back!
+        (fieldData data original 1) source recoverFormal
       | return .error "the mapped input omitted an original complete endpoint"
-    return .ok (Json.mkObj [("ctor", "functorAction"), ("args", Json.arr #[action, endpoint])])
+    return .ok {
+      json := Json.mkObj [("ctor", "functorAction"),
+        ("args", Json.arr #[action, endpoint.json])]
+      ownership := DataOwnership.prefix #[.field "args", .index 0] (fieldData data action 0).ownership ++
+        DataOwnership.prefix #[.field "args", .index 1] endpoint.ownership }
   | _ =>
     let some (left, right) := Language.homEnds? (← inferType formal)
       | return .error "the construction input is not a complete callable"
-    if let .ok endpoint ← interfaceEncoding objects (if source then left else right) then
-      return .ok endpoint
-    return .ok (Backend.MorphismEndpoint.encode { callable := data, source })
+    if recoverFormal then
+      if let .ok endpoint ← interfaceEncoding objects (if source then left else right) then
+        return .ok { json := endpoint }
+    return .ok {
+      json := Backend.MorphismEndpoint.encode { callable := data.json, source }
+      ownership := DataOwnership.prefix #[.field "args", .index 0] data.ownership }
+
+/-- Metadata-only projection uses the same complete endpoint traversal without
+claiming runtime ownership. Its caller retains the independent formal interface. -/
+partial def interfaceEndpointEncoding (objects : InterfaceObjects) (formal : Expr)
+    (data : Json) (source : Bool) : TermElabM (Except String Json) := do
+  return (← interfaceEndpointData objects formal { json := data } source).map (·.json)
 
 /-- Restore constructor input roles without inspecting or identifying any
 returned object with its formal counterpart. -/

@@ -440,40 +440,54 @@ def dataPortIndex (row : LimitEntry) (diagram index : Expr) :
   | .ok (.field port, count) => return .ok (port, count)
   | .ok _ => return .error "the defining map is a categorical expression in several data fields"
 
-/-- Interpret the independent projection expression in the computational data algebra. -/
-partial def DataProjection.encode (projection : DataProjection) (fields : Array Json)
-    (encodeInput : Expr → TermElabM (Except String Json))
-    (encodeAction : Expr → TermElabM (Except String Json)) :
-    TermElabM (Except String Json) := do
-  let envelope := fun tag args => Json.mkObj [("ctor", toJson (tag : String)), ("args", Json.arr args)]
+/-- Render the independently selected projection in an injected data algebra.
+Fields and callbacks retain their actual fragments; the constructor assembler
+places every repeated occurrence, including both copies in an identity. -/
+partial def DataProjection.encodeWith {α : Type} (projection : DataProjection) (fields : Array α)
+    (encodeInput : Expr → TermElabM (Except String α))
+    (encodeAction : Expr → TermElabM (Except String α))
+    (ctor : String → Array α → Except String α) :
+    TermElabM (Except String α) := do
   match projection with
   | .field index => return match fields[index]? with
       | some data => .ok data
       | none => .error "the construction omitted a defining-map field"
   | .input formal => encodeInput formal
   | .composition first second =>
-    let .ok first ← first.encode fields encodeInput encodeAction
+    let .ok first ← first.encodeWith fields encodeInput encodeAction ctor
       | return .error "the first defining-map component has no computational encoding"
-    let .ok second ← second.encode fields encodeInput encodeAction
+    let .ok second ← second.encodeWith fields encodeInput encodeAction ctor
       | return .error "the second defining-map component has no computational encoding"
-    return .ok (envelope "compose" #[first, second])
+    return ctor "compose" #[first, second]
   | .identity object =>
-    let .ok object ← object.encode fields encodeInput encodeAction
+    let .ok object ← object.encodeWith fields encodeInput encodeAction ctor
       | return .error "the defining identity has no complete object data"
-    return .ok (envelope "identity" #[object, object])
+    return ctor "identity" #[object, object]
   | .map action arrow =>
     let .ok action ← encodeAction action
       | return .error "the defining map has no registered action descriptor"
-    let .ok arrow ← arrow.encode fields encodeInput encodeAction
+    let .ok arrow ← arrow.encodeWith fields encodeInput encodeAction ctor
       | return .error "the defining map has no complete source arrow data"
-    return .ok (envelope "map" #[action, arrow])
+    return ctor "map" #[action, arrow]
 
-/-- Select an opaque defining-map field using an independently interpreted formal schema. -/
-def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr)
-    (encodeInput : Expr → TermElabM (Except String Json) := fun value => Codec.encode value)
-    (encodeAction : Expr → TermElabM (Except String Json) := fun _ =>
-      pure (.error "a registered action descriptor is required")) :
+/-- The original JSON data algebra, retained for metadata and portable consumers. -/
+def DataProjection.encode (projection : DataProjection) (fields : Array Json)
+    (encodeInput : Expr → TermElabM (Except String Json))
+    (encodeAction : Expr → TermElabM (Except String Json)) :
     TermElabM (Except String Json) := do
+  projection.encodeWith fields encodeInput encodeAction fun tag args =>
+    .ok (Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)])
+
+/-- Check the existing construction framing and formal projection schema before
+rendering exact field fragments. `encodeField` receives the literal `args` index
+and its JSON field; a scoped caller projects that position in its retained packet.
+Neither the fragment algebra nor its callbacks can change the formal projection. -/
+def projectDataWith {α : Type} (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr)
+    (encodeField : Nat → Json → TermElabM (Except String α))
+    (encodeInput : Expr → TermElabM (Except String α))
+    (encodeAction : Expr → TermElabM (Except String α))
+    (ctor : String → Array α → Except String α) :
+    TermElabM (Except String α) := do
   let (projection, fieldCount) ← match ← dataProjection row diagram index with
     | .error message => return .error message
     | .ok port => pure port
@@ -486,7 +500,22 @@ def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Exp
     | return .error "the computational construction has no complete args array"
   unless args.size == fieldCount do
     return .error "the computational construction has a different required field count"
-  projection.encode args encodeInput encodeAction
+  let mut fields : Array α := #[]
+  for position in [:args.size] do
+    match ← encodeField position args[position]! with
+    | .error message => return .error message
+    | .ok field => fields := fields.push field
+  projection.encodeWith fields encodeInput encodeAction ctor
+
+/-- Select an opaque defining-map field using an independently interpreted formal schema. -/
+def projectData (row : LimitEntry) (diagram : Expr) (answer : Json) (index : Expr)
+    (encodeInput : Expr → TermElabM (Except String Json) := fun value => Codec.encode value)
+    (encodeAction : Expr → TermElabM (Except String Json) := fun _ =>
+      pure (.error "a registered action descriptor is required")) :
+    TermElabM (Except String Json) :=
+  projectDataWith row diagram answer index (fun _ field => pure (.ok field))
+    encodeInput encodeAction fun tag args =>
+      .ok (Json.mkObj [("ctor", toJson tag), ("args", Json.arr args)])
 
 set_option backward.privateInPublic true in
 set_option backward.privateInPublic.warn false in

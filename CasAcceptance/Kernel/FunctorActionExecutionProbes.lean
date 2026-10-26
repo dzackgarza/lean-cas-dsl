@@ -413,4 +413,38 @@ run_elab do
         "both-images-retained-through-next-action", "original-owner-retained"]
   finally harness.stop
 
+-- A composition projects its actual outer endpoint packets, including when
+-- both formal endpoints coincide and an exact cache entry holds other data.
+-- These arbitrary packets test data flow, not the cardinalities of the objects.
+run_elab do
+  let (trace, _, _, source, target, first) ← fixture
+  let harness ← Harness.empty
+  let second ← instantiateMVars (← elabTermAndSynthesize
+    (← `(TypeCat.ofHom (fun (_ : $(← exprToSyntax target.value)) =>
+      (0 : $(← exprToSyntax source.value))))) none)
+  let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[first.value, second]
+  let endpoint := fun (size : Nat) => dataNode "obj.sets.fin" #[toJson size]
+  let firstData := dataNode "typedMap" #[endpoint 5, endpoint 7,
+    dataNode "opaqueData" #[toJson "first original callable"]]
+  let secondData := dataNode "typedMap" #[endpoint 7, endpoint 11,
+    dataNode "opaqueData" #[toJson "second original callable"]]
+  let actual : Wire := { first with
+    payload := .computed composite (.owned "original-composed-callables" 431
+      (dataNode "compose" #[firstData, secondData]))
+    callableObserved := true }
+  harness.results.modify (·.insert source.value { source with
+    payload := .computed source.value (.inline (endpoint 97)) })
+  let left ← actionMapEndpoint harness trace actual first.categoryContext source.value true
+  let right ← actionMapEndpoint harness trace actual first.categoryContext source.value false
+  unless left.json == endpoint 5 && right.json == endpoint 11 &&
+      left.owner?.isNone && right.owner?.isNone &&
+      left.objectObserved && right.objectObserved do
+    throwError "a composition replaced or conflated its actual complete endpoint fields"
+  let wrongSignature ← try
+    discard <| actionMapEndpoint harness trace actual first.categoryContext target.value true
+    pure false
+  catch _ => pure true
+  unless wrongSignature do
+    throwError "an actual endpoint field replaced the independently fixed complete signature"
+
 end

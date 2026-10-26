@@ -110,6 +110,7 @@ run_elab do
     let baseWire : Realize.Wire := {
       form := .subobject prepared.baseCategory
       payload := Realize.computedPayload base baseData owner }
+    logInfo "prescribed lift: original positive raw interface"
     let (packet, returnedOwner) ← Realize.executePrescribedLift harness trace prepared
       sourceWire baseWire parameters (some (Realize.realizedEdgeDescriptor harness trace))
     unless returnedOwner == owner do throwError "the prescribed packet lost its actual owner"
@@ -203,51 +204,101 @@ run_elab do
         throwError "comparison reuse discarded its actual action parameters or owner"
     unless (← observations.get).size == 4 do
       throwError "retained field reuse reran a prescribed computation"
-    -- Parameter dependencies carry the same live owner as the completed packet.
-    -- A matching token cannot stand in for a different backend or session.
-    for (dependencyOwner, expectedStratum) in #[
-        (owner, Stratum.noImplementation),
-        (some ("lift-probe", session.identity + 1), Stratum.unavailable),
-        (some ("foreign-lift-probe", session.identity), Stratum.unavailable)] do
-      let empty ← Realize.Harness.empty
-      let dispatches ← IO.mkRef #[]
-      let empty := { empty with dispatches := some dispatches }
-      let dependency : Realize.Wire := {
-        form := .object parameterForm
-        payload := Realize.computedPayload fixedParameters[0]! actualParameter dependencyOwner }
+    logInfo "prescribed lift: original positive packet and retained projections complete"
+    -- Isolate owner preflight with the complete parameter vector and the actual
+    -- supplying session. The empty registration set then tests the execution gap
+    -- only when every opaque occurrence is live; missing or stale suppliers are
+    -- unavailable before admission. The outer harness owns the borrowed process.
+    let liveOwner : DataOwnership.Owner := ("lift-probe", session.identity)
+    let liveConnections ← harness.connections.get
+    let some (.ok retainedSession) := liveConnections["lift-probe"]?
+      | throwError "the preflight control lost the actual supplying process"
+    unless liveConnections.size == 1 && retainedSession.identity == session.identity do
+      throwError "the preflight control changed its actual live session"
+
+    let liveWires ← fixedParameters.mapM fun parameter => do
+      let some wire := (← harness.results.get)[parameter]?
+        | throwError "the preflight control lost an exact fixed parameter occurrence"
+      unless wire.value == parameter && wire.json == actualParameter && wire.owner? == owner do
+        throwError "the preflight parameter differs from the original positive fixture"
+      return wire
+    let liveData := liveWires.map (·.fragment)
+    unless liveData.map (·.json) == parameters[0]!.1 do
+      throwError "the preflight control changed the complete original parameter vector"
+
+    let actionData (wires : Array Realize.Wire) : TermElabM DataOwnership.Data := do
+      unless wires.size == actionParameters.size do
+        throwError "the preflight action lost a required ordered parameter occurrence"
+      Realize.placedData action (wires.mapIdx fun index wire =>
+        (#[.field "args", .index index], wire.fragment))
+    let liveAction ← actionData liveWires
+    let some firstParameter := liveWires[0]?
+      | throwError "the preflight control lost its first fixed parameter occurrence"
+    let changedFirst (supplier : DataOwnership.Owner) : Array Realize.Wire :=
+      let changed := DataOwnership.Data.capture firstParameter.json supplier
+      liveWires.set! 0 { firstParameter with
+        payload := .computed firstParameter.value (.scoped changed) }
+
+    let freshPreflight : IO (Realize.Harness × IO.Ref (Array Json)) := do
+      let isolated ← Realize.Harness.empty
+      isolated.connections.set liveConnections
+      let dispatches ← IO.mkRef (#[] : Array Json)
+      return ({ isolated with dispatches := some dispatches }, dispatches)
+    let unchanged (isolated : Realize.Harness)
+        (dispatches : IO.Ref (Array Json)) : TermElabM Unit := do
+      let after ← isolated.connections.get
+      let some (.ok sameSession) := after["lift-probe"]?
+        | throwError "the preflight control discarded the actual supplying process"
+      unless after.size == liveConnections.size && sameSession.identity == session.identity &&
+          (← dispatches.get).isEmpty && (← isolated.replies.get).isEmpty do
+        throwError "owner preflight dispatched or changed the actual process inventory"
+
+    let cases : Array (DataOwnership.Owner × Stratum) := #[
+      (liveOwner, .noImplementation),
+      (("lift-probe", session.identity + 1), .unavailable),
+      (("foreign-lift-probe", session.identity), .unavailable)]
+
+    -- Change only evidence parameter 0; every action/source/base occurrence stays live.
+    for (supplier, expectedStratum) in cases do
+      let (isolated, dispatches) ← freshPreflight
+      let evidenceWires := changedFirst supplier
+      let encoder : Realize.ScopedActionEncoder := fun edge selectedAction => do
+        unless edge == inner && selectedAction == component.action do
+          throwError "the preflight control changed its independently selected action"
+        return (liveAction, liveWires)
       let refused ← try
-        discard <| Realize.executePrescribedLift empty trace prepared sourceWire baseWire
-          #[(parameters[0]!.1, #[dependency])]
+        discard <| Realize.executePrescribedLiftData isolated trace prepared sourceWire baseWire
+          #[(evidenceWires.map (·.fragment), evidenceWires)] (some encoder)
         pure false
       catch error =>
         if CasCatalogue.Exception.stratum? error == some expectedStratum then pure true
         else throw error
-      unless refused && (← dispatches.get).isEmpty && (← empty.connections.get).isEmpty do
-        throwError "the evidence-parameter owner preflight changed dispatch or failure meaning"
-    -- Remove evidence-parameter dependencies to isolate the action-owner preflight.
-    for (dependencyOwner, expectedStratum) in #[
-        (owner, Stratum.noImplementation),
-        (some ("lift-probe", session.identity + 1), Stratum.unavailable),
-        (some ("foreign-lift-probe", session.identity), Stratum.unavailable)] do
-      let empty ← Realize.Harness.empty
-      let dispatches ← IO.mkRef #[]
-      let empty := { empty with dispatches := some dispatches }
+      unless refused do
+        throwError "the evidence-parameter preflight accepted an unavailable computation"
+      unchanged isolated dispatches
+
+    -- Keep the complete evidence vector live; change only action argument 0.
+    for (supplier, expectedStratum) in cases do
+      let (isolated, dispatches) ← freshPreflight
+      let selectedWires := changedFirst supplier
+      let descriptor ← actionData selectedWires
       let encodings ← IO.mkRef (0 : Nat)
-      let dependency : Realize.Wire := {
-        form := .object parameterForm
-        payload := Realize.computedPayload fixedParameters[0]! actualParameter dependencyOwner }
-      let encoder : Realize.ActionEncoder := fun _ _ => do
+      let encoder : Realize.ScopedActionEncoder := fun edge selectedAction => do
         encodings.modify (· + 1)
-        return (action, #[dependency])
+        unless edge == inner && selectedAction == component.action do
+          throwError "the preflight control changed its independently selected action"
+        return (descriptor, selectedWires)
       let refused ← try
-        discard <| Realize.executePrescribedLift empty trace prepared sourceWire baseWire
-          #[(parameters[0]!.1, #[])] (some encoder)
+        discard <| Realize.executePrescribedLiftData isolated trace prepared sourceWire baseWire
+          #[(liveData, liveWires)] (some encoder)
         pure false
       catch error =>
         if CasCatalogue.Exception.stratum? error == some expectedStratum then pure true
         else throw error
-      unless refused && (← encodings.get) == 1 && (← dispatches.get).isEmpty &&
-          (← empty.connections.get).isEmpty do
-        throwError "the action-owner preflight changed dispatch behavior or failure meaning"
+      unless refused && (← encodings.get) == 1 do
+        throwError "the action-owner preflight changed its failure or encoder count"
+      unchanged isolated dispatches
+    unless (← observations.get).size == 4 do
+      throwError "the owner preflight added a dispatch to the original positive fixture"
   finally
     harness.stop

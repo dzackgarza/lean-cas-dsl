@@ -278,7 +278,7 @@ correction `7bebace`, including exact nonidentity parameters and original owners
 The explicit `composite_lift` selector follows only retained defining-map links and
 validates every adjacent full accepted interface. It reuses each segment's actual
 cached selections, action and evidence parameters, original sources/bases and four
-outputs, merging owners without rerunning ports. The ordinary outer selection
+outputs, retaining their occurrence owners without rerunning ports. The ordinary outer selection
 keeps its own comparison semantics. Transparent administrative expression keys keep
 those selections and their projected/factor values distinct without introducing a
 mathematical declaration or a new trace/wire schema. The public API is in `SPEC.md`;
@@ -354,3 +354,41 @@ public contract `8397df1`. The ordinary structured-result, generic-execution,
 computational-transport and portable-reply probes also passed against that
 contract. These are mechanism checks, separate from permanent mathematical
 acceptance and the frozen independent extension trials.
+
+
+## Occurrence-scoped lift execution — 2026-10-26
+
+The existing `LiftedSubobjectData.Plan`, `SelectedLift.Component`, and fixed
+component ports still own the formal route, source/base roles, parameter arity,
+and output interfaces. The execution representation now retains aligned scopes
+for each action, parameter array, source, base, and returned field. Projection
+uses those exact positions. A completed packet never collapses independent
+suppliers into its returning process, and a projected field does not acquire a
+sibling's supplier.
+
+`executePrescribedLiftData` carries scoped fragments and explicit dependency
+wires. Later stages retain the source/base views fixed by the original component
+plan, together with the earlier actual output wires. Their service handles remain
+available to deferred requests. The existing raw `executePrescribedLift` remains
+an inspection adapter: it recovers metadata from fixed formal roles and explicit
+retained dependencies, rejects ambiguous occurrences, and refuses to discard a
+multi-supplier result. Raw and scoped projection interfaces share one renderer.
+
+The positive prescribed-lift protocol consumer still uses that original raw
+interface. Its four requests, returned fields, packet checks and field reuse pass
+unchanged. The owner preflight controls now keep every selected parameter and the
+actual live connection while varying one occurrence's supplier. This separates a
+missing registration from an absent or expired owner without creating a session
+record or erasing dependencies.
+
+The final `LiftedSubobjectDataProbes` executor control previously supplied opaque
+source/base tokens through `.ordinary` wires and arbitrary raw parameters with no
+dependencies to an empty harness. Such inputs cannot establish the intended
+admission-only failure. Its corrected setup starts the existing unchanged
+`probe_lift_protocol.py` with zero registrations, retains that real connection,
+and obtains the complete parameters and action through their existing encoders.
+Both original base spellings still use the raw executor and must fail specifically
+at the first public field's missing registration, with no dispatches or replies.
+All preceding framing/decoding assertions and the subsequent typed-map assertions
+are byte-identical, as recorded by separate prefix/suffix hashes. No new protocol
+implementation or mathematical expected value is introduced.

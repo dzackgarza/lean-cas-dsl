@@ -17,6 +17,12 @@ Direct source inspection then covered the already consumed
 `Foundation.FiniteSubsetLiterals.literal`, and the existing `Codec` and
 `PointSchema` representation checks.
 
+The retained-inventory repair additionally searched the formalization corpus for
+`CategoryTheory.ToType ConcreteCategory` and `Lean Meta forallMetaTelescopeReducing`.
+The results locate Mathlib's existing concrete-category projections and Lean's
+typed telescope APIs. Local inspection covered `objectPointSchema`,
+`interfacePointSchema`, `validatePort`, and the unchanged action and lift controls.
+
 ## Owner
 
 Mathlib owns categorical Hom types, composition, functor actions and endpoint
@@ -78,3 +84,22 @@ unbound anonymous action inputs. These are generic framing controls, not a new
 mathematical acceptance suite. The frozen independent source/target leaf trial
 remains a separate process execution obligation, with its original failed run
 preserved.
+
+Finite inventory validation first validates the complete descriptor. A portable
+representation keeps its own published point interface, including an extent's
+actual ambient codec. A descriptor whose interface requires independent context
+can instead retain the already checked formal port's point-data slots. This does
+not enumerate the requested carrier or fill proof fields. Transparent presentation
+wrappers pass through the actual representation, and an available but unsupported
+actual codec cannot be replaced by the formal one. The original action/lift
+inventory probes and the portable-extent malformed-data controls remain unchanged;
+additional opaque-inventory controls check that the retained interface still
+rejects malformed slots.
+
+Structural point inspection also distinguishes an unresolved proof predicate from
+an unresolved data parameter. A placeholder homomorphism can occur in a kernel
+subtype's membership predicate without changing its already fixed ambient data
+slots. The existing constructor metadata traversal skips that proposition and
+checks every remaining slot recursively. A scalar codec with an unresolved bound
+still fails. No predicate, homomorphism law, or membership proof is reconstructed
+from the supplied inventory.

@@ -107,7 +107,8 @@ run_elab do
   let residual := { original with
     form := imageForm state (.functor list.id) sets
     payload := forwardPayload original image
-      (wire "functorAction" #[descriptor, original.json]) }
+      (wire "functorAction" #[descriptor, original.json])
+      #[(#[], #[.field "args", .index 1])] }
   unless (residual.json.getObjValAs? String "ctor").toOption == some "functorAction" do
     throwError "the residual action fixture did not retain its complete computational action"
   if ← withoutModifyingState <| isDefEq residual.value original.value then

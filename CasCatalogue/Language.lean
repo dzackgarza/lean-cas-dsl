@@ -677,6 +677,10 @@ structure Ctx where
   trace : Option Trace := none
   /-- Closed readings shared only within one fixed question scope and trace. -/
   closedTerms : Option (IO.Ref (Std.HashMap String Value)) := none
+  /-- Complete carrier views shared only within one inclusion endpoint read. Each entry
+  keeps the required original trace and the closed action records added by that view. -/
+  carrierReadings : Option (IO.Ref
+    (Array (Value × Value × Std.HashMap Expr Node × Std.HashMap Expr Node))) := none
   deriving Inhabited
 
 /-- The language's evaluation monad: elaboration in a reading. -/
@@ -4298,7 +4302,35 @@ partial def carrierObjectWithAction (value : Value) : M (Value × Array EdgeRef 
   return (.object image sets carrierOrigin (some value) viewData, route, applications)
 
 partial def carrierObject (value : Value) : M Value := do
-  return (← carrierObjectWithAction value).1
+  let context ← read
+  if context.stage.isSome || !context.bound.isEmpty then
+    return (← carrierObjectWithAction value).1
+  let some readings := context.carrierReadings | return (← carrierObjectWithAction value).1
+  let some trace := context.trace | return (← carrierObjectWithAction value).1
+  let before ← trace.get
+  for (source, carrier, required, records) in ← readings.get do
+    if source.sameSource value && required.toArray.all (fun (term, node) =>
+        (before[term]?).any (· == node)) then
+      trace.modify fun current => records.fold
+        (fun current term node => current.insert term node) current
+      return carrier
+  let carrier := (← carrierObjectWithAction value).1
+  if value.closedReading && carrier.closedReading then
+    let records : Std.HashMap Expr Node := (← trace.get).fold
+      (fun records term node =>
+        if (before[term]?).any (· == node) then records else records.insert term node) {}
+    -- A reused view carries only closed source actions. Other trace constructions
+    -- keep their ordinary reading; the cache never supplies an open semantic input.
+    let closed := records.toArray.all fun (term, node) => closedReadingTerm term &&
+      match node with
+      | .retainedRoute _ _ _ applications receiver =>
+          closedReadingTerm receiver && applications.all closedReadingTerm
+      | .contextualRoute source target _ applications receiver false =>
+          closedReadingTerm source.bundle && closedReadingTerm target.bundle &&
+            closedReadingTerm receiver && applications.all closedReadingTerm
+      | _ => false
+    if closed then readings.modify (·.push (value, carrier, before, records))
+  return carrier
 
 /-- Constrain an ordered dependent telescope from a complete selected receiver.
 Only earlier structured object parameters are expanded; their carrier and every structure field
@@ -4557,10 +4589,32 @@ partial def registeredArrowParameter (expected : Expr) : M (Option Expr) := do
     return some (← identityAt (.object source category none none none))
   return none
 
+/-- A retained point can name the complete structure that supplied that exact map, even
+when its declared coordinate has another selection. This semantic context remains available
+in speculative trials; no owner is recovered from carrier or point-value equality. -/
+partial def retainedPointOwner? (point : Expr) (target : Value) : M (Option Value) := do
+  let owners : Array Value := (sourceParameterValues target).filterMap fun
+    | .element original (.object _ _ _ (some owner@(.object ..)) _) =>
+        if original == point then some owner else none
+    | _ => none
+  let some first := owners[0]? | return none
+  let .object actual category .. := first | return none
+  unless !actual.hasMVar && !actual.hasLevelMVar && (← isTypeCorrect actual) do
+    throwStratum .invalid "the retained point source is not a complete selected owner"
+  if owners.all (·.sameSelection first) then
+    return some (owners.foldl (fun retained owner => retainObjectContext retained #[owner]) first)
+  unless owners.all (fun
+      | .object _ candidateCategory .. => candidateCategory.id == category.id
+      | _ => false) do
+    throwSemanticAmbiguity "the exact retained point has several selected owner categories"
+  let evidence ← coalesceSelectedParameterViews (← inferType actual) actual owners
+  return some (.object actual category none none (some evidence))
+
 /-- Infer declaration arguments from the operand's stored typed constructor parameters before
 comparing carriers. Nested registered constructors retain bundled parameters that an abbreviation
 may hide when its outer carrier is unified. -/
-partial def bindSourceParameter (parameter : Expr) (actual : Value) : M Bool := do
+partial def bindSourceParameter (parameter : Expr) (actual : Value)
+    (owner? : Option Value := none) : M Bool := do
   -- The registered source declaration fixes relationships between its own ordered arguments.
   -- Match these before attempting acquisition from an enclosing structure.
   if let .object _ _ (some (entry, values)) _ _ := actual then
@@ -4614,6 +4668,26 @@ partial def bindSourceParameter (parameter : Expr) (actual : Value) : M Bool := 
     let unknownArgument ← instantiateMVars (mkMVar id)
     unless unknownArgument.isMVar do continue
     let expected ← instantiateMVars (← inferType unknownArgument)
+    if let some owner := owner? then
+      let candidate? ← parameterTrial do
+        try
+          let candidate ← instantiateMVars (← typedParameter expected owner)
+          if candidate.hasMVar || candidate.hasLevelMVar || !(← isTypeCorrect candidate) then
+            return none
+          unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do
+            return none
+          return some candidate
+        catch error =>
+          if Exception.interpretationKind error == .invalid then pure none else throw error
+      if let some candidate := candidate? then
+        unless ← isDefEq unknownArgument candidate <&&> isDefEq parameter actualTerm do return false
+        -- Replay the already selected complete transport in this caller's recorder.
+        -- A family trial owns that recorder until its whole application is accepted.
+        let retained ← instantiateMVars (← typedParameter (← instantiateMVars expected) owner)
+        unless ← withTransparency .all <| isDefEq retained candidate do
+          throwStratum .invalid "the retained point source changed its complete parameter"
+        Trace.alias (← read).trace retained candidate
+        continue
     let mut witnesses : Array Expr := #[]
     for value in sourceParameterValues actual do
       let candidate? ← parameterTrial do
@@ -4774,11 +4848,22 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   -- Infer a complete application jointly from actual registered source arguments. Each
   -- speculative assignment is discarded unless all source parameters and the whole family
   -- application are closed and type correct; independent operand conversions do not guess it.
-  let joint? ← parameterTrial do
+  -- Numeral operands wait for that complete family and keep their ordinary admission checks.
+  -- The same isolated trial keeps the actual checked parameter actions; failed candidates
+  -- publish neither assignments nor records into the statement that owns this application.
+  let jointTrace? ← (← read).trace.mapM fun trace => do IO.mkRef (← trace.get)
+  let joint? ← parameterTrial <| withReader (fun context =>
+      { context with trace := jointTrace? }) do
     try
       for (set, operand) in sources.zip elements do
-        let .element _ A := operand | return none
-        unless ← bindSourceParameter set A do return none
+        match operand with
+        | .element point A =>
+            let owner? ← if (← instantiateMVars set).hasMVar then
+                retainedPointOwner? point A
+              else pure none
+            unless ← bindSourceParameter set A owner? do return none
+        | .nat _ => pure ()
+        | _ => return none
       for parameter in explicit do
         let chosen ← instantiateMVars parameter
         if chosen.hasMVar || chosen.hasLevelMVar then return none
@@ -4787,10 +4872,13 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
       if application.hasMVar || application.hasLevelMVar || !(← isTypeCorrect application) then
         return none
       for (set, operand) in sources.zip elements do
-        let .element _ A := operand | return none
-        let set ← instantiateMVars set
-        if set.hasMVar || set.hasLevelMVar then return none
-        unless ← isDefEq set (← semanticObject A) do return none
+        match operand with
+        | .element _ A =>
+            let set ← instantiateMVars set
+            if set.hasMVar || set.hasLevelMVar then return none
+            unless ← isDefEq set (← semanticObject A) do return none
+        | .nat _ => pure ()
+        | _ => return none
       return some (← args.mapM instantiateMVars)
     catch error =>
       if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
@@ -4798,6 +4886,10 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
     for (parameter, chosen) in args.zip joint do
       unless ← isDefEq parameter chosen do
         throwStratum .invalid m!"a joint source parameter differs from its actual declaration"
+    if let some trace := (← read).trace then
+      if let some recorder := jointTrace? then
+        for (value, node) in (← recorder.get).toArray do
+          trace.modify (·.insert value node)
   -- A registered inclusion carries its dependent target parameters. Use that actual
   -- arrow before attempting to infer a bundled parameter from a bare carrier.
   for (set, operand) in sources.zip elements do
@@ -4923,6 +5015,8 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
   -- needs it there (it is formed there, `x in D`).
   let operandObjects := elements.filterMap fun | .element _ X => some X | _ => none
   let mut endpointWitnesses := parameters ++ operandObjects ++ target?.toArray
+  if operationId.isNone then
+    endpointWitnesses ← completeParameterObjects (← args.mapM instantiateMVars) endpointWitnesses
   -- A selected operation already supplies its complete heterogeneous parameters.
   -- Retain those objects before reading the operand endpoints; otherwise a scalar
   -- endpoint can be forced back through an unrelated presentation of its module.
@@ -5519,7 +5613,7 @@ partial def coerceTo (v : Value) (X : Value) : M Value := do
             | .object _ _ none none none, _ => Y
             | .object _ _ _ none _, .object _ _ _ (some _) _ => Y
             | _, _ => X
-          return .element h target
+          return .element h (retainObjectContext target #[Y])
       | none =>
           let source := match Y with
             | .object _ _ _ (some selected) _ => selected
@@ -5748,11 +5842,12 @@ partial def invariantApplication (entry : MorphismEntry) (A : Value) :
     throwStratum .invalid m!"{entry.name} is not an invariant of objects"
   return (category, ← instantiateMVars (mkAppN constant args), ← args.mapM instantiateMVars)
 
-/-- Read the selected complete family, retaining its declared parameters and endpoint contexts. -/
-partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
-  let (category, family, parameters) ← invariantApplication entry A
+/-- Complete declaration parameters are endpoint witnesses in their actual registered
+categories. All original supplied context remains available beside these full values. -/
+partial def completeParameterObjects (parameters : Array Expr)
+    (known : Array Value) : M (Array Value) := do
   let state ← registryState
-  let mut known := #[A]
+  let mut known := known
   for parameter in parameters do
     if parameter.hasMVar || parameter.hasLevelMVar then continue
     let applicable ← state.categories.filterM fun candidate => parameterCompatible do
@@ -5764,6 +5859,12 @@ partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
         unless known.any (·.sameSource value) do known := known.push value
     | #[] => pure ()
     | _ => throwSemanticAmbiguity "a complete declared parameter has several object categories"
+  return known
+
+/-- Read the selected complete family, retaining its declared parameters and endpoint contexts. -/
+partial def invariantOf (entry : MorphismEntry) (A : Value) : M Value := do
+  let (category, family, parameters) ← invariantApplication entry A
+  let known ← completeParameterObjects parameters #[A]
   let .object one _ _ _ _ ← oneObject | unreachable!
   let some (source, _) := homEnds? (← inferType family)
     | throwStratum .invalid m!"{entry.name} is not an invariant of objects"
@@ -6699,7 +6800,7 @@ partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
   let state ← registryState
   let one ← semanticObject (← oneObject)
   let witnesses := sourceParameterValues X
-  let mut candidates : Array (Value × Expr × Expr × Expr × Std.HashMap Expr Node) := #[]
+  let mut candidates : Array (Value × Expr × Expr × Expr × Value × Std.HashMap Expr Node) := #[]
   for row in state.numerals do
     let some owner := row.over | continue
     for supplied in witnesses do
@@ -6724,22 +6825,28 @@ partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
           Trace.record (some recorder) closedPoint (.elementNumeral k carrier actual)
           let point ← staged closedPoint
           unless !point.hasMVar && !point.hasLevelMVar && (← isTypeCorrect point) do return none
-          return some (supplied, actual, numeral, point, ← recorder.get)
+          let some ownerCategory := state.categories.find? (·.id == owner) | return none
+          let source ← carrierObject (← structuredParameterView supplied actual ownerCategory)
+          unless ← withTransparency .all <| isDefEq (← semanticObject source) carrier do
+            throwStratum .invalid "the complete numeral source changed its declared coordinate"
+          return some (supplied, actual, numeral, point, source, ← recorder.get)
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error
       if let some candidate := candidate? then candidates := candidates.push candidate
-  let some (_, owner, numeral, point, _) := candidates[0]? | return none
-  for (_, otherOwner, otherNumeral, _, _) in candidates do
+  let some (_, owner, numeral, point, _, _) := candidates[0]? | return none
+  for (_, otherOwner, otherNumeral, _, _, _) in candidates do
     unless ← parameterTrial (withTransparency .all <|
         isDefEq (← inferType owner) (← inferType otherOwner) <&&> isDefEq owner otherOwner) do
       throwSemanticAmbiguity m!"several complete numeral owners determine this coordinate"
     unless ← sameOperationApplication numeral otherNumeral do
       throwSemanticAmbiguity m!"several full numeral applications determine this coordinate"
   if let some trace := (← read).trace then
-    for (_, _, _, _, records) in candidates do
+    for (_, _, _, _, _, records) in candidates do
       trace.modify fun current => records.fold
         (fun result term node => result.insert term node) current
-  return some (.element point (retainObjectContext X (candidates.map (·.1))))
+  let sources := candidates.map fun (_, _, _, original, source, _) =>
+    Value.element original source
+  return some (.element point (retainObjectContext X (candidates.map (·.1) ++ sources)))
 
 /-- A numeral admitted through every parameter-free registered domain whose admission has the
 anonymous target as its actual endpoint. The endpoint remains anonymous; the admission morphism,
@@ -6916,7 +7023,12 @@ partial def toElement (v : Value) (X : Value) : M Value := do
         let some (_, b) ← inclusionOut? X
           | throwStratum .invalid m!"{entry.name} has an admission and no inclusion"
         let B ← inclusionTargetValue X b category
-        return ← admit X (← toElement v B)
+        -- This literal is an original global point. Admit it with its complete
+        -- value proof before precomposing with the current stage's terminal map.
+        let admitted ← withReader (fun context =>
+            { context with stage := none, bound := [] }) do
+          admit X (← toElement v B)
+        return ← restage admitted
       -- A set of constants from its parameter `P` without numerals of its own: the image of
       -- the numeral of `P`.
       if let (some _, some P@(Value.object ..)) :=
@@ -6967,6 +7079,15 @@ partial def endpointWitnesses (endpoint : Expr) (known : Array Value) :
   let maximal := occurring.filter fun value => !(endpointSelection? value).any fun actual =>
     occurring.any fun other => (endpointSelection? other).any fun container =>
       container != actual && (container.find? (· == actual)).isSome
+  if maximal.size > 1 then
+    -- A declared projection names its complete owner. Other full parameters may
+    -- occur in the projection's implicit type without supplying this endpoint.
+    -- Stop at exact retained owners before unfolding any of their structure.
+    let (owner, fields) ← objectFieldPath (← getEnv) endpoint
+      (occurring.filterMap endpointSelection?) .default
+    if !fields.isEmpty then
+      let projected := occurring.filter fun value => endpointSelection? value == some owner
+      unless projected.isEmpty do return (projected, false)
   return if maximal.isEmpty then (known, true) else (maximal, false)
 
 /-- An endpoint may name a field of a complete supplied object. If that whole object's
@@ -6998,14 +7119,15 @@ partial def recognizedEndpoint? (state : RegistryState) (endpoint : Expr)
 
 /-- A declared field path, without reducing its complete owner. Projection functions and
 primitive projections denote the same path; no carrier equality identifies the owner. -/
-partial def objectFieldPath (env : Environment) (term : Expr) (owners : Array Expr := #[]) :
+partial def objectFieldPath (env : Environment) (term : Expr) (owners : Array Expr := #[])
+    (transparency : TransparencyMode := .reducible) :
     M (Expr × Array (Name × Nat)) := do
   let term := term.consumeMData
   if owners.contains term then return (term, #[])
-  if term.isAppOfArity ``id 2 then return ← objectFieldPath env term.appArg! owners
+  if term.isAppOfArity ``id 2 then return ← objectFieldPath env term.appArg! owners transparency
   match term with
   | .proj structureName index owner =>
-      let (root, fields) ← objectFieldPath env owner owners
+      let (root, fields) ← objectFieldPath env owner owners transparency
       return (root, fields.push (structureName, index))
   | _ =>
       match term.getAppFn.constName? with
@@ -7014,12 +7136,13 @@ partial def objectFieldPath (env : Environment) (term : Expr) (owners : Array Ex
           | some info, some structureName =>
               let arguments := term.getAppArgs
               if arguments.size == info.numParams + 1 then
-                let (root, fields) ← objectFieldPath env arguments[info.numParams]! owners
+                let (root, fields) ←
+                  objectFieldPath env arguments[info.numParams]! owners transparency
                 return (root, fields.push (structureName, info.i))
               else return (term, #[])
           | _, _ =>
-              if let some expanded ← withReducible <| unfoldDefinition? term then
-                if expanded != term then return ← objectFieldPath env expanded owners
+              if let some expanded ← withTransparency transparency <| unfoldDefinition? term then
+                if expanded != term then return ← objectFieldPath env expanded owners transparency
               return (term, #[])
       | none => return (term, #[])
 
@@ -7178,10 +7301,14 @@ partial def declaredEndpointObject (endpoint : Expr) (category : NamedCategoryEn
 map domain and codomain; it never borrows a named presentation from a matching carrier. -/
 partial def inclusionTargetValue (D : Value) (endpoint : Expr)
     (category : NamedCategoryEntry) : M Value := do
+  if (← read).carrierReadings.isNone then
+    let readings ← IO.mkRef #[]
+    return ← withReader (fun context => { context with carrierReadings := some readings })
+      (inclusionTargetValue D endpoint category)
   let state ← registryState
   let known := #[D]
   if let some recognized ← recognizedEndpoint? state endpoint category known then
-    return recognized
+    return retainObjectContext recognized known
   let reduced ← whnfR endpoint
   if category.id == CategoryId.sets && reduced.isForall && !reduced.bindingBody!.hasLooseBVars then
     return .homSet (← declaredEndpointObject reduced.bindingDomain! category known)

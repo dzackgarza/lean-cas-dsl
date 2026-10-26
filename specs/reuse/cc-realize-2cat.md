@@ -133,8 +133,9 @@ actual callable, and the forward codomain comparison, in that order. The middle
 data are neither evaluated from the formal arrow nor restricted to a finite
 graph. Comparisons whose endpoints happen to be definitionally equal remain
 explicit. Endpoint, callable and selected action parameter dependencies are
-combined through the existing ownership operation; distinct opaque sessions
-remain incompatible. The internal framing marker prevents nested composition
+combined with their exact occurrence scopes; distinct live opaque sessions
+remain separate until a consuming operation requires a compatible implementation.
+The internal framing marker prevents nested composition
 from applying the same endpoint comparisons twice. Structural actions map both
 comparison directions, and proof-refinement snapshots preserve them.
 

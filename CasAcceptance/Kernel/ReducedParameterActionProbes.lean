@@ -63,10 +63,10 @@ run_elab do
       (dataNode "opaqueData" #[toJson "an unrelated equal cached result"])) }
   let harness ← Harness.empty
   harness.results.modify (fun cache => (cache.insert source original).insert image foreign)
-  let (parameters, dependencies) ← realizedParameters harness trace #[actual]
+  let (parameters, dependencies) ← realizedParameterData harness trace #[actual]
   let #[parameter] := parameters | throwError "the recovered parameter lost its complete data"
   let .ok ("functorAction", #[descriptor, sourceData]) :=
-      ComputationalData.envelope parameter
+      ComputationalData.envelope parameter.json
     | throwError "the reduced parameter erased its declared object action"
   unless descriptor == dataNode FunctorId.commutativeRingsRings.raw #[] &&
       sourceData == original.json && dependencies.any (fun wire =>
@@ -86,7 +86,7 @@ run_elab do
   unless directCycle && ((← harness.results.get)[actual]?).isNone do
     throwError "cyclic direct recovery computed or cached a selected object"
   let direct ← realize harness trace "the reduced selected object" actual
-  unless direct.value == actual && direct.json == parameter &&
+  unless direct.value == actual && direct.json == parameter.json &&
       direct.owner? == original.owner? && direct.owner? != foreign.owner? do
     throwError "direct recovery changed the complete object, source packet or owner"
   let some directContext := direct.categoryContext

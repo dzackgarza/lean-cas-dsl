@@ -12,6 +12,48 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
+### Restored source and current integration repairs
+
+The current continuation restored published kernel `8d49d33434cc938865b942d8a98afe6af598b3cb`,
+mathematics `82d1370de372a00a86391b74fc2566c9547dfcb6`, and contract
+`9167e4cb4db80028d2ceefefeab8ec70b9a77129` in the Pro cloud container.
+The complete committed dependency manifest, Lean 4.33.0, and the pinned
+PassageMath/GAP engines are restored. Evidence archive version 39 is recovered
+with its member hashes verified. The fixed original and clarified 14-file inputs
+and 134-question inventory match the archived hashes; no question was changed.
+
+The published candidate's CI run `40236817619` fails four consumers: operation
+agreement execution, structured endpoint recognition, action-context finite data,
+and lifted comparison finite data. This checkpoint repairs the last two. The
+original `ComputationalActionContextProbes` and `LiftedSubobjectDataProbes`, plus
+`PortableExtentDataProbes` with additive rejection controls, build successfully.
+Actual extent codecs remain authoritative. Independently fixed point interfaces
+are retained for opaque data; unresolved proof predicates no longer hide fixed
+data slots, while unresolved scalar bounds remain unsupported. The initial failed
+repair and the additive test elaboration correction are retained in the evidence.
+
+Reader and shared-execution repairs continue in isolated worktrees. Fresh reader
+localization at `8d49d334` already reads the unchanged RX-LIFT lines 127, 130 and
+133 within the ordinary budget; line 136 reaches a complete-source-witness
+ambiguity. Full export and independent interpretation assessment remain required.
+The current public-contract audit also identifies a mixed-owner assembly defect,
+a direct-construction map example mismatch, and the stale generated API. Deferred
+program execution alone does not implement the owner's requested generic
+computational derivation closure; that remains kernel work.
+
+A fresh independent requirements-only RX05 assessment distinguishes the selected
+comparison cell's multiplicative source from the global inherited call's directed
+representative. It finds these compatible in the full retained diagram, while
+explicitly preserving any stronger primary-route requirement and the separate
+protected fixture-count scope. It accepts no candidate or interpretation change.
+The earlier review qualification remains historical evidence pending final typed
+export and independent assessment.
+
+These are integration checkpoints. Complete consumers/native tools, the unchanged
+two-leaf experiment, RX10 and all fixed extension executions, the connected real
+engine workflows and notebook, final API, freeze and independent reviews remain
+the completion conditions below.
+
 ### Latest owner steering: constructor-centric computational service
 
 The later attachments `Pasted text(20261025-193945).txt` and
@@ -412,15 +454,16 @@ All repositories below are under `https://github.com/dzackgarza/`.
 
 | Repository / role | Branch | Selected source or labelled provenance |
 | --- | --- | --- |
-| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `49b0442e8adeab2bbbae671901e3eb7284182276` |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `8d49d33434cc938865b942d8a98afe6af598b3cb` |
 | `lean-categories`: historical base-interface provenance; not the selected package | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
 | `lean-categories`: mathematical extensions and evidence repairs used by recent consumers | `work/kernel-v1-independent-extensions-20261023` | `82d1370de372a00a86391b74fc2566c9547dfcb6` |
-| `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `90d7d3f1833cff39b77024dcee2dc43213e623ad` |
+| `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `9167e4cb4db80028d2ceefefeab8ec70b9a77129`; generated API still requires final regeneration |
 | `lean-cas-dsl-leaves`: existing workflow specimen | `work/v1-contract-diagnostic-20261023` | `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` |
-| `lean-cas-dsl-leaves`: independent callable-form specimen | `work/kernel-v1-independent-leaf-20261024` | `51e0e6ebd25a2f2a88097ae3081a3c34970cc29d` (original `fa0856d` retained separately) |
+| `lean-cas-dsl-leaves`: independent source-action specimen | `work/kernel-v1-independent-leaf-20261024` | `2f35244884649c9268567bb9968840a34559a11c`; earlier sources remain separately scoped |
+| `lean-cas-dsl-leaves`: frozen target specimen | Same work branch, fixed historical checkout | `865df49ad0b0b133d5bcfd282f380aa213eb5fff`; original target hashes retained |
 | `lean-jupyter-kernel`: existing notebook worker | Read selected package lock and runtime override | `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker`) |
 
-Every run records its exact selected source commits, complete trees and unchanged working state. The current mathematical package is `82d1370d`, the compiled protocol is `90d7d3f`, and the workflow specimen is `2c8b904`. Source publication does not install an independently accepted mathematical release.
+Every run records its exact selected source commits, complete trees and unchanged working state. The current mathematical package is `82d1370d`, the compiled protocol is `9167e4c`, and the workflow specimen is `2c8b904`. Source publication does not install an independently accepted mathematical release.
 
 `lean-cas-dsl/main` remains `6e67b1e1dd118811c8cb443cc558221095e98573` at inspection. The active work branch contains the substantive implementation. The source integrates that main with `b0/kernel` at `4bcd912`, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale.
 

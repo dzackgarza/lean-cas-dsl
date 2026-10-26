@@ -182,12 +182,15 @@ run_elab do
 
 
 run_elab do
+  -- Independent live suppliers may be assembled under the released service
+  -- contract. MixedDataOwnershipProbes exercises the unchanged mixed-owners
+  -- fixture positively, then requires a computational gap only at consumption
+  -- when no compatible bridge exists. Expired suppliers remain unavailable.
   for (mode, expected, fragment) in #[
       ("forward-reference", Stratum.malformed, "malformed or out-of-scope references"),
       ("bad-type", Stratum.malformed, "reference has a different complete declared type"),
       ("extra-reference", Stratum.malformed, "outside a complete public data envelope"),
       ("backend-selector", Stratum.malformed, "malformed or out-of-scope references"),
-      ("mixed-owners", Stratum.unavailable, "different owning sessions"),
       ("cycle", Stratum.unavailable, "recursively requests the same complete input"),
       ("wrong-map-endpoint", Stratum.malformed, "complete endpoint descriptors differ")] do
     let (trace, harness, entry, action, original) ← fixture mode
@@ -199,7 +202,7 @@ run_elab do
       unless actual.1 == some expected && (actual.2.splitOn fragment).length > 1 do
         throwError "service control {mode} has outcome {reprStr actual}, expected {reprStr expected}: {fragment}"
       unless !(← harness.replies.get).isEmpty do throwError "a rejected service discarded its raw reply"
-      if mode == "mixed-owners" || mode == "extra-reference" then
+      if mode == "extra-reference" then
         let #[service] ← harness.services.get | throwError "the rejected scope was not retained"
         unless !service.completed && service.nodes.size == 1 do
           throwError "a rejected final template discarded a completed child's actual Wire"

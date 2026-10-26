@@ -16,26 +16,35 @@ run_elab do
   let some sets := state.categories.find? (·.id == CategoryId.sets)
     | throwError "the registered set category is unavailable"
   let formal ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 2)) none
+  let token := Backend.ComputationalValue.encode (.opaque "actual returned data")
   let input : Realize.Wire := {
     form := .diagrams sets
-    payload := .computed formal (.owned "probe" 17 (toJson "actual returned data")) }
+    payload := .computed formal (.owned "probe" 17 token) }
   let forwarded : Realize.Wire := {
     form := input.form
-    payload := (← Realize.combinedPayload formal (toJson "dependent request") #[input]) }
-  unless forwarded.owner? == some ("probe", 17) do
-    throwError "combining a dependent request lost its live owning session"
+    payload := (← Realize.combinedPayload formal
+      (← Realize.scopedNode "point" #[input.fragment]) #[input]) }
+  unless forwarded.owner? == some ("probe", 17) &&
+      DataOwnership.project #[.field "args", .index 0] forwarded.ownership == input.ownership do
+    throwError "combining a dependent request lost its exact supplier position"
   let portable : Realize.Wire := {
     form := input.form, payload := .computed formal (.inline (toJson "portable result")) }
-  let combined ← Realize.combinedPayload formal (toJson "composed data") #[portable]
+  let combined ← Realize.combinedPayload formal { json := toJson "composed data" } #[portable]
   unless (match combined with | .computed _ (.inline _) => true | _ => false) do
     throwError "a portable computation was reclassified as a formal input"
   let foreign : Realize.Wire := {
-    form := input.form, payload := .computed formal (.owned "probe" 18 (toJson "foreign")) }
-  let mixed ← try
-    discard <| Realize.combinedPayload formal (toJson "mixed") #[input, foreign]
-    pure false
-  catch _ => pure true
-  unless mixed do throwError "data from different live sessions was combined"
+    form := input.form, payload := .computed formal (.owned "probe" 18 token) }
+  -- Assembly retains independent occurrences. Actual supplier liveness and a
+  -- missing consumer bridge are exercised with processes in MixedDataOwnershipProbes.
+  let mixed : Realize.Wire := { input with payload := (← Realize.combinedPayload formal
+    (DataOwnership.Data.array #[input.fragment, foreign.fragment]) #[input, foreign]) }
+  unless mixed.owner?.isNone && mixed.ownership.size == 2 &&
+      DataOwnership.project #[.index 0] mixed.ownership == input.ownership &&
+      DataOwnership.project #[.index 1] mixed.ownership == foreign.ownership do
+    throwError "assembly identified equal token bytes from different supplying sessions"
+  let projected ← Realize.checkedFragment (mixed.fragment.project #[.index 0])
+  unless projected == input.fragment do
+    throwError "an exact projection changed the original opaque occurrence"
 
 run_elab do
   let state ← registryState

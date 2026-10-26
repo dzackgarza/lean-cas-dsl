@@ -31,6 +31,10 @@ structure CategoryContext where
   bundle : Expr
   deriving Repr
 
+/-- Record identity is syntactic, including the complete retained dictionary. -/
+instance : BEq CategoryContext where
+  beq left right := left.expression.syntacticEq right.expression && left.bundle == right.bundle
+
 /-- Accepted source presentations of one definitionally identical complete structured value.
 The identity is a kernel-checkable conversion proof of the full image, never its carrier. -/
 structure ParameterPresentation where
@@ -45,7 +49,7 @@ structure ParameterPresentation where
   object : Expr
   image : Expr
   identity : Expr
-  deriving Repr
+  deriving BEq, Repr
 
 /-- One complete selected source of a routed operation. Accepted route comparisons
 retain their exact constructor and whiskering contexts and the checked typed witnesses. -/
@@ -56,7 +60,7 @@ structure OperationSource where
   applications : Array Expr
   comparisons : Array RouteComparison := #[]
   comparisonWitnesses : Array Expr := #[]
-  deriving Repr
+  deriving BEq, Repr
 
 /-- One surviving registered binding, before any equivalence-class representative is
 chosen. The complete declaration application precedes its actual supplied operands. -/
@@ -65,7 +69,7 @@ structure OperationCandidate where
   application : Expr
   result : Expr
   sources : Array OperationSource
-  deriving Repr
+  deriving BEq, Repr
 
 /-- A checked equality of universally abstracted complete routed operation families.
 The indices refer to the retained candidates and their complete source witnesses.
@@ -81,7 +85,7 @@ structure OperationFamilyComparison where
   leftType : Expr
   rightType : Expr
   identity : Expr
-  deriving Repr
+  deriving BEq, Repr
 
 /-- How the semantic reading formed a value. -/
 inductive Node
@@ -207,7 +211,7 @@ inductive Node
   /-- The registered limit `id` at the diagram `diagram`, returned along the registered creation
   lift `lift` when it is computed in another category. -/
   | limit (id : LimitId) (diagram : Expr) (lift : Option LiftId)
-  deriving Repr
+  deriving BEq, Repr
 
 /-- The records of one statement's semantic reading. -/
 abbrev Trace := IO.Ref (Std.HashMap Expr Node)

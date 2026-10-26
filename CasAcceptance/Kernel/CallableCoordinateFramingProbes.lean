@@ -29,8 +29,8 @@ run_cmd liftTermElabM <| withoutErrToSorry do
     form := .canonicalMorphism sets
     payload := .computed hom (.owned "coordinate-owner" 41 token) }
   for input in #[ordinary, owned] do
-    let (data, dependencies) ← frameMorphismData harness trace source source input
-    unless data == input.json do
+    let (data, dependencies) ← frameMorphismFragment harness trace source source input
+    unless data.json == input.json do
       throwError "framing replaced the complete symbolic or owned callable data"
     let retained : Wire := { input with
       payload := (← combinedPayload hom data (dependencies.push input)) }
@@ -112,8 +112,8 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       throwError "the control did not distinguish the scalar owner and selected coordinate"
     let some (domain, _) := homEnds? (← inferType point)
       | throwError "the literal lost its generalized domain"
-    let (data, dependencies) ← frameMorphismData harness trace domain coordinateObject raw
-    let .ok ("typedMap", #[_, actualTarget, actualPoint]) := ComputationalData.envelope data
+    let (data, dependencies) ← frameMorphismFragment harness trace domain coordinateObject raw
+    let .ok ("typedMap", #[_, actualTarget, actualPoint]) := ComputationalData.envelope data.json
       | throwError "the coordinate point has no full endpoint framing"
     unless actualTarget == target.json && actualPoint == raw.json do
       throwError "the coordinate frame replaced the scalar owner or actual selected module"

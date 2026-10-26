@@ -73,6 +73,34 @@ run_elab do
   let .error _ ← ComputationalData.validatePort original expected
       (finite opaqueSubset #[toJson (3 : Nat)])
     | throwError "an extent inventory was checked against the original formal carrier"
+  -- An opaque descriptor supplies no alternate point representation. Its
+  -- independently selected interface still checks every supplied data slot;
+  -- the supplied inventory, rather than the formal carrier, remains the data.
+  let opaqueObject := token "actual object supplier"
+  if let .error message ← ComputationalData.validatePort original expected
+      (finite opaqueObject #[toJson (2 : Nat), toJson (40 : Nat)]) then
+    throwError "an opaque inventory lost its independently fixed point interface: {message}"
+  for point in #[toJson (41 : Nat), toJson "not-a-point"] do
+    let .error _ ← ComputationalData.validatePort original expected
+        (finite opaqueObject #[point])
+      | throwError "an opaque inventory bypassed its independently fixed point interface"
+
+run_elab do
+  -- An unproved predicate may remain a placeholder while all point-data slots
+  -- are fixed. An unresolved bound in the actual scalar codec is different.
+  let scalar ← mkAppM ``Fin #[mkNatLit 3]
+  let predicate ← mkFreshExprMVar (← mkArrow scalar (mkSort .zero))
+  let subtype ← mkAppM ``Subtype #[predicate]
+  let some schema ← ComputationalData.pointSchema subtype
+    | throwError "an unproved predicate hid its independently fixed data slots"
+  if let .error message ← ComputationalData.validatePoint schema (toJson (2 : Nat)) then
+    throwError "a fixed scalar data slot was rejected: {message}"
+  let .error _ ← ComputationalData.validatePoint schema (toJson (3 : Nat))
+    | throwError "an unproved predicate erased the actual scalar codec's bound"
+  let bound ← mkFreshExprMVar (mkConst ``Nat)
+  let unresolved ← mkAppM ``Fin #[bound]
+  unless (← ComputationalData.pointSchema unresolved).isNone do
+    throwError "an unresolved data parameter supplied an invented scalar codec"
 
 run_elab do
   let original ← elabTermAndSynthesize (← `(CasCatalogue.Foundation.Objects.fin 41)) none

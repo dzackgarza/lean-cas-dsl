@@ -33,8 +33,8 @@ def repeated (decoder : Decoder) (expected : Operand) (json : Json) :
     TermElabM Operand := do
   let actual ← decoder.argument (← inferType expected.value) json
   sameValue expected.value actual.value
-  unless actual.data == expected.data do
-    malformed "a repeated service input changed its actual computational data"
+  unless actual.data == expected.data && actual.ownership == expected.ownership do
+    malformed "a repeated service input changed its actual computational data or opaque ownership"
   return actual
 
 def selectedObject (decoder : Decoder) (context : CategoryContext)
@@ -91,7 +91,9 @@ No result type, backend choice, or mathematical assertion is accepted from data.
 def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     (request : Backend.PointInvocation) (formal source target : Expr)
     (context : CategoryContext) (descriptor : Json) (parameters : Array Json)
-    (dependencies : Array Operand) (wrapper : Option Backend.TypedMap) :
+    (dependencies : Array Operand) (wrapper : Option Backend.TypedMap)
+    (descriptorOwnership : DataOwnership.Table := #[])
+    (parameterOwnership : DataOwnership.Table := #[]) :
     TermElabM Prepared := do
   let domain ← decoder.argument (← CategoryContext.carrier context) request.domain
   checkContext context domain
@@ -102,20 +104,23 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
   checkContext context argument
   CategoryContext.checkMorphism context argument.value domain.value source
   let mut dependencies := dependencies ++ #[domain, sourceData, targetData, argument]
-  let arrow ← match wrapper with
-    | none => pure descriptor
+  let (arrow, arrowOwnership) ← match wrapper with
+    | none => pure (descriptor, descriptorOwnership)
     | some wrapped => do
         let first ← repeated decoder sourceData wrapped.source
         let second ← repeated decoder targetData wrapped.target
         dependencies := dependencies ++ #[first, second]
         pure (Backend.TypedMap.encode {
-          source := sourceData.data, target := targetData.data, callable := descriptor })
+          source := sourceData.data, target := targetData.data, callable := descriptor },
+          argsOwnership #[first.ownership, second.ownership, descriptorOwnership])
   let result ← composite context domain.value source target argument.value formal
   let actual : Backend.PointInvocation := {
     operation := operation.id, parameters, arrow, domain := domain.data
     source := sourceData.data, target := targetData.data, argument := argument.data }
+  let requestOwnership := argsOwnership #[#[], parameterOwnership, arrowOwnership,
+    domain.ownership, sourceData.ownership, targetData.ownership, argument.ownership]
   return {
-    requestValue := result, request := actual.encode, result
+    requestValue := result, request := actual.encode, requestOwnership, result
     resultForm := ← resultForm context input
     dependencies, resultContext := some context, callableResult := true
     complete := fun answer => do
@@ -169,12 +174,19 @@ def prepareCell (decoder : Decoder) (entry : CellEntry)
   let actualDescriptor := if constructors.isEmpty then actualComponent.encode else
     Backend.ConstructedCellComponent.encode {
       constructors := constructors.map (·.raw), component := actualComponent }
+  let componentOwnership := argsOwnership
+    #[#[], operandArrayOwnership declaration.operands, receiver.ownership, #[]]
+  let descriptorOwnership := if constructors.isEmpty then componentOwnership else
+    argsOwnership #[#[], componentOwnership]
+  let parameterOwnership := arrayOwnership
+    #[operandArrayOwnership repeatedParameters, repeatedReceiver.ownership, #[]]
   let formal ← CellAction.component action receiver.value
   let (source, target) ← CellAction.objects action receiver.value
   let context : CategoryContext := { expression := action.target, bundle := action.targetBundle }
   prepareCallable decoder operation input request formal source target context actualDescriptor
     #[Json.arr parameters, receiver.data, toJson component.inverse]
     (declaration.operands ++ repeatedParameters ++ #[receiver, repeatedReceiver]) wrapper
+    descriptorOwnership parameterOwnership
 
 def prepareCartesian (decoder : Decoder) (entry : FunctorEntry)
     (input : Form) (template : Json) : TermElabM Prepared := do
@@ -221,9 +233,14 @@ def prepareCartesian (decoder : Decoder) (entry : FunctorEntry)
   let parameters := declaration.operands.map (·.data)
   let actualDescriptor := Backend.CartesianMap.encode {
     reindex := entry.id.raw, parameters, receiver := receiver.data }
+  let descriptorOwnership := argsOwnership
+    #[#[], operandArrayOwnership declaration.operands, receiver.ownership]
+  let parameterOwnership := arrayOwnership
+    #[operandArrayOwnership repeatedParameters, repeatedReceiver.ownership]
   prepareCallable decoder operation input request formal source target plan.total actualDescriptor
     #[Json.arr parameters, receiver.data]
     (declaration.operands ++ repeatedParameters ++ #[receiver, repeatedReceiver]) wrapper
+    descriptorOwnership parameterOwnership
 
 partial def pointData (json : Json) : Bool :=
   match ComputationalData.envelope json with
@@ -292,8 +309,9 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
   checkContext actionContext argumentTarget
   sameValue domain domainData.value
   sameValue actionSource argumentTarget.value
-  if inCategory && argumentTarget.data != sourceData.data then
-    malformed "the presentation argument changed the actual selected source data"
+  if inCategory && (argumentTarget.data != sourceData.data ||
+      argumentTarget.ownership != sourceData.ownership) then
+    malformed "the presentation argument changed the actual selected source data or opaque ownership"
   let result ← composite actionContext domain actionSource actionTarget argument.value action
   let terminal ← Language.globalPointSource.run {}
   let closedPoint ← withoutModifyingState (withTransparency .all <| isDefEq domain terminal)
@@ -301,10 +319,12 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
   let actual : Backend.PresentationInvocation := {
     parameters, inverse := request.inverse
     source := sourceData.data, target := targetData.data, argument := argument.data }
+  let requestOwnership := argsOwnership #[operandArrayOwnership declaration.operands, #[],
+    sourceData.ownership, targetData.ownership, argument.ownership]
   let form ← if closedPoint then pure (.element (.object targetRow))
     else resultForm actionContext input
   return {
-    requestValue := result, request := actual.encode, result
+    requestValue := result, request := actual.encode, requestOwnership, result
     resultForm := form
     dependencies := declaration.operands ++ #[sourceData, targetData, argument, domainData, argumentTarget]
     resultContext := some actionContext, callableResult := !closedPoint

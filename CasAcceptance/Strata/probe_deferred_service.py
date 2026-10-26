@@ -23,6 +23,12 @@ def fresh():
     issued.add(token)
     return opaque_data(token)
 
+def equal_token():
+    # Distinct actual processes deliberately use identical connection-local bytes.
+    token = 'same-opaque-token-in-independent-sessions'
+    issued.add(token)
+    return opaque_data(token)
+
 def tokens(value):
     if isinstance(value, dict):
         if value.get('ctor') == 'opaqueData':
@@ -77,6 +83,14 @@ def outer(arguments):
             {'ctor': 'valueData', 'args': [node('obj.sets.fin', 17)], 'ignored': result_ref(0)})
     if mode == 'opaque' or mode == 'nested':
         return deferred_data([call('fun.sets.identity', receiver)], result_ref(0))
+    if mode == 'mixed-owners-equal':
+        return deferred_data([call('fun.sets.identity', receiver)],
+            value_data(node('objectProduct', result_ref(0), equal_token())))
+    if mode == 'mixed-owners-equal-repeated':
+        return deferred_data([call('fun.sets.identity', receiver)],
+            value_data(node('objectProduct',
+                node('objectProduct', result_ref(0), equal_token()),
+                node('objectProduct', result_ref(0), node('obj.sets.fin', 19)))))
     if mode == 'mixed-owners':
         return deferred_data([call('fun.sets.identity', receiver)],
             node('valueData', node('objectProduct', result_ref(0), fresh())))
@@ -100,6 +114,8 @@ def identity(arguments):
     index = next(serials)
     if mode == 'nested' and index == 0:
         return deferred_data([call('fun.sets.identity', node('obj.sets.fin', 19))], result_ref(0))
+    if mode in {'mixed-owners-equal', 'mixed-owners-equal-repeated'}:
+        return value_data(equal_token())
     if mode in {'opaque', 'mixed-owners'}:
         return value_data(fresh())
     if mode == 'nested-map-argument':

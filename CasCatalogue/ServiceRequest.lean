@@ -6,6 +6,7 @@ public import CasCatalogue.Admission
 public import CasCatalogue.ComputationalData
 public import CasCatalogue.DirectConstruction
 public import CasCatalogue.StructuredResult
+public import CasCatalogue.DataOwnership
 
 @[expose] public section
 open Lean Meta Elab Term
@@ -20,6 +21,26 @@ structure Operand where
   handle : Nat
   form : Option Form := none
   context : Option CategoryContext := none
+  /-- Suppliers are attached to exact opaque occurrences relative to `data`. -/
+  ownership : DataOwnership.Table := #[]
+
+def Operand.fragment (operand : Operand) : DataOwnership.Data :=
+  { json := operand.data, ownership := operand.ownership }
+
+/-- Position existing scopes at their respective array indices. Equal JSON at
+different indices never identifies or merges its suppliers. -/
+def arrayOwnership (tables : Array DataOwnership.Table) : DataOwnership.Table := Id.run do
+  let mut ownership : DataOwnership.Table := #[]
+  for index in [:tables.size] do
+    ownership := ownership ++ DataOwnership.prefix #[.index index] tables[index]!
+  return ownership
+
+/-- Scope the ordered fields of an existing public constructor envelope. -/
+def argsOwnership (tables : Array DataOwnership.Table) : DataOwnership.Table :=
+  DataOwnership.prefix #[.field "args"] (arrayOwnership tables)
+
+def operandArrayOwnership (operands : Array Operand) : DataOwnership.Table :=
+  arrayOwnership (operands.map (·.ownership))
 
 /-- The published dependent telescope with its explicit computational operands.
 The caller closes remaining formal obligations after the full receiver is bound. -/
@@ -48,6 +69,10 @@ structure DataPrepared where
   dependencies : Array Operand := #[]
   form : Option Form := none
   context : Option CategoryContext := none
+  ownership : DataOwnership.Table := #[]
+
+def DataPrepared.fragment (prepared : DataPrepared) : DataOwnership.Data :=
+  { json := prepared.data, ownership := prepared.ownership }
 
 /-- Object and whole-map actions reuse the ordinary executable image boundary.
 Other published request families use the same admitted dispatch and completion. -/
@@ -67,6 +92,8 @@ structure Prepared where
   result : Expr
   resultForm : Form
   dependencies : Array Operand
+  /-- Suppliers at the exact positions of the assembled public `request`. -/
+  requestOwnership : DataOwnership.Table := #[]
   resultContext : Option CategoryContext := none
   objectResult : Bool := false
   callableResult : Bool := false
@@ -76,10 +103,15 @@ structure Prepared where
   trace : Option Trace := none
   decisionResult : Bool := false
   constructionInputs : Option (Expr × ComputationalData.InterfaceObjects) := none
+  /-- Relative scopes in the same order as `constructionInputs`' data operands. -/
+  constructionInputOwnership : Array DataOwnership.Table := #[]
   /-- Structured replies expose their already declared port roles before scoped
   references are replaced. The callback checks a reference at a formal data field. -/
   validateTemplate : Option ((Expr → Json → TermElabM Unit) → Json → TermElabM Unit) := none
   complete : Json → TermElabM (Except String (Option StructuredResult.Result))
+
+def Prepared.fragment (prepared : Prepared) : DataOwnership.Data :=
+  { json := prepared.request, ownership := prepared.requestOwnership }
 
 /-- Compose in the actual selected category dictionary, including constructed
 categories without a global typeclass instance. -/
