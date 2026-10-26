@@ -14,91 +14,123 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ### Published source and current integration
 
-The previous published kernel is `5ab0edf4ab17ad321a0f1ee556e84d8effd810a3`,
-tree `63e2d5d178015c8c4b51dc1605d5332ae10dfd8f`, on
-`work/kernel-v1-20261023`. Its full native build recorded the original series
-reader regression and the injected comparison-owner fixture failure. Both source
-repairs are integrated here; the original assertions remain unchanged.
+The preceding published kernel is `9af2a5079288b86e50766bd4ed1b9b68f6a2bd3a`,
+tree `a8243edd077e31d199022d8e3ee5429e3dde1f90`, on
+`work/kernel-v1-20261023`. Its full coordinated native build completed with
+unchanged sources in 1960.461 seconds and exit 1. Ten original probe modules
+failed: two record/transport controls, two action/service controls, the anonymous
+created-apex control, and five numeral-reader modules. The failed build is
+preserved; it is not a passing integration result.
 
-This checkpoint combines complete-request preparation and exact completed-apex
-reuse (`83b749b`), checked computational derivation execution (`394487f`), source
-actions for inferred family endpoints (`72b66b1`), complete structural record
-validation (`d498ad2`), exact retained field and operation-endpoint projection
-(`a694c4d`), and completed point interfaces with selected matrix rows (`5a0d441`).
-All full types, dependent parameters, action selections, callable directions,
-actual packets and individual supplying occurrences remain attached. A structural
-projection is inspected on a fresh receiver; equal actual carriers or JSON never
-choose it. Whole opaque records stay opaque. The public data grammar and fixed
-mathematical assertions are unchanged.
+This source also incorporates the complete declared numeral-owner repair,
+completed-point metadata forwarding, and the direct and nested record-codec
+corrections. Each structural step retains its existing field declaration and
+codec at the independently fixed full receiver. Exact Core and Arrow fields
+keep their supplying occurrences. Whole descriptors and opaque records cannot
+be mistaken for ordered fields; assembled Core and Arrow results retain their
+existing envelopes. The selected output still requires its original interface.
+No new mathematical row, wire tag, evaluator or interpretation priority exists.
 
-The individual focused controls pass. The record/endpoint Realize compile took
-53.573 seconds and its unchanged whole-operation controls 4.460 seconds. The
-point/matrix author checkpoint passes the original matrix workflow (3/3, 36
-actual dispatches) and presentation transport (4/4, 14 dispatches). The prior
-complete-request checkpoint passed 11/17 original connected assertions, including
-both finite construction/reuse assertions and all four presentation assertions.
-These isolated checks do not substitute for the combined native build or final
-unchanged 17-assertion run. The rational workflow still requires the full selected
-numeral-owner reader repair; a named-only prototype is explicitly insufficient.
+Original reuse, transport, derived-action and service-projection controls now
+pass without changes to their assertions. The added nested controls also pass,
+including Core(Core(Type)), opaque inner records, refined Arrow projection,
+identical endpoint bytes with different suppliers, and Core construction around
+an actual opaque field. Independent read-only review closes the direct and nested
+record findings at frozen `7045feb`; the committed and separate exact-field and
+assembly controls pass in 5.199 and 4.761 seconds with all 1,046 copied artifacts
+unchanged. This bounded engineering review is distinct from whole-candidate
+acceptance.
 
-The source manifest now selects mathematics
+Created-apex projection now distinguishes a successful checked base image from
+an ordinary computational receiver. The receiver keeps its exact original
+formal occurrence and actual data suppliers. Only the exact selected creating
+action consumes the checked image, and failed extraction cannot be reused as a
+completed image. The unchanged anonymous-apex, full-context and transport
+controls pass in 3.774, 3.780 and 9.455 seconds. Independent source review of
+`ba3b7a6` found no blocking defect in this separation. Earlier compile and runner
+configuration failures remain in the evidence records.
+
+The reader reuses only fully closed actual comparison evidence within one claim,
+keyed by the complete supplied source and ordered witness array. Every target
+trial, full route search, coherence classification, selected-action check and
+trace operation remains in place. The three original RX-LIFT readings at lines
+22, 73 and 76 complete all seven pure-export stages with the original full scope,
+six imports and ordinary 200000 option. The counters include subsequent export
+work and are not all below that option; no timeout occurs. Controls cover full
+context distinctions, trace rollback/retry, unresolved-target ambiguity, and
+refusal to cache evidence containing a local class hypothesis. Complete parameter
+collection also retains the original registered declaration identity instead of
+adding an anonymous copy of the same named parameter. All original witnesses
+remain present; independently supplied competing owners remain ambiguous. The
+full original dependent-reader probe now passes in 107.057 seconds, along with
+all original parameter, selected-carrier, context and numeral-owner controls.
+The three RX-LIFT readings and three composed consumers pass again on this final
+reader source with unchanged budgets and complete scope.
+
+The original four connected real-engine workflows have a closed isolated run:
+17/17 assertions hold with 73 dispatches in 155.424 seconds (arithmetic 8,
+finite construction/reuse 2, matrix 3, presentation 4). The exact assertions,
+source/artifact hashes and failed earlier prototypes are retained. The complete
+final tuple and executed notebook still require their own run.
+
+The selected mathematics is
 `ac9bb80be1e55c43f4104d4fe8486e7715ea7cc5`, tree
-`ec0fc569dee02b4cdb72c68c6dcb35a802fda8db`, and contract
+`ec0fc569dee02b4cdb72c68c6dcb35a802fda8db`, and contract source is
 `3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5`, tree
 `3f1b3a79e1fada93c4d69557d0f9876f075dc2e4`. Both were published, fetched and
-compared by complete tree. The mathematical source includes the reviewed full
-comparison direction/import scope correction and the separately reviewed Monic
-admission normalization. The latter reuses existing catalogue evidence and
-normalization before the unchanged complete Monic goal. Independent source
-review found no blocking mathematical or scope defect; ordinary Lean declaration
-checking, not `Evidence.establish` alone, checks the resulting proof. Original
-Monic binding and three original observations now read at unchanged budgets.
-Neither source review is complete candidate interpretation acceptance.
+compared by complete tree. The mathematics includes the independently reviewed
+comparison-direction/import-scope correction and Monic admission normalization.
+Original Monic binding and three observations read at unchanged budgets.
+Ordinary Lean declaration checking, not Evidence.establish alone, checks the
+resulting proofs. Those reviews do not accept all candidate interpretations.
 
-The public primitive leaf source is published at
-`aedbbde1350a11f5f802c77b9672b08c543028dd`, tree
-`6f2c7dd8ac9a77d4e239c8f278238ab8acc32760`, with two object actions and
-monoid multiplication. The actual isolated trial adopts its exposed structural
-records and sends the multiplication request with their exact carrier fields;
-its unsupported reply is retained as a gap. Further public-only codec and
-observer work is isolated from kernel outcomes and fixed assertions. The final
-generated API and primitive execution trial still require one coherent built
-producer and the final independently authored leaf checkpoint.
+The public primitive leaf is published at
+`e855951e557080ac744763e917262047f6e3326b`, tree
+`be34476fac2c500155294e58a374996973b23b49`, with the same four registrations:
+two object actions, monoid multiplication and Set equality. Its public-only
+codec increment retains exact producing requests, selected parameters, point
+fragments and native field operands while keeping whole-callable endpoints
+strict. All V1/extension manifests remain unchanged. Publication was fetched
+and compared by complete tree to clean author `bdcbd611`; a detached execution
+checkout is frozen separately. The earlier `3176e43` actual trial's complete
+callable-target mismatch remains a failed result. The new source requires its
+own frozen execution; the leaf's own controls carry no acceptance weight. The
+author accessed only its source, released contract/API and supplied engine.
 
 ### Fixed evidence and remaining completion work
 
 All 17 permanent files retain their recorded hashes and 153 questions; all 14
-extension files retain 134 positive questions. Baseline pure exports read
-146/153 permanent and 131/134 extension questions with unchanged inputs and
-artifacts. The series repair closes its original controls and eight final
-RX-LIFT samples; the Monic repair closes its original binding and observations.
-Three earlier full-import RX-LIFT readings remain the assigned performance
-repair until the complete fixed export runs successfully. No assertion, expected
-answer, import inventory, or heartbeat budget has been weakened.
+extension files retain 134 positive questions. Baseline exports read 146/153
+and 131/134 respectively. The missing series, Monic and RX-LIFT readings have
+separate closed focused repairs; complete fresh exports and independent review
+of every typed meaning remain mandatory. No assertion, expected answer, import
+inventory or heartbeat budget has been weakened. Genuine competing supplied
+owners and paths must remain ambiguous in either order.
 
-The current evidence archive is version 42 of
-`libfile_94b086b3c1308191b67e0c34e0d4c364`, SHA-256
-`1a4c8e0b9f003501ae3db960164b9a203c52e965612dd4af2a4cdf6f8ccbb857`.
-All earlier members were preserved byte-for-byte. Newer closed record, Monic,
-point/matrix and retrieval repairs must be appended without replacing or
-relabelling failed results. Runtime remains Lean 4.33.0 with the recorded 14
-packages, PassageMath 10.8.13, GAP 4.16.1 and the restored notebook environment
-in the Pro cloud container. No rack build is used.
+The current evidence archive is version 43 of
+`libfile_94b086b3c1308191b67e0c34e0d4c364`, 60,005,050 bytes, SHA-256
+`dbfe8616dc5b8dd36b640b93399459e33c9982857ff58c2101398f2f40892fcb`.
+Every previous member was preserved byte-for-byte. Newer closed native, reader,
+record, workflow and independent review records must be appended without
+replacing failed results. Runtime remains Lean 4.33.0, the recorded 14 packages,
+PassageMath 10.8.13, GAP 4.16.1 and the restored notebook environment in the Pro
+cloud container. No rack build is used.
 
-The review snapshot retrieval repair is integrated as `077c9ce`. It permits
-fetching the exact expected commit from an existing shallow checkout; it keeps
-no-execution extraction, hostile-link/filter protections and the SHA guard.
-The unchanged controls plus the real depth-one positive and moved-reference
-negative pass in 0.526 seconds with stable source. This is construction source
-only: it does not install a replacement authoritative judge or supply a review
-verdict. The earlier independent CI review still has no verdict because its
-trusted input operation failed.
+The shallow exact-source retrieval repair is integrated as `077c9ce`. It preserves
+all expected-SHA and no-execution extraction protections. Existing controls and
+real depth-one positive/moved-reference negative controls pass, with independent
+source review. Publishing construction source does not install a replacement
+judge. The earlier independent CI review still has no verdict after its trusted
+input operation failed.
 
-Remaining completion work is the combined native and axiom checks, complete
-fixed computation, RX05/RX09/RX10 and binding observations, the remaining reader
-closures, all four connected real-engine workflows and executed notebook, final
-public API, independent complete meaning review, and frozen public-only extension
-trials. No advertised generic interface defect may be deferred as an absent leaf.
+Publish this coherent source and build it before exporting the public API. Publish that unchanged export as an artifact
+with its actual producer; then select the artifact-bearing contract and record
+that its code is unchanged. The final build explicitly includes CasGates,
+CasCatalogue.TestSuite, all native tools/axiom checks, notebook worker, and the
+six fixed imports. Run all fixed computation, RX05/RX09/RX10 and binding controls,
+153/134 complete typed exports, independent full meaning review, the original
+17 connected assertions and notebook, and the frozen public-only primitive trial.
+No advertised generic interface defect may be deferred as an absent leaf.
 
 The following dated checkpoints preserve historical requirements and producer
 observations. Their earlier statuses do not supersede this current section.

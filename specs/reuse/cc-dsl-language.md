@@ -861,3 +861,178 @@ These are isolated reader engineering checks. They preserve the original questio
 selected structures, complete contexts, expectations, and budgets. Full native
 integration, typed question export, execution, and independent mathematical acceptance
 remain separate observations.
+
+## Numeral selection from each retained complete source — 2026-10-26
+
+The corrected mathematical catalogue adds an accepted Ring-to-Semiring action.
+The original rational arithmetic and declared scalar-module context then exposed
+an existing reader inconsistency: `contextualNumeral` searched every inherited
+numeral family even when the same complete named source already fixed its
+literal reading. Exact diagnostics identified the retained named commutative
+rational ring, its original Ring image, and the additional inherited Semiring
+image; no owner was inferred from their common carrier.
+
+`registeredNamedNumeral` already gives a named set's declared numeral
+refinements priority, and `toElement` already gives a complete selected source
+its own direct numeral family before inherited views. These row-selection rules
+are now shared. Each contextual witness keeps its direct family if one exists.
+Otherwise, a named source with an accepted set refinement reuses the existing
+`setOf` and named-numeral rule. An admitted source or admitted base receives no
+shortcut; an anonymous source receives no invented named presentation.
+
+Only eligible numeral rows are selected this way. `bindSelectedReceiver` still
+receives the untouched original complete witness and closes the whole owner
+before the target coordinate is considered. `structuredParameterView` retains
+the actual source and accepted action. Every original witness remains in
+context, and the existing complete-owner and full-application comparisons remain
+unchanged. A separately supplied Semiring stays independent of a supplied Ring,
+even when their carriers and numeral values agree.
+
+The corpus query `"Int.castRingHom" "Nat.castRingHom"` locates Mathlib's existing
+cast declarations and rational-map extensionality lemmas. They supply no new
+reader bookkeeping primitive, and no mathematical construction is introduced.
+The implementation owners are the existing registered numeral families, named
+refinement metadata, `setOf`, `bindSelectedReceiver`, `structuredParameterView`
+and the full selected-source checks.
+
+The original selected-carrier and declared-context controls pass on the clean
+production source under the ordinary budgets. `ContextualNumeralOwnerProbes`
+checks each sole complete Ring/Semiring source, independent-owner ambiguity in
+both orders, and the named commutative source's exact Ring action and retention.
+All eight unchanged original arithmetic assertions and prior bindings also read
+successfully after this repair. Earlier named-only and direct-category-only
+prototypes, their original failures and exact supplied-witness diagnostics are
+retained as rejected engineering evidence. Actual connected execution is the
+separate subsequent consumer check; no assertion, registration, mathematical
+source, leaf or heartbeat budget changes.
+
+
+## Closed comparison evidence within one claim (2026-10-26)
+
+### Queries
+
+The corpus queries `rigid type unification`, `category route reachability`, and
+`memoization closed metavariables` supplied no replacement for the existing
+consumer owners. Local searches read `Value.closedReading`, `Value.sameSource`,
+`carrierReadings`, `parameterTrial`, `retainedCarrierRoute`, `checkedRouteAction`,
+`RegistryState.completeRoutes`, `RegistryState.classify`, and
+`Semantic.validateRouteComparisons`. The existing declared-context probe is the
+only external construction of the carrier table, using an empty reference.
+
+### Owner
+
+`transportedStructureWithAction` already owns every complete target/type trial,
+route enumeration, coherence class, and selected actual action. Its comparison
+validator forms each accepted comparison at the actual complete receiver,
+resolves required parameters, and checks the resulting evidence. It returns the
+very same actual terms whose validation the reader was repeatedly discarding.
+`Value.sameSource` compares complete supplied objects and retained contexts;
+`Value.closedReading` and `closedReadingTerm` own reuse eligibility. Existing
+carrier entries already retain their full trace preconditions and closed replay.
+
+The unchanged full-import-context line 22 makes ten Bil-to-Sets transport calls
+with four routes each before the earlier timeout. An isolated measurement of
+that actual named source uses 82 heartbeats for all four routes, fewer than one
+for classification, and 11229 for validation of the four comparison terms. The
+returned comparison terms are closed. Category-shape rejection cannot remove
+any further target: every measured call already independently demands Sets.
+
+### New code
+
+Share only completed comparison evidence within one fixed original claim, keyed
+by the exact whole source `Value` and complete ordered `RouteComparison` array.
+Every stored source context and every returned evidence term must be closed,
+including absence of free variables. The original validator runs before any
+entry is stored; a local class hypothesis cannot become reusable evidence.
+The table retains the actual checked terms, not merely a success flag.
+
+Every category trial, complete route enumeration, actual object application,
+coherence classification, final selected action check, and trace record still
+runs through the original owner. No target choice, unresolved requested type,
+failed search, or stage-dependent point is cached. Existing carrier entries keep
+their exact source and prior-trace checks. A failed enclosing reading may retain
+closed comparison evidence but publishes no speculative trace.
+
+The earlier reachability, full selected-transport, and pre-target action caches
+are rejected diagnostic prototypes, preserved outside the repository. The action
+prototype had no eligible complete edge applications on the failing equation.
+The selected-transport prototype also required an additional comparison-evidence
+closure guard; removing it entirely avoids that choice-reuse boundary. None of
+those prototypes is part of the delivered code.
+
+The three original RX-LIFT statements at lines 22, 73, 76 now complete all seven
+production typed-export stages with the original full six-module import scope,
+original preceding bindings, published mathematics ac9bb80, and unchanged ordinary
+200000 option. Instrumented totals are 176035, 202567, 203162 heartbeats; the latter
+totals include subsequent pure export work and are not asserted to be below the
+option. No timeout occurs. The three original composed consumers also read.
+
+Unchanged selected-carrier, declared-context, parameter-structure, closed-binding,
+and context-continuity probes pass. The unchanged full dependent-reader probe
+still reports a numeral-owner ambiguity at line 63 on the corrected mathematical
+release; that distinct original-input blocker remains recorded, not counted as
+a passing probe. Focused engineering controls cover real warm comparison reuse,
+distinct retained full contexts, open-source refusal, failed outer reads and
+trace retry, and unresolved-target ambiguity. An isolated opaque alias of an
+existing generic comparison adds only an unused local class hypothesis: the
+upstream cell validator accepts its original interface, the actual result keeps
+the local free variable, no cache entry is stored, and retry outside the local
+context fails. No mathematical source, registry, original input, selected owner,
+ambiguity rule, caller budget, or shared artifact is changed by this repair.
+
+
+## Declaration identity of newly retained complete parameters (2026-10-26)
+
+### Queries
+
+The corpus queries `declaration application provenance` and `registered numeral
+owner` found unrelated verification records. Local searches read
+`completeParameterObjects`, `recognize`, `recognizeObjectApplication`,
+`contextualNumeralRows`, `namedNumeralRows`, and `sourceParameterValues`.
+The exact original dependent-reader capture has two supplied Values with the
+same complete `NamedCommutativeRings.integers` term. One retains the named row
+and its original integer context; the other was introduced as a plain object
+with no origin, selection, or view data. The latter contributes an inherited
+Semiring numeral alongside the named source's declared Ring numeral. The
+failure occurs only at the final subsequent zero in the original line 63 block.
+
+### Owner
+
+`recognize` already owns declaration identity. It matches the actual registered
+declaration head, checks its complete arguments and types, and reconstructs the
+same selected object row through `recognizeObjectApplication`. It does not infer
+a parameter-free named alias from a shared carrier. `completeParameterObjects`
+already retains each complete declaration parameter and every original supplied
+Value. The existing named-numeral rule is correct when that declaration identity
+is retained; no numeral-owner selection rule needs to change.
+
+### New code
+
+Before introducing a fresh plain parameter witness, reuse `recognize` only when
+that exact parameter application names an object declaration registered in its
+already checked category. Pass the unchanged original witnesses and complete
+fixed parameters. Failed recognition retains the previous path, including the
+existing source-action retention rule. No original supplied witness is deleted,
+renamed, or merged; in particular, an independently supplied anonymous full
+structure remains independent. No arbitrary alias is recovered by unfolding a
+carrier, and no new structural search is added for an undeclared application.
+
+An additive control reproduces the same ambiguity before this change when the
+already supplied named integer object is revisited as a complete parameter.
+A separate negative retains an explicitly supplied anonymous full witness in
+both orders and requires the original ambiguity to survive. The original probe,
+mathematics, fixed statements, expected answers, and budgets remain unchanged.
+
+The narrow counterexample now reads, while explicitly supplied anonymous full
+witnesses remain ambiguous in both orders. The unchanged original full
+`DependentReaderProbes` passes, including its line 63 sequence and original
+power-series binder. Unchanged parameter-structure, selected-carrier,
+declared-context, closed-binding, context-continuity, and the existing
+Ring/Semiring numeral-owner controls also pass on the final source. The three
+full-context RX-LIFT readers complete every typed-export stage with total
+counters 113508, 201054, 201631; the unchanged ordinary option remains 200000, and
+these counters include later pure export work. The three unchanged composed
+consumers also pass. All source guards close unchanged. Exact failed/successful
+runs, full source-witness capture, and diagnostic restoration receipts remain
+in the separate engineering archive. No new original-probe failure remains in
+this reader workstream; full native/export/execution integration stays separate.

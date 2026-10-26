@@ -662,6 +662,14 @@ def Scope.binding? (scope : Scope) (name : Name) : Option Syntax :=
 def Scope.hasBinding (scope : Scope) (name : Name) : Bool :=
   (scope.binding? name).isSome
 
+/-- Completed object readings within one fixed claim. Every comparison keeps its
+complete supplied source and the actual closed evidence checked for that source. -/
+inductive ObjectReading where
+  | carrier (source result : Value)
+      (required records : Std.HashMap Expr Node)
+  | comparisons (source : Value) (witnesses : Array RouteComparison)
+      (terms : Array Expr)
+
 /-- The context of an evaluation: its stage `S`, when the elements being handled are generalized
 elements `S → X` (inside `t ↦ e` or `{t ∈ S | P}`, where `t` is `𝟙 S`) rather than global ones
 `1 → X`. A term is read one way, for its mathematics alone (`CasCatalogue.Semantic`): objects are
@@ -677,10 +685,9 @@ structure Ctx where
   trace : Option Trace := none
   /-- Closed readings shared only within one fixed question scope and trace. -/
   closedTerms : Option (IO.Ref (Std.HashMap String Value)) := none
-  /-- Complete carrier views shared only within one inclusion endpoint read. Each entry
-  keeps the required original trace and the closed action records added by that view. -/
-  carrierReadings : Option (IO.Ref
-    (Array (Value × Value × Std.HashMap Expr Node × Std.HashMap Expr Node))) := none
+  /-- Complete object readings shared within one claim or a nested endpoint read.
+  Carrier views also retain their required trace and closed added action records. -/
+  carrierReadings : Option (IO.Ref (Array ObjectReading)) := none
   deriving Inhabited
 
 /-- The language's evaluation monad: elaboration in a reading. -/
@@ -927,6 +934,21 @@ def refinesObject (state : RegistryState) (entry : ObjectEntry) (base : ObjectId
     current := parent
   return false
 
+/-- A named set's declared numeral refinements retain priority over structural
+views reached afterwards. This is the existing named-numeral rule, shared by
+direct reading and independently supplied named witnesses. -/
+def namedNumeralRows (state : RegistryState) (entry : ObjectEntry) : Array NumeralEntry :=
+  let direct := state.numerals.filter fun numeral =>
+    numeral.over.any fun over => state.objects.any fun candidate =>
+      candidate.category == over && refinesObject state candidate entry.id
+  if direct.isEmpty then state.numerals else direct
+
+/-- A complete selected source uses its own registered numeral family when it
+has one, before searching inherited structural views. -/
+def selectedNumeralRows (state : RegistryState) (category : CategoryId) : Array NumeralEntry :=
+  let direct := state.numerals.filter (·.over == some category)
+  if direct.isEmpty then state.numerals else direct
+
 /-- The complete carrier route and identifications actually declared by refinement ancestry. -/
 def declaredCarrierRoute (state : RegistryState) (entry : ObjectEntry) :
     Option (Array EdgeRef × Array Name) := Id.run do
@@ -1066,6 +1088,24 @@ partial def retainedCarrierRoute (state : RegistryState) (value : Value) :
   return none
 
 
+/-- Validate the exact accepted comparisons at the complete supplied object. Only
+closed actual evidence is shared; every route and target choice remains a fresh trial. -/
+def checkedObjectComparisons (state : RegistryState) (source : Value)
+    (witnesses : Array RouteComparison) : M (Array Expr) := do
+  let .object receiver .. := source
+    | throwStratum .invalid "route comparisons require their complete selected object"
+  let context ← read
+  if let some readings := context.carrierReadings then
+    for entry in ← readings.get do
+      let .comparisons original required terms := entry | continue
+      if required == witnesses && original.sameSource source then return terms
+  let terms ← Semantic.validateRouteComparisons state witnesses (some receiver)
+  if let some readings := context.carrierReadings then
+    unless witnesses.isEmpty do
+      if source.closedReading && terms.all closedReadingTerm then
+        readings.modify (·.push (.comparisons source witnesses terms))
+  return terms
+
 /-- Apply the same accepted route construction whose complete edge arguments are retained.
 The receiver and expected endpoint close its actual parameters before any trace is recorded. -/
 def checkedRouteAction (state : RegistryState) (source target : CategoryId)
@@ -1141,7 +1181,7 @@ partial def transportedStructureWithAction (expected : Expr) (value : Value)
       | #[cls] =>
         unless cls.ambiguities.isEmpty do
           throwSemanticAmbiguity m!"several comparisons determine a selected structural route"
-        discard <| Semantic.validateRouteComparisons state cls.comparisonWitnesses (some receiver)
+        discard <| checkedObjectComparisons state value cls.comparisonWitnesses
         let #[candidate] := cls.sources
           | throwSemanticAmbiguity m!"the selected object has no unique structural route"
         pure candidate
@@ -1703,6 +1743,22 @@ def setOf (state : RegistryState) (entry : ObjectEntry) : TermElabM ObjectEntry 
     let some base := state.objects.find? (·.id == refinement.base) | unreachable!
     entry := base
   throwStratum .invalid m!"the refinements of {entry.name} do not reach a set"
+
+/-- Each witness keeps its own direct numeral family. A named source without
+one retains the literal choice of its declared set refinement. This selects
+only rows: the original full source still closes each owner and actual action. -/
+def contextualNumeralRows (state : RegistryState) (supplied : Value) : M (Array NumeralEntry) := do
+  let selected := match supplied with
+    | .object _ _ _ (some selected) _ => selected
+    | _ => supplied
+  let .object _ category origin _ _ := selected | return state.numerals
+  if state.numerals.any (·.over == some category.id) then
+    return selectedNumeralRows state category.id
+  let some (entry, _) := origin | return state.numerals
+  if entry.admission.isSome then return state.numerals
+  let some base ← optionalReading (liftM <| setOf state entry) | return state.numerals
+  if base.admission.isSome then return state.numerals
+  return namedNumeralRows state base
 
 /-- Check one declared component refinement at the entire supplied structured
 object. A valid row without a set/component presentation is simply inapplicable;
@@ -4308,7 +4364,8 @@ partial def carrierObject (value : Value) : M Value := do
   let some readings := context.carrierReadings | return (← carrierObjectWithAction value).1
   let some trace := context.trace | return (← carrierObjectWithAction value).1
   let before ← trace.get
-  for (source, carrier, required, records) in ← readings.get do
+  for entry in ← readings.get do
+    let .carrier source carrier required records := entry | continue
     if source.sameSource value && required.toArray.all (fun (term, node) =>
         (before[term]?).any (· == node)) then
       trace.modify fun current => records.fold
@@ -4329,7 +4386,7 @@ partial def carrierObject (value : Value) : M Value := do
           closedReadingTerm source.bundle && closedReadingTerm target.bundle &&
             closedReadingTerm receiver && applications.all closedReadingTerm
       | _ => false
-    if closed then readings.modify (·.push (value, carrier, before, records))
+    if closed then readings.modify (·.push (.carrier value carrier before records))
   return carrier
 
 /-- Constrain an ordered dependent telescope from a complete selected receiver.
@@ -5862,10 +5919,19 @@ partial def completeParameterObjects (parameters : Array Expr)
     match applicable with
     | #[parameterCategory] =>
         let plain := Value.object parameter parameterCategory none none none
+        -- An actual registered declaration application already owns its identity.
+        -- Retain that identity before adding a new anonymous parameter witness;
+        -- every originally supplied context remains in `known` unchanged.
+        let named ← if state.objects.any (fun entry =>
+            entry.category == parameterCategory.id &&
+              some entry.declaration == parameter.getAppFn.constName?) then
+            optionalReading (recognize state parameter parameterCategory known parameters)
+          else pure none
         -- `Semantic.objOf` supplies the actual action expression. Keep its source
         -- view when the family fixes that full image; other complete parameters
         -- keep their ordinary endpoint reading without a new structural search.
-        let value ← if retainActionSources && parameter.consumeMData.isAppOf ``Prefunctor.obj then do
+        let value ← if let some named := named then pure named
+          else if retainActionSources && parameter.consumeMData.isAppOf ``Prefunctor.obj then do
             let recognized ← optionalReading
               (recognize state parameter parameterCategory known parameters)
             match recognized with
@@ -6822,6 +6888,10 @@ partial def contextualNumeral (k : Nat) (X : Value) : M (Option Value) := do
   for row in state.numerals do
     let some owner := row.over | continue
     for supplied in witnesses do
+      -- Reuse this witness's existing complete selection before considering
+      -- inherited views. Every independently supplied owner is still checked;
+      -- no two witnesses or full owners are merged by their carriers.
+      unless (← contextualNumeralRows state supplied).any (·.id == row.id) do continue
       let candidate? ← try parameterTrial do
         let recorder ← Trace.new
         withReader (fun context => { context with trace := some recorder }) do
@@ -6926,10 +6996,7 @@ partial def registeredNamedNumeral (k : Nat) (X : Value) : M (Option Value) := d
   let state ← registryState
   let one ← semanticObject (← oneObject)
   let mut refinements : Array (CategoryId × Expr) := #[]
-  let directNumerals := state.numerals.filter fun numeral =>
-    numeral.over.any fun over => state.objects.any fun candidate =>
-      candidate.category == over && refinesObject state candidate entry.id
-  let numeralRows := if directNumerals.isEmpty then state.numerals else directNumerals
+  let numeralRows := namedNumeralRows state entry
   for numeral in numeralRows do
     let some over := numeral.over | continue
     if refinements.any (·.1 == over) then continue
@@ -6979,9 +7046,8 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       -- structural action to its registered numeral owner. A matching carrier never supplies
       -- missing structure. Competing inherited numeral constructions must agree as points.
       if let .object carrier _ _ (some chosen@(.object selected selectedCategory ..)) _ := X then
-        let directRows := state.numerals.filter (·.over == some selectedCategory.id)
-        let owners := if !directRows.isEmpty then #[selectedCategory.id] else
-          (state.numerals.filterMap (·.over)).toList.eraseDups.toArray
+        let owners := ((selectedNumeralRows state selectedCategory.id).filterMap
+          (·.over)).toList.eraseDups.toArray
         let one ← semanticObject (← oneObject)
         let mut points : Array Expr := #[]
         for owner in owners do
@@ -9227,7 +9293,7 @@ def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do
 
 /-- The claim of a statement, read semantically: what it states, from the catalogue alone. Its
 failure is the statement's invalidity. -/
-def claim (scope : Scope) (stx : Syntax) : M Claim := do
+def claimCore (scope : Scope) (stx : Syntax) : M Claim := do
   if let some (_, t) ← letBinding? stx then
     let rings ← ringBindings scope t
     discard <| withReader (fun ctx => { ctx with bound := rings ++ ctx.bound }) (eval scope t)
@@ -9265,5 +9331,13 @@ def claim (scope : Scope) (stx : Syntax) : M Claim := do
       let answer ← asAnswer value
       return .judged (value.question answer) answer (some true) (shown p)
   | _ => throwStratum .invalid m!"not a statement of the language: {stx}"
+
+/-- Read one complete original statement with its local completed object readings. -/
+def claim (scope : Scope) (stx : Syntax) : M Claim := do
+  let context ← read
+  if context.carrierReadings.isSome then return ← claimCore scope stx
+  let readings ← IO.mkRef (#[] : Array ObjectReading)
+  withReader (fun context => { context with carrierReadings := some readings })
+    (claimCore scope stx)
 
 end CasCatalogue.Language

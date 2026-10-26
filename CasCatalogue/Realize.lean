@@ -1819,6 +1819,18 @@ partial def subobjectFragments? (data : DataOwnership.Data) : Option (Array Data
     return ← fragmentArguments? inclusion
   none
 
+/-- Exposed record data must satisfy the record codec at the independently
+fixed original fields. A complete public object descriptor is not implicitly
+its single stored field merely because the formal structure has one data slot. -/
+def exposedRecordData? (receiver : Expr) (data : DataOwnership.Data) :
+    TermElabM (Option DataOwnership.Data) := do
+  let some payload := ComputationalData.recordPayload? data | return none
+  let checked ← withoutModifyingState <|
+    ComputationalData.validateRecordPortWith receiver (← inferType receiver) payload.json #[]
+      (fun formal type json objects => ComputationalData.validatePort formal type json objects)
+  let some (.ok ()) := checked | return none
+  return some payload
+
 /-- Compute a structural projection from the complete returned fields. The role of the
 registered action is determined on a fresh symbolic receiver, so equal actual objects
 cannot make unrelated functors look like projections. Opaque fields and their ownership
@@ -1828,13 +1840,9 @@ def projectObjectFragment (trace : Trace) (_source : CategoryExpr) (edge : EdgeR
     (descriptor? : Option DataOwnership.Data := none) (checkOwnership : Bool := true) :
     TermElabM (Option DataOwnership.Data) := do
   if checkOwnership then discard <| checkedFragment data.validate
-  let structural ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
-    ComputationalData.recordProjectionPlan? symbolic (← Semantic.objOf action symbolic)
-  if let some plan := structural then
-    if let some projected := plan.apply? data then return some projected
-  -- The exact typed record interface owns these fields, including full
-  -- subcategories of arrows whose registered category expression is atomic.
-  -- A fresh receiver prevents equal actual fields from selecting a false role.
+  let payload := (ComputationalData.recordPayload? data).getD data
+  -- Existing explicit codecs own their envelopes before structural single-field
+  -- elision. The exact fresh receiver still determines every projected role.
   let role ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
     let image ← Semantic.objOf action symbolic
     let selected ← ComputationalData.recordProjection
@@ -1849,20 +1857,38 @@ def projectObjectFragment (trace : Trace) (_source : CategoryExpr) (edge : EdgeR
       if ← withoutModifyingState (withTransparency .all <| isDefEq image candidates[index]!) then
         return some (index, selected.isSome)
     return none
-  let some (role, subobjects) := role | return none
-  let fields := if subobjects then subobjectFragments? data else do
-    let tag ← (data.json.getObjValAs? String "ctor").toOption
-    unless tag == "arrow" do none
-    let args ← fragmentArguments? data
-    unless args.size == 3 do none
-    pure args
-  if let some fields := fields then
-    if role == 0 then
-      let fields := DataOwnership.Data.array fields
-      return some {
-        json := Json.mkObj [("ctor", "arrow"), ("args", fields.json)]
-        ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
-    return fields[role - 1]?
+  if let some (role, subobjects) := role then
+    let fields := if subobjects then subobjectFragments? payload else do
+      let tag ← (payload.json.getObjValAs? String "ctor").toOption
+      unless tag == "arrow" do none
+      let args ← fragmentArguments? payload
+      unless args.size == 3 do none
+      pure args
+    if let some fields := fields then
+      if role == 0 then
+        let fields := DataOwnership.Data.array fields
+        return some {
+          json := Json.mkObj [("ctor", "arrow"), ("args", fields.json)]
+          ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+      return fields[role - 1]?
+  if (payload.json.getObjValAs? String "ctor").toOption == some "coreObject" then
+    let core ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
+      let some original ← ComputationalData.recordProjection ``CategoryTheory.Core.of symbolic
+        | return false
+      withoutModifyingState <| withTransparency .all <|
+        isDefEq (← Semantic.objOf action symbolic) original
+    if core then
+      if let some #[original] := fragmentArguments? payload then return some original
+  if let some exposed ← exposedRecordData? receiver data then
+    let structural ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
+      let image ← Semantic.objOf action symbolic
+      let some plan ← ComputationalData.recordProjectionPlan? symbolic image | return none
+      let some projected ← plan.apply? symbolic exposed | return none
+      if (← ComputationalData.validatePort image (← inferType image) projected.json).isOk then
+        return some projected
+      return none
+    if let some projected := structural then return some projected
+  if role.isNone then return none
   let descriptor ← match descriptor? with
     | some descriptor => pure descriptor
     | none => pure { json := ← edgeDescriptor trace edge action }
@@ -3416,14 +3442,15 @@ partial def validateComputationalObject (_trace : Trace) (_category : NamedCateg
     (fixed : Expr) (json : Json) : TermElabM (Except String Unit) := do
   ComputationalData.validatePort fixed (← inferType fixed) json
 
-/-- Dispatch a method on the backend's returned apex representation, without
-identifying that representation with the formal universal object. The complete
-construction and its independently fixed semantic value remain in `input`. -/
-def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire := do
+/-- Extract an actual apex with its independently checked base-category image.
+Success is explicit: an unprojected complete packet is never a creating image.
+No actual object is identified with the formal universal construction. -/
+def computationalApexImage? (_trace : Trace) (input : Wire) :
+    TermElabM (Option Wire) := do
   let state ← registryState
   if let some (receiver, _) := input.constructionInputs then
     unless ← withoutModifyingState <| withTransparency .all <|
-        isDefEq receiver input.value do return input
+        isDefEq receiver input.value do return none
   let objects := input.constructionInputs.map Prod.snd |>.getD #[]
   let mut answer := input.json
   let mut answerPath : DataOwnership.Path := #[]
@@ -3438,29 +3465,29 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
     if tag == some "functorAction" then
       -- An arbitrary accepted action can change the computational object. Its
       -- descriptor must travel to the leaf; a named inner apex is no substitute.
-      return input
+      return none
     else if tag == some "constructionApex" then
-      let some identifier := args[0]? | return input
-      let .ok name := identifier.getStr? | return input
-      let some row := state.limits.find? (·.id.raw == name) | return input
+      let some identifier := args[0]? | return none
+      let .ok name := identifier.getStr? | return none
+      let some row := state.limits.find? (·.id.raw == name) | return none
       apexCategory := row.category
       apexShape := some row.shape
       let some child := args[2]? | break
       answer := child
       answerPath := answerPath ++ #[.field "args", .index 2]
     else if tag == some "createdCone" then
-      let some identifier := args[0]? | return input
-      let .ok name := identifier.getStr? | return input
-      let some lift := state.lifts.find? (·.id.raw == name) | return input
-      let some shape := apexShape | return input
-      unless lift.kind == .createsLimits shape do return input
-      let some edge := state.structuralEdge? lift.edge | return input
-      let some category := state.categories.find? (·.id == apexCategory) | return input
-      unless edge.target.syntacticEq category.expression do return input
+      let some identifier := args[0]? | return none
+      let .ok name := identifier.getStr? | return none
+      let some lift := state.lifts.find? (·.id.raw == name) | return none
+      let some shape := apexShape | return none
+      unless lift.kind == .createsLimits shape do return none
+      let some edge := state.structuralEdge? lift.edge | return none
+      let some category := state.categories.find? (·.id == apexCategory) | return none
+      unless edge.target.syntacticEq category.expression do return none
       let action ← Semantic.asFunctor (← Semantic.edgeFunctor state lift.edge)
       let actionType ← whnfR (← inferType action)
-      unless actionType.isAppOf ``CategoryTheory.Functor do return input
-      unless ← isDefEq (← inferType fixed) actionType.getAppArgs[0]! do return input
+      unless actionType.isAppOf ``CategoryTheory.Functor do return none
+      unless ← isDefEq (← inferType fixed) actionType.getAppArgs[0]! do return none
       fixed ← Semantic.objOf action fixed
       let some child := args[2]? | break
       answer := child
@@ -3468,38 +3495,45 @@ def computationalApexReceiver (_trace : Trace) (input : Wire) : TermElabM Wire :
     else break
   unless ((answer.getObjValAs? String "ctor").toOption == some "cone" ||
       (answer.getObjValAs? String "ctor").toOption == some "cocone") do
-    return input
-  let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | return input
-  let some apexJson := args[0]? | return input
+    return none
+  let .ok args := (answer.getObjVal? "args").bind (·.getArr?) | return none
+  let some apexJson := args[0]? | return none
   -- Only the exact inner object descriptor selects a registered form. The
   -- full finiteData envelope remains the computational receiver payload.
   let mut descriptor := apexJson
   if (apexJson.getObjValAs? String "ctor").toOption == some "finiteData" then
-    let .ok (_, fields) := ComputationalData.envelope apexJson | return input
-    unless fields.size == 2 do return input
+    let .ok (_, fields) := ComputationalData.envelope apexJson | return none
+    unless fields.size == 2 do return none
     descriptor := fields[0]!
-  let some category := state.categories.find? (·.id == apexCategory) | return input
+  let some category := state.categories.find? (·.id == apexCategory) | return none
   let carrier ← categoryCarrierInstance category
   -- Preserve any independently fixed category parameters, without identifying
   -- the returned object with the formal universal apex. A created cone can
   -- retain a source-side formal object while its packet is in the base category.
-  unless ← withoutModifyingState (isDefEq (← inferType fixed) carrier) do return input
+  unless ← withoutModifyingState (isDefEq (← inferType fixed) carrier) do return none
   discard <| isDefEq (← inferType fixed) carrier
   let carrier ← instantiateMVars carrier
-  if carrier.hasMVar || carrier.hasLevelMVar then return input
+  if carrier.hasMVar || carrier.hasLevelMVar then return none
   if let .error _ ← ComputationalData.validatePort fixed carrier apexJson objects then
-    return input
+    return none
   let named := state.objects.find? fun entry =>
     (descriptor.getObjValAs? String "ctor").toOption == some entry.id.raw
   if let some entry := named then
-    unless entry.category == apexCategory do return input
+    unless entry.category == apexCategory do return none
   let form := named.map Form.object |>.getD (.diagrams category)
   -- The selected apex retains only the suppliers at its exact packet position.
   -- Other defining maps remain in the original complete construction.
   let apex ← checkedFragment (input.fragment.project
     (answerPath ++ #[.field "args", .index 0]))
   let payload ← scopedPayload fixed apex
-  return { input with form, payload }
+  return some { input with form, payload }
+
+/-- Project only the computational receiver's actual fields. Its original
+formal occurrence remains intact even when a created packet is represented in
+a base category. Applying the creating functor uses the checked image above. -/
+def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire := do
+  let some image ← computationalApexImage? trace input | return input
+  return { image with payload := (← scopedPayload input.value image.fragment) }
 
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
 set `po.extent X A` that `Language.asObject` forms. -/
@@ -3548,13 +3582,14 @@ def operationRecordEndpointData (entry : OperationEntry) (application : Expr)
         isDefEq original receiver.value) do
     throwError "the operation endpoint changed its complete declared record owner"
   discard <| checkedFragment receiver.fragment.validate
+  let some exposed ← exposedRecordData? original receiver.fragment | return (none, none)
   withLocalDeclD `recordOwner (← inferType original) fun symbolic => do
     let selected := mkAppN application.getAppFn (arguments.set! index symbolic)
     unless ← isTypeCorrect selected do return (none, none)
     let some (source, target) := Language.homEnds? (← inferType selected)
       | return (none, none)
-    return (← ComputationalData.recordEndpointData? symbolic source receiver.fragment,
-      ← ComputationalData.recordEndpointData? symbolic target receiver.fragment)
+    return (← ComputationalData.recordEndpointData? symbolic source exposed,
+      ← ComputationalData.recordEndpointData? symbolic target exposed)
 
 def operationRecipeId? (wire : Wire) : Option String :=
   match ComputationalData.envelope wire.json with
@@ -3947,7 +3982,8 @@ def executeMapActionWithEndpoints
   let data ← receiveReplyData h operation reply true
   let received := { template with
     payload := WirePayload.computed template.value data
-    callableObserved := true, morphismFramed := false }
+    callableObserved := true, morphismFramed := false
+    pointDataInterface := none }
   -- A whole opaque callable need not repeat its independently supplied
   -- endpoints. Retain those exact actual packets on this occurrence before
   -- another action can inspect it; the formal result cache is not an endpoint
@@ -4568,15 +4604,15 @@ partial def executeObjectEdge (h : Harness) (trace : Trace) (edge : EdgeRef)
         let selected ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
         if ← withoutModifyingState (withTransparency .all <|
             isDefEq (← inferType action) (← inferType selected) <&&> isDefEq action selected) then
-          let image ← computationalApexReceiver trace original
-          unless ← withoutModifyingState (withTransparency .all <|
-              isDefEq (← inferType image.value) (← inferType template.value) <&&>
-                isDefEq image.value template.value) do
-            throwError "the retained creation image changed its complete selected target"
-          return { template with
-            payload := (← combinedPayload template.value image.fragment
-              (#[original, image] ++ dependencies))
-            objectObserved := true }
+          if let some image ← computationalApexImage? trace original then
+            unless ← withoutModifyingState (withTransparency .all <|
+                isDefEq (← inferType image.value) (← inferType template.value) <&&>
+                  isDefEq image.value template.value) do
+              throwError "the retained creation image changed its complete selected target"
+            return { template with
+              payload := (← combinedPayload template.value image.fragment
+                (#[original, image] ++ dependencies))
+              objectObserved := true }
   if let some projected ← projectObjectFragment trace source edge action original.value
       original.fragment (some descriptor) then
     unless (projected.json.getObjValAs? String "ctor").toOption == some "functorAction" do
@@ -7031,7 +7067,8 @@ partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wir
     wire with
     payload := .computed formal data
     morphismFramed := false
-    callableObserved := true }
+    callableObserved := true
+    pointDataInterface := none }
   return result
 
 /-- Demand the computational value of an entire arrow. Merely forming a named arrow,
@@ -7129,7 +7166,9 @@ partial def realizeArrowObservation (h : Harness) (trace : Trace) (wire : Wire)
         let framed ← forwardOperationEquivalent formal representative actual
         -- The canonical formal interface is unchanged; only the checked candidate's
         -- actual returned data and owning session cross the equality substitution.
-        let result := { wire with payload := framed.payload, callableObserved := framed.callableObserved }
+        let result := { wire with
+          payload := framed.payload, callableObserved := framed.callableObserved
+          pointDataInterface := framed.pointDataInterface }
         match result.payload with
         | .ordinary .. => pure ()
         | _ => h.results.modify (·.insert representative

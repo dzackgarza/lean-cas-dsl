@@ -623,16 +623,41 @@ def validateRecordPortWith (formal expected : Expr) (json : Json)
       return some (.error message)
   return some (.ok ())
 
-/-- A structural field step records its position among data fields and the
-complete number of such fields. Proof fields are never computational slots. -/
-abbrev RecordFieldPath := Array (Nat × Nat)
+/-- Existing public record envelopes are distinguished from ordinary ordered
+fields using only the independently fixed receiver interface. -/
+inductive RecordFieldCodec where
+  | ordered | core | arrow | arrowRefinement
+  deriving BEq, Inhabited
+
+/-- Every intermediate step retains its actual record and field declaration.
+The public codec is selected at that complete formal receiver, never by a reply.
+Proof fields are never computational slots. -/
+structure RecordFieldStep where
+  structureName : Name
+  field : Name
+  index : Nat
+  count : Nat
+  codec : RecordFieldCodec
+  deriving Inhabited
+
+abbrev RecordFieldPath := Array RecordFieldStep
 
 /-- A public structural action may project retained fields or assemble another
-record from those fields. This plan contains only data positions, never a formal
-value, proof, evaluator, or mathematical operation. -/
+record from those fields. This plan contains only existing field declarations
+and codecs, never a formal value, proof, evaluator, or mathematical operation. -/
 inductive RecordProjectionPlan where
   | input (path : RecordFieldPath)
-  | record (fields : Array RecordProjectionPlan)
+  | record (codec : RecordFieldCodec) (fields : Array RecordProjectionPlan)
+
+/-- Recognize a public record codec at its complete fixed interface. In
+particular, an arbitrary Comma or full subcategory is not necessarily Arrow. -/
+def recordFieldCodec (receiver : Expr) : TermElabM RecordFieldCodec := do
+  if (← recordProjection ``CategoryTheory.Core.of receiver).isSome then return .core
+  if (← recordProjection ``CategoryTheory.Arrow.left receiver).isSome then return .arrow
+  if let some object ←
+      recordProjection ``CategoryTheory.ObjectProperty.FullSubcategory.obj receiver then
+    if (← recordProjection ``CategoryTheory.Arrow.left object).isSome then return .arrowRefinement
+  return .ordered
 
 /-- Read a projection chain on a fresh symbolic receiver. Equal actual field
 values cannot make a different projection match this chain. -/
@@ -651,7 +676,10 @@ partial def recordFieldPath? (receiver selected : Expr) :
       if offset == index then position := some count
       count := count + 1
   let some selectedPosition := position | return none
-  return some (initial.push (selectedPosition, count))
+  let codec ← recordFieldCodec parent
+  return some (initial.push {
+    structureName := name, field := info.fieldNames[index]!,
+    index := selectedPosition, count, codec })
 
 /-- Compile only the structural field part of an independently selected action.
 Every output data field must be a projection of the original receiver. No closed
@@ -671,7 +699,7 @@ partial def recordProjectionPlan? (receiver selected : Expr)
       let some plan ← recordProjectionPlan? receiver projection (seen.push selected)
         | return none
       fields := fields.push plan
-  return some (.record fields)
+  return some (.record (← recordFieldCodec selected) fields)
 
 /-- Open only the public inline envelope, retaining its exact occurrence path. -/
 partial def recordPayload? (data : DataOwnership.Data) : Option DataOwnership.Data := do
@@ -680,47 +708,6 @@ partial def recordPayload? (data : DataOwnership.Data) : Option DataOwnership.Da
     unless args.size == 1 do none
     return ← recordPayload? (← (data.project #[.field "args", .index 0]).toOption)
   return data
-
-/-- Apply a structural plan to actual public record data. A symbolic descriptor
-or a whole opaque record has no exposed fields; its usual action port remains
-necessary. Nested fields retain their individual supplying sessions. -/
-partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
-    (data : DataOwnership.Data) : Option DataOwnership.Data := do
-  match plan with
-  | .input path =>
-    let mut selected := data
-    for (index, count) in path do
-      selected ← recordPayload? selected
-      if (selected.json.getObjValAs? String "ctor").toOption == some "opaqueData" then none
-      if count == 1 then
-        unless index == 0 do none
-      else
-        let fields ← selected.json.getArr?.toOption
-        unless fields.size == count do none
-        selected ← (selected.project #[.index index]).toOption
-    return selected
-  | .record fields =>
-    let fields ← fields.mapM (fun field => field.apply? data)
-    if fields.size == 1 then return fields[0]!
-    return DataOwnership.Data.array fields
-
-/-- A complete callable signature can expose its selected record's carrier or
-products of those carriers. Preserve the supplied field packets rather than
-recovering another presentation from an equal formal carrier. -/
-partial def recordEndpointData? (receiver endpoint : Expr) (data : DataOwnership.Data) :
-    TermElabM (Option DataOwnership.Data) := do
-  if let some plan ← recordProjectionPlan? receiver endpoint then
-    if let some result := plan.apply? data then return some result
-  let endpoint ← withTransparency .all <| whnf endpoint
-  if endpoint.isAppOfArity ``Prod 2 then
-    let fields := endpoint.getAppArgs
-    let some left ← recordEndpointData? receiver fields[0]! data | return none
-    let some right ← recordEndpointData? receiver fields[1]! data | return none
-    let fields := DataOwnership.Data.array #[left, right]
-    return some {
-      json := Json.mkObj [("ctor", toJson "objectProduct"), ("args", fields.json)]
-      ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
-  return none
 
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
@@ -826,7 +813,7 @@ earlier ports. Reusing their exact descriptors retains an interface, never an
 identification of their computed values with the accompanying formal terms.
 Opaque owners are checked by the live-session consumer, outside this framing check. -/
 partial def validatePort (formalField expectedType : Expr) (json : Json)
-    (objects : InterfaceObjects := #[]) :
+    (objects : InterfaceObjects := #[]) (explicitOnly : Bool := false) :
     TermElabM (Except String Unit) := do
   if ← isProp expectedType then
     return .error "a proposition is not a computational data port"
@@ -834,7 +821,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
     let #[actual] := args | return .error "valueData requires one data field"
     let opened := objects ++ objects.filterMap fun (retained, fixed) =>
       if retained == json then some (actual, fixed) else none
-    return ← validatePort formalField expectedType actual opened
+    return ← validatePort formalField expectedType actual opened explicitOnly
   -- Semantic dictionaries remain the independently selected context, even when
   -- the same descriptor is available among other retained computational inputs.
   if let .ok (tag, _) := envelope json then
@@ -1079,6 +1066,9 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
             | .error message => return .error message
             | .ok () => pure ()
       return .ok ()
+  -- Structural projection uses this same dispatch to distinguish a whole
+  -- descriptor from exposed fields at each independently fixed nested record.
+  if explicitOnly then return .error "the port has no applicable explicit envelope codec"
   if ← plainType expectedType then
     return (← Codec.decode expectedType json).map fun _ => ()
   -- Literal representations are published upstream. Only their proof-free
@@ -2964,6 +2954,104 @@ partial def validatePlannedPort (plan : StructuredResult.DataPlan)
   validateGraphAtKeys port.formalField port.expectedType data domainKeys codomainKeys
 
 end
+
+/-- Project one actual field through its existing codec. A descriptor accepted
+as the whole current record cannot become that record's single data slot. The
+ordinary field check is repeated at each nested receiver, whose full formal
+context comes only from the original independently selected projection path. -/
+def RecordFieldStep.project? (step : RecordFieldStep) (receiver : Expr)
+    (data : DataOwnership.Data) : TermElabM (Option DataOwnership.Data) :=
+    withoutModifyingState do
+  let type ← withTransparency .all <| whnf (← inferType receiver)
+  unless type.getAppFn.constName? == some step.structureName do return none
+  let some payload := recordPayload? data | return none
+  let explicit ← validatePort receiver type payload.json #[] true
+  if let .ok (tag, args) := envelope payload.json then
+    if step.codec == .core && tag == "coreObject" then
+      unless explicit.isOk && step.count == 1 && step.index == 0 && args.size == 1 do
+        return none
+      return (payload.project #[.field "args", .index 0]).toOption
+    if step.codec == .arrow && tag == "arrow" then
+      unless explicit.isOk && step.count == 3 && args.size == 3 && step.index < 3 do
+        return none
+      return (payload.project #[.field "args", .index step.index]).toOption
+    if step.codec == .arrowRefinement && (tag == "arrow" || tag == "subobject") then
+      unless explicit.isOk && step.count == 1 && step.index == 0 && args.size == 3 do
+        return none
+      let some fields := (payload.project #[.field "args"]).toOption | return none
+      return some {
+        json := Json.mkObj [("ctor", toJson "arrow"), ("args", fields.json)]
+        ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+  -- Unsupported whole-record codecs keep their ordinary action path. A named
+  -- descriptor may still be a legitimate field of an outer ordered record.
+  if explicit.isOk then return none
+  let checked ← validateRecordPortWith receiver type payload.json #[]
+    (fun formal expected json objects => validatePort formal expected json objects)
+  let some (.ok ()) := checked | return none
+  if step.count == 1 then
+    unless step.index == 0 do return none
+    return some payload
+  let .ok fields := payload.json.getArr? | return none
+  unless fields.size == step.count do return none
+  return (payload.project #[.index step.index]).toOption
+
+/-- Apply a structural plan to actual public record data. Every intermediate
+existing codec is retained; opaque records and unsupported whole descriptors
+cannot be opened. Nested fields retain their individual supplying sessions. -/
+partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
+    (receiver : Expr) (data : DataOwnership.Data) :
+    TermElabM (Option DataOwnership.Data) := do
+  match plan with
+  | .input path =>
+    let mut current := receiver
+    let mut selected := data
+    for step in path do
+      let some field ← step.project? current selected | return none
+      current ← withTransparency .all <| mkProjection current step.field
+      selected := field
+    return some selected
+  | .record codec fields =>
+    let mut results := #[]
+    for field in fields do
+      let some result ← field.apply? receiver data | return none
+      results := results.push result
+    match codec with
+    | .ordered =>
+      if results.size == 1 then return some results[0]!
+      return some (DataOwnership.Data.array results)
+    | .core | .arrow =>
+      let count := if codec == .core then 1 else 3
+      unless results.size == count do return none
+      let fields := DataOwnership.Data.array results
+      return some {
+        json := Json.mkObj [("ctor", toJson (if codec == .core then "coreObject" else "arrow")),
+          ("args", fields.json)]
+        ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+    | .arrowRefinement =>
+      -- The existing full-subcategory codec retains its complete Arrow fields.
+      -- A whole opaque Arrow does not expose fields for that construction.
+      let #[arrow] := results | return none
+      let .ok ("arrow", args) := envelope arrow.json | return none
+      unless args.size == 3 do return none
+      return some arrow
+
+/-- A complete callable signature can expose its selected record's carrier or
+products of those carriers. Preserve the supplied field packets rather than
+recovering another presentation from an equal formal carrier. -/
+partial def recordEndpointData? (receiver endpoint : Expr) (data : DataOwnership.Data) :
+    TermElabM (Option DataOwnership.Data) := do
+  if let some plan ← recordProjectionPlan? receiver endpoint then
+    if let some result ← plan.apply? receiver data then return some result
+  let endpoint ← withTransparency .all <| whnf endpoint
+  if endpoint.isAppOfArity ``Prod 2 then
+    let fields := endpoint.getAppArgs
+    let some left ← recordEndpointData? receiver fields[0]! data | return none
+    let some right ← recordEndpointData? receiver fields[1]! data | return none
+    let fields := DataOwnership.Data.array #[left, right]
+    return some {
+      json := Json.mkObj [("ctor", toJson "objectProduct"), ("args", fields.json)]
+      ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+  return none
 
 /-- Frame a returned point at the caller's exact selected object. The formal
 point is supplied independently and is never reconstructed from the answer.

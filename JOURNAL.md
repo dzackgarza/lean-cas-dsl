@@ -3589,6 +3589,24 @@ This closes the concrete native-build reader regression and its focused existing
 controls. Full native integration, typed export, execution, and independent acceptance
 are maintained separately by the integration owner.
 
+## 2026-10-26 — Preserve explicit record codecs before field elision
+
+Independent source review found that generic one-field projection could preserve
+a complete subobject envelope at a plain Arrow result. The registered inclusion
+now uses the established Arrow/subobject codec first. Core envelopes likewise
+expose only their independently selected original field. Generic structural
+projection and operation endpoints first require the packet to validate at the
+original record's fixed fields; correctly typed descriptor-valued fields remain
+supported, and no projected JSON supplies new InterfaceObjects or proof data.
+
+The added production inclusion/Core boundary control passes in 3.400 seconds,
+and the unchanged functor execution controls pass in 8.512 seconds. The isolated
+Realize compile passes in 56.805 seconds with stable source and ordinary budget.
+The initial new fixture's syntax and universe-binding failures are preserved.
+This closes the reproduced source boundary; combined native checks and actual
+public primitive computation are recorded separately. The fixed mathematical
+questions, expected answers, and public grammar remain unchanged.
+
 ## 2026-10-26 — Reuse exact exposed records and their operation endpoints
 
 Selected structural actions can now project or assemble the actual fields of
@@ -3636,3 +3654,136 @@ Its exact Ring and inherited Semiring candidates were captured without changing
 selection or assertions and are assigned to the next reader increment. This is
 implementation evidence, not independent mathematical acceptance or complete V1
 integration. No protected input, expectation, registration or leaf source changed.
+
+## 2026-10-26 — Keep each retained source's declared numeral reading
+
+Contextual numerals now reuse the reader's existing direct-owner and named
+refinement priorities for each independently supplied complete witness. The
+original named commutative rational ring retains the Ring route chosen by its
+declared set refinement; an additional available Semiring action does not
+create another default numeral reading of that same named source. The complete
+source still binds the actual owner and action before the coordinate is checked.
+All witnesses and full-owner/application ambiguity checks remain intact.
+
+The clean production source compiles and passes the unchanged selected-carrier
+and declared-context controls. Added controls retain the full named source and
+actual Ring action and require independently supplied Ring/Semiring owners to
+remain ambiguous in either order. All eight original arithmetic readings also
+close after the repair. Failed narrower prototypes and the exact source-witness
+diagnostics are preserved. This changes no mathematics, fixed assertion,
+registration, leaf or resource budget. Connected execution and point metadata
+forwarding remain a separate increment.
+
+## 2026-10-26 — Close the original connected workflow execution
+
+Operation-equivalence observation now forwards the completed point interface
+with its actual payload, while whole-map completions clear that distinct role.
+An existing-protocol control reproduces the old metadata loss and verifies the
+repair with an arbitrary opaque point, exact endpoints and the live supplier.
+Original product-point, whole-operation and operation-agreement controls pass.
+
+Together with the separately committed numeral-reader repair, all 17 original
+connected assertions hold with 73 real dispatches in 155.424 seconds: arithmetic
+8/8, finite pullback/reuse 2/2, matrix 3/3, and presentation 4/4. The requested
+isolated corrected-mathematics snapshot and contract-compatible library remained
+fixed; before/after hashes found zero changes across 432 tracked sources, 4468
+library artifacts and 11 fixed inputs/drivers. No assertion, expected answer,
+registration, leaf or heartbeat budget changed. The full newer-pin native
+integration and separate public primitive trial remain with the integration
+owner; this result is implementation engineering evidence.
+
+## 2026-10-26 — Reuse closed actual comparison evidence within a claim
+
+The reader now retains the actual accepted comparison terms that its existing
+validator has checked at the complete supplied object. Reuse requires the exact
+whole source and ordered witness array, and every retained context and evidence
+term must be closed. All category/type trials, complete routes, coherence
+classes, final action checks, and trace records keep their original owners.
+No target decision or unresolved requested type is cached.
+
+The three original RX-LIFT full-context timeouts at lines 22, 73, 76 now read through
+all seven typed-export stages on immutable published mathematics ac9bb80. Their
+original input, full preceding scope, six imports, and ordinary 200000 option are
+unchanged. Reported total counters 176035, 202567, 203162 include later pure export
+work; they are not all below the option, and no timeout occurs. The original
+composed.charpoly, composed.det, and composed.trace consumers also read on this
+same final Language source with the independently published monicity repair.
+
+Five unchanged full-owner/context probes pass. The full unchanged dependent-reader
+probe retains a distinct numeral-owner ambiguity at line 63 under the corrected
+mathematics; it is an open blocker, not a passing result. The focused cache controls
+pass, including exact full-context distinctions, trace rollback/retry, a warm
+cache with an unresolved target, and rejection of comparison evidence that uses
+a local class hypothesis after that context ends. Rejected wider caches and
+all diagnostic failures are preserved. This increment changes only Language and
+its source-scoped records; no mathematical source, assertion, registration, leaf,
+shared dependency, or resource budget is changed. Full native/export integration
+and the remaining original numeral probe are maintained separately.
+
+## 2026-10-26 — Preserve intermediate and assembled record codecs
+
+Structural projection paths now retain each independently selected record and
+field declaration plus its existing complete public codec. Every nested step
+uses that original formal context. Core, Arrow and full-subcategory Arrow
+envelopes project their exact stored occurrences; ordinary records validate
+their own fields at each step. A descriptor accepted as the whole current
+record is not elided into its data slot. Output assembly also retains Core and
+Arrow envelopes, and refuses unexposed refined Arrow fields. No computational
+field supplies a formal value, context, law or property.
+
+The new nested controls pass in 4.333 seconds, including Core(Core(Type)), an
+opaque inner record, refined Arrow source selection, equal endpoint bytes with
+different suppliers, and Core assembly around an actual opaque field. The
+original reuse, transport, derived-action and service-projection controls pass
+without changing their assertions (4.567, 9.947, 5.429 and 4.783 seconds). The
+initial new fixture's unresolved ULift universe and two direct-run helper-path
+failures remain recorded; only that fixture's universe and the runner's public
+contract path were corrected. The unchanged anonymous created-apex control
+remains a separate open formal-occurrence defect. The validator and all six
+runtime consumers compile against isolated immutable dependencies.
+
+## 2026-10-26 — Preserve created-apex receivers and checked creation images
+
+Separated successful lower-apex extraction from the generic receiver wrapper.
+The extraction returns an explicit optional image with its independently checked
+base-category term. The generic wrapper keeps the exact original formal
+occurrence and only projects the actual packet and supplying fields. The exact
+creating-action path uses that successful checked image; a failed extraction
+cannot masquerade as a completed action image. All existing complete action,
+parameter, category, packet and ownership checks remain.
+
+The Realize compile passes in 57.889 seconds. The unchanged AnonymousApexProbes,
+ApexReceiverContextProbes and ComputationalTransportProbes pass in 3.774, 3.780
+and 9.455 seconds with stable source. The initial private-helper visibility
+compile failure is retained; the helper follows this module's existing public
+declaration convention. No assertion, fixture, mathematical definition, public
+wire grammar or leaf was changed.
+
+
+## 2026-10-26 — Retain declaration identity of inferred complete parameters
+
+The original dependent-reader's final selected zero exposed an anonymous
+parameter witness introduced alongside its actual named declaration. Both
+terms were the exact complete named integer commutative ring; the new plain
+copy had lost its origin and introduced an additional inherited Semiring
+numeral route. No originally supplied anonymous witness was responsible.
+
+`completeParameterObjects` now reuses existing recognition only for an actual
+registered declaration application in its already checked category, with all
+original witnesses and complete parameters supplied unchanged. Original
+anonymous or explicitly competing witnesses remain in context; declaration
+recognition failure follows the previous path. The numeral-selection rules,
+complete-owner comparisons, source-action retention, and all mathematics are
+unchanged. No carrier equality recovers a name or selects a source.
+
+The full unchanged dependent-reader probe now passes, including both the
+bilinear subsequent-zero sequence and the original power-series binder. All
+unchanged parameter-structure, selected-carrier, declared-context,
+closed-binding, context-continuity, and existing numeral-owner controls pass.
+An additive before/after control reproduces and closes the named-parameter
+failure while retaining independently supplied anonymous ambiguity in both
+orders. All three original full-context RX-LIFT statements and the three
+original composed consumers also read under their original budgets and scope.
+The source-stable evidence and exact complete-owner capture are preserved.
+This closes the previously recorded reader blocker; full integration remains
+the separate native/export/execution owner’s responsibility.

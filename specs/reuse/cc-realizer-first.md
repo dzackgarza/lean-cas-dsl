@@ -567,6 +567,35 @@ multiplication request with the returned carrier packet at both declared
 endpoints. Its unsupported leaf reply remains an execution gap, not a passing
 mathematical assertion. All earlier failed runs remain separately recorded.
 
+## Explicit record envelope precedence — 2026-10-26
+
+Independent engineering review reproduced a defect in the first generic record
+projection path: a full subcategory's one data field retained the complete
+`subobject` envelope when the declared result was a plain Arrow. The old exact
+Arrow/subobject codec already owns that conversion. Source inspection additionally
+checked `CategoryTheory.Core.of`, `Core.inclusion`, `validateRecordPortWith` and
+the existing public `coreObject` branch; these are existing mathematical and
+codec owners, not new operations or registrations.
+
+Explicit Arrow/subobject and Core envelopes now project through their existing
+selected fields before generic record elision. The generic path first validates
+the actual packet against the original receiver's independently fixed field
+types. A tagged descriptor genuinely inhabiting an exposed field remains valid;
+a whole source wrapper cannot silently become that field. Operation endpoint
+projection uses the same boundary. No returned field is added to InterfaceObjects
+by equal JSON, and no field supplies a formal type or proof. Inline wrappers keep
+their original occurrence scopes.
+
+The new production projection control exercises the existing registered module
+subobject inclusion, its plain Arrow output, equal endpoint bytes from different
+suppliers, and an inline wrapper. It also checks Core projection and a legitimate
+descriptor-valued single-field record. It passes in 3.400 seconds; the original
+functor-action controls pass in 8.512 seconds. Realize compiles in 56.805 seconds
+under the unchanged budget, using an isolated ac9 mathematical artifact snapshot.
+The initial probe's reserved local name and unbound universe parameters are
+preserved as fixture failures. Combined native and primitive execution remain
+separate. The independent R1 reproduction remains evidence of the earlier defect.
+
 ## Completed point interfaces and original matrix rows — 2026-10-26
 
 The original connected workflow retained an actual returned integer point as raw
@@ -616,3 +645,88 @@ Ring-versus-Semiring numeral-owner ambiguity before execution. That issue is
 preserved for a separate reader increment; this point repair alone does not
 claim those three rational assertions or final integrated acceptance. Fixed
 inputs, expectations, registrations and ordinary budgets are unchanged.
+
+## Point roles through equivalent results and whole completions — 2026-10-26
+
+The actual operation-equivalence observation path copied its completed payload
+and observed flag back onto the original wrapper but omitted the new point-data
+interface. A separate existing-protocol control reproduced that exact loss with
+an arbitrary opaque reply. The forwarding path now retains the completed point
+role and its exact domain/target packets. Whole map-action and whole-callable
+completions explicitly clear that point role because their own validators have
+completed a callable interface. No packet shape or returned scalar decides the
+role, and no mathematical answer is reconstructed.
+
+The added runtime control retains the actual point and live supplier through
+the operation agreement and subsequent callable framing. It failed at the
+missing interface before the repair and passes afterward. Original product
+point, whole-operation and operation-agreement execution controls pass unchanged.
+The owning helpers remain `forwardOperationEquivalent`, `pointInvocationInterface`,
+`frameMorphismFragment` and the existing whole-map completion validators; this
+adds no mathematical construction or public data tag.
+
+With the separate declared-numeral reader repair, the unchanged original
+connected consumer now closes all 17 assertions with 73 real backend dispatches:
+eight arithmetic assertions (19 dispatches), two finite pullback/reuse assertions
+(4), three matrix applications (36), and four presentation assertions (14). The
+155.424-second run uses the isolated requested corrected mathematical snapshot
+`ee49277c82050d962afbb2d04b7fb6bf444d30ac` and contract-3f7-compatible
+Lean interfaces. Its before/after guard reports no changes to 432 tracked source
+files, 4468 isolated library artifacts or 11 fixed inputs/drivers. The driver
+differs from the original only in its isolated report destination. Inputs,
+expectations, registrations and ordinary budgets are unchanged. This closes
+these original execution defects; the newer mathematical pin, full native
+integration and separate public primitive experiment remain integration work.
+
+### Closed source and ownership records
+The exact run is `workflow-execution-verification-20261026/connected-all-original-final/provenance.json`; its complete before/after source, artifact and input tables are in `connected-all-original-final-closure.json`, and all original dispatches and outcomes remain in `connected-final-report.json` in that same evidence directory. The tested parent was `626218a49ae428b947dda3dfe0882b587a437d0a` with only the recorded point-forwarding source/control edits pending. The production source digests are:
+- `CasCatalogue/Realize.lean`: `80474d5cfc83143f730f58e0c82e0891d4f8eeb4eae2921820469ee89436a293`.
+- `CasCatalogue/Trace.lean`: `5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7`.
+- `CasCatalogue/Language.lean`: `3a266cdca65a84504994da2be3e3b4f2a388704ad8ba8454a201878c0450f5b1`.
+- `CasCatalogue/ServiceRequest.lean`: `4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3`.
+- `CasCatalogue/SimpleServiceRequest.lean`: `4937a53e5de24b73f335f80c6ee37a2c60a5ca649424b95d9dbf95b99625c219`.
+
+The point ownership counterexample and corrected runtime control are preserved in `point-forwarding-original-negative` and `point-forwarding-production-control`, respectively. The latter includes the independent equal-byte inventory-key/value suppliers, exact retained invocation endpoints, and original live point supplier. `point-matrix-summary.json`, `numeral-summary.json`, and `summary.json` identify the earlier controls and rejected candidates. The frozen contract library uses unchanged Lean sources from `9167e4cb4db80028d2ceefefeab8ec70b9a77129`, compatible with published contract `3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5`; the mathematical library was copied at local `05916d1d6c1c49980673608a8a9cc0259489092a` before publication as `ee49277c82050d962afbb2d04b7fb6bf444d30ac`. The guard records every actual library file, rather than inferring artifact identity from source checkout names.
+
+## Nested existing record codecs (2026-10-26)
+
+### Queries
+
+Inspected the existing record projection/validation owners, Core.of,
+Arrow.left/right/hom, and ObjectProperty.FullSubcategory.obj in the imported
+formalization. Arrow normalizes to Comma, so its complete independently selected
+interface, rather than that normalized name alone, determines its codec.
+
+### Owner
+
+Mathlib's existing structures and projections own every field. The released
+coreObject/arrow/subobject and ordered-record codecs own their framing.
+DataOwnership.Data.project owns the exact supplying occurrence. The nested
+independent receiver fixes every field type and complete category parameter.
+
+### New code
+
+RecordFieldStep retains an existing field declaration, its structure, data-slot
+position and public codec. Its application uses each actual original record
+context; validatePort's explicit-envelope mode distinguishes whole descriptors
+from exposed ordered fields without inventing a second envelope registry.
+Transparent valueData follows the same mode; explicit codecs validate their
+children normally. Ordinary per-step field validation still covers the existing
+non-envelope data codecs. Unsupported whole-record envelopes and opaque inner
+records remain ordinary execution obligations. Record assembly retains the
+selected Core/Arrow codec instead of silently treating an opaque field as the
+whole new object. No new mathematical definition, row, wire tag, decoder of
+law-bearing formal values, evaluator or assertion was added.
+
+## Created-apex receiver and image separation (2026-10-26)
+
+The existing selected creating functor owns the base-category image; the
+original receiver occurrence still owns ordinary method requests. Reused
+computationalApexImage? retains every prior row, shape, full source type, action
+and data validation, and reports successful field extraction explicitly.
+computationalApexReceiver restores the original formal occurrence with exactly
+the extracted data ownership. executeObjectEdge consumes the separate checked
+image only at the already selected exact creating edge and target. Failure to
+extract a complete actual packet leaves ordinary execution responsible. The
+original anonymous, context and transport controls verify this separation
+without editing their assertions. No mathematical helper or new codec exists.

@@ -87,3 +87,58 @@ run_elab do
     catch _ => pure true
   unless refused do throwError "map-position framing accepted a changed complete point target"
   logInfo "PASS: completed point roles, exact endpoint/key framing, independent equal-byte key/value owners, missing-inventory and changed-target refusals"
+
+/- The existing arbitrary public-protocol process returns an opaque datum. The
+control checks the completed point interface through an accepted operation
+agreement, without supplying or checking a mathematical answer. -/
+run_elab do
+  let .ok parsed := Parser.runParserCategory (← getEnv) `cas_term
+    "2 * generator(F9x in CommutativeRings)"
+    | throwError "the point forwarding control did not parse"
+  let trace ← Trace.new
+  let .element formal _ ← (eval {} parsed).run { trace := some trace }
+    | throwError "the point forwarding control lost its complete point"
+  let some (.operationEquivalence _ chosen candidates _) ← trace.node? formal
+    | throwError "the point forwarding control lost its accepted operation class"
+  let some canonical := candidates[chosen]?
+    | throwError "the point forwarding control lost its selected representative"
+  let some selected := candidates.find? (·.operation != canonical.operation)
+    | throwError "the point forwarding control lost its existing alternative"
+  let some entry := (← registryState).operations.find? (·.id == selected.operation)
+    | throwError "the point forwarding control lost its declared operation"
+  let root : System.FilePath := (← IO.getEnv "CAS_OWNERSHIP_PROTOCOL_DIR").getD
+    ("CasAcceptance" / "Strata" : System.FilePath).toString
+  let events ← IO.mkRef #[]
+  let harness ← Harness.ofManifest root {
+    backends := #[{
+      name := "point-forwarding"
+      command := "python3"
+      args := #["probe_owned_callable.py", "--materialize-invocation", selected.operation.raw] }]
+    registrations := #[{
+      operation := selected.operation.raw
+      input := entry.category.raw
+      backend := "point-forwarding" }] }
+  let harness := { harness with dispatches := some events }
+  try
+    let recipe ← realizeUnobserved harness trace "the original checked point recipe" formal
+    let actual ← realizeArrowObservation harness trace recipe
+    let some retained := actual.pointDataInterface
+      | throwError "operation-equivalence observation dropped the completed point interface"
+    let #[event] ← events.get
+      | throwError "the point forwarding control changed its one actual dispatch"
+    let .ok request := event.getObjVal? "request"
+      | throwError "the point forwarding control lost its original request"
+    let .ok invocation := Backend.PointInvocation.decode request
+      | throwError "the point forwarding control lost its original invocation"
+    unless retained.domainData.json == invocation.domain &&
+        retained.targetData.json == invocation.target && actual.owner?.isSome do
+      throwError "the operation agreement changed actual point endpoints or its supplier"
+    let (callable, _) ← frameMorphismFragment harness trace retained.domain retained.target actual
+      (pointAsMap := true)
+    let value ← checkedFragment (callable.project
+      #[.field "args", .index 2, .field "args", .index 1, .index 0, .index 1])
+    unless value == actual.fragment do
+      throwError "the forwarded callable lost the actual completed point or its owner"
+    logInfo "PASS: operation-equivalence observation retains the completed point role, exact endpoints and live supplier"
+  finally
+    harness.stop
