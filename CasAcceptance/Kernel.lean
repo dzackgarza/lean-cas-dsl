@@ -24,6 +24,7 @@ public import CasAcceptance.Kernel.ActualPointConstraintProbes
 public import CasAcceptance.Kernel.RecordProjectionBoundaryProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes
+public import CasAcceptance.Kernel.ProductComparisonActionsProbes
 public import CasAcceptance.Kernel.ComputedPointFramingProbes
 public import CasAcceptance.Kernel.ContextualNumeralOwnerProbes
 public import CasAcceptance.Kernel.ForwardNumeralIndependentOwnerProbes

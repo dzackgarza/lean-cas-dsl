@@ -1,5 +1,36 @@
 # Journal
 
+## 2026-10-26 — Preserve complete operation product presentations and actions
+
+Operation preparation now binds original complete point presentations to the
+accepted declaration's fresh field roles. Ordered product contexts are retained
+symmetrically on domains and sources, including copied-data and snapshot reuse.
+Full structural context comparison is reflexive for construction, lift and proof
+provenance; unrelated dependency-handle allocation does not select a context.
+Conflicting histories or current whole-product comparisons remain ambiguous.
+
+Current product comparisons consume existing Cartesian isomorphisms and the
+uniquely applicable accepted product interface. Runtime maps retain full ordered
+component packets and owners through the existing public callable grammar.
+Generalized-domain arguments consume the domain inverse and target forward once,
+and their complete prepared packets remain available for nested service reuse.
+Exact framing origins support checked replay. Original endpoint presentations
+are validated as supplied occurrences, rather than re-selected from formal Hom
+syntax, which cannot reconstruct an independent computational presentation.
+
+The V21 private compile, unchanged nonidentity/mixed/nested control and its
+negative boundaries, five original framing/operation probes, and freshly rebuilt
+unchanged TestSuite all pass. The exact external control is now included in the
+kernel engineering aggregate without changing its assertions. The original frozen
+four-registration primitive observer holds through actual primitive dispatches
+and retained supplier-owned output. The unchanged connected workflows close all
+17 assertions with 73 dispatches in 97.477 seconds. Every source, input and
+artifact guard remains unchanged. Full source/artifact provenance and retained
+failures are recorded in `specs/reuse/operation-point-presentations.md` and the
+closed `kernel-product-actions-v11-20261026` evidence package. No assertion,
+expected value, registration, mathematical source, leaf implementation or budget
+was changed. Final combined native/CI and independent acceptance remain separate.
+
 ## 2026-10-26 — Carry the recorded full category through composition framing
 
 A complete bundled map supplied as a Hom-object point retained a Sets data form,

@@ -148,6 +148,8 @@ structure PointDataInterface where
   targetData : DataOwnership.Data
   deriving BEq
 
+mutual
+
 /-- A complete kernel-owned source snapshot for a proof-only refinement. -/
 structure WireSnapshot where
   form : Form
@@ -165,6 +167,9 @@ structure WireSnapshot where
   requests. These indices carry no mathematical interpretation or dispatch policy. -/
   serviceHandles : Array Nat := #[]
   pointDataInterface : Option PointDataInterface := none
+  productComponents : Array Wire := #[]
+  morphismFramed : Bool := false
+  morphismFraming : Option MorphismFraming := none
 
 structure Wire where
   form : Form
@@ -176,6 +181,9 @@ structure Wire where
   endpointPresentation : Option EndpointPresentation := none
   /-- This callable already consumes its endpoints' retained presentation maps. -/
   morphismFramed : Bool := false
+  /-- Exact producer inputs of ordinary endpoint framing. This is not inferred
+  from the resulting compose syntax or from the framed-status Boolean. -/
+  morphismFraming : Option MorphismFraming := none
   /-- The kernel already received this whole callable's computational result.
   A returned expression can resemble its original recipe without becoming a new request. -/
   callableObserved : Bool := false
@@ -192,6 +200,23 @@ structure Wire where
   constructionInputOwnership : Array DataOwnership.Table := #[]
   serviceHandles : Array Nat := #[]
   pointDataInterface : Option PointDataInterface := none
+  /-- Ordered complete component selections of a structurally declared product.
+  These are retained context, independently fixed before data lookup; service
+  handles remain separate occurrence plumbing. A later action may retain this
+  provenance without preserving products. Current-factor use checks the full
+  category and exact product value again. -/
+  productComponents : Array Wire := #[]
+
+/-- The original input and complete endpoints at one checked framing step.
+Retaining it licenses a scoped replay check; it never substitutes an unobserved
+formal value for the original computational packet. -/
+structure MorphismFraming where
+  input : Wire
+  source : Wire
+  target : Wire
+  context : Option CategoryContext
+
+end
 
 /-- Runtime provenance of one executed complete action. Source data and owners
 remain here even when the actual returned target packet is self-contained.
@@ -410,9 +435,98 @@ def combinedPayload (formal : Expr) (data : DataOwnership.Data) (dependencies : 
       | _ => true
   scopedPayload formal data computed
 
+def sameOperationPresentationPayload (left right : WirePayload) : Bool :=
+  match left, right with
+  | .ordinary first data, .ordinary second actual => first == second && data == actual
+  | .computed first data, .computed second actual => first == second &&
+    (match data, actual with
+      | .inline first, .inline second => first == second
+      | .opaque first session token, .opaque second actualSession actualToken =>
+          first == second && session == actualSession && token == actualToken
+      | .owned first session data, .owned second actualSession actual =>
+          first == second && session == actualSession && data == actual
+      | .scoped first, .scoped second => first == second
+      | _, _ => false)
+  | .construction first scope, .construction second actualScope =>
+      first.colimit == second.colimit && first.presentation == second.presentation &&
+      first.diagram == second.diagram && first.cone == second.cone && first.apex == second.apex &&
+      first.diagramJson == second.diagramJson &&
+      (match first.packet, second.packet with
+        | .direct first, .direct second => first == second
+        | .created first source data, .created second actualSource actual =>
+            first == second && source == actualSource && data == actual
+        | _, _ => false) &&
+      (match scope, actualScope with
+        | .portable, .portable => true
+        | .owned first session, .owned second actualSession =>
+            first == second && session == actualSession
+        | .scoped first, .scoped second => first == second
+        | _, _ => false)
+  | _, _ => false
+
+/-- Registry addresses identify their already admitted rows; the form constructor
+and every contextual wrapper must agree as well as that address and category. -/
+partial def sameOperationPresentationForm (left right : Form) : Bool :=
+  left.id == right.id && left.category == right.category &&
+    (match left, right with
+      | .contextual first original, .contextual second actual =>
+          first.syntacticEq second && sameOperationPresentationForm original actual
+      | .proofRefinement first classifier original, .proofRefinement second actualClassifier actual =>
+          first.id == second.id && classifier == actualClassifier &&
+            sameOperationPresentationForm original actual
+      | .element first, .element second => sameOperationPresentationForm first second
+      | .liftInput .., .liftInput .. | .constructionInput .., .constructionInput .. |
+          .constructionImage .., .constructionImage .. | .functorInput .., .functorInput .. |
+          .edgeActionInput .., .edgeActionInput .. | .cellComponent .., .cellComponent .. |
+          .cartesian .., .cartesian .. | .literal .., .literal .. | .graph .., .graph .. |
+          .subset .., .subset .. | .object .., .object .. | .namedMorphism .., .namedMorphism .. |
+          .application .., .application .. | .binder .., .binder .. |
+          .canonicalMorphism .., .canonicalMorphism .. | .generator .., .generator .. |
+          .limitApex .., .limitApex .. | .createdApex .., .createdApex .. |
+          .functorImage .., .functorImage .. | .edgeImage .., .edgeImage .. |
+          .arrow .., .arrow .. | .subobject .., .subobject .. | .presentation .., .presentation .. |
+          .diagrams .., .diagrams .. => true
+      | _, _ => false)
+
+def sameRetainedLiftPlan (left right : SelectedLift.Plan) : Bool :=
+  left.entry.id == right.entry.id && left.entry.edge == right.entry.edge &&
+    left.entry.evidence == right.entry.evidence && left.entry.computation == right.entry.computation &&
+    left.entry.kind == right.entry.kind && left.parameters == right.parameters &&
+    left.evidence == right.evidence && left.computation == right.computation &&
+    left.action == right.action && left.source == right.source &&
+    left.inclusion == right.inclusion && left.monic == right.monic && left.ports == right.ports
+
+def sameRetainedLiftExecution (left right : Option LiftExecution) : Bool :=
+  match left, right with
+  | none, none => true
+  | some left, some right =>
+      left.selections.size == right.selections.size &&
+      (left.selections.zip right.selections).all (fun (first, second) => sameRetainedLiftPlan first second) &&
+      left.actions == right.actions && left.parameters == right.parameters &&
+      left.sources == right.sources && left.bases == right.bases && left.outputs == right.outputs &&
+      left.actionOwnership == right.actionOwnership && left.parameterOwnership == right.parameterOwnership &&
+      left.sourceOwnership == right.sourceOwnership && left.baseOwnership == right.baseOwnership &&
+      left.outputOwnership == right.outputOwnership
+  | _, _ => false
+
+/-- Exact stored snapshot fields, without inventing execution provenance that
+the proof-only snapshot did not contain. -/
+def retainedSnapshotWire (snapshot : WireSnapshot) : Wire := {
+  form := snapshot.form, payload := snapshot.payload
+  presentationIsos := snapshot.presentationIsos, objectIso := snapshot.objectIso
+  callableObserved := snapshot.callableObserved, objectObserved := snapshot.objectObserved
+  liftExecution := snapshot.liftExecution, endpointPresentation := snapshot.endpointPresentation
+  categoryContext := snapshot.categoryContext, constructionInputs := snapshot.constructionInputs
+  constructionInputOwnership := snapshot.constructionInputOwnership
+  serviceHandles := snapshot.serviceHandles, pointDataInterface := snapshot.pointDataInterface
+  productComponents := snapshot.productComponents
+  morphismFramed := snapshot.morphismFramed, morphismFraming := snapshot.morphismFraming }
+
+mutual
+
 /-- Computational occurrence identity never compares carriers or mathematical
 values for equality. Distinct actual packets and live owners remain distinct. -/
-def sameActionOperand (left right : Wire) : Bool :=
+partial def sameActionOperand (left right : Wire) : Bool :=
   left.value == right.value && left.json == right.json && left.ownership == right.ownership &&
     left.pointDataInterface == right.pointDataInterface &&
     left.objectIso == right.objectIso &&
@@ -422,7 +536,55 @@ def sameActionOperand (left right : Wire) : Bool :=
     left.endpointPresentation.map (·.forwardOwnership) ==
       right.endpointPresentation.map (·.forwardOwnership) &&
     left.endpointPresentation.map (·.backwardOwnership) ==
-      right.endpointPresentation.map (·.backwardOwnership)
+      right.endpointPresentation.map (·.backwardOwnership) &&
+    sameProductComponents left.productComponents right.productComponents &&
+    sameMorphismFraming left.morphismFraming right.morphismFraming
+
+partial def sameMorphismFraming (left right : Option MorphismFraming) : Bool :=
+  match left, right with
+  | none, none => true
+  | some left, some right =>
+    sameCompleteWireContext left.input right.input &&
+      sameCompleteWireContext left.source right.source &&
+      sameCompleteWireContext left.target right.target &&
+      left.context.map (·.bundle) == right.context.map (·.bundle) &&
+      (match left.context, right.context with
+        | none, none => true
+        | some left, some right => left.expression.syntacticEq right.expression
+        | _, _ => false)
+  | _, _ => false
+
+/-- Product identity keeps every ordered child selection recursively. The
+service graph may allocate different exact handles for the same selection. -/
+partial def sameProductComponents (left right : Array Wire) : Bool :=
+  left.size == right.size && (left.zip right).all fun (first, second) =>
+    sameCompleteWireContext first second
+
+/-- Global selection identity is reflexive on every complete retained payload.
+Operation-use restrictions are checked separately; dependency handle allocation
+does not choose a mathematical context. -/
+partial def sameCompleteWireContext (left right : Wire) : Bool :=
+  sameActionOperand left right && sameOperationPresentationPayload left.payload right.payload &&
+    sameOperationPresentationForm left.form right.form &&
+    left.morphismFramed == right.morphismFramed &&
+    left.callableObserved == right.callableObserved && left.objectObserved == right.objectObserved &&
+    left.presentationIsos == right.presentationIsos &&
+    left.categoryContext.map (·.bundle) == right.categoryContext.map (·.bundle) &&
+    (match left.categoryContext, right.categoryContext with
+      | none, none => true
+      | some left, some right => left.expression.syntacticEq right.expression
+      | _, _ => false) &&
+    left.constructionInputs == right.constructionInputs &&
+    left.constructionInputOwnership == right.constructionInputOwnership &&
+    sameRetainedLiftExecution left.liftExecution right.liftExecution &&
+    left.proofSources.length == right.proofSources.length &&
+    (left.proofSources.zip right.proofSources).all (fun (first, second) =>
+      sameCompleteWireContext (retainedSnapshotWire first) (retainedSnapshotWire second))
+
+end
+
+def sameOperationPointPresentation (left right : Wire) : Bool :=
+  sameCompleteWireContext left right && left.serviceHandles == right.serviceHandles
 
 def sameActionOperands (left right : Array Wire) : Bool :=
   left.size == right.size && (left.zip right).all fun (a, b) => sameActionOperand a b
@@ -486,6 +648,7 @@ def presentMorphism (input source target : Wire)
   discard <| StructuredResult.checkReconstruction actual
   return { input with
     morphismFramed := true
+    morphismFraming := some { input, source, target, context }
     categoryContext := context
     payload := (← combinedPayload input.value data #[input, source, target]) }
 
@@ -2030,6 +2193,9 @@ def proofRefinementBase (trace : Trace) (wire : Wire) (action : Expr) : TermElab
     constructionInputOwnership := snapshot.constructionInputOwnership,
     serviceHandles := snapshot.serviceHandles,
     pointDataInterface := snapshot.pointDataInterface,
+    productComponents := snapshot.productComponents,
+    morphismFramed := snapshot.morphismFramed,
+    morphismFraming := snapshot.morphismFraming,
     proofSources := remaining }
   checkProofRefinementSource original source
   return original
@@ -3661,6 +3827,609 @@ def operationRecordEndpointData (entry : OperationEntry) (application : Expr)
     return (← ComputationalData.recordEndpointData? symbolic source exposed,
       ← ComputationalData.recordEndpointData? symbolic target exposed)
 
+/-- Endpoint roles are identified on the declaration's fresh complete owner.
+The paths contain field declarations, not instantiated carriers or reply data. -/
+inductive OperationEndpointRole where
+  | field (path : ComputationalData.RecordFieldPath)
+  | product (left right : OperationEndpointRole)
+
+partial def operationEndpointRole? (owner endpoint : Expr) :
+    TermElabM (Option OperationEndpointRole) := do
+  if let some path ← ComputationalData.recordFieldPath? owner endpoint then
+    return some (.field path)
+  let endpoint ← withTransparency .all <| whnf endpoint
+  unless endpoint.isAppOfArity ``Prod 2 do return none
+  let fields := endpoint.getAppArgs
+  let some left ← operationEndpointRole? owner fields[0]! | return none
+  let some right ← operationEndpointRole? owner fields[1]! | return none
+  return some (.product left right)
+
+/-- The pending operation may retain an input presentation for an output field
+only through this exact declaration-relative role. Unsupported signatures keep
+their existing representation path; no equality of actual fields selects a role. -/
+def operationPointRoles? (entry : OperationEntry) (application : Expr) (receiver : Wire) :
+    TermElabM (Option (OperationEndpointRole × ComputationalData.RecordFieldPath)) := do
+  let application := operationApplicationBody application
+  let arguments := application.getAppArgs
+  let index := arguments.size - 1 - entry.numerals
+  let some original := arguments[index]? | return none
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType original) (← inferType receiver.value) <&&>
+        isDefEq original receiver.value) do
+    throwError "the point presentation changed its complete operation owner"
+  withLocalDeclD `recordOwner (← inferType original) fun symbolic => do
+    let selected := mkAppN application.getAppFn (arguments.set! index symbolic)
+    unless ← isTypeCorrect selected do return none
+    let some (source, target) := Language.homEnds? (← inferType selected) | return none
+    let some source ← operationEndpointRole? symbolic source | return none
+    let some target ← ComputationalData.recordFieldPath? symbolic target | return none
+    return some (source, target)
+
+def sameOperationFieldPath (left right : ComputationalData.RecordFieldPath) : Bool :=
+  left.size == right.size && (left.zip right).all fun (a, b) =>
+    a.structureName == b.structureName && a.field == b.field &&
+      a.index == b.index && a.count == b.count && a.codec == b.codec
+
+/-- Retain the entire selected endpoint, including comparison and category data.
+Bindings are local to one operation application and one declared field path. -/
+structure OperationPointPresentation where
+  path : ComputationalData.RecordFieldPath
+  endpoint : Wire
+
+/-- A point's actual invocation interface is prepared together. The original
+formal point and its generalized domain remain fixed; normalized endpoint
+metadata cannot be installed after retaining an argument framed at other data. -/
+structure PreparedOperationPoints where
+  domain : Wire
+  source : Wire
+  target : Option Wire
+  argument : DataOwnership.Data
+  dependencies : Array Wire
+
+structure PreparedOperationArgument where
+  data : DataOwnership.Data
+  actual : Expr
+  dependencies : Array Wire
+
+/-- Construction packets and proof/lift snapshots have additional provenance.
+This local presentation binding does not compare or merge those execution states. -/
+partial def operationPresentationRefinement (form : Form) : Bool :=
+  match form with
+  | .proofRefinement .. => true
+  | .contextual _ original | .element original => operationPresentationRefinement original
+  | _ => false
+
+partial def checkOperationPointPresentation (endpoint : Wire) : TermElabM Unit := do
+  if !endpoint.proofSources.isEmpty || endpoint.liftExecution.isSome ||
+      operationPresentationRefinement endpoint.form ||
+      (endpoint.payload matches .construction ..) then
+    throwStratum .noImplementation
+      "the operation endpoint requires its complete retained lift or refinement presentation"
+  for component in endpoint.productComponents do
+    checkOperationPointPresentation component
+
+
+def bindOperationPointPresentation (bindings : Array OperationPointPresentation)
+    (path : ComputationalData.RecordFieldPath) (endpoint : Wire) :
+    TermElabM (Array OperationPointPresentation) := do
+  checkOperationPointPresentation endpoint
+  let matching := bindings.filter fun binding => sameOperationFieldPath binding.path path
+  for previous in matching do
+    unless sameOperationPointPresentation previous.endpoint endpoint do
+      throwStratum .ambiguousRealization
+        "one declared operation field has distinct complete point presentations"
+  return bindings.push { path, endpoint }
+
+/-- The declared role tree checks the product context produced from the
+original endpoints. A missing context is not filled from equal outer bytes,
+and a component's complete selection cannot be replaced by traversal order. -/
+partial def checkOperationProductContext (context : CategoryContext)
+    (role : OperationEndpointRole) (wire : Wire)
+    (bindings : Array OperationPointPresentation) (position : Nat := 0) :
+    TermElabM Nat := do
+  checkOperationPointPresentation wire
+  CategoryContext.checkObject context wire.value
+  discard <| framingContext (some context) wire.categoryContext
+  match role with
+  | .field path =>
+    let some selected := bindings[position]?
+      | throwError "the operation product lost an ordered selected component"
+    unless sameOperationFieldPath path selected.path &&
+        sameProductComponents #[wire] #[selected.endpoint] do
+      throwStratum .ambiguousRealization
+        "the operation product has distinct complete contexts at one declared component"
+    return position + 1
+  | .product left right =>
+    let #[first, second] := wire.productComponents
+      | throwStratum .noImplementation
+          "the operation product lacks its independently retained ordered component context"
+    let product ← withTransparency .all <| whnf wire.value
+    unless product.isAppOfArity ``Prod 2 do
+      throwError "the retained product context is not the current complete product"
+    let fields := product.getAppArgs
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq first.value fields[0]! <&&> isDefEq second.value fields[1]!) do
+      throwError "the retained product context changed an independently fixed component"
+    unless wire.fragment == (← scopedNode "objectProduct" #[first.fragment, second.fragment]) do
+      throwStratum .unavailable "the product context changed its ordered data or suppliers"
+    let position ← checkOperationProductContext context left first bindings position
+    checkOperationProductContext context right second bindings position
+
+/-- Follow only producer-recorded child selections and exact operand handles.
+Preserve duplicates and order; equal data or formal expressions select nothing.
+A cycle or missing handle is invalid metadata, not a presentation fallback. -/
+partial def operationPresentationOperandClosure (retained : Array Wire)
+    (wire : Wire) (active : Array Nat := #[]) : TermElabM (Array Wire) := do
+  let mut result := #[wire]
+  for component in wire.productComponents do
+    result := result ++ (← operationPresentationOperandClosure retained component active)
+  for handle in wire.serviceHandles do
+    if active.contains handle then
+      throwError "the operation presentation has cyclic operand occurrences"
+    let some operand := retained[handle]?
+      | throwError "the operation presentation lost an exact operand occurrence"
+    result := result ++ (← operationPresentationOperandClosure retained operand (active.push handle))
+  return result
+
+/-- The service decoder reads one handle layer. Retain each supplied whole Wire
+in its original position, followed by its exact transitive occurrence context. -/
+def retainOperationPresentationOperands (h : Harness) (wires : Array Wire) :
+    TermElabM (Array Nat) := do
+  let retained ← h.serviceOperands.get
+  let mut inherited := #[]
+  for wire in wires do
+    let complete ← operationPresentationOperandClosure retained wire
+    inherited := inherited ++ complete.extract 1 complete.size
+  retainServiceOperands h (wires ++ inherited)
+
+/-- Read an already selected complete comparison in the fixed category. This
+checks both directions and their dictionaries before any product construction. -/
+def operationComparisonEnds (context : CategoryContext) (comparison : Expr) :
+    TermElabM (Expr × Expr) := do
+  let comparison ← instantiateMVars comparison
+  if comparison.hasMVar || comparison.hasLevelMVar then
+    throwError "the operation comparison has unresolved complete parameters"
+  discard <| StructuredResult.checkReconstruction comparison
+  let type ← whnfR (← inferType comparison)
+  unless type.isAppOf ``CategoryTheory.Iso && type.getAppArgs.size >= 2 do
+    throwError "the operation endpoint comparison is not a complete isomorphism"
+  let fields := type.getAppArgs
+  let source := fields[fields.size - 2]!
+  let target := fields.back!
+  CategoryContext.checkObject context source
+  CategoryContext.checkObject context target
+  CategoryContext.checkMorphism context (← mkAppM ``CategoryTheory.Iso.hom #[comparison]) source target
+  CategoryContext.checkMorphism context (← mkAppM ``CategoryTheory.Iso.inv #[comparison]) target source
+  return (source, target)
+
+/-- Only the existing literal-product equivalence supplies this comparison.
+It is distinct from any historical refinement comparisons retained by a child. -/
+def operationProductIso (context : CategoryContext) (first second : Expr) :
+    TermElabM Expr := do
+  let (firstSource, firstTarget) ← operationComparisonEnds context first
+  let (secondSource, secondTarget) ← operationComparisonEnds context second
+  let comparison ← mkAppM ``Equiv.toIso #[← mkAppM ``Equiv.prodCongr
+    #[← mkAppM ``CategoryTheory.Iso.toEquiv #[first],
+      ← mkAppM ``CategoryTheory.Iso.toEquiv #[second]]]
+  let (source, target) ← operationComparisonEnds context comparison
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq source (← mkAppM ``Prod #[firstSource, secondSource]) <&&>
+        isDefEq target (← mkAppM ``Prod #[firstTarget, secondTarget])) do
+    throwError "the product comparison changed its independently fixed complete endpoints"
+  return ← instantiateMVars comparison
+
+/-- An endpoint's actual validation view comes only from its retained comparison.
+Other selected parameters keep their original full values. Repeated descriptor
+keys must have the same complete source context before they can share a view. -/
+def operationPresentationObjects (inputs : Array Wire)
+    (views : Array (Wire × Expr) := #[]) : TermElabM ComputationalData.InterfaceObjects := do
+  let mut retained : Array (Wire × Expr) := #[]
+  for input in inputs ++ views.map Prod.fst do
+    discard <| checkedFragment input.fragment.validate
+    let matching := views.filter fun (source, _) => source.json == input.json
+    let mut selected : Option Expr := none
+    for (source, value) in matching do
+      unless sameCompleteWireContext source input do
+        throwStratum .ambiguousRealization
+          "a comparison descriptor repeats distinct complete selected input contexts"
+      if let some previous := selected then
+        unless previous == value do
+          throwStratum .ambiguousRealization
+            "one complete comparison input has distinct actual endpoint views"
+      selected := some value
+    let actual := selected.getD input.value
+    for (previous, value) in retained do
+      if previous.json == input.json then
+        unless sameCompleteWireContext previous input && value == actual do
+          throwStratum .ambiguousRealization
+            "a comparison descriptor repeats distinct complete typed parameter occurrences"
+    retained := retained.push (input, actual)
+  return retained.map fun (input, value) => (input.json, value)
+
+/-- A new endpoint reference is tied to the complete selected comparison that
+produced it. It cannot replace a different existing interface with equal bytes. -/
+def operationInterfaceBinding (objects : ComputationalData.InterfaceObjects)
+    (data : DataOwnership.Data) (value : Expr) : TermElabM ComputationalData.InterfaceObjects := do
+  discard <| checkedFragment data.validate
+  for (previous, selected) in objects do
+    if previous == data.json && selected != value then
+      throwStratum .ambiguousRealization
+        "a comparison endpoint reference repeats a distinct complete selected interface"
+  return objects.push (data.json, value)
+
+/-- Original callable recipes and actual graph packets use their respective
+existing validators. In particular, a formal finite carrier supplies no keys. -/
+def validateOperationPresentationMap (formal : Expr) (source target data : DataOwnership.Data)
+    (objects : ComputationalData.InterfaceObjects) : TermElabM Unit := do
+  let .ok unwrapped := ComputationalData.valuePayload data.json
+    | throwError "the operation comparison has an incomplete callable envelope"
+  let callable := match Backend.TypedMap.decode unwrapped with
+    | .ok typed => typed.callable
+    | .error _ => unwrapped
+  let .ok callable := ComputationalData.valuePayload callable
+    | throwError "the operation comparison has an incomplete callable payload"
+  let graph := if let .ok ("finiteGraph", #[_, values]) := ComputationalData.envelope callable
+    then values else callable
+  let checked ← withoutModifyingState <| if graph.getArr?.isOk then
+    ComputationalData.validateEndpointPort formal source.json target.json data.json objects
+  else do
+    ComputationalData.validateCallableAt objects (← inferType formal) data.json
+  if let .error message := checked then
+    throwStratum .malformed m!"the operation comparison has incompatible complete framing: {message}"
+
+/-- Recover only the formal composite already used by `presentMorphism`.
+The original point remains the selected value; this is its actual data interface,
+not a new invocation or a replacement of its generalized domain. -/
+def operationFramedPoint (context : CategoryContext) (point source target : Wire) :
+    TermElabM (Expr × Expr × Expr) := do
+  CategoryContext.checkMorphism context point.value source.value target.value
+  let mut actual := point.value
+  let mut actualSource := source.value
+  let mut actualTarget := target.value
+  if let some presentation := source.endpointPresentation then
+    let (original, selected) ← operationComparisonEnds context presentation.comparison
+    unless ← withoutModifyingState (withTransparency .all <| isDefEq original source.value) do
+      throwError "the original point's domain comparison changed its complete selected source"
+    actualSource := selected
+    actual ← mkAppM ``CategoryTheory.CategoryStruct.comp
+      #[← mkAppM ``CategoryTheory.Iso.inv #[presentation.comparison], actual]
+  if let some presentation := target.endpointPresentation then
+    let (original, selected) ← operationComparisonEnds context presentation.comparison
+    unless ← withoutModifyingState (withTransparency .all <| isDefEq original target.value) do
+      throwError "the original point's target comparison changed its complete selected source"
+    actualTarget := selected
+    actual ← mkAppM ``CategoryTheory.CategoryStruct.comp
+      #[actual, ← mkAppM ``CategoryTheory.Iso.hom #[presentation.comparison]]
+  discard <| StructuredResult.checkReconstruction actual
+  CategoryContext.checkMorphism context actual actualSource actualTarget
+  return (actual, actualSource, actualTarget)
+
+structure OperationProductLegs where
+  presentation : Expr
+  first : Expr
+  second : Expr
+  firstData : DataOwnership.Data
+  secondData : DataOwnership.Data
+
+/-- The existing registered product cone supplies both projections and their
+exact diagram indices. Forward and backward uses call this on different fixed
+endpoint pairs, never reuse one side's descriptor for the other. -/
+def operationProductLegs (context : CategoryContext) (first second : Expr)
+    (firstData secondData : DataOwnership.Data) : TermElabM OperationProductLegs := do
+  let state ← registryState
+  let resolution ← match state.resolveLimitDetailed CategoryId.sets "product" false with
+    | .ok selected => pure selected
+    | .error (.ambiguous category shape colimit candidates) =>
+        Semantic.limitResolutionFailure (.ambiguous category shape colimit candidates)
+    | .error error => throwStratum .noImplementation m!"{error.message}"
+  if resolution.lift.isSome then
+    throwStratum .noImplementation
+      "the selected product projection requires its complete creation comparison"
+  let some row := state.limits.find? (·.id == resolution.limit)
+    | throwError "the selected product projection interface disappeared"
+  unless row.category == CategoryId.sets && !row.colimit do
+    throwError "the published product projection has a different complete category"
+  let diagram ← mkAppM ``CategoryTheory.Limits.pair #[first, second]
+  let some constructor ← Semantic.diagramConstructor row
+    | throwError "the published product has no complete diagram declaration"
+  unless diagram.getAppFn.constName? == some constructor do
+    throwError "the product action changed its registered diagram declaration"
+  let diagramData ← scopedNode (Codec.label constructor) #[firstData, secondData]
+  let presentation ← Semantic.limitPresentation row diagram
+  let cone ← mkAppM ``CategoryTheory.Limits.LimitCone.cone #[presentation]
+  let apex ← mkAppM ``CategoryTheory.Limits.Cone.pt #[cone]
+  let expected ← mkAppM ``Prod #[first, second]
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq apex expected) do
+    throwStratum .noImplementation "the declared projection requires its actual product-apex comparison"
+  let maps ← mkAppM ``CategoryTheory.Limits.Cone.π #[cone]
+  let mut values := #[]
+  let mut data := #[]
+  for name in #[``CategoryTheory.Limits.WalkingPair.left, ``CategoryTheory.Limits.WalkingPair.right] do
+    let index ← mkAppM ``CategoryTheory.Discrete.mk #[mkConst name]
+    let value ← mkAppM ``CategoryTheory.NatTrans.app #[maps, index]
+    let target := if values.isEmpty then first else second
+    CategoryContext.checkMorphism context value expected target
+    let .ok encoded ← Codec.encode index
+      | throwError "the registered product index has no complete public codec"
+    values := values.push value
+    data := data.push (← scopedNode "limitLeg"
+      #[{ json := toJson row.id.raw }, diagramData, { json := encoded }])
+  return {
+    presentation
+    first := values[0]!
+    second := values[1]!
+    firstData := data[0]!
+    secondData := data[1]! }
+
+structure OperationComponentPresentation where
+  comparison : Expr
+  actual : Expr
+  semanticData : DataOwnership.Data
+  forward : DataOwnership.Data
+  backward : DataOwnership.Data
+  forwardValue : Expr
+  backwardValue : Expr
+  inputs : Array Wire
+  objects : ComputationalData.InterfaceObjects
+
+/-- Preserve the original selected component and its actual packet. The
+semantic-side descriptor is projected only from its complete retained forward
+comparison, with formal-name recovery disabled. -/
+def operationComponentPresentation (context : CategoryContext) (wire : Wire)
+    (inputs : Array Wire) (views : Array (Wire × Expr)) : TermElabM OperationComponentPresentation := do
+  CategoryContext.checkObject context wire.value
+  discard <| framingContext (some context) wire.categoryContext
+  let some presentation := wire.endpointPresentation | do
+    let comparison ← mkAppM ``CategoryTheory.Iso.refl #[wire.value]
+    let value ← mkAppM ``CategoryTheory.CategoryStruct.id #[wire.value]
+    let data ← scopedNode "identity" #[wire.fragment, wire.fragment]
+    let objects ← operationPresentationObjects inputs (views.push (wire, wire.value))
+    return {
+      comparison
+      actual := wire.value
+      semanticData := wire.fragment
+      forward := data
+      backward := data
+      forwardValue := value
+      backwardValue := value
+      inputs
+      objects }
+  let (source, actual) ← operationComparisonEnds context presentation.comparison
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq source wire.value) do
+    throwError "the component presentation starts at a different complete selected object"
+  let forwardValue ← mkAppM ``CategoryTheory.Iso.hom #[presentation.comparison]
+  let backwardValue ← mkAppM ``CategoryTheory.Iso.inv #[presentation.comparison]
+  let semanticData ← checkedFragment (← ComputationalData.interfaceEndpointData #[]
+    forwardValue presentation.forwardFragment true false)
+  let objects ← operationPresentationObjects inputs (views.push (wire, actual))
+  let objects ← operationInterfaceBinding objects semanticData wire.value
+  validateOperationPresentationMap forwardValue semanticData wire.fragment presentation.forwardFragment objects
+  validateOperationPresentationMap backwardValue wire.fragment semanticData presentation.backwardFragment objects
+  return {
+    comparison := presentation.comparison
+    actual
+    semanticData
+    forward := presentation.forwardFragment
+    backward := presentation.backwardFragment
+    forwardValue
+    backwardValue
+    inputs
+    objects }
+
+/-- Build current comparisons only for the exact producer-recorded product.
+The recursive child selections remain unchanged; derived current maps are kept
+separately from them and from historical named-refinement comparisons. -/
+def operationProductPresentation (h : Harness) (context : CategoryContext)
+    (wire : Wire) (children : Array Wire) (views : Array (Wire × Expr))
+    (parameters : Array Wire := #[]) (parameterHandles : Array Nat := #[]) : TermElabM Wire := do
+  if wire.productComponents.isEmpty then return wire
+  let #[originalFirst, originalSecond] := wire.productComponents
+    | throwError "the product presentation changed its complete ordered component inventory"
+  let product ← withTransparency .all <| whnf wire.value
+  -- A transported tree can be provenance without still being a current product.
+  unless product.isAppOfArity ``Prod 2 && wire.form.category == CategoryId.sets do return wire
+  unless wire.fragment == (← scopedNode "objectProduct"
+      #[originalFirst.fragment, originalSecond.fragment]) do return wire
+  let fields := product.getAppArgs
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq originalFirst.value fields[0]! <&&> isDefEq originalSecond.value fields[1]!) do
+    throwError "the current product presentation changed its independently fixed factors"
+  CategoryContext.checkObject context wire.value
+  discard <| framingContext (some context) wire.categoryContext
+  let #[first, second] := children
+    | throwError "the normalized product lost its original ordered component occurrences"
+  for (original, current) in #[(originalFirst, first), (originalSecond, second)] do
+    unless sameCompleteWireContext original { current with
+        objectIso := original.objectIso, endpointPresentation := original.endpointPresentation } do
+      throwError "product normalization changed the original complete component selection"
+  if first.objectIso.isSome || second.objectIso.isSome ||
+      first.endpointPresentation.isSome || second.endpointPresentation.isSome then
+    checkOperationPointPresentation wire
+  let mut objectIso := wire.objectIso
+  if first.objectIso.isSome || second.objectIso.isSome then
+    let firstIso ← match first.objectIso with
+      | some iso => pure iso
+      | none => mkAppM ``CategoryTheory.Iso.refl #[first.value]
+    let secondIso ← match second.objectIso with
+      | some iso => pure iso
+      | none => mkAppM ``CategoryTheory.Iso.refl #[second.value]
+    for (iso, selected) in #[(firstIso, first.value), (secondIso, second.value)] do
+      let (_, target) ← operationComparisonEnds context iso
+      unless ← withoutModifyingState (withTransparency .all <| isDefEq target selected) do
+        throwError "a product object comparison targets a different complete selected component"
+    let comparison ← operationProductIso context firstIso secondIso
+    if let some retained := objectIso then
+      unless retained == comparison do
+        throwStratum .ambiguousRealization "the whole product has a conflicting complete object comparison"
+    objectIso := some comparison
+  unless first.endpointPresentation.isSome || second.endpointPresentation.isSome do
+    return { wire with objectIso }
+  let retained ← h.serviceOperands.get
+  let mut inputs := parameters
+  for child in #[first, second] do
+    for handle in child.serviceHandles do
+      let some input := retained[handle]?
+        | throwError "the product comparison lost an exact declared parameter occurrence"
+      inputs := inputs.push input
+  let firstAction ← operationComponentPresentation context first inputs views
+  let secondAction ← operationComponentPresentation context second inputs views
+  let comparison ← operationProductIso context firstAction.comparison secondAction.comparison
+  let (semantic, actual) ← operationComparisonEnds context comparison
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq semantic wire.value) do
+    throwError "the product action starts at a different complete original product"
+  let sourceData ← scopedNode "objectProduct" #[firstAction.semanticData, secondAction.semanticData]
+  let sourceLegs ← operationProductLegs context first.value second.value
+    firstAction.semanticData secondAction.semanticData
+  let targetLegs ← operationProductLegs context firstAction.actual secondAction.actual
+    first.fragment second.fragment
+  let forwardParts ← #[ (sourceLegs.firstData, firstAction.forward),
+      (sourceLegs.secondData, secondAction.forward) ].mapM fun (leg, action) => scopedNode "compose" #[leg, action]
+  let backwardParts ← #[ (targetLegs.firstData, firstAction.backward),
+      (targetLegs.secondData, secondAction.backward) ].mapM fun (leg, action) => scopedNode "compose" #[leg, action]
+  let forward ← scopedNode "typedMap" #[sourceData, wire.fragment,
+    ← scopedNode "mediator" forwardParts]
+  let backward ← scopedNode "typedMap" #[wire.fragment, sourceData,
+    ← scopedNode "mediator" backwardParts]
+  let forwardValue ← mkAppM ``CategoryTheory.Iso.hom #[comparison]
+  let backwardValue ← mkAppM ``CategoryTheory.Iso.inv #[comparison]
+  -- Check that the encoded mediators are precisely the declared product maps,
+  -- not merely arrows with compatible endpoints.
+  for (target, legs, firstMap, secondMap, expected) in
+      #[(targetLegs.presentation, sourceLegs, firstAction.forwardValue, secondAction.forwardValue, forwardValue),
+        (sourceLegs.presentation, targetLegs, firstAction.backwardValue, secondAction.backwardValue, backwardValue)] do
+    let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk
+      #[← mkAppM ``CategoryTheory.CategoryStruct.comp #[legs.first, firstMap],
+        ← mkAppM ``CategoryTheory.CategoryStruct.comp #[legs.second, secondMap]]
+    let action ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
+      #[← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[target], fan]
+    discard <| StructuredResult.checkReconstruction action
+    unless ← withoutModifyingState (withTransparency .all <| isDefEq action expected) do
+      throwError "the public product action changed its complete declared comparison"
+  let mut objects ← operationPresentationObjects inputs (views ++ #[(first, firstAction.actual), (second, secondAction.actual)])
+  for (data, value) in #[(firstAction.semanticData, first.value),
+      (secondAction.semanticData, second.value), (sourceData, wire.value), (wire.fragment, actual)] do
+    objects ← operationInterfaceBinding objects data value
+  validateOperationPresentationMap forwardValue sourceData wire.fragment forward objects
+  validateOperationPresentationMap backwardValue wire.fragment sourceData backward objects
+  let presentation : EndpointPresentation := {
+    comparison, forward := forward.json, backward := backward.json,
+    forwardOwnership := forward.ownership, backwardOwnership := backward.ownership }
+  if let some original := wire.endpointPresentation then
+    unless original.comparison == presentation.comparison &&
+        original.forwardFragment == presentation.forwardFragment &&
+        original.backwardFragment == presentation.backwardFragment do
+      throwStratum .ambiguousRealization "the whole product has a conflicting complete endpoint action"
+  let some category := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the product comparison lost its accepted complete category"
+  let maps ← #[(firstAction.forwardValue, firstAction.forward),
+      (firstAction.backwardValue, firstAction.backward),
+      (secondAction.forwardValue, secondAction.forward),
+      (secondAction.backwardValue, secondAction.backward),
+      (forwardValue, forward), (backwardValue, backward)].mapM fun (value, data) => do
+    return ({
+      form := .canonicalMorphism category
+      payload := (← combinedPayload value data #[first, second])
+      categoryContext := some context
+      serviceHandles := wire.serviceHandles ++ parameterHandles } : Wire)
+  let handles ← retainServiceOperands h maps
+  return { wire with
+    objectIso
+    endpointPresentation := some presentation
+    serviceHandles := wire.serviceHandles ++ handles }
+
+/-- One request-local graph rewrite. The memo is indexed only by exact old
+operand handles; original entries are never overwritten or selected by data. -/
+structure OperationProductNormalization where
+  harness : Harness
+  context : CategoryContext
+  original : Array Wire
+  memo : IO.Ref (Std.HashMap Nat Nat)
+  parameters : Array Wire := #[]
+  parameterHandles : Array Nat := #[]
+
+mutual
+
+partial def normalizedOperationHandle (scope : OperationProductNormalization)
+    (handle : Nat) (active : Array Nat) : TermElabM Nat := do
+  if active.contains handle then
+    throwError "the operation product has cyclic exact dependency occurrences"
+  if let some normalized := (← scope.memo.get)[handle]? then return normalized
+  let some original := scope.original[handle]?
+    | throwError "the operation product lost an original exact dependency occurrence"
+  let (normalized, _) ← normalizedOperationWire scope original (active.push handle)
+  let #[fresh] ← retainServiceOperands scope.harness #[normalized]
+    | throwError "the normalized product dependency lost its exact occurrence"
+  scope.memo.modify (·.insert handle fresh |>.insert fresh fresh)
+  return fresh
+
+partial def normalizedOperationWire (scope : OperationProductNormalization)
+    (wire : Wire) (active : Array Nat := #[]) : TermElabM (Wire × Array (Wire × Expr)) := do
+  let dependencies ← wire.serviceHandles.mapM fun handle =>
+    normalizedOperationHandle scope handle active
+  let children ← wire.productComponents.mapM fun child => normalizedOperationWire scope child active
+  let views := children.foldl (fun views child => views ++ child.2) #[]
+  let children := children.map Prod.fst
+  let childHandles ← retainServiceOperands scope.harness children
+  for handle in childHandles do scope.memo.modify (·.insert handle handle)
+  -- The original child tree remains selection provenance. Lookup receives the
+  -- normalized child occurrences through fresh handles, never both versions.
+  let original := { wire with
+    serviceHandles := dependencies ++ childHandles }
+  let normalized ← operationProductPresentation scope.harness scope.context original children views
+    scope.parameters scope.parameterHandles
+  -- New comparison map Wires depend only on the already normalized inputs.
+  -- They cannot point back to the aggregate currently under construction.
+  for handle in normalized.serviceHandles do
+    if handle >= scope.original.size then scope.memo.modify (·.insert handle handle)
+  let mut views := views
+  if normalized.form.category == CategoryId.sets &&
+      (← whnfR (← inferType normalized.value)).isSort then
+    if let some presentation := normalized.endpointPresentation then
+      let (source, actual) ← operationComparisonEnds scope.context presentation.comparison
+      unless ← withoutModifyingState (withTransparency .all <| isDefEq source normalized.value) do
+        throwError "the normalized endpoint changed its complete original comparison source"
+      views := views.push (normalized, actual)
+  return (normalized, views)
+
+end
+
+/-- Expand only the normalized dependency graph. Traversing the original
+productComponents again here would expose metadata-poor aliases to lookup. -/
+partial def normalizedOperationClosure (retained : Array Wire) (wire : Wire)
+    (active : Array Nat := #[]) : TermElabM (Array Nat) := do
+  let mut result := #[]
+  for handle in wire.serviceHandles do
+    if active.contains handle then throwError "the normalized product dependency graph is cyclic"
+    let some input := retained[handle]?
+      | throwError "the normalized product lost an exact retained input"
+    result := result.push handle
+    result := result ++ (← normalizedOperationClosure retained input (active.push handle))
+  return result
+
+/-- Normalize all copied product occurrences before service lookup, including
+nested exact dependencies and source aliases. Duplicate occurrences and their
+order remain; no context-free product is enriched from equal descriptor bytes. -/
+def normalizeOperationProducts (h : Harness) (context : CategoryContext)
+    (wires parameters : Array Wire) : TermElabM (Array Wire × Array Nat) := do
+  let original ← h.serviceOperands.get
+  -- Validate the original graph before appending any new handle: a dangling
+  -- original index cannot accidentally resolve to a newly allocated entry.
+  for wire in wires ++ parameters do
+    discard <| operationPresentationOperandClosure original wire
+  let scope : OperationProductNormalization := {
+    harness := h, context, original, memo := (← IO.mkRef {}) }
+  let parameters ← parameters.mapM fun wire => return (← normalizedOperationWire scope wire).1
+  let parameterHandles ← retainServiceOperands h parameters
+  for handle in parameterHandles do scope.memo.modify (·.insert handle handle)
+  let scope := { scope with parameters, parameterHandles }
+  let normalized ← wires.mapM fun wire => return (← normalizedOperationWire scope wire).1
+  let handles ← retainServiceOperands h normalized
+  let retained ← h.serviceOperands.get
+  let mut inherited := #[]
+  for wire in normalized do
+    inherited := inherited ++ (← normalizedOperationClosure retained wire)
+  return (normalized, handles ++ inherited)
+
 def operationRecipeId? (wire : Wire) : Option String :=
   match ComputationalData.envelope wire.json with
   | .ok ("element", #[_, expression]) =>
@@ -3894,6 +4663,7 @@ partial def executeOperationObservation (h : Harness) (request : OperationObserv
   let data ← receiveReplyData h request.operation.raw reply true
   let result : Wire := { request.original with
     payload := .computed formal data, callableObserved := true
+    morphismFraming := none
     pointDataInterface := (← pointInvocationInterface formal request.input.fragment) }
   return result
 
@@ -4053,6 +4823,7 @@ def executeMapActionWithEndpoints
   let received := { template with
     payload := WirePayload.computed template.value data
     callableObserved := true, morphismFramed := false
+    morphismFraming := none
     pointDataInterface := none }
   -- A whole opaque callable need not repeat its independently supplied
   -- endpoints. Retain those exact actual packets on this occurrence before
@@ -4422,6 +5193,231 @@ def realizeLimitWith
     constructionInputs := some (completed.apex, constructionInputs.map Prod.fst)
     constructionInputOwnership := constructionInputs.map Prod.snd }
 
+
+/-- Compare the selection before and after the checked product action. Only
+the separately derived current comparisons and exact dependency allocation may
+change; the producer's recursive component context remains the original one. -/
+def checkOperationNormalizedEndpoint (original normalized : Wire) : TermElabM Unit := do
+  unless sameCompleteWireContext original { normalized with
+      objectIso := original.objectIso, endpointPresentation := original.endpointPresentation } do
+    throwError "operation argument framing changed its original complete endpoint selection"
+
+def sameOperationEndpointAction (left right : Option EndpointPresentation) : Bool :=
+  match left, right with
+  | none, none => true
+  | some left, some right => left.comparison == right.comparison &&
+      left.forwardFragment == right.forwardFragment && left.backwardFragment == right.backwardFragment
+  | _, _ => false
+
+/-- Obtain actual validation views solely from the complete retained endpoint
+comparisons in this request. No carrier or data lookup selects a presentation. -/
+def operationArgumentObjects (h : Harness) (context : CategoryContext)
+    (wires : Array Wire) : TermElabM (Array Wire × Array (Wire × Expr)) := do
+  let retained ← h.serviceOperands.get
+  let mut inputs := wires
+  for wire in wires do
+    for handle in ← normalizedOperationClosure retained wire do
+      let some input := retained[handle]?
+        | throwError "the prepared argument lost an exact normalized dependency"
+      inputs := inputs.push input
+  let mut views := #[]
+  for input in inputs do
+    if input.form.category == CategoryId.sets &&
+        (← whnfR (← inferType input.value)).isSort then
+      if let some presentation := input.endpointPresentation then
+        let (original, actual) ← operationComparisonEnds context presentation.comparison
+        unless ← withoutModifyingState (withTransparency .all <| isDefEq original input.value) do
+          throwError "the argument comparison changed its complete selected endpoint"
+        views := views.push (input, actual)
+  return (inputs, views)
+
+/-- Retain the whole prepared packet at the original independently selected
+point. Nested service lookup can then reuse it without interpreting a fresh
+mediator or reconstructing an opaque child's meaning. A producer may supply its
+already complete framed Wire; unchanged data preserve the original context. -/
+def retainPreparedOperationArgument (h : Harness) (context : CategoryContext)
+    (point : Wire) (data : DataOwnership.Data) (actual : Expr)
+    (dependencies : Array Wire) (framed : Option Wire := none) :
+    TermElabM PreparedOperationArgument := do
+  let prepared ← if data == point.fragment then pure point else
+    match framed with
+    | some framed => do
+      unless framed.value == point.value && framed.fragment == data do
+        throwError "the prepared argument producer changed its complete point or packet"
+      discard <| framingContext (some context) framed.categoryContext
+      pure framed
+    | none => pure { point with
+        payload := (← combinedPayload point.value data dependencies)
+        morphismFramed := true, morphismFraming := none
+        categoryContext := some context }
+  let prepared := { prepared with
+    serviceHandles := prepared.serviceHandles ++ (← retainServiceOperands h dependencies) }
+  return { data, actual, dependencies := #[prepared] ++ dependencies }
+
+/-- Prepare an original point at the normalized actual endpoints. Products are
+reconstructed only through their original mediator trace and ordered component
+occurrences. Each child consumes its domain inverse and target forward exactly
+once; the whole product is not subsequently transported a second time. -/
+partial def prepareOperationPointArgumentWith
+    (frameOriginal : Expr → Expr → Wire → Option CategoryContext →
+      TermElabM (DataOwnership.Data × Array Wire))
+    (readOriginal : String → Expr → TermElabM Wire)
+    (readRecipe : Wire → TermElabM (Array Wire))
+    (h : Harness) (trace : Trace)
+    (context : CategoryContext) (point originalDomain originalTarget domain target : Wire)
+    (data : DataOwnership.Data) (parameters : Array Wire) : TermElabM PreparedOperationArgument := do
+  checkOperationNormalizedEndpoint originalDomain domain
+  checkOperationNormalizedEndpoint originalTarget target
+  -- The caller supplies the original complete occurrences selected by the
+  -- positioned point/field checks, or by the checked ordered product context.
+  -- Their presentation and refinement history are inputs: a fresh read of a
+  -- formal Hom cannot reconstruct that independently selected context.
+  for endpoint in #[originalDomain, originalTarget] do
+    CategoryContext.checkObject context endpoint.value
+    discard <| framingContext (some context) endpoint.categoryContext
+  let retained ← h.serviceOperands.get
+  for input in #[point, originalDomain, originalTarget] do
+    discard <| operationPresentationOperandClosure retained input
+  CategoryContext.checkMorphism context point.value originalDomain.value originalTarget.value
+  discard <| framingContext (some context) point.categoryContext
+  discard <| checkedFragment data.validate
+  if point.callableObserved || point.pointDataInterface.isSome then
+    throwStratum .noImplementation "a completed point retains its own actual invocation interface"
+  if data != point.fragment then
+    let (framed, _) ← frameOriginal originalDomain.value originalTarget.value point
+      (some context)
+    unless framed == data do
+      throwStratum .unavailable "the prepared operation argument changed an original positioned point"
+  let retainedPoint := point
+  let mut point := point
+  let mut data := data
+  let productPoint := (← trace.node? point.value).any fun node =>
+    match node with | .productMediator .. => true | _ => false
+  let changed := !sameOperationEndpointAction originalDomain.endpointPresentation domain.endpointPresentation ||
+    !sameOperationEndpointAction originalTarget.endpointPresentation target.endpointPresentation
+  if point.morphismFramed && (changed || productPoint) then
+    if let some origin := point.morphismFraming then
+      unless sameCompleteWireContext origin.source originalDomain &&
+          sameCompleteWireContext origin.target originalTarget do
+        throwStratum .ambiguousRealization
+          "the original point frame has different complete selected endpoint occurrences"
+      let replayed ← presentMorphism origin.input origin.source origin.target origin.context
+      unless sameCompleteWireContext replayed point do
+        throwStratum .unavailable
+          "the original point framing does not reproduce its complete packet and provenance"
+      -- Service preparation may append or freshly allocate dependency handles.
+      -- The complete framing selection above still agrees exactly; separately
+      -- validate every original and current occurrence graph without comparing
+      -- the allocation numbers or selecting a dependency by its data.
+      let retained ← h.serviceOperands.get
+      for input in #[point, origin.input, origin.source, origin.target, originalDomain, originalTarget] do
+        discard <| operationPresentationOperandClosure retained input
+      -- Keep the supplied framed occurrence as the service dependency. Its
+      -- checked raw input is local producer provenance, not a second competing
+      -- copied packet when framing left the bytes unchanged.
+      point := origin.input
+      data := origin.input.fragment
+  let (expected, actualDomain, actualTarget) ← operationFramedPoint context point domain target
+  if let some (.productMediator _ presentation retainedDomain left right) ← trace.node? point.value then
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq retainedDomain originalDomain.value) do
+      throwError "the prepared product point changed its original generalized domain"
+    let #[firstTarget, secondTarget] := originalTarget.productComponents
+      | throwStratum .noImplementation
+          "the original product point has no retained complete ordered target context"
+    let product ← withTransparency .all <| whnf originalTarget.value
+    unless product.isAppOfArity ``Prod 2 do
+      throwError "the prepared product point has a different complete target"
+    let fields := product.getAppArgs
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq firstTarget.value fields[0]! <&&> isDefEq secondTarget.value fields[1]!) do
+      throwError "the original product point changed its ordered complete factors"
+    let paths : Array DataOwnership.Path ←
+      if let .ok ("mediator", #[_, _]) := ComputationalData.envelope data.json then
+        pure #[#[.field "args", .index 0], #[.field "args", .index 1]]
+      else if let .ok fields := data.json.getArr? then do
+        unless fields.size == 2 do
+          throwError "the original product point lost an ordered component"
+        pure #[#[.index 0], #[.index 1]]
+      else do
+        throwStratum .noImplementation
+          "the original product point has no retained complete component occurrences"
+    let first ← readOriginal "the original prepared first product point" left
+    let second ← readOriginal "the original prepared second product point" right
+    let originalFan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[first.value, second.value]
+    let original ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
+      #[← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[presentation], originalFan]
+    unless ← withoutModifyingState (withTransparency .all <| isDefEq original point.value) do
+      throwError "the original product trace changed its complete selected mediator"
+    let (children, _) ← normalizeOperationProducts h context #[firstTarget, secondTarget] parameters
+    let #[normalizedFirst, normalizedSecond] := children
+      | throwError "the prepared product lost its ordered normalized factors"
+    let first ← prepareOperationPointArgumentWith frameOriginal readOriginal readRecipe h trace context first originalDomain firstTarget
+      domain normalizedFirst (← checkedFragment (data.project paths[0]!)) parameters
+    let second ← prepareOperationPointArgumentWith frameOriginal readOriginal readRecipe h trace context second originalDomain secondTarget
+      domain normalizedSecond (← checkedFragment (data.project paths[1]!)) parameters
+    let some (_, firstActual) := Language.homEnds? (← inferType first.actual)
+      | throwError "the prepared first component lost its complete actual target"
+    let some (_, secondActual) := Language.homEnds? (← inferType second.actual)
+      | throwError "the prepared second component lost its complete actual target"
+    let legs ← operationProductLegs context firstActual secondActual
+      normalizedFirst.fragment normalizedSecond.fragment
+    let fan ← mkAppM ``CategoryTheory.Limits.BinaryFan.mk #[first.actual, second.actual]
+    let actual ← mkAppM ``CategoryTheory.Limits.IsLimit.lift
+      #[← mkAppM ``CategoryTheory.Limits.LimitCone.isLimit #[legs.presentation], fan]
+    discard <| StructuredResult.checkReconstruction actual
+    CategoryContext.checkMorphism context actual actualDomain actualTarget
+    unless ← withoutModifyingState (withTransparency .all <| isDefEq actual expected) do
+      throwError "the prepared product argument changed its original complete comparison composite"
+    let prepared ← if data.json.getArr?.isOk then
+      pure (DataOwnership.Data.array #[first.data, second.data])
+    else scopedNode "typedMap" #[domain.fragment, target.fragment,
+      ← scopedNode "mediator" #[first.data, second.data]]
+    return ← retainPreparedOperationArgument h context retainedPoint prepared actual
+      (#[retainedPoint, domain, target, normalizedFirst, normalizedSecond] ++
+        first.dependencies ++ second.dependencies)
+  let recipeInputs ← readRecipe point
+  let (recipeInputs, _) ← normalizeOperationProducts h context recipeInputs parameters
+  let (inputs, views) ← operationArgumentObjects h context
+    (#[domain, target] ++ parameters ++ recipeInputs)
+  if point.morphismFramed then
+    -- A pre-existing frame can be reused only at the same complete comparisons.
+    -- Its Boolean flag cannot certify a newly introduced product-domain map.
+    unless sameOperationEndpointAction originalDomain.endpointPresentation domain.endpointPresentation &&
+        sameOperationEndpointAction originalTarget.endpointPresentation target.endpointPresentation do
+      throwStratum .noImplementation
+        "the already framed point requires its original complete framing provenance"
+    let objects ← operationPresentationObjects inputs views
+    let framed ← if (data.json.getObjValAs? String "ctor").toOption == some "typedMap" then
+        pure data
+      else scopedNode "typedMap" #[domain.fragment, target.fragment, data]
+    validateOperationPresentationMap expected domain.fragment target.fragment framed objects
+    return ← retainPreparedOperationArgument h context retainedPoint framed expected (#[retainedPoint] ++ inputs)
+  let sourceAction ← operationComponentPresentation context domain inputs views
+  let targetAction ← operationComponentPresentation context target inputs views
+  -- The endpoint interfaces are the independently declared sources of the two
+  -- comparisons; the original callable packet is embedded without rewriting it.
+  let mut objects ← operationInterfaceBinding (← operationPresentationObjects inputs views)
+    sourceAction.semanticData originalDomain.value
+  objects ← operationInterfaceBinding objects targetAction.semanticData originalTarget.value
+  let original ← if (point.json.getObjValAs? String "ctor").toOption == some "typedMap" then
+      pure point.fragment
+    else do
+      scopedNode "typedMap"
+        #[sourceAction.semanticData, targetAction.semanticData, point.fragment]
+  validateOperationPresentationMap point.value sourceAction.semanticData targetAction.semanticData original objects
+  let input := { point with payload := (← combinedPayload point.value original (#[point] ++ inputs)) }
+  let framed ← presentMorphism input domain target (some context)
+  let prepared ← if domain.endpointPresentation.isNone && target.endpointPresentation.isNone then
+      pure framed.fragment
+    else scopedNode "typedMap" #[domain.fragment, target.fragment, framed.fragment]
+  validateOperationPresentationMap expected domain.fragment target.fragment prepared objects
+  -- The exact producer knows when framing is byte-for-byte unchanged. Do not
+  -- expose its status/provenance-only copy alongside the original occurrence.
+  let dependencies := if prepared == retainedPoint.fragment then #[retainedPoint] ++ inputs
+    else #[retainedPoint, framed] ++ inputs
+  retainPreparedOperationArgument h context retainedPoint prepared expected dependencies
+    (if prepared != retainedPoint.fragment && prepared == framed.fragment then some framed else none)
 
 mutual
 
@@ -4929,7 +5925,8 @@ partial def realizeEndpoint (h : Harness) (trace : Trace) (what : String)
       let json ← scopedNode "objectProduct" #[first.fragment, second.fragment]
       return {
         form := .diagrams category
-        payload := (← combinedPayload value json #[first, second]) }
+        payload := (← combinedPayload value json #[first, second])
+        productComponents := #[first, second] }
   if node.isNone then discard <| Semantic.recordNamedObject value (some trace)
   if !recoverAction && (← trace.node? value).isNone then
     unless recoverNamed do
@@ -5077,6 +6074,7 @@ partial def realizeObjectPresentation (h : Harness) (trace : Trace) (entry : Obj
     form := .object entry
     payload := forwardPayload actual presentation.object actual.json
     objectObserved := actual.objectObserved
+    serviceHandles := (← retainServiceOperands h dependencies) ++ actual.serviceHandles
     endpointPresentation := some {
       comparison, forward := forward.json, backward := backward.json
       forwardOwnership := forward.ownership, backwardOwnership := backward.ownership } }
@@ -5905,7 +6903,10 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         constructionInputs := original.constructionInputs,
         constructionInputOwnership := original.constructionInputOwnership,
         serviceHandles := original.serviceHandles,
-        pointDataInterface := original.pointDataInterface }
+        pointDataInterface := original.pointDataInterface,
+        productComponents := original.productComponents,
+        morphismFramed := original.morphismFramed,
+        morphismFraming := original.morphismFraming }
       return {
         form := .proofRefinement target classifier original.form,
         payload := forwardPayload original e original.json,
@@ -6947,6 +7948,220 @@ partial def realizedOperationOwner (h : Harness) (trace : Trace) (entry : Operat
     throwError "the complete operation's owner representation changed its declared category"
   return wire
 
+/-- Bind the original recipe's complete owner and dependency occurrences.
+The trace supplies every selection; descriptor equality only checks its original
+position, and cannot select another value from a cache or an equal carrier. -/
+partial def operationPointRecipeInputs (h : Harness) (trace : Trace) (point : Wire) :
+    TermElabM (Array Wire) := do
+  if point.callableObserved || point.pointDataInterface.isSome then
+    throwError "a completed point cannot select an unobserved operation recipe interface"
+  unless (point.json.getObjValAs? String "ctor").toOption == some "element" do return #[]
+  let selected ← match ← trace.node? point.value with
+    | some (.elementNumeral _ _ selected) | some (.operationApply _ _ _ _ selected) =>
+        pure selected
+    | _ => throwStratum .noImplementation "the original element recipe has no retained complete owner occurrence"
+  let owner ← realizeUnobserved h trace "the original point recipe's selected owner" selected
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType owner.value) (← inferType selected) <&&>
+        isDefEq owner.value selected) do
+    throwError "the original point recipe changed its complete selected owner"
+  let ownerData ← checkedFragment (point.fragment.project #[.field "args", .index 0])
+  unless owner.fragment == ownerData do
+    throwStratum .unavailable "the point recipe changed its original owner data or suppliers"
+  -- This is an unobserved recipe, not a completed point. Inspect its original
+  -- dependency occurrences without the outer recipe's own cache shortcut.
+  -- Every retained child stays available, and the complete expression must
+  -- reproduce the original positioned data and owners before any binding.
+  let inputs ← IO.mkRef ((← h.results.get).erase point.value)
+  let (expression, dependencies) ← elementFragment { h with results := inputs } trace point.value
+  let originalExpression ← checkedFragment (point.fragment.project #[.field "args", .index 1])
+  unless expression == originalExpression do
+    throwStratum .unavailable "the point recipe changed its original expression occurrence"
+  return #[owner] ++ dependencies
+
+/-- Read input presentation occurrences through their retained point roles.
+An ordered array is decomposed only when the original trace is a product point.
+Re-reading metadata must reproduce the exact positioned fragment and suppliers. -/
+partial def operationPointPresentations (h : Harness) (trace : Trace)
+    (context : CategoryContext) (role : OperationEndpointRole) (point : Wire)
+    (domain target : Expr) (domainWire : Wire) (data : DataOwnership.Data)
+    (bindings : Array OperationPointPresentation := #[]) :
+    TermElabM (Array OperationPointPresentation × Bool × Array Wire) := do
+  CategoryContext.checkMorphism context point.value domain target
+  discard <| framingContext (some context) point.categoryContext
+  discard <| checkedFragment data.validate
+  match role with
+  | .field path =>
+    if point.callableObserved || point.pointDataInterface.isSome then return (bindings, false, #[])
+    let some (pointDomain, pointTarget) := Language.homEnds? (← inferType point.value)
+      | throwError "the original operation point lost its complete declared endpoints"
+    let .ok unwrapped := ComputationalData.valuePayload data.json
+      | throwError "the retained operation point has an incomplete value envelope"
+    -- A generalized mediator retains its raw child occurrence. A closed product
+    -- may already contain the ordinary typed-map framing of that same child.
+    -- Both are reproduced before any normalized presentation is introduced.
+    if data != point.fragment then
+      let (framed, _) ← frameMorphismFragment h trace pointDomain pointTarget point (some context)
+      unless framed == data do
+        throwStratum .unavailable "the operation point changed its retained computational occurrence"
+    let sourceWire ← realizeCallableEndpoint h trace point pointDomain true (some context)
+    let targetWire ← realizeCallableEndpoint h trace point pointTarget false (some context)
+    if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" then
+      let sourceData ← checkedFragment (← ComputationalData.interfaceEndpointData
+        #[] point.value data true false)
+      let targetData ← checkedFragment (← ComputationalData.interfaceEndpointData
+        #[] point.value data false false)
+      unless sourceWire.fragment == sourceData && targetWire.fragment == targetData do
+        throwStratum .noImplementation
+          "the operation point has no retained complete endpoint presentation"
+    checkOperationPointPresentation sourceWire
+    checkOperationPointPresentation domainWire
+    unless sameOperationPointPresentation sourceWire domainWire do
+      throwStratum .noImplementation
+        "the operation point has a distinct complete generalized-domain presentation"
+    if sourceWire.json == targetWire.json &&
+        !sameOperationPointPresentation sourceWire targetWire then
+      throwStratum .ambiguousRealization
+        "the operation point repeats endpoint bytes in different complete contexts"
+    let recipeInputs ← operationPointRecipeInputs h trace point
+    let mut inputs : Array Wire := #[]
+    for input in #[sourceWire, targetWire] ++ recipeInputs do
+      checkOperationPointPresentation input
+      for previous in inputs do
+        if previous.json == input.json && !sameOperationPointPresentation previous input then
+          throwStratum .ambiguousRealization
+            "the point recipe repeats a descriptor in distinct complete input contexts"
+      inputs := inputs.push input
+    let bindings ← bindOperationPointPresentation bindings path targetWire
+    return (bindings, true, #[point] ++ inputs)
+  | .product leftRole rightRole =>
+    let some (.productMediator _ _ retainedDomain left right) ← trace.node? point.value
+      | return (bindings, false, #[])
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType retainedDomain) (← inferType domain) <&&>
+          isDefEq retainedDomain domain) do
+      throwError "the original product point changed its complete domain"
+    let componentPaths : Array DataOwnership.Path ←
+      if (data.json.getObjValAs? String "ctor").toOption == some "mediator" then do
+        let .ok ("mediator", #[_, _]) := ComputationalData.envelope data.json
+          | throwError "the original product mediator omitted a complete component"
+        pure #[#[.field "args", .index 0], #[.field "args", .index 1]]
+      else do
+        match data.json.getArr? with
+        | .error _ => pure #[]
+        | .ok fields =>
+          unless fields.size == 2 do
+            throwError "the original product point omitted an ordered component"
+          pure #[#[.index 0], #[.index 1]]
+    if componentPaths.isEmpty then return (bindings, false, #[])
+    let product ← withTransparency .all <| whnf target
+    unless product.isAppOfArity ``Prod 2 do
+      throwError "the original product point changed its declared target"
+    let coordinates := product.getAppArgs
+    let first ← realizeUnobserved h trace "the original first operation point" left
+    let second ← realizeUnobserved h trace "the original second operation point" right
+    let firstData ← checkedFragment (data.project componentPaths[0]!)
+    let secondData ← checkedFragment (data.project componentPaths[1]!)
+    let (bindings, leftComplete, firstEndpoints) ← operationPointPresentations h trace context
+      leftRole first domain coordinates[0]! domainWire firstData bindings
+    let (bindings, rightComplete, secondEndpoints) ← operationPointPresentations h trace context
+      rightRole second domain coordinates[1]! domainWire secondData bindings
+    return (bindings, leftComplete && rightComplete, firstEndpoints ++ secondEndpoints)
+
+/-- Reconstruct only the declared product of the already bound endpoint data.
+This does not inspect values to infer a product or choose a field presentation. -/
+partial def operationPresentationData (role : OperationEndpointRole)
+    (bindings : Array OperationPointPresentation) : TermElabM DataOwnership.Data := do
+  match role with
+  | .field path =>
+    let some binding := bindings.find? fun binding => sameOperationFieldPath binding.path path
+      | throwError "the complete operation source omitted a declared presentation role"
+    return binding.endpoint.fragment
+  | .product left right =>
+    scopedNode "objectProduct" #[← operationPresentationData left bindings,
+      ← operationPresentationData right bindings]
+
+/-- Supply the exact realizer operations to the separately compiled argument
+builder. The callbacks retain this same harness and trace; no alternate
+selection, decoding rule or execution policy is introduced. -/
+partial def prepareOperationPointArgument (h : Harness) (trace : Trace)
+    (context : CategoryContext) (point originalDomain originalTarget domain target : Wire)
+    (data : DataOwnership.Data) (parameters : Array Wire) : TermElabM PreparedOperationArgument :=
+  prepareOperationPointArgumentWith
+    (fun source target point context => frameMorphismFragment h trace source target point context)
+    (fun what value => realizeUnobserved h trace what value)
+    (fun point => operationPointRecipeInputs h trace point)
+    h trace context point originalDomain originalTarget domain target data parameters
+
+/-- A pending operation uses one presentation for every occurrence of a
+declared field role. The full actual owner stays in the operation parameters.
+Already returned callables and unrelated map-action endpoints never enter here. -/
+partial def operationPointEndpoints? (h : Harness) (trace : Trace) (context : CategoryContext)
+    (entry : OperationEntry) (application : Expr) (receiver point : Wire)
+    (domain source target : Expr) (domainWire : Wire) (data : DataOwnership.Data)
+    (parameters : Array Wire) : TermElabM (Option PreparedOperationPoints) := do
+  let some (sourceRole, targetPath) ← operationPointRoles? entry application receiver | return none
+  -- Metadata inspection may reuse completed inputs, but it cannot start a new
+  -- implementation merely to recover an endpoint presentation.
+  let inspect := { h with
+    admitted := #[]
+    backends := #[]
+    deferred := none
+    derivation := none
+    dispatches := none
+    demandObjectActions := false }
+  let (bindings, complete, dependencies) ← operationPointPresentations inspect trace context
+    sourceRole point domain source domainWire data
+  if bindings.isEmpty then return none
+  unless complete do
+    throwStratum .noImplementation
+      "the original operation points do not retain one complete presentation for every source role"
+  let sourceWire ← realizeCallableEndpoint inspect trace point source false (some context)
+  checkOperationPointPresentation sourceWire
+  let sourceData ← operationPresentationData sourceRole bindings
+  unless sourceWire.fragment == sourceData do
+    throwStratum .noImplementation
+      "the operation source differs from its original complete point presentations"
+  match sourceRole with
+  | .field path =>
+    let some selected := bindings.find? fun binding => sameOperationFieldPath binding.path path
+      | throwError "the complete operation source lost its retained endpoint presentation"
+    unless sameOperationPointPresentation sourceWire selected.endpoint do
+      throwStratum .noImplementation
+        "the operation source changed its complete retained point context"
+  | .product .. =>
+    unless (← checkOperationProductContext context sourceRole sourceWire bindings) == bindings.size do
+      throwError "the operation product changed its complete ordered role inventory"
+  let mut targetWire := none
+  if let some selected := bindings.find? fun binding => sameOperationFieldPath binding.path targetPath then
+    let endpoint := selected.endpoint
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType endpoint.value) (← inferType target) <&&>
+          isDefEq endpoint.value target) do
+      throwError "the declared result field changed its independently selected complete endpoint"
+    CategoryContext.checkObject context target
+    discard <| framingContext (some context) endpoint.categoryContext
+    targetWire := some { endpoint with payload := forwardPayload endpoint target endpoint.json }
+  -- Fix the actual domain and source before constructing the argument packet.
+  -- The same normalization applies to every exact retained occurrence, rather
+  -- than adding comparison metadata only after an invocation has been framed.
+  let (parameters, _) ← normalizeOperationProducts h context parameters #[]
+  let targetInputs := (targetWire.map fun wire => #[wire]).getD #[]
+  let (normalized, _) ← normalizeOperationProducts h context
+    (#[domainWire, sourceWire] ++ targetInputs ++ dependencies) parameters
+  let some actualDomain := normalized[0]?
+    | throwError "the operation point lost its complete normalized domain"
+  let some actualSource := normalized[1]?
+    | throwError "the operation point lost its complete normalized source"
+  let actualTarget := if targetWire.isSome then normalized[2]? else none
+  let argument ← prepareOperationPointArgument inspect trace context point domainWire sourceWire
+    actualDomain actualSource data parameters
+  return some {
+    domain := actualDomain, source := actualSource, target := actualTarget
+    argument := argument.data
+    dependencies := normalized.extract (2 + targetInputs.size) normalized.size ++
+      argument.dependencies }
+
 /-- Prepare an operation's actual complete request without dispatching it. This
 also covers nullary and staged operations, using their original typed argument. -/
 partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
@@ -7021,32 +8236,62 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
   -- The original complete result retains the reader's selected endpoint presentations.
   -- The stripped declaration supplies the internal callable signature checked above.
   let domainWire ← realizeCallableEndpoint h trace argumentWire resultDomain true
+  let pointEndpoints ← if !wire.callableObserved && wire.pointDataInterface.isNone &&
+      operationRecipe wire id && recordSource.isSome && recordTarget.isSome then
+    operationPointEndpoints? h trace dataContext entry application receiverWire argumentWire
+      resultDomain originalSource resultTarget domainWire argumentWire.fragment parameterWires
+  else pure none
+  let (argumentData, endpoints) ← match pointEndpoints with
+    | some prepared => pure (prepared.argument, prepared.dependencies)
+    | none => frameMorphismFragment h trace resultDomain originalSource argumentWire
+  let domainWire := (pointEndpoints.map (·.domain)).getD domainWire
   -- The argument's actual target supplies the selected input presentation. The
   -- declaration may expose only a reduced carrier with several accepted names;
   -- its complete equality with this original endpoint was checked above.
-  let sourceWire ← match recordSource with
-    | some data => pure {
-        form := .diagrams dataCategory
-        payload := (← combinedPayload originalSource data #[receiverWire])
-        categoryContext := some dataContext }
-    | none => realizeCallableEndpoint h trace argumentWire originalSource false
-  let targetWire ← match recordTarget with
-    | some data => pure {
-        form := .diagrams dataCategory
-        payload := (← combinedPayload resultTarget data #[receiverWire])
-        categoryContext := some dataContext }
-    | none => realizeCallableEndpoint h trace wire resultTarget false
-  let (argumentData, endpoints) ← frameMorphismFragment h trace resultDomain originalSource argumentWire
+  let sourceWire ← match pointEndpoints with
+    | some prepared => pure prepared.source
+    | none => match recordSource with
+      | some data => pure {
+          form := .diagrams dataCategory
+          payload := (← combinedPayload originalSource data #[receiverWire])
+          categoryContext := some dataContext }
+      | none => realizeCallableEndpoint h trace argumentWire originalSource false
+  let targetWire ← match pointEndpoints.bind (·.target) with
+    | some target => pure target
+    | none => match recordTarget with
+      | some data => pure {
+          form := .diagrams dataCategory
+          payload := (← combinedPayload resultTarget data #[receiverWire])
+          categoryContext := some dataContext }
+      | none => realizeCallableEndpoint h trace wire resultTarget false
+  let callable ← if pointEndpoints.isSome then do
+      let dataParameters ← DirectConstruction.dataArguments parameters
+      unless dataParameters.size == parameterData.size do
+        throwError "the operation presentation lost a complete parameter occurrence"
+      let mut objects : ComputationalData.InterfaceObjects := #[]
+      for (data, parameter) in parameterData.zip dataParameters do
+        for (previous, selected) in objects do
+          if previous == data.json && selected != parameter then
+            throwStratum .ambiguousRealization
+              "the operation parameters repeat bytes in distinct complete selected contexts"
+        objects := objects.push (data.json, parameter)
+      if let .error message ← ComputationalData.validateCallableAt objects
+          (← inferType operation) callable.json then
+        throwStratum .malformed m!"the retained operation has incompatible complete parameters: {message}"
+      presentMorphism callable sourceWire targetWire (some dataContext)
+    else pure callable
   let invocation ← pointInvocationData id.raw parameterData callable.fragment
     domainWire.fragment sourceWire.fragment targetWire.fragment argumentData
+  let operands := #[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
+    parameterWires ++ endpoints
+  let handles ← if pointEndpoints.isSome then do
+      let (_, handles) ← normalizeOperationProducts h dataContext operands parameterWires
+      pure handles
+    else retainServiceOperands h operands
   let input : Wire := {
     form := receiverWire.form
-    payload := (← combinedPayload formal invocation
-      (#[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
-        parameterWires ++ endpoints))
-    serviceHandles := (← retainServiceOperands h
-      (#[wire, receiverWire, callable, argumentWire, domainWire, sourceWire, targetWire] ++
-        parameterWires ++ endpoints)) }
+    payload := (← combinedPayload formal invocation operands)
+    serviceHandles := handles }
   return {
     original := wire
     operation := id
@@ -7154,6 +8399,7 @@ partial def realizeCallableObservation (h : Harness) (trace : Trace) (wire : Wir
     wire with
     payload := .computed formal data
     morphismFramed := false
+    morphismFraming := none
     callableObserved := true
     pointDataInterface := none }
   return result
@@ -7754,7 +9000,8 @@ def serviceRetained (scope : ServiceScope) (data : Json) (expected : Option Expr
 
 def serviceLiteralWire (scope : ServiceScope) (formal : Expr) (data : Json)
     (dependencies : Array ServiceRequest.Operand := #[]) (form : Option Form := none)
-    (context : Option CategoryContext := none) (ownership : DataOwnership.Table := #[]) :
+    (context : Option CategoryContext := none) (ownership : DataOwnership.Table := #[])
+    (productComponents : Array Wire := #[]) :
     TermElabM ServiceRequest.Operand := do
   let formal ← SimpleServiceRequest.checkClosed formal
   let wires ← dependencies.mapM (serviceWire scope)
@@ -7766,7 +9013,7 @@ def serviceLiteralWire (scope : ServiceScope) (formal : Expr) (data : Json)
   let payload ← combinedPayload formal { json := data, ownership } wires
   let wire : Wire := {
     form, payload, categoryContext := context
-    objectObserved := true, callableObserved := true }
+    objectObserved := true, callableObserved := true, productComponents }
   serviceRegister scope wire
 
 /-- An existing action descriptor selects only its already published projection
@@ -7894,6 +9141,7 @@ partial def serviceObject (scope : ServiceScope) (data : Json) :
     serviceLiteralWire scope formal
       (SimpleServiceRequest.node tag #[left.data, right.data]) #[left, right] none none
       (ServiceRequest.argsOwnership #[left.ownership, right.ownership])
+      #[← serviceWire scope left, ← serviceWire scope right]
   | "arrow", #[source, target, hom] =>
     let source ← serviceObject scope source
     let target ← serviceObject scope target

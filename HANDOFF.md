@@ -12,6 +12,29 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Complete operation product presentations and real workflow reuse
+
+The exact reviewed V21 source is integrated from clean local
+`1e9a5c1c2e54decb0a0281e390154d63d18643eb`, based on `5e948913`.
+Original complete endpoint occurrences, ordered product contexts, actual
+comparison directions, scoped suppliers and dependency provenance survive
+operation preparation. An independently chosen computational presentation is
+consumed from its validated occurrence; it is not reconstructed by rereading
+the formal Hom endpoints. See
+[the owning reuse record](specs/reuse/operation-point-presentations.md).
+
+All ten isolated stages passed with unchanged guards, including the original
+four-registration primitive observer and all 17 original connected workflow
+assertions across 73 engine dispatches. The primitive observer executed
+`fun.rings.semiring`, `op.monoids.mul` and `mor.sets.equality`; both accepted
+dependency derivations completed without a direct ring-multiplication dispatch.
+The exact passing product control is part of the existing kernel aggregate.
+These runs identify the old native base with V21, mathematics `ac9bb80` and
+contract `3f7a22e`; they are not final combined-tuple results. The source merged
+cleanly with the separately validated composition and complete-object changes;
+the two JOURNAL entries were retained verbatim. Whole-function handling, the
+measured reader cost, final coherent build/API and fresh full validation remain.
+
 ### Complete original objects and published module products
 
 The generic complete-object repair is integrated after five closed passing runs,
@@ -35,9 +58,10 @@ Language V3 and its exact focused ambiguity control. All 13 original RX05 and
 the original dependent-reader and numeral controls pass. All seven closed runs
 have stable guards. See [the selected-owner review](specs/reviews/selected-owner-reading-20261027.md).
 This does not claim computational success or replace the final independent
-interpretation review. Product comparisons, whole-function/admission handling,
-complete module representations and the measured RX-LIFT reading cost remain
-under active engineering work. The frozen native producer remains 8f.
+interpretation review. Whole-function/admission handling and the measured
+RX-LIFT reading cost remain under active engineering work. Product and complete
+module source repairs are integrated as described above; the frozen native
+producer remains 8f until every active guard closes.
 
 ### Owner action: trusted review input retrieval
 
@@ -50,7 +74,8 @@ current-main retrieval tests pass. Its fetched full tree is
 `e5574a94fec5f64d383a5c1f7de0471a34a06bd5`. The appropriate independent
 maintainer must review and install this trusted-source correction before the
 trusted review can consume it. The author has not installed its own judge or
-changed main. Latest 7d review run `40371398775` again stopped before any verdict:
+changed main. The latest 17e review run `40380441894`, job `121774909977`,
+again stopped before any verdict:
 `REVIEW NOT COMPLETED (inputs unavailable)` at the private base
 `FETCH_HEAD^{commit}` lookup. There was no verdict artifact. Main and PR 70
 were checked again and remain unchanged/open respectively. Unaffected kernel
