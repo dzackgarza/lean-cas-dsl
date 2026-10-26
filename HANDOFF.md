@@ -12,7 +12,59 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
-### Published source and current integration
+### Latest scoped correction and active completion work
+
+Published `7462a36d9eff6166c83c16995454504cbc77d062` (local `eeb8fb2`,
+tree `fcc6677837a891b74773e4fed402c4ec8a5ab04a`) completed its full native
+attempt with exit 1 in 507.632 seconds and an unchanged source tuple. Its only
+failed target was the original LiftedSubobjectDataProbes: the recursive literal
+check tried to reconstruct a proof of membership in the canonical reference
+subobject from actual supplied endpoint inventory points. The earlier complete
+`e4a1fd0` build remains successful historical evidence, not this candidate's result.
+
+This source introduces an internal actual-point mode at independently selected
+endpoint-schema entry points. It reuses the existing closed one-data-field
+constrained-record interface to validate actual data without reconstructing its
+refinement proof. A non-literal barrier propagates through enclosing records;
+Rat retains its own complete two-data-field literal constraints. Ordinary literal
+schemas keep their proof checks, including finite-set uniqueness. An unresolved
+predicate may retain fixed data slots in either mode, but unresolved data types,
+scalar bounds and universe parameters cannot supply a schema. No public wire
+form, mathematics, original assertion, endpoint equality or ownership check changes.
+
+The isolated validator compile passed in 34.101 seconds. Unchanged original
+lifted-subobject, portable-extent, thirteen-case nested-rational, and codec-condition
+controls passed in 7.856, 3.602, 3.087 and 2.322 seconds with stable source. An
+additive nested constrained-rational, unresolved-predicate and ordinary finite-set
+graph control passed in 3.268 seconds. Its first diagnostic left a ULift universe
+unspecified and correctly lacked a fixed schema; that source and failure are
+preserved separately. Independent read-only source review found no concrete
+blocker in the exact validator delta. These focused results still require this
+source's coherent native build and final frozen runs.
+
+The public-only primitive leaf is now published and frozen at
+`a68a52e24d54da21aacc0c4f96ed0160d61ae1d3`, tree
+`d244727a4a1434a65618ae9173bb906823784b42`, equal to clean author `939dea0`.
+The original four registrations and fixed 2 times 3 modulo 5 observer remain.
+Its isolated ba3/Mac9/C3f7 trial failed in 9.155 seconds after two dispatches:
+the complete actual monoid was retained, but the multiplication request's outer
+record-projected target differed from the nested operands' original named target.
+The leaf's strict whole-callable check is unchanged and correctly refused it.
+Engineering source review identified a kernel preparation gap; a separate
+fresh-declaration-field-role repair is in progress. No failed outcome or kernel
+implementation was disclosed to the public-only leaf author. This source does
+not claim that repair or primitive success.
+
+Complete pure-export helpers have a definitions-only compiler check. The full
+153/134 exports, complete binding contexts, independent mathematical review,
+134 actual computations, final RX controls, two-leaf consumer, original connected
+workflows, executed notebook and fresh public API publication remain open.
+Checkpoint 45 remains the last durably saved evidence archive. A prepared larger
+checkpoint was blocked twice by automatic approval review before upload began;
+no further upload is attempted without the required explicit approval. Source
+publication and all unaffected implementation and validation work continue.
+
+### Earlier repair evidence (retained history)
 
 The preceding published kernel is `e4a1fd065f038e7c02c6cebedbb8d00746b2e92b`,
 tree `83d01175a78909b1965ca49d68cb433a38f82694`, on

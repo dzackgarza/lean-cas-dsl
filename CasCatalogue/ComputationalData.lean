@@ -282,6 +282,7 @@ mathematical values, constructor laws or proofs. -/
 inductive PointSchema where
   | plain (type : Expr)
   | literal (type : Expr) (shape : PointSchema)
+  | constrainedData (shape : PointSchema)
   | keys (points : Array Json)
   | list (element : PointSchema)
   | graph (domain codomain : PointSchema) (domainKeys : Option (Array Json))
@@ -296,7 +297,7 @@ partial def PointSchema.scalarLiteral : PointSchema → Bool
   | .list element => element.scalarLiteral
   | .recordFields _ fields => fields.all PointSchema.scalarLiteral
   | .alternatives constructors => constructors.all (fun (_, schema) => schema.scalarLiteral)
-  | .keys _ | .graph .. => false
+  | .constrainedData _ | .keys _ | .graph .. => false
 
 /-- Extract wholly inline literal data, preserving its public structure while
 removing value wrappers. An owned opaque field cannot become a decoded literal. -/
@@ -315,7 +316,7 @@ partial def inlineLiteralData? (json : Json) : Option Json := do
 
 /-- Derive only data slots from public constructor metadata. Dependent data
 slots without an independent fixed type remain unsupported. -/
-partial def pointSchema (type : Expr) (fuel : Nat := 32) :
+partial def pointSchema (type : Expr) (fuel : Nat := 32) (actualPoints : Bool := false) :
     TermElabM (Option PointSchema) := do
   let fuel + 1 := fuel | return none
   let type ← withTransparency .all <| whnf type
@@ -327,12 +328,21 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
   if #[``Nat, ``Int, ``Bool, ``String, ``Unit].any type.isConstOf || type.isAppOf ``Fin then
     if type.hasMVar then return none
     return some (.plain type)
+  -- Actual endpoint inventories supply computational points, not witnesses of
+  -- membership in the formal reference object. Reuse the public constrained
+  -- record interface while retaining every representation check of its data.
+  -- The barrier prevents an enclosing scalar record from decoding that proof.
+  if actualPoints then
+    if let some constrained ← ConstrainedPoint.schema? type then
+      if constrained.fieldCount > 1 then
+        let some shape ← pointSchema constrained.dataType fuel actualPoints | return none
+        return some (.constrainedData shape)
   -- A placeholder in a proposition does not change the record's data slots.
   -- Inspect those slots independently below; an unresolved data type still
   -- fails its own recursive check, including a scalar codec's selected bounds.
   if type.isAppOf ``List || type.isAppOf ``Array then
-    return (← pointSchema type.appArg! fuel).map PointSchema.list
-  if type.isAppOf ``Quot then return ← pointSchema type.getAppArgs[0]! fuel
+    return (← pointSchema type.appArg! fuel actualPoints).map PointSchema.list
+  if type.isAppOf ``Quot then return ← pointSchema type.getAppArgs[0]! fuel actualPoints
   if let .forallE _ domain body _ := type then
     if body.hasLooseBVars then return none
     let mut keys := none
@@ -340,8 +350,8 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
       if let some points ← Codec.finiteDomain domain then
         let encoded ← points.mapM fun point => Codec.encode point
         if encoded.all Except.isOk then keys := some (encoded.filterMap Except.toOption)
-    let some domain ← pointSchema domain fuel | return none
-    let some codomain ← pointSchema body fuel | return none
+    let some domain ← pointSchema domain fuel actualPoints | return none
+    let some codomain ← pointSchema body fuel actualPoints | return none
     return some (.graph domain codomain keys)
   let .const name levels := type.getAppFn | return none
   let some (.inductInfo info) := (← getEnv).find? name | return none
@@ -356,7 +366,7 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
       for field in fields.extract ctor.numParams (ctor.numParams + ctor.numFields) do
         let fieldType ← instantiateMVars (← inferType field)
         if ← isProp fieldType then continue
-        let some schema ← pointSchema fieldType fuel | return none
+        let some schema ← pointSchema fieldType fuel actualPoints | return none
         schemas := schemas.push schema
       return some (PointSchema.recordFields (Codec.isUnlabelled info) schemas)
     let some schema := schema | return none
@@ -367,7 +377,8 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
   -- representation constraints apply even inside a graph or another record;
   -- opaque fields still use only the structural schema below.
   return result.map fun schema =>
-    if schema.scalarLiteral then .literal type schema else schema
+    if !ConstrainedPoint.closed type then .constrainedData schema
+    else if schema.scalarLiteral then .literal type schema else schema
 
 /-- Inspect computational JSON against its independent schema without applying
 constructors, filling proof slots, or producing a law-bearing Lean value. -/
@@ -383,6 +394,7 @@ partial def validatePoint (schema : PointSchema) (json : Json) :
       return ← validatePoint schema actual
   match schema with
   | .plain type => return (← Codec.decode type json).map fun _ => ()
+  | .constrainedData shape => validatePoint shape json
   | .literal type shape =>
     if let .error message ← validatePoint shape json then return .error message
     if let some literal := inlineLiteralData? json then
@@ -514,7 +526,7 @@ def objectPointSchema (object : Expr) : TermElabM (Option PointSchema) := do
   let category ← withTransparency .all <| whnf (← inferType object)
   let some carrier ← projectionApplication ``CategoryTheory.ToType 7
       #[(0, category), (6, object)] | return none
-  pointSchema carrier
+  pointSchema carrier (actualPoints := true)
 
 /-- Obtain the callable interface without applying its authoritative function to
 backend data. The complete original categorical endpoint types are retained. -/
@@ -541,7 +553,7 @@ def validateGraphAtKeys (formal expectedType : Expr) (data : Json)
   if body.hasLooseBVars then
     return .error "dependent callable data requires an explicit released representation"
   let outputSchema ← if let some keys := codomain then pure (some (PointSchema.keys keys))
-    else pointSchema body
+    else pointSchema body (actualPoints := true)
   let some outputSchema := outputSchema
     | return .error "the callable's point types require their released data representation"
   let unwrapped ← match valuePayload data with

@@ -3845,3 +3845,36 @@ case and preservation of opaque fields. Original record/ownership and public
 literal/callable controls passed in 3.063 and 7.863 seconds. Independent source
 review found no blocking boundary issue. These scoped results require the new
 source's complete native build and final frozen acceptance runs.
+
+
+## 2026-10-26 — Separate actual endpoint data from reference refinement proofs
+
+The complete 7462a36 native build failed only the unchanged lifted-subobject
+inventory control. Its actual pairs were being sent through full subtype decoding
+by the new recursive literal wrapper, which attempted to establish membership in
+the formal reference subobject. The failed build and exact error are retained.
+
+An internal schema mode is now chosen only from independently established actual
+endpoint roles. It reuses the existing constrained-record interface and validates
+the independently fixed data field behind a non-literal barrier. The barrier
+survives products, lists and wrappers; each nested Rat still checks its complete
+literal representation. Ordinary closed literal schemas retain their constructor
+conditions. Both modes retain fixed data slots under an unresolved predicate,
+without assigning that predicate or accepting unresolved data parameters.
+
+The isolated compile and all four original focused controls pass with stable
+source. The new additive control checks constrained Rat data through lists,
+ULift and products; rejects zero-denominator and unreduced rationals; preserves
+ordinary refinement and finite-set graph constraints; and leaves unknown
+predicates unassigned. Its initial unspecified ULift universe was corrected in
+the diagnostic only, with original source and failed result preserved. The final
+control passes in 3.268 seconds. Independent source review found no concrete
+blocker. Full native and final frozen execution remain separate obligations.
+
+The public primitive author source 939dea0 was published as a68a52e and verified
+by full-tree fetch. Its frozen unchanged observer still fails the exact callable
+target check. Engineering review assigned the cause to inconsistent outer and
+nested endpoint preparation in the kernel. A separate declaration-relative
+presentation repair is underway; the public-only author received no outcome or
+kernel material. No primitive success, full meaning acceptance or V1 completion
+is claimed here.
