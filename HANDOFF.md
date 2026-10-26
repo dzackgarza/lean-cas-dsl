@@ -12,6 +12,30 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
+### Newly integrated finite-graph source repair
+
+The latest published checkpoint is `cb1688b9bd9f6400be9fccab440619e4619e2d2a`,
+which includes the reviewed main merge. The source now additionally repairs the
+released explicit `finiteGraph` inventory path in both endpoint validators.
+Actual descriptor parameters determine its data shape; retained formal-apex
+associations cannot replace those parameters or supply point inventories.
+Known inventories, complete graph coverage, scalar constraints and all original
+codomain checks remain in force. See
+[the bounded source and validation record](specs/reviews/finite-graph-inventory-20261026.md).
+
+The repair compiled and passed its additive inventory controls and three unchanged
+original framing/control modules, with all guards stable. These are isolated
+engineering results. The shared native producer remains the configured 8f build;
+no active run consumes a silently changed source or compiled closure. The combined
+producer still requires the complete 57-target build, current API publication,
+fresh fixed executions and final independent pure interpretation comparison.
+
+The 8f GitHub candidate run `40348409967` has now completed successfully, including
+all consumer and native builds, the existing axiom audit, and final source stability.
+The cb1688b trusted review again stopped before a verdict: run `40361244876` reports
+`REVIEW NOT COMPLETED (inputs unavailable)` at the trusted private base's
+`FETCH_HEAD^{commit}` lookup. No independent authority result is inferred from CI.
+
 ### Latest integrated preparation and closed interim evidence
 
 Published kernel `8f454d6b56445eb3fb22c28aa281de973b9be4b7`, tree

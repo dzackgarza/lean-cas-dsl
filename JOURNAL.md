@@ -3988,3 +3988,27 @@ reviews. Its 159,483,042 bytes have SHA-256
 This is local preservation only: the earlier automatic upload-review rejection
 remains recorded, and durable version 45 is unchanged. Active later source and
 execution records are excluded from this frozen checkpoint.
+
+
+## 2026-10-26 — Validate explicit graph inventories at actual public endpoints
+
+The FG1 repair now admits a released finiteGraph inventory when the primitive
+endpoint codec declines enumeration, validating each point against the actual
+complete descriptor and its ordered parameters. Existing actual inventories and
+errors remain authoritative; graph coverage and both codomain roles remain checked.
+Whole formal-apex and equal-JSON scalar associations cannot replace actual data
+shape. Unknown or opaque scalar representation parameters fail before semantic
+lookup. Returned data and opaque supplier records are unchanged.
+
+Independent source review caught and closed the constrained-scalar fallback issue.
+V2 then hit the unchanged compiler heartbeat limit in the enlarged mutual group.
+V3 separates the new recursion through exactly the existing semantic resolver
+callback; independent review mechanically checked equivalence of all six helpers.
+The V3 source compiled in 37.455 seconds. Additive controls passed in 7.330 seconds;
+unchanged action-context, lifted-data and contract probes passed in 8.506, 9.988 and
+9.831 seconds. All guards remained stable. The failed compiler attempt and initial
+fixture syntax error remain preserved. No acceptance input or budget changed.
+
+This commit integrates that closed source repair, while product current-comparison,
+RX05 reading and remaining execution-retention diagnostics continue separately.
+The final published/built tuple, API export and frozen executions remain required.

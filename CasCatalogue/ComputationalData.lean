@@ -736,6 +736,186 @@ partial def recordPayload? (data : DataOwnership.Data) : Option DataOwnership.Da
     return ← recordPayload? (← (data.project #[.field "args", .index 0]).toOption)
   return data
 
+/-- Classify scalar representation slots only to reject unresolved or opaque
+parameters before semantic-context lookup. Looking through a constrained-data
+barrier here only classifies parameter slots; the closed-type and ordinary literal
+checks below remain necessary and do not change point validation policy. -/
+partial def actualScalarParameterSlots : PointSchema → Bool
+  | .plain _ => true
+  | .literal _ shape | .constrainedData shape => actualScalarParameterSlots shape
+  | .list element => actualScalarParameterSlots element
+  | .recordFields _ fields => fields.all actualScalarParameterSlots
+  | .alternatives constructors => constructors.all (fun (_, schema) => actualScalarParameterSlots schema)
+  | .keys _ | .graph .. => false
+
+mutual
+/-- Interpret actual public descriptor parameters without replacing a literal
+representation parameter by an equal-JSON association to a formal field. This
+is confined to point-schema inspection; ordinary semantic interfaces retain
+their existing independently selected parameter context. -/
+partial def actualDescriptorArgument (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr))
+    (expected : Expr) (data : Json) : TermElabM (Except String Expr) := do
+  let expected ← instantiateMVars expected
+  if ← isProp expected then return .error "a proof is not computational data"
+  let literalSchema ← pointSchema expected
+  if (← plainType expected) || literalSchema.any actualScalarParameterSlots then
+    unless ConstrainedPoint.closed expected do
+      return .error "an actual representation parameter requires its fixed literal type"
+    let some literal := inlineLiteralData? data
+      | return .error "an actual representation parameter requires its inline literal data"
+    return ← Codec.decode expected literal
+  if let .ok (tag, args) := envelope data then
+    let state ← registryState
+    if tag == "category" || tag == "constructedCategory" || tag == "functor" then
+      let #[id, parameters] := args
+        | return .error "a selected dictionary requires its complete ordered parameters"
+      let .ok id := id.getStr? | return .error "a selected dictionary id must be a string"
+      let .ok parameters := parameters.getArr? | return .error "dictionary parameters must be ordered"
+      let declaration := if tag == "category" then
+        (state.categories.find? (·.id.raw == id)).map (·.declaration)
+      else if tag == "constructedCategory" then
+        (state.constructors.find? (·.id.raw == id)).map (·.semantics)
+      else (state.functors.find? (·.id.raw == id)).map (·.declaration)
+      let some declaration := declaration
+        | return .error "the selected dictionary is not registered"
+      if tag == "constructedCategory" then
+        let some constructor := state.constructor? ⟨id⟩ | unreachable!
+        unless parameters.size == constructor.signature.size do
+          return .error "the constructed category changed its complete argument count"
+      let resultType ← inferType (← instantiateFresh declaration)
+      let .ok value ← actualDescriptorDeclaration objects semanticArgument declaration resultType parameters
+        | return .error "the selected dictionary has incompatible complete parameters"
+      let value ← if tag == "functor" then Semantic.asFunctor value else pure value
+      unless ← withTransparency .all <| isDefEq (← inferType value) expected do
+        return .error "the selected dictionary has a different complete declared type"
+      return .ok value
+    if state.objects.any (·.id.raw == tag) ||
+        #["objectProduct", "valueData", "finiteData", "objectPresentation"].contains tag then
+      let .ok object ← actualDescriptorObject objects semanticArgument data
+        | return .error "the actual object parameter has no complete public descriptor"
+      unless ← withTransparency .all <| isDefEq (← inferType object) expected do
+        return .error "the actual object parameter has a different selected category"
+      return .ok object
+  semanticArgument expected data
+
+/-- The existing declaration-parameter checks with actual representation
+literals resolved before retained semantic associations. No returned function,
+law or proof is decoded, and the resulting expression is used only for shape. -/
+partial def actualDescriptorDeclaration (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr))
+    (declaration : Name) (expected : Expr) (data : Array Json) :
+    TermElabM (Except String Expr) := do
+  let constant ← mkConstWithFreshMVarLevels declaration
+  let (fields, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+  if ← withoutModifyingState (withTransparency .all <| isDefEq result expected) then
+    discard <| withTransparency .all <| isDefEq result expected
+  let mut position := 0
+  for (field, info) in fields.zip infos do
+    let type ← instantiateMVars (← inferType field)
+    if !info.isExplicit || (← isProp type) then continue
+    let some datum := data[position]?
+      | return .error "the actual declaration omitted a parameter"
+    let .ok argument ← actualDescriptorArgument objects semanticArgument type datum
+      | return .error "an actual parameter does not have its declared interface"
+    unless ← withTransparency .all <| isDefEq field argument do
+      return .error "an actual parameter changes its selected dependent endpoint"
+    position := position + 1
+  unless position == data.size do return .error "the actual declaration added a parameter"
+  for field in fields do
+    let field ← instantiateMVars field
+    if field.isMVar then
+      let type ← instantiateMVars (← inferType field)
+      if (← isClass? type).isSome then
+        if let some dictionary := (← trySynthInstance type).toOption then
+          unless ← isDefEq field dictionary do
+            return .error "the actual declaration has incompatible selected structure"
+  unless ← withTransparency .all <| isDefEq result expected do
+    return .error "the actual declaration has incompatible complete endpoints"
+  return .ok (← instantiateMVars (mkAppN constant fields))
+
+/-- Derive an actual named descriptor's public interface from its declaration
+and ordered parameters, bypassing a whole-descriptor formal-apex association.
+Transparent envelopes follow actual data. Unsupported descriptors stay unsupported. -/
+partial def actualDescriptorObject (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr)) (data : Json) :
+    TermElabM (Except String Expr) := do
+  let .ok (tag, args) := envelope data
+    | return .error "the actual endpoint requires its complete public object descriptor"
+  if let .ok ("valueData", #[actual]) := envelope data then
+    return ← actualDescriptorObject objects semanticArgument actual
+  if let .ok ("objectPresentation", #[_, actual]) := envelope data then
+    return ← actualDescriptorObject objects semanticArgument actual
+  if let .ok ("finiteData", #[descriptor, _]) := envelope data then
+    return ← actualDescriptorObject objects semanticArgument descriptor
+  if tag == "objectProduct" then
+    let #[left, right] := args | return .error "a product endpoint requires both factors"
+    let .ok left ← actualDescriptorObject objects semanticArgument left
+      | return .error "the first actual product factor is incomplete"
+    let .ok right ← actualDescriptorObject objects semanticArgument right
+      | return .error "the second actual product factor is incomplete"
+    unless (← whnfR (← inferType left)).isSort && (← whnfR (← inferType right)).isSort &&
+        !(← isProp left) && !(← isProp right) do
+      return .error "the actual product factors require their declared set-object interfaces"
+    return .ok (← mkAppM ``Prod #[left, right])
+  let some entry := (← registryState).objects.find? (·.id.raw == tag)
+    | return .error "the explicit inventory requires a supported actual public object descriptor"
+  let expected ← inferType (← instantiateFresh entry.declaration)
+  actualDescriptorDeclaration objects semanticArgument entry.declaration expected args
+
+end
+
+/-- Point shape comes from actual public descriptors and their parameters.
+Known child inventories stay exact even when another product factor declines
+enumeration. No requested formal apex supplies members or replacement shape. -/
+partial def actualInventoryPointSchema (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr)) (data : Json)
+    (lookupKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String PointSchema) := do
+  match ← lookupKeys data with
+  | .error message => return .error message
+  | .ok (some keys) => return .ok (.keys keys)
+  | .ok none => pure ()
+  if let .ok ("valueData", #[actual]) := envelope data then
+    return ← actualInventoryPointSchema objects semanticArgument actual lookupKeys
+  if let .ok ("objectPresentation", #[_, actual]) := envelope data then
+    return ← actualInventoryPointSchema objects semanticArgument actual lookupKeys
+  if let .ok ("objectProduct", #[left, right]) := envelope data then
+    let .ok left ← actualInventoryPointSchema objects semanticArgument left lookupKeys
+      | return .error "the first actual product factor has no public point schema"
+    let .ok right ← actualInventoryPointSchema objects semanticArgument right lookupKeys
+      | return .error "the second actual product factor has no public point schema"
+    return .ok (.recordFields true #[left, right])
+  let .ok actual ← actualDescriptorObject objects semanticArgument data
+    | return .error "the explicit inventory has no supported actual object interface"
+  let some schema ← objectPointSchema actual
+    | return .error "the explicit inventory requires its actual public point-data schema"
+  return .ok schema
+
+/-- Preserve any independently available actual inventory. A declined
+enumeration may use a returned explicit inventory only after validating every
+point against the actual descriptor's public shape. The data remain untrusted. -/
+partial def graphDomainKeys (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr)) (source graph : Json)
+    (lookupKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String (Array Json)) := do
+  match ← lookupKeys source with
+  | .error message => return .error message
+  | .ok (some keys) => return .ok keys
+  | .ok none => pure ()
+  let .ok ("finiteGraph", #[inventory, _]) := envelope graph
+    | return .error "a finite callable requires its actual computational domain point inventory"
+  let .ok points := inventory.getArr?
+    | return .error "a finite callable inventory requires an array"
+  let .ok schema ← actualInventoryPointSchema objects semanticArgument source lookupKeys
+    | return .error "the explicit inventory requires a supported actual public point interface"
+  let mut seen := #[]
+  for point in points do
+    if seen.contains point then return .error "a computational point inventory repeats a key"
+    if let .error message ← validatePoint schema point then return .error message
+    seen := seen.push point
+  return .ok points
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -1174,8 +1354,9 @@ partial def validateEndpointPort (formal : Expr) (source target data : Json)
     return ← validateEndpointPort formal source target typed.callable objects
   let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual else unwrapped
   unless graph.getArr?.isOk do return ← validatePort formal (← inferType formal) data objects
-  let .ok (some domain) ← endpointKeys source
-    | return .error "a finite callable requires its actual computational domain point inventory"
+  let domain ← match ← graphDomainKeys objects (interfaceArgument objects) source unwrapped endpointKeys with
+    | .ok domain => pure domain
+    | .error message => return .error message
   if let .ok ("finiteGraph", #[inventory, _]) := envelope unwrapped then
     let .ok declared := inventory.getArr?
       | return .error "a finite callable inventory requires an array"
@@ -2968,10 +3149,9 @@ partial def validatePlannedPort (plan : StructuredResult.DataPlan)
     | return .error "the callable graph has no retained computational domain role"
   let some domainDescriptor := resolve domainBinder
     | return .error "the callable graph has no actual computational domain descriptor"
-  let domainKeys ← match ← endpointKeys domainDescriptor with
+  let domainKeys ← match ← graphDomainKeys objects (interfaceArgument objects) domainDescriptor unwrapped endpointKeys with
+    | .ok keys => pure keys
     | .error message => return .error message
-    | .ok (some keys) => pure keys
-    | .ok none => return .error "a finite graph requires complete actual domain keys or an opaque callable"
   let mut codomainKeys := none
   if let some codomainBinder := port.codomainBinder then
     let some codomainDescriptor := resolve codomainBinder
