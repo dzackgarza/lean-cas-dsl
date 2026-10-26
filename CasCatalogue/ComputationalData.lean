@@ -319,7 +319,10 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
   let type ← withTransparency .all <| whnf type
   if type.hasLevelMVar || type.hasLooseBVars then return none
   if type.isSort || (← isProp type) then return none
-  if ← plainType type then
+  -- Atomic scalar codecs have no independently represented nested data slots.
+  -- Composite plain types still expose their constructor fields, which may
+  -- contain opaque computational values rather than wholly inline literals.
+  if #[``Nat, ``Int, ``Bool, ``String, ``Unit].any type.isConstOf || type.isAppOf ``Fin then
     if type.hasMVar then return none
     return some (.plain type)
   -- A placeholder in a proposition does not change the record's data slots.
@@ -1070,7 +1073,8 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
   -- descriptor from exposed fields at each independently fixed nested record.
   if explicitOnly then return .error "the port has no applicable explicit envelope codec"
   if ← plainType expectedType then
-    return (← Codec.decode expectedType json).map fun _ => ()
+    if let some literal := inlineLiteralData? json then
+      return (← Codec.decode expectedType literal).map fun _ => ()
   -- Literal representations are published upstream. Only their proof-free
   -- data type is decoded; the denotation is not applied to a backend value.
   for entry in state.literals do

@@ -14,13 +14,29 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ### Published source and current integration
 
-The preceding published kernel is `9af2a5079288b86e50766bd4ed1b9b68f6a2bd3a`,
-tree `a8243edd077e31d199022d8e3ee5429e3dde1f90`, on
-`work/kernel-v1-20261023`. Its full coordinated native build completed with
-unchanged sources in 1960.461 seconds and exit 1. Ten original probe modules
-failed: two record/transport controls, two action/service controls, the anonymous
-created-apex control, and five numeral-reader modules. The failed build is
-preserved; it is not a passing integration result.
+The preceding published kernel is `72d10e3f0d3584ee139ea8860cf2fbab4962fedf`,
+tree `5bd465cc231ee7bc2c6756be59374cd641655fdd`, on
+`work/kernel-v1-20261023`, tree-identical to local `a8a37f6`. After disk exhaustion
+and an interrupted retry, its recovered full native run completed in 604.168
+seconds with exit 1 and unchanged sources. The two failures were a truncated
+generated Language private part and an obsolete record-plan caller. The old
+`9af2a50` failures and both interrupted/environment records remain preserved.
+
+Independent diagnosis isolated the purity crash to loading the truncated private
+part, before any gate judgment. Its header pointed beyond EOF; the other 66
+selected private parts had valid ranges. Only the damaged part, its hash and
+module trace were invalidated, preserving lossless originals. Ordinary Lake
+regenerated Language from unchanged source in 104.324 seconds. No purity rule,
+import, assertion or budget changed.
+
+This source repairs a further opaque-composite record failure exposed by adapting
+the original engineering caller to the validated executor's required receiver.
+Atomic scalar schemas remain atomic; composite schemas retain actual constructor
+slots. Plain composite data reach the literal decoder only when wholly inline.
+The original Nat × (Nat × Nat) packets, equal bytes with distinct suppliers,
+ULift controls and all assertions remain. The isolated record, literal/callable
+and explicit-codec controls pass in 3.234, 8.161 and 4.403 seconds. Complete
+integrated execution of this subsequent source is still required.
 
 This source also incorporates the complete declared numeral-owner repair,
 completed-point metadata forwarding, and the direct and nested record-codec
@@ -107,9 +123,9 @@ of every typed meaning remain mandatory. No assertion, expected answer, import
 inventory or heartbeat budget has been weakened. Genuine competing supplied
 owners and paths must remain ambiguous in either order.
 
-The current evidence archive is version 43 of
-`libfile_94b086b3c1308191b67e0c34e0d4c364`, 60,005,050 bytes, SHA-256
-`dbfe8616dc5b8dd36b640b93399459e33c9982857ff58c2101398f2f40892fcb`.
+The current evidence archive is version 45 of
+`libfile_94b086b3c1308191b67e0c34e0d4c364`, 79,250,338 bytes, SHA-256
+`cb4b501dbe4bed8f7a10d86946892a69a8e585af0bb92b4e12b0db0a2b7d5d06`.
 Every previous member was preserved byte-for-byte. Newer closed native, reader,
 record, workflow and independent review records must be appended without
 replacing failed results. Runtime remains Lean 4.33.0, the recorded 14 packages,
@@ -120,8 +136,17 @@ The shallow exact-source retrieval repair is integrated as `077c9ce`. It preserv
 all expected-SHA and no-execution extraction protections. Existing controls and
 real depth-one positive/moved-reference negative controls pass, with independent
 source review. Publishing construction source does not install a replacement
-judge. The earlier independent CI review still has no verdict after its trusted
-input operation failed.
+judge. The independent CI review at `72d10e3` still has no verdict: its trusted base
+`6e67b1e` runs the older materializer without the published shallow-root fix.
+A source-only depth-one fixture reproduces the empty FETCH_HEAD failure and
+confirms that the already published repair preserves the exact selected source.
+No trusted deployment, reviewer or approval was replaced.
+
+The complete 153/134 assertion exporters, unchanged binding control, RX05/RX09
+and RX10 commands are prepared. Additive pure companion drivers retain every
+successful binding's full public Value/context and typed Expr table, exact
+source scopes and operation snapshots. They are not yet compiled or executed;
+counts alone do not satisfy the independent typed-meaning review.
 
 Publish this coherent source and build it before exporting the public API. Publish that unchanged export as an artifact
 with its actual producer; then select the artifact-bearing contract and record

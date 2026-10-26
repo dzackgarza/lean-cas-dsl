@@ -62,24 +62,29 @@ run_elab do
   let middle := DataOwnership.Data.capture bytes ("middle-supplier", 32)
   let last := DataOwnership.Data.capture bytes ("last-supplier", 33)
   let actual := DataOwnership.Data.array #[first, DataOwnership.Data.array #[middle, last]]
-  let some result := plan.apply? actual
+  -- Apply the retained plan at a fresh receiver of the same complete fixed type.
+  let applyPlan := fun data => withLocalDeclD `receiver type fun receiver =>
+    plan.apply? receiver data
+  let some result ← applyPlan actual
     | throwError "a complete nested record could not supply its declared fields"
   unless result == DataOwnership.Data.array #[last, first] && result.validate.isOk do
     throwError "structural record projection changed an occurrence or its original supplier"
   let wrapped : DataOwnership.Data := {
     json := Json.mkObj [("ctor", toJson "valueData"), ("args", Json.arr #[actual.json])]
     ownership := DataOwnership.prefix #[.field "args", .index 0] actual.ownership }
-  unless plan.apply? wrapped == some result do
+  unless (← applyPlan wrapped) == some result do
     throwError "the public inline envelope changed structural projection ownership"
-  if (plan.apply? first).isSome ||
-      (plan.apply? (DataOwnership.Data.array #[first, middle, last])).isSome then
+  if (← applyPlan first).isSome ||
+      (← applyPlan (DataOwnership.Data.array #[first, middle, last])).isSome then
     throwError "unexposed or malformed fields supplied a structural projection"
   let wrapperType ← elabTermAndSynthesize (← `(ULift Nat)) none
   let oneField ← withLocalDeclD `receiver wrapperType fun receiver => do
     ComputationalData.recordProjectionPlan? receiver (← mkProjection receiver `down)
   let some oneField := oneField | throwError "the declared single field was not read"
-  if (oneField.apply? first).isSome then
+  let applyOneField := fun data => withLocalDeclD `receiver wrapperType fun receiver =>
+    oneField.apply? receiver data
+  if (← applyOneField first).isSome then
     throwError "a whole opaque record was opened through single-field elision"
-  unless (oneField.apply? { json := toJson (11 : Nat) }).map (·.json) == some (toJson (11 : Nat)) do
+  unless (← applyOneField { json := toJson (11 : Nat) }).map (·.json) == some (toJson (11 : Nat)) do
     throwError "a transparent single-field record lost its published elision"
   logInfo "symbolic record action and exact occurrence projection controls checked"

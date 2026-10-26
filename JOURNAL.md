@@ -3787,3 +3787,35 @@ original composed consumers also read under their original budgets and scope.
 The source-stable evidence and exact complete-owner capture are preserved.
 This closes the previously recorded reader blocker; full integration remains
 the separate native/export/execution owner’s responsibility.
+
+
+## 2026-10-26 — Keep opaque fields inside plain composite record interfaces
+
+The complete native run at published `72d10e3` exposed an obsolete caller of the
+validated record-plan API. Supplying its required fresh independent receiver,
+without changing the original Nat × (Nat × Nat) fixture, then reproduced a real
+framing failure: the plain-type shortcut attempted to decode nested opaque
+fields as literal mathematical values. Equal token bytes from three distinct
+suppliers must remain three computational occurrences.
+
+`pointSchema` now treats only the existing atomic scalar codecs as atomic.
+Composite interfaces retain their published constructor slots. Early decoding
+of a plain composite is restricted to wholly inline data; opaque-containing
+records use the existing data-only schema validator. Fully inline literal
+constraints and explicit whole-record codecs retain their existing checks.
+The engineering probe passes the same complete independent receiver to the
+validated plan; all original types, packets, suppliers and assertions remain.
+
+The isolated ComputationalData compile passed in 48.018 seconds. The original
+record/ownership, literal-and-callable-contract, and explicit-record-boundary
+controls passed in 3.234, 8.161 and 4.403 seconds, with stable source. Earlier
+failed calls and the initial isolated search-path setup failure are preserved.
+These are focused engineering results on the recorded isolated dependencies;
+the complete current tuple still requires its successful native and frozen runs.
+
+The same native run also exposed a truncated generated Language private part
+left by disk exhaustion. An independent read-only diagnosis isolated the import
+crash before the purity traversal. Only that part, its hash and module trace
+were invalidated, with lossless original copies retained. Ordinary Lake rebuilt
+Language from unchanged source in 104.324 seconds. The purity predicate, its
+imports, assertions and budgets were not changed.
