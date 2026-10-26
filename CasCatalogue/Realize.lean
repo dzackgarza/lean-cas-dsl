@@ -1341,6 +1341,14 @@ def completeNamedObjectPresentations (value : Expr) :
     let candidate ← withoutModifyingState do
       let application ← if direct.isEmpty then instantiateFresh entry.declaration
         else pure selected
+      -- A fixed whole object can determine a selected bundled parameter through
+      -- its projections even when ordinary unification cannot assign that bundle.
+      -- Expose only fresh structure fields; the repeated full typed comparison
+      -- must determine all of them from the original requested object.
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType application) (← inferType value) <&&>
+            isDefEq application value) do
+        CategoryContext.exposeStructureParameters application
       unless ← withTransparency .all <|
           isDefEq (← inferType application) (← inferType value) <&&>
             isDefEq application value do return none
@@ -1513,6 +1521,68 @@ def recordCompleteConstruction (trace : Trace) (value : Expr) : TermElabM Bool :
   recordConstructionCoreSource trace action receiver
   Trace.record (some trace) value (.construction action.entry.id action.parameters receiver)
   return true
+
+/-- A missing original object may have a complete public universal construction.
+Only a closed application of the whole accepted declaration can provide it. The
+full apex, selected diagram category and all parameters must be fixed; a carrier
+or an equal cached result supplies nothing. All complete alternatives survive. -/
+def recordCompleteUniversalObject (trace : Trace) (value : Expr) : TermElabM Bool := do
+  let value ← instantiateMVars value
+  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return false
+  let state ← registryState
+  let mut candidates : Array (LimitEntry × Expr) := #[]
+  for row in state.limits do
+    let diagram? ← withoutModifyingState do
+      let application ← instantiateFresh row.declaration
+      let cone ← mkAppM (if row.colimit then ``CategoryTheory.Limits.ColimitCocone.cocone
+        else ``CategoryTheory.Limits.LimitCone.cone) #[application]
+      let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
+        else ``CategoryTheory.Limits.Cone.pt) #[cone]
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType apex) (← inferType value) <&&> isDefEq apex value) do
+        CategoryContext.exposeStructureParameters application
+      unless ← withTransparency .all <|
+          isDefEq (← inferType apex) (← inferType value) <&&> isDefEq apex value do
+        return none
+      let application ← instantiateMVars application
+      let apex ← instantiateMVars apex
+      unless FunctorActionData.closedParameter application &&
+          FunctorActionData.closedParameter apex && (← isTypeCorrect application) do return none
+      let applicationType ← withTransparency .all <| whnf (← inferType application)
+      let expectedHead := if row.colimit then ``CategoryTheory.Limits.ColimitCocone
+        else ``CategoryTheory.Limits.LimitCone
+      unless applicationType.getAppFn.constName? == some expectedHead do
+        throwError "the accepted universal object has a different full declaration type"
+      let diagram := applicationType.appArg!
+      unless FunctorActionData.closedParameter diagram && (← isTypeCorrect diagram) do return none
+      let some category := state.categories.find? (·.id == row.category)
+        | throwError "the accepted universal object lost its declared category"
+      let (_, bundle) ← functorCategoryBundles diagram
+      let context ← CategoryContext.presented { expression := category.expression, bundle }
+      CategoryContext.checkObject context value
+      let accepted ← Semantic.limitPresentation row diagram
+      unless ← withTransparency .all <|
+          isDefEq (← inferType accepted) (← inferType application) <&&>
+            isDefEq accepted application do
+        throwError "the universal object changed its complete accepted diagram presentation"
+      unless ← Decide.kernelAccepts (← mkEq apex value) (← mkEqRefl apex) do
+        throwError "the complete universal object failed its original kernel check"
+      return some diagram
+    if let some diagram := diagram? then
+      let resolution ← match state.resolveLimitDetailed row.category row.shape row.colimit with
+        | .ok resolution => pure resolution
+        | .error error => Semantic.limitResolutionFailure error
+      unless resolution.limit == row.id && resolution.lift.isNone do continue
+      unless candidates.any (fun (previous, original) => previous.id == row.id && original == diagram) do
+        candidates := candidates.push (row, diagram)
+  match candidates with
+  | #[] => return false
+  | #[(row, diagram)] =>
+      Trace.record (some trace) value (.limit row.id diagram none)
+      return true
+  | _ =>
+      throwStratum .ambiguousRealization
+        "the complete selected object has several accepted universal presentations"
 
 /-- Recover a recorded construction only from the same literal receiver and the
 same complete functor. The original occurrence remains the data source, including
@@ -4509,7 +4579,8 @@ partial def realizedParameterData (h : Harness) (trace : Trace) (parameters : Ar
         data := data.push actual.fragment
         dependencies := dependencies.push actual
       else if (← recordCompleteConstruction trace parameter) ||
-          (← recordCompleteNamedCategory trace parameter) then
+          (← recordCompleteNamedCategory trace parameter) ||
+          (← recordCompleteUniversalObject trace parameter) then
         if h.parameterRecovery.contains parameter then
           throwStratum .noImplementation "the selected complete declaration has cyclic data dependencies"
         let actual ← realize { h with parameterRecovery := h.parameterRecovery.push parameter }
@@ -5533,6 +5604,9 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
         return ← realizeFresh h trace what e
       if ← recordCompleteNamedObject trace e then
         return ← realizeFresh h trace what e
+      if ← recordCompleteUniversalObject trace e then
+        let actual ← realizeFresh h trace what e
+        return { actual with payload := forwardPayload actual e actual.json }
       throwStratum .noImplementation m!"nothing computes {what}: it is not formed by a \
         catalogue operation the realized reading evaluates (a named object at its parameters, \
         a method of one); the term is {e}"

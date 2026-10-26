@@ -12,6 +12,20 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Complete original objects and published module products
+
+The generic complete-object repair is integrated after five closed passing runs,
+including the actual new upstream module product at two different complete ring
+structures on one carrier. Named and universal recovery retain every selected
+parameter and the original complete object; unresolved parameters and competing
+presentations remain failures. Already computed packets and suppliers retain
+priority. See [the closed source review](specs/reviews/complete-object-parameters-20261027.md).
+The mathematics pin is now the freshly fetched public product revision
+`3bd4d3d9695f288749c860368174462c4d689b7c`. The native producer and active
+dependency artifacts remain unchanged until all running guards close. This is
+source integration; final tuple/API/build/execution and independent acceptance
+remain pending.
+
 ### Integrated complete-owner reader repair
 
 Published composition checkpoint `7d3589234b25b79636c809bf8c3ebec24c905310`

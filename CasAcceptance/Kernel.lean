@@ -29,6 +29,8 @@ public import CasAcceptance.Kernel.ContextualNumeralOwnerProbes
 public import CasAcceptance.Kernel.ForwardNumeralIndependentOwnerProbes
 public import CasAcceptance.Kernel.CallableCoordinateFramingProbes
 public import CasAcceptance.Kernel.CompleteNamedDataProbes
+public import CasAcceptance.Kernel.CompleteUniversalObjectProbes
+public import CasAcceptance.Kernel.CompleteModuleProductProbes
 public import CasAcceptance.Kernel.RetainedConstructionDataProbes
 public import CasAcceptance.Kernel.CompleteConstructionDataProbes
 public import CasAcceptance.Kernel.ProjectionBoundaryProbes

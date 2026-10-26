@@ -4045,3 +4045,22 @@ The trusted shallow-input repair is separately concrete in PR 70 at 6d25e26,
 with two passing retrieval tests and freshly verified full-tree equality.
 Latest candidate trusted review again failed before producing a verdict.
 No author installation of the authoritative evaluator or main change occurred.
+
+## 2026-10-27 — Recover complete original object parameters
+
+Closed generic recovery of reduced named objects and accepted universal apices
+retains the entire original selected object, category bundle, diagram and
+declaration parameters. Existing structure-field exposure helps unification;
+full reconstruction, closure, type and kernel equality checks remain required.
+No carrier substitute, default dictionary or first matching presentation is used.
+Actual returned packets and original suppliers retain priority.
+
+The upstream author independently published the Cartesian module product with
+projections, pairing and universal property. Its public commit `3bd4d3d` was
+freshly fetched and compared against the complete compiled source tree. The
+manifest now pins it. The kernel compile, focused full-object control, two
+unchanged parameter/context controls and actual new-M product control all pass
+with stable guards; the two exact additive controls join the existing aggregate.
+The failed earlier compile and all source/receipt hashes remain preserved in the
+owning review. This source checkpoint does not claim a fresh complete build or
+extension acceptance; those remain required on the final coherent tuple.
