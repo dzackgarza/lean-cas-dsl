@@ -151,3 +151,60 @@ the unchanged independently specified reindexed question for the six execution
 outcomes and live, foreign, expired, and newly established session observations.
 These engineering checks do not alter the mathematical assertions or supply
 their expected answers.
+
+## Whole-callable point framing (2026-10-26)
+
+### Queries
+
+The live corpus queries `ConcreteCategory.hom_ext` and `TypeCat.Fun.homEquiv`
+were repeated before the realization edit. The sandbox initially refused network
+access; those failed attempts remain recorded. The authorized read-only retries
+returned 51 files / 77 matches / 3 displayed files for the first query and no
+matches for the second. The first result includes Mathlib's `Frm.ext` using
+`ConcreteCategory.hom_ext`. Local source inspection supplies the exact current
+owners below; no new equality theorem or subject mathematics is authored here.
+
+### Owner
+
+Mathlib's `TypeCat.Hom`, `TypeCat.Fun`, `TypeCat.ofHom` and full concrete Hom types
+own the wrapper representations. The registered `Maps`, group-morphism and
+module-morphism objects own their complete point types and ordered parameters.
+The actual admission declaration owns its outer point domain and input type;
+`Foundation.Terminals.singletonComparison` owns the published Fin 1/PUnit
+comparison. `DeclaredAdmission.resolve?` and `projectedValue?` already select
+complete registered types and checked data-field projections. The existing
+`Language.operationPointComparison` and `constructionCoreMap` retain a selected
+comparison and its inverse. `frameMorphismFragment`, `pointCallableFragment`,
+`DataOwnership.Data`, and the existing equality characteristic-map dispatcher
+own complete framing, actual inventory use, opaque occurrences and observation.
+
+### New code
+
+The realization consumers retain the actual whole callable as one value of its
+selected full Hom/function object. A structured Hom uses its direct full owner;
+only an independently checked Sets category permits the existing wrapper
+projection. The formal constant point supplies a type, not answer data. An
+admission keeps its actual declared outer source separately from the function's
+internal domain; a different global source retains a complete callable through
+an actual registered comparison, with no fabricated singleton inventory.
+Both constituents keep their checked full category and complete scoped endpoint
+packets. Their common endpoint must agree as an actual occurrence, including its
+owner. The produced outer map follows the existing composition boundary: its
+endpoint actions are already applied, and its original operands remain retained.
+It does not manufacture an unframed input from `typedMap` or `compose` syntax.
+Reuse checks both complete endpoint fragments; a wrapper constructor alone does
+not establish agreement. A later change of endpoint comparisons still requires
+the existing framing owner's genuine producer provenance.
+
+The response validator retains the original legacy whole-callable admission
+form. It distinguishes a point input using the actual admission result source
+and full input type, permits scalar data only at the exact selected Fin 1 source,
+and checks nested callable-valued graph entries against their complete declared
+Hom or function type. Definition aliases may expose an existing full Hom; a
+structured record is never projected to its carrier for this validation. All
+outer graph keys still come from actual endpoint inventories and the existing
+`graphDomainKeys` policy. Independently supplied codomain inventories retain
+priority, but membership in those inventories never replaces validation of the
+inner full callable. Scalar validation starts from the independently declared
+admission input, so a definitionally equal descriptor cannot choose a different
+data validator. No leaf, assertion, public type, mathematical row, or proof changes.

@@ -916,6 +916,83 @@ partial def graphDomainKeys (objects : InterfaceObjects)
     seen := seen.push point
   return .ok points
 
+/-- Read a complete callable-valued point type through definition aliases only.
+A retained full Hom keeps its original category dictionary. A nondependent
+function has the ordinary Sets Hom; no structured record projection is used. -/
+partial def declaredCallableType? (type : Expr) (seen : Array Expr := #[]) :
+    TermElabM (Option Expr) := do
+  let type := (← instantiateMVars type).consumeMData.headBeta
+  if type.hasMVar || type.hasLevelMVar || type.hasFVar || type.hasLooseBVars ||
+      seen.contains type then return none
+  if (Language.homEnds? type).isSome then return some type
+  if let .forallE _ source target _ := type then
+    if target.hasLooseBVars then return none
+    return some (← mkAppM ``Quiver.Hom #[source, target])
+  let some unfolded ← unfoldDefinition? type | return none
+  declaredCallableType? unfolded (seen.push type)
+
+/-- Check a function-valued graph outside the recursive declaration/port group.
+The two callbacks are the original recursive owners at the same retained object
+context; this traversal changes neither the inventory policy nor inner typing. -/
+def validateCallableGraphAt (objects : InterfaceObjects)
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr))
+    (validateOutput : Expr → Json → TermElabM (Except String Unit))
+    (target : Expr) (sourceData targetData unwrapped graph : Json)
+    (checked : Except String Unit) : TermElabM (Except String Unit) := do
+  -- A finite point may itself contain a complete function or Hom value. Its
+  -- outer keys still come only from the actual endpoint inventory; the
+  -- independently fixed callable target supplies the inner full Hom.
+  -- Actual codomain membership does not replace that inner type check.
+  let some inputType ← declaredCallableType? target | return checked
+  let .ok codomain ← endpointKeys targetData | return checked
+  let .ok keys ← graphDomainKeys objects semanticArgument
+      sourceData unwrapped endpointKeys
+    | return checked
+  if let .ok ("finiteGraph", #[inventory, _]) := envelope unwrapped then
+    let .ok inventory := inventory.getArr? | return checked
+    unless inventory.size == keys.size && keys.all inventory.contains do return checked
+  if let .error message := validateGraphEndpoints keys codomain graph then return .error message
+  let .ok pairs := graph.getArr? | return checked
+  for pair in pairs do
+    let .ok #[_, output] := pair.getArr? | return checked
+    if let .error message ← validateOutput inputType output then
+      return .error message
+  return .ok ()
+
+/-- Prepare the admission's complete input Hom outside the recursive port
+validator. The caller supplies the independently declared full signature; actual
+point and legacy whole-callable domains retain their separate checks. -/
+def admissionInputHom (expected source domain original input : Expr) :
+    TermElabM (Except String (Bool × Expr)) := do
+  let pointInput ← withoutModifyingState do
+    withTransparency .all <|
+      isDefEq domain source <&&> isDefEq original input
+  if pointInput then
+    -- Resolve recovered endpoint parameters before AppBuilder opens a new
+    -- metavariable depth. This point's independently declared full Hom owns
+    -- the category dictionary; the legacy callable keeps its own below.
+    unless ← withTransparency .all <|
+        isDefEq (← inferType domain) expected.getAppArgs[0]! <&&>
+          isDefEq domain source <&&>
+          isDefEq (← inferType original) expected.getAppArgs[0]! <&&>
+          isDefEq original input do
+      return .error "the admitted point's data endpoints change its complete selected category"
+  let originalType ← if pointInput then
+      withTransparency .all <| mkAppOptM' expected.getAppFn
+        #[some expected.getAppArgs[0]!, some expected.getAppArgs[1]!,
+          some (← instantiateMVars domain), some (← instantiateMVars original)]
+    else mkAppM ``Quiver.Hom #[domain, original]
+  unless pointInput do
+    -- Preserve the original whole-callable input form: its internal domain
+    -- can differ from the admission's outer point domain, but its complete
+    -- function type must still be precisely the declared input type.
+    let formal ← mkFreshExprMVar originalType
+    let some function ← callableValue formal originalType
+      | return .error "the admission input is not the original complete callable"
+    unless ← withTransparency .all <| isDefEq (← inferType function) input do
+      return .error "the original callable changes the admission's complete input type"
+  return .ok (pointInput, originalType)
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -2624,6 +2701,16 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
           | return .error "a typed callable endpoint has no complete interface"
         unless ← withTransparency .all <| isDefEq fixed actual do
           return .error "the typed callable changes a complete endpoint"
+      let unwrapped ← match valuePayload callable with
+        | .ok actual => pure actual
+        | .error message => return .error message
+      let graph := if let .ok ("finiteGraph", #[_, graph]) := envelope unwrapped then graph
+        else unwrapped
+      if graph.getArr?.isOk then
+        let checked ← withoutModifyingState <|
+          validateEndpointPort placeholder sourceData targetData callable objects
+        return ← validateCallableGraphAt objects (interfaceArgument objects)
+          (validateCallableAt objects) target sourceData targetData unwrapped graph checked
       return ← validateCallableAt objects expected callable
     | "identity", #[sourceData, targetData] | "zero", #[sourceData, targetData] =>
       for (fixed, descriptor) in #[(source, sourceData), (target, targetData)] do
@@ -2698,21 +2785,23 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
       let .ok selected ← interfaceObject objects admitted.target | return .error "the admitted endpoint is incomplete"
       unless ← withTransparency .all <| isDefEq target selected do
         return .error "the admitted point changes its complete selected endpoint"
-      let originalType ← mkAppM ``Quiver.Hom #[domain, original]
-      let scalarInput ← withoutModifyingState do
-        withTransparency .all <|
-          isDefEq domain (← Language.globalPointSource.run {}) <&&> isDefEq original input
-      unless scalarInput do
-        let formal ← mkFreshExprMVar originalType
-        let some function ← callableValue formal originalType
-          | return .error "the admission input is not the original complete callable"
-        unless ← withTransparency .all <| isDefEq (← inferType function) input do
-          return .error "the original callable changes the admission's complete input type"
+      let selected ← admissionInputHom expected source domain original input
+      let (pointInput, originalType) ← match selected with
+        | .ok selected => pure selected
+        | .error message => return .error message
       let checked ← withoutModifyingState <|
         validateCallableAt objects originalType admitted.argument
       if checked.isOk then return checked
-      unless scalarInput do return checked
-      return ← validatePort (← mkFreshExprMVar original) original admitted.argument
+      -- A different declared global domain (for example PUnit) keeps its full
+      -- callable. Only this exact selected source has the scalar-data convention.
+      unless pointInput && (← withoutModifyingState (withTransparency .all <|
+          isDefEq domain (← Language.globalPointSource.run {}))) do return checked
+      -- Function-valued point data retain their own complete internal Hom.
+      -- This path starts from a declared full Hom or function type, never from
+      -- erasing a structured Hom's laws or choosing a category by its carrier.
+      if let some inputType ← declaredCallableType? input then
+        return ← validateCallableAt objects inputType admitted.argument
+      return ← validatePort (← mkFreshExprMVar input) input admitted.argument objects
     | "pointView", #[selectedData, original, domainData] =>
       let .ok domain ← interfaceObject objects domainData | return .error "the point view domain is incomplete"
       let .ok selected ← interfaceObject objects selectedData | return .error "the selected point view is incomplete"

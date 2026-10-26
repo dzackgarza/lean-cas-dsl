@@ -11,6 +11,7 @@ public import CasAcceptance.Kernel.FileItemProbes
 public import CasAcceptance.Kernel.SessionOwnershipProbes
 public import CasAcceptance.Kernel.DataOwnershipProbes
 public import CasAcceptance.Kernel.WholeOperationObservationProbes
+public import CasAcceptance.Kernel.WholeFunctionFramingProbes
 public import CasAcceptance.Kernel.FunctorActionExecutionProbes
 public import CasAcceptance.Kernel.DerivedActionExecutionProbes
 public import CasAcceptance.Kernel.DeferredServiceProbes
@@ -51,6 +52,7 @@ public import CasAcceptance.Kernel.ProofSourceIdentityProbes
 public import CasAcceptance.Kernel.MethodComparisonRetentionProbes
 public import CasAcceptance.Kernel.DeclaredContextBindingProbes
 public import CasAcceptance.Kernel.ClosedBindingReadingProbes
+public import CasAcceptance.Kernel.ClosedRouteTrialProbes
 public import CasAcceptance.Kernel.SelectedCarrierProbes
 public import CasAcceptance.Kernel.SourceParameterBindingProbes
 public import CasAcceptance.Kernel.InclusionSelectionProbes

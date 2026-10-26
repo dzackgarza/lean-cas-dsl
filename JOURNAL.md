@@ -4095,3 +4095,51 @@ with stable guards; the two exact additive controls join the existing aggregate.
 The failed earlier compile and all source/receipt hashes remain preserved in the
 owning review. This source checkpoint does not claim a fresh complete build or
 extension acceptance; those remain required on the final coherent tuple.
+
+## 2026-10-27 — Reuse complete closed route trials within one transport
+
+Integrated clean reader commit `3e27780` and its exact closed/open engineering
+control. Successful applicability trials retain only closed actual images and
+ordered edge applications within the current transport invocation. The selected
+candidate still passes every original full-type, application, comparison and
+trace check; open terms follow the original construction. No cross-call cache,
+registry priority, ambiguity rule or trace precondition changed.
+
+Compilation, seven unchanged protected controls and the additive control pass
+with stable guards. Both exact original RX-LIFT factor samples now finish their
+original interpretation and computation-only evaluation within 200000 heartbeats,
+reaching the specific missing `mor.sets.tuple_cons` implementation. Their full
+canonical questions match the original profile byte-for-byte. Remaining margins
+are only about 1719 and 1212 heartbeats; a fresh combined-source preflight is
+required before API export, followed by the unchanged full final execution.
+
+The separately investigated handwritten open-module fixture supplied an unresolved
+module universe. Its comparison retains that exact parameter; complete closed and
+explicit-universe open receivers pass. No default was supplied and no accepted
+mathematics was changed. All earlier diagnostics and failed attempts remain
+preserved. Final source tuple, public API, complete build and executions are pending.
+
+## 2026-10-27 — Preserve complete callable admission and observation
+
+Integrated the closed whole-function source `9bc2baf` by three-way merge,
+retaining every product, full-object, composition and reader change. Complete
+registered Hom owners retain their selected category and scalar parameters.
+Only the declared Sets data projection exposes a function from its wrapper.
+The actual whole callable becomes one point of its full owner without replacing
+its packet or suppliers. A different admission domain uses the registered actual
+comparison; same-endpoint reuse retains the original constituents and context.
+
+Validation separates the outer point domain from the function's internal Hom,
+checks function-valued graph outputs against that complete Hom, and preserves
+the independently declared scalar input. Caller-depth endpoint constraints
+retain the selected Hom dictionary before application construction. The exact
+helper extraction removes a compiler obstruction at the unchanged budget.
+
+Both compilation stages, the focused control and five unchanged controls pass
+with stable guards. The focused opaque-endpoint negative supplies the two
+independently retained endpoint associations required by the public contract;
+its payload, expected type and rejection assertion are unchanged. All earlier
+failed source/fixture versions remain preserved. The exact passing fixture is
+part of the engineering aggregate. Final combined RX09/whole-map execution,
+the coherent API/build tuple and independent pure interpretation review remain
+required; no mathematical acceptance is inferred from this source integration.

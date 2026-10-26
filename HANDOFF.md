@@ -12,6 +12,62 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Closed source repairs ready for the coherent build
+
+Whole-function commit `9bc2baf64339ed770f48991450b7a462756ba917` is
+three-way integrated with the product, complete-object, composition and reader
+repairs. Every added and removed production-source line matches the closed
+component patch; the independent changes are retained. The exact passing whole-
+function fixture joins the existing engineering aggregate. See
+[the closed integration review](specs/reviews/whole-function-inputs-20261027.md).
+Both compiler stages, the focused control and five unchanged controls passed,
+with every source/input/artifact guard stable. No Lean process or component
+guard remains active at this source checkpoint.
+
+The next dependency is the published, coherent 57-target build with mathematics
+`3bd4d3d` and current contract `3f7a22e`. Run the exact two original reader
+cases on that built combination before API export. Then publish the fresh API,
+pin its contract revision, publish/build that final tuple, and rerun the fixed
+execution, notebook, public primitive, two-leaf and complete pure-reading
+consumers. Source integration and isolated controls do not establish those
+final results or independent mathematical acceptance.
+
+### Measured reader repair integrated
+
+The complete source of clean reader commit
+`3e27780bfbacd293996094cea49b5cd06582f344` is integrated without source changes.
+Its new closed/open route control joins the existing kernel aggregate.
+Within one transport call, a successful route trial may retain its actual
+closed image and complete ordered edge applications; the original final
+type checks, comparison classification and trace recording still run.
+Open terms use the original construction. No cross-call cache or trace
+precondition changes. See [the owning reader record](specs/reuse/cc-dsl-language.md).
+
+Compilation, seven unchanged protected controls and the additive control pass
+with stable guards. Both original RX-LIFT factor samples now reach the existing
+`mor.sets.tuple_cons` implementation gap, with byte-identical canonical questions
+and no dispatch. They use approximately 198281 and 198788 of the unchanged
+200000-heartbeat limit. This tight margin requires the exact two-case preflight
+on the combined built source before public API export; the final original
+26-question execution remains required. The isolated results do not establish
+the final combined tuple. Whole-function source closure is now integrated as
+described above; the coherent build and final consumers remain required.
+
+### Complete module comparison diagnosis
+
+The additive handwritten module fixture's failure is now explained by its
+original input: the open receiver has type `ModuleCat.{?u,0} ℚ`, with one
+unresolved module universe. The comparison retains that same universe ID and
+has no residual term metavariable. Complete-category reconstruction independently
+rejects this incomplete input. Separate closed and open `ModuleCat.{0} ℚ`
+receivers retain the full supplied category and produce closed comparisons.
+The unchanged-source diagnostic passed in 6.971 seconds with stable guards;
+its full expressions and provenance are preserved in
+`module-comparison-baseline-diagnosis-v3.json`, SHA-256
+`d18734ddac7485a46d66c8fdaa3a8bb4861cc15d45178913ae58c84eb3aa7683`.
+No universe default was assigned to the original input. This closes the
+previously recorded uncertainty without changing an accepted comparison.
+
 ### Complete operation product presentations and real workflow reuse
 
 The exact reviewed V21 source is integrated from clean local
@@ -32,8 +88,9 @@ The exact passing product control is part of the existing kernel aggregate.
 These runs identify the old native base with V21, mathematics `ac9bb80` and
 contract `3f7a22e`; they are not final combined-tuple results. The source merged
 cleanly with the separately validated composition and complete-object changes;
-the two JOURNAL entries were retained verbatim. Whole-function handling, the
-measured reader cost, final coherent build/API and fresh full validation remain.
+the two JOURNAL entries were retained verbatim. Whole-function and measured
+reader repairs are now integrated. The coherent build/API and fresh full
+validation remain.
 
 ### Complete original objects and published module products
 
@@ -74,7 +131,7 @@ current-main retrieval tests pass. Its fetched full tree is
 `e5574a94fec5f64d383a5c1f7de0471a34a06bd5`. The appropriate independent
 maintainer must review and install this trusted-source correction before the
 trusted review can consume it. The author has not installed its own judge or
-changed main. The latest 17e review run `40380441894`, job `121774909977`,
+changed main. The latest 897 review run `40385505483`, job `121792579582`,
 again stopped before any verdict:
 `REVIEW NOT COMPLETED (inputs unavailable)` at the private base
 `FETCH_HEAD^{commit}` lookup. There was no verdict artifact. Main and PR 70

@@ -1106,14 +1106,10 @@ def checkedObjectComparisons (state : RegistryState) (source : Value)
         readings.modify (·.push (.comparisons source witnesses terms))
   return terms
 
-/-- Apply the same accepted route construction whose complete edge arguments are retained.
-The receiver and expected endpoint close its actual parameters before any trace is recorded. -/
-def checkedRouteAction (state : RegistryState) (source target : CategoryId)
-    (route : Array EdgeRef) (receiver expected : Expr) : M (Expr × Array Expr) := do
-  let (image, applications) ← if route.isEmpty then pure (receiver, #[]) else do
-    let (functor, applications) ← Semantic.routeFunctorWithApplications state route
-    let image ← Semantic.objOf functor receiver
-    pure (image, applications)
+/-- Check and record an actual route construction. Callers supply the terms built by that
+same route, including a closed construction retained from its local applicability trial. -/
+def checkedRouteResult (source target : CategoryId) (route : Array EdgeRef)
+    (receiver expected image : Expr) (applications : Array Expr) : M (Expr × Array Expr) := do
   unless ← isDefEq (← inferType image) expected do
     throwStratum .invalid m!"an actual structural action is outside its declared endpoint type"
   let image ← instantiateMVars image
@@ -1125,6 +1121,16 @@ def checkedRouteAction (state : RegistryState) (source target : CategoryId)
   unless route.isEmpty do
     Trace.record (← read).trace image (.retainedRoute source target route applications receiver)
   return (image, applications)
+
+/-- Apply the same accepted route construction whose complete edge arguments are retained.
+The receiver and expected endpoint close its actual parameters before any trace is recorded. -/
+def checkedRouteAction (state : RegistryState) (source target : CategoryId)
+    (route : Array EdgeRef) (receiver expected : Expr) : M (Expr × Array Expr) := do
+  let (image, applications) ← if route.isEmpty then pure (receiver, #[]) else do
+    let (functor, applications) ← Semantic.routeFunctorWithApplications state route
+    let image ← Semantic.objOf functor receiver
+    pure (image, applications)
+  checkedRouteResult source target route receiver expected image applications
 
 /-- Every structural route from `source` to `target` (`RegistryState.completeRoutes`). -/
 def routesBetween (state : RegistryState) (source target : CategoryExpr) : M (Array Route) := do
@@ -1156,28 +1162,36 @@ partial def transportedStructureWithAction (expected : Expr) (value : Value)
   let .object receiver sourceCategory _ _ _ := value
     | throwStratum .invalid m!"a selected structural parameter is an object"
   let state ← registryState
-  let mut candidates : Array (NamedCategoryEntry × Route) := #[]
+  let mut candidates : Array (NamedCategoryEntry × Route × Option (Expr × Array Expr)) := #[]
   for target in state.categories do
     if demandedCategory.any (· != target.id) then continue
     let targetTyped ← parameterCategoryCompatible expected target
     unless targetTyped do continue
     for route in (← routesBetween state sourceCategory.expression target.expression) do
+      let retained ← IO.mkRef (none : Option (Expr × Array Expr))
       if ← parameterCompatible (do
-          let image ← if route.steps.isEmpty then pure receiver else
-            Semantic.objOf (← Semantic.routeFunctor state route.refs) receiver
-          isDefEq (← inferType image) expected) then
-        candidates := candidates.push (target, route)
+          let (image, applications) ← if route.steps.isEmpty then pure (receiver, #[]) else do
+            let (action, applications) ← Semantic.routeFunctorWithApplications state route.refs
+            pure (← Semantic.objOf action receiver, applications)
+          unless ← isDefEq (← inferType image) expected do return false
+          let image ← instantiateMVars image
+          let applications ← applications.mapM instantiateMVars
+          if closedReadingTerm image && applications.all closedReadingTerm then
+            retained.set (some (image, applications))
+          return true) then
+        candidates := candidates.push (target, route, ← retained.get)
   let classifiedCandidates := match ← retainedCarrierRoute state value with
     | none => candidates
     | some carrierRoute =>
-        let prefixes := candidates.filter fun (_, route) =>
+        let prefixes := candidates.filter fun (_, route, _) =>
           route.refs.size ≤ carrierRoute.size &&
             decide (route.refs = carrierRoute.extract 0 route.refs.size)
         if prefixes.isEmpty then candidates else prefixes
-  letI : Inhabited (NamedCategoryEntry × Route) :=
-    ⟨(sourceCategory, { source := sourceCategory.expression, target := sourceCategory.expression, steps := #[] })⟩
+  letI : Inhabited (NamedCategoryEntry × Route × Option (Expr × Array Expr)) :=
+    ⟨(sourceCategory,
+      { source := sourceCategory.expression, target := sourceCategory.expression, steps := #[] }, none)⟩
   do
-    let (target, route) ← match state.classify classifiedCandidates (fun c => c.1.id.raw) (·.2) with
+    let (target, route, retained) ← match state.classify classifiedCandidates (fun c => c.1.id.raw) (·.2.1) with
       | #[cls] =>
         unless cls.ambiguities.isEmpty do
           throwSemanticAmbiguity m!"several comparisons determine a selected structural route"
@@ -1188,8 +1202,10 @@ partial def transportedStructureWithAction (expected : Expr) (value : Value)
       | #[] => throwStratum .invalid m!"the selected object has no registered structure at this type"
       | _ => throwSemanticAmbiguity m!"several routes give the selected object this structure \
           (source {sourceCategory.id.raw}, demanded type {expected}, receiver {receiver})"
-    let (image, applications) ←
-      checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
+    let (image, applications) ← match retained with
+      | some (image, applications) =>
+          checkedRouteResult sourceCategory.id target.id route.refs receiver expected image applications
+      | none => checkedRouteAction state sourceCategory.id target.id route.refs receiver expected
     return (image, route.refs, applications)
 
 partial def transportedStructure (expected : Expr) (value : Value)

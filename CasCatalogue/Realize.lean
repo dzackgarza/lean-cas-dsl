@@ -6029,6 +6029,172 @@ partial def frameMorphismFragment (h : Harness) (trace : Trace) (source target :
   return (← scopedNode "typedMap" #[sourceWire.fragment, targetWire.fragment, presented.fragment],
     #[sourceWire, targetWire])
 
+/-- A whole callable used as one data value keeps its original complete Hom
+interface. The existing framing owner applies endpoint presentations once;
+this additional public frame only makes the retained endpoints explicit. -/
+partial def completeCallableFragment (h : Harness) (trace : Trace) (source target : Expr)
+    (wire : Wire) (context : CategoryContext) :
+    TermElabM (DataOwnership.Data × Array Wire) := do
+  let (data, dependencies) ← frameMorphismFragment h trace source target wire
+    (some context) (pointAsMap := true)
+  let checkEndpoints (sourceData targetData : DataOwnership.Data) : TermElabM Unit := do
+    let .ok _ := Backend.TypedMap.decode data.json
+      | throwError "the complete callable lost its checked typed-map frame"
+    let actualSource ← checkedFragment (data.project #[.field "args", .index 0])
+    let actualTarget ← checkedFragment (data.project #[.field "args", .index 1])
+    unless actualSource == sourceData && actualTarget == targetData do
+      throwStratum .ambiguousRealization
+        "the complete callable changed an actual scoped endpoint presentation"
+  if let some selected := wire.pointDataInterface then
+    -- The completed point, not a newly recovered name, owns these exact
+    -- endpoint packets. The framing owner checked its full formal signature.
+    checkEndpoints selected.domainData selected.targetData
+    return (data, dependencies)
+  let sourceWire ← realizeCallableEndpoint h trace wire source true (some context)
+  let targetWire ← realizeCallableEndpoint h trace wire target false (some context)
+  let dependencies := dependencies ++ #[sourceWire, targetWire]
+  if (Backend.TypedMap.decode data.json).isOk then
+    checkEndpoints sourceWire.fragment targetWire.fragment
+    return (data, dependencies)
+  return (← scopedNode "typedMap" #[sourceWire.fragment, targetWire.fragment, data],
+    dependencies)
+
+/-- Realization may name only a uniquely registered object at the complete
+independently demanded type. It does not select a row by available computation. -/
+partial def callableObjectPlan? (expected : Expr) :
+    TermElabM (Option DeclaredAdmission.Plan) := do
+  try DeclaredAdmission.resolve? CategoryId.sets expected
+  catch error =>
+    if Exception.interpretationKind error == .ambiguous then
+      throwStratum .ambiguousRealization
+        "the complete callable type has several registered object presentations"
+    else throw error
+
+/-- A function-wrapper projection is available only in the actual full Sets
+category. A structured Hom never selects a function object by its carrier. -/
+partial def callableHasSetsContext (context : CategoryContext) (source : Expr) :
+    TermElabM Bool := withoutModifyingState do
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the callable data category is not registered"
+  try
+    let selected ← CategoryContext.ofNamed sets source
+    withTransparency .all <| isDefEq context.bundle selected.bundle
+  catch error =>
+    if Exception.interpretationKind error == .invalid then pure false else throw error
+
+/-- Prefer the exact full Hom object. Only the complete Sets dictionary permits
+the declared one-data-field wrapper projection to its underlying function. -/
+partial def wholeCallableObject (formal source target : Expr) (context : CategoryContext) :
+    TermElabM DeclaredAdmission.Plan := do
+  CategoryContext.checkMorphism context formal source target
+  if let some owner ← callableObjectPlan? (← inferType formal) then return owner
+  unless ← callableHasSetsContext context source do
+    throwStratum .noImplementation
+      "the complete structured Hom has no registered object for whole-callable observation"
+  let functionType ← mkArrow source target
+  let some function ← DeclaredAdmission.projectedValue? formal functionType
+    | throwStratum .noImplementation "the Sets Hom has no complete declared function projection"
+  let some owner ← callableObjectPlan? (← inferType function)
+    | throwStratum .noImplementation "the complete function type has no registered object presentation"
+  return owner
+
+/-- Restage actual point data only through the existing registered comparison
+with the language's global-point source. Other singleton objects are not given
+that source's scalar convention or a fabricated computational inventory. -/
+partial def pointAtAdmissionDomain (h : Harness) (trace : Trace) (wire : Wire)
+    (source target domain : Expr) : TermElabM Wire := do
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the admitted point data category is not registered"
+  let context ← CategoryContext.ofNamed sets source
+  discard <| framingContext (some context) wire.categoryContext
+  CategoryContext.checkMorphism context wire.value source target
+  if ← withoutModifyingState (withTransparency .all <| isDefEq source domain) then
+    return wire
+  let one ← closedElementDomain (← registryState)
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq source one) do
+    throwStratum .noImplementation
+      "the admitted point has no accepted comparison from its original generalized domain"
+  let comparison ← try
+    (Language.operationPointComparison domain).run { trace := some trace }
+  catch error =>
+    if Exception.interpretationKind error == .ambiguous then
+      throwStratum .ambiguousRealization
+        "the admission domain has several accepted global-point comparisons"
+    else throw error
+  let some comparison := comparison
+    | throwStratum .noImplementation "the admission domain has no accepted global-point comparison"
+  let (_, _, inverse) ← (Language.constructionCoreMap comparison one domain).run
+    { trace := some trace }
+  let inverseWire ← realize h trace "the admission's actual inverse point-domain comparison" inverse
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq inverseWire.value inverse) do
+    throwError "the admission changed its independently accepted point-domain comparison"
+  let (argument, argumentDependencies) ← completeCallableFragment h trace source target wire context
+  let inverseContext ← CategoryContext.ofNamed sets domain
+  let (comparisonData, comparisonDependencies) ← completeCallableFragment h trace domain source
+    inverseWire inverseContext
+  let comparisonDomain ← checkedFragment (comparisonData.project #[.field "args", .index 0])
+  let comparisonTarget ← checkedFragment (comparisonData.project #[.field "args", .index 1])
+  let argumentDomain ← checkedFragment (argument.project #[.field "args", .index 0])
+  let argumentTarget ← checkedFragment (argument.project #[.field "args", .index 1])
+  unless comparisonTarget == argumentDomain do
+    throwStratum .ambiguousRealization
+      "the admission's point-domain comparison and original point have different actual scoped endpoints"
+  let actual ← StructuredResult.checkReconstruction
+    (← mkAppM ``CategoryTheory.CategoryStruct.comp #[inverseWire.value, wire.value])
+  CategoryContext.checkMorphism inverseContext actual domain target
+  let data ← scopedNode "typedMap" #[comparisonDomain, argumentTarget,
+    ← scopedNode "compose" #[comparisonData, argument]]
+  let dependencies := #[wire, inverseWire] ++
+    argumentDependencies ++ comparisonDependencies
+  return {
+    form := .canonicalMorphism sets
+    payload := (← combinedPayload actual data dependencies)
+    categoryContext := some inverseContext
+    -- Both complete constituents already consumed their endpoint actions.
+    -- This is the ordinary composition producer boundary, not a fabricated
+    -- unframed input for a later presentation replay.
+    morphismFramed := true
+    serviceHandles := (← retainLiftOperands h dependencies) }
+
+/-- Regard the actual whole callable as one point of its already selected full
+function/Hom object. The constant formal point supplies only its type; every
+computational byte and opaque occurrence still comes from the original wire. -/
+partial def wholeCallablePoint (h : Harness) (trace : Trace) (wire : Wire)
+    (source target domain : Expr) (context : CategoryContext)
+    (owner : DeclaredAdmission.Plan) : TermElabM Wire := do
+  CategoryContext.checkMorphism context wire.value source target
+  let selected := owner.application.value
+  let value ← if ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType wire.value) selected) then pure wire.value
+    else do
+      unless ← callableHasSetsContext context source do
+        throwStratum .noImplementation
+          "a structured Hom cannot be replaced by its erased carrier function"
+      let some value ← DeclaredAdmission.projectedValue? wire.value selected
+        | throwStratum .noImplementation
+            "the whole callable has no data-only projection to its complete selected object"
+      pure value
+  let one ← closedElementDomain (← registryState)
+  let function ← withLocalDeclD `point one fun point => mkLambdaFVars #[point] value
+  let formal ← StructuredResult.checkReconstruction
+    (← mkAppOptM ``TypeCat.ofHom #[some one, some selected, some function])
+  let some sets := (← registryState).categories.find? (·.id == CategoryId.sets)
+    | throwError "the whole-callable point category is not registered"
+  let pointContext ← CategoryContext.ofNamed sets one
+  CategoryContext.checkMorphism pointContext formal one selected
+  discard <| Semantic.recordNamedObject selected (some trace)
+  let domainWire ← realizeEndpoint h trace "the whole-callable point's actual global domain" one
+  let targetWire ← realizeEndpoint h trace "the complete registered callable object" selected
+  let (data, endpoints) ← completeCallableFragment h trace source target wire context
+  let dependencies := #[wire, domainWire, targetWire] ++ endpoints
+  let point : Wire := {
+    form := .canonicalMorphism sets
+    payload := (← combinedPayload formal data dependencies)
+    categoryContext := some pointContext
+    pointDataInterface := (← pointDataInterfaceAt one selected domainWire.fragment targetWire.fragment)
+    serviceHandles := (← retainLiftOperands h dependencies) }
+  pointAtAdmissionDomain h trace point one selected domain
+
 /-- Execute a named object's published presentation only when its input parameters
 already depend on actual computations. Ordinary named descriptors keep their
 existing dispatch. The accepted comparison remains explicit on every later map. -/
@@ -7045,19 +7211,50 @@ partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr
       unless ← withTransparency .all <| isDefEq (← inferType datum.value) pointType do
         throwError "the admitted point changed its original computational arrow type"
       let (parameters, parameterWires) ← realizedParameterData h trace params
-      let source ← realizeEndpoint h trace "the admitted point original domain" originalSource
-      let target ← realizeEndpoint h trace "the admitted point original codomain" originalTarget
-      let some (_, selected) := Language.homEnds? (← inferType e)
+      let some (domain, selected) := Language.homEnds? (← inferType e)
         | throwError "the admitted point lost its full formal endpoints"
+      let dataParameters ← DirectConstruction.dataArguments params
+      unless dataParameters.size == parameters.size do
+        throwError "the admitted point lost an ordered data parameter"
+      let objects : ComputationalData.InterfaceObjects :=
+        (parameters.zip dataParameters).map fun (data, formal) => (data.json, formal)
+      let .ok input ← ComputationalData.admissionInterface objects entry
+          (← inferType e) (parameters.map (·.json))
+        | throwError "the admitted point changed its complete published input interface"
+      let originalContext : CategoryContext := {
+        expression := originalSchema.expression, bundle := (← instantiateMVars family) }
+      let (datum, inputObject) ← if ← withoutModifyingState (withTransparency .all <|
+          isDefEq originalTarget input) then do
+        let point ← pointAtAdmissionDomain h trace datum originalSource originalTarget domain
+        pure (point, originalTarget)
+      else do
+        let some owner ← callableObjectPlan? input
+          | throwStratum .noImplementation
+              "the admission's complete whole-function input has no registered object presentation"
+        let point ← wholeCallablePoint h trace datum originalSource originalTarget domain
+          originalContext owner
+        pure (point, owner.application.value)
+      unless ← withTransparency .all <| isDefEq (← inferType datum.value)
+          (← mkAppM ``Quiver.Hom #[domain, input]) do
+        throwError "the original admission datum changed its complete point domain or input type"
+      -- The outer point domain comes from this actual admission declaration.
+      -- A whole function's internal domain remains in its selected object and
+      -- complete original callable data, never in place of this outer source.
+      let source ← realizeEndpoint h trace "the admitted point declared domain" domain
+      let target ← realizeEndpoint h trace "the admitted point original data object" inputObject
       discard <| Semantic.recordNamedObject selected (some trace)
       let selected ← realizeEndpoint h trace "the admitted point selected target" selected
       let json ← scopedNode "admittedPoint" #[{ json := toJson id.raw },
         DataOwnership.Data.array parameters, source.fragment, target.fragment,
         selected.fragment, datum.fragment]
-      let payload ← combinedPayload e json (#[datum, source, target, selected] ++ parameterWires)
+      let dependencies := #[datum, source, target, selected] ++ parameterWires
+      let payload ← combinedPayload e json dependencies
       let some category := state.categories.find? (·.id == categoryId)
         | throwError "the admitted point category is not registered"
-      return { form := .canonicalMorphism category, payload }
+      return {
+        form := .canonicalMorphism category
+        payload := payload
+        serviceHandles := (← retainLiftOperands h dependencies) }
   | .namedCallable address categoryId params =>
       let some (_, declaredCategory) := state.callable? address
         | throwError "the callable is not published by its registered owner"
@@ -8820,7 +9017,7 @@ def observeEquality (h : Harness) (trace : Trace) (first second : Wire) (domain 
     (#[first, second, domainWire, valueWire, truthWire] ++ parameterWires)
   let request : Wire := {
     form := .namedMorphism equality, payload
-    serviceHandles := (← retainServiceOperands h
+    serviceHandles := (← retainLiftOperands h
       (#[first, second, domainWire, valueWire, truthWire] ++ parameterWires)) }
   let reply ← sendData h equality.id.raw request (completeRequest := true)
   let answer := reply.data.json
@@ -10188,7 +10385,21 @@ def observeComputedPoints (h : Harness) (trace : Trace) (first second : Wire)
     if let some actualFirst ← finiteGraphValue first then
       if let some actualSecond ← finiteGraphValue second then
         return ← evaluatedPointEq trace actualFirst actualSecond
-    throwStratum .noImplementation "this computational map requires a pointwise observation implementation"
+    let retained ← framingContext first.categoryContext second.categoryContext
+    let context ← match retained with
+      | some context => pure context
+      | none =>
+        let some category := state.categories.find? (·.id == first.form.category)
+          | throwError "the whole-callable observation lost its selected category"
+        CategoryContext.ofNamed category domain
+    CategoryContext.checkMorphism context formal domain target
+    CategoryContext.checkMorphism context first.value domain target
+    CategoryContext.checkMorphism context second.value domain target
+    let owner ← wholeCallableObject formal domain target context
+    let one ← closedElementDomain state
+    let first ← wholeCallablePoint h trace first domain target one context owner
+    let second ← wholeCallablePoint h trace second domain target one context owner
+    return ← observeEquality h trace first second one owner.application.value
   -- Closed-point data belongs to the target. In particular a vector element
   -- can itself be a graph and is not the graph of the outer map `1 ⟶ target`.
   if ← ComputationalData.plainType (← withTransparency .all <| whnf target) then

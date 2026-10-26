@@ -1036,3 +1036,118 @@ consumers also pass. All source guards close unchanged. Exact failed/successful
 runs, full source-witness capture, and diagnostic restoration receipts remain
 in the separate engineering archive. No new original-probe failure remains in
 this reader workstream; full native/export/execution integration stays separate.
+
+## Retain the actual closed action of a local route trial (2026-10-26)
+
+### Queries
+
+The corpus query `reuse complete typed functor application` could not reach the
+corpus API in the isolated execution environment. Local source searches identify
+the existing owners: `Semantic.routeFunctorWithApplications`,
+`Semantic.bindFunctorSource`, `Semantic.objOf`, `parameterCompatible`,
+`transportedStructureWithAction`, and `checkedRouteAction`. This change consumes
+those same constructions and introduces no mathematical operation or registry row.
+
+An exact original RX-LIFT factor-sample read, with all 32 preceding bindings and
+its original six-module scope, takes approximately 184391 of the ordinary 200000
+heartbeats before question construction and execution. The full original profile
+has 211 distinct trace roots; a repeated-root cache cannot remove this work.
+The original full 26-ID outcomes and pure questions remain the reference inputs.
+
+Corrected IO-dependent measurements of the twenty retained closed Values cost
+about 2 heartbeats for all flattened terms, 7 for source traversal, and 8 for
+closure checks. Earlier pure-action timings could evaluate their inputs before
+the timer and do not support the same inference. This exclusion is limited to
+the actually retained Values measured by the corrected diagnostic.
+
+On the actual complete source of the original `i1`, enumeration of all four
+routes costs 82 heartbeats, classification 35, and cached comparison evidence
+less than one. Constructing and applying the four candidates costs approximately
+1075, 988, 590, and 508 heartbeats. The selected route is then constructed again
+for its final check. All four trial images and all their actual edge applications
+are closed. Directly constructing the same two object-projection applications
+preserves every tested expression, inferred type, category bundle, and application,
+but saves only about 93 heartbeats across all four candidates; it is not this repair.
+
+### Owner
+
+`transportedStructureWithAction` already forms every candidate by the registered
+route at the actual complete receiver and expected type. Its speculative trial
+discards metavariable assignments and emits no trace. Classification and accepted
+comparison validation determine the unique source route. `checkedRouteAction`
+then checks its complete inferred endpoint type, instantiated image, every actual
+edge application, and type correctness before recording the retained route.
+
+### New code
+
+Each successful local applicability trial may retain its actual instantiated
+image and ordered edge applications only when all those terms are closed,
+including absence of free and loose bound variables. The candidate keeps this
+optional payload alongside its original target and full Route. Every original
+candidate and its order remain present; the same target key, full route,
+prefix filter, classification, comparison witnesses, and ambiguity rules apply.
+
+After selecting the unique source, reuse its closed actual construction and run
+all the original final checks and trace recording. In particular, re-match the
+complete inferred type against the live expected expression. The expected type
+may initially contain universe metavariables; its speculative assignments are
+discarded and are not retained as evidence. An open image or application uses
+the original fresh construction. The common final validator contains the
+unchanged checks and is called for an actual construction from these original paths.
+
+This reuse lasts for one invocation only. It stores no route choice or success
+across calls, changes no registry key or state ownership, and weakens no existing
+carrier-cache trace precondition. The additive `ClosedRouteTrialProbes` compares
+complete selected images, inferred types, applications, and trace records with
+the original fresh action for both a closed group and a genuinely open local
+group. Existing full-context, nonidentity, ambiguity, and closed-binding probes
+remain unchanged.
+
+### Verification and remaining execution margin
+
+The reviewed implementation compiles in an isolated artifact prefix, using the
+unchanged native dependency closure. The first compile rejected a private helper
+referenced by public declarations; the final revision makes the ordinary checking
+helper public without changing its body or callers. All seven unchanged controls
+pass: `ClosedBindingReadingProbes`, `DeclaredContextBindingProbes`,
+`ReaderContextContinuityProbes`, `SelectedCarrierProbes`, `ParameterStructureProbes`,
+`DependentReaderProbes`, and `MethodComparisonRetentionProbes`. The additive
+closed/open group control also passes. Source, input, selected-artifact, and
+shared-library guards close unchanged on each execution.
+
+Both original factor-sample assertions, with all 32 original preceding bindings
+and their complete six-module import scope, now finish interpretation and
+computation-only evaluation within the observed unchanged 200000-heartbeat option:
+
+| Original assertion suffix | Interpretation heartbeats | Total heartbeats | Outcome |
+|---|---:|---:|---|
+| `first_factor_sample_one` | 194599.735 | 198280.584 | existing `mor.sets.tuple_cons` implementation gap |
+| `first_factor_sample_two` | 195114.394 | 198788.432 | existing `mor.sets.tuple_cons` implementation gap |
+
+The complete canonical question strings are byte-identical to the original full
+26-ID profile, including all typed terms and operation records. The external
+diagnostic opens the `CasCatalogue` namespace, so its displayed proposition omits
+261 namespace prefixes in each case and wraps lines differently. Removing only
+those display prefixes and whitespace makes the displays equal; no normalization
+is used for the canonical question comparison.
+
+The prior pre-evaluation internal timeouts are removed on this measured tuple,
+but these are gaps, not computed assertions, and no backend dispatch occurred.
+Only about 1719 and 1212 heartbeats remain after these executions. The combined
+kernel's exact two-case preflight is still required before claiming enough budget
+for its additional complete module execution. The final unchanged full production
+run remains separate; this bounded diagnostic does not replace it or discharge
+the original mathematical assertions.
+
+The initial additive module fixture failed identically on the untouched baseline
+and the candidate. That fact alone did not establish fixture invalidity. A
+separate diagnostic preserves the full supplied receiver/category and shows that
+its open `ModuleCat ℚ` type contains one unresolved universe metavariable. The
+same metavariable remains in `cell.additive_groups.carrier`, whiskered by the
+fibre inclusion and additive-group action; there are no residual term metavariables.
+`CategoryContext.ofNamed` independently rejects this incomplete category before
+comparison. The original closed module and a separately supplied open
+`ModuleCat.{0} ℚ` both reconstruct the exact complete category and leave no
+unresolved comparison parameters. No universe default is supplied to the original
+fixture. This failure is not evidence of a comparison defect at a complete module
+category, and the group control establishes only local action reuse and fallback.
