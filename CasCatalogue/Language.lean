@@ -7091,12 +7091,25 @@ partial def toElement (v : Value) (X : Value) : M Value := do
       if let some point := state.morphisms.find? fun morphism =>
           morphism.name == pointName && morphism.category == category.id then
         if let .object _ _ (some (_, parameters)) _ _ := X then
-          if ← profileReader "numeral nullary family trial" (parameterCompatible do
-              let result ← applyFamily point.declaration category #[] (some X)
+          let rigidMismatch : Bool ← if k == 0 then parameterTrial do
+              let pointConstant ← mkConstWithFreshMVarLevels point.declaration
+              let (_, _, pointType) ← forallMetaTelescopeReducing (← inferType pointConstant)
+              match homEnds? pointType with
+              | some (_, target) =>
+                  let familyHead ← withTransparency .all <| whnf target
+                  let objectHead ← withTransparency .all <| whnf (← semanticObject X)
+                  return match familyHead, objectHead with
+                    | .forallE .., .const .. => true
+                    | _, _ => false
+              | none => return false
+            else pure false
+          unless rigidMismatch do
+            if ← profileReader "numeral nullary family trial" (parameterCompatible do
+                let result ← applyFamily point.declaration category #[] (some X)
+                  (parameters := parameters) (callableAddress := some point.id.raw)
+                return result matches .element ..) then
+              return ← applyFamily point.declaration category #[] (some X)
                 (parameters := parameters) (callableAddress := some point.id.raw)
-              return result matches .element ..) then
-            return ← applyFamily point.declaration category #[] (some X)
-              (parameters := parameters) (callableAddress := some point.id.raw)
         if ← familyLandsIn point.declaration X then
           let hom ← zeroElement point.declaration X
           return .element (← staged hom) X

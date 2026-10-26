@@ -3878,3 +3878,113 @@ nested endpoint preparation in the kernel. A separate declaration-relative
 presentation repair is underway; the public-only author received no outcome or
 kernel material. No primitive success, full meaning acceptance or V1 completion
 is claimed here.
+
+
+## 2026-10-26 — Close interim permanent readings and preserve the upstream reader guard
+
+Published 8f454d6 passed the selected 7,801-job native build in 595.442 seconds.
+The first launcher had an environment-source-path error; the exact target
+selection was repeated under the configured engines and passed in 13.385 seconds.
+Only that configured build receipt was used for the complete pure exports.
+The CI target audit identified additional explicit consumers: the combined
+candidate will build the exact union of 51 consumer and six native targets.
+
+The unchanged 153 permanent questions all exported successfully, exactly once,
+under the original source files, imports and budgets, in 450.425 seconds. The
+complete preceding-binding/context export passed in 60.062 seconds, retaining
+48 bindings, 12,292 typed occurrences, 1,442 operation records and 568 registry
+rows. Its first helper launch failed at a CoreM/CommandElabM lift; the versioned
+mechanical correction preserved every encoded field and fixed input. A pure
+administrative declaration export completed in 3.290 seconds. All source,
+input, configuration and selected artifact guards remained unchanged. The
+independent meaning reviewer receives only normative mathematics and these
+complete pure interpretation inputs; no runtime evidence or implementation.
+Remaining exports and final computation are separate obligations.
+
+Main 95de265 introduced a zero-family rigid-target check overlapping, but not
+identical to, the candidate's generic guard. The source-reviewed three-way
+merge preserves it only in the zero-family named trial while keeping the full
+candidate owner/ambiguity/parameter and callable-address handling. The isolated
+Language compile passed in 98.860 seconds; the unchanged original dependent
+reader passed in 97.053 seconds. Every frozen output target remained unchanged.
+The combined remote commit must retain main as a second parent.
+
+The 8f independent CI review again produced no verdict: trusted main's private
+base materialization cannot resolve FETCH_HEAD, exit 128. The exact candidate
+retrieval and dependency-chain steps completed. This is an unavailable review
+input, not a substantive rejection. The published candidate already includes
+the separately reviewed source-retrieval correction; no author-installed
+replacement judge or self-approval is used.
+
+
+## 2026-10-26 — Independently assess every interim permanent meaning
+
+The isolated mathematical reviewer completed individual comparisons of all
+153 permanent pure readings and all 48 preceding binding observations against
+the unchanged questions and Mac9 normative mathematics. The full administrative
+identity declaration and route-whiskering format addendum resolved the earlier
+pure-input gaps. No mathematical meaning defect remains in the frozen 8f package.
+The final report, per-ID explanations, shared complete witnesses, binding record
+and input manifest are retained with exact hashes. The reviewer read no kernel
+implementation, leaf code, runtime outcome or engineering diagnosis.
+
+This is an interim interpretation finding, not a computation or availability
+result, a protected acceptance verdict, or a later producer's result. Proof terms
+are represented by their complete propositions; the reviewer did not replay
+omitted proof bodies or certify the exporter implementation. Every final source
+still needs fresh full exports and their complete independent comparison.
+
+## 2026-10-26 — Close the unchanged primitive specimen and retain a context defect
+
+The isolated V9 increment separates retained route history from current object
+and endpoint presentation comparisons. It preserves the ordered component
+Wires and their transitive dependency scope without inventing a product map
+from historical comparisons. Compile completed in 59.235 seconds. The frozen
+public-only a68 primitive observer then held in 8.672 seconds, with unchanged
+sources, inputs and selected artifacts. The actual dispatches were the
+semiring object action, monoid multiplication and set equality; both required
+proved dependency derivations completed. The strict leaf was not changed and
+its author received no execution result or kernel diagnosis.
+
+Independent source review then identified a remaining boundary: two equal
+product packets with distinct ordered child histories can be coalesced because
+service selection omits those histories when they are retained only as generic
+dependency handles. The bounded report freezes the concrete source-level case
+and separates it from the successful fixed specimen. This increment is held
+from publication while full product context selection and actual current
+comparison actions are completed. No generalized-domain, ownership or
+ambiguity requirement is relaxed.
+
+The independent mathematical reviewer separately completed the normative
+preparation for all 134 positive extension questions, citing 169 mathematical
+declarations. Every candidate interpretation verdict remains pending until
+the final complete pure terms and contexts arrive. No computational outcome
+or implementation entered this preparation.
+
+## 2026-10-26 — Execute the original notebook and expose the broader F9 boundary
+
+The original six-cell V1 notebook executed through the existing Jupyter adapter
+on clean published/built 8f in 107.511 seconds. Its single code cell executed
+without errors; the existing strict checker verified all 17 original assertions
+and recorded 73 dispatches across arithmetic, finite pullback reuse, repeated
+matrix applications and nonidentity presentation transport. Only execution
+paths in an external notebook copy changed. Complete source, artifact and fixed
+input guards remained stable. The executed notebook and raw report are retained;
+the final combined producer requires a fresh run.
+
+The separately frozen F9 extension group then executed all 17 fixed IDs in
+33.149 seconds, with stable guards and no missing or duplicate result. None
+held: the report retains four ambiguities, two malformed graph replies, three
+unavailable leaf evaluations and eight implementation gaps. Engineering
+inspection distinguishes an ordinary leaf F9 owner-decoding omission from the
+separate finite-graph contract boundary and numeric-left reader ambiguity.
+No fixed assertion, expectation, import scope, ID or budget changed. No outcome
+was sent to the isolated mathematical reviewer or public-only primitive author.
+
+Local checkpoint 49 preserves every prior archive entry byte-for-byte and adds
+these closed records together with the V8/V9 diagnostics and independent pure
+reviews. Its 159,483,042 bytes have SHA-256
+551aa5aea7160eb80e4e0dba5e411a8e332a978ebf0d92ed300781df1855afd9.
+This is local preservation only: the earlier automatic upload-review rejection
+remains recorded, and durable version 45 is unchanged. Active later source and
+execution records are excluded from this frozen checkpoint.

@@ -12,57 +12,132 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-26
 
-### Latest scoped correction and active completion work
+### Latest integrated preparation and closed interim evidence
 
-Published `7462a36d9eff6166c83c16995454504cbc77d062` (local `eeb8fb2`,
-tree `fcc6677837a891b74773e4fed402c4ec8a5ab04a`) completed its full native
-attempt with exit 1 in 507.632 seconds and an unchanged source tuple. Its only
-failed target was the original LiftedSubobjectDataProbes: the recursive literal
-check tried to reconstruct a proof of membership in the canonical reference
-subobject from actual supplied endpoint inventory points. The earlier complete
-`e4a1fd0` build remains successful historical evidence, not this candidate's result.
+Published kernel `8f454d6b56445eb3fb22c28aa281de973b9be4b7`, tree
+`a6f6f3569c1b6386c9ee5a4a158ac2ed27dc2eb8`, is tree-identical to local
+`5e948913`. Its selected native build passed 7,801 jobs in 595.442 seconds
+with unchanged sources. That first launcher had an environment-source-path
+error; the complete same target selection was then rerun under the configured
+engine environment and passed in 13.385 seconds. Only the configured receipt
+was selected for subsequent exports. This selection does not cover every
+explicit CI consumer target: the next combined build uses the exact union of
+51 current CI consumer targets and six native/notebook targets.
 
-This source introduces an internal actual-point mode at independently selected
-endpoint-schema entry points. It reuses the existing closed one-data-field
-constrained-record interface to validate actual data without reconstructing its
-refinement proof. A non-literal barrier propagates through enclosing records;
-Rat retains its own complete two-data-field literal constraints. Ordinary literal
-schemas keep their proof checks, including finite-set uniqueness. An unresolved
-predicate may retain fixed data slots in either mode, but unresolved data types,
-scalar bounds and universe parameters cannot supply a schema. No public wire
-form, mathematics, original assertion, endpoint equality or ownership check changes.
+This closes the native check of the preceding actual-point refinement repair.
+It validates fixed data fields of actual endpoint points without reconstructing
+reference membership proofs, while nested scalar literal constraints and
+ordinary finite-set uniqueness remain checked. The earlier 7462a36 failed build,
+all diagnostic attempts and the independently reviewed focused controls remain
+preserved. No original assertion, answer, import scope or budget changed.
 
-The isolated validator compile passed in 34.101 seconds. Unchanged original
-lifted-subobject, portable-extent, thirteen-case nested-rational, and codec-condition
-controls passed in 7.856, 3.602, 3.087 and 2.322 seconds with stable source. An
-additive nested constrained-rational, unresolved-predicate and ordinary finite-set
-graph control passed in 3.268 seconds. Its first diagnostic left a ULift universe
-unspecified and correctly lacked a fixed schema; that source and failure are
-preserved separately. Independent read-only source review found no concrete
-blocker in the exact validator delta. These focused results still require this
-source's coherent native build and final frozen runs.
+The complete pure permanent export on configured 8f passed in 450.425 seconds:
+all 153 fixed IDs, exactly once, across the original 17 files, with zero unreadable
+IDs or diagnostics and unchanged sources, inputs and selected artifacts. The
+separate complete preceding-binding/context export passed in 60.062 seconds,
+retaining 48 bindings, 12,292 typed occurrences, 1,442 operation records and
+568 registry rows. A failed helper launch used the wrong monad lift; the
+mechanically corrected, versioned helper retained every observation field.
+An independent reviewer has now compared every ID and all 48 bindings using
+only normative mathematics, complete pure readings/contexts, format definitions
+and typed administrative declarations. The frozen interim report finds no
+mathematical meaning defect or remaining pure-input gap. Its main assessment
+has SHA-256 `6b85d2a79db0d8015180d273e3e1ba9d4fab1ba58c4501d6b691a22ced23f68b`;
+the complete per-ID record is `0d04bc53fe87d56250933653767cd8948f8fe9045c6f420b8f78538bb25d8968`.
+The finding concerns the supplied pure meanings, with omitted proof-body and
+exporter-faithfulness limits. It is not an execution/availability or acceptance
+verdict, and does not transfer automatically to a later producer.
 
-The public-only primitive leaf is now published and frozen at
+This checkpoint incorporates upstream main
+`95de265e5a6d61909703a3193f0a1c952e12131f`,
+retaining its zero-family rigid-target guard together with the candidate's full
+selected-owner, ambiguity, nullary, dependent-parameter and callable-address
+logic. Independent source review found the focused resolution correct. Its
+isolated Language compile passed in 98.860 seconds and the unchanged original
+dependent-reader control passed in 97.053 seconds, with source and frozen
+artifact guards intact. Remote publication retains main as an additional
+parent; a resolved tree alone would not record the merge. The combined source
+still requires its own full build; the interim 8f build is not relabeled.
+
+The public-only primitive leaf remains frozen at
 `a68a52e24d54da21aacc0c4f96ed0160d61ae1d3`, tree
-`d244727a4a1434a65618ae9173bb906823784b42`, equal to clean author `939dea0`.
-The original four registrations and fixed 2 times 3 modulo 5 observer remain.
-Its isolated ba3/Mac9/C3f7 trial failed in 9.155 seconds after two dispatches:
-the complete actual monoid was retained, but the multiplication request's outer
-record-projected target differed from the nested operands' original named target.
-The leaf's strict whole-callable check is unchanged and correctly refused it.
-Engineering source review identified a kernel preparation gap; a separate
-fresh-declaration-field-role repair is in progress. No failed outcome or kernel
-implementation was disclosed to the public-only leaf author. This source does
-not claim that repair or primitive success.
+`d244727a4a1434a65618ae9173bb906823784b42`. Its four registrations and fixed
+observer are unchanged. The earlier ba3/Mac9/C3f7 trial retained the actual
+monoid but exposed inconsistent outer and nested endpoint presentations; the
+leaf correctly refused the whole-callable mismatch. A declaration-relative
+kernel repair compiles in isolation. The V8 trial passed the former recipe
+framing boundary but rejected product inputs whose components retained route
+history without a current comparison action. Closed diagnostics distinguished
+that history from `objectIso` and `endpointPresentation`; neither current
+comparison field was present in the fixed primitive specimen.
 
-Complete pure-export helpers have a definitions-only compiler check. The full
-153/134 exports, complete binding contexts, independent mathematical review,
-134 actual computations, final RX controls, two-leaf consumer, original connected
-workflows, executed notebook and fresh public API publication remain open.
-Checkpoint 45 remains the last durably saved evidence archive. A prepared larger
-checkpoint was blocked twice by automatic approval review before upload began;
-no further upload is attempted without the required explicit approval. Source
-publication and all unaffected implementation and validation work continue.
+The isolated V9 history-retention increment, source SHA-256
+`cc90792c45aeeb82dbb4c4b75684a9744a67805b771a4ce69090b9d0e73ccdad`,
+compiled in 59.235 seconds. Its unchanged primitive observer then passed in
+8.672 seconds with all guards stable. Actual dispatches were the semiring
+action, monoid multiplication and set equality; the ring multiplication and
+multiplicative-monoid computations used the registered proved derivations.
+The complete supplied monoid, its actual packet and every opaque supplier
+remain recorded. This is an isolated specimen result, not a published or
+final-tuple acceptance result.
+
+Independent source review found a remaining V9 context-identity omission:
+equal aggregate product packets can have different ordered child histories,
+but service selection does not compare those histories when they survive only
+as dependency handles. The review records a concrete source-level call path,
+not an executed wrong-answer observation. Publication of this increment is
+held while exact product context selection and actual current product
+comparison actions are completed. The report has SHA-256
+`f05423801d347526be2f71ff8f89803ba910001da9dd0af5d8725d16e8bf928b`.
+Failed attempts and all observations are preserved. No outcome or kernel
+implementation was disclosed to the public-only author.
+
+The independent reviewer has also frozen the normative comparison matrix for
+all 134 positive extension questions, with 169 mathematical declaration
+references. Its SHA-256 is
+`ba68abc523f54d2751d0dbe1609752cf25ac10abff3baeef7b1bf42780ddf9ed`.
+Every candidate extension-interpretation verdict remains pending until the
+fresh complete pure package is supplied.
+
+The original connected notebook has now actually executed on the clean,
+configured 8f producer in 107.511 seconds. Its single code cell executed with
+zero error outputs, all 17 assertions held, and the existing strict checker
+recorded 73 dispatches across the four original workflows. Source, input and
+artifact guards remained stable. The executed notebook has SHA-256
+`3370be703ac9f9fa7ff2316a2f8ed74ef5b548689107b91a18bed76205f3c215`;
+the raw computational report is
+`d91fb63c8e42f56151999efcb6a7a784aa49c4f9880075f818ef8866c083fccf`.
+Only external execution paths were adapted; no notebook feature or example
+expectation changed. It will be rerun on the final combination.
+
+A separate interim run of the unchanged 17-question F9 extension group closed
+in 33.149 seconds with all guards stable. Every fixed ID is present, but none
+held: four reader ambiguities, two malformed graph replies, three unavailable
+leaf evaluations and eight implementation gaps were reported. These remain
+failed observations. Engineering diagnosis identifies an ordinary F9 element
+decoder omission in the leaf's complete-owner handling; the finite-graph
+public-contract boundary and the numeric-left reader ambiguity require
+separate diagnosis. No answer, source question, import or budget was changed,
+and the kernel must not discard selected owners to satisfy a leaf decoder.
+
+The remaining 134 pure readings and their independent complete meaning review,
+the complete final 134-question execution, RX controls, two-leaf consumer,
+connected workflows, executed notebook and fresh API publication still require
+the combined final published and built tuple. Interim results do not transfer
+to that producer. Prepared commands without a closed result are not evidence.
+
+Evidence checkpoint 49 is frozen locally at 159,483,042 bytes, SHA-256
+`551aa5aea7160eb80e4e0dba5e411a8e332a978ebf0d92ed300781df1855afd9`.
+It retains all 4,126 preceding non-index entries byte-for-byte and adds 255
+closed entries, including V8/V9 diagnostics, the independent permanent
+assessment and extension preparation, the notebook and failed F9 execution.
+All 305 selected files were verified. Exact checkpoints 48, 47 and blocked 46
+ZIPs are separately retained. Later active source, execution and review
+records remain excluded and require a subsequent append-only checkpoint.
+Version 45 remains the last confirmed durable save.
+Two automatic approval reviews blocked the previous concrete upload before
+execution. No alternate upload or further retry is attempted without the
+required explicit approval; all unaffected implementation work continues.
 
 ### Earlier repair evidence (retained history)
 
@@ -187,9 +262,10 @@ author accessed only its source, released contract/API and supplied engine.
 ### Fixed evidence and remaining completion work
 
 All 17 permanent files retain their recorded hashes and 153 questions; all 14
-extension files retain 134 positive questions. Baseline exports read 146/153
-and 131/134 respectively. The missing series, Monic and RX-LIFT readings have
-separate closed focused repairs; complete fresh exports and independent review
+extension files retain 134 positive questions. Historical baseline exports read 146/153
+and 131/134 respectively. The configured 8f permanent export now reads all
+153/153; the extension repairs retain their focused evidence pending the fresh
+134 export. Complete exports at the final producer and independent assessment
 of every typed meaning remain mandatory. No assertion, expected answer, import
 inventory or heartbeat budget has been weakened. Genuine competing supplied
 owners and paths must remain ambiguous in either order.
@@ -220,6 +296,10 @@ judge. The independent CI review at `72d10e3` still has no verdict: its trusted 
 `6e67b1e` runs the older materializer without the published shallow-root fix.
 A source-only depth-one fixture reproduces the empty FETCH_HEAD failure and
 confirms that the already published repair preserves the exact selected source.
+The 8f review, run `40348415982`, job `121661516365`, likewise reports
+`REVIEW NOT COMPLETED (inputs unavailable)` at trusted main `95de265`:
+its private base `FETCH_HEAD^{commit}` lookup exits 128, and no verdict artifact
+is produced. Exact candidate retrieval and chain checkout succeeded beforehand.
 No trusted deployment, reviewer or approval was replaced.
 
 The complete 153/134 assertion exporters, unchanged binding control, RX05/RX09
@@ -228,9 +308,9 @@ successful binding's full public Value/context and typed Expr table, exact
 source scopes and operation snapshots. Their definitions-only helper now
 typechecks in 4.294 seconds on the unchanged e4 build. Compiler-directed scope,
 list-type and grouping repairs preserve every encoded field and handler body;
-all fixed source inputs remain unchanged. The full export invocations and
-observations remain unexecuted; counts alone do not satisfy the independent
-typed-meaning review.
+all fixed source inputs remain unchanged. The 8f permanent assertion and complete context exports have now passed;
+the remaining stages are deferred to the combined final producer. Counts alone
+do not satisfy the independent typed-meaning review.
 
 Publish this coherent source and build it before exporting the public API. Publish that unchanged export as an artifact
 with its actual producer; then select the artifact-bearing contract and record
