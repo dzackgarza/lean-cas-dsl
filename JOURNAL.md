@@ -3819,3 +3819,29 @@ crash before the purity traversal. Only that part, its hash and module trace
 were invalidated, with lossless original copies retained. Ordinary Lake rebuilt
 Language from unchanged source in 104.324 seconds. The purity predicate, its
 imports, assertions and budgets were not changed.
+
+## 2026-10-26 — Validate inline scalar subtrees inside computational graphs
+
+Published e4a1fd0 completed the full native target selection in 918.449 seconds,
+all 7,797 jobs, with the complete source tuple unchanged. A subsequent source
+audit identified an older recursive validation gap: a rational graph value had
+its Int/Nat fields checked but not its complete denominator/reduction constraints.
+The unchanged native producer accepted six malformed cases among thirteen
+rational graph, nested graph and list cases. Valid literals and whole/partial
+opaque cases were also recorded. Initial diagnostic parser, preflight and
+elaboration failures are preserved separately and made no runtime observation.
+
+Each existing scalar schema now retains its independently fixed complete type.
+Recursive validation checks the structural fields and applies the existing
+literal decoder only to a wholly inline subtree, discarding its decoded term.
+Opaque data keep their original representation and owner; callable, type-valued
+and actual-key schemas do not become scalar literals. The public protocol,
+mathematical declarations, fixed assertions and expected values are unchanged.
+The exact new diagnostic is retained as an additive engineering gate.
+
+The isolated validator compile passed in 36.054 seconds. All thirteen unchanged
+cases passed in 3.242 seconds, including rejection of every malformed inline
+case and preservation of opaque fields. Original record/ownership and public
+literal/callable controls passed in 3.063 and 7.863 seconds. Independent source
+review found no blocking boundary issue. These scoped results require the new
+source's complete native build and final frozen acceptance runs.

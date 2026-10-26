@@ -281,6 +281,7 @@ partial def endpointKeys (data : Json) : TermElabM (Except String (Option (Array
 mathematical values, constructor laws or proofs. -/
 inductive PointSchema where
   | plain (type : Expr)
+  | literal (type : Expr) (shape : PointSchema)
   | keys (points : Array Json)
   | list (element : PointSchema)
   | graph (domain codomain : PointSchema) (domainKeys : Option (Array Json))
@@ -291,6 +292,7 @@ inductive PointSchema where
 fields and computational endpoint inventories remain data-only interfaces. -/
 partial def PointSchema.scalarLiteral : PointSchema → Bool
   | .plain _ => true
+  | .literal _ shape => shape.scalarLiteral
   | .list element => element.scalarLiteral
   | .recordFields _ fields => fields.all PointSchema.scalarLiteral
   | .alternatives constructors => constructors.all (fun (_, schema) => schema.scalarLiteral)
@@ -359,8 +361,13 @@ partial def pointSchema (type : Expr) (fuel : Nat := 32) :
       return some (PointSchema.recordFields (Codec.isUnlabelled info) schemas)
     let some schema := schema | return none
     alternatives := alternatives.push (Codec.label name, schema)
-  if Codec.isUnlabelled info then return alternatives[0]?.map Prod.snd
-  return some (.alternatives alternatives)
+  let result := if Codec.isUnlabelled info then alternatives[0]?.map Prod.snd
+    else some (PointSchema.alternatives alternatives)
+  -- Keep each scalar subtree's independently fixed complete type. Its public
+  -- representation constraints apply even inside a graph or another record;
+  -- opaque fields still use only the structural schema below.
+  return result.map fun schema =>
+    if schema.scalarLiteral then .literal type schema else schema
 
 /-- Inspect computational JSON against its independent schema without applying
 constructors, filling proof slots, or producing a law-bearing Lean value. -/
@@ -376,6 +383,11 @@ partial def validatePoint (schema : PointSchema) (json : Json) :
       return ← validatePoint schema actual
   match schema with
   | .plain type => return (← Codec.decode type json).map fun _ => ()
+  | .literal type shape =>
+    if let .error message ← validatePoint shape json then return .error message
+    if let some literal := inlineLiteralData? json then
+      return (← Codec.decode type literal).map fun _ => ()
+    return .ok ()
   | .keys points =>
     return if points.contains json then .ok ()
       else .error "a point is outside its actual computational endpoint inventory"

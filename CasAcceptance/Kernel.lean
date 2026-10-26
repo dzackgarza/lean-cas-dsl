@@ -19,6 +19,7 @@ public import CasAcceptance.Kernel.MixedDataOwnershipProbes
 public import CasAcceptance.Kernel.ServiceProjectionProbes
 public import CasAcceptance.Kernel.StructuredServiceRequestProbes
 public import CasAcceptance.Kernel.StructuredRecordDataProbes
+public import CasAcceptance.Kernel.NestedScalarLiteralProbes
 public import CasAcceptance.Kernel.RecordProjectionBoundaryProbes
 public import CasAcceptance.Kernel.ObjectPresentationProbes
 public import CasAcceptance.Kernel.ProductPointFramingProbes

@@ -14,13 +14,15 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ### Published source and current integration
 
-The preceding published kernel is `72d10e3f0d3584ee139ea8860cf2fbab4962fedf`,
-tree `5bd465cc231ee7bc2c6756be59374cd641655fdd`, on
-`work/kernel-v1-20261023`, tree-identical to local `a8a37f6`. After disk exhaustion
-and an interrupted retry, its recovered full native run completed in 604.168
-seconds with exit 1 and unchanged sources. The two failures were a truncated
-generated Language private part and an obsolete record-plan caller. The old
-`9af2a50` failures and both interrupted/environment records remain preserved.
+The preceding published kernel is `e4a1fd065f038e7c02c6cebedbb8d00746b2e92b`,
+tree `83d01175a78909b1965ca49d68cb433a38f82694`, on
+`work/kernel-v1-20261023`, tree-identical to local `b18eb094`. Its complete
+native build passed all 7,797 jobs in 918.449 seconds with unchanged sources,
+including the gates, language, realizer, test suite, question exporter, native
+tools, notebook worker and all six selected mathematical imports. This is a
+build result; the frozen computation and complete interpretation review remain
+separate. The older `72d10e3` and `9af2a50` failures and all interrupted/environment
+records remain preserved.
 
 Independent diagnosis isolated the purity crash to loading the truncated private
 part, before any gate judgment. Its header pointed beyond EOF; the other 66
@@ -35,8 +37,23 @@ Atomic scalar schemas remain atomic; composite schemas retain actual constructor
 slots. Plain composite data reach the literal decoder only when wholly inline.
 The original Nat × (Nat × Nat) packets, equal bytes with distinct suppliers,
 ULift controls and all assertions remain. The isolated record, literal/callable
-and explicit-codec controls pass in 3.234, 8.161 and 4.403 seconds. Complete
-integrated execution of this subsequent source is still required.
+and explicit-codec controls pass in 3.234, 8.161 and 4.403 seconds. The complete
+e4 native build subsequently passed those original controls too.
+
+A separate source audit then found an older recursive scalar validation gap:
+inline rational data inside finite graphs reached their field-shape checks but
+not their complete literal constraints. On the unchanged e4 native build, six
+malformed graph/list/nested-graph cases were accepted in a thirteen-case diagnostic.
+This source retains each scalar subtree's independently fixed complete type and
+applies the existing literal decoder only when that subtree is wholly inline.
+Opaque whole values and opaque fields keep the existing data-only path; graph
+and actual-key schemas cannot acquire the scalar wrapper. No new public wire
+form, mathematical rule or proof from an opaque value is introduced. The exact
+thirteen cases now pass in 3.242 seconds; the unchanged original record and
+literal/callable controls pass in 3.063 and 7.863 seconds. The new engineering
+probe is added without changing existing assertions. Independent read-only
+source review found no blocking boundary issue. This subsequent source needs
+its own complete native build and final frozen executions.
 
 This source also incorporates the complete declared numeral-owner repair,
 completed-point metadata forwarding, and the direct and nested record-codec
@@ -108,9 +125,11 @@ codec increment retains exact producing requests, selected parameters, point
 fragments and native field operands while keeping whole-callable endpoints
 strict. All V1/extension manifests remain unchanged. Publication was fetched
 and compared by complete tree to clean author `bdcbd611`; a detached execution
-checkout is frozen separately. The earlier `3176e43` actual trial's complete
-callable-target mismatch remains a failed result. The new source requires its
-own frozen execution; the leaf's own controls carry no acceptance weight. The
+checkout is frozen separately. The earlier `3176e43` and e855 actual trials'
+complete callable-target mismatch remain failed results; e855 completed in
+13.424 seconds with two dispatches and no equality observation. A later clean
+public-only author source `939dea0e50e4d7f2d84f20414b14e7fe38b9d0f9` is prepared
+for publication and a new frozen trial. Its own controls carry no acceptance weight. The
 author accessed only its source, released contract/API and supplied engine.
 
 ### Fixed evidence and remaining completion work
@@ -132,6 +151,15 @@ replacing failed results. Runtime remains Lean 4.33.0, the recorded 14 packages,
 PassageMath 10.8.13, GAP 4.16.1 and the restored notebook environment in the Pro
 cloud container. No rack build is used.
 
+The locally assembled checkpoint 46 retains every prior entry and has SHA-256
+`c08427e27a77d5a7636743aa1eb4ca6a4c2f726888077e42b2af2fbe8f8093ef`,
+86,681,632 bytes. Automatic approval review blocked its guarded replacement of
+version 45 before upload, including after checking the original preservation
+instruction and native destination. It requires explicit user authorization for
+that concrete payload and replacement; no alternate transfer was attempted.
+Version 45 remains the last confirmed saved checkpoint. Later closed records
+must also be retained before any final evidence delivery.
+
 The shallow exact-source retrieval repair is integrated as `077c9ce`. It preserves
 all expected-SHA and no-execution extraction protections. Existing controls and
 real depth-one positive/moved-reference negative controls pass, with independent
@@ -145,8 +173,12 @@ No trusted deployment, reviewer or approval was replaced.
 The complete 153/134 assertion exporters, unchanged binding control, RX05/RX09
 and RX10 commands are prepared. Additive pure companion drivers retain every
 successful binding's full public Value/context and typed Expr table, exact
-source scopes and operation snapshots. They are not yet compiled or executed;
-counts alone do not satisfy the independent typed-meaning review.
+source scopes and operation snapshots. Their definitions-only helper now
+typechecks in 4.294 seconds on the unchanged e4 build. Compiler-directed scope,
+list-type and grouping repairs preserve every encoded field and handler body;
+all fixed source inputs remain unchanged. The full export invocations and
+observations remain unexecuted; counts alone do not satisfy the independent
+typed-meaning review.
 
 Publish this coherent source and build it before exporting the public API. Publish that unchanged export as an artifact
 with its actual producer; then select the artifact-bearing contract and record
