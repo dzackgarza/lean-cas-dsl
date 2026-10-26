@@ -4026,3 +4026,22 @@ fixture syntax error remain preserved. No acceptance input or budget changed.
 This commit integrates that closed source repair, while product current-comparison,
 RX05 reading and remaining execution-retention diagnostics continue separately.
 The final published/built tuple, API export and frozen executions remain required.
+
+
+## 2026-10-27 — Retain complete operation owners through inherited numeral reading
+
+Integrated the exact closed Language V3 source and its focused engineering
+regression control. All 13 original RX05 and 17 original F9 questions read at
+unchanged scope, order and budgets. Compilation and the focused, contextual,
+named-parameter and dependent-reader controls passed with all guards stable.
+The family application keeps every already selected complete owner and actual
+route; anonymous Sets numeral forwarding requires a real current action.
+The rejected V2 context-wrapper regression remains preserved. The focused
+control is now part of the existing engineering aggregate. This is source and
+reading validation, with final computation and independent pure review pending.
+The downstream returned-operation owner seam remains explicitly unobserved.
+
+The trusted shallow-input repair is separately concrete in PR 70 at 6d25e26,
+with two passing retrieval tests and freshly verified full-tree equality.
+Latest candidate trusted review again failed before producing a verdict.
+No author installation of the authoritative evaluator or main change occurred.

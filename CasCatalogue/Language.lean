@@ -4847,11 +4847,11 @@ partial def retainNamedMorphism (entry : MorphismEntry) (value : Expr) : M Expr 
 /-- The family of morphisms `declaration` of `category` applied to elements. Its parameters are
 unified from the sets of the operands and from `target?`, the set it is to land in (`deg` on
 `ℤ[x]` is `deg ℤ`); a numeral operand is an element of the set the family then takes there. -/
-partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
+partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategoryEntry)
     (elements : Array Value) (target? : Option Value := none) (numerals : Array Nat := #[])
     (maps : Array Expr := #[]) (parameters : Array Value := #[])
     (application : Option Expr := none) (callableAddress : Option String := none)
-    (operationId : Option OperationId := none) : M Value := do
+    (operationId : Option OperationId := none) (owners : Array Value := #[]) : M Value := do
   let state ← registryState
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, type) ← forallMetaTelescopeReducing (← inferType constant)
@@ -5085,7 +5085,7 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
         let some entry ← OperationAgreement.selectedEntry state declaration complete
             elements.size (some selected)
           | throwStratum .invalid "the selected operation lost its complete declared binding"
-        endpointWitnesses ← operationParameterObjects entry complete endpointWitnesses
+        endpointWitnesses ← operationParameterObjectsWithOwners entry complete endpointWitnesses owners
   -- The domain's declared inclusion also fixes its ambient object. Keep that actual
   -- endpoint for dependent result parameters rather than recovering an alias from a carrier.
   for X in operandObjects do
@@ -5215,6 +5215,16 @@ partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
         (← semanticObject target) (← semanticObject chosen))
     return .element resultMap resultTarget
   return result
+
+/-- The ordinary family entry point keeps its declared parameters and binding kind.
+Selected operations additionally retain their already checked owner views internally. -/
+partial def applyFamily (declaration : Name) (category : NamedCategoryEntry)
+    (elements : Array Value) (target? : Option Value := none) (numerals : Array Nat := #[])
+    (maps : Array Expr := #[]) (parameters : Array Value := #[])
+    (application : Option Expr := none) (callableAddress : Option String := none)
+    (operationId : Option OperationId := none) : M Value :=
+  applyFamilyWithOwners declaration category elements target? numerals maps parameters
+    application callableAddress operationId
 
 /-- The registered application of the set of the element `f`, its category and the set's
 parameters; for an element of a domain `D ↪ B` (an automorphism in `GLₙ(K) ↪ Matₙ(K)`), that of
@@ -6777,8 +6787,14 @@ partial def operationPointComparison (source : Expr) : M (Option Expr) := do
 /-- A numeral of a retained full source, forwarded along its actual structural action.
 All source numeral structures are checked before choosing a serialization representative. -/
 partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
-  let .object carrier category _ selected _ := X | return none
-  let some target := selected | return none
+  let .object carrier category origin selected data := X | return none
+  -- An explicit anonymous Sets view is itself the target of its retained action.
+  -- Its lack of a further selected structure does not erase the complete source.
+  -- A context-only wrapper does not select one of its original witnesses.
+  if selected.isNone && (category.id != CategoryId.sets || origin.isSome ||
+      data.all (fun (_, _, route, _, _) => route.isEmpty)) then
+    return none
+  let target := selected.getD X
   let .object targetHandle targetCategory .. := target | return none
   let state ← registryState
   let one ← semanticObject (← oneObject)
@@ -6800,14 +6816,32 @@ partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
   let mut candidates : Array (Value × Array EdgeRef × Array Expr × Expr × Value) := #[]
   for (source, route, applications) in witnesses do
     let .object sourceHandle sourceCategory sourceOrigin _ _ := source | continue
-    unless state.numerals.any (·.over == some sourceCategory.id) do continue
     let sourceCarrier ← carrierObject source
     let .object sourceType .. := sourceCarrier | continue
     unless ← withTransparency .all <| isDefEq sourceType carrier do continue
     let sourceNumerals := state.numerals.filter (·.over == some sourceCategory.id)
-    let some numeral ← numeralIn { state with numerals := sourceNumerals }
-        k one sourceType #[(sourceCategory.id, sourceHandle)]
-      | continue
+    let hom? ← if sourceNumerals.isEmpty then
+        -- The retained complete source can itself inherit its numeral family.
+        -- Read that original source by its existing rule before forwarding its
+        -- point; the target carrier cannot choose or fill a numeral owner.
+        withReader (fun context => { context with trace := some recorder }) <|
+          optionalReading do
+            let .element point actualTarget ← toElement (.nat k) sourceCarrier
+              | throwStratum .invalid "the retained numeral source did not supply a point"
+            unless ← withTransparency .all <|
+                isDefEq (← semanticObject actualTarget) sourceType do
+              throwStratum .invalid "the retained source numeral changed its selected target"
+            return point
+      else do
+        let some numeral ← numeralIn { state with numerals := sourceNumerals }
+            k one sourceType #[(sourceCategory.id, sourceHandle)]
+          | pure none
+        let point ← homIn (← quoteExpr numeral) one sourceType category
+        Trace.record (some recorder) point (.elementNumeral k sourceType sourceHandle)
+        let hom ← withReader (fun context => { context with trace := some recorder }) do
+          staged point
+        pure (some hom)
+    let some hom := hom? | continue
     if let some (entry, params) := sourceOrigin then
       let named ← Semantic.object entry (← typedParamTerms entry.declaration params) none
       unless entry.category == sourceCategory.id && !named.hasMVar && !named.hasLevelMVar &&
@@ -6819,10 +6853,6 @@ partial def forwardNumeral (k : Nat) (X : Value) : M (Option Value) := do
       let actualParams := (named.getAppArgs.zip infos).filterMap fun (arg, info) =>
         if info.isExplicit then some arg else none
       Trace.record (some recorder) sourceHandle (.object entry.id actualParams)
-    let point ← homIn (← quoteExpr numeral) one sourceType category
-    Trace.record (some recorder) point (.elementNumeral k sourceType sourceHandle)
-    let hom ← withReader (fun context => { context with trace := some recorder }) do
-      staged point
     unless !hom.hasMVar && !hom.hasLevelMVar && (← isTypeCorrect hom) do
       throwStratum .invalid m!"the retained source numeral is not a closed typed point"
     candidates := candidates.push (source, route, applications, hom, sourceCarrier)
@@ -7774,8 +7804,8 @@ The accepted owner slot determines its category. Other supplied parameters keep
 all compatible registered category schemas; none is inferred from an operand's
 carrier or from a computed answer. These witnesses let heterogeneous operands
 use their own declared interfaces even when the result belongs to another set. -/
-partial def operationParameterObjects (row : OperationEntry) (application : Expr)
-    (known : Array Value := #[]) : M (Array Value) := do
+partial def operationParameterObjectsWithOwners (row : OperationEntry) (application : Expr)
+    (known : Array Value) (owners : Array Value) : M (Array Value) := do
   let state ← registryState
   let parameters := application.getAppArgs
   unless parameters.size > row.numerals do
@@ -7793,20 +7823,45 @@ partial def operationParameterObjects (row : OperationEntry) (application : Expr
       else state.categories.filterM (parameterCategoryCompatible type)
     for category in categories do
       let context ← CategoryContext.ofNamed category parameter
-      let value ← match ← optionalReading
-          (recognize state parameter category available parameters) with
-        | some value => pure value
-        | none => objectInContext parameter context available
+      let value ← if index == ownerSlot && !owners.isEmpty then do
+          -- Name lookup has already selected these complete owner views and
+          -- their accepted source routes. A type-only search from the originals
+          -- would reopen unrelated routes after the operation is fixed.
+          for owner in owners do
+            let .object handle ownerCategory .. := owner
+              | throwStratum .invalid "a selected operation owner is not a complete object"
+            unless ownerCategory.id == category.id && !handle.hasMVar && !handle.hasLevelMVar &&
+                (← isTypeCorrect handle) && (← isDefEq (← inferType handle) type) &&
+                (← withTransparency .all <| isDefEq handle parameter) do
+              throwStratum .invalid "a retained operation owner differs from its complete parameter"
+          objectInContext parameter context owners
+        else do
+          match ← optionalReading (recognize state parameter category available parameters) with
+          | some value => pure value
+          | none =>
+              -- This parameter is already fixed by the complete operation. Keep
+              -- every supplied source action giving that full object before an
+              -- anonymous context would discard its original numeral selection.
+              let selected ← selectedParameterFromWitnesses state parameter category available
+              match selected with
+              | some value => pure value
+              | none => objectInContext parameter context available
       available := available.push value
   return available
+
+/-- Retain an operation's complete parameters when no prior name-lookup owner views
+are supplied. The public entry point preserves its existing declaration contract. -/
+partial def operationParameterObjects (row : OperationEntry) (application : Expr)
+    (known : Array Value := #[]) : M (Array Value) :=
+  operationParameterObjectsWithOwners row application known #[]
 
 /-- Instantiate the operation at the owner binder validated by the registry. A selected
 receiver fixes that whole owner; retained constructor parameters may not replace it with a
 different structure on the same carrier. Anonymous declaration-owned coordinates may still
 obtain their owner from their complete supplied context. -/
-partial def selectedOperationApplicationsWithSources (declaration : Name) (owner : CategoryId)
+partial def selectedOperationApplicationsWithOwners (declaration : Name) (owner : CategoryId)
     (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) :
-    M (Array (Expr × Array OperationSource)) := do
+    M (Array (Expr × Array OperationSource × Array Value)) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (args, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
   let ownerSlot := args.size - 1 - numerals.size
@@ -7821,7 +7876,7 @@ partial def selectedOperationApplicationsWithSources (declaration : Name) (owner
               else sourceParameterValues receiver
           | _ => sourceParameterValues receiver
         pure (values.map fun value => (value, none))
-  let mut applications : Array (Expr × Array OperationSource) := #[]
+  let mut applications : Array (Expr × Array OperationSource × Array Value) := #[]
   for (source, provenance) in sources do
     let candidate ← try parameterTrial do
       unless ← bindSelectedReceiver args ownerSlot source (some owner) do return none
@@ -7846,7 +7901,7 @@ partial def selectedOperationApplicationsWithSources (declaration : Name) (owner
     if let some application := candidate then
       let mut retained := false
       for index in [:applications.size] do
-        let some (previous, sources) := applications[index]? | unreachable!
+        let some (previous, sources, owners) := applications[index]? | unreachable!
         unless ← sameOperationApplication previous application do continue
         let sources ← match provenance with
           | some source => do
@@ -7855,11 +7910,18 @@ partial def selectedOperationApplicationsWithSources (declaration : Name) (owner
           | none => pure sources
         let representative := if (← Realize.termIdentity application) <
             (← Realize.termIdentity previous) then application else previous
-        applications := applications.set! index (representative, sources)
+        let owners := if owners.any (·.sameSource source) then owners else owners.push source
+        applications := applications.set! index (representative, sources, owners)
         retained := true
         break
-      unless retained do applications := applications.push (application, provenance.toArray)
+      unless retained do applications := applications.push (application, provenance.toArray, #[source])
   return applications
+
+partial def selectedOperationApplicationsWithSources (declaration : Name) (owner : CategoryId)
+    (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) :
+    M (Array (Expr × Array OperationSource)) := do
+  return (← selectedOperationApplicationsWithOwners declaration owner receiver numerals surfaceName).map
+    fun (application, sources, _) => (application, sources)
 
 partial def selectedOperationApplications (declaration : Name) (owner : CategoryId)
     (receiver : Value) (numerals : Array Nat) (surfaceName : Option String := none) : M (Array Expr) := do
@@ -7899,13 +7961,13 @@ partial def applyOperation (name : String) (elements : Array Value) (X : Value)
       | some id => match state.objects.find? (·.id == id) with
         | some row => object state row.name #[] none
         | none => throwStratum .invalid m!"an operation's result object is not registered"
-    for (application, sources) in (← selectedOperationApplicationsWithSources operation.declaration
+    for (application, sources, owners) in (← selectedOperationApplicationsWithOwners operation.declaration
         operation.category receiver numerals (some name)) do
       let candidate? ← try parameterTrial do
         let recorder ← Trace.new
         let value ← withReader (fun context => { context with trace := some recorder }) do
-          applyFamily operation.declaration sets elements (some target)
-            (application := some application) (operationId := some operation.id)
+          applyFamilyWithOwners operation.declaration sets elements (some target)
+            (application := some application) (operationId := some operation.id) (owners := owners)
         return some (value, ← recorder.get)
       catch error =>
         if CasCatalogue.Exception.interpretationKind error == .invalid then pure none else throw error

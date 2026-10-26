@@ -10,7 +10,38 @@ Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f27
 
 Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
 
-## Current continuation state — 2026-10-26
+## Current continuation state — 2026-10-27
+
+### Integrated complete-owner reader repair
+
+Published composition checkpoint `7d3589234b25b79636c809bf8c3ebec24c905310`
+is full-tree equal to local `da9801c`. The next source increment integrates
+Language V3 and its exact focused ambiguity control. All 13 original RX05 and
+17 original F9 questions now read, in original order and at original budgets;
+the original dependent-reader and numeral controls pass. All seven closed runs
+have stable guards. See [the selected-owner review](specs/reviews/selected-owner-reading-20261027.md).
+This does not claim computational success or replace the final independent
+interpretation review. Product comparisons, whole-function/admission handling,
+complete module representations and the measured RX-LIFT reading cost remain
+under active engineering work. The frozen native producer remains 8f.
+
+### Owner action: trusted review input retrieval
+
+The exact minimal correction is prepared and published as draft
+[PR 70](https://github.com/dzackgarza/lean-cas-dsl/pull/70), head
+`6d25e260fc718c273f9a3cbd55df7a511b09d495`, based on main
+`95de265e5a6d61909703a3193f0a1c952e12131f`. It changes only the trusted fetch's
+`--update-shallow` option and adds a depth-one/stale-SHA regression test; both
+current-main retrieval tests pass. Its fetched full tree is
+`e5574a94fec5f64d383a5c1f7de0471a34a06bd5`. The appropriate independent
+maintainer must review and install this trusted-source correction before the
+trusted review can consume it. The author has not installed its own judge or
+changed main. Latest 7d review run `40371398775` again stopped before any verdict:
+`REVIEW NOT COMPLETED (inputs unavailable)` at the private base
+`FETCH_HEAD^{commit}` lookup. There was no verdict artifact. Main and PR 70
+were checked again and remain unchanged/open respectively. Unaffected kernel
+construction and validation continue.
+
 
 ### Integrated composition context repair
 
