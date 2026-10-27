@@ -84,6 +84,7 @@ jobs:
             bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" build \
               CasCatalogue.ConstrainedPoint CasCatalogue.Language CasCatalogue.Realize \
               CasCatalogue.EndpointDataProbes CasCatalogue.ContextParameterProbes \
+              CasAcceptance.Kernel.RoutedCompositionEngineering \
               CasCatalogue.QuestionComparison CasTools.QuestionExport CasCatalogue.TestSuite \
               CasTools.Harness CasTools.ExportFull \
               CasAcceptance.Kernel.ConstrainedPointProbes \

@@ -5,7 +5,7 @@ The historical kernel is extracted byte-for-byte from its published git tree and
 built in an isolated runtime checkout with its own internal import closure. It
 never imports a candidate Trace, Semantic, or other kernel module. Both builds
 use the selected external semantic/toolchain tuple; only an exact reviewed
-additive contract revision may differ from f65's manifest. Candidate source
+compatible contract revision may differ from f65's manifest. Candidate source
 pairs remain hash guarded, but they no longer claim historical ABI compatibility.
 These are engineering controls, not independent mathematical acceptance.
 
@@ -41,7 +41,7 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = 'd01ccd310c4bf1fc40e98365b5011ba803d15c53a8c632bcea3fbabbefccc3c5'
+CANDIDATE_REALIZE_SHA256 = 'cc53df3aa0a8a5585f87e8422ab632194078c2fa27bcbd0e88600aeadc7aa9fd'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/DeclaredApplication.lean': {
         'before': None,
@@ -49,8 +49,12 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'New shared full declaration matcher extracted from the existing Realize interface; the original wrapper delegates without changing its signature'},
     'CasCatalogue/RoutedResultPlan.lean': {
         'before': None,
-        'after': 'f0a9fa314439224a2f13fd6439e73a87d38ca36498fe72288d9ab440be28fa6e',
-        'scope': 'Pure dependent result schemas retain symbolic parameter origins, complete compositional boundaries and public field positions; no dispatch or mathematical values are manufactured'},
+        'after': 'f90bc2b292606dba9fa6fc9cfe343c5c49ab1a98eb226f0b06f898f0a101a9d2',
+        'scope': 'Dependent result schemas retain symbolic parameter origins, exact public field positions, comparison-aligned projection actions and final reply paths across composition; no mathematical values are manufactured'},
+    'CasCatalogue/LiftStageExecution.lean': {
+        'before': None,
+        'after': '94fca40505bae00aebd561e63ce6fdb68f73dc5afdcdf52eb51eee03427f6311',
+        'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
     'CasCatalogue/Language.lean': {
         'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
         'after': '4a01ff517b2581cbbfa1accfaaef2367fb058ad28ef86ab256709f7e5ff0c1a5',
@@ -77,43 +81,45 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Existing structured preparers retain exact typed callable endpoint operands'},
     'CasCatalogue/UniversalServiceRequest.lean': {
         'before': '4781b2991d976c080c47069461cac309f1dee946775a1b70a86f0548a60e04e5',
-        'after': 'adc3a6ceae6f1af70f566b223fa5c5f350eda79aa92148507496576604346eb7',
-        'scope': 'The unchanged public decoder and captured universal invocation share typed materialization/completion; exact endpoint operands remain retained'},
+        'after': '7d79afcd1a7729d9cd822474ab642a878590de9cc9319e3cc6f03a73436bd902',
+        'scope': 'Universal invocations retain complete typed operands and actual lift action image data through the reviewed optional public metadata; legacy requests retain their recipe framing'},
     'CasCatalogue/ComputationDerivation.lean': {
         'before': '5db0786c3ce5766a6f1f2d298e4ad6135b3f3f3b08e666019ac81a4d054b84e5',
         'after': 'd84a1143d1bb387a21b0bc1a95f001e6ad47e4d1608a66c5aac376636633d50b',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/LiftedSubobjectData.lean': {
         'before': '5e0cebc28b49eb3d437bc67a0d2a07e100655c2d0d360147d249ff6fd9d3afdf',
-        'after': 'ba149f1d38ce45570c8f373b6b9c56d42b15fb9fe15cdc485c5b89a98cc6ad81',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
+        'after': 'b89fab018b47bf0eea0d4ff0b34e3e31c695aee551d0e282fcc3c066bfd44f85',
+        'scope': 'Completed lift decoding keeps each actual source/comparison image and its ownership at independently selected formal interfaces; legacy packets preserve their explicit recipe mode'},
     'CasCatalogue/QuestionIdentity.lean': {
         'before': '31df18299a1074aca65ca5f0e61becc3867b7d16c1e00944bbe1c9ce17c32f32',
         'after': 'bcf89986fd30e31e91283e255ec2c8073c2422eff3c9b17f377c4556809e907e',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/SelectedLift.lean': {
         'before': 'c055982c0bbf182399e8fe623e98190b4209fa912bebe0c81bbaf545069c3622',
-        'after': '4d00584b64ecd6f604b9d6f84744b28fa3333860ff4364117d471d09d1a14c2d',
+        'after': '3b6398d73eb884c8052664e89048efd492c05c4d9aed2dd07c17ae2bc5eb8e1c',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/Semantic.lean': {
         'before': 'd1ec8ea5007c039985b0fff5e0e6b4db4f53c1e68c03cdfef7663ee67e17f232',
         'after': '8689adb1b21628921a773d0ac07b187f8821c9218945b4678e708955073fd1e2',
-        'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
+        'scope': 'Retained complete method and comparison applications, plus exact dependent limit choice validation; registry-only resolution and accepted creation/comparison constructions remain in use'},
     'CasCatalogue/Trace.lean': {
         'before': '5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7',
         'after': 'c037b4d82a0cf0828deeb0e6f6d0f1d39d2ec95468e819ae35549b22648969df',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
 }
 
-# The one external source change reviewed for this comparison is additive:
-# existing executable declarations are unchanged; the new method decoder and
-# Python helper are unused by the historical kernel. The baseline report records
-# this effective tuple explicitly instead of calling it the historical manifest.
+# The reviewed contract adds a complete-method decoder and optional actual-image
+# lift metadata. LiftInput/LiftFactorInput records, encoders and decoders change:
+# defaults omit the new fields and preserve the legacy ordered wire arguments.
+# Historical consumers construct/access named fields, not positional constructors.
+# Both kernels use this effective contract tuple, recorded explicitly rather than
+# misreported as the historical manifest; baseline sources are never rewritten.
 REVIEWED_EXTERNAL_REVISIONS = {
     'cas_leaf_contracts': {
         'before': '3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5',
-        'after': 'b71dc66e93ebb7ae31f0375a1205f5a1f422880d',
-        'scope': 'Additive complete-method decoder and documentation; existing Lean/Python executable declarations are unchanged'},
+        'after': '24d474b274827e17e71b4b57c2cf882e11a3fea7',
+        'scope': 'Complete-method decoder plus optional actual lift images; changed Lean records/encoders/decoders and Python readers preserve legacy field order and absent-metadata behavior through defaults'},
 }
 
 OWNER_ERROR = 'target-category operation dispatched before its two selected owner actions'
@@ -725,7 +731,7 @@ def self_test():
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
                 'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',
                 'CasCatalogue/DeclaredApplication.lean', 'CasCatalogue/RoutedResultPlan.lean',
-                'CasCatalogue/Language.lean',
+                'CasCatalogue/Language.lean', 'CasCatalogue/LiftStageExecution.lean',
                 'CasCatalogue/ComputationDerivation.lean', 'CasCatalogue/LiftedSubobjectData.lean', 'CasCatalogue/QuestionIdentity.lean', 'CasCatalogue/SelectedLift.lean', 'CasCatalogue/Semantic.lean', 'CasCatalogue/Trace.lean'})
             before = hashlib.sha256(b'baseline').hexdigest()
             reviewed = {}

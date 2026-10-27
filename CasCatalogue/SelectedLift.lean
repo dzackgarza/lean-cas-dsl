@@ -153,7 +153,9 @@ def fromMethodApplication (entry : LiftEntry) (retained : MethodLiftApplication)
     unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) do
       throwError "the retained lift has an unresolved public data port"
     return value
-  return { entry, parameters, evidence, computation, action := retained.action,
+  return {
+    entry, parameters, evidence, computation
+    action := retained.action
     source, inclusion, monic, ports }
 
 /-- A factor's original generalized domain comes from its complete cone map.
@@ -253,7 +255,8 @@ def methodPlans (id : MethodId) (route : Array EdgeRef) (lifts : Array LiftId)
   let mut input := application.baseResult
   let mut plans : Array Plan := #[]
   for index in (List.range application.lifts.size).reverse do
-    let retained := application.lifts[index]!
+    let some retained := application.lifts[index]?
+      | throwError "the retained method lost an ordered complete lift application"
     let some entry := state.lifts.find? (·.id == retained.id)
       | throwStratum .invalid "the retained method lift is no longer registered"
     unless entry.edge == route[index]! do

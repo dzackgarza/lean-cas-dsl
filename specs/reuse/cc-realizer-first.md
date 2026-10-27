@@ -15,6 +15,52 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Compositional fields and actual lift operands — 2026-10-27
+
+Direct source inspection reused `RoutedResultPlan`'s fresh declaration schemas,
+`Semantic.routeComparisonWithData`, `ComputationalData.RecordProjectionPlan`,
+the public record assembler, the existing object/map action executor, complete
+callable framing, and `SelectedLift`'s four ports and factor order. The selected
+Mathlib source supplies
+[`NatIso.naturality_1`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/NatIso.lean)
+for the exact comparison composite at each mapped parent presentation. No
+categorical law is reimplemented or inferred from computational data.
+
+The projection compiler retains every complete action and comparison telescope,
+including constructor-induced comparison actions and prefix/suffix whiskering.
+Its runtime consumer executes those original map occurrences through the shared
+executor, then uses the accepted naturality equality at the canonical field
+interface. A registered route need not be definitionally equal to that field
+functor when an accepted full natural isomorphism relates them.
+
+Each intermediate action retains its independently compiled public schema.
+Exposed fields of a fused reply keep their exact returned occurrences. Missing
+fields consume original positioned inputs and registered object/map actions;
+equal closed values never select a supplier. Complete maps refer to distinct
+source/target image slots. Actual transported requests retain the route chain
+and final receiver actually sent. Both forms support later prescribed lifts
+without claiming that a separately computed image was hidden history of the
+fused leaf. Raw reply validation precedes executable comparison materialization.
+Private inspection clones mutable intermediate caches before completing future
+fields, preserving isolation from live execution.
+
+The new `LiftStageExecution` module factors the existing four-field dependency
+loop over a caller-supplied operand type. Actual and prospective consumers supply
+their existing readers/observers to the same fold. Contract `24d474b` adds the
+actual source and comparison image slots while retaining legacy ordered fields.
+Stage handles keep full typed occurrences, not just JSON recipes. Successive
+comparison and factor consumers reuse registered map actions and complete
+callable framing, including opaque bodies and permitted finite-data enrichment.
+The final factor does not request an unused mapped cone. All mathematical
+selections and proof checks remain owned by the accepted interfaces.
+
+The added composition control exercises original ring parameter positions,
+distinct equal-valued endpoint slots and partial exposure of an intermediate
+Arrow. It is engineering evidence only. Source review corrected shared private
+and live cache state, opaque-map framing and unnecessary terminal action demand;
+the integrated candidate must still compile and execute with unchanged frozen
+controls and resource limits.
+
 ## Complete contextual parameters and selected presentations — 2026-10-28
 
 Direct source inspection located the existing `CategoryContext` route selection,

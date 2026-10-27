@@ -5,6 +5,7 @@ public import CasCatalogue.StructuredProjection
 public import CasCatalogue.ComputationalData
 public import CasCatalogue.FunctorActionData
 public import CasCatalogue.DeclaredApplication
+public import Mathlib.CategoryTheory.NatIso
 
 -- This module publishes executable schema APIs and their result types. Their
 -- implementation bodies stay private so the public wrappers can use the
@@ -57,12 +58,20 @@ inductive Node where
   | returned
   | record (codec : ComputationalData.RecordFieldCodec) (fields : Array Nat)
 
+/-- An output may expose a field produced by an earlier action of the same
+fused invocation. Its actual packet belongs to this reply occurrence, not to
+another evaluation of an equal formal expression. -/
+structure ReturnedOrigin where
+  actionIndex : Nat
+  replyPath : ComputationalData.RecordFieldPath
+
 structure Slot where
   formal : Expr
   expectedType : Expr
   replyPath : ComputationalData.RecordFieldPath
   role : Role
   node : Node
+  producedBy : Option ReturnedOrigin := none
 
 /-- The full public role is inherited from one exact input position. The role
 path is fixed before closing symbolic roots; it never selects a category by a
@@ -97,16 +106,74 @@ structure ProjectionParameter where
 
 /-- A registered field action, including every explicit computational parameter
 origin, selected while the original declaration roots are still distinct. -/
-structure ProjectionActionPlan where
+structure ProjectionActionStep where
   edge : EdgeRef
   declarationApplication : Expr
+  application : Expr
+  sourceContext : CategoryContext
+  targetContext : CategoryContext
+  parameters : Array ProjectionParameter
+
+/-- One exact accepted comparison occurrence in the alignment to the public
+projection. `data` retains the declared direction; only `inverse` orients this
+occurrence in the selected path. Parameters and action segments are positional
+inside this occurrence, even when another occurrence has equal expressions. -/
+structure ProjectionAlignmentStep where
+  witness : RouteComparison
+  inverse : Bool
+  data : Semantic.RouteComparisonData
+  parameters : Array ProjectionParameter
+  before : Array ProjectionActionStep
+  left : Array ProjectionActionStep
+  right : Array ProjectionActionStep
+  after : Array ProjectionActionStep
+
+structure ProjectionActionPlan where
+  route : Route
+  steps : Array ProjectionActionStep
+  /-- The complete public field functor, including its morphism action. -/
+  projection : Expr
+  /-- The exact composite of the selected registered step applications. -/
   application : Expr
   parent : Expr
   field : Expr
   step : ComputationalData.RecordFieldStep
   sourceContext : CategoryContext
   targetContext : CategoryContext
-  parameters : Array ProjectionParameter
+  comparisons : Array (RouteComparison × Expr) := #[]
+  alignment : Array ProjectionAlignmentStep := #[]
+  /-- The ordered accepted comparison from `application` to `projection`.
+  Absence means the two complete functors are definitionally equal. -/
+  alignmentComparison : Option Expr := none
+
+/-- Parameter positions remain local to their exact route step. Flattening is
+only an inventory operation, never a way to recover or merge an occurrence. -/
+def ProjectionActionPlan.parameters (plan : ProjectionActionPlan) : Array ProjectionParameter :=
+  plan.steps.flatMap (·.parameters) ++ plan.alignment.flatMap fun selected =>
+    selected.parameters ++
+      (selected.before ++ selected.left ++ selected.right ++ selected.after).flatMap (·.parameters)
+
+/-- Specialize the existing naturality theorem at the exact retained map.
+Execution of the three component maps produces the theorem's left side; its
+right side is the canonical public projection's map, with complete dictionaries
+and endpoints retained. This introduces no new categorical law. -/
+def ProjectionActionPlan.mapAlignment (plan : ProjectionActionPlan)
+    (morphism : Expr) : TermElabM (Option Expr) := do
+  let some comparison := plan.alignmentComparison
+    | do
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq plan.application plan.projection) do
+        throwError "the projection plan omitted its nonidentity accepted alignment"
+      return none
+  Semantic.checkRouteComparison comparison plan.application plan.projection
+  let proof ← mkAppM ``CategoryTheory.NatIso.naturality_1 #[comparison, morphism]
+  let type ← whnf (← inferType proof)
+  unless type.isAppOfArity ``Eq 3 && (← withTransparency .all <|
+      isDefEq type.getAppArgs[2]! (← Semantic.mapOf plan.projection morphism)) do
+    throwError "the projection naturality theorem changed the complete canonical map"
+  unless ← isTypeCorrect proof do
+    throwError "the projection naturality theorem lost its exact typed occurrence"
+  return some (← instantiateMVars proof)
 
 /-- An unused presentation does not require a computational comparison action.
 Missing data origins and formal ambiguity are retained as different outcomes;
@@ -127,6 +194,47 @@ def ProjectionActionFailure.raise {α : Type} (failure : ProjectionActionFailure
   | .missing message => throwStratum .noImplementation m!"{message}"
   | .ambiguous message => throwSemanticAmbiguity m!"{message}"
 
+/-- A missing intermediate field is computed only by its already selected
+registered action. Map image endpoints address distinct slots in this stage's
+fresh public result schema, even when their later formal values coincide. -/
+inductive FieldActionKind where
+  | object
+  | map (sourceSlot targetSlot : Nat)
+
+structure FieldCompletionAction where
+  steps : Array ProjectionActionStep
+  input : Expr
+  inputType : Expr
+  inputRole : ProjectionParameterRole
+  source : ProjectionParameterSource
+  kind : FieldActionKind
+
+/-- Completion reads original positions, assembles the existing public codec,
+or invokes a complete registered field action. An opaque missing field has no
+invented derivation merely because the enclosing stage has a known result type. -/
+inductive FieldCompletion where
+  | retained (source : ProjectionParameterSource)
+  | record (codec : ComputationalData.RecordFieldCodec) (fields : Array Nat)
+  | action (selected : FieldCompletionAction)
+  | unavailable (failure : ProjectionActionFailure)
+
+/-- One independently compiled action boundary, kept after composing its
+provenance into the final result. Final-reply positions exposed by `producedPaths`
+take priority over this completion table; the table supplies only missing data. -/
+structure IntermediateStage where
+  actionIndex : Nat
+  edge : EdgeRef
+  application : Expr
+  receiver : Expr
+  formal : Expr
+  sourceContext : CategoryContext
+  resultContext : CategoryContext
+  parameters : Array Parameter
+  slots : Array Slot
+  output : Nat
+  completions : Array FieldCompletion
+  projectionActions : Array ProjectionActionSelection := #[]
+
 /-- Children precede their record and both endpoints precede a map. Distinct
 positions stay distinct even when their closed formal values happen to agree. -/
 structure Plan where
@@ -142,6 +250,7 @@ structure Plan where
   slots : Array Slot
   output : Nat
   projectionActions : Array ProjectionActionSelection := #[]
+  stages : Array IntermediateStage := #[]
 
 private inductive InputKind where
   | object | callable | data
@@ -443,8 +552,8 @@ private partial def compileSlots (inputs : Array SymbolicInput)
     "the routed result requires a complete public schema for its non-atomic data fields"
 
 /-- A later action may retain a preceding returned field. Keep that exact
-producer in the private provenance graph even though the public fused reply
-still represents the field as returned data. -/
+producer, which is published on the eventual slot as `producedBy`, even though
+the fused reply still represents the field as returned data. -/
 private def compileOrigins (inputs : Array SymbolicInput) (actionIndex : Nat)
     (slots : Array Slot) : TermElabM (Array Origin) := do
   let mut origins := #[]
@@ -495,6 +604,35 @@ private def sameProjectionStep (left right : ComputationalData.RecordFieldStep) 
 private def sameProjectionPath
     (left right : ComputationalData.RecordFieldPath) : Bool :=
   left.size == right.size && (left.zip right).all fun (a, b) => sameProjectionStep a b
+
+/-- Locate an earlier produced field in this invocation's own final reply.
+The result contains every distinct public reply position, never a preferred
+equal-valued supplier. A parent slot and its child can describe the same reply
+path; only that identical positional description is coalesced. -/
+def Plan.producedPaths (plan : Plan) (actionIndex : Nat)
+    (path : ComputationalData.RecordFieldPath) :
+    Array ComputationalData.RecordFieldPath := Id.run do
+  let mut result := #[]
+  for slot in plan.slots do
+    let some origin := slot.producedBy | continue
+    unless origin.actionIndex == actionIndex && origin.replyPath.size <= path.size &&
+        sameProjectionPath origin.replyPath (path.extract 0 origin.replyPath.size) do continue
+    let selected := slot.replyPath ++ path.extract origin.replyPath.size path.size
+    unless result.any (sameProjectionPath · selected) do result := result.push selected
+  return result
+
+/-- Select an action boundary by its original ordinal. The final method follows
+all prefix actions; a stage's slots and completion table share one fixed public
+schema. This lookup never reconstructs a stage from an equal formal result. -/
+def Plan.stage (plan : Plan) (actionIndex : Nat) : TermElabM IntermediateStage := do
+  unless plan.stages.size == plan.prefixActions.size + 1 do
+    throwError "the routed result plan omitted an original action boundary"
+  let some selected := plan.stages[actionIndex]?
+    | throwError "the routed result plan addresses an absent action boundary"
+  unless selected.actionIndex == actionIndex &&
+      selected.completions.size == selected.slots.size && selected.output < selected.slots.size do
+    throwError "the routed action boundary changed its positional completion schema"
+  return selected
 
 private partial def projectionInputPaths : ComputationalData.RecordProjectionPlan →
     Array ComputationalData.RecordFieldPath
@@ -563,8 +701,8 @@ private def portableProjectionParameter? (formal expectedType : Expr) :
     throwError "the portable projection parameter failed its existing codec round trip"
   return some data
 
-private def projectionParameterOrigin (inputs : Array SymbolicInput)
-    (formal expectedType : Expr) :
+private partial def projectionParameterOrigin (inputs : Array SymbolicInput)
+    (formal expectedType : Expr) (seen : Array Expr := #[]) :
     TermElabM (Except ProjectionActionFailure
       (ProjectionParameterRole × ProjectionParameterSource)) := do
   let mut candidates : Array (SymbolicInput × ComputationalData.RecordProjectionPlan) := #[]
@@ -587,10 +725,190 @@ private def projectionParameterOrigin (inputs : Array SymbolicInput)
   | #[] =>
     if let some data ← portableProjectionParameter? formal expectedType then
       return .ok (.value, .literal data)
+    -- A released scalar record can assemble fields from several original
+    -- positions. Each child is selected separately; sharing a declaration
+    -- value or a supplier never collapses those positions. Categorical records
+    -- still need the complete role of an independently selected producer.
+    unless seen.contains expectedType do
+      if let some schema ← ComputationalData.pointSchema expectedType then
+        if scalarRecordSchema schema then
+          let type ← withTransparency .all <| whnf expectedType
+          if let some name := type.getAppFn.constName? then
+            if let some info := getStructureInfo? (← getEnv) name then
+              let mut fields := #[]
+              for name in info.fieldNames do
+                let child ← withTransparency .all <| mkProjection formal name
+                let childType ← inferType child
+                unless ← isProp childType do
+                  match ← projectionParameterOrigin inputs child childType (seen.push expectedType) with
+                  | .ok (.value, source) => fields := fields.push source
+                  | .ok _ => return .error (.missing
+                      "the assembled scalar parameter requires an independent role for a categorical child")
+                  | .error failure => return .error failure
+              return .ok (.value, .record (← ComputationalData.recordFieldCodec formal) fields)
     return .error (.missing
       "a projection action parameter has no retained original input or independent portable literal")
   | _ => throwError
       "a symbolic projection parameter has several distinct retained input origins"
+
+/-- A symbolic trial already retains the literal declaration application
+created by the accepted edge. Check that whole occurrence without closing its
+local telescope. The existing closed matcher remains responsible for aliases. -/
+private def completeSelectedApplication (declaration : Name) (value : Expr)
+    (project : Expr → TermElabM Expr) (literal? : Option Expr) : TermElabM Expr := do
+  if let some literal := literal? then
+    if literal.getAppFn.constName? == some declaration &&
+        !literal.hasMVar && !literal.hasLevelMVar && !literal.hasLooseBVars then
+      let arity ← forallTelescopeReducing (← inferType literal.getAppFn)
+        fun binders _ => pure binders.size
+      unless literal.getAppNumArgs == arity && (← isTypeCorrect literal) do
+        throwError "the symbolic action lost its complete literal declaration application"
+      let compared ← project literal
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType compared) (← inferType value) <&&> isDefEq compared value) do
+        throwError "the literal declaration changed its complete selected action"
+      return literal
+  let some (selected, _) ← DeclaredApplication.completeProjected? declaration value project literal?
+    | throwStratum .noImplementation
+        "the routed schema requires the complete already selected declaration application"
+  unless selected.getAppFn.constName? == some declaration do
+    throwError "the routed schema changed its selected declaration"
+  return selected
+
+private def completeApplication (declaration : Name) (action : Expr) : TermElabM Expr := do
+  let mut literal := action.consumeMData
+  while literal.isAppOfArity ``id 2 || literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor do
+    literal := literal.appArg!.consumeMData
+  completeSelectedApplication declaration action (fun selected => do Semantic.asFunctor selected)
+    (some literal)
+
+private inductive ActionShape where
+  | named (edge : EdgeRef) (declarationApplication : Expr)
+  | constructed (constructor : ConstructorId) (inner : ActionShape)
+
+private def classifierAction (application : Expr) : TermElabM Expr := do
+  let mut classifier := application
+  let type ← whnf (← inferType classifier)
+  if type.isAppOf ``LeanCategories.PropertyClassifier then
+    classifier ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[classifier]
+  else if type.isAppOf ``LeanCategories.StructureClassifier then
+    classifier ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[classifier]
+  Semantic.asFunctor (← mkAppM ``LeanCategories.Classifier.forget #[classifier])
+
+private partial def ActionShape.declaration : ActionShape → Expr
+  | .named _ application => application
+  | .constructed _ inner => inner.declaration
+
+private partial def ActionShape.edge : ActionShape → EdgeRef
+  | .named edge _ => edge
+  | .constructed constructor inner => .constructMap constructor inner.edge
+
+/-- Only the already selected public constructor actions surround the named
+declaration. No matching at a receiver chooses a replacement action. -/
+private partial def ActionShape.action (shape : ActionShape) (declaration : Expr) :
+    TermElabM Expr := do
+  match shape with
+  | .named (.functor _) _ => Semantic.asFunctor declaration
+  | .named (.classifierForget _) _ => classifierAction declaration
+  | .named _ _ => throwError "a routed declaration has no named action role"
+  | .constructed constructor inner =>
+      let some action := ((← registryState).constructor? constructor).bind (·.functorialAction)
+        | throwError "the selected constructor has no registered action"
+      Semantic.applyConstructorFunctor action (← inner.action declaration)
+
+private partial def actionShape (state : RegistryState) (edge : EdgeRef) (actual : Expr) :
+    TermElabM ActionShape := do
+  let shape ← match edge with
+    | .functor id => do
+        let some entry := state.functor? id
+          | throwError "the routed schema names an absent selected functor"
+        pure (ActionShape.named edge (← completeApplication entry.declaration actual))
+    | .classifierForget id => do
+        let some entry := state.classifier? id
+          | throwError "the routed schema names an absent selected classifier"
+        let application ← completeSelectedApplication entry.declaration
+          (← Semantic.asFunctor actual) classifierAction
+          (FunctorActionData.directActionDeclaration? state actual)
+        unless application.getAppFn.constName? == some entry.declaration do
+          throwError "the routed schema changed its selected classifier declaration"
+        pure (ActionShape.named edge application)
+    | .constructMap constructor inner => do
+        let some action := (state.constructor? constructor).bind (·.functorialAction)
+          | throwError "the routed schema names a constructor without its registered action"
+        let application ← completeApplication action actual
+        let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
+          fields.mapM (·.fvarId!.getBinderInfo)
+        unless infos.size == application.getAppNumArgs do
+          throwError "the constructed route action omitted a complete declaration argument"
+        let explicit := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+          if info.isExplicit then some argument else none
+        let #[innerAction] := explicit
+          | throwStratum .noImplementation
+              "the routed constructor action requires its declared symbolic parameter schema"
+        pure (ActionShape.constructed constructor (← actionShape state inner innerAction))
+  let rebuilt ← shape.action shape.declaration
+  let expected ← Semantic.asFunctor actual
+  unless ← withTransparency .all <|
+      isDefEq (← inferType rebuilt) (← inferType expected) <&&> isDefEq rebuilt expected do
+    throwError "the routed symbolic schema changed its complete selected action"
+  return shape
+
+/-- Recheck the complete named, classifier or constructor-induced application
+without asking a runtime consumer to reconstruct its declaration schema. -/
+def ProjectionActionStep.checkedDeclaration (selected : ProjectionActionStep) : TermElabM Expr := do
+  let shape ← actionShape (← registryState) selected.edge selected.application
+  let declared := shape.declaration
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType declared) (← inferType selected.declarationApplication) <&&>
+        isDefEq declared selected.declarationApplication) do
+    throwError "the selected projection step changed its complete declaration application"
+  let (source, target) ← functorCategoryBundles (← Semantic.asFunctor selected.application)
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq source selected.sourceContext.bundle <&&>
+        isDefEq target selected.targetContext.bundle) do
+    throwError "the selected projection step changed its complete category boundaries"
+  return declared
+
+/-- Validate the retained original cell and each position in its four action
+segments. The original and constructor-mapped endpoints remain separate; this
+check never reconstructs a declaration from a generated comparison proof. -/
+def ProjectionAlignmentStep.checkedDeclaration (selected : ProjectionAlignmentStep) :
+    TermElabM Expr := do
+  let state ← registryState
+  let some cell := state.cells.find? (·.id == selected.witness.cell)
+    | throwError "the projection alignment lost its accepted cell declaration"
+  unless cell.invertible do
+    throwError "the projection alignment lost its accepted invertible interface"
+  let declared ← completeSelectedApplication cell.declaration selected.data.declarationApplication
+    (fun application => pure application) (some selected.data.declarationApplication)
+  let (baseLeft, baseRight) ← Semantic.comparisonApplicationEndpoints
+    selected.data.baseLeftApplications selected.data.baseRightApplications
+  Semantic.checkRouteComparison declared baseLeft baseRight
+  let checkSegment (refs : Array EdgeRef) (applications : Array Expr)
+      (steps : Array ProjectionActionStep) : TermElabM Unit := do
+    unless refs.size == applications.size && refs.size == steps.size do
+      throwError "the projection alignment changed an original action segment's positions"
+    for ((ref, application), step) in (refs.zip applications).zip steps do
+      unless ref == step.edge do
+        throwError "the projection alignment changed a selected action identity"
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq application step.application) do
+        throwError "the projection alignment changed a complete retained action application"
+      discard <| step.checkedDeclaration
+  checkSegment selected.witness.before selected.data.beforeApplications selected.before
+  checkSegment (RouteComparison.mapRefs selected.witness.constructors cell.left)
+    selected.data.leftApplications selected.left
+  checkSegment (RouteComparison.mapRefs selected.witness.constructors cell.right)
+    selected.data.rightApplications selected.right
+  checkSegment selected.witness.after selected.data.afterApplications selected.after
+  let (componentLeft, componentRight) ← Semantic.comparisonApplicationEndpoints
+    selected.data.leftApplications selected.data.rightApplications
+  Semantic.checkRouteComparison selected.data.componentComparison componentLeft componentRight
+  let (left, right) ← Semantic.comparisonApplicationEndpoints
+    (selected.data.beforeApplications ++ selected.data.leftApplications ++ selected.data.afterApplications)
+    (selected.data.beforeApplications ++ selected.data.rightApplications ++ selected.data.afterApplications)
+  Semantic.checkRouteComparison selected.data.comparison left right
+  return declared
 
 private def projectionParameters (inputs : Array SymbolicInput)
     (application : Expr) : TermElabM (Except ProjectionActionFailure (Array ProjectionParameter)) := do
@@ -617,52 +935,402 @@ private def projectionParameters (inputs : Array SymbolicInput)
         | .error failure => return .error failure
     return .ok parameters
 
-/-- The registered functor is selected on a fresh record, at the entire supplied
-source and target bundles. Parameter data origins are compiled only after this
-mathematical selection; missing computational data cannot break a formal tie. -/
+/-- The public record interface fixes the whole mathematical projection. An
+object-function match alone cannot justify transporting presentation maps. -/
+private def declaredProjection (parent : Expr) (source target : CategoryContext)
+    (step : ComputationalData.RecordFieldStep) : TermElabM Expr := do
+  let projection ← match step.codec with
+    | .core => do
+        unless step.index == 0 && step.count == 1 do
+          throwError "the Core projection changed its selected public field"
+        let base ← coreBaseContext source
+        mkAppOptM ``CategoryTheory.Core.inclusion
+          #[some (← CategoryContext.carrier base), some (← CategoryContext.dictionary base)]
+    | .arrowRefinement =>
+        unless step.index == 0 && step.count == 1 do
+          throwError "the refined Arrow projection changed its selected public field"
+        StructuredProjection.projectionFunctorOfBundle source.bundle "inclusion"
+    | .arrow => do
+        unless step.count == 3 do
+          throwError "the Arrow projection changed its complete public field schema"
+        let label ← match step.index with
+          | 0 => pure "source"
+          | 1 => pure "target"
+          | _ => throwError "the selected Arrow field is not an object projection"
+        StructuredProjection.projectionFunctorOfBundle source.bundle label
+    | .ordered => throwStratum .noImplementation
+        "the scalar record codec does not declare a categorical projection functor"
+  let (domain, codomain) ← functorCategoryBundles projection
+  unless ← withTransparency .all <|
+      isDefEq domain source.bundle <&&> isDefEq codomain target.bundle do
+    throwError "the public projection changed its complete declared categories"
+  let accepted ← withLocalDeclD `projectionReceiver (← inferType parent) fun symbolic => do
+    let image ← Semantic.objOf projection symbolic
+    let some path ← ComputationalData.recordFieldPath? symbolic image | return false
+    pure (sameProjectionPath path #[step])
+  unless accepted do
+    throwError "the declared projection functor changed its selected public field"
+  return ← instantiateMVars projection
+
+private def appendProjectionRoute (routes : Array Route) (route : Route) : Array Route :=
+  if routes.any (fun previous => previous.refs == route.refs &&
+      previous.source.syntacticEq route.source && previous.target.syntacticEq route.target) then
+    routes
+  else routes.push route
+
+/-- Read an exact accepted action reference, without promoting a nonstructural
+action into the inheritance graph. Comparison endpoints may themselves name
+composites of such actions. -/
+private partial def projectionEdge (state : RegistryState) (ref : EdgeRef) :
+    TermElabM StructuralEdge := do
+  match ref with
+  | .functor id =>
+      let some row := state.functor? id
+        | throwError "a projection comparison names an absent registered functor"
+      return { source := row.source, target := row.target, expression := row.expression, ref }
+  | .classifierForget id =>
+      let some row := state.classifier? id
+        | throwError "a projection comparison names an absent registered classifier"
+      return { source := .classifierTotal id, target := row.host,
+        expression := .classifierForget id row.host, ref }
+  | .constructMap constructor inner =>
+      let some row := state.constructor? constructor
+        | throwError "a projection comparison names an absent registered constructor"
+      unless row.functorialAction.isSome do
+        throwError "a projection comparison constructor has no accepted functor action"
+      let edge ← projectionEdge state inner
+      return { source := .construct constructor #[.category edge.source],
+        target := .construct constructor #[.category edge.target],
+        expression := .constructMap constructor edge.expression, ref }
+
+private def projectionRoute (state : RegistryState) (source target : CategoryExpr)
+    (refs : Array EdgeRef) : TermElabM Route := do
+  let steps ← refs.mapM (projectionEdge state)
+  let mut previous := source
+  for edge in steps do
+    unless previous.syntacticEq edge.source do
+      throwError "an accepted projection comparison changed its declared route boundary"
+    previous := edge.target
+  unless previous.syntacticEq target do
+    throwError "an accepted projection comparison changed its declared route target"
+  return { source, target, steps }
+
+/-- Reuse complete structural closure, including classifier and constructor
+actions. A named registered action can also be the terminal operation of such a
+route; this preserves direct nonstructural declarations without treating them
+as inheritance edges. Constructor contexts act on those same complete routes. -/
+private partial def projectionRoutes (state : RegistryState) (source target : CategoryExpr) :
+    TermElabM (Array Route) := do
+  let mut routes ← match state.completeRoutes source target with
+    | .ok routes => pure routes
+    | .error error => throwResolutionError state error
+  for row in state.functors do
+    let terminal : StructuralEdge := {
+      source := row.source, target := row.target, expression := row.expression,
+      ref := .functor row.id }
+    routes := appendProjectionRoute routes {
+      source := row.source, target := row.target, steps := #[terminal] }
+    unless row.target.syntacticEq target do continue
+    let prefixes ← match state.completeRoutes source row.source with
+      | .ok routes => pure routes
+      | .error error => throwResolutionError state error
+    for initial in prefixes do
+      routes := appendProjectionRoute routes {
+        source, target, steps := initial.steps.push terminal }
+  -- A comparison explicitly declares both complete route expressions. Retain
+  -- those expressions, including nonstructural action segments, and their
+  -- complete structural whiskering contexts. No structural flag is changed.
+  for cell in state.cells do
+    unless cell.invertible && cell.left != cell.right do continue
+    let left ← projectionRoute state cell.source cell.target cell.left
+    let right ← projectionRoute state cell.source cell.target cell.right
+    routes := appendProjectionRoute (appendProjectionRoute routes left) right
+    let prefixes ← match state.completeRoutes source cell.source with
+      | .ok routes => pure routes
+      | .error error => throwResolutionError state error
+    let suffixes ← match state.completeRoutes cell.target target with
+      | .ok routes => pure routes
+      | .error error => throwResolutionError state error
+    for initial in prefixes do
+      for final in suffixes do
+        for segment in #[left, right] do
+          routes := appendProjectionRoute routes {
+            source, target, steps := initial.steps ++ segment.steps ++ final.steps }
+  match source, target with
+  | .construct constructor #[.category innerSource],
+      .construct targetConstructor #[.category innerTarget] =>
+      if constructor == targetConstructor &&
+          ((state.constructor? constructor).bind (·.functorialAction)).isSome then
+        for inner in (← projectionRoutes state innerSource innerTarget) do
+          let steps := inner.steps.map fun edge => ({
+            source := .construct constructor #[.category edge.source]
+            target := .construct constructor #[.category edge.target]
+            expression := .constructMap constructor edge.expression
+            ref := .constructMap constructor edge.ref } : StructuralEdge)
+          routes := appendProjectionRoute routes {
+            source := .construct constructor #[.category inner.source]
+            target := .construct constructor #[.category inner.target], steps }
+  | _, _ => pure ()
+  return routes
+
+private def comparisonRouteRefs (state : RegistryState) (witness : RouteComparison) :
+    TermElabM (Array EdgeRef × Array EdgeRef) := do
+  let some cell := state.cells.find? (·.id == witness.cell)
+    | throwError "the selected projection comparison names an absent accepted cell"
+  return (witness.before ++ RouteComparison.mapRefs witness.constructors cell.left ++ witness.after,
+    witness.before ++ RouteComparison.mapRefs witness.constructors cell.right ++ witness.after)
+
+private structure ProjectionCandidate where
+  route : Route
+  application : Expr
+  applications : Array Expr
+  canonical : Bool
+
+private instance : Inhabited ProjectionCandidate :=
+  ⟨{ route := { source := .atom default, target := .atom default, steps := #[] },
+    application := default, applications := #[], canonical := false }⟩
+
+private structure ProjectionComparison where
+  witness : RouteComparison
+  data : Semantic.RouteComparisonData
+  left : Nat
+  right : Nat
+
+/-- Missing mathematical inputs stay unavailable; a failed internal type check
+is not reclassified as a missing computational registration. Proof and instance
+closure uses the existing complete-declaration machinery. -/
+private def closeProjectionValue (value : Expr) : TermElabM (Option Expr) := do
+  try
+    let closed ← DirectConstruction.close {
+      value, arguments := (← getMVars value).map mkMVar, explicit := #[] }
+    return some closed.value
+  catch error =>
+    let value ← instantiateMVars value
+    if Exception.interpretationKind error == .invalid &&
+        (value.hasMVar || value.hasLevelMVar) then return none
+    throw error
+
+private def closeProjectionValues (values : Array Expr) : TermElabM (Option (Array Expr)) := do
+  let mut closed := #[]
+  for value in values do
+    let some value ← closeProjectionValue value | return none
+    closed := closed.push value
+  return some closed
+
+private def closeProjectionComparison (data : Semantic.RouteComparisonData) :
+    TermElabM (Option Semantic.RouteComparisonData) := do
+  let some comparison ← closeProjectionValue data.comparison | return none
+  let some componentComparison ← closeProjectionValue data.componentComparison | return none
+  let some declarationApplication ← closeProjectionValue data.declarationApplication | return none
+  let some baseLeftApplications ← closeProjectionValues data.baseLeftApplications | return none
+  let some baseRightApplications ← closeProjectionValues data.baseRightApplications | return none
+  let some leftApplications ← closeProjectionValues data.leftApplications | return none
+  let some rightApplications ← closeProjectionValues data.rightApplications | return none
+  let some beforeApplications ← closeProjectionValues data.beforeApplications | return none
+  let some afterApplications ← closeProjectionValues data.afterApplications | return none
+  return some {
+    comparison, componentComparison, declarationApplication, baseLeftApplications, baseRightApplications,
+    leftApplications, rightApplications, beforeApplications, afterApplications }
+
+private def compileProjectionSteps (inputs : Array SymbolicInput) (state : RegistryState)
+    (refs : Array EdgeRef) (applications : Array Expr) :
+    TermElabM (Except ProjectionActionFailure (Array ProjectionActionStep)) := do
+  unless refs.size == applications.size do
+    throwError "the projection route lost an original step application"
+  let mut steps := #[]
+  for (ref, application) in refs.zip applications do
+    let edge ← projectionEdge state ref
+    let shape ← actionShape state ref application
+    let declared := shape.declaration
+    let parameters ← match ← projectionParameters inputs declared with
+      | .ok parameters => pure parameters
+      | .error failure => return .error failure
+    let (domain, codomain) ← functorCategoryBundles (← Semantic.asFunctor application)
+    steps := steps.push {
+      edge := ref, declarationApplication := declared, application,
+      sourceContext := { expression := edge.source, bundle := domain },
+      targetContext := { expression := edge.target, bundle := codomain }, parameters }
+  return .ok steps
+
+/-- All simple paths in the finite accepted comparison class. A second path is
+an unresolved comparison choice; neither length nor declaration order selects
+it. The visited positions ensure termination without an arbitrary route cap. -/
+private partial def projectionAlignmentPaths (comparisons : Array ProjectionComparison)
+    (targets : Array Nat) (current : Nat) (visited : Array Nat) :
+    Array (Array (Nat × Bool)) := Id.run do
+  if targets.contains current then return #[#[]]
+  let mut result := #[]
+  for index in [:comparisons.size] do
+    let some comparison := comparisons[index]? | continue
+    let next := if comparison.left == current then some (comparison.right, false)
+      else if comparison.right == current then some (comparison.left, true) else none
+    let some (next, inverse) := next | continue
+    if visited.contains next then continue
+    for remaining in projectionAlignmentPaths comparisons targets next (visited.push next) do
+      result := result.push (#[(index, inverse)] ++ remaining)
+  return result
+
+private def compileProjectionAlignment (inputs : Array SymbolicInput) (state : RegistryState)
+    (selected : ProjectionComparison) (inverse : Bool) :
+    TermElabM (Except ProjectionActionFailure ProjectionAlignmentStep) := do
+  let some cell := state.cells.find? (·.id == selected.witness.cell)
+    | throwError "the selected projection alignment lost its original cell declaration"
+  unless selected.data.declarationApplication.getAppFn.constName? == some cell.declaration do
+    throwError "the projection alignment changed its original complete cell application"
+  let parameters ← match ← projectionParameters inputs selected.data.declarationApplication with
+    | .ok parameters => pure parameters
+    | .error failure => return .error failure
+  let before ← match ← compileProjectionSteps inputs state selected.witness.before
+      selected.data.beforeApplications with
+    | .ok steps => pure steps
+    | .error failure => return .error failure
+  let left ← match ← compileProjectionSteps inputs state
+      (RouteComparison.mapRefs selected.witness.constructors cell.left)
+      selected.data.leftApplications with
+    | .ok steps => pure steps
+    | .error failure => return .error failure
+  let right ← match ← compileProjectionSteps inputs state
+      (RouteComparison.mapRefs selected.witness.constructors cell.right)
+      selected.data.rightApplications with
+    | .ok steps => pure steps
+    | .error failure => return .error failure
+  let after ← match ← compileProjectionSteps inputs state selected.witness.after
+      selected.data.afterApplications with
+    | .ok steps => pure steps
+    | .error failure => return .error failure
+  return .ok {
+    witness := selected.witness, inverse, data := selected.data,
+    parameters, before, left, right, after }
+
+/-- The independently declared whole projection anchors formal selection. A
+non-definitional implementation enters only through accepted comparisons to
+that anchor. Exact application constraints are solved before any computational
+parameter origins are compiled; all chosen occurrences then leave this local
+elaboration state fully closed. -/
 private def selectProjectionActionAt (inputs : Array SymbolicInput)
     (parent : Expr) (source target : CategoryContext)
     (step : ComputationalData.RecordFieldStep) :
-    TermElabM (Except ProjectionActionFailure ProjectionActionPlan) := do
+    TermElabM (Except ProjectionActionFailure ProjectionActionPlan) := withoutModifyingState do
   CategoryContext.checkObject source parent
   let field ← withTransparency .all <| mkProjection parent step.field
   CategoryContext.checkObject target field
+  let projection ← declaredProjection parent source target step
   let state ← registryState
-  let mut candidates : Array (Except ProjectionActionFailure ProjectionActionPlan) := #[]
-  for row in state.functors do
-    let candidate : Option (Except ProjectionActionFailure ProjectionActionPlan) ← withoutModifyingState do
-      let application ← instantiateFresh row.declaration
-      let action ← Semantic.asFunctor application
+  let routes ← projectionRoutes state source.expression target.expression
+  let mut candidates : Array ProjectionCandidate := #[]
+  for route in routes do
+    let saved ← Term.saveState
+    let candidate : Option ProjectionCandidate ← do
+      if route.refs.isEmpty then
+        unless route.source.syntacticEq source.expression &&
+            route.target.syntacticEq target.expression do return none
+      let (action, applications) ← if route.refs.isEmpty then do
+          let identity ← mkAppOptM ``CategoryTheory.Functor.id
+            #[some (← CategoryContext.carrier source), some (← CategoryContext.dictionary source)]
+          pure (identity, #[])
+        else Semantic.routeFunctorWithApplications state route.refs
       let (domain, codomain) ← functorCategoryBundles action
       unless ← withoutModifyingState (withTransparency .all <| isDefEq domain source.bundle) do
-        CategoryContext.exposeStructureParameters application
+        for application in applications do
+          CategoryContext.exposeStructureParameters application
       unless ← withTransparency .all <|
           isDefEq domain source.bundle <&&> isDefEq codomain target.bundle do return none
-      let accepted ← withLocalDeclD `recordReceiver (← inferType parent) fun symbolic => do
-        let image ← Semantic.objOf action symbolic
-        let some path ← ComputationalData.recordFieldPath? symbolic image | return false
-        pure (sameProjectionPath path #[step])
-      unless accepted do return none
-      let application ← instantiateMVars application
-      let action ← instantiateMVars action
-      if application.hasMVar || application.hasLevelMVar || application.hasLooseBVars ||
-          action.hasMVar || action.hasLevelMVar || action.hasLooseBVars then
-        return some (.error (.missing
-          "the registered projection action lacks its complete independently selected declaration parameters"))
-      unless (← isTypeCorrect application) && (← isTypeCorrect action) do
-        throwError "the selected projection action lost its complete typed application"
-      match ← projectionParameters inputs application with
-      | .ok parameters => return some (.ok {
-          edge := .functor row.id, declarationApplication := application, application := action,
-          parent, field, step, sourceContext := source, targetContext := target, parameters })
-      | .error failure => return some (.error failure)
-    if let some candidate := candidate then candidates := candidates.push candidate
-  match candidates with
-  | #[selected] => return selected
-  | #[] => return .error (.missing
-      "the selected public field has no registered projection action for its complete comparison")
-  | _ => return .error (.ambiguous
-      "several registered actions transport the same independently selected public field")
+      let canonical ← withoutModifyingState (withTransparency .all <| isDefEq action projection)
+      if canonical then
+        unless ← withTransparency .all <| isDefEq action projection do
+          throwError "the complete projection anchor changed during its formal selection"
+      return some { route, application := action, applications, canonical }
+    match candidate with
+    | some candidate => candidates := candidates.push candidate
+    | none => saved.restore true
+  let classes := state.classify candidates (fun _ => "public-field-projection") (·.route)
+  let cls ← match classes.filter (fun cls => cls.members.any (·.canonical)) with
+    | #[cls] => pure cls
+    | #[] => return .error (.missing
+        "the public field has no registered route or accepted comparison to its complete projection functor")
+    | _ => return .error (.ambiguous
+        "several unconnected registered routes implement the complete public projection")
+  unless cls.ambiguities.isEmpty do
+    return .error (.ambiguous "several accepted cells compare the same projection routes")
+  let #[sourceCandidate] := cls.sources
+    | return .error (.ambiguous
+        "the accepted projection comparisons have no unique designated source route")
+  let #[sourceIndex] := (Array.range cls.members.size).filter
+      (fun index => cls.members[index]!.route.refs == sourceCandidate.route.refs)
+    | throwError "the projection class lost its exact designated source position"
+  -- All comparisons constrain the original candidate applications in this
+  -- shared local state. A later comparison can determine an earlier dependent
+  -- parameter; no independently fresh replacement application is substituted.
+  let mut comparisons : Array ProjectionComparison := #[]
+  for witness in cls.comparisonWitnesses do
+    let (leftRefs, rightRefs) ← comparisonRouteRefs state witness
+    let #[left] := (Array.range cls.members.size).filter
+        (fun index => cls.members[index]!.route.refs == leftRefs)
+      | throwError "the projection comparison lost its exact selected left route"
+    let #[right] := (Array.range cls.members.size).filter
+        (fun index => cls.members[index]!.route.refs == rightRefs)
+      | throwError "the projection comparison lost its exact selected right route"
+    let data ← Semantic.routeComparisonWithData state witness
+    Semantic.checkRouteComparison data.comparison
+      cls.members[left]!.application cls.members[right]!.application
+    comparisons := comparisons.push { witness, data, left, right }
+  let mut members : Array ProjectionCandidate := #[]
+  for candidate in cls.members do
+    let some application ← closeProjectionValue candidate.application
+      | return .error (.missing
+          "the projection route requires further independently selected mathematical parameters")
+    let some applications ← closeProjectionValues candidate.applications
+      | return .error (.missing
+          "the projection route lacks its complete original declaration applications")
+    members := members.push { candidate with application, applications }
+  let mut closedComparisons : Array ProjectionComparison := #[]
+  for selected in comparisons do
+    let some data ← closeProjectionComparison selected.data
+      | return .error (.missing
+          "the accepted projection comparison requires further complete declaration parameters")
+    Semantic.checkRouteComparison data.comparison
+      members[selected.left]!.application members[selected.right]!.application
+    closedComparisons := closedComparisons.push { selected with data }
+  let selected := members[sourceIndex]!
+  let steps ← match ← compileProjectionSteps inputs state selected.route.refs selected.applications with
+    | .ok steps => pure steps
+    | .error failure => return .error failure
+  let mut alignment := #[]
+  let mut alignmentComparison : Option Expr := none
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq selected.application projection) do
+    let targets ← (Array.range members.size).filterM fun index =>
+      withoutModifyingState (withTransparency .all <| isDefEq members[index]!.application projection)
+    let paths := projectionAlignmentPaths closedComparisons targets sourceIndex #[sourceIndex]
+    let path ← match paths with
+      | #[path] => pure path
+      | #[] => throwError "the accepted projection class lost its path to the canonical anchor"
+      | _ => return .error (.ambiguous
+          "several accepted comparison paths align the selected route with the public projection")
+    for (index, inverse) in path do
+      let some selectedComparison := closedComparisons[index]?
+        | throwError "the projection alignment lost its exact accepted comparison position"
+      let compiled ← match ← compileProjectionAlignment inputs state selectedComparison inverse with
+        | .ok compiled => pure compiled
+        | .error failure => return .error failure
+      alignment := alignment.push compiled
+      let comparison ← if inverse then
+          mkAppM ``CategoryTheory.Iso.symm #[selectedComparison.data.comparison]
+        else pure selectedComparison.data.comparison
+      alignmentComparison ← match alignmentComparison with
+        | none => pure (some comparison)
+        | some previous => pure (some (← mkAppM ``CategoryTheory.Iso.trans #[previous, comparison]))
+    let some comparison := alignmentComparison
+      | throwError "the non-definitional projection alignment omitted its accepted comparison"
+    Semantic.checkRouteComparison comparison selected.application projection
+    let some comparison ← closeProjectionValue comparison
+      | throwError "the projection alignment lost an already selected complete parameter"
+    alignmentComparison := some comparison
+  return .ok {
+    route := selected.route, steps, projection, application := selected.application, parent, field, step,
+    sourceContext := source, targetContext := target,
+    comparisons := closedComparisons.map fun selected => (selected.witness, selected.data.comparison),
+    alignment, alignmentComparison }
 
 private def compileProjectionActions (inputs : Array SymbolicInput) (slots : Array Slot) :
     TermElabM (Array ProjectionActionSelection) := do
@@ -683,19 +1351,63 @@ private def compileProjectionActions (inputs : Array SymbolicInput) (slots : Arr
     result := result.push { parentSlot, fieldSlot, replyPath := selected.replyPath, action }
   return result
 
+private def instantiateProjectionParameter (parameter : ProjectionParameter)
+    (binders values : Array Expr) : ProjectionParameter :=
+  { parameter with
+    formal := parameter.formal.replaceFVars binders values
+    expectedType := parameter.expectedType.replaceFVars binders values
+    role := instantiateProjectionParameterRole parameter.role binders values }
+
+private def instantiateProjectionStep (step : ProjectionActionStep)
+    (binders values : Array Expr) : ProjectionActionStep :=
+  { step with
+    declarationApplication := step.declarationApplication.replaceFVars binders values
+    application := step.application.replaceFVars binders values
+    sourceContext := instantiateContext step.sourceContext binders values
+    targetContext := instantiateContext step.targetContext binders values
+    parameters := step.parameters.map fun parameter =>
+      instantiateProjectionParameter parameter binders values }
+
+private def instantiateProjectionComparison (data : Semantic.RouteComparisonData)
+    (binders values : Array Expr) : Semantic.RouteComparisonData :=
+  let close (value : Expr) := value.replaceFVars binders values
+  { comparison := close data.comparison
+    componentComparison := close data.componentComparison
+    declarationApplication := close data.declarationApplication
+    baseLeftApplications := data.baseLeftApplications.map close
+    baseRightApplications := data.baseRightApplications.map close
+    leftApplications := data.leftApplications.map close
+    rightApplications := data.rightApplications.map close
+    beforeApplications := data.beforeApplications.map close
+    afterApplications := data.afterApplications.map close }
+
+private def instantiateProjectionAlignment (selected : ProjectionAlignmentStep)
+    (binders values : Array Expr) : ProjectionAlignmentStep :=
+  { selected with
+    data := instantiateProjectionComparison selected.data binders values
+    parameters := selected.parameters.map fun parameter =>
+      instantiateProjectionParameter parameter binders values
+    before := selected.before.map fun step => instantiateProjectionStep step binders values
+    left := selected.left.map fun step => instantiateProjectionStep step binders values
+    right := selected.right.map fun step => instantiateProjectionStep step binders values
+    after := selected.after.map fun step => instantiateProjectionStep step binders values }
+
 private def instantiateProjectionAction (plan : ProjectionActionPlan)
     (binders values : Array Expr) : ProjectionActionPlan :=
   { plan with
-    declarationApplication := plan.declarationApplication.replaceFVars binders values
+    steps := plan.steps.map fun step => instantiateProjectionStep step binders values
+    projection := plan.projection.replaceFVars binders values
     application := plan.application.replaceFVars binders values
     parent := plan.parent.replaceFVars binders values
     field := plan.field.replaceFVars binders values
     sourceContext := instantiateContext plan.sourceContext binders values
     targetContext := instantiateContext plan.targetContext binders values
-    parameters := plan.parameters.map fun parameter => { parameter with
-      formal := parameter.formal.replaceFVars binders values
-      expectedType := parameter.expectedType.replaceFVars binders values
-      role := instantiateProjectionParameterRole parameter.role binders values } }
+    comparisons := plan.comparisons.map fun (witness, comparison) =>
+      (witness, comparison.replaceFVars binders values)
+    alignment := plan.alignment.map fun selected =>
+      instantiateProjectionAlignment selected binders values
+    alignmentComparison := plan.alignmentComparison.map fun comparison =>
+      comparison.replaceFVars binders values }
 
 /-- Read a role at an already selected public path. The enclosing producer
 supplies the complete category; a field's carrier never selects a dictionary. -/
@@ -800,11 +1512,22 @@ private def rebaseProjectionAction (plan : ProjectionActionPlan)
     (origin : Origin) (actionIndex : Nat) (inputs : Array SymbolicInput)
     (sourceContext : CategoryContext) (interfaces : Array ParameterInterface) :
     TermElabM ProjectionActionPlan := do
-  let parameters ← plan.parameters.mapM fun parameter => do
+  let rebaseParameter (parameter : ProjectionParameter) : TermElabM ProjectionParameter := do
     return { parameter with
       role := (← closeProjectionRole parameter.role parameter.formal inputs sourceContext interfaces)
       source := (← rebaseProjectionSource origin actionIndex parameter.source) }
-  return { plan with parameters }
+  let rebaseStep (step : ProjectionActionStep) : TermElabM ProjectionActionStep := do
+    let parameters ← step.parameters.mapM rebaseParameter
+    return { step with parameters }
+  let steps ← plan.steps.mapM rebaseStep
+  let alignment ← plan.alignment.mapM fun selected => do
+    return { selected with
+      parameters := (← selected.parameters.mapM rebaseParameter)
+      before := (← selected.before.mapM rebaseStep)
+      left := (← selected.left.mapM rebaseStep)
+      right := (← selected.right.mapM rebaseStep)
+      after := (← selected.after.mapM rebaseStep) }
+  return { plan with steps, alignment }
 
 /-- Standalone public fields use the same fresh selector. Their only retained
 computational root is the exact original parent. A nonportable category parameter
@@ -839,91 +1562,179 @@ def Plan.projectionAction (plan : Plan) (parentSlot fieldSlot : Nat) :
   | .ok action => return action
   | .error failure => failure.raise
 
-private def completeApplication (declaration : Name) (action : Expr) : TermElabM Expr := do
-  let some (selected, _) ← DeclaredApplication.complete? declaration action true
-    | throwStratum .noImplementation
-        "the routed schema requires the complete already selected declaration application"
-  unless selected.getAppFn.constName? == some declaration do
-    throwStratum .noImplementation
-      "the routed schema requires the complete already selected declaration application"
+/-- Constructor wrappers retain their original inner action occurrence. The
+compiler may factor a field through one of these complete actions; it never
+chooses a functor by agreeing only at a particular receiver. -/
+private partial def completionActions (shape : ActionShape) (declaration : Expr) :
+    TermElabM (Array (EdgeRef × Expr)) := do
+  let current := (shape.edge, ← shape.action declaration)
+  match shape with
+  | .named .. => return #[current]
+  | .constructed _ inner => return #[current] ++ (← completionActions inner declaration)
+
+private def completionActionLiteral (action : Expr) : Expr := Id.run do
+  let mut selected := action.consumeMData.headBeta
+  while selected.isAppOfArity ``id 2 ||
+      selected.isAppOf ``CategoryTheory.Cat.Hom.toFunctor do
+    selected := selected.appArg!.consumeMData.headBeta
   return selected
 
-private inductive ActionShape where
-  | named (edge : EdgeRef) (declarationApplication : Expr)
-  | constructed (constructor : ConstructorId) (inner : ActionShape)
+private partial def completionActionSteps (inputs : Array SymbolicInput)
+    (state : RegistryState) (selected : Array (EdgeRef × Expr)) (action : Expr) :
+    TermElabM (Except ProjectionActionFailure (Array ProjectionActionStep)) := do
+  if let some declaration := FunctorActionData.directActionDeclaration? state action then
+    -- The actual field's literal declaration retains its own parameter
+    -- occurrences, including parameters ignored by the mathematical functor.
+    let candidates :=
+      (state.functors.filter (fun row =>
+        declaration.getAppFn.constName? == some row.declaration)).map (fun row => EdgeRef.functor row.id) ++
+      (state.classifiers.filter (fun row =>
+        declaration.getAppFn.constName? == some row.declaration)).map (fun row => EdgeRef.classifierForget row.id)
+    match candidates with
+    | #[edge] => return ← compileProjectionSteps inputs state #[edge] #[action]
+    | #[] => return .error (.missing "the intermediate field action is not registered")
+    | _ => return .error (.ambiguous
+        "the intermediate field's complete declaration has several accepted action bindings")
+  -- Match constructor wrappers while all original binders are fresh. Full
+  -- definitional equality verifies the action later; it cannot choose a
+  -- different computational parameter occurrence here.
+  let literal := completionActionLiteral action
+  let known := selected.filter fun (_, application) =>
+    completionActionLiteral application == literal
+  match known with
+  | #[(edge, _)] => return ← compileProjectionSteps inputs state #[edge] #[action]
+  | #[] => pure ()
+  | _ => return .error (.ambiguous
+      "several selected complete action occurrences factor one intermediate field")
+  if literal.isAppOfArity ``CategoryTheory.Functor.comp 8 then
+    let arguments := literal.getAppArgs
+    let first ← match ← completionActionSteps inputs state selected arguments[6]! with
+      | .ok steps => pure steps
+      | .error failure => return .error failure
+    let second ← match ← completionActionSteps inputs state selected arguments[7]! with
+      | .ok steps => pure steps
+      | .error failure => return .error failure
+    return .ok (first ++ second)
+  return .error (.missing
+    "the missing intermediate field has no retained complete registered action")
 
-private def classifierAction (application : Expr) : TermElabM Expr := do
-  let mut classifier := application
-  let type ← whnf (← inferType classifier)
-  if type.isAppOf ``LeanCategories.PropertyClassifier then
-    classifier ← mkAppM ``LeanCategories.PropertyClassifier.toClassifier #[classifier]
-  else if type.isAppOf ``LeanCategories.StructureClassifier then
-    classifier ← mkAppM ``LeanCategories.StructureClassifier.toClassifier #[classifier]
-  Semantic.asFunctor (← mkAppM ``LeanCategories.Classifier.forget #[classifier])
+/-- Reduce administrative/public record projections only until the next whole
+object or map action is exposed. Its operand is still a fresh local input field;
+the selected action's body is not evaluated to guess an equal-valued source. -/
+private def completionActionApplication? (formal : Expr) :
+    MetaM (Option (Bool × Expr × Expr)) := do
+  let isMap := fun (value : Expr) => value.isAppOfArity ``CategoryTheory.Functor.map 8 ||
+    value.isAppOfArity ``Prefunctor.map 8
+  let value ← withTransparency .all <| whnfHeadPred formal fun value =>
+    pure ((FunctorActionData.objectAction? value).isNone && !isMap value)
+  if let some (action, input) := FunctorActionData.objectAction? value then
+    return some (false, action, input)
+  if value.isAppOfArity ``CategoryTheory.Functor.map 8 then
+    return some (true, value.getAppArgs[4]!, value.appArg!)
+  if value.isAppOfArity ``Prefunctor.map 8 then
+    let prefunctor := value.getAppArgs[4]!.consumeMData
+    if prefunctor.isAppOfArity ``CategoryTheory.Functor.toPrefunctor 5 then
+      return some (true, prefunctor.appArg!, value.appArg!)
+  return none
 
-private partial def ActionShape.declaration : ActionShape → Expr
-  | .named _ application => application
-  | .constructed _ inner => inner.declaration
+private def compileFieldAction (inputs : Array SymbolicInput) (state : RegistryState)
+    (selected : Array (EdgeRef × Expr)) (slots : Array Slot) (slot : Slot) :
+    TermElabM FieldCompletion := do
+  let some (morphism, application, input) ← completionActionApplication? slot.formal
+    | return .unavailable (.missing
+        "the missing intermediate field has no declared object or map action on a retained input")
+  let steps ← match ← completionActionSteps inputs state selected application with
+    | .ok steps => pure steps
+    | .error failure => return .unavailable failure
+  let some first := steps[0]?
+    | throwError "a field completion lost its original action step"
+  let some last := steps.back?
+    | throwError "a field completion lost its final action step"
+  let composite ← Semantic.compositeOfApplications (steps.map (·.application))
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType composite) (← inferType application) <&&>
+        isDefEq composite application) do
+    throwError "the intermediate field changed its complete selected composite"
+  let inputType ← inferType input
+  let (inputRole, source) ← match ← projectionParameterOrigin inputs input inputType with
+    | .ok selected => pure selected
+    | .error failure => return .unavailable failure
+  match slot.role, morphism with
+  | .object context, false =>
+      unless inputRole matches .object .. do
+        return .unavailable (.missing "an intermediate object action lost its public input object role")
+      CategoryContext.checkObject first.sourceContext input
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq context.bundle last.targetContext.bundle <&&>
+            isDefEq slot.formal (← Semantic.objOf composite input)) do
+        return .unavailable (.missing
+          "the intermediate object field requires its accepted complete action alignment")
+      return .action { steps, input, inputType, inputRole, source, kind := .object }
+  | .map context sourceSlot targetSlot, true =>
+      unless inputRole matches .map .. do
+        return .unavailable (.missing "an intermediate map action lost its complete callable input role")
+      let sourceField ← fieldSlot slots sourceSlot
+      let targetField ← fieldSlot slots targetSlot
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq context.bundle last.targetContext.bundle <&&>
+            isDefEq slot.formal (← Semantic.mapOf composite input)) do
+        return .unavailable (.missing
+          "the intermediate map field requires its accepted complete action alignment")
+      CategoryContext.checkMorphism context slot.formal sourceField.formal targetField.formal
+      return .action { steps, input, inputType, inputRole, source,
+        kind := .map sourceSlot targetSlot }
+  | _, _ => return .unavailable (.missing
+      "the intermediate field action has a different independently declared public role")
 
-/-- Only the already selected public constructor actions surround the named
-declaration. No matching at a receiver chooses a replacement action. -/
-private partial def ActionShape.action (shape : ActionShape) (declaration : Expr) :
-    TermElabM Expr := do
-  match shape with
-  | .named (.functor _) _ => Semantic.asFunctor declaration
-  | .named (.classifierForget _) _ => classifierAction declaration
-  | .named _ _ => throwError "a routed declaration has no named action role"
-  | .constructed constructor inner =>
-      let some action := ((← registryState).constructor? constructor).bind (·.functorialAction)
-        | throwError "the selected constructor has no registered action"
-      Semantic.applyConstructorFunctor action (← inner.action declaration)
+private def compileCompletions (inputs : Array SymbolicInput) (actionIndex : Nat)
+    (shape : ActionShape) (declaration : Expr) (slots : Array Slot) (origins : Array Origin) :
+    TermElabM (Array FieldCompletion) := do
+  unless slots.size == origins.size do
+    throwError "the intermediate completion lost its positional source inventory"
+  let state ← registryState
+  let selected ← completionActions shape declaration
+  (slots.zip origins).mapM fun (slot, origin) => do
+    match origin with
+    | .retained .. => return .retained origin.parameterSource
+    | .returned preceding _ =>
+        if preceding < actionIndex then return .retained origin.parameterSource
+        unless preceding == actionIndex do
+          throwError "an intermediate field depends on a later producer"
+    | .record .. => pure ()
+    match slot.node with
+    | .retained input projection => return .retained (.retained input projection)
+    | .record codec fields => return .record codec fields
+    | .returned => compileFieldAction inputs state selected slots slot
 
-private partial def actionShape (state : RegistryState) (edge : EdgeRef) (actual : Expr) :
-    TermElabM ActionShape := do
-  let shape ← match edge with
-    | .functor id => do
-        let some entry := state.functor? id
-          | throwError "the routed schema names an absent selected functor"
-        pure (ActionShape.named edge (← completeApplication entry.declaration actual))
-    | .classifierForget id => do
-        let some entry := state.classifier? id
-          | throwError "the routed schema names an absent selected classifier"
-        let some (application, _) ← DeclaredApplication.completeProjected? entry.declaration
-            (← Semantic.asFunctor actual) classifierAction
-            (FunctorActionData.directActionDeclaration? state actual)
-          | throwStratum .noImplementation
-              "the routed schema requires the classifier's complete selected declaration"
-        unless application.getAppFn.constName? == some entry.declaration do
-          throwError "the routed schema changed its selected classifier declaration"
-        pure (ActionShape.named edge application)
-    | .constructMap constructor inner => do
-        let some action := (state.constructor? constructor).bind (·.functorialAction)
-          | throwError "the routed schema names a constructor without its registered action"
-        let application ← completeApplication action actual
-        let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
-          fields.mapM (·.fvarId!.getBinderInfo)
-        unless infos.size == application.getAppNumArgs do
-          throwError "the constructed route action omitted a complete declaration argument"
-        let explicit := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
-          if info.isExplicit then some argument else none
-        let #[innerAction] := explicit
-          | throwStratum .noImplementation
-              "the routed constructor action requires its declared symbolic parameter schema"
-        pure (ActionShape.constructed constructor (← actionShape state inner innerAction))
-  let rebuilt ← shape.action shape.declaration
-  let expected ← Semantic.asFunctor actual
-  unless ← withTransparency .all <|
-      isDefEq (← inferType rebuilt) (← inferType expected) <&&> isDefEq rebuilt expected do
-    throwError "the routed symbolic schema changed its complete selected action"
-  return shape
+private def instantiateFieldAction (selected : FieldCompletionAction)
+    (binders values : Array Expr) : FieldCompletionAction :=
+  { selected with
+    steps := selected.steps.map fun step => instantiateProjectionStep step binders values
+    input := selected.input.replaceFVars binders values
+    inputType := selected.inputType.replaceFVars binders values
+    inputRole := instantiateProjectionParameterRole selected.inputRole binders values }
 
-private structure StageSchema where
-  formal : Expr
-  parameters : Array Parameter
-  slots : Array Slot
-  output : Nat
+private def closeCompletion (selected : FieldCompletion) (binders values : Array Expr)
+    (origin : Origin) (actionIndex : Nat) (inputs : Array SymbolicInput)
+    (sourceContext : CategoryContext) (interfaces : Array ParameterInterface) :
+    TermElabM FieldCompletion := do
+  match selected with
+  | .retained source => return .retained (← checkProjectionSourceBefore actionIndex source)
+  | .record .. | .unavailable .. => return selected
+  | .action selected =>
+    let selected := instantiateFieldAction selected binders values
+    let steps ← selected.steps.mapM fun step => do
+      let parameters ← step.parameters.mapM fun parameter => do
+        return { parameter with
+          role := (← closeProjectionRole parameter.role parameter.formal inputs sourceContext interfaces)
+          source := (← rebaseProjectionSource origin actionIndex parameter.source) }
+      return { step with parameters }
+    let inputRole ← closeProjectionRole selected.inputRole selected.input inputs sourceContext interfaces
+    let source ← rebaseProjectionSource origin actionIndex selected.source
+    return .action { selected with steps, inputRole, source }
+
+private structure StageSchema extends IntermediateStage where
   origin : Origin
-  projectionActions : Array ProjectionActionSelection
 
 private def parameterKind (parameter : Parameter)
     (interfaces : Array ParameterInterface) : TermElabM InputKind := do
@@ -1110,9 +1921,13 @@ private def compileStage (actionIndex : Nat) (shape : ActionShape)
         let origins ← compileOrigins inputs actionIndex symbolicSlots
         let some outputOrigin := origins[output]?
           | throwError "the composed action lost its selected output provenance"
-        let selectedActions ← if method?.isSome then
-            compileProjectionActions inputs symbolicSlots
-          else pure #[]
+        let symbolicSlots := (symbolicSlots.zip origins).map fun (slot, origin) =>
+          { slot with producedBy := match origin with
+            | .returned actionIndex replyPath => some { actionIndex, replyPath }
+            | _ => none }
+        let selectedActions ← compileProjectionActions inputs symbolicSlots
+        let symbolicCompletions ← compileCompletions inputs actionIndex shape
+          (mkAppN application.getAppFn declarationBinders) symbolicSlots origins
         let binders := declarationBinders.push symbolicReceiver
         let values := declarationValues.push receiver
         let formal := symbolicResult.replaceFVars binders values
@@ -1122,6 +1937,9 @@ private def compileStage (actionIndex : Nat) (shape : ActionShape)
         let slots := symbolicSlots.map fun slot => instantiateSlot slot binders values
         let closedInputs := inputs.map fun input => { input with
           formal := input.formal.replaceFVars binders values }
+        let completions ← symbolicCompletions.mapM fun selected =>
+          closeCompletion selected binders values origin actionIndex closedInputs
+            sourceContext interfaces
         let projectionActions ← selectedActions.mapM fun selected => do
           let action ← match selected.action with
             | .error failure => pure (.error failure)
@@ -1132,9 +1950,18 @@ private def compileStage (actionIndex : Nat) (shape : ActionShape)
           return { selected with action }
         for selected in projectionActions do
           if let .ok action := selected.action then
-            unless (← isTypeCorrect action.declarationApplication) &&
+            unless (← isTypeCorrect action.projection) &&
                 (← isTypeCorrect action.application) do
-              throwError "a closed projection action lost its complete declaration type"
+              throwError "a closed projection action lost its complete functor type"
+            for step in action.steps do
+              discard <| step.checkedDeclaration
+            for selected in action.alignment do
+              discard <| selected.checkedDeclaration
+            if let some comparison := action.alignmentComparison then
+              Semantic.checkRouteComparison comparison action.application action.projection
+            for (_, comparison) in action.comparisons do
+              unless ← isTypeCorrect comparison do
+                throwError "a closed projection action lost an accepted comparison"
             for parameter in action.parameters do
               unless ← withTransparency .all <|
                   isDefEq (← inferType parameter.formal) parameter.expectedType do
@@ -1147,7 +1974,41 @@ private def compileStage (actionIndex : Nat) (shape : ActionShape)
           if let some context := slotContext slot.role then
             unless ← isTypeCorrect context.bundle do
               throwError "a routed result field lost its complete category dictionary"
-        return { formal, parameters, slots, output, origin := outputOrigin, projectionActions }
+        for (slot, completion) in slots.zip completions do
+          if let .action selected := completion then
+            unless ← isTypeCorrect selected.input do
+              throwError "a closed field completion lost its original input type"
+            unless ← withTransparency .all <|
+                isDefEq (← inferType selected.input) selected.inputType do
+              throwError "a closed field completion changed its declared input type"
+            for step in selected.steps do
+              discard <| step.checkedDeclaration
+              for parameter in step.parameters do
+                unless ← withTransparency .all <|
+                    isDefEq (← inferType parameter.formal) parameter.expectedType do
+                  throwError "a closed field completion lost a complete action parameter"
+            let some first := selected.steps[0]?
+              | throwError "a closed field completion omitted its original action"
+            let some last := selected.steps.back?
+              | throwError "a closed field completion omitted its final action"
+            match selected.kind, selected.inputRole, slot.role with
+            | .object, .objectAt inputContext, .object resultContext =>
+                checkBoundary inputContext.bundle first.sourceContext.bundle
+                checkBoundary resultContext.bundle last.targetContext.bundle
+                CategoryContext.checkObject inputContext selected.input
+            | .map source target, .mapAt inputContext originalSource originalTarget,
+                .map resultContext sourceSlot targetSlot =>
+                unless source == sourceSlot && target == targetSlot && source != target do
+                  throwError "a field completion merged distinct declared map endpoint positions"
+                checkBoundary inputContext.bundle first.sourceContext.bundle
+                checkBoundary resultContext.bundle last.targetContext.bundle
+                CategoryContext.checkMorphism inputContext selected.input originalSource originalTarget
+            | _, _, _ =>
+                throwError "a closed field completion changed its complete input or output role"
+        return {
+          actionIndex, edge := shape.edge, application := actualAction, receiver, formal,
+          sourceContext, resultContext := targetContext,
+          parameters, slots, output, completions, origin := outputOrigin, projectionActions }
 
 /-- Compose independently compiled field transformations at the exact selected
 category boundaries. Equal closed parameters never merge their supplier slots.
@@ -1177,6 +2038,7 @@ def select (method : MethodEntry) (F receiver : Expr)
   let mut context := sourceContext
   let mut origin := Origin.retained .receiver (.input #[])
   let mut capturedParameters := #[]
+  let mut stages := #[]
   let mut completed : Option StageSchema := none
   for index in [:shapes.size] do
     let some shape := shapes[index]?
@@ -1197,6 +2059,7 @@ def select (method : MethodEntry) (F receiver : Expr)
     context := target
     origin := stage.origin
     capturedParameters := capturedParameters ++ stage.parameters
+    stages := stages.push stage.toIntermediateStage
     completed := some stage
   let some completed := completed
     | throwError "the composed schema omitted its selected method action"
@@ -1207,7 +2070,7 @@ def select (method : MethodEntry) (F receiver : Expr)
     method := method.id, application, prefixActions, receiver, argument, formal := result,
     sourceContext, resultContext, parameters := capturedParameters,
     slots := completed.slots, output := completed.output,
-    projectionActions := completed.projectionActions }
+    projectionActions := completed.projectionActions, stages }
 
 def Plan.inputFormal (plan : Plan) (input : Input) : TermElabM Expr := do
   match input with

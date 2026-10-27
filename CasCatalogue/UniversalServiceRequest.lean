@@ -154,13 +154,23 @@ structure Selection where
   baseObject : Operand
   outputs : Array Operand
   dependencies : Array Operand
+  sourceImage? : Option Operand := none
+  comparisonImage? : Option Operand := none
   actionOwnership : DataOwnership.Table := #[]
   parameterOwnership : DataOwnership.Table := #[]
+
+/-- Metadata occurrences keep the suppliers of their exact typed operands. -/
+def Selection.imageOwnership (selected : Selection) : DataOwnership.Table :=
+  DataOwnership.prefix #[.field "sourceImage"]
+      ((selected.sourceImage?.map (·.ownership)).getD #[]) ++
+    DataOwnership.prefix #[.field "comparisonImage"]
+      ((selected.comparisonImage?.map (·.ownership)).getD #[])
 
 /-- Instantiate only the registered evidence family. Monicity is projected from
 the independently typed formal subobject, never decoded from a packet field. -/
 def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
-    (action source base : Json) (outputs : Array Json) (originalArrow : Bool) :
+    (action source base : Json) (outputs : Array Json) (originalArrow : Bool)
+    (images : Backend.LiftImages := {}) :
     TermElabM Selection := do
   let state ← registryState
   let declared ← decoder.declaration entry.evidence parameters
@@ -191,6 +201,22 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
   let plan ← SelectedLift.fromEvidence entry declaredApplication.value source.value inclusion.value monic
   let selected ← SimpleServiceRequest.closeAction selected
   sameValue selected.value plan.action "lift action"
+  let sourceImage? ← images.sourceImage?.mapM fun data => do
+    let formal ← if originalArrow then do
+        let .constructMap constructor _ := entry.edge
+          | throwError "the selected lift has no complete constructor action"
+        let some action := (state.constructor? constructor).bind (·.functorialAction)
+          | throwError "the selected lift lost its accepted constructor action"
+        Semantic.objOf (← Semantic.applyConstructorFunctor action plan.action) original.value
+      else Semantic.objOf plan.action source.value
+    let operand ← decoder.argument (← inferType formal) data
+    sameValue operand.value formal "lift source image"
+    return operand
+  let sourceImageObject? ← sourceImage?.mapM fun image => do
+    if originalArrow then decoder.project image "source" none else pure image
+  if let some image := sourceImageObject? then
+    if let .error message ← LiftedSubobjectData.validateSourceImageBase plan image.data base.data then
+      throwStratum .malformed m!"the service lift changes its actual image ambient: {message}"
   let mut actual := #[]
   for (data, index) in outputs.zipIdx do
     let some formal := plan.ports[index]?
@@ -198,15 +224,23 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
     let operand ← decoder.argument (← inferType formal) data
     sameValue operand.value formal "preceding lift output"
     actual := actual.push operand
+  let comparisonImage? ← images.comparisonImage?.mapM fun data => do
+    let formal ← Semantic.objOf plan.action plan.ports[0]!
+    let operand ← decoder.argument (← inferType formal) data
+    sameValue operand.value formal "lift comparison image"
+    return operand
   let dependencies := declared.operands ++ selected.dependencies ++
-    #[original, source, base, baseObject, inclusion] ++ actual
+    #[original, source, base, baseObject, inclusion] ++ actual ++
+    sourceImage?.toArray ++ sourceImageObject?.toArray ++ comparisonImage?.toArray
   if !actual.isEmpty then
     if let .error message ← LiftedSubobjectData.validateSelectionPrefix plan
-        selected.descriptor source.data base.data (actual.map (·.data)) then
+        selected.descriptor source.data base.data (actual.map (·.data))
+        (comparisonImage?.map (·.data)) then
       throwStratum .malformed m!"the service lift changes its preceding complete output data: {message}"
   return {
     plan, action := selected.descriptor, parameters := declared.operands.map (·.data)
-    original, source, base, baseObject, outputs := actual, dependencies
+    original, source, base, baseObject, outputs := actual, dependencies,
+    sourceImage?, comparisonImage?
     actionOwnership := selected.descriptorOwnership
     parameterOwnership := operandArrayOwnership declared.operands }
 
@@ -241,12 +275,17 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
   let (originalArrow, id, parameters, action, source, base, outputs) ← liftFields template operation
   unless id == entry.id.raw do
     throwStratum .malformed "the service request changes its selected lift"
-  let selected ← selection decoder entry parameters action source base outputs originalArrow
+  let .ok images := Backend.LiftImages.decode template outputs.size
+    | throwStratum .malformed "the service lift has incomplete or mistimed actual image metadata"
+  let selected ← selection decoder entry parameters action source base outputs originalArrow images
   let invocation : Backend.LiftInput := {
     originalArrow, lift := entry.id.raw, action := selected.action
     source := selected.original.data, base := selected.base.data
-    outputs := selected.outputs.map (·.data), parameters := selected.parameters }
-  let requestOwnership := DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
+    outputs := selected.outputs.map (·.data), parameters := selected.parameters
+    sourceImage? := selected.sourceImage?.map (·.data)
+    comparisonImage? := selected.comparisonImage?.map (·.data) }
+  let requestOwnership := selected.imageOwnership ++
+    DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
     argsOwnership #[#[], selected.actionOwnership, selected.original.ownership,
       selected.base.ownership, operandArrayOwnership selected.outputs]
   let .ok _ := Backend.LiftInput.decode invocation.encode operation
@@ -262,7 +301,8 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
     callableInterface := if index == 0 then none else some .framed
     complete := fun answer => do
       return (← LiftedSubobjectData.validateSelectionPrefix selected.plan selected.action
-        selected.source.data selected.base.data (invocation.outputs.push answer)).map fun _ => none }
+        selected.source.data selected.base.data (invocation.outputs.push answer)
+        invocation.comparisonImage?).map fun _ => none }
 
 def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     (template : Json) : TermElabM Prepared := do
@@ -277,7 +317,9 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     throwStratum .malformed "the service factor requires all four preceding lift outputs"
   let .ok parameters := (template.getObjVal? "parameters").bind (·.getArr?)
     | throwStratum .malformed "the service factor omitted its selected evidence parameters"
-  let selected ← selection decoder entry parameters action source base outputs false
+  let .ok images := Backend.LiftImages.decode template outputs.size
+    | throwStratum .malformed "the service factor omitted its complete actual image metadata"
+  let selected ← selection decoder entry parameters action source base outputs false images
   let cone ← decoder.arrow cone
   let (coneData, domain, coneTarget) ← mapFragment decoder cone
   sameValue coneTarget.value selected.source.value "factor cone target"
@@ -296,12 +338,15 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
   let invocation : Backend.LiftFactorInput := {
     lift := entry.id.raw, action := selected.action, source := selected.source.data
     base := selected.base.data, outputs := selected.outputs.map (·.data)
-    parameters := selected.parameters, baseMap := baseMapData, cone := coneMapData }
+    parameters := selected.parameters, baseMap := baseMapData, cone := coneMapData
+    sourceImage? := selected.sourceImage?.map (·.data)
+    comparisonImage? := selected.comparisonImage?.map (·.data) }
   -- `TypedMap.encode` retains exactly the three fields under `args`; any other
   -- envelope fields are not part of the re-encoded occurrence.
   let mapOwnership := fun data : DataOwnership.Data =>
     DataOwnership.prefix #[.field "args"] (DataOwnership.project #[.field "args"] data.ownership)
-  let requestOwnership := DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
+  let requestOwnership := selected.imageOwnership ++
+    DataOwnership.prefix #[.field "parameters"] selected.parameterOwnership ++
     argsOwnership #[#[], selected.actionOwnership, selected.source.ownership,
       selected.base.ownership, operandArrayOwnership selected.outputs,
       mapOwnership baseData, mapOwnership coneData]

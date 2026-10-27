@@ -52,6 +52,8 @@ structure Component where
   selection : SelectedLift.Plan
   action : Expr
   receiver : Expr
+  /-- Complete image under the very same selected route application. -/
+  transportedSource : Expr
   base : Expr
   /-- Route index; execution runs in reverse order and consumes the next step outputs. -/
   routeIndex : Nat
@@ -74,6 +76,17 @@ structure Packet extends Plan where
   /-- Actual component outputs in the original prescribed route order. -/
   outputs : Array (Array Json)
   data : Json
+
+/-- Exact data retained by a runtime stage before its replies are checked. These
+values come from captured requests and action outputs, never from a returned
+step or a comparison of wire spellings. Ownership remains on their enclosing Wires. -/
+structure StageInputs where
+  parameters : Array Json
+  action : Json
+  source : Json
+  transportedSource : Json
+  base : Json
+  comparisonImage : Json
 
 /-- Fix the entire reverse-route computation before consulting any returned data. -/
 def planIn (expected : Expr) (sourceExpression : CategoryExpr)
@@ -116,6 +129,7 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
   let mut receiver := fixedSource
   let mut rows : Array LiftEntry := #[]
   let mut receivers : Array Expr := #[]
+  let mut images : Array Expr := #[]
   for index in [:prescribed.size] do
     let id := prescribed[index]!
     let some row := state.lifts.find? (·.id == id)
@@ -146,6 +160,7 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
           discard <| Semantic.edgeEndpoints? state row.edge action
           pure action
     receiver ← Semantic.objOf action receiver
+    images := images.push receiver
     current := edge.target
   let .construct _ #[.category target] := current
     | return .error "the lifted descriptor has no exact base category"
@@ -196,6 +211,7 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
     for port in ports do discard <| StructuredResult.checkReconstruction port
     reverseComponents := reverseComponents.push {
       lift := row.id, action := retained.action, receiver := saved,
+      transportedSource := images[index]!,
       base := formalResult, routeIndex := index, ports, selection }
     formalResult := next
   unless ← withTransparency .all <| isDefEq (← inferType formalResult) expected do
@@ -272,7 +288,8 @@ def validateMap (formal : Expr) (source target data : Json) :
 
 /-- Validate all four outputs at the actual source object, without manufacturing an Arrow. -/
 def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base : Json)
-    (outputs : Array Json) : TermElabM (Except String Unit) := do
+    (outputs : Array Json) (comparisonImage? : Option Json := none) :
+    TermElabM (Except String Unit) := do
   unless !outputs.isEmpty && outputs.size <= 4 && selection.ports.size == 4 do
     return .error "a lift requires an ordered prefix of its four public outputs"
   let .ok baseFields := subobjectFields base
@@ -280,7 +297,13 @@ def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base 
   let .ok () ← ComputationalData.validatePort selection.ports[0]!
       (← inferType selection.ports[0]!) outputs[0]!
     | return .error "the lift object output has malformed framing"
-  let mapped := Json.mkObj [("ctor", "functorAction"),
+  if let some image := comparisonImage? then
+    if let .error message ← ComputationalData.validateAction selection.action action then
+      return .error message
+    let formal ← Semantic.objOf selection.action selection.ports[0]!
+    if let .error message ← ComputationalData.validatePort formal (← inferType formal) image then
+      return .error s!"the selected comparison image has malformed framing: {message}"
+  let mapped := comparisonImage?.getD <| Json.mkObj [("ctor", "functorAction"),
     ("args", Json.arr #[action, outputs[0]!])]
   let mut mappedEndpoint := mapped
   let mut baseEndpoint := baseFields[0]!
@@ -301,10 +324,11 @@ def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base 
 
 /-- Prescribed lift execution additionally retains the entire original Arrow. -/
 def validatePrefix (component : Component) (action source base : Json)
-    (outputs : Array Json) : TermElabM (Except String Unit) := do
+    (outputs : Array Json) (comparisonImage? : Option Json := none) :
+    TermElabM (Except String Unit) := do
   let .ok sourceFields := fields "arrow" 3 source
     | return .error "the lift source omitted its complete original Arrow data"
-  validateSelectionPrefix component.selection action sourceFields[0]! base outputs
+  validateSelectionPrefix component.selection action sourceFields[0]! base outputs comparisonImage?
 
 /-- Advance with this step's actual object and defining map, not the original base packet. -/
 def nextBase (source : Json) (outputs : Array Json) : Except String Json := do
@@ -334,34 +358,79 @@ def validateParameters (selection : SelectedLift.Plan) (step : Json)
       return .error message
   return .ok ()
 
+/-- The complete base inclusion uses the supplied actual image as its ambient.
+This checks computational endpoints at the already selected inclusion; it does
+not assert an equation between an action's implementation and its formal meaning. -/
+def validateSourceImageBase (selection : SelectedLift.Plan) (image base : Json) :
+    TermElabM (Except String Unit) := do
+  let .ok baseFields := subobjectFields base
+    | return .error "the lift base omitted its complete actual subobject data"
+  let actual := Backend.TypedMap.encode {
+    source := baseFields[0]!, target := baseFields[1]!, callable := baseFields[2]! }
+  validateMap selection.inclusion baseFields[0]! image actual
+
+/-- Execution compares every retained request role with its original runtime
+data. A metadata-bearing formal-reference packet checks only fixed interfaces
+and internal framing; absent metadata retains the historical recipe format. -/
+def validateStageInputs (step : Array Json) (stepData : Json)
+    (images : Backend.LiftImages) (runtime : StageInputs) : Except String Unit := do
+  let parameters ← (stepData.getObjVal? "parameters").bind (·.getArr?)
+  unless parameters == runtime.parameters && step[1]! == runtime.action &&
+      step[2]! == runtime.source && step[3]! == runtime.base &&
+      images.sourceImage? == some runtime.transportedSource &&
+      images.comparisonImage? == some runtime.comparisonImage do
+    throw "a completed lift step changes its retained runtime request or actual image data"
+
 /-- Retain the validated original source and its prescribed images as input
 interfaces. A reduced base object need not remember a forgetful action's source.
 Only the fixed plan supplies these formal interfaces; descriptors supply no
 mathematical identity, action, inverse or construction law. -/
-def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json) :
+def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json)
+    (runtime? : Option (Array StageInputs) := none) :
     TermElabM (Except String ComputationalData.InterfaceObjects) := do
   let mut current := source
   let mut objects : ComputationalData.InterfaceObjects := #[]
-  for (component, stepData) in prepared.components.zip steps do
+  for ((component, stepData), index) in (prepared.components.zip steps).zipIdx do
     let .ok step := fields "liftStep" 5 stepData
       | return .error "a component omits its selected action, source, base or outputs"
+    let .ok images := Backend.LiftImages.decode stepData 4
+      | return .error "a completed component has incomplete or mistimed actual image metadata"
+    if let some runtime := runtime? then
+      let some retained := runtime[index]?
+        | return .error "a completed component has no retained runtime stage inputs"
+      if let .error message := validateStageInputs step stepData images retained then
+        return .error message
     unless step[2]! == current do
       return .error "a component changes the original or preceding actual transported source"
     if let .error message ← ComputationalData.validateAction component.action step[1]! then
       return .error message
     let .ok endpoints := fields "arrow" 3 current
       | return .error "a component has incomplete source Arrow data"
+    let mut sourceObjects : ComputationalData.InterfaceObjects := #[]
+    for (projection, index) in #[(``CategoryTheory.Arrow.left, 0),
+        (``CategoryTheory.Arrow.right, 1)] do
+      let formal ← mkAppM projection #[component.receiver]
+      sourceObjects := sourceObjects.push (endpoints[index]!, formal)
+    let transported := match images.sourceImage? with
+      | some image => .ok image
+      | none => mapArrowData step[1]! current
+    let .ok transported := transported
+      | return .error "a component has incomplete source Arrow data"
+    let .ok imageEndpoints := fields "arrow" 3 transported
+      | return .error "a component image omitted its complete transported Arrow data"
+    if images.sourceImage?.isSome then
+      if let .error message ← ComputationalData.validatePort component.transportedSource
+          (← inferType component.transportedSource) transported (objects ++ sourceObjects) then
+        return .error s!"a component image changed its fixed complete Arrow interface: {message}"
+      if let .error message ← validateSourceImageBase component.selection imageEndpoints[0]! step[3]! then
+        return .error message
     for (projection, index) in #[(``CategoryTheory.Arrow.left, 0),
         (``CategoryTheory.Arrow.right, 1)] do
       let formal ← mkAppM projection #[component.receiver]
       objects := objects.push (endpoints[index]!, formal)
       let image ← Semantic.objOf component.action formal
-      let descriptor := Json.mkObj [("ctor", "functorAction"),
-        ("args", Json.arr #[step[1]!, endpoints[index]!])]
-      objects := objects.push (descriptor, image)
-    let .ok next := mapArrowData step[1]! current
-      | return .error "a component has incomplete source Arrow data"
-    current := next
+      objects := objects.push (imageEndpoints[index]!, image)
+    current := transported
   return .ok objects
 
 /-- A completed reply reuses the formal plan fixed before dispatch. Check that
@@ -391,6 +460,13 @@ def checkRetainedPlan (expected : Expr) (sourceExpression : CategoryExpr)
         component.ports.size == component.selection.ports.size do
       throwError "the retained lift plan changed a selected stage or port position"
     same component.action component.selection.action
+    let .constructMap constructor _ := component.selection.entry.edge
+      | throwError "the retained lift plan lost its complete constructor action"
+    let some action := (state.constructor? constructor).bind (·.functorialAction)
+      | throwError "the retained lift plan lost its accepted constructor action"
+    let transported ← Semantic.objOf
+      (← Semantic.applyConstructorFunctor action component.action) component.receiver
+    same component.transportedSource transported
     same component.selection.source (← mkAppM ``CategoryTheory.Arrow.left #[component.receiver])
     let base ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[component.base]
     same component.selection.inclusion (← mkAppM ``CategoryTheory.Arrow.hom #[base])
@@ -400,15 +476,17 @@ def checkRetainedPlan (expected : Expr) (sourceExpression : CategoryExpr)
 
 /-- Only completed packets with every actual output count as prescribed lifted data.
 Source packets and selected action descriptors are supplied by the kernel's fixed route.
-Execution must supply its retained request parameters; an explicit `none` is reserved
-for formal-reference framing without a runtime request history. Session ownership
+Execution supplies `runtime?` with every exact stage input and actual image. Its
+absence is reserved for formal-reference framing without a runtime request history.
+The separate parameter argument remains available to historical callers. Session ownership
 belongs to the containing wire and is preserved and checked by the realizer. -/
 def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (json : Json)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
-    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none) :
+    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none)
+    (runtime? : Option (Array StageInputs) := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   let work : TermElabM (Except String Packet) := do
@@ -432,7 +510,10 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     if let some requested := requestParameters? then
       unless requested.size == steps.size do
         return .error "the retained requests omit a prescribed component's parameters"
-    let .ok objects ← sourceInterfaces prepared steps args[1]!
+    if let some runtime := runtime? then
+      unless runtime.size == steps.size do
+        return .error "the retained runtime inputs omit a prescribed stage"
+    let .ok objects ← sourceInterfaces prepared steps args[1]! runtime?
       | return .error "the completed packet changes its retained original source or selected action"
     if let .error message ← validateBase prepared.baseCategory fixedBase args[0]! objects then
       return .error s!"the computational base changed its complete fixed context: {message}"
@@ -443,6 +524,8 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
         | return .error "the completed route lost a fixed component"
       let .ok step := fields "liftStep" 5 steps[index]!
         | return .error "a component omits its selected action, source, base or outputs"
+      let .ok images := Backend.LiftImages.decode steps[index]! 4
+        | return .error "a completed component has incomplete actual image metadata"
       if let .error message ← validateParameters component.selection steps[index]!
           (requestParameters?.map (·[index]!)) then
         return .error message
@@ -456,13 +539,16 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
       if index + 1 < steps.size then
         let .ok following := fields "liftStep" 5 steps[index + 1]!
           | return .error "the next component has incomplete source provenance"
-        let .ok image := mapArrowData step[1]! step[2]!
+        let image := match images.sourceImage? with
+          | some image => .ok image
+          | none => mapArrowData step[1]! step[2]!
+        let .ok image := image
           | return .error "a component has incomplete source Arrow data"
         unless following[2]! == image do
           return .error "a component changes the preceding actual transported source"
       let .ok data := step[4]!.getArr? | return .error "a component has no ordered outputs"
       unless data.size == 4 do return .error "a completed component omits a public output"
-      match ← validatePrefix component step[1]! step[2]! base data with
+      match ← validatePrefix component step[1]! step[2]! base data images.comparisonImage? with
       | .error message => return .error message
       | .ok () => pure ()
       let .ok next := nextBase step[2]! data | return .error "the component cannot advance"
@@ -476,12 +562,13 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
-    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none) :
+    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none)
+    (runtime? : Option (Array StageInputs) := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
     return some (.error "the named lift context changes its complete selected result parameters")
   decodeIn expected sourceCategory.expression fixedSource prescribed fixedBase json
-    validateSource validateBase requestParameters? prepared?
+    validateSource validateBase requestParameters? prepared? runtime?
 
 end CasCatalogue.LiftedSubobjectData

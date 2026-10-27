@@ -19,7 +19,7 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
-### Resumed integration — 2026-10-28
+### Resumed integration — 2026-10-27
 
 The active source remains PR #67, `work/kernel-v1-20261023`; the older
 `b0/kernel` references in the plan identify source inputs, not a branch to
@@ -28,7 +28,7 @@ permit typed deferred plans; they do not require lateral-import prohibitions or
 a synchronous callback topology. Implementation and completion obligations are
 unchanged.
 
-Latest completed candidate: `8182062`, run `40575827550`, job `122441863273`.
+Previous completed candidate: `8182062`, run `40575827550`, job `122441863273`.
 The retained-application namespace repair compiled. Compilation then stopped in
 `Semantic.checkMethodApplication`: it used endpoint helpers available only in
 Admission, requested an unavailable `Inhabited MethodLiftApplication`, and let
@@ -37,7 +37,7 @@ checks the already selected ordered route steps, uses checked optional access
 for the retained lift, and keeps branch results local. It does not select fresh
 route applications or weaken the retained method checks.
 
-The same checkpoint completes contextual parameter selection in `Language`:
+Published checkpoint `30b1131` completes contextual parameter selection in `Language`:
 unnamed structural objects and maps retain their full original source context,
 registered actions and exact selected parameters. Numerals and tuple formation
 use those complete contexts and registered declarations. Diagram interpretation
@@ -45,17 +45,64 @@ retains the exact applicable limit or colimit presentation instead of choosing
 again after typed argument selection. `ContextParameterProbes` is an added
 engineering consumer; fixed mathematical assertions are unchanged.
 
-The run did not reach `Realize` or establish native, semantic-export,
-frozen-control, workflow or extension results. Projection-alignment, exact
-intermediate result reuse and actual-image lift changes remain ongoing source
-integration and are excluded from this smaller checkpoint. Contract `24d474b`
-has been published for that integration; this checkpoint retains its existing
-`b71dc66` dependency until the corresponding consumers are ready.
+Latest completed candidate: `30b1131`, run `40579198067`, job `122453711372`.
+`Semantic` and `QuestionIdentity` compiled. The build stopped in `SelectedLift`:
+the retained-stage record used invalid layout, and another unchecked lift-array
+access required a nonexistent default instance. The current checkpoint fixes
+the record layout and checks that original array position explicitly. The run
+did not reach `Realize` or establish native, semantic-export, frozen-control,
+workflow or extension results. The fixed limits and assertions remain unchanged.
+
+### Compositional result and lift integration — 2026-10-27
+
+The current checkpoint integrates the complete selected projection routes,
+ordered comparison-cell applications, intermediate public result schemas and
+actual-image lift contract `24d474b`. Accepted naturality identifies the executed
+projection comparison composite with the canonical public field action. The
+component maps still pass through the ordinary registered action executor; the
+mathematical equality supplies no claim about a backend's returned answer.
+
+Each selected action boundary retains its own public field schema and original
+positional suppliers. A fused method's exposed fields remain authoritative.
+Missing intermediate fields are obtained through their selected registered
+object/map actions, including exact map endpoint slots, or the existing public
+record codec. They are new demanded computations, not reconstructed history of
+the fused leaf. A transported invocation instead retains its actual ordered
+source/image chain and the exact final receiver sent. Intrinsic method results
+retain the same schema without requiring a leaf dispatch. Raw returned fields
+are validated before a comparison descriptor can consume them. Prospective
+inspection uses a private completion cache; it cannot mutate the live table.
+
+`LiftStageExecution.fold` supplies one four-field dependency order to actual
+execution and prospective inspection. Prescribed lifts consume the chosen base
+invocation's actual route operands and retain all stage inputs, image data,
+complete outputs and session handles. Comparisons and successive factors reuse
+the existing map-action executor. Opaque callable bodies receive the public
+endpoint frame before reuse; the last unused mapped factor cone is not demanded.
+The requested image and any permitted returned finite-inventory enrichment
+remain distinct retained occurrences. Historical metadata-absent lift packets
+keep their explicit compatibility path.
+
+These are source changes awaiting the integrated Lean build and unchanged
+execution controls. They do not establish a frozen-kernel extension verdict or
+usable-V1 completion. The new routed-composition probe is an engineering
+consumer; protected questions, expected outcomes and resource budgets are
+unchanged.
+
+Review also identified an outstanding computational-boundary choice: a complete
+lift implementation may accept the original public descriptor request and supply
+its comparison fields without separate object/map registrations. The new actual
+image path currently demands those extra action boundaries. The fixed
+`CompositeLiftProbes` deliberately installs only the lift ports and requires the
+original eight field calls and two factor calls. Reconcile the source/deferred
+and transported lift requests through generic invocation selection; do not
+change the fixed control or label an unexecuted recipe as a separately executed
+image. This is an open implementation issue in this source checkpoint.
 
 The integration checkpoint retains each interpreted method's full applications,
 category dictionaries, ordered data parameters, comparisons and prescribed lift
 stages. Public service preparation consumes the complete method envelope from
-contract `b71dc66`; the legacy receiver-only form is explicit and restricted to
+contract `b71dc66`, retained by `24d474b`; the legacy receiver-only form is explicit and restricted to
 an empty route and no computational declaration parameters. Both surface and
 service invocation use retained typed inputs through the existing action
 executor. Per-action result schemas compose positioned provenance instead of
@@ -65,10 +112,11 @@ their formal objects agree. Complete lifted-subobject packets project through
 their existing public codec with exact supplier scopes.
 
 This is source integration, not a usable-V1 verdict. Compilation and execution
-remain required. Complete projection-action route closure, exact executed
-intermediate sources in successive lifts, method trace-key collisions, and the
-remaining common-invocation consumers still require work. The previously fixed
-mathematical assertions and frozen control outcomes remain unchanged.
+remain required. The new complete projection-action route and intermediate
+stage consumers require executable confirmation. Method trace-key collisions,
+named-refinement presentation transport and remaining common-invocation
+consumers still require review and repair. The previously fixed mathematical
+assertions and frozen control outcomes remain unchanged.
 
 ### Retained comparisons and complete result roles
 
@@ -1353,16 +1401,16 @@ All repositories below are under `https://github.com/dzackgarza/`.
 
 | Repository / role | Branch | Selected source or labelled provenance |
 | --- | --- | --- |
-| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `09d52994ab08380bf88c9b0a05fc166325bd81bf` |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `30b1131cbb1638c1c025cb45116b76d2e7aeb6ad` |
 | `lean-categories`: historical base-interface provenance; not the selected package | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
 | `lean-categories`: current mathematical dependency | See committed package manifest | `3bd4d3d9695f288749c860368174462c4d689b7c` |
-| `lean-cas-dsl-leaf-contracts`: current protocol | `work/kernel-v1-contract-20261023` | `3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5`; generated API still requires final regeneration |
+| `lean-cas-dsl-leaf-contracts`: current protocol | `work/complete-method-request-20261027` | `24d474b274827e17e71b4b57c2cf882e11a3fea7`; generated API still requires final regeneration |
 | `lean-cas-dsl-leaves`: existing workflow specimen | `work/v1-contract-diagnostic-20261023` | `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` |
 | `lean-cas-dsl-leaves`: independent source-action specimen | `work/kernel-v1-independent-leaf-20261024` | `2f35244884649c9268567bb9968840a34559a11c`; earlier sources remain separately scoped |
 | `lean-cas-dsl-leaves`: frozen target specimen | Same work branch, fixed historical checkout | `865df49ad0b0b133d5bcfd282f380aa213eb5fff`; original target hashes retained |
 | `lean-jupyter-kernel`: existing notebook worker | Read selected package lock and runtime override | `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker`) |
 
-Every run records its exact selected source commits, complete trees and unchanged working state. The committed manifest selects mathematics `3bd4d3d`, protocol `3f7a22e`, and Mathlib `db584cd6d46c92f209a44c0f1c829460d327499d`. The specimen rows retain their particular historical experiment roles; each fresh run must identify its actual selected manifest and specimen revision. Source publication does not install an independently accepted mathematical release.
+Every run records its exact selected source commits, complete trees and unchanged working state. The committed manifest selects mathematics `3bd4d3d`, protocol `24d474b`, and Mathlib `db584cd6d46c92f209a44c0f1c829460d327499d`. The specimen rows retain their particular historical experiment roles; each fresh run must identify its actual selected manifest and specimen revision. Source publication does not install an independently accepted mathematical release.
 
 `lean-cas-dsl/main` is `95de265e5a6d61909703a3193f0a1c952e12131f` at this inspection. The active work branch contains the substantive implementation and has integrated that main, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale. Issue #69 and all five owner addenda apply: implementation irrelevance permits optional private lateral leaf reuse; shared actions, typed computational constructor access and formally justified dependency closure remain kernel responsibilities. Issues #68 and the historical parity backlogs do not expand this assignment.
 
