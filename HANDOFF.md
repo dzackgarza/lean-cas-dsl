@@ -92,7 +92,8 @@ mathematical assertions, and existing CI workflow are unchanged in this
 checkpoint; its publication was for a coherent compilation check, not a claim
 that these mechanisms or the V1 programme are complete.
 
-The current source additionally retains children of intrinsic compositions and
+Published checkpoint `9dbdd4bcb9a946266cd6b2cc3c961d02841320de`
+additionally retains children of intrinsic compositions and
 records, direct `ConstructionId` map plans, typed continuations for projected
 action endpoints, and complete diagram occurrences through construction
 dispatch. Complete callable replies and nested services retain original endpoint
@@ -103,6 +104,21 @@ The additional engineering controls are preserved as separate source files.
 Their guarded component-baseline runner and the expanded workflow are included
 at this source freeze. No local Lean result is available for these new
 changes. Existing successful workflow assertions do not close these omissions.
+
+Candidate run `40515420488`, job `122228012508`, failed at the
+`ComputationalData` function mutual block because the new endpoint-origin type
+declarations were nested inside it. The next source moves those two unchanged
+types before that block. This failure occurred before compiling `Realize`;
+native tools, API export, fixed readings and execution did not run.
+The earlier `112dc2a` run failed parsing two continued structure-field
+applications in `ComputationalData`; it did not compile the new `Realize` source.
+The `9dbdd4b` checkpoint contains the syntax correction. No result from that
+earlier run verifies the new executor. The next unverified source retains
+prospective nested owners without erasing known suppliers and captures direct
+construction and functor object actions at the same deferred boundary.
+The additional `NestedOwnerAdmissionProbes` fixture checks private prospective
+inspection without dispatch or live-cache mutation. All eleven candidate
+engineering controls remain independently guarded by their exact source bytes.
 
 The remaining producer boundary is broader than object-action demand.
 `realizeUnobserved` omits a final observation but still enters fresh branches
@@ -1256,6 +1272,15 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- `operationProductRow` still rejects creation-lift resolutions, and
+  `operationProductCone` requires the selected apex to be definitionally the
+  operation's literal `Prod` domain. The supplied direct Sets cone satisfies
+  that check; this does not establish comparison against a differently
+  presented product. The consumer must retain an independently supplied apex
+  comparison when needed, rather than select a concrete product or weaken the
+  complete-endpoint check. The accepted constructor comparison-cell actions
+  concern functors on constructed categories and do not by themselves identify
+  this operation's chosen product domain.
 - Inert preparation is not yet a global invariant: `realizeUnobserved` still
   reaches dispatching fresh construction/method/limit and specialized
   composition branches. Some named/cell/cartesian observers and admitted or

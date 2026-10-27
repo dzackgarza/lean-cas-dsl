@@ -2401,11 +2401,12 @@ partial def subobjectFragments? (data : DataOwnership.Data) : Option (Array Data
 /-- Exposed record data must satisfy the record codec at the independently
 fixed original fields. A complete public object descriptor is not implicitly
 its single stored field merely because the formal structure has one data slot. -/
-def exposedRecordData? (receiver : Expr) (data : DataOwnership.Data) :
+def exposedRecordData? (receiver : Expr) (data : DataOwnership.Data)
+    (objects : ComputationalData.InterfaceObjects := #[]) :
     TermElabM (Option DataOwnership.Data) := do
   let some payload := ComputationalData.recordPayload? data | return none
   let checked ← withoutModifyingState <|
-    ComputationalData.validateRecordPortWith receiver (← inferType receiver) payload.json #[]
+    ComputationalData.validateRecordPortWith receiver (← inferType receiver) payload.json objects
       (fun formal type json objects => ComputationalData.validatePort formal type json objects)
   let some (.ok ()) := checked | return none
   return some payload
@@ -2429,7 +2430,8 @@ cannot make unrelated functors look like projections. Opaque fields and their ow
 remain data. Other accepted actions retain their full functor descriptor. -/
 def projectObjectFragmentWithOrigin (trace : Trace) (_source : CategoryExpr) (edge : EdgeRef)
     (action receiver : Expr) (data : DataOwnership.Data)
-    (descriptor? : Option DataOwnership.Data := none) (checkOwnership : Bool := true) :
+    (descriptor? : Option DataOwnership.Data := none) (checkOwnership : Bool := true)
+    (objects : ComputationalData.InterfaceObjects := #[]) :
     TermElabM (Option ProjectedObjectFragment) := do
   if checkOwnership then discard <| checkedFragment data.validate
   let payload := (ComputationalData.recordPayload? data).getD data
@@ -2471,12 +2473,13 @@ def projectObjectFragmentWithOrigin (trace : Trace) (_source : CategoryExpr) (ed
         isDefEq (← Semantic.objOf action symbolic) original
     if core then
       if let some #[original] := fragmentArguments? payload then return some (.structural original)
-  if let some exposed ← exposedRecordData? receiver data then
+  if let some exposed ← exposedRecordData? receiver data objects then
     let structural ← withLocalDeclD `receiver (← inferType receiver) fun symbolic => do
       let image ← Semantic.objOf action symbolic
       let some plan ← ComputationalData.recordProjectionPlan? symbolic image | return none
-      let some projected ← plan.apply? symbolic exposed | return none
-      if (← ComputationalData.validatePort image (← inferType image) projected.json).isOk then
+      let some projected ← plan.apply? receiver exposed objects | return none
+      let fixed ← Semantic.objOf action receiver
+      if (← ComputationalData.validatePort fixed (← inferType fixed) projected.json objects).isOk then
         return some projected
       return none
     if let some projected := structural then return some (.structural projected)
@@ -2668,6 +2671,30 @@ def retainActionInput (morphism : Bool) (edge : EdgeRef) (application : Expr)
     (original output : Wire) (descriptor : ActionDataTemplate)
     (endpoints : Option (Wire × Wire) := none) : TermElabM Wire :=
   retainRegisteredActionInput (.edge edge) morphism application original output descriptor endpoints
+
+/-- Capture the common object projection of a complete registered action.
+The producer fixes the exact source occurrence, parameter slots and full target
+context. A checked structural projection may supply its existing public packet;
+otherwise the usual functorAction envelope remains pending until observation.
+This function neither selects a registration nor calls an executor. -/
+def captureRegisteredObjectAction (owner : ActionOwner) (action : Expr)
+    (original : Wire) (formal : Expr) (form : Form) (context : CategoryContext)
+    (descriptor : ActionDataTemplate)
+    (projection : Option DataOwnership.Data := none) : TermElabM Wire := do
+  let (data, dependencies) ← renderCapturedActionData descriptor
+  let fragment ← match projection with
+    | some projection =>
+      discard <| checkedFragment projection.validate
+      pure projection
+    | none => scopedNode "functorAction" #[data, original.fragment]
+  let output : Wire := {
+    form
+    payload := (← combinedRecipePayload formal fragment (#[original] ++ dependencies))
+    categoryContext := some context
+    objectIso := (← mapObjectComparison action original.value original.objectIso)
+    endpointPresentation := (← mapEndpointPresentation action data.json
+      original.endpointPresentation data.ownership) }
+  retainRegisteredActionInput owner false action original output descriptor
 
 /-- Current-role checks precede observation or intrinsic endpoint projection.
 Historical plans cannot select a different value, context or positioned packet. -/
@@ -4318,6 +4345,35 @@ def computationalApexReceiver (trace : Trace) (input : Wire) : TermElabM Wire :=
   let some image ← computationalApexImage? trace input | return input
   return { image with payload := (← scopedPayload input.value image.fragment) }
 
+/-- The no-dispatch object cases of an accepted edge. Both actual execution and
+prospective ownership inspection use the same retained creation and checked
+record projection. Typed inputs affect framing only, never the selected edge. -/
+def intrinsicObjectEdgeData? (trace : Trace) (edge : EdgeRef) (action : Expr)
+    (original : Wire) (imageValue : Expr) (descriptor : DataOwnership.Data)
+    (objects : ComputationalData.InterfaceObjects := #[]) :
+    TermElabM (Option DataOwnership.Data) := do
+  let state ← registryState
+  let some source := state.selectedEdgeSource? edge
+    | throwError "the intrinsic object action lost its registered source"
+  if let .construction result _ := original.payload then
+    if let .created liftId _ _ := result.packet then
+      let some creation := state.lifts.find? (·.id.raw == liftId)
+        | throwError "the completed construction lost its registered creation"
+      if creation.edge == edge then
+        let selected ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
+        if ← withoutModifyingState (withTransparency .all <|
+            isDefEq (← inferType action) (← inferType selected) <&&> isDefEq action selected) then
+          if let some image ← computationalApexImage? trace original then
+            unless ← withoutModifyingState (withTransparency .all <|
+                isDefEq (← inferType image.value) (← inferType imageValue) <&&>
+                  isDefEq image.value imageValue) do
+              throwError "the retained creation image changed its complete selected target"
+            return some image.fragment
+  if let some (.structural projected) ← projectObjectFragmentWithOrigin trace source edge action
+      original.value original.fragment (some descriptor) true objects then
+    return some projected
+  return none
+
 /-- The power object, ambient set and subset of `e` when `e` is the extent of a subset, the
 set `po.extent X A` that `Language.asObject` forms. -/
 def extentOf? (state : RegistryState) (e : Expr) :
@@ -4438,7 +4494,8 @@ determines whether its endpoints are exposed fields of that owner's record.
 Actual equal carriers cannot choose a projection. Other representations keep
 the ordinary complete callable endpoint interface. -/
 def operationRecordEndpointData (entry : OperationEntry) (application : Expr)
-    (receiver : Wire) : TermElabM (Option DataOwnership.Data × Option DataOwnership.Data) := do
+    (receiver : Wire) (objects : ComputationalData.InterfaceObjects := #[]) :
+    TermElabM (Option DataOwnership.Data × Option DataOwnership.Data) := do
   let application := operationApplicationBody application
   let arguments := application.getAppArgs
   let index := arguments.size - 1 - entry.numerals
@@ -4448,14 +4505,14 @@ def operationRecordEndpointData (entry : OperationEntry) (application : Expr)
         isDefEq original receiver.value) do
     throwError "the operation endpoint changed its complete declared record owner"
   discard <| checkedFragment receiver.fragment.validate
-  let some exposed ← exposedRecordData? original receiver.fragment | return (none, none)
+  let some exposed ← exposedRecordData? original receiver.fragment objects | return (none, none)
   withLocalDeclD `recordOwner (← inferType original) fun symbolic => do
     let selected := mkAppN application.getAppFn (arguments.set! index symbolic)
     unless ← isTypeCorrect selected do return (none, none)
     let some (source, target) := Language.homEnds? (← inferType selected)
       | return (none, none)
-    return (← ComputationalData.recordEndpointData? symbolic source exposed,
-      ← ComputationalData.recordEndpointData? symbolic target exposed)
+    return (← ComputationalData.recordEndpointData? symbolic source exposed objects (some original),
+      ← ComputationalData.recordEndpointData? symbolic target exposed objects (some original))
 
 /-- Endpoint roles are identified on the declaration's fresh complete owner.
 The paths contain field declarations, not instantiated carriers or reply data. -/
@@ -6439,6 +6496,221 @@ def observeIntrinsicAssemblyWith
     serviceHandles := (← retainServiceOperands h (dependencies ++ (← observed.get).map (·.2.2))) }
   return result
 
+/-- A prospective action key has the same selected inputs as an execution
+receipt, but is not a receipt and never enters `Harness.actions`. -/
+structure ProspectiveActionKey where
+  operation : String
+  action : Expr
+  input : Wire
+  parameters : Array Json
+  parameterOwnership : DataOwnership.Table
+  dependencies : Array Wire
+  images : Array Wire
+
+def sameProspectiveAction (left right : ProspectiveActionKey) : Bool :=
+  left.operation == right.operation && left.action == right.action &&
+    sameCompleteWireContext left.input right.input && left.parameters == right.parameters &&
+    left.parameterOwnership == right.parameterOwnership &&
+    sameProductComponents left.dependencies right.dependencies &&
+    sameProductComponents left.images right.images
+
+/-- This private table describes possible output slots only. It owns no backend,
+session, service handle, validation receipt, or completed computational result. -/
+structure ProspectiveData where
+  occurrences : Array (ActionDataRole × Wire × Wire) := #[]
+  actions : Array (ProspectiveActionKey × Wire) := #[]
+  objects : ComputationalData.InterfaceObjects := #[]
+  reserved : Array Json := #[]
+  nextReference : Nat := 0
+
+/-- Equality here reserves an identifier; it never selects a child or interprets
+a data constructor. Actual result references cannot collide with private ones. -/
+partial def containsProspectiveJson (needle : Json) (data : Json) : Bool :=
+  needle == data || match data with
+    | .arr values => values.any (containsProspectiveJson needle)
+    | .obj fields => fields.any fun _ value => containsProspectiveJson needle value
+    | _ => false
+
+mutual
+
+partial def prospectiveReservedTemplate (template : ActionDataTemplate) : Array Json :=
+  match template with
+  | .literal data => #[data.json]
+  | .wire _ wire => prospectiveReservedWire wire
+  | .ctor _ children | .array children => children.flatMap prospectiveReservedTemplate
+
+/-- Reserve bytes from complete producer-owned context, including fields which
+a projection may later expose. This traversal observes and dispatches nothing. -/
+partial def prospectiveReservedWire (wire : Wire) : Array Json :=
+  #[wire.json] ++
+    wire.productComponents.flatMap prospectiveReservedWire ++
+    wire.proofSources.toArray.flatMap (fun source => prospectiveReservedWire (retainedSnapshotWire source)) ++
+    (wire.morphismFraming.toArray.flatMap fun frame =>
+      #[frame.input, frame.source, frame.target].flatMap prospectiveReservedWire) ++
+    (wire.actionRecipe.toArray.flatMap fun recipe =>
+      prospectiveReservedWire recipe.original ++ prospectiveReservedTemplate recipe.descriptor ++
+        recipe.endpoints.toArray.flatMap (fun (a, b) =>
+          prospectiveReservedWire a ++ prospectiveReservedWire b)) ++
+    (wire.intrinsicAssembly.toArray.flatMap fun assembly =>
+      prospectiveReservedTemplate assembly.template ++
+        assembly.maps.flatMap (fun fields =>
+          #[fields.source, fields.target, fields.callable].flatMap prospectiveReservedWire) ++
+        assembly.equalObjects.flatMap (fun (a, b) =>
+          prospectiveReservedWire a ++ prospectiveReservedWire b)) ++
+    (wire.callableEndpoints.toArray.flatMap fun endpoints =>
+      prospectiveReservedWire endpoints.source ++ prospectiveReservedWire endpoints.target) ++
+    (wire.endpointPresentation.toArray.flatMap fun presentation =>
+      #[presentation.forward, presentation.backward]) ++
+    (wire.pointDataInterface.toArray.flatMap fun point =>
+      #[point.domainData.json, point.targetData.json])
+
+end
+
+def ProspectiveData.containsFuture (state : ProspectiveData) (data : Json) : Bool :=
+  state.objects.any fun (reference, _) => containsProspectiveJson reference data
+
+/-- All callbacks below are metadata readers or checked intrinsic assemblers.
+The live harness is read only; the inspection harness has no executable ports. -/
+structure ProspectiveReader where
+  live : Harness
+  inspect : Harness
+  trace : Trace
+  state : IO.Ref ProspectiveData
+  objectTemplate : ActionRecipe → Wire → DataOwnership.Data → Array Wire → TermElabM Wire
+  invocation : ActionOwner → DataOwnership.Data → Bool →
+    TermElabM (String × Array DataOwnership.Data)
+  endpoints : Wire → CategoryContext → TermElabM (Wire × Wire)
+
+/-- One unique future datum per exact selected action input. A whole-map future
+keeps its independently fixed image endpoints, including their actual owners. -/
+def prospectiveActionValue (reader : ProspectiveReader) (key : ProspectiveActionKey)
+    (template : Wire) (context : CategoryContext) (morphism : Bool) : TermElabM Wire := do
+  if let some (_, previous) := (← reader.state.get).actions.find?
+      (fun (selected, _) => sameProspectiveAction selected key) then
+    return ← forwardRetainedValue previous template.value
+  let state ← reader.state.get
+  let mut index := state.nextReference
+  while state.reserved.any (containsProspectiveJson (Backend.resultRef index)) do
+    index := index + 1
+  let reference := Backend.resultRef index
+  reader.state.modify fun state => { state with
+    nextReference := index + 1, objects := state.objects.push (reference, template.value) }
+  let data ← if morphism then do
+      let #[source, target] := key.images
+        | throwError "the prospective map lost its complete image endpoints"
+      scopedNode "typedMap" #[source.fragment, target.fragment, { json := reference }]
+    else pure ({ json := reference } : DataOwnership.Data)
+  let mut future : Wire := { template with
+    payload := (← recipePayload template.value data)
+    objectObserved := false, callableObserved := false, serviceHandles := #[]
+    pointDataInterface := none, liftExecution := none, morphismFraming := none
+    actionRecipe := none, intrinsicAssembly := none, callableEndpoints := none
+    morphismFramed := morphism, productComponents := #[], proofSources := []
+    constructionInputs := none, constructionInputOwnership := #[] }
+  if morphism then
+    future ← retainCallableEndpoints future key.images[0]! key.images[1]! context
+  reader.state.modify fun state => { state with actions := state.actions.push (key, future) }
+  return future
+
+mutual
+
+/-- Project producer-declared slots only. Actual data and retained descriptor
+leaves stay exact; no trace or JSON tag authorizes erasing their supplier table. -/
+partial def prospectiveWireWith (reader : ProspectiveReader) (role : ActionDataRole)
+    (wire : Wire) : TermElabM Wire := do
+  if role == .retained then return wire
+  let role ← if role == .parameter then do
+      match ← reader.trace.node? wire.value with
+      | some (.operationApply ..) | some (.operationPoint ..) |
+          some (.operationEquivalence ..) | some (.morphismTransport ..) |
+          some (.constructionMap ..) | some (.contextualRoute _ _ _ _ _ true) => pure .map
+      | _ => pure .object
+    else pure role
+  if wire.actualData || (if role == .map then wire.callableObserved else wire.objectObserved) then
+    return wire
+  if let some (_, _, previous) := (← reader.state.get).occurrences.find?
+      (fun (selected, original, _) => selected == role && sameCompleteWireContext original wire) then
+    return previous
+  let projected ← if let some assembly ← retainedIntrinsicAssembly? wire role then
+      observeIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
+        reader.inspect wire assembly
+    else if role == .map && wire.morphismFraming.isSome then do
+      let some frame := wire.morphismFraming | unreachable!
+      let replayed ← presentMorphism frame.input frame.source frame.target frame.context
+      unless sameCompleteWireContext replayed wire do
+        throwStratum .unavailable "the prospective map lost its exact framing producer"
+      let actual ← prospectiveWireWith reader .map frame.input
+      if sameCompleteWireContext actual frame.input then pure wire else do
+        let some context ← framingContext frame.context actual.categoryContext
+          | throwError "the prospective map lost its complete framing context"
+        let (source, target) ← reader.endpoints actual context
+        retainCallableEndpoints actual source target context
+    else if let some recipe := wire.actionRecipe then do
+      unless recipe.morphism == (role == .map) do
+        throwError "the prospective action changed its producer-declared data role"
+      let actual ← prospectiveActionWith reader wire recipe
+      forwardRetainedValue actual wire.value
+    else pure wire
+  reader.state.modify fun state => { state with
+    occurrences := state.occurrences.push (role, wire, projected) }
+  return projected
+
+/-- Inspect the same selected primitive as execution, stopping at an unknown
+output. Known intrinsic fields and exact completed receipts retain actual data;
+the output of an unexecuted port is the only supplier-free future slot. -/
+partial def prospectiveActionWith (reader : ProspectiveReader) (wire : Wire)
+    (recipe : ActionRecipe) : TermElabM Wire := do
+  checkActionRecipe wire recipe
+  let original ← prospectiveWireWith reader (if recipe.morphism then .map else .object) recipe.original
+  let (descriptor, dependencies) ← renderActionDataWith (prospectiveWireWith reader) recipe.descriptor
+  let (operation, parameters) ← reader.invocation recipe.owner descriptor recipe.morphism
+  let action ← instantiateMVars (← Semantic.asFunctor recipe.application)
+  if !recipe.morphism then
+    if let .edge edge := recipe.owner then
+      if let .proofRefinement _ classifier _ := original.form then
+        if edge == .classifierForget classifier then
+          return ← prospectiveWireWith reader .object (← proofRefinementBase reader.trace original action)
+    let template ← reader.objectTemplate recipe original descriptor dependencies
+    if let .edge edge := recipe.owner then
+      if let some data ← intrinsicObjectEdgeData? reader.trace edge action original template.value
+          descriptor (← reader.state.get).objects then
+        let pending := (← reader.state.get).containsFuture data.json
+        return { template with
+          payload := (← if pending then recipePayload template.value data else scopedPayload template.value data)
+          objectObserved := !pending }
+    let key : ProspectiveActionKey := {
+      operation, action, input := original, parameters := parameters.map (·.json)
+      parameterOwnership := (DataOwnership.Data.array parameters).ownership, dependencies, images := #[] }
+    if let some actual ← retainedActionResult? reader.live operation action original key.parameters
+        dependencies #[] key.parameterOwnership then
+      return ← forwardRetainedValue actual template.value
+    prospectiveActionValue reader key template recipe.target false
+  else
+    let endpoints ← if sameCompleteWireContext original recipe.original then
+        match recipe.endpoints with
+        | some endpoints => pure endpoints
+        | none => throwError "the prospective map lost its original complete endpoint occurrences"
+      else reader.endpoints original recipe.source
+    let mut images := #[]
+    for endpoint in #[endpoints.1, endpoints.2] do
+      let formal ← Semantic.objOf action endpoint.value
+      let endpointRecipe := { recipe with
+        morphism := false, original := endpoint, formal, endpoints := none }
+      let image ← reader.objectTemplate endpointRecipe endpoint descriptor dependencies
+      let endpointRecipe := { endpointRecipe with formal := image.value, fragment := image.fragment }
+      let image ← prospectiveActionWith reader image endpointRecipe
+      images := images.push image
+    let key : ProspectiveActionKey := {
+      operation, action, input := original, parameters := parameters.map (·.json)
+      parameterOwnership := (DataOwnership.Data.array parameters).ownership
+      dependencies := dependencies ++ #[endpoints.1, endpoints.2], images }
+    if let some actual ← retainedActionResult? reader.live operation action original key.parameters
+        key.dependencies images key.parameterOwnership then
+      return ← forwardRetainedValue actual wire.value
+    prospectiveActionValue reader key wire recipe.target true
+
+end
+
 /-- Compile the recorded-node evaluator separately from its recursive callers.
 The callbacks are exactly the existing realization operations; the body retains
 its original harness, trace, call order, data ownership, and failure checks.
@@ -6452,9 +6724,8 @@ def realizeFreshWith
     (realizedEdgeData : Harness → Trace → EdgeRef → Expr →
       TermElabM (DataOwnership.Data × Array Wire))
     (capturedEdgeData : Harness → Trace → EdgeRef → Expr → TermElabM ActionDataTemplate)
-    (executeObjectAction : Harness → Trace → String → Expr → Wire → Wire →
-      Array Json → Array Wire →
-      (parameterOwnership : optParam DataOwnership.Table #[]) → TermElabM Wire)
+    (capturedParameterData : Harness → Trace → Array Expr →
+      TermElabM (Array ActionDataTemplate))
     (actionMapEndpoint : Harness → Trace → Wire → Option CategoryContext → Expr → Bool →
       TermElabM Wire)
     (realizeObjectObservation : Harness → Trace → Wire → TermElabM Wire)
@@ -6688,20 +6959,14 @@ def realizeFreshWith
       let expected ← DirectConstruction.obj selected receiver
       unless ← withTransparency .all <| isDefEq expected e do
         throwError "the direct construction changed its complete selected formal result"
-      let original ← realize { h with demandObjectActions := true } trace
+      let original ← realizeUnobserved h trace
         "the construction's complete selected source" receiver
-      let (parameters, parameterWires) ← realizedParameterData
-        { h with demandObjectActions := true } trace params
+      let descriptor := ActionDataTemplate.ctor id.raw
+        (← capturedParameterData h trace selected.parameters)
       let some resultForm := state.constructionForm? entry.id.raw
         | throwError "the construction lost its registered complete result form"
-      let descriptor ← scopedNode id.raw parameters
-      let template : Wire := {
-        form := resultForm
-        payload := (← combinedRecipePayload e (← scopedNode "functorAction"
-          #[descriptor, original.fragment]) (#[original] ++ parameterWires))
-        categoryContext := some selected.target }
-      executeObjectAction h trace id.raw selected.functor original template
-        (parameters.map (·.json)) parameterWires (DataOwnership.Data.array parameters).ownership
+      captureRegisteredObjectAction (.construction id selected.parameters) selected.functor
+        original e resultForm selected.target descriptor
   | .constructionMap id params source target morphism =>
       let some entry := state.constructions.find? (·.id == id)
         | throwError "the selected construction map is no longer registered"
@@ -7571,36 +7836,22 @@ def realizeFreshWith
         | some target => imageForm state (.functor id) target
         | none => Form.contextual entry.target input.form
       let descriptorTemplate ← capturedEdgeData h trace (.functor id) F
-      let (descriptor, dependencies) ← renderCapturedActionData descriptorTemplate
-      let endpointPresentation ← mapEndpointPresentation F descriptor.json
-        input.endpointPresentation descriptor.ownership
-      let objectIso ← mapObjectComparison F input.value input.objectIso
-      if let some projected ← projectObjectFragmentWithOrigin trace entry.source (.functor id)
-          F receiver input.fragment (some descriptor) then
-        let completed := projected.isStructural && input.completedData
-        let output : Wire := {
-          form, objectIso, endpointPresentation, categoryContext := some context
-          objectObserved := completed
-          payload := (← if completed then scopedPayload e projected.data
-            else combinedRecipePayload e projected.data (#[input] ++ dependencies)) }
-        if completed then return output
-        return ← retainActionInput false (.functor id) F input output descriptorTemplate
-      if entry.structural then
-        let output : Wire := {
-          form, objectIso, endpointPresentation, categoryContext := some context
-          payload := (← combinedRecipePayload e
-            (← scopedNode "functorAction" #[descriptor, input.fragment]) (#[input] ++ dependencies)) }
-        return ← retainActionInput false (.functor id) F input output descriptorTemplate
-      let (args, dependencies) ← realizedParameterData { h with demandObjectActions := true } trace params
-      let descriptor ← scopedNode id.raw args
-      let template : Wire := {
-        form, payload := (← combinedRecipePayload e (← scopedNode "functorAction"
-          #[descriptor, input.fragment]) (#[input] ++ dependencies))
-        objectIso
-        endpointPresentation := endpointPresentation
-        categoryContext := some context }
-      executeObjectAction h trace id.raw F input template (args.map (·.json)) dependencies
-        (DataOwnership.Data.array args).ownership
+      let (descriptor, _) ← renderCapturedActionData descriptorTemplate
+      let projected ← projectObjectFragmentWithOrigin trace entry.source (.functor id)
+        F receiver input.fragment (some descriptor)
+      if let some projected := projected then
+        if projected.isStructural && input.completedData then
+          return {
+            form, categoryContext := some context, objectObserved := true
+            objectIso := (← mapObjectComparison F input.value input.objectIso)
+            endpointPresentation := (← mapEndpointPresentation F descriptor.json
+              input.endpointPresentation descriptor.ownership)
+            payload := (← scopedPayload e projected.data) }
+      -- Whether this registered functor is structural does not decide when its
+      -- computation executes. Every pending image retains the same typed action
+      -- boundary; an observation invokes its ordinary registered object port.
+      captureRegisteredObjectAction (.edge (.functor id)) F input e form context
+        descriptorTemplate (projected.map (·.data))
   | .retainedRoute _ targetCategory route applications receiver =>
       let input ← realize h trace "the retained structural source" receiver
       -- An exact application of the registered route can use its published
@@ -8185,28 +8436,7 @@ partial def executeObjectEdge (h : Harness) (trace : Trace) (edge : EdgeRef)
   if let .proofRefinement _ classifier _ := original.form then
     if edge == .classifierForget classifier then return ← proofRefinementBase trace original action
   let (template, descriptor, dependencies) ← objectActionTemplate h trace edge action original encoder?
-  let some source := state.selectedEdgeSource? edge | unreachable!
-  -- A completed creation already retains the actual lower cone. Applying its
-  -- exact creating functor reuses that supplied image; it is not another
-  -- primitive computation or an identification of arbitrary equal carriers.
-  if let .construction result _ := original.payload then
-    if let .created liftId _ _ := result.packet then
-      let some creation := state.lifts.find? (·.id.raw == liftId)
-        | throwError "the completed construction lost its registered creation"
-      if creation.edge == edge then
-        let selected ← Semantic.asFunctor (← Semantic.edgeFunctor state creation.edge)
-        if ← withoutModifyingState (withTransparency .all <|
-            isDefEq (← inferType action) (← inferType selected) <&&> isDefEq action selected) then
-          if let some image ← computationalApexImage? trace original then
-            unless ← withoutModifyingState (withTransparency .all <|
-                isDefEq (← inferType image.value) (← inferType template.value) <&&>
-                  isDefEq image.value template.value) do
-              throwError "the retained creation image changed its complete selected target"
-            return { template with
-              payload := (← scopedPayload template.value image.fragment)
-              objectObserved := true }
-  if let some (.structural projected) ← projectObjectFragmentWithOrigin trace source edge action original.value
-      original.fragment (some descriptor) then
+  if let some projected ← intrinsicObjectEdgeData? trace edge action original template.value descriptor then
     return { template with payload := (← scopedPayload template.value projected),
       objectObserved := true }
   let (operation, parameters) ← edgeActionDataInvocation state edge descriptor false
@@ -8431,19 +8661,17 @@ partial def capturedConstructionParameters (id : ConstructionId) (descriptor : D
   arguments.mapIdxM fun index _ =>
     checkedFragment (descriptor.project #[.field "args", .index index])
 
-/-- Reuse the existing object executor at the dependent construction's own
-registered address with already materialized captured parameters. -/
-partial def executeCapturedConstructionObject (h : Harness) (trace : Trace)
-    (id : ConstructionId) (action : Expr) (target : CategoryContext)
+/-- Build the dependent construction's fixed image without observing its
+source or selecting a port. Actual and prospective execution share this builder. -/
+partial def capturedConstructionObjectTemplate (id : ConstructionId)
+    (action : Expr) (target : CategoryContext)
     (descriptor : DataOwnership.Data) (dependencies : Array Wire) (input : Wire) :
     TermElabM Wire := do
-  let input ← realizeObjectObservation h trace input
   let state ← registryState
   let some resultForm := state.constructionForm? id.raw
     | throwError "the captured construction lost its complete image form"
-  let parameters ← capturedConstructionParameters id descriptor
   let value ← Semantic.objOf action input.value
-  let template : Wire := {
+  return {
     form := resultForm
     payload := (← combinedRecipePayload value (← scopedNode "functorAction"
       #[descriptor, input.fragment]) (#[input] ++ dependencies))
@@ -8451,6 +8679,16 @@ partial def executeCapturedConstructionObject (h : Harness) (trace : Trace)
     objectIso := (← mapObjectComparison action input.value input.objectIso)
     endpointPresentation := (← mapEndpointPresentation action descriptor.json
       input.endpointPresentation descriptor.ownership) }
+
+/-- Reuse the existing object executor at the dependent construction's own
+registered address with already materialized captured parameters. -/
+partial def executeCapturedConstructionObject (h : Harness) (trace : Trace)
+    (id : ConstructionId) (action : Expr) (target : CategoryContext)
+    (descriptor : DataOwnership.Data) (dependencies : Array Wire) (input : Wire) :
+    TermElabM Wire := do
+  let input ← realizeObjectObservation h trace input
+  let parameters ← capturedConstructionParameters id descriptor
+  let template ← capturedConstructionObjectTemplate id action target descriptor dependencies input
   executeObjectAction h trace id.raw action input template (parameters.map (·.json)) dependencies
     (DataOwnership.Data.array parameters).ownership
 
@@ -9479,8 +9717,7 @@ partial def realizeUnobserved (h : Harness) (trace : Trace) (what : String) (e :
 partial def realizeFresh (h : Harness) (trace : Trace) (what : String) (e : Expr) :
     TermElabM Wire :=
   realizeFreshWith elementFragment realizedParameterData realizedEdgeData capturedEdgeData
-    (fun h trace operation action original template parameters dependencies ownership =>
-      executeObjectAction h trace operation action original template parameters dependencies ownership)
+    capturedParameterData
     actionMapEndpoint realizeObjectObservation
     (fun h trace wire => realizeArrowObservation h trace wire)
     computationalOperationReceiver extentFragment?
@@ -9796,7 +10033,8 @@ partial def operationPointEndpoints? (h : Harness) (trace : Trace) (context : Ca
 also covers nullary and staged operations, using their original typed argument. -/
 partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wire)
     (id : OperationId) (parameters : Array Expr) (actualOwner : Option Wire := none)
-    (retained : Option OperationObservation := none) :
+    (retained : Option OperationObservation := none)
+    (objects : ComputationalData.InterfaceObjects := #[]) :
     TermElabM OperationObservation := do
   let h := { h with demandObjectActions := false }
   if let some actual := operationRecipeId? wire then
@@ -9866,7 +10104,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
       isDefEq formal (← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, operation]) do
     throwError "the complete operation recipe changed its original typed composition"
   let receiverWire ← realizedOperationOwner h trace entry application actualOwner
-  let (recordSource, recordTarget) ← operationRecordEndpointData entry application receiverWire
+  let (recordSource, recordTarget) ← operationRecordEndpointData entry application receiverWire objects
   let (parameterData, parameterWires, parameterOccurrences) ←
     realizedOperationParameterData h trace entry application parameters receiverWire
       (retained.map (·.parameterOccurrences))
@@ -9938,7 +10176,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
       let dataParameters ← DirectConstruction.dataArguments parameters
       unless dataParameters.size == parameterData.size do
         throwError "the operation presentation lost a complete parameter occurrence"
-      let mut objects : ComputationalData.InterfaceObjects := #[]
+      let mut objects : ComputationalData.InterfaceObjects := objects
       for (data, parameter) in parameterData.zip dataParameters do
         for (previous, selected) in objects do
           if previous == data.json && selected != parameter then
@@ -9975,34 +10213,67 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
     materialized := wire.actualData || wire.callableObserved ||
       (!namedRecipe && !operationRecipe wire id) }
 
-/-- Admission of a deferred owner is checked at its future typed occurrence,
-not at its source packet's suppliers. The public result reference is bound only
-in a private metadata harness. Actual arguments and other completed inputs keep
-their original packets; the ordinary builders place their suppliers. No projected
-Wire, cache entry, service handle, or receipt escapes this check. -/
+/-- Inspect one owner through current typed producers. The inspection harness
+cannot dispatch, derive, or mutate live caches; only its resulting supplier
+constraints will be used by ordinary registration admission. -/
+partial def prospectiveOwnerData (h inspect : Harness) (trace : Trace) (owner : Wire)
+    (inputs : Array Wire := #[]) :
+    TermElabM (Wire × ComputationalData.InterfaceObjects) := do
+  let receipts ← h.actions.get
+  let reserved := prospectiveReservedWire owner ++ inputs.flatMap prospectiveReservedWire ++
+    (← h.serviceOperands.get).flatMap prospectiveReservedWire ++
+    (← h.results.get).toArray.flatMap (fun (_, wire) => prospectiveReservedWire wire) ++
+    receipts.flatMap (fun receipt => #[Json.arr receipt.parameters] ++
+      (#[receipt.input, receipt.result] ++ receipt.parameterInputs ++ receipt.imageEndpoints).flatMap
+        prospectiveReservedWire)
+  let state ← IO.mkRef ({ reserved } : ProspectiveData)
+  let reader : ProspectiveReader := {
+    live := h, inspect, trace, state
+    objectTemplate := fun recipe original descriptor dependencies => do
+      match recipe.owner with
+      | .edge selected =>
+          let encoder : ScopedActionEncoder := fun edge action => do
+            unless edge == selected && (← withoutModifyingState (withTransparency .all <|
+                isDefEq (← inferType action) (← inferType recipe.application) <&&>
+                  isDefEq action recipe.application)) do
+              throwError "the prospective descriptor changed its complete selected action"
+            return (descriptor, dependencies)
+          let (template, _, _) ← objectActionTemplate inspect trace selected
+            recipe.application original (some encoder)
+          pure template
+      | .construction id _ =>
+          capturedConstructionObjectTemplate id recipe.application recipe.target descriptor dependencies original
+    invocation := fun owner descriptor morphism => do
+      match owner with
+      | .edge edge => edgeActionDataInvocation (← registryState) edge descriptor morphism
+      | .construction id _ =>
+          let some entry := (← registryState).constructions.find? (·.id == id)
+            | throwError "the prospective construction lost its accepted operation"
+          return (if morphism then entry.mapAddress else id.raw,
+            ← capturedConstructionParameters id descriptor)
+    endpoints := fun wire context => capturedMapEndpoints inspect trace wire context true }
+  let owner ← prospectiveWireWith reader .object owner
+  return (owner, (← state.get).objects)
+
+/-- Admission projects only unfinished action output slots. Nested intrinsic
+records retain every actual sibling and its suppliers. Future references are
+bound solely in an isolated metadata harness; no projected Wire, cache entry,
+service handle, receipt, or invocation escapes this check. -/
 partial def operationObservationRegistrations (h : Harness) (request : OperationObservation) :
     TermElabM (Array Admitted) := do
   checkDataOwners h request.input.fragment
-  let pending ← if request.owner.actionRecipe.isSome then pure true else
-    match ← request.trace.node? request.owner.value with
-    | some (.functor ..) | some (.retainedRoute ..) |
-        some (.contextualRoute _ _ _ _ _ false) | some (.cellEndpoint ..) |
-        some (.structureTransport ..) | some (.parameterTransport ..) => pure true
-    | _ => pure (FunctorActionData.objectAction? request.owner.value).isSome
-  if request.owner.completedData || !pending then
+  if request.owner.objectObserved || request.owner.actualData then
     return ← admittedRegistrations h request.operation.raw request.input true
   let privateTrace ← IO.mkRef (← request.trace.get)
   let inspect ← Harness.empty
   inspect.connections.set (← h.connections.get)
   inspect.serviceOperands.set (← h.serviceOperands.get)
   inspect.results.set (← h.results.get)
-  let future : Wire := { request.owner with
-    payload := .ordinary request.owner.value (Backend.resultRef 0)
-    objectObserved := false, callableObserved := false, serviceHandles := #[]
-    pointDataInterface := none, liftExecution := none, morphismFraming := none,
-    actionRecipe := none }
+  let (owner, objects) ← prospectiveOwnerData h inspect privateTrace request.owner #[request.input]
+  if sameCompleteWireContext owner request.owner then
+    return ← admittedRegistrations h request.operation.raw request.input true
   let projected ← prepareOperationObservation inspect privateTrace request.original request.operation
-    request.parameters (some future) (some request)
+    request.parameters (some owner) (some request) objects
   unless projected.input.form.id == request.input.form.id &&
       (← withoutModifyingState (withTransparency .all <|
         isDefEq (← inferType projected.input.value) (← inferType request.input.value) <&&>

@@ -993,6 +993,19 @@ def admissionInputHom (expected source domain original input : Expr) :
       return .error "the original callable changes the admission's complete input type"
   return .ok (pointInput, originalType)
 
+/-- The endpoint producer distinguishes a checked projection from new action
+work and metadata recovered from a formal signature. Returned field bytes do
+not determine this origin. -/
+inductive EndpointDataOrigin where
+  | projection
+  | formal
+  | action
+  deriving BEq, Inhabited
+
+structure EndpointProjectionData where
+  data : DataOwnership.Data
+  origin : EndpointDataOrigin
+
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
 formal value binds dependent field types; no answer is substituted into the declaration. -/
@@ -2225,19 +2238,6 @@ partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry
     comparison := comparison }
   return .ok result
 
-/-- The endpoint producer distinguishes a checked projection from new action
-work and metadata recovered from a formal signature. Returned field bytes do
-not determine this origin. -/
-inductive EndpointDataOrigin where
-  | projection
-  | formal
-  | action
-  deriving BEq, Inhabited
-
-structure EndpointProjectionData where
-  data : DataOwnership.Data
-  origin : EndpointDataOrigin
-
 /-- Project a declared input's endpoint while retaining exact data occurrences.
 This shared traversal also serves metadata-only validation: it does not invent
 suppliers when the caller has no runtime table. Runtime callers validate complete
@@ -3279,12 +3279,13 @@ as the whole current record cannot become that record's single data slot. The
 ordinary field check is repeated at each nested receiver, whose full formal
 context comes only from the original independently selected projection path. -/
 def RecordFieldStep.project? (step : RecordFieldStep) (receiver : Expr)
-    (data : DataOwnership.Data) : TermElabM (Option DataOwnership.Data) :=
+    (data : DataOwnership.Data) (objects : InterfaceObjects := #[]) :
+    TermElabM (Option DataOwnership.Data) :=
     withoutModifyingState do
   let type ← withTransparency .all <| whnf (← inferType receiver)
   unless type.getAppFn.constName? == some step.structureName do return none
   let some payload := recordPayload? data | return none
-  let explicit ← validatePort receiver type payload.json #[] true
+  let explicit ← validatePort receiver type payload.json objects true
   if let .ok (tag, args) := envelope payload.json then
     if step.codec == .core && tag == "coreObject" then
       unless explicit.isOk && step.count == 1 && step.index == 0 && args.size == 1 do
@@ -3304,7 +3305,7 @@ def RecordFieldStep.project? (step : RecordFieldStep) (receiver : Expr)
   -- Unsupported whole-record codecs keep their ordinary action path. A named
   -- descriptor may still be a legitimate field of an outer ordered record.
   if explicit.isOk then return none
-  let checked ← validateRecordPortWith receiver type payload.json #[]
+  let checked ← validateRecordPortWith receiver type payload.json objects
     (fun formal expected json objects => validatePort formal expected json objects)
   let some (.ok ()) := checked | return none
   if step.count == 1 then
@@ -3318,21 +3319,21 @@ def RecordFieldStep.project? (step : RecordFieldStep) (receiver : Expr)
 existing codec is retained; opaque records and unsupported whole descriptors
 cannot be opened. Nested fields retain their individual supplying sessions. -/
 partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
-    (receiver : Expr) (data : DataOwnership.Data) :
+    (receiver : Expr) (data : DataOwnership.Data) (objects : InterfaceObjects := #[]) :
     TermElabM (Option DataOwnership.Data) := do
   match plan with
   | .input path =>
     let mut current := receiver
     let mut selected := data
     for step in path do
-      let some field ← step.project? current selected | return none
+      let some field ← step.project? current selected objects | return none
       current ← withTransparency .all <| mkProjection current step.field
       selected := field
     return some selected
   | .record codec fields =>
     let mut results := #[]
     for field in fields do
-      let some result ← field.apply? receiver data | return none
+      let some result ← field.apply? receiver data objects | return none
       results := results.push result
     match codec with
     | .ordered =>
@@ -3355,17 +3356,19 @@ partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
       return some arrow
 
 /-- A complete callable signature can expose its selected record's carrier or
-products of those carriers. Preserve the supplied field packets rather than
-recovering another presentation from an equal formal carrier. -/
-partial def recordEndpointData? (receiver endpoint : Expr) (data : DataOwnership.Data) :
+products of those carriers. The role is selected at `receiver`; an independently
+fixed original receiver may supply the application context for its dependent
+field types. Typed input bindings do not select another projection. -/
+partial def recordEndpointData? (receiver endpoint : Expr) (data : DataOwnership.Data)
+    (objects : InterfaceObjects := #[]) (fixed : Option Expr := none) :
     TermElabM (Option DataOwnership.Data) := do
   if let some plan ← recordProjectionPlan? receiver endpoint then
-    if let some result ← plan.apply? receiver data then return some result
+    if let some result ← plan.apply? (fixed.getD receiver) data objects then return some result
   let endpoint ← withTransparency .all <| whnf endpoint
   if endpoint.isAppOfArity ``Prod 2 then
     let fields := endpoint.getAppArgs
-    let some left ← recordEndpointData? receiver fields[0]! data | return none
-    let some right ← recordEndpointData? receiver fields[1]! data | return none
+    let some left ← recordEndpointData? receiver fields[0]! data objects fixed | return none
+    let some right ← recordEndpointData? receiver fields[1]! data objects fixed | return none
     let fields := DataOwnership.Data.array #[left, right]
     return some {
       json := Json.mkObj [("ctor", toJson "objectProduct"), ("args", fields.json)]
