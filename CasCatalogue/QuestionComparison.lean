@@ -117,6 +117,27 @@ def equivalentRouteComparisons (left right : Array (RouteComparison × Expr)) :
     unless ← equivalentTerms #[first] #[second] do return false
   return true
 
+/-- Compare the independently retained method selection through typed terms,
+including full dictionaries and every ordered lift evidence. Runtime data and
+the serialized snapshot never decide this comparison. -/
+def equivalentMethodApplication (left right : MethodApplication) : TermElabM Bool := do
+  unless left.lifts.size == right.lifts.size do return false
+  unless ← equivalentCategoryContext left.sourceContext right.sourceContext <&&>
+      equivalentCategoryContext left.baseContext right.baseContext <&&>
+      equivalentCategoryContext left.resultContext right.resultContext <&&>
+      equivalentTerms left.routeApplications right.routeApplications <&&>
+      equivalentTerms left.routeReceivers right.routeReceivers <&&>
+      equivalentTerms #[left.image, left.application, left.input, left.baseResult, left.result]
+        #[right.image, right.application, right.input, right.baseResult, right.result] do
+    return false
+  for (first, second) in left.lifts.zip right.lifts do
+    unless first.id == second.id do return false
+    unless ← equivalentTerms
+        #[first.evidence, first.action, first.receiver, first.input, first.result]
+        #[second.evidence, second.action, second.receiver, second.input, second.result] do
+      return false
+  return true
+
 /-- Source order is part of a checked class's canonical indexing, not a lookup
 priority. Keeping that order preserves the universal comparison's source indices. -/
 def equivalentOperationCandidate (left right : OperationCandidate) : TermElabM Bool := do
@@ -403,17 +424,21 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       let .literal other otherLiteral := right | return false
       unless form == other do return false
       equivalentTerms #[literal] #[otherLiteral]
-  | .method id route receiver comparisons =>
-      let .method other otherRoute otherReceiver otherComparisons := right | return false
+  | .method id route receiver comparisons application =>
+      let .method other otherRoute otherReceiver otherComparisons otherApplication := right
+        | return false
       unless id == other && route == otherRoute do return false
       equivalentTerms #[receiver] #[otherReceiver] <&&>
-        equivalentRouteComparisons comparisons otherComparisons
-  | .methodWithLifts id route lifts receiver comparisons =>
-      let .methodWithLifts other otherRoute otherLifts otherReceiver otherComparisons := right
+        equivalentRouteComparisons comparisons otherComparisons <&&>
+        equivalentMethodApplication application otherApplication
+  | .methodWithLifts id route lifts receiver comparisons application =>
+      let .methodWithLifts other otherRoute otherLifts otherReceiver otherComparisons
+          otherApplication := right
         | return false
       unless id == other && route == otherRoute && lifts == otherLifts do return false
       equivalentTerms #[receiver] #[otherReceiver] <&&>
-        equivalentRouteComparisons comparisons otherComparisons
+        equivalentRouteComparisons comparisons otherComparisons <&&>
+        equivalentMethodApplication application otherApplication
   | .property id route receiver comparisons =>
       let .property other otherRoute otherReceiver otherComparisons := right | return false
       unless id == other && route == otherRoute do return false

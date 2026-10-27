@@ -820,10 +820,16 @@ def subobjectAmbientTransport (value iso : Expr) : TermElabM Expr := do
       (CategoryTheory.Arrow.mk (CategoryTheory.CategoryStruct.comp i e.inv))
       (inferInstance : CategoryTheory.Mono (CategoryTheory.CategoryStruct.comp i e.inv)))) none
 
-/-- Use the released cartesian lift and its accepted defining-map monicity instance. -/
-def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : Expr) :
-    TermElabM Expr := do
-  let evidence ← instantiateFresh entry.evidence
+/-- Use the released cartesian lift and retain the very evidence and complete
+action that formed it. Supplied selections are checked, never replaced. -/
+def liftSubobjectApplication (state : RegistryState) (entry : LiftEntry) (receiver value : Expr)
+    (evidence? : Option Expr := none) (action? : Option Expr := none) :
+    TermElabM (Expr × MethodLiftApplication) := do
+  let evidence ← match evidence? with
+    | some evidence => pure evidence
+    | none => instantiateFresh entry.evidence
+  unless evidence.consumeMData.getAppFn.isConstOf entry.evidence do
+    throwError "the prescribed lift changed its selected evidence declaration"
   let X ← mkAppM ``CategoryTheory.Arrow.left #[receiver]
   let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[value]
   let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
@@ -857,7 +863,10 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
   let underlying := match entry.edge with
     | .constructMap _ inner => inner
     | other => other
-  let acceptedU ← asFunctor (← edgeFunctor state underlying)
+  let acceptedU ← match action? with
+    | some action => asFunctor action
+    | none => asFunctor (← edgeFunctor state underlying)
+  discard <| edgeEndpoints? state underlying acceptedU
   unless ← withTransparency .all <| isDefEq selected[4]! acceptedU do
     throwError "the prescribed lift has a different complete accepted action"
   let arguments := selected.map some ++ #[some evidence, some X,
@@ -879,11 +888,158 @@ def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : 
   let lifted ← instantiateMVars (mkAppN constructor fields)
   if lifted.hasMVar || lifted.hasLevelMVar then
     throwError "the prescribed lift has unresolved selected data"
-  return lifted
+  return (lifted, {
+    id := entry.id, evidence := (← instantiateMVars evidence)
+    action := (← instantiateMVars acceptedU), receiver := (← instantiateMVars receiver)
+    input := (← instantiateMVars value), result := lifted })
+
+/-- The ordinary lift interface shares the same selected construction. -/
+def liftSubobject (state : RegistryState) (entry : LiftEntry) (receiver value : Expr) :
+    TermElabM Expr := do
+  return (← liftSubobjectApplication state entry receiver value).1
+
+/-- Check the actual declaration underneath its accepted Cat.Hom projection.
+No fresh functor application is instantiated to replace a supplied selection. -/
+def checkMethodFunctor (entry : FunctorEntry) (application : Expr) : TermElabM Unit := do
+  let application := application.consumeMData
+  let declaration := if application.getAppFn.isConstOf ``CategoryTheory.Cat.Hom.toFunctor then
+      application.getAppArgs.back!
+    else application
+  unless declaration.consumeMData.getAppFn.isConstOf entry.declaration do
+    throwError "the method changed its exact registered declaration application"
+  unless ← isTypeCorrect application do
+    throwError "the method retains an ill-typed declaration application"
+  discard <| functorCategoryBundles (← asFunctor application)
+
+/-- Invert only the accepted complete Core constructor. Its actual category
+argument retains the dictionary that cannot be recovered from the carrier alone. -/
+def methodOwnerBundle (state : RegistryState) (method : MethodEntry) (source : Expr) :
+    TermElabM Expr := do
+  match method.shape with
+  | .isoInvariant =>
+      let #[constructor] := state.constructors.filter
+          (·.semantics == `CasCatalogue.Constructors.core)
+        | throwError "the method has no unique accepted Core constructor"
+      let declaration ← mkConstWithFreshMVarLevels constructor.semantics
+      let (fields, infos, _) ← forallMetaTelescopeReducing (← inferType declaration)
+      let application := mkAppN declaration fields
+      unless ← withoutModifyingState (withTransparency .all <| isDefEq application source) do
+        exposeStructureParameters application
+      unless ← withTransparency .all <| isDefEq application source do
+        throwError "the method changed its complete selected Core source"
+      let explicit ← ((fields.zip infos).filterMap fun (field, info) =>
+        if info.isExplicit then some field else none).mapM instantiateMVars
+      let #[bundle] := explicit
+        | throwError "the accepted Core constructor lost its complete category argument"
+      return bundle
+  | _ => return source
+
+/-- Read the actual inner declaration argument of an accepted constructor action. -/
+def constructorActionInput (state : RegistryState) (constructor : ConstructorId)
+    (application : Expr) : TermElabM Expr := do
+  let some action := (state.constructor? constructor).bind (·.functorialAction)
+    | throwError "the selected constructor has no accepted action"
+  unless application.getAppFn.isConstOf action do
+    throwError "the selected constructor changed its exact action declaration"
+  let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
+    fields.mapM (·.fvarId!.getBinderInfo)
+  let explicit := (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+  let #[inner] := explicit
+    | throwError "the selected constructor action lost its complete inner argument"
+  return inner
+
+/-- A prescribed result retains the full source Arrow dictionary in its
+registered subobject context. This is shared by selection and its later check. -/
+def methodLiftResultContext (state : RegistryState) (expression : CategoryExpr)
+    (receiver : Expr) : TermElabM CategoryContext := do
+  let .construct arrowConstructor args := expression
+    | throwError "a subobject-returning lifted method is not on an arrow category"
+  unless (state.constructors.find? (·.id == arrowConstructor)).any
+      (·.semantics == `CasCatalogue.Constructors.arrow) do
+    throwError "the selected source category is not the accepted arrow constructor"
+  let some subobjects := state.constructors.find?
+      (·.semantics == `CasCatalogue.Constructors.subobjects)
+    | throwError "the subobject constructor is not registered"
+  let sourceType ← whnfR (← inferType receiver)
+  unless sourceType.isAppOfArity ``CategoryTheory.Arrow 2 do
+    throwError "the lifted result lost its actual Arrow source category"
+  let sourceArguments := sourceType.getAppArgs
+  let sourceBundle ← mkAppOptM ``CategoryTheory.Cat.of
+    #[some sourceArguments[0]!, some sourceArguments[1]!]
+  let bundle ← applyConstructorInterface subobjects.semantics #[sourceBundle] #[sourceBundle]
+  return { expression := .construct subobjects.id args, bundle := (← instantiateMVars bundle) }
+
+/-- Validate a retained invocation against the already selected resolution and
+receiver. Every object action is applied from its retained complete declaration;
+the check neither resolves another method nor chooses new functor parameters. -/
+def checkMethodApplication (state : RegistryState) (resolution : Resolution)
+    (receiver : Expr) (application : MethodApplication) : TermElabM Unit := do
+  let same (actual expected : Expr) : TermElabM Unit := do
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType actual) (← inferType expected) <&&> isDefEq actual expected) do
+      throwError "the method changed a complete retained typed application field"
+  let sameContext (actual expected : CategoryContext) : TermElabM Unit := do
+    unless actual.expression.syntacticEq expected.expression do
+      throwError "the method changed a selected category expression"
+    same actual.bundle expected.bundle
+  let route := resolution.route.refs
+  unless application.sourceContext.expression.syntacticEq resolution.route.source &&
+      route.size == application.routeApplications.size &&
+      route.size == application.routeReceivers.size &&
+      (resolution.lifts.isEmpty || resolution.lifts.size == route.size) &&
+      resolution.lifts == application.lifts.map (·.id) do
+    throwError "the method changed its complete ordered route or prescribed lifts"
+  let some functor := state.functor? resolution.method.functor
+    | throwError "the retained method has no registered functor"
+  checkMethodFunctor functor application.application
+  let (methodSource, methodTarget) ← functorCategoryBundles (← asFunctor application.application)
+  let ownerBundle ← methodOwnerBundle state resolution.method methodSource
+  let mut context := application.sourceContext
+  let mut current := receiver
+  for index in [:route.size] do
+    let edge := route[index]!
+    let action := application.routeApplications[index]!
+    discard <| edgeEndpoints? state edge action
+    let some source := state.selectedEdgeSource? edge
+      | throwError "the method route lost its accepted source expression"
+    let some target := state.selectedEdgeTarget? edge
+      | throwError "the method route lost its accepted target expression"
+    let (sourceBundle, targetBundle) ← functorCategoryBundles (← asFunctor action)
+    sameContext context { expression := source, bundle := sourceBundle }
+    same application.routeReceivers[index]! current
+    current ← objOf action current
+    context := { expression := target, bundle := targetBundle }
+  sameContext context { expression := resolution.method.owner, bundle := ownerBundle }
+  same application.image current
+  same application.input (← methodArgument resolution.method application.image)
+  same application.baseResult (← objOf application.application application.input)
+  sameContext application.baseContext { expression := functor.target, bundle := methodTarget }
+  let mut result := application.baseResult
+  for index in (List.range application.lifts.size).reverse do
+    let lift := application.lifts[index]!
+    let some entry := state.lifts.find? (·.id == lift.id)
+      | throwError "the retained method lift is no longer registered"
+    unless entry.edge == route[index]! do
+      throwError "the retained method lift changed its route step"
+    same lift.receiver application.routeReceivers[index]!
+    same lift.input result
+    let .constructMap constructor _ := route[index]!
+      | throwError "the retained method lift lost its Arrow action"
+    same lift.action (← constructorActionInput state constructor application.routeApplications[index]!)
+    let (expected, _) ← liftSubobjectApplication state entry lift.receiver lift.input
+      (some lift.evidence) (some lift.action)
+    same lift.result expected
+    result := lift.result
+  same application.result result
+  let target ← if application.lifts.isEmpty then pure application.baseContext else
+    methodLiftResultContext state application.sourceContext.expression receiver
+  sameContext application.resultContext target
 
 /-- The value of the method `name` on the object `X` of `category`, and the category it is in. -/
 def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
-    (trace? : Option Trace := none) : TermElabM (Expr × CategoryContext) := do
+    (trace? : Option Trace := none) (applications? : Option (Array Expr) := none) :
+    TermElabM (Expr × CategoryContext) := do
   let state ← registryState
   let resolution ← match state.resolveMethod expression name #[] with
     | .ok resolution => pure resolution
@@ -891,49 +1047,66 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
   let comparisons ← validateResolutionComparisons state resolution (some X)
   let some functor := state.functor? resolution.method.functor
     | throwStratum .invalid m!"`{name}` has no registered functor"
-  let image ← if resolution.route.steps.isEmpty then pure X else do
-    objOf (← routeFunctor state (resolution.route.steps.map (·.ref))) X
-  let F ← registeredFunctorInstance functor
+  let route := resolution.route.refs
+  let (routeApplications, F) ← match applications? with
+    | some applications =>
+        unless applications.size == route.size + 1 do
+          throwError "the supplied method changed its ordered complete action inventory"
+        pure (applications.extract 0 route.size, applications.back!)
+    | none =>
+        let applications ← if route.isEmpty then pure #[] else
+          return (← routeFunctorWithApplications state route).2
+        pure (applications, ← registeredFunctorInstance functor)
+  checkMethodFunctor functor F
+  let mut previousTarget : Option Expr := none
+  for (edge, action) in route.zip routeApplications do
+    let endpoints ← edgeEndpoints? state edge action
+    if let some previous := previousTarget then
+      if let some (source, _) := endpoints then alignCategoryParameters previous source
+    previousTarget := endpoints.map (·.2)
+  let image ← if route.isEmpty then pure X else
+    objOf (← compositeOfApplications routeApplications) X
   let input ← methodArgument resolution.method image
   let value ← objOf F input
-  let (_, targetBundle) ← functorCategoryBundles (← asFunctor F)
+  let (methodSource, targetBundle) ← functorCategoryBundles (← asFunctor F)
   let target : CategoryContext := {
     expression := functor.target
     bundle := (← instantiateMVars targetBundle) }
-  let (value, target) ← if resolution.lifts.isEmpty then pure (value, target) else do
-    let mut receivers : Array Expr := #[]
-    let mut before := X
-    for step in resolution.route.refs do
-      receivers := receivers.push before
-      before ← objOf (← edgeFunctor state step) before
+  let sourceBundle ← if let some first := routeApplications[0]? then
+      return (← functorCategoryBundles (← asFunctor first)).1
+    else methodOwnerBundle state resolution.method methodSource
+  let sourceContext : CategoryContext := { expression, bundle := sourceBundle }
+  let baseResult := value
+  let baseContext := target
+  let mut receivers : Array Expr := #[]
+  let mut before := X
+  for action in routeApplications do
+    receivers := receivers.push before
+    before ← objOf action before
+  let (value, target, lifts) ← if resolution.lifts.isEmpty then pure (value, target, #[]) else do
     unless receivers.size == resolution.lifts.size do
       throwError "the resolved result lifts do not match the structural route"
     let mut lifted := value
-    for (id, receiver) in resolution.lifts.reverse.zip receivers.reverse do
-      let some entry := state.lifts.find? (·.id == id) | unreachable!
-      lifted ← liftSubobject state entry receiver lifted
-    let .construct arrowConstructor args := expression
-      | throwError "a subobject-returning lifted method is not on an arrow category"
-    unless (state.constructors.find? (·.id == arrowConstructor)).any
-        (·.semantics == `CasCatalogue.Constructors.arrow) do
-      throwError "the selected source category is not the accepted arrow constructor"
-    let some subobjects := state.constructors.find?
-        (·.semantics == `CasCatalogue.Constructors.subobjects)
-      | throwError "the subobject constructor is not registered"
-    let resultCategory := CategoryExpr.construct subobjects.id args
-    let sourceType ← whnfR (← inferType X)
-    unless sourceType.isAppOfArity ``CategoryTheory.Arrow 2 do
-      throwError "the lifted result lost its actual Arrow source category"
-    let sourceArguments := sourceType.getAppArgs
-    let sourceBundle ← mkAppOptM ``CategoryTheory.Cat.of
-      #[some sourceArguments[0]!, some sourceArguments[1]!]
-    let bundle ← applyConstructorInterface subobjects.semantics #[sourceBundle] #[sourceBundle]
-    pure (lifted, { expression := resultCategory, bundle := (← instantiateMVars bundle) })
+    let mut selected : Array MethodLiftApplication := #[]
+    for index in (List.range resolution.lifts.size).reverse do
+      let some entry := state.lifts.find? (·.id == resolution.lifts[index]!) | unreachable!
+      let .constructMap constructor _ := route[index]!
+        | throwError "the prescribed method lift lost its Arrow action"
+      let action ← constructorActionInput state constructor routeApplications[index]!
+      let (result, application) ← liftSubobjectApplication state entry receivers[index]! lifted
+        (action? := some action)
+      lifted := result
+      selected := selected.push application
+    pure (lifted, ← methodLiftResultContext state expression X, selected.reverse)
+  let application ← MethodApplication.instantiateMVars {
+    sourceContext, routeApplications, routeReceivers := receivers, image, application := F
+    input, baseResult, baseContext, result := value, resultContext := target, lifts }
+  checkMethodApplication state resolution X application
   Trace.record trace? value (if resolution.lifts.isEmpty then
     .method resolution.method.id resolution.route.refs X
-      (resolution.comparisonWitnesses.zip comparisons) else
+      (resolution.comparisonWitnesses.zip comparisons) application else
     .methodWithLifts resolution.method.id resolution.route.refs resolution.lifts X
-      (resolution.comparisonWitnesses.zip comparisons))
+      (resolution.comparisonWitnesses.zip comparisons) application)
   return (value, target)
 
 /-- The named-category entry point uses the same expression-based method reading. -/

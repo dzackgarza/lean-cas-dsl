@@ -427,10 +427,12 @@ partial def compileAction (compiler : Compiler) (action receiver : Expr) (morphi
       let some entry := state.methods.find? (·.id == id)
         | throwError "the derivation method is no longer published"
       let (result, _) ← Semantic.methodIn entry.name receiver entry.owner (some compiler.trace)
-      let some (.method selected _ _ _) ← compiler.trace.node? result
+        (some #[application])
+      let some (.method selected _ _ _ interpreted) ← compiler.trace.node? result
         | throwStratum .noImplementation "the derivation method requires a separately retained prescribed lift"
       unless selected == id do
         throwError "the derivation method changed its exact published address"
+      same interpreted.application application
       same (← Semantic.objOf application receiver) result
       pure result
     | _ => throwError "a derivation functor action names a callable prerequisite"

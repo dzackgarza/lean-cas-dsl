@@ -23,7 +23,7 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
     throwError "the comparison control has no accepted comparison data"
   let trace ← Trace.new
   let (value, _) ← Semantic.methodIn "cardinality" receiver rings.expression (some trace)
-  let some (.method id route original retained) ← trace.node? value
+  let some (.method id route original retained application) ← trace.node? value
     | throwError "the method reading lost its operation record"
   unless id == resolution.method.id && route == resolution.route.refs &&
       original == receiver && retained.map (·.1) == resolution.comparisonWitnesses do
@@ -31,8 +31,8 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   unless ← QuestionIdentity.equivalentTerms (retained.map (·.2)) expected do
     throwError "the method did not retain the complete checked comparison values"
   Semantic.checkRecordedRouteComparisons resolution.comparisonWitnesses expected retained
-  let node := Node.method id route original retained
-  let empty := Node.method id route original #[]
+  let node := Node.method id route original retained application
+  let empty := Node.method id route original #[] application
   if ← QuestionIdentity.equivalentNode node empty then
     throwError "independent comparison erased the method's accepted comparisons"
   let encoded ← snapshot #[(value, node)]
@@ -55,7 +55,7 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   let changedContext := { first.1 with
     after := first.1.after.push (.functor ⟨"probe.changed_comparison_context"⟩) }
   let changed := retained.set! 0 (changedContext, first.2)
-  let altered := Node.method id route original changed
+  let altered := Node.method id route original changed application
   if ← QuestionIdentity.equivalentNode node altered then
     throwError "independent comparison erased a changed whiskering context"
   if encoded == (← snapshot #[(value, altered)]) then

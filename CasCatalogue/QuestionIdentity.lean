@@ -2,6 +2,7 @@
 module
 
 public import Lean
+public import CasCatalogue.Trace
 
 @[expose] public section
 
@@ -164,6 +165,25 @@ def encode (intern : Json → TermElabM Nat)
     (contextual : IO.Ref (Std.HashMap (Expr × BinderContext) Nat))
     (term : Expr) : TermElabM Nat :=
   encodeInContext intern closed contextual term term #[] #[]
+
+/-- The method snapshot retains complete selected typed invocations, separately
+from runtime ownership and packets. This is only an encoding: independent
+comparison inspects every corresponding typed field directly. -/
+def encodeMethodApplication (encode : Expr → TermElabM Nat)
+    (application : MethodApplication) : TermElabM Json := do
+  let context (value : CategoryContext) : TermElabM Json := do
+    return Json.arr #[toJson (reprStr value.expression), toJson (← encode value.bundle)]
+  let lifts ← application.lifts.mapM fun lift => do
+    return Json.arr #[toJson lift.id.raw, toJson (← encode lift.evidence),
+      toJson (← encode lift.action), toJson (← encode lift.receiver),
+      toJson (← encode lift.input), toJson (← encode lift.result)]
+  return Json.arr #[← context application.sourceContext,
+    toJson (← application.routeApplications.mapM encode),
+    toJson (← application.routeReceivers.mapM encode),
+    toJson (← encode application.image), toJson (← encode application.application),
+    toJson (← encode application.input), toJson (← encode application.baseResult),
+    ← context application.baseContext, toJson (← encode application.result),
+    ← context application.resultContext, Json.arr lifts]
 
 /-- Preserve the existing primary order and resolve every tie by a complete canonical
 record key. Equal records retain their multiplicity. The complete key is constructed only

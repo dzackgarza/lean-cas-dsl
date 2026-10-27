@@ -3,6 +3,7 @@ module
 
 public import CasCatalogue.ServiceRequest
 public import CasCatalogue.FunctorActionData
+public import CasCatalogue.DeclaredApplication
 
 @[expose] public section
 open Lean Meta Elab Term
@@ -103,7 +104,7 @@ partial def action (decoder : Decoder) (descriptor : Json) : TermElabM SelectedA
     let descriptor := node tag #[toJson id, Json.arr parameters]
     let descriptorOwnership := argsOwnership #[#[], operandArrayOwnership selected.operands]
     return {
-      value, source := some (.refine entry.host entry.id), target := entry.host
+      value, source := some (.classifierTotal entry.id), target := entry.host
       descriptor, parameters := #[descriptor]
       dependencies := selected.operands, declarations := #[selected.application]
       descriptorOwnership, parameterOwnership := arrayOwnership #[descriptorOwnership] }
@@ -315,37 +316,116 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
     complete := completeMap formal domain.data targetData.data dependencies }
 
-/-- Methods and properties retain the existing semantic route and ordinary
-executor, including accepted comparisons and prescribed result lifts. -/
+/-- A method's selected actions retain each explicit data operand in declaration
+order. Decoding never uses the receiver to reconstruct omitted parameters. -/
+def methodRequest (decoder : Decoder) (entry : MethodEntry) (input : Form)
+    (expression : CategoryExpr) (template : Json) : TermElabM Prepared := do
+  let state ← registryState
+  let trace ← Trace.new
+  let full := (template.getObjValAs? String "ctor").toOption == some entry.id.raw ||
+    (template.getObjVal? "receiver").isOk
+  let (original, selected) ← if full then do
+      let .ok invocation := Backend.ConstructionInvocation.decodeMethod
+          entry.id.raw entry.functor.raw template
+        | throwStratum .malformed "the method service request has an incomplete selected invocation"
+      let original ← decoder.object invocation.receiver
+      let selected ← invocation.parameters.mapM (action decoder)
+      pure (original, selected)
+    else do
+      pure (← decoder.object template, #[])
+  let resolution ← match state.resolveMethod expression entry.name #[] with
+    | .ok resolution => pure resolution
+    | .error error => throwResolutionError state error
+  unless resolution.method.id == entry.id do
+    throwStratum .malformed "the method service request changes its independently selected method"
+  if full then
+    unless selected.size == resolution.route.refs.size + 1 do
+      throwStratum .malformed "the method request omitted or added a selected action"
+    let expected := resolution.route.refs.push (.functor entry.functor)
+    for (actual, edge) in selected.zip expected do
+      unless (← actionIdentity actual.descriptor) == edgeImageDescriptor edge do
+        throwStratum .malformed "the method request changes its complete ordered action identities"
+    let mut previous := original.context.map (·.bundle)
+    for (actual, index) in selected.zipIdx do
+      let (source, target) ← functorCategoryBundles actual.value
+      let source ← if index == resolution.route.refs.size then
+          Semantic.methodOwnerBundle state resolution.method source
+        else pure source
+      if let some previous := previous then
+        unless ← withTransparency .all <| isDefEq previous source do
+          throwStratum .malformed "the method request changes a complete selected category boundary"
+      if index == 0 then
+        unless ← withTransparency .all <|
+            isDefEq (← inferType original.value) (← mkAppM ``CategoryTheory.Bundled.α #[source]) do
+          throwStratum .malformed "the method request changes its complete receiver type"
+      previous := some target
+  let (result, context) ← Semantic.methodIn entry.name original.value expression (some trace)
+    (if full then some (selected.map (·.value)) else none)
+  let some node ← trace.node? result
+    | throwError "the prepared method lost its retained interpretation"
+  let selected ← selected.mapM closeAction
+  let result ← checkClosed result
+  let (route, lifts, comparisons, application) ← match node with
+    | .method id route receiver comparisons application =>
+      unless id == entry.id do throwError "the prepared method changed its registered identity"
+      sameValue receiver original.value "method receiver"
+      pure (route, #[], comparisons, ← application.instantiateMVars)
+    | .methodWithLifts id route lifts receiver comparisons application =>
+      unless id == entry.id do throwError "the prepared method changed its registered identity"
+      sameValue receiver original.value "method receiver"
+      pure (route, lifts, comparisons, ← application.instantiateMVars)
+    | _ => throwError "the prepared method lost its complete selected application"
+  let mut parameters : Array MethodParameter := #[]
+  if full then
+    for (action, actionIndex) in selected.zipIdx do
+      for (operand, dataIndex) in action.dependencies.zipIdx do
+        parameters := parameters.push { actionIndex, dataIndex, operand }
+  else
+    unless route.isEmpty do
+      throwStratum .malformed "raw method input cannot omit residual action descriptors"
+    let some functor := state.functor? entry.functor
+      | throwError "the prepared method lost its registered functor"
+    let some (_, arguments) ← DeclaredApplication.complete? functor.declaration application.application true
+      | throwError "the prepared method lost its complete declaration application"
+    unless (← DirectConstruction.dataArguments arguments).isEmpty do
+      throwStratum .malformed "raw method input cannot omit explicit computational parameters"
+  let dependencies := selected.flatMap (·.dependencies) |>.push original
+  let request := if full then Backend.ConstructionInvocation.encode {
+      construction := entry.id.raw, parameters := selected.map (·.descriptor), receiver := original.data }
+    else original.data
+  let requestOwnership := if full then
+      DataOwnership.prefix #[.field "args"]
+        (arrayOwnership (selected.map (·.descriptorOwnership))) ++
+      DataOwnership.prefix #[.field "receiver"] original.ownership
+    else original.ownership
+  return {
+    requestValue := original.value, request, requestOwnership, result,
+    familyApplication := some application.application,
+    resultForm := formFor state context input,
+    dependencies, resultContext := some context, objectResult := true, trace := some trace,
+    method := some { id := entry.id, route, lifts, receiver := original,
+      comparisons, application, parameters },
+    complete := completePort result dependencies }
+
+/-- Service methods use the shared selected-application lifecycle. Property
+requests keep their existing decision interface. -/
 def semanticRequest (decoder : Decoder) (operation : Operation) (input : Form)
     (template : Json) : TermElabM Prepared := do
   let state ← registryState
   let some expression := state.formExpression? input
     | throwStratum .malformed "the service receiver has no published source-category expression"
-  let original ← decoder.object template
-  let trace ← Trace.new
   match operation with
-  | .method entry =>
-    let (result, context) ← Semantic.methodIn entry.name original.value expression (some trace)
-    let result ← checkClosed result
-    let familyApplication := (FunctorActionData.objectAction? result).bind fun (action, _) =>
-      FunctorActionData.directActionDeclaration? state action
-    return {
-      requestValue := original.value, request := original.data, result
-      familyApplication
-      requestOwnership := original.ownership
-      resultForm := formFor state context input
-      dependencies := #[original], resultContext := some context
-      objectResult := true, trace := some trace
-      complete := completePort result #[original] }
+  | .method entry => methodRequest decoder entry input expression template
   | .property entry =>
+    let original ← decoder.object template
+    let trace ← Trace.new
     let result ← Semantic.propertyIn entry.name original.value expression (some trace)
     let result ← checkClosed result
     return {
-      requestValue := original.value, request := original.data, result
-      requestOwnership := original.ownership
-      resultForm := input, dependencies := #[original]
-      trace := some trace, decisionResult := true
+      requestValue := original.value, request := original.data, result,
+      requestOwnership := original.ownership,
+      resultForm := input, dependencies := #[original],
+      trace := some trace, decisionResult := true,
       complete := fun answer => do
         return (← Codec.decode (mkApp (mkConst ``Option [0]) (mkConst ``Bool)) answer).map
           fun _ => none }

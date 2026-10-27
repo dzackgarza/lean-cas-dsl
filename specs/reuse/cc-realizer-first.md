@@ -15,6 +15,36 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Retained method applications and complete computational fields — 2026-10-28
+
+Source searches inspected `Semantic.methodIn`, `routeFunctorWithApplications`,
+`DeclaredApplication.complete?`, `SelectedLift`, `LiftedSubobjectData`,
+`ComputationalData.RecordProjectionPlan`, `DataOwnership.Data`, and the existing
+object/map action executor. Contract `b71dc66` already publishes the complete
+method invocation through `ConstructionInvocation.decodeMethod`; the kernel
+consumes that interface without inventing a second envelope.
+
+`MethodApplication` retains the selected declaration applications, complete
+category dictionaries, route receivers, comparisons and lift evidence. Semantic
+validation and independent question comparison check the retained formal data.
+Execution captures the original typed parameter occurrences and service handles
+before any result can populate an expression cache. Result schemas compile one
+declaration telescope at a time and compose positioned data origins; independent
+parameters are not unified merely to make adjacent symbolic categories agree.
+Scoped endpoint validation uses declared endpoint slots, including distinct
+actual presentations of equal formal objects. The existing lifted-subobject
+codec supplies its defining Arrow without losing occurrence scopes.
+
+These changes reuse the declared mathematical applications and existing action
+and prescribed-lift executors. They supply no equality, universal law or proof
+from computational data. The new endpoint controls are engineering checks; they
+do not replace mathematical acceptance. Candidate `7c83cf9` cleared the earlier
+validator compilation failure, then exposed public/private visibility errors in
+`RoutedResultPlan`. Its public API is now separate from private executable
+compiler bodies. The integrated method and result source still requires a Lean
+build and the unchanged downstream controls. Projection-route closure and exact
+executed intermediate data in multi-stage lifts remain open consumers.
+
 ## Recursive data-validator compiler boundary — 2026-10-28
 
 Candidate `22d6eaf`, run `40552183732`, job `122358583354`, failed in

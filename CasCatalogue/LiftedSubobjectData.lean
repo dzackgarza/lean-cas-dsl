@@ -77,7 +77,8 @@ structure Packet extends Plan where
 
 /-- Fix the entire reverse-route computation before consulting any returned data. -/
 def planIn (expected : Expr) (sourceExpression : CategoryExpr)
-    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) :
+    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr)
+    (application? : Option MethodApplication := none) :
     TermElabM (Except String Plan) := do
   if prescribed.isEmpty then return .error "a prescribed lift requires a nonempty route"
   let state ← registryState
@@ -100,11 +101,23 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
   unless ← withTransparency .all <| isDefEq
       (← subobjectType (← inferType fixedSource)) expected do
     return .error "the descriptor context has different complete result parameters"
+  if let some application := application? then
+    unless application.sourceContext.expression.syntacticEq originalSource &&
+        application.resultContext.expression.syntacticEq sourceExpression &&
+        application.routeApplications.size == prescribed.size &&
+        application.routeReceivers.size == prescribed.size &&
+        application.lifts.map (·.id) == prescribed do
+      throwError "the method lift plan changed its exact retained selection"
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq application.baseResult fixedBase <&&>
+          isDefEq (← inferType application.result) expected) do
+      throwError "the method lift plan changed its complete base or result interface"
   let mut current := originalSource
   let mut receiver := fixedSource
   let mut rows : Array LiftEntry := #[]
   let mut receivers : Array Expr := #[]
-  for id in prescribed do
+  for index in [:prescribed.size] do
+    let id := prescribed[index]!
     let some row := state.lifts.find? (·.id == id)
       | return .error s!"the prescribed lift is unregistered: {id.raw}"
     unless row.kind == .subobjects do
@@ -123,7 +136,15 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
       return .error "the prescribed lift changes the registered arrow constructor"
     rows := rows.push row
     receivers := receivers.push receiver
-    let action ← Semantic.asFunctor (← Semantic.edgeFunctor state row.edge)
+    let action ← match application? with
+      | none => Semantic.asFunctor (← Semantic.edgeFunctor state row.edge)
+      | some application =>
+          unless ← withoutModifyingState (withTransparency .all <|
+              isDefEq application.routeReceivers[index]! receiver) do
+            throwError "the method lift plan changed an original route receiver"
+          let action := application.routeApplications[index]!
+          discard <| Semantic.edgeEndpoints? state row.edge action
+          pure action
     receiver ← Semantic.objOf action receiver
     current := edge.target
   let .construct _ #[.category target] := current
@@ -149,44 +170,40 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
     let saved := receivers[index]!
     let .constructMap _ inner := row.edge
       | return .error "the prescribed lift lost its selected inner action"
-    let action ← Semantic.asFunctor (← Semantic.edgeFunctor state inner)
-    let next ← Semantic.liftSubobject state row saved formalResult
+    let retained ← match application? with
+      | none =>
+          let action ← Semantic.asFunctor (← Semantic.edgeFunctor state inner)
+          return (← Semantic.liftSubobjectApplication state row saved formalResult
+            (action? := some action)).2
+      | some application =>
+          let retained := application.lifts[index]!
+          unless ← withoutModifyingState (withTransparency .all <|
+              isDefEq retained.receiver saved <&&> isDefEq retained.input formalResult) do
+            throwError "the method lift plan changed its retained reverse-stage inputs"
+          let .constructMap constructor _ := row.edge
+            | throwError "the method lift plan lost its retained Arrow action"
+          let action ← Semantic.constructorActionInput state constructor
+            application.routeApplications[index]!
+          unless ← withoutModifyingState (withTransparency .all <|
+              isDefEq retained.action action) do
+            throwError "the method lift plan changed its exact complete action"
+          pure retained
+    let next := retained.result
     try discard <| StructuredResult.checkReconstruction (← instantiateMVars next)
     catch _ => throwError "next is not closed"
-    let some computationName := row.computation
-      | return .error "the selected lift has no public computation signature"
-    let computation ← instantiateFresh computationName
-    let evidence ← instantiateFresh row.evidence
-    let evidenceType ← withTransparency .all <| whnf (← inferType evidence)
-    unless evidenceType.isAppOfArity ``CasCatalogue.MonoLift 5 do
-      return .error "the selected lift lost its complete public dependent action"
-    let selected := evidenceType.getAppArgs
-    let X ← mkAppM ``CategoryTheory.Arrow.left #[saved]
-    unless ← withTransparency .all <| isDefEq selected[0]! (← inferType X) do
-      return .error "the computation has a different complete source category"
-    unless ← withTransparency .all <| isDefEq selected[4]! action do
-      return .error "the computation has a different complete selected action"
-    let canonical ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.computation
-      (selected.map some ++ #[some evidence])
-    unless ← withTransparency .all <| isDefEq computation canonical do
-      return .error "the computation differs from the independently selected lift"
-    let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[formalResult]
-    let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
-    let monic ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.property #[formalResult]
-    let ports ← LiftField.all.mapM fun field => do
-      let port ← withTransparency .all <| mkAppOptM field.declaration
-        (selected.map some ++ #[some computation, some X, none, some inclusion, some monic])
-      let port ← instantiateMVars port
-      discard <| StructuredResult.checkReconstruction port
-      unless ← isTypeCorrect port do throwError "the selected lift has an ill-typed public port"
-      pure port
-    let selection ← SelectedLift.fromEvidence row (← instantiateMVars evidence) X inclusion monic
+    let selection ← SelectedLift.fromMethodApplication row retained
+    let ports := selection.ports
+    for port in ports do discard <| StructuredResult.checkReconstruction port
     reverseComponents := reverseComponents.push {
-      lift := row.id, action := (← instantiateMVars action), receiver := saved,
+      lift := row.id, action := retained.action, receiver := saved,
       base := formalResult, routeIndex := index, ports, selection }
     formalResult := next
   unless ← withTransparency .all <| isDefEq (← inferType formalResult) expected do
     return .error "the formal lift has a different complete selected result category"
+  if let some application := application? then
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq formalResult application.result) do
+      throwError "the method lift plan changed its independently retained formal result"
   let closed ← StructuredResult.checkReconstruction formalResult
   return .ok {
     formalResult := closed, fixedSource, fixedBase,
@@ -195,11 +212,12 @@ def planIn (expected : Expr) (sourceExpression : CategoryExpr)
 
 /-- Named entry point retains its independent complete category check. -/
 def plan (expected : Expr) (sourceCategory : NamedCategoryEntry)
-    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) :
+    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr)
+    (application? : Option MethodApplication := none) :
     TermElabM (Except String Plan) := do
   unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
     return .error "the named lift context changes the complete selected result parameters"
-  planIn expected sourceCategory.expression fixedSource prescribed fixedBase
+  planIn expected sourceCategory.expression fixedSource prescribed fixedBase application?
 
 /-- Complete fields remain computational data, never reconstructed mathematical objects. -/
 def fields (tag : String) (count : Nat) (data : Json) : Except String (Array Json) := do
@@ -346,6 +364,40 @@ def sourceInterfaces (prepared : Plan) (steps : Array Json) (source : Json) :
     current := next
   return .ok objects
 
+/-- A completed reply reuses the formal plan fixed before dispatch. Check that
+the caller retained that plan at the same full source, base and result roles;
+neither returned bytes nor another declaration instantiation supplies a port. -/
+def checkRetainedPlan (expected : Expr) (sourceExpression : CategoryExpr)
+    (fixedSource : Expr) (prescribed : Array LiftId) (fixedBase : Expr) (prepared : Plan) :
+    TermElabM Unit := do
+  let same (left right : Expr) : TermElabM Unit := do
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right) do
+      throwError "the retained lift plan changed a complete typed interface"
+  same prepared.fixedSource fixedSource
+  same prepared.fixedBase fixedBase
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType prepared.formalResult) expected) do
+    throwError "the retained lift plan changed its complete result category"
+  let state ← registryState
+  let context ← Semantic.methodLiftResultContext state prepared.sourceCategory fixedSource
+  unless context.expression.syntacticEq sourceExpression do
+    throwError "the retained lift plan changed its selected result expression"
+  unless prepared.components.map (·.lift) == prescribed do
+    throwError "the retained lift plan changed its prescribed stage inventory"
+  for index in [:prepared.components.size] do
+    let component := prepared.components[index]!
+    unless component.routeIndex == index && component.selection.entry.id == component.lift &&
+        component.ports.size == component.selection.ports.size do
+      throwError "the retained lift plan changed a selected stage or port position"
+    same component.action component.selection.action
+    same component.selection.source (← mkAppM ``CategoryTheory.Arrow.left #[component.receiver])
+    let base ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[component.base]
+    same component.selection.inclusion (← mkAppM ``CategoryTheory.Arrow.hom #[base])
+    same component.selection.monic
+      (← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.property #[component.base])
+    for (port, selected) in component.ports.zip component.selection.ports do same port selected
+
 /-- Only completed packets with every actual output count as prescribed lifted data.
 Source packets and selected action descriptors are supplied by the kernel's fixed route.
 Execution must supply its retained request parameters; an explicit `none` is reserved
@@ -356,7 +408,7 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
-    (requestParameters? : Option (Array (Array Json))) :
+    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   let work : TermElabM (Except String Packet) := do
@@ -365,7 +417,12 @@ def decodeIn (expected : Expr) (sourceExpression : CategoryExpr)
     let .ok ids := args[2]!.getArr? | return .error "the lift ids are absent"
     unless ids == prescribed.map (fun id => toJson id.raw) do
       return .error "the completed packet changes the exact prescribed lift ids"
-    let .ok prepared ← planIn expected sourceExpression fixedSource prescribed fixedBase
+    let selected ← match prepared? with
+      | some prepared =>
+          checkRetainedPlan expected sourceExpression fixedSource prescribed fixedBase prepared
+          pure (.ok prepared)
+      | none => planIn expected sourceExpression fixedSource prescribed fixedBase
+    let .ok prepared := selected
       | return .error "the completed packet has no full fixed lift plan"
     let .ok () ← validateSource prepared.sourceCategory fixedSource args[1]!
       | return .error "the computational source changed its complete fixed context"
@@ -419,12 +476,12 @@ def decode (expected : Expr) (sourceCategory : NamedCategoryEntry)
     (validateSource : CategoryExpr → Expr → Json → TermElabM (Except String Unit))
     (validateBase : NamedCategoryEntry → Expr → Json → ComputationalData.InterfaceObjects →
       TermElabM (Except String Unit))
-    (requestParameters? : Option (Array (Array Json))) :
+    (requestParameters? : Option (Array (Array Json))) (prepared? : Option Plan := none) :
     TermElabM (Option (Except String Packet)) := do
   unless (json.getObjValAs? String "ctor").toOption == some "liftedSubobject" do return none
   unless ← withTransparency .all <| isDefEq (← categoryCarrierInstance sourceCategory) expected do
     return some (.error "the named lift context changes its complete selected result parameters")
   decodeIn expected sourceCategory.expression fixedSource prescribed fixedBase json
-    validateSource validateBase requestParameters?
+    validateSource validateBase requestParameters? prepared?
 
 end CasCatalogue.LiftedSubobjectData

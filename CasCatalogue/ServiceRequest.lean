@@ -116,6 +116,24 @@ inductive CallableResultInterface where
   enrichment of an input descriptor, such as an explicit finite inventory. -/
   | framed
 
+/-- One explicit parameter position of the exact selected routed action. The
+runtime resolves its handle, never another value with equal syntax or bytes. -/
+structure MethodParameter where
+  actionIndex : Nat
+  dataIndex : Nat
+  operand : Operand
+
+/-- Public method preparation retains the same semantic application as the
+surface reader, together with every actual typed input occurrence. -/
+structure MethodPlan where
+  id : MethodId
+  route : Array EdgeRef
+  lifts : Array LiftId
+  receiver : Operand
+  comparisons : Array (RouteComparison × Expr)
+  application : MethodApplication
+  parameters : Array MethodParameter
+
 /-- A request retains its result data interface before an implementation runs.
 No result packet or later cache entry chooses the mathematical endpoints. -/
 structure Prepared where
@@ -141,8 +159,9 @@ structure Prepared where
   keeps its separately checked interface instead of relabeling that operand. -/
   callableEndpointOperands : Option (Operand × Operand) := none
   action : Option ActionPlan := none
-  /-- Existing semantic execution can own method/property routing and prescribed
-  lifts. The runtime seeds this private trace with the exact retained operands. -/
+  method : Option MethodPlan := none
+  /-- Property decisions retain their semantic trace. Methods also carry the
+  complete selected application and exact operand handles in `method`. -/
   trace : Option Trace := none
   decisionResult : Bool := false
   constructionInputs : Option (Expr × ComputationalData.InterfaceObjects) := none

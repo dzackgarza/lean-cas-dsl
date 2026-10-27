@@ -959,6 +959,53 @@ partial def actualScalarParameterSlots : PointSchema → Bool
   | .alternatives constructors => constructors.all (fun (_, schema) => actualScalarParameterSlots schema)
   | .keys _ | .graph .. => false
 
+/-- An actual-descriptor reader receives its declaration-selected position.
+The optional callback is used only by private data-interface validation; ordinary
+semantic parameter readers keep their existing independently selected context. -/
+abbrev ActualDescriptorArgumentReader := DataOwnership.Path → Expr → Json →
+  TermElabM (Except String Expr)
+
+/-- Exact result-schema endpoints. The index is an independently selected role,
+not a hash of a formal term or packet. Repeated retained origins reuse an index;
+independent returned roles keep different indices even when their data coincide. -/
+structure DataEndpointSlot where
+  index : Nat
+  formal : Expr
+  data : DataOwnership.Data
+
+/-- The JSON-only construction schema does not invent suppliers. Its live
+consumer uses `DataEndpointSlot` and supplies full owned occurrences instead. -/
+private structure DataEndpointPosition where
+  index : Nat
+  formal : Expr
+  json : Json
+  fragment : Option DataOwnership.Data := none
+
+private structure DataEndpointHole where
+  field : Expr
+  json : Json
+  fragment : Option DataOwnership.Data := none
+
+private structure DataEndpointBinding where
+  variable : Expr
+  json : Json
+  fragment : Option DataOwnership.Data := none
+  value : Option Expr := none
+
+/-- A private endpoint variable can be read only at its selected occurrence.
+`none` delegates a different declaration parameter to its ordinary typed reader. -/
+structure DataEndpointReader where
+  argument : Expr → Expr → Json → Option InterfaceScope →
+    TermElabM (Except String (Option Expr))
+  expand : Expr → Expr := id
+
+private def readDataEndpoint? (reader : Option DataEndpointReader)
+    (fixed expected : Expr) (data : Json) (scope : Option InterfaceScope) :
+    TermElabM (Except String (Option Expr)) :=
+  match reader with
+  | none => pure (.ok none)
+  | some reader => reader.argument fixed expected data scope
+
 mutual
 /-- Interpret actual public descriptor parameters without replacing a literal
 representation parameter by an equal-JSON association to a formal field. This
@@ -966,9 +1013,15 @@ is confined to point-schema inspection; ordinary semantic interfaces retain
 their existing independently selected parameter context. -/
 partial def actualDescriptorArgument (objects : InterfaceObjects)
     (semanticArgument : Expr → Json → TermElabM (Except String Expr))
-    (expected : Expr) (data : Json) : TermElabM (Except String Expr) := do
+    (expected : Expr) (data : Json)
+    (positioned : Option ActualDescriptorArgumentReader := none)
+    (path : DataOwnership.Path := #[]) : TermElabM (Except String Expr) := do
   let expected ← instantiateMVars expected
   if ← isProp expected then return .error "a proof is not computational data"
+  if let some read := positioned then
+    if (data.getObjValAs? String "ctor").toOption == some "opaqueData" ||
+        ((Backend.resultRefIndex? data).toOption.bind id).isSome then
+      return ← read path expected data
   let literalSchema ← pointSchema expected
   if (← plainType expected) || literalSchema.any actualScalarParameterSlots then
     unless ConstrainedPoint.closed expected do
@@ -996,6 +1049,7 @@ partial def actualDescriptorArgument (objects : InterfaceObjects)
           return .error "the constructed category changed its complete argument count"
       let resultType ← inferType (← instantiateFresh declaration)
       let .ok value ← actualDescriptorDeclaration objects semanticArgument declaration resultType parameters
+          positioned (path ++ #[.field "args", .index 1])
         | return .error "the selected dictionary has incompatible complete parameters"
       let value ← if tag == "functor" then Semantic.asFunctor value else pure value
       unless ← withTransparency .all <| isDefEq (← inferType value) expected do
@@ -1003,11 +1057,12 @@ partial def actualDescriptorArgument (objects : InterfaceObjects)
       return .ok value
     if state.objects.any (·.id.raw == tag) ||
         #["objectProduct", "valueData", "finiteData", "objectPresentation"].contains tag then
-      let .ok object ← actualDescriptorObject objects semanticArgument data
+      let .ok object ← actualDescriptorObject objects semanticArgument data positioned path
         | return .error "the actual object parameter has no complete public descriptor"
       unless ← withTransparency .all <| isDefEq (← inferType object) expected do
         return .error "the actual object parameter has a different selected category"
       return .ok object
+  if let some read := positioned then return ← read path expected data
   semanticArgument expected data
 
 /-- The existing declaration-parameter checks with actual representation
@@ -1015,8 +1070,9 @@ literals resolved before retained semantic associations. No returned function,
 law or proof is decoded, and the resulting expression is used only for shape. -/
 partial def actualDescriptorDeclaration (objects : InterfaceObjects)
     (semanticArgument : Expr → Json → TermElabM (Except String Expr))
-    (declaration : Name) (expected : Expr) (data : Array Json) :
-    TermElabM (Except String Expr) := do
+    (declaration : Name) (expected : Expr) (data : Array Json)
+    (positioned : Option ActualDescriptorArgumentReader := none)
+    (path : DataOwnership.Path := #[]) : TermElabM (Except String Expr) := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (fields, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
   if ← withoutModifyingState (withTransparency .all <| isDefEq result expected) then
@@ -1028,6 +1084,7 @@ partial def actualDescriptorDeclaration (objects : InterfaceObjects)
     let some datum := data[position]?
       | return .error "the actual declaration omitted a parameter"
     let .ok argument ← actualDescriptorArgument objects semanticArgument type datum
+        positioned (path.push (.index position))
       | return .error "an actual parameter does not have its declared interface"
     unless ← withTransparency .all <| isDefEq field argument do
       return .error "an actual parameter changes its selected dependent endpoint"
@@ -1049,30 +1106,41 @@ partial def actualDescriptorDeclaration (objects : InterfaceObjects)
 and ordered parameters, bypassing a whole-descriptor formal-apex association.
 Transparent envelopes follow actual data. Unsupported descriptors stay unsupported. -/
 partial def actualDescriptorObject (objects : InterfaceObjects)
-    (semanticArgument : Expr → Json → TermElabM (Except String Expr)) (data : Json) :
-    TermElabM (Except String Expr) := do
+    (semanticArgument : Expr → Json → TermElabM (Except String Expr)) (data : Json)
+    (positioned : Option ActualDescriptorArgumentReader := none)
+    (path : DataOwnership.Path := #[]) : TermElabM (Except String Expr) := do
   let .ok (tag, args) := envelope data
-    | return .error "the actual endpoint requires its complete public object descriptor"
+    | if let some read := positioned then
+        return ← read path (← mkFreshTypeMVar) data
+      else return .error "the actual endpoint requires its complete public object descriptor"
   if let .ok ("valueData", #[actual]) := envelope data then
-    return ← actualDescriptorObject objects semanticArgument actual
+    return ← actualDescriptorObject objects semanticArgument actual positioned
+      (path ++ #[.field "args", .index 0])
   if let .ok ("objectPresentation", #[_, actual]) := envelope data then
-    return ← actualDescriptorObject objects semanticArgument actual
+    return ← actualDescriptorObject objects semanticArgument actual positioned
+      (path ++ #[.field "args", .index 1])
   if let .ok ("finiteData", #[descriptor, _]) := envelope data then
-    return ← actualDescriptorObject objects semanticArgument descriptor
+    return ← actualDescriptorObject objects semanticArgument descriptor positioned
+      (path ++ #[.field "args", .index 0])
   if tag == "objectProduct" then
     let #[left, right] := args | return .error "a product endpoint requires both factors"
-    let .ok left ← actualDescriptorObject objects semanticArgument left
+    let .ok left ← actualDescriptorObject objects semanticArgument left positioned
+        (path ++ #[.field "args", .index 0])
       | return .error "the first actual product factor is incomplete"
-    let .ok right ← actualDescriptorObject objects semanticArgument right
+    let .ok right ← actualDescriptorObject objects semanticArgument right positioned
+        (path ++ #[.field "args", .index 1])
       | return .error "the second actual product factor is incomplete"
     unless (← whnfR (← inferType left)).isSort && (← whnfR (← inferType right)).isSort &&
         !(← isProp left) && !(← isProp right) do
       return .error "the actual product factors require their declared set-object interfaces"
     return .ok (← mkAppM ``Prod #[left, right])
   let some entry := (← registryState).objects.find? (·.id.raw == tag)
-    | return .error "the explicit inventory requires a supported actual public object descriptor"
+    | if let some read := positioned then
+        return ← read path (← mkFreshTypeMVar) data
+      else return .error "the explicit inventory requires a supported actual public object descriptor"
   let expected ← inferType (← instantiateFresh entry.declaration)
   actualDescriptorDeclaration objects semanticArgument entry.declaration expected args
+    positioned (path ++ #[.field "args"])
 
 end
 
@@ -1902,7 +1970,7 @@ def validateCallableAtWith
       Option InterfaceScope → TermElabM (Except String Unit))
     (validatePublicData : Json → TermElabM (Except String Unit))
     (interfaceDeclaration : InterfaceObjects → Name → Expr → Array Json →
-      Option InterfaceScope → TermElabM (Except String Expr))
+      Option InterfaceScope → Option DataEndpointReader → TermElabM (Except String Expr))
     (interfaceObject : InterfaceObjects → Json → Option InterfaceScope →
       TermElabM (Except String Expr))
     (validateConstructionProjection : InterfaceObjects → Expr → String → Array Json →
@@ -1914,32 +1982,48 @@ def validateCallableAtWith
     (admissionInterface : InterfaceObjects → ObjectEntry → Expr → Array Json →
       Option InterfaceScope → TermElabM (Except String Expr))
     (validateCallableAt : InterfaceObjects → Expr → Json → Option InterfaceScope →
-      TermElabM (Except String Unit))
+      Option DataEndpointReader → TermElabM (Except String Unit))
     (interfaceCarrier : Expr → Json → InterfaceObjects → Option InterfaceScope →
       TermElabM (Except String Expr))
     (interfaceSelectedValue : InterfaceObjects → Expr → Json → Option InterfaceScope →
       TermElabM (Except String Language.Value))
     (validateElementExpressionAt : InterfaceObjects → Expr → Expr → Json →
       Option Language.Value → Option InterfaceScope → TermElabM (Except String Unit))
-    (objects : InterfaceObjects) (expected : Expr) (data : Json) (scope : Option InterfaceScope) :
+    (objects : InterfaceObjects) (expected : Expr) (data : Json) (scope : Option InterfaceScope)
+    (dataEndpoints : Option DataEndpointReader) :
     TermElabM (Except String Unit) := do
-  let .ok fixed ← interfaceScopeType scope data expected
+  let .ok fixed ← if dataEndpoints.isSome then interfaceScopeBinding scope data
+      else interfaceScopeType scope data expected
     | return .error "the positioned callable changed its full selected Hom"
   if let some binding := fixed then
     if let .object _ := binding.role then
       return .error "an independently selected object position is not a whole callable"
-  let expected ← instantiateMVars (fixed.map (fun binding =>
-    binding.representation.map Prod.snd |>.getD binding.expectedType) |>.getD expected)
-  let scope := InterfaceScope.actual? scope
+  let expected ← instantiateMVars (if dataEndpoints.isSome then expected else
+    fixed.map (fun binding =>
+      binding.representation.map Prod.snd |>.getD binding.expectedType) |>.getD expected)
   let some (source, target) := Language.homEnds? expected
     | return .error "a symbolic point requires its independently fixed Hom type"
+  if dataEndpoints.isSome then
+    if let some binding := fixed then
+      let some _ := Language.homEnds? binding.expectedType
+        | return .error "the retained callable omitted its original full Hom"
+      unless ← withTransparency .all <| isDefEq expected
+          (← interfaceHomAt binding.expectedType source target) do
+        return .error "the data callable changed its full selected category dictionary"
+  let originalScope := scope
+  let scope := if dataEndpoints.isSome then InterfaceScope.withoutRoot? scope
+    else InterfaceScope.actual? scope
+  if dataEndpoints.isSome && ((Backend.resultRefIndex? data).toOption.bind id).isSome then
+    let some binding := fixed
+      | return .error "a private callable reference requires its exact positioned result role"
+    return ← validatePort binding.formal binding.expectedType data objects false originalScope
   let placeholder ← mkFreshExprMVar expected
   let state ← registryState
   if let .ok (tag, args) := envelope data then
     let declaration := (state.callable? tag).map Prod.fst <|>
       (state.inclusions.find? (·.id.raw == tag)).map (·.declaration)
     if let some declaration := declaration then
-      return (← interfaceDeclaration objects declaration expected args (InterfaceScope.args? scope)).map fun _ => ()
+      return (← interfaceDeclaration objects declaration expected args (InterfaceScope.args? scope) dataEndpoints).map fun _ => ()
     match tag, args with
     | "cartesianMap", #[id, parameters, receiverData] =>
       let .ok id := id.getStr? | return .error "the cartesian reindexing id must be a string"
@@ -1950,7 +2034,7 @@ def validateCallableAtWith
         | return .error "the reindexing has no accepted family realization"
       let .ok parameters := parameters.getArr? | return .error "reindexing parameters must be ordered"
       let .ok selected ← interfaceDeclaration objects entry.declaration
-          (← inferType (← instantiateFresh entry.declaration)) parameters (InterfaceScope.arg? scope 1)
+          (← inferType (← instantiateFresh entry.declaration)) parameters (InterfaceScope.arg? scope 1) dataEndpoints
         | return .error "the cartesian map has incompatible complete declaration parameters"
       let action ← Semantic.asFunctor selected
       let (sourceBundle, _) ← functorCategoryBundles action
@@ -1981,7 +2065,7 @@ def validateCallableAtWith
       unless matchingCount == 1 do
         return .error "the cartesian map does not retain one exact base-map signature and full endpoints"
       return .ok ()
-    | "valueData", #[value] => return ← validateCallableAt objects expected value (InterfaceScope.body? scope #[.field "args", .index 0])
+    | "valueData", #[value] => return ← validateCallableAt objects expected value (InterfaceScope.body? scope #[.field "args", .index 0]) dataEndpoints
     | "opaqueData", _ => return (Backend.ComputationalValue.decode data).map fun _ => ()
     | "arrowHom", #[receiver] | "subobjectInclusion", #[receiver] =>
       let receiverScope := InterfaceScope.valuePayload? (InterfaceScope.arg? scope 0)
@@ -2009,7 +2093,7 @@ def validateCallableAtWith
             | return .error "the receiver has no complete stored Arrow map"
           unless ← withTransparency .all <| isDefEq (← inferType hom) expected do
             return .error "the stored-map projection changes a complete selected endpoint"
-          return ← validatePort fixed (← inferType fixed) receiver objects false (receiverScope)
+          return ← validatePort fixed (← inferType fixed) receiver objects false receiverScope
         match result with
         | .ok () => accepted := true
         | .error message => failure := message
@@ -2022,13 +2106,21 @@ def validateCallableAtWith
       let source ← mkAppM ``CategoryTheory.Core.of #[source]
       let target ← mkAppM ``CategoryTheory.Core.of #[target]
       for (index, fixed, descriptor) in #[(0, source, sourceData), (1, target, targetData)] do
-        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor (InterfaceScope.arg? scope index)
+        let endpointScope := InterfaceScope.arg? scope index
+        let endpointType ← inferType fixed
+        let .ok selected ← readDataEndpoint? dataEndpoints
+            fixed endpointType descriptor endpointScope
+          | return .error "the callable endpoint changed its exact data occurrence"
+        let actual ← match selected with
+          | some actual => pure (.ok actual)
+          | none => interfaceArgument objects endpointType descriptor endpointScope
+        let .ok actual := actual
           | return .error "the core comparison endpoint is incomplete"
         unless ← withTransparency .all <| isDefEq fixed actual do
           return .error "the core comparison changes its complete selected endpoint"
       if let .error message ← validateCallableAt objects
-          (← mkAppM ``Quiver.Hom #[source, target]) forward (InterfaceScope.arg? scope 2) then return .error message
-      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[target, source]) backward (InterfaceScope.arg? scope 3)
+          (← mkAppM ``Quiver.Hom #[source, target]) forward (InterfaceScope.arg? scope 2) dataEndpoints then return .error message
+      return ← validateCallableAt objects (← mkAppM ``Quiver.Hom #[target, source]) backward (InterfaceScope.arg? scope 3) dataEndpoints
     | "cellComponent", _ | "constructedCellComponent", _ =>
       if let .error message ← validatePublicData data then return .error message
       let componentScope := if tag == "cellComponent" then scope else InterfaceScope.arg? scope 1
@@ -2046,7 +2138,7 @@ def validateCallableAtWith
         | return .error "the natural component is not registered"
       let declaredType ← inferType (← instantiateFresh entry.declaration)
       let .ok value ← interfaceDeclaration objects entry.declaration declaredType component.parameters
-          (InterfaceScope.arg? componentScope 1)
+          (InterfaceScope.arg? componentScope 1) dataEndpoints
         | return .error "the component parameters have different complete declared types"
       let receiver ← mkFreshExprMVar (← mkFreshTypeMVar)
       let action ← CellAction.assemble entry { value, arguments := value.getAppArgs, explicit := #[] }
@@ -2067,7 +2159,15 @@ def validateCallableAtWith
           (true, callable, InterfaceScope.body? scope #[.field "args", .index 2])]
           then return .error message
       for (index, fixed, descriptor) in #[(0, source, sourceData), (1, target, targetData)] do
-        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor (InterfaceScope.arg? scope index)
+        let endpointScope := InterfaceScope.arg? scope index
+        let endpointType ← inferType fixed
+        let .ok selected ← readDataEndpoint? dataEndpoints
+            fixed endpointType descriptor endpointScope
+          | return .error "the callable endpoint changed its exact data occurrence"
+        let actual ← match selected with
+          | some actual => pure (.ok actual)
+          | none => interfaceArgument objects endpointType descriptor endpointScope
+        let .ok actual := actual
           | return .error "a typed callable endpoint has no complete interface"
         unless ← withTransparency .all <| isDefEq fixed actual do
           return .error "the typed callable changes a complete endpoint"
@@ -2080,16 +2180,24 @@ def validateCallableAtWith
         let checked ← withoutModifyingState <|
           validateEndpointPort placeholder sourceData targetData callable objects (InterfaceScope.arg? scope 2)
         return ← validateCallableGraphAt objects (fun type data => interfaceArgument objects type data none)
-          (fun type value => validateCallableAt objects type value none) target sourceData targetData unwrapped graph checked
+          (fun type value => validateCallableAt objects type value none dataEndpoints) (dataEndpoints.map (fun reader => reader.expand target) |>.getD target) sourceData targetData unwrapped graph checked
           (InterfaceScope.graphPayload? (InterfaceScope.arg? scope 2))
-          (some (fun type value selected => validateCallableAt objects type value selected))
-      return ← validateCallableAt objects expected callable (InterfaceScope.body? scope #[.field "args", .index 2])
+          (some (fun type value selected => validateCallableAt objects type value selected dataEndpoints))
+      return ← validateCallableAt objects expected callable (InterfaceScope.body? scope #[.field "args", .index 2]) dataEndpoints
     | "identity", #[sourceData, targetData] | "zero", #[sourceData, targetData] =>
       if let .error message ← checkScopedCategorySlots fixed #[
           (false, sourceData, InterfaceScope.arg? scope 0),
           (false, targetData, InterfaceScope.arg? scope 1)] then return .error message
       for (index, fixed, descriptor) in #[(0, source, sourceData), (1, target, targetData)] do
-        let .ok actual ← interfaceArgument objects (← inferType fixed) descriptor (InterfaceScope.arg? scope index)
+        let endpointScope := InterfaceScope.arg? scope index
+        let endpointType ← inferType fixed
+        let .ok selected ← readDataEndpoint? dataEndpoints
+            fixed endpointType descriptor endpointScope
+          | return .error "the callable endpoint changed its exact data occurrence"
+        let actual ← match selected with
+          | some actual => pure (.ok actual)
+          | none => interfaceArgument objects endpointType descriptor endpointScope
+        let .ok actual := actual
           | return .error "the nullary callable omitted a complete endpoint"
         unless ← withTransparency .all <| isDefEq fixed actual do
           return .error "the nullary callable changes a complete endpoint"
@@ -2108,7 +2216,7 @@ def validateCallableAtWith
       let some row := state.presentations.find? (·.id.raw == id)
         | return .error "the presentation is not registered"
       let .ok comparison ← interfaceDeclaration objects row.declaration
-          (← inferType (← instantiateFresh row.declaration)) parameters (InterfaceScope.arg? scope 1)
+          (← inferType (← instantiateFresh row.declaration)) parameters (InterfaceScope.arg? scope 1) dataEndpoints
         | return .error "the presentation parameters have incompatible declared types"
       let arrow ← Semantic.presentationArrow row comparison inverse
       unless ← withTransparency .all <| isDefEq (← inferType arrow) expected do
@@ -2119,7 +2227,7 @@ def validateCallableAtWith
       let .ok parameters := parameters.getArr? | return .error "generator parameters must be ordered"
       let some declaration := (state.objects.find? (·.id.raw == id)).bind (·.generator)
         | return .error "the object has no registered generator"
-      return (← interfaceDeclaration objects declaration expected parameters (InterfaceScope.arg? scope 1)).map fun _ => ()
+      return (← interfaceDeclaration objects declaration expected parameters (InterfaceScope.arg? scope 1) dataEndpoints).map fun _ => ()
     | "constrainedPoint", _ =>
       let .ok point := Backend.ConstrainedPoint.decode data
         | return .error "the constrained point omitted its complete interface"
@@ -2138,7 +2246,7 @@ def validateCallableAtWith
           (← withTransparency .all <| isDefEq schema.dataType original) do
         return .error "the constrained point changes its actual constructor or data-field type"
       let checked ← withoutModifyingState <|
-        validateCallableAt objects (← mkAppM ``Quiver.Hom #[domain, original]) point.argument (InterfaceScope.arg? scope 4)
+        validateCallableAt objects (← mkAppM ``Quiver.Hom #[domain, original]) point.argument (InterfaceScope.arg? scope 4) dataEndpoints
       if checked.isOk then return checked
       unless ← withTransparency .all <| isDefEq domain (← Language.globalPointSource.run {}) do
         return checked
@@ -2166,7 +2274,7 @@ def validateCallableAtWith
         | .ok selected => pure selected
         | .error message => return .error message
       let checked ← withoutModifyingState <|
-        validateCallableAt objects originalType admitted.argument (InterfaceScope.arg? scope 5)
+        validateCallableAt objects originalType admitted.argument (InterfaceScope.arg? scope 5) dataEndpoints
       if checked.isOk then return checked
       -- A different declared global domain (for example PUnit) keeps its full
       -- callable. Only this exact selected source has the scalar-data convention.
@@ -2176,7 +2284,7 @@ def validateCallableAtWith
       -- This path starts from a declared full Hom or function type, never from
       -- erasing a structured Hom's laws or choosing a category by its carrier.
       if let some inputType ← declaredCallableType? input then
-        return ← validateCallableAt objects inputType admitted.argument (InterfaceScope.arg? scope 5)
+        return ← validateCallableAt objects inputType admitted.argument (InterfaceScope.arg? scope 5) dataEndpoints
       return ← validatePort (← mkFreshExprMVar input) input admitted.argument objects
         false (InterfaceScope.arg? scope 5)
     | "pointView", #[selectedData, original, domainData] =>
@@ -2185,7 +2293,7 @@ def validateCallableAtWith
       let .ok carrier ← interfaceCarrier selected selectedData objects (InterfaceScope.arg? scope 0) | return .error "the point view has no declared carrier"
       unless ← withTransparency .all <| isDefEq source domain <&&> isDefEq target carrier do
         return .error "the point view changes a complete endpoint"
-      return ← validateCallableAt objects expected original (InterfaceScope.arg? scope 1)
+      return ← validateCallableAt objects expected original (InterfaceScope.arg? scope 1) dataEndpoints
     | "operationPoint", #[id, parameters, comparison, domainData, selectedData] =>
       let .ok id := id.getStr? | return .error "the nullary operation id must be a string"
       let .ok parameters := parameters.getArr? | return .error "nullary parameters must be ordered"
@@ -2199,17 +2307,17 @@ def validateCallableAtWith
         return .error "the nullary point changes a complete endpoint"
       let operationSource ← mkFreshExprMVar (← inferType target)
       let .ok _ ← interfaceDeclaration objects row.declaration
-          (← mkAppM ``Quiver.Hom #[operationSource, target]) parameters (InterfaceScope.arg? scope 1)
+          (← mkAppM ``Quiver.Hom #[operationSource, target]) parameters (InterfaceScope.arg? scope 1) dataEndpoints
         | return .error "the nullary operation changes its selected result interface"
-      return ← validateCallableAt objects (← interfaceHomAt expected source operationSource) comparison (InterfaceScope.arg? scope 2)
+      return ← validateCallableAt objects (← interfaceHomAt expected source operationSource) comparison (InterfaceScope.arg? scope 2) dataEndpoints
     | "compose", #[first, second] =>
       if let .error message ← checkScopedCategorySlots fixed #[
           (true, first, InterfaceScope.arg? scope 0),
           (true, second, InterfaceScope.arg? scope 1)] then return .error message
       let middle ← mkFreshExprMVar (← inferType source)
-      if let .error message ← validateCallableAt objects (← interfaceHomAt expected source middle) first (InterfaceScope.arg? scope 0) then
+      if let .error message ← validateCallableAt objects (← interfaceHomAt expected source middle) first (InterfaceScope.arg? scope 0) dataEndpoints then
         return .error message
-      if let .error message ← validateCallableAt objects (← interfaceHomAt expected middle target) second (InterfaceScope.arg? scope 1) then
+      if let .error message ← validateCallableAt objects (← interfaceHomAt expected middle target) second (InterfaceScope.arg? scope 1) dataEndpoints then
         return .error message
       if (← instantiateMVars middle).hasMVar then
         return .error "the symbolic composition omitted its intermediate object interface"
@@ -2222,9 +2330,9 @@ def validateCallableAtWith
       let right ← mkFreshExprMVar (← inferType target)
       unless ← withTransparency .all <| isDefEq target (← mkAppM ``Prod #[left, right]) do
         return .error "the mediator does not land in the declared product"
-      if let .error message ← validateCallableAt objects (← interfaceHomAt expected source left) first (InterfaceScope.arg? scope 0) then
+      if let .error message ← validateCallableAt objects (← interfaceHomAt expected source left) first (InterfaceScope.arg? scope 0) dataEndpoints then
         return .error message
-      return ← validateCallableAt objects (← interfaceHomAt expected source right) second (InterfaceScope.arg? scope 1)
+      return ← validateCallableAt objects (← interfaceHomAt expected source right) second (InterfaceScope.arg? scope 1) dataEndpoints
     | "element", #[descriptor, expression] =>
       let .ok selected ← interfaceObject objects descriptor (InterfaceScope.arg? scope 0)
         | return .error "the nested point lost its selected object"
@@ -2248,7 +2356,7 @@ def validateCallableAtWith
       let callable ← mkFreshExprMVar mapType
       unless ← withTransparency .all <| isDefEq (← inferType (← Semantic.mapOf action callable)) expected do
         return .error "the mapped callable has incompatible result endpoints"
-      return ← validateCallableAt objects mapType arrow (InterfaceScope.arg? scope 1)
+      return ← validateCallableAt objects mapType arrow (InterfaceScope.arg? scope 1) dataEndpoints
     | "objectField", #[id, field, parameters] | "powerObjectMap", #[id, field, parameters] =>
       let .ok id := id.getStr? | return .error "the callable field owner must be a string"
       let .ok field := field.getStr? | return .error "the callable field must be a string"
@@ -2264,17 +2372,17 @@ def validateCallableAtWith
       let some declaration := declaration | return .error "the owner has no such callable field"
       if tag == "objectField" && (field == "presentation" || field == "inversePresentation") then
         let .ok comparison ← interfaceDeclaration objects declaration
-            (← inferType (← instantiateFresh declaration)) parameters (InterfaceScope.arg? scope 2)
+            (← inferType (← instantiateFresh declaration)) parameters (InterfaceScope.arg? scope 2) dataEndpoints
           | return .error "the object presentation parameters have incompatible declared types"
         let arrow ← ObjectPresentation.fieldValue field comparison
         unless ← withTransparency .all <| isDefEq (← inferType arrow) expected do
           return .error "the object presentation has incompatible complete endpoints"
         return .ok ()
-      return (← interfaceDeclaration objects declaration expected parameters (InterfaceScope.arg? scope 2)).map fun _ => ()
+      return (← interfaceDeclaration objects declaration expected parameters (InterfaceScope.arg? scope 2) dataEndpoints).map fun _ => ()
     | _, _ =>
       if #["constructionLeg", "constructionField", "limitLeg"].contains tag then
         return ← validateConstructionProjection objects expected tag args none scope
-  validatePort placeholder expected data objects false (scope)
+  validatePort placeholder expected data objects false scope
 
 mutual
 /-- Validate the public declaration's ordered data parameters. Only the independent
@@ -2564,7 +2672,9 @@ partial def validateCallableData (data : Json) : TermElabM (Except String Unit) 
 refer to accepted declarations; arbitrary data occupy typed placeholders. The
 result is discarded by the response validator and is never a computed answer. -/
 partial def interfaceDeclaration (objects : InterfaceObjects)
-    (declaration : Name) (expected : Expr) (data : Array Json) (scope : Option InterfaceScope := none) :
+    (declaration : Name) (expected : Expr) (data : Array Json)
+    (scope : Option InterfaceScope := none)
+    (dataEndpoints : Option DataEndpointReader := none) :
     TermElabM (Except String Expr) := do
   if let some scope := scope then
     if let .error message := scope.validate (Json.arr data) then return .error message
@@ -2580,7 +2690,18 @@ partial def interfaceDeclaration (objects : InterfaceObjects)
     if !info.isExplicit || (← isProp type) then continue
     let some datum := data[position]?
       | return .error "the symbolic declaration omitted a parameter"
-    let .ok argument ← interfaceArgument objects type datum (InterfaceScope.index? scope position)
+    let childScope := InterfaceScope.index? scope position
+    let .ok selected ← readDataEndpoint? dataEndpoints
+        (← instantiateMVars field) type datum childScope
+      | return .error "a symbolic parameter changed its exact data endpoint occurrence"
+    let argument ← match selected with
+      | some argument => pure (.ok argument)
+      | none =>
+        if dataEndpoints.isSome && childScope.all (·.bindings.isEmpty) then
+          actualDescriptorArgument objects
+            (fun type data => interfaceArgument objects type data) type datum
+        else interfaceArgument objects type datum childScope
+    let .ok argument := argument
       | return .error "a symbolic parameter does not have its declared interface"
     unless ← withTransparency .all <| isDefEq field argument do
       return .error "a symbolic parameter changes its selected dependent endpoint"
@@ -2596,6 +2717,16 @@ partial def interfaceDeclaration (objects : InterfaceObjects)
             return .error "the symbolic declaration has incompatible selected structure"
   unless ← withTransparency .all <| isDefEq result expected do
     return .error "the symbolic declaration has incompatible complete endpoints"
+  if let some read := dataEndpoints then
+    let mut position := 0
+    for (field, info) in fields.zip infos do
+      let type ← instantiateMVars (← inferType field)
+      if !info.isExplicit || (← isProp type) then continue
+      let some datum := data[position]?
+        | return .error "the symbolic declaration omitted its positioned parameter"
+      if let .error message ← read.argument (← instantiateMVars field) type datum
+          (InterfaceScope.index? scope position) then return .error message
+      position := position + 1
   return .ok (← instantiateMVars (mkAppN constant fields))
 
 /-- Point slots follow the actual public object representation. An extent keeps
@@ -3330,7 +3461,8 @@ partial def admissionInterface (objects : InterfaceObjects) (entry : ObjectEntry
 /-- Check the complete Hom type recursively, without constructing a runtime map.
 Compositions infer their middle object from declared constituents or typedMap;
 two untyped opaque maps cannot invent that missing interface. -/
-partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (data : Json) (scope : Option InterfaceScope := none) :
+partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (data : Json) (scope : Option InterfaceScope := none)
+    (dataEndpoints : Option DataEndpointReader := none) :
     TermElabM (Except String Unit) :=
   validateCallableAtWith
     (fun formal expected json objects explicitOnly scope =>
@@ -3338,8 +3470,8 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     (fun formal source target data objects scope =>
       validateEndpointPort formal source target data objects scope)
     (fun data => validatePublicData data)
-    (fun objects declaration expected data scope =>
-      interfaceDeclaration objects declaration expected data scope)
+    (fun objects declaration expected data scope endpoints =>
+      interfaceDeclaration objects declaration expected data scope endpoints)
     (fun objects data scope => interfaceObject objects data scope)
     (fun objects expected tag args formal scope =>
       validateConstructionProjection objects expected tag args formal scope)
@@ -3347,13 +3479,14 @@ partial def validateCallableAt (objects : InterfaceObjects) (expected : Expr) (d
     (fun objects expected data scope => interfaceArgument objects expected data scope)
     (fun objects entry expected parameters scope =>
       admissionInterface objects entry expected parameters scope)
-    (fun objects expected data scope => validateCallableAt objects expected data scope)
+    (fun objects expected data scope endpoints =>
+      validateCallableAt objects expected data scope endpoints)
     (fun selected descriptor objects scope => interfaceCarrier selected descriptor objects scope)
     (fun objects selected descriptor scope =>
       interfaceSelectedValue objects selected descriptor scope)
     (fun objects selected carrier expression retained scope =>
       validateElementExpressionAt objects selected carrier expression retained scope)
-    objects expected data scope
+    objects expected data scope dataEndpoints
 
 /-- Use the complete validated selection to obtain its declared carrier. An
 accepted object action need not have a separately registered name at its target. -/
@@ -3738,6 +3871,246 @@ partial def validatePlannedPort (plan : StructuredResult.DataPlan)
 
 end
 
+/-- Bind only private data parameters introduced by the descriptor reader.
+They are rigid before any callable is inspected. A failed descriptor traversal
+cannot leave assignments in another representation attempt or in the question. -/
+private partial def withDataEndpointHoles (holes : Array DataEndpointHole)
+    (position : Nat) (bindings : Array DataEndpointBinding)
+    (next : Array DataEndpointBinding → TermElabM (Except String Unit)) :
+    TermElabM (Except String Unit) := do
+  let some hole := holes[position]? | return ← next bindings
+  let field ← instantiateMVars hole.field
+  if field.isMVar then
+    let type ← instantiateMVars (← inferType field)
+    if type.hasMVar || type.hasLevelMVar then
+      return .error "an actual endpoint parameter has no complete declared data type"
+    withLocalDeclD `dataParameter type fun variable => do
+      field.mvarId!.assign variable
+      withDataEndpointHoles holes (position + 1) (bindings.push {
+        variable, json := hole.json, fragment := hole.fragment }) next
+  else
+    -- A declaration can itself repeat a parameter role. Its already chosen
+    -- private variable owns every such occurrence; packet equality alone never
+    -- creates this relation between independent result roles.
+    if let some binding := bindings.find? (fun binding => binding.variable == field) then
+      unless binding.json == hole.json && binding.fragment == hole.fragment do
+        return .error "one declared data parameter changed its exact occurrence or suppliers"
+    withDataEndpointHoles holes (position + 1) bindings next
+
+/-- Read one actual endpoint using public declaration slots. Unknown data occupy
+fresh typed parameters at those exact positions. Known descriptor literals fix
+only this private data interface, never a mathematical answer or comparison. -/
+private partial def withDataEndpointPosition (objects : InterfaceObjects)
+    (slot : DataEndpointPosition) (bindings : Array DataEndpointBinding)
+    (next : Expr → Array DataEndpointBinding → TermElabM (Except String Unit)) :
+    TermElabM (Except String Unit) := do
+  let type ← instantiateMVars (← inferType slot.formal)
+  let neutral := slot.fragment.map fun data => ({ data } : InterfaceScope)
+  if let .error message ← validatePort slot.formal type slot.json objects (scope := neutral) then
+    return .error message
+  let holes ← IO.mkRef (#[] : Array DataEndpointHole)
+  let read : ActualDescriptorArgumentReader := fun path expected datum => do
+    let fragment ← match slot.fragment with
+      | none => pure none
+      | some original =>
+        let .ok fragment := original.project path
+          | return .error "an actual endpoint parameter lost its declared data position"
+        unless fragment.json == datum do
+          return .error "an actual endpoint parameter changed its positioned data"
+        pure (some fragment)
+    if ((Backend.resultRefIndex? datum).toOption.bind id).isSome then
+      let retained := objects.filter (·.1 == datum)
+      if retained.isEmpty then
+        return .error "an actual endpoint parameter has an unauthenticated private reference"
+      unless ← retained.anyM (fun (_, fixed) => withoutModifyingState do
+          withTransparency .all <| isDefEq (← inferType fixed) expected) do
+        return .error "a private endpoint parameter changed its declared data type"
+    else if let .error message ← validatePublicData datum then return .error message
+    let field ← mkFreshExprMVar expected
+    holes.modify (·.push { field, json := datum, fragment })
+    return .ok field
+  let .ok actual ← actualDescriptorArgument objects
+      (fun expected datum => interfaceArgument objects expected datum)
+      type slot.json (some read)
+    | return .error "the actual endpoint has an incomplete public data interface"
+  unless ← withTransparency .all <| isDefEq (← inferType actual) type do
+    return .error "the actual endpoint changed its independently selected object category"
+  withDataEndpointHoles (← holes.get) 0 bindings fun bindings => do
+    let actual ← instantiateMVars actual
+    if actual.hasMVar || actual.hasLevelMVar then
+      return .error "the actual endpoint descriptor left an unresolved data parameter"
+    withLetDecl `dataEndpoint type actual fun variable =>
+      next variable (bindings.push {
+        variable, json := slot.json, fragment := slot.fragment, value := some actual })
+
+/-- A fixed private variable is a declaration-selected data occurrence. No
+lookup by an equal closed term or equal packet chooses an endpoint role. -/
+private partial def readDataEndpointArgument (objects : InterfaceObjects)
+    (bindings : Array DataEndpointBinding) (fixed expected : Expr) (datum : Json)
+    (scope : Option InterfaceScope) : TermElabM (Except String (Option Expr)) := do
+  let fixed ← instantiateMVars fixed
+  unless fixed.isFVar do return .ok none
+  let some binding := bindings.find? (fun binding => binding.variable == fixed)
+    | return .ok none
+  unless ← withTransparency .all <| isDefEq (← inferType fixed) expected do
+    return .error "the selected data endpoint parameter changed its complete type"
+  if let some scope := scope then
+    if let .error message := scope.validate datum then return .error message
+  if binding.json == datum then
+    if let some original := binding.fragment then
+      let some scope := scope
+        | return .error "an owned data endpoint parameter omitted its positioned suppliers"
+      unless scope.data == original do
+        return .error "the data endpoint parameter changed its exact supplying occurrence"
+    return .ok (some fixed)
+  -- Transparent finite/presentation envelopes can expose the same known public
+  -- data interface. Opaque occurrences require the exact original supplier and
+  -- packet; they never acquire an alias from another descriptor's spelling.
+  unless (DataOwnership.opaquePaths binding.json).isEmpty &&
+      (DataOwnership.opaquePaths datum).isEmpty && binding.value.isSome do
+    return .error "the callable parameter changed its selected opaque endpoint occurrence"
+  let checked ← withoutModifyingState do
+    let .ok actual ← actualDescriptorArgument objects
+        (fun type data => interfaceArgument objects type data) expected datum
+      | return false
+    if actual.hasMVar || actual.hasLevelMVar then return false
+    withTransparency .all <| isDefEq actual fixed
+  unless checked do
+    return .error "the callable parameter has a different actual endpoint interface"
+  return .ok (some fixed)
+
+/-- Expand only the let aliases introduced for private endpoint roles. Ordinary
+logical parameters, category dictionaries and rigid unknowns remain untouched. -/
+private partial def expandDataEndpointLets (bindings : Array DataEndpointBinding)
+    (expression : Expr) : Expr :=
+  bindings.foldr (fun binding expression =>
+    match binding.value with
+    | none => expression
+    | some value => expression.replace fun term =>
+        if term == binding.variable then some value else none) expression
+
+/-- Allocate the physical endpoint context inside one isolated validation.
+The fixed full Hom supplies its original category dictionary. Descriptor reads
+can constrain only fresh data parameters; no reply is unified with either
+mathematical endpoint. Repeated indices must retain the same complete slot. -/
+private partial def withDataEndpointInterfaces (expected : Expr)
+    (source target : DataEndpointPosition) (objects : InterfaceObjects)
+    (next : Expr → Expr → DataEndpointReader → TermElabM (Except String Unit)) :
+    TermElabM (Except String Unit) := withoutModifyingState do
+  let expected ← instantiateMVars expected
+  let some (sourceFormal, targetFormal) := Language.homEnds? expected
+    | return .error "a result map omitted its independently selected full Hom"
+  if expected.hasMVar || expected.hasLevelMVar then
+    return .error "a result map has an unresolved independently selected full Hom"
+  unless ← withTransparency .all <| isDefEq source.formal sourceFormal <&&>
+      isDefEq target.formal targetFormal do
+    return .error "the result map changed its selected endpoint roles"
+  for slot in #[source, target] do
+    if let some fragment := slot.fragment then
+      unless fragment.json == slot.json do
+        return .error "a result endpoint changed its exact supplied data"
+      if let .error message := fragment.validate then return .error message
+  if source.index == target.index then
+    unless source.json == target.json && source.fragment == target.fragment &&
+        (← withTransparency .all <| isDefEq source.formal target.formal) do
+      return .error "one declared endpoint role has two distinct complete occurrences"
+  withDataEndpointPosition objects source #[] fun actualSource bindings => do
+    let finish := fun actualTarget bindings =>
+      next actualSource actualTarget {
+        argument := readDataEndpointArgument objects bindings
+        expand := expandDataEndpointLets bindings }
+    if source.index == target.index then return ← finish actualSource bindings
+    withDataEndpointPosition objects target bindings finish
+
+/-- Validate one callable packet at its actual data endpoints. Finite graphs,
+named declarations and opaque whole callables share this same private full Hom.
+The ordinary independently fixed logical scopes remain separate inputs. -/
+private partial def validateDataEndpointPacket (expected : Expr)
+    (source target : DataEndpointPosition) (data : Json) (objects : InterfaceObjects)
+    (scope : Option InterfaceScope) (reader : DataEndpointReader)
+    (lookupKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String Unit) := do
+  let openedScope := InterfaceScope.valuePayload? scope
+  let unwrapped ← match valuePayload data with
+    | .ok actual => pure actual
+    | .error message => return .error message
+  if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" then
+    let .ok typed := Backend.TypedMap.decode unwrapped
+      | return .error "typedMap requires its complete source, target and callable"
+    let .ok selected ← interfaceScopeBinding openedScope unwrapped
+      | return .error "the typed callable changed its independently positioned interface"
+    if let .error message ← checkScopedCategorySlots selected #[
+        (false, typed.source, InterfaceScope.arg? openedScope 0),
+        (false, typed.target, InterfaceScope.arg? openedScope 1),
+        (true, typed.callable, InterfaceScope.body? openedScope #[.field "args", .index 2])]
+        then return .error message
+    for (index, slot, descriptor) in #[(0, source, typed.source), (1, target, typed.target)] do
+      unless slot.json == descriptor do
+        return .error "the callable's complete endpoint descriptors differ from its selected data roles"
+      if let some original := slot.fragment then
+        let some selected := InterfaceScope.arg? openedScope index
+          | return .error "a typed callable endpoint omitted its positioned suppliers"
+        unless selected.data == original do
+          return .error "a typed callable endpoint changed its exact supplying occurrence"
+    return ← validateDataEndpointPacket expected source target typed.callable objects
+      (InterfaceScope.body? openedScope #[.field "args", .index 2]) reader lookupKeys
+  let graph := if let .ok ("finiteGraph", #[_, actual]) := envelope unwrapped then actual
+    else unwrapped
+  unless graph.getArr?.isOk do
+    return ← validateCallableAt objects expected data scope (some reader)
+  let domain ← match ← graphDomainKeys objects
+      (fun type data => interfaceArgument objects type data) source.json unwrapped lookupKeys with
+    | .ok domain => pure domain
+    | .error message => return .error message
+  if let .ok ("finiteGraph", #[inventory, _]) := envelope unwrapped then
+    let .ok declared := inventory.getArr?
+      | return .error "a finite callable inventory requires an array"
+    unless declared.size == domain.size && domain.all declared.contains do
+      return .error "the callable inventory differs from its actual computational domain"
+  let .ok codomain ← lookupKeys target.json
+    | return .error "a finite callable has malformed actual codomain data"
+  let placeholder ← mkFreshExprMVar expected
+  let checked ← validateGraphAtKeys placeholder expected data domain codomain
+  let some (_, targetFormal) := Language.homEnds? expected
+    | return .error "the data callable lost its fixed full Hom"
+  validateCallableGraphAt objects (fun type data => interfaceArgument objects type data)
+    (fun type value => validateCallableAt objects type value (dataEndpoints := some reader))
+    (reader.expand targetFormal) source.json target.json unwrapped graph checked
+    (InterfaceScope.graphPayload? scope)
+    (some fun type value selected =>
+      validateCallableAt objects type value selected (some reader))
+
+private partial def validateDataEndpointPositions (formal : Expr)
+    (source target : DataEndpointPosition) (data : Json) (objects : InterfaceObjects)
+    (scope : Option InterfaceScope)
+    (lookupKeys : Json → TermElabM (Except String (Option (Array Json)))) :
+    TermElabM (Except String Unit) := do
+  let expected ← inferType formal
+  let .ok _ ← interfaceScopeType scope data expected
+    | return .error "the result map changed its original independently fixed full Hom"
+  withDataEndpointInterfaces expected source target objects fun actualSource actualTarget reader => do
+    let expected ← interfaceHomAt expected actualSource actualTarget
+    validateDataEndpointPacket expected source target data objects scope reader lookupKeys
+
+/-- Framing a returned map never identifies its actual endpoints with the
+requested objects. The caller supplies independently selected endpoint roles and
+already validated object occurrences. This checks their exact suppliers and the
+map's data interface; it returns neither a decoded answer nor an isomorphism. -/
+partial def validateEndpointSlots (formalMap : Expr) (source target : DataEndpointSlot)
+    (data : DataOwnership.Data) (objects : InterfaceObjects := #[])
+    (scope : Option InterfaceScope := none) : TermElabM (Except String Unit) :=
+    withoutModifyingState do
+  if let .error message := data.validate then return .error message
+  let scope := scope.getD { data }
+  unless scope.data == data do
+    return .error "the result map changed its complete positioned packet or suppliers"
+  validateDataEndpointPositions formalMap
+    { index := source.index, formal := source.formal,
+      json := source.data.json, fragment := some source.data }
+    { index := target.index, formal := target.formal,
+      json := target.data.json, fragment := some target.data }
+    data.json objects (some scope) endpointKeys
+
 /-- Assemble existing public record fields without changing their scoped
 ownership. This is shared by complete structural projections and independently
 selected result schemas; it performs no mathematical computation. -/
@@ -3802,6 +4175,18 @@ def RecordFieldStep.projectData? (step : RecordFieldStep) (receiver : Expr)
     if step.codec == .arrow && tag == "arrow" then
       unless step.count == 3 && args.size == 3 && step.index < 3 do return none
       return (payload.project #[.field "args", .index step.index]).toOption
+    if step.codec == .arrowRefinement && tag == "liftedSubobject" then
+      unless step.count == 1 && step.index == 0 && args.size == 4 do return none
+      -- The outermost stage's complete inclusion is the published defining
+      -- Arrow. This is a codec projection, not reconstruction of a lift law.
+      let some inclusion := (payload.project #[.field "args", .index 3, .index 0,
+        .field "args", .index 4, .index 1]).toOption | return none
+      let .ok ("typedMap", fields) := envelope inclusion.json | return none
+      unless fields.size == 3 do return none
+      let some fields := (inclusion.project #[.field "args"]).toOption | return none
+      return some {
+        json := Json.mkObj [("ctor", toJson "arrow"), ("args", fields.json)],
+        ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
     if step.codec == .arrowRefinement && (tag == "arrow" || tag == "subobject") then
       unless step.count == 1 && step.index == 0 && args.size == 3 do return none
       let some fields := (payload.project #[.field "args"]).toOption | return none
@@ -3854,6 +4239,11 @@ def RecordFieldStep.projectScope? (step : RecordFieldStep)
       InterfaceScope.arg? (some payload) 0
     else if step.codec == .arrow && tag == "arrow" then
       InterfaceScope.arg? (some payload) step.index
+    else if step.codec == .arrowRefinement && tag == "liftedSubobject" then do
+      let inclusion ← InterfaceScope.at? (some payload) #[.field "args", .index 3, .index 0,
+        .field "args", .index 4, .index 1]
+      let fields ← InterfaceScope.args? (some inclusion)
+      (InterfaceScope.assemble selected #[(#[.field "args"], fields)]).toOption
     else if step.codec == .arrowRefinement && (tag == "arrow" || tag == "subobject") then do
       let fields ← InterfaceScope.args? (some payload)
       (InterfaceScope.assemble selected #[ (#[.field "args"], fields) ]).toOption

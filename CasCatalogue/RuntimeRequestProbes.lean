@@ -70,10 +70,11 @@ run_elab do
     let mut checked := false
     for (value, node) in question.trace.toArray do
       let operation ← match node with
-        | .method id route receiver _ => pure (some (id.raw, route, receiver, false))
-        | .property id route receiver _ => pure (some (id.raw, route, receiver, true))
+        | .method id route receiver _ application =>
+            pure (some (id.raw, route, receiver, false, some application))
+        | .property id route receiver _ => pure (some (id.raw, route, receiver, true, none))
         | _ => pure none
-      let some (id, route, receiver, isProperty) := operation | continue
+      let some (id, route, receiver, isProperty, application?) := operation | continue
       let original ← realize harness trace "the actual operation receiver" receiver
       let .object entry := original.form
         | throwError "the request-selection probe lost its named source form"
@@ -104,9 +105,12 @@ run_elab do
       else do
         let some method := state.methods.find? (·.id.raw == id)
           | throwError "the recorded method is absent"
-        let some functor := state.functor? method.functor
-          | throwError "the recorded method functor is absent"
-        Semantic.objOf (← registeredFunctorInstance functor) (← methodArgument method image)
+        let some application := application?
+          | throwError "the recorded method lost its complete selected application"
+        unless ← withTransparency .all <| isDefEq application.input
+            (← methodArgument method image) do
+          throwError "the request changed the retained complete method input"
+        Semantic.objOf application.application application.input
       unless ← withTransparency .all <| isDefEq operation value do
         throwError "request selection changed the full independently read semantic operation"
       checked := true

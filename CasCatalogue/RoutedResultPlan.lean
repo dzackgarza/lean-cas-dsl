@@ -6,7 +6,10 @@ public import CasCatalogue.ComputationalData
 public import CasCatalogue.FunctorActionData
 public import CasCatalogue.DeclaredApplication
 
-@[expose] public section
+-- This module publishes executable schema APIs and their result types. Their
+-- implementation bodies stay private so the public wrappers can use the
+-- private symbolic compiler without exporting its internal input types.
+public section
 open Lean Meta Elab Term
 
 namespace CasCatalogue.RoutedResultPlan
@@ -67,12 +70,21 @@ closed carrier or a computational packet. Scalars retain their declared type. -/
 inductive ProjectionParameterRole where
   | object (input : Input) (path : ComputationalData.RecordFieldPath)
   | map (input : Input) (path : ComputationalData.RecordFieldPath)
+  /-- A composed parameter keeps the complete role of its selected local
+  producer, even when its data assembles several original input occurrences. -/
+  | objectAt (context : CategoryContext)
+  | mapAt (context : CategoryContext) (source target : Expr)
   | value
 
 /-- Only an exact public input projection or an independently fixed portable
 literal can supply a newly selected projection action's computational parameter. -/
 inductive ProjectionParameterSource where
   | retained (input : Input) (projection : ComputationalData.RecordProjectionPlan)
+  /-- The exact output occurrence of a preceding selected route action. The
+  index never addresses the enclosing method's own result. -/
+  | intermediate (actionIndex : Nat) (projection : ComputationalData.RecordProjectionPlan)
+  | record (codec : ComputationalData.RecordFieldCodec)
+      (fields : Array ProjectionParameterSource)
   | literal (data : Json)
 
 structure ProjectionParameter where
@@ -134,10 +146,79 @@ structure Plan where
 private inductive InputKind where
   | object | callable | data
 
+/-- Formal dependency and computational provenance are separate. Every action
+is compiled in its own well-typed declaration telescope; only this positional
+tree is substituted at the next receiver. A returned leaf keeps its preceding
+action and public output path, rather than becoming an equal-valued input. -/
+private inductive Origin where
+  | retained (input : Input) (projection : ComputationalData.RecordProjectionPlan)
+  | returned (actionIndex : Nat) (path : ComputationalData.RecordFieldPath)
+  | record (codec : ComputationalData.RecordFieldCodec) (fields : Array Origin)
+
 private structure SymbolicInput where
   formal : Expr
   input : Option Input
   kind : InputKind := .data
+  origin : Option Origin := none
+
+/-- Restrict a public projection without inspecting values or suppliers. The
+path was selected at the complete typed output schema of the preceding action. -/
+private partial def projectionAtPath (projection : ComputationalData.RecordProjectionPlan)
+    (path : ComputationalData.RecordFieldPath) :
+    TermElabM ComputationalData.RecordProjectionPlan := do
+  if path.isEmpty then return projection
+  match projection with
+  | .input initial => return .input (initial ++ path)
+  | .record codec fields =>
+      let some step := path[0]?
+        | throwError "a composed projection lost its first public field"
+      unless step.codec == codec && step.count == fields.size do
+        throwError "a composed projection changed its selected public record schema"
+      let some child := fields[step.index]?
+        | throwError "a composed projection addresses an absent public field"
+      projectionAtPath child (path.extract 1 path.size)
+
+private partial def originAtPath (origin : Origin)
+    (path : ComputationalData.RecordFieldPath) : TermElabM Origin := do
+  if path.isEmpty then return origin
+  match origin with
+  | .retained input projection =>
+      return .retained input (← projectionAtPath projection path)
+  | .returned actionIndex initial =>
+      return .returned actionIndex (initial ++ path)
+  | .record codec fields =>
+      let some step := path[0]?
+        | throwError "a composed origin lost its first public field"
+      unless step.codec == codec && step.count == fields.size do
+        throwError "a composed origin changed its selected public record schema"
+      let some child := fields[step.index]?
+        | throwError "a composed origin addresses an absent public field"
+      originAtPath child (path.extract 1 path.size)
+
+private partial def projectOrigin (origin : Origin) :
+    ComputationalData.RecordProjectionPlan → TermElabM Origin
+  | .input path => originAtPath origin path
+  | .record codec fields => do
+      return .record codec (← fields.mapM (projectOrigin origin))
+
+/-- A complete record can retain one original root only when every child uses
+that same ordinal root. Equal expressions and equal packets play no role. -/
+private partial def retainedOrigin? : Origin →
+    Option (Input × ComputationalData.RecordProjectionPlan)
+  | .retained input projection => some (input, projection)
+  | .returned .. => none
+  | .record codec fields => do
+      let first ← fields[0]?
+      let (input, _) ← retainedOrigin? first
+      let projections ← fields.mapM fun child => do
+        let (selected, projection) ← retainedOrigin? child
+        if selected == input then some projection else none
+      return (input, .record codec projections)
+
+private partial def Origin.parameterSource : Origin → ProjectionParameterSource
+  | .retained input projection => .retained input projection
+  | .returned actionIndex path => .intermediate actionIndex (.input path)
+  | .record codec fields => .record codec (fields.map Origin.parameterSource)
 
 private inductive ProjectionAccess where
   | exposed | internal | missing
@@ -201,26 +282,35 @@ private partial def projectionUsesInput : ComputationalData.RecordProjectionPlan
 
 /-- All roots are fresh telescope binders. A proof-only empty record does not
 establish a source occurrence, and an implicit argument has no invented wire slot. -/
-private def retainedNode? (inputs : Array SymbolicInput) (formal : Expr) :
-    TermElabM (Option Node) := do
-  let mut candidates : Array (Option Input × ComputationalData.RecordProjectionPlan) := #[]
+private def selectedOrigin? (inputs : Array SymbolicInput) (formal : Expr) :
+    TermElabM (Option Origin) := do
+  let mut candidates : Array (SymbolicInput × ComputationalData.RecordProjectionPlan) := #[]
   for input in inputs do
     if let some projection ← ComputationalData.recordProjectionPlan? input.formal formal then
       if projectionUsesInput projection then
         match ← projectionAccess input projection with
-        | .exposed => candidates := candidates.push (input.input, projection)
+        | .exposed => candidates := candidates.push (input, projection)
         | .internal => pure ()
         | .missing =>
             throwStratum .noImplementation
               "a retained routed field requires its complete public input projection schema"
   match candidates with
   | #[] => return none
-  | #[(some input, projection)] => return some (.retained input projection)
-  | #[(none, _)] =>
-      throwStratum .noImplementation
-        "the routed result retains a declaration parameter with no transmitted data slot"
+  | #[(root, projection)] =>
+      if let some origin := root.origin then
+        return some (← projectOrigin origin projection)
+      let some input := root.input
+        | throwStratum .noImplementation
+            "the routed result retains a declaration parameter with no transmitted data slot"
+      return some (.retained input projection)
   | _ =>
       throwError "a symbolic routed result field has several distinct retained input roots"
+
+private def retainedNode? (inputs : Array SymbolicInput) (formal : Expr) :
+    TermElabM (Option Node) := do
+  let some origin ← selectedOrigin? inputs formal | return none
+  let some (input, projection) := retainedOrigin? origin | return none
+  return some (.retained input projection)
 
 private def appendSlot (slots : Array Slot) (slot : Slot) : Nat × Array Slot :=
   (slots.size, slots.push slot)
@@ -352,6 +442,27 @@ private partial def compileSlots (inputs : Array SymbolicInput)
   throwStratum .noImplementation
     "the routed result requires a complete public schema for its non-atomic data fields"
 
+/-- A later action may retain a preceding returned field. Keep that exact
+producer in the private provenance graph even though the public fused reply
+still represents the field as returned data. -/
+private def compileOrigins (inputs : Array SymbolicInput) (actionIndex : Nat)
+    (slots : Array Slot) : TermElabM (Array Origin) := do
+  let mut origins := #[]
+  for slot in slots do
+    let origin ← match ← selectedOrigin? inputs slot.formal with
+      | some origin => pure origin
+      | none => match slot.node with
+        | .retained input projection => pure (.retained input projection)
+        | .returned => pure (.returned actionIndex slot.replyPath)
+        | .record codec fields => do
+            let children ← fields.mapM fun index => do
+              let some child := origins[index]?
+                | throwError "a composed result origin precedes its declared field dependencies"
+              return child
+            pure (.record codec children)
+    origins := origins.push origin
+  return origins
+
 private def instantiateContext (context : CategoryContext) (binders values : Array Expr) :
     CategoryContext :=
   { context with bundle := context.bundle.replaceFVars binders values }
@@ -367,6 +478,15 @@ private def instantiateSlot (slot : Slot) (binders values : Array Expr) : Slot :
     formal := slot.formal.replaceFVars binders values
     expectedType := slot.expectedType.replaceFVars binders values
     role := instantiateRole slot.role binders values }
+
+private def instantiateProjectionParameterRole (role : ProjectionParameterRole)
+    (binders values : Array Expr) : ProjectionParameterRole :=
+  match role with
+  | .objectAt context => .objectAt (instantiateContext context binders values)
+  | .mapAt context source target =>
+      .mapAt (instantiateContext context binders values)
+        (source.replaceFVars binders values) (target.replaceFVars binders values)
+  | _ => role
 
 private def sameProjectionStep (left right : ComputationalData.RecordFieldStep) : Bool :=
   left.structureName == right.structureName && left.field == right.field &&
@@ -574,7 +694,117 @@ private def instantiateProjectionAction (plan : ProjectionActionPlan)
     targetContext := instantiateContext plan.targetContext binders values
     parameters := plan.parameters.map fun parameter => { parameter with
       formal := parameter.formal.replaceFVars binders values
-      expectedType := parameter.expectedType.replaceFVars binders values } }
+      expectedType := parameter.expectedType.replaceFVars binders values
+      role := instantiateProjectionParameterRole parameter.role binders values } }
+
+/-- Read a role at an already selected public path. The enclosing producer
+supplies the complete category; a field's carrier never selects a dictionary. -/
+private def publicRoleAt (formal : Expr) (role : ParameterRole)
+    (path : ComputationalData.RecordFieldPath) : TermElabM ParameterRole := do
+  let mut current := formal
+  let mut selected := role
+  for step in path do
+    let child ← withTransparency .all <| mkProjection current step.field
+    let some info := getStructureInfo? (← getEnv) step.structureName
+      | throwError "a projection parameter lost its selected public structure declaration"
+    let mut count := 0
+    let mut position : Option Nat := none
+    for name in info.fieldNames do
+      let item ← withTransparency .all <| mkProjection current name
+      unless ← isProp (← inferType item) do
+        if name == step.field then position := some count
+        count := count + 1
+    unless position == some step.index && count == step.count &&
+        (← ComputationalData.recordFieldCodec current) == step.codec do
+      throwError "a projection parameter changed its selected public field position"
+    selected ← match selected with
+      | .object context => do
+          let codec ← ComputationalData.recordFieldCodec current
+          if codec == .core then
+            unless step.index == 0 && step.count == 1 do
+              throwError "the Core parameter changed its public object position"
+            pure (.object (← coreBaseContext context))
+          else
+            let some arrow ← StructuredProjection.arrow? current context
+              | throwError "the projection parameter lost its complete public categorical role"
+            if arrow.subobject then
+              unless step.index == 0 && step.count == 1 do
+                throwError "the refined Arrow parameter changed its public field position"
+              pure (.object arrow.arrowContext)
+            else
+              unless step.count == 3 do
+                throwError "the Arrow parameter changed its complete public field schema"
+              match step.index with
+              | 0 | 1 => pure (.object arrow.base)
+              | 2 => pure (.map arrow.base arrow.source arrow.target)
+              | _ => throwError "the Arrow parameter addresses an absent public field"
+      | .map .. => throwError "a whole callable has no public implementation-field projection"
+      | .value => pure .value
+    current := child
+  return selected
+
+private def localInputRole (input : Input) (sourceContext : CategoryContext)
+    (interfaces : Array ParameterInterface) : TermElabM ParameterRole := do
+  match input with
+  | .receiver => return .object sourceContext
+  | .parameter actionIndex dataIndex =>
+      match interfaces.filter (fun selected =>
+          selected.actionIndex == actionIndex && selected.dataIndex == dataIndex) with
+      | #[] => return .value
+      | #[selected] => return selected.role
+      | _ => throwError "a projection parameter has several original complete producer roles"
+
+private def closeProjectionRole (role : ProjectionParameterRole) (formal : Expr)
+    (inputs : Array SymbolicInput) (sourceContext : CategoryContext)
+    (interfaces : Array ParameterInterface) : TermElabM ProjectionParameterRole := do
+  let selected ← match role with
+    | .object input path => pure (some (input, path, false))
+    | .map input path => pure (some (input, path, true))
+    | _ => pure none
+  let some (input, path, callable) := selected | return role
+  let #[root] := inputs.filter (·.input == some input)
+    | throwError "the composed projection parameter lost its exact local producer position"
+  let selected ← publicRoleAt root.formal
+    (← localInputRole input sourceContext interfaces) path
+  match selected with
+  | .object context =>
+      if callable then throwError "the composed parameter changed its whole-map producer role"
+      CategoryContext.checkObject context formal
+      return .objectAt context
+  | .map context source target =>
+      unless callable do throwError "the composed parameter changed its object producer role"
+      CategoryContext.checkMorphism context formal source target
+      return .mapAt context source target
+  | .value => throwError "the composed parameter lost its independently selected categorical role"
+
+private partial def checkProjectionSourceBefore (actionIndex : Nat) :
+    ProjectionParameterSource → TermElabM ProjectionParameterSource
+  | .intermediate preceding projection => do
+      unless preceding < actionIndex do
+        throwError "a projection parameter depends on its own or a later method result"
+      pure (.intermediate preceding projection)
+  | .record codec fields => do
+      return .record codec (← fields.mapM (checkProjectionSourceBefore actionIndex))
+  | source => pure source
+
+private partial def rebaseProjectionSource (origin : Origin) (actionIndex : Nat) :
+    ProjectionParameterSource → TermElabM ProjectionParameterSource
+  | .retained .receiver projection => do
+      let source := (← projectOrigin origin projection).parameterSource
+      checkProjectionSourceBefore actionIndex source
+  | .record codec fields => do
+      return .record codec (← fields.mapM (rebaseProjectionSource origin actionIndex))
+  | source => checkProjectionSourceBefore actionIndex source
+
+private def rebaseProjectionAction (plan : ProjectionActionPlan)
+    (origin : Origin) (actionIndex : Nat) (inputs : Array SymbolicInput)
+    (sourceContext : CategoryContext) (interfaces : Array ParameterInterface) :
+    TermElabM ProjectionActionPlan := do
+  let parameters ← plan.parameters.mapM fun parameter => do
+    return { parameter with
+      role := (← closeProjectionRole parameter.role parameter.formal inputs sourceContext interfaces)
+      source := (← rebaseProjectionSource origin actionIndex parameter.source) }
+  return { plan with parameters }
 
 /-- Standalone public fields use the same fresh selector. Their only retained
 computational root is the exact original parent. A nonportable category parameter
@@ -687,12 +917,13 @@ private partial def actionShape (state : RegistryState) (edge : EdgeRef) (actual
     throwError "the routed symbolic schema changed its complete selected action"
   return shape
 
-private structure SymbolicActions where
-  binders : Array Expr := #[]
-  values : Array Expr := #[]
-  parameters : Array Parameter := #[]
-  inputs : Array SymbolicInput := #[]
-  actions : Array Expr := #[]
+private structure StageSchema where
+  formal : Expr
+  parameters : Array Parameter
+  slots : Array Slot
+  output : Nat
+  origin : Origin
+  projectionActions : Array ProjectionActionSelection
 
 private def parameterKind (parameter : Parameter)
     (interfaces : Array ParameterInterface) : TermElabM InputKind := do
@@ -741,26 +972,6 @@ private def declarationSlots (actionIndex : Nat) (binders values : Array Expr)
       inputs := inputs.push { formal := binder, input := none }
   return (parameters, inputs)
 
-/-- Each action has independent ordered parameter occurrences. Compatibility of
-the resulting symbolic categories is checked separately; equal closed values do
-not merge roots that happened to agree in the original invocation. -/
-private partial def withSymbolicActions (shapes : Array ActionShape) (index : Nat)
-    (captured : SymbolicActions) (interfaces : Array ParameterInterface)
-    (consume : SymbolicActions → TermElabM Plan) :
-    TermElabM Plan := do
-  let some shape := shapes[index]? | return ← consume captured
-  let application := shape.declaration
-  forallTelescopeReducing (← inferType application.getAppFn) fun binders _ => do
-    let values := application.getAppArgs
-    let (parameters, inputs) ← declarationSlots index binders values interfaces
-    let action ← shape.action (mkAppN application.getAppFn binders)
-    withSymbolicActions shapes (index + 1) {
-      binders := captured.binders ++ binders
-      values := captured.values ++ values
-      parameters := captured.parameters ++ parameters
-      inputs := captured.inputs ++ inputs
-      actions := captured.actions.push action } interfaces consume
-
 private def coreConstructor : TermElabM (ConstructorId × Name) := do
   let #[constructor] := (← registryState).constructors.filter
       (·.semantics == `CasCatalogue.Constructors.core)
@@ -786,17 +997,13 @@ private def underlyingMethodContext (method : MethodEntry) (source : CategoryCon
         bundle := source.bundle }
   | _ => return source
 
-private def checkBoundary (actual expected : Expr) (symbolic : Bool) : TermElabM Unit := do
+private def checkBoundary (actual expected : Expr) : TermElabM Unit := do
   unless ← withoutModifyingState (withTransparency .all <| isDefEq actual expected) do
-    if symbolic then
-      throwStratum .noImplementation
-        "the routed result requires a retained relation between its dependent symbolic category parameters"
-    else
-      throwError "the routed result schema changed a complete selected category boundary"
+    throwError "the routed result schema changed a complete selected category boundary"
 
 private def resultOf (method : MethodEntry) (prefixActions : Array EdgeRef)
     (actions : Array Expr) (receiver : Expr)
-    (sourceContext : CategoryContext) (symbolic : Bool) : TermElabM (Expr × Expr) := do
+    (sourceContext : CategoryContext) : TermElabM (Expr × Expr) := do
   unless actions.size == prefixActions.size + 1 do
     throwError "the routed result schema omitted a selected action"
   let state ← registryState
@@ -804,14 +1011,14 @@ private def resultOf (method : MethodEntry) (prefixActions : Array EdgeRef)
   let mut context := sourceContext
   for (edge, action) in prefixActions.zip (actions.extract 0 prefixActions.size) do
     let (source, target) ← functorCategoryBundles action
-    checkBoundary context.bundle source symbolic
+    checkBoundary context.bundle source
     value ← Semantic.objOf action value
     let some expression := state.selectedEdgeTarget? edge
       | throwError "the routed schema lost a selected target category expression"
     context := { expression, bundle := target }
   let methodAction := actions.back!
   let (source, _) ← functorCategoryBundles methodAction
-  checkBoundary (← methodSourceContext method context).bundle source symbolic
+  checkBoundary (← methodSourceContext method context).bundle source
   let argument ← methodArgument method value
   return (argument, ← Semantic.objOf methodAction argument)
 
@@ -852,67 +1059,77 @@ def parameterSlots (method : MethodEntry) (F : Expr)
   let (_, shapes, _) ← selectedShapes method F prefixActions
   slotsForShapes shapes
 
-/-- Select one immutable schema from the full registered functor application.
-The entire declaration telescope is freshened positionally, including dependent
-instances and proof arguments. Only explicit nonproof arguments supply public
-data roots. Closing the plan substitutes those same slots, never equal expressions.
-
-An unsupported composite result reports its missing public interface here. It is
-never replaced by a whole future that would discard known receiver/parameter
-fields. No computational data, dispatch, cache or backend participates. -/
-def select (method : MethodEntry) (F receiver : Expr)
-    (sourceContext resultContext : CategoryContext)
-    (prefixActions : Array (EdgeRef × Expr) := #[])
-    (parameterInterfaces : Array ParameterInterface := #[]) : TermElabM Plan := do
-  let (application, shapes, actions) ← selectedShapes method F prefixActions
-  let parameters ← slotsForShapes shapes
-  for selected in parameterInterfaces do
-    let some parameter := parameters.find? fun parameter =>
-        parameter.actionIndex == selected.actionIndex && parameter.dataIndex == selected.dataIndex
-      | throwError "a routed parameter interface addresses an absent declared data slot"
-    discard <| parameterKind parameter parameterInterfaces
-  let methodAction := actions.back!
-  let (_, targetBundle) ← functorCategoryBundles methodAction
-  CategoryContext.checkObject sourceContext receiver
-  unless ← withTransparency .all <| isDefEq resultContext.bundle targetBundle do
-    throwError "the routed result schema changed the complete result category"
-  let (argument, result) ← resultOf method (prefixActions.map (·.1)) actions receiver sourceContext false
-  CategoryContext.checkObject resultContext result
-  withSymbolicActions shapes 0 {} parameterInterfaces fun captured => do
-    let some first := captured.actions[0]?
-      | throwError "the symbolic routed schema omitted its method action"
-    let (initial, _) ← functorCategoryBundles first
-    let symbolicSource ← if prefixActions.isEmpty then
-        underlyingMethodContext method { sourceContext with bundle := initial }
-      else pure { sourceContext with bundle := initial }
+/-- Compile one action in its own dependent telescope. The incoming provenance
+tree is substituted only at its receiver; it never identifies declaration
+binders or imposes false independence on a complete selected category boundary. -/
+private def compileStage (actionIndex : Nat) (shape : ActionShape)
+    (receiver : Expr) (sourceContext targetContext : CategoryContext)
+    (origin : Origin) (interfaces : Array ParameterInterface)
+    (method? : Option MethodEntry) : TermElabM StageSchema := do
+  let application := shape.declaration
+  let actualAction ← shape.action application
+  let (actualSource, actualTarget) ← functorCategoryBundles actualAction
+  let acceptedContext ← match method? with
+    | some method => methodSourceContext method sourceContext
+    | none => pure sourceContext
+  checkBoundary acceptedContext.bundle actualSource
+  checkBoundary targetContext.bundle actualTarget
+  let argument ← match method? with
+    | some method => methodArgument method receiver
+    | none => pure receiver
+  let expected ← Semantic.objOf actualAction argument
+  CategoryContext.checkObject targetContext expected
+  forallTelescopeReducing (← inferType application.getAppFn) fun declarationBinders _ => do
+    let declarationValues := application.getAppArgs
+    let (parameters, declarationInputs) ← declarationSlots actionIndex
+      declarationBinders declarationValues interfaces
+    let symbolicAction ← shape.action (mkAppN application.getAppFn declarationBinders)
+    let (initial, symbolicTarget) ← functorCategoryBundles symbolicAction
+    let symbolicSource ← match method? with
+      | some method => underlyingMethodContext method { sourceContext with bundle := initial }
+      | none => pure { sourceContext with bundle := initial }
     let type ← CategoryContext.carrier symbolicSource
     unless ← withTransparency .all <| isDefEq
-        (type.replaceFVars captured.binders captured.values)
-        (← inferType receiver) do
-      throwError "the symbolic routed receiver lost its original complete type"
-    checkBoundary (symbolicSource.bundle.replaceFVars captured.binders captured.values)
-      sourceContext.bundle false
+        (type.replaceFVars declarationBinders declarationValues) (← inferType receiver) do
+      throwError "the symbolic action receiver lost its complete selected type"
+    checkBoundary (symbolicSource.bundle.replaceFVars declarationBinders declarationValues)
+      sourceContext.bundle
     withLocalDeclD `receiver type fun symbolicReceiver => do
-      let (_, symbolicResult) ← resultOf method (prefixActions.map (·.1))
-        captured.actions symbolicReceiver symbolicSource true
-      let (_, symbolicTarget) ← functorCategoryBundles captured.actions.back!
-      let symbolicContext := { resultContext with bundle := symbolicTarget }
+      let symbolicArgument ← match method? with
+        | some method => methodArgument method symbolicReceiver
+        | none => pure symbolicReceiver
+      let symbolicResult ← Semantic.objOf symbolicAction symbolicArgument
+      let symbolicContext := { targetContext with bundle := symbolicTarget }
       CategoryContext.checkObject symbolicContext symbolicResult
-      let inputs := captured.inputs.push {
-        formal := symbolicReceiver, input := some .receiver, kind := .object }
-      withLocalDeclD `resultShape (← inferType symbolicResult) fun shape => do
-        let (output, slots) ← compileSlots inputs shape symbolicResult shape
+      let inputs := declarationInputs.push {
+        formal := symbolicReceiver, input := some .receiver, kind := .object,
+        origin := some origin }
+      withLocalDeclD `resultShape (← inferType symbolicResult) fun outputShape => do
+        let (output, symbolicSlots) ← compileSlots inputs outputShape symbolicResult outputShape
           (.object symbolicContext) #[]
-        let projectionActions ← compileProjectionActions inputs slots
-        let binders := captured.binders.push symbolicReceiver
-        let values := captured.values.push receiver
-        let closed := symbolicResult.replaceFVars binders values
+        let origins ← compileOrigins inputs actionIndex symbolicSlots
+        let some outputOrigin := origins[output]?
+          | throwError "the composed action lost its selected output provenance"
+        let selectedActions ← if method?.isSome then
+            compileProjectionActions inputs symbolicSlots
+          else pure #[]
+        let binders := declarationBinders.push symbolicReceiver
+        let values := declarationValues.push receiver
+        let formal := symbolicResult.replaceFVars binders values
         unless ← withTransparency .all <|
-            isDefEq (← inferType closed) (← inferType result) <&&> isDefEq closed result do
-          throwError "closing the routed schema changed its selected result"
-        let slots := slots.map fun slot => instantiateSlot slot binders values
-        let projectionActions := projectionActions.map fun selected => { selected with
-          action := selected.action.map fun action => instantiateProjectionAction action binders values }
+            isDefEq (← inferType formal) (← inferType expected) <&&> isDefEq formal expected do
+          throwError "closing one routed action changed its complete selected result"
+        let slots := symbolicSlots.map fun slot => instantiateSlot slot binders values
+        let closedInputs := inputs.map fun input => { input with
+          formal := input.formal.replaceFVars binders values }
+        let projectionActions ← selectedActions.mapM fun selected => do
+          let action ← match selected.action with
+            | .error failure => pure (.error failure)
+            | .ok action => do
+                let closed := instantiateProjectionAction action binders values
+                pure (.ok (← rebaseProjectionAction closed origin actionIndex
+                  closedInputs sourceContext interfaces))
+          return { selected with action }
         for selected in projectionActions do
           if let .ok action := selected.action then
             unless (← isTypeCorrect action.declarationApplication) &&
@@ -930,10 +1147,67 @@ def select (method : MethodEntry) (F receiver : Expr)
           if let some context := slotContext slot.role then
             unless ← isTypeCorrect context.bundle do
               throwError "a routed result field lost its complete category dictionary"
-        return {
-          method := method.id, application, prefixActions, receiver, argument, formal := result,
-          sourceContext, resultContext, parameters := captured.parameters, slots, output,
-          projectionActions }
+        return { formal, parameters, slots, output, origin := outputOrigin, projectionActions }
+
+/-- Compose independently compiled field transformations at the exact selected
+category boundaries. Equal closed parameters never merge their supplier slots.
+The only compositional substitution is the preceding field provenance at the
+next receiver; dependent category parameters remain in their own valid context.
+No computational data, dispatch, cache or backend participates. -/
+def select (method : MethodEntry) (F receiver : Expr)
+    (sourceContext resultContext : CategoryContext)
+    (prefixActions : Array (EdgeRef × Expr) := #[])
+    (parameterInterfaces : Array ParameterInterface := #[]) : TermElabM Plan := do
+  let (application, shapes, actions) ← selectedShapes method F prefixActions
+  let parameters ← slotsForShapes shapes
+  for selected in parameterInterfaces do
+    let some parameter := parameters.find? fun parameter =>
+        parameter.actionIndex == selected.actionIndex && parameter.dataIndex == selected.dataIndex
+      | throwError "a routed parameter interface addresses an absent declared data slot"
+    discard <| parameterKind parameter parameterInterfaces
+  let methodAction := actions.back!
+  let (_, targetBundle) ← functorCategoryBundles methodAction
+  CategoryContext.checkObject sourceContext receiver
+  unless ← withTransparency .all <| isDefEq resultContext.bundle targetBundle do
+    throwError "the routed result schema changed the complete result category"
+  let (argument, result) ← resultOf method (prefixActions.map (·.1)) actions receiver sourceContext
+  CategoryContext.checkObject resultContext result
+  let state ← registryState
+  let mut current := receiver
+  let mut context := sourceContext
+  let mut origin := Origin.retained .receiver (.input #[])
+  let mut capturedParameters := #[]
+  let mut completed : Option StageSchema := none
+  for index in [:shapes.size] do
+    let some shape := shapes[index]?
+      | throwError "the composed schema lost a selected action shape"
+    let some action := actions[index]?
+      | throwError "the composed schema lost a complete selected application"
+    let (_, bundle) ← functorCategoryBundles action
+    let finalAction := index == prefixActions.size
+    let target ← if finalAction then pure resultContext else do
+      let some (edge, _) := prefixActions[index]?
+        | throwError "the composed schema lost a preceding selected route step"
+      let some expression := state.selectedEdgeTarget? edge
+        | throwError "the composed schema lost a complete selected target expression"
+      pure ({ expression, bundle } : CategoryContext)
+    let stage ← compileStage index shape current context target origin parameterInterfaces
+      (if finalAction then some method else none)
+    current := stage.formal
+    context := target
+    origin := stage.origin
+    capturedParameters := capturedParameters ++ stage.parameters
+    completed := some stage
+  let some completed := completed
+    | throwError "the composed schema omitted its selected method action"
+  unless ← withTransparency .all <|
+      isDefEq (← inferType current) (← inferType result) <&&> isDefEq current result do
+    throwError "composing the selected field schemas changed the complete formal result"
+  return {
+    method := method.id, application, prefixActions, receiver, argument, formal := result,
+    sourceContext, resultContext, parameters := capturedParameters,
+    slots := completed.slots, output := completed.output,
+    projectionActions := completed.projectionActions }
 
 def Plan.inputFormal (plan : Plan) (input : Input) : TermElabM Expr := do
   match input with

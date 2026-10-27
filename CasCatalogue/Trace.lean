@@ -87,6 +87,61 @@ structure OperationFamilyComparison where
   identity : Expr
   deriving BEq, Repr
 
+/-- One prescribed stage, selected on the formal side before execution. Its
+evidence and complete underlying action fix all public computational projections;
+the input is the preceding complete subobject, not a later returned packet. -/
+structure MethodLiftApplication where
+  id : LiftId
+  evidence : Expr
+  action : Expr
+  receiver : Expr
+  input : Expr
+  result : Expr
+  deriving BEq, Repr
+
+/-- The complete typed invocation selected by a method reading. Runtime execution
+consumes these very applications and endpoints instead of resolving the method
+again or inferring its parameters from a result. Lifts have the route's order. -/
+structure MethodApplication where
+  sourceContext : CategoryContext
+  routeApplications : Array Expr
+  routeReceivers : Array Expr
+  image : Expr
+  application : Expr
+  input : Expr
+  baseResult : Expr
+  baseContext : CategoryContext
+  result : Expr
+  resultContext : CategoryContext
+  lifts : Array MethodLiftApplication := #[]
+  deriving BEq, Repr
+
+/-- Instantiate every retained mathematical field, including the full selected
+category dictionaries and the evidence of each prescribed stage. -/
+def MethodApplication.instantiateMVars (application : MethodApplication) :
+    Meta.MetaM MethodApplication := do
+  let context (value : CategoryContext) : Meta.MetaM CategoryContext := do
+    return { value with bundle := (← Meta.instantiateMVars value.bundle) }
+  let lifts ← application.lifts.mapM fun lift => do
+    return { lift with
+      evidence := (← Meta.instantiateMVars lift.evidence)
+      action := (← Meta.instantiateMVars lift.action)
+      receiver := (← Meta.instantiateMVars lift.receiver)
+      input := (← Meta.instantiateMVars lift.input)
+      result := (← Meta.instantiateMVars lift.result) }
+  return { application with
+    sourceContext := (← context application.sourceContext)
+    routeApplications := (← application.routeApplications.mapM Meta.instantiateMVars)
+    routeReceivers := (← application.routeReceivers.mapM Meta.instantiateMVars)
+    image := (← Meta.instantiateMVars application.image)
+    application := (← Meta.instantiateMVars application.application)
+    input := (← Meta.instantiateMVars application.input)
+    baseResult := (← Meta.instantiateMVars application.baseResult)
+    baseContext := (← context application.baseContext)
+    result := (← Meta.instantiateMVars application.result)
+    resultContext := (← context application.resultContext)
+    lifts }
+
 /-- How the semantic reading formed a value. -/
 inductive Node
   /-- The registered object `id` at its explicit parameters (numerals, or other values). -/
@@ -201,10 +256,11 @@ inductive Node
   /-- The method `id` after its selected route, retaining every checked comparison
   with its complete constructor and whiskering context. -/
   | method (id : MethodId) (route : Array EdgeRef) (receiver : Expr)
-      (comparisons : Array (RouteComparison × Expr))
+      (comparisons : Array (RouteComparison × Expr)) (application : MethodApplication)
   /-- A method whose result has prescribed lifts back along its route. -/
   | methodWithLifts (id : MethodId) (route : Array EdgeRef) (lifts : Array LiftId)
       (receiver : Expr) (comparisons : Array (RouteComparison × Expr))
+      (application : MethodApplication)
   /-- The property `id`, decided of `receiver` after the structural route `route`. -/
   | property (id : PropertyId) (route : Array EdgeRef) (receiver : Expr)
       (comparisons : Array (RouteComparison × Expr))

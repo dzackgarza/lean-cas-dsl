@@ -28,16 +28,30 @@ permit typed deferred plans; they do not require lateral-import prohibitions or
 a synchronous callback topology. Implementation and completion obligations are
 unchanged.
 
-Latest completed candidate: `22d6eaf`, run `40552183732`, job `122358583354`.
-It failed in `ComputationalData` before `Realize`, with a scoped callback arity
-error and the unchanged 200000-heartbeat LCNF compiler limit. The current source
-corrects the application and compiles the three existing dispatcher bodies
-outside their recursive interface group. Independent source comparison preserves
-all branches, validation order, defaults and scopes; Lean verification remains
-required. Artifact `12757680219` has SHA-256
-`4b7e7265fb366a04f6726a01f1b40c82e9c6dc03a0d84eca16f27a96f4806396`.
-The ordinary-method, complete-result and other invocation work below remains
-open; this compiler repair does not replace it.
+Latest completed candidate: `7c83cf9`, run `40565954945`, job `122407128094`.
+The recursive validator compiler repair passed. Compilation then failed in
+`RoutedResultPlan`: exposed public wrappers referred to private implementation
+helpers. That programming module now publishes its API without exposing its
+private compiler bodies. The run did not reach `Realize` or establish native,
+semantic-export, frozen-control, workflow or extension results.
+
+The integration checkpoint retains each interpreted method's full applications,
+category dictionaries, ordered data parameters, comparisons and prescribed lift
+stages. Public service preparation consumes the complete method envelope from
+contract `b71dc66`; the legacy receiver-only form is explicit and restricted to
+an empty route and no computational declaration parameters. Both surface and
+service invocation use retained typed inputs through the existing action
+executor. Per-action result schemas compose positioned provenance instead of
+unifying independent declaration telescopes or equal-valued inputs. New scoped
+endpoint validation keeps distinct supplied endpoint slots distinct even when
+their formal objects agree. Complete lifted-subobject packets project through
+their existing public codec with exact supplier scopes.
+
+This is source integration, not a usable-V1 verdict. Compilation and execution
+remain required. Complete projection-action route closure, exact executed
+intermediate sources in successive lifts, method trace-key collisions, and the
+remaining common-invocation consumers still require work. The previously fixed
+mathematical assertions and frozen control outcomes remain unchanged.
 
 ### Retained comparisons and complete result roles
 
@@ -74,20 +88,21 @@ new mathematical row is introduced here.
 
 The endpoint-comparison engineering control is additive. It requires the
 mapped comparisons to reuse the enclosing action's exact opaque image and
-session. The thirteen candidate controls, five component-baseline controls and
-baseline compilation remain guarded by exact source bytes. The baseline shares
-the reviewed optional schema/validator interfaces; it is not a historical
-whole-kernel build. All mathematical assertions and prior frozen controls are
+session. The fifteen candidate controls, five baseline controls and baseline
+compilation remain guarded by exact source bytes. The exact f65 source tree
+builds independently with its own kernel import closure, using the fixed
+external tuple and explicitly reviewed additive contract revision. Candidate
+and baseline probes use separate kernel artifacts; a baseline compilation
+failure blocks the comparison. All mathematical assertions and prior frozen controls are
 unchanged. These changes have bounded source reviews and patch checks; Lean
 compilation and execution remain required.
 
-The root's ordinary-method capture and selected point-comparison demand are
-separate unfinished drafts. Method result fields need their declared input
-versus output roles. Prospective comparison demand and recursively scoped
-semantic/actual endpoint validation remain implementation work. They must not
-be replaced with a whole-result future or a global equal-JSON identity rule.
-Fresh application, binder, specialized composition and prescribed-lift capture,
-plus service trace re-entry, remain in the common execution work.
+The retained ordinary-method capture, result roles and scoped endpoint
+validation are now integrated source. Complete projection-route alignment,
+successive prescribed-lift data and remaining fresh application, binder,
+specialized composition and trace-based service consumers remain common
+execution work. A whole-result future or equal-JSON identity rule cannot
+substitute for their positioned input and output roles.
 
 Candidate `de03ac04ae9bf75fd5660f4cd4cadda3a6f79e47`, run
 [40526889267](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40526889267),
@@ -1549,17 +1564,18 @@ Deliver the working system and its runnable examples, not another assessment or 
   concern functors on constructed categories and do not by themselves identify
   this operation's chosen product domain.
 - Inert preparation is not yet a global invariant: fresh application, binder,
-  method, specialized composition and prescribed-lift branches still dispatch;
-  `Prepared.trace` still seeds an expression cache and reruns realization.
-  The common callable/universal/projection lifecycle does not yet cover those
-  producers or general prospective admission of their future result ports.
-  Retain explicit typed operands and all already known owners; passing scoped
-  action controls does not close this defect.
-- `EndpointPresentation` still retains comparison expressions and packets
-  without their complete executable map Wires. Mapped comparisons must also
-  retain the exact image endpoints chosen by the outer object action; an
-  independently repeated object action can return a different opaque occurrence.
-  A formal comparison alone cannot mark either map computationally complete.
+  specialized composition and standalone selected-lift consumers remain outside
+  the common retained lifecycle. Method service preparation now retains exact
+  operands, but other trace-based service consumers still require review.
+  Prescribed method capture does not yet ensure every intermediate lift source
+  is executed data. Passing scoped action controls does not close these defects.
+- Projection comparison selection must match the complete accepted projection
+  functor, including its map action. Agreement on the object projection alone
+  cannot justify transporting a comparison, even if only one currently
+  registered functor matches. Complete route/comparison consumption remains open.
+- Ordinary method trace keys still use the raw result expression; accepted
+  aliases can overwrite an earlier method occurrence. The complete retained
+  application record does not itself repair this key collision.
 - The `f3545ac` custodian review did not produce a verdict. Run `40197923885`,
   job `121182701288`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
   `git -c core.hooksPath=/dev/null -C /tmp/custodian-review-ct_kwx98/base rev-parse

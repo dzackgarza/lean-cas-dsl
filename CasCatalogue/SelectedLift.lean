@@ -112,6 +112,50 @@ def fromEvidence (entry : LiftEntry) (evidence source inclusion monic : Expr) :
     if info.isExplicit then return some (← exprToSyntax (← instantiateMVars argument)) else pure none
   select entry parameters source inclusion monic
 
+/-- Derive public ports from the evidence and action already selected by a
+method reading. Fresh metadata is used only to check the published computation;
+no replacement evidence or action supplies any resulting field. -/
+def fromMethodApplication (entry : LiftEntry) (retained : MethodLiftApplication) :
+    TermElabM Plan := do
+  unless entry.id == retained.id && entry.kind == .subobjects do
+    throwError "the retained method stage changed its selected subobject lift"
+  let state ← registryState
+  let (expected, _) ← Semantic.liftSubobjectApplication state entry retained.receiver retained.input
+    (some retained.evidence) (some retained.action)
+  unless ← withoutModifyingState (withTransparency .all <| isDefEq expected retained.result) do
+    throwError "the retained method lift changed its complete formal result"
+  let evidence := retained.evidence
+  let type ← withTransparency .all <| whnf (← inferType evidence)
+  unless type.isAppOfArity ``CasCatalogue.MonoLift 5 do
+    throwError "the retained method evidence lost its full MonoLift type"
+  let selected := type.getAppArgs
+  let source ← mkAppM ``CategoryTheory.Arrow.left #[retained.receiver]
+  let arrow ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.obj #[retained.input]
+  let inclusion ← mkAppM ``CategoryTheory.Arrow.hom #[arrow]
+  let monic ← mkAppM ``CategoryTheory.ObjectProperty.FullSubcategory.property #[retained.input]
+  let computation ← withTransparency .all <| mkAppOptM ``CasCatalogue.MonoLift.computation
+    (selected.map some ++ #[some evidence])
+  let some declaration := entry.computation
+    | throwStratum .invalid "the selected lift has no public computation signature"
+  let registered ← withoutModifyingState do
+    let declared ← instantiateFresh declaration
+    withTransparency .all <| isDefEq declared computation
+  unless registered do
+    throwError "the retained lift differs from its published computation"
+  let infos ← forallTelescopeReducing (← inferType evidence.getAppFn) fun fields _ =>
+    fields.mapM (·.fvarId!.getBinderInfo)
+  let parameters := (evidence.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+  let ports ← LiftField.all.mapM fun field => do
+    let value ← withTransparency .all <| mkAppOptM field.declaration
+      (selected.map some ++ #[some computation, some source, none, some inclusion, some monic])
+    let value ← instantiateMVars value
+    unless !value.hasMVar && !value.hasLevelMVar && (← isTypeCorrect value) do
+      throwError "the retained lift has an unresolved public data port"
+    return value
+  return { entry, parameters, evidence, computation, action := retained.action,
+    source, inclusion, monic, ports }
+
 /-- A factor's original generalized domain comes from its complete cone map.
 The image of that domain under a functor need not determine the original object. -/
 def coneDomain (plan : Plan) (cone : Expr) : TermElabM Expr := do
@@ -180,17 +224,50 @@ def prescribed (state : RegistryState) (receiver : Expr) (route : Array EdgeRef)
     monic ← homMonic plan
   return reverse.reverse
 
-/-- The actual base of a recorded inherited method, reconstructed independently of execution. -/
+/-- Read the exact formal stages retained by an inherited method. Registry rows
+validate addresses; the action, evidence, base and stage inputs remain selected. -/
 def methodPlans (id : MethodId) (route : Array EdgeRef) (lifts : Array LiftId)
-    (receiver : Expr) : TermElabM (Array Plan) := do
+    (receiver : Expr) (application : MethodApplication) : TermElabM (Array Plan) := do
   let state ← registryState
   let some method := state.methods.find? (·.id == id)
     | throwStratum .invalid "the retained lifted method is no longer registered"
   let some functor := state.functor? method.functor
     | throwStratum .invalid "the retained lifted method has no accepted action"
-  let image ← Semantic.objOf (← Semantic.routeFunctor state route) receiver
-  let base ← Semantic.objOf (← registeredFunctorInstance functor) (← methodArgument method image)
-  prescribed state receiver route lifts base
+  Semantic.checkMethodFunctor functor application.application
+  unless route.size == application.routeApplications.size &&
+      route.size == application.routeReceivers.size && route.size == lifts.size &&
+      lifts == application.lifts.map (·.id) do
+    throwError "the retained lifted method changed its ordered complete stages"
+  let same (left right : Expr) : TermElabM Unit := do
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType left) (← inferType right) <&&> isDefEq left right) do
+      throwError "the retained lifted method changed a complete typed stage input"
+  let mut current := receiver
+  for index in [:route.size] do
+    same application.routeReceivers[index]! current
+    discard <| Semantic.edgeEndpoints? state route[index]! application.routeApplications[index]!
+    current ← Semantic.objOf application.routeApplications[index]! current
+  same current application.image
+  same application.input (← methodArgument method application.image)
+  same application.baseResult (← Semantic.objOf application.application application.input)
+  let mut input := application.baseResult
+  let mut plans : Array Plan := #[]
+  for index in (List.range application.lifts.size).reverse do
+    let retained := application.lifts[index]!
+    let some entry := state.lifts.find? (·.id == retained.id)
+      | throwStratum .invalid "the retained method lift is no longer registered"
+    unless entry.edge == route[index]! do
+      throwError "the retained method lift changed its selected route edge"
+    same retained.receiver application.routeReceivers[index]!
+    same retained.input input
+    let .constructMap constructor _ := route[index]!
+      | throwError "the retained method lift lost its complete Arrow action"
+    same retained.action (← Semantic.constructorActionInput state constructor
+      application.routeApplications[index]!)
+    plans := plans.push (← fromMethodApplication entry retained)
+    input := retained.result
+  same input application.result
+  return plans.reverse
 
 /-- A distinct administrative key for a selected result. Beta reduction gives the
 same mathematical object; the retained invocation is not another output's cache key. -/
@@ -227,8 +304,8 @@ partial def recorded (trace : Trace) (receiver : Expr) (composed : Bool := false
   match ← trace.node? receiver with
   | some (.liftProjection original "obj") => recorded trace original composed visited
   | some (.liftProjection original "composed") => recorded trace original true visited
-  | some (.methodWithLifts id route lifts source _) =>
-      return { segments := #[(receiver, ← methodPlans id route lifts source)] }
+  | some (.methodWithLifts id route lifts source _ application) =>
+      return { segments := #[(receiver, ← methodPlans id route lifts source application)] }
   | some (.selectedLift id parameters source inclusion monic) =>
       let some entry := (← registryState).lifts.find? (·.id == id)
         | throwStratum .invalid "the selected lift is no longer registered"

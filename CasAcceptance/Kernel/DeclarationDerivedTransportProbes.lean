@@ -386,7 +386,7 @@ private def untrustedResult : TermElabM Unit := do
       | throwError "the arbitrary numeric reply is not a published literal packet"
     if let .error message ← ComputationalData.validatePort formal (← inferType formal) packet then
       throwError "the untrusted reply does not have the complete selected result interface: {message}"
-    let some (.method owner route receiver comparisons) ← trace.node? formal
+    let some (.method owner route receiver comparisons application) ← trace.node? formal
       | throwError "the live method lost its original formal provenance"
     unless owner == method.id && receiver == source do
       throwError "the selected method changed its published owner or complete receiver"
@@ -398,10 +398,11 @@ private def untrustedResult : TermElabM Unit := do
     let retained ← realize harness trace "the independently selected method with an untrusted reply" formal
     unless retained.value == formal && retained.json == packet do
       throwError "a well-framed numerical reply replaced its original formal question"
-    let some (.method afterOwner afterRoute afterReceiver afterComparisons) ← trace.node? retained.value
+    let some (.method afterOwner afterRoute afterReceiver afterComparisons afterApplication) ←
+        trace.node? retained.value
       | throwError "a well-framed reply erased the selected method's formal provenance"
     unless afterOwner == owner && afterRoute == route && afterReceiver == receiver &&
-        afterComparisons == comparisons do
+        afterComparisons == comparisons && afterApplication == application do
       throwError "a numerical reply bypassed its exact formal owner, route or accepted comparisons"
     separated := true
     report "untrusted-result-keeps-formal-owner" [
