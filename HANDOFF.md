@@ -28,15 +28,29 @@ permit typed deferred plans; they do not require lateral-import prohibitions or
 a synchronous callback topology. Implementation and completion obligations are
 unchanged.
 
-Latest completed candidate: `7452581`, run `40572500084`, job `122430127978`.
-Compilation stopped in `Trace` because thirteen retained-application calls used
-`Meta.instantiateMVars`; the API is `Lean.instantiateMVars`. This checkpoint
-corrects that namespace and updates only its reviewed candidate source hash.
-The previous recursive validator and private-helper exposure repairs remain.
+Latest completed candidate: `8182062`, run `40575827550`, job `122441863273`.
+The retained-application namespace repair compiled. Compilation then stopped in
+`Semantic.checkMethodApplication`: it used endpoint helpers available only in
+Admission, requested an unavailable `Inhabited MethodLiftApplication`, and let
+branch-local `return` escape the enclosing method elaborator. This checkpoint
+checks the already selected ordered route steps, uses checked optional access
+for the retained lift, and keeps branch results local. It does not select fresh
+route applications or weaken the retained method checks.
+
+The same checkpoint completes contextual parameter selection in `Language`:
+unnamed structural objects and maps retain their full original source context,
+registered actions and exact selected parameters. Numerals and tuple formation
+use those complete contexts and registered declarations. Diagram interpretation
+retains the exact applicable limit or colimit presentation instead of choosing
+again after typed argument selection. `ContextParameterProbes` is an added
+engineering consumer; fixed mathematical assertions are unchanged.
+
 The run did not reach `Realize` or establish native, semantic-export,
-frozen-control, workflow or extension results. The projection-alignment,
-actual-image lift and contextual-language changes remain ongoing integration;
-they are not part of this isolated compiler checkpoint.
+frozen-control, workflow or extension results. Projection-alignment, exact
+intermediate result reuse and actual-image lift changes remain ongoing source
+integration and are excluded from this smaller checkpoint. Contract `24d474b`
+has been published for that integration; this checkpoint retains its existing
+`b71dc66` dependency until the corresponding consumers are ready.
 
 The integration checkpoint retains each interpreted method's full applications,
 category dictionaries, ordered data parameters, comparisons and prescribed lift

@@ -469,10 +469,28 @@ def constructorRouteComparison (state : RegistryState) (constructor : Constructo
   check comparison
   return comparison
 
+/-- The exact declaration and applications used to construct one accepted
+comparison. Consumers can execute its components without selecting fresh
+declaration arguments or rediscovering them inside a generated proof term. -/
+structure RouteComparisonData where
+  comparison : Expr
+  /-- Constructor-induced comparison with its accepted expansion comparisons,
+  before the retained prefix and suffix whiskering. -/
+  componentComparison : Expr
+  declarationApplication : Expr
+  baseLeftApplications : Array Expr
+  baseRightApplications : Array Expr
+  leftApplications : Array Expr
+  rightApplications : Array Expr
+  beforeApplications : Array Expr
+  afterApplications : Array Expr
+
 /-- Reconstruct one exact accepted route comparison. Constructor actions are applied from
 inside out, with their published comparisons on both composite endpoints, followed by the
-recorded prefix and suffix whiskering. Every step is an actual Mathlib natural isomorphism. -/
-def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM Expr := do
+recorded prefix and suffix whiskering. Every step is an actual Mathlib natural isomorphism.
+The complete original occurrences are retained alongside the unchanged comparison. -/
+def routeComparisonWithData (state : RegistryState) (witness : RouteComparison) :
+    MetaM RouteComparisonData := do
   let some cell := state.cells.find? (·.id == witness.cell)
     | throwError "the route comparison names an absent accepted cell"
   unless cell.invertible && cell.left != cell.right do
@@ -481,11 +499,14 @@ def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM 
   let mut rightRefs := cell.right
   let ((left, leftApplications), (right, rightApplications)) ←
     routeComparisonApplications state leftRefs rightRefs
+  let baseLeftApplications := leftApplications
+  let baseRightApplications := rightApplications
   let mut leftApplications := leftApplications
   let mut rightApplications := rightApplications
   let mut precedingApplications : Array Expr := #[]
   let mut followingApplications : Array Expr := #[]
   let mut comparison ← instantiateFresh cell.declaration
+  let declarationApplication := comparison
   checkRouteComparison comparison left right
   for constructor in witness.constructors.reverse do
     let some row := state.constructor? constructor
@@ -508,6 +529,7 @@ def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM 
     rightApplications ← rightApplications.mapM (applyConstructorFunctor functorAction)
     let (left, right) ← comparisonApplicationEndpoints leftApplications rightApplications
     checkRouteComparison comparison left right
+  let componentComparison := comparison
   unless witness.before.isEmpty do
     let (preceding, applications) ← routeFunctorWithApplications state witness.before
     precedingApplications := applications
@@ -539,7 +561,21 @@ def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM 
     (precedingApplications ++ rightApplications ++ followingApplications)
   checkRouteComparison comparison left right
   check comparison
-  return ← instantiateMVars comparison
+  return {
+    comparison := (← instantiateMVars comparison)
+    componentComparison := (← instantiateMVars componentComparison)
+    declarationApplication := (← instantiateMVars declarationApplication)
+    baseLeftApplications := (← baseLeftApplications.mapM instantiateMVars)
+    baseRightApplications := (← baseRightApplications.mapM instantiateMVars)
+    leftApplications := (← leftApplications.mapM instantiateMVars)
+    rightApplications := (← rightApplications.mapM instantiateMVars)
+    beforeApplications := (← precedingApplications.mapM instantiateMVars)
+    afterApplications := (← followingApplications.mapM instantiateMVars) }
+
+/-- The original comparison-only interface preserves its construction and
+result; clients needing executable components retain the fuller occurrence. -/
+def routeComparison (state : RegistryState) (witness : RouteComparison) : MetaM Expr := do
+  return (← routeComparisonWithData state witness).comparison
 
 /-- Validate all retained witnesses, optionally at the exact selected receiver. Any remaining
 proof hypothesis must be discharged by the existing instance/decision machinery; it is never
@@ -625,15 +661,36 @@ def hom (f : Term) (a b : Expr) : TermElabM Expr := do
 def limitPresentation (row : LimitEntry) (D : Expr) : TermElabM Expr := do
   let family ← instantiateFresh row.declaration
   let familyDiagram := (← whnfR (← inferType family)).appArg!
-  if ← withReducible <| isDefEq familyDiagram D then return ← instantiateMVars family
-  let some isoName := row.standardization
-    | throwStratum .invalid m!"the shape {row.shape} has no standard form"
-  let α ← mkAppM isoName #[D]
-  let standard := (← whnfR (← inferType α)).getAppArgs.back!
-  unless ← withTransparency .all <| isDefEq familyDiagram standard do
-    throwStratum .invalid m!"the registered {row.shape} {row.id.raw} does not apply to this diagram"
-  instantiateMVars (← mkAppM (if row.colimit then ``colimitCoconeOfIso else ``limitConeOfIso)
-    #[α, family])
+  let direct ← withoutModifyingState (withReducible <| isDefEq familyDiagram D)
+  let presentation ← if direct then do
+      unless ← withReducible <| isDefEq familyDiagram D do unreachable!
+      instantiateMVars family
+    else do
+      let some isoName := row.standardization
+        | throwStratum .invalid m!"the shape {row.shape} has no standard form"
+      let constant ← mkConstWithFreshMVarLevels isoName
+      let (arguments, infos, result) ← forallMetaTelescopeReducing (← inferType constant)
+      let result ← whnfR result
+      unless result.isAppOfArity ``CategoryTheory.Iso 4 do
+        throwError "an accepted diagram standardization has no complete isomorphism type"
+      let endpoints := result.getAppArgs
+      unless ← withTransparency .all <|
+          isDefEq endpoints[2]! D <&&> isDefEq familyDiagram endpoints[3]! do
+        throwStratum .invalid m!"the registered {row.shape} {row.id.raw} does not apply to this diagram"
+      for (argument, info) in arguments.zip infos do
+        unless info.isInstImplicit && (← instantiateMVars argument).isMVar do continue
+        let expected ← instantiateMVars (← inferType argument)
+        if expected.hasMVar then continue
+        if let some evidence ← synthInstance? expected then
+          discard <| isDefEq argument evidence
+      let α ← instantiateMVars (mkAppN constant arguments)
+      if α.hasMVar || α.hasLevelMVar || !(← isTypeCorrect α) then
+        throwStratum .invalid "the accepted diagram comparison requires further complete parameters"
+      instantiateMVars (← mkAppM
+        (if row.colimit then ``colimitCoconeOfIso else ``limitConeOfIso) #[α, family])
+  if presentation.hasMVar || presentation.hasLevelMVar || !(← isTypeCorrect presentation) then
+    throwStratum .invalid "the accepted presentation requires further complete parameters"
+  return presentation
 
 /-- Record a direct application of an accepted named object declaration. Expected-type `id`
 wrappers are removed only to inspect the application; the exact selected term remains the key. -/
@@ -760,38 +817,57 @@ def limitResolutionFailure {α : Type} (error : LimitResolutionError) : TermElab
   | .ambiguous .. => throwSemanticAmbiguity m!"{error.message}"
   | _ => throwStratum .invalid m!"{error.message}"
 
-/-- The registered limit (colimit) of `shape` at the diagram `D` of the category `category`: its
-presentation, returned along the registered creation lift when it is computed elsewhere. -/
-def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
-    (trace? : Option Trace := none) : TermElabM Expr := do
+/-- Registry resolution supplies candidate identities and its direct-before-creation
+policy. Dependent applicability is checked at the actual diagram, without changing
+the registry-only resolution interface or selecting a row by storage order. -/
+def limitChoices (state : RegistryState) (category : CategoryId) (shape : String)
+    (colimit : Bool) : TermElabM (Array LimitResolution) :=
+  match state.resolveLimitDetailed category shape colimit with
+  | .ok resolution => pure #[resolution]
+  | .error (.ambiguous _ _ _ candidates) => pure candidates
+  | .error error => limitResolutionFailure error
+
+/-- Interpret one exact accepted presentation and optional creation lift at the
+complete supplied diagram. A retained selection is checked against the registry;
+it is never replaced by another presentation with the same shape name. -/
+def limitAt (colimit : Bool) (shape : String) (D : Expr) (category : String)
+    (resolution : LimitResolution) (trace? : Option Trace := none) : TermElabM Expr := do
   let state ← registryState
   let some entry := state.categories.find? (·.id.raw == category)
     | throwStratum .invalid m!"no registered category {category}"
-  let resolution ← match state.resolveLimitDetailed entry.id shape colimit with
-    | .ok resolution => pure resolution
-    | .error error => limitResolutionFailure error
+  unless (← limitChoices state entry.id shape colimit).contains resolution do
+    throwStratum .invalid "the retained presentation is not an accepted construction choice"
   let some row := state.limits.find? (·.id == resolution.limit) | unreachable!
+  let diagramType ← withTransparency .all <| whnf (← inferType D)
+  unless diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
+    throwStratum .invalid "the construction requires a complete typed diagram"
+  let diagramArguments := diagramType.getAppArgs
+  let targetBundle ← mkAppOptM ``CategoryTheory.Cat.of
+    #[some diagramArguments[2]!, some diagramArguments[3]!]
+  let selectedBundle ← instantiateFresh entry.declaration
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq selectedBundle targetBundle) do
+    exposeStructureParameters selectedBundle
+  unless ← withTransparency .all <| isDefEq selectedBundle targetBundle do
+    throwStratum .invalid "the diagram has a different complete selected category"
   let presentationAt := limitPresentation row
-  let presentation ← match resolution.lift.bind fun id => state.lifts.find? (·.id == id) with
+  let presentation ← match resolution.lift with
     | none => presentationAt D
-    | some lift => do
+    | some id => do
+        let some lift := state.lifts.find? (·.id == id) | unreachable!
         if colimit then
           throwStratum .invalid m!"a colimit returned along a lift is not registered"
         let U ← asFunctor (← edgeFunctor state lift.edge)
-        let L ← presentationAt (← withTransparency .all <| mkFunctorComp D U)
         let evidence ← instantiateFresh lift.evidence
-        let diagramType ← withTransparency .all <| whnf (← inferType D)
-        unless diagramType.isAppOf ``CategoryTheory.Functor && diagramType.getAppArgs.size >= 2 do
-          throwError "the creation request has no complete diagram category"
         let functorType ← withTransparency .all <| whnf (← inferType U)
-        unless functorType.isAppOfArity ``CategoryTheory.Functor 4 &&
-            diagramType.isAppOfArity ``CategoryTheory.Functor 4 do
+        unless functorType.isAppOfArity ``CategoryTheory.Functor 4 do
           throwError "the creation request has incomplete full categorical parameters"
         let endpoints := functorType.getAppArgs
         let shape := diagramType.getAppArgs
         unless (← withTransparency .all <| isDefEq shape[2]! endpoints[0]!) &&
             (← withTransparency .all <| isDefEq shape[3]! endpoints[1]!) do
-          throwError "the creation request changed its complete source category dictionary"
+          throwStratum .invalid "the creation request changed its complete source category dictionary"
+        let L ← presentationAt (← withTransparency .all <| mkFunctorComp D U)
         let creationDeclaration ← mkConstWithFreshMVarLevels ``CategoryTheory.CreatesLimitsOfShape
         let creationType := mkAppN creationDeclaration #[endpoints[0]!, endpoints[1]!,
           endpoints[2]!, endpoints[3]!, shape[0]!, shape[1]!, U]
@@ -804,8 +880,38 @@ def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
           #[some endpoints[0]!, some endpoints[1]!, some endpoints[2]!, some endpoints[3]!,
             some shape[0]!, some shape[1]!, some U, some evidence, some D, some L]
         instantiateMVars lifted
+  if presentation.hasMVar || presentation.hasLevelMVar || !(← isTypeCorrect presentation) then
+    throwStratum .invalid "the selected construction retains undetermined complete parameters"
+  let D ← instantiateMVars D
+  if D.hasMVar || D.hasLevelMVar then
+    throwStratum .invalid "the selected construction lost its complete original diagram"
   Trace.record trace? presentation (.limit row.id D resolution.lift)
   return presentation
+
+/-- The registered limit or colimit at its actual diagram. Competing registry
+rows are filtered by their complete dependent signatures. The exact surviving
+presentation and creation lift are retained for computational execution. -/
+def limit (colimit : Bool) (shape : String) (D : Expr) (category : String)
+    (trace? : Option Trace := none) (selection? : Option LimitResolution := none) :
+    TermElabM Expr := do
+  if let some resolution := selection? then
+    return ← limitAt colimit shape D category resolution trace?
+  let state ← registryState
+  let some entry := state.categories.find? (·.id.raw == category)
+    | throwStratum .invalid m!"no registered category {category}"
+  let candidates ← limitChoices state entry.id shape colimit
+  if let #[resolution] := candidates then
+    return ← limitAt colimit shape D category resolution trace?
+  let applicable ← candidates.filterM fun resolution => withoutModifyingState do
+    try
+      discard <| limitAt colimit shape D category resolution
+      pure true
+    catch error =>
+      if Exception.interpretationKind error == .invalid then pure false else throw error
+  match applicable with
+  | #[resolution] => limitAt colimit shape D category resolution trace?
+  | #[] => throwStratum .invalid "no complete registered presentation applies to this diagram"
+  | _ => limitResolutionFailure (.ambiguous entry.id shape colimit applicable)
 
 /-- Transport a checked subobject inclusion along its accepted ambient isomorphism. -/
 def subobjectAmbientTransport (value iso : Expr) : TermElabM Expr := do
@@ -1001,15 +1107,15 @@ def checkMethodApplication (state : RegistryState) (resolution : Resolution)
     let edge := route[index]!
     let action := application.routeApplications[index]!
     discard <| edgeEndpoints? state edge action
-    let some source := state.selectedEdgeSource? edge
-      | throwError "the method route lost its accepted source expression"
-    let some target := state.selectedEdgeTarget? edge
-      | throwError "the method route lost its accepted target expression"
+    let some step := resolution.route.steps[index]?
+      | throwError "the method route lost its accepted complete edge occurrence"
+    unless step.ref == edge do
+      throwError "the method route changed its retained ordered edge identity"
     let (sourceBundle, targetBundle) ← functorCategoryBundles (← asFunctor action)
-    sameContext context { expression := source, bundle := sourceBundle }
+    sameContext context { expression := step.source, bundle := sourceBundle }
     same application.routeReceivers[index]! current
     current ← objOf action current
-    context := { expression := target, bundle := targetBundle }
+    context := { expression := step.target, bundle := targetBundle }
   sameContext context { expression := resolution.method.owner, bundle := ownerBundle }
   same application.image current
   same application.input (← methodArgument resolution.method application.image)
@@ -1017,7 +1123,8 @@ def checkMethodApplication (state : RegistryState) (resolution : Resolution)
   sameContext application.baseContext { expression := functor.target, bundle := methodTarget }
   let mut result := application.baseResult
   for index in (List.range application.lifts.size).reverse do
-    let lift := application.lifts[index]!
+    let some lift := application.lifts[index]?
+      | throwError "the retained method lost an ordered lift application"
     let some entry := state.lifts.find? (·.id == lift.id)
       | throwError "the retained method lift is no longer registered"
     unless entry.edge == route[index]! do
@@ -1054,8 +1161,8 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
           throwError "the supplied method changed its ordered complete action inventory"
         pure (applications.extract 0 route.size, applications.back!)
     | none =>
-        let applications ← if route.isEmpty then pure #[] else
-          return (← routeFunctorWithApplications state route).2
+        let applications ← if route.isEmpty then pure #[] else do
+          pure (← routeFunctorWithApplications state route).2
         pure (applications, ← registeredFunctorInstance functor)
   checkMethodFunctor functor F
   let mut previousTarget : Option Expr := none
@@ -1072,8 +1179,8 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
   let target : CategoryContext := {
     expression := functor.target
     bundle := (← instantiateMVars targetBundle) }
-  let sourceBundle ← if let some first := routeApplications[0]? then
-      return (← functorCategoryBundles (← asFunctor first)).1
+  let sourceBundle ← if let some first := routeApplications[0]? then do
+      pure (← functorCategoryBundles (← asFunctor first)).1
     else methodOwnerBundle state resolution.method methodSource
   let sourceContext : CategoryContext := { expression, bundle := sourceBundle }
   let baseResult := value

@@ -51,6 +51,10 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'before': None,
         'after': 'f0a9fa314439224a2f13fd6439e73a87d38ca36498fe72288d9ab440be28fa6e',
         'scope': 'Pure dependent result schemas retain symbolic parameter origins, complete compositional boundaries and public field positions; no dispatch or mathematical values are manufactured'},
+    'CasCatalogue/Language.lean': {
+        'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
+        'after': '4a01ff517b2581cbbfa1accfaaef2367fb058ad28ef86ab256709f7e5ff0c1a5',
+        'scope': 'Complete source contexts and dependent typed selection for object/map parameters, numeral owners, registered tuple construction and exact oriented limit choices; no new mathematical objects or operations'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
         'after': '7b1af5f9ca8f0b8a482026b06659331ae34ece98613a76b11cd7591a0e7d0103',
@@ -93,7 +97,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/Semantic.lean': {
         'before': 'd1ec8ea5007c039985b0fff5e0e6b4db4f53c1e68c03cdfef7663ee67e17f232',
-        'after': 'a9cefd497a5c83f901074ca267304ee44626489f11463f867d87b5f27c1f4681',
+        'after': '8689adb1b21628921a773d0ac07b187f8821c9218945b4678e708955073fd1e2',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/Trace.lean': {
         'before': '5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7',
@@ -721,6 +725,7 @@ def self_test():
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
                 'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',
                 'CasCatalogue/DeclaredApplication.lean', 'CasCatalogue/RoutedResultPlan.lean',
+                'CasCatalogue/Language.lean',
                 'CasCatalogue/ComputationDerivation.lean', 'CasCatalogue/LiftedSubobjectData.lean', 'CasCatalogue/QuestionIdentity.lean', 'CasCatalogue/SelectedLift.lean', 'CasCatalogue/Semantic.lean', 'CasCatalogue/Trace.lean'})
             before = hashlib.sha256(b'baseline').hexdigest()
             reviewed = {}

@@ -15,6 +15,26 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Complete contextual parameters and selected presentations — 2026-10-28
+
+Direct source inspection located the existing `CategoryContext` route selection,
+`Semantic.routeFunctorWithApplications`, retained contextual trace nodes,
+registered tuple families, and accepted limit/colimit presentation selectors.
+The interpreter now uses those same interfaces for named and unnamed inputs,
+including inherited numerals and raw function parameters. Complete category
+bundles and original parameter occurrences survive the action; a carrier alone
+is not substituted for its selected structure. Missing and competing applicable
+presentations retain their interpretation failures. Typed diagram arguments
+select one complete presentation, and construction consumes that selection.
+
+`checkMethodApplication` reads the complete source and target expressions from
+the already selected resolution steps. It does not import Admission's later
+helpers or resolve a second route. Safe retained-lift access and local branch
+values repair the actual compiler failures in run `40575827550` without changing
+the mathematical checks. These changes add no mathematical registration, proof,
+wire format or resource budget. The new contextual probes are engineering
+checks, and their Lean compilation remains a required candidate result.
+
 ## Retained method applications and complete computational fields — 2026-10-28
 
 Source searches inspected `Semantic.methodIn`, `routeFunctorWithApplications`,
