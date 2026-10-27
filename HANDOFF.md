@@ -19,6 +19,26 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Resumed integration — 2026-10-28
+
+The active source remains PR #67, `work/kernel-v1-20261023`; the older
+`b0/kernel` references in the plan identify source inputs, not a branch to
+restart. Issue #69 and all five addenda preserve existing action execution and
+permit typed deferred plans; they do not require lateral-import prohibitions or
+a synchronous callback topology. Implementation and completion obligations are
+unchanged.
+
+Latest completed candidate: `22d6eaf`, run `40552183732`, job `122358583354`.
+It failed in `ComputationalData` before `Realize`, with a scoped callback arity
+error and the unchanged 200000-heartbeat LCNF compiler limit. The current source
+corrects the application and compiles the three existing dispatcher bodies
+outside their recursive interface group. Independent source comparison preserves
+all branches, validation order, defaults and scopes; Lean verification remains
+required. Artifact `12757680219` has SHA-256
+`4b7e7265fb366a04f6726a01f1b40c82e9c6dc03a0d84eca16f27a96f4806396`.
+The ordinary-method, complete-result and other invocation work below remains
+open; this compiler repair does not replace it.
+
 ### Retained comparisons and complete result roles
 
 This integrated source retains complete forward/backward comparison Wires and

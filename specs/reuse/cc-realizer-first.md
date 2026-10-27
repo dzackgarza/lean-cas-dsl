@@ -15,6 +15,29 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Recursive data-validator compiler boundary — 2026-10-28
+
+Candidate `22d6eaf`, run `40552183732`, job `122358583354`, failed in
+`ComputationalData` before compiling `Realize`: an incompletely applied scoped
+graph callback and the unchanged 200000-heartbeat LCNF limit in the mutual
+validator group. The first declaration identifies that compilation component;
+it does not identify a particular validation branch as the runtime bottleneck.
+
+The existing `realizeFreshWith` compilation pattern supplies the implementation.
+`validatePortWith`, `validatePublicDataWith`, and `validateCallableAtWith` compile
+the existing three dispatcher bodies outside the mutual group. Its original
+public functions retain their signatures and optional defaults, and supply the
+same recursive owners through fully applied callbacks. All omitted callback
+arguments are now explicit. No mathematical definition, interface selection,
+validation condition, error policy, public encoding, or resource budget changes.
+
+Independent source comparison against `22d6eaf` checked every moved body and
+the complete callback dependencies. Apart from explicit default arguments and
+the graph-callback application layout, the bodies and their order are unchanged.
+The fixed component controls and original baseline remain unchanged. This source
+check does not establish a successful Lean build; the integrated candidate run
+must establish that separately.
+
 ## Realization compiler boundary — 2026-10-27
 
 Candidate `09d52994` failed in the LCNF compiler at the first declaration of the
