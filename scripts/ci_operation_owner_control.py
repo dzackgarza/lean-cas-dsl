@@ -37,7 +37,7 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = 'e479253f6970305ab4e61be743ff1afb9264e1481413d672903c24ee06831c0f'
+CANDIDATE_REALIZE_SHA256 = '5cc4bcef1d886db8f986a6682765615ba85f4c44605b4829210becb0f15b0b81'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/DeclaredApplication.lean': {
         'before': None,
@@ -53,7 +53,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '7ddf448f425a753c8fbf7724138901f9f20ed8bd5c8a9f05308101627c4e43bb',
+        'after': '26b150356942e575ac1b4cb4196be0d087b1135555ad0ea4733fbfc95c993e84',
         'scope': 'Producer origins and scoped DataPlan bindings retain exact endpoint/projection roles; existing data-only endpoint and planned-port calls retain their defaults'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
@@ -123,7 +123,7 @@ CONTROLS = (
      'sha256': 'dc47e798c06928174d18ba6fdded0d365a85e288b880ee9d7a70f96e7df3a608',
      'baselineErrors': None},
     {'name': 'routed-result-schema', 'module': 'RoutedResultSchemaProbes',
-     'sha256': 'fce34847aa300d623238524af233345f3d0adab9842b20f72760aa75157e60d8',
+     'sha256': '4920d0079827667977a7f5a5922c1343853cd23b471db07151d83e44e263dad1',
      'baselineErrors': None},
     {'name': 'endpoint-comparison-occurrence', 'module': 'EndpointComparisonOccurrenceProbes',
      'sha256': '562c54a9f24527ce5f3bf5f06c8d1a0dce13dd72b0f018db18a6e20f364d952b',

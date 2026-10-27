@@ -132,6 +132,19 @@ The schema control uses equal endpoint values and equal packet bytes with
 different owners to check the retained ambient position and field order.
 It is engineering evidence to run, not a mathematical acceptance result.
 
+Checkpoint `53028b1c43809a1a2181a205cc5b7bd13433fce6` published the pure
+schema and control modules; all 475 remote blobs match the reviewed local tree.
+Its run [40539209268](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40539209268)
+failed in `ComputationalData`: the local pattern name `arrow` resolved to the
+codec constructor. This correction uses `arrowData`, repairs the preceding
+`Realize` branch continuation, and renames the control helper `opaque` to
+`opaquePacket` because `opaque` is a Lean keyword. It preserves all schema
+checks, assertions and budgets. The failure artifact has SHA-256
+`2261ea12343fcc67d903e9ebb4fa81b82dd422fba07ec9e0330f3913c23ca5bf`.
+The prior `918c32b` run also failed in `Realize`; its retained artifact is
+`00549ab9f6f45db575aaac74543a685aba9f4459511aee8a97da143bee1e90d7`.
+None of these failed builds supplies downstream computational or semantic evidence.
+
 Ordinary-method capture, its actual/prospective result consumers and generic
 positioned field-Wire reuse are still being integrated. Shared actual/prospective
 comparison demand and recursively scoped typed endpoint validation remain

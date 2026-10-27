@@ -3339,10 +3339,10 @@ def RecordFieldCodec.assemble? (codec : RecordFieldCodec)
   | .arrowRefinement =>
     -- The existing full-subcategory codec retains its complete Arrow fields.
     -- A whole opaque Arrow does not expose fields for that construction.
-    let #[arrow] := results | return none
-    let .ok ("arrow", args) := envelope arrow.json | return none
+    let #[arrowData] := results | return none
+    let .ok ("arrow", args) := envelope arrowData.json | return none
     unless args.size == 3 do return none
-    return some arrow
+    return some arrowData
 
 /-- Apply a structural plan to actual public record data. Every intermediate
 existing codec is retained; opaque records and unsupported whole descriptors

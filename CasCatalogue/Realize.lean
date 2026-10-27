@@ -1203,7 +1203,8 @@ def presentMorphism (input source target : Wire)
       throwError "the codomain comparison starts at a different complete object"
     let forward ← mkAppM ``CategoryTheory.Iso.hom #[presentation.comparison]
     actual ← match context with
-      | some context => ServiceRequest.compose context actualSource target.value type.getAppArgs.back!
+      | some context =>
+        ServiceRequest.compose context actualSource target.value type.getAppArgs.back!
           actual forward
       | none => mkAppM ``CategoryTheory.CategoryStruct.comp #[actual, forward]
     let comparisonData ← match targetMap with

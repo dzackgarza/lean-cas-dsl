@@ -13,7 +13,7 @@ the control adds no mathematical registration or leaf implementation. -/
 
 open Lean Meta Elab Term CasCatalogue
 
-private def opaque (token : String) (owner : String) (session : Nat) : DataOwnership.Data :=
+private def opaquePacket (token : String) (owner : String) (session : Nat) : DataOwnership.Data :=
   DataOwnership.Data.capture
     (Json.mkObj [("ctor", toJson "opaqueData"), ("args", Json.arr #[toJson token])])
     (owner, session)
@@ -56,9 +56,9 @@ run_elab do
   -- The two endpoint positions intentionally have identical bytes and different
   -- supplying sessions. The kernel's retained ambient is the original source
   -- position; equal formal values or bytes cannot select the target supplier.
-  let originalSource := opaque "same endpoint bytes" "schema-source" 71
-  let originalTarget := opaque "same endpoint bytes" "schema-target" 72
-  let originalHom := opaque "original defining map" "schema-input-map" 73
+  let originalSource := opaquePacket "same endpoint bytes" "schema-source" 71
+  let originalTarget := opaquePacket "same endpoint bytes" "schema-target" 72
+  let originalHom := opaquePacket "original defining map" "schema-input-map" 73
   let input ← ctor "arrow" #[originalSource, originalTarget, originalHom]
   let allocated ← IO.mkRef (0, 0)
   let values ← plan.foldData
@@ -69,13 +69,13 @@ run_elab do
       match slot.role with
       | .object _ =>
           allocated.modify fun (objects, arrows) => (objects + 1, arrows)
-          pure (opaque s!"returned object {index}" "schema-output-object" (100 + index))
+          pure (opaquePacket s!"returned object {index}" "schema-output-object" (100 + index))
       | .map _ _ _ =>
           let some (domain, codomain) := slot.endpoints? earlier
             | throwError "the schema allocated a map before its exact endpoint slots"
           allocated.modify fun (objects, arrows) => (objects, arrows + 1)
           ctor "typedMap" #[domain, codomain,
-            opaque s!"returned map {index}" "schema-output-map" (200 + index)]
+            opaquePacket s!"returned map {index}" "schema-output-map" (200 + index)]
       | .value => throwError "the complete kernel interface acquired an undeclared scalar port")
   unless (← allocated.get) == (1, 1) do
     throwError "the kernel schema did not retain its ambient and allocate only apex and defining map"
