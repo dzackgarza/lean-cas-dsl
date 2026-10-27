@@ -37,12 +37,16 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = '9014691e9c758d5baf244697caee3ddb7147ed098ab7dc99a72257bdbe1d78ff'
+CANDIDATE_REALIZE_SHA256 = '09168a57be053abce6d7371de1dcea36c291611b1bbf38c6635b1ef908e53895'
 REVIEWED_DEPENDENCY_SOURCES = {
+    'CasCatalogue/StructuredResult.lean': {
+        'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
+        'after': '718cabc027c5a1dbcceffd7e0d326d013598d4e79e1f513916dde75d7695fdec',
+        'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '350c61f8ad2d2aecc098e633847a3435ca3781332b8cd646efd96c73fdf7b8f2',
-        'scope': 'Producer origin and optional typed projection bindings are added; existing data-only endpoint calls retain their default interface'},
+        'after': '695d7c2ecaaa8c01a02820a0fdbb4901e692a3bdfd1ee84b6810f02f864a74a3',
+        'scope': 'Producer origins and scoped DataPlan bindings retain exact endpoint/projection roles; existing data-only endpoint and planned-port calls retain their defaults'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
         'after': 'fa0f2c5560f16f6a0d1600df05b1b42fdf0cff097d6a4e0851184cf55120178c',
@@ -109,6 +113,9 @@ CONTROLS = (
      'baselineErrors': None},
     {'name': 'intrinsic-value-occurrence', 'module': 'IntrinsicValueOccurrenceProbes',
      'sha256': 'dc47e798c06928174d18ba6fdded0d365a85e288b880ee9d7a70f96e7df3a608',
+     'baselineErrors': None},
+    {'name': 'endpoint-comparison-occurrence', 'module': 'EndpointComparisonOccurrenceProbes',
+     'sha256': '562c54a9f24527ce5f3bf5f06c8d1a0dce13dd72b0f018db18a6e20f364d952b',
      'baselineErrors': None},
 )
 FIXTURES = ('probe_owned_callable.py', 'probe_functor_execution.py',
@@ -520,7 +527,7 @@ def self_test():
             self.assertEqual(set(REVIEWED_DEPENDENCY_SOURCES), {
                 'CasCatalogue/ComputationalData.lean', 'CasCatalogue/ServiceRequest.lean',
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
-                'CasCatalogue/UniversalServiceRequest.lean'})
+                'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean'})
             before = hashlib.sha256(b'baseline').hexdigest()
             reviewed = {}
             for relative in REVIEWED_DEPENDENCY_SOURCES:
@@ -554,7 +561,7 @@ def self_test():
                 'ReturnedCallableEndpointProbes', 'ArrowFramingReuseProbes',
                 'IntrinsicOccurrenceProbes', 'ConstructionActionOccurrenceProbes',
                 'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes',
-                'IntrinsicValueOccurrenceProbes'])
+                'IntrinsicValueOccurrenceProbes', 'EndpointComparisonOccurrenceProbes'])
             for control in CONTROLS:
                 source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
                 require_hash(source.read_bytes(), control['sha256'], control['module'])
@@ -613,6 +620,7 @@ def self_test():
                 'intrinsic-occurrence-candidate',
                 'construction-action-occurrence-candidate', 'synthetic-endpoint-occurrence-candidate',
                 'nested-owner-admission-candidate', 'intrinsic-value-occurrence-candidate',
+                'endpoint-comparison-occurrence-candidate',
                 'operation-owner-baseline-compile', 'operation-owner-baseline',
                 'action-occurrence-baseline', 'returned-callable-endpoint-baseline',
                 'arrow-framing-reuse-baseline', 'intrinsic-occurrence-baseline'])
@@ -659,7 +667,7 @@ def self_test():
 
         def test_a_failed_candidate_does_not_suppress_other_independent_controls(self):
             self.assertFalse(self.execute(failures={'operation-owner-candidate'}))
-            self.assertEqual(len(self.step.call_args_list), 18)
+            self.assertEqual(len(self.step.call_args_list), 19)
 
         def test_the_baseline_framing_control_must_pass(self):
             self.assertFalse(self.execute(failures={'arrow-framing-reuse-baseline'}))

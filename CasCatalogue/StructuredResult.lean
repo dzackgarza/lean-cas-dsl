@@ -157,6 +157,9 @@ structure DataPlan where
   constructor : Name
   binders : Array DataBinder
   ports : Array DataPort
+  /-- The apex's original constructor-binder role, selected before formal
+  unification can identify independent inputs and returned fields. -/
+  apexBinder : Option Nat := none
 
 namespace DataPlan
 
@@ -230,6 +233,12 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   -- Save dependency identities before formal unification resolves distinct roles
   -- to potentially equal expressions (for example both apex and diagram Fin 2).
   let rawTypes : Array Expr ← fields.mapM fun field => inferType field
+  let schema := mkAppN constructor fields
+  let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
+    else ``CategoryTheory.Limits.Cone.pt) #[schema]
+  let apex ← withTransparency .all <| whnfHeadPred apex fun expression =>
+    pure (!fields.contains expression)
+  let apexBinder := fields.findIdx? (· == apex)
   -- Capture the public diagram telescope before formal unification aliases roles.
   let rawConclusion ← whnfR conclusion
   let rawDiagram := rawConclusion.getAppArgs.back!
@@ -261,7 +270,6 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   let formalCone ← mkAppM (if row.colimit then
     ``CategoryTheory.Limits.ColimitCocone.cocone else
     ``CategoryTheory.Limits.LimitCone.cone) #[formalPresentation]
-  let schema := mkAppN constructor fields
   if ← withoutModifyingState <| withTransparency .all <| isDefEq schema formalCone then
     discard <| withTransparency .all <| isDefEq schema formalCone
   else
@@ -307,7 +315,7 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
       dependencies := dependencies
       domainBinder := domainBinder
       codomainBinder := codomainBinder }
-  return .ok { colimit := row.colimit, constructor := constructorName, binders, ports }
+  return .ok { colimit := row.colimit, constructor := constructorName, binders, ports, apexBinder }
 
 /-- Prepare port values solely from the independent construction. Schema failure is
 an interpretation/protocol gap, not malformed backend data. -/

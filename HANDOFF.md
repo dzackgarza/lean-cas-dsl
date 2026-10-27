@@ -19,6 +19,76 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Retained comparisons and complete result roles
+
+This integrated source retains complete forward/backward comparison Wires and
+the exact image endpoints chosen by their enclosing actions. Computational
+framing observes the required directions and records them separately from the
+original source/target occurrences. Replaying a frame retains those same maps,
+including their actual session owners. A proof of an Iso and an endpoint
+interface do not establish that either map has executed.
+
+Captured construction projections now have their own object, map or value
+result interface. A scalar, dependent family or whole transformation keeps its
+fixed expected type, without inheriting the constructor's category. Current
+completed packets take precedence over pending invocation metadata, even when
+the bytes happen to match. Complete projected maps consume their validated
+endpoint framing once. Private prospective inspection follows the canonical
+invocation occurrence and the complete declared field schema; known input
+fields retain their original suppliers.
+
+Direct construction receiver framing and prospective admission share the
+schema-selected apex binder. It is fixed on the symbolic registered constructor
+before formal unification can identify distinct binder roles. Actual results
+use their authoritative retained presentation; private future results supply
+an authenticated selected schema. Projected fields remain distinct from their
+complete parent construction.
+
+Created source results retain their full public creation interface. The
+unproved shortcut from a lower apex packet to the creating functor's image has
+been removed: the selected creating functor executes through its ordinary
+registered object-action boundary. Reuse of the already returned lower apex as
+that image requires an independently retained executable creation comparison.
+Diagram standardization alone does not provide it. No per-shape fallback or
+new mathematical row is introduced here.
+
+The endpoint-comparison engineering control is additive. It requires the
+mapped comparisons to reuse the enclosing action's exact opaque image and
+session. The thirteen candidate controls, five component-baseline controls and
+baseline compilation remain guarded by exact source bytes. The baseline shares
+the reviewed optional schema/validator interfaces; it is not a historical
+whole-kernel build. All mathematical assertions and prior frozen controls are
+unchanged. These changes have bounded source reviews and patch checks; Lean
+compilation and execution remain required.
+
+The root's ordinary-method capture and selected point-comparison demand are
+separate unfinished drafts. Method result fields need their declared input
+versus output roles. Prospective comparison demand and recursively scoped
+semantic/actual endpoint validation remain implementation work. They must not
+be replaced with a whole-result future or a global equal-JSON identity rule.
+Fresh application, binder, specialized composition and prescribed-lift capture,
+plus service trace re-entry, remain in the common execution work.
+
+Candidate `de03ac04ae9bf75fd5660f4cd4cadda3a6f79e47`, run
+[40526889267](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40526889267),
+failed before `Realize` at the same non-partial wrapper inside the partial
+`ComputationalData` block. Its failure supplies no execution evidence. The
+wrapper fix and explicit full-context identity helper were already published
+in `0d9a4fd858f4092399ade477c05e793a0a70b59f`; its run
+[40528619206](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40528619206)
+was still building when this integration was prepared.
+
+The selected dependency commits are construction integration branches. A
+2026-10-27 read of upstream main found mathematical main `8782c22` diverged
+from the selected `3bd4d3d` (the latter has 30 integration commits absent main),
+contract main `3382e4e` 30 commits behind selected `3f7a22e`, and leaves main
+`0030ccc` four commits behind the original diagnostic `2c8b904`. Do not describe
+this candidate tuple as the latest-main integrated release or replace required
+interfaces with the older main state. Ordinary dependency integration and the
+final coherent latest-main build remain necessary before V1 delivery; source
+publication does not accept that integration.
+
+
 ### Actual action boundaries still require implementation
 
 The recovered successful 17-assertion workflow report contains two concrete
@@ -157,8 +227,7 @@ captured original occurrence. New negative companions explicitly substitute
 the retained endpoint inventory or its supplier and require rejection at that
 boundary. Mathematical assertions and the existing frozen action controls are
 unchanged. The additive `IntrinsicValueOccurrenceProbes` exercises pending
-map-to-point-to-scalar reuse with opaque ownership. All twelve candidate action
-controls remain guarded by their exact source bytes. The combined source has
+map-to-point-to-scalar reuse with opaque ownership. The twelve controls at that checkpoint remained guarded by their exact source bytes. The combined source has
 bounded source reviews but no Lean execution result; this is not V1 closure.
 
 The remaining capture boundary includes fresh application, binder, method,

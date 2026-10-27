@@ -2356,7 +2356,7 @@ partial def validateConstructionData (objects : InterfaceObjects) (context : Con
         unless ← withTransparency .all <| isDefEq fixed declared do
           return .error "a construction callable changes a complete fixed diagram endpoint"
       return ← validateEndpointPort port.formalField typed.source typed.target typed.callable retained
-    validatePlannedPort plan port seen data externalDescriptor endpointKeys
+    validatePlannedPort plan port seen data externalDescriptor endpointKeys objects
 
 /-- A defining-map descriptor is checked as a projection of the entire accepted
 construction interface. Its computational packet is validated but never used to
@@ -3233,15 +3233,19 @@ formal-value equality or formal carrier enumeration participates. -/
 partial def validatePlannedPort (plan : StructuredResult.DataPlan)
     (port : StructuredResult.DataPort) (seen : Array Json) (data : Json)
     (externalDescriptor : Nat → Option Json)
-    (endpointKeys : Json → TermElabM (Except String (Option (Array Json)))) :
-    TermElabM (Except String Unit) := do
+    (endpointKeys : Json → TermElabM (Except String (Option (Array Json))))
+    (outerObjects : InterfaceObjects := #[]) : TermElabM (Except String Unit) := do
   let resolve : Nat → Option Json := fun binder =>
     (plan.actualData? binder seen).orElse fun _ => externalDescriptor binder
-  let objects : InterfaceObjects := plan.binders.filterMap fun binding => do
+  let declared : InterfaceObjects := plan.binders.filterMap fun binding => do
     let formal ← binding.formalValue
     let actual ← if binding.port.isSome then plan.actualData? binding.index seen
       else externalDescriptor binding.index
     return (actual, formal)
+  -- The current field may contain a scoped typed reference supplied by the
+  -- caller. Its outer context cannot replace an already positioned plan binder.
+  let objects := declared ++ outerObjects.filter (fun (data, _) =>
+    !declared.any (·.1 == data))
   let unwrapped ← match valuePayload data with
     | .ok actual => pure actual
     | .error message => return .error message
