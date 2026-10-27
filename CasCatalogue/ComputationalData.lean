@@ -1182,7 +1182,7 @@ def validateCallableGraphAt (objects : InterfaceObjects)
     let checked ← match scopedOutput with
       | none => validateOutput inputType output
       | some validate => validate inputType output
-          (InterfaceScope.index? (InterfaceScope.index? scope index) 1)
+            (InterfaceScope.index? (InterfaceScope.index? scope index) 1)
     if let .error message := checked then
       return .error message
   return .ok ()
@@ -1345,7 +1345,7 @@ Opaque owners are checked by the live-session consumer, outside this framing che
 partial def validatePort (formalField expectedType : Expr) (json : Json)
     (objects : InterfaceObjects := #[]) (explicitOnly : Bool := false) (scope : Option InterfaceScope := none) :
     TermElabM (Except String Unit) := do
-  let .ok scoped ← interfaceScopeType scope json expectedType
+  let .ok scopedBinding ← interfaceScopeType scope json expectedType
     | return .error "the positioned port changed its complete selected interface"
   if ← isProp expectedType then
     return .error "a proposition is not a computational data port"
@@ -1366,7 +1366,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
         return .error "the computational dictionary changed the independently fixed full context"
       return .ok ()
   if !explicitOnly then
-    if let some binding := scoped then
+    if let some binding := scopedBinding then
       match binding.role with
       | .object _ | .value => return .ok ()
       | .map _ =>
@@ -1376,7 +1376,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
   unless retained.isEmpty do
     -- The declared position selects the semantic/actual view of this
     -- already retained datum only; the global association is unchanged.
-    if scoped.isSome then return .ok ()
+    if scopedBinding.isSome then return .ok ()
     if ← retained.anyM (fun (_, fixed) => withoutModifyingState do
         withTransparency .all <| isDefEq (← inferType fixed) expectedType) then
       return .ok ()
@@ -1500,7 +1500,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let fields := type.getAppArgs
       let source := fields[fields.size - 2]!
       let target := fields.back!
-      if let .error message ← checkScopedCategorySlots scoped #[
+      if let .error message ← checkScopedCategorySlots scopedBinding #[
           (false, typed.source, InterfaceScope.arg? scope 0),
           (false, typed.target, InterfaceScope.arg? scope 1),
           (true, typed.callable, InterfaceScope.body? scope #[.field "args", .index 2])]
@@ -1531,7 +1531,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let fields := selected.getAppArgs
       let first := fields[fields.size - 2]!
       let second := fields.back!
-      if let .error message ← checkScopedCategorySlots scoped #[
+      if let .error message ← checkScopedCategorySlots scopedBinding #[
           (true, firstData, InterfaceScope.arg? scope 0),
           (true, secondData, InterfaceScope.arg? scope 1)] then return .error message
       for (index, field, data) in #[(0, first, firstData), (1, second, secondData)] do
@@ -1548,7 +1548,7 @@ partial def validatePort (formalField expectedType : Expr) (json : Json)
       let fields := type.getAppArgs
       let source := fields[fields.size - 2]!
       let target := fields.back!
-      if let .error message ← checkScopedCategorySlots scoped #[
+      if let .error message ← checkScopedCategorySlots scopedBinding #[
           (false, sourceData, InterfaceScope.arg? scope 0),
           (false, targetData, InterfaceScope.arg? scope 1)] then return .error message
       for (index, field, data) in #[(0, source, sourceData), (1, target, targetData)] do
@@ -1693,12 +1693,12 @@ computational data, never an enumeration of the requested formal construction. -
 partial def validateEndpointPort (formal : Expr) (source target data : Json)
     (objects : InterfaceObjects := #[]) (scope : Option InterfaceScope := none) :
     TermElabM (Except String Unit) := do
-  let .ok scoped ← interfaceScopeType scope data (← inferType formal)
+  let .ok scopedBinding ← interfaceScopeType scope data (← inferType formal)
     | return .error "the positioned callable changed its independently fixed full Hom"
   -- Check the caller's logical interface first. All subsequent packet/graph
   -- traversal uses this occurrence's accepted actual full Hom, including raw
   -- graphs whose point types are not fixed by an explicit actual inventory.
-  let formal := (scoped.bind (·.representation)).map Prod.fst |>.getD formal
+  let formal := (scopedBinding.bind (·.representation)).map Prod.fst |>.getD formal
   let scope := InterfaceScope.actual? scope
   let openedScope := InterfaceScope.valuePayload? scope
   let unwrapped ← match valuePayload data with
@@ -1707,7 +1707,7 @@ partial def validateEndpointPort (formal : Expr) (source target data : Json)
   if (unwrapped.getObjValAs? String "ctor").toOption == some "typedMap" then
     let .ok typed := Backend.TypedMap.decode unwrapped
       | return .error "typedMap requires its complete source, target and callable"
-    if let .error message ← checkScopedCategorySlots scoped #[
+    if let .error message ← checkScopedCategorySlots scopedBinding #[
         (false, typed.source, InterfaceScope.arg? openedScope 0),
         (false, typed.target, InterfaceScope.arg? openedScope 1),
         (true, typed.callable, InterfaceScope.body? openedScope #[.field "args", .index 2])]
@@ -2227,9 +2227,9 @@ partial def interfaceExtent (objects : InterfaceObjects) (args : Array Json) (sc
 
 partial def interfaceObject (objects : InterfaceObjects) (data : Json) (scope : Option InterfaceScope := none) :
     TermElabM (Except String Expr) := do
-  let .ok scoped ← interfaceScopeBinding scope data
+  let .ok scopedBinding ← interfaceScopeBinding scope data
     | return .error "the positioned endpoint changed its exact selected interface"
-  if let some fixed := scoped then
+  if let some fixed := scopedBinding then
     if let .object _ := fixed.role then return .ok fixed.formal
     return .error "the positioned endpoint was not selected as an object"
   if let some (_, fixed) := (if interfaceScopeGlobalLookup scope data then objects else #[]).find? (·.1 == data) then return .ok fixed
@@ -2776,7 +2776,7 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
     TermElabM (Except String Expr) := do
   let expected ← instantiateMVars expected
   if ← isProp expected then return .error "a proof is not computational data"
-  let .ok scoped ← interfaceScopeType scope data expected
+  let .ok scopedBinding ← interfaceScopeType scope data expected
     | return .error "the positioned argument changed its exact selected interface"
   if let .ok (tag, #[id, parameters]) := envelope data then
     if tag == "category" || tag == "constructedCategory" || tag == "functor" then
@@ -2799,11 +2799,11 @@ partial def interfaceArgument (objects : InterfaceObjects) (expected : Expr) (da
       let value ← if tag == "functor" then Semantic.asFunctor value else pure value
       unless ← withTransparency .all <| isDefEq (← inferType value) expected do
         return .error "the selected dictionary has a different complete declared type"
-      if let some fixed := scoped then
+      if let some fixed := scopedBinding then
         unless ← withTransparency .all <| isDefEq value fixed.formal do
           return .error "the positioned dictionary changed its selected declaration"
       return .ok value
-  if let some fixed := scoped then
+  if let some fixed := scopedBinding then
     if let .map _ := fixed.role then
       if let .error message ← validateCallableAt objects expected data scope then return .error message
     return .ok fixed.formal
@@ -3821,7 +3821,7 @@ def RecordFieldStep.projectScoped? (step : RecordFieldStep) (receiver : Expr)
     let .ok result := recordValidationScope payload payloadScope children | return none
     parentScope := some result
   let explicit ← validatePort receiver type payload.json objects true parentScope
-  let knownCodec := match envelope payload.json with
+  let knownCodec : Bool := match envelope payload.json with
     | .ok (tag, _) => (step.codec == .core && tag == "coreObject") ||
         (step.codec == .arrow && tag == "arrow") ||
         (step.codec == .arrowRefinement && (tag == "arrow" || tag == "subobject"))

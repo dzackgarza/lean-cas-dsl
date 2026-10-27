@@ -53,7 +53,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '41e98fe3978541d6be2d9ef19e2b33c2c955bbd508b3fd87ea6cf331a23c6598',
+        'after': 'bdde771c38f02066be6b40f63caba3508ddd8e4c10f61fa0c119d3482fac3789',
         'scope': 'Producer origins and scoped DataPlan bindings retain exact endpoint/projection roles; existing data-only endpoint and planned-port calls retain their defaults'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',

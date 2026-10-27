@@ -189,6 +189,22 @@ plan records these outcomes; it does not execute a leaf or create new mathematic
 This source has an independent bounded review; computational reuse still depends
 on the actual and prospective consumers under integration.
 
+Checkpoint `fce463174b1097b32cb0d9b1690b717c111601b1` contains the
+symbolic apex and positioned projection-parameter plan; all 476 remote blobs
+were verified. The direct projection selector is sound for an available named
+registered functor; it does not yet establish closure over composite, classifier
+and constructor-induced projection routes. That remains generic implementation
+work, rather than a reason to add per-field cases.
+
+The preceding `b314639` run
+[40546547645](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40546547645)
+stopped in `ComputationalData`. This narrow compiler correction fixes one scoped
+callback continuation, renames four reserved `scoped` locals, and gives a codec
+recognition flag its intended Boolean type. Its exact failure artifact is
+`2650804a7ff1a76bfa2962e5126431bf1e9b5356216e9f07efa85b367baf74d5`.
+It supplies no runtime, independent-question or extension evidence. Assertions,
+control counts and compiler budgets are unchanged.
+
 Ordinary-method capture, its actual/prospective result consumers and generic
 positioned field-Wire reuse are still being integrated. The shared comparison
 reader and recursively scoped validators now have a combined source candidate;
