@@ -15,6 +15,32 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Realization compiler boundary — 2026-10-27
+
+Candidate `09d52994` failed in the LCNF compiler at the first declaration of the
+realization mutual group, at the unchanged 200000-heartbeat limit (candidate run
+`40390087707`, job `121808496262`). The subsequent noncomputable errors are
+dependencies of that failed compilation, not a reason to make execution
+noncomputable. The integrated group contained 3416 source lines; the previously
+built producer had a smaller recursive component.
+
+Direct source searches for `realizeFresh`, `realizeLimitWith`, and the mutual
+call sites locate the existing evaluator and the existing explicit-callback
+compilation pattern. No new mathematical construction or interpretation rule
+is needed. `realizeFreshWith` separately compiles the original evaluator body;
+the existing recursive entry supplies its same 25 operations, including itself.
+Optional defaults and the named `pointAsMap` parameter remain in the callback
+types and their complete applications. Harnesses, traces, call order, packets,
+suppliers, exception handling and all dispatch decisions are unchanged.
+
+The 1408-line evaluator body is byte-identical to its original, SHA-256
+`997a971fbca3bfdf6f3681bed9c7d949053f60e6b67083a53a538cd840d2e42b`.
+Inverse reconstruction recovers every unrelated source byte. The mutual group
+now contains 2028 lines. A separate source review checked the callback types,
+defaults and recursive reentry. These source checks establish the extraction's
+scope; compilation and unchanged consumers must still run. No heartbeat option,
+mathematical question, validator, proof procedure or failure stratum changes.
+
 ## Proof-bearing computational derivation closure — 2026-10-26
 
 Corpus searches `computation derivation dependency closure` and `Functor.comp`

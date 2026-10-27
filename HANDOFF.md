@@ -6,11 +6,40 @@ Finish the usable V1 kernel of `dzackgarza/lean-cas-dsl`, including the mathemat
 
 The assignment includes implementation, integration, actual computation, independent extension experiments, and delivery. Continue beyond the interrupted build and beyond passing isolated probes. The completion conditions below define the whole task.
 
-Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f270-83ea-ac4d-bcb9911c54d8). This handoff was prepared on 2026-10-25 from the conversation's user instructions, its attached mandate as printed in tool output, its active-branch interruption record, and current GitHub source. The final recorded activity was an integrated consumer build and investigation of `CasGates.KernelPurityProbes`. No final successful build or MVP completion appears at that boundary.
+Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f270-83ea-ac4d-bcb9911c54d8). The original 2026-10-25 continuation and its purity-probe interruption are historical inputs. Current branch source, committed dependency selections and completed CI results govern continuation. No usable-V1 completion has been established.
 
 Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
 
 ## Current continuation state — 2026-10-27
+
+### Integrated compiler failure and repair
+
+The current source is based on published kernel
+`09d52994ab08380bf88c9b0a05fc166325bd81bf`, tree
+`a13671f7bd2ba5e578c5075f687dc634e54f4cff`. Candidate CI
+[40390087707](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40390087707)
+has already run and failed: `CasCatalogue/Realize.lean:5425` exceeds the unchanged
+200000-heartbeat LCNF compiler limit. Later noncomputable messages are fallout;
+the native tools, notebook and axiom audit were not reached. Do not restart the
+old purity-import diagnosis or treat that failed attempt as a completed build.
+
+The source now extracts the unchanged `realizeFresh` body into the existing
+explicit-callback compilation pattern. Its recursive wrapper supplies the same
+operations; no execution branch or budget changes. See
+[the owning realization record](specs/reuse/cc-realizer-first.md#realization-compiler-boundary--2026-10-27).
+The candidate must compile and pass its unchanged consumers before this repair
+is considered verified. Behavioral preservation is not by itself evidence that
+the original generic mechanisms meet their mathematical and public-contract
+requirements; their complete execution and independent interpretation checks
+remain required.
+
+The local recovery verified all 451 source blobs and reconstructed the exact
+published source tree and commit. The latest recoverable saved evidence archive
+is version 45; later local checkpoints are not present. In particular its two
+RX-LIFT factor-sample records lack nonempty canonical questions. Preserve the
+original fixed questions and independently assess fresh complete readings; do
+not generate a historical reference from candidate output or claim the missing
+byte comparison ran.
 
 ### Closed source repairs ready for the coherent build
 
@@ -24,7 +53,7 @@ Both compiler stages, the focused control and five unchanged controls passed,
 with every source/input/artifact guard stable. No Lean process or component
 guard remains active at this source checkpoint.
 
-The next dependency is the published, coherent 57-target build with mathematics
+The next dependency is a corrected published, coherent 57-target build with mathematics
 `3bd4d3d` and current contract `3f7a22e`. Run the exact two original reader
 cases on that built combination before API export. Then publish the fresh API,
 pin its contract revision, publish/build that final tuple, and rerun the fixed
@@ -824,15 +853,10 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 
 ### A. Integrate current source and verify the final build
 
-Recovery and the formerly failing purity import are closed as recorded above.
-Do not repeat the obsolete namespace diagnosis or read removed scratch paths.
-The published build reference is `691f94f5614acecfe8ae55bc3d3a2e28e9a582a3` on
-`work/kernel-v1-20261023`; this source includes the reviewed inclusion and literal
-action repairs beyond it. Preserve newer branch work when publishing, then fetch
-back and compare the complete tree.
-
-Finish the independently isolated generic binding repairs and integrate them
-without changing mathematical sources or assertions. Build all affected consumers,
+The binding, complete-object, product, composition and whole-function source
+repairs are integrated at `09d52994`. Its actual first CI failure and the compiler
+extraction are recorded above. Preserve newer branch work when publishing, then
+fetch back and compare the complete tree. Build all affected consumers,
 the unchanged stable aggregates and protected controls, and all four native tools
 plus the notebook worker/surface at one exact source combination. Use the explicit
 selected contract path for the purity gate; an absent historical fallback path is
@@ -843,20 +867,14 @@ unchanged while a provenance-recorded run is active.
 
 Use the fixed inputs and reconstructed drivers described below. Read their reports, not just their process exit status. A diagnostic may exit successfully after writing failed bindings.
 
-The complete binding diagnostic at `da6af543` recorded four first failures:
-
-- Prescribed-lift `expectedF` at line 12: definitional-equality resource failure.
-- Source-comparison `i0` at line 9: the full registered linearity obligation was not established.
-- RX06 `expectedAction` at line 49: the staged scalar product did not resolve.
-- RX08 `observedPairing` at line 43: a fixed matrix parameter was treated as a vector operand.
-
-The complete extension export additionally found resource failures in RX05
-`complete.rx05.additive_map_sample` and RX08 `complete.rx08.restricted_pairing_one`.
-Earlier full reindexed-map and constrained-map bindings now pass; do not relabel
-these later failures as their old defects. Repair the generic selected-object,
-proof-presentation and staged-parameter owners, with original obligations checked
-at the end. Rerun all fixed bindings and assertions; neither raising budgets nor
-changing questions closes these failures.
+The `da6af543` binding failures are historical diagnostics, superseded by the
+source-specific repairs and reviews above. Select new repairs from actual current
+results, not those obsolete first-failure lists. After the coherent build, run
+the exact original RX-LIFT factor samples, with all 32 preceding bindings, complete
+six-module scope and unchanged 200000-heartbeat limit, before public API export.
+Retain full question strings and stage-specific outcomes. Then rerun all fixed
+bindings and assertions; neither raising budgets nor changing questions closes
+an interpretation or execution defect.
 
 Export complete typed readings for the fixed extension inputs and the permanent corpus. Separate original RX08 spelling from its independently assessed positive clarification. The original `projection.ker()` remains an ambiguity control. The additive positive selects `kernel()` under the published clarification, with the same mathematical questions. It does not authorize changing the original source or approving an interpretation migration.
 
@@ -888,18 +906,18 @@ All repositories below are under `https://github.com/dzackgarza/`.
 
 | Repository / role | Branch | Selected source or labelled provenance |
 | --- | --- | --- |
-| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `8d49d33434cc938865b942d8a98afe6af598b3cb` |
+| `lean-cas-dsl`: kernel, language, runtime, assertions, tools | `work/kernel-v1-20261023` | This checkpoint; published predecessor `09d52994ab08380bf88c9b0a05fc166325bd81bf` |
 | `lean-categories`: historical base-interface provenance; not the selected package | `work/kernel-v1-interfaces-20261023` | `9508da173de86670c4e0c8a4632e2df7d2335949` |
-| `lean-categories`: mathematical extensions and evidence repairs used by recent consumers | `work/kernel-v1-independent-extensions-20261023` | `82d1370de372a00a86391b74fc2566c9547dfcb6` |
-| `lean-cas-dsl-leaf-contracts`: protocol and API export | `work/kernel-v1-contract-20261023` | `9167e4cb4db80028d2ceefefeab8ec70b9a77129`; generated API still requires final regeneration |
+| `lean-categories`: current mathematical dependency | See committed package manifest | `3bd4d3d9695f288749c860368174462c4d689b7c` |
+| `lean-cas-dsl-leaf-contracts`: current protocol | `work/kernel-v1-contract-20261023` | `3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5`; generated API still requires final regeneration |
 | `lean-cas-dsl-leaves`: existing workflow specimen | `work/v1-contract-diagnostic-20261023` | `2c8b9040ea68513c34817f5c7b6fa5a5ce6b1252` |
 | `lean-cas-dsl-leaves`: independent source-action specimen | `work/kernel-v1-independent-leaf-20261024` | `2f35244884649c9268567bb9968840a34559a11c`; earlier sources remain separately scoped |
 | `lean-cas-dsl-leaves`: frozen target specimen | Same work branch, fixed historical checkout | `865df49ad0b0b133d5bcfd282f380aa213eb5fff`; original target hashes retained |
 | `lean-jupyter-kernel`: existing notebook worker | Read selected package lock and runtime override | `4c6c2a77abcc717513a65ca35723ed428647e1bd` (`worker`) |
 
-Every run records its exact selected source commits, complete trees and unchanged working state. The current mathematical package is `82d1370d`, the compiled protocol is `9167e4c`, and the workflow specimen is `2c8b904`. Source publication does not install an independently accepted mathematical release.
+Every run records its exact selected source commits, complete trees and unchanged working state. The committed manifest selects mathematics `3bd4d3d`, protocol `3f7a22e`, and Mathlib `db584cd6d46c92f209a44c0f1c829460d327499d`. The specimen rows retain their particular historical experiment roles; each fresh run must identify its actual selected manifest and specimen revision. Source publication does not install an independently accepted mathematical release.
 
-`lean-cas-dsl/main` remains `6e67b1e1dd118811c8cb443cc558221095e98573` at inspection. The active work branch contains the substantive implementation. The source integrates that main with `b0/kernel` at `4bcd912`, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale.
+`lean-cas-dsl/main` is `95de265e5a6d61909703a3193f0a1c952e12131f` at this inspection. The active work branch contains the substantive implementation and has integrated that main, retaining the PR #65 architecture and the applicable PR #63/#64 obligations. Do not start again from main or replay old branches wholesale. Issue #69 and all five owner addenda apply: implementation irrelevance permits optional private lateral leaf reuse; shared actions, typed computational constructor access and formally justified dependency closure remain kernel responsibilities. Issues #68 and the historical parity backlogs do not expand this assignment.
 
 Recent source that must survive integration:
 

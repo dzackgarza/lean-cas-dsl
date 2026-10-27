@@ -128,6 +128,8 @@ jobs:
         run: |
           python3 scripts/ci_kernel_candidate.py run --name axiom-audit -- \
             bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" exe cas-axiom-audit
+      - name: Check the two original RX-LIFT reader cases
+        run: python3 scripts/ci_kernel_candidate.py reader-preflight
       - name: Record final source stability and built products
         if: always()
         run: python3 scripts/ci_kernel_candidate.py verify

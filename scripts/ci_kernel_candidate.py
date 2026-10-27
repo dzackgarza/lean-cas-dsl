@@ -251,6 +251,128 @@ def verify(root, runtime):
         raise SystemExit('Candidate build incomplete or source/configuration changed; inspect uploaded records')
 
 
+def reader_preflight(root, runtime, baseline=None):
+    """Read the two unchanged RX-LIFT cases; never manufacture a prior identity.
+
+    The computation-only empty harness must reach the previously recorded tuple
+    constructor gap. This does not claim that the mathematical assertions ran.
+    Historical question comparison is a separate observation when an earlier
+    input is supplied. Missing historical input is reported explicitly and
+    cannot be replaced by this run's output or claimed as semantic acceptance.
+    """
+    evidence = runtime / 'evidence'
+    input_path = root / ('tests/acceptance/proposals/'
+                         'independent-extension-reconstruction-20261024/'
+                         'completion/rx-lift-prescribed-stages.cas')
+    driver = root / 'scripts/probes/rx_lift_reader_preflight.lean'
+    report = evidence / 'rx-lift-reader-preflight.json'
+    summary_path = evidence / 'rx-lift-reader-preflight-summary.json'
+    expected = {
+        'reconstructed_extensions_20261024.complete.lift.first_factor_sample_one': 73,
+        'reconstructed_extensions_20261024.complete.lift.first_factor_sample_two': 76,
+    }
+    if report.exists() or summary_path.exists():
+        raise SystemExit('Refuse to overwrite a reader preflight')
+    inputs = {'originalSource': record(input_path), 'driver': record(driver)}
+    baseline_problem = None
+    prior = {}
+    if baseline is None:
+        baseline_problem = 'Historical canonical question input is unavailable'
+    else:
+        baseline = Path(baseline).resolve()
+        try:
+            inputs['questionBaseline'] = record(baseline)
+            document = json.loads(baseline.read_text())
+            rows = document.get('readings') if isinstance(document, dict) else document
+            if not isinstance(rows, list):
+                raise ValueError('question baseline must be a reading array')
+            for identity in expected:
+                matches = [row for row in rows if isinstance(row, dict)
+                           and row.get('id') == identity]
+                if len(matches) != 1 or not isinstance(matches[0].get('question'), str) \
+                        or not matches[0]['question']:
+                    raise ValueError('missing or duplicate complete baseline for ' + identity)
+                prior[identity] = matches[0]['question']
+        except (OSError, ValueError) as error:
+            baseline_problem = str(error)
+    write(evidence / 'rx-lift-reader-preflight-inputs.json', inputs)
+    command = ['env', 'CAS_READER_INPUT=' + str(input_path),
+               'CAS_READER_REPORT=' + str(report), 'bash', str(runtime / 'lake.sh'),
+               'env', 'lean', str(driver)]
+    process_exit = None
+    try:
+        run(root, runtime, 'rx-lift-reader-preflight', command)
+    except SystemExit as error:
+        process_exit = error.code
+    problems = []
+    if process_exit is not None:
+        problems.append('reader invocation failed: ' + str(process_exit))
+    observations = []
+    try:
+        rows = json.loads(report.read_text())
+        if not isinstance(rows, list):
+            raise ValueError('reader report must be an array')
+        if [row.get('id') for row in rows if isinstance(row, dict)] != list(expected):
+            problems.append('report does not contain exactly the two original IDs in order')
+        for row in rows:
+            if not isinstance(row, dict):
+                problems.append('reader report contains a malformed observation')
+                continue
+            identity = row.get('id')
+            if identity not in expected:
+                problems.append('unexpected reader identity: ' + str(identity))
+                continue
+            reasons = []
+            if row.get('line') != expected[identity] or row.get('precedingBindings') != 32:
+                reasons.append('original line or complete preceding binding scope changed')
+            if row.get('maxHeartbeats') != 200000:
+                reasons.append('ordinary heartbeat option changed')
+            if row.get('phase') != 'evaluation' \
+                    or not isinstance(row.get('question'), str) or not row['question'] \
+                    or not isinstance(row.get('proposition'), str) or not row['proposition']:
+                reasons.append('complete production interpretation was not retained')
+            if row.get('kind') != 'gap' or row.get('fails') is not False \
+                    or not isinstance(row.get('detail'), str) \
+                    or 'mor.sets.tuple_cons' not in row['detail']:
+                reasons.append('expected tuple constructor implementation gap was not reached')
+            if row.get('dispatches') != []:
+                reasons.append('reader preflight dispatched a backend request')
+            same_question = (row.get('question') == prior[identity]
+                             if baseline_problem is None else None)
+            if same_question is False:
+                reasons.append('canonical question differs byte-for-byte from the supplied baseline')
+            problems.extend(identity + ': ' + reason for reason in reasons)
+            observations.append({
+                'id': identity, 'completeReadingAndExpectedGap': not reasons,
+                'canonicalQuestionUnchanged': same_question,
+                'interpretationHeartbeatTicks': row.get('interpretationHeartbeatTicks'),
+                'totalHeartbeatTicks': row.get('totalHeartbeatTicks')})
+    except (OSError, ValueError) as error:
+        problems.append('reader report unavailable: ' + str(error))
+    try:
+        if any(record(item['path']) != item for item in inputs.values()):
+            problems.append('a reader input changed during execution')
+    except OSError as error:
+        problems.append('a reader input became unavailable: ' + str(error))
+    if baseline is not None and baseline_problem:
+        problems.append('supplied question baseline is unusable: ' + baseline_problem)
+    complete = not problems and len(observations) == 2
+    write(summary_path, {
+        'purpose': 'Original RX-LIFT reader preflight; no mathematical execution acceptance',
+        'inputs': inputs, 'observations': observations, 'problems': problems,
+        'historicalQuestionComparison': {
+            'requested': baseline is not None,
+            'available': baseline_problem is None, 'problem': baseline_problem},
+        'completePreflight': complete,
+        'report': record(report) if report.is_file() else {'missing': True}})
+    for problem in problems:
+        print(problem, flush=True)
+    if baseline_problem:
+        print('Canonical comparison not completed: ' + baseline_problem, flush=True)
+    if not complete:
+        raise SystemExit('RX-LIFT reader preflight is incomplete; inspect its separate report')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -264,6 +386,10 @@ def main():
     execution.add_argument('--name', required=True)
     execution.add_argument('command', nargs=argparse.REMAINDER)
     commands.add_parser('verify')
+    readers = commands.add_parser('reader-preflight')
+    readers.add_argument('--question-baseline', type=Path,
+                         default=os.environ.get('CAS_RX_LIFT_QUESTION_BASELINE'),
+                         help='independently retained earlier complete reading array')
     args = parser.parse_args()
     root, runtime = args.root.resolve(), args.runtime.resolve()
     if args.phase == 'prepare':
@@ -275,6 +401,8 @@ def main():
         if not command:
             parser.error('run requires a command')
         run(root, runtime, args.name, command)
+    elif args.phase == 'reader-preflight':
+        reader_preflight(root, runtime, args.question_baseline)
     else:
         verify(root, runtime)
 
