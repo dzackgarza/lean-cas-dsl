@@ -166,6 +166,29 @@ this source integration still requires Lean and runtime verification. It does no
 complete ordinary routed-method capture, positioned result reuse or all native
 point transport.
 
+Checkpoint `b314639df859c00c2276f5fa8395fb6cd8d9cbad` published the
+combined comparison and positioned-interface source; all 476 remote blobs were
+verified. The preceding `db082f` candidate run
+[40543598724](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40543598724)
+failed compiling the new pure result plan because `variables` and `variable`
+are reserved Lean tokens. They are renamed to ordinary binder names. Existing
+construction probes also exposed fresh category-instance synthesis while
+selecting a symbolic apex: `mkProjection` now uses the symbolic constructor's
+own complete parameters before formal unification. This preserves the selected
+category context and apex position. Its failure artifact is
+`b68fa1a7cc79cbc0cfecab44982168e8833d567856787aa7122ae0c68bb4c3f1`.
+No failed build supplies downstream execution or independent semantic evidence.
+
+The pure result plan also fixes each registered field-comparison action before
+closing its distinct receiver and parameter roots. Every explicit computational
+parameter retains an exact original input/public projection, or an independently
+fixed portable scalar accepted by the existing codec. Missing parameter data
+cannot break a mathematical tie between actions. Missing or ambiguous unused
+field actions remain inert until that field needs comparison transport. The
+plan records these outcomes; it does not execute a leaf or create new mathematics.
+This source has an independent bounded review; computational reuse still depends
+on the actual and prospective consumers under integration.
+
 Ordinary-method capture, its actual/prospective result consumers and generic
 positioned field-Wire reuse are still being integrated. The shared comparison
 reader and recursively scoped validators now have a combined source candidate;

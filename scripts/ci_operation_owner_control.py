@@ -45,11 +45,11 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'New shared full declaration matcher extracted from the existing Realize interface; the original wrapper delegates without changing its signature'},
     'CasCatalogue/RoutedResultPlan.lean': {
         'before': None,
-        'after': 'f59380c3a108fa7213154b0b5e5bb5eb9c2013fd85109959c76b53953e75dbca',
+        'after': '88171bf1144565b37faf30d1aa51cb35a15eeab90afec5251af0344f7bde8d02',
         'scope': 'New pure declaration-derived result schema retains original parameter and public field positions; it does not dispatch or manufacture mathematical values'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
-        'after': '718cabc027c5a1dbcceffd7e0d326d013598d4e79e1f513916dde75d7695fdec',
+        'after': '7b1af5f9ca8f0b8a482026b06659331ae34ece98613a76b11cd7591a0e7d0103',
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',

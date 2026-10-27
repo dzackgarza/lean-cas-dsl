@@ -234,8 +234,10 @@ def dataPlan (row : LimitEntry) (diagram formalPresentation : Expr) :
   -- to potentially equal expressions (for example both apex and diagram Fin 2).
   let rawTypes : Array Expr ← fields.mapM fun field => inferType field
   let schema := mkAppN constructor fields
-  let apex ← mkAppM (if row.colimit then ``CategoryTheory.Limits.Cocone.pt
-    else ``CategoryTheory.Limits.Cone.pt) #[schema]
+  -- The symbolic constructor's category arguments are still its original
+  -- metavariables here. Project with those exact parameters; synthesizing a
+  -- fresh category instance would either fail or replace the selected context.
+  let apex ← withTransparency .all <| mkProjection schema `pt
   let apex ← withTransparency .all <| whnfHeadPred apex fun expression =>
     pure (!fields.contains expression)
   let apexBinder := fields.findIdx? (· == apex)
