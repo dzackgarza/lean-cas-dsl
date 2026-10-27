@@ -1186,12 +1186,12 @@ def presentMorphism (input source target : Wire)
       | none => mkAppM ``CategoryTheory.CategoryStruct.comp #[inverse, actual]
     let comparisonData ← match sourceMap with
       | none => pure presentation.backwardFragment
-      | some map =>
+      | some comparisonMap =>
         unless ← withoutModifyingState (withTransparency .all <|
-            isDefEq (← inferType map.value) (← inferType inverse) <&&>
-              isDefEq map.value inverse) do
+            isDefEq (← inferType comparisonMap.value) (← inferType inverse) <&&>
+              isDefEq comparisonMap.value inverse) do
           throwError "the observed source comparison changed its complete selected direction"
-        pure map.fragment
+        pure comparisonMap.fragment
     data ← scopedNode "compose" #[comparisonData, data]
   if let some presentation := target.endpointPresentation then
     let type ← whnfR (← inferType presentation.comparison)
@@ -1206,12 +1206,12 @@ def presentMorphism (input source target : Wire)
       | none => mkAppM ``CategoryTheory.CategoryStruct.comp #[actual, forward]
     let comparisonData ← match targetMap with
       | none => pure presentation.forwardFragment
-      | some map =>
+      | some comparisonMap =>
         unless ← withoutModifyingState (withTransparency .all <|
-            isDefEq (← inferType map.value) (← inferType forward) <&&>
-              isDefEq map.value forward) do
+            isDefEq (← inferType comparisonMap.value) (← inferType forward) <&&>
+              isDefEq comparisonMap.value forward) do
           throwError "the observed target comparison changed its complete selected direction"
-        pure map.fragment
+        pure comparisonMap.fragment
     data ← scopedNode "compose" #[data, comparisonData]
   discard <| StructuredResult.checkReconstruction actual
   -- A data-preserving frame over a completed callable is itself complete.
@@ -3336,15 +3336,15 @@ def endpointPresentationMaps (wire : Wire) (context : CategoryContext)
     (presentation : EndpointPresentation) : TermElabM (Wire × Wire) := do
   if let some (forward, backward) := presentation.maps then
     let (semantic, actual) ← operationComparisonEnds context presentation.comparison
-    for (map, source, target, selector) in #[
+    for (comparisonMap, source, target, selector) in #[
         (forward, semantic, actual, ``CategoryTheory.Iso.hom),
         (backward, actual, semantic, ``CategoryTheory.Iso.inv)] do
-      discard <| framingContext (some context) map.categoryContext
-      CategoryContext.checkMorphism context map.value source target
+      discard <| framingContext (some context) comparisonMap.categoryContext
+      CategoryContext.checkMorphism context comparisonMap.value source target
       unless ← withoutModifyingState (withTransparency .all <|
-          isDefEq map.value (← mkAppM selector #[presentation.comparison])) do
+          isDefEq comparisonMap.value (← mkAppM selector #[presentation.comparison])) do
         throwError "the retained comparison changed its selected complete direction"
-      unless (← retainedCallableEndpoints? map context).isSome do
+      unless (← retainedCallableEndpoints? comparisonMap context).isSome do
         throwError "the retained comparison lost its original full endpoint occurrences"
     unless forward.fragment == presentation.forwardFragment &&
         backward.fragment == presentation.backwardFragment do
@@ -3375,13 +3375,13 @@ def endpointPresentationMaps (wire : Wire) (context : CategoryContext)
     form := contextualForm state context wire.form
     payload := (← scopedPayload actual targetData false), categoryContext := some context }
   let prepare := fun (formal : Expr) (data : DataOwnership.Data) (source target : Wire) => do
-    let map : Wire := {
+    let comparisonMap : Wire := {
       form := contextualForm state context wire.form true
       payload := (← scopedPayload formal data false), categoryContext := some context,
       morphismFramed := true }
-    let map ← retainIntrinsicAssembly map .map context (.literal data) #[] #[]
+    let comparisonMap ← retainIntrinsicAssembly comparisonMap .map context (.literal data) #[] #[]
       (.retained, .retained)
-    retainCallableEndpoints map source target context
+    retainCallableEndpoints comparisonMap source target context
   let forward ← prepare forwardValue presentation.forwardFragment source target
   let backward ← prepare backwardValue presentation.backwardFragment target source
   discard <| retainEndpointPresentationMaps wire context presentation.comparison forward backward
@@ -3448,16 +3448,16 @@ def retainMappedEndpointPresentation (owner : ActionOwner) (action : Expr)
     payload := (← combinedRecipePayload actual output.fragment #[origin])
     categoryContext := some target }
   let actualImage ← retainIntrinsicAssembly actualImage .object target (.wire .object origin)
-  let capture := fun (map left right : Wire) => do
-    let formal ← Semantic.mapOf action map.value
+  let capture := fun (comparisonMap left right : Wire) => do
+    let formal ← Semantic.mapOf action comparisonMap.value
     let output : Wire := {
-      form := contextualForm state target map.form true
-      payload := (← combinedRecipePayload formal (← scopedNode "map" #[data, map.fragment])
-        (#[map, left, right] ++ dependencies))
+      form := contextualForm state target comparisonMap.form true
+      payload := (← combinedRecipePayload formal (← scopedNode "map" #[data, comparisonMap.fragment])
+        (#[comparisonMap, left, right] ++ dependencies))
       categoryContext := some target, morphismFramed := true }
-    let some endpoints ← retainedCallableEndpoints? map source
+    let some endpoints ← retainedCallableEndpoints? comparisonMap source
       | throwError "the mapped comparison lost an original direction's full endpoints"
-    retainRegisteredActionInput owner true action map output descriptor (some endpoints)
+    retainRegisteredActionInput owner true action comparisonMap output descriptor (some endpoints)
       (some (left, right))
   let forward ← capture forward semanticImage actualImage
   let backward ← capture backward actualImage semanticImage
@@ -5720,14 +5720,15 @@ def operationProductLegs (context : CategoryContext) (first second : Expr)
       #[{ json := toJson row.id.raw }, diagramData, { json := encoded }])
     templates := templates.push (.ctor "limitLeg" #[
       .literal { json := toJson row.id.raw }, diagramTemplate, .literal { json := encoded }])
+  let #[firstTemplate, secondTemplate] := templates
+    | throwError "the registered product lost its two ordered leg templates"
   return {
     presentation
     first := values[0]!
     second := values[1]!
     firstData := data[0]!
     secondData := data[1]!
-    firstTemplate := templates[0]!
-    secondTemplate := templates[1]! }
+    firstTemplate, secondTemplate }
 
 structure OperationComponentPresentation where
   comparison : Expr
@@ -5951,12 +5952,12 @@ def operationProductPresentation (h : Harness) (context : CategoryContext)
   let legWire := fun (value : Expr) (data : DataOwnership.Data) (template : ActionDataTemplate)
       (source target : Wire) => do
     let (_, dependencies) ← renderCapturedActionData template
-    let map : Wire := {
+    let comparisonMap : Wire := {
       form := contextualForm state context wire.form true
       payload := (← combinedRecipePayload value data dependencies)
       categoryContext := some context, morphismFramed := true }
-    let map ← retainIntrinsicAssembly map .map context template
-    retainCallableEndpoints map source target context
+    let comparisonMap ← retainIntrinsicAssembly comparisonMap .map context template
+    retainCallableEndpoints comparisonMap source target context
   let sourceFirst ← legWire sourceLegs.first sourceLegs.firstData sourceLegs.firstTemplate
     semanticEndpoint firstAction.semanticEndpoint
   let sourceSecond ← legWire sourceLegs.second sourceLegs.secondData sourceLegs.secondTemplate
@@ -5975,15 +5976,15 @@ def operationProductPresentation (h : Harness) (context : CategoryContext)
       .wire .object source, .wire .object target,
       .ctor "mediator" #[.wire .map first, .wire .map second]]
     let (_, dependencies) ← renderCapturedActionData template
-    let map : Wire := {
+    let comparisonMap : Wire := {
       form := contextualForm state context wire.form true
       payload := (← combinedRecipePayload value data dependencies)
       categoryContext := some context, morphismFramed := true,
       serviceHandles := wire.serviceHandles ++ parameterHandles }
-    let map ← retainIntrinsicAssembly map .map context template
+    let comparisonMap ← retainIntrinsicAssembly comparisonMap .map context template
       #[{ context, source, target := firstTarget, callable := first },
         { context, source, target := secondTarget, callable := second }]
-    retainCallableEndpoints map source target context
+    retainCallableEndpoints comparisonMap source target context
   let forwardWire ← mediator forwardValue forward semanticEndpoint actualEndpoint
     forwardFirst forwardSecond firstAction.actualEndpoint secondAction.actualEndpoint
   let backwardWire ← mediator backwardValue backward actualEndpoint semanticEndpoint
@@ -7807,18 +7808,18 @@ partial def prospectiveConstructionView (reader : ProspectiveReader) (parent : W
           capturedInvocation := parent.capturedInvocation } parent then
         return ← prospectiveConstructionView reader child
   let some captured := parent.capturedInvocation | return none
-  let some (_, view) := (← reader.state.get).invocations.find? (·.1 == captured.occurrence)
+  let some (_, prospectiveData) := (← reader.state.get).invocations.find? (·.1 == captured.occurrence)
     | return none
-  let expected ← forwardProspectiveValue reader view.result parent.value
+  let expected ← forwardProspectiveValue reader prospectiveData.result parent.value
   unless sameCompleteWireContext expected parent do return none
-  return some view
+  return some prospectiveData
 
 /-- Receiver framing consumes only the private table's authenticated complete
 construction view. Historical metadata on a coincident field is insufficient. -/
 def prospectiveApexReceiver (reader : ProspectiveReader) (wire : Wire) : TermElabM Wire := do
-  let view ← prospectiveConstructionView reader wire
+  let prospectiveData ← prospectiveConstructionView reader wire
   computationalApexReceiver reader.trace wire (← reader.state.get).objects
-    (view.bind (·.selection))
+    (prospectiveData.bind (·.selection))
 
 
 mutual
@@ -7886,20 +7887,20 @@ partial def prospectiveInvocationWith (reader : ProspectiveReader) (wire : Wire)
   if let some actual := record.result then
     checkDataOwners reader.live actual.fragment
     return ← forwardRetainedValue actual wire.value
-  if let some (_, view) := (← reader.state.get).invocations.find? (·.1 == captured.occurrence) then
-    return ← forwardProspectiveValue reader view.result wire.value
+  if let some (_, prospectiveData) := (← reader.state.get).invocations.find? (·.1 == captured.occurrence) then
+    return ← forwardProspectiveValue reader prospectiveData.result wire.value
   if (← reader.state.get).activeInvocations.contains captured.occurrence then
     throwStratum .unavailable "prospective invocation inputs form a cycle"
   reader.state.modify fun state => { state with
     activeInvocations := state.activeInvocations.push captured.occurrence }
-  let view ← match record.captured.interface with
+  let prospectiveData ← match record.captured.interface with
     | .callable selected => prospectiveCallableWith reader record.input selected record.captured
     | .structured selected => prospectiveUniversalWith reader record.input selected record.captured
     | .projection selected => prospectiveProjectionWith reader record.input selected
   reader.state.modify fun state => { state with
-    invocations := state.invocations.push (captured.occurrence, view),
+    invocations := state.invocations.push (captured.occurrence, prospectiveData),
     activeInvocations := state.activeInvocations.filter (· != captured.occurrence) }
-  forwardProspectiveValue reader view.result wire.value
+  forwardProspectiveValue reader prospectiveData.result wire.value
 
 /-- The callable interface is the whole observable Hom, including when its
 primitive reply is a point that the normal observer converts into that Hom. -/
@@ -8080,12 +8081,12 @@ that the ordinary structured observer uses after actual completion. -/
 partial def prospectiveProjectionWith (reader : ProspectiveReader) (wire : Wire)
     (selected : SelectedStructuredProjection) : TermElabM ProspectiveInvocationData := do
   let parent ← prospectiveWireWith reader .object selected.parent
-  let view ← prospectiveConstructionView reader parent
+  let prospectiveData ← prospectiveConstructionView reader parent
   if !selected.inputOccurrences.isEmpty then
     let actual ← selected.inputOccurrences.mapM fun (position, endpoint) => do
-      let input ← match view with
-        | some view =>
-          let some input := view.inputs[position]?
+      let input ← match prospectiveData with
+        | some prospectiveData =>
+          let some input := prospectiveData.inputs[position]?
             | throwError "the prospective construction lost an original typed input position"
           pure input
         | none =>
@@ -8117,11 +8118,11 @@ partial def prospectiveProjectionWith (reader : ProspectiveReader) (wire : Wire)
     | _ =>
       checkCapturedResultInterface first selected.result
       return { result := first }
-  let (diagram, packet, direct) ← match view with
-    | some view =>
-      let some diagram := view.diagram
+  let (diagram, packet, direct) ← match prospectiveData with
+    | some prospectiveData =>
+      let some diagram := prospectiveData.diagram
         | throwError "the prospective parent has no selected complete diagram interface"
-      let some packet := view.packet
+      let some packet := prospectiveData.packet
         | throwError "the prospective parent has no selected complete result packet interface"
       pure (diagram, packet, selected.construction.lift.isNone)
     | none =>
@@ -11101,12 +11102,12 @@ partial def realizeObjectPresentation (h : Harness) (trace : Trace) (entry : Obj
       #[.literal { json := toJson entry.id.raw }, .literal { json := toJson selector },
         .array captured]
     let (data, inputs) ← renderCapturedActionData template
-    let map : Wire := {
+    let comparisonMap : Wire := {
       form := .canonicalMorphism category
       payload := (← combinedRecipePayload formal data inputs), categoryContext := some context,
       morphismFramed := true }
-    let map ← retainIntrinsicAssembly map .map context template
-    retainCallableEndpoints map source target context
+    let comparisonMap ← retainIntrinsicAssembly comparisonMap .map context template
+    retainCallableEndpoints comparisonMap source target context
   let mut comparison ← mkAppM ``CategoryTheory.Iso.symm #[presentation.identification]
   let mut forward ← field "inversePresentation" semantic initialTarget
   let mut backward ← field "presentation" initialTarget semantic

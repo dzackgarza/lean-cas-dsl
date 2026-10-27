@@ -37,7 +37,7 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = '1d8af8790b722ca57f1a244e9552911c14ef55491e5b9d4929c6fa46005fde7b'
+CANDIDATE_REALIZE_SHA256 = 'a0d11b615405859679e5e9481041a1a171135751a4e858b092d6ce839ddfe10c'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',

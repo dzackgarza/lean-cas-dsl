@@ -91,7 +91,19 @@ The preceding integrated comparison/result-role source is published as
 `e35b01cebae1bdff14c4099ba315166f018f1815` (all 472 remote blobs verified),
 with candidate run
 [40532153871](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40532153871).
-Its source predates these compiler corrections. The generic routed-result plan,
+That run reached `Realize` and failed on the same layout defects plus local
+names `map` and `view`, reserved by the imported language, and unchecked product
+leg-template indexing. The current correction renames those locals without
+changing constructors, descriptor strings or public fields, and destructures
+the required two leg templates explicitly. Its uploaded failure artifact has
+SHA-256 `9abbe2113451a7c244f8f74621e57182169dffbb5414beed6791a9f8e3136166`.
+The first compiler-correction checkpoint is `69e2193156de6db0bfb70e11684abc90cf8d6f72`
+(all 472 remote blobs verified); run
+[40533778055](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40533778055)
+was building when this follow-up was prepared. It predates these additional
+reserved-name and template-index corrections.
+
+The generic routed-result plan,
 shared actual/prospective comparison demand and recursively scoped typed
 endpoint validator are still separate implementation work.
 
