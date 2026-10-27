@@ -80,7 +80,7 @@ map must retain its own source and parameter occurrences too. An actual returned
 whole callable must retain the endpoint packets at which its invocation was
 validated, including when the reply itself is opaque.
 
-The next coherent source checkpoint integrates the reviewed selected-owner
+Published checkpoint `112dc2a63a8051b240bc6286e7525bec6430a406` integrates the selected-owner
 admission, explicit recipe-versus-result origin, retained `EdgeRef` action
 occurrences, and callable reply-interface changes. Action capture checks its
 complete formal and positioned data anchors before observing the original input
@@ -89,16 +89,32 @@ and endpoints before dispatch; transparent `valueData` wrappers preserve their
 exact ownership projections. Product comparisons now consume the accepted
 product cones and their universal properties. The compiler and purity budgets,
 mathematical assertions, and existing CI workflow are unchanged in this
-checkpoint; its publication is for a coherent compilation check, not a claim
+checkpoint; its publication was for a coherent compilation check, not a claim
 that these mechanisms or the V1 programme are complete.
 
-Still under implementation are retained children of intrinsic compositions and
+The current source additionally retains children of intrinsic compositions and
 records, direct `ConstructionId` map plans, typed continuations for projected
-action endpoints, and actual diagram observation before construction dispatch.
-The additional engineering controls are preserved as separate source files;
-their guarded component-baseline runner and the expanded workflow will follow
-the integrated source freeze. No local Lean result is available for these new
+action endpoints, and complete diagram occurrences through construction
+dispatch. Complete callable replies and nested services retain original endpoint
+Wires and their comparisons. Transparent aliases keep an original framed map as
+a typed child rather than rewriting its historical frame or relaxing occurrence
+identity. These integrations are not yet verified by a complete Lean build.
+The additional engineering controls are preserved as separate source files.
+Their guarded component-baseline runner and the expanded workflow are included
+at this source freeze. No local Lean result is available for these new
 changes. Existing successful workflow assertions do not close these omissions.
+
+The remaining producer boundary is broader than object-action demand.
+`realizeUnobserved` omits a final observation but still enters fresh branches
+which dispatch constructions, methods, limits, and specialized compositions.
+Some named callable and cell/cartesian producers also discard parameter or
+receiver occurrences and reread the expression cache at demand. A generic
+selected-invocation representation must fix complete inputs, executable roles,
+and the declared result interface before any dispatch. Restarting the old trace
+against a cache snapshot would preserve the wrong boundary. Nested prospective
+admission must project only typed future-output positions and retain every
+already known supplier in their siblings; no whole-Arrow or whole-product owner
+erasure is licensed.
 
 ### Integrated compiler failure and repair
 
@@ -135,6 +151,16 @@ execution work. Clearing the compiler obstruction does not establish that the
 original generic mechanisms meet their mathematical and public-contract
 requirements; complete execution and independent interpretation checks remain
 required.
+
+The next published candidate, `112dc2a63a8051b240bc6286e7525bec6430a406`, ran in
+[40511418670](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40511418670).
+Its build failed before `Realize`: `ComputationalData.lean:2258:72` reports an
+unexpected parenthesis in a continued structure-field expression. The following
+unknown-identifier diagnostics are downstream of that parse failure. Both
+affected field applications are now parenthesized. This attempt supplies no
+new `Realize`, native-tool, axiom-audit, or reader-preflight result. Its uploaded
+artifact has SHA-256
+`07705db0e9d60364ebbab2dc3c0d25f04b2d964593d0237baa624550956ec99c`.
 
 The local recovery verified all 451 source blobs and reconstructed the exact
 published source tree and commit. The latest recoverable saved evidence archive
@@ -1230,6 +1256,12 @@ Deliver the working system and its runnable examples, not another assessment or 
 
 ## Noticed, not worked
 
+- Inert preparation is not yet a global invariant: `realizeUnobserved` still
+  reaches dispatching fresh construction/method/limit and specialized
+  composition branches. Some named/cell/cartesian observers and admitted or
+  scalar wrappers reread original inputs from expression-cache keys. Complete
+  typed producer plans, including scalar output roles, must replace those late
+  lookups; passing the new scoped action controls does not close this defect.
 - The `f3545ac` custodian review did not produce a verdict. Run `40197923885`,
   job `121182701288`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
   `git -c core.hooksPath=/dev/null -C /tmp/custodian-review-ct_kwx98/base rev-parse

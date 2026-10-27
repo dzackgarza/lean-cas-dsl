@@ -130,6 +130,20 @@ jobs:
             bash "$RUNNER_TEMP/kernel-v1-candidate/lake.sh" exe cas-axiom-audit
       - name: Check the two original RX-LIFT reader cases
         run: python3 scripts/ci_kernel_candidate.py reader-preflight
+      - name: Verify the coherent build before exporting
+        run: python3 scripts/ci_kernel_candidate.py verify
+      - name: Export the fresh public API from the built source tuple
+        run: |
+          python3 scripts/ci_kernel_candidate.py export-api \
+            --published-kernel-commit "$GITHUB_SHA"
+      - name: Export all fixed pure questions and the original RX08 control
+        run: |
+          python3 scripts/ci_kernel_candidate.py export-questions \
+            --published-kernel-commit "$GITHUB_SHA"
+      - name: Check frozen actions against the published Realize component baseline
+        run: python3 scripts/ci_operation_owner_control.py
+      - name: Run the connected real-engine workflows and original notebook
+        run: python3 scripts/ci_kernel_workflows.py
       - name: Record final source stability and built products
         if: always()
         run: python3 scripts/ci_kernel_candidate.py verify

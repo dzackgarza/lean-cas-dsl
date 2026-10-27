@@ -125,6 +125,7 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     dependencies, resultContext := some context, callableResult := true
     callableInterface := some (.endpoints domain.value targetData.value
       domain.fragment targetData.fragment)
+    callableEndpointOperands := some (domain, targetData)
     complete := fun answer => do
       return (← ComputationalData.validateEndpointPort result domain.data targetData.data answer).map
         (fun _ => none) }
@@ -333,6 +334,7 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
     pointResult := closedPoint
     callableInterface := some (.endpoints domain actionTarget
       domainData.fragment targetData.fragment)
+    callableEndpointOperands := if inCategory then some (domainData, targetData) else none
     complete := fun answer => do
       let checked ← if closedPoint then
         ComputationalData.validateElementAt target targetData.data result answer

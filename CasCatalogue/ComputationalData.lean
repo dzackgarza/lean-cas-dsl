@@ -2255,11 +2255,11 @@ partial def interfaceEndpointDataWithOrigin (objects : InterfaceObjects) (formal
     return ← interfaceEndpointDataWithOrigin objects formal (fieldData data child 0) source recoverFormal
   match envelope data.json with
   | .ok ("typedMap", #[left, right, _]) | .ok ("arrow", #[left, right, _]) =>
-    return .ok { data := fieldData data (if source then left else right)
-      (if source then 0 else 1), origin := .projection }
+    return .ok { data := (fieldData data (if source then left else right)
+      (if source then 0 else 1)), origin := .projection }
   | .ok ("identity", #[left, right]) | .ok ("zero", #[left, right]) =>
-    return .ok { data := fieldData data (if source then left else right)
-      (if source then 0 else 1), origin := .projection }
+    return .ok { data := (fieldData data (if source then left else right)
+      (if source then 0 else 1)), origin := .projection }
   | .ok ("compose", #[first, second]) =>
     let some application ← retainedApplication ``CategoryTheory.CategoryStruct.comp formal
       | return .error "the composed input has no independently retained complete components"

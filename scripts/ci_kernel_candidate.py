@@ -17,7 +17,18 @@ import resource
 import shlex
 import shutil
 import subprocess
+import sys
 import time
+
+
+FIXED_IMPORTS = (
+    'LeanCategories.Catalogue.Semantics.Foundation.FiniteOrders',
+    'LeanCategories.Catalogue.Semantics.Foundation.TwoSubsets',
+    'LeanCategories.Catalogue.Semantics.Foundation.IntegerSquareBounds',
+    'LeanCategories.Catalogue.Semantics.Algebra.CyclicQuotients',
+    'LeanCategories.Catalogue.Semantics.Independent.ScalarAndFormExtensions',
+    'LeanCategories.Catalogue.Semantics.Independent.InterfaceCompletionTests',
+)
 
 
 def stamp():
@@ -240,7 +251,12 @@ def verify(root, runtime):
         item == {'completed': True, 'exit': 0, 'sourceTupleChanged': False}
         for item in stages.values())
     write(evidence / 'source-tuple-after.json', after)
-    write(evidence / 'candidate-summary.json', {
+    # Keep the successful build receipt immutable when the final source check
+    # runs after exports. Export provenance refers to this original receipt.
+    summary = evidence / 'candidate-summary.json'
+    if summary.exists():
+        summary = evidence / 'candidate-final-summary.json'
+    write(summary, {
         'purpose': 'Candidate build and engineering gates only; not MVP or mathematical acceptance',
         'producer': before, 'finishedUtc': stamp(), 'stages': stages,
         'sourceTupleChanged': before != after, 'configurationChanges': changes,
@@ -373,6 +389,309 @@ def reader_preflight(root, runtime, baseline=None):
         raise SystemExit('RX-LIFT reader preflight is incomplete; inspect its separate report')
 
 
+def changed_records(records):
+    changed = []
+    for item in records:
+        try:
+            if record(item['path']) != item:
+                changed.append(item['path'])
+        except OSError:
+            changed.append(item['path'])
+    return changed
+
+
+def export_gate(root, runtime, published):
+    """Authenticate the already built combination; never build during export."""
+    evidence = runtime / 'evidence'
+    sources = snapshot(runtime)
+    if not re.fullmatch('[0-9a-f]{40}', published) or sources['kernel']['commit'] != published:
+        raise SystemExit('Export requires the complete explicit published kernel SHA at HEAD')
+    if os.environ.get('GITHUB_SHA', published) != published:
+        raise SystemExit('Published kernel SHA differs from the Actions checkout')
+    if any(item['workingTree'] for item in sources.values()):
+        raise SystemExit('Export sources must be clean')
+    if any(evidence.resolve().is_relative_to(Path(item['path']).resolve())
+           for item in sources.values()):
+        raise SystemExit('Export output must be outside every selected source checkout')
+    build_path = evidence / 'candidate-summary.json'
+    build = json.loads(build_path.read_text())
+    reader_path = evidence / 'rx-lift-reader-preflight-summary.json'
+    reader = json.loads(reader_path.read_text())
+    reader_run_path = evidence / 'rx-lift-reader-preflight-provenance.json'
+    reader_run = json.loads(reader_run_path.read_text())
+    if build.get('completeBuildAtUnchangedSource') is not True or build.get('producer') != sources:
+        raise SystemExit('Export requires the successful coherent build at this exact source tuple')
+    if reader.get('completePreflight') is not True or reader_run.get('status') != 'completed' \
+            or reader_run.get('exit') != 0 or reader_run.get('sourceTupleChanged') is not False \
+            or reader_run.get('producer') != sources or reader_run.get('producerAfter') != sources:
+        raise SystemExit('Export requires the two original reader cases on this built combination')
+    configuration = json.loads((evidence / 'configuration.json').read_text())
+    guards = [configuration[name] for name in ['manifest', 'toolchain', 'overrides', 'helper', 'wrapper']]
+    guards += [*build['products'], reader['report'], *reader['inputs'].values(),
+               record(build_path), record(reader_path), record(reader_run_path)]
+    modules = {}
+    for name in ['CasCatalogue.Admission', 'CasCatalogue.Realize', 'CasTools.QuestionExport',
+                 'CasContract.Port', 'LeanCategories.Catalogue', *FIXED_IMPORTS]:
+        owner = ('mathematics' if name.startswith('LeanCategories.') else
+                 'contract' if name.startswith('CasContract.') else 'kernel')
+        path = Path(sources[owner]['path']) / '.lake/build/lib/lean' / (name.replace('.', '/') + '.olean')
+        if not path.is_file():
+            raise SystemExit('Missing already-built export import: ' + name)
+        modules[name] = record(path.resolve())
+        guards.append(modules[name])
+        guards += [record(Path(str(path) + suffix).resolve()) for suffix in ['.private', '.server']
+                   if Path(str(path) + suffix).is_file()]
+    changes = changed_records(guards)
+    if changes:
+        raise SystemExit('Built/export inputs changed: ' + ', '.join(changes))
+    return {'publishedKernel': published, 'publishedKernelTree': sources['kernel']['tree'],
+            'producer': sources, 'verifiedBuild': record(build_path),
+            'readerPreflight': record(reader_path), 'readerRun': record(reader_run_path),
+            'moduleArtifacts': modules, 'guardedInputs': guards,
+            'githubRun': os.environ.get('GITHUB_RUN_ID'),
+            'githubAttempt': os.environ.get('GITHUB_RUN_ATTEMPT')}
+
+
+def export_attempt(root, runtime, name, command):
+    try:
+        run(root, runtime, name, command)
+        return 0
+    except SystemExit as error:
+        return error.code
+
+
+def api_export(root, runtime, published):
+    gate = export_gate(root, runtime, published)
+    directory = runtime / 'evidence/public-api'
+    directory.mkdir()  # A new export must never replace a prior snapshot.
+    contract = Path(gate['producer']['contract']['path'])
+    mathematics = Path(gate['producer']['mathematics']['path'])
+    exporter = contract / 'tools/export_api.py'
+    target = directory / 'declared-ports.json'
+    inputs = [record(exporter), record(contract / 'tools/export_declared_ports.lean'),
+              record(contract / 'tools/export_admission_addresses.lean'),
+              record(contract / 'api/declared-ports.json')]
+    command = [sys.executable, str(exporter), str(root), '--mathematics', str(mathematics),
+               '--packages', str(runtime / 'packages.json'), '--output', str(target)]
+    for module in FIXED_IMPORTS:
+        command.extend(['--import', module])
+    write(directory / 'inputs.json', {**gate, 'exporterInputs': inputs,
+                                    'additionalImports': list(FIXED_IMPORTS), 'command': command})
+    code = export_attempt(root, runtime, 'public-api-export', command)
+    problems = [] if code == 0 else ['API exporter failed: ' + str(code)]
+    provenance = None
+    try:
+        document = json.loads(target.read_text())
+        provenance = document['provenance']
+        for key, expected in {
+                'kernelRevision': published,
+                'mathematicsRevision': gate['producer']['mathematics']['commit'],
+                'protocolRevision': gate['producer']['contract']['commit'],
+                'exporterSha256': inputs[1]['sha256'],
+                'addressExporterSha256': inputs[2]['sha256'],
+                'admissionSourceSha256': record(root / 'CasCatalogue/Admission.lean')['sha256'],
+                'additionalImports': list(FIXED_IMPORTS)}.items():
+            if provenance.get(key) != expected:
+                problems.append('API provenance differs at ' + key)
+        for key in ['operations', 'inputForms']:
+            if not isinstance(document.get(key), list) or not document[key]:
+                problems.append('API has no complete ' + key + ' inventory')
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        problems.append('API output unavailable or malformed: ' + str(error))
+    changes = changed_records([*gate['guardedInputs'], *inputs])
+    if changes:
+        problems.append('export inputs or built artifacts changed: ' + ', '.join(changes))
+    write(directory / 'summary.json', {
+        'purpose': 'Fresh public API documentation; no publication, admission or semantic acceptance',
+        **gate, 'exporterInputs': inputs, 'exportExit': code, 'provenance': provenance,
+        'output': record(target) if target.is_file() else {'missing': True},
+        'problems': problems, 'completeExport': not problems})
+    if problems:
+        raise SystemExit('\n'.join(problems))
+
+
+def question_sources(paths):
+    """Record original ID/line locations without interpreting or changing syntax."""
+    result = {}
+    for path in sorted(paths):
+        for line, source in enumerate(path.read_text().splitlines(), 1):
+            match = re.match(r'^test\s+(\S+)\s+"', source)
+            if match:
+                identity = match[1]
+                if identity in result:
+                    raise SystemExit('Duplicate fixed source ID: ' + identity)
+                result[identity] = {'file': str(path), 'sourceLine': line}
+    return result
+
+
+def check_question_export(readings, failures, expected, imports, gate, control=False):
+    """Engineering completeness only; full typed terms remain separate review inputs."""
+    problems, rows, document = [], [], {}
+    try:
+        rows = json.loads(readings.read_text())
+        document = json.loads(failures.read_text())
+        if not isinstance(rows, list) or not isinstance(document, dict):
+            raise ValueError('expected reading array and structured failure document')
+        if [row.get('id') for row in rows if isinstance(row, dict)] != list(expected):
+            problems.append('missing, duplicate, reordered or unexpected fixed question IDs')
+        unread = []
+        for row in rows:
+            if not isinstance(row, dict) or row.get('id') not in expected:
+                raise ValueError('malformed or unexpected reading record')
+            identity = row['id']
+            if any(row.get(key) != value for key, value in expected[identity].items()):
+                problems.append('original source location differs: ' + identity)
+            if not isinstance(row.get('question'), str) or not isinstance(row.get('proposition'), str):
+                raise ValueError('missing full typed question or proposition field: ' + identity)
+            if not row['question'].strip() or not row['proposition'].strip():
+                unread.append(identity)
+        diagnostics = document.get('failures')
+        if not isinstance(diagnostics, list):
+            raise ValueError('missing structured failures array')
+        for failure in diagnostics:
+            if not isinstance(failure, dict) or any(
+                    not isinstance(failure.get(key), str) or not failure[key]
+                    for key in ['file', 'id', 'stage', 'kind', 'detail']):
+                raise ValueError('malformed stage-specific failure')
+        if document.get('requiredCount') != len(expected) \
+                or document.get('readableCount') != len(expected) - len(unread) \
+                or document.get('unreadableIds') != sorted(unread):
+            problems.append('failure document does not account for the complete fixed inventory')
+        provenance = document.get('provenance', {})
+        selected_imports = ['Init', 'Init', 'CasTools.QuestionExport', 'CasTools.QuestionExport']
+        selected_imports += [module for module in imports for _ in range(2)]
+        if provenance.get('imports') != selected_imports or not provenance.get('leanVersion'):
+            problems.append('production import scope or Lean provenance changed')
+        module_files = provenance.get('moduleFiles', [])
+        observed = ['CasCatalogue.Realize', 'LeanCategories.Catalogue', 'CasContract.Port',
+                    *selected_imports]
+        if [item.get('module') for item in module_files] != observed:
+            problems.append('loaded module provenance is incomplete')
+        for item in module_files:
+            if item['module'] in gate['moduleArtifacts']:
+                artifact = gate['moduleArtifacts'][item['module']]
+                if Path(item['olean']).resolve() != Path(artifact['path']).resolve():
+                    problems.append('loaded artifact differs from built tuple: ' + item['module'])
+        if control:
+            # Preserve the independently identified ambiguous binding and each
+            # resulting failure. Do not invent successful readings for its scope.
+            if not any(f.get('id') == 'K' and f.get('sourceLine') == 14
+                       and f.get('source') == 'let K := projection.ker()'
+                       and f['stage'] == 'binding' and f['kind'] == 'ambiguous'
+                       and all(name in f['detail'] for name in ['meth.group_arrow_kernel', 'meth.arrow_ker'])
+                       for f in diagnostics):
+                problems.append('original RX08 binding ambiguity is absent')
+            if any(f['kind'] != 'ambiguous' for f in diagnostics):
+                problems.append('original RX08 has a failure other than its preserved ambiguity')
+            if any(not any(f['id'] == identity and f['stage'] == 'interpretation'
+                           and f['kind'] == 'ambiguous' for f in diagnostics)
+                   for identity in unread):
+                problems.append('original RX08 has an unread question without its ambiguity diagnostic')
+        elif unread or diagnostics:
+            problems.append('some fixed questions or their original binding contexts were not fully read')
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        problems.append('question export unavailable or malformed: ' + str(error))
+    if not isinstance(rows, list):
+        rows = []
+    if not isinstance(document, dict):
+        document = {}
+    return {'requiredCount': len(expected), 'readingRecordCount': len(rows),
+            'reportedReadableCount': document.get('readableCount'),
+            'problems': problems, 'completeExport': not problems,
+            'readings': record(readings) if readings.is_file() else {'missing': True},
+            'failures': record(failures) if failures.is_file() else {'missing': True}}
+
+
+def questions_export(root, runtime, published):
+    gate = export_gate(root, runtime, published)
+    directory = runtime / 'evidence/pure-questions'
+    directory.mkdir()
+    fixture_path = root / 'scripts/probes/fixed_question_export_inputs.json'
+    fixture = json.loads(fixture_path.read_text())
+    inputs = [record(fixture_path)]
+    permanent = []
+    selected = directory / 'positive-clarified'
+    selected.mkdir()
+    for item in fixture['permanentSources']:
+        source = root / item['source']
+        receipt = record(source)
+        if receipt['sha256'] != item['sha256']:
+            raise SystemExit('Fixed permanent source differs from the archived input: ' + str(source))
+        inputs.append(receipt)
+        permanent.append(source)
+    if sorted(permanent) != sorted((root / 'tests/acceptance').glob('*.cas')):
+        raise SystemExit('Permanent source file selection differs from the archived scope')
+    original = None
+    for item in fixture['extensionSources']:
+        source = root / item['source']
+        receipt = record(source)
+        if receipt['sha256'] != item['sha256']:
+            raise SystemExit('Fixed proposal differs from the archived input: ' + str(source))
+        destination = selected / item['selectedName']
+        shutil.copyfile(source, destination)
+        inputs += [receipt, record(destination)]
+        if 'originalSource' in item:
+            original = root / item['originalSource']
+            for path, digest in [(original, item['originalSha256']),
+                                 (root / item['assessment'], item['assessmentSha256'])]:
+                receipt = record(path)
+                if receipt['sha256'] != digest:
+                    raise SystemExit('Original RX08 or its independent clarification changed: ' + str(path))
+                inputs.append(receipt)
+    if original is None or len(fixture['extensionSources']) != 14:
+        raise SystemExit('Missing complete archived source selection and original RX08 control')
+    permanent_inventory = root / 'CasAcceptance/Permanent/admitted.json'
+    inputs.append(record(permanent_inventory))
+    permanent_ids = json.loads(permanent_inventory.read_text())['assertions']
+    fixed_inventory = directory / 'fixed-inventory.json'
+    write(fixed_inventory, {'assertions': fixture['assertions']})
+    original_inventory = directory / 'rx08-original-inventory.json'
+    original_ids = question_sources([original])
+    write(original_inventory, {'assertions': {identity: fixture['assertions'][identity]
+                                            for identity in original_ids}})
+    inputs += [record(fixed_inventory), record(original_inventory)]
+    selections = [
+        ('permanent', root / 'tests/acceptance', permanent_inventory,
+         question_sources(permanent), permanent_ids, 153, (), False),
+        ('fixed-positive', selected, fixed_inventory, question_sources(list(selected.glob('*.cas'))),
+         fixture['assertions'], 134, FIXED_IMPORTS, False),
+        ('rx08-original-control', original, original_inventory, original_ids,
+         original_ids, 7, FIXED_IMPORTS, True)]
+    for name, _, _, expected, inventory, count, _, _ in selections:
+        if len(expected) != count or len(inventory) != count or set(expected) != set(inventory):
+            raise SystemExit('Fixed source IDs do not match the retained inventory: ' + name)
+    write(directory / 'inputs.json', {**gate, 'sourceInputs': inputs,
+                                    'scope': {row[0]: row[3] for row in selections}})
+    summaries = {}
+    for name, suite, inventory, expected, _, _, imports, control in selections:
+        readings, failures = directory / (name + '.json'), directory / (name + '-failures.json')
+        template = root / 'scripts/probes' / ('fixed_question_export.lean.in' if imports
+                                             else 'permanent_question_export.lean.in')
+        text = template.read_text()
+        for key, path in [('suite', suite), ('inventory', inventory),
+                          ('readings', readings), ('failures', failures)]:
+            text = text.replace('"@' + key + '@"', json.dumps(str(path)))
+        driver = directory / (name + '.lean')
+        driver.write_text(text)
+        inputs += [record(template), record(driver)]
+        code = export_attempt(root, runtime, 'questions-' + name,
+                              ['bash', str(runtime / 'lake.sh'), 'env', 'lean', str(driver)])
+        summary = check_question_export(readings, failures, expected, imports, gate, control)
+        if code != (1 if control else 0):
+            summary['problems'].append('unexpected production exporter exit: ' + str(code))
+        summary.update(exportExit=code, driver=record(driver), template=record(template),
+                       completeExport=not summary['problems'])
+        summaries[name] = summary
+    changes = changed_records([*gate['guardedInputs'], *inputs])
+    complete = not changes and all(item['completeExport'] for item in summaries.values())
+    write(directory / 'summary.json', {
+        'purpose': 'Complete pure reading exports for independent comparison; no meaning or migration verdict',
+        **gate, 'sourceInputs': inputs, 'exports': summaries, 'changedInputs': changes,
+        'completeExports': complete, 'independentMeaningAssessment': 'required separately'})
+    if not complete:
+        raise SystemExit('Pure question export incomplete; inspect full readings and separate failures')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -390,6 +709,10 @@ def main():
     readers.add_argument('--question-baseline', type=Path,
                          default=os.environ.get('CAS_RX_LIFT_QUESTION_BASELINE'),
                          help='independently retained earlier complete reading array')
+    for name in ['export-api', 'export-questions']:
+        export = commands.add_parser(name)
+        export.add_argument('--published-kernel-commit', required=True,
+                            help='complete published SHA of this already built candidate')
     args = parser.parse_args()
     root, runtime = args.root.resolve(), args.runtime.resolve()
     if args.phase == 'prepare':
@@ -403,6 +726,10 @@ def main():
         run(root, runtime, args.name, command)
     elif args.phase == 'reader-preflight':
         reader_preflight(root, runtime, args.question_baseline)
+    elif args.phase == 'export-api':
+        api_export(root, runtime, args.published_kernel_commit)
+    elif args.phase == 'export-questions':
+        questions_export(root, runtime, args.published_kernel_commit)
     else:
         verify(root, runtime)
 

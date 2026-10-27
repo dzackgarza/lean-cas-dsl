@@ -136,6 +136,10 @@ structure Prepared where
   target, rather than a whole callable. Runtime reuse retains that exact role. -/
   pointResult : Bool := false
   callableInterface : Option CallableResultInterface := none
+  /-- When the endpoint interface is an original operand, retain its exact
+  occurrence handle as well as its positioned data. A distinct carrier view
+  keeps its separately checked interface instead of relabeling that operand. -/
+  callableEndpointOperands : Option (Operand × Operand) := none
   action : Option ActionPlan := none
   /-- Existing semantic execution can own method/property routing and prescribed
   lifts. The runtime seeds this private trace with the exact retained operands. -/

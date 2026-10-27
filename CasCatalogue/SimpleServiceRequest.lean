@@ -255,6 +255,7 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     dependencies, resultContext := some target, callableResult := true
     callableInterface := some (.endpoints domain.value imageTargetData.value
       domain.fragment imageTargetData.fragment)
+    callableEndpointOperands := some (domain, imageTargetData)
     pointResult := (← withoutModifyingState <| withTransparency .all <|
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
     action := if whole then some (.wholeMap selected.value source target original
@@ -309,6 +310,7 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
     dependencies, resultContext := some context, callableResult := true
     callableInterface := some (.endpoints domain.value targetData.value
       domain.fragment targetData.fragment)
+    callableEndpointOperands := some (domain, targetData)
     pointResult := (← withoutModifyingState <| withTransparency .all <|
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
     complete := completeMap formal domain.data targetData.data dependencies }
