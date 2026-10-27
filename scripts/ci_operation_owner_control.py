@@ -97,7 +97,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/Trace.lean': {
         'before': '5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7',
-        'after': '82e7cdeff20ed49cbb363dafe74404d683daf901320edd5e9293e3b2eb9ed167',
+        'after': 'c037b4d82a0cf0828deeb0e6f6d0f1d39d2ec95468e819ae35549b22648969df',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
 }
 

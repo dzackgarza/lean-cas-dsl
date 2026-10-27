@@ -28,12 +28,15 @@ permit typed deferred plans; they do not require lateral-import prohibitions or
 a synchronous callback topology. Implementation and completion obligations are
 unchanged.
 
-Latest completed candidate: `7c83cf9`, run `40565954945`, job `122407128094`.
-The recursive validator compiler repair passed. Compilation then failed in
-`RoutedResultPlan`: exposed public wrappers referred to private implementation
-helpers. That programming module now publishes its API without exposing its
-private compiler bodies. The run did not reach `Realize` or establish native,
-semantic-export, frozen-control, workflow or extension results.
+Latest completed candidate: `7452581`, run `40572500084`, job `122430127978`.
+Compilation stopped in `Trace` because thirteen retained-application calls used
+`Meta.instantiateMVars`; the API is `Lean.instantiateMVars`. This checkpoint
+corrects that namespace and updates only its reviewed candidate source hash.
+The previous recursive validator and private-helper exposure repairs remain.
+The run did not reach `Realize` or establish native, semantic-export,
+frozen-control, workflow or extension results. The projection-alignment,
+actual-image lift and contextual-language changes remain ongoing integration;
+they are not part of this isolated compiler checkpoint.
 
 The integration checkpoint retains each interpreted method's full applications,
 category dictionaries, ordered data parameters, comparisons and prescribed lift

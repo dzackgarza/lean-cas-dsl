@@ -121,24 +121,24 @@ category dictionaries and the evidence of each prescribed stage. -/
 def MethodApplication.instantiateMVars (application : MethodApplication) :
     Meta.MetaM MethodApplication := do
   let context (value : CategoryContext) : Meta.MetaM CategoryContext := do
-    return { value with bundle := (← Meta.instantiateMVars value.bundle) }
+    return { value with bundle := (← Lean.instantiateMVars value.bundle) }
   let lifts ← application.lifts.mapM fun lift => do
     return { lift with
-      evidence := (← Meta.instantiateMVars lift.evidence)
-      action := (← Meta.instantiateMVars lift.action)
-      receiver := (← Meta.instantiateMVars lift.receiver)
-      input := (← Meta.instantiateMVars lift.input)
-      result := (← Meta.instantiateMVars lift.result) }
+      evidence := (← Lean.instantiateMVars lift.evidence)
+      action := (← Lean.instantiateMVars lift.action)
+      receiver := (← Lean.instantiateMVars lift.receiver)
+      input := (← Lean.instantiateMVars lift.input)
+      result := (← Lean.instantiateMVars lift.result) }
   return { application with
     sourceContext := (← context application.sourceContext)
-    routeApplications := (← application.routeApplications.mapM Meta.instantiateMVars)
-    routeReceivers := (← application.routeReceivers.mapM Meta.instantiateMVars)
-    image := (← Meta.instantiateMVars application.image)
-    application := (← Meta.instantiateMVars application.application)
-    input := (← Meta.instantiateMVars application.input)
-    baseResult := (← Meta.instantiateMVars application.baseResult)
+    routeApplications := (← application.routeApplications.mapM Lean.instantiateMVars)
+    routeReceivers := (← application.routeReceivers.mapM Lean.instantiateMVars)
+    image := (← Lean.instantiateMVars application.image)
+    application := (← Lean.instantiateMVars application.application)
+    input := (← Lean.instantiateMVars application.input)
+    baseResult := (← Lean.instantiateMVars application.baseResult)
     baseContext := (← context application.baseContext)
-    result := (← Meta.instantiateMVars application.result)
+    result := (← Lean.instantiateMVars application.result)
     resultContext := (← context application.resultContext)
     lifts }
 
