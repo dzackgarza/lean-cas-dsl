@@ -253,6 +253,8 @@ def mapAction (decoder : Decoder) (operation : Operation) (input : Form)
     familyApplication := selected.declarations[0]?.map (·.value)
     resultForm := formFor (← registryState) target input true
     dependencies, resultContext := some target, callableResult := true
+    callableInterface := some (.endpoints domain.value imageTargetData.value
+      domain.fragment imageTargetData.fragment)
     pointResult := (← withoutModifyingState <| withTransparency .all <|
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
     action := if whole then some (.wholeMap selected.value source target original
@@ -305,6 +307,8 @@ def callable (decoder : Decoder) (operation : Operation) (input : Form)
     familyApplication := some formalArrow
     resultForm := formFor state context input true
     dependencies, resultContext := some context, callableResult := true
+    callableInterface := some (.endpoints domain.value targetData.value
+      domain.fragment targetData.fragment)
     pointResult := (← withoutModifyingState <| withTransparency .all <|
       isDefEq domain.value (← ServiceRequest.closedElementDomain))
     complete := completeMap formal domain.data targetData.data dependencies }

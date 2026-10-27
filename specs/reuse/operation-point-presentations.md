@@ -12,16 +12,32 @@ under the `corpus-searches-read-network.json` and
 checked `prod.mapIso`, `EndpointPresentation`, `presentMorphism`,
 `interfaceEndpointData`, `validateCallableAt`, and `limitLeg`.
 
+The 2026-10-27 purity review additionally inspected `mapPairIso`,
+`conePointsIsoOfNatIso`, `IsLimit.map`, `IsLimit.fac`, and
+`BinaryFan.IsLimit.hom_ext` in the exact dependency sources listed below.
+These were direct primary-source reads at the recorded candidate revisions;
+they were not a new local corpus-index or Lean execution result.
+
 ## Owner
 
-`CategoryTheory.Iso.toEquiv`, `Equiv.prodCongr`, and `Equiv.toIso` own the
-literal Cartesian product comparison. `Types.binaryProductLimitCone` owns
-the actual product cone, exposed by the product rows in
-`LeanCategories.Catalogue.Semantics.Limits.Registration`. The existing
+The accepted product `LimitEntry` owns the chosen cone and its universal
+property. At mathematics revision
+`3bd4d3d9695f288749c860368174462c4d689b7c`, the Sets row exposes
+`Types.binaryProductLimitCone` through its registered declaration. The
+kernel consumes that declaration through `Semantic.limitPresentation`.
+`CategoryTheory.Limits.mapPairIso` assembles the independently supplied
+component isomorphisms into a diagram isomorphism, and
+`CategoryTheory.Limits.IsLimit.conePointsIsoOfNatIso` induces the comparison
+between the two selected cone apices. The existing
 `RegistryState.resolveLimitDetailed` selects the applicable product interface;
-ambiguity is preserved and no registration ID is preferred. No new law,
-comparison, limit choice, registration or mathematical result is authored
-in the kernel.
+ambiguity is preserved and no registration ID is preferred.
+
+The earlier implementation instead referred directly to `Equiv.prodCongr`.
+Its defining module, `Mathlib.Logic.Equiv.Prod`, is outside the unchanged
+kernel purity boundary. Its existence as a concrete Cartesian equivalence
+does not authorize the kernel to select it instead of consuming the accepted
+universal construction. The proposed consumer correction below introduces
+no mathematical row, default limit choice, or new mathematical theorem.
 
 The kernel's existing `EndpointPresentation` owns the distinction between
 semantic endpoints and actual computational representations. Historical
@@ -79,6 +95,60 @@ That redundant re-selection discarded refinement history in the original
 primitive case and the selected nonidentity presentation in the product control.
 Original-to-normalized context, saved framing origin/replay, whole-product
 conflicts and distinct child-history ambiguity checks remain unchanged.
+
+## Registered product comparison correction — 2026-10-27
+
+**Source-design status.** The coherent candidate
+`f65f3e9bed748ee8bc699e16ff43d29fb8fbce79` compiled `Realize` but failed
+`CasGates.KernelPurity` on `operationProductIso`'s reference to
+`Equiv.prodCongr`. Native tools, the axiom audit and reader preflight did not
+run. This is the result of
+[candidate run 40490647326](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40490647326),
+also recorded in `HANDOFF.md`. The replacement described here is an external
+source proposal for integration after the concurrent realization repair;
+it has not been compiled or run. The earlier isolated results below do not
+verify this proposed replacement or discharge the current integrated gates.
+
+The exact primary inputs inspected are:
+
+| Supplied construction | Primary source |
+| --- | --- |
+| Sets product family and its registered declaration, standardization and data constructor | [lean-categories `Registration.lean`, revision `3bd4d3d9695f288749c860368174462c4d689b7c`](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Semantics/Limits/Registration.lean#L60-L62), [row at lines 147–151](https://github.com/dzackgarza/lean-categories/blob/3bd4d3d9695f288749c860368174462c4d689b7c/LeanCategories/Catalogue/Semantics/Limits/Registration.lean#L147-L151) |
+| Componentwise natural isomorphism of pair diagrams | [Mathlib `BinaryProducts.lean`, revision `db584cd6d46c92f209a44c0f1c829460d327499d`, `mapPairIso`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/Limits/Shapes/BinaryProducts.lean#L155-L162) |
+| Isomorphism of the supplied limit-cone apices and its projection equations | [Mathlib `IsLimit.lean`, same revision, `conePointsIsoOfNatIso`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/Limits/IsLimit.lean#L335-L365) |
+| Universal lift, its factorization law, and uniqueness for a binary fan | [Mathlib `IsLimit.lean`, `IsLimit`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/Limits/IsLimit.lean#L47-L57), [Mathlib `BinaryProducts.lean`, `BinaryFan.IsLimit.hom_ext`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/Limits/Shapes/BinaryProducts.lean#L229-L231) |
+| Concrete apex chosen by the supplied Sets row | [Mathlib `Types/Products.lean`, `binaryProductCone` through `binaryProductLimitCone`](https://github.com/leanprover-community/mathlib4/blob/db584cd6d46c92f209a44c0f1c829460d327499d/Mathlib/CategoryTheory/Limits/Types/Products.lean#L101-L131) |
+
+The proposed kernel change shares the existing selected-row and cone preparation
+between `operationProductIso` and `operationProductLegs`. It constructs both
+presentations from the same accepted row and their respective complete ordered
+endpoint pairs. The full category context, registered diagram constructor,
+closed presentation and existing product-apex checks remain explicit.
+`mapPairIso` receives those exact source and target diagrams, and
+`conePointsIsoOfNatIso` receives their `LimitCone.isLimit` witnesses.
+The kernel does not instantiate an unrelated `HasBinaryProduct` choice or
+refer directly to the concrete semantic declaration.
+
+For source cone `s`, target cone `t`, component comparisons `e₁, e₂`, and
+their diagram comparison `w`, the supplied construction has forward map
+`t.isLimit.map s w.hom` and inverse map `s.isLimit.map t w.inv`.
+Its two projection equations identify these maps with the existing encoded
+mediators: the forward components are `s.fst ≫ e₁.hom` and
+`s.snd ≫ e₂.hom`, and the inverse components use `t.fst ≫ e₁.inv`
+and `t.snd ≫ e₂.inv`. The proposal retains the current `typedMap`,
+`mediator`, `compose` and registered `limitLeg` packets, including their
+positioned suppliers. It checks agreement with the exact universal lifts.
+Where definitional equality alone is insufficient, the comparison remains
+explicit: the supplied projection equations and `IsLimit.fac` are composed
+and checked through the supplied `BinaryFan.IsLimit.hom_ext` theorem.
+No default isomorphism or unverified equality replaces that check.
+
+This is a consumer of already supplied universal properties. The pinned direct
+Sets row supplies the needed cone and has the literal product apex checked by
+the existing caller. A creation-lift choice or a different apex still requires
+its accepted comparison interface; the proposal preserves that explicit gap.
+It does not claim to implement the independently required general
+constructor-induced comparison-cell interface.
 
 ## Closed isolated verification
 

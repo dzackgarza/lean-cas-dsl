@@ -6,15 +6,103 @@ Finish the usable V1 kernel of `dzackgarza/lean-cas-dsl`, including the mathemat
 
 The assignment includes implementation, integration, actual computation, independent extension experiments, and delivery. Continue beyond the interrupted build and beyond passing isolated probes. The completion conditions below define the whole task.
 
+**Owner clarification, 2026-10-27:** do not focus myopically on making the existing
+implementation pass. At each change, ask whether the mechanism itself is correct
+against the mathematical interface and public computational contract. Existing
+behavior and successful examples are evidence to inspect, not requirements to
+preserve when they expose missing kernel work. Keep independently fixed
+mathematical expectations unchanged.
+
 Source conversation: [Finish Kernel MVP Work](https://chatgpt.com/c/6adc8d51-f270-83ea-ac4d-bcb9911c54d8). The original 2026-10-25 continuation and its purity-probe interruption are historical inputs. Current branch source, committed dependency selections and completed CI results govern continuation. No usable-V1 completion has been established.
 
 Work primarily in the Pro cloud container. The rack connector's home-directory access is available for necessary supporting material. It is not authorization to move the entire build and execution workload to the user's server. Save and push coherent source changes throughout the work. Verify published source by fetching it back and comparing the complete tree. Preserve evidence separately from source so a container restart does not destroy the only copy.
 
 ## Current continuation state — 2026-10-27
 
+### Actual action boundaries still require implementation
+
+The recovered successful 17-assertion workflow report contains two concrete
+counterexamples to a claim that generic action execution is already complete:
+
+- `op.rings.neg / cat.rings` receives an unexecuted
+  `fun.commutative_rings.ring` action as its selected owner, both in the parameter
+  array and in the complete callable descriptor.
+- Reusing the finite pullback sends `pair(F,F)` to
+  `lim.sets.product / cat.sets`, where `F` is the unexecuted finite-classifier
+  forgetful action on the retained created cone. A later
+  `meth.cardinality / cat.sets` request receives `objectProduct(F,F)`.
+
+Those are category-wide target registrations, not registrations for an entire
+source composite. The old diagnostic implementations happen to interpret those
+recipes. Their successful arithmetic/cardinality answers do not establish the
+shared executor boundary required by the current contract and issue #69.
+Descriptors within an admitted element or selected context remain legitimate;
+the repair must follow typed executable occurrences, not reject every JSON
+occurrence of `functorAction`.
+
+The current source diagnosis identifies inert operation-owner preparation and
+unobserved children in `realizeLimitWith`; top-level observation alone does not
+materialize a nested Arrow or diagram. Implement selected execution, retain the
+actual returned packets and exact suppliers, and rebuild all affected parameter,
+map and endpoint occurrences. Candidate preparation must stay inert: an
+unselected candidate's absent action cannot block a different valid candidate.
+Provisional admission must retain unrelated actual argument owners, and actual
+execution must not select a different registration after an action or reply
+fails. The new `OperationOwnerExecutionProbes` control is engineering evidence,
+not a mathematical assertion or a leaf-supplied answer.
+
+The unchanged original workflows remain a regression input. Replaying them is
+separate from the primitive-action, complete defining-map, two-leaf, and frozen
+extension obligations. A correct missing-action outcome is a request for the
+independently implemented registered primitive, not grounds to restore recipe
+interpretation in the target consumer.
+
+Preparation must also retain *which runtime occurrences* it selected. Source
+inspection found that the object and map observers reconstruct their source
+through the expression-keyed cache, and their action encoders can reread
+parameters there. Replacing an equal formal cache entry after preparation can
+therefore substitute an actual packet or endpoint presentation. Preserve the
+original typed input, ordered full actions and positioned parameter occurrences;
+do not recover them by equal JSON, formal-value lookup, or broad cache removal.
+In particular, the proposed global invalidation of recipe entries during owner
+rebinding was rejected in review and is being replaced by explicit retained
+operation arguments and owner-parameter slots.
+
+New engineering controls distinguish these mechanisms before integration:
+`ActionOccurrenceProbes` changes source, callable/endpoint and scalar-parameter
+cache entries only after inert preparation; `ArrowFramingReuseProbes` preserves
+an independently selected nonidentity endpoint comparison through an unchanged
+Arrow map. `NestedArrowActionProbes` and `DiagramActionExecutionProbes` require
+their typed children to execute at the common target boundary. None supplies a
+mathematical answer. These controls are currently source fixtures, not completed
+Lean runs. Retaining an outer Arrow's fields alone is insufficient: its pending
+map must retain its own source and parameter occurrences too. An actual returned
+whole callable must retain the endpoint packets at which its invocation was
+validated, including when the reply itself is opaque.
+
+The next coherent source checkpoint integrates the reviewed selected-owner
+admission, explicit recipe-versus-result origin, retained `EdgeRef` action
+occurrences, and callable reply-interface changes. Action capture checks its
+complete formal and positioned data anchors before observing the original input
+and ordered parameter occurrences. The service preparers retain the result role
+and endpoints before dispatch; transparent `valueData` wrappers preserve their
+exact ownership projections. Product comparisons now consume the accepted
+product cones and their universal properties. The compiler and purity budgets,
+mathematical assertions, and existing CI workflow are unchanged in this
+checkpoint; its publication is for a coherent compilation check, not a claim
+that these mechanisms or the V1 programme are complete.
+
+Still under implementation are retained children of intrinsic compositions and
+records, direct `ConstructionId` map plans, typed continuations for projected
+action endpoints, and actual diagram observation before construction dispatch.
+The additional engineering controls are preserved as separate source files;
+their guarded component-baseline runner and the expanded workflow will follow
+the integrated source freeze. No local Lean result is available for these new
+changes. Existing successful workflow assertions do not close these omissions.
+
 ### Integrated compiler failure and repair
 
-The current source is based on published kernel
+The restored source was based on published kernel
 `09d52994ab08380bf88c9b0a05fc166325bd81bf`, tree
 `a13671f7bd2ba5e578c5075f687dc634e54f4cff`. Candidate CI
 [40390087707](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40390087707)
@@ -27,11 +115,26 @@ The source now extracts the unchanged `realizeFresh` body into the existing
 explicit-callback compilation pattern. Its recursive wrapper supplies the same
 operations; no execution branch or budget changes. See
 [the owning realization record](specs/reuse/cc-realizer-first.md#realization-compiler-boundary--2026-10-27).
-The candidate must compile and pass its unchanged consumers before this repair
-is considered verified. Behavioral preservation is not by itself evidence that
-the original generic mechanisms meet their mathematical and public-contract
-requirements; their complete execution and independent interpretation checks
-remain required.
+The compiler-only candidate is published as
+`f65f3e9bed748ee8bc699e16ff43d29fb8fbce79`; its coherent candidate run is
+[40490647326](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40490647326).
+That candidate completed on 2026-10-27. `Realize` compiles under the unchanged
+200000-heartbeat compiler limit, and the remaining consumer build reaches its
+gates. The build still fails: `CasGates.KernelPurity` rejects
+`operationProductIso`'s direct use of `Equiv.prodCongr` from
+`Mathlib.Logic.Equiv.Prod`. Native tools, the axiom audit and reader preflight did
+not run. The purity gate remains unchanged; obtain the induced product
+comparison from accepted mathematical construction data instead of weakening
+the gate or choosing another concrete product in the kernel.
+
+The exact failed candidate artifact is retained as
+`evidence/ci/kernel-v1-candidate-f65f3e9-evidence.zip`, SHA-256
+`ff6570112c75f24f7acddebfaaf6dd6615771f900d2667cfb4e2acfb2b595303`.
+Its source tuple, logs and result are distinct from the subsequent action
+execution work. Clearing the compiler obstruction does not establish that the
+original generic mechanisms meet their mathematical and public-contract
+requirements; complete execution and independent interpretation checks remain
+required.
 
 The local recovery verified all 451 source blobs and reconstructed the exact
 published source tree and commit. The latest recoverable saved evidence archive
@@ -72,10 +175,13 @@ type checks, comparison classification and trace recording still run.
 Open terms use the original construction. No cross-call cache or trace
 precondition changes. See [the owning reader record](specs/reuse/cc-dsl-language.md).
 
-Compilation, seven unchanged protected controls and the additive control pass
-with stable guards. Both original RX-LIFT factor samples now reach the existing
-`mor.sets.tuple_cons` implementation gap, with byte-identical canonical questions
-and no dispatch. They use approximately 198281 and 198788 of the unchanged
+The earlier isolated records report passing compilation, seven unchanged
+protected controls and the additive control with stable guards. Both original
+RX-LIFT factor samples reached the existing `mor.sets.tuple_cons` implementation
+gap with no dispatch. The claimed historical byte comparison cannot be recovered
+from the saved archive; its available canonical-question fields are empty. Do not
+count that comparison as verified. The isolated timings were approximately
+198281 and 198788 of the unchanged
 200000-heartbeat limit. This tight margin requires the exact two-case preflight
 on the combined built source before public API export; the final original
 26-question execution remains required. The isolated results do not establish

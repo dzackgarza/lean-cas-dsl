@@ -123,6 +123,8 @@ def prepareCallable (decoder : Decoder) (operation : Operation) (input : Form)
     requestValue := result, request := actual.encode, requestOwnership, result
     resultForm := ← resultForm context input
     dependencies, resultContext := some context, callableResult := true
+    callableInterface := some (.endpoints domain.value targetData.value
+      domain.fragment targetData.fragment)
     complete := fun answer => do
       return (← ComputationalData.validateEndpointPort result domain.data targetData.data answer).map
         (fun _ => none) }
@@ -328,6 +330,9 @@ def preparePresentation (decoder : Decoder) (entry : PresentationComparisonEntry
     resultForm := form
     dependencies := declaration.operands ++ #[sourceData, targetData, argument, domainData, argumentTarget]
     resultContext := some actionContext, callableResult := !closedPoint
+    pointResult := closedPoint
+    callableInterface := some (.endpoints domain actionTarget
+      domainData.fragment targetData.fragment)
     complete := fun answer => do
       let checked ← if closedPoint then
         ComputationalData.validateElementAt target targetData.data result answer

@@ -244,6 +244,7 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
     resultForm := formFor (← registryState) context input (index != 0)
     dependencies := selected.dependencies, resultContext := some context
     objectResult := index == 0, callableResult := index != 0
+    callableInterface := if index == 0 then none else some .framed
     complete := fun answer => do
       return (← LiftedSubobjectData.validateSelectionPrefix selected.plan selected.action
         selected.source.data selected.base.data (invocation.outputs.push answer)).map fun _ => none }
@@ -297,6 +298,7 @@ def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     resultForm := formFor (← registryState) context input true
     dependencies := selected.dependencies ++ #[cone, domain, coneTarget, baseMap, baseDomain, baseTarget]
     resultContext := some context, callableResult := true
+    callableInterface := some .framed
     complete := fun answer => do
       return (← LiftedSubobjectData.validateMap formal domain.data invocation.outputs[0]! answer).map fun _ => none }
 

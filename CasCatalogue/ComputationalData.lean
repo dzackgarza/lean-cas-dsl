@@ -2225,53 +2225,75 @@ partial def constructionInterface (objects : InterfaceObjects) (row : LimitEntry
     comparison := comparison }
   return .ok result
 
+/-- The endpoint producer distinguishes a checked projection from new action
+work and metadata recovered from a formal signature. Returned field bytes do
+not determine this origin. -/
+inductive EndpointDataOrigin where
+  | projection
+  | formal
+  | action
+  deriving BEq, Inhabited
+
+structure EndpointProjectionData where
+  data : DataOwnership.Data
+  origin : EndpointDataOrigin
+
 /-- Project a declared input's endpoint while retaining exact data occurrences.
 This shared traversal also serves metadata-only validation: it does not invent
 suppliers when the caller has no runtime table. Runtime callers validate complete
 coverage before and after projection. A computed anonymous callable uses its
 own endpoint reference rather than reconstructing a formal named object. -/
-partial def interfaceEndpointData (objects : InterfaceObjects) (formal : Expr)
+partial def interfaceEndpointDataWithOrigin (objects : InterfaceObjects) (formal : Expr)
     (data : DataOwnership.Data) (source : Bool) (recoverFormal : Bool := true) :
-    TermElabM (Except String DataOwnership.Data) := do
+    TermElabM (Except String EndpointProjectionData) := do
   let fieldData := fun (data : DataOwnership.Data) (json : Json) (index : Nat) =>
     ({ json, ownership := DataOwnership.project #[.field "args", .index index]
         data.ownership } : DataOwnership.Data)
   if (data.json.getObjValAs? String "ctor").toOption == some "valueData" then
     let .ok (.inline child) := Backend.ComputationalValue.decode data.json
       | return .error "the input callable envelope is incomplete"
-    return ← interfaceEndpointData objects formal (fieldData data child 0) source recoverFormal
+    return ← interfaceEndpointDataWithOrigin objects formal (fieldData data child 0) source recoverFormal
   match envelope data.json with
   | .ok ("typedMap", #[left, right, _]) | .ok ("arrow", #[left, right, _]) =>
-    return .ok (fieldData data (if source then left else right) (if source then 0 else 1))
+    return .ok { data := fieldData data (if source then left else right)
+      (if source then 0 else 1), origin := .projection }
   | .ok ("identity", #[left, right]) | .ok ("zero", #[left, right]) =>
-    return .ok (fieldData data (if source then left else right) (if source then 0 else 1))
+    return .ok { data := fieldData data (if source then left else right)
+      (if source then 0 else 1), origin := .projection }
   | .ok ("compose", #[first, second]) =>
     let some application ← retainedApplication ``CategoryTheory.CategoryStruct.comp formal
       | return .error "the composed input has no independently retained complete components"
     let fields := application.getAppArgs
-    return ← interfaceEndpointData objects
+    return ← interfaceEndpointDataWithOrigin objects
       (if source then fields[fields.size - 2]! else fields.back!)
       (fieldData data (if source then first else second) (if source then 0 else 1)) source recoverFormal
   | .ok ("map", #[action, original]) =>
     let some application ← retainedApplication ``CategoryTheory.Functor.map formal
       | return .error "the mapped input has no independently retained complete action"
-    let .ok endpoint ← interfaceEndpointData objects application.getAppArgs.back!
+    let .ok endpoint ← interfaceEndpointDataWithOrigin objects application.getAppArgs.back!
         (fieldData data original 1) source recoverFormal
       | return .error "the mapped input omitted an original complete endpoint"
-    return .ok {
+    return .ok { origin := .action, data := {
       json := Json.mkObj [("ctor", "functorAction"),
-        ("args", Json.arr #[action, endpoint.json])]
+        ("args", Json.arr #[action, endpoint.data.json])]
       ownership := DataOwnership.prefix #[.field "args", .index 0] (fieldData data action 0).ownership ++
-        DataOwnership.prefix #[.field "args", .index 1] endpoint.ownership }
+        DataOwnership.prefix #[.field "args", .index 1] endpoint.data.ownership } }
   | _ =>
     let some (left, right) := Language.homEnds? (← inferType formal)
       | return .error "the construction input is not a complete callable"
     if recoverFormal then
       if let .ok endpoint ← interfaceEncoding objects (if source then left else right) then
-        return .ok { json := endpoint }
-    return .ok {
+        return .ok { data := { json := endpoint }, origin := .formal }
+    return .ok { origin := .projection, data := {
       json := Backend.MorphismEndpoint.encode { callable := data.json, source }
-      ownership := DataOwnership.prefix #[.field "args", .index 0] data.ownership }
+      ownership := DataOwnership.prefix #[.field "args", .index 0] data.ownership } }
+
+/-- The existing public traversal retains its data-only interface. Runtime
+producers can also retain the origin supplied by the same traversal. -/
+def interfaceEndpointData (objects : InterfaceObjects) (formal : Expr)
+    (data : DataOwnership.Data) (source : Bool) (recoverFormal : Bool := true) :
+    TermElabM (Except String DataOwnership.Data) := do
+  return (← interfaceEndpointDataWithOrigin objects formal data source recoverFormal).map (·.data)
 
 /-- Metadata-only projection uses the same complete endpoint traversal without
 claiming runtime ownership. Its caller retains the independent formal interface. -/

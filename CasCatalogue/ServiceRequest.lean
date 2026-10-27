@@ -105,6 +105,19 @@ inductive ActionPlan where
 /-- Preparation fixes meaning solely from the published declaration and typed
 operands. Completion validates computational shape only. The enclosing caller's
 formal expression is retained separately when a completed packet is reused. -/
+inductive CallableResultInterface where
+  /-- The invocation fixes these complete formal endpoints and their exact
+  computational occurrences. A selected carrier view may retain a structured
+  parent's packet without changing that parent's original operand or handle. -/
+  | endpoints (domain target : Expr)
+      (domainData targetData : DataOwnership.Data)
+  /-- The completion validator requires a complete returned `typedMap` and
+  validates both of its endpoint fields. Those fields may include a permitted
+  enrichment of an input descriptor, such as an explicit finite inventory. -/
+  | framed
+
+/-- A request retains its result data interface before an implementation runs.
+No result packet or later cache entry chooses the mathematical endpoints. -/
 structure Prepared where
   requestValue : Expr
   request : Json
@@ -122,6 +135,7 @@ structure Prepared where
   /-- This preparer's completion validates a datum at the selected closed-point
   target, rather than a whole callable. Runtime reuse retains that exact role. -/
   pointResult : Bool := false
+  callableInterface : Option CallableResultInterface := none
   action : Option ActionPlan := none
   /-- Existing semantic execution can own method/property routing and prescribed
   lifts. The runtime seeds this private trace with the exact retained operands. -/
