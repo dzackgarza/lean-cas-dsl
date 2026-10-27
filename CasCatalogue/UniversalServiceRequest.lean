@@ -233,9 +233,10 @@ def selection (decoder : Decoder) (entry : LiftEntry) (parameters : Array Json)
     #[original, source, base, baseObject, inclusion] ++ actual ++
     sourceImage?.toArray ++ sourceImageObject?.toArray ++ comparisonImage?.toArray
   if !actual.isEmpty then
-    if let .error message ← LiftedSubobjectData.validateSelectionPrefix plan
+    if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith plan
         selected.descriptor source.data base.data (actual.map (·.data))
-        (comparisonImage?.map (·.data)) then
+        (LiftedSubobjectData.ComparisonImageRole.ofMetadata sourceImage?.isSome
+          (comparisonImage?.map (·.data))) then
       throwStratum .malformed m!"the service lift changes its preceding complete output data: {message}"
   return {
     plan, action := selected.descriptor, parameters := declared.operands.map (·.data)
@@ -300,9 +301,10 @@ def liftField (decoder : Decoder) (entry : LiftEntry) (field : LiftField)
     objectResult := index == 0, callableResult := index != 0
     callableInterface := if index == 0 then none else some .framed
     complete := fun answer => do
-      return (← LiftedSubobjectData.validateSelectionPrefix selected.plan selected.action
+      return (← LiftedSubobjectData.validateSelectionPrefixWith selected.plan selected.action
         selected.source.data selected.base.data (invocation.outputs.push answer)
-        invocation.comparisonImage?).map fun _ => none }
+        (LiftedSubobjectData.ComparisonImageRole.ofMetadata invocation.sourceImage?.isSome
+          invocation.comparisonImage?)).map fun _ => none }
 
 def liftFactor (decoder : Decoder) (entry : LiftEntry) (input : Form)
     (template : Json) : TermElabM Prepared := do

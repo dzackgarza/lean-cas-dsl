@@ -19,6 +19,55 @@ Work primarily in the Pro cloud container. The rack connector's home-directory a
 
 ## Current continuation state — 2026-10-27
 
+### Producer identity and reusable presentation integration — 2026-10-27
+
+The integrated source now separates a selected computation from its possibly
+equal Lean result. `Trace.recordProduced` returns a transparent occurrence
+reference carrying the complete selected record and ordered typed fields.
+Allocation survives speculative trace copies and elaborator rollback. Legacy
+recovery records may repeat identical metadata but cannot overwrite a different
+producer. Finalization validates the complete references before making the
+execution table. Question comparison independently checks the actual records;
+only allocation ordinals and duplicate identical administrative producers are
+ignored. Remaining legacy producer callers must migrate and pass the fixed
+reader controls before this mechanism is complete.
+
+Map-result endpoint views refer to their exact parent callable. Registered map
+actions retain the same selected image operands used by execution. Named
+refinements retain the original semantic image, the accepted representation and
+both complete comparison directions, including exact constructor-parameter
+suppliers. The ordinary method path can select its admitted canonical-base
+boundary while retaining the full original route and its parameter positions.
+Actual and prospective presentation refresh share the same retained inputs.
+Contract `34bb8ab` publishes the two existing refinement comparison directions
+through `objectField`; all 26 published blobs were fetched back and verified.
+The Python reader accepted all six published selectors and rejected the five
+checked malformed frames. These checks establish framing, not mathematical
+acceptance or execution of the comparison maps.
+
+Complete lift forward fields may produce their fixed formal image through the
+lift's own implementation. Subsequent backward, completed and factor fields use
+that exact returned endpoint. The original action descriptor remains a typed
+operand with its original parameter suppliers. Intermediate factor diagrams
+remain typed deferred plans until a consumer demands them; separate `U.obj` and
+`U.map` registrations are not forced by the kernel. Transparent finite-inventory
+views retain their complete original objects and comparisons. The fixed
+`CompositeLiftProbes` still requires its original eight field calls and two
+factor calls; it is now explicitly included in the candidate build.
+
+The exact pinned Lean 4.33.0 compiler, committed dependency source tuple and
+focused Mathlib import cache are available outside the repository. Local
+compilation has succeeded for `Trace`, `QuestionIdentity`, `Semantic` and
+`ProducerOccurrenceProbes`. The latter executed its method/functor collision,
+reference-corruption and allocation controls; its 8-stage and 16-stage graphs
+contained 57 and 105 serialized nodes. The first `Language` pass exposed one
+new visitor-pattern error, now repaired and awaiting its complete rerun. No
+resource limit changed. Integrated runtime compilation and the unchanged CI
+controls remain required. The added producer, named-refinement and inventory
+probes are engineering controls only. No frozen extension result or usable-V1
+verdict has been established, and no protected assertion or expected answer
+changed.
+
 ### Resumed integration — 2026-10-27
 
 The active source remains PR #67, `work/kernel-v1-20261023`; the older
@@ -100,15 +149,13 @@ usable-V1 completion. The new routed-composition probe is an engineering
 consumer; protected questions, expected outcomes and resource budgets are
 unchanged.
 
-Review also identified an outstanding computational-boundary choice: a complete
-lift implementation may accept the original public descriptor request and supply
-its comparison fields without separate object/map registrations. The new actual
-image path currently demands those extra action boundaries. The fixed
-`CompositeLiftProbes` deliberately installs only the lift ports and requires the
-original eight field calls and two factor calls. Reconcile the source/deferred
-and transported lift requests through generic invocation selection; do not
-change the fixed control or label an unexecuted recipe as a separately executed
-image. This is an open implementation issue in this source checkpoint.
+Review of that earlier checkpoint identified an extra computational-boundary
+requirement: it demanded separate object/map registrations before a complete
+lift implementation could supply its comparison fields. The current integration
+addresses this with forward-produced exact images and typed deferred factor
+operands, as described above. The fixed `CompositeLiftProbes` and its original
+eight field calls and two factor calls still require execution. An unexecuted
+recipe is never labeled a separately executed image.
 
 The integration checkpoint retains each interpreted method's full applications,
 category dictionaries, ordered data parameters, comparisons and prescribed lift

@@ -309,6 +309,13 @@ inductive Question
   | negation (question : Question)
   deriving Inhabited, Hashable, Repr
 
+/-- Every actual operand and recorded type of the unreduced question, in order. -/
+partial def Question.terms : Question → Array Expr
+  | .proposition term => #[term]
+  | .judgement _ terms _ _ types => terms ++ types
+  | .conjunction left right => left.terms ++ right.terms
+  | .negation question => question.terms
+
 /-- The value of a term. -/
 inductive Value
   /-- An explicit proof artifact, elaborated only at an independently fixed obligation. -/
@@ -1118,8 +1125,8 @@ def checkedRouteResult (source target : CategoryId) (route : Array EdgeRef)
       applications.all (fun action => !action.hasMVar && !action.hasLevelMVar) &&
       (← applications.allM fun action => isTypeCorrect action) do
     throwStratum .invalid m!"a structural action has undetermined complete edge parameters"
-  unless route.isEmpty do
-    Trace.record (← read).trace image (.retainedRoute source target route applications receiver)
+  let image ← if route.isEmpty then pure image else
+    Trace.recordProduced (← read).trace image (.retainedRoute source target route applications receiver)
   return (image, applications)
 
 /-- Apply the same accepted route construction whose complete edge arguments are retained.
@@ -1194,15 +1201,15 @@ def checkedContextRouteResult (source : CategoryContext) (route : Route)
       (← applications.allM fun value => isTypeCorrect value) do
     throwStratum .invalid "the structural action has undetermined complete parameters"
   CategoryContext.checkObject target image
-  unless route.refs.isEmpty do
+  let image ← if route.refs.isEmpty then pure image else do
     let state ← registryState
     match CategoryContext.named? state source.expression,
         CategoryContext.named? state target.expression with
     | some first, some last =>
-        Trace.record (← read).trace image
+        Trace.recordProduced (← read).trace image
           (.retainedRoute first.id last.id route.refs applications receiver)
     | _, _ =>
-        Trace.record (← read).trace image
+        Trace.recordProduced (← read).trace image
           (.contextualRoute source target route.refs applications receiver false)
   return (image, applications)
 
@@ -1256,7 +1263,7 @@ partial def carrierMorphismWith (value : Value) (readCarrier : Value → M Value
       applications.all (fun application => !application.hasMVar && !application.hasLevelMVar) &&
       (← applications.allM fun value => isTypeCorrect value) do
     throwStratum .invalid "the carrier action has undetermined complete parameters"
-  Trace.record (← read).trace mapped
+  let mapped ← Trace.recordProduced (← read).trace mapped
     (.contextualRoute context targetContext route.refs applications hom true)
   return .morphism mapped sourceObject targetObject sets (some (sourceCarrier, targetCarrier))
 
@@ -1430,8 +1437,8 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     unless !scalar.hasMVar && !scalar.hasLevelMVar && (← isTypeCorrect scalar) do
       throwStratum .invalid m!"the closed element parameter is outside its declared type"
     let chosen := selected.getD X
-    Trace.record (← read).trace scalar (.elementValue point target (← semanticObject chosen))
-    return scalar
+    return ← Trace.recordProduced (← read).trace scalar
+      (.elementValue point target (← semanticObject chosen))
   if (value matches .morphism ..) || (value matches .derivedMorphism ..) then
     unless (← whnfR expected).isForall do
       throwStratum .invalid "the map parameter has no declared function type"
@@ -1450,8 +1457,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
     unless !function.hasMVar && !function.hasLevelMVar && (← isTypeCorrect function) &&
         (← isDefEq (← inferType function) expected) do
       throwStratum .invalid m!"the closed map parameter is outside its declared function type"
-    Trace.alias (← read).trace hom function
-    return function
+    return ← Trace.aliasProduced (← read).trace hom function
   let sourceContext ← objectContext value
   let (origin?, selected) := match value with
     | .object _ _ origin selected _ => (origin, selected)
@@ -2960,8 +2966,7 @@ partial def selectedTypedParameter (scope : Scope) (expected : Expr)
     let admitted ← admit domain (← eval scope written none (some ambient))
     let value ← typedParameter plan.application.value admitted
     let projected ← DeclaredAdmission.project plan value
-    Trace.alias (← read).trace value projected
-    return projected
+    return ← Trace.aliasProduced (← read).trace value projected
   throwStratum .invalid "the typed map parameter has no registered complete admission"
 
 /-- Explicit category and functor parameters name accepted complete declarations. All other
@@ -3059,7 +3064,8 @@ partial def directConstruction (scope : Scope) (entry : ConstructionEntry)
   let (action, actual) ← constructionSelection scope entry
     (arguments.extract 0 (arguments.size - 1)) receiver
   let result ← DirectConstruction.obj action actual
-  Trace.record (← read).trace result (.construction entry.id action.parameters actual)
+  let result ← Trace.recordProduced (← read).trace result
+    (.construction entry.id action.parameters actual)
   objectInContext result action.target #[receiver]
 
 /-- A core map is admitted only from an actual accepted isomorphism, retaining both
@@ -3119,10 +3125,12 @@ partial def directConstructionMapAt (scope : Scope) (entry : ConstructionEntry) 
   let result ← DirectConstruction.map action actualSource actualTarget actualMap
   let imageSource ← DirectConstruction.obj action actualSource
   let imageTarget ← DirectConstruction.obj action actualTarget
-  Trace.record (← read).trace imageSource (.construction entry.id action.parameters actualSource)
-  Trace.record (← read).trace imageTarget (.construction entry.id action.parameters actualTarget)
-  Trace.record (← read).trace result
+  let result ← Trace.recordProduced (← read).trace result
     (.constructionMap entry.id action.parameters actualSource actualTarget actualMap)
+  let imageSource ← Trace.recordProduced (← read).trace imageSource
+    (.callableEndpoint action.target result true)
+  let imageTarget ← Trace.recordProduced (← read).trace imageTarget
+    (.callableEndpoint action.target result false)
   morphismInContext result imageSource imageTarget action.target
     (← objectInContext imageSource action.target #[sourceValue],
       ← objectInContext imageTarget action.target #[targetValue])
@@ -3451,19 +3459,17 @@ partial def registeredEdgeViewAt (scope : Scope) (edge : EdgeRef)
   CategoryContext.checkObject target image
   -- Preserve the existing named-functor question record. Contextual actions retain
   -- complete categories for classifier forgetful actions and unnamed derived contexts.
-  if let .functor id := edge then
+  let node ← if let .functor id := edge then
     if receiver matches .object .. then
       if (CategoryContext.named? (← registryState) target.expression).isSome then
-        Trace.record (← read).trace image (.functor id arguments object)
+        pure (Node.functor id arguments object)
       else
-        Trace.record (← read).trace image
-          (.contextualRoute context target #[edge] #[action] object false)
+        pure (.contextualRoute context target #[edge] #[action] object false)
     else
-      Trace.record (← read).trace image
-        (.contextualRoute context target #[edge] #[action] object false)
+      pure (.contextualRoute context target #[edge] #[action] object false)
   else
-    Trace.record (← read).trace image
-      (.contextualRoute context target #[edge] #[action] object false)
+    pure (.contextualRoute context target #[edge] #[action] object false)
+  let image ← Trace.recordProduced (← read).trace image node
   let value ← objectInContext image target #[receiver]
   match value with
   | .object handle category origin selected _ =>
@@ -3494,12 +3500,12 @@ partial def registeredEdgeMapAt (scope : Scope) (edge : EdgeRef)
   let imageTarget ← Semantic.objOf action target
   let result ← Semantic.mapOf action hom
   CategoryContext.checkMorphism imageContext result imageSource imageTarget
-  for (image, original) in #[(imageSource, source), (imageTarget, target)] do
-    unless image == original do
-      Trace.record (← read).trace image
-        (.contextualRoute context imageContext #[edge] #[action] original false)
-  Trace.record (← read).trace result
+  let result ← Trace.recordProduced (← read).trace result
     (.contextualRoute context imageContext #[edge] #[action] hom true)
+  let imageSource ← Trace.recordProduced (← read).trace imageSource
+    (.callableEndpoint imageContext result true)
+  let imageTarget ← Trace.recordProduced (← read).trace imageTarget
+    (.callableEndpoint imageContext result false)
   let endpoint (image : Expr) (original : Value) : M Value := do
     let value ← objectInContext image imageContext #[original]
     match value with
@@ -3786,8 +3792,9 @@ partial def suppliedFieldWitnesses (state : RegistryState) (entry : MorphismEntr
     -- supplied declaration. Inspect its public field without replacing the
     -- original addressed map or dropping the selected primitive identity.
     current := current.consumeMData
+    current := Trace.unanchor current
     while current.isAppOfArity ``id 2 || current.isAppOfArity ``Trace.operationResult 3 do
-      current := current.appArg!.consumeMData
+      current := Trace.unanchor current.appArg!.consumeMData
     let some head := current.getAppFn.constName? | return #[]
     if fields.contains head then
       let infos ← forallTelescopeReducing (← getConstInfo head).type fun xs _ =>
@@ -5021,9 +5028,9 @@ partial def familyBinding (state : RegistryState) (declaration : Name) (category
 /-- Tag the already selected named morphism with its accepted address. Its full
 declaration arguments remain the recorded parameters. -/
 partial def retainNamedMorphism (entry : MorphismEntry) (value : Expr) : M Expr := do
-  let mut application := (← instantiateMVars value).consumeMData
+  let mut application := Trace.unanchor (← instantiateMVars value).consumeMData
   while application.isAppOfArity ``id 2 || application.isAppOfArity ``Trace.operationResult 3 do
-    application := application.appArg!.consumeMData
+    application := Trace.unanchor application.appArg!.consumeMData
   unless application.getAppFn.isConstOf entry.declaration &&
       (← withTransparency .all <| isDefEq (← inferType application) (← inferType value)) do
     throwStratum .invalid "the selected morphism lost its full declared application"
@@ -5047,9 +5054,9 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
     if ← incompatibleTypeShapes target (← semanticObject T) then
       throwStratum .invalid m!"{declaration} has a different declared result type"
   if let some supplied := application then
-    let mut supplied := supplied.consumeMData
+    let mut supplied := Trace.unanchor supplied.consumeMData
     while supplied.isAppOfArity ``id 2 || supplied.isAppOfArity ``Trace.operationResult 3 do
-      supplied := supplied.appArg!.consumeMData
+      supplied := Trace.unanchor supplied.appArg!.consumeMData
     unless supplied.getAppFn.constName? == some declaration && supplied.getAppArgs.size == args.size do
       throwStratum .invalid m!"the supplied application is not this registered declaration"
     if supplied.hasMVar then
@@ -7372,9 +7379,9 @@ partial def toElement (v : Value) (X : Value) : M Value := do
 /-- The explicit arguments of an application of the declaration `declaration`, the
 parameters a trace node retains. -/
 partial def explicitArguments (declaration : Name) (application : Expr) : M (Array Expr) := do
-  let mut e := application.consumeMData
+  let mut e := Trace.unanchor application.consumeMData
   while e.isAppOfArity ``id 2 || e.isAppOfArity ``Trace.operationResult 3 do
-    e := e.appArg!.consumeMData
+    e := Trace.unanchor e.appArg!.consumeMData
   let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
     xs.mapM (·.fvarId!.getBinderInfo)
   return ((e.getAppArgs.zip infos).filterMap fun (arg, info) =>
@@ -9482,6 +9489,16 @@ inductive Claim
   /-- `assert P`, `assert P = true | false | unknown`: the proposition `prop` and the expected
   decision (`none` for `unknown`). -/
   | decision (prop : Expr) (expected : Option Bool) (shown : String)
+
+/-- The original typed roots consumed by execution, before identity serialization
+renames binders or removes incidental metadata. -/
+def Claim.terms : Claim → Array Expr
+  | .binding => #[]
+  | .judged question prop _ _ => question.terms.push prop
+  | .implemented value => #[value]
+  | .literal value _ _ literalValue prop _ _ => #[value, literalValue, prop]
+  | .homs first second _ prop _ _ => #[first, second, prop]
+  | .decision prop _ _ => #[prop]
 
 /-- The claim of the comparison `l = r`. -/
 def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do

@@ -15,6 +15,47 @@ Corpus (`<lean-categories>/scripts/formalization_corpus.py search`), 2026-09-29.
 - Composition of the catalogue's functors, and of commuting squares between them, is Mathlib's
   (`Functor.comp`, pasting of `CatCommSq`s).
 
+## Selected producers and complete presentation reuse — 2026-10-27
+
+Source searches inspected `Trace.record`, every `Trace.alias` consumer,
+`QuestionIdentity`'s typed term graph, the independent `QuestionComparison`,
+`ComputationDerivation.applicationBody`, `FunctorActionData`,
+`DeclaredApplication`, `ObjectPresentation`, complete callable framing and the
+existing retained lift-stage fold. These already own the mathematical
+applications and execution interfaces. No new categorical law or mathematical
+registration is required.
+
+The new producer reference is an administrative transparent identity carrying
+the selected record's ordered typed fields. It supplies an execution address
+where bare equal expressions previously overwrote distinct producers. Actual
+records authenticate every reference before question export. The independent
+comparison checks the typed records themselves; it ignores allocation ordinals
+without treating description strings, serialization hashes or expression
+equality as evidence of a selected computation. Head inspection removes only
+these administrative wrappers and retains original anchored operands.
+
+Named refinement presentations consume the existing `ObjectEntry.refines`
+identification, complete route and constructor parameters. The semantic image
+and its computational representation remain separate, with both comparison
+directions and exact endpoint occurrences. Ordinary method boundaries retain
+their offset in the original route; actual and prospective refresh use the
+same original typed parameter templates. The two public comparison selectors
+extend the existing object-field encoder and validators, not mathematical
+ownership or the set of registered operations.
+
+Lift forward fields may supply the complete image required by the accepted
+lift interface. The generic fold retains that actual endpoint for subsequent
+fields. Factors pass the original complete descriptor and positioned arguments
+as typed deferred operands, allowing a complete lift implementation to own its
+internal computation without demanding separate action registrations. Finite
+inventory enrichment uses transparent views of the original full callable and
+its actual endpoint frames; neither comparisons nor session owners are erased.
+
+Compiler checks and the fixed composite-lift execution control remain necessary.
+New engineering modules exercise producer collisions, presentation refresh and
+inventory reuse. They do not change the permanent assertion inventory, its
+mathematical expectations, the original action controls or resource budgets.
+
 ## Compositional fields and actual lift operands — 2026-10-27
 
 Direct source inspection reused `RoutedResultPlan`'s fresh declaration schemas,
@@ -875,3 +916,42 @@ image only at the already selected exact creating edge and target. Failure to
 extract a complete actual packet leaves ordinary execution responsible. The
 original anonymous, context and transport controls verify this separation
 without editing their assertions. No mathematical helper or new codec exists.
+
+## Transparent inventory views of complete presentations (2026-10-27)
+
+### Queries and existing owners
+
+Inspected `liftEndpointOperand`, `enrichLiftMapTarget`,
+`captureCompleteCallableWith`, `EndpointPresentation`,
+`retainEndpointPresentationMaps`, `endpointValidationView`,
+`ActionDataTemplate.pointCallable`, the positioned callable validators, and the
+retained record-field reader. The existing `finiteData` codec permits one-way
+descriptor enrichment. The original full endpoint and comparison Wires own
+their exact data, accepted comparison, current producer and suppliers. The
+existing product-swap Iso supplies the engineering control's non-definitional
+presentation; no mathematical declaration is added.
+
+### Reused mechanism and new boundary
+
+An enriched endpoint is an intrinsic `finiteData` view retaining the whole
+original Wire as its descriptor child. Its two accepted comparison directions
+are reframed at the exact enriched actual endpoint. Historical named/result
+producer anchors remain on that original child. Complete callable framing is
+reused unchanged, with its dependency-free helper moved earlier in `Realize`.
+The internal `inventoryMap` template observes a pending original callable
+through its existing producer and adapts the current transparent wrapper depth;
+a completed callable keeps its body and suppliers without another dispatch.
+The shared target adapter retains its scoped pre/post validation. Record-field
+reads follow only the current intrinsic view's exact typed descriptor child.
+No public packet tag, registration, equality rule or proof obligation changes.
+
+### Engineering evidence boundary
+
+`InventoryPresentationReuseProbes` checks the two comparison directions,
+logical/actual full-Hom scope, original typed-child and supplier retention,
+unchanged reuse, and a pending comparison whose returned packet introduces a
+nested complete frame. Changed suppliers and replacement inventories remain
+negative controls. Opaque callable bodies are data-flow witnesses and supply
+no mathematical correctness evidence. Source checks and the permanent-assertion
+guard passed at authoring; Lean compilation/execution of the new control remains
+an integration obligation until its recorded run succeeds.

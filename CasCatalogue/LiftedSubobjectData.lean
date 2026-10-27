@@ -262,7 +262,9 @@ def mapArrowData (action source : Json) : Except String Json := do
     ("args", Json.arr #[image args[0]!, image args[1]!, mapped])]
 
 /-- A map carries its actual endpoints; a well-framed wrong map is still just data. -/
-def validateMap (formal : Expr) (source target data : Json) :
+def validateMap (formal : Expr) (source target data : Json)
+    (objects : ComputationalData.InterfaceObjects := #[])
+    (scope : Option ComputationalData.InterfaceScope := none) :
     TermElabM (Except String Unit) := do
   let .ok args := fields "typedMap" 3 data
     | return .error "a lift map requires its actual source, target and callable data"
@@ -271,8 +273,9 @@ def validateMap (formal : Expr) (source target data : Json) :
     unless type.isAppOf ``Quiver.Hom do
       return .error "endpoint inventories require independently retained categorical endpoint types"
     let parameters := type.getAppArgs
-    for (expected, actual, fixed) in #[(source, args[0]!, parameters[parameters.size - 2]!),
-        (target, args[1]!, parameters.back!)] do
+    for ((expected, actual, fixed), index) in
+        #[(source, args[0]!, parameters[parameters.size - 2]!),
+          (target, args[1]!, parameters.back!)].zipIdx do
       if expected == actual then continue
       -- Enrich only a symbolic endpoint. An already supplied inventory is part
       -- of its actual data and cannot be replaced by a different inventory.
@@ -282,13 +285,30 @@ def validateMap (formal : Expr) (source target data : Json) :
         | return .error "a lift map changes its declared computational endpoints"
       unless descriptor == expected do
         return .error "a lift map changes its declared computational endpoints"
-      if let .error message ← ComputationalData.validatePort fixed (← inferType fixed) actual then
+      if let .error message ← ComputationalData.validatePort fixed (← inferType fixed) actual objects
+          (scope := ComputationalData.InterfaceScope.arg? scope index) then
         return .error message
-  ComputationalData.validateEndpointPort formal args[0]! args[1]! args[2]!
+  ComputationalData.validateEndpointPort formal args[0]! args[1]! data objects scope
 
-/-- Validate all four outputs at the actual source object, without manufacturing an Arrow. -/
-def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base : Json)
-    (outputs : Array Json) (comparisonImage? : Option Json := none) :
+/-- The image endpoint is either prescribed legacy framing, a retained selected
+occurrence, or a field supplied by the complete forward result at fixed `U(O)`.
+The latter carries no assertion that a separate object action was executed. -/
+inductive ComparisonImageRole where
+  | recipe
+  | selected (data : Json)
+  | forwardResult
+
+def ComparisonImageRole.ofMetadata (hasSourceImage : Bool)
+    (comparisonImage? : Option Json) : ComparisonImageRole :=
+  match comparisonImage? with
+  | some image => .selected image
+  | none => if hasSourceImage then .forwardResult else .recipe
+
+/-- Validate all four outputs at the actual source object, without manufacturing
+an Arrow. A forward-produced source is checked at its independently fixed object
+interface; its complete map still has the retained base object as its target. -/
+def validateSelectionPrefixWith (selection : SelectedLift.Plan) (action source base : Json)
+    (outputs : Array Json) (comparison : ComparisonImageRole) :
     TermElabM (Except String Unit) := do
   unless !outputs.isEmpty && outputs.size <= 4 && selection.ports.size == 4 do
     return .error "a lift requires an ordered prefix of its four public outputs"
@@ -297,6 +317,14 @@ def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base 
   let .ok () ← ComputationalData.validatePort selection.ports[0]!
       (← inferType selection.ports[0]!) outputs[0]!
     | return .error "the lift object output has malformed framing"
+  let selectedImage : Except String (Option Json) := match comparison with
+    | .recipe => .ok none
+    | .selected image => .ok (some image)
+    | .forwardResult =>
+        if outputs.size <= 2 then .ok none else
+          (fields "typedMap" 3 outputs[2]!).map fun forward => some forward[0]!
+  let .ok comparisonImage? := selectedImage
+    | return .error "the forward comparison omitted its complete returned image endpoint"
   if let some image := comparisonImage? then
     if let .error message ← ComputationalData.validateAction selection.action action then
       return .error message
@@ -321,6 +349,14 @@ def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base 
       mappedEndpoint := actual[0]!
       baseEndpoint := actual[1]!
   return .ok ()
+
+/-- Compatibility entry point: an omitted image preserves the explicit historical
+recipe contract. New field-produced images use `validateSelectionPrefixWith`. -/
+def validateSelectionPrefix (selection : SelectedLift.Plan) (action source base : Json)
+    (outputs : Array Json) (comparisonImage? : Option Json := none) :
+    TermElabM (Except String Unit) :=
+  validateSelectionPrefixWith selection action source base outputs
+    (ComparisonImageRole.ofMetadata false comparisonImage?)
 
 /-- Prescribed lift execution additionally retains the entire original Arrow. -/
 def validatePrefix (component : Component) (action source base : Json)

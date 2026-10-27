@@ -49,9 +49,9 @@ def grounded (entries : Array ComputationDerivationEntry)
 /-- Only administrative wrappers are removed. No mathematical definition is
 unfolded to discover an implementation or manufacture a returned value. -/
 def applicationBody (value : Expr) : Expr := Id.run do
-  let mut value := value.consumeMData
+  let mut value := Trace.unanchor value.consumeMData
   while value.isAppOfArity ``id 2 || value.isAppOfArity ``Trace.operationResult 3 do
-    value := value.appArg!.consumeMData
+    value := Trace.unanchor value.appArg!.consumeMData
   return value
 
 /-- The original ordered argument spine of a complete categorical application. -/
@@ -160,7 +160,7 @@ structure Compiler where
 /-- Primitive markers are recognized by their complete expression, never by
 parsing a spelling, comparing carrier types, or searching equal declarations. -/
 def slotApplication? (compiler : Compiler) (value : Expr) : Option (Slot × Array Expr) := do
-  let value := value.consumeMData.headBeta
+  let value := (Trace.unanchor value.consumeMData).headBeta
   let arguments := value.getAppArgs
   let slot ← compiler.slots.find? fun slot =>
     value.getAppFn == slot.marker.getAppFn &&
@@ -225,7 +225,7 @@ partial def compile (compiler : Compiler) (value : Expr) : TermElabM Expr := do
   checkClosed value
   if compiler.known.contains value then return value
   if !containsSlot compiler value && (← compiler.trace.node? value).isSome then return value
-  let selected := value.consumeMData.headBeta
+  let selected := (Trace.unanchor value.consumeMData).headBeta
   if selected != value then
     let actual ← compile compiler selected
     same value actual
@@ -247,9 +247,10 @@ partial def compile (compiler : Compiler) (value : Expr) : TermElabM Expr := do
   if selected.isAppOfArity ``CategoryTheory.CategoryStruct.id 3 then
     let object := selected.appArg!
     let object ← compileParameter compiler object
-    let context ← contextFor compiler value object object
-    Trace.record (some compiler.trace) value (.contextualIdentity context object)
-    return value
+    let identity := mkApp selected.appFn! object
+    same value identity
+    let context ← contextFor compiler identity object object
+    return ← Trace.recordProduced (some compiler.trace) identity (.contextualIdentity context object)
   if let some (slot, arguments) := slotApplication? compiler selected then
     let arguments ← arguments.mapM (compileParameter compiler)
     let application := mkAppN slot.family arguments
@@ -261,19 +262,21 @@ partial def compile (compiler : Compiler) (value : Expr) : TermElabM Expr := do
       let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
       let context ← contextFor compiler application source
         (Language.homEnds? (← inferType application)).get!.2
-      Trace.record (some compiler.trace) identity (.contextualIdentity context source)
-      let actual ← compileAt compiler selected identity
+      let identity ← Trace.recordProduced (some compiler.trace) identity
+        (.contextualIdentity context source)
+      -- The slot's parameters were compiled once above. Their returned handles
+      -- are the inputs of this call, even when another parameter has equal data.
+      let actual ← compileAt compiler (mkAppN slot.marker arguments) identity
       same value actual
       return actual
     | .functor id =>
       let parameters ← (Language.explicitArguments slot.declaration application).run {}
-      Trace.record (some compiler.trace) application (.functorParameter id parameters)
-      return application
+      return ← Trace.recordProduced (some compiler.trace) application (.functorParameter id parameters)
     | _ => return application
   let state ← registryState
   let objects := state.objects.filter (fun entry => selected.getAppFn.isConstOf entry.declaration)
-  if objects.size == 1 && (← Semantic.recordNamedObject selected (some compiler.trace)) then
-    return selected
+  if let #[entry] := objects then
+    return ← Semantic.namedObjectProduced entry selected (some compiler.trace)
   throwStratum .noImplementation
     m!"the formal derivation has no published closed expression reader for {selected.getAppFn}"
 
@@ -282,11 +285,30 @@ partial def compileParameter (compiler : Compiler) (value : Expr) : TermElabM Ex
   if compiler.known.contains value || (← compiler.trace.node? value).isSome then return value
   let state ← registryState
   let objects := state.objects.filter (fun entry => value.getAppFn.isConstOf entry.declaration)
-  if objects.size == 1 then discard <| Semantic.recordNamedObject value (some compiler.trace)
+  if let #[entry] := objects then
+    return ← Semantic.namedObjectProduced entry value (some compiler.trace)
   return value
 
+/-- A known whole callable remains the original input occurrence. Compiling an
+application may not split its body into fresh calls and thereby discard its data. -/
+partial def compileComposition (compiler : Compiler) (arrow argument : Expr) : TermElabM Expr := do
+  let first ← compile compiler argument
+  let second ← compile compiler arrow
+  let some (source, middle) := Language.homEnds? (← inferType first)
+    | throwError "the derived application lost its complete argument signature"
+  let some (declaredSource, target) := Language.homEnds? (← inferType second)
+    | throwError "the derived application lost its complete callable signature"
+  same middle declaredSource
+  let result ← mkAppM ``CategoryTheory.CategoryStruct.comp #[first, second]
+  let context ← contextFor compiler result source target
+  Trace.recordProduced (some compiler.trace) result
+    (.contextualComposition context first second source middle target)
+
 partial def compileAt (compiler : Compiler) (arrow argument : Expr) : TermElabM Expr := do
-  let arrow := arrow.consumeMData.headBeta
+  if compiler.known.contains arrow ||
+      (!containsSlot compiler arrow && (← compiler.trace.node? arrow).isSome) then
+    return ← compileComposition compiler arrow argument
+  let arrow := (Trace.unanchor arrow.consumeMData).headBeta
   if arrow.isAppOfArity ``id 2 then return ← compileAt compiler arrow.appArg! argument
   if let .letE _ _ value body _ := arrow then
     return ← compileAt compiler (body.instantiate1 value) argument
@@ -355,27 +377,16 @@ partial def compileAt (compiler : Compiler) (arrow argument : Expr) : TermElabM 
       -- packet may differ from the value of that formal product.
       let original ← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, application]
       same original result
-      Trace.alias (some compiler.trace) result original
+      let original ← Trace.aliasProduced (some compiler.trace) result original
       compiler.calls.modify (·.push { reference := slot.reference, application, result := original })
       return original
-  let first ← compile compiler argument
-  let second ← compile compiler arrow
-  let some (source, middle) := Language.homEnds? (← inferType first)
-    | throwError "the derived application lost its complete argument signature"
-  let some (declaredSource, target) := Language.homEnds? (← inferType second)
-    | throwError "the derived application lost its complete callable signature"
-  same middle declaredSource
-  let result ← mkAppM ``CategoryTheory.CategoryStruct.comp #[first, second]
-  let context ← contextFor compiler result source target
-  Trace.record (some compiler.trace) result
-    (.contextualComposition context first second source middle target)
-  return result
+  compileComposition compiler arrow argument
 
 partial def compileAction (compiler : Compiler) (action receiver : Expr) (morphism : Bool) :
     TermElabM Expr := do
-  let mut action := action.consumeMData.headBeta
+  let mut action := (Trace.unanchor action.consumeMData).headBeta
   while action.isAppOfArity ``id 2 || action.isAppOf ``CategoryTheory.Cat.Hom.toFunctor do
-    action := action.appArg!.consumeMData.headBeta
+    action := (Trace.unanchor action.appArg!.consumeMData).headBeta
   if action.isAppOfArity ``CategoryTheory.Functor.comp 8 ||
       action.isAppOfArity ``CategoryTheory.CategoryStruct.comp 7 then
     let arguments := action.getAppArgs
@@ -396,31 +407,27 @@ partial def compileAction (compiler : Compiler) (action receiver : Expr) (morphi
       let actualAction ← Semantic.asFunctor application
       if !morphism then
         let result ← Semantic.objOf actualAction receiver
-        Trace.record (some compiler.trace) result (.functor id parameters receiver)
-        pure result
+        Trace.recordProduced (some compiler.trace) result (.functor id parameters receiver)
       else do
         let (sourceBundle, targetBundle) ← functorCategoryBundles actualAction
         let source : CategoryContext := { expression := entry.source, bundle := sourceBundle }
         let target : CategoryContext := { expression := entry.target, bundle := targetBundle }
         let result ← Semantic.mapOf actualAction receiver
-        Trace.record (some compiler.trace) result
+        Trace.recordProduced (some compiler.trace) result
           (.contextualRoute source target #[.functor id] #[application] receiver true)
-        pure result
     | .construction id => do
       let some entry := state.constructions.find? (·.id == id)
         | throwError "the derivation construction is no longer published"
       if !morphism then
         let result ← Semantic.objOf application receiver
-        Trace.record (some compiler.trace) result (.construction id parameters receiver)
-        pure result
+        Trace.recordProduced (some compiler.trace) result (.construction id parameters receiver)
       else do
         let some (source, target) := Language.homEnds? (← inferType receiver)
           | throwError "the derivation construction map lost its complete endpoints"
         let selected ← DirectConstruction.select entry (← parameters.mapM exprToSyntax) source
         same selected.functor (← Semantic.asFunctor application)
         let result ← DirectConstruction.map selected source target receiver
-        Trace.record (some compiler.trace) result (.constructionMap id parameters source target receiver)
-        pure result
+        Trace.recordProduced (some compiler.trace) result (.constructionMap id parameters source target receiver)
     | .method id => do
       if morphism then
         throwStratum .noImplementation "the method prerequisite has no separate published map port"

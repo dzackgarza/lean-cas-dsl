@@ -26,6 +26,12 @@ structure Input (α : Type) where
   /-- Object endpoint `U(X)` of the complete image, retained by its producer. -/
   sourceImageObject? : Option α := none
 
+/-- An endpoint is either an exact retained occurrence or a field produced at
+an independently fixed object. Producing data never selects its formal meaning. -/
+inductive EndpointRole (α : Type) where
+  | retained (value : α)
+  | produced (formal : Expr)
+
 /-- The fixed public field and its complete request. Endpoints and earlier
 outputs refer to the same retained operand occurrences, never equal-byte lookup. -/
 structure Field (α : Type) where
@@ -35,7 +41,7 @@ structure Field (α : Type) where
   context : CategoryContext
   request : DataOwnership.Data
   preceding : Array α
-  endpoints : Option (α × α)
+  endpoints : Option (EndpointRole α × EndpointRole α)
   comparisonImage? : Option α
 
 /-- All four fields and the selected image of the actual object output. This
@@ -66,12 +72,12 @@ def packet (tag id : String) (parameters action source base : DataOwnership.Data
     ("args", DataOwnership.Data.array #[{ json := toJson id }, action, source, base,
       DataOwnership.Data.array outputs])] ++ metadata)
 
-/-- One typed field order serves execution and prospective inspection. Only the
-caller supplies a field's data and observes the selected object action. The
-comparison image is obtained once, immediately before the forward field. No
-registration, formal lift or result interface is selected from returned data. -/
+/-- One typed field order serves execution and prospective inspection. A caller
+may supply an independently selected comparison image; otherwise the complete
+forward result owns that endpoint in the explicit-image contract. Legacy framing
+still requires its selected recipe. No returned data choose a formal interface. -/
 def fold (fragment : α → DataOwnership.Data) (input : Input α)
-    (image : α → TermElabM α) (returned : Field α → TermElabM α)
+    (image : α → TermElabM (Option α)) (returned : Field α → TermElabM α)
     (readEndpoints : α → CategoryContext → TermElabM (α × α)) :
     TermElabM (Result α) := do
   unless input.selection.ports.size == LiftField.all.size do
@@ -83,20 +89,23 @@ def fold (fragment : α → DataOwnership.Data) (input : Input α)
     if index == 2 then
       let some object := outputs[0]?
         | throwError "the selected comparison image precedes its object output"
-      comparisonImage? := some (← image object)
-    let endpoints ← if index == 0 then pure none
+      comparisonImage? ← image object
+      if input.sourceImage?.isNone && comparisonImage?.isNone then
+        throwError "the legacy lift omitted its selected comparison-image recipe"
+    let endpoints : Option (EndpointRole α × EndpointRole α) ← if index == 0 then pure none
       else if index == 1 then do
         let some object := outputs[0]?
           | throwError "the selected inclusion precedes its object output"
-        pure (some (object, input.source))
+        pure (some (.retained object, .retained input.source))
       else if index == 2 then do
-        let some image := comparisonImage?
-          | throwError "the selected comparison field lost its actual image endpoint"
-        pure (some (image, input.baseObject))
+        let source : EndpointRole α ← match comparisonImage? with
+          | some image => pure (.retained image)
+          | none => pure (.produced (← Semantic.objOf input.selection.action input.selection.ports[0]!))
+        pure (some (source, .retained input.baseObject))
       else do
         let some (image, baseObject) := comparisonEndpoints?
           | throwError "the backward comparison lost the forward map's actual endpoints"
-        pure (some (baseObject, image))
+        pure (some (.retained baseObject, .retained image))
     let sourceImage? := input.sourceImage?.map fragment
     let comparison := if sourceImage?.isSome then comparisonImage?.map fragment else none
     let request ← packet (if input.originalArrow then "liftInput" else "monoLiftInput")
@@ -107,7 +116,10 @@ def fold (fragment : α → DataOwnership.Data) (input : Input α)
     let output ← returned {
       field, index, formal := input.selection.ports[index]!, context, request,
       preceding := outputs, endpoints, comparisonImage? }
-    if index == 2 then comparisonEndpoints? := some (← readEndpoints output context)
+    if index == 2 then
+      let endpoints ← readEndpoints output context
+      comparisonEndpoints? := some endpoints
+      comparisonImage? := some endpoints.1
     outputs := outputs.push output
   let some comparisonImage := comparisonImage?
     | throwError "the completed lift lost its selected comparison image"

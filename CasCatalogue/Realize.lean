@@ -114,6 +114,7 @@ inductive WirePayload where
 /-- Complete actual lift fields retained with the selected formal computation. Subsequent
 projections and factors reuse this execution, including its enclosing wire's live owner. -/
 structure LiftStageHandles where
+  action : Nat
   source : Nat
   sourceImage : Nat
   base : Nat
@@ -123,7 +124,7 @@ structure LiftStageHandles where
   deriving BEq
 
 def LiftStageHandles.all (stage : LiftStageHandles) : Array Nat :=
-  #[stage.source, stage.sourceImage, stage.base, stage.baseObject, stage.comparisonImage] ++ stage.outputs
+  #[stage.action, stage.source, stage.sourceImage, stage.base, stage.baseObject, stage.comparisonImage] ++ stage.outputs
 
 structure LiftExecution where
   selections : Array SelectedLift.Plan
@@ -210,6 +211,9 @@ structure EndpointPresentation where
   backwardOwnership : DataOwnership.Table := #[]
   /-- Exact typed comparison occurrences, fixed by the representation producer. -/
   maps : Option (Wire × Wire) := none
+  /-- A named representation is refreshed from its original typed constructor
+  inputs before observation, without evaluating its semantic image action. -/
+  namedRefinement : Option NamedRefinementOrigin := none
 
 /-- A complete kernel-owned source snapshot for a proof-only refinement. -/
 structure WireSnapshot where
@@ -307,6 +311,9 @@ inductive ActionDataTemplate where
   /-- The existing point-data interface selects this representation conversion.
   Its original typed point, rather than returned bytes, determines the role. -/
   | pointCallable (context : CategoryContext) (source target : Expr) (point : Wire)
+  /-- A transparent inventory view changes only the complete endpoint frames.
+  Its original whole map remains the producer when a pending child is observed. -/
+  | inventoryMap (context : CategoryContext) (source target original : Wire)
 
 /-- Exact endpoint occurrences of this complete callable packet. The anchor is
 checked before use; historical endpoints cannot describe a projection or a new
@@ -523,6 +530,12 @@ structure SelectedRoutedBoundary where
   descriptors : Array ActionDataTemplate
   images : Array Wire := #[]
   parameters : Array RoutedParameterOccurrence
+  /-- Boundary-local action zero has this original route ordinal. The complete
+  original route and its parameter occurrences remain on the invocation. -/
+  routeOffset : Nat := 0
+  /-- Only this boundary executes the complete original forward route. A named
+  presentation with an empty residual route is a different producer. -/
+  materializeRoute : Bool := false
 
 /-- The exact ordinary method application and both inert input choices. Result
 schemas are compiled purely after choosing a boundary, before executing inputs. -/
@@ -539,6 +552,7 @@ structure SelectedRoutedInvocation where
   original : Wire
   canonical : SelectedRoutedBoundary
   transported : SelectedRoutedBoundary
+  presented : Option SelectedRoutedBoundary := none
   descriptor : ActionDataTemplate
   resolution : Resolution
   comparisonTerms : Array Expr
@@ -588,9 +602,40 @@ structure ActionRecipe where
   /-- Independently selected image occurrences reused by mapped comparisons. -/
   imageEndpoints : Option (Wire × Wire) := none
 
+/-- The accepted named-refinement row owns this representation producer. Its
+anchor and original parameter positions survive actual and private observation;
+neither a matching expression nor a matching packet can choose another source. -/
+structure NamedRefinementOrigin where
+  formal : Expr
+  fragment : DataOwnership.Data
+  comparison : Expr
+  entry : ObjectId
+  target : ObjectId
+  parameters : Array Expr
+  templates : Array ActionDataTemplate
+  source : Wire
+  route : Array EdgeRef
+  applications : Array Expr
+  descriptors : Array ActionDataTemplate
+  identification : Expr
+
 end
 
 initialize nextInvocationOccurrence : IO.Ref Nat ← IO.mkRef 0
+
+def SelectedRoutedInvocation.boundaries (selected : SelectedRoutedInvocation) :
+    Array SelectedRoutedBoundary :=
+  #[selected.transported, selected.canonical] ++ selected.presented.toArray
+
+/-- An accepted named presentation consumed this original route prefix. Its
+last image is the exact receiver transmitted to the chosen invocation; earlier
+positions retain their own typed producers for subsequent consumers. This is
+not a claim that every prefix action has already executed. -/
+structure RoutedPrefixInput where
+  receiver : Wire
+  actions : Array (EdgeRef × Expr)
+  descriptors : Array ActionDataTemplate
+  images : Array Wire
 
 /-- Original input positions remain available to result completion. For a
 dispatched request these are its exact materialized Wires; a purely retained
@@ -602,6 +647,8 @@ structure RoutedInputData where
   dependencies : Array Wire
   routeSources : Array Wire := #[]
   routeImages : Array Wire := #[]
+  routeOffset : Nat := 0
+  prefix : Option RoutedPrefixInput := none
 
 def RoutedInputData.read (inputs : RoutedInputData) (input : RoutedResultPlan.Input) :
     TermElabM Wire := do
@@ -1051,6 +1098,8 @@ partial def sameActionOperand (left right : Wire) : Bool :=
       right.endpointPresentation.map (·.backwardOwnership) &&
     sameEndpointComparisonMaps (left.endpointPresentation.bind (·.maps))
       (right.endpointPresentation.bind (·.maps)) &&
+    sameNamedRefinementOrigin (left.endpointPresentation.bind (·.namedRefinement))
+      (right.endpointPresentation.bind (·.namedRefinement)) &&
     sameProductComponents left.productComponents right.productComponents &&
     sameMorphismFraming left.morphismFraming right.morphismFraming &&
     sameActionRecipe left.actionRecipe right.actionRecipe &&
@@ -1088,6 +1137,23 @@ partial def sameEndpointComparisonMaps (left right : Option (Wire × Wire)) : Bo
   | none, none => true
   | some (a, b), some (c, d) =>
       sameCompleteWireContext a c && sameCompleteWireContext b d
+  | _, _ => false
+
+partial def sameNamedRefinementOrigin
+    (left right : Option NamedRefinementOrigin) : Bool :=
+  match left, right with
+  | none, none => true
+  | some left, some right =>
+      left.formal == right.formal && left.fragment == right.fragment &&
+      left.comparison == right.comparison && left.entry == right.entry &&
+      left.target == right.target && left.parameters == right.parameters &&
+      left.route == right.route && left.applications == right.applications &&
+      left.identification == right.identification &&
+      sameCompleteWireContext left.source right.source &&
+      left.templates.size == right.templates.size &&
+      (left.templates.zip right.templates).all (fun (a, b) => sameActionTemplate a b) &&
+      left.descriptors.size == right.descriptors.size &&
+      (left.descriptors.zip right.descriptors).all (fun (a, b) => sameActionTemplate a b)
   | _, _ => false
 
 partial def sameMorphismFraming (left right : Option MorphismFraming) : Bool :=
@@ -1129,6 +1195,10 @@ partial def sameActionTemplate (left right : ActionDataTemplate) : Bool :=
   | .pointCallable a s t x, .pointCallable b u v y =>
       a.expression.syntacticEq b.expression && a.bundle == b.bundle &&
         s == u && t == v && sameCompleteWireContext x y
+  | .inventoryMap a s t x, .inventoryMap b u v y =>
+      a.expression.syntacticEq b.expression && a.bundle == b.bundle &&
+        sameCompleteWireContext s u && sameCompleteWireContext t v &&
+          sameCompleteWireContext x y
   | _, _ => false
 
 partial def sameActionRecipe (left right : Option ActionRecipe) : Bool :=
@@ -1291,6 +1361,14 @@ def framingContext (selected retained : Option CategoryContext) :
         isDefEq selectedBundle retainedBundle) do
       throwStratum .invalid "the callable framing changed its complete retained category context"
   return selected.orElse fun _ => retained
+
+/-- An initial declared object slot supplies its complete category dictionary.
+The original data, supplier and producer remain unchanged; an already retained
+conflicting dictionary is rejected instead of being inferred from its carrier. -/
+def captureDeclaredObjectInput (wire : Wire) (context : CategoryContext) : TermElabM Wire := do
+  discard <| framingContext (some context) wire.categoryContext
+  CategoryContext.checkObject context wire.value
+  return { wire with categoryContext := some context }
 
 /-- Construct the identity using the already selected full category dictionary.
 Its object or Hom carrier never selects a new typeclass instance. -/
@@ -1518,6 +1596,63 @@ def contextualMorphismEndpoints (context : CategoryContext) (value : Expr) :
   CategoryContext.checkMorphism context value source target
   return (source, target)
 
+/-- Only an exact existing descriptor may acquire its supplied finite inventory.
+The descriptor's original occurrence and suppliers remain fixed; an inventory
+already present in that occurrence cannot be replaced or discarded. -/
+def checkInventoryEndpointData (original actual : DataOwnership.Data) : TermElabM Unit := do
+  if actual == original then return
+  if (original.json.getObjValAs? String "ctor").toOption == some "finiteData" then
+    throwStratum .malformed "the inventory view changes an already retained inventory"
+  let .ok ("finiteData", #[_, _]) := ComputationalData.envelope actual.json
+    | throwStratum .malformed "the inventory view changes an actual endpoint or its supplier"
+  let descriptor ← checkedFragment (actual.project #[.field "args", .index 0])
+  unless descriptor == original do
+    throwStratum .malformed "the inventory view changes its retained descriptor or supplier"
+
+/-- Reframe only transparent callable envelopes, at their producer-selected
+positions. The remaining whole callable body is a projection of the exact typed
+original. A newly observed child can have another transparent wrapper depth. -/
+partial def inventoryMapBodyTemplate (original oldSource oldTarget source target : Wire)
+    (data : DataOwnership.Data) (path : DataOwnership.Path := #[])
+    (framed : Bool := false) : TermElabM ActionDataTemplate := do
+  match ComputationalData.envelope data.json with
+  | .ok ("valueData", #[_]) =>
+      let childPath := #[DataOwnership.Step.field "args", .index 0]
+      let child ← checkedFragment (data.project childPath)
+      return .ctor "valueData" #[← inventoryMapBodyTemplate original oldSource oldTarget
+        source target child (path ++ childPath) framed]
+  | .ok ("typedMap", #[_, _, _]) =>
+      let actualSource ← checkedFragment (data.project #[.field "args", .index 0])
+      let actualTarget ← checkedFragment (data.project #[.field "args", .index 1])
+      unless (actualSource == oldSource.fragment || actualSource == source.fragment) &&
+          (actualTarget == oldTarget.fragment || actualTarget == target.fragment) do
+        throwStratum .malformed "the inventory frame changed a nested endpoint occurrence or supplier"
+      let childPath := #[DataOwnership.Step.field "args", .index 2]
+      let child ← checkedFragment (data.project childPath)
+      return .ctor "typedMap" #[.wire .retained source, .wire .retained target,
+        ← inventoryMapBodyTemplate original oldSource oldTarget source target
+          child (path ++ childPath) true]
+  | _ =>
+      let body := ActionDataTemplate.project path (.retained (.wire .map original))
+      return if framed then body else
+        .ctor "typedMap" #[.wire .retained source, .wire .retained target, body]
+
+/-- Expand the current inventory view without observing data. Its typed map
+receipt supplies both original endpoint occurrences; no formal cache or equality
+search chooses them. The selected new endpoints change only finite framing. -/
+def inventoryMapFrameTemplate (context : CategoryContext) (source target original : Wire) :
+    TermElabM ActionDataTemplate := do
+  let some (oldSource, oldTarget) ← retainedCallableEndpoints? original context
+    | throwError "the inventory view lost its original complete callable endpoints"
+  CategoryContext.checkMorphism context original.value source.value target.value
+  for (expected, actual) in #[(oldSource, source), (oldTarget, target)] do
+    discard <| framingContext (some context) actual.categoryContext
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq expected.value actual.value) do
+      throwError "the inventory frame changed a fixed formal endpoint"
+    checkInventoryEndpointData expected.fragment actual.fragment
+  inventoryMapBodyTemplate original oldSource oldTarget source target original.fragment
+
 /-- Render only producer-declared slots. The observation callback cannot change
 any slot's independently fixed formal value or complete category dictionary. -/
 partial def renderActionDataWith
@@ -1566,6 +1701,15 @@ partial def renderActionDataWith
       let some selected := point.pointDataInterface
         | throwError "the point conversion lost its independently selected data interface"
       return (← pointCallableFragment point source target selected, #[point])
+  | .inventoryMap context source target original =>
+      let actual ← observe .map original
+      unless ← withoutModifyingState (withTransparency .all <|
+          isDefEq (← inferType actual.value) (← inferType original.value) <&&>
+            isDefEq actual.value original.value) do
+        throwError "the inventory view changed its original complete callable"
+      discard <| framingContext (some context) actual.categoryContext
+      let template ← inventoryMapFrameTemplate context source target actual
+      renderActionDataWith (fun _ wire => pure wire) template
 
 def renderCapturedActionData (template : ActionDataTemplate) :
     TermElabM (DataOwnership.Data × Array Wire) :=
@@ -1576,6 +1720,7 @@ partial def actionTemplateInputs (template : ActionDataTemplate) : Array Wire :=
   | .literal _ => #[]
   | .wire _ input => #[input]
   | .pointCallable _ _ _ input => #[input]
+  | .inventoryMap _ source target original => #[original, source, target]
   | .retained child | .logical child | .project _ child => actionTemplateInputs child
   | .object fields => fields.flatMap (fun (_, child) => actionTemplateInputs child)
   | .ctor _ children | .array children => children.flatMap actionTemplateInputs
@@ -1604,6 +1749,8 @@ partial def mapActionTemplateWires
   | .logical child => return .logical (← mapActionTemplateWires observe child)
   | .pointCallable context source target point =>
       return .pointCallable context source target (← observe .map point)
+  | .inventoryMap context source target original =>
+      return .inventoryMap context source target (← observe .map original)
 
 def checkIntrinsicResultInterface (wire : Wire) (result : IntrinsicResultInterface) :
     TermElabM Unit := do
@@ -1793,6 +1940,17 @@ def forwardCapturedInvocation (source : Wire) (formal : Expr) : Option CapturedI
       (source.value == captured.interface.formal && source.fragment == captured.interface.fragment) do none
   return { captured with interface := captured.interface.reanchor formal }
 
+/-- Only the current complete named producer can be forwarded or refreshed.
+A copied historical comparison does not authorize a different value or packet,
+even when the mathematical expressions happen to be definitionally equal. -/
+def currentNamedRefinementOrigin? (wire : Wire) : TermElabM (Option NamedRefinementOrigin) := do
+  let some presentation := wire.endpointPresentation | return none
+  let some origin := presentation.namedRefinement | return none
+  unless origin.formal == wire.value && origin.fragment == wire.fragment &&
+      origin.comparison == presentation.comparison do
+    throwStratum .unavailable "historical named representation data cannot refresh another occurrence"
+  return some origin
+
 def forwardRetainedValue (source : Wire) (formal : Expr) : TermElabM Wire := do
   if source.value == formal then return source
   unless ← withoutModifyingState (withTransparency .all <|
@@ -1801,6 +1959,10 @@ def forwardRetainedValue (source : Wire) (formal : Expr) : TermElabM Wire := do
     throwError "the retained data alias changed its complete mathematical value"
   let mut result := { source with
     capturedInvocation := forwardCapturedInvocation source formal, payload := forwardPayload source formal source.json }
+  if let some origin ← currentNamedRefinementOrigin? source then
+    let some presentation := source.endpointPresentation | unreachable!
+    result := { result with endpointPresentation := some { presentation with
+      namedRefinement := some { origin with formal } } }
   if let some framing := source.morphismFraming then
     -- The old frame belongs to its exact original input. Keep that whole
     -- occurrence as a typed child rather than rewriting its historical anchor
@@ -1834,6 +1996,84 @@ def forwardRetainedValue (source : Wire) (formal : Expr) : TermElabM Wire := do
     if (← retainedCallableEndpoints? source endpoints.context).isSome then
       result := { result with callableEndpoints := some { endpoints with formal } }
   return result
+
+/-- Capture complete callable data without observing it. A closed point is
+converted before whole-map framing. Arrow fields can preserve their existing
+framed bytes; public callable slots additionally expose the typedMap envelope.
+The exact child and both endpoint occurrences remain available in either case. -/
+def captureCompleteCallableWith
+    (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
+    (input : Wire) (context : CategoryContext)
+    (endpoints : Option (Wire × Wire) := none) (publicFrame : Bool := true) :
+    TermElabM Wire := do
+  let selected ← readEndpoints input context
+  let (source, target) ← match endpoints with
+    | some endpoints =>
+      unless sameCompleteWireContext endpoints.1 selected.1 &&
+          sameCompleteWireContext endpoints.2 selected.2 do
+        throwStratum .unavailable
+          "an explicit callable frame cannot replace its retained endpoint occurrences"
+      pure selected
+    | none => pure selected
+  CategoryContext.checkMorphism context input.value source.value target.value
+  if let some selected := input.pointDataInterface then
+    unless source.fragment == selected.domainData && target.fragment == selected.targetData do
+      throwStratum .unavailable "the point conversion changed its exact retained endpoint packets"
+    let data ← pointCallableFragment input source.value target.value selected
+    let completed := input.actualData || input.callableObserved
+    let result := { input with
+      payload := (← if completed then scopedPayload input.value data else recipePayload input.value data)
+      pointDataInterface := none, morphismFramed := true, morphismFraming := none
+      objectObserved := false, callableObserved := completed
+      actionRecipe := none, intrinsicAssembly := none, callableEndpoints := none }
+    let result ← if completed then pure result else
+      retainIntrinsicAssembly result .map context
+        (.pointCallable context source.value target.value input)
+    return ← retainCallableEndpoints result source target context
+  let presented ← presentMorphism input source target (some context)
+  let presented ← retainCallableEndpoints presented source target context
+  if !publicFrame then return presented
+  let some data := ComputationalData.recordPayload? presented.fragment
+    | throwStratum .malformed "the complete callable lost its transparent data envelope"
+  if (Backend.TypedMap.decode data.json).isOk then
+    let actualSource ← checkedFragment (data.project #[.field "args", .index 0])
+    let actualTarget ← checkedFragment (data.project #[.field "args", .index 1])
+    unless actualSource == source.fragment && actualTarget == target.fragment do
+      throwStratum .malformed "the complete callable changed its retained endpoint occurrences"
+    return presented
+  let template : ActionDataTemplate := .ctor "typedMap"
+    #[.wire .object source, .wire .object target, .wire .map presented]
+  let (data, dependencies) ← renderCapturedActionData template
+  let result := { presented with
+    payload := (← combinedRecipePayload input.value data dependencies)
+    morphismFraming := none, actionRecipe := none, intrinsicAssembly := none
+    callableEndpoints := none, pointDataInterface := none }
+  let result ← retainIntrinsicAssembly result .map context template
+    #[{ context, source, target, callable := presented }]
+  retainCallableEndpoints result source target context
+
+/-- Give a complete callable a transparent inventory frame at already selected
+endpoints. The ordinary framing owner converts any point or pending presentation
+first. Later observation refreshes this view from that exact whole child. -/
+def captureInventoryMapEndpoints (context : CategoryContext) (original source target : Wire) :
+    TermElabM Wire := do
+  let read := fun (wire : Wire) (selected : CategoryContext) => do
+    let some endpoints ← retainedCallableEndpoints? wire selected
+      | throwError "the inventory frame lost its original typed callable receipt"
+    return endpoints
+  let original ← captureCompleteCallableWith read original context
+  let template := ActionDataTemplate.inventoryMap context source target original
+  let (data, dependencies) ← renderCapturedActionData template
+  let result : Wire := {
+    form := original.form,
+    payload := (← if original.completedData then scopedPayload original.value data
+      else recipePayload original.value data),
+    categoryContext := some context, morphismFramed := true,
+    callableObserved := original.callableObserved,
+    serviceHandles := dependencies.flatMap (·.serviceHandles) }
+  let result ← retainIntrinsicAssembly result .map context template
+    (endpointRoles := (.retained, .retained))
+  retainCallableEndpoints result source target context
 
 structure BackendSession where
   identity : Nat
@@ -2642,8 +2882,9 @@ def completeNamedObjectPresentations (value : Expr) :
   let value ← instantiateMVars value
   unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return #[]
   let state ← registryState
-  let mut selected := value.consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let mut selected := Trace.unanchor value.consumeMData
+  while selected.isAppOfArity ``id 2 do
+    selected := Trace.unanchor selected.appArg!.consumeMData
   let direct := state.objects.filter fun entry =>
     selected.getAppFn.constName? == some entry.declaration
   let sources ← IO.mkRef (#[] : Array Expr)
@@ -2722,8 +2963,9 @@ def completeNamedCategoryPresentations (value : Expr) :
   let categoryType ← mkConstWithFreshMVarLevels ``CategoryTheory.Cat
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq (← inferType value) categoryType) do return #[]
-  let mut selected := value.consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let mut selected := Trace.unanchor value.consumeMData
+  while selected.isAppOfArity ``id 2 do
+    selected := Trace.unanchor selected.appArg!.consumeMData
   let direct := state.categories.filter fun entry =>
     selected.getAppFn.constName? == some entry.declaration
   let mut candidates := #[]
@@ -2748,7 +2990,7 @@ against the accepted core constructor, never from the object's carrier alone. -/
 def recordConstructionCoreSource (trace : Trace) (action : DirectConstruction.Action)
     (receiver : Expr) : TermElabM Unit := do
   if (← trace.node? receiver).isSome then return
-  let literal := receiver.consumeMData
+  let literal := Trace.unanchor receiver.consumeMData
   unless literal.isAppOf ``CategoryTheory.Core.mk do return
   let state ← registryState
   let #[constructor] := state.constructors.filter (·.semantics == `CasCatalogue.Constructors.core)
@@ -2781,9 +3023,9 @@ def completeLiteralConstruction? (value : Expr) : TermElabM (Option DirectConstr
   let some (functor, receiver) := FunctorActionData.objectAction? value | return none
   unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
   let state ← registryState
-  let mut literal := functor.consumeMData
+  let mut literal := Trace.unanchor functor.consumeMData
   while literal.isAppOfArity ``id 2 || literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor do
-    literal := literal.appArg!.consumeMData
+    literal := Trace.unanchor literal.appArg!.consumeMData
   let direct := state.constructions.filter fun entry =>
     literal.getAppFn.constName? == some entry.declaration
   let mut candidates : Array DirectConstruction.Action := #[]
@@ -3771,6 +4013,24 @@ def retainedActionEndpoint? (original : Wire) (context : Option CategoryContext)
   return some (← retainMappedEndpointPresentation recipe.owner recipe.application
     endpoint output recipe.descriptor)
 
+/-- A mapped callable owns its two image occurrences from capture onward.
+Endpoint views and the map executor read these same typed inputs, including
+their original parameters and presentations; neither recreates an image from
+an equal formal expression when another consumer asks for it. -/
+def retainActionImageEndpoints (wire : Wire) : TermElabM Wire := do
+  let some recipe := wire.actionRecipe
+    | throwError "the mapped callable has no retained action producer"
+  unless recipe.morphism do
+    throwError "an object action cannot own mapped callable endpoints"
+  checkActionRecipe wire recipe
+  let (source, target) ← contextualMorphismEndpoints recipe.target wire.value
+  let some source ← retainedActionEndpoint? wire (some recipe.target) source true
+    | throwError "the mapped callable lost its selected source image"
+  let some target ← retainedActionEndpoint? wire (some recipe.target) target false
+    | throwError "the mapped callable lost its selected target image"
+  let result := { wire with actionRecipe := some { recipe with imageEndpoints := some (source, target) } }
+  retainCallableEndpoints result source target recipe.target
+
 def encodeAction (trace : Trace) (encoder? : Option ScopedActionEncoder)
     (step : EdgeRef) (action : Expr) : TermElabM (DataOwnership.Data × Array Wire) := do
   match encoder? with
@@ -3848,6 +4108,114 @@ def transportImage (trace : Trace) (w : Wire) (route : Array EdgeRef)
     expression := edge.target
   return result
 
+/-- A named constructor keeps the declaration's ordered parameter occurrences.
+The fallback is only its exact public literal encoding; a different producer's
+packet or an expression-equal parameter cannot supply a replacement occurrence. -/
+def namedObjectParameterTemplates (wire : Wire) (entry : ObjectEntry)
+    (parameters : Array Expr) : TermElabM (Array ActionDataTemplate) := do
+  let fixed ← DirectConstruction.dataArguments parameters
+  if let some assembly ← currentIntrinsicAssembly? wire then
+    if let .ctor tag fields := actionTemplateExecution assembly.template then
+      if tag == entry.id.raw then
+        unless fields.size == fixed.size do
+          throwError "the named constructor changed its ordered declaration parameter count"
+        return fields
+  let .ok (tag, fields) := ComputationalData.envelope wire.json
+    | throwStratum .noImplementation "the named constructor has no retained public parameter interface"
+  unless tag == entry.id.raw && fields.size == fixed.size do
+    throwStratum .noImplementation "the named constructor has a different complete parameter interface"
+  fixed.mapIdxM fun index _ => do
+    return .literal (← checkedFragment (wire.fragment.project #[.field "args", .index index]))
+
+/-- The accepted refinement supplies a representation of the interpreted image,
+not a replacement mathematical object. Its two public callable directions keep
+the exact image and named-base occurrences and remain pending until consumed. -/
+def retainNamedRefinementPresentation (trace : Trace) (entry target : ObjectEntry)
+    (parameters : Array Expr) (templates : Array ActionDataTemplate)
+    (identification : Expr) (image : Wire) : TermElabM Wire := do
+  let some refinement := entry.refines
+    | throwError "the named representation has no accepted refinement declaration"
+  unless refinement.base == target.id do
+    throwError "the named representation changed its accepted base row"
+  let accepted ← ObjectPresentation.applyParameters refinement.identification parameters
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType identification) (← inferType accepted) <&&>
+        isDefEq identification accepted) do
+    throwError "the named representation changed its accepted comparison application"
+  let context ← match image.categoryContext with
+    | some context => pure context
+    | none =>
+      let some category := (← registryState).categories.find? (·.id == target.category)
+        | throwError "the named refinement lost its complete target category"
+      CategoryContext.ofNamed category image.value
+  let actualValue ← objectAt trace target parameters
+  CategoryContext.checkObject context image.value
+  CategoryContext.checkObject context actualValue
+  let retained ← image.endpointPresentation.mapM (endpointPresentationMaps image context)
+  let initial ← match retained with
+    | none => pure image
+    | some (forward, _) => do
+      let some (_, actual) ← retainedCallableEndpoints? forward context
+        | throwError "the named refinement lost its preceding actual image occurrence"
+      pure actual
+  let expected ← mkAppM ``CategoryTheory.Iso #[initial.value, actualValue]
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType identification) expected) do
+    throwError "the accepted named refinement changed its complete image or base object"
+  let identification ← instantiateMVars identification
+  if identification.hasMVar || identification.hasLevelMVar || identification.hasFVar ||
+      identification.hasLooseBVars then
+    throwError "the accepted named refinement has unresolved complete parameters"
+  let template := ActionDataTemplate.ctor target.id.raw templates
+  let (data, parameterInputs) ← renderCapturedActionData template
+  let actual : Wire := {
+    form := .object target, payload := (← combinedRecipePayload actualValue data parameterInputs),
+    categoryContext := some context, serviceHandles := image.serviceHandles }
+  let actual ← retainIntrinsicAssembly actual .object context template
+  let field := fun (selector : String) (formal : Expr) (source target : Wire) => do
+    let template := ActionDataTemplate.ctor "objectField"
+      #[.literal { json := toJson entry.id.raw }, .literal { json := toJson selector },
+        .array templates]
+    let (data, inputs) ← renderCapturedActionData template
+    let wire : Wire := {
+      form := contextualForm (← registryState) context source.form true,
+      payload := (← combinedRecipePayload formal data inputs),
+      categoryContext := some context, morphismFramed := true,
+      serviceHandles := source.serviceHandles ++ target.serviceHandles }
+    let wire ← retainIntrinsicAssembly wire .map context template #[] #[]
+      (.retained, .retained)
+    retainCallableEndpoints wire source target context
+  let mut comparison := identification
+  let mut forward ← field "refinement" (← mkAppM ``CategoryTheory.Iso.hom #[identification])
+    initial actual
+  let mut backward ← field "inverseRefinement" (← mkAppM ``CategoryTheory.Iso.inv #[identification])
+    actual initial
+  if let some (previousForward, previousBackward) := retained then
+    let some previous := image.endpointPresentation | unreachable!
+    comparison ← mkAppM ``CategoryTheory.Iso.trans #[previous.comparison, identification]
+    forward ← composeEndpointMaps context previousForward forward
+    backward ← composeEndpointMaps context backward previousBackward
+  let result : Wire := {
+    form := .object target, payload := forwardPayload actual image.value actual.json,
+    categoryContext := some context, serviceHandles := image.serviceHandles ++ actual.serviceHandles,
+    presentationIsos := image.presentationIsos.push identification }
+  let result ← retainIntrinsicAssembly result .object context (.wire .object actual)
+  retainEndpointPresentationMaps result context comparison forward backward
+
+def retainNamedRefinementOrigin (wire source : Wire) (entry target : ObjectEntry)
+    (parameters : Array Expr) (templates : Array ActionDataTemplate)
+    (route : Array EdgeRef) (applications : Array Expr)
+    (descriptors : Array ActionDataTemplate) (identification : Expr) : TermElabM Wire := do
+  let some presentation := wire.endpointPresentation
+    | throwError "the named representation lost its complete comparison occurrences"
+  unless !route.isEmpty && route.size == applications.size && route.size == descriptors.size do
+    throwError "the named representation lost its original complete action positions"
+  let origin : NamedRefinementOrigin := {
+    formal := wire.value, fragment := wire.fragment, comparison := presentation.comparison,
+    entry := entry.id, target := target.id, parameters, templates, source,
+    route, applications, descriptors, identification }
+  return { wire with endpointPresentation := some { presentation with namedRefinement := some origin } }
+
 partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef)
     (encoder? : Option ScopedActionEncoder := none)
     (capture? : Option CapturedActionEncoder := none)
@@ -3855,133 +4223,138 @@ partial def transport (trace : Trace) (w : Wire) (route : Array EdgeRef)
   if let some retained := applications then
     unless retained.size == route.size do
       throwError "the retained presentation route lost its complete ordered applications"
+  if route.isEmpty then return w
   if w.form.namedCategory?.isNone then return ← transportImage trace w route applications encoder? capture?
-  if w.owner?.isSome || (match w.payload with | .computed .. | .construction .. => true | _ => false) then
+  if w.actualData || w.objectObserved || w.capturedInvocation.isSome || w.actionRecipe.isSome then
     return ← transportImage trace w route applications encoder? capture?
   if w.objectIso.isSome then return ← transportImage trace w route applications encoder? capture?
   let state ← registryState
-  if let .arrow category := w.form then
-    -- Runtime actions preserve every original endpoint and selected parameter;
-    -- the legacy named-arrow optimization is only a metadata presentation path.
-    if encoder?.isSome || capture?.isSome || applications.isSome then return ← transportImage trace w route applications encoder? capture?
-    unless route.all (fun step => match step with
-      | .constructMap constructor (.functor _) =>
-          (state.constructors.find? (·.id == constructor)).any
-            (·.semantics == `CasCatalogue.Constructors.arrow)
-      | _ => false) do
-      return ← transportImage trace w route applications encoder? capture?
-    let some (.arrow _ hom source target) ← (trace.node? w.value : IO _)
-      | return ← transportImage trace w route applications encoder? capture?
-    let .ok wireArgs := (w.json.getObjVal? "args").bind (·.getArr?)
-      | throwError "the recorded arrow has no complete wire fields"
-    unless wireArgs.size == 3 do throwError "the recorded arrow has incomplete wire fields"
-    let mut result := w
-    let mut currentSource := source
-    let mut currentTarget := target
-    let mut currentHom := hom
-    for step in route do
-      let .ok wireArgs := (result.json.getObjVal? "args").bind (·.getArr?)
-        | throwError "the transported arrow lost its complete wire fields"
-      let .constructMap constructor (.functor id) := step
-        | throwStratum .noImplementation m!"the arrow route {step.label} has no registered wire action"
-      unless (state.constructors.find? (·.id == constructor)).any
-          (·.semantics == `CasCatalogue.Constructors.arrow) do
-        throwError "the recorded arrow route uses a different constructor"
-      let some functor := state.functor? id | unreachable!
-      let some targetCategory := state.categories.find? (·.expression.syntacticEq
-          (.construct constructor #[.category functor.target]))
-        | throwError "the target arrow category has no named declaration"
-      let endpoint := fun value json => do
-        let some (.object id _) ← (trace.node? value : IO _)
-          | throwStratum .noImplementation m!"an arrow endpoint has no registered object presentation"
-        let some entry := state.objects.find? (·.id == id) | unreachable!
-        transport trace { form := .object entry, payload := .ordinary (value) (json) } #[.functor functor.id]
-      let sourceWire ← endpoint currentSource wireArgs[0]!
-      let targetWire ← endpoint currentTarget wireArgs[1]!
-      let U ← Semantic.edgeFunctor state (.functor id)
-      let sourceImage ← Semantic.objOf U currentSource
-      let targetImage ← Semantic.objOf U currentTarget
-      currentHom ← Semantic.mapOf U currentHom
-      currentSource := sourceWire.value
-      currentTarget := targetWire.value
-      let mut mapped := Json.mkObj [("ctor", "map"), ("args", Json.arr #[
-        (← edgeDescriptor trace (.functor id) U), wireArgs[2]!])]
-      let identificationMap := fun wire image inverse => do
-        let some iso := wire.presentationIsos.back?
-          | throwStratum .noImplementation m!"the arrow endpoint lacks an accepted presentation identification"
-        let identificationArrow ← mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[iso]
-        let endpoints ← mkAppM ``Quiver.Hom #[image, wire.value]
-        let hom ← mkAppM ``CategoryTheory.Iso.hom #[iso]
-        unless ← isDefEq (← inferType hom) endpoints do
-          throwError "the retained endpoint identification has incompatible endpoints"
-        match ← Codec.encode identificationArrow with
-        | .ok json => pure (identificationArrow, json)
-        | .error message => throwStratum .noImplementation m!"the accepted endpoint identification has no data encoding: {message}"
-      unless ← isDefEq sourceImage sourceWire.value do
-        let (identificationArrow, json) ← identificationMap sourceWire sourceImage true
-        currentHom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[identificationArrow, currentHom]
-        mapped := Json.mkObj [("ctor", "compose"), ("args", Json.arr #[json, mapped])]
-      unless ← isDefEq targetImage targetWire.value do
-        let (identificationArrow, json) ← identificationMap targetWire targetImage false
-        currentHom ← mkAppM ``CategoryTheory.CategoryStruct.comp #[currentHom, identificationArrow]
-        mapped := Json.mkObj [("ctor", "compose"), ("args", Json.arr #[mapped, json])]
-      let value ← mkAppM ``CategoryTheory.Arrow.mk #[currentHom]
-      Trace.record (some trace) value (.arrow targetCategory.id currentHom currentSource currentTarget)
-      result := { result with form := .arrow targetCategory, presentationIsos := sourceWire.presentationIsos ++ targetWire.presentationIsos, payload := .ordinary (value) (Json.mkObj [("ctor", "arrow"), ("args", Json.arr #[sourceWire.json,targetWire.json,mapped])]) }
-    return result
+  if let .arrow _ := w.form then
+    return ← transportImage trace w route applications encoder? capture?
   let .object entry := w.form | transportImage trace w route applications encoder? capture?
-  let some (.object _ params) ← (trace.node? w.value : IO _)
+  let represented ← match w.endpointPresentation with
+    | none => pure w
+    | some presentation => do
+      let context ← match w.categoryContext with
+        | some context => pure context
+        | none =>
+          let some category := state.categories.find? (·.id == entry.category)
+            | throwError "the represented named source lost its complete category"
+          CategoryContext.ofNamed category w.value
+      let (forward, _) ← endpointPresentationMaps w context presentation
+      let some (_, actual) ← retainedCallableEndpoints? forward context
+        | throwError "the named source lost its selected actual endpoint"
+      pure actual
+  let some (.object id params) ← (trace.node? represented.value : IO _)
     | return ← transportImage trace w route applications encoder? capture?
+  unless id == entry.id do
+    return ← transportImage trace w route applications encoder? capture?
+  let .ok (tag, _) := ComputationalData.envelope represented.json
+    | return ← transportImage trace w route applications encoder? capture?
+  unless tag == entry.id.raw do
+    return ← transportImage trace w route applications encoder? capture?
+  let templates ← namedObjectParameterTemplates represented entry params
+  let selected ← match applications with
+    | some selected => pure selected
+    | none => route.mapM (Semantic.edgeFunctor state)
   let mut current := entry
   let mut remaining := route
-  let mut value := w.value
-  let mut identifications := w.presentationIsos
+  let mut result := w
   for _ in [:state.objects.size + 1] do
     let some refinement := current.refines | break
     unless !refinement.route.isEmpty &&
         remaining.extract 0 refinement.route.size == refinement.route do break
     let some target := state.objects.find? (·.id == refinement.base)
       | throwError "the accepted refinement has no target object"
-    let next ← objectAt trace target params
-    let identification ← elabTermAndSynthesize
-      (← `($(mkCIdent refinement.identification) $(← params.mapM exprToSyntax)*)) none
-    let mut image := value
     let offset := route.size - remaining.size
-    for index in [:refinement.route.size] do
-      let action ← match applications with
-        | some retained => pure retained[offset + index]!
-        | none => Semantic.edgeFunctor state refinement.route[index]!
-      image ← Semantic.objOf action image
-    let expected ← mkAppM ``CategoryTheory.Iso #[image, next]
-    unless ← isDefEq (← inferType identification) expected do
-      throwError "the accepted presentation identification has incompatible endpoints"
-    let identification ← instantiateMVars identification
-    if identification.hasMVar || identification.hasLevelMVar then
-      throwError "the accepted presentation identification is not closed"
-    identifications := identifications.push identification
+    let applications := selected.extract offset (offset + refinement.route.size)
+    let descriptors ← IO.mkRef (#[] : Array ActionDataTemplate)
+    let capture : CapturedActionEncoder := fun edge application => do
+      let descriptor ← match capture? with
+        | some capture => capture edge application
+        | none => pure (.literal (← encodeAction trace encoder? edge application).1)
+      descriptors.modify (·.push descriptor)
+      return descriptor
+    let image ← transportImage trace result refinement.route
+      (some applications) none (some capture)
+    let identification ← ObjectPresentation.applyParameters refinement.identification params
+    let presented ← retainNamedRefinementPresentation trace current target params templates identification image
+    result ← retainNamedRefinementOrigin presented result current target params templates
+      refinement.route applications (← descriptors.get) identification
     current := target
-    value := next
     remaining := remaining.extract refinement.route.size remaining.size
-  if current.id == entry.id then return ← transportImage trace w remaining applications encoder? capture?
-  let context : Option CategoryContext ← match w.categoryContext with
-    | none => pure none
-    | some source => do
-        let some expression := state.formExpression? w.form
-          | throwError "the named presentation source lost its accepted category"
-        unless source.expression.syntacticEq expression do
-          throwError "the named presentation source has a different retained category"
-        CategoryContext.checkObject source w.value
-        let some category := state.categories.find? (·.id == current.category)
-          | throwError "the named presentation target category is not registered"
-        pure (some (← CategoryContext.ofNamed category value))
-  let args := (w.json.getObjVal? "args").toOption.getD (Json.arr #[])
-  let refined := { w with
-    form := .object current, presentationIsos := identifications,
-    categoryContext := context, actionRecipe := none,
-    payload := .ordinary value (Json.mkObj [("ctor", current.id.raw), ("args", args)]) }
-  transportImage trace refined remaining
-    (applications.map (fun selected => selected.extract (route.size - remaining.size) route.size))
+  transportImage trace result remaining
+    (some (selected.extract (route.size - remaining.size) route.size))
     encoder? capture?
+
+/-- Actual and private observation refresh the same retained named producer.
+Only original constructor parameter occurrences are observed. The semantic
+image and comparison maps are captured again at those exact inputs, not run. -/
+def materializeNamedRefinementWith
+    (observe : ActionDataRole → Wire → TermElabM Wire) (trace : Trace)
+    (wire : Wire) (origin : NamedRefinementOrigin) : TermElabM Wire := do
+  let some presentation := wire.endpointPresentation
+    | throwStratum .unavailable "the named representation lost its anchored comparison"
+  let current ← currentNamedRefinementOrigin? wire
+  unless sameNamedRefinementOrigin current (some origin) do
+    throwStratum .unavailable "historical named representation data cannot refresh another occurrence"
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType origin.formal) (← inferType wire.value) <&&>
+        isDefEq origin.formal wire.value) do
+    throwStratum .unavailable "the named representation changed its complete semantic value"
+  let state ← registryState
+  let some entry := state.objects.find? (·.id == origin.entry)
+    | throwError "the named representation lost its accepted source row"
+  let some target := state.objects.find? (·.id == origin.target)
+    | throwError "the named representation lost its accepted base row"
+  let some refinement := entry.refines
+    | throwError "the named representation lost its accepted refinement"
+  unless refinement.base == target.id && refinement.route == origin.route &&
+      origin.route.size == origin.applications.size && origin.route.size == origin.descriptors.size do
+    throwError "the named representation changed its original complete route"
+  let source ← observe .object origin.source
+  let source ← forwardRetainedValue source origin.source.value
+  let templates ← origin.templates.mapM (mapActionTemplateWires observe)
+  if sameCompleteWireContext source origin.source &&
+      templates.size == origin.templates.size &&
+      (templates.zip origin.templates).all (fun (a, b) => sameActionTemplate a b) then
+    return wire
+  let (arguments, _) ← renderCapturedActionData (.array templates)
+  let represented ← match source.endpointPresentation with
+    | none => pure source
+    | some selected => do
+      let some context := source.categoryContext
+        | throwError "the named representation source lost its complete category"
+      let (forward, _) ← endpointPresentationMaps source context selected
+      let some (_, target) ← retainedCallableEndpoints? forward context
+        | throwError "the named representation source lost its selected actual endpoint"
+      pure target
+  let actualArguments ← checkedFragment (represented.fragment.project #[.field "args"])
+  unless actualArguments == arguments do
+    throwStratum .unavailable "the named representation changed an original positioned parameter supplier"
+  let next ← IO.mkRef 0
+  let capture : CapturedActionEncoder := fun edge application => do
+    let index ← next.get
+    let some expectedEdge := origin.route[index]?
+      | throwError "the named representation added a route action"
+    let some expected := origin.applications[index]?
+      | throwError "the named representation omitted a complete action application"
+    unless edge == expectedEdge && (← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType application) (← inferType expected) <&&>
+          isDefEq application expected)) do
+      throwError "the named representation changed an exact retained action position"
+    let some descriptor := origin.descriptors[index]?
+      | throwError "the named representation omitted a positioned action descriptor"
+    next.set (index + 1)
+    return descriptor
+  let image ← transportImage trace source origin.route (some origin.applications) none (some capture)
+  unless (← next.get) == origin.route.size do
+    throwError "the named representation omitted a retained semantic image action"
+  let result ← retainNamedRefinementPresentation trace entry target origin.parameters templates
+    origin.identification image
+  let result ← retainNamedRefinementOrigin result source entry target origin.parameters templates
+    origin.route origin.applications origin.descriptors origin.identification
+  forwardRetainedValue result wire.value
 
 /-- Consume exact checked proof-refinement and named-presentation prefixes while
 retaining the complete residual route. A later category-wide operation can then
@@ -4006,7 +4379,7 @@ partial def canonicalOperationInput (trace : Trace) (wire : Wire) (route : Array
           (applications.map (fun selected => selected.extract 1 selected.size))
       return (wire, route)
   | .object entry =>
-      if applications.isSome && (wire.actualData || wire.objectIso.isSome ||
+      if applications.isSome && (wire.actualData || wire.objectObserved || wire.objectIso.isSome ||
           wire.capturedInvocation.isSome || wire.actionRecipe.isSome) then return (wire, route)
       let (_, remaining) := state.transport entry route
       let count := route.size - remaining.size
@@ -4064,14 +4437,14 @@ partial def decodeObject (trace : Trace) (j : Json) :
         xs.mapM (·.fvarId!.getBinderInfo)
       let params := (value.getAppArgs.zip infos).filterMap fun (arg, info) =>
         if info.isExplicit then some arg else none
-      Trace.record (some trace) value (.object entry.id params)
+      let value ← Trace.recordProduced (some trace) value (.object entry.id params)
       return .ok (entry, value)
 
 /-- Recover ordered application arguments beneath elaborator type hints. -/
 def actualApplicationArguments (application : Expr) : Array Expr := Id.run do
-  let mut application := application.consumeMData
+  let mut application := Trace.unanchor application.consumeMData
   while application.isAppOfArity ``id 2 do
-    application := application.appArg!.consumeMData
+    application := Trace.unanchor application.appArg!.consumeMData
   return application.getAppArgs
 
 mutual
@@ -4132,7 +4505,7 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
       | .error message => return .error message
       | .ok (value, _) =>
         if let some entry := state.morphisms.find? (·.id.raw == address) then
-          Semantic.namedMorphism entry value (some trace)
+          let value ← Semantic.namedMorphismProduced entry value (some trace)
           return .ok (value, some (.namedMorphism entry))
         return .ok (value, some (.canonicalMorphism category))
     if let some entry := state.inclusions.find? (·.id.raw == address) then
@@ -4221,7 +4594,7 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
       match ← decodeDeclaration entry.declaration type args (decodeValue trace category) with
       | .error message => return .error message
       | .ok (value, fields) =>
-          Semantic.namedMorphism entry value (some trace)
+          let value ← Semantic.namedMorphismProduced entry value (some trace)
           return .ok (value, some (.namedMorphism entry))
   if (← whnfR type).isAppOf ``Quiver.Hom then
     let some form := state.graphLiterals.find? (·.category == category.id)
@@ -4238,8 +4611,9 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
     return ← match ← decodeFamily form.denotation type #[j] fun t j' => do
         return (← Codec.decode t j').map (·, none) with
       | .ok (hom, fields) => do
-          if let some (graph, _) := fields[0]? then
-            Trace.record (some trace) hom (.literal form.id graph)
+          let hom ← if let some (graph, _) := fields[0]? then
+            Trace.recordProduced (some trace) hom (.literal form.id graph)
+            else pure hom
           pure (.ok (hom, some (.graph form)))
       | .error message => pure (.error s!"{j.compress} is not the graph of a morphism \
           {type}: {message}")
@@ -4255,7 +4629,7 @@ partial def decodeValue (trace : Trace) (category : NamedCategoryEntry) (type : 
       let value ← mkAppM form.denotation #[literal]
       unless ← isDefEq (← inferType value) type do
         return .error s!"{j.compress} is a literal of {form.id.raw}, not a {type}"
-      Trace.record (some trace) value (.literal form.id literal)
+      let value ← Trace.recordProduced (some trace) value (.literal form.id literal)
       return .ok (value, some (.literal form))
   return (← Codec.decode type j).map (·, none)
 
@@ -5189,16 +5563,35 @@ def liftOperand (formal : Expr) (context : CategoryContext) (origin : Form)
 /-- Endpoint positions are fixed before dispatch. A permitted inventory
 enrichment keeps its original descriptor and supplier; matching token bytes
 from another session cannot replace that exact endpoint occurrence. -/
-def liftEndpointOperand (expected : Wire) (context : CategoryContext)
+partial def liftEndpointOperand (expected : Wire) (context : CategoryContext)
     (data : DataOwnership.Data) : TermElabM Wire := do
   if data == expected.fragment then return expected
-  let .ok ("finiteData", #[_, _]) := ComputationalData.envelope data.json
-    | throwStratum .malformed "the lift map changed an actual endpoint or its supplier"
-  let descriptor ← checkedFragment (data.project #[.field "args", .index 0])
-  unless descriptor == expected.fragment do
-    throwStratum .malformed "the lift inventory changed its retained endpoint descriptor or supplier"
+  checkInventoryEndpointData expected.fragment data
+  let expected ← captureDeclaredObjectInput expected context
+  let inventory ← checkedFragment (data.project #[.field "args", .index 1])
   let value ← liftOperand expected.value context expected.form data false true
-  return { value with serviceHandles := expected.serviceHandles }
+  let value := { value with
+    objectIso := expected.objectIso, presentationIsos := expected.presentationIsos,
+    serviceHandles := expected.serviceHandles }
+  let value ← retainIntrinsicAssembly value .object context
+    (.ctor "finiteData" #[.retained (.wire .object expected), .literal inventory])
+  let some presentation := expected.endpointPresentation | return value
+  -- The new view owns its own comparison endpoints. Anchored named/result
+  -- producers remain on the complete original child, never on the new packet.
+  discard <| currentNamedRefinementOrigin? expected
+  let (forward, backward) ← endpointPresentationMaps expected context presentation
+  let some (semantic, actual) ← retainedCallableEndpoints? forward context
+    | throwError "the inventory view lost the forward comparison's complete endpoints"
+  let some (reverseActual, reverseSemantic) ← retainedCallableEndpoints? backward context
+    | throwError "the inventory view lost the backward comparison's complete endpoints"
+  unless sameCompleteWireContext semantic (← forwardRetainedValue reverseSemantic semantic.value) &&
+      sameCompleteWireContext actual (← forwardRetainedValue reverseActual actual.value) &&
+      actual.fragment == expected.fragment do
+    throwStratum .unavailable "the inventory view changed an original comparison endpoint occurrence"
+  let actual ← liftEndpointOperand actual context data
+  let forward ← captureInventoryMapEndpoints context forward semantic actual
+  let backward ← captureInventoryMapEndpoints context backward actual semantic
+  retainEndpointPresentationMaps value context presentation.comparison forward backward
 
 /-- The producer's complete endpoint receipt is shared by actual and private
 stage values. Reading it performs no dispatch and makes no new endpoint choice. -/
@@ -5230,9 +5623,10 @@ def observeLiftStageField (h : Harness) (input : LiftStageExecution.Input Wire)
   let operation := input.selection.entry.fieldAddress field.field
   let reply ← sendData h operation request
   let outputs := (field.preceding.map (·.json)).push reply.data.json
-  let comparisonImage? := if input.sourceImage?.isSome then field.comparisonImage?.map (·.json) else none
-  if let .error message ← LiftedSubobjectData.validateSelectionPrefix input.selection
-      input.action.json input.source.json input.base.json outputs comparisonImage? then
+  let comparison := LiftedSubobjectData.ComparisonImageRole.ofMetadata
+    input.sourceImage?.isSome (if input.sourceImage?.isSome then field.comparisonImage?.map (·.json) else none)
+  if let .error message ← LiftedSubobjectData.validateSelectionPrefixWith input.selection
+      input.action.json input.source.json input.base.json outputs comparison then
     malformed reply.backend operation reply.data.json message
   let output ← liftOperand field.formal field.context form reply.data (field.index != 0) true
   let output := { output with serviceHandles := request.serviceHandles,
@@ -5242,8 +5636,14 @@ def observeLiftStageField (h : Harness) (input : LiftStageExecution.Input Wire)
   | some (source, target) =>
       let sourceData ← checkedFragment (reply.data.project #[.field "args", .index 0])
       let targetData ← checkedFragment (reply.data.project #[.field "args", .index 1])
-      let source ← liftEndpointOperand source field.context sourceData
-      let target ← liftEndpointOperand target field.context targetData
+      let endpoint := fun (role : LiftStageExecution.EndpointRole Wire) (data : DataOwnership.Data) => do
+        match role with
+        | .retained expected => liftEndpointOperand expected field.context data
+        | .produced formal =>
+            let endpoint ← liftOperand formal field.context form data false true
+            return { endpoint with serviceHandles := request.serviceHandles }
+      let source ← endpoint source sourceData
+      let target ← endpoint target targetData
       retainCallableEndpoints output source target field.context
 
 /-- Exact source/base roles for a prescribed stage are supplied by its formal
@@ -5282,19 +5682,39 @@ def selectedLiftBaseOperand (plan : SelectedLift.Plan) (origin : Form)
 def retainLiftOperands (h : Harness) (wires : Array Wire) : IO (Array Nat) := do
   return wires.flatMap (·.serviceHandles) ++ (← retainServiceOperands h wires)
 
+/-- Retain the selected functor descriptor as a value with its original ordered
+parameter producers. A full functor value has no object category or object-action
+completion claim; its intrinsic template owns every positioned data dependency. -/
+def retainedLiftActionValue (selection : SelectedLift.Plan) (origin : Form)
+    (template : ActionDataTemplate) : TermElabM Wire := do
+  let state ← registryState
+  let inner ← SelectedLift.innerEdge state selection.entry
+  checkExecutableEdgeAction state inner selection.action
+  let (data, dependencies) ← renderCapturedActionData template
+  let result : Wire := {
+    form := origin, payload := (← combinedPayload selection.action data dependencies),
+    serviceHandles := dependencies.flatMap (·.serviceHandles) }
+  let result ← retainIntrinsicResultAssembly result (.value (← inferType selection.action)) template
+  checkCapturedResultInterface result (.value (← inferType selection.action))
+  return result
+
 /-- Preserve every complete producer occurrence used by later fields and
 factors. The returned indices are retained in the containing result's scope. -/
 def retainLiftStageHandles (h : Harness) (input : LiftStageExecution.Input Wire)
-    (result : LiftStageExecution.Result Wire) : TermElabM LiftStageHandles := do
+    (result : LiftStageExecution.Result Wire) (action : Wire) : TermElabM LiftStageHandles := do
   let some sourceImage := input.sourceImageObject?
     | throwError "an actual lift stage omitted its exact source image object"
   unless result.outputs.size == 4 do
     throwError "an actual lift stage omitted a public output occurrence"
+  unless action.fragment == input.action do
+    throwError "the retained lift action changed its positioned parameter data or suppliers"
+  let action ← forwardRetainedValue action input.selection.action
+  checkCapturedResultInterface action (.value (← inferType input.selection.action))
   let handles ← retainServiceOperands h
-    (#[input.source, sourceImage, input.base, input.baseObject, result.comparisonImage] ++ result.outputs)
+    (#[action, input.source, sourceImage, input.base, input.baseObject, result.comparisonImage] ++ result.outputs)
   return {
-    source := handles[0]!, sourceImage := handles[1]!, base := handles[2]!,
-    baseObject := handles[3]!, comparisonImage := handles[4]!, outputs := handles.extract 5 9 }
+    action := handles[0]!, source := handles[1]!, sourceImage := handles[2]!, base := handles[3]!,
+    baseObject := handles[4]!, comparisonImage := handles[5]!, outputs := handles.extract 6 10 }
 
 /-- Preserve the scoped legacy recipe entry point, using the shared typed field
 fold in reverse route order. Production with retained actual action images uses
@@ -5363,7 +5783,7 @@ def executePrescribedLiftData (h : Harness) (trace : Trace) (plan : LiftedSubobj
         let formal ← Semantic.objOf component.action object.value
         let context ← SelectedLift.context component.selection true
         let data ← scopedNode "functorAction" #[actions[index]!, object.fragment]
-        return {
+        return some {
           form := contextualForm state context form,
           payload := (← combinedRecipePayload formal data (#[object] ++ dependencies)),
           categoryContext := some context })
@@ -5566,7 +5986,7 @@ def intrinsicObjectEdgeData? (trace : Trace) (edge : EdgeRef) (action : Expr)
 set `po.extent X A` that `Language.asObject` forms. -/
 def extentOf? (state : RegistryState) (e : Expr) :
     TermElabM (Option (PowerObjectEntry × Expr × Expr)) := do
-  let e := e.consumeMData
+  let e := Trace.unanchor e.consumeMData
   let some po ← Language.selectedPowerObject? state (e.isAppOf ·.extent)
       m!"the selected extent declaration {e.getAppFn}"
     | return none
@@ -6023,7 +6443,7 @@ def executePrescribedRetainedWith (reader : RetainedRecordReader)
     (sources images : Array Wire)
     (parameters : Array (Array DataOwnership.Data × Array Wire))
     (actions : Array (DataOwnership.Data × Array Wire))
-    (image : Nat → Wire → TermElabM Wire)
+    (image : Nat → Wire → TermElabM (Option Wire))
     (returned : Nat → LiftStageExecution.Input Wire → Array Wire →
       LiftStageExecution.Field Wire → TermElabM Wire) : TermElabM PrescribedLiftData := do
   let count := plan.components.size
@@ -6874,6 +7294,14 @@ partial def templateValidationScope (template : ActionDataTemplate)
       let scope ← bindValidationScope scope formal (.map context)
       if mapView == .logical then bindValidationScope scope point.value (.map context) (some formal)
       else pure scope
+  | .inventoryMap context source target original =>
+      let template ← inventoryMapFrameTemplate context source target original
+      -- Only the declared endpoint leaves receive actual presentation views.
+      -- The retained whole-map body keeps its own positioned validation scope.
+      let template ← mapActionTemplateWires (fun role endpoint => do
+        if role == .retained then endpointValidationView endpoint context
+        else pure endpoint) template
+      templateValidationScope template operands mapView
 
 /-- A current framing layer contributes its exact input and chosen comparison
 occurrences. Replay checks the complete packet and metadata before a local
@@ -7175,8 +7603,9 @@ def captureRegisteredMapAction (owner : ActionOwner) (action : Expr)
     payload := (← combinedRecipePayload formal data
       (dependencies ++ #[sourceImage, targetImage])),
     categoryContext := some target, morphismFramed := true }
-  retainRegisteredActionInput owner true action original output descriptor
+  let output ← retainRegisteredActionInput owner true action original output descriptor
     (some endpoints) (some (sourceImage, targetImage))
+  retainActionImageEndpoints output
 
 /-- Projection steps use the same map-action capture as every other consumer.
 Recheck the complete original declaration before supplying its retained images. -/
@@ -7963,6 +8392,44 @@ def checkRetainedResultParent (parent : Wire) (fields : RetainedResultFields) : 
   unless sameCompleteWireContext output { parent with capturedInvocation := output.capturedInvocation } do
     throwStratum .unavailable "the result-field table describes a different complete parent occurrence"
 
+/-- Earlier positions of a consumed named prefix remain separate producers.
+The final prefix image is the exact presented receiver supplied to this method
+invocation, not another execution of an action with the same formal image. -/
+def materializeRoutedPrefixWith
+    (observe : ActionDataRole → Wire → TermElabM Wire)
+    (prefix : RoutedPrefixInput) (receiver : Wire) :
+    TermElabM (Array Wire × Array Wire) := do
+  unless !prefix.actions.isEmpty && prefix.actions.size == prefix.descriptors.size &&
+      prefix.actions.size == prefix.images.size do
+    throwError "the named method prefix lost its original ordered producer positions"
+  let mut current ← observe .object prefix.receiver
+  let mut sources := #[]
+  let mut images := #[]
+  for ((edge, application), index) in prefix.actions.zipIdx do
+    let some captured := prefix.images[index]?
+      | throwError "the named method prefix lost a complete image interface"
+    let formal ← Semantic.objOf application current.value
+    let (_, context) ← actionOwnerContexts (.edge edge) application current false
+    unless ← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType formal) (← inferType captured.value) <&&>
+          isDefEq formal captured.value) do
+      throwError "the named method prefix changed an original complete stage"
+    let actual ← if index + 1 == prefix.actions.size then
+        forwardRetainedValue receiver formal
+      else do
+        let some descriptor := prefix.descriptors[index]?
+          | throwError "the named method prefix lost an original action parameter position"
+        let descriptor ← mapActionTemplateWires observe descriptor
+        let pending ← captureRegisteredObjectAction (.edge edge) application current
+          formal captured.form context descriptor
+        observe .object pending
+    let actual ← forwardRetainedValue actual formal
+    checkCapturedResultInterface actual (.object context)
+    sources := sources.push current
+    images := images.push actual
+    current := actual
+  return (sources, images)
+
 /-- A prescribed lift consumes the chosen base invocation's own forward-route
 occurrences. Transported requests retain what they sent; fused replies preserve
 their exposed fields and complete only the missing public stage slots. -/
@@ -7977,9 +8444,15 @@ def prescribedRouteInputsWith (reader : RetainedRecordReader)
     | throwStratum .unavailable "the prescribed base lost its exact materialized request receipt"
   let mut sources := inputs.routeSources
   let mut images := inputs.routeImages
+  if let some prefix := inputs.prefix then
+    unless sources.isEmpty && images.isEmpty && prefix.actions.size == inputs.routeOffset do
+      throwError "the named method prefix changed its original route offset or acquired another receipt"
+    let completed ← materializeRoutedPrefixWith observe prefix inputs.receiver
+    sources := completed.1
+    images := completed.2
+  unless sources.size == inputs.routeOffset && images.size == inputs.routeOffset do
+    throwError "the selected method boundary lost its original consumed-prefix positions"
   if !fields.plan.prefixActions.isEmpty then
-    unless sources.isEmpty && images.isEmpty do
-      throwError "a fused request acquired another evaluation's route receipt"
     let some cache := fields.intermediates
       | throwStratum .unavailable "the prescribed base lost its intermediate completion scope"
     let mut current ← observe .object inputs.receiver
@@ -8034,6 +8507,20 @@ partial def readRetainedRecordFieldWith (access : RetainedRecordAccess) (origina
     (path : ComputationalData.RecordFieldPath) : TermElabM Wire := do
   if path.isEmpty then return original
   let selection ← selectPublicRecordField original path
+  if let some assembly ← currentIntrinsicAssembly? original then
+    if let .ctor "finiteData" #[.retained (.wire .object child), _] :=
+        actionTemplateExecution assembly.template then
+      let descriptor ← checkedFragment (original.fragment.project #[.field "args", .index 0])
+      unless descriptor == child.fragment &&
+          (← withoutModifyingState (withTransparency .all <|
+            isDefEq (← inferType child.value) (← inferType original.value) <&&>
+              isDefEq child.value original.value)) do
+        throwStratum .unavailable "the inventory record view changed its original typed descriptor"
+      checkCapturedResultInterface child assembly.result
+      let field ← readRetainedRecordFieldWith access child path
+      let field ← forwardRetainedValue field selection.formal
+      checkCapturedResultInterface field selection.result
+      return field
   if let some fields ← access.fields original then
     checkRetainedResultParent original fields
     let some (field, remaining) ← fields.project? path
@@ -8974,6 +9461,7 @@ partial def liftProjectionFragment (execution : LiftExecution) (index : Nat) :
 /-- Typed stage operands remain in their original runtime slots. JSON and scope
 checks authenticate those slots; they never select an equal-valued replacement. -/
 structure RetainedLiftStage where
+  action : Wire
   source : Wire
   sourceImage : Wire
   base : Wire
@@ -8990,6 +9478,13 @@ def retainedLiftStage (h : Harness) (execution : LiftExecution) (index : Nat) :
   let sourceContext ← SelectedLift.context selection
   let targetContext ← SelectedLift.context selection true
   let operands ← h.serviceOperands.get
+  let some action := operands[handles.action]?
+    | throwStratum .unavailable "the selected lift action's original runtime scope has expired"
+  unless action.fragment == (← execution.actionFragment index) do
+    throwStratum .unavailable "the retained lift changed its positioned action data or supplier"
+  checkDataOwners h action.fragment
+  let action ← forwardRetainedValue action selection.action
+  checkCapturedResultInterface action (.value (← inferType selection.action))
   let read := fun (handle : Nat) (formal : Expr) (context : CategoryContext)
       (data : DataOwnership.Data) (morphism : Bool) => do
     let some original := operands[handle]?
@@ -9038,7 +9533,7 @@ def retainedLiftStage (h : Harness) (execution : LiftExecution) (index : Nat) :
     | throwError "the typed lift stage omitted its actual comparison image"
   let comparisonImage ← read handles.comparisonImage (← Semantic.objOf selection.action object.value)
     targetContext comparisonImageData false
-  return { source, sourceImage, base, baseObject, comparisonImage, outputs }
+  return { action, source, sourceImage, base, baseObject, comparisonImage, outputs }
 
 /-- A complete factor input retains the selected endpoint descriptors even
 when a finite inventory enriches them. This checks framing and suppliers only;
@@ -9054,32 +9549,10 @@ def checkLiftFactorMapEndpoints (context : CategoryContext) (wire source target 
         isDefEq expected.value actual.value) do
       throwError "the factor input changed a fixed formal endpoint"
     discard <| liftEndpointOperand expected context actual.fragment
-  if let .error message ← LiftedSubobjectData.validateMap wire.value source.json target.json wire.json then
+  let scope ← wireValidationScope .map wire (some context) (mapView := .logical)
+  if let .error message ← LiftedSubobjectData.validateMap wire.value source.json target.json
+      wire.json (scope := some scope) then
     throwStratum .malformed m!"the factor input changed its complete declared endpoints: {message}"
-
-/-- Reframe only transparent complete-callable envelopes. Every callable body
-comes from its original public position, with the whole typed producer retained;
-no map constructor, inventory, graph entry or opaque supplier is reconstructed. -/
-partial def liftMapTargetTemplate (original source target enriched : Wire)
-    (data : DataOwnership.Data) (path : DataOwnership.Path := #[]) :
-    TermElabM ActionDataTemplate := do
-  match ComputationalData.envelope data.json with
-  | .ok ("valueData", #[_]) =>
-      let childPath := #[DataOwnership.Step.field "args", .index 0]
-      let child ← checkedFragment (data.project childPath)
-      return .ctor "valueData" #[← liftMapTargetTemplate original source target enriched
-        child (path ++ childPath)]
-  | .ok ("typedMap", #[_, _, _]) =>
-      let actualSource ← checkedFragment (data.project #[.field "args", .index 0])
-      let actualTarget ← checkedFragment (data.project #[.field "args", .index 1])
-      unless actualSource == source.fragment &&
-          (actualTarget == target.fragment || actualTarget == enriched.fragment) do
-        throwStratum .malformed "the original complete map changed a nested endpoint occurrence or supplier"
-      let childPath := #[DataOwnership.Step.field "args", .index 2]
-      let child ← checkedFragment (data.project childPath)
-      return .ctor "typedMap" #[.wire .retained source, .wire .retained enriched,
-        ← liftMapTargetTemplate original source target enriched child (path ++ childPath)]
-  | _ => return .project path (.retained (.wire .map original))
 
 /-- Use an already retained inventory at a descriptor-only map target. The
 existing `finiteData` rule relates these exact occurrences; it supplies neither
@@ -9101,20 +9574,9 @@ def enrichLiftMapTarget (h : Harness) (context : CategoryContext)
     checkLiftFactorMapEndpoints context original source target
     return original
   discard <| liftEndpointOperand originalTarget context target.fragment
-  let template ← liftMapTargetTemplate original source originalTarget target original.fragment
-  let (data, dependencies) ← renderCapturedActionData template
-  if let .error message ← LiftedSubobjectData.validateMap original.value
-      source.json originalTarget.json data.json then
-    throwStratum .malformed m!"the retained lift inventory is incompatible with the actual callable: {message}"
-  let result : Wire := {
-    form := original.form, payload := (← combinedPayload original.value data dependencies),
-    categoryContext := some context, morphismFramed := true,
-    callableObserved := original.callableObserved,
-    serviceHandles := (← retainLiftOperands h dependencies) }
-  let result ← retainIntrinsicAssembly result .map context template
-    #[{ context, source, target := originalTarget, callable := original }]
-    (endpointRoles := (.retained, .retained))
-  let result ← retainCallableEndpoints result source target context
+  let result ← captureInventoryMapEndpoints context original source target
+  let result := { result with serviceHandles := result.serviceHandles ++
+    (← retainLiftOperands h #[original, source, target]) }
   checkLiftFactorMapEndpoints context result source target
   return result
 
@@ -9154,7 +9616,7 @@ def captureLiftFields (h : Harness) (execution : LiftExecution) :
       let actual ← forwardRetainedValue actual expected.value
       discard <| liftEndpointOperand expected targetContext actual.fragment
     let inner ← SelectedLift.innerEdge (← registryState) selection.entry
-    let descriptor := ActionDataTemplate.literal (← execution.actionFragment position)
+    let descriptor := ActionDataTemplate.wire .parameter stage.action
     let domainImage ← captureRegisteredObjectAction (.edge inner) selection.action domain
       (← Semantic.objOf selection.action domain.value)
       (contextualForm (← registryState) targetContext domain.form) targetContext descriptor
@@ -9971,7 +10433,8 @@ def sameOperationEndpointAction (left right : Option EndpointPresentation) : Boo
   | none, none => true
   | some left, some right => left.comparison == right.comparison &&
       left.forwardFragment == right.forwardFragment && left.backwardFragment == right.backwardFragment &&
-      sameEndpointComparisonMaps left.maps right.maps
+      sameEndpointComparisonMaps left.maps right.maps &&
+      sameNamedRefinementOrigin left.namedRefinement right.namedRefinement
   | _, _ => false
 
 /-- Ephemeral typed interpretation of a callable slot. Capture retains the
@@ -10290,6 +10753,16 @@ partial def checkCapturedArgumentEndpoints (context : CategoryContext)
   | .pointCallable selected _ _ point =>
       discard <| framingContext (some context) (some selected)
       checkCapturedArgumentEndpoints context (.wire .map point) source target
+  | .inventoryMap selected actualSource actualTarget original =>
+      discard <| framingContext (some context) (some selected)
+      discard <| inventoryMapFrameTemplate selected actualSource actualTarget original
+      unless sameCompleteWireContext actualSource
+          (← forwardRetainedValue source actualSource.value) &&
+          sameCompleteWireContext actualTarget
+            (← forwardRetainedValue target actualTarget.value) do
+        throwStratum .noImplementation
+          "the inventory argument changed its original complete endpoint occurrences"
+      return true
   | .ctor "typedMap" children =>
       let #[sourceTemplate, targetTemplate, body] := children
         | throwError "the captured argument changed its declared complete-map fields"
@@ -10546,61 +11019,6 @@ partial def prepareOperationPointArgumentWith
   retainPreparedOperationArgument h context retainedPoint framed.wire.fragment (.wire .map framed.wire) expected
     (#[retainedPoint] ++ inputs ++ framed.dependencies) (some framed.wire)
 
-/-- Capture complete callable data without observing it. A closed point is
-converted before whole-map framing. Arrow fields can preserve their existing
-framed bytes; public callable slots additionally expose the typedMap envelope.
-The exact child and both endpoint occurrences remain available in either case. -/
-def captureCompleteCallableWith
-    (readEndpoints : Wire → CategoryContext → TermElabM (Wire × Wire))
-    (input : Wire) (context : CategoryContext)
-    (endpoints : Option (Wire × Wire) := none) (publicFrame : Bool := true) :
-    TermElabM Wire := do
-  let selected ← readEndpoints input context
-  let (source, target) ← match endpoints with
-    | some endpoints =>
-      unless sameCompleteWireContext endpoints.1 selected.1 &&
-          sameCompleteWireContext endpoints.2 selected.2 do
-        throwStratum .unavailable
-          "an explicit callable frame cannot replace its retained endpoint occurrences"
-      pure selected
-    | none => pure selected
-  CategoryContext.checkMorphism context input.value source.value target.value
-  if let some selected := input.pointDataInterface then
-    unless source.fragment == selected.domainData && target.fragment == selected.targetData do
-      throwStratum .unavailable "the point conversion changed its exact retained endpoint packets"
-    let data ← pointCallableFragment input source.value target.value selected
-    let completed := input.actualData || input.callableObserved
-    let result := { input with
-      payload := (← if completed then scopedPayload input.value data else recipePayload input.value data)
-      pointDataInterface := none, morphismFramed := true, morphismFraming := none
-      objectObserved := false, callableObserved := completed
-      actionRecipe := none, intrinsicAssembly := none, callableEndpoints := none }
-    let result ← if completed then pure result else
-      retainIntrinsicAssembly result .map context
-        (.pointCallable context source.value target.value input)
-    return ← retainCallableEndpoints result source target context
-  let presented ← presentMorphism input source target (some context)
-  let presented ← retainCallableEndpoints presented source target context
-  if !publicFrame then return presented
-  let some data := ComputationalData.recordPayload? presented.fragment
-    | throwStratum .malformed "the complete callable lost its transparent data envelope"
-  if (Backend.TypedMap.decode data.json).isOk then
-    let actualSource ← checkedFragment (data.project #[.field "args", .index 0])
-    let actualTarget ← checkedFragment (data.project #[.field "args", .index 1])
-    unless actualSource == source.fragment && actualTarget == target.fragment do
-      throwStratum .malformed "the complete callable changed its retained endpoint occurrences"
-    return presented
-  let template : ActionDataTemplate := .ctor "typedMap"
-    #[.wire .object source, .wire .object target, .wire .map presented]
-  let (data, dependencies) ← renderCapturedActionData template
-  let result := { presented with
-    payload := (← combinedRecipePayload input.value data dependencies)
-    morphismFraming := none, actionRecipe := none, intrinsicAssembly := none
-    callableEndpoints := none, pointDataInterface := none }
-  let result ← retainIntrinsicAssembly result .map context template
-    #[{ context, source, target, callable := presented }]
-  retainCallableEndpoints result source target context
-
 /-- Native point data have an explicitly declared conversion to a whole map.
 Every other map keeps its current representation: observation cannot introduce
 a fresh endpoint-comparison frame and pretend it has already been consumed. -/
@@ -10709,6 +11127,10 @@ def observeIntrinsicAssemblyWith
     | _ => pure { wire with
         payload := (← combinedRecipePayload wire.value data dependencies)
         intrinsicAssembly := none, callableEndpoints := none }
+  if let .inventoryMap _ _ _ original := actionTemplateExecution template then
+    if let .map _ := assembly.result then
+      if original.completedData then
+        result := { result with payload := (← scopedPayload wire.value data), callableObserved := true }
   result ← retainIntrinsicResultAssembly result assembly.result template maps equalObjects assembly.endpointRoles
   let originalChildren := actionTemplateInputs assembly.template
   if !wire.productComponents.isEmpty &&
@@ -10759,10 +11181,11 @@ def routedInvocationSelectionDataWith {Data : Type} (h : Harness)
           Exception.stratum? error == some .noImplementation then
         return Except.error error
       else throw error
-  let full ← prepare selected.transported
-  let source ← prepare selected.canonical
+  let mut attempts := #[]
   let mut candidates : Array (SelectedRoutedBoundary × Registration × Data) := #[]
-  for (boundary, prepared) in #[(selected.transported, full), (selected.canonical, source)] do
+  for boundary in selected.boundaries do
+    let prepared ← prepare boundary
+    attempts := attempts.push (boundary, prepared)
     if let .ok (data, rows) := prepared then
       for row in rows do
         unless candidates.any (fun (_, registration, _) =>
@@ -10771,14 +11194,13 @@ def routedInvocationSelectionDataWith {Data : Type} (h : Harness)
   match candidates with
   | #[(boundary, registration, data)] => return (boundary, some registration, data)
   | #[] =>
-    match full, source with
-    | .ok (data, _), _ => return (selected.transported, none, data)
-    | .error _, .ok (data, _) => return (selected.canonical, none, data)
-    | .error fullError, .error sourceError =>
-      throwStratum .noImplementation
-        m!"neither exact method boundary has a complete prepared request:\n\
-          transported input: {fullError.toMessageData}\n\
-          source-composite input: {sourceError.toMessageData}"
+    let mut failures := #[]
+    for (boundary, prepared) in attempts do
+      match prepared with
+      | .ok (data, _) => return (boundary, none, data)
+      | .error error => failures := failures.push error.toMessageData
+    throwStratum .noImplementation
+      m!"no exact method boundary has a complete prepared request: {failures}"
   | _ =>
     let choices := candidates.map fun (_, registration, _) =>
       (registration.operation, registration.input, registration.backend)
@@ -10794,10 +11216,55 @@ def routedInvocationSelectionWith (h : Harness)
     (fun boundary => do return (← inspect boundary, ()))
   return (boundary, registration)
 
+/-- Local result-schema indices name the original suffix through this explicit
+offset. The source boundary remains authoritative for every action, descriptor
+and independently captured declaration parameter, including ignored values. -/
+def checkRoutedBoundaryPositions (selected : SelectedRoutedInvocation)
+    (boundary : SelectedRoutedBoundary) : TermElabM Unit := do
+  let original := selected.canonical
+  let count := original.prefixActions.size
+  unless original.routeOffset == 0 && !original.materializeRoute &&
+      original.descriptors.size == count && original.images.size == count &&
+      boundary.routeOffset + boundary.prefixActions.size == count &&
+      boundary.prefixActions == original.prefixActions.extract boundary.routeOffset count &&
+      boundary.descriptors.size == boundary.prefixActions.size &&
+      boundary.images.size == boundary.prefixActions.size do
+    throwError "the selected method boundary changed its original complete route positions"
+  if boundary.materializeRoute then
+    unless boundary.routeOffset == count && boundary.prefixActions.isEmpty do
+      throwError "a transported method boundary omitted an original action position"
+  let descriptors := original.descriptors.extract boundary.routeOffset count
+  unless (descriptors.zip boundary.descriptors).all (fun (a, b) => sameActionTemplate a b) do
+    throwError "the selected method boundary changed an original positioned action descriptor"
+  let parameters := original.parameters.filter (fun parameter =>
+    boundary.routeOffset <= parameter.slot.actionIndex)
+  unless parameters.size == boundary.parameters.size do
+    throwError "the selected method boundary omitted an original declaration parameter position"
+  let sameContext := fun (left right : CategoryContext) =>
+    left.expression.syntacticEq right.expression && left.bundle == right.bundle
+  for (original, actual) in parameters.zip boundary.parameters do
+    let sameRole := match original.interface.role, actual.interface.role with
+      | .value, .value => true
+      | .object left, .object right => sameContext left right
+      | .map left a b, .map right c d => sameContext left right && a == c && b == d
+      | _, _ => false
+    unless actual.slot.actionIndex + boundary.routeOffset == original.slot.actionIndex &&
+        actual.interface.actionIndex + boundary.routeOffset == original.interface.actionIndex &&
+        actual.slot.declarationIndex == original.slot.declarationIndex &&
+        actual.slot.dataIndex == original.slot.dataIndex &&
+        actual.interface.dataIndex == original.interface.dataIndex &&
+        actual.slot.formal == original.slot.formal &&
+        actual.slot.expectedType == original.slot.expectedType &&
+        actual.interface.formal == original.interface.formal &&
+        actual.interface.expectedType == original.interface.expectedType && sameRole &&
+        sameActionTemplate actual.template original.template do
+      throwError "the selected method boundary replaced an original positioned parameter supplier"
+
 /-- Closing this pure schema may not reread a parameter or replace a captured
 declaration occurrence. A missing schema at another boundary is not consulted. -/
 def routedInvocationResultPlan (selected : SelectedRoutedInvocation)
     (boundary : SelectedRoutedBoundary) : TermElabM RoutedResultPlan.Plan := do
+  checkRoutedBoundaryPositions selected boundary
   let plan ← RoutedResultPlan.select selected.method selected.application
     boundary.receiver.value boundary.context selected.context boundary.prefixActions
     (boundary.parameters.map (·.interface))
@@ -10884,7 +11351,7 @@ def readRoutedInputsWith
     dependencies := dependencies ++ children
     parameters := parameters.push
       (.parameter parameter.slot.actionIndex parameter.slot.dataIndex, selected)
-  return { receiver, parameters, dependencies }
+  return { receiver, parameters, dependencies, routeOffset := boundary.routeOffset }
 
 /-- Materialize a chosen transported boundary in forward order and retain that
 same chain as its request receipt. These are the actions whose last result is
@@ -10893,8 +11360,20 @@ def readSelectedRoutedInputsWith
     (observe : ActionDataRole → Wire → TermElabM Wire)
     (selected : SelectedRoutedInvocation) (boundary : SelectedRoutedBoundary)
     (frameReceiver : Wire → TermElabM Wire := pure) : TermElabM RoutedInputData := do
-  if !boundary.prefixActions.isEmpty || selected.canonical.prefixActions.isEmpty then
-    return ← readRoutedInputsWith observe boundary frameReceiver
+  checkRoutedBoundaryPositions selected boundary
+  if !boundary.materializeRoute || selected.canonical.prefixActions.isEmpty then
+    let inputs ← readRoutedInputsWith observe boundary frameReceiver
+    if boundary.routeOffset == 0 then return inputs
+    unless boundary.routeOffset <= selected.canonical.prefixActions.size &&
+        selected.canonical.prefixActions.size == selected.canonical.descriptors.size &&
+        selected.canonical.prefixActions.size == selected.canonical.images.size do
+      throwError "the named method boundary lost its original complete prefix positions"
+    let prefix : RoutedPrefixInput := {
+      receiver := selected.canonical.receiver,
+      actions := selected.canonical.prefixActions.extract 0 boundary.routeOffset,
+      descriptors := selected.canonical.descriptors.extract 0 boundary.routeOffset,
+      images := selected.canonical.images.extract 0 boundary.routeOffset }
+    return { inputs with prefix := some prefix }
   let route := selected.canonical.prefixActions
   unless route.size == selected.canonical.descriptors.size &&
       route.size == selected.canonical.images.size do
@@ -10997,6 +11476,9 @@ cannot disappear merely because its bytes are absent from the receiver. -/
 def routedMethodRequest (selected : SelectedRoutedInvocation)
     (boundary : SelectedRoutedBoundary) (inputs : RoutedInputData)
     (objects : ComputationalData.InterfaceObjects := #[]) : TermElabM RoutedMethodInput := do
+  checkRoutedBoundaryPositions selected boundary
+  unless inputs.routeOffset == boundary.routeOffset do
+    throwError "the selected method request changed its original action offset"
   let actions := boundary.prefixActions.push (.functor selected.functor.id, selected.application)
   let mut descriptors : Array DataOwnership.Data := #[]
   let mut descriptorTemplates : Array ActionDataTemplate := #[]
@@ -11179,7 +11661,7 @@ input, and an unsupported unused boundary remains diagnostically inert. -/
 def routedReservedProjectionData (selected : SelectedRoutedInvocation) :
     TermElabM (Array Json) := do
   let mut literals := #[]
-  for boundary in #[selected.transported, selected.canonical] do
+  for boundary in selected.boundaries do
     if let some plan ← optionalRoutedResultPlan selected boundary then
       for selected in plan.projectionActions do
         if let .ok action := selected.action then
@@ -11449,6 +11931,8 @@ partial def prospectiveReservedTemplate (template : ActionDataTemplate) : Array 
   | .literal data => #[data.json]
   | .wire _ wire => prospectiveReservedWire wire
   | .pointCallable _ _ _ wire => prospectiveReservedWire wire
+  | .inventoryMap _ source target original =>
+      #[original, source, target].flatMap prospectiveReservedWire
   | .retained child | .logical child | .project _ child => prospectiveReservedTemplate child
   | .object fields => fields.flatMap (fun (_, child) => prospectiveReservedTemplate child)
   | .ctor _ children | .array children => children.flatMap prospectiveReservedTemplate
@@ -11491,19 +11975,22 @@ partial def prospectiveReservedWire (wire : Wire) : Array Json :=
     (wire.endpointPresentation.toArray.flatMap fun presentation =>
       #[presentation.forward, presentation.backward] ++
         presentation.maps.toArray.flatMap (fun (a, b) =>
-          prospectiveReservedWire a ++ prospectiveReservedWire b)) ++
+          prospectiveReservedWire a ++ prospectiveReservedWire b) ++
+        presentation.namedRefinement.toArray.flatMap (fun origin =>
+          prospectiveReservedWire origin.source ++
+            (origin.templates ++ origin.descriptors).flatMap prospectiveReservedTemplate)) ++
     (wire.pointDataInterface.toArray.flatMap fun point =>
       #[point.domainData.json, point.targetData.json])
 
 partial def prospectiveReservedInvocation (selected : CapturedInvocationInterface) : Array Json :=
   match selected with
   | .routed selected => #[selected.fragment.json] ++
-      #[selected.original, selected.canonical.receiver, selected.transported.receiver].flatMap
+      (#[selected.original] ++ selected.boundaries.map (·.receiver)).flatMap
         prospectiveReservedWire ++
       prospectiveReservedTemplate selected.descriptor ++
-      (selected.canonical.descriptors ++ selected.transported.descriptors).flatMap
+      (selected.boundaries.flatMap (·.descriptors)).flatMap
         prospectiveReservedTemplate ++
-      (selected.canonical.parameters ++ selected.transported.parameters).flatMap
+      (selected.boundaries.flatMap (·.parameters)).flatMap
         (fun parameter => prospectiveReservedTemplate parameter.template)
   | .structured selected => #[selected.fragment.json] ++
       selected.operands.flatMap (fun operand => prospectiveReservedWire operand.wire) ++
@@ -11883,22 +12370,29 @@ partial def prospectivePrescribedWith (reader : ProspectiveReader) (wire : Wire)
   let actionTemplates ← selected.actions.mapM
     (mapActionTemplateWires (prospectiveWireWith reader))
   let actions ← actionTemplates.mapM renderCapturedActionData
+  let actionValues ← actionTemplates.zipIdx.mapM fun (template, index) => do
+    let some component := selected.plan.components[index]?
+      | throwError "the prospective lift action lost its selected stage"
+    retainedLiftActionValue component.selection original.form template
+  let actions := (actions.zip actionValues).map fun ((data, dependencies), action) =>
+    (data, dependencies.push action)
   let run ← executePrescribedRetainedWith recordReader selected.plan original base sources images
     parameters actions
-    (fun index object => do
-      let some component := selected.plan.components[index]?
-        | throwError "the prospective lift lost its selected action position"
-      let some descriptor := actionTemplates[index]?
-        | throwError "the prospective lift lost its exact action parameter occurrences"
-      let inner ← SelectedLift.innerEdge state component.selection.entry
-      let formal ← Semantic.objOf component.action object.value
-      let context ← SelectedLift.context component.selection true
-      let pending ← captureRegisteredObjectAction (.edge inner) component.action object formal
-        (contextualForm state context object.form) context descriptor
-      prospectiveWireWith reader .object pending)
+    (fun _ _ => pure none)
     (fun _ input _ field => do
       let body ← prospectiveDatum reader field.formal
-      let data ← match field.endpoints with
+      let endpoint := fun (role : LiftStageExecution.EndpointRole Wire) => do
+        match role with
+        | .retained value => pure value
+        | .produced formal =>
+            let data ← prospectiveDatum reader formal
+            let template : Wire := {
+              form := contextualForm state field.context input.original.form,
+              payload := (← recipePayload formal data), categoryContext := some field.context }
+            prospectiveResultWire template data (.object field.context)
+      let endpoints ← field.endpoints.mapM fun (source, target) => do
+        pure (← endpoint source, ← endpoint target)
+      let data ← match endpoints with
         | none => pure body
         | some (source, target) => scopedNode "typedMap" #[source.fragment, target.fragment, body]
       let result := if field.index == 0 then IntrinsicResultInterface.object field.context
@@ -11906,7 +12400,7 @@ partial def prospectivePrescribedWith (reader : ProspectiveReader) (wire : Wire)
       let template : Wire := {
         form := contextualForm state field.context input.original.form (field.index != 0),
         payload := (← recipePayload field.formal data), categoryContext := some field.context }
-      prospectiveResultWire template data result field.endpoints)
+      prospectiveResultWire template data result endpoints)
   let result ← forwardProspectiveValue reader run.result selected.formal
   let result := { result with form := wire.form }
   let result := { result with capturedInvocation := some captured }
@@ -11938,7 +12432,10 @@ partial def prospectiveWireWith (reader : ProspectiveReader) (role : ActionDataR
     | some assembly => pure (some assembly)
     | none => retainedIntrinsicAssembly? wire role
   let captured ← retainedCapturedInvocation? wire
-  let projected ← if let some captured := captured then
+  let projected ← if let some origin :=
+      (if role == .object then wire.endpointPresentation.bind (·.namedRefinement) else none) then
+      materializeNamedRefinementWith (prospectiveWireWith reader) reader.trace wire origin
+    else if let some captured := captured then
       prospectiveInvocationWith reader wire captured
     else if let some assembly := assembly then
       observeIntrinsicAssemblyWith (prospectiveWireWith reader) reader.endpoints
@@ -12906,6 +13403,11 @@ def realizeFreshWith
         categoryContext := some context }
   | .structuredProjection receiver field index =>
       structuredProjection h trace e receiver field index
+  | .callableEndpoint context receiver source =>
+      let parent ← realizeUnobserved h trace "the selected endpoint's complete callable producer" receiver
+      let (left, right) ← capturedMapEndpoints h trace parent context
+      let endpoint := if source then left else right
+      return ← forwardRetainedValue endpoint e
   | .cartesian id params baseMorphism receiver field =>
       let some entry := state.functor? id
         | throwError "the selected family reindexing is no longer registered"
@@ -13028,7 +13530,13 @@ def realizeFreshWith
           throwError "the named-object presentation changed its complete selected result"
         return ← forwardRetainedValue presented e
       let json ← scopedNode id.raw args
-      return { form := .object entry, payload := (← combinedRecipePayload e json dependencies) }
+      let some category := state.categories.find? (·.id == entry.category)
+        | throwError "the named constructor lost its complete declared category"
+      let context ← CategoryContext.ofNamed category e
+      let wire : Wire := {
+        form := .object entry, payload := (← combinedRecipePayload e json dependencies),
+        categoryContext := some context }
+      return ← retainIntrinsicAssembly wire .object context (.ctor id.raw captured)
   | .parameterTransport source sourceCategory targetCategory route receiver =>
       let input ← realize h trace s!"the structural parameter of {what}" receiver
       let .object entry := input.form
@@ -13040,7 +13548,8 @@ def realizeFreshWith
         else Semantic.objOf (← Semantic.routeFunctor state route) receiver
       unless ← withoutModifyingState (isDefEq image e) do
         throwError "the structural parameter disagrees with its recorded semantic route"
-      unless ← isDefEq (← inferType output.value) (← inferType e) do
+      unless ← withTransparency .all <|
+          isDefEq (← inferType output.value) (← inferType e) <&&> isDefEq output.value e do
         throwError "the realized structural parameter has an incompatible full structured type"
       if output.form.category == targetCategory then return output
       let some target := state.categories.find? (·.id == targetCategory)
@@ -13167,6 +13676,8 @@ def realizeFreshWith
       let declared := ObjectPresentation.fieldDeclaration entry field
       unless declared.isSome do
         throwError "the retained object row registers no {field} map"
+      unless (← ObjectPresentation.fieldCategory entry field) == categoryId do
+        throwError "the retained object field changed its complete declared category"
       let actual ← ObjectPresentation.field entry field params
       unless ← withTransparency .all <| isDefEq actual e do
         throwError "the retained object field changed its accepted map or direction"
@@ -13795,21 +14306,11 @@ def realizeFreshWith
         descriptorTemplate (projected.map (·.data))
   | .retainedRoute _ targetCategory route applications receiver =>
       let input ← realize h trace "the retained structural source" receiver
-      -- An exact application of the registered route can use its published
-      -- refinement identifications. Non-definitional applications retain the
-      -- complete action descriptors and are never silently replaced.
-      let mut registered := route.size == applications.size
-      if registered then
-        for (step, application) in route.zip applications do
-          unless ← withTransparency .all <| withoutModifyingState
-              (isDefEq application (← Semantic.edgeFunctor state step)) do
-            registered := false
-            break
-      let result ← if registered then
-        transport trace input route (some (realizedEdgeData h trace)) (some (capturedEdgeData h trace))
-      else transportImage trace input route (some applications) (some (realizedEdgeData h trace)) (some (capturedEdgeData h trace))
+      let result ← transport trace input route (some (realizedEdgeData h trace))
+        (some (capturedEdgeData h trace)) (some applications)
       unless result.form.category == targetCategory &&
-          (← withTransparency .all <| isDefEq (← inferType result.value) (← inferType e)) do
+          (← withTransparency .all <|
+            isDefEq (← inferType result.value) (← inferType e) <&&> isDefEq result.value e) do
         throwError "the retained route changed its full selected target category"
       let mut expected := receiver
       for application in applications do expected ← Semantic.objOf application expected
@@ -13825,7 +14326,8 @@ def realizeFreshWith
       unless input.form.category == sourceCategory do
         throwError "the selected structure has the wrong recorded source category"
       let output ← transport trace input route (some (realizedEdgeData h trace)) (some (capturedEdgeData h trace))
-      unless ← isDefEq (← inferType output.value) (← inferType e) do
+      unless ← withTransparency .all <|
+          isDefEq (← inferType output.value) (← inferType e) <&&> isDefEq output.value e do
         throwError "the selected structure action has an incompatible full structured type"
       if output.form.category == targetCategory then return output
       let some target := state.categories.find? (·.id == targetCategory)
@@ -14034,6 +14536,58 @@ partial def captureRoutedParameter (h : Harness) (trace : Trace)
       actionIndex := slot.actionIndex, dataIndex := slot.dataIndex,
       formal := slot.formal, expectedType := slot.expectedType, role } }
 
+/-- A named-base implementation receives the accepted presentation of the
+original prefix image. Its local suffix indices are related to the original
+route by an explicit offset; no earlier action or parameter occurrence is
+removed from the invocation's complete source boundary. -/
+partial def capturePresentedRoutedBoundary (trace : Trace) (source : SelectedRoutedBoundary) :
+    TermElabM (Option SelectedRoutedBoundary) := do
+  let .object _ := source.receiver.form | return none
+  let route := source.prefixActions.map (·.1)
+  let applications := source.prefixActions.map (·.2)
+  unless route.size == source.descriptors.size && route.size == source.images.size do
+    throwError "the named method boundary lost its complete original action positions"
+  let next ← IO.mkRef 0
+  let capture : CapturedActionEncoder := fun edge application => do
+    let index ← next.get
+    let some (expectedEdge, expected) := source.prefixActions[index]?
+      | throwError "the named presentation added an unselected route action"
+    unless edge == expectedEdge && (← withoutModifyingState (withTransparency .all <|
+        isDefEq (← inferType application) (← inferType expected) <&&>
+          isDefEq application expected)) do
+      throwError "the named presentation changed an original complete action occurrence"
+    let some descriptor := source.descriptors[index]?
+      | throwError "the named presentation lost an original parameter occurrence"
+    next.set (index + 1)
+    return descriptor
+  let (receiver, remaining) ← canonicalOperationInput trace source.receiver route
+    none (some capture) (some applications)
+  let offset := route.size - remaining.size
+  if offset == 0 then return none
+  unless (← next.get) == offset do
+    throwError "the named presentation did not retain each consumed action occurrence"
+  let .object _ := receiver.form | return none
+  unless remaining == route.extract offset route.size do
+    throwError "the named presentation changed the original residual route"
+  let mut expected := source.receiver.value
+  for application in applications.extract 0 offset do
+    expected ← Semantic.objOf application expected
+  unless ← withoutModifyingState (withTransparency .all <|
+      isDefEq (← inferType receiver.value) (← inferType expected) <&&>
+        isDefEq receiver.value expected) do
+    throwError "the named method presentation replaced its complete semantic receiver"
+  let parameters := (source.parameters.filter (fun parameter =>
+    offset <= parameter.slot.actionIndex)).map fun parameter => {
+      parameter with
+      slot := { parameter.slot with actionIndex := parameter.slot.actionIndex - offset },
+      interface := { parameter.interface with actionIndex := parameter.interface.actionIndex - offset } }
+  return some {
+    receiver, context := (← routedBoundaryContext receiver),
+    prefixActions := source.prefixActions.extract offset route.size,
+    descriptors := source.descriptors.extract offset route.size,
+    images := source.images.extract offset route.size,
+    parameters, routeOffset := offset }
+
 /-- Only the selected boundary is interpreted. Every declaration position is
 captured before any action can return new data or populate an expression cache. -/
 partial def captureRoutedInvocationFrom (h : Harness) (trace : Trace) (what : String)
@@ -14140,9 +14694,11 @@ partial def captureRoutedInvocationFrom (h : Harness) (trace : Trace) (what : St
       interface := { parameter.interface with actionIndex := 0 } }
   let canonicalBoundary : SelectedRoutedBoundary := {
     receiver := canonical, context := canonicalContext, prefixActions, descriptors, images, parameters }
+  let presented ← capturePresentedRoutedBoundary trace canonicalBoundary
   let transportedBoundary : SelectedRoutedBoundary := {
     receiver := transported, context := transportedContext,
-    prefixActions := #[], descriptors := #[], parameters := directParameters }
+    prefixActions := #[], descriptors := #[], parameters := directParameters,
+    routeOffset := route.size, materializeRoute := true }
   let form := match CategoryContext.named? state functor.target with
     | some target => imageForm state (.functor functor.id) target
     | none => Form.contextual functor.target canonical.form
@@ -14157,7 +14713,7 @@ partial def captureRoutedInvocationFrom (h : Harness) (trace : Trace) (what : St
     formal := baseFormal, fragment, context, form, method, functor, application := F,
     expected, acceptedInput, original,
     canonical := canonicalBoundary, transported := transportedBoundary,
-    descriptor, resolution, comparisonTerms })
+    presented, descriptor, resolution, comparisonTerms })
   if prescribed.isEmpty then return base
   capturePrescribedInvocation h trace formal id interpreted original base
     ((#[original] ++ images).extract 0 route.size) images descriptors
@@ -14248,19 +14804,15 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
   let actionTemplates ← selected.actions.mapM
     (mapActionTemplateWires (observeActionDataWire active trace))
   let actions ← actionTemplates.mapM renderCapturedActionData
+  let actionValues ← actionTemplates.zipIdx.mapM fun (template, index) => do
+    let some component := plan.components[index]?
+      | throwError "the retained lift action lost its selected stage"
+    retainedLiftActionValue component.selection original.form template
+  let actions := (actions.zip actionValues).map fun ((data, dependencies), action) =>
+    (data, dependencies.push action)
   let reader ← actualRetainedRecordReader active trace (actualRoutedKnownField active trace)
   let run ← executePrescribedRetainedWith reader plan original base sources images parameters actions
-    (fun index object => do
-      let some component := plan.components[index]?
-        | throwError "the prescribed comparison lost its selected action position"
-      let some descriptor := actionTemplates[index]?
-        | throwError "the prescribed comparison lost its exact parameter occurrences"
-      let inner ← SelectedLift.innerEdge state component.selection.entry
-      let formal ← Semantic.objOf component.action object.value
-      let context ← SelectedLift.context component.selection true
-      let pending ← captureRegisteredObjectAction (.edge inner) component.action object formal
-        (contextualForm state context object.form) context descriptor
-      realizeObjectObservation active trace pending)
+    (fun _ _ => pure none)
     (fun _ input dependencies field => do
       let some form := state.liftInputForm? input.selection.entry.inputAddress
         | throwError "the selected lift lost its public input form"
@@ -14295,7 +14847,10 @@ partial def observePrescribedInvocation (h : Harness) (trace : Trace)
     let some image := input.sourceImageObject?
       | throwError "the completed lift omitted its exact source image endpoint"
     return image.fragment
-  let stageHandles ← run.stages.mapM fun (input, result) => retainLiftStageHandles h input result
+  let stageHandles ← run.stages.zipIdx.mapM fun ((input, result), index) => do
+    let some action := actionValues[index]?
+      | throwError "the completed lift lost its retained full action value"
+    retainLiftStageHandles h input result action
   let execution : LiftExecution := {
     selections := plan.components.map (·.selection), stageHandles,
     actions := run.stages.map (·.1.action.json),
@@ -14964,6 +15519,34 @@ partial def captureCompleteCallable (h : Harness) (trace : Trace) (input : Wire)
     (fun wire context => capturedMapEndpoints { h with demandObjectActions := false }
       trace wire context) input context endpoints publicFrame
 
+/-- An original caller-supplied map can declare its endpoint occurrences before
+it has a complete public frame. Once a producer or an explicit callable packet
+owns that interface, its endpoints take precedence: a later formal lookup may
+not replace them. The callback is used only at this initial declaration boundary;
+capturing the frame neither observes its children nor asserts an action ran. -/
+partial def captureDeclaredCallableInput (h : Harness) (trace : Trace) (input : Wire)
+    (context : CategoryContext) (declared : Unit → TermElabM (Wire × Wire)) :
+    TermElabM Wire := do
+  let retained := input.callableEndpoints.isSome || input.morphismFraming.isSome ||
+    input.pointDataInterface.isSome || input.actionRecipe.isSome ||
+    input.intrinsicAssembly.isSome || input.capturedInvocation.isSome || input.morphismFramed
+  let some body := ComputationalData.recordPayload? input.fragment
+    | throwStratum .malformed "the declared callable has a malformed transparent envelope"
+  let encoded := match ComputationalData.envelope body.json with
+    | .ok (tag, _) => #["typedMap", "arrow", "identity", "zero", "compose", "map"].contains tag
+    | .error _ => false
+  if retained || encoded then return ← captureCompleteCallable h trace input context
+  let (source, target) ← declared ()
+  let source ← captureDeclaredObjectInput source context
+  let target ← captureDeclaredObjectInput target context
+  CategoryContext.checkMorphism context input.value source.value target.value
+  checkDataOwners h source.fragment
+  checkDataOwners h target.fragment
+  let input ← retainCallableEndpoints input source target context
+  let result ← captureCompleteCallable h trace input context (some (source, target))
+  return { result with serviceHandles := result.serviceHandles ++
+    (← retainServiceOperands h #[input, source, target]) }
+
 /-- Whole-map reads convert only an explicit native point interface. Raw
 intrinsic maps retain their producer and are framed by the caller's typed step. -/
 partial def capturePointCallable (h : Harness) (trace : Trace) (input : Wire)
@@ -15078,7 +15661,8 @@ partial def captureMapRoute (h : Harness) (trace : Trace) (original : Wire)
         (#[result, presented, endpoints.1, endpoints.2] ++ dependencies))
       morphismFramed := true
       categoryContext := some target }
-    result ← retainActionInput true edge application result output descriptor (some endpoints)
+    let captured ← retainActionInput true edge application result output descriptor (some endpoints)
+    result ← retainActionImageEndpoints captured
   return result
 
 /-- Direct constructions retain the same original map, endpoint occurrences
@@ -15105,7 +15689,8 @@ partial def captureConstructionMap (h : Harness) (trace : Trace) (formal : Expr)
     payload := (← combinedRecipePayload formal (← scopedNode "map" #[data, inputData])
       (#[original, presented, endpoints.1, endpoints.2] ++ dependencies))
     morphismFramed := true, categoryContext := some target }
-  retainRegisteredActionInput owner true selected.functor original output descriptor (some endpoints)
+  let output ← retainRegisteredActionInput owner true selected.functor original output descriptor (some endpoints)
+  retainActionImageEndpoints output
 
 /-- Read only the parameter slots declared by the construction producer. -/
 partial def capturedConstructionParameters (id : ConstructionId) (descriptor : DataOwnership.Data) :
@@ -15270,6 +15855,8 @@ never receives an unexecuted source action in place of its selected target data.
 partial def realizeObjectObservation (h : Harness) (trace : Trace) (wire : Wire) :
     TermElabM Wire := do
   if wire.objectObserved || wire.actualData then return wire
+  if let some origin := wire.endpointPresentation.bind (·.namedRefinement) then
+    return ← materializeNamedRefinementWith (observeActionDataWire h trace) trace wire origin
   if let some captured ← retainedCapturedInvocation? wire then
     unless captured.interface.result.role == .object do
       throwError "an object observation cannot consume another declared result role"
@@ -16427,13 +17014,21 @@ partial def selectedLiftExecution (h : Harness) (trace : Trace) (plan : Selected
     (← capturedEdgeData h trace inner plan.action)
   let (action, actionWires) ← renderCapturedActionData captured
   let source ← realizeEndpoint active trace "the selected lift's original source object" plan.source
-  let inclusion ← realizeArrowObservation active trace
-    (← realizeUnobserved active trace "the selected lift's complete base inclusion" plan.inclusion)
+  let source ← captureDeclaredObjectInput source (← SelectedLift.context plan)
+  let actionValue ← retainedLiftActionValue plan source.form captured
   let some (baseSource, baseTarget) := Language.homEnds? (← inferType plan.inclusion)
     | throwError "the selected lift lost its original base inclusion endpoints"
   let targetContext ← SelectedLift.context plan true
-  let baseSource ← realizeCallableEndpoint active trace inclusion baseSource true (some targetContext)
-  let baseTarget ← realizeCallableEndpoint active trace inclusion baseTarget false (some targetContext)
+  let inclusion ← realizeArrowObservation active trace
+    (← realizeUnobserved active trace "the selected lift's complete base inclusion" plan.inclusion)
+  let inclusion ← captureDeclaredCallableInput h trace inclusion targetContext fun _ => do
+    let source ← realizeEndpoint { h with demandObjectActions := false } trace
+      "the selected inclusion's initially declared source" baseSource
+    let target ← realizeEndpoint { h with demandObjectActions := false } trace
+      "the selected inclusion's initially declared image target" baseTarget
+    pure (source, target)
+  let some (baseSource, baseTarget) ← retainedCallableEndpoints? inclusion targetContext
+    | throwError "the selected inclusion lost its complete endpoint occurrences"
   let baseTarget ← forwardRetainedValue baseTarget (← Semantic.objOf plan.action source.value)
   let base ← scopedNode "subobject" #[baseSource.fragment, baseTarget.fragment, inclusion.fragment]
   let (parameters, parameterWires) ← realizedParameterData active trace plan.parameters
@@ -16444,20 +17039,16 @@ partial def selectedLiftExecution (h : Harness) (trace : Trace) (plan : Selected
   let baseOperand := { baseOperand with
     payload := (← scopedPayload baseOperand.value base), objectObserved := true,
     serviceHandles := (← retainLiftOperands h #[inclusion, baseSource, baseTarget]) }
-  let dependencies := #[source, inclusion, baseSource, baseTarget, baseOperand] ++
+  let dependencies := #[source, inclusion, baseSource, baseTarget, baseOperand, actionValue] ++
     parameterWires ++ actionWires
   let input : LiftStageExecution.Input Wire := {
     selection := plan, originalArrow := false, action, parameters := parameterData,
     original := source, source, base := baseOperand, baseObject := baseSource,
     sourceImage? := some baseTarget, sourceImageObject? := some baseTarget }
   let result ← LiftStageExecution.fold Wire.fragment input
-    (fun object => do
-      let formal ← Semantic.objOf plan.action object.value
-      let pending ← captureRegisteredObjectAction (.edge inner) plan.action object formal
-        (contextualForm state targetContext object.form) targetContext captured
-      realizeObjectObservation active trace pending)
+    (fun _ => pure none)
     (observeLiftStageField active input formal form dependencies) liftStageEndpoints
-  let stageHandles ← retainLiftStageHandles h input result
+  let stageHandles ← retainLiftStageHandles h input result actionValue
   let context ← SelectedLift.context plan
   let execution : LiftExecution := {
     selections := #[plan], actions := #[action.json], parameters := #[parameters.map (·.json)],
@@ -16480,9 +17071,10 @@ partial def selectedLiftExecution (h : Harness) (trace : Trace) (plan : Selected
     liftExecution := some execution
     categoryContext := some context, serviceHandles := handles }
 
-/-- Successive factors use actual declared map actions and the exact retained
-stage operands. The original base map fixes the final image of the generalized
-domain; each stage's source image fixes the corresponding cone endpoint. -/
+/-- A complete factor owns its source-level computation. Its original arguments
+are observed once; internally derived cones retain typed action plans and exact
+endpoint occurrences for the factor implementation or public service to consume.
+No additional object/map registration is required just to form that request. -/
 partial def executeRetainedLiftFactor (h : Harness) (trace : Trace)
     (formal baseMap cone proof : Expr) (liftWire : Wire) (execution : LiftExecution) :
     TermElabM Wire := do
@@ -16495,16 +17087,17 @@ partial def executeRetainedLiftFactor (h : Harness) (trace : Trace)
     | throwError "the complete factor lost its selected last stage"
   let sourceContext ← SelectedLift.context first
   let targetContext ← SelectedLift.context last true
-  let baseWire ← captureCompleteCallable h trace
-    (← realizeUnobserved h trace "the factor's original complete base map" baseMap) targetContext
-  let baseWire ← realizeArrowObservation active trace baseWire
-  let coneWire ← captureCompleteCallable h trace
-    (← realizeUnobserved h trace "the factor's original complete source cone" cone) sourceContext
-  let coneWire ← realizeArrowObservation active trace coneWire
+  let firstStage ← retainedLiftStage h execution 0
+  let lastStage ← retainedLiftStage h execution (execution.selections.size - 1)
+  let coneWire ← realizeArrowObservation active trace
+    (← realizeUnobserved h trace "the factor's original complete source cone" cone)
+  let coneWire ← captureDeclaredCallableInput h trace coneWire sourceContext fun _ => do
+    let (domain, _) ← contextualMorphismEndpoints sourceContext cone
+    let domain ← realizeEndpoint { h with demandObjectActions := false } trace
+      "the factor's initially declared generalized domain" domain
+    pure (domain, firstStage.source)
   let some (domain, _) ← retainedCallableEndpoints? coneWire sourceContext
     | throwError "the factor cone lost its original generalized domain occurrence"
-  let some (finalDomain, _) ← retainedCallableEndpoints? baseWire targetContext
-    | throwError "the factor base map lost its original complete image domain"
   let mut domains : Array Wire := #[]
   let mut cones : Array Wire := #[]
   let mut stages : Array RetainedLiftStage := #[]
@@ -16520,32 +17113,32 @@ partial def executeRetainedLiftFactor (h : Harness) (trace : Trace)
     domains := domains.push currentDomain
     cones := cones.push currentCone
     stages := stages.push stage
+    let inner ← SelectedLift.innerEdge state selection.entry
+    let descriptor := ActionDataTemplate.wire .parameter stage.action
+    let image ← captureRegisteredObjectAction (.edge inner) selection.action currentDomain
+      (← Semantic.objOf selection.action currentDomain.value)
+      (contextualForm state target currentDomain.form) target descriptor
     if index + 1 == execution.selections.size then
-      -- The supplied base map already owns this final image occurrence. No
-      -- later stage consumes the final mapped cone, so do not demand its map
-      -- operation merely to rediscover the base map's domain.
-      let expected ← Semantic.objOf selection.action currentDomain.value
-      discard <| framingContext (some target) finalDomain.categoryContext
-      currentDomain ← forwardRetainedValue finalDomain expected
+      -- This image is used only if the original unframed base input needs its
+      -- initial declared domain. A complete base map keeps its own endpoint.
+      currentDomain := image
     else
-      let inner ← SelectedLift.innerEdge state selection.entry
-      let descriptor := ActionDataTemplate.literal (← execution.actionFragment index)
-      let image ← captureRegisteredObjectAction (.edge inner) selection.action currentDomain
-        (← Semantic.objOf selection.action currentDomain.value)
-        (contextualForm state target currentDomain.form) target descriptor
       let mapped ← captureRegisteredMapAction (.edge inner) selection.action descriptor
         currentCone image stage.sourceImage
-      let observed ← realizeArrowObservation active trace mapped
-      let some actualEndpoints ← retainedCallableEndpoints? observed target
-        | throwError "the mapped factor cone lost its actual selected image endpoints"
-      -- A registered map may return an opaque body. Its already observed
-      -- callable and exact endpoint occurrences supply the public frame used
-      -- by the following factor; framing never dispatches the map again.
-      let completed ← captureCompleteCallable h trace observed target (some actualEndpoints)
-      currentCone ← realizeArrowObservation active trace completed
-      let some (actualDomain, _) ← retainedCallableEndpoints? currentCone target
-        | throwError "the complete mapped factor cone lost its actual image endpoints"
-      currentDomain := actualDomain
+      -- The public frame preserves the original map/action producers. It is
+      -- a deferred input to this complete factor, not an executed map receipt.
+      currentCone ← captureCompleteCallable h trace mapped target
+      let some (selectedDomain, _) ← retainedCallableEndpoints? currentCone target
+        | throwError "the complete mapped factor cone lost its selected image endpoints"
+      currentDomain := selectedDomain
+  let baseWire ← realizeArrowObservation active trace
+    (← realizeUnobserved h trace "the factor's original complete base map" baseMap)
+  let declaredFinalDomain := currentDomain
+  let baseWire ← captureDeclaredCallableInput h trace baseWire targetContext
+    (fun _ => pure (declaredFinalDomain, lastStage.baseObject))
+  let some (finalDomain, _) ← retainedCallableEndpoints? baseWire targetContext
+    | throwError "the factor base map lost its original complete image domain"
+  currentDomain ← forwardRetainedValue finalDomain currentDomain.value
   let mut currentBase := baseWire
   let mut handles := liftWire.serviceHandles ++ execution.stageHandles.flatMap (·.all)
   for (index, step) in (List.range execution.selections.size).reverse.toArray.zip steps do
@@ -17129,8 +17722,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
   let argument ← match arguments[0]? with
     | none => do
       let identity ← identityAtContext dataContext source
-      Trace.record (some trace) identity (.contextualIdentity dataContext source)
-      pure identity
+      Trace.recordProduced (some trace) identity (.contextualIdentity dataContext source)
     | some first => do
       let mut argument := first
       for next in arguments.extract 1 arguments.size do
@@ -17142,7 +17734,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
           throwError "the operation's staged argument changed a selected intermediate endpoint"
         let composite ← mkAppM ``CategoryTheory.CategoryStruct.comp #[argument, next]
         CategoryContext.checkMorphism dataContext composite domain target
-        Trace.record (some trace) composite
+        let composite ← Trace.recordProduced (some trace) composite
           (.contextualComposition dataContext argument next domain middle target)
         argument := composite
       pure argument
@@ -17360,7 +17952,7 @@ partial def routedInvocationRegistrations (h : Harness) (trace : Trace) (wire : 
   inspect.serviceOperands.set (← h.serviceOperands.get)
   inspect.results.set (← h.results.get)
   let reader ← prepareProspectiveReader h inspect privateTrace wire
-    #[selected.original, selected.canonical.receiver, selected.transported.receiver]
+    (#[selected.original] ++ selected.boundaries.map (·.receiver))
   let literals ← routedReservedProjectionData selected
   reader.state.modify fun state => { state with
     reserved := state.reserved ++ prospectiveReservedInvocation (.routed selected) ++ literals,
@@ -19201,6 +19793,8 @@ def evaluatedDecides (evaluations : Array Name) (p : Expr) : TermElabM Bool := d
     | [residue] => residue.withContext do
         let condition ← instantiateMVars (← residue.getDecl).type
         let condition ← Core.transform condition (post := fun term => do
+          let unanchored := Trace.unanchor term
+          if unanchored != term then return .visit unanchored
           let args := term.getAppArgs
           if term.isAppOf ``Trace.operationResult && args.size >= 3 then
             -- The marker's arguments are its binding, complete type, and value.
@@ -19735,6 +20329,9 @@ def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
   | .structuredProjection receiver field index =>
       pure (Json.arr #[toJson "structuredProjection", toJson (← encode receiver),
         toJson field, toJson index])
+  | .callableEndpoint context receiver source =>
+      pure (Json.arr #[toJson "callableEndpoint", ← encodeContext context,
+        toJson (← encode receiver), toJson source])
   | .pointView source target route applications argument =>
       pure (Json.arr #[toJson "pointView", toJson (← encode source),
         toJson (← encode target), toJson (route.map reprStr),
@@ -19821,11 +20418,15 @@ def encodeSnapshotNode (source : TermTable) (encode : Expr → TermElabM Nat)
       pure (Json.arr #[toJson "limit", toJson id.raw, toJson (← encode diagram),
         toJson (lift.map (·.raw))])
 
-/-- Serialize every retained keyed operation independently of hash-map enumeration,
-including distinct raw terms with the same proof-irrelevant root. No record is deduplicated.
-Shared source encoding avoids reopening typed terms when a complete tie key is required. -/
+/-- Serialize independently of trace enumeration and anonymous producer allocation.
+Only exact administrative duplicates are coalesced; distinct legacy raw records
+and proof implementations retain their existing multiplicity. Validate original
+references before constructing the identity view. -/
 def snapshot (nodes : Array (Expr × Node))
-    (timings : Option (IO.Ref (Array (String × Nat))) := none) : TermElabM String := do
+    (timings : Option (IO.Ref (Array (String × Nat))) := none)
+    (roots : Array Expr := #[]) : TermElabM String := do
+  Trace.checkProducedEntries nodes roots
+  let nodes := Trace.identityEntries nodes
   let started ← IO.monoMsNow
   let record (stage : String) (before : Nat) : TermElabM Nat := do
     let now ← IO.monoMsNow
@@ -19878,179 +20479,11 @@ def interpret (scope : Scope) (stx : Syntax)
     | throwError "no pinned mathematical dependency revision"
   let (identity, shown) ← claimQuestion claim
   let afterQuestion ← record "question_construction" afterRead
-  let instantiateContext (context : CategoryContext) : TermElabM CategoryContext := do
-    return { context with bundle := (← instantiateMVars context.bundle) }
-  let instantiateComparisons (comparisons : Array (RouteComparison × Expr)) :=
-    comparisons.mapM fun (context, value) => do
-      pure (context, ← instantiateMVars value)
   let nodes ← (← trace.get).toArray.mapM fun (term, node) => do
-    let term ← instantiateMVars term
-    let node : Node ← match node with
-      | .object id parameters => pure (.object id (← parameters.mapM instantiateMVars))
-      | .parameterTransport source sourceCategory targetCategory route receiver =>
-          pure (.parameterTransport source sourceCategory targetCategory route (← instantiateMVars receiver))
-      | .structureTransport sourceCategory targetCategory route receiver =>
-          pure (.structureTransport sourceCategory targetCategory route (← instantiateMVars receiver))
-      | .proofRefinement classifier sourceCategory targetCategory source action identity =>
-          pure (.proofRefinement classifier sourceCategory targetCategory
-            (← instantiateMVars source) (← instantiateMVars action) (← instantiateMVars identity))
-      | .parameterEquivalence expected representative sources => do
-          let sources ← sources.mapM fun source => do
-            pure { source with
-              params := ← source.params.mapM instantiateMVars
-              applications := ← source.applications.mapM instantiateMVars
-              object := ← instantiateMVars source.object
-              image := ← instantiateMVars source.image
-              identity := ← instantiateMVars source.identity }
-          pure (.parameterEquivalence (← instantiateMVars expected)
-            (← instantiateMVars representative) sources)
-      | .operationEquivalence representative chosen candidates comparisons => do
-          let candidates ← candidates.mapM fun candidate => do
-            let sources ← candidate.sources.mapM fun source => do
-              return { source with
-                context := ← instantiateContext source.context
-                receiver := ← instantiateMVars source.receiver
-                applications := ← source.applications.mapM instantiateMVars
-                comparisonWitnesses := ← source.comparisonWitnesses.mapM instantiateMVars }
-            return { candidate with
-              application := ← instantiateMVars candidate.application
-              result := ← instantiateMVars candidate.result
-              sources }
-          let comparisons ← comparisons.mapM fun comparison => do
-            return { comparison with
-              parameters := ← comparison.parameters.mapM instantiateMVars
-              leftFamily := ← instantiateMVars comparison.leftFamily
-              rightFamily := ← instantiateMVars comparison.rightFamily
-              leftType := ← instantiateMVars comparison.leftType
-              rightType := ← instantiateMVars comparison.rightType
-              identity := ← instantiateMVars comparison.identity }
-          pure (.operationEquivalence (← instantiateMVars representative) chosen candidates comparisons)
-      | .retainedRoute source target route applications receiver =>
-          pure (.retainedRoute source target route (← applications.mapM instantiateMVars)
-            (← instantiateMVars receiver))
-      | .namedMorphism id params => pure (.namedMorphism id (← params.mapM instantiateMVars))
-      | .powerObjectMap id field params =>
-          pure (.powerObjectMap id field (← params.mapM instantiateMVars))
-      | .objectField id field category params =>
-          pure (.objectField id field category (← params.mapM instantiateMVars))
-      | .namedInclusion id category params source target =>
-          pure (.namedInclusion id category (← params.mapM instantiateMVars)
-            (← instantiateMVars source) (← instantiateMVars target))
-      | .callableRecipe category domain target body =>
-          pure (.callableRecipe category (← instantiateMVars domain)
-            (← instantiateMVars target) (← instantiateMVars body))
-      | .namedCallable address category params =>
-          pure (.namedCallable address category (← params.mapM instantiateMVars))
-      | .admittedPoint id category params original originalCategory source target =>
-          pure (.admittedPoint id category (← params.mapM instantiateMVars)
-            (← instantiateMVars original) originalCategory
-            (← instantiateMVars source) (← instantiateMVars target))
-      | .constrainedPoint constructor category domain source target original =>
-          pure (.constrainedPoint constructor category (← instantiateMVars domain)
-            (← instantiateMVars source) (← instantiateMVars target) (← instantiateMVars original))
-      | .presentation id params inverse =>
-          pure (.presentation id (← params.mapM instantiateMVars) inverse)
-      | .generator id params => pure (.generator id (← params.mapM instantiateMVars))
-      | .elementNumeral value target selected =>
-          pure (.elementNumeral value (← instantiateMVars target) (← instantiateMVars selected))
-      | .elementValue point target selected =>
-          pure (.elementValue (← instantiateMVars point) (← instantiateMVars target)
-            (← instantiateMVars selected))
-      | .productMediator category presentation domain left right =>
-          pure (.productMediator category (← instantiateMVars presentation)
-            (← instantiateMVars domain) (← instantiateMVars left) (← instantiateMVars right))
-      | .morphismComposition category first second source middle target =>
-          pure (.morphismComposition category (← instantiateMVars first)
-            (← instantiateMVars second) (← instantiateMVars source)
-            (← instantiateMVars middle) (← instantiateMVars target))
-      | .morphismIdentity category object =>
-          pure (.morphismIdentity category (← instantiateMVars object))
-      | .contextualRoute source target route applications receiver morphism =>
-          pure (.contextualRoute (← instantiateContext source) (← instantiateContext target)
-            route (← applications.mapM instantiateMVars) (← instantiateMVars receiver) morphism)
-      | .contextualComposition context first second source middle target =>
-          pure (.contextualComposition (← instantiateContext context)
-            (← instantiateMVars first) (← instantiateMVars second)
-            (← instantiateMVars source) (← instantiateMVars middle) (← instantiateMVars target))
-      | .contextualIdentity context object =>
-          pure (.contextualIdentity (← instantiateContext context) (← instantiateMVars object))
-      | .contextualArrow context hom source target =>
-          pure (.contextualArrow (← instantiateContext context) (← instantiateMVars hom)
-            (← instantiateMVars source) (← instantiateMVars target))
-      | .arrowProjection receiver =>
-          pure (.arrowProjection (← instantiateMVars receiver))
-      | .limitProjection receiver index =>
-          pure (.limitProjection (← instantiateMVars receiver) (← instantiateMVars index))
-      | .structuredProjection receiver field index =>
-          pure (.structuredProjection (← instantiateMVars receiver) field index)
-      | .cartesian id params baseMorphism receiver field =>
-          pure (.cartesian id (← params.mapM instantiateMVars)
-            (← instantiateMVars baseMorphism) (← instantiateMVars receiver) field)
-      | .pointView source target route applications argument =>
-          pure (.pointView (← instantiateMVars source) (← instantiateMVars target) route
-            (← applications.mapM instantiateMVars) (← instantiateMVars argument))
-      | .operationPoint id params comparison operation target selected =>
-          pure (.operationPoint id (← params.mapM instantiateMVars)
-            (← instantiateMVars comparison) (← instantiateMVars operation)
-            (← instantiateMVars target) (← instantiateMVars selected))
-      | .operationApply id params operands target selected =>
-          pure (.operationApply id (← params.mapM instantiateMVars)
-            (← operands.mapM instantiateMVars) (← instantiateMVars target)
-            (← instantiateMVars selected))
-      | .presentationApply id params inverse source target argument =>
-          pure (.presentationApply id (← params.mapM instantiateMVars) inverse
-            (← instantiateMVars source) (← instantiateMVars target) (← instantiateMVars argument))
-      | .morphismTransport sourceCategory targetCategory route receiver =>
-          pure (.morphismTransport sourceCategory targetCategory route (← instantiateMVars receiver))
-      | .functor id params receiver =>
-          pure (.functor id (← params.mapM instantiateMVars) (← instantiateMVars receiver))
-      | .categoryParameter id params =>
-          pure (.categoryParameter id (← params.mapM instantiateMVars))
-      | .functorParameter id params =>
-          pure (.functorParameter id (← params.mapM instantiateMVars))
-      | .construction id params receiver =>
-          pure (.construction id (← params.mapM instantiateMVars) (← instantiateMVars receiver))
-      | .constructionMap id params source target morphism =>
-          pure (.constructionMap id (← params.mapM instantiateMVars)
-            (← instantiateMVars source) (← instantiateMVars target) (← instantiateMVars morphism))
-      | .coreObject context object =>
-          pure (.coreObject (← instantiateContext context) (← instantiateMVars object))
-      | .coreIso category source target forward backward =>
-          pure (.coreIso (← instantiateContext category) (← instantiateMVars source) (← instantiateMVars target)
-            (← instantiateMVars forward) (← instantiateMVars backward))
-      | .selectedLift id params source inclusion monic =>
-          pure (.selectedLift id (← params.mapM instantiateMVars) (← instantiateMVars source)
-            (← instantiateMVars inclusion) (← instantiateMVars monic))
-      | .liftProjection receiver field => pure (.liftProjection (← instantiateMVars receiver) field)
-      | .liftFactor receiver baseMap cone proof =>
-          pure (.liftFactor (← instantiateMVars receiver) (← instantiateMVars baseMap)
-            (← instantiateMVars cone) (← instantiateMVars proof))
-      | .cellComponent id params constructors inverse receiver =>
-          pure (.cellComponent id (← params.mapM instantiateMVars) constructors inverse
-            (← instantiateMVars receiver))
-      | .cellEndpoint id params constructors inverse right receiver =>
-          pure (.cellEndpoint id (← params.mapM instantiateMVars) constructors inverse right
-            (← instantiateMVars receiver))
-      | .binder id params domain body admitted =>
-          pure (.binder id (← params.mapM instantiateMVars) (← instantiateMVars domain)
-            (← instantiateMVars body) (← instantiateMVars admitted))
-      | .arrow category morphism source target =>
-          pure (.arrow category (← instantiateMVars morphism) (← instantiateMVars source)
-            (← instantiateMVars target))
-      | .literal form literal => pure (.literal form (← instantiateMVars literal))
-      | .method id route receiver recordedComparisons interpreted =>
-          pure (.method id route (← instantiateMVars receiver)
-            (← instantiateComparisons recordedComparisons) (← interpreted.instantiateMVars))
-      | .methodWithLifts id route lifts receiver recordedComparisons interpreted =>
-          pure (.methodWithLifts id route lifts (← instantiateMVars receiver)
-            (← instantiateComparisons recordedComparisons) (← interpreted.instantiateMVars))
-      | .property id route receiver recordedComparisons =>
-          pure (.property id route (← instantiateMVars receiver)
-            (← instantiateComparisons recordedComparisons))
-      | .limit id diagram lift => pure (.limit id (← instantiateMVars diagram) lift)
-    return (term, node)
+    return (← instantiateMVars term,
+      ← node.mapTermsM (fun field => instantiateMVars field))
   discard <| record "trace_instantiation" afterQuestion
-  let tree ← snapshot nodes timings
+  let tree ← snapshot nodes timings (← claim.terms.mapM fun field => instantiateMVars field)
   return { claim := claim
            trace := Std.HashMap.ofArray nodes
            mathematicalRevision := mathematicalRevision

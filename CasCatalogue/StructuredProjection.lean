@@ -153,8 +153,8 @@ def retainPortValue (receiver value : Expr) (index : Nat) : TermElabM Expr := do
 The registry-selected resolution is checked before any data-port projection. -/
 def construction? (receiver : Expr) (context : CategoryContext) (trace? : Option Trace := none) :
     TermElabM (Option ConstructionPlan) := do
-  let mut apex := receiver.consumeMData
-  while apex.isAppOfArity ``id 2 do apex := apex.appArg!.consumeMData
+  let mut apex := Trace.unanchor receiver.consumeMData
+  while apex.isAppOfArity ``id 2 do apex := Trace.unanchor apex.appArg!.consumeMData
   let colimit := apex.isAppOf ``CategoryTheory.Limits.Cocone.pt
   unless colimit || apex.isAppOf ``CategoryTheory.Limits.Cone.pt do return none
   let cone := apex.appArg!
@@ -194,7 +194,9 @@ def construction? (receiver : Expr) (context : CategoryContext) (trace? : Option
         throwStratum .invalid "the structured result has no exact registered construction"
       else throwSemanticAmbiguity "the structured result has several accepted constructions"
   CategoryContext.checkObject context receiver
-  Trace.record trace? receiver (.limit row.id diagram lift)
+  -- This recovers an interface for the original occurrence; it does not replace
+  -- a method, projection, or other producer that already owns that occurrence.
+  if recorded.isNone then Trace.record trace? receiver (.limit row.id diagram lift)
   return some { row, lift, diagram, presentation, cone, apex := receiver, context }
 
 def ConstructionPlan.dataPlan (plan : ConstructionPlan) : TermElabM StructuredResult.DataPlan := do

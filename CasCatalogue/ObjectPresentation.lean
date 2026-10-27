@@ -9,27 +9,43 @@ open Lean Meta Elab Term
 
 namespace CasCatalogue.ObjectPresentation
 
-/-- Public object fields select existing accepted declarations. The two presentation
-selectors use the same complete parameter family and opposite projections of its
-accepted isomorphism; they do not register another comparison or infer one from carriers. -/
+/-- Public comparison selectors project an already accepted isomorphism. The
+refinement selectors belong to the structural image's category, which need not
+be the category of the named source object. -/
+def isComparisonField (field : String) : Bool :=
+  #["presentation", "inversePresentation", "refinement", "inverseRefinement"].contains field
+
+/-- Public object fields select existing accepted declarations. Construction
+presentations and named refinements keep separate selectors even when one row
+publishes both. Neither selector introduces another mathematical comparison. -/
 def fieldDeclaration (entry : ObjectEntry) (field : String) : Option Name :=
   match field with
   | "inclusion" => entry.inclusion
   | "constants" => entry.constants
   | "presentation" | "inversePresentation" =>
       entry.functorPresentation.map (·.identification)
+  | "refinement" | "inverseRefinement" =>
+      entry.refines.map (·.identification)
   | _ => none
 
 /-- Project a public map from the fully instantiated declaration that owns it. -/
 def fieldValue (field : String) (application : Expr) : TermElabM Expr := do
   match field with
-  | "presentation" => mkAppM ``CategoryTheory.Iso.hom #[application]
-  | "inversePresentation" => mkAppM ``CategoryTheory.Iso.inv #[application]
+  | "presentation" | "refinement" => mkAppM ``CategoryTheory.Iso.hom #[application]
+  | "inversePresentation" | "inverseRefinement" => mkAppM ``CategoryTheory.Iso.inv #[application]
   | _ => pure application
 
 def applyParameters (declaration : Name) (parameters : Array Expr) : TermElabM Expr := do
   elabTermAndSynthesize
     (← `($(mkCIdent declaration) $(← parameters.mapM exprToSyntax)*)) none
+
+def fieldCategory (entry : ObjectEntry) (selector : String) : TermElabM CategoryId := do
+  if selector != "refinement" && selector != "inverseRefinement" then return entry.category
+  let some refinement := entry.refines
+    | throwError "the registered object has no named refinement comparison"
+  let some target := (← registryState).objects.find? (·.id == refinement.base)
+    | throwError "the named refinement has no accepted target object"
+  return target.category
 
 /-- A declared field, with its selected parameters and direction retained in the trace. -/
 def field (entry : ObjectEntry) (selector : String) (parameters : Array Expr)
@@ -40,8 +56,8 @@ def field (entry : ObjectEntry) (selector : String) (parameters : Array Expr)
   let value ← instantiateMVars (← fieldValue selector application)
   if value.hasMVar || value.hasLevelMVar || value.hasFVar || value.hasLooseBVars then
     throwError "the public object field has unresolved complete parameters"
-  Trace.record trace? value (.objectField entry.id selector entry.category parameters)
-  return value
+  Trace.recordProduced trace? value
+    (.objectField entry.id selector (← fieldCategory entry selector) parameters)
 
 /-- The existing registered construction and its complete accepted comparison. This
 plan contains only formal catalogue data; a computed result never supplies its laws. -/

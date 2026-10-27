@@ -202,6 +202,36 @@ reports a computational gap; an unavailable representation bridge between live
 processes remains distinct. Neither is filled by changing a target consumer's
 decoder.
 
+### Named refinement representations
+
+An accepted object refinement identifies the full structural image `U(X(p))`
+with the registered base `B(p)`. A canonical-base registration may receive the
+`B(p)` constructor data, with every original parameter and supplier retained.
+The semantic receiver remains `U(X(p))`. The kernel retains the accepted
+identification and both complete callable occurrences, so subsequent points,
+maps and structured results use the selected comparison when their framing
+requires it. Forming this representation neither executes `U` nor marks the
+comparison maps as computed.
+
+The public comparison descriptors are
+`objectField(object_id, "refinement", parameters)` for the identification's
+`hom : U(X(p)) → B(p)`, and
+`objectField(object_id, "inverseRefinement", parameters)` for its `inv`.
+They use the existing three-field `objectField` envelope, in the route's target
+category and with the object's complete ordered declaration parameters.
+They are distinct from `presentation` and `inversePresentation`, which expose
+an object's separate `functorPresentation` comparison. The contract's
+[`ObjectField` guide](https://github.com/dzackgarza/lean-cas-dsl-leaf-contracts/blob/main/api/wire-examples.md#registered-object-fields)
+publishes the decoder vocabulary, endpoint directions and common callable framing.
+
+An ordinary inherited method retains its complete original route even when
+the chosen implementation accepts a canonical base. Its request and result
+schema use the remaining suffix; an explicit offset relates their local action
+indices to the original positions. Later prescribed lifts retain that exact
+request receiver as the consumed prefix's final image, with its accepted
+presentation. They do not replace it by separately computed equal expressions
+or claim that a representation descriptor is an action execution receipt.
+
 ## A registration is data
 
 A leaf package is a manifest, `leaves.json` at the root of the package, plus the programs it
@@ -240,11 +270,13 @@ operations and literal denotations. The realized reading evaluates that same ter
 second traversal of the statement. It evaluates bottom-up:
 1. **Literals.** A subterm `denote t` of a registered literal form is the value `t` of that form,
    encoded by the kernel. The extent of a finite-subset literal is the literal itself.
-2. **Transport.** Before a registration is selected, the receiver of a method or property is sent
-   along the route the semantic reading resolved, as far as the catalogue's refinement rows relate
-   it to a base object at the same parameters. For example, `Fin(3) in FiniteSets` goes to
-   `Fin(3)` in `Sets`. Only catalogue rows move an object. A registration on a form the catalogue
-   sends elsewhere along the operation's route could never be selected, so it is not admitted.
+2. **Transport.** The method or property retains the route selected by interpretation. Accepted
+   refinement rows can supply a canonical base representation for a prefix at the same complete
+   parameters, while the semantic receiver remains the full structural image. For example,
+   the underlying set of `Fin(3) in FiniteSets` may use the registered `Fin(3)` data in `Sets`
+   through its accepted identification. Only catalogue comparisons authorize that representation.
+   A registration on a named form whose accepted refinement sends it to a base along the
+   operation's route is not admitted; the existing canonical-base registration implements it.
 3. **Operations.** For an operation applied to evaluated arguments, the kernel picks the admitted
    registration of that operation for the arguments' form, sends the encoded input, and decodes
    the answer in the operation's result form. The outcomes:

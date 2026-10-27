@@ -7,6 +7,7 @@ module
 public import LeanCategories.Catalogue.Registry.Entry
 public import CasCatalogue.Resolve
 public import Std.Data.HashMap
+public import Std.Data.HashSet
 
 @[expose] public section
 
@@ -116,31 +117,35 @@ structure MethodApplication where
   lifts : Array MethodLiftApplication := #[]
   deriving BEq, Repr
 
+/-- Traverse every retained typed field without changing its selected metadata or order. -/
+def MethodApplication.mapTermsM {m : Type → Type} [Monad m]
+    (f : Expr → m Expr) (application : MethodApplication) : m MethodApplication := do
+  let context (value : CategoryContext) : m CategoryContext := do
+    return { value with bundle := (← f value.bundle) }
+  let lifts ← application.lifts.mapM fun lift => do
+    return { lift with
+      evidence := (← f lift.evidence)
+      action := (← f lift.action)
+      receiver := (← f lift.receiver)
+      input := (← f lift.input)
+      result := (← f lift.result) }
+  return { application with
+    sourceContext := (← context application.sourceContext)
+    routeApplications := (← application.routeApplications.mapM f)
+    routeReceivers := (← application.routeReceivers.mapM f)
+    image := (← f application.image)
+    application := (← f application.application)
+    input := (← f application.input)
+    baseResult := (← f application.baseResult)
+    baseContext := (← context application.baseContext)
+    result := (← f application.result)
+    resultContext := (← context application.resultContext)
+    lifts }
+
 /-- Instantiate every retained mathematical field, including the full selected
 category dictionaries and the evidence of each prescribed stage. -/
 def MethodApplication.instantiateMVars (application : MethodApplication) :
-    Meta.MetaM MethodApplication := do
-  let context (value : CategoryContext) : Meta.MetaM CategoryContext := do
-    return { value with bundle := (← Lean.instantiateMVars value.bundle) }
-  let lifts ← application.lifts.mapM fun lift => do
-    return { lift with
-      evidence := (← Lean.instantiateMVars lift.evidence)
-      action := (← Lean.instantiateMVars lift.action)
-      receiver := (← Lean.instantiateMVars lift.receiver)
-      input := (← Lean.instantiateMVars lift.input)
-      result := (← Lean.instantiateMVars lift.result) }
-  return { application with
-    sourceContext := (← context application.sourceContext)
-    routeApplications := (← application.routeApplications.mapM Lean.instantiateMVars)
-    routeReceivers := (← application.routeReceivers.mapM Lean.instantiateMVars)
-    image := (← Lean.instantiateMVars application.image)
-    application := (← Lean.instantiateMVars application.application)
-    input := (← Lean.instantiateMVars application.input)
-    baseResult := (← Lean.instantiateMVars application.baseResult)
-    baseContext := (← context application.baseContext)
-    result := (← Lean.instantiateMVars application.result)
-    resultContext := (← context application.resultContext)
-    lifts }
+    Meta.MetaM MethodApplication := application.mapTermsM Lean.instantiateMVars
 
 /-- How the semantic reading formed a value. -/
 inductive Node
@@ -209,6 +214,9 @@ inductive Node
       (first second source middle target : Expr)
   | contextualIdentity (context : CategoryContext) (object : Expr)
   | contextualArrow (context : CategoryContext) (hom source target : Expr)
+  /-- One endpoint occurrence of a complete selected callable. The parent is formed
+  first; neither equal formal endpoints nor independent object actions choose its data. -/
+  | callableEndpoint (context : CategoryContext) (receiver : Expr) (source : Bool)
   /-- The stored map of an object of the registered arrow-category construction. -/
   | arrowProjection (receiver : Expr)
   /-- A defining leg of the exact retained universal construction. -/
@@ -269,6 +277,190 @@ inductive Node
   | limit (id : LimitId) (diagram : Expr) (lift : Option LiftId)
   deriving BEq, Repr
 
+/-- A total traversal of the selected typed fields. Metadata, array boundaries and
+all declaration positions are preserved; this never unfolds a mathematical value. -/
+def Node.mapTermsM {m : Type → Type} [Monad m] (f : Expr → m Expr) (node : Node) : m Node := do
+  let mapContext (context : CategoryContext) : m CategoryContext := do
+    return { context with bundle := ← f context.bundle }
+  let mapComparisons (comparisons : Array (RouteComparison × Expr)) :=
+    comparisons.mapM fun (context, value) => do pure (context, ← f value)
+  match node with
+  | .object id parameters => pure (.object id (← parameters.mapM f))
+  | .parameterTransport source sourceCategory targetCategory route receiver =>
+      pure (.parameterTransport source sourceCategory targetCategory route (← f receiver))
+  | .structureTransport sourceCategory targetCategory route receiver =>
+      pure (.structureTransport sourceCategory targetCategory route (← f receiver))
+  | .proofRefinement classifier sourceCategory targetCategory source action identity =>
+      pure (.proofRefinement classifier sourceCategory targetCategory
+        (← f source) (← f action) (← f identity))
+  | .parameterEquivalence expected representative sources => do
+      let sources ← sources.mapM fun source => do
+        pure { source with
+          params := ← source.params.mapM f
+          applications := ← source.applications.mapM f
+          object := ← f source.object
+          image := ← f source.image
+          identity := ← f source.identity }
+      pure (.parameterEquivalence (← f expected)
+        (← f representative) sources)
+  | .operationEquivalence representative chosen candidates comparisons => do
+      let candidates ← candidates.mapM fun candidate => do
+        let sources ← candidate.sources.mapM fun source => do
+          return { source with
+            context := ← mapContext source.context
+            receiver := ← f source.receiver
+            applications := ← source.applications.mapM f
+            comparisonWitnesses := ← source.comparisonWitnesses.mapM f }
+        return { candidate with
+          application := ← f candidate.application
+          result := ← f candidate.result
+          sources }
+      let comparisons ← comparisons.mapM fun comparison => do
+        return { comparison with
+          parameters := ← comparison.parameters.mapM f
+          leftFamily := ← f comparison.leftFamily
+          rightFamily := ← f comparison.rightFamily
+          leftType := ← f comparison.leftType
+          rightType := ← f comparison.rightType
+          identity := ← f comparison.identity }
+      pure (.operationEquivalence (← f representative) chosen candidates comparisons)
+  | .retainedRoute source target route applications receiver =>
+      pure (.retainedRoute source target route (← applications.mapM f)
+        (← f receiver))
+  | .namedMorphism id params => pure (.namedMorphism id (← params.mapM f))
+  | .powerObjectMap id field params =>
+      pure (.powerObjectMap id field (← params.mapM f))
+  | .objectField id field category params =>
+      pure (.objectField id field category (← params.mapM f))
+  | .namedInclusion id category params source target =>
+      pure (.namedInclusion id category (← params.mapM f)
+        (← f source) (← f target))
+  | .callableRecipe category domain target body =>
+      pure (.callableRecipe category (← f domain)
+        (← f target) (← f body))
+  | .namedCallable address category params =>
+      pure (.namedCallable address category (← params.mapM f))
+  | .admittedPoint id category params original originalCategory source target =>
+      pure (.admittedPoint id category (← params.mapM f)
+        (← f original) originalCategory
+        (← f source) (← f target))
+  | .constrainedPoint constructor category domain source target original =>
+      pure (.constrainedPoint constructor category (← f domain)
+        (← f source) (← f target) (← f original))
+  | .presentation id params inverse =>
+      pure (.presentation id (← params.mapM f) inverse)
+  | .generator id params => pure (.generator id (← params.mapM f))
+  | .elementNumeral value target selected =>
+      pure (.elementNumeral value (← f target) (← f selected))
+  | .elementValue point target selected =>
+      pure (.elementValue (← f point) (← f target)
+        (← f selected))
+  | .productMediator category productPresentation domain left right =>
+      pure (.productMediator category (← f productPresentation)
+        (← f domain) (← f left) (← f right))
+  | .morphismComposition category first second source middle target =>
+      pure (.morphismComposition category (← f first)
+        (← f second) (← f source)
+        (← f middle) (← f target))
+  | .morphismIdentity category objectValue =>
+      pure (.morphismIdentity category (← f objectValue))
+  | .contextualRoute source target route applications receiver morphism =>
+      pure (.contextualRoute (← mapContext source) (← mapContext target)
+        route (← applications.mapM f) (← f receiver) morphism)
+  | .contextualComposition context first second source middle target =>
+      pure (.contextualComposition (← mapContext context)
+        (← f first) (← f second)
+        (← f source) (← f middle) (← f target))
+  | .contextualIdentity context objectValue =>
+      pure (.contextualIdentity (← mapContext context) (← f objectValue))
+  | .contextualArrow context hom source target =>
+      pure (.contextualArrow (← mapContext context) (← f hom)
+        (← f source) (← f target))
+  | .callableEndpoint context receiver source =>
+      pure (.callableEndpoint (← mapContext context) (← f receiver) source)
+  | .arrowProjection receiver =>
+      pure (.arrowProjection (← f receiver))
+  | .limitProjection receiver index =>
+      pure (.limitProjection (← f receiver) (← f index))
+  | .structuredProjection receiver field index =>
+      pure (.structuredProjection (← f receiver) field index)
+  | .cartesian id params baseMorphism receiver field =>
+      pure (.cartesian id (← params.mapM f)
+        (← f baseMorphism) (← f receiver) field)
+  | .pointView source target route applications argument =>
+      pure (.pointView (← f source) (← f target) route
+        (← applications.mapM f) (← f argument))
+  | .operationPoint id params comparison operation target selected =>
+      pure (.operationPoint id (← params.mapM f)
+        (← f comparison) (← f operation)
+        (← f target) (← f selected))
+  | .operationApply id params operands target selected =>
+      pure (.operationApply id (← params.mapM f)
+        (← operands.mapM f) (← f target)
+        (← f selected))
+  | .presentationApply id params inverse source target argument =>
+      pure (.presentationApply id (← params.mapM f) inverse
+        (← f source) (← f target) (← f argument))
+  | .morphismTransport sourceCategory targetCategory route receiver =>
+      pure (.morphismTransport sourceCategory targetCategory route (← f receiver))
+  | .functor id params receiver =>
+      pure (.functor id (← params.mapM f) (← f receiver))
+  | .categoryParameter id params =>
+      pure (.categoryParameter id (← params.mapM f))
+  | .functorParameter id params =>
+      pure (.functorParameter id (← params.mapM f))
+  | .construction id params receiver =>
+      pure (.construction id (← params.mapM f) (← f receiver))
+  | .constructionMap id params source target morphism =>
+      pure (.constructionMap id (← params.mapM f)
+        (← f source) (← f target) (← f morphism))
+  | .coreObject context objectValue =>
+      pure (.coreObject (← mapContext context) (← f objectValue))
+  | .coreIso category source target forward backward =>
+      pure (.coreIso (← mapContext category) (← f source) (← f target)
+        (← f forward) (← f backward))
+  | .selectedLift id params source inclusion monic =>
+      pure (.selectedLift id (← params.mapM f) (← f source)
+        (← f inclusion) (← f monic))
+  | .liftProjection receiver field => pure (.liftProjection (← f receiver) field)
+  | .liftFactor receiver baseMap cone proof =>
+      pure (.liftFactor (← f receiver) (← f baseMap)
+        (← f cone) (← f proof))
+  | .cellComponent id params constructors inverse receiver =>
+      pure (.cellComponent id (← params.mapM f) constructors inverse
+        (← f receiver))
+  | .cellEndpoint id params constructors inverse right receiver =>
+      pure (.cellEndpoint id (← params.mapM f) constructors inverse right
+        (← f receiver))
+  | .binder id params domain body admitted =>
+      pure (.binder id (← params.mapM f) (← f domain)
+        (← f body) (← f admitted))
+  | .arrow category morphism source target =>
+      pure (.arrow category (← f morphism) (← f source)
+        (← f target))
+  | .literal form literalValue => pure (.literal form (← f literalValue))
+  | .method id route receiver recordedComparisons interpreted =>
+      pure (.method id route (← f receiver)
+        (← mapComparisons recordedComparisons) (← interpreted.mapTermsM f))
+  | .methodWithLifts id route lifts receiver recordedComparisons interpreted =>
+      pure (.methodWithLifts id route lifts (← f receiver)
+        (← mapComparisons recordedComparisons) (← interpreted.mapTermsM f))
+  | .property id route receiver recordedComparisons =>
+      pure (.property id route (← f receiver)
+        (← mapComparisons recordedComparisons))
+  | .limit id diagram lift => pure (.limit id (← f diagram) lift)
+
+/-- An administrative description retains the complete node skeleton and each typed
+field at its original ordinal. Expressions remain shared immutable Lean subterms; the
+skeleton contains positions, never printed mathematical terms or their hashes. -/
+def Node.producerDescription (node : Node) : String × Array Expr := Id.run do
+  let position (term : Expr) : StateM (Array Expr) Expr := do
+    let fields ← get
+    set (fields.push term)
+    pure (mkRawNatLit fields.size)
+  let (skeleton, fields) := (node.mapTermsM position).run #[]
+  return (reprStr skeleton, fields)
+
 /-- The records of one statement's semantic reading. -/
 abbrev Trace := IO.Ref (Std.HashMap Expr Node)
 
@@ -277,13 +469,162 @@ the same declaration and produces the same map. The tag is retained syntax only;
 the whole value and its type are unchanged by this transparent definition. -/
 def Trace.operationResult (_binding : String) {α : Sort u} (value : α) : α := value
 
+/-- A producer retains every selected typed input even when its mathematical result
+does not mention that input. This is an administrative identity, not an operation. -/
+def Trace.producerArgument {α : Sort u} (_argument : α) {β : Sort v} (value : β) : β := value
+
+/-- Distinct interpreted producers have distinct execution keys. Only `occurrence` is
+administrative: the complete selected description and its typed arguments remain part
+of the interpreted question. The whole term still has exactly the original value. -/
+def Trace.producerResult (_occurrence : Nat) (_description : String)
+    {α : Sort u} (value : α) : α := value
+
+/-- Allocation is outside elaborator rollback and outside copied trace maps. A speculative
+branch may abandon an ordinal, but no subsequently merged branch can reuse it. -/
+initialize nextProducerOccurrence : IO.Ref Nat ← IO.mkRef 0
+
+structure ProducerAnchor where
+  occurrence : Nat
+  description : String
+  fields : Array Expr
+  type : Expr
+  formal : Expr
+
+/-- Read only the complete administrative wrapper. No mathematical unfolding or
+interpretation of a printed expression participates. -/
+def Trace.producerAnchor? (value : Expr) : Option ProducerAnchor := Id.run do
+  let value := value.consumeMData
+  unless value.isAppOfArity ``Trace.producerResult 4 do return none
+  let arguments := value.getAppArgs
+  let .lit (.natVal occurrence) := arguments[0]! | return none
+  let .lit (.strVal description) := arguments[1]! | return none
+  let mut formal := arguments[3]!
+  let mut fields := #[]
+  while formal.isAppOfArity ``Trace.producerArgument 4 do
+    fields := fields.push formal.getAppArgs[1]!
+    formal := formal.appArg!
+  return some { occurrence, description, fields, type := arguments[2]!, formal }
+
+/-- Inspect a selected mathematical head while retaining the original anchored term
+as the value used for execution. Meaningful operation-binding markers are not erased. -/
+partial def Trace.unanchor (value : Expr) : Expr :=
+  let selected := value.consumeMData
+  let arguments := selected.getAppArgs
+  if arguments.size < 4 then value
+  else
+    match Trace.producerAnchor? (mkAppN selected.getAppFn (arguments.extract 0 4)) with
+    | some anchor =>
+        Trace.unanchor (mkAppN anchor.formal (arguments.extract 4 arguments.size))
+    | none => value
+
+/-- Erase only allocation ordinals in an identity view. Matching the first application
+of the marker leaves traversal of every type, selected field and formal result intact. -/
+def Trace.withoutOccurrences (value : Expr) : Expr :=
+  value.replace fun term =>
+    if term.isAppOfArity ``Trace.producerResult 1 then
+      some (mkApp term.appFn! (mkRawNatLit 0))
+    else none
+
 def Trace.new : IO Trace := IO.mkRef {}
 
-/-- Record that `value` was formed by `node`, when a trace is being kept. -/
-def Trace.record (trace? : Option Trace) (value : Expr) (node : Node) : IO Unit :=
+/-- Recover an existing record without changing its producer. A fresh producer must
+use `recordProduced` and retain its returned handle; an equal raw value cannot replace
+another selected record. Repeating the exact same recovery is idempotent. -/
+def Trace.record (trace? : Option Trace) (value : Expr) (node : Node) : IO Unit := do
   match trace? with
-  | some trace => trace.modify (·.insert value node)
+  | some trace =>
+      let conflict ← trace.modifyGet fun entries =>
+        match entries[value]? with
+        | some previous => (previous != node, entries)
+        | none => (false, entries.insert value node)
+      if conflict then
+        throw <| IO.userError "distinct selected producers share one executable trace key"
   | none => pure ()
+
+/-- Record a producer before another equal mathematical value can occupy its key.
+The node is independently fixed first. Building its descriptor visits only its finite
+ordered fields and shares their existing expression DAG; the new occurrence cannot
+occur in any of those fields. Callers retain the returned handle, never the bare value. -/
+def Trace.recordProduced (trace? : Option Trace) (value : Expr) (node : Node) : Meta.MetaM Expr := do
+  let some trace := trace? | return value
+  let (description, fields) := node.producerDescription
+  let mut selected := value
+  for field in fields.reverse do
+    selected ← Meta.mkAppM ``Trace.producerArgument #[field, selected]
+  let occurrence ← nextProducerOccurrence.modifyGet fun next => (next, next + 1)
+  let result ← Meta.mkAppM ``Trace.producerResult
+    #[mkRawNatLit occurrence, mkStrLit description, selected]
+  Trace.record (some trace) result node
+  return result
+
+/-- Check the complete anchor against the actual retained semantic record. The
+description string alone cannot assert a selected operation or parameter. -/
+def Trace.checkProducerRecord (value : Expr) (node : Node) : Meta.MetaM Unit := do
+  let value ← Lean.instantiateMVars value
+  unless value.consumeMData.isAppOfArity ``Trace.producerResult 4 do return
+  let some anchor := Trace.producerAnchor? value
+    | throwError "the selected producer has a malformed administrative anchor"
+  let node ← node.mapTermsM Lean.instantiateMVars
+  let (description, fields) := node.producerDescription
+  unless anchor.description == description && anchor.fields.size == fields.size do
+    throwError "the producer anchor changed its complete selected record"
+  for (actual, retained) in anchor.fields.zip fields do
+    unless actual.equal retained do
+      throwError "the producer anchor changed an ordered typed field"
+  unless ← Meta.isTypeCorrect value do
+    throwError "the producer anchor is outside its original complete type"
+
+/-- Validate references from the prepared claim and every retained record against
+the actual trace. The descriptor is checked at its selected node; a string cannot
+substitute for that node. Exact-expression visitation shares repeated DAG subterms. -/
+def Trace.checkProducedEntries (entries : Array (Expr × Node))
+    (roots : Array Expr := #[]) : Meta.MetaM Unit := do
+  let mut recorded : Std.HashMap Expr Node := {}
+  for (value, node) in entries do
+    if let some previous := recorded[value]? then
+      unless previous == node do
+        throwError "distinct selected producers share one executable trace key"
+    recorded := recorded.insert value node
+  let complete := recorded
+  let visited ← IO.mkRef ({} : Std.HashSet ExprStructEq)
+  let rec visit (value : Expr) : Meta.MetaM Unit := do
+    let key : ExprStructEq := ⟨value⟩
+    if (← visited.get).contains key then return
+    visited.modify (·.insert key)
+    if value.isAppOfArity ``Trace.producerResult 4 then
+      let some node := complete[value]?
+        | throwError "a selected producer reference is outside its complete trace"
+      Trace.checkProducerRecord value node
+    match value with
+    | .app fn argument => visit fn *> visit argument
+    | .lam _ type body _ | .forallE _ type body _ => visit type *> visit body
+    | .letE _ type value body _ => visit type *> visit value *> visit body
+    | .mdata _ body | .proj _ _ body => visit body
+    | _ => pure ()
+  for (value, node) in entries do
+    Trace.checkProducerRecord value node
+    visit value
+    for field in node.producerDescription.2 do visit field
+  for root in roots do visit root
+
+/-- Administrative duplication does not add a mathematical operation. Coalesce only
+exact term-and-record duplicates after removing occurrence ordinals, before any proof
+or binder quotient. Different raw proof keys and different selected records survive. -/
+def Trace.identityEntries (entries : Array (Expr × Node)) : Array (Expr × Node) := Id.run do
+  let mut seen : Std.HashMap ExprStructEq (Array Node) := {}
+  let mut result := #[]
+  for (term, node) in entries do
+    if (term.find? (·.isAppOfArity ``Trace.producerResult 4)).isNone then
+      result := result.push (term, node)
+      continue
+    let term := Trace.withoutOccurrences term
+    let node := Id.run <| node.mapTermsM fun field => pure (Trace.withoutOccurrences field)
+    let key : ExprStructEq := ⟨term⟩
+    let previous := seen[key]?.getD #[]
+    unless previous.contains node do
+      result := result.push (term, node)
+      seen := seen.insert key (previous.push node)
+  return result
 
 /-- Record an operation at a key containing its exact accepted binding. Separate
 rows sharing a declaration therefore survive the union of candidate traces. -/
@@ -292,8 +633,7 @@ def Trace.recordOperation (trace? : Option Trace) (value : Expr) (node : Node) :
     | .operationApply id .. | .operationPoint id .. => pure id.raw
     | _ => throwError "an operation trace key requires an operation node"
   let result ← Meta.mkAppM ``Trace.operationResult #[toExpr binding, value]
-  Trace.record trace? result node
-  return result
+  Trace.recordProduced trace? result node
 
 /-- Exact named callable addresses have independent trace/cache keys for the same
 reason as element operations: accepted aliases may share a Lean declaration. -/
@@ -303,13 +643,12 @@ def Trace.recordCallable (trace? : Option Trace) (value : Expr) (node : Node) : 
     | .namedCallable address .. => pure address
     | _ => throwError "a callable trace key requires an exact callable node"
   let result ← Meta.mkAppM ``Trace.operationResult #[toExpr binding, value]
-  Trace.record trace? result node
-  return result
+  Trace.recordProduced trace? result node
 
 /-- Record `derived` as formed the way `value` was (the apex of a recorded limit, say). -/
 def Trace.alias (trace? : Option Trace) (value derived : Expr) : IO Unit := do
   let some trace := trace? | return
-  if let some node := (← trace.get)[value]? then trace.modify (·.insert derived node)
+  if let some node := (← trace.get)[value]? then Trace.record (some trace) derived node
 
 /-- How `value` was formed, if it was recorded. -/
 partial def Trace.node? (trace : Trace) (value : Expr) : IO (Option Node) := do
@@ -320,5 +659,12 @@ partial def Trace.node? (trace : Trace) (value : Expr) : IO (Option Node) := do
       -- Elaboration's expected-type `id` wrappers carry the same formal construction.
       -- Categorical identities and mathematical operations remain distinct trace nodes.
       if value.isAppOfArity ``id 2 then trace.node? value.appArg! else pure none
+
+/-- A typed view retains its original selected producer in a fresh addressed result.
+Callers use the returned handle instead of overwriting a possibly shared bare view. -/
+def Trace.aliasProduced (trace? : Option Trace) (value derived : Expr) : Meta.MetaM Expr := do
+  let some trace := trace? | return derived
+  let some node ← trace.node? value | return derived
+  Trace.recordProduced trace? derived node
 
 end CasCatalogue

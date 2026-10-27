@@ -41,11 +41,23 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = 'cc53df3aa0a8a5585f87e8422ab632194078c2fa27bcbd0e88600aeadc7aa9fd'
+CANDIDATE_REALIZE_SHA256 = '17551055b02f219a97137b48d7ff07604d45a67ae2312da3d887abf3867f9bfa'
 REVIEWED_DEPENDENCY_SOURCES = {
+    'CasCatalogue/ObjectPresentation.lean': {
+        'before': '7ae808d09cce776c4eab6d18a022851ffd8da4ae4366c2059d728457ac320ebf',
+        'after': '952b500c2c432d74bcd11281614f37efc8f2e2f9a210dad4426964fbd0c447a7',
+        'scope': 'Public named-refinement fields project the accepted identification in its complete target category and return addressed producer occurrences'},
+    'CasCatalogue/FunctorActionData.lean': {
+        'before': '5940b628eac528839948ed947b62a613bab97e46966a8be295d580ab4e59dfc6',
+        'after': 'f84b204f539bf2a676d42d21ebac77e8dc7e039706c002bcadb9778a2d10e64c',
+        'scope': 'Literal action inspection passes through administrative producer wrappers while retaining original selected typed operands'},
+    'CasCatalogue/StructuredProjection.lean': {
+        'before': 'b0b5687201fcbc2033aedc7252ac42eadf2ad8de25ceb9b952dd85b89947e374',
+        'after': '2e28e275fb8e7a638de11bfd19a6ae0a2cfb6fc3761fa05ea30959731e884107',
+        'scope': 'Universal interface recovery inspects the original anchored value and preserves any existing producer instead of overwriting it'},
     'CasCatalogue/DeclaredApplication.lean': {
         'before': None,
-        'after': '4091f20608ee3f7644313c28b1434769ab8995b8dc1aaaf99a1a6cce09a40759',
+        'after': 'a87eff6d63fa068817b2175cb8fc7bcda634138fc06b29cc583618e9df85f4f4',
         'scope': 'New shared full declaration matcher extracted from the existing Realize interface; the original wrapper delegates without changing its signature'},
     'CasCatalogue/RoutedResultPlan.lean': {
         'before': None,
@@ -53,11 +65,11 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Dependent result schemas retain symbolic parameter origins, exact public field positions, comparison-aligned projection actions and final reply paths across composition; no mathematical values are manufactured'},
     'CasCatalogue/LiftStageExecution.lean': {
         'before': None,
-        'after': '94fca40505bae00aebd561e63ce6fdb68f73dc5afdcdf52eb51eee03427f6311',
+        'after': '4cef385c924dc50f0bf951d211ce242e884a2abf17deec49322468eae21f1995',
         'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
     'CasCatalogue/Language.lean': {
         'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
-        'after': 'f29450d9babb6890740510d5ccd5db868cbe3b3cf0f0ec8403edfa14959fb41f',
+        'after': 'e57ea6c512e44925d2cc30c395607a76b75f94fd7e434b0bd4a51fa7396e779f',
         'scope': 'Complete source contexts and dependent typed selection for object/map parameters, numeral owners, registered tuple construction and exact oriented limit choices; no new mathematical objects or operations'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
@@ -65,7 +77,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': 'd18478a75b134df2938844c7aa5c599a41f0d6f521f01e9db9642626f90dbb2f',
+        'after': '6eef76ad80969428447e6e0cae4cd421edff10c64652d36de8adf271bc9b20dc',
         'scope': 'Generic endpoint slots validate returned graph/named/opaque maps at distinct actual data roles; public lift-codec projection retains exact ownership; existing dispatchers remain separately compiled'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
@@ -81,19 +93,19 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Existing structured preparers retain exact typed callable endpoint operands'},
     'CasCatalogue/UniversalServiceRequest.lean': {
         'before': '4781b2991d976c080c47069461cac309f1dee946775a1b70a86f0548a60e04e5',
-        'after': '7d79afcd1a7729d9cd822474ab642a878590de9cc9319e3cc6f03a73436bd902',
+        'after': 'e3170277c6f31715e219455aa1ef315c1689db0bc72d6e165f6c5dad0b3e0d56',
         'scope': 'Universal invocations retain complete typed operands and actual lift action image data through the reviewed optional public metadata; legacy requests retain their recipe framing'},
     'CasCatalogue/ComputationDerivation.lean': {
         'before': '5db0786c3ce5766a6f1f2d298e4ad6135b3f3f3b08e666019ac81a4d054b84e5',
-        'after': 'd84a1143d1bb387a21b0bc1a95f001e6ad47e4d1608a66c5aac376636633d50b',
+        'after': 'a8197d068b7094f013ff79ceae842a653d01a8e6046029a02d3398ae86898702',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/LiftedSubobjectData.lean': {
         'before': '5e0cebc28b49eb3d437bc67a0d2a07e100655c2d0d360147d249ff6fd9d3afdf',
-        'after': 'b89fab018b47bf0eea0d4ff0b34e3e31c695aee551d0e282fcc3c066bfd44f85',
+        'after': '4ef3bb20941f8d7956a33e950b25c6c82dd16f43a231e353a5b1882fe2c42ff6',
         'scope': 'Completed lift decoding keeps each actual source/comparison image and its ownership at independently selected formal interfaces; legacy packets preserve their explicit recipe mode'},
     'CasCatalogue/QuestionIdentity.lean': {
         'before': '31df18299a1074aca65ca5f0e61becc3867b7d16c1e00944bbe1c9ce17c32f32',
-        'after': 'bcf89986fd30e31e91283e255ec2c8073c2422eff3c9b17f377c4556809e907e',
+        'after': 'e3a241ebb78e40162dd60da280ab8e166fe53f2db1ac442734388b6c8cc01b02',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/SelectedLift.lean': {
         'before': 'c055982c0bbf182399e8fe623e98190b4209fa912bebe0c81bbaf545069c3622',
@@ -101,11 +113,11 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
     'CasCatalogue/Semantic.lean': {
         'before': 'd1ec8ea5007c039985b0fff5e0e6b4db4f53c1e68c03cdfef7663ee67e17f232',
-        'after': '8689adb1b21628921a773d0ac07b187f8821c9218945b4678e708955073fd1e2',
+        'after': 'abfa2269aa355d66ebebe3cb777cf1eac94bef34b967420d83f1da92ae280f50',
         'scope': 'Retained complete method and comparison applications, plus exact dependent limit choice validation; registry-only resolution and accepted creation/comparison constructions remain in use'},
     'CasCatalogue/Trace.lean': {
         'before': '5ffbe244154fcd65f5c889ffd45df302fa36d01436f6862bb48c14d78d0c20b7',
-        'after': 'c037b4d82a0cf0828deeb0e6f6d0f1d39d2ec95468e819ae35549b22648969df',
+        'after': '544c4a440c3e99a426b90332ded7264cb9e9513544989a62796dc252fc36ff04',
         'scope': 'Retained typed method application and generic execution consumers; compiled independently of the historical kernel'},
 }
 
@@ -118,8 +130,8 @@ REVIEWED_DEPENDENCY_SOURCES = {
 REVIEWED_EXTERNAL_REVISIONS = {
     'cas_leaf_contracts': {
         'before': '3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5',
-        'after': '375c99511c13e180d58f61b78d0ac129b40f1ce4',
-        'scope': 'Complete-method decoder plus optional actual lift images; changed Lean records/encoders/decoders and Python readers preserve legacy field order and absent-metadata behavior through defaults'},
+        'after': '34bb8abbdbb49699015f63840cf86ed67f438003',
+        'scope': 'Complete-method decoder, optional actual lift images, and accepted named-refinement comparison fields; changed Lean records/encoders/decoders and Python readers preserve legacy field order and absent-metadata behavior through defaults'},
 }
 
 OWNER_ERROR = 'target-category operation dispatched before its two selected owner actions'
@@ -727,6 +739,8 @@ def self_test():
             other.parent.mkdir()
             other.write_bytes(b'changed')
             self.assertEqual(set(REVIEWED_DEPENDENCY_SOURCES), {
+                'CasCatalogue/ObjectPresentation.lean', 'CasCatalogue/FunctorActionData.lean',
+                'CasCatalogue/StructuredProjection.lean',
                 'CasCatalogue/ComputationalData.lean', 'CasCatalogue/ServiceRequest.lean',
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
                 'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',

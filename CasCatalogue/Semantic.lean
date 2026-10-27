@@ -366,7 +366,7 @@ def applyRegisteredFunctor (entry : FunctorEntry) (receiver : Expr)
   let params := (F.getAppArgs.zip infos).filterMap fun (arg, info) =>
     if info.isExplicit then some arg else none
   let target ← namedCategoryFor state entry.target
-  Trace.record trace? image (.functor entry.id params receiver)
+  let image ← Trace.recordProduced trace? image (.functor entry.id params receiver)
   return (image, target)
 
 /-- The accepted functor's action on an actual typed arrow. Elaboration assigns its
@@ -636,18 +636,48 @@ def checkRecordedRouteComparisons (contexts : Array RouteComparison) (current : 
         isDefEq (← inferType actual) (← inferType original) <&&> isDefEq actual original do
       throwError "the operation changed a retained comparison's complete typed value"
 
-/-- The registered object `entry` at the parameters `params`. Recorded with its explicit
-parameters (the declaration's explicit arguments). -/
+/-- Inspect only administrative wrappers of a selected complete declaration.
+The returned arguments retain their original producer handles. This helper does
+not choose another application by definitional equality or unfold mathematics. -/
+def namedDeclarationParameters (declaration : Name) (value : Expr) : TermElabM (Array Expr) := do
+  let mut application := Trace.unanchor (← instantiateMVars value).consumeMData
+  while application.isAppOfArity ``id 2 || application.isAppOfArity ``Trace.operationResult 3 do
+    application := Trace.unanchor application.appArg!.consumeMData
+  unless application.getAppFn.isConstOf declaration do
+    throwError "the selected named value lost its complete accepted declaration application"
+  let infos ← forallTelescopeReducing (← getConstInfo declaration).type fun xs _ =>
+    xs.mapM (·.fvarId!.getBinderInfo)
+  return (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+
+/-- Recovery attaches metadata only to an unrecorded original. It cannot replace
+another selected producer, even when the two mathematical values coincide. -/
+def recordRecovered (value : Expr) (node : Node) (trace? : Option Trace) : TermElabM Unit := do
+  let some trace := trace? | return
+  if let some original ← trace.node? value then
+    unless original == node do
+      throwError "metadata recovery cannot replace an original selected producer"
+    Trace.checkProducerRecord value original
+    return
+  Trace.checkProducerRecord value node
+  Trace.record trace? value node
+
+/-- A fresh named-object selection returns its addressed occurrence. It does
+not replace metadata or data belonging to an earlier equal formal value. -/
+def namedObjectProduced (entry : ObjectEntry) (value : Expr)
+    (trace? : Option Trace := none) : TermElabM Expr := do
+  let value ← instantiateMVars value
+  let parameters ← namedDeclarationParameters entry.declaration value
+  Trace.recordProduced trace? value (.object entry.id parameters)
+
+/-- The registered object `entry` at the parameters `params`, retaining its fresh
+producer occurrence and every explicit declaration parameter. -/
 def object (entry : ObjectEntry) (params : Array Term) (trace? : Option Trace := none) :
     TermElabM Expr := do
   let value ← elabTermAndSynthesize (← `($(mkCIdent entry.declaration) $params*)) none
   let value ← instantiateMVars value
   if value.getAppFn.constName? == some entry.declaration then
-    let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
-      xs.mapM (·.fvarId!.getBinderInfo)
-    let explicit := (value.getAppArgs.zip infos).filterMap fun (a, i) =>
-      if i.isExplicit then some a else none
-    Trace.record trace? value (.object entry.id explicit)
+    return ← namedObjectProduced entry value trace?
   return value
 
 /-- The morphism `f : a ⟶ b`. -/
@@ -696,6 +726,10 @@ def limitPresentation (row : LimitEntry) (D : Expr) : TermElabM Expr := do
 wrappers are removed only to inspect the application; the exact selected term remains the key. -/
 def recordNamedObject (value : Expr) (trace? : Option Trace := none) : TermElabM Bool := do
   let value ← instantiateMVars value
+  if let some trace := trace? then
+    if let some original ← trace.node? value then
+      Trace.checkProducerRecord value original
+      return original matches .object ..
   let state ← registryState
   let mut application := value.consumeMData
   while application.isAppOfArity ``id 2 do application := application.appArg!.consumeMData
@@ -705,7 +739,7 @@ def recordNamedObject (value : Expr) (trace? : Option Trace := none) : TermElabM
     xs.mapM (·.fvarId!.getBinderInfo)
   let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
     if info.isExplicit then some arg else none
-  Trace.record trace? value (.object entry.id params)
+  recordRecovered value (.object entry.id params) trace?
   return true
 
 /-- Record a named morphism without enumerating its possibly infinite domain. -/
@@ -723,21 +757,23 @@ def presentationArrow (entry : PresentationComparisonEntry) (iso : Expr) (invers
   if iso.hasMVar || iso.hasLevelMVar then
     throwError "the selected presentation has unresolved declaration arguments"
   let arrow ← mkAppM (if inverse then ``CategoryTheory.Iso.inv else ``CategoryTheory.Iso.hom) #[iso]
-  Trace.record trace? arrow (.presentation entry.id params inverse)
-  return arrow
+  Trace.recordProduced trace? arrow (.presentation entry.id params inverse)
 
+/-- A fresh named-callable selection returns its original complete occurrence.
+The accepted address and all typed declaration parameters survive equal values. -/
+def namedMorphismProduced (entry : MorphismEntry) (value : Expr)
+    (trace? : Option Trace := none) : TermElabM Expr := do
+  let value ← instantiateMVars value
+  let parameters ← namedDeclarationParameters entry.declaration value
+  Trace.recordCallable trace? value (.namedMorphism entry.id parameters)
+
+/-- Recover the exact accepted name of an existing unrecorded original. Fresh
+selections use `namedMorphismProduced` and retain its returned occurrence. -/
 def namedMorphism (entry : MorphismEntry) (value : Expr) (trace? : Option Trace := none) :
     TermElabM Unit := do
   let value ← instantiateMVars value
-  let mut application := value.consumeMData
-  while application.isAppOfArity ``id 2 do application := application.appArg!.consumeMData
-  unless application.getAppFn.constName? == some entry.declaration do
-    throwError "the named morphism does not retain its accepted declaration application"
-  let infos ← forallTelescopeReducing (← getConstInfo entry.declaration).type fun xs _ =>
-    xs.mapM (·.fvarId!.getBinderInfo)
-  let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
-    if info.isExplicit then some arg else none
-  Trace.record trace? value (.namedMorphism entry.id params)
+  let parameters ← namedDeclarationParameters entry.declaration value
+  recordRecovered value (.namedMorphism entry.id parameters) trace?
 
 /-- Recover a retained diagram leg as an exact application of an accepted morphism row.
 Both the complete term and all declaration parameters must agree; its carrier alone never
@@ -746,6 +782,11 @@ def recordRegisteredMorphism (category : CategoryId) (value : Expr)
     (trace? : Option Trace := none) : TermElabM Bool := do
   let state ← registryState
   let value ← instantiateMVars value
+  if let some trace := trace? then
+    if let some original ← trace.node? value then
+      Trace.checkProducerRecord value original
+      let .namedMorphism id _ := original | return false
+      return (state.morphisms.find? (·.id == id)).any (·.category == category)
   if value.hasMVar || value.hasLevelMVar || value.hasFVar then return false
   let mut candidates : Array (MorphismEntry × Array Expr) := #[]
   for entry in state.morphisms do
@@ -761,7 +802,7 @@ def recordRegisteredMorphism (category : CategoryId) (value : Expr)
         if info.isExplicit then some arg else none)
     if let some params := params? then candidates := candidates.push (entry, params)
   let #[(entry, params)] := candidates | return false
-  Trace.record trace? value (.namedMorphism entry.id params)
+  recordRecovered value (.namedMorphism entry.id params) trace?
   return true
 
 /-- Reindex using the actual base morphism and an independently registered family transport.
@@ -808,7 +849,7 @@ def reindex (X : Expr) (_source : NamedCategoryEntry) (baseMorphism : Expr)
       else throwSemanticAmbiguity m!"multiple registered family reindexings apply: \
         {candidates.map (·.1.id.raw)}"
   let target ← namedCategoryFor state entry.target
-  Trace.record trace? value (.functor entry.id params X)
+  let value ← Trace.recordProduced trace? value (.functor entry.id params X)
   return (value, target)
 
 /-- Preserve semantic ambiguity separately from missing or invalid construction inputs. -/
@@ -885,8 +926,7 @@ def limitAt (colimit : Bool) (shape : String) (D : Expr) (category : String)
   let D ← instantiateMVars D
   if D.hasMVar || D.hasLevelMVar then
     throwStratum .invalid "the selected construction lost its complete original diagram"
-  Trace.record trace? presentation (.limit row.id D resolution.lift)
-  return presentation
+  Trace.recordProduced trace? presentation (.limit row.id D resolution.lift)
 
 /-- The registered limit or colimit at its actual diagram. Competing registry
 rows are filtered by their complete dependent signatures. The exact surviving
@@ -1209,7 +1249,7 @@ def methodIn (name : String) (X : Expr) (expression : CategoryExpr)
     sourceContext, routeApplications, routeReceivers := receivers, image, application := F
     input, baseResult, baseContext, result := value, resultContext := target, lifts }
   checkMethodApplication state resolution X application
-  Trace.record trace? value (if resolution.lifts.isEmpty then
+  let value ← Trace.recordProduced trace? value (if resolution.lifts.isEmpty then
     .method resolution.method.id resolution.route.refs X
       (resolution.comparisonWitnesses.zip comparisons) application else
     .methodWithLifts resolution.method.id resolution.route.refs resolution.lifts X
@@ -1236,9 +1276,8 @@ def propertyIn (name : String) (X : Expr) (expression : CategoryExpr)
   let holds ← elabTermAndSynthesize (← `(CasCatalogue.Classifier.Holds
     $(← exprToSyntax classifier) $(← exprToSyntax image))) none
   let holds ← instantiateMVars holds
-  Trace.record trace? holds (.property resolution.property.id resolution.route.refs X
+  Trace.recordProduced trace? holds (.property resolution.property.id resolution.route.refs X
     (resolution.comparisonWitnesses.zip comparisons))
-  return holds
 
 def property (name : String) (X : Expr) (category : NamedCategoryEntry)
     (trace? : Option Trace := none) : TermElabM Expr :=

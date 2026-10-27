@@ -40,7 +40,13 @@ partial def compareInContext (cache : IO.Ref (Std.HashMap (Expr × Expr) Bool))
     | .const a ls, .const b ms => pure (a == b && ls == ms)
     | .lit a, .lit b => pure (a == b)
     | .app f x, .app g y =>
-        compareInContext cache f g binders <&&> compareInContext cache x y binders
+        -- A producer's allocation ordinal is an execution address. Its complete
+        -- selected descriptor and typed fields occur in the remaining applications
+        -- and are still compared. Accepted operation-binding strings are unchanged.
+        if f.isConstOf ``Trace.producerResult && g.isConstOf ``Trace.producerResult then
+          compareInContext cache f g binders
+        else
+          compareInContext cache f g binders <&&> compareInContext cache x y binders
     | .lam _ a body info, .lam _ b other otherInfo => do
         unless info == otherInfo && (← compareInContext cache a b binders) do return false
         withLocalDecl .anonymous info a fun x =>
@@ -118,6 +124,9 @@ partial def encodeInContext (intern : Json → TermElabM Nat)
   | .const name levels, .const .. =>
       intern <| Json.arr #[toJson "const", toJson (reprStr name), toJson (levels.map level)]
   | .app fn arg, .app openedFn openedArg =>
+      let (arg, openedArg) := if fn.isConstOf ``Trace.producerResult then
+          (mkRawNatLit 0, mkRawNatLit 0)
+        else (arg, openedArg)
       intern <| Json.arr #[toJson "app",
         toJson (← encodeInContext intern closed contextual fn openedFn bound context),
         toJson (← encodeInContext intern closed contextual arg openedArg bound context)]

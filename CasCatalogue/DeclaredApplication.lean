@@ -19,7 +19,7 @@ def completeProjected? (declaration : Name) (value : Expr)
     withoutModifyingState do
   let value ← instantiateMVars value
   unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
-  let literal := literal?.getD value
+  let literal := Trace.unanchor (literal?.getD value)
   let application ← if literal.getAppFn.constName? == some declaration then pure literal
     else instantiateFresh declaration
   let compared ← project application
@@ -48,10 +48,10 @@ def complete? (declaration : Name) (value : Expr)
     withoutModifyingState do
   let value ← instantiateMVars value
   unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
-  let mut literal := value.consumeMData
+  let mut literal := Trace.unanchor value.consumeMData
   while literal.isAppOfArity ``id 2 ||
       (asFunctor && literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor) do
-    literal := literal.appArg!.consumeMData
+    literal := Trace.unanchor literal.appArg!.consumeMData
   completeProjected? declaration value
     (fun application => if asFunctor then Semantic.asFunctor application else pure application)
     (some literal)

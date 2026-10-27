@@ -105,7 +105,8 @@ it is not replaced by the observed runtime answer.
 
 The operation table's `roots` is an array of `[term, operation]` pairs.
 `term` identifies the complete formal result whose operation is retained.
-Multiplicity is preserved. This outer collection has a canonical comparison
+Multiplicity is preserved, apart from exact duplicates introduced solely by the
+administrative producer addresses described below. This outer collection has a canonical comparison
 order; it is not an execution schedule. Order inside parameter arrays, routes,
 constructor paths, comparison stages, operands, and lift lists is meaningful.
 Dependencies refer to complete formal terms in this same table, allowing a
@@ -141,6 +142,7 @@ term references.
 | `contextualComposition` | Context, first map, second map, source, middle, target |
 | `contextualIdentity` | Context, object |
 | `contextualArrow` | Context, actual morphism, source, target |
+| `callableEndpoint` | Context, complete parent callable, source-endpoint flag |
 | `arrowProjection` | Receiver |
 | `limitProjection` | Receiver, index term |
 | `structuredProjection` | Receiver, field selector, component index |
@@ -270,6 +272,62 @@ structure. The binding marker and the complete associated operation records
 remain in the serialized question. Its transparent value equation alone does
 not justify discarding a route, changing a declaration binding, or equating two
 different operation records during semantic review.
+
+### Producer occurrence anchors
+
+The interpreter also uses two transparent administrative definitions:
+
+```lean
+def CasCatalogue.Trace.producerArgument {α : Sort u} (_argument : α)
+    {β : Sort v} (value : β) : β := value
+
+def CasCatalogue.Trace.producerResult (_occurrence : Nat) (_description : String)
+    {α : Sort u} (value : α) : α := value
+```
+
+A complete producer result retains a fresh execution occurrence, its complete
+selected record, and its original mathematical value. The description is the
+complete `Node` skeleton with each typed expression replaced by its ordered
+zero-based position. Those expressions occur as the actual typed arguments of
+nested `producerArgument` applications. They are not expression displays,
+hashes, observed answers, or a replacement for the independently retained
+operation record. Every field of a method application, including complete
+category dictionaries, action applications, receivers, comparison evidence and
+prescribed lifts, remains present.
+
+Before a prepared question is compared or exported, the interpreter checks each
+complete anchor against its actual keyed operation record and checks its
+references in the original claim. A mismatched description, reordered typed
+field, missing producer reference, or conflicting executable trace key is an
+internal invariant failure. A description string cannot certify its own record.
+
+Only the occurrence argument is allocation bookkeeping. Typed term tables
+encode that argument as zero; the independent typed comparison ignores it while
+comparing the remaining description, typed fields and original formal value.
+Accepted `operationResult` binding strings retain their existing significance.
+The executable expressions and their occurrence addresses are not rewritten.
+
+The identity inventory coalesces exact anchored term-and-record duplicates after
+removing only occurrence ordinals, before applying the ordinary proof quotient.
+Reusing one selected producer twice and allocating two identical selected
+producers therefore have the same question. Different selected operations,
+ordered parameter associations, routes, dictionaries or comparison propositions
+remain distinct even when their formal result values coincide. Existing
+unanchored record multiplicity and distinct raw proof keys remain present;
+proof-irrelevant equality does not remove an operation record.
+
+This is not a general mathematical equivalence procedure. It does not add
+arbitrary let expansion, definitional reduction, common-carrier identification,
+or logical equivalence to the documented typed-term comparison. An anonymous
+allocation or a change in computational sharing cannot by itself introduce a
+new mathematical question.
+
+The generic `callableEndpoint` record has fields `[category context, receiver,
+source flag]`. Its receiver identifies the already selected complete map;
+`true` addresses its source endpoint and `false` its target endpoint. The
+parent map retains its original inputs and does not refer back to these child
+views. Equal formal endpoints therefore remain separate data positions without
+creating a reference cycle or independently rerunning their object actions.
 
 ## Independent comparison
 

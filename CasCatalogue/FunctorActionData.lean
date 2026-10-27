@@ -22,8 +22,9 @@ def closedParameter (value : Expr) : Bool :=
 public functor projections have the same selected data; neither is reduced to a
 carrier, and transparent wrappers around the whole value do not change its child. -/
 def objectAction? (value : Expr) : Option (Expr × Expr) := Id.run do
-  let mut selected := value.consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let mut selected := Trace.unanchor value.consumeMData
+  while selected.isAppOfArity ``id 2 do
+    selected := Trace.unanchor selected.appArg!.consumeMData
   if selected.isAppOfArity ``CategoryTheory.Functor.obj 6 then
     return some (selected.getAppArgs[4]!.consumeMData, selected.appArg!)
   if selected.isAppOfArity ``Prefunctor.obj 6 then
@@ -43,7 +44,7 @@ structure RegisteredAction where
 are considered. Beta reduction, public action projections and outer identity wrappers
 preserve the selected declaration arguments as literal source expressions. -/
 def directActionDeclaration? (state : RegistryState) (action : Expr) : Option Expr := Id.run do
-  let mut selected := action.consumeMData.headBeta
+  let mut selected := Trace.unanchor action.consumeMData.headBeta
   while true do
     if state.functors.any (fun row => selected.getAppFn.constName? == some row.declaration) ||
         state.classifiers.any (fun row => selected.getAppFn.constName? == some row.declaration) then
@@ -53,7 +54,7 @@ def directActionDeclaration? (state : RegistryState) (action : Expr) : Option Ex
         selected.isAppOf ``LeanCategories.Classifier.forget ||
         selected.isAppOf ``LeanCategories.PropertyClassifier.toClassifier ||
         selected.isAppOf ``LeanCategories.StructureClassifier.toClassifier then
-      selected := selected.appArg!.consumeMData.headBeta
+      selected := Trace.unanchor selected.appArg!.consumeMData.headBeta
     else return none
   return none
 
@@ -110,8 +111,9 @@ def registeredAction? (state : RegistryState) (action : Expr) :
 original complete application and parameters; no equality at an object selects it. -/
 partial def registeredComposite? (state : RegistryState) (action : Expr) :
     TermElabM (Option (Array RegisteredAction)) := do
-  let mut selected := action.consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let mut selected := Trace.unanchor action.consumeMData
+  while selected.isAppOfArity ``id 2 do
+    selected := Trace.unanchor selected.appArg!.consumeMData
   if selected.isAppOfArity ``CategoryTheory.Functor.comp 8 then
     let fields := selected.getAppArgs
     let some first ← registeredComposite? state fields[6]! | return none
@@ -135,8 +137,9 @@ def retainedParameterAction? (trace : Trace) (value : Expr) :
   unless closedParameter value && (← isTypeCorrect value) do
     throwError "the reduced action parameter is not a closed well-typed value"
   let state ← registryState
-  let mut selected := value.consumeMData
-  while selected.isAppOfArity ``id 2 do selected := selected.appArg!.consumeMData
+  let mut selected := Trace.unanchor value.consumeMData
+  while selected.isAppOfArity ``id 2 do
+    selected := Trace.unanchor selected.appArg!.consumeMData
   -- A literal named object supplies its own selected presentation. An action
   -- recorded elsewhere cannot replace it merely because the full values agree.
   if state.objects.any (fun row => selected.getAppFn.constName? == some row.declaration) then

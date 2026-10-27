@@ -1445,7 +1445,7 @@ def validatePortWith
         | return .error "the object has no such released callable field"
       let .ok parameters := parameters.getArr?
         | return .error "object field parameters must be ordered data"
-      if field == "presentation" || field == "inversePresentation" then
+      if ObjectPresentation.isComparisonField field then
         let application ← match ← retainedApplication declaration formalField with
           | some application => pure application
           | none => instantiateFresh declaration
@@ -2370,7 +2370,7 @@ def validateCallableAtWith
         | "transpose" => some row.transpose | "image" => some row.image
         | "truth" => some row.truth | _ => none
       let some declaration := declaration | return .error "the owner has no such callable field"
-      if tag == "objectField" && (field == "presentation" || field == "inversePresentation") then
+      if tag == "objectField" && ObjectPresentation.isComparisonField field then
         let .ok comparison ← interfaceDeclaration objects declaration
             (← inferType (← instantiateFresh declaration)) parameters (InterfaceScope.arg? scope 2) dataEndpoints
           | return .error "the object presentation parameters have incompatible declared types"

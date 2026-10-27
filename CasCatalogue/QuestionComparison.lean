@@ -322,6 +322,11 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       let .contextualArrow otherContext otherHom otherSource otherTarget := right | return false
       equivalentCategoryContext context otherContext <&&>
         equivalentTerms #[hom, source, target] #[otherHom, otherSource, otherTarget]
+  | .callableEndpoint context receiver source =>
+      let .callableEndpoint otherContext other otherSource := right | return false
+      unless source == otherSource do return false
+      equivalentCategoryContext context otherContext <&&>
+        equivalentTerms #[receiver] #[other]
   | .contextualIdentity context object =>
       let .contextualIdentity otherContext otherObject := right | return false
       equivalentCategoryContext context otherContext <&&>
@@ -449,12 +454,19 @@ def equivalentNode (left right : Node) : TermElabM Bool := do
       unless id == other && lift == otherLift do return false
       equivalentTerms #[diagram] #[otherDiagram]
 
-/-- Compare every retained keyed operation; neither hashes nor encoded node strings
-serve as the identity, and no operation can disappear because its key was proof-irrelevant. -/
-def equivalentTrace (left right : Std.HashMap Expr Node) : TermElabM Bool :=
+/-- Compare every selected semantic record after removing only administrative producer
+duplication. This does not quotient proof implementations before preserving inventory. -/
+def equivalentTraceEntries (left right : Array (Expr × Node)) : TermElabM Bool :=
   equivalentUnordered (fun (term, node) (otherTerm, otherNode) =>
     equivalentTerms #[term] #[otherTerm] <&&> equivalentNode node otherNode)
-    left.toArray right.toArray
+    (Trace.identityEntries left) (Trace.identityEntries right)
+
+/-- Compare every retained keyed operation; actual nodes independently check producer
+descriptions, and no operation disappears because its raw key was proof-irrelevant. -/
+def equivalentTrace (left right : Std.HashMap Expr Node) : TermElabM Bool := do
+  Trace.checkProducedEntries left.toArray
+  Trace.checkProducedEntries right.toArray
+  equivalentTraceEntries left.toArray right.toArray
 
 /-- Surface spelling is not a selected category's meaning. Its declared expression,
 realization and refinement witness still form part of the retained selection. -/
@@ -495,7 +507,10 @@ def equivalentClaim (left right : Language.Claim) : TermElabM Bool := do
 display strings, runtime answers nor revision labels participate. This comparison is in
 the current Lean environment; assessing a declaration's meaning across mathematical
 revisions remains an independent obligation and cannot be discharged by a revision label. -/
-def equivalentTypedQuestion (left right : Realize.TypedQuestion) : TermElabM Bool :=
-  equivalentClaim left.claim right.claim <&&> equivalentTrace left.trace right.trace
+def equivalentTypedQuestion (left right : Realize.TypedQuestion) : TermElabM Bool := do
+  Trace.checkProducedEntries left.trace.toArray left.claim.terms
+  Trace.checkProducedEntries right.trace.toArray right.claim.terms
+  equivalentClaim left.claim right.claim <&&>
+    equivalentTraceEntries left.trace.toArray right.trace.toArray
 
 end CasCatalogue.QuestionIdentity
