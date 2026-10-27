@@ -57,7 +57,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Shared four-field dependency fold over retained operands; actual and prospective lift consumers supply their existing image and field callbacks without changing legacy packet order'},
     'CasCatalogue/Language.lean': {
         'before': '585a2e71efec55c1164726f528a5d1f3cb3bd23052a74f48e080a3c0164769a1',
-        'after': '4a01ff517b2581cbbfa1accfaaef2367fb058ad28ef86ab256709f7e5ff0c1a5',
+        'after': 'f29450d9babb6890740510d5ccd5db868cbe3b3cf0f0ec8403edfa14959fb41f',
         'scope': 'Complete source contexts and dependent typed selection for object/map parameters, numeral owners, registered tuple construction and exact oriented limit choices; no new mathematical objects or operations'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
@@ -118,7 +118,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
 REVIEWED_EXTERNAL_REVISIONS = {
     'cas_leaf_contracts': {
         'before': '3f7a22e0b6afc3e745f3aa60a9ceecf6740948d5',
-        'after': '24d474b274827e17e71b4b57c2cf882e11a3fea7',
+        'after': '375c99511c13e180d58f61b78d0ac129b40f1ce4',
         'scope': 'Complete-method decoder plus optional actual lift images; changed Lean records/encoders/decoders and Python readers preserve legacy field order and absent-metadata behavior through defaults'},
 }
 

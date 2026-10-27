@@ -1191,7 +1191,7 @@ def checkedContextRouteResult (source : CategoryContext) (route : Route)
   unless !image.hasMVar && !image.hasLevelMVar && (← isTypeCorrect image) &&
       !target.bundle.hasMVar && !target.bundle.hasLevelMVar &&
       applications.all (fun action => !action.hasMVar && !action.hasLevelMVar) &&
-      (← applications.allM isTypeCorrect) do
+      (← applications.allM fun value => isTypeCorrect value) do
     throwStratum .invalid "the structural action has undetermined complete parameters"
   CategoryContext.checkObject target image
   unless route.refs.isEmpty do
@@ -1254,7 +1254,7 @@ partial def carrierMorphismWith (value : Value) (readCarrier : Value → M Value
   unless !mapped.hasMVar && !mapped.hasLevelMVar &&
       !targetContext.bundle.hasMVar && !targetContext.bundle.hasLevelMVar &&
       applications.all (fun application => !application.hasMVar && !application.hasLevelMVar) &&
-      (← applications.allM isTypeCorrect) do
+      (← applications.allM fun value => isTypeCorrect value) do
     throwStratum .invalid "the carrier action has undetermined complete parameters"
   Trace.record (← read).trace mapped
     (.contextualRoute context targetContext route.refs applications hom true)
@@ -1464,8 +1464,10 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
             | throwStratum .invalid "the registered category of sets is absent"
           let some steps := state.routeEdges? sourceContext.expression sets.expression route
             | throwStratum .invalid "the selected object lost its complete registered carrier route"
-          let selected : Route := { source := sourceContext.expression,
-            target := sets.expression, steps }
+          let selected : Route := {
+            source := sourceContext.expression
+            target := sets.expression
+            steps }
           let (action, applications, _) ← contextualRouteFunctor state sourceContext selected
           let (image, _) ← checkedContextRouteResult sourceContext selected direct expected
             (← Semantic.objOf action direct) applications

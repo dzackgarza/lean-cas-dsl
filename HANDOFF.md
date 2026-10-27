@@ -53,6 +53,17 @@ the record layout and checks that original array position explicitly. The run
 did not reach `Realize` or establish native, semantic-export, frozen-control,
 workflow or extension results. The fixed limits and assertions remain unchanged.
 
+Latest completed candidate: `0c3e996`, run `40582962195`, job `122466974995`.
+`SelectedLift` compiled. The build then stopped in `Language` on two monad-lifting
+errors and a route-record layout error, and in contract `24d474b` on the lift
+request decoder record layout. This compiler-repair checkpoint lifts the two
+checks through explicit callbacks, fixes those record layouts, and consumes
+contract `375c995`. It does not yet integrate the separate in-progress producer,
+named-refinement or forward-produced lift consumers. `Realize`, native tools,
+question exports and execution controls were not reached. No assertion or
+resource limit changed. Contract `375c995` includes the `f34825f` complete-lift
+image interface and preserves the legacy ordered request fields.
+
 ### Compositional result and lift integration — 2026-10-27
 
 The current checkpoint integrates the complete selected projection routes,
