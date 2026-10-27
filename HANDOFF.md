@@ -76,7 +76,24 @@ failed before `Realize` at the same non-partial wrapper inside the partial
 wrapper fix and explicit full-context identity helper were already published
 in `0d9a4fd858f4092399ade477c05e793a0a70b59f`; its run
 [40528619206](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40528619206)
-was still building when this integration was prepared.
+reached `Realize` and failed compiling it. The first errors were multiline
+record/branch layout, reserved local identifiers, unchecked Wire-array indexing,
+and callback arguments whose optional defaults concealed required parameters.
+The next source corrects those errors and retains the explicit two-endpoint
+condition. Bounded source review found no change to mathematical requests,
+dispatch or failure policy. The candidate runner pins the corrected bytes;
+compiler/purity budgets, permanent assertions and prior controls are unchanged.
+The uploaded failure artifact has SHA-256
+`d077c2e9445884d59bcd544a5f36e755baccf2da86a0ecd0951c4a678e60e9c1`.
+No native, semantic-export, workflow or extension result follows from that run.
+
+The preceding integrated comparison/result-role source is published as
+`e35b01cebae1bdff14c4099ba315166f018f1815` (all 472 remote blobs verified),
+with candidate run
+[40532153871](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40532153871).
+Its source predates these compiler corrections. The generic routed-result plan,
+shared actual/prospective comparison demand and recursively scoped typed
+endpoint validator are still separate implementation work.
 
 The selected dependency commits are construction integration branches. A
 2026-10-27 read of upstream main found mathematical main `8782c22` diverged
