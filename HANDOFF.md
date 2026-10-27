@@ -117,10 +117,16 @@ earlier run verifies the new executor. Published `5933af3525658016651a11f1c2f6c0
 prospective nested owners without erasing known suppliers and captures direct
 construction and functor object actions at the same deferred boundary.
 The additional `NestedOwnerAdmissionProbes` fixture checks private prospective
-inspection without dispatch or live-cache mutation. Its coherent build is run
-`40520161523`, job `122244754532`; no completed result is yet recorded here.
+inspection without dispatch or live-cache mutation. Its coherent build, run
+`40520161523`, job `122244754532`, failed before `Realize` at
+`ComputationalData.lean:2293`: the data-only endpoint wrapper was an ordinary
+definition inside the all-`partial` mutually recursive validator block. The
+wrapper is now declared `partial`, preserving its body and public interface.
+The uploaded artifact SHA-256 is
+`8a8017bc412b79f914cd8b3427b2aadee27a41a35518e5af42c6f862bf8f4246`.
+No native, API, semantic-reading or execution result follows from this run.
 
-The next source integrates one typed invocation lifecycle for registered whole
+Published `de03ac04ae9bf75fd5660f4cd4cadda3a6f79e47` integrates one typed invocation lifecycle for registered whole
 callables, complete universal constructions and their projections. The harness
 keeps the canonical input, immutable occurrence identity and optional actual
 result. Parameters, full category contexts, endpoint Wires, diagram inputs,
@@ -137,7 +143,11 @@ the presence of a point interface no longer means computation has completed.
 Changed-owner point reassembly uses producer-owned element/product inputs and
 positioned encodings, without replaying the trace or replacing expression-cache
 entries. Named and contextual identities share one intrinsic producer which
-uses the retained category dictionary explicitly. Registered generators and map
+uses the retained category dictionary explicitly. Subsequent review found and
+corrected the same dictionary-resynthesis defect in the complete callable's
+identity argument: both now share `identityAtContext` and the same intrinsic
+producer. Known-context identity service inputs and reflexive component
+presentations use their supplied full dictionaries too. Registered generators and map
 literals retain their original endpoints without inferring a map role for an
 ordinary object literal.
 

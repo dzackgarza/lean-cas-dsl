@@ -2290,7 +2290,7 @@ partial def interfaceEndpointDataWithOrigin (objects : InterfaceObjects) (formal
 
 /-- The existing public traversal retains its data-only interface. Runtime
 producers can also retain the origin supplied by the same traversal. -/
-def interfaceEndpointData (objects : InterfaceObjects) (formal : Expr)
+partial def interfaceEndpointData (objects : InterfaceObjects) (formal : Expr)
     (data : DataOwnership.Data) (source : Bool) (recoverFormal : Bool := true) :
     TermElabM (Except String DataOwnership.Data) := do
   return (← interfaceEndpointDataWithOrigin objects formal data source recoverFormal).map (·.data)

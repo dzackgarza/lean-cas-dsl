@@ -1067,6 +1067,19 @@ def framingContext (selected retained : Option CategoryContext) :
       throwStratum .invalid "the callable framing changed its complete retained category context"
   return selected.orElse fun _ => retained
 
+/-- Construct the identity using the already selected full category dictionary.
+Its object or Hom carrier never selects a new typeclass instance. -/
+def identityAtContext (context : CategoryContext) (object : Expr) : TermElabM Expr := do
+  CategoryContext.checkObject context object
+  let carrier ← CategoryContext.carrier context
+  let dictionary ← CategoryContext.dictionary context
+  let categoryStructure ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
+    #[some carrier, some dictionary]
+  let formal ← instantiateMVars (← mkAppOptM ``CategoryTheory.CategoryStruct.id
+    #[some carrier, some categoryStructure, some object])
+  CategoryContext.checkMorphism context formal object object
+  return formal
+
 /-- A copied endpoint receipt is current only at its original exact packet and
 full category. Formal equality alone cannot revive historical endpoint data. -/
 def retainedCallableEndpoints? (wire : Wire) (context : CategoryContext) :
@@ -5313,8 +5326,10 @@ def operationComponentPresentation (context : CategoryContext) (wire : Wire)
   CategoryContext.checkObject context wire.value
   discard <| framingContext (some context) wire.categoryContext
   let some presentation := wire.endpointPresentation | do
-    let comparison ← mkAppM ``CategoryTheory.Iso.refl #[wire.value]
-    let value ← mkAppM ``CategoryTheory.CategoryStruct.id #[wire.value]
+    let comparison ← mkAppOptM ``CategoryTheory.Iso.refl
+      #[some (← CategoryContext.carrier context), some (← CategoryContext.dictionary context),
+        some wire.value]
+    let value ← identityAtContext context wire.value
     let data ← scopedNode "identity" #[wire.fragment, wire.fragment]
     let objects ← operationPresentationObjects inputs (views.push (wire, wire.value))
     return {
@@ -6870,12 +6885,7 @@ category; its repeated endpoint is one retained computational occurrence. -/
 def captureIntrinsicIdentity (formal : Expr) (form : Form)
     (context : CategoryContext) (endpoint : Wire) : TermElabM Wire := do
   CategoryContext.checkMorphism context formal endpoint.value endpoint.value
-  let carrier ← CategoryContext.carrier context
-  let dictionary ← CategoryContext.dictionary context
-  let categoryStructure ← mkAppOptM ``CategoryTheory.Category.toCategoryStruct
-    #[some carrier, some dictionary]
-  let expected ← mkAppOptM ``CategoryTheory.CategoryStruct.id
-    #[some carrier, some categoryStructure, some endpoint.value]
+  let expected ← identityAtContext context endpoint.value
   unless ← withoutModifyingState (withTransparency .all <|
       isDefEq formal expected) do
     throwError "the intrinsic identity changed its independently fixed formal map"
@@ -7327,17 +7337,9 @@ def retainSelectedCallableInvocation (h : Harness) (wire : Wire)
     (.callable selected)
 
 def selectedCallableIdentity (context : CategoryContext) (source : Wire) : TermElabM Wire := do
-  let formal ← instantiateMVars (← mkAppM ``CategoryTheory.CategoryStruct.id #[source.value])
-  CategoryContext.checkMorphism context formal source.value source.value
-  let template : ActionDataTemplate := .ctor "identity"
-    #[.wire .object source, .wire .object source]
-  let (data, dependencies) ← renderCapturedActionData template
-  let wire : Wire := {
-    form := contextualForm (← registryState) context source.form true
-    payload := (← combinedRecipePayload formal data dependencies)
-    categoryContext := some context }
-  let wire ← retainIntrinsicAssembly wire .map context template
-  retainCallableEndpoints wire source source context
+  let formal ← identityAtContext context source.value
+  captureIntrinsicIdentity formal (contextualForm (← registryState) context source.form true)
+    context source
 
 /-- The existing complete-callable execution boundary, supplied with already
 selected typed occurrences. Only the public invocation encoder builds its wire;
@@ -11285,7 +11287,7 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
   CategoryContext.checkMorphism dataContext operation source target
   let argument ← match arguments[0]? with
     | none => do
-      let identity ← mkAppM ``CategoryTheory.CategoryStruct.id #[source]
+      let identity ← identityAtContext dataContext source
       Trace.record (some trace) identity (.contextualIdentity dataContext source)
       pure identity
     | some first => do
@@ -12424,7 +12426,10 @@ partial def serviceArrow (scope : ServiceScope) (data : Json) (expected : Option
     let source ← serviceObject scope source
     let target ← serviceObject scope target
     SimpleServiceRequest.sameValue target.value source.value "identity endpoint"
-    let formal ← mkAppM ``CategoryTheory.CategoryStruct.id #[source.value]
+    discard <| framingContext source.context target.context
+    let formal ← match source.context with
+      | some context => identityAtContext context source.value
+      | none => mkAppM ``CategoryTheory.CategoryStruct.id #[source.value]
     serviceLiteralWire scope formal
       (SimpleServiceRequest.node "identity" #[source.data, target.data])
       #[source, target] none source.context

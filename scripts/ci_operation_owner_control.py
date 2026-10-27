@@ -37,11 +37,11 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = 'a3705fb5703a5e6313d7a5e0ba7e77013018a541c9064b296ec3e31d2575fcc2'
+CANDIDATE_REALIZE_SHA256 = '9014691e9c758d5baf244697caee3ddb7147ed098ab7dc99a72257bdbe1d78ff'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': 'd51ef2b20f9525bf982b05c50ee6cebb72ce11f33d23dcd259b0dd8b24533ab4',
+        'after': '350c61f8ad2d2aecc098e633847a3435ca3781332b8cd646efd96c73fdf7b8f2',
         'scope': 'Producer origin and optional typed projection bindings are added; existing data-only endpoint calls retain their default interface'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
