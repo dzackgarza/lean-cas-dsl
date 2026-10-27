@@ -274,17 +274,32 @@ run_elab do
       (serviceOperands[handle]?).any fun candidate =>
         candidate.value == rawWire.value && candidate.fragment == rawWire.fragment) do
     throwError "restaging lost its exact original whole-function service operand"
+  let some (retainedDomain, retainedTarget) ← retainedCallableEndpoints? restaged outerContext
+    | throwError "the captured whole-function point lost its complete original endpoints"
   let changedDomain := { presentedDomain with
     payload := .computed declaredDomain (.inline
       (packet "finiteData" #[oneData.json, Json.arr #[toJson (1 : Nat)]])) }
+  -- An unrelated formal cache entry cannot redefine this already captured
+  -- callable. Its exact original packet and supplier table remain reusable.
   harness.results.modify (·.insert declaredDomain changedDomain)
+  let (inventoryCacheReuse, _) ← completeCallableFragment harness trace declaredDomain
+    inputOwner.application.value restaged outerContext
+  unless inventoryCacheReuse == restaged.fragment do
+    throwError "an unrelated inventory cache entry replaced a captured endpoint occurrence"
+  -- The negative substitutes the actual endpoint supplied to a new explicit
+  -- frame, while keeping the same formal endpoint and original target.
+  let replacementDomain : Wire := { retainedDomain with
+    payload := .computed retainedDomain.value (.inline changedDomain.json) }
+  unless replacementDomain.fragment != retainedDomain.fragment do
+    throwError "the endpoint-inventory substitution control did not change an actual occurrence"
   let changedInventory ← try
-    discard <| completeCallableFragment harness trace declaredDomain inputOwner.application.value
-      restaged outerContext
+    discard <| captureCompleteCallable harness trace restaged outerContext
+      (some (replacementDomain, retainedTarget))
     pure false
   catch error =>
-    if Exception.stratum? error == some .ambiguousRealization then pure true else throw error
-  unless changedInventory do throwError "a reused typedMap changed its actual endpoint inventory"
+    if Exception.stratum? error == some .unavailable then pure true else throw error
+  unless changedInventory do
+    throwError "an explicit frame replaced the callable's actual retained endpoint inventory"
   harness.results.modify (·.insert declaredDomain presentedDomain)
   let endpointToken := packet "opaqueData" #["the exact actual function-space endpoint"]
   let selectedInput := inputOwner.application.value
@@ -299,16 +314,29 @@ run_elab do
     scopedPoint outerContext
   unless sameScoped == scopedPoint.fragment do
     throwError "the complete actual scoped endpoint was not reusable"
+  let some (retainedScopedDomain, retainedScopedTarget) ←
+      retainedCallableEndpoints? scopedPoint outerContext
+    | throwError "the scoped callable lost its exact captured endpoint occurrences"
+  unless retainedScopedTarget.fragment == selectedEndpoint.fragment do
+    throwError "the scoped callable failed to capture its originally selected endpoint supplier"
   harness.results.modify (·.insert selectedInput
     { selectedEndpoint with
       payload := .computed selectedInput (.owned "different-endpoint-owner" 72 endpointToken) })
+  let (ownerCacheReuse, _) ← completeCallableFragment harness trace declaredDomain selectedInput
+    scopedPoint outerContext
+  unless ownerCacheReuse == scopedPoint.fragment do
+    throwError "an equal-byte cache entry replaced a captured endpoint's actual supplier"
+  let replacementTarget : Wire := { retainedScopedTarget with
+    payload := .computed retainedScopedTarget.value
+      (.owned "different-endpoint-owner" 72 retainedScopedTarget.json) }
   let changedOwner ← try
-    discard <| completeCallableFragment harness trace declaredDomain selectedInput
-      scopedPoint outerContext
+    discard <| captureCompleteCallable harness trace scopedPoint outerContext
+      (some (retainedScopedDomain, replacementTarget))
     pure false
   catch error =>
-    if Exception.stratum? error == some .ambiguousRealization then pure true else throw error
-  unless changedOwner do throwError "equal endpoint bytes selected a different actual owner"
+    if Exception.stratum? error == some .unavailable then pure true else throw error
+  unless changedOwner do
+    throwError "an explicit frame replaced a retained endpoint supplier despite equal bytes"
   logInfo "PASS: full module owner, actual PUnit admission, exact composition framing and ownership"
   discard (pure ring)
 

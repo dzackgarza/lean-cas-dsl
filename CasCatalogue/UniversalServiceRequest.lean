@@ -39,34 +39,19 @@ def mapPacket (decoder : Decoder) (operand : Operand) :
   let (packet, source, target) ← mapFragment decoder operand
   return (packet.json, source, target)
 
-/-- Prepare a registered complete (co)limit from its published diagram telescope.
-All returned ports remain data; the universal presentation is fixed beforehand. -/
-def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
-    (template : Json) : TermElabM Prepared := do
+/-- Materialize the already selected universal interface from exact typed operands.
+The public decoder and private captured invocation supply the same ordered input
+roles to this factory. No operand is decoded or recovered from equal JSON here. -/
+def materializedLimit (row : LimitEntry) (diagram presentation : Expr)
+    (plan : StructuredResult.DataPlan) (dependencies : Array Operand)
+    (roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
+      Option DataOwnership.Data)) : TermElabM Prepared := do
   let state ← registryState
   let some constructor ← Semantic.diagramConstructor row
     | throwStratum .noImplementation "the registered universal construction has no public diagram telescope"
-  let .ok (tag, arguments) := ComputationalData.envelope template
-    | throwStratum .malformed "the service construction requires its complete diagram"
-  unless tag == Codec.label constructor do
-    throwStratum .malformed "the service construction changes its registered diagram constructor"
-  let selected ← decoder.declaration constructor arguments
-  let application ← DirectConstruction.close selected.application
-  let diagram ← checkClosed application.value
-  let presentation ← StructuredResult.checkReconstruction (← Semantic.limitPresentation row diagram)
-  let plan ← match ← StructuredResult.dataPlan row diagram presentation with
-    | .ok plan => pure plan
-    | .error message => throwStratum .noImplementation m!"the registered construction has no complete data plan: {message}"
-  let mut dependencies := selected.operands
-  let mut roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
-    Option DataOwnership.Data) := #[]
-  for operand in selected.operands do
-    if (Language.homEnds? (← inferType operand.value)).isSome then
-      let (packet, source, target) ← mapFragment decoder operand
-      dependencies := dependencies ++ #[source, target]
-      roles := roles.push (packet, some source.fragment, some target.fragment)
-    else
-      roles := roles.push (operand.fragment, none, none)
+  let tag := Codec.label constructor
+  let diagram ← checkClosed diagram
+  let presentation ← StructuredResult.checkReconstruction presentation
   let request := node tag (roles.map (·.1.json))
   let requestOwnership := argsOwnership (roles.map (·.1.ownership))
   let resolveRole : StructuredResult.InputRole → Option DataOwnership.Data := fun role => do
@@ -126,6 +111,36 @@ def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
         (fun answer => StructuredResult.validatePlannedData plan answer
           (fun port seen data => ComputationalData.validatePlannedPort plan port seen data
             external ComputationalData.endpointKeys))).map some }
+
+
+/-- Prepare a registered complete (co)limit from its published diagram telescope.
+All returned ports remain data; the universal presentation is fixed beforehand. -/
+def limit (decoder : Decoder) (row : LimitEntry) (_input : Form)
+    (template : Json) : TermElabM Prepared := do
+  let some constructor ← Semantic.diagramConstructor row
+    | throwStratum .noImplementation "the registered universal construction has no public diagram telescope"
+  let .ok (tag, arguments) := ComputationalData.envelope template
+    | throwStratum .malformed "the service construction requires its complete diagram"
+  unless tag == Codec.label constructor do
+    throwStratum .malformed "the service construction changes its registered diagram constructor"
+  let selected ← decoder.declaration constructor arguments
+  let application ← DirectConstruction.close selected.application
+  let diagram ← checkClosed application.value
+  let presentation ← StructuredResult.checkReconstruction (← Semantic.limitPresentation row diagram)
+  let plan ← match ← StructuredResult.dataPlan row diagram presentation with
+    | .ok plan => pure plan
+    | .error message => throwStratum .noImplementation m!"the registered construction has no complete data plan: {message}"
+  let mut dependencies := selected.operands
+  let mut roles : Array (DataOwnership.Data × Option DataOwnership.Data ×
+    Option DataOwnership.Data) := #[]
+  for operand in selected.operands do
+    if (Language.homEnds? (← inferType operand.value)).isSome then
+      let (packet, source, target) ← mapFragment decoder operand
+      dependencies := dependencies ++ #[source, target]
+      roles := roles.push (packet, some source.fragment, some target.fragment)
+    else
+      roles := roles.push (operand.fragment, none, none)
+  materializedLimit row diagram presentation plan dependencies roles
 
 /-- The formal lift and all actual operands stay separate. Public field outputs
 are checked against their selected roles and retain their original handles. -/

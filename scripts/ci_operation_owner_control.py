@@ -37,7 +37,7 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = '7eec545f8ecdb97d7dab91c07b4edef7f6dfb4ed9c08209067e624259ddca543'
+CANDIDATE_REALIZE_SHA256 = 'a3705fb5703a5e6313d7a5e0ba7e77013018a541c9064b296ec3e31d2575fcc2'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
@@ -57,8 +57,8 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'Existing structured preparers retain exact typed callable endpoint operands'},
     'CasCatalogue/UniversalServiceRequest.lean': {
         'before': '4781b2991d976c080c47069461cac309f1dee946775a1b70a86f0548a60e04e5',
-        'after': '6e8de5d46489b8d6b6cb6da07ae86aa8bb4c24d0a457a15c1b1e99af1e49223d',
-        'scope': 'Existing universal preparers retain exact typed callable endpoint operands'},
+        'after': 'adc3a6ceae6f1af70f566b223fa5c5f350eda79aa92148507496576604346eb7',
+        'scope': 'The unchanged public decoder and captured universal invocation share typed materialization/completion; exact endpoint operands remain retained'},
 }
 
 OWNER_ERROR = 'target-category operation dispatched before its two selected owner actions'
@@ -106,6 +106,9 @@ CONTROLS = (
      'baselineErrors': None},
     {'name': 'nested-owner-admission', 'module': 'NestedOwnerAdmissionProbes',
      'sha256': 'f6b8c53764e5887c3daec59077fc4f99decd0b539b9f5e196b9ef64a5d61d295',
+     'baselineErrors': None},
+    {'name': 'intrinsic-value-occurrence', 'module': 'IntrinsicValueOccurrenceProbes',
+     'sha256': 'dc47e798c06928174d18ba6fdded0d365a85e288b880ee9d7a70f96e7df3a608',
      'baselineErrors': None},
 )
 FIXTURES = ('probe_owned_callable.py', 'probe_functor_execution.py',
@@ -550,7 +553,8 @@ def self_test():
                 'NestedArrowActionProbes', 'DiagramActionExecutionProbes',
                 'ReturnedCallableEndpointProbes', 'ArrowFramingReuseProbes',
                 'IntrinsicOccurrenceProbes', 'ConstructionActionOccurrenceProbes',
-                'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes'])
+                'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes',
+                'IntrinsicValueOccurrenceProbes'])
             for control in CONTROLS:
                 source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
                 require_hash(source.read_bytes(), control['sha256'], control['module'])
@@ -608,7 +612,7 @@ def self_test():
                 'returned-callable-endpoint-candidate', 'arrow-framing-reuse-candidate',
                 'intrinsic-occurrence-candidate',
                 'construction-action-occurrence-candidate', 'synthetic-endpoint-occurrence-candidate',
-                'nested-owner-admission-candidate',
+                'nested-owner-admission-candidate', 'intrinsic-value-occurrence-candidate',
                 'operation-owner-baseline-compile', 'operation-owner-baseline',
                 'action-occurrence-baseline', 'returned-callable-endpoint-baseline',
                 'arrow-framing-reuse-baseline', 'intrinsic-occurrence-baseline'])
@@ -655,7 +659,7 @@ def self_test():
 
         def test_a_failed_candidate_does_not_suppress_other_independent_controls(self):
             self.assertFalse(self.execute(failures={'operation-owner-candidate'}))
-            self.assertEqual(len(self.step.call_args_list), 17)
+            self.assertEqual(len(self.step.call_args_list), 18)
 
         def test_the_baseline_framing_control_must_pass(self):
             self.assertFalse(self.execute(failures={'arrow-framing-reuse-baseline'}))

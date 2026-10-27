@@ -113,24 +113,59 @@ native tools, API export, fixed readings and execution did not run.
 The earlier `112dc2a` run failed parsing two continued structure-field
 applications in `ComputationalData`; it did not compile the new `Realize` source.
 The `9dbdd4b` checkpoint contains the syntax correction. No result from that
-earlier run verifies the new executor. The next unverified source retains
+earlier run verifies the new executor. Published `5933af3525658016651a11f1c2f6c0b82536d152` retains
 prospective nested owners without erasing known suppliers and captures direct
 construction and functor object actions at the same deferred boundary.
 The additional `NestedOwnerAdmissionProbes` fixture checks private prospective
-inspection without dispatch or live-cache mutation. All eleven candidate
-engineering controls remain independently guarded by their exact source bytes.
+inspection without dispatch or live-cache mutation. Its coherent build is run
+`40520161523`, job `122244754532`; no completed result is yet recorded here.
 
-The remaining producer boundary is broader than object-action demand.
-`realizeUnobserved` omits a final observation but still enters fresh branches
-which dispatch constructions, methods, limits, and specialized compositions.
-Some named callable and cell/cartesian producers also discard parameter or
-receiver occurrences and reread the expression cache at demand. A generic
-selected-invocation representation must fix complete inputs, executable roles,
-and the declared result interface before any dispatch. Restarting the old trace
-against a cache snapshot would preserve the wrong boundary. Nested prospective
-admission must project only typed future-output positions and retain every
-already known supplier in their siblings; no whole-Arrow or whole-product owner
-erasure is licensed.
+The next source integrates one typed invocation lifecycle for registered whole
+callables, complete universal constructions and their projections. The harness
+keeps the canonical input, immutable occurrence identity and optional actual
+result. Parameters, full category contexts, endpoint Wires, diagram inputs,
+accepted creation comparisons and result schemas are fixed by producers.
+Completion does not discard construction provenance: later defining maps use
+that same accepted schema and actual result. Direct defining legs compile the
+existing `DataProjection` algebra into retained fields, inputs, intrinsic maps
+and registered actions. The public universal preparer and captured executor
+share the same typed materialization/completion factory.
+
+Scalar wrappers now retain a separate expected value type rather than an
+invented object/map category. Point conversion retains its exact pending map;
+the presence of a point interface no longer means computation has completed.
+Changed-owner point reassembly uses producer-owned element/product inputs and
+positioned encodings, without replaying the trace or replacing expression-cache
+entries. Named and contextual identities share one intrinsic producer which
+uses the retained category dictionary explicitly. Registered generators and map
+literals retain their original endpoints without inferring a map role for an
+ordinary object literal.
+
+The original WholeFunction cache-mutation controls were stale engineering
+expectations. Both mutation packets are preserved and now require reuse of the
+captured original occurrence. New negative companions explicitly substitute
+the retained endpoint inventory or its supplier and require rejection at that
+boundary. Mathematical assertions and the existing frozen action controls are
+unchanged. The additive `IntrinsicValueOccurrenceProbes` exercises pending
+map-to-point-to-scalar reuse with opaque ownership. All twelve candidate action
+controls remain guarded by their exact source bytes. The combined source has
+bounded source reviews but no Lean execution result; this is not V1 closure.
+
+The remaining capture boundary includes fresh application, binder, method,
+specialized composition and prescribed-lift dispatch, and `Prepared.trace`
+still restarts execution through an expression cache. Prospective admission
+must also consume the new invocation result interfaces. Extend the common
+typed lifecycle and project only genuinely future output slots while retaining
+known siblings and suppliers. A closure hiding inputs, a cache snapshot, or
+whole-construction owner erasure does not supply that mechanism.
+
+The independent reading addendum resolves exactly two source-intent
+uncertainties from the pre-existing mathematical specifications at `a6311e1`:
+`numbers.integers.sum` and `numbers.gcd` use integer operands and results. The
+original 294-record ledger and its source snapshots remain unchanged. The
+addendum SHA-256 is
+`13215e41399be90367e4de456b9c097343da0f6eb70a11703ef66efec64ec417`.
+No candidate export was read; the original RX08 ambiguity remains unresolved.
 
 ### Integrated compiler failure and repair
 
@@ -1281,12 +1316,18 @@ Deliver the working system and its runnable examples, not another assessment or 
   complete-endpoint check. The accepted constructor comparison-cell actions
   concern functors on constructed categories and do not by themselves identify
   this operation's chosen product domain.
-- Inert preparation is not yet a global invariant: `realizeUnobserved` still
-  reaches dispatching fresh construction/method/limit and specialized
-  composition branches. Some named/cell/cartesian observers and admitted or
-  scalar wrappers reread original inputs from expression-cache keys. Complete
-  typed producer plans, including scalar output roles, must replace those late
-  lookups; passing the new scoped action controls does not close this defect.
+- Inert preparation is not yet a global invariant: fresh application, binder,
+  method, specialized composition and prescribed-lift branches still dispatch;
+  `Prepared.trace` still seeds an expression cache and reruns realization.
+  The common callable/universal/projection lifecycle does not yet cover those
+  producers or general prospective admission of their future result ports.
+  Retain explicit typed operands and all already known owners; passing scoped
+  action controls does not close this defect.
+- `EndpointPresentation` still retains comparison expressions and packets
+  without their complete executable map Wires. Mapped comparisons must also
+  retain the exact image endpoints chosen by the outer object action; an
+  independently repeated object action can return a different opaque occurrence.
+  A formal comparison alone cannot mark either map computationally complete.
 - The `f3545ac` custodian review did not produce a verdict. Run `40197923885`,
   job `121182701288`, reports `REVIEW NOT COMPLETED (inputs unavailable)` because
   `git -c core.hooksPath=/dev/null -C /tmp/custodian-review-ct_kwx98/base rev-parse
