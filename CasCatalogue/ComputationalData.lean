@@ -3319,6 +3319,31 @@ def RecordFieldStep.project? (step : RecordFieldStep) (receiver : Expr)
   unless fields.size == step.count do return none
   return (payload.project #[.index step.index]).toOption
 
+/-- Assemble existing public record fields without changing their scoped
+ownership. This is shared by complete structural projections and independently
+selected result schemas; it performs no mathematical computation. -/
+def RecordFieldCodec.assemble? (codec : RecordFieldCodec)
+    (results : Array DataOwnership.Data) : Option DataOwnership.Data := Id.run do
+  match codec with
+  | .ordered =>
+    if results.size == 1 then return some results[0]!
+    return some (DataOwnership.Data.array results)
+  | .core | .arrow =>
+    let count := if codec == .core then 1 else 3
+    unless results.size == count do return none
+    let fields := DataOwnership.Data.array results
+    return some {
+      json := Json.mkObj [("ctor", toJson (if codec == .core then "coreObject" else "arrow")),
+        ("args", fields.json)]
+      ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
+  | .arrowRefinement =>
+    -- The existing full-subcategory codec retains its complete Arrow fields.
+    -- A whole opaque Arrow does not expose fields for that construction.
+    let #[arrow] := results | return none
+    let .ok ("arrow", args) := envelope arrow.json | return none
+    unless args.size == 3 do return none
+    return some arrow
+
 /-- Apply a structural plan to actual public record data. Every intermediate
 existing codec is retained; opaque records and unsupported whole descriptors
 cannot be opened. Nested fields retain their individual supplying sessions. -/
@@ -3339,25 +3364,7 @@ partial def RecordProjectionPlan.apply? (plan : RecordProjectionPlan)
     for field in fields do
       let some result ← field.apply? receiver data objects | return none
       results := results.push result
-    match codec with
-    | .ordered =>
-      if results.size == 1 then return some results[0]!
-      return some (DataOwnership.Data.array results)
-    | .core | .arrow =>
-      let count := if codec == .core then 1 else 3
-      unless results.size == count do return none
-      let fields := DataOwnership.Data.array results
-      return some {
-        json := Json.mkObj [("ctor", toJson (if codec == .core then "coreObject" else "arrow")),
-          ("args", fields.json)]
-        ownership := DataOwnership.prefix #[.field "args"] fields.ownership }
-    | .arrowRefinement =>
-      -- The existing full-subcategory codec retains its complete Arrow fields.
-      -- A whole opaque Arrow does not expose fields for that construction.
-      let #[arrow] := results | return none
-      let .ok ("arrow", args) := envelope arrow.json | return none
-      unless args.size == 3 do return none
-      return some arrow
+    return codec.assemble? results
 
 /-- A complete callable signature can expose its selected record's carrier or
 products of those carriers. The role is selected at `receiver`; an independently

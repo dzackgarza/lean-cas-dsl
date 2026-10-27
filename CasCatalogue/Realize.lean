@@ -10,6 +10,8 @@ public import CasCatalogue.Codec
 public import CasCatalogue.StructuredResult
 public import CasCatalogue.ConstructionData
 public import CasCatalogue.FunctorActionData
+public import CasCatalogue.DeclaredApplication
+public import CasCatalogue.RoutedResultPlan
 public import CasCatalogue.LiftedSubobjectData
 public import CasCatalogue.CellAction
 public import CasCatalogue.ElementData
@@ -2496,33 +2498,7 @@ Literal arguments retain priority; otherwise every structure field must be fixed
 by the full typed comparison. No class, dictionary or data argument is defaulted. -/
 def completeDeclarationApplication? (declaration : Name) (value : Expr)
     (asFunctor : Bool := false) : TermElabM (Option (Expr × Array Expr)) :=
-    withoutModifyingState do
-  let value ← instantiateMVars value
-  unless FunctorActionData.closedParameter value && (← isTypeCorrect value) do return none
-  let mut literal := value.consumeMData
-  while literal.isAppOfArity ``id 2 ||
-      (asFunctor && literal.isAppOf ``CategoryTheory.Cat.Hom.toFunctor) do
-    literal := literal.appArg!.consumeMData
-  let application ← if literal.getAppFn.constName? == some declaration then pure literal
-    else instantiateFresh declaration
-  let compared ← if asFunctor then Semantic.asFunctor application else pure application
-  unless ← withoutModifyingState (withTransparency .all <|
-      isDefEq (← inferType compared) (← inferType value) <&&> isDefEq compared value) do
-    CategoryContext.exposeStructureParameters application
-  unless ← withTransparency .all <|
-      isDefEq (← inferType compared) (← inferType value) <&&> isDefEq compared value do
-    return none
-  let application ← instantiateMVars application
-  let compared ← instantiateMVars compared
-  unless FunctorActionData.closedParameter application && (← isTypeCorrect application) do
-    return none
-  let infos ← forallTelescopeReducing (← inferType application.getAppFn) fun fields _ =>
-    fields.mapM (·.fvarId!.getBinderInfo)
-  unless application.getAppNumArgs == infos.size do return none
-  unless ← Decide.kernelAccepts (← mkEq compared value) (← mkEqRefl compared) do
-    throwError "the complete declaration presentation failed its original kernel check"
-  return some (application, (application.getAppArgs.zip infos).filterMap fun (argument, info) =>
-    if info.isExplicit then some argument else none)
+  DeclaredApplication.complete? declaration value asFunctor
 
 /-- Registered presentations of the entire category bundle, including its Hom,
 identity and composition dictionary. A shared carrier is never a match. -/
@@ -7529,7 +7505,8 @@ def observeIntrinsicAssemblyWith
   let (data, dependencies) ← renderCapturedActionData template
   let same := sameActionTemplate template assembly.template
   let isAlias ← match template with
-    | .wire _ child => withoutModifyingState <| withTransparency .all <|
+    | .wire _ child =>
+      withoutModifyingState <| withTransparency .all <|
         isDefEq (← inferType child.value) (← inferType wire.value) <&&>
           isDefEq child.value wire.value
     | _ => pure false
@@ -7974,7 +7951,7 @@ partial def prospectiveUniversalWith (reader : ProspectiveReader) (wire : Wire)
               callableObserved := true, morphismFramed := true }
             intrinsic := some (← retainCallableEndpoints mapped left right selected.targetContext)
       match intrinsic with
-      | some intrinsic => pure intrinsic
+      | some available => pure available
       | none => project image
     sources := sources.push sourceWire
     images := images.push imageWire
@@ -9431,7 +9408,7 @@ def realizeFreshWith
       let input ← realizeUnobserved h trace "the map before structural transport" receiver
       unless input.form.category == sourceCategory do
         throwError "the structural map has the wrong recorded source category"
-      let applications ← route.mapM (Semantic.edgeFunctor state)
+      let applications ← route.mapM (fun edge => do Semantic.edgeFunctor state edge)
       let output ← captureMapRoute h trace input route applications
       let requested ← Semantic.mapOf (← Semantic.routeFunctor state route) receiver
       unless ← withTransparency .all <|
@@ -9632,7 +9609,10 @@ def realizeFreshWith
           throwStratum .noImplementation m!"{what} is not sent: the literal {literal} of \
             {id.raw} is not encoded ({message})"
   | .limit id D lift? =>
-      realizeLimitWith realizeUnobserved captureCompleteCallable captureMapRoute
+      realizeLimitWith realizeUnobserved
+        (fun h trace input context endpoints publicFrame =>
+          captureCompleteCallable h trace input context endpoints publicFrame)
+        captureMapRoute
         realizedEdgeData capturedEdgeData extentFragment?
         h trace state what id D lift?
   | .method id route receiver recordedComparisons =>
@@ -10287,7 +10267,8 @@ partial def executeMapAction (h : Harness) (trace : Trace) (operation : String)
     (endpoint? : Option ActionEndpointReader := none)
     (imageEndpoints : Option (Wire × Wire) := none) : TermElabM Wire :=
   executeMapActionWithEndpoints (endpoint?.getD (actionMapEndpoint h trace))
-    (frameObservedMorphism h trace) h operation action sourceContext
+    (fun input source target context => frameObservedMorphism h trace input source target context)
+    h operation action sourceContext
     targetContext original template descriptor parameters dependencies objectImage
     descriptorOwnership parameterOwnership imageEndpoints
 
@@ -12122,7 +12103,8 @@ partial def realizedOperationParameterData (h : Harness) (trace : Trace)
         formal := parameter, data := #[owner.fragment]
         dependencies := #[{ owner with payload := forwardPayload owner parameter owner.json }] }
     else if let some retained := retained then do
-      let previous := retained[index]!
+      let some previous := retained[index]?
+        | throwError "the operation lost a retained nonowner parameter occurrence"
       unless previous.formal == parameter do
         throwError "the operation changed an original nonowner parameter occurrence"
       pure previous
@@ -12465,7 +12447,8 @@ partial def prepareOperationObservation (h : Harness) (trace : Trace) (wire : Wi
               origin := .reference
               wire := ← callableEndpointReference callable resultTarget false context }
           else pure { wire := retained.targetWire, origin := .retained }
-        | none => realizeCallableEndpointWithOrigin h trace callable resultTarget false
+        | none =>
+          realizeCallableEndpointWithOrigin h trace callable resultTarget false
             (some dataContext)
   let targetWire := targetEndpoint.wire
   for (endpoint, expected) in #[(domainWire, resultDomain), (sourceWire, originalSource),
@@ -13846,14 +13829,15 @@ partial def serviceProjection? (scope : ServiceScope) (data : Json) :
     let packetData ← checkedFragment (wire.fragment.project #[.field "args", .index 2])
     let projection : ProjectedObjectFragment ← match result.packet with
       | .created .. =>
-        return .deferredAction (← scopedNode "constructionLeg"
-          #[{ json := toJson id }, diagramData, packetData, index.fragment])
+        pure (.deferredAction (← scopedNode "constructionLeg"
+          #[{ json := toJson id }, diagramData, packetData, index.fragment]))
       | .direct answer =>
         let encodeInput := fun value => do
           match selectedConstructionInput inputs value with
           | .error message => return .error message
           | .ok (some data) => return .ok (.structural data)
-          | .ok none => return ((← Codec.encode value).bind DataOwnership.Data.portable).map
+          | .ok none =>
+            return ((← Codec.encode value).bind DataOwnership.Data.portable).map
               ProjectedObjectFragment.structural
         let encodeAction := fun action => do
           let mut descriptors := #[]
@@ -14017,7 +14001,7 @@ partial def executeServiceRequest (scope : ServiceScope) (operation : String) (i
         | throwError "the service endpoint occurrences lost their selected result role"
       let source ← forwardRetainedValue (← serviceWire scope source) domain
       let target ← forwardRetainedValue (← serviceWire scope target) codomain
-      return some (source, target)
+      pure (some (source, target))
   let dependencies ← prepared.dependencies.mapM (serviceWire scope)
   let request : Wire := {
     form := input

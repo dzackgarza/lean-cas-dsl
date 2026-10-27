@@ -103,9 +103,39 @@ The first compiler-correction checkpoint is `69e2193156de6db0bfb70e11684abc90cf8
 was building when this follow-up was prepared. It predates these additional
 reserved-name and template-index corrections.
 
-The generic routed-result plan,
-shared actual/prospective comparison demand and recursively scoped typed
-endpoint validator are still separate implementation work.
+The `69e2193` consumer build failed in `Realize`; its exact artifact is
+`b681661cd204fd1afe8fc7280cc83a98de50df3f7eaea244b1dbaded7683ea1f`.
+Checkpoint `918c32b6c985d90a8532d392fe1a0515d0920e19` corrected reserved
+names and exact product-template indexing, with all 472 remote blobs verified.
+Run [40536839700](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40536839700)
+was still building when this update was prepared. The additional source fixes
+repair the remaining callback arities, branch layout, unchecked retained-array
+access and two incorrectly escaping branch returns. No budget or assertion is
+changed.
+
+`DeclaredApplication` now shares the full typed declaration matcher with its
+existing `Realize` wrapper. `RoutedResultPlan` selects an ordered public result
+schema on fresh declaration and receiver variables. Retained receiver/parameter
+fields, newly returned fields and record assemblies remain distinct even when
+their closed values coincide. Ordinary algebraic objects stay atomic; public
+Arrow, refinement and Core records retain their declared fields. The existing
+record assembler is shared without changing the wire encoding. A source review
+caught and corrected three branch returns which would otherwise skip the final
+rebuilt-action check.
+
+These modules and the additive `RoutedResultSchemaProbes` control are now part
+of the candidate build/control closure. Fourteen candidate controls, five
+component-baseline controls and baseline compilation are pinned. New helper
+dependencies require both absence at the published baseline and exact reviewed
+current bytes; existing compatibility pairs retain their before/after guards.
+The schema control uses equal endpoint values and equal packet bytes with
+different owners to check the retained ambient position and field order.
+It is engineering evidence to run, not a mathematical acceptance result.
+
+Ordinary-method capture, its actual/prospective result consumers and generic
+positioned field-Wire reuse are still being integrated. Shared actual/prospective
+comparison demand and recursively scoped typed endpoint validation remain
+separate implementation work. The pure schema alone does not complete them.
 
 The selected dependency commits are construction integration branches. A
 2026-10-27 read of upstream main found mathematical main `8782c22` diverged

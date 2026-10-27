@@ -37,15 +37,23 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = 'a0d11b615405859679e5e9481041a1a171135751a4e858b092d6ce839ddfe10c'
+CANDIDATE_REALIZE_SHA256 = 'e479253f6970305ab4e61be743ff1afb9264e1481413d672903c24ee06831c0f'
 REVIEWED_DEPENDENCY_SOURCES = {
+    'CasCatalogue/DeclaredApplication.lean': {
+        'before': None,
+        'after': '4091f20608ee3f7644313c28b1434769ab8995b8dc1aaaf99a1a6cce09a40759',
+        'scope': 'New shared full declaration matcher extracted from the existing Realize interface; the original wrapper delegates without changing its signature'},
+    'CasCatalogue/RoutedResultPlan.lean': {
+        'before': None,
+        'after': 'f59380c3a108fa7213154b0b5e5bb5eb9c2013fd85109959c76b53953e75dbca',
+        'scope': 'New pure declaration-derived result schema retains original parameter and public field positions; it does not dispatch or manufacture mathematical values'},
     'CasCatalogue/StructuredResult.lean': {
         'before': 'fb3b8495e4423d857b9626b2ade65b713e58de02a3e90d9ce23536a344f061e6',
         'after': '718cabc027c5a1dbcceffd7e0d326d013598d4e79e1f513916dde75d7695fdec',
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '695d7c2ecaaa8c01a02820a0fdbb4901e692a3bdfd1ee84b6810f02f864a74a3',
+        'after': '7ddf448f425a753c8fbf7724138901f9f20ed8bd5c8a9f05308101627c4e43bb',
         'scope': 'Producer origins and scoped DataPlan bindings retain exact endpoint/projection roles; existing data-only endpoint and planned-port calls retain their defaults'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
@@ -114,6 +122,9 @@ CONTROLS = (
     {'name': 'intrinsic-value-occurrence', 'module': 'IntrinsicValueOccurrenceProbes',
      'sha256': 'dc47e798c06928174d18ba6fdded0d365a85e288b880ee9d7a70f96e7df3a608',
      'baselineErrors': None},
+    {'name': 'routed-result-schema', 'module': 'RoutedResultSchemaProbes',
+     'sha256': 'fce34847aa300d623238524af233345f3d0adab9842b20f72760aa75157e60d8',
+     'baselineErrors': None},
     {'name': 'endpoint-comparison-occurrence', 'module': 'EndpointComparisonOccurrenceProbes',
      'sha256': '562c54a9f24527ce5f3bf5f06c8d1a0dce13dd72b0f018db18a6e20f364d952b',
      'baselineErrors': None},
@@ -135,18 +146,27 @@ def require_hash(data, expected, label):
         raise ValueError(label + ' differs from its reviewed frozen SHA256')
 
 
+def reviewed_source_pair(root, relative, pair):
+    if pair['before'] is None:
+        if git_bytes(root, 'ls-tree', '-z', BASELINE, '--', relative):
+            raise ValueError('A reviewed new dependency already exists at f65: ' + relative)
+        before = b''
+    else:
+        before = git_bytes(root, 'show', BASELINE + ':' + relative)
+        require_hash(before, pair['before'], 'Published dependency ' + relative)
+    after = (root / relative).read_bytes()
+    require_hash(after, pair['after'], 'Reviewed dependency ' + relative)
+    return before, after
+
+
 def kernel_dependency_source(root, module):
     source = root / (module.replace('.', '/') + '.lean')
     if not source.is_file():
         return None
     relative = source.relative_to(root).as_posix()
-    before = git_bytes(root, 'show', BASELINE + ':' + relative)
-    current = source.read_bytes()
     if relative in REVIEWED_DEPENDENCY_SOURCES:
-        pair = REVIEWED_DEPENDENCY_SOURCES[relative]
-        require_hash(before, pair['before'], 'Published dependency ' + relative)
-        require_hash(current, pair['after'], 'Reviewed dependency ' + relative)
-    elif before != current:
+        reviewed_source_pair(root, relative, REVIEWED_DEPENDENCY_SOURCES[relative])
+    elif git_bytes(root, 'show', BASELINE + ':' + relative) != source.read_bytes():
         raise ValueError('An unapproved kernel dependency changed since f65: ' + relative)
     return candidate.record(source)
 
@@ -275,11 +295,7 @@ def run(root, runtime, published):
     require_hash((root / REALIZE).read_bytes(), CANDIDATE_REALIZE_SHA256, 'Candidate Realize source')
     reviewed_sources = {}
     for relative, pair in REVIEWED_DEPENDENCY_SOURCES.items():
-        before = git_bytes(root, 'show', BASELINE + ':' + relative)
-        after = (root / relative).read_bytes()
-        require_hash(before, pair['before'], 'Published dependency ' + relative)
-        require_hash(after, pair['after'], 'Reviewed dependency ' + relative)
-        reviewed_sources[relative] = (before, after)
+        reviewed_sources[relative] = reviewed_source_pair(root, relative, pair)
 
     setup_path = root / '.lake/build/ir/CasCatalogue/Realize.setup.json'
     setup = json.loads(setup_path.read_text())
@@ -352,7 +368,10 @@ def run(root, runtime, published):
             original.decode().splitlines(keepends=True), current.decode().splitlines(keepends=True),
             fromfile='f65/' + relative, tofile='candidate/' + relative)))
         deltas.append({
-            'path': relative, 'baselineBlob': candidate.git(root, 'rev-parse', BASELINE + ':' + relative),
+            'path': relative, 'baselineBlob': (
+                candidate.git(root, 'rev-parse', BASELINE + ':' + relative)
+                if REVIEWED_DEPENDENCY_SOURCES[relative]['before'] is not None else None),
+            'newDependency': REVIEWED_DEPENDENCY_SOURCES[relative]['before'] is None,
             'before': candidate.record(before), 'after': candidate.record(after),
             'patch': candidate.record(delta), 'scope': REVIEWED_DEPENDENCY_SOURCES[relative]['scope']})
         guards += [candidate.record(path) for path in [before, after, delta]]
@@ -527,7 +546,8 @@ def self_test():
             self.assertEqual(set(REVIEWED_DEPENDENCY_SOURCES), {
                 'CasCatalogue/ComputationalData.lean', 'CasCatalogue/ServiceRequest.lean',
                 'CasCatalogue/SimpleServiceRequest.lean', 'CasCatalogue/StructuredServiceRequest.lean',
-                'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean'})
+                'CasCatalogue/UniversalServiceRequest.lean', 'CasCatalogue/StructuredResult.lean',
+                'CasCatalogue/DeclaredApplication.lean', 'CasCatalogue/RoutedResultPlan.lean'})
             before = hashlib.sha256(b'baseline').hexdigest()
             reviewed = {}
             for relative in REVIEWED_DEPENDENCY_SOURCES:
@@ -553,6 +573,22 @@ def self_test():
                 with self.assertRaisesRegex(ValueError, 'no reviewed frozen SHA256'):
                     kernel_dependency_source(self.root, 'CasCatalogue.ServiceRequest')
 
+        def test_new_dependency_requires_absence_and_its_exact_reviewed_bytes(self):
+            import sys
+            this = sys.modules[__name__]
+            source = self.root / 'New.lean'
+            source.write_bytes(b'new module')
+            pair = {'before': None, 'after': candidate.record(source)['sha256']}
+            with patch.object(this, 'git_bytes', return_value=b''):
+                self.assertEqual(reviewed_source_pair(self.root, 'New.lean', pair),
+                                 (b'', b'new module'))
+                source.write_bytes(b'changed module')
+                with self.assertRaisesRegex(ValueError, 'reviewed frozen SHA256'):
+                    reviewed_source_pair(self.root, 'New.lean', pair)
+            with patch.object(this, 'git_bytes', return_value=b'existing tree entry'):
+                with self.assertRaisesRegex(ValueError, 'already exists at f65'):
+                    reviewed_source_pair(self.root, 'New.lean', pair)
+
         def test_all_declared_probe_bytes_are_frozen(self):
             root = Path(__file__).resolve().parents[1]
             self.assertEqual([item['module'] for item in CONTROLS], [
@@ -561,7 +597,8 @@ def self_test():
                 'ReturnedCallableEndpointProbes', 'ArrowFramingReuseProbes',
                 'IntrinsicOccurrenceProbes', 'ConstructionActionOccurrenceProbes',
                 'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes',
-                'IntrinsicValueOccurrenceProbes', 'EndpointComparisonOccurrenceProbes'])
+                'IntrinsicValueOccurrenceProbes', 'RoutedResultSchemaProbes',
+                'EndpointComparisonOccurrenceProbes'])
             for control in CONTROLS:
                 source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
                 require_hash(source.read_bytes(), control['sha256'], control['module'])
@@ -620,6 +657,7 @@ def self_test():
                 'intrinsic-occurrence-candidate',
                 'construction-action-occurrence-candidate', 'synthetic-endpoint-occurrence-candidate',
                 'nested-owner-admission-candidate', 'intrinsic-value-occurrence-candidate',
+                'routed-result-schema-candidate',
                 'endpoint-comparison-occurrence-candidate',
                 'operation-owner-baseline-compile', 'operation-owner-baseline',
                 'action-occurrence-baseline', 'returned-callable-endpoint-baseline',
@@ -667,7 +705,7 @@ def self_test():
 
         def test_a_failed_candidate_does_not_suppress_other_independent_controls(self):
             self.assertFalse(self.execute(failures={'operation-owner-candidate'}))
-            self.assertEqual(len(self.step.call_args_list), 19)
+            self.assertEqual(len(self.step.call_args_list), 20)
 
         def test_the_baseline_framing_control_must_pass(self):
             self.assertFalse(self.execute(failures={'arrow-framing-reuse-baseline'}))
