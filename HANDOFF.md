@@ -145,10 +145,32 @@ The prior `918c32b` run also failed in `Realize`; its retained artifact is
 `00549ab9f6f45db575aaac74543a685aba9f4459511aee8a97da143bee1e90d7`.
 None of these failed builds supplies downstream computational or semantic evidence.
 
+The parser correction is published at `db082f597682be5aedeeb38002240c20524de941`
+with all 475 remote blobs verified. The next integrated source adds positioned
+computational-interface scopes and the shared comparison reader. Exact declaration
+positions retain full category dictionaries, logical parameter roles and accepted
+actual Hom views, including graph-backed comparisons. Neutral new result roots
+cannot gain trusted object/value bindings before their independent validation.
+Record validation shares the existing codecs and representation constraints while
+preserving distinct transparent parent/child roles.
+
+Capture, private admission and actual request rebuilding now retain the original
+argument template and every declaration parameter template. Private references
+remain in one reader for the whole comparison/request traversal; an actual or
+byte-unchanged owner no longer skips required argument/comparison demand. Nonpoint
+whole maps retain their existing representation, and exact typed receipts control
+whether a frame was already consumed. The additive positioned-scope control is
+pinned beside the prior controls (15 candidate, 5 baseline, baseline compilation).
+Two bounded source reviews found no introduced blocker in the reviewed paths;
+this source integration still requires Lean and runtime verification. It does not
+complete ordinary routed-method capture, positioned result reuse or all native
+point transport.
+
 Ordinary-method capture, its actual/prospective result consumers and generic
-positioned field-Wire reuse are still being integrated. Shared actual/prospective
-comparison demand and recursively scoped typed endpoint validation remain
-separate implementation work. The pure schema alone does not complete them.
+positioned field-Wire reuse are still being integrated. The shared comparison
+reader and recursively scoped validators now have a combined source candidate;
+full compiler and computational verification remain open. The pure result schema
+alone does not complete those execution and reuse paths.
 
 The selected dependency commits are construction integration branches. A
 2026-10-27 read of upstream main found mathematical main `8782c22` diverged

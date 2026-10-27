@@ -37,7 +37,7 @@ REALIZE = 'CasCatalogue/Realize.lean'
 BASELINE_REALIZE_SHA256 = '79c1257296030f7be30624ea6fede5786c18d241dacb7d9c31b761e290dcc53e'
 # Replace only after the source owner freezes the complete reviewed candidate,
 # including the registered-product comparison. No CLI or environment override.
-CANDIDATE_REALIZE_SHA256 = '5cc4bcef1d886db8f986a6682765615ba85f4c44605b4829210becb0f15b0b81'
+CANDIDATE_REALIZE_SHA256 = 'e2c1e462aa38efbf34bf6f465dd3de92d0fa912feb06a014e8cff9be27fd2f07'
 REVIEWED_DEPENDENCY_SOURCES = {
     'CasCatalogue/DeclaredApplication.lean': {
         'before': None,
@@ -53,7 +53,7 @@ REVIEWED_DEPENDENCY_SOURCES = {
         'scope': 'A defaulted apex binder is selected on the symbolic registered schema before formal binder unification; existing DataPlan construction remains compatible'},
     'CasCatalogue/ComputationalData.lean': {
         'before': 'c0cb16055ad7fa6fc6086f0fd3863965a02164b8bfe6b1dba39eb5e68fe82c84',
-        'after': '26b150356942e575ac1b4cb4196be0d087b1135555ad0ea4733fbfc95c993e84',
+        'after': '41e98fe3978541d6be2d9ef19e2b33c2c955bbd508b3fd87ea6cf331a23c6598',
         'scope': 'Producer origins and scoped DataPlan bindings retain exact endpoint/projection roles; existing data-only endpoint and planned-port calls retain their defaults'},
     'CasCatalogue/ServiceRequest.lean': {
         'before': '4d1d2c5a4b11e63141b3eb10a8b1ed0650e55ab8263a42f40a5cf330017a8be3',
@@ -121,6 +121,9 @@ CONTROLS = (
      'baselineErrors': None},
     {'name': 'intrinsic-value-occurrence', 'module': 'IntrinsicValueOccurrenceProbes',
      'sha256': 'dc47e798c06928174d18ba6fdded0d365a85e288b880ee9d7a70f96e7df3a608',
+     'baselineErrors': None},
+    {'name': 'positioned-interface-scope', 'module': 'PositionedInterfaceScopeProbes',
+     'sha256': '65b44b8692a5c30ea09dc57efed84112c4b1f72a9752f8c1d9b7e03336515bdf',
      'baselineErrors': None},
     {'name': 'routed-result-schema', 'module': 'RoutedResultSchemaProbes',
      'sha256': '4920d0079827667977a7f5a5922c1343853cd23b471db07151d83e44e263dad1',
@@ -597,7 +600,8 @@ def self_test():
                 'ReturnedCallableEndpointProbes', 'ArrowFramingReuseProbes',
                 'IntrinsicOccurrenceProbes', 'ConstructionActionOccurrenceProbes',
                 'SyntheticEndpointOccurrenceProbes', 'NestedOwnerAdmissionProbes',
-                'IntrinsicValueOccurrenceProbes', 'RoutedResultSchemaProbes',
+                'IntrinsicValueOccurrenceProbes', 'PositionedInterfaceScopeProbes',
+                'RoutedResultSchemaProbes',
                 'EndpointComparisonOccurrenceProbes'])
             for control in CONTROLS:
                 source = root / 'CasAcceptance/Kernel' / (control['module'] + '.lean')
@@ -657,6 +661,7 @@ def self_test():
                 'intrinsic-occurrence-candidate',
                 'construction-action-occurrence-candidate', 'synthetic-endpoint-occurrence-candidate',
                 'nested-owner-admission-candidate', 'intrinsic-value-occurrence-candidate',
+                'positioned-interface-scope-candidate',
                 'routed-result-schema-candidate',
                 'endpoint-comparison-occurrence-candidate',
                 'operation-owner-baseline-compile', 'operation-owner-baseline',
@@ -705,7 +710,7 @@ def self_test():
 
         def test_a_failed_candidate_does_not_suppress_other_independent_controls(self):
             self.assertFalse(self.execute(failures={'operation-owner-candidate'}))
-            self.assertEqual(len(self.step.call_args_list), 20)
+            self.assertEqual(len(self.step.call_args_list), 21)
 
         def test_the_baseline_framing_control_must_pass(self):
             self.assertFalse(self.execute(failures={'arrow-framing-reuse-baseline'}))
