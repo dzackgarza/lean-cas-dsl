@@ -2,6 +2,7 @@
 module
 
 public import CasCatalogue.Semantic
+public import Lean.Elab.App
 
 @[expose] public section
 open Lean Meta Elab Term
@@ -15,7 +16,29 @@ structure Application where
   arguments : Array Expr
   explicit : Array Expr
 
-/-- Supply explicit arguments in declaration order, leaving only signature inference open. -/
+/-- Elaborate the complete, already selected declaration application. All implicit and instance
+slots are passed explicitly: Lean checks dependent application without choosing another semantic
+declaration or replacing a supplied dictionary. The expected type is checked after elaboration,
+because `elabAppArgs` uses it only to propagate information. -/
+def elaborate (constant : Expr) (arguments : Array Arg)
+    (expectedType? : Option Expr := none) : TermElabM Expr := withoutErrToSorry do
+  let value ← elabAppArgs constant #[] arguments expectedType? true false false
+  let value ← instantiateMVars value
+  unless value.getAppFn == (← instantiateMVars constant) &&
+      value.getAppArgs.size == arguments.size && (← isTypeCorrect value) do
+    throwError "the selected dependent application changed its declaration or complete signature"
+  for (supplied, actual) in arguments.zip value.getAppArgs do
+    if let .expr selected := supplied then
+      unless (← instantiateMVars selected).equal actual do
+        throwError "the selected application changed a supplied dependent argument"
+  if let some expected := expectedType? then
+    unless ← isDefEq (← inferType value) expected do
+      throwError "the selected application has a different complete result type"
+  return value
+
+/-- Supply explicit arguments in declaration order, leaving only signature inference open.
+Lean's application elaborator owns argument formation and dependent substitution. The telescope
+only supplies the still-unselected slots; it is not a second application elaborator. -/
 def instantiate (declaration : Name) (parameters : Array Term) : TermElabM Application := do
   let constant ← mkConstWithFreshMVarLevels declaration
   let (arguments, infos, _) ← forallMetaTelescopeReducing (← inferType constant)
@@ -23,11 +46,21 @@ def instantiate (declaration : Name) (parameters : Array Term) : TermElabM Appli
     if info.isExplicit then some argument else none
   unless parameters.size <= explicit.size do
     throwStratum .invalid m!"{declaration} has too many explicit arguments"
-  for (parameter, argument) in parameters.zip explicit do
-    let supplied ← elabTerm parameter (some (← instantiateMVars (← inferType argument)))
-    unless ← isDefEq argument supplied do
-      throwStratum .invalid m!"a supplied declaration argument has a different complete type"
-  return { value := mkAppN constant arguments, arguments, explicit }
+  let mut position := 0
+  let mut supplied : Array Arg := #[]
+  for (argument, info) in arguments.zip infos do
+    if info.isExplicit then
+      let parameter? : Option Term := parameters[position]?
+      position := position + 1
+      if let some parameter := parameter? then
+        supplied := supplied.push (.stx parameter.raw)
+      else supplied := supplied.push (.expr argument)
+    else supplied := supplied.push (.expr argument)
+  let value ← elaborate constant supplied
+  let arguments := value.getAppArgs
+  let explicit := (arguments.zip infos).filterMap fun (argument, info) =>
+    if info.isExplicit then some argument else none
+  return { value, arguments, explicit }
 
 /-- Close only declared class and proposition obligations. Data are never defaulted. -/
 def close (application : Application) : TermElabM Application := do

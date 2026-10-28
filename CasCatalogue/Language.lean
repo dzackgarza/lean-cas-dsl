@@ -317,6 +317,16 @@ partial def Question.terms : Question → Array Expr
   | .conjunction left right => left.terms ++ right.terms
   | .negation question => question.terms
 
+/-- Visit the retained typed fields without normalizing relations, routes or binders. -/
+def Question.mapTermsM {m : Type → Type} [Monad m] (f : Expr → m Expr) :
+    Question → m Question
+  | .proposition term => return .proposition (← f term)
+  | .judgement relation terms route declarations types =>
+      return .judgement relation (← terms.mapM f) route declarations (← types.mapM f)
+  | .conjunction left right =>
+      return .conjunction (← left.mapTermsM f) (← right.mapTermsM f)
+  | .negation question => return .negation (← question.mapTermsM f)
+
 /-- The value of a term. -/
 inductive Value
   /-- An explicit proof artifact, elaborated only at an independently fixed obligation. -/
@@ -1577,12 +1587,7 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
       unless (← isTypeCorrect identity) &&
           (← withTransparency .all <| isDefEq (← inferType identity) (← mkEq image representative)) do
         throwStratum .invalid m!"a complete structure identity failed kernel conversion"
-      let infos ← forallTelescopeReducing (← getConstInfo source.declaration).type fun xs _ =>
-        xs.mapM (·.fvarId!.getBinderInfo)
-      let mut application := sourceTerm.consumeMData
-      while application.isAppOfArity ``id 2 do application := application.appArg!.consumeMData
-      let params := (application.getAppArgs.zip infos).filterMap fun (arg, info) =>
-        if info.isExplicit then some arg else none
+      let params ← Semantic.namedDeclarationParameters source.declaration sourceTerm
       let (carrierRoute, identifications) := (declaredCarrierRoute state source).getD (#[], #[])
       presentations := presentations.push
         { source := source.id, sourceCategory := source.category, targetCategory := target.id,
@@ -1591,18 +1596,11 @@ partial def typedParameter (expected : Expr) (value : Value) : M Expr := do
           applications := applications, identity := identity }
     let some representative := representative? | unreachable!
     if presentations.size == 1 then
-      let some presentation := presentations[0]? | unreachable!
-      if presentation.route.isEmpty then
-        Trace.record (← read).trace representative
-          (.object presentation.source presentation.params)
-      else
-        Trace.record (← read).trace representative
-          (.retainedRoute presentation.sourceCategory presentation.targetCategory
-            presentation.route presentation.applications presentation.object)
-    else
-      Trace.record (← read).trace representative
-        (.parameterEquivalence (← instantiateMVars expected) representative presentations)
-    return representative
+      -- The selected object or checked route already owns this exact producer.
+      -- A typed view must not overwrite that record under an equal formal expression.
+      return representative
+    return ← Trace.recordProduced (← read).trace representative
+      (.parameterEquivalence (← instantiateMVars expected) representative presentations)
 end
 
 /-- The numerals among `values`, as terms. -/
@@ -3264,8 +3262,7 @@ partial def selectedLiftComposite (scope : Scope) (selected : Syntax) : M Value 
     | throwStratum .invalid "the composed lift has no selected stage"
   let context ← SelectedLift.context first
   let object ← SelectedLift.port recorded.plans 0
-  let result ← SelectedLift.retainSelection object (some receiver)
-  Trace.record (some trace) result (.liftProjection receiver "composed")
+  let result ← Trace.recordProduced (some trace) object (.liftProjection receiver "composed")
   objectInContext result context #[receiverValue]
 
 partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syntax)
@@ -3287,8 +3284,8 @@ partial def selectedLift (scope : Scope) (name : String) (parameters : Array Syn
   unless context.expression.syntacticEq sourceContext.expression &&
       (← withTransparency .all <| isDefEq context.bundle sourceContext.bundle) do
     throwStratum .invalid "the explicit lift changed the complete selected source context"
-  let object ← SelectedLift.retainSelection plan.ports[0]!
-  Trace.record (← read).trace object (.selectedLift entry.id plan.parameters source inclusion monic)
+  let object ← Trace.recordProduced (← read).trace plan.ports[0]!
+    (.selectedLift entry.id plan.parameters source inclusion monic)
   objectInContext object context #[sourceValue, inclusionValue]
 
 partial def selectedLiftField (receiver : Value) (name : String) : M (Option Value) := do
@@ -3307,9 +3304,8 @@ partial def selectedLiftField (receiver : Value) (name : String) : M (Option Val
   let some index := LiftField.all.findIdx? (·.label == name) | unreachable!
   let value ← SelectedLift.port plans index
   if name == "obj" && (← isDefEq object value) then return some receiver
-  let value ← StructuredProjection.retainPortValue object value index
+  let value ← Trace.recordProduced (← read).trace value (.liftProjection object name)
   let sourceContext ← SelectedLift.context plan
-  Trace.record (← read).trace value (.liftProjection object name)
   if index == 0 then return some (← objectInContext value sourceContext #[receiver])
   let context ← if index == 1 then pure sourceContext else do
     let some last := plans.back? | unreachable!
@@ -3436,11 +3432,11 @@ partial def selectedLiftFactor (scope : Scope) (receiverSyntax baseMapSyntax con
     throwStratum .invalid "the factor changed its original generalized domain"
   let originalInputs := #[receiverValue, baseMapValue, coneValue]
   let domainValue := retainObjectContext domainValue originalInputs
+  let factorTarget ← if ← isDefEq factorTarget receiver then pure receiver
+    else Trace.recordProduced (← read).trace factorTarget (.liftProjection receiver "obj")
   let targetValue ← objectInContext factorTarget context originalInputs
-  unless ← isDefEq factorTarget receiver do
-    Trace.record (← read).trace factorTarget (.liftProjection receiver "obj")
-  let factor ← SelectedLift.retainSelection step.factor (some receiver)
-  Trace.record (← read).trace factor (.liftFactor receiver baseMap cone proof)
+  let factor ← Trace.recordProduced (← read).trace step.factor
+    (.liftFactor receiver baseMap cone proof)
   morphismInContext factor factorDomain factorTarget context (domainValue, targetValue)
 
 partial def selectedCell (scope : Scope) (name : String) (parameters : Array Syntax)
@@ -5389,13 +5385,12 @@ partial def applyFamilyWithOwners (declaration : Name) (category : NamedCategory
     if let some proof ← decideObligation obligation then
       unless ← isDefEq parameter proof do
         throwStratum .invalid m!"a closed operation obligation is outside its declared type"
-  let operation ← instantiateMVars (mkAppN constant args)
-  if operation.hasMVar then
+  let operation ← DirectConstruction.elaborate constant (args.map Arg.expr)
+    (some (← instantiateMVars type))
+  if operation.hasMVar || operation.hasLevelMVar then
     throwStratum .invalid m!"the parameters and obligations of {declaration} are not determined"
-  -- Retain the complete dependent application, including synthesized instances, implicit
-  -- parameters and supplied maps; elaborating only explicit arguments can change the reading.
-  unless ← isTypeCorrect operation do
-    throwStratum .invalid m!"an argument of {declaration} is outside its declared type"
+  -- The selected declaration and every implicit, instance, proof and map argument were
+  -- supplied to Lean's checked application boundary; no fresh structure search occurs here.
   let (operationEntry, callableAddress) ←
     familyBinding state declaration category.id operation elements.size operationId callableAddress
   let operation ← if let some address := callableAddress then do
@@ -9563,6 +9558,18 @@ def Claim.terms : Claim → Array Expr
   | .literal value _ _ literalValue prop _ _ => #[value, literalValue, prop]
   | .homs first second _ prop _ _ => #[first, second, prop]
   | .decision prop _ _ => #[prop]
+
+/-- Instantiate or validate a claim's actual fields while retaining its semantic reading. -/
+def Claim.mapTermsM {m : Type → Type} [Monad m] (f : Expr → m Expr) : Claim → m Claim
+  | .binding => pure .binding
+  | .judged question prop expected shown =>
+      return .judged (← question.mapTermsM f) (← f prop) expected shown
+  | .implemented value => return .implemented (← f value)
+  | .literal value category form literalValue prop left right =>
+      return .literal (← f value) category form (← f literalValue) (← f prop) left right
+  | .homs first second category prop left right =>
+      return .homs (← f first) (← f second) category (← f prop) left right
+  | .decision prop expected shown => return .decision (← f prop) expected shown
 
 /-- The claim of the comparison `l = r`. -/
 def claimEqual (scope : Scope) (l r : Syntax) : M Claim := do

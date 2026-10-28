@@ -46,12 +46,21 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
   unless (sourceParameterValues selection).any (·.sameSource original) do
     throwError "the selected lift discarded its original complete input map"
   let key ← (semanticObject selection).run context
+  unless (Trace.producerAnchor? key).isSome do
+    throwError "the selected lift has no checked producer occurrence"
   let some (.selectedLift _ _ retainedSource retainedMap _) ← trace.node? key
     | throwError "the selected lift lost its complete input trace"
   unless retainedMap == inclusion && retainedSource == (← (semanticObject receiver).run context) do
     throwError "retaining the input context replaced an actual supplied expression"
   let some backward ← (selectedLiftField selection "backward").run context
     | throwError "the selected lift lost its original backward field"
+  let (backwardMap, _, _, _, _, _) ← (morphismContext backward).run context
+  unless (Trace.producerAnchor? backwardMap).isSome do
+    throwError "the supplied backward map has no checked producer occurrence"
+  let some (.liftProjection parent "backward") ← trace.node? backwardMap
+    | throwError "the supplied backward map lost its exact selected output slot"
+  unless parent == key do
+    throwError "the supplied backward map changed its selected lift occurrence"
   let (_, _, _, _, coordinate, _) ← (morphismContext backward).run context
   let witnesses := sourceParameterValues coordinate
   unless witnesses.any (·.sameSource original) && witnesses.any (·.sameSource domain) &&
@@ -73,7 +82,13 @@ run_cmd liftTermElabM <| withoutErrToSorry <| withCurrHeartbeats do
       proof(CasCatalogue.Modules.Bilinear.Valued.DegeneratePlaneFactorization.cone_base_factorization)")).run
     { context with bound :=
       [(`baseInput, baseMap), (`selectedInput, selection), (`coneInput, cone)] }
-  let (_, _, _, _, factorSource, factorTarget) ← (morphismContext factor).run context
+  let (factorMap, _, _, _, factorSource, factorTarget) ← (morphismContext factor).run context
+  unless (Trace.producerAnchor? factorMap).isSome do
+    throwError "the supplied factor has no checked producer occurrence"
+  let some (.liftFactor parent _ _ _) ← trace.node? factorMap
+    | throwError "the supplied factor lost its selected construction"
+  unless parent == key do
+    throwError "the supplied factor changed its selected lift occurrence"
   for endpoint in #[factorSource, factorTarget] do
     let retained := sourceParameterValues endpoint
     unless retained.any (·.sameSource baseMap) && retained.any (·.sameSource cone) &&
