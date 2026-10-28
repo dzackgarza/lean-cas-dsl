@@ -832,24 +832,22 @@ spines permit such an enclosure in the inspected tuple; future releases require 
 closure checking. No correction or extension trial was implemented. See `HANDOFF.md`
 for remaining validation and the distinct missing constructor-cell action.
 
-**Resolution (2026-10-29).** Cyclic-walk equivalence is not a theorem the kernel owes. It is
-two invariants of the registry, checked where structural edges and cells are admitted
-([lean-cas-dsl#79](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475626921)):
+**Correction to the proposed resolution (2026-10-29).** The two registration
+invariants proposed in [#79](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6475626921)
+do not settle this finding. CC-COHERE preserves distinct structures and permits ambiguity;
+it does not force every structural cycle to compare to identity. Non-increase of a
+well-founded measure does not imply finite reachability: on vertices n in Nat with edges
+n→n+1, the constant measure zero is non-increasing while the reachable set is infinite.
+The [later audit](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476123893)
+already records this missing hypothesis.
 
-1. every cycle of registered structural edges has a registered cell identifying its composite
-   with the identity. CC-COHERE forces this: a loop `L` on `C` with no such cell makes `e`,
-   `e ∘ L`, `e ∘ L ∘ L`, … pairwise unidentified candidates for every edge `e` out of `C`, so
-   every method reachable from `C` is ambiguous forever;
-2. every registered structural edge is non-increasing on a well-founded measure of category
-   expressions, which is the "non-growing explicit endpoint spines" observation above stated as
-   a condition on admission.
+For the actual implicit-resolution rules, establish a finite reachable enclosure closed
+under `edgesFrom`, then enumerate its simple routes using the enclosure size. This alone
+does not establish completeness for arbitrary walks or make explicit cyclic composites
+redundant. Any normalization must state its hypotheses and preserve the selected comparison
+witnesses and directions. Exhausting a resource limit reports failure to establish closure
+within that limit, not mathematical nonexistence of a finite enclosure.
 
-Under 1, every walk is identified with the simple path obtained by deleting its loops, so the
-simple-path enumerator is complete. Under 2, the reachable set is finite, so `routes` is
-structural recursion and the `fuel` parameter, the closure limit and `unclosedRoutes` are
-deleted. Left adjoints are explicit operations (CC-TRANSPORT), not inheritance edges, so
-adjunctions create no cycles; the cycles that occur are involutions and equivalences
-(`op ∘ op`, double dual) with registered cells. The prior art is the Rocq coercion graph
-("at most one path between two classes"; a circular path "not convertible with the identity
-function" is "reported as ambiguous"), with "convertible" replaced by "identified by a
-registered invertible 2-cell" and oldest-wins replaced by an ambiguity error.
+K11 retains that precise search-completeness obligation. It is not blocked on the two
+proposed universal admission conditions. Deletion of fuel, the enclosure limit or an
+incomplete-search outcome requires an adequate replacement argument and implementation.

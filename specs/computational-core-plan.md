@@ -21,6 +21,9 @@ local checkout, and this work must be readable wherever the repository is.
 > tuple or a veto on authorized replacement. Construction authority does not authorize
 > changing mathematical requirements or accepting or installing one's own authoritative judge.
 
+
+The mathematical scope includes **CC-HIGHER/#82**: retain the full coherent data required by each promised construction, with no universal dimension-two ceiling. Its interpretation belongs to the existing KM2–KM8 obligations and independent KM9 validation; missing required higher data remains named and open. The 2026-10-29 issue reconciliation changes neither the fixed mathematical questions nor the acceptance inventory.
+
 ## B0: the extensible computational baseline (owner directive, 2026-10-01)
 
 **This section controls the plan.** It replaces the open-ended improvement process with one bounded
@@ -101,7 +104,11 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    Measure cold/warm costs and memory rather than assume the proposed seconds. #24 separates
    production-module compilation before engine setup and caches the actual artifact paths
    after their producing build, preserving the later integrated checks and source identity.
-   No new host, commit hook, REPL, dependency-pinning policy or module-size quota is required.
+   The [new #74 host report](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6471650146) says package sources/build artifacts disappeared;
+   inspect the actual host state before measuring, restore required sources and available
+   artifacts under the existing dependency rule, and rebuild missing dependencies. The
+   report is not a measured recovery; `lake exe cache get` alone is insufficient if sources
+   are absent. No new host, commit hook, REPL, dependency policy or module-size quota is required.
    The early slices of #20/#21/#23 run now, in parallel with integration: #23 maps
    source-linked mathematical questions, hypotheses, selected parameters, complete
    returned maps/data and their next use to current declarations and public contracts.
@@ -117,7 +124,12 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
 2. **Remove demonstrated coupling at existing boundaries.** At the inspected candidate,
    ordinary `#cas` constructs a complete audit export that `Realize.run` discards. Separate preparation,
    execution and explicit export over the same retained typed question; keep producer
-   checks in preparation and full exports in acceptance (#66). In parallel, establish
+   checks in preparation and full exports in acceptance (#66). Preserve the specified
+   structural typed question comparison; neither an expression hash nor unrestricted
+   definitional equality replaces it. Use Lean's application/binder machinery for the already
+   selected declarations in #66's dependent-reader chain, preserving catalogue selection,
+   user syntax and use-context dependencies, and delete the replaced manual path.
+   In parallel, establish
    one required structured-result/nonidentity-transport chain that consumes the actual
    retained data and defining map through the checked #69 boundary. Remove that chain's
    old bypass; a new wrapper around the old path is not closure.
@@ -125,30 +137,27 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    supplies a bounded implementation comparison for this same #69 chain:
    > A consumer refers to a particular computation and its declared outputs. It does not reconstruct that computation from a mathematical expression or carry its own partially updated copy of the producer’s state.
    
-   The [source-checked #76 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/76#issuecomment-6470193379) changes the first
-   representation experiment: test owned references to the actual apex and defining
-   maps before extending packet-validation machinery. This replaces the earlier
-   preference to extend `StructuredResult.DataPlan` first, within the same allocation.
-   Reuse existing opaque forms and occurrence/service storage where adequate; no current
-   module is guaranteed to survive. Fix complete selected interfaces, producer/output
-   and endpoint associations, field roles and ownership once, and consume those checked
-   references. Opaque payloads need no graph/body inspection. If a required field needs
-   a public protocol extension, specify and publish it in the trial's built contract
-   slice; do not silently reinterpret the current grammar. Preserve portable declared
-   forms and literal decoding where needed.
-   Name the executor of each required action: an admitted operation, public target
-   constructor/bridge, or generic kernel orchestration over checked references. An
-   owner token supplies no new operation; generic composition/transport must not be
-   moved into every leaf. The public-only unchanged-target trial below tests this.
-   Remove the trial's old payload/interface reconstruction, equal-packet recovery and
-   competing completion writes in the compiling substitution. A handle facade calling
-   the same reflective recovery fails the experiment. Record work eliminated and
-   transferred, actual dispatches and measured preparation/execution costs.
-   Reuse the evaluator when adequate. A new reducer is warranted only where it also
-   removes demonstrated scheduling/completion duplication. Preparation remains staged;
-   new service requests are prepared at their own boundary. Preserve nonidentity
-   transport, distinct producers, lazy demand, adequate fused realization, failure
-   distinctions, ownership and fresh-evaluation/replay behavior.
+   The first trial realizes the selected categorical construction and its required
+   nonidentity comparison, retaining the actual apex, defining morphisms and later use.
+   Preserve the complete context, parameters, endpoints and chosen structure under
+   substitution, projection, composition and application. Higher boundary/compatibility
+   data is retained wherever that construction requires it (CC-HIGHER/#82); pairwise
+   cells and an ordinary quotient do not supply the coherent extension.
+   Use the [implementation assessment](https://github.com/dzackgarza/lean-cas-dsl/issues/79#issuecomment-6476550921) for the common
+   interpretation and scoped-reference candidate. Its representation is subordinate to
+   the mathematical obligation. Preserve use-context bindings, actual result lifetime,
+   lazy demand and deliberate fresh evaluation; a normalized term is not an occurrence.
+   Required transport uses the selected component/direction or an adequate fused action.
+   Keep direct realizations of whole composites without demanding absent primitives.
+   A later morphism consumes the actual supplied construction through its declared public
+   operation or bridge, whether data is portable or owned. Preserve all admitted reply
+   alternatives; a reference alone provides no operation.
+   Remove the chain's old recursive interpretation, equal-expression/packet recovery and
+   competing completion paths in the compiling substitution. An unchanged observer hidden
+   behind a new instruction fails this test. Establish the existing preservation argument
+   and public-only source/unchanged-target trial before expanding the migration.
+   K11 retains checked reachable closure and complete implicit simple-route discovery;
+   no unproved universal cycle/measure registry condition is an upstream blocker.
    The [wire/recipe source review](https://github.com/dzackgarza/lean-cas-dsl/issues/69#issuecomment-6469367722) sharpens the same chain: reuse the
    authoritative protocol framing and retain its typed view; fixed recipe constructors
    enforce child roles/arity, while open applications retain validated registry references
@@ -163,7 +172,7 @@ failed, so earlier pass counts are preservation evidence, not current acceptance
    it adds no algorithm rewrite or new V1 inventory. This comparison uses the existing
    first-two-working-day allocation, not a separate infrastructure phase. #24's acceptance
    and #71's certificate status remain unchanged. The #76 whole-kernel deletion manifest,
-   line caps and deletion-by-module probe rules are not adopted. Handles do not remove
+   line caps, #77's linter ratchet and deletion-by-module probe rules are not adopted. Handles do not remove
    formal dependent selection, coherence, admission/lifts or question preservation.
    Delete superseded paths through compiling replacements and preserve their behavior
    controls; fewer lines or flat positive holds alone do not establish that result.
@@ -514,7 +523,7 @@ says otherwise. A request-formation gap is defined above.
 | K8 remaining request-formation gaps | `differentials.at_two`, `polynomials.root`, `factorization.prime_factors`, `fractions.lowest_terms`, `calculus.limit_sinc`, `calculus.limit_infinity` | no ID is a request-formation gap |
 | K9 unavailable requests | `finite_sets.card_product`, `finite_sets.card_power_set`, `sets.card.square` | the kernel's request for each ID matches the contract's declared input form (then the backend error is leaf work and the ID leaves this item), or it is corrected so that it does |
 | K10 comparison used in execution (`cc-cohere-exec`) | ring `cardinality` probe | the executed request records the comparison `cmp.rings.carrier` that selected its route; without that row the outcome is an ambiguity naming both routes |
-| K11 route enumeration bound | `Resolve`, `Closure`, `Cohere` probes | no consumer of `SemanticState.routes` relies on the default fuel; routes are simple paths of the registered structural quiver (Mathlib `Quiver.Path`) enumerated by structural recursion, with no `fuel`, closure limit or `unclosedRoutes`, under the two registry invariants of `custodian/FINDINGS.md`, "Unfinished route-completeness argument at owner stop", resolution of 2026-10-29 (every registered cycle has a cell to the identity; every structural edge is non-increasing on the expression measure); those probes pass. Upstream row: the registry checks both invariants at admission; `blocked: lean-categories registry invariants` until that input exists |
+| K11 route enumeration and reachable closure | `Resolve`, `Closure`, `Cohere` probes | no consumer silently relies on default route fuel; establish a finite reachable enclosure closed under the actual `edgesFrom` rules and derive the simple-route bound from its vertex count, or provide an adequate terminating complete alternative. Preserve explicit composites, distinct structures, selected comparison witnesses/directions and ambiguity. Any cycle reduction needs its actual comparisons and a witness-preserving justification. Resource exhaustion reports incomplete closure discovery. Remove safeguards only with a sufficient replacement argument and implementation; no universal cycle-to-identity or non-increasing-measure registration rule is an upstream blocker. The named probes retain their intended outcomes |
 | K12 constructor-induced comparison cells | the lift positive in `CohereProbes` | the probe resolves without ambiguity. Upstream row: `cc-cohere`; `blocked: lean-categories constructor action on comparison cells` until that input exists |
 | K13 registration gaps (post-KM9 leaf dispatch; full B0 obligation) | `calculus.integral_sine`, `composed.root_sum`, `composed.root_product`, `composed.charpoly`, `composed.det`, `composed.trace`, `differentials.degree`, `differentials.differential`, `integration.primitives`, `factorization.over_complexes`, `finite_sets.card`, `lattices.rank.a1`, `lattices.rank.a2`, `lattices.rank.a3`, `lattices.card.a2`, `lattices.card.a0`, `subspaces.dim`, `subspaces.kernel`, `polynomials.degree`, `polynomials.factors`, `polynomials.degree_over_rationals`, `polynomials.at_sqrt2`, `polynomials.no_rational_roots`, `sets.apply.rev`, `sets.apply.rev_rev`, `several_variables.total_degree` | the leaf subagent, started once in a `lean-cas-dsl-leaves` checkout with the released contract and the operation ids and input forms named in these details (never the assertions), has finished, and no ID is a registration gap or a request-formation gap. A wrong or unavailable answer is the leaf's outcome, not a kernel item |
 | K14 formed-module positives | the assertions of `tests/acceptance/b0-formed-positives.cas.proposed` | as K3 |
