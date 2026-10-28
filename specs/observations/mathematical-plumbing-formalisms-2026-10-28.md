@@ -137,6 +137,21 @@ For this project, diagrams could provide a common representation for composition
 
 Structured cospans address a related assembly problem: compose open components by gluing matching boundaries through pushouts. Under suitable hypotheses, this yields a symmetric monoidal category and a double-category structure. [Baez and Courser, Structured Cospans](https://arxiv.org/abs/1911.04630). They are a strong option for network assembly. The inspected kernel's more immediate problem is typed dependence and retained execution identity, so they are a secondary fit here.
 
+**The `sage-categories` formalism is reusable; its runtime realization is not.**
+
+`sage-categories` at [`37ec164`](https://github.com/dzackgarza/sage-categories/blob/37ec1642fe19f24fb00f402fe45350341ebf6920/specs/functor.md#structure-functors-and-inherited-classes) contributed four mathematical devices. Each is a special case of a structure recommended above, so it needs no separate framework here.
+
+| `sage-categories` device | Formalism it instantiates | Use in this kernel |
+| --- | --- | --- |
+| Selected structure functors; inheritance only along a selected faithful isofibration | Reindexing along a fibration. A category with families or a comprehension category is a fibration of types over contexts, and substitution is its cartesian lift. | Transport along an upstream-selected functor is one generic reindexing instruction. Its applicability is the upstream classification, never a class graph. |
+| Axioms as property subcategories, pulled back along structure functors | Pullback of a classifier along a functor; inverse-image subcategories | Already owned by `lean-categories`. The kernel consumes the classification and keeps the retained inverse pair in the binding. |
+| `Fun(C, D)` owns every functor `C → D`; `FunctorImageCache` retains actual images | Typed SSA binding of an execution result | A functor application is a binding. Its image, endpoints and supplier are components of that binding, not cache entries keyed by value. |
+| CAP derived methods, consumed through the Catlab and CAP adapters | Free computations over primitive requests, with a handler | A derivation is a program over primitive requests. The kernel's one interpreter executes it. |
+
+The failures of record come from the realization, not from these devices. The runtime compiled selected functors into Python classes with controlled C3 and declaration-order precedence. A shared class occurrence then stood for several distinct images ([#26](https://github.com/dzackgarza/sage-categories/issues/26)). A later refinement changed the class through which existing objects reached their operations ([#31](https://github.com/dzackgarza/sage-categories/issues/31), [#33](https://github.com/dzackgarza/sage-categories/issues/33)). In the formalism above these are binding errors: two applications of different functors share one producer identity, and a refinement rewrites an existing binding instead of extending the context. Typed bindings and context extension exclude both by construction.
+
+Therefore reuse the mathematics of `sage-categories` through `lean-categories`, and reuse none of its supporting CAS machinery for plumbing: neither Sage's dynamic classes and C3, nor SymPy's assumption system. The CAS engines remain available behind leaves, where they compute and decide nothing about meaning.
+
 **Existing code is relevant, but the library choice remains open.**
 
 | Candidate | Established scope | Fit still to establish here |
