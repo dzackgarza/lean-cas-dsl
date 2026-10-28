@@ -7,9 +7,12 @@ Follow [#10](https://github.com/dzackgarza/lean-cas-dsl/issues/10) and the
 interpret the existing structured construction with its full selected data; compute its
 required nonidentity comparison and subsequent defining-map use; establish preservation under
 the claimed mathematical operations and public-only unchanged-consumer use before extending
-coverage; finish #24's unchanged independent acceptance. Input reconciliation and compilation
-are supporting prerequisites. #23/#82 review the actual
-construction requirements and exact mathematical inputs alongside implementation.
+coverage; finish #24's unchanged independent acceptance. #66/#69 work together on the
+existing first-stage RX-LIFT construction. First reconcile and build only its actual required
+inputs and production dependencies; replace/remove its defective paths before completing
+the remaining corpus. Full combined compilation remains a delivery condition, not a demand
+to make every legacy consumer green before replacement. #23/#82 review the exact construction
+requirements alongside implementation; unrelated upstream work does not block it.
 
 The source audit inspected `4c33b574` with mathematical input `3bd4d3d9` and contract
 `34bb8abb`. That mathematical source comes from pending
@@ -19,6 +22,11 @@ Candidate `CellAction` consumes constructor-comparison fields absent from that m
 Reconcile and independently assess the existing inputs through their own authority;
 do not reinvent them or call a committed-manifest diagnostic latest-main delivery.
 This blocks affected consumers, not all work.
+
+The first RX-LIFT slice itself also uses #94's `DegeneratePlaneLifts` and
+`DegeneratePlaneFactorization` declarations and their import closure, identified in #69.
+Verify those exact inputs through the existing independent authority and input policy;
+this does not require every unrelated deliverable in the pending upstream PRs.
 
 The latest candidate-workflow result inspected is
 [40652257963 at `60829a1f`](https://github.com/dzackgarza/lean-cas-dsl/actions/runs/40652257963),
@@ -1472,13 +1480,13 @@ All rows must be discharged at a coherent final source combination. Earlier obse
 The mathematical work and acceptance are #10 and the operative KM1–KM9 table. The dated
 source and execution records above are evidence to reproduce, not a competing plan.
 
-### A. Complete interpretation of the existing mathematical questions
+### A. Fix the first construction's complete mathematical meaning
 
-State the first required composite with its diagram, selected parameters/structures,
-domain hypotheses, relation and required comparisons. Preserve complete dependent readings
-for the permanent and fixed extension questions, including newly readable statements.
-Independent assessment compares actual mathematical meanings, not printed expressions or
-matching scalar answers.
+State #69's existing first-stage RX-LIFT construction with its diagram, selected parameters,
+structures, hypotheses, relation and required comparisons. Reconcile only the exact accepted
+inputs it consumes. Work #66 and #69 together; full permanent/extension reading completion
+is required in C, not before beginning the replacement in B. Independent assessment compares
+actual mathematical meanings, not printed expressions or matching scalar answers.
 
 The original RX08 `projection.ker()` remains an ambiguity control. Its independently
 assessed positive clarification selects `kernel()` without changing the mathematical
@@ -1488,21 +1496,27 @@ kernel among form-preserving maps from the restriction formula alone.
 
 ### B. Compute the construction, comparison and subsequent defining-map use
 
-Use the existing difficult structured-result/nonidentity-comparison chain. Supply the full
-computational candidate for the independently fixed cone/cocone or subobject, including all
-required defining maps. Apply the selected comparison at its actual endpoints and use the
-supplied map in the next question. Formal universal laws remain upstream; a decoded answer
-is untrusted data, not a theorem or replacement formal construction.
+Build and execute the actual production dependencies of the existing first-stage RX-LIFT
+construction, nonidentity coordinate, inclusion and factorization. Reuse adequate common
+machinery and remove the defective interpretation/reconstruction/completion path for this
+use. A retained dependency or minimal temporary compiler blocker may need repair; do not
+restore every legacy consumer first. Supply all required defining maps, apply the selected
+comparison at its actual endpoints and use the supplied map in the next question. Formal
+universal laws remain upstream; a decoded answer is untrusted data, not a theorem or a
+replacement formal construction. The successive-lift/source-comparison controls follow
+when extending to that composition, with their complete original prerequisites intact.
 
-Before extending coverage, give the construction-specific argument for dependent
-substitution, composition, comparisons, defining-map use and prescribed lift/reindexing,
+Before extending coverage, give the construction-specific argument for the operations
+actually used: dependent substitution, composition, comparisons, defining-map use and lift/reindexing,
 with the required higher compatibility. Identify the actual implementation that preserves
 these associations. A public-only source contributor must be able to compute through the
 built interface and feed an unchanged target consumer in this first trial.
 
 ### C. Complete the fixed mathematical observations
 
-Run the complete positive extension inventory, the permanent observations, RX05
+Complete all 153 permanent and 134 extension readings and their independent assessment
+through the surviving interpretation, including newly readable statements. Run the complete
+positive extension inventory, the permanent observations, RX05
 environment/order controls, RX09 exact admission rejection and the structured/lift
 questions. RX10 runs early because its actual public callable/session use has exposed
 remaining defects. Preserve its independently specified conditions, subsequent callable
@@ -1516,8 +1530,10 @@ universal data or subsequent map use.
 
 ### D. Supporting integration and public-interface checks
 
-Build the actual affected consumers, stable aggregates/protected controls, four native
-tools and notebook worker/surface at one recorded source combination. Historical
+During A/B, build the actual selected production path and its necessary driver and controls.
+At completion, build the affected consumers, stable aggregates/protected controls, four native
+tools and notebook worker/surface at one recorded source combination. Neither all legacy
+probes nor the final native/notebook aggregate is an entrance gate to substitution. Historical
 `09d52994`/`da6af543` failures are source leads, not the current verdict. Preserve newer
 work, verify published source and keep inputs unchanged during a run. Use the selected
 contract path for the purity check; missing historical paths are environment failures,
@@ -1535,8 +1551,12 @@ mathematical use. Demonstrate an already adequate encoding rather than recreate 
 Publish worked request/reply and malformed-reply examples. Missing public encoding is
 kernel/contract work; failure of a complete encoding belongs to its implementation under
 the established author boundary. Wrong mathematics and malformed data remain distinct.
-Remove superseded interpretation/recovery/completion paths while preserving ownership,
-replay, lazy demand and adequate fused computations.
+Remove superseded interpretation/recovery/completion paths as each use transfers while
+preserving ownership, replay, lazy demand and adequate fused computations. Enforce the
+required checks in the replacement; do not first retrofit old Wire/Prepared records, repair
+all old observers or optimize unused interner/schema paths. Adapt engineering probes that
+call removed private helpers so their actual hostile controls survive at the new boundary;
+independent mathematical assertions and expectations remain unchanged.
 
 ### E. Freeze, complete independent extensions, and deliver
 
