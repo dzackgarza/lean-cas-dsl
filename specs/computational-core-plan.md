@@ -94,6 +94,14 @@ The source baseline inspected for this reassessment is `60829a1f`; its candidate
 failed, so earlier pass counts are preservation evidence, not current acceptance.
 
 1. **Check predictable consumer requirements and recover one compiling candidate.**
+   Establish a usable focused edit/check loop within this initial allocation, following
+   the [source-checked #73/#74 disposition](https://github.com/dzackgarza/lean-cas-dsl/issues/74#issuecomment-6468597360). #66 tries the installed Lean 4.33
+   server through an existing client, with targeted module builds and refreshed downstream
+   specimens when imports change; the notebook worker does not hot-reload imported source.
+   Measure cold/warm costs and memory rather than assume the proposed seconds. #24 separates
+   production-module compilation before engine setup and caches the actual artifact paths
+   after their producing build, preserving the later integrated checks and source identity.
+   No new host, commit hook, REPL, dependency-pinning policy or module-size quota is required.
    The early slices of #20/#21/#23 run now, in parallel with integration: #23 maps
    source-linked mathematical questions, hypotheses, selected parameters, complete
    returned maps/data and their next use to current declarations and public contracts.
